@@ -198,8 +198,9 @@ fn open_main_window<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
 
 /// Meldet Plugins, Zustand und Befehle an – für die echte App ebenso wie für die Tests.
 fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    // Nur macOS hat eine Menüleiste; dort soll sie deutsch sein.
-    let builder = if cfg!(target_os = "macos") {
+    // Nur macOS hat eine Menüleiste; dort soll sie deutsch sein. In den Tests nicht: Menüs
+    // dürfen auf macOS nur im Hauptthread entstehen, Tests laufen in eigenen Threads.
+    let builder = if cfg!(target_os = "macos") && !cfg!(test) {
         builder.menu(menu::build).on_menu_event(menu::on_event)
     } else {
         builder

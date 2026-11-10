@@ -12,6 +12,13 @@ use tauri::webview::InvokeRequest;
 use tauri::{Listener, WebviewWindow, WebviewWindowBuilder};
 use tempfile::TempDir;
 
+/// Adresse, unter der die eigene Oberfläche läuft (Windows nutzt http statt eines eigenen Schemas).
+const LOCAL_URL: &str = if cfg!(windows) {
+    "http://tauri.localhost"
+} else {
+    "tauri://localhost"
+};
+
 fn app() -> tauri::App<MockRuntime> {
     crate::wayfarer(mock_builder())
         .build(crate::context())
@@ -32,7 +39,7 @@ fn invoke(webview: &WebviewWindow<MockRuntime>, cmd: &str, args: Value) -> Resul
             cmd: cmd.into(),
             callback: CallbackFn(0),
             error: CallbackFn(1),
-            url: "tauri://localhost".parse().unwrap(),
+            url: LOCAL_URL.parse().unwrap(),
             body: InvokeBody::Json(args),
             headers: Default::default(),
             invoke_key: INVOKE_KEY.to_string(),
