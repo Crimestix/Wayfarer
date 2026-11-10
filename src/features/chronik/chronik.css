@@ -432,6 +432,8 @@ button.wf-chronik-marker:hover {
 /* Session beginnen oder beenden: breite Fläche über der Liste, am Tisch leicht zu treffen. */
 .wf-chronik-list__action {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
   padding: var(--s-3) var(--s-4);
   border-bottom: 1px solid var(--line-faint);
 }

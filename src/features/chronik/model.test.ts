@@ -630,6 +630,7 @@ describe('Einträge bearbeiten', () => {
         placeId: hafen.id,
         refs: [hafen.id, hafen.id],
         sessionId: null,
+        secret: false,
         due: ELARIS_START,
         done: false,
       }),

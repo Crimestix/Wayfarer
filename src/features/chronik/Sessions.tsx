@@ -1,7 +1,13 @@
 /** Ansicht „Sessions“: Liste der Spielabende und die gewählte Session mit Notizen und ihrem Verlauf. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, CircleStop, Copy, Feather, History, Play, Trash2, Users } from 'lucide-react';
-import { deleteSession, endSession, resumeSession, startSession } from '../../data/actions';
+import {
+  addPastSession,
+  deleteSession,
+  endSession,
+  resumeSession,
+  startSession,
+} from '../../data/actions';
 import { useData, useDb, useSaveStatus } from '../../data/hooks';
 import { chronicleSorted } from '../../domain/derive';
 import type { ChronicleEntry } from '../../domain/schema';
@@ -11,6 +17,7 @@ import {
   Button,
   Dialog,
   EmptyState,
+  Field,
   IconButton,
   Input,
   Panel,
@@ -20,11 +27,17 @@ import {
   cx,
   toast,
 } from '../../ui';
+import { WorldTimeFields } from './EntryDialog';
 import { Caps } from './parts';
 import { Timeline } from './Timeline';
 import {
   formatRealDate,
   formatWorldRange,
+  pastSessionProblem,
+  suggestPastSession,
+  timeDraftOf,
+  timeOfDraft,
+  type SummaryAudience,
   parseRealDate,
   realDateInput,
   resumableSessionId,
@@ -196,14 +209,18 @@ function SessionDetail({
     [chronicle, session.id],
   );
 
-  const copy = async () => {
+  const copy = async (audience: SummaryAudience = 'gm') => {
     title.flush();
     notes.flush();
-    const text = sessionSummaryText(db.getSnapshot(), session.id);
+    const text = sessionSummaryText(db.getSnapshot(), session.id, audience);
     if (await copyText(text))
       toast({
-        title: 'Zusammenfassung kopiert',
-        body: `${sessionLabel(session)} · ${entryCount(span.entryCount)}`,
+        title:
+          audience === 'players' ? 'Fassung für die Spieler kopiert' : 'Zusammenfassung kopiert',
+        body:
+          audience === 'players'
+            ? 'Ohne deine Notizen, ohne Haltungen und ohne alles, was nur für die Spielleitung markiert ist.'
+            : `${sessionLabel(session)} · ${entryCount(span.entryCount)}`,
       });
     else setSummary(text);
   };
@@ -261,10 +278,18 @@ function SessionDetail({
             <Button
               size="sm"
               icon={<Copy />}
-              onClick={copy}
+              onClick={() => copy('gm')}
               title="Die Chronik dieser Session als Text in die Zwischenablage legen"
             >
               Zusammenfassung kopieren
+            </Button>
+            <Button
+              size="sm"
+              icon={<Users />}
+              onClick={() => copy('players')}
+              title="Zum Weitergeben: ohne deine Notizen, ohne Haltungen, ohne Einträge nur für die Spielleitung und ohne Personen, die die Gruppe noch nicht kennt"
+            >
+              Für die Spieler
             </Button>
             <IconButton size="sm" variant="danger" label="Session löschen" onClick={remove}>
               <Trash2 />
@@ -402,6 +427,88 @@ function SessionDetail({
   );
 }
 
+/** Trägt einen vergangenen Spielabend nach: Nummer, Titel, echtes Datum und Zeitraum in der Welt. */
+function PastSessionDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (sessionId: string) => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const cal = data.campaign.calendar;
+  const [suggested] = useState(() => suggestPastSession(data));
+  const [number, setNumber] = useState(String(suggested.number));
+  const [title, setTitle] = useState('');
+  const [realDate, setRealDate] = useState('');
+  const [start, setStart] = useState(() => timeDraftOf(cal, suggested.startAt));
+  const [end, setEnd] = useState(() => timeDraftOf(cal, suggested.startAt + 6 * 60));
+  const startAt = timeOfDraft(cal, start);
+  const endAt = timeOfDraft(cal, end);
+  const real = realDate.trim() ? parseRealDate(realDate) : '';
+  const problem =
+    pastSessionProblem(data, { number: Number(number), startAt, endAt }) ||
+    (real === null ? 'Der Spielabend ist kein gültiges Datum (Tag.Monat.Jahr).' : '');
+  const save = () => {
+    if (problem || startAt === null || endAt === null) return;
+    const session = addPastSession(db, {
+      number: Number(number),
+      title,
+      realDate: real ?? '',
+      startAt,
+      endAt,
+    });
+    toast({
+      title: `Session ${session.number} nachgetragen`,
+      body: 'Was in diesem Zeitraum schon in der Chronik stand, gehört jetzt dazu.',
+    });
+    onCreated(session.id);
+  };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Frühere Session nachtragen"
+      width={560}
+      footer={
+        <>
+          <span className="wf-grow wf-chronik-dialog__problem" role="status">
+            {problem}
+          </span>
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="primary" onClick={save} disabled={!!problem}>
+            Nachtragen
+          </Button>
+        </>
+      }
+    >
+      <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
+        <div className="wf-form-grid">
+          <Field label="Nummer">
+            <Input
+              inputMode="numeric"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              data-autofocus
+            />
+          </Field>
+          <Field label="Spielabend" hint="Echtes Datum, z. B. 3.11.2026 – oder leer lassen.">
+            <Input value={realDate} onChange={(e) => setRealDate(e.target.value)} />
+          </Field>
+          <Field label="Titel" className="wf-span-2">
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
+        </div>
+        <SectionTitle>Beginn in der Welt</SectionTitle>
+        <WorldTimeFields cal={cal} value={start} onChange={setStart} />
+        <SectionTitle>Ende in der Welt</SectionTitle>
+        <WorldTimeFields cal={cal} value={end} onChange={setEnd} />
+      </div>
+    </Dialog>
+  );
+}
+
 export function Sessions({
   selectedId,
   onSelect,
@@ -423,6 +530,23 @@ export function Sessions({
   const resumableId = useMemo(() => resumableSessionId(data), [data]);
 
   const begin = () => onSelect(startSession(db).id);
+  const [pastOpen, setPastOpen] = useState(false);
+  const past = (
+    <>
+      <Button icon={<History />} onClick={() => setPastOpen(true)}>
+        Frühere Session nachtragen
+      </Button>
+      {pastOpen && (
+        <PastSessionDialog
+          onClose={() => setPastOpen(false)}
+          onCreated={(id) => {
+            setPastOpen(false);
+            onSelect(id);
+          }}
+        />
+      )}
+    </>
+  );
   // Ein Fehlgriff am Tisch darf die Session nicht kosten: Beenden lässt sich zurücknehmen.
   const end = () => {
     if (!running) return;
@@ -457,9 +581,12 @@ export function Sessions({
             icon={<Users />}
             title="Noch keine Session"
             action={
-              <Button variant="primary" icon={<Play />} onClick={begin}>
-                Session beginnen
-              </Button>
+              <div className="wf-row" style={{ gap: 8 }}>
+                <Button variant="primary" icon={<Play />} onClick={begin}>
+                  Session beginnen
+                </Button>
+                {past}
+              </div>
             }
           >
             Eine Session bündelt, was an einem Spielabend geschieht – mit Titel, Datum und deinen
@@ -472,7 +599,10 @@ export function Sessions({
   return (
     <div className="wf-chronik-sessions">
       <Panel className="wf-chronik-list" title="Spielabende" count={spans.length} flush scroll>
-        <div className="wf-chronik-list__action">{toggle}</div>
+        <div className="wf-chronik-list__action">
+          {toggle}
+          {past}
+        </div>
         {spans.map((span) => {
           const { session } = span;
           const title = sessionTitle(session);

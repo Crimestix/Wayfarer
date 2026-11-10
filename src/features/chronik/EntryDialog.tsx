@@ -170,6 +170,7 @@ export function EntryDialog({
             sessionId: null,
             due: null,
             done: false,
+            secret: false,
           },
     // Der Dialog arbeitet mit dem Stand beim Öffnen.
     [],
@@ -193,6 +194,7 @@ export function EntryDialog({
   const [hasDue, setHasDue] = useState(initial.due !== null);
   const [due, setDue] = useState(() => timeDraftOf(cal, initial.due ?? defaultDue(now)));
   const [done, setDone] = useState(initial.done);
+  const [secret, setSecret] = useState(initial.secret);
 
   const at = timeLocked ? initial.at : timeOfDraft(cal, time);
   const dueAt = hasDue ? timeOfDraft(cal, due) : null;
@@ -221,6 +223,7 @@ export function EntryDialog({
       sessionId,
       due: isPromise ? dueAt : null,
       done: isPromise && done,
+      secret,
     };
     try {
       if (entry) db.patch('chronicle', entry.id, entryChange(entry, draft));
@@ -404,6 +407,10 @@ export function EntryDialog({
             placeholder="Person, Ort, Fraktion … verknüpfen"
           />
         </Field>
+
+        <Checkbox checked={secret} onChange={setSecret}>
+          Nur für die Spielleitung – fehlt in der Zusammenfassung für die Spieler
+        </Checkbox>
 
         {isPromise && (
           <div className="wf-chronik-dialog__promise">

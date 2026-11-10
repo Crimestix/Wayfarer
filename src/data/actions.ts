@@ -133,6 +133,8 @@ export interface LogInput {
   at?: WorldTime;
   /** Nur bei kind = promise. */
   due?: WorldTime | null;
+  /** Nur für die Spielleitung. */
+  secret?: boolean;
 }
 
 /** Hält fest, was am Tisch passiert ist. */
@@ -149,6 +151,7 @@ export function logEntry(db: CampaignDb, input: LogInput): ChronicleEntry {
       placeId: input.placeId === undefined ? data.state.placeId : input.placeId,
       refs: [...new Set(input.refs ?? [])],
       promise: kind === 'promise' ? { due: input.due ?? null, done: false } : null,
+      secret: input.secret ?? false,
     }),
   );
 }
@@ -215,6 +218,40 @@ export function startSession(
       }),
     );
     db.setState({ sessionId: session.id });
+    return session;
+  });
+}
+
+export interface PastSessionInput {
+  number: number;
+  title?: string;
+  /** Echtes Datum des Spielabends (JJJJ-MM-TT) oder leer. */
+  realDate?: string;
+  startAt: WorldTime;
+  endAt: WorldTime;
+}
+
+/**
+ * Trägt eine vergangene Session nach. Sie läuft nicht; was in ihrem Zeitraum in der Chronik
+ * steht und noch zu keiner Session gehört, wird ihr zugeordnet.
+ */
+export function addPastSession(db: CampaignDb, input: PastSessionInput): Session {
+  if (input.endAt < input.startAt) throw new Error('Das Ende liegt vor dem Beginn.');
+  const data = db.getSnapshot();
+  return db.batch(() => {
+    const session = db.put(
+      'sessions',
+      createSession({
+        number: input.number,
+        title: (input.title ?? '').trim(),
+        realDate: input.realDate ?? '',
+        startAt: input.startAt,
+        endAt: input.endAt,
+      }),
+    );
+    for (const entry of Object.values(data.chronicle))
+      if (entry.sessionId === null && entry.at >= input.startAt && entry.at <= input.endAt)
+        db.patch('chronicle', entry.id, { sessionId: session.id });
     return session;
   });
 }

@@ -321,6 +321,8 @@ export const ChronicleEntrySchema = z.object({
     .default(null),
   /** kind = event: eingetretener Termin. */
   eventId: id.nullable().default(null),
+  /** Nur für die Spielleitung: fehlt in der Zusammenfassung für die Spieler. */
+  secret: z.boolean().default(false),
 });
 export type ChronicleEntry = z.infer<typeof ChronicleEntrySchema>;
 

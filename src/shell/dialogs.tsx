@@ -32,6 +32,7 @@ import {
   AttitudeBadge,
   AttitudeScale,
   Button,
+  Checkbox,
   Dialog,
   EntityPicker,
   EntityRefsEditor,
@@ -104,6 +105,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const [text, setText] = useState(request.text ?? '');
   const [refs, setRefs] = useState<string[]>(request.refs ?? []);
   const [dueDays, setDueDays] = useState('');
+  const [secret, setSecret] = useState(false);
   const save = () => {
     if (!text.trim()) return;
     const days = Number(dueDays);
@@ -111,6 +113,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
       kind,
       text,
       refs,
+      secret,
       due:
         kind === 'promise' && dueDays && days >= 0
           ? data.state.now + Math.round(days * 1440)
@@ -162,6 +165,9 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
             placeholder="Person, Ort, Fraktion … verknüpfen"
           />
         </Field>
+        <Checkbox checked={secret} onChange={setSecret}>
+          Nur für die Spielleitung
+        </Checkbox>
         {kind === 'promise' && (
           <Field label="Frist in Tagen" hint="Leer lassen, wenn es keine Frist gibt.">
             <Input

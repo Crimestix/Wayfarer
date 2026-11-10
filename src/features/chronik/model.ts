@@ -544,6 +544,8 @@ export interface EntryDraft {
   /** Nur bei Abmachungen. */
   due: WorldTime | null;
   done: boolean;
+  /** Nur für die Spielleitung. */
+  secret: boolean;
 }
 
 export function draftOf(entry: ChronicleEntry): EntryDraft {
@@ -557,6 +559,7 @@ export function draftOf(entry: ChronicleEntry): EntryDraft {
     sessionId: entry.sessionId,
     due: entry.promise?.due ?? null,
     done: entry.promise?.done ?? false,
+    secret: entry.secret,
   };
 }
 
@@ -577,6 +580,7 @@ export function entryChange(entry: ChronicleEntry, draft: EntryDraft): Partial<C
     refs,
     sessionId: draft.sessionId,
     promise: kind === 'promise' ? { due: draft.due, done: draft.done } : null,
+    secret: draft.secret,
   };
 }
 
@@ -591,6 +595,7 @@ export function entryFromDraft(draft: EntryDraft): ChronicleEntry {
     placeId: draft.placeId,
     refs: [...new Set(draft.refs)],
     promise: kind === 'promise' ? { due: draft.due, done: draft.done } : null,
+    secret: draft.secret,
   });
 }
 
@@ -741,7 +746,56 @@ export function entryPlainText(data: CampaignData, entry: ChronicleEntry): strin
 }
 
 /** Die Chronik einer Session als reiner Text für die Zwischenablage. */
-export function sessionSummaryText(data: CampaignData, sessionId: string): string {
+/** Für wen eine Zusammenfassung gedacht ist. */
+export type SummaryAudience = 'gm' | 'players';
+
+/**
+ * Darf ein Eintrag in die Zusammenfassung für die Spieler? Nicht, wenn er als „nur für die
+ * Spielleitung“ markiert ist, eine Haltung offenlegt oder jemanden nennt, den die Gruppe noch
+ * nicht kennt.
+ */
+export function isForPlayers(data: CampaignData, entry: ChronicleEntry): boolean {
+  if (entry.secret || entry.kind === 'attitude') return false;
+  return !entry.refs.some((id) => {
+    const entity = data.entities[id];
+    return entity?.kind === 'person' && !entity.person.met;
+  });
+}
+
+/** Vorschlag für eine nachgetragene Session: die Nummer vor der frühesten, sonst 1. */
+export function suggestPastSession(data: CampaignData): { number: number; startAt: WorldTime } {
+  const sessions = Object.values(data.sessions);
+  if (!sessions.length)
+    return { number: 1, startAt: Math.max(0, data.state.now - MINUTES_PER_DAY) };
+  const first = sessions.reduce((a, b) => (a.startAt <= b.startAt ? a : b));
+  const lowest = Math.min(...sessions.map((s) => s.number));
+  return {
+    number: Math.max(1, lowest - 1),
+    startAt: Math.max(0, first.startAt - MINUTES_PER_DAY),
+  };
+}
+
+/** Was an einer nachzutragenden Session nicht stimmt; leer, wenn sie angelegt werden kann. */
+export function pastSessionProblem(
+  data: CampaignData,
+  input: { number: number; startAt: WorldTime | null; endAt: WorldTime | null },
+): string {
+  if (!Number.isInteger(input.number) || input.number < 0)
+    return 'Die Nummer ist keine ganze Zahl.';
+  if (Object.values(data.sessions).some((s) => s.number === input.number))
+    return `Session ${input.number} gibt es schon.`;
+  if (input.startAt === null) return 'Der Beginn ist kein gültiges Datum.';
+  if (input.endAt === null) return 'Das Ende ist kein gültiges Datum.';
+  if (input.endAt < input.startAt) return 'Das Ende liegt vor dem Beginn.';
+  if (input.endAt > data.state.now) return 'Eine nachgetragene Session endet nicht in der Zukunft.';
+  return '';
+}
+
+export function sessionSummaryText(
+  data: CampaignData,
+  sessionId: string,
+  audience: SummaryAudience = 'gm',
+): string {
   const span = sessionSpans(data).find((s) => s.session.id === sessionId);
   if (!span) return '';
   const cal = data.campaign.calendar;
@@ -757,7 +811,9 @@ export function sessionSummaryText(data: CampaignData, sessionId: string): strin
         : `Weltzeit: ${formatDateTime(cal, span.from)}`,
   );
 
-  const entries = chronicleSorted(data).filter((e) => e.sessionId === sessionId);
+  const entries = chronicleSorted(data).filter(
+    (e) => e.sessionId === sessionId && (audience === 'gm' || isForPlayers(data, e)),
+  );
   let day: number | null = null;
   for (const entry of entries) {
     const d = dayIndexOf(entry.at);
@@ -780,6 +836,7 @@ export function sessionSummaryText(data: CampaignData, sessionId: string): strin
       );
     }
   }
-  if (session.notes.trim()) lines.push('', 'Notizen', session.notes.trim());
+  // Die Notizen sind Vorbereitung und Mitschrift der Spielleitung.
+  if (audience === 'gm' && session.notes.trim()) lines.push('', 'Notizen', session.notes.trim());
   return lines.join('\n') + '\n';
 }
