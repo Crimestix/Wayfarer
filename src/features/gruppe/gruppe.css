@@ -1129,6 +1129,81 @@
   color: var(--ink);
 }
 
+/* ── Rast und Wachplan ──────────────────────────────────────────────────── */
+.wf-gruppe-rest__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-bottom: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.wf-gruppe-rest__hint {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-mute);
+}
+.wf-gruppe-rest__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.wf-gruppe-rest__chip {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-mute);
+}
+.wf-gruppe-rest__chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.wf-gruppe-rest__chip[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-gruppe-rest__chip--small {
+  padding: 1px 8px;
+  font-size: var(--text-sm);
+}
+.wf-gruppe-rest__watches {
+  border-top: 1px solid var(--line-faint);
+}
+.wf-gruppe-rest__watch {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-gruppe-rest__time {
+  color: var(--ink-soft);
+}
+.wf-gruppe-rest__sense {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.wf-gruppe-rest__sense--none {
+  color: var(--ember);
+}
+.wf-gruppe-rest__warn {
+  margin: var(--s-2) 0 0;
+  padding: 6px var(--s-3);
+  border-left: 2px solid var(--ember);
+  background: var(--ember-wash);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
 /* ── Weitere Werte, Trefferpunkte, eigene Zustände ──────────────────────── */
 .wf-gruppe-stats__extra {
   display: flex;

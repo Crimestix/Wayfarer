@@ -488,37 +488,6 @@ export function speakersLabel(entry: LanguageSpeakers, count: number): string {
     : `${entry.speakers.length} von ${count}`;
 }
 
-// ── Lange Rast ─────────────────────────────────────────────────────────────
-
-export interface RestChange {
-  id: string;
-  name: string;
-  before: number;
-  after: number;
-}
-
-/** Wessen Erschöpfung eine Lange Rast um 1 senkt (D&D 2024). Nur aktive Gefährten mit Erschöpfung. */
-export function longRestChanges(party: Character[]): RestChange[] {
-  return [...party]
-    .sort(byName)
-    .filter((c) => c.character.active && c.character.exhaustion > 0)
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      before: c.character.exhaustion,
-      after: c.character.exhaustion - 1,
-    }));
-}
-
-/** Text der Chroniknotiz zur Langen Rast. */
-export function longRestText(changes: RestChange[]): string {
-  if (!changes.length) return 'Lange Rast abgeschlossen. Niemand war erschöpft.';
-  const parts = changes.map((c) =>
-    c.after === 0 ? `${c.name} ist wieder frisch` : `${c.name} noch Stufe ${c.after}`,
-  );
-  return `Lange Rast abgeschlossen. Erschöpfung um 1 gesenkt: ${parts.join(', ')}.`;
-}
-
 // ── Beziehungen zu einem Gefährten ─────────────────────────────────────────
 
 export interface CharacterBond {

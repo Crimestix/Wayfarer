@@ -25,7 +25,7 @@ import { AREAS } from '../features/registry';
 import TischPage from '../features/tisch';
 import WeltPage from '../features/welt';
 import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster } from '../ui';
-import { openMoveParty, openQuickLog, openSearch, openTimeDialog } from './commands';
+import { openMoveParty, openQuickLog, openRest, openSearch, openTimeDialog } from './commands';
 import { ShellDialogs, advanceAndReport } from './dialogs';
 import { Sigil } from './Sigil';
 import './shell.css';
@@ -151,8 +151,8 @@ function WorldBar() {
           </IconButton>
         </div>
         <Popover open={moreOpen} onClose={() => setMoreOpen(false)} anchor={moreAnchor} width={250}>
-          <MenuItem onClick={more(() => pass(60))}>Kurze Rast · 1 Stunde</MenuItem>
-          <MenuItem onClick={more(() => pass(480))}>Lange Rast · 8 Stunden</MenuItem>
+          <MenuItem onClick={more(() => openRest('short'))}>Kurze Rast · 1 Stunde …</MenuItem>
+          <MenuItem onClick={more(() => openRest('long'))}>Lange Rast · 8 Stunden …</MenuItem>
           <div className="wf-menu-sep" />
           <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 6)))}>
             Bis zum Morgen · 06:00

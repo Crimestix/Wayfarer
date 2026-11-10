@@ -11,9 +11,7 @@ import {
 import type { Character } from '../../../domain/schema';
 import {
   clickExhaustion,
-  completeLongRest,
   moveCharacter,
-  patchCharacter,
   removeBond,
   saveBond,
   saveCharacter,
@@ -68,53 +66,6 @@ describe('Gefährten am Tisch', () => {
     result.undo();
     expect(hero(db, 'Neil').character.placeId).toBeNull();
     expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(before);
-  });
-});
-
-describe('Lange Rast', () => {
-  it('senkt die Erschöpfung der aktiven Gefährten, schreibt eine Notiz und lässt die Weltzeit stehen', async () => {
-    const { db } = await demoDb();
-    const tomlin = hero(db, 'Tomlin');
-    const corrin = hero(db, 'Corrin');
-    const nex = hero(db, 'Nex');
-    patchCharacter(db, tomlin.id, { exhaustion: 1 });
-    patchCharacter(db, corrin.id, { exhaustion: 3 });
-    patchCharacter(db, nex.id, { exhaustion: 2, active: false });
-    const now = db.getSnapshot().state.now;
-
-    const result = completeLongRest(db);
-    expect(hero(db, 'Tomlin').character.exhaustion).toBe(0);
-    expect(hero(db, 'Corrin').character.exhaustion).toBe(2);
-    expect(hero(db, 'Nex').character.exhaustion).toBe(2);
-    expect(db.getSnapshot().state.now).toBe(now);
-    const note = chronicleFor(db.getSnapshot(), corrin.id).at(-1)!;
-    expect(note.kind).toBe('note');
-    expect(note.at).toBe(now);
-    expect(note.text).toBe(result.text);
-    expect(note.refs.sort()).toEqual([corrin.id, tomlin.id].sort());
-
-    result.undo();
-    expect(hero(db, 'Tomlin').character.exhaustion).toBe(1);
-    expect(hero(db, 'Corrin').character.exhaustion).toBe(3);
-    expect(chronicleFor(db.getSnapshot(), corrin.id)).toHaveLength(0);
-  });
-
-  it('hält die Rast auch fest, wenn niemand erschöpft war', async () => {
-    const { db } = await demoDb();
-    const before = Object.keys(db.getSnapshot().chronicle).length;
-    const result = completeLongRest(db);
-    expect(result.changes).toEqual([]);
-    expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(before + 1);
-  });
-
-  it('überschreibt beim Zurücknehmen keine späteren Änderungen von Hand', async () => {
-    const { db } = await demoDb();
-    const tomlin = hero(db, 'Tomlin');
-    patchCharacter(db, tomlin.id, { exhaustion: 2 });
-    const result = completeLongRest(db);
-    patchCharacter(db, tomlin.id, { exhaustion: 4 });
-    result.undo();
-    expect(hero(db, 'Tomlin').character.exhaustion).toBe(4);
   });
 });
 

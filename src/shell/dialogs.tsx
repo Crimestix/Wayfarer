@@ -45,6 +45,8 @@ import {
   entityHref,
   toast,
 } from '../ui';
+import { RestDialog } from '../features/gruppe/RestDialog';
+import type { RestResult } from '../features/gruppe/rest';
 import {
   closeShellRequest,
   useShellRequest,
@@ -87,6 +89,29 @@ export function advanceAndReport(db: CampaignDb, to: WorldTime) {
   } catch (error) {
     toast({ title: 'Zeit nicht geändert', body: String((error as Error).message), tone: 'danger' });
   }
+}
+
+/** Meldet eine Rast: was sie gebracht hat und was in der Zeit eingetreten ist. */
+function reportRest(result: RestResult) {
+  const lines = [
+    result.text,
+    ...summarizeOccurred(result.advance.occurred),
+    ...result.advance.expired.map((t) => `Abgelaufen: ${t.label}`),
+  ];
+  toast({
+    title: result.interrupted
+      ? 'Rast unterbrochen'
+      : `${formatDuration(result.advance.to - result.advance.from)} gerastet`,
+    body: (
+      <>
+        {lines.map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
+      </>
+    ),
+    action: { label: 'Rückgängig', run: result.undo },
+    duration: 12000,
+  });
 }
 
 // ── Festhalten ─────────────────────────────────────────────────────────────
@@ -594,6 +619,8 @@ export function ShellDialogs() {
       return <MovePartyDialog preset={request.placeId} />;
     case 'time':
       return <TimeDialog />;
+    case 'rest':
+      return <RestDialog kind={request.kind} onClose={closeShellRequest} onDone={reportRest} />;
     case 'search':
       return <SearchDialog />;
   }

@@ -1,22 +1,12 @@
 /** Übersicht der Gruppe: Kennzahlen, je Gefährte eine Karte, darunter wer gerade nicht dabei ist. */
-import { useState } from 'react';
 import { Link } from 'wouter';
 import { Pencil, Swords, Tent, UserPlus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind } from '../../domain/derive';
 import type { Character } from '../../domain/schema';
-import {
-  Button,
-  Dialog,
-  EmptyState,
-  IconButton,
-  Panel,
-  Portrait,
-  SectionTitle,
-  cx,
-  toast,
-} from '../../ui';
-import { completeLongRest, patchCharacter } from './actions';
+import { Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, cx } from '../../ui';
+import { openRest } from '../../shell/commands';
+import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
 import {
   classLine,
@@ -25,7 +15,6 @@ import {
   groupLine,
   joinNames,
   lacksValues,
-  longRestChanges,
   partySummary,
   shortNames,
   slowestLine,
@@ -278,68 +267,6 @@ function CharacterCard({
   );
 }
 
-// ── Lange Rast ─────────────────────────────────────────────────────────────
-
-/** Rückfrage vor dem Abschluss einer Langen Rast: zeigt, was sich ändert, und was nicht. */
-function LongRestDialog({ party, onClose }: { party: Character[]; onClose: () => void }) {
-  const db = useDb();
-  const changes = longRestChanges(party);
-  const confirm = () => {
-    const result = completeLongRest(db);
-    onClose();
-    toast({
-      title: 'Lange Rast abgeschlossen',
-      body: result.changes.length
-        ? `Erschöpfung gesenkt bei ${joinNames(result.changes.map((c) => c.name))}.`
-        : 'Niemand war erschöpft. Die Rast steht in der Chronik.',
-      action: { label: 'Rückgängig', run: result.undo },
-    });
-  };
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title="Lange Rast abschließen?"
-      width={500}
-      footer={
-        <>
-          <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="primary" icon={<Tent />} onClick={confirm} data-autofocus>
-            Rast abschließen
-          </Button>
-        </>
-      }
-    >
-      <div className="wf-col wf-soft">
-        <p>
-          Nach einer Langen Rast sinkt die Erschöpfung jedes aktiven Gefährten um eine Stufe. Das
-          wird als Notiz in der Chronik festgehalten.
-        </p>
-        {changes.length ? (
-          <ul className="wf-gruppe-restlist">
-            {changes.map((c) => (
-              <li key={c.id}>
-                <b>{c.name}</b>
-                <span className="wf-num">
-                  Stufe {c.before} → {c.after === 0 ? 'nicht mehr erschöpft' : `Stufe ${c.after}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="wf-mute">
-            Im Augenblick ist niemand erschöpft; es wird nur die Rast vermerkt.
-          </p>
-        )}
-        <p className="wf-mute">
-          Die Weltzeit bleibt dabei stehen – die acht Stunden lässt du oben in der Weltleiste
-          vergehen (Zeit › Lange Rast).
-        </p>
-      </div>
-    </Dialog>
-  );
-}
-
 // ── Seite ──────────────────────────────────────────────────────────────────
 
 export function Overview({
@@ -355,7 +282,6 @@ export function Overview({
   const active = all.filter((c) => c.character.active);
   const resting = all.filter((c) => !c.character.active);
   const summary = partySummary(active);
-  const [restOpen, setResting] = useState(false);
 
   return (
     <div className="wf-page">
@@ -365,11 +291,11 @@ export function Overview({
         </div>
         <Button
           icon={<Tent />}
-          onClick={() => setResting(true)}
+          onClick={() => openRest('long')}
           disabled={!active.length}
-          title="Senkt die Erschöpfung aller aktiven Gefährten um 1"
+          title="Kurze oder Lange Rast: Die Zeit vergeht, die Gruppe erholt sich"
         >
-          Lange Rast abschließen
+          Rast …
         </Button>
         <Button icon={<UserPlus />} onClick={onCreate}>
           Gefährte anlegen
@@ -454,7 +380,6 @@ export function Overview({
           </>
         )}
       </div>
-      {restOpen && <LongRestDialog party={active} onClose={() => setResting(false)} />}
     </div>
   );
 }

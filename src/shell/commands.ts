@@ -23,6 +23,7 @@ export type ShellRequest =
   | { type: 'move'; placeId?: string }
   | { type: 'search' }
   | { type: 'time' }
+  | { type: 'rest'; kind: 'short' | 'long' }
   | null;
 
 let current: ShellRequest = null;
@@ -47,6 +48,8 @@ export const openMoveParty = (preset: { placeId?: string } = {}) =>
 export const openSearch = () => set({ type: 'search' });
 /** Öffnet „Zeit vergehen lassen“ mit freier Dauer oder Zieldatum. */
 export const openTimeDialog = () => set({ type: 'time' });
+/** Öffnet die Rast: Kurze oder Lange Rast mit Wachplan. */
+export const openRest = (kind: 'short' | 'long' = 'long') => set({ type: 'rest', kind });
 export const closeShellRequest = () => set(null);
 
 export function useShellRequest(): ShellRequest {

@@ -20,8 +20,6 @@ import {
   joinNames,
   lacksValues,
   languageSuggestions,
-  longRestChanges,
-  longRestText,
   parseDraft,
   partySummary,
   removeLanguage,
@@ -300,26 +298,6 @@ describe('Kennzahlen der Gruppe', () => {
     expect(joinNames(['A'])).toBe('A');
     expect(joinNames(['A', 'B'])).toBe('A und B');
     expect(joinNames(['A', 'B', 'C'])).toBe('A, B und C');
-  });
-});
-
-describe('Lange Rast', () => {
-  it('senkt die Erschöpfung aktiver Gefährten um 1', () => {
-    const party = [
-      hero('Tomlin', { exhaustion: 1 }),
-      hero('Corrin', { exhaustion: 3 }),
-      hero('Neil'),
-      hero('Fern', { exhaustion: 2, active: false }),
-    ];
-    const changes = longRestChanges(party);
-    expect(changes.map(({ name, before, after }) => ({ name, before, after }))).toEqual([
-      { name: 'Corrin', before: 3, after: 2 },
-      { name: 'Tomlin', before: 1, after: 0 },
-    ]);
-    expect(longRestText(changes)).toBe(
-      'Lange Rast abgeschlossen. Erschöpfung um 1 gesenkt: Corrin noch Stufe 2, Tomlin ist wieder frisch.',
-    );
-    expect(longRestText([])).toBe('Lange Rast abgeschlossen. Niemand war erschöpft.');
   });
 });
 

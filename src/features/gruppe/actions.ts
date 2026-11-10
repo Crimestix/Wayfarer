@@ -1,17 +1,14 @@
 /** Befehle des Bereichs „Gefährten“. Alles, was mehrere Dokumente ändert, läuft hierüber. */
 import { logEntry, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
-import { activeParty, entityName, findRelation } from '../../domain/derive';
+import { entityName, findRelation } from '../../domain/derive';
 import { createEntity, createRelation, type Character, type Relation } from '../../domain/schema';
 import {
   addCustomCondition,
   adjustHp,
   clickExhaustionMark,
-  longRestChanges,
-  longRestText,
   toggleCondition,
   type DraftResult,
-  type RestChange,
 } from './model';
 
 type Details = Character['character'];
@@ -157,38 +154,6 @@ export function saveCharacter(
       character: value.character,
     }),
   ).id;
-}
-
-export interface LongRestResult {
-  changes: RestChange[];
-  text: string;
-  undo: () => void;
-}
-
-/**
- * Schließt eine Lange Rast ab: senkt bei allen aktiven Gefährten die Erschöpfung um 1 und hält
- * das in der Chronik fest. Die Weltzeit bleibt, wie sie ist – die stellt die Weltleiste.
- */
-export function completeLongRest(db: CampaignDb): LongRestResult {
-  const changes = longRestChanges(activeParty(db.getSnapshot()));
-  const text = longRestText(changes);
-  const entry = db.batch(() => {
-    for (const change of changes) patchCharacter(db, change.id, { exhaustion: change.after });
-    return logEntry(db, { text, refs: changes.map((c) => c.id) });
-  });
-  return {
-    changes,
-    text,
-    undo: () =>
-      db.batch(() => {
-        for (const change of changes) {
-          // Nur zurücksetzen, was seit der Rast niemand von Hand geändert hat.
-          if (getCharacter(db, change.id)?.character.exhaustion === change.after)
-            patchCharacter(db, change.id, { exhaustion: change.before });
-        }
-        db.remove('chronicle', entry.id);
-      }),
-  };
 }
 
 export interface BondInput {
