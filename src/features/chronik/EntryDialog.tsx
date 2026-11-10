@@ -3,7 +3,7 @@ import { useMemo, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName, sessionsSorted } from '../../domain/derive';
-import { createEntity, type ChronicleEntry } from '../../domain/schema';
+import { createEntity, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
 import {
   MINUTES_PER_DAY,
   dayIndexOf,
@@ -17,7 +17,6 @@ import {
 import {
   Button,
   CHRONICLE_KIND_ICON,
-  CHRONICLE_KIND_LABEL,
   Checkbox,
   Dialog,
   EntityPicker,
@@ -52,6 +51,16 @@ import {
 export type EntryDialogRequest =
   | { mode: 'edit'; entry: ChronicleEntry }
   | { mode: 'new'; sessionId?: string | null; at?: WorldTime };
+
+/** Wie der Eintrag in Überschriften heißt. */
+const KIND_NAME: Record<ChronicleKind, string> = {
+  note: 'Notiz',
+  change: 'Veränderung',
+  promise: 'Abmachung',
+  travel: 'Ortswechsel',
+  attitude: 'Haltungsänderung',
+  event: 'Eingetretenen Termin',
+};
 
 const KIND_TABS: { id: ManualKind; label: string }[] = [
   { id: 'note', label: 'Notiz' },
@@ -222,7 +231,7 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
   const remove = async () => {
     if (!entry) return;
     const ok = await confirmDialog({
-      title: `${CHRONICLE_KIND_LABEL[entry.kind]} löschen?`,
+      title: `${KIND_NAME[entry.kind]} löschen?`,
       body: deleteConsequence(data, entry),
       confirmLabel: 'Eintrag löschen',
       danger: true,
@@ -257,7 +266,7 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
     <Dialog
       open
       onClose={onClose}
-      title={entry ? `${CHRONICLE_KIND_LABEL[entry.kind]} bearbeiten` : 'Eintrag nachtragen'}
+      title={entry ? `${KIND_NAME[entry.kind]} bearbeiten` : 'Eintrag nachtragen'}
       width={660}
       footer={
         <>

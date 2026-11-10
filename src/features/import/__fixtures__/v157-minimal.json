@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "now": 14772359130,
+  "previous": 14772359040,
+  "lk": "",
+  "split": 50,
+  "active": "session12",
+  "notes": [
+    {
+      "id": "session12",
+      "title": "Session 12",
+      "body": "",
+      "at": 14772359040
+    }
+  ],
+  "events": [
+    {
+      "id": "session12",
+      "title": "Session 12",
+      "at": 14772359040,
+      "timed": true,
+      "kind": "plan",
+      "details": "Startpunkt der Spielrunde.",
+      "done": true
+    },
+    {
+      "id": "grauer-fang",
+      "category": "campaign",
+      "title": "Der Graue Fang legt ab",
+      "at": 14772360960,
+      "timed": false,
+      "kind": "world",
+      "details": "Das Boot von Haus Duskryn legt ab. Festes Weltereignis, unabhängig von Spielerentscheidungen.",
+      "done": false
+    }
+  ]
+}

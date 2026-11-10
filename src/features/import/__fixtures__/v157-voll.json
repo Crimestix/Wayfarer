@@ -1,0 +1,1091 @@
+{
+  "version": 1,
+  "now": 14772362220,
+  "previous": 14772362160,
+  "lk": "https://www.legendkeeper.com/app/beispielprojekt/startseite/",
+  "split": 50,
+  "active": "session13",
+  "notes": [
+    {
+      "id": "session12",
+      "title": "Session 12",
+      "body": "Ankunft in Hohenfurt. Die Wache am Tor war nervös.\n\nIlse Kornblum bot ein Zimmer an.",
+      "at": 14772359040
+    },
+    {
+      "id": "session13",
+      "title": "Session 13 – Der Turm im Nebel",
+      "body": "Aufbruch zur Salzstraße.",
+      "at": 14772360960
+    },
+    {
+      "id": "c7a1e0a4-3f6e-4d2b-9a55-0b1f0e6d2a11",
+      "title": "Gerüchte in Hohenfurt",
+      "body": "Im Lahmen Eber heißt es, der Turm sei seit dem Winter unbesetzt.",
+      "at": 14772359070
+    },
+    {
+      "id": "exploration-log",
+      "title": "Abenteuerverlauf · Exploration",
+      "body": "18. Tauwind 701 AD · 09:00 · Gruppe\nAufbruch: Hohenfurt → Graufels",
+      "at": 14772361020
+    }
+  ],
+  "events": [
+    {
+      "id": "session12",
+      "title": "Session 12",
+      "at": 14772359040,
+      "timed": true,
+      "kind": "plan",
+      "details": "Startpunkt der Spielrunde.",
+      "done": true
+    },
+    {
+      "id": "grauer-fang",
+      "category": "campaign",
+      "title": "Der Graue Fang legt ab",
+      "at": 14772360960,
+      "timed": false,
+      "kind": "world",
+      "details": "Das Boot von Haus Duskryn legt ab. Festes Weltereignis, unabhängig von Spielerentscheidungen.",
+      "done": false
+    },
+    {
+      "id": "markt",
+      "category": "local",
+      "title": "Salzmarkt in Hohenfurt",
+      "at": 14772365280,
+      "timed": false,
+      "kind": "world",
+      "details": "Drei Tage Markt auf dem Furtplatz.",
+      "done": false,
+      "locationId": "p-hohenfurt",
+      "durationDays": 3,
+      "repeat": {
+        "unit": "month",
+        "interval": 1
+      },
+      "important": true
+    },
+    {
+      "id": "e5b1c7d2-88aa-4c0e-b6f1-2f0a9d3e4c55",
+      "title": "Treffen mit Ardo Venn am Turm",
+      "at": 14772363510,
+      "timed": true,
+      "kind": "plan",
+      "details": "Er will die Karte sehen.",
+      "done": false,
+      "locationId": "p-turm"
+    },
+    {
+      "id": "wachwechsel",
+      "title": "Wachwechsel am Tor",
+      "at": 14772348360,
+      "timed": true,
+      "kind": "world",
+      "details": "",
+      "done": false,
+      "repeat": {
+        "unit": "week",
+        "interval": 2
+      }
+    },
+    {
+      "id": "erledigt",
+      "title": "Zoll bezahlen",
+      "at": 14772357360,
+      "timed": true,
+      "kind": "plan",
+      "details": "",
+      "done": true
+    }
+  ],
+  "sky": {
+    "caldus": 14772338190
+  },
+  "travelScales": {
+    "karte-aschenmark": 2.5
+  },
+  "world": {
+    "places": [
+      {
+        "id": "p-mark",
+        "name": "Aschenmark",
+        "kind": "region",
+        "parentId": null,
+        "placeClass": "Territorium",
+        "type": "Grafschaft",
+        "description": "Karges Hügelland zwischen Fluss und Salzsümpfen.",
+        "aliases": [
+          "Die Mark"
+        ],
+        "tags": [
+          "Grenzland"
+        ]
+      },
+      {
+        "id": "p-hohenfurt",
+        "name": "Hohenfurt",
+        "kind": "city",
+        "parentId": "p-mark",
+        "wikiId": "lkres-hohenfurt",
+        "wikiProjectId": "proj1",
+        "placeClass": "Siedlung",
+        "type": "Stadt",
+        "wikiUrl": "https://www.legendkeeper.com/app/beispielprojekt/hohenfurt/"
+      },
+      {
+        "id": "p-eber",
+        "name": "Zum Lahmen Eber",
+        "kind": "site",
+        "parentId": "p-hohenfurt"
+      },
+      {
+        "id": "p-strasse",
+        "name": "Alte Salzstraße",
+        "kind": "route",
+        "parentId": null,
+        "anchorId": "anker-strasse"
+      },
+      {
+        "id": "p-turm",
+        "name": "Wachturm Graufels",
+        "kind": "site",
+        "parentId": null
+      },
+      {
+        "id": "Ort #7 (Mühle/alt)",
+        "name": "Verlassene Mühle",
+        "kind": "site",
+        "parentId": "p-mark"
+      }
+    ],
+    "visits": [
+      {
+        "id": "v1",
+        "at": 14772354720,
+        "placeId": "p-hohenfurt"
+      },
+      {
+        "id": "v2",
+        "at": 14772358980,
+        "placeId": "p-eber"
+      },
+      {
+        "id": "v3",
+        "at": 14772361020,
+        "placeId": "p-strasse",
+        "travelId": "t-reise",
+        "arrivalId": "p-turm",
+        "originId": "p-eber"
+      },
+      {
+        "id": "v4",
+        "at": 14772361920,
+        "placeId": null
+      },
+      {
+        "id": "v5",
+        "at": 14772361980,
+        "placeId": "p-turm"
+      }
+    ],
+    "database": {
+      "version": 1,
+      "records": {
+        "species": [
+          {
+            "id": "s-mensch",
+            "name": "Mensch",
+            "lifespan": 80
+          },
+          {
+            "id": "s-halbelf",
+            "name": "Halbelf",
+            "parentSpeciesId": "s-mensch",
+            "lifespan": 180,
+            "description": "Selten in der Mark."
+          }
+        ],
+        "abilities": [
+          {
+            "id": "a-dunkelsicht",
+            "name": "Dunkelsicht"
+          }
+        ],
+        "languages": [
+          {
+            "id": "l-gemein",
+            "name": "Gemeinsprache"
+          },
+          {
+            "id": "l-zwergisch",
+            "name": "Zwergisch"
+          }
+        ],
+        "scripts": [
+          {
+            "id": "sc-runen",
+            "name": "Markrunen"
+          }
+        ],
+        "organizations": [
+          {
+            "id": "o-wacht",
+            "name": "Graufelser Wacht",
+            "type": "Stadtwache",
+            "description": "Hält Turm und Furt.",
+            "roles": [
+              "Hauptmann",
+              "Späher"
+            ]
+          },
+          {
+            "id": "o-gilde",
+            "name": "Salzgilde",
+            "type": "Gilde"
+          },
+          {
+            "id": "o-zoll",
+            "name": "Zollstube",
+            "type": "Amt"
+          }
+        ],
+        "families": [
+          {
+            "id": "f-venn",
+            "name": "Familie Venn"
+          }
+        ],
+        "characters": [
+          {
+            "id": "c-ardo",
+            "name": "Ardo Venn",
+            "title": "Hauptmann",
+            "firstName": "Ardo",
+            "lastName": "Venn",
+            "alias": "Der Graue",
+            "gender": "Männlich",
+            "profession": "Hauptmann der Wacht",
+            "speciesId": "s-mensch",
+            "birthPlaceId": "p-hohenfurt",
+            "homeId": "p-hohenfurt",
+            "workPlaceId": "p-turm",
+            "abilityIds": [
+              "a-dunkelsicht"
+            ],
+            "languageIds": [
+              "l-gemein",
+              "l-zwergisch"
+            ],
+            "scriptIds": [
+              "sc-runen"
+            ],
+            "birth": {
+              "year": 660,
+              "month": 3,
+              "day": 12
+            },
+            "description": "Müder Veteran, der den Turm nicht aufgeben will.",
+            "portrait": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+            "aliases": [
+              "Venn"
+            ],
+            "tags": [
+              "Wacht"
+            ],
+            "dynamic": {
+              "locationId": "p-turm",
+              "health": "Alte Beinwunde.",
+              "goals": "Den Turm halten, bis Ablösung kommt.",
+              "opinions": {
+                "group": 5,
+                "tomlin": 2
+              }
+            }
+          },
+          {
+            "id": "c-ilse",
+            "name": "Ilse Kornblum",
+            "profession": "Wirtin",
+            "npcRef": {
+              "projectId": "proj1",
+              "resourceId": "lkres-ilse"
+            },
+            "homeId": "p-eber",
+            "dynamic": {
+              "locationId": "p-eber",
+              "opinions": {
+                "group": 4
+              }
+            }
+          },
+          {
+            "id": "c-edda",
+            "name": "Edda Venn",
+            "gender": "Weiblich",
+            "biologicalAge": 71,
+            "ageEstimate": {
+              "age": 70,
+              "asOf": {
+                "year": 700,
+                "month": 5,
+                "day": 1
+              }
+            }
+          },
+          {
+            "id": "c-veres-db",
+            "name": "Veres",
+            "partyId": "veres",
+            "speciesId": "s-halbelf",
+            "homeId": "p-hohenfurt",
+            "description": "Aufgewachsen an der Furt."
+          },
+          {
+            "id": "c-faehrmann",
+            "name": "Der Fährmann",
+            "noted": true
+          }
+        ]
+      },
+      "relations": [
+        {
+          "id": "r1",
+          "type": "contains",
+          "from": "p-mark",
+          "to": "p-turm"
+        },
+        {
+          "id": "r2",
+          "type": "political",
+          "from": "p-hohenfurt",
+          "to": "p-mark"
+        },
+        {
+          "id": "r3",
+          "type": "connects",
+          "from": "p-strasse",
+          "to": "p-hohenfurt"
+        },
+        {
+          "id": "r4",
+          "type": "seat",
+          "from": "o-wacht",
+          "to": "p-turm"
+        },
+        {
+          "id": "r5",
+          "type": "operates",
+          "from": "o-wacht",
+          "to": "p-mark"
+        },
+        {
+          "id": "r6",
+          "type": "connection",
+          "from": "o-wacht",
+          "to": "o-gilde"
+        },
+        {
+          "id": "r7",
+          "type": "orgPart",
+          "from": "o-zoll",
+          "to": "o-gilde"
+        },
+        {
+          "id": "r8",
+          "type": "membership",
+          "from": "c-ardo",
+          "to": "o-wacht",
+          "role": "Hauptmann"
+        },
+        {
+          "id": "r9",
+          "type": "familyMember",
+          "from": "c-ardo",
+          "to": "f-venn"
+        },
+        {
+          "id": "r10",
+          "type": "mother",
+          "from": "c-edda",
+          "to": "c-ardo"
+        },
+        {
+          "id": "r11",
+          "type": "guardian",
+          "from": "c-ilse",
+          "to": "c-faehrmann"
+        },
+        {
+          "id": "r12",
+          "type": "seat",
+          "from": "o-gilde",
+          "to": "p-hohenfurt"
+        }
+      ],
+      "schemaVersion": 2
+    },
+    "maps": [
+      {
+        "id": "karte-aschenmark",
+        "placeId": "p-mark",
+        "kind": "region",
+        "environment": "surface",
+        "frame": [
+          4000,
+          3000
+        ]
+      }
+    ],
+    "mapPreferences": [
+      {
+        "id": "karte-aschenmark",
+        "favorite": true,
+        "lastOpenedAt": 1760000000000
+      }
+    ],
+    "wikiAssignments": [
+      {
+        "id": "proj1:lkres-hohenfurt",
+        "projectId": "proj1",
+        "resourceId": "lkres-hohenfurt",
+        "signature": "",
+        "at": "2026-10-20T18:00:00.000Z"
+      }
+    ]
+  },
+  "timers": [
+    {
+      "id": "t-reise",
+      "name": "Reise nach Graufels",
+      "kind": "activity",
+      "activityType": "travel",
+      "who": "",
+      "target": "Wachturm Graufels",
+      "concentration": false,
+      "start": 14772361020,
+      "end": 14772361380,
+      "stoppedAt": null,
+      "participants": [
+        "tomlin",
+        "naelmira",
+        "neil",
+        "corrin",
+        "veres",
+        "nex"
+      ]
+    },
+    {
+      "id": "t-unsichtbar",
+      "name": "Unsichtbarkeit",
+      "kind": "effect",
+      "who": "Tomlin",
+      "target": "Naelmira",
+      "concentration": true,
+      "start": 14772362200,
+      "end": 14772362260,
+      "stoppedAt": null,
+      "participants": [
+        "naelmira"
+      ]
+    },
+    {
+      "id": "t-ritual",
+      "name": "Ritual: Magie entdecken",
+      "kind": "activity",
+      "activityType": "task",
+      "who": "Nex",
+      "target": "",
+      "concentration": false,
+      "start": 14772359050,
+      "end": 14772359060,
+      "stoppedAt": 14772359055,
+      "participants": [
+        "nex"
+      ]
+    },
+    {
+      "id": "t-fackel",
+      "name": "Fackel",
+      "kind": "effect",
+      "who": "",
+      "target": "",
+      "concentration": false,
+      "start": 14772362190,
+      "end": 14772362250
+    }
+  ],
+  "removedTimers": [
+    "t-geloescht"
+  ],
+  "characters": {
+    "tomlin": {
+      "className": "Magier · Illusion",
+      "level": 7,
+      "ac": 13,
+      "spellDC": 16,
+      "perception": 12,
+      "investigation": 18,
+      "insight": 12,
+      "portrait": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "notes": "Trägt das Buch der Schleier bei sich.",
+      "languages": [
+        "Gemeinsprache",
+        "Elfisch"
+      ],
+      "proficiencies": [
+        {
+          "kind": "skill",
+          "name": "Arkane Kunde",
+          "rank": "expertise",
+          "bonus": 10
+        },
+        {
+          "kind": "save",
+          "name": "Intelligenz",
+          "rank": "trained",
+          "bonus": 7
+        },
+        {
+          "kind": "tool",
+          "name": "Kalligrafenwerkzeug",
+          "rank": "trained",
+          "bonus": null
+        }
+      ],
+      "locationHistory": [
+        {
+          "id": "lh1",
+          "name": "Hohenfurt",
+          "at": 14772354720
+        },
+        {
+          "id": "lh2",
+          "name": "Bibliothek der Furt",
+          "at": 14772359160
+        }
+      ],
+      "condition": {
+        "exhaustion": 2,
+        "travelMinutes": 600,
+        "checks": [
+          {
+            "id": "reise-tomlin-9",
+            "at": 14772361320,
+            "hour": 9,
+            "status": "failure"
+          }
+        ]
+      },
+      "ddbImport": "ddb-2026-10-18"
+    },
+    "neil": {
+      "level": 6,
+      "portrait": "https://beispiel.invalid/neil.webp"
+    },
+    "veres": {
+      "ac": 19,
+      "notes": "Schwur am Furtstein."
+    }
+  },
+  "npcOpinions": {
+    "proj1": {
+      "lkres-ilse": {
+        "neil": 3,
+        "tomlin": 5
+      },
+      "lkres-fremder": {
+        "tomlin": 2,
+        "naelmira": 2,
+        "neil": 2,
+        "corrin": 2,
+        "veres": 2,
+        "nex": 2
+      },
+      "lkres-zoellner": {
+        "corrin": null
+      }
+    }
+  },
+  "dossierJournal": {
+    "j-ilse-1": {
+      "id": "j-ilse-1",
+      "projectId": "proj1",
+      "resourceId": "lkres-ilse",
+      "kind": "opinion",
+      "at": 14772359100,
+      "createdAt": 1760000100000,
+      "text": "Tomlin hat die Zeche bezahlt.",
+      "participants": [
+        "tomlin"
+      ],
+      "changes": {
+        "tomlin": {
+          "from": null,
+          "to": 4
+        }
+      }
+    },
+    "j-ilse-2": {
+      "id": "j-ilse-2",
+      "projectId": "proj1",
+      "resourceId": "lkres-ilse",
+      "kind": "opinion",
+      "at": 14772360480,
+      "createdAt": 1760000200000,
+      "text": "Er hat ihren Sohn geheilt.",
+      "participants": [
+        "tomlin"
+      ],
+      "changes": {
+        "tomlin": {
+          "from": 4,
+          "to": 5
+        }
+      }
+    },
+    "j-fremd-1": {
+      "id": "j-fremd-1",
+      "projectId": "proj1",
+      "resourceId": "lkres-fremder",
+      "kind": "opinion",
+      "at": 14772359130,
+      "createdAt": 1760000300000,
+      "text": "",
+      "participants": [
+        "tomlin",
+        "naelmira",
+        "neil",
+        "corrin",
+        "veres",
+        "nex"
+      ],
+      "changes": {
+        "tomlin": {
+          "from": null,
+          "to": 3
+        },
+        "naelmira": {
+          "from": null,
+          "to": 3
+        },
+        "neil": {
+          "from": null,
+          "to": 3
+        },
+        "corrin": {
+          "from": null,
+          "to": 3
+        },
+        "veres": {
+          "from": null,
+          "to": 3
+        },
+        "nex": {
+          "from": null,
+          "to": 3
+        }
+      }
+    },
+    "j-fremd-2": {
+      "id": "j-fremd-2",
+      "projectId": "proj1",
+      "resourceId": "lkres-fremder",
+      "kind": "opinion",
+      "at": 14772360510,
+      "createdAt": 1760000400000,
+      "text": "Die Gruppe hat ihn beim Würfeln bloßgestellt.",
+      "participants": [
+        "tomlin",
+        "naelmira",
+        "neil",
+        "corrin",
+        "veres",
+        "nex"
+      ],
+      "changes": {
+        "tomlin": {
+          "from": 3,
+          "to": 2
+        },
+        "naelmira": {
+          "from": 3,
+          "to": 2
+        },
+        "neil": {
+          "from": 3,
+          "to": 2
+        },
+        "corrin": {
+          "from": 3,
+          "to": 2
+        },
+        "veres": {
+          "from": 3,
+          "to": 2
+        },
+        "nex": {
+          "from": 3,
+          "to": 2
+        }
+      }
+    },
+    "j-zoellner-1": {
+      "id": "j-zoellner-1",
+      "projectId": "proj1",
+      "resourceId": "lkres-zoellner",
+      "kind": "opinion",
+      "at": 14772359140,
+      "createdAt": 1760000500000,
+      "text": "Corrin hat für ihn getanzt.",
+      "participants": [
+        "corrin"
+      ],
+      "changes": {
+        "corrin": {
+          "from": null,
+          "to": 6
+        }
+      }
+    },
+    "j-zoellner-2": {
+      "id": "j-zoellner-2",
+      "projectId": "proj1",
+      "resourceId": "lkres-zoellner",
+      "kind": "opinion",
+      "at": 14772359150,
+      "createdAt": 1760000600000,
+      "text": "Rücknahme: Corrin hat für ihn getanzt.",
+      "participants": [
+        "corrin"
+      ],
+      "changes": {
+        "corrin": {
+          "from": 6,
+          "to": null
+        }
+      },
+      "undoOf": "j-zoellner-1"
+    },
+    "j-note": {
+      "id": "j-note",
+      "projectId": "proj1",
+      "resourceId": "lkres-ilse",
+      "kind": "note",
+      "text": "Ilse kennt den alten Schmugglerpfad.",
+      "participants": [],
+      "at": 14772359110,
+      "createdAt": 1760000700000
+    },
+    "j-promise": {
+      "id": "j-promise",
+      "projectId": "proj1",
+      "resourceId": "lkres-ilse",
+      "kind": "promise",
+      "text": "Nachricht von ihrem Bruder aus Graufels mitbringen.",
+      "participants": [
+        "tomlin",
+        "veres"
+      ],
+      "at": 14772359120,
+      "createdAt": 1760000800000,
+      "doneAt": null,
+      "dueAt": 14772369420
+    },
+    "j-debt": {
+      "id": "j-debt",
+      "projectId": "proj1",
+      "resourceId": "lkres-fremder",
+      "kind": "debt",
+      "text": "12 Goldstücke Spielschuld.",
+      "participants": [
+        "neil"
+      ],
+      "at": 14772359135,
+      "createdAt": 1760000900000,
+      "doneAt": null,
+      "dueAt": 14772360780
+    },
+    "j-favor": {
+      "id": "j-favor",
+      "projectId": "proj1",
+      "resourceId": "lkres-ilse",
+      "kind": "favor",
+      "text": "Ein freies Zimmer, wann immer sie zurückkehren.",
+      "participants": [
+        "tomlin",
+        "naelmira",
+        "neil",
+        "corrin",
+        "veres",
+        "nex"
+      ],
+      "at": 14772360490,
+      "createdAt": 1760001000000,
+      "doneAt": null,
+      "dueAt": null
+    },
+    "j-agreement": {
+      "id": "j-agreement",
+      "projectId": "proj1",
+      "resourceId": "lkres-fremder",
+      "kind": "agreement",
+      "text": "Schweigen über den Vorfall am Würfeltisch.",
+      "participants": [],
+      "at": 14772360520,
+      "createdAt": 1760001100000,
+      "doneAt": 14772361920,
+      "dueAt": null,
+      "updatedAt": 1794283998702
+    }
+  },
+  "npcKnowledge": {
+    "proj1": {
+      "lkres-ilse": true,
+      "lkres-fremder": true,
+      "lkres-geruecht": false,
+      "lkres-bote": true
+    }
+  },
+  "travelLibrary": {
+    "anchors": [
+      {
+        "id": "anker-furt",
+        "mapKey": "[\"karte\",\"aschenmark\"]",
+        "name": "Hohenfurt",
+        "point": [
+          1200,
+          900
+        ],
+        "frame": [
+          4000,
+          3000
+        ],
+        "favorite": false,
+        "revision": 1,
+        "sourceId": null,
+        "deleted": false
+      },
+      {
+        "id": "anker-turm",
+        "mapKey": "[\"karte\",\"aschenmark\"]",
+        "name": "Graufels",
+        "point": [
+          2600,
+          700
+        ],
+        "frame": [
+          4000,
+          3000
+        ],
+        "favorite": false,
+        "revision": 1,
+        "sourceId": null,
+        "deleted": false
+      },
+      {
+        "id": "anker-strasse",
+        "mapKey": "[\"karte\",\"aschenmark\"]",
+        "name": "Salzstraße",
+        "point": [
+          1900,
+          800
+        ],
+        "frame": [
+          4000,
+          3000
+        ],
+        "favorite": false,
+        "revision": 1,
+        "sourceId": null,
+        "deleted": false
+      }
+    ],
+    "routes": [
+      {
+        "id": "route-1",
+        "mapKey": "[\"karte\",\"aschenmark\"]",
+        "name": "Über die Salzstraße",
+        "startId": "anker-furt",
+        "endId": "anker-turm",
+        "points": [
+          [
+            1200,
+            900
+          ],
+          [
+            1900,
+            800
+          ],
+          [
+            2600,
+            700
+          ]
+        ],
+        "frame": [
+          4000,
+          3000
+        ],
+        "anchorRevisions": [
+          1,
+          1
+        ],
+        "favorite": true,
+        "lastUsedAt": 1760000000000
+      }
+    ]
+  },
+  "explorations": {
+    "exp-1": {
+      "id": "exp-1",
+      "name": "Durch die Salzsümpfe",
+      "origin": "Hohenfurt",
+      "destination": "Graufels",
+      "participants": [
+        "tomlin",
+        "naelmira",
+        "neil",
+        "corrin",
+        "veres",
+        "nex"
+      ],
+      "at": 14772361020,
+      "length": 40,
+      "minutesPerHex": 125,
+      "hexKm": 10,
+      "firstHexes": 1,
+      "firstProfile": "outskirts",
+      "laterProfile": "deep",
+      "guided": false,
+      "tables": {
+        "city": {
+          "die": 10,
+          "dc": 10,
+          "encounters": [
+            "Ein Lastenträger bittet darum, kurz Platz zu machen.",
+            "Eine Patrouille kontrolliert einen anderen Reisenden.",
+            "Ein Händler bietet eine ungewöhnliche Ware an.",
+            "Ein Streit blockiert den Durchgang.",
+            "Eine bekannte Stimme klingt aus einer Seitengasse.",
+            "Ein Bote sucht nach einer Adresse."
+          ],
+          "contents": [
+            "—",
+            "—",
+            "—",
+            "Ein kleiner Markt mit improvisierten Ständen.",
+            "Ein öffentlicher Brunnen.",
+            "Ein abseitiger Durchgang zwischen zwei Straßen."
+          ]
+        },
+        "outskirts": {
+          "die": 8,
+          "dc": 10,
+          "encounters": [
+            "Eine beladene Händlergruppe kommt entgegen.",
+            "Frische Spuren einer Patrouille kreuzen den Weg.",
+            "Ein Zugtier hat sich an einer Engstelle festgesetzt.",
+            "Ein Reisender fragt nach dem Zustand des Weges.",
+            "Ein fernes Geräusch lässt die Tiere unruhig werden.",
+            "Eine kleine Gruppe rastet am Wegrand."
+          ],
+          "contents": [
+            "—",
+            "—",
+            "—",
+            "Eine aufgegebene Kontrollstation.",
+            "Eine Nische mit alten Feuerstellen.",
+            "Ein beschädigter Wegweiser an einem Seitenstollen."
+          ]
+        },
+        "deep": {
+          "die": 4,
+          "dc": 15,
+          "encounters": [
+            "Frische Schleifspuren verschwinden in einem Seitentunnel.",
+            "Eine Gruppe Duergar ist mit einer Last unterwegs.",
+            "Ein Höhlenräuber verfolgt eine verletzte Beute.",
+            "Sporen treiben durch den Tunnel.",
+            "Aus einem dunklen Spalt ertönt eine fremde Stimme.",
+            "Ein unterirdischer Wasserlauf schwillt hörbar an.",
+            "Aasfresser sammeln sich um einen Kadaver.",
+            "Ein erschöpfter Reisender sucht einen sicheren Weg."
+          ],
+          "contents": [
+            "—",
+            "—",
+            "—",
+            "Ein unterirdischer Wasserlauf.",
+            "Eine verlassene Förderstation mit zwei Ausgängen.",
+            "Eine tiefe Kluft mit einer beschädigten Querung.",
+            "Ein dichter Pilzhain.",
+            "Eine trockene Höhlennische mit Platz für ein Lager."
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "progress": 0,
+      "revision": 0,
+      "status": "active",
+      "hexes": {
+        "0,0": {
+          "profile": "outskirts",
+          "content": "Hohenfurt",
+          "notes": "",
+          "roll": 0,
+          "at": 14772361020
+        }
+      },
+      "log": [
+        {
+          "id": "exp-1-start",
+          "at": 14772361020,
+          "text": "Aufbruch: Hohenfurt → Graufels"
+        }
+      ]
+    }
+  },
+  "rests": {
+    "rast-1": {
+      "id": "rast-1",
+      "place": "Zum Lahmen Eber",
+      "kind": "sleep",
+      "participants": [
+        "tomlin",
+        "neil"
+      ],
+      "noteId": null,
+      "steps": [
+        {
+          "at": 14772359400,
+          "safe": true,
+          "fire": true,
+          "paused": false,
+          "modes": {
+            "tomlin": "sleep",
+            "neil": "watch"
+          },
+          "results": {}
+        }
+      ]
+    }
+  },
+  "dungeons": {
+    "duskryn": {
+      "rooms": {
+        "b1": {
+          "status": "explored",
+          "notes": "Eingangshalle, Falle entschärft."
+        },
+        "b2": {
+          "status": "open"
+        }
+      }
+    }
+  }
+}

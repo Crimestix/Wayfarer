@@ -66,12 +66,12 @@ export class FolderStore implements CampaignStore {
     invoke('store_watch', { root: this.root }).catch((error) =>
       console.warn('Der Kampagnenordner wird nicht überwacht:', error),
     );
-    void listen<{ paths: string[] }>('store-changed', (event) => onChange(event.payload.paths)).then(
-      (fn) => {
-        if (stopped) fn();
-        else unlisten = fn;
-      },
-    );
+    void listen<{ paths: string[] }>('store-changed', (event) =>
+      onChange(event.payload.paths),
+    ).then((fn) => {
+      if (stopped) fn();
+      else unlisten = fn;
+    });
     return () => {
       stopped = true;
       unlisten?.();
@@ -99,7 +99,10 @@ export interface LkResponse {
 }
 
 /** Abfrageparameter: Name → Wert (Listen werden wiederholt, null entfällt). */
-export type LkQuery = Record<string, string | number | boolean | null | Array<string | number | boolean>>;
+export type LkQuery = Record<
+  string,
+  string | number | boolean | null | Array<string | number | boolean>
+>;
 
 /** Ist ein LegendKeeper-Key im Schlüsselbund des Systems hinterlegt? */
 export const lkStatus = () => invoke<LkStatus>('lk_status');

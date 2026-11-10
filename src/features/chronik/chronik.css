@@ -57,7 +57,14 @@
 }
 .wf-chronik-side > .wf-panel {
   flex: 0 1 auto;
-  min-height: 96px;
+  min-height: 140px;
+}
+.wf-chronik-side > .wf-chronik-promises {
+  max-height: 58%;
+}
+.wf-chronik-side .wf-panel__title {
+  letter-spacing: 0.12em;
+  white-space: nowrap;
 }
 
 /* Filter */
@@ -681,6 +688,11 @@ textarea.wf-chronik-summary {
   gap: var(--s-3);
   align-items: end;
 }
+.wf-chronik-time :disabled {
+  border-style: dashed;
+  color: var(--ink-mute);
+  opacity: 0.8;
+}
 .wf-chronik-time__clock {
   display: flex;
   align-items: center;
@@ -692,7 +704,7 @@ textarea.wf-chronik-summary {
 
 @media (max-width: 1400px) {
   .wf-chronik-verlauf {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) 312px;
     gap: var(--s-4);
   }
   .wf-chronik-sessions {

@@ -45,6 +45,9 @@ registriert ist. Das ist zu erwarten – so gibst du sie einmalig frei:
 
 Danach startet Wayfarer wie jedes andere Programm.
 
+Fragt macOS, ob Wayfarer auf einen Ordner zugreifen darf (zum Beispiel „Dokumente“ oder
+„iCloud Drive“), bitte **erlauben** – sonst kann Wayfarer den Spielstand nicht lesen.
+
 Falls macOS stattdessen meldet, die App sei „beschädigt“: das Programm **Terminal** öffnen, diese
 Zeile einfügen und mit der Eingabetaste bestätigen – danach noch einmal starten:
 
@@ -105,8 +108,19 @@ selbst.
 - **Die Dateien nicht von Hand ändern, umbenennen oder verschieben.**
 
 Ändert sich der Ordner, während Wayfarer offen ist – etwa weil das Cloud-Laufwerk noch Änderungen
-vom anderen Rechner nachliefert –, übernimmt Wayfarer das von selbst. Legt das Cloud-Laufwerk
+vom anderen Rechner nachliefert –, übernimmt Wayfarer das in der Regel von selbst. Legt das Cloud-Laufwerk
 einmal eine „Konfliktkopie“ an, rührt Wayfarer sie nicht an und überschreibt nichts.
+
+**Wenn etwas hakt:**
+
+- *„Der Kampagnenordner … ist nicht erreichbar“* beim Start: Das Cloud-Laufwerk läuft noch nicht
+  oder der Ordner wurde verschoben. Cloud-Laufwerk starten und Wayfarer neu öffnen – oder über
+  „Kampagnenordner wählen“ den Ordner neu auswählen.
+- *Unten links steht dauerhaft „Speichern fehlgeschlagen“* (Windows, „Zugriff
+  verweigert“): In der Windows-Sicherheit ist vermutlich der „Überwachte Ordnerzugriff“ aktiv.
+  Dort Wayfarer als zugelassene App eintragen oder den Kampagnenordner an einen anderen Ort legen.
+- Änderungen vom anderen Rechner erscheinen nicht, obwohl das Cloud-Laufwerk fertig ist: Wayfarer
+  einmal schließen und wieder öffnen.
 
 ---
 
