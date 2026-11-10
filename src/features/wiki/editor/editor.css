@@ -1,0 +1,292 @@
+/*
+ * Artikel-Editor. Hier steht, was die schöne Ansicht setzt: Überschriften, Auszeichnung, Verweise,
+ * Listen, Zitate und Kästen, Bilder. Cursor, Auswahl, Suche und Vorschläge zeichnet CodeMirror;
+ * deren Aussehen steht in `theme.ts`.
+ */
+.wf-wiki-ed {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-1);
+  color: var(--ink);
+}
+
+/* Zeilen: Rand, dazu der Einzug von Zitaten und der hängende Einzug von Listenpunkten. */
+.wf-wiki-ed .cm-content .cm-line {
+  padding: 0 var(--s-5) 0
+    calc(var(--s-5) + var(--wf-wiki-ed-quote, 0px) + var(--wf-wiki-ed-hang, 0px));
+  text-indent: calc(-1 * var(--wf-wiki-ed-hang, 0px));
+  overflow-wrap: anywhere;
+}
+
+/* ── Quelltext ──────────────────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed--source .cm-scroller {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* ── Auszeichnung im Text ───────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed-strong {
+  font-weight: 700;
+}
+.wf-wiki-ed .wf-wiki-ed-em {
+  font-style: italic;
+}
+.wf-wiki-ed .wf-wiki-ed-strike {
+  text-decoration: line-through;
+  color: var(--ink-mute);
+}
+.wf-wiki-ed .wf-wiki-ed-u {
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+.wf-wiki-ed .wf-wiki-ed-mark {
+  background: color-mix(in srgb, var(--gold) 26%, transparent);
+  color: var(--gold-bright);
+}
+.wf-wiki-ed .wf-wiki-ed-code {
+  background: var(--bg-inset);
+  box-shadow: 0 0 0 1px var(--line-faint);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+}
+
+/* Verweise auf Artikel und Links nach draußen */
+.wf-wiki-ed .wf-wiki-ed-link {
+  color: var(--gold-bright);
+  border-bottom: 1px solid var(--gold-deep);
+}
+.wf-wiki-ed .wf-wiki-ed-link--unknown {
+  color: var(--ink-mute);
+  border-bottom: 1px dashed var(--ink-faint);
+}
+.wf-wiki-ed .wf-wiki-ed--live .wf-wiki-ed-link {
+  cursor: pointer;
+}
+.wf-wiki-ed .wf-wiki-ed-href {
+  color: var(--gold);
+  text-decoration: underline;
+  text-decoration-color: var(--gold-deep);
+  text-underline-offset: 0.16em;
+}
+
+/* ── Überschriften ──────────────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed-h {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-h1 {
+  padding-top: 0.35em;
+  padding-bottom: 0.1em;
+  font-size: 1.7rem;
+  color: var(--gold-bright);
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-h2 {
+  padding-top: 0.3em;
+  font-size: 1.38rem;
+  color: var(--gold-bright);
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-h3 {
+  padding-top: 0.2em;
+  font-size: 1.17rem;
+}
+.wf-wiki-ed .wf-wiki-ed-h4,
+.wf-wiki-ed .wf-wiki-ed-h5,
+.wf-wiki-ed .wf-wiki-ed-h6 {
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  line-height: 2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-wiki-ed .wf-wiki-ed-h5,
+.wf-wiki-ed .wf-wiki-ed-h6 {
+  color: var(--ink-mute);
+}
+
+/* ── Listen ─────────────────────────────────────────────────────────────── */
+/* Feste Breiten (wie in `live.ts`), damit umbrochene Zeilen bündig unter dem Text stehen. */
+.wf-wiki-ed .wf-wiki-ed-indent,
+.wf-wiki-ed .wf-wiki-ed-marker,
+.wf-wiki-ed .wf-wiki-ed-gap,
+.wf-wiki-ed .wf-wiki-ed-bullet {
+  display: inline-block;
+  text-indent: 0;
+  white-space: pre;
+}
+.wf-wiki-ed .wf-wiki-ed-gap {
+  width: 0.5em;
+}
+.wf-wiki-ed .wf-wiki-ed-marker--number,
+.wf-wiki-ed .wf-wiki-ed-marker--number * {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
+}
+.wf-wiki-ed .wf-wiki-ed-bullet {
+  width: 0.7em;
+  color: var(--gold);
+  text-align: center;
+}
+.wf-wiki-ed .wf-wiki-ed-check {
+  display: inline-block;
+  position: relative;
+  width: 0.86em;
+  height: 0.86em;
+  vertical-align: -0.08em;
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  text-indent: 0;
+  cursor: pointer;
+}
+.wf-wiki-ed .wf-wiki-ed-check:hover {
+  border-color: var(--gold);
+}
+.wf-wiki-ed .wf-wiki-ed-check--on {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wf-wiki-ed .wf-wiki-ed-check--on::after {
+  content: '';
+  position: absolute;
+  left: 26%;
+  top: 4%;
+  width: 34%;
+  height: 62%;
+  border: solid var(--bg-0);
+  border-width: 0 2px 2px 0;
+  transform: rotate(40deg);
+}
+.wf-wiki-ed .wf-wiki-ed-done {
+  text-decoration: line-through;
+  color: var(--ink-mute);
+}
+
+/* ── Zitate und Kästen ──────────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed-quote {
+  --wf-wiki-ed-quote: var(--s-4);
+  --wf-wiki-ed-tone: var(--line-strong);
+  --wf-wiki-ed-wash: transparent;
+  background-image:
+    linear-gradient(var(--wf-wiki-ed-tone), var(--wf-wiki-ed-tone)),
+    linear-gradient(var(--wf-wiki-ed-wash), var(--wf-wiki-ed-wash));
+  background-repeat: no-repeat;
+  background-position: var(--s-5) 0;
+  background-size:
+    2px 100%,
+    calc(100% - 2 * var(--s-5)) 100%;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.wf-wiki-ed .wf-wiki-ed-box {
+  --wf-wiki-ed-tone: var(--ink-mute);
+  --wf-wiki-ed-wash: color-mix(in srgb, var(--ink) 3.5%, transparent);
+  color: var(--ink);
+  font-style: normal;
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-box.wf-wiki-ed-quote--first {
+  padding-top: var(--s-1);
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-box.wf-wiki-ed-quote--last {
+  padding-bottom: var(--s-2);
+}
+.wf-wiki-ed .wf-wiki-ed-box--geheim {
+  --wf-wiki-ed-tone: var(--arcane);
+  --wf-wiki-ed-wash: var(--arcane-wash);
+}
+.wf-wiki-ed .wf-wiki-ed-box--steckbrief {
+  --wf-wiki-ed-tone: var(--gold);
+  --wf-wiki-ed-wash: var(--gold-glow);
+}
+.wf-wiki-ed .wf-wiki-ed-box--warnung {
+  --wf-wiki-ed-tone: var(--ember);
+  --wf-wiki-ed-wash: var(--ember-wash);
+}
+.wf-wiki-ed .wf-wiki-ed-box--gefahr {
+  --wf-wiki-ed-tone: var(--blood-bright);
+  --wf-wiki-ed-wash: var(--blood-wash);
+}
+.wf-wiki-ed .wf-wiki-ed-box-label {
+  margin-right: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: 0.68rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--wf-wiki-ed-tone);
+}
+.wf-wiki-ed .wf-wiki-ed-box-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-wiki-ed .wf-wiki-ed-fact {
+  font-family: var(--font-caps);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* ── Linie, Code, Tabellen ──────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed-rule {
+  display: inline-block;
+  width: 100%;
+  height: 0;
+  vertical-align: middle;
+  border-top: 1px solid var(--line-strong);
+}
+.wf-wiki-ed .wf-wiki-ed-codeblock,
+.wf-wiki-ed .wf-wiki-ed-table {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--text-sm);
+  font-style: normal;
+  color: var(--ink-soft);
+}
+.wf-wiki-ed .wf-wiki-ed-codeblock {
+  background-image: linear-gradient(var(--bg-inset), var(--bg-inset));
+  background-repeat: no-repeat;
+  background-position: calc(var(--s-5) - var(--s-2)) 0;
+  background-size: calc(100% - 2 * var(--s-5) + 2 * var(--s-2)) 100%;
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-codeblock--first {
+  padding-top: var(--s-1);
+}
+.wf-wiki-ed .cm-content .wf-wiki-ed-codeblock--last {
+  padding-bottom: var(--s-1);
+}
+
+/* ── Bilder ─────────────────────────────────────────────────────────────── */
+.wf-wiki-ed .wf-wiki-ed-image-label {
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-mute);
+}
+.wf-wiki-ed .wf-wiki-ed-image-label__tag {
+  margin-right: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: 0.68rem;
+  font-style: normal;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.wf-wiki-ed .wf-wiki-ed-image {
+  padding: var(--s-1) var(--s-5) var(--s-2) calc(var(--s-5) + var(--wf-wiki-ed-quote, 0px));
+}
+.wf-wiki-ed .wf-wiki-ed-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.wf-wiki-ed .wf-wiki-ed-image__missing {
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-faint);
+}
