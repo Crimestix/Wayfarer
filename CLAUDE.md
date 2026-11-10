@@ -40,6 +40,9 @@ nicht übernommen.
 
 ## Aufbau
 
+- Erzeugtes (Hexkarten, Namen, später Wetter) rechnet mit `domain/random.ts` (`rngOf`,
+  `seedOf`), nie mit `Math.random`; Hexfelder mit `domain/hex.ts`, Gelände und Reisetage mit
+  `domain/terrain.ts`.
 - `src/domain/` – reine Fachlogik ohne React: Kalender-Engine (`time/calendar.ts`), Elaris-Kalender
   als Daten (`time/elaris.ts`), Datenmodell (`schema.ts`, zod), Beziehungsarten und Haltungsskala
   (`relations.ts`), abgeleitete Sichten (`derive.ts`). Mit Tests.
@@ -54,7 +57,7 @@ nicht übernommen.
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
   `openTimeDialog`).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
-  `gruppe`, `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
+  `gruppe`, `erkundung` (Hexkarten), `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Schlüsselbund. Die Befehle stehen als Vertrag in `src/data/platform.ts`.
 

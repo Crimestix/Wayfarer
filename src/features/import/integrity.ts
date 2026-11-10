@@ -159,6 +159,18 @@ export function repairReferences(input: CampaignData): RepairResult {
       return [id, repaired === before ? j : { ...j, startId, participants, legs }];
     }),
   );
+  const areas = Object.fromEntries(
+    Object.entries(input.areas).map(([id, a]) => {
+      const before = repaired;
+      const fromId = keep(a.fromId, isPlace);
+      const toId = keep(a.toId, isPlace);
+      const hexes = a.hexes.map((hex) => {
+        const placeId = keep(hex.placeId, isPlace);
+        return placeId === hex.placeId ? hex : { ...hex, placeId };
+      });
+      return [id, repaired === before ? a : { ...a, fromId, toId, hexes }];
+    }),
+  );
   const rests = Object.fromEntries(
     Object.entries(input.rests).map(([id, r]) => {
       const before = repaired;
@@ -214,6 +226,7 @@ export function repairReferences(input: CampaignData): RepairResult {
       paths,
       maps,
       journeys,
+      areas,
       rests,
     },
     repaired,

@@ -1,5 +1,13 @@
 /** Die Arbeitsbereiche von Wayfarer in der Reihenfolge der Navigation. */
-import { BookOpen, CalendarDays, Flame, Landmark, Swords, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  CalendarDays,
+  Flame,
+  Hexagon,
+  Landmark,
+  Swords,
+  type LucideIcon,
+} from 'lucide-react';
 
 export interface Area {
   path: string;
@@ -14,4 +22,5 @@ export const AREAS: Area[] = [
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },
+  { path: '/erkundung', label: 'Erkundung', hint: 'Hexkarten zwischen Orten', icon: Hexagon },
 ];

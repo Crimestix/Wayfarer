@@ -44,6 +44,21 @@
   --ember-wash: rgba(213, 140, 60, 0.14);
 
   /* Haltung von feindselig bis ergeben */
+  /* Gelände auf Hexkarten: gedeckt, damit Markierungen und Schrift darauf lesbar bleiben. */
+  --terrain-none: #1d1917;
+  --terrain-grassland: #66743f;
+  --terrain-forest: #2f5536;
+  --terrain-hills: #6f6040;
+  --terrain-mountains: #5f5b59;
+  --terrain-swamp: #36534f;
+  --terrain-desert: #8d7646;
+  --terrain-arctic: #7c8a93;
+  --terrain-coast: #857f58;
+  --terrain-water: #2a506b;
+  --terrain-underdark: #443a57;
+  --terrain-urban: #6e503a;
+  --terrain-ink: rgba(233, 223, 201, 0.5);
+
   --att-n5: #e2463c;
   --att-n4: #d9584c;
   --att-n3: #d06a4c;

@@ -222,6 +222,33 @@ Die Fragen aus den Prüfungen der ersten Welle sind beantwortet und – bis auf 
 C++-Werkzeugen war vorhanden. `cargo build` läuft durch, `cargo test`: 47 Tests grün.
 Start mit laufender Vorschau: `npx tauri dev -c '{"build":{"beforeDevCommand":""}}'`.
 
+**Hexkarten erzeugen (10. 11. 2026, Zweig `welle2/hexkarten`):** Neuer Bereich „Erkundung“
+(`/erkundung/:id?`, `features/erkundung`). „Neue Hexkarte“ nimmt zwei Orte und erkennt aus der
+Welt (`generate.ts` `recognize`): Entfernung und Richtung aus Kartenpunkten samt Maßstab, sonst
+die Länge eines gespeicherten Weges, sonst fragt der Dialog; die Landschaft aus Namen, Art und
+Schlagworten der Orte und ihrer Umgebung, aus Karten und Wegen; bekannte Orte am Weg aus den
+Kartenpunkten. Daraus entsteht zusammenhängendes Gelände (weiches Rauschen für Höhe und Feuchte,
+je Landschaft anders gelesen) mit Besonderheiten je Gelände – wiederholbar über `area.seed`.
+Felder stehen auf der Spitze (`orientation: 'pointy'`), damit Ost–West eine gerade Reihe ist.
+Die Karte zeigt Gelände, Besonderheiten, Orte, den direkten Weg und Unentdecktes gedämpft; je
+Feld lassen sich Gelände, Besonderheit, Ort, „Was hier wartet“, Notiz und „entdeckt“ ändern;
+„Neu würfeln“ baut das Gelände neu. Neue Felder im Modell: `hex.feature`, `area.fromId`,
+`toId`, `biome`, `seed`, `distanceKm`. **Noch nicht gebaut:** die Reise selbst (Position der
+Gruppe, Reisetage, Begegnungen aus Tabellen, Wetter), Flüsse und Straßen als Linien, die Karte
+über einem Kartenbild. Die aus der alten Version übernommene Erkundung erscheint in der Liste,
+hat aber nur ihre zwei besuchten Felder.
+
+**Namen aus LegendKeeper (10. 11. 2026):** `import/NameSync.tsx` trägt Namen von selbst ein,
+sobald die Verbindung steht, und zeigt in der Welt einen Hinweis, solange sie fehlen.
+
+**Gewünscht, noch nicht begonnen: LegendKeeper ganz übernehmen.** Der Spielleiter will
+LegendKeeper kündigen und alles in Wayfarer haben. Dafür braucht es ein eigenes Wiki
+(formatierte Artikel als lokale Dokumente), das Abholen aller Artikel über die Schnittstelle
+(siehe `features/legendkeeper/API-NOTIZEN.md`) und das **lokale Speichern der Bilder** – sie
+liegen bei LegendKeeper und sind nach der Kündigung weg. Offen ist, was die Schnittstelle zu
+Karten, Boards und Zeitleisten hergibt; das ist mit dem echten Zugang zu prüfen. Reihenfolge:
+erst übernehmen, dann kündigen.
+
 **Nächste große Schritte nach dem Leitbild** (`docs/FUNKTIONSUMFANG.md`): Wettersimulation (F),
 Hexkarte zwischen zwei Orten erzeugen (H, auch ohne Karte), Karten und Wege (D), Reisen (E),
 LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).

@@ -286,6 +286,18 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
           placeId: event.placeId === entityId ? null : event.placeId,
           refs: event.refs.filter((ref) => ref !== entityId),
         });
+    // Hexkarten: Der Ort verschwindet von seinem Feld; Start und Ziel einer Karte werden offen.
+    for (const area of Object.values(data.areas)) {
+      const onMap = area.hexes.some((hex) => hex.placeId === entityId);
+      if (!onMap && area.fromId !== entityId && area.toId !== entityId) continue;
+      db.patch('areas', area.id, {
+        fromId: area.fromId === entityId ? null : area.fromId,
+        toId: area.toId === entityId ? null : area.toId,
+        hexes: onMap
+          ? area.hexes.map((hex) => (hex.placeId === entityId ? { ...hex, placeId: null } : hex))
+          : area.hexes,
+      });
+    }
     if (data.state.placeId === entityId) db.setState({ placeId: null });
     db.remove('entities', entityId);
   });

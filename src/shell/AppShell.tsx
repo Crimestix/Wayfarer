@@ -15,6 +15,7 @@ import {
 } from '../domain/time/calendar';
 import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
+import ErkundungPage from '../features/erkundung';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
@@ -286,6 +287,7 @@ export function AppShell() {
           <Route path="/chronik" component={ChronikPage} />
           <Route path="/kalender" component={KalenderPage} />
           <Route path="/gruppe/:id?" component={GruppePage} />
+          <Route path="/erkundung/:id?" component={ErkundungPage} />
           <Route path="/einstellungen" component={EinstellungenPage} />
           <Route component={TischPage} />
         </Switch>
