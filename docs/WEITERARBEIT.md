@@ -57,7 +57,7 @@ npm run tauri dev
 ```
 
 Die Browser-Vorschau ohne Desktop-Teil: `npm run dev` → http://localhost:1420
-(Beispielwelt; `http://localhost:1420/?reset#/` setzt sie zurück).
+(Elaris-Grundstand; `http://localhost:1420/?reset#/` setzt sie zurück).
 
 ## 3. Arbeitsweise, die sich bewährt hat
 
@@ -232,4 +232,3 @@ anders entscheidet.
 - Wiederkehrende Termine schreiben beim Zeitsprung keinen Chronik-Eintrag mehr (stehen nur in
   der Meldung) – bewusst so, damit lange Reisen die Chronik nicht füllen.
 - Die Hauptdatei des Clients ist groß (Warnung beim Bauen); Bereiche bei Bedarf nachladen.
-- Beispielwelt: „Vollmondmarkt“ liegt an einem Tag ohne Vollmond.

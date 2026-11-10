@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { demoCampaign } from '../../data/seed';
+import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { entitiesOfKind, partyStays, placeCast } from '../../domain/derive';
 import {
   PARTY_ID,

@@ -11,7 +11,7 @@ import {
   startSession,
 } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
-import { demoCampaign } from '../../data/seed';
+import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../data/store';
 import { chronicleSorted, entitiesOfKind, partyStays } from '../../domain/derive';
 import { PARTY_ID, type ChronicleEntry } from '../../domain/schema';

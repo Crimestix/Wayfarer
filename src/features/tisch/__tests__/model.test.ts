@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { advanceTime, endSession, logEntry, moveParty, startSession } from '../../../data/actions';
 import { CampaignDb } from '../../../data/db';
-import { demoCampaign, emptyCampaign } from '../../../data/seed';
+import { emptyCampaign } from '../../../data/seed';
+import { demoCampaign } from '../../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../../data/store';
 import { entitiesOfKind, placeStatus } from '../../../domain/derive';
 import {

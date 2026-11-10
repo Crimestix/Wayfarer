@@ -4,7 +4,7 @@ import { Cloud, FlaskConical, FolderOpen, RotateCcw } from 'lucide-react';
 import { CampaignDb, CampaignMissingError } from '../../data/db';
 import { useData, useDb } from '../../data/hooks';
 import { FolderStore, isDesktopApp, pickFolder, setConfig } from '../../data/platform';
-import { demoCampaign } from '../../data/seed';
+import { elarisCampaign } from '../../data/seed';
 import { formatDate } from '../../domain/time/calendar';
 import { Button, Dialog, Field, Input, toast } from '../../ui';
 import { errorText } from './files';
@@ -206,13 +206,13 @@ export function CampaignSection() {
 
   const [resetOpen, setResetOpen] = useState(false);
   const demoStart = useMemo(() => {
-    const demo = demoCampaign();
+    const demo = elarisCampaign();
     return formatDate(demo.campaign.calendar, demo.state.now);
   }, []);
   const resetDemo = () => {
     setResetOpen(false);
-    db.replaceAll(demoCampaign());
-    toast({ title: 'Beispielwelt zurückgesetzt' });
+    db.replaceAll(elarisCampaign());
+    toast({ title: 'Vorschau zurückgesetzt' });
   };
 
   return (
@@ -241,20 +241,21 @@ export function CampaignSection() {
           title="Vorschau im Browser"
           action={
             <Button icon={<RotateCcw />} onClick={() => setResetOpen(true)}>
-              Beispielwelt zurücksetzen
+              Vorschau zurücksetzen
             </Button>
           }
         >
-          Hier lässt sich Wayfarer ausprobieren – zu Beginn mit einer erfundenen Beispielwelt.
-          Änderungen bleiben nur in diesem Browser. Erst die installierte App speichert die Kampagne
-          als Ordner auf deinem Rechner.
+          Hier lässt sich Wayfarer ausprobieren – zu Beginn mit dem Grundstand von Elaris: die sechs
+          Gefährten und Session 12. Den echten Spielstand holst du unten über „Alten Spielstand
+          übernehmen“ herein. Änderungen bleiben nur in diesem Browser. Erst die installierte App
+          speichert die Kampagne als Ordner auf deinem Rechner.
         </Notice>
       )}
 
       <Dialog
         open={resetOpen}
         onClose={() => setResetOpen(false)}
-        title="Beispielwelt zurücksetzen?"
+        title="Vorschau zurücksetzen?"
         width={480}
         footer={
           <>
@@ -267,7 +268,7 @@ export function CampaignSection() {
       >
         <p className="wf-soft">
           Der jetzige Stand dieser Vorschau geht verloren – auch ein eingespielter oder
-          übernommener. Die Beispielwelt beginnt wieder am {demoStart}.
+          übernommener. Die Vorschau beginnt wieder mit dem Grundstand von Elaris am {demoStart}.
         </p>
       </Dialog>
     </div>

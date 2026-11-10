@@ -21,7 +21,7 @@ import {
   undoTimeAdvance,
 } from '../actions';
 import { CampaignDb, CampaignMissingError } from '../db';
-import { demoCampaign } from '../seed';
+import { demoCampaign } from '../__fixtures__/demoWorld';
 import { MemoryStore } from '../store';
 
 async function demoDb() {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { demoCampaign, emptyCampaign } from '../../data/seed';
+import { emptyCampaign } from '../../data/seed';
+import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { overdueEvents } from '../../domain/derive';
 import {
   createChronicleEntry,

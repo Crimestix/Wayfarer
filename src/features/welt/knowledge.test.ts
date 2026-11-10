@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { deleteEntity } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
-import { demoCampaign } from '../../data/seed';
+import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../data/store';
 import { detailLinks, linksTo, replaceLink } from '../../domain/derive';
 import {

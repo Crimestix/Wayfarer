@@ -29,7 +29,8 @@ nicht übernommen.
 - `src/data/` – Ablage und Spielstand: `store.ts` (Kampagnenordner als Schnittstelle), `db.ts`
   (geladener Spielstand, Speichern, Änderungen von außen), `actions.ts` (Befehle über mehrere
   Dokumente: Zeit vorstellen, Ort wechseln, Haltung setzen, festhalten …), `hooks.ts` (React),
-  `platform.ts` (Brücke zur Tauri-Seite), `seed.ts` (Elaris-Grundstand, Beispielwelt).
+  `platform.ts` (Brücke zur Tauri-Seite), `seed.ts` (Elaris-Grundstand). Die erfundene Beispielwelt liegt nur noch als Testmaterial in
+  `data/__fixtures__/demoWorld.ts` und darf in der App nicht auftauchen.
 - `src/ui/` – Designsystem: `tokens.css`, `base.css`, `ui.css`, Bausteine in `components.tsx`,
   `entity.tsx`, `chronicle.tsx`, `moon.tsx`. Alles über `import { … } from '../../ui'`.
 - `src/shell/` – Gerüst: Navigation, Weltleiste, Dialoge. `commands.ts` enthält die Handgriffe, die
@@ -90,7 +91,7 @@ nicht wie ein Admin-Dashboard.
 
 ## Befehle
 
-- `npm run dev` – Vorschau im Browser auf Port 1420 (Beispielwelt, Speicherung im Browser;
-  `?reset` vor dem `#` stellt die Beispielwelt wieder her).
+- `npm run dev` – Vorschau im Browser auf Port 1420 (Elaris-Grundstand, Speicherung im Browser;
+  `?reset` vor dem `#` setzt die Vorschau zurück).
 - `npm run typecheck`, `npm test`, `npm run build`.
 - `npm run tauri dev` / `npm run tauri build` – installierte App.

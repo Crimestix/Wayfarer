@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { logEntry, moveParty } from '../../../data/actions';
 import { CampaignDb } from '../../../data/db';
-import { demoCampaign } from '../../../data/seed';
+import { demoCampaign } from '../../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../../data/store';
 import {
   entitiesOfKind,

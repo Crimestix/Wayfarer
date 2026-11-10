@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../../data/db';
-import { demoCampaign, elarisCampaign } from '../../../data/seed';
+import { elarisCampaign } from '../../../data/seed';
+import { demoCampaign } from '../../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../../data/store';
 import { entitiesOfKind } from '../../../domain/derive';
 import { COLLECTION_NAMES } from '../../../domain/schema';

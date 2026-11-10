@@ -4,7 +4,7 @@ import { useHashLocation } from 'wouter/use-hash-location';
 import { CampaignDb, CampaignMissingError } from './data/db';
 import { DbContext } from './data/hooks';
 import { FolderStore, getConfig, isDesktopApp, onAppClosing } from './data/platform';
-import { demoCampaign } from './data/seed';
+import { elarisCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
 import { AppShell } from './shell/AppShell';
 import { Welcome } from './shell/Welcome';
@@ -12,10 +12,10 @@ import { Welcome } from './shell/Welcome';
 type Phase =
   { kind: 'loading' } | { kind: 'welcome'; error?: string } | { kind: 'ready'; db: CampaignDb };
 
-/** Öffnet die Kampagne: in der installierten App aus dem Ordner, im Browser eine Beispielwelt. */
+/** Öffnet die Kampagne: in der installierten App aus dem Ordner, im Browser den Elaris-Grundstand. */
 /**
  * Startet genau einmal, auch wenn React den Effekt im Entwicklungsmodus doppelt ausführt –
- * sonst entstünde die Beispielwelt zweimal.
+ * sonst entstünde der Grundstand zweimal.
  */
 let booting: Promise<Phase> | null = null;
 const bootOnce = () => (booting ??= boot());
@@ -44,7 +44,7 @@ async function boot(): Promise<Phase> {
     return { kind: 'ready', db: await CampaignDb.open(store) };
   } catch (error) {
     if (!(error instanceof CampaignMissingError)) throw error;
-    return { kind: 'ready', db: await CampaignDb.create(store, demoCampaign()) };
+    return { kind: 'ready', db: await CampaignDb.create(store, elarisCampaign()) };
   }
 }
 

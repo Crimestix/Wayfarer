@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PARTY_ID, createEntity, createRelation, type Character } from '../../../domain/schema';
-import { demoCampaign } from '../../../data/seed';
+import { demoCampaign } from '../../../data/__fixtures__/demoWorld';
 import {
   CONDITIONS,
   addLanguages,

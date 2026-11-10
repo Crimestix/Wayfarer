@@ -184,7 +184,7 @@ Voraussetzungen: [Node.js](https://nodejs.org) 24, [Rust](https://rustup.rs) (st
 
 ```
 npm install
-npm run dev          # Vorschau im Browser auf Port 1420 (Beispielwelt, Speicherung im Browser)
+npm run dev          # Vorschau im Browser auf Port 1420 (Elaris-Grundstand, Speicherung im Browser)
 npm run tauri dev    # die echte Desktop-App mit Kampagnenordner
 npm run typecheck
 npm test             # Tests der Oberfläche und der Fachlogik
@@ -193,7 +193,7 @@ npm run tauri build  # Installationspaket für das eigene Betriebssystem
 cd src-tauri && cargo test   # Tests der Rust-Seite
 ```
 
-In der Browser-Vorschau stellt `?reset` vor dem `#` die Beispielwelt wieder her
+In der Browser-Vorschau setzt `?reset` vor dem `#` auf den Elaris-Grundstand zurück
 (`http://localhost:1420/?reset#/welt`).
 
 **Aufbau** (ausführlich in [`CLAUDE.md`](CLAUDE.md)):

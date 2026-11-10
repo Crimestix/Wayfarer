@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createEntity, type CampaignData, type Entity } from '../../domain/schema';
 import { CampaignDb } from '../db';
-import { demoCampaign, elarisCampaign } from '../seed';
+import { elarisCampaign } from '../seed';
+import { demoCampaign } from '../__fixtures__/demoWorld';
 import { MemoryStore } from '../store';
 
 async function demoDb() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
-import { demoCampaign } from '../../data/seed';
+import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../data/store';
 import { createBackup, readBackup } from '../../features/einstellungen/backup';
 import { repairReferences } from '../../features/import/integrity';
