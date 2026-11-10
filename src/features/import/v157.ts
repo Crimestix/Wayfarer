@@ -212,7 +212,7 @@ const pointOf = (v: unknown): MapPoint | null => {
   return x !== null && x !== undefined && y !== null && y !== undefined ? [x, y] : null;
 };
 /** Name ohne Akzente, Apostrophe, Satzzeichen und vorangestellten Artikel – zum Vergleichen. */
-const looseName = (name: string): string =>
+export const looseName = (name: string): string =>
   name
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
@@ -1746,6 +1746,7 @@ class Importer {
         entityId: anchorPlace.get(anchorId) ?? null,
         lkFeatureId: idOf(a.sourceId) || null,
         label: text(a.name),
+        articleId: null,
       });
       markerOf.set(anchorId, { mapKey: idOf(a.mapKey), markerId });
       markers++;

@@ -145,9 +145,10 @@ export interface FamilyAdoption {
 export function adoptFamilies(
   db: CampaignDb,
   personIds?: readonly string[],
+  minMembers = 1,
 ): FamilyAdoption | null {
   const data = db.getSnapshot();
-  const plan = planFamilies(data, personIds);
+  const plan = planFamilies(data, personIds, minMembers);
   if (!plan.create.length && !plan.join.length) return null;
   const text = describePlan(data, plan);
   const families: string[] = [];

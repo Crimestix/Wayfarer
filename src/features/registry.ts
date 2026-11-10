@@ -5,6 +5,7 @@ import {
   Flame,
   Hexagon,
   Landmark,
+  Library,
   Swords,
   type LucideIcon,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ export interface Area {
 export const AREAS: Area[] = [
   { path: '/', label: 'Spieltisch', hint: 'Hier und jetzt', icon: Flame },
   { path: '/welt', label: 'Welt', hint: 'Orte, Personen, Fraktionen', icon: Landmark },
+  { path: '/wiki', label: 'Wiki', hint: 'Artikel über die Welt', icon: Library },
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },

@@ -16,6 +16,7 @@ nachgebessert worden. Typprüfung fehlerfrei, alle Tests grün, `npm run build` 
 | Chronik | `/chronik` | Verlauf nach Welt-Tagen mit Filtern, Sessions mit Notizen, Nachtragen, Bearbeiten |
 | Kalender | `/kalender` | Monatsraster mit Monden und Terminen, Tagesleiste, Termine mit Wiederholung, Wirkungen und Tätigkeiten (Timer), Mond-Kalibrierung |
 | Gefährten | `/gruppe/:id?` | Karten der sechs Charaktere, Kennzahlen der Gruppe, Erschöpfung nach 2024, Zustände, Detailseite, lange Rast |
+| Wiki | `/wiki/:id?` | Eigenes Nachschlagewerk: Baum aller Artikel, Suche im ganzen Text, Artikel mit Steckbrief, Seiten, Karten mit Punkten, Rückverweise; „In die Welt aufnehmen“ |
 | Einstellungen | `/einstellungen` | Kampagne, Sicherung herunterladen/einspielen, alten Spielstand (v157) übernehmen, Ladeprobleme, LegendKeeper, Kalender |
 | LegendKeeper | (in Welt und Einstellungen) | Artikel suchen, lesen, verknüpfen; Key im Schlüsselbund; nur lesend |
 | Desktop | `src-tauri/` | Tauri 2: Kampagnenordner, Dateiüberwachung, LegendKeeper-Abruf, Schlüsselbund, sicheres Schließen, ein Fenster je Kampagne; GitHub-Abläufe für Installationspakete |
@@ -241,13 +242,41 @@ hat aber nur ihre zwei besuchten Felder.
 **Namen aus LegendKeeper (10. 11. 2026):** `import/NameSync.tsx` trägt Namen von selbst ein,
 sobald die Verbindung steht, und zeigt in der Welt einen Hinweis, solange sie fehlen.
 
-**Gewünscht, noch nicht begonnen: LegendKeeper ganz übernehmen.** Der Spielleiter will
-LegendKeeper kündigen und alles in Wayfarer haben. Dafür braucht es ein eigenes Wiki
-(formatierte Artikel als lokale Dokumente), das Abholen aller Artikel über die Schnittstelle
-(siehe `features/legendkeeper/API-NOTIZEN.md`) und das **lokale Speichern der Bilder** – sie
-liegen bei LegendKeeper und sind nach der Kündigung weg. Offen ist, was die Schnittstelle zu
-Karten, Boards und Zeitleisten hergibt; das ist mit dem echten Zugang zu prüfen. Reihenfolge:
-erst übernehmen, dann kündigen.
+**LegendKeeper ganz übernehmen (10. 11. 2026) – erster Teil gebaut.** Der Spielleiter will
+LegendKeeper kündigen und alles in Wayfarer haben. Weg: die **Exportdatei** des Projekts
+(„.lk“ = gepacktes JSON mit allen Artikeln, Seiten, Steckbriefen, Karten und Kartenpunkten),
+nicht die Schnittstelle. Bereich `features/wiki/`:
+
+- `lkexport.ts` liest die Datei ohne Vertrauen und wandelt sie um: Artikel (Sammlung
+  `articles`, Kennung = Kennung in LegendKeeper), Inhalt als dieselben Knoten, die
+  `legendkeeper/Article.tsx` schon darstellt, Karten (Sammlung `maps` mit `image`,
+  `markers[].articleId`, `shapes`). Kartenpunkte stehen im Kachelraster; der Faktor zu
+  Bildpunkten ist die Zweierpotenz, in die das Bild passt (`pinScale`) – gegen die Anker des
+  alten Backups geprüft, nicht `max_zoom`. Vorlagen (`parentId: 'templates'`) werden als
+  `template` markiert.
+- `recognize.ts` erkennt Personen, Orte, Fraktionen, Gegenstände aus Steckbrief-Vorlage,
+  Schlagworten, Symbol und Karte – nur bei eindeutigen Hinweisen; Ordner, Vorlagen und Entwürfe
+  bleiben draußen.
+- `apply.ts` (`planLkImport`, reine Funktion) ergänzt den Spielstand: nichts Eingetragenes
+  wird überschrieben, vorhandene Einträge finden ihren Artikel über Verknüpfung oder Namen
+  (Gefährten auch über den Vornamen), ein zweites Einlesen legt nichts doppelt an. Abgeleitet
+  werden übergeordneter Ort, Wohnort, Sitz und Beziehungen; Familien entstehen ab zwei Trägern
+  eines Nachnamens. Zurücknehmen geht, solange seither nichts geändert wurde.
+- Oberfläche: Einstellungen → „LegendKeeper ganz übernehmen“ (`einstellungen/WikiImportSection`),
+  Bereich „Wiki“, im Dossier der Reiter „Artikel“ (statt „LegendKeeper“), Suche Strg+K findet
+  auch Artikel.
+- Mit dem echten Export geprüft (nur lokal): 656 Artikel, 861 Seiten, 64 Karten, 174
+  Kartenpunkte; alle 15 namenlosen Personen tragen ihren Namen.
+
+**Noch offen, in dieser Reihenfolge:**
+1. **Bilder lokal speichern** (rund 480 Bilder, alle bei `assets.legendkeeper.com`): Artikel,
+   Karten und Porträts (`entity.image`) verweisen noch dorthin. Braucht Befehle auf der
+   Rust-Seite (Abruf, Ablage als Dateien im Kampagnenordner) und das Umschreiben der Adressen.
+   **Erst danach darf LegendKeeper gekündigt werden.**
+2. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
+3. Artikel in Wayfarer schreiben und ändern (eigener Editor), Vorlagen nutzen.
+4. Die Zeichenfläche („Board“, 1) bleibt außen vor.
+5. Karten des Wikis mit Karten/Wegen (Bereich D) zusammenführen: Maßstab, Wege, Reisen.
 
 **Nächste große Schritte nach dem Leitbild** (`docs/FUNKTIONSUMFANG.md`): Wettersimulation (F),
 Hexkarte zwischen zwei Orten erzeugen (H, auch ohne Karte), Karten und Wege (D), Reisen (E),

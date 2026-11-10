@@ -1,7 +1,7 @@
 /** Dialoge des Gerüsts: festhalten, Haltung ändern, Ort wechseln, Zeit vergehen lassen, suchen. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight, Library, Search } from 'lucide-react';
 import {
   advanceTime,
   logEntry,
@@ -499,7 +499,32 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
         icon: <KindIcon kind={e.kind} />,
       }))
     : [];
-  return q ? [...entities, ...areas] : areas;
+  // Artikel des Wikis, die keinen Eintrag in der Welt haben – die anderen stehen schon oben.
+  const owned = new Set(
+    Object.values(data.entities)
+      .map((e) => e.lk?.resourceId)
+      .filter(Boolean),
+  );
+  const articles: SearchHit[] = q
+    ? Object.values(data.articles)
+        .filter(
+          (a) =>
+            !a.template &&
+            !owned.has(a.id) &&
+            (a.title.toLowerCase().includes(q) ||
+              a.aliases.some((alias) => alias.toLowerCase().includes(q))),
+        )
+        .sort((a, b) => a.title.localeCompare(b.title, 'de'))
+        .slice(0, 20)
+        .map((a) => ({
+          key: 'article:' + a.id,
+          label: a.title,
+          sub: 'Wiki-Artikel',
+          href: `/wiki/${a.id}`,
+          icon: <Library />,
+        }))
+    : [];
+  return q ? [...entities, ...articles, ...areas] : areas;
 }
 
 function SearchDialog() {

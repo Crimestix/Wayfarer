@@ -52,6 +52,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   areas: ['Erkundungsgebiet', 'Erkundungsgebiete'],
   tables: ['Tabelle', 'Tabellen'],
   rests: ['Rast', 'Rasten'],
+  articles: ['Artikel', 'Artikel'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

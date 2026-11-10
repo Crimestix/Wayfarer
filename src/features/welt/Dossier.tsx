@@ -22,6 +22,7 @@ import {
   toast,
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
+import { WikiArticlePanel } from '../wiki';
 import { deleteEntityUndoable } from './actions';
 import { openEntityDialog } from './editor';
 import {
@@ -50,6 +51,9 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   const chronicle = chronicleFor(data, entity.id);
   const relationCount = relationRows(data, entity.id).length;
   const partyHere = entity.kind === 'place' && data.state.placeId === entity.id;
+  /** Der verknüpfte Artikel, wenn er im eigenen Wiki liegt. */
+  const localArticle =
+    entity.lk && data.articles[entity.lk.resourceId] ? entity.lk.resourceId : null;
   const log = () => openQuickLog({ refs: [entity.id] });
 
   const remove = async () => {
@@ -171,7 +175,8 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
             { id: 'overview', label: 'Überblick' },
             { id: 'relations', label: 'Beziehungen', count: relationCount || undefined },
             { id: 'chronicle', label: 'Chronik', count: chronicle.length || undefined },
-            { id: 'lk', label: 'LegendKeeper' },
+            // Liegt der Artikel im eigenen Wiki, braucht es LegendKeeper dafür nicht mehr.
+            { id: 'lk', label: localArticle ? 'Artikel' : 'LegendKeeper' },
           ]}
           value={tab}
           onChange={setTab}
@@ -215,7 +220,8 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
             />
           </div>
         )}
-        {tab === 'lk' && (
+        {tab === 'lk' && localArticle && <WikiArticlePanel articleId={localArticle} />}
+        {tab === 'lk' && !localArticle && (
           <LkArticlePanel
             link={entity.lk}
             onLink={(lk) => db.patch('entities', entity.id, { lk })}

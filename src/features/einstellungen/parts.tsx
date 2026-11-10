@@ -91,13 +91,13 @@ export function Notice({
 }
 
 /** Unsichtbare Dateiwahl; `open()` zeigt den Dialog des Systems. */
-export function useFilePicker(onFile: (file: File) => void) {
+export function useFilePicker(onFile: (file: File) => void, accept = '.json,application/json') {
   const ref = useRef<HTMLInputElement>(null);
   const input = (
     <input
       ref={ref}
       type="file"
-      accept=".json,application/json"
+      accept={accept}
       hidden
       onChange={(e) => {
         const file = e.target.files?.[0];

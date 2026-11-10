@@ -1,4 +1,4 @@
-/** Einstellungen: Kampagne, Sicherung, Übernahme aus der alten Version, LegendKeeper, Kalender. */
+/** Einstellungen: Kampagne, Sicherung, Übernahme aus der alten Version und aus LegendKeeper, Kalender. */
 import { BookOpen } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { isDesktopApp } from '../../data/platform';
@@ -11,6 +11,7 @@ import { LegacySection } from './LegacySection';
 import { Boundary, Section } from './parts';
 import { explainProblems } from './model';
 import { ProblemsSection } from './ProblemsSection';
+import { WikiImportSection } from './WikiImportSection';
 import './einstellungen.css';
 
 const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
@@ -77,8 +78,16 @@ export default function Page() {
 
           <Section
             numeral={numeral()}
+            title="LegendKeeper ganz übernehmen"
+            lead="Holt das ganze LegendKeeper-Projekt aus seiner Exportdatei herüber: alle Artikel, Karten und Steckbriefe liegen danach in Wayfarers eigenem Wiki – lesbar ohne LegendKeeper."
+          >
+            <WikiImportSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
             title="LegendKeeper"
-            lead="Wayfarer liest Artikel aus LegendKeeper und verknüpft sie mit Orten und Personen. Geschrieben wird dort nie."
+            lead="Die direkte Verbindung: Wayfarer liest Artikel aus LegendKeeper und verknüpft sie mit Orten und Personen. Geschrieben wird dort nie."
           >
             <Boundary
               fallback={

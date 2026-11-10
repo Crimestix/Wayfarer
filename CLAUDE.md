@@ -16,6 +16,8 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   Abmachungen und Veränderungen der Welt. Besuche und „seitdem verändert“ werden daraus abgeleitet.
 - Die **Weltzeit** läuft nur, wenn der Spielleiter sie vorstellt; dabei treten Termine ein.
 - Wayfarers Weltdatenbank ist führend. LegendKeeper wird nur gelesen und verknüpft, nie beschrieben.
+  Ziel ist, ohne LegendKeeper auszukommen: Das eigene Wiki (`features/wiki`) hält alle Artikel und
+  Karten im Spielstand; übernommen werden sie aus der Exportdatei („.lk“).
 - Keine KI-Funktionen, keine mitgelieferten Beispielinhalte. Wayfarer rechnet, leitet ab und
   simuliert nach festen Regeln. In der App steht nur, was der Spielleiter eingetragen, übernommen
   oder ausdrücklich angenommen hat.
@@ -57,7 +59,8 @@ nicht übernommen.
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
   `openTimeDialog`).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
-  `gruppe`, `erkundung` (Hexkarten), `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
+  `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel, Übernahme des LegendKeeper-Exports),
+  `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Schlüsselbund. Die Befehle stehen als Vertrag in `src/data/platform.ts`.
 
@@ -66,7 +69,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.

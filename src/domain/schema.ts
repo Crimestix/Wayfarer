@@ -414,7 +414,19 @@ export const MapMarkerSchema = z.object({
   /** Kartenfeature aus LegendKeeper, aus dem der Marker stammt. */
   lkFeatureId: z.string().nullable().default(null),
   label: z.string().default(''),
+  /** Artikel im Wiki, zu dem der Marker führt. */
+  articleId: id.nullable().default(null),
 });
+
+/** Linie (Weg, Fluss, Grenze) oder Fläche (Gebiet) auf einer Karte. */
+export const MapShapeSchema = z.object({
+  id,
+  kind: z.enum(['path', 'region']).default('path'),
+  label: z.string().default(''),
+  points: z.array(point).default([]),
+  articleId: id.nullable().default(null),
+});
+export type MapShape = z.infer<typeof MapShapeSchema>;
 export type MapMarker = z.infer<typeof MapMarkerSchema>;
 
 export const MapScaleSchema = z.object({
@@ -439,6 +451,9 @@ export const MapSchema = z.object({
     .default(null),
   scale: MapScaleSchema.nullable().default(null),
   markers: z.array(MapMarkerSchema).default([]),
+  shapes: z.array(MapShapeSchema).default([]),
+  /** Adresse des Kartenbilds (bis die Bilder lokal liegen: bei LegendKeeper). */
+  image: z.string().nullable().default(null),
   notes: z.string().default(''),
 });
 export type GameMap = z.infer<typeof MapSchema>;
@@ -681,6 +696,58 @@ export const RollTableSchema = z.object({
 });
 export type RollTable = z.infer<typeof RollTableSchema>;
 
+// ── Wiki ───────────────────────────────────────────────────────────────────
+
+/**
+ * Inhalt eines Artikels als Knoten der Anzeige (`ArticleNode` in
+ * `features/legendkeeper/model.ts`). Hier nur als Liste von Objekten geprüft; ihre Form kennt
+ * der Bereich Wiki.
+ */
+const articleNodes = z.array(z.record(z.string(), z.unknown())).default([]);
+
+export const ARTICLE_DOC_KINDS = ['page', 'map', 'board', 'time'] as const;
+
+/** Eine Seite eines Artikels: Text, Karte, Board oder Zeitleiste. */
+export const ArticleDocSchema = z.object({
+  id,
+  title: z.string().default(''),
+  kind: z.enum(ARTICLE_DOC_KINDS).default('page'),
+  /** In LegendKeeper vor den Spielern verborgen. */
+  hidden: z.boolean().default(false),
+  nodes: articleNodes,
+  /** kind = map: die Karte in der Sammlung `maps`. */
+  mapId: id.nullable().default(null),
+});
+export type ArticleDoc = z.infer<typeof ArticleDocSchema>;
+
+/**
+ * Ein Artikel des eigenen Wikis. Artikel bilden einen Baum; ein Eintrag der Weltdatenbank gehört
+ * zu einem Artikel, wenn seine LegendKeeper-Verknüpfung (`lk.resourceId`) die Kennung des
+ * Artikels trägt – übernommene Artikel behalten ihre Kennung aus LegendKeeper.
+ */
+export const ArticleSchema = z.object({
+  ...base,
+  title: z.string(),
+  parentId: id.nullable().default(null),
+  /** Sortierschlüssel unter den Geschwistern (aufsteigend, als Text verglichen). */
+  order: z.string().default(''),
+  aliases: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  /** Name des Symbols aus LegendKeeper, z. B. „user“ oder „map-pin“. */
+  icon: z.string().default(''),
+  /** Bild über dem Artikel. */
+  banner: z.string().nullable().default(null),
+  hidden: z.boolean().default(false),
+  /** Vorlage für neue Artikel, kein Inhalt der Welt. */
+  template: z.boolean().default(false),
+  /** Steckbrief neben dem Text. */
+  sidebar: articleNodes,
+  docs: z.array(ArticleDocSchema).default([]),
+  /** Woher der Artikel stammt. */
+  source: z.enum(['legendkeeper', 'wayfarer']).default('wayfarer'),
+});
+export type Article = z.infer<typeof ArticleSchema>;
+
 // ── Rast und Wachen ────────────────────────────────────────────────────────
 
 export const RestSchema = z.object({
@@ -725,6 +792,7 @@ export const COLLECTION_SCHEMAS = {
   areas: AreaSchema,
   tables: RollTableSchema,
   rests: RestSchema,
+  articles: ArticleSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -741,6 +809,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'areas',
   'tables',
   'rests',
+  'articles',
 ];
 
 export type CollectionTypes = {

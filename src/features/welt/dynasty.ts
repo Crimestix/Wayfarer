@@ -120,8 +120,15 @@ function hasFamily(data: CampaignData, personId: string): boolean {
 /**
  * Was zu tun ist, damit jede der genannten Personen (ohne Angabe: alle) zu der Familie gehört,
  * die ihr Nachname nahelegt. Wer schon einer Familie angehört, bleibt unberührt.
+ *
+ * `minMembers` gilt für neue Familien: Bei einer großen Übernahme entsteht eine Familie erst,
+ * wenn mindestens so viele Personen den Nachnamen tragen – sonst bekäme jede Einzelperson eine.
  */
-export function planFamilies(data: CampaignData, personIds?: readonly string[]): FamilyPlan {
+export function planFamilies(
+  data: CampaignData,
+  personIds?: readonly string[],
+  minMembers = 1,
+): FamilyPlan {
   const index = familyIndex(data);
   const wanted = personIds ? new Set(personIds) : null;
   const persons = Object.values(data.entities)
@@ -152,7 +159,10 @@ export function planFamilies(data: CampaignData, personIds?: readonly string[]):
         personIds: [person.id],
       });
   }
-  return { create: [...create.values()].sort(byName), join };
+  return {
+    create: [...create.values()].filter((c) => c.personIds.length >= minMembers).sort(byName),
+    join,
+  };
 }
 
 /** „Familie Venn angelegt (2 Mitglieder)“ – ein Satz für die Meldung. */

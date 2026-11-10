@@ -100,7 +100,7 @@ function reportText(sections: ImportSections): string {
     .join('\n\n');
 }
 
-async function copyReport(sections: ImportSections) {
+export async function copyReport(sections: ImportSections) {
   try {
     await navigator.clipboard.writeText(reportText(sections));
     toast({ title: 'Bericht in die Zwischenablage kopiert' });

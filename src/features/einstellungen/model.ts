@@ -68,6 +68,7 @@ const FOLDER_LABEL: Record<string, string> = {
   areas: 'Erkundungsgebiet',
   tables: 'Tabelle',
   rests: 'Rast',
+  articles: 'Artikel',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

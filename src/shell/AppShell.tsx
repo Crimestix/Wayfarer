@@ -16,6 +16,7 @@ import {
 import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import ErkundungPage from '../features/erkundung';
+import WikiPage from '../features/wiki';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
@@ -284,6 +285,7 @@ export function AppShell() {
         <Switch>
           <Route path="/" component={TischPage} />
           <Route path="/welt/:id?" component={WeltPage} />
+          <Route path="/wiki/:id?" component={WikiPage} />
           <Route path="/chronik" component={ChronikPage} />
           <Route path="/kalender" component={KalenderPage} />
           <Route path="/gruppe/:id?" component={GruppePage} />

@@ -18,6 +18,8 @@ export interface ArticleContext {
    * `null`, wenn es den Artikel nicht (mehr) gibt.
    */
   titleOf: (resourceId: string) => string | null | undefined;
+  /** Der Artikel liegt im eigenen Wiki – Verweise führen dorthin, nicht nach LegendKeeper. */
+  local?: boolean;
 }
 
 /**
@@ -35,7 +37,9 @@ export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleConte
       role="link"
       tabIndex={0}
       className="wf-lk-mention"
-      title={`„${target.title}“ in LegendKeeper nachschlagen`}
+      title={
+        ctx.local ? `„${target.title}“ öffnen` : `„${target.title}“ in LegendKeeper nachschlagen`
+      }
       onClick={() => ctx.onOpen(target)}
       onKeyDown={onKeyDown}
     >
