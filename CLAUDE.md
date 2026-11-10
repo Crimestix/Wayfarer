@@ -43,7 +43,12 @@ nicht übernommen.
 ## Daten
 
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
-  Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/`.
+  Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
+  (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
+  `areas/`, `tables/`, `rests/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
+  gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
+  Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
 - Mac und Windows teilen sich den Spielstand über ein privates GitHub-Repository (Entscheidung des
   Spielleiters; er nutzt kein Cloud-Laufwerk). Der Abgleich ist Teil der zweiten Welle, siehe
   `docs/WEITERARBEIT.md`. Bis dahin: Sicherung herunterladen / einspielen.

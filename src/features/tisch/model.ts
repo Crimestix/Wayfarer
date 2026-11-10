@@ -17,6 +17,7 @@ import {
   placeChildren,
   placeSubtreeIds,
   runningTimers,
+  TIMER_KIND_LABEL,
   searchEntities,
   upcomingOccurrences,
   type Occurrence,
@@ -36,6 +37,7 @@ import type {
   PersonStatus,
   Place,
   Session,
+  Timer,
 } from '../../domain/schema';
 import {
   MINUTES_PER_DAY,
@@ -323,7 +325,7 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
 export type AgendaTone = 'overdue' | 'today' | 'later';
 export type AgendaSource = 'event' | 'promise' | 'timer';
 /** Welches Zeichen vor der Zeile steht. */
-export type AgendaMark = EventKind | 'promise' | 'effect' | 'task';
+export type AgendaMark = EventKind | 'promise' | Timer['kind'];
 
 export interface AgendaItem {
   key: string;
@@ -506,7 +508,7 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       source: 'timer',
       id: timer.id,
       title: timer.label,
-      label: timer.kind === 'task' ? 'Tätigkeit' : 'Wirkung',
+      label: TIMER_KIND_LABEL[timer.kind],
       mark: timer.kind,
       at: timer.end,
       tone: dayIndexOf(timer.end) === dayIndexOf(now) ? 'today' : 'later',

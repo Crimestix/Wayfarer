@@ -77,7 +77,19 @@ export type PlayState = z.infer<typeof PlayStateSchema>;
 
 // ── Weltdatenbank ──────────────────────────────────────────────────────────
 
-export const ENTITY_KINDS = ['person', 'place', 'faction', 'character', 'item', 'topic'] as const;
+export const ENTITY_KINDS = [
+  'person',
+  'place',
+  'faction',
+  'character',
+  'item',
+  'topic',
+  'family',
+  'species',
+  'language',
+  'script',
+  'ability',
+] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 const LkLinkSchema = z.object({
@@ -107,7 +119,12 @@ export const PERSON_STATUS = ['alive', 'dead', 'missing', 'unknown'] as const;
 export type PersonStatus = (typeof PERSON_STATUS)[number];
 
 const PersonDetails = z.object({
+  /** Freitext aus der ersten Welle; `speciesId` hat Vorrang, wenn gesetzt. */
   species: z.string().default(''),
+  /** Eintrag der Art „species“. */
+  speciesId: id.nullable().default(null),
+  /** Wo oder bei wem die Person arbeitet (Ort oder Fraktion). */
+  workplaceId: id.nullable().default(null),
   /** Beruf, Amt oder Funktion in der Geschichte. */
   role: z.string().default(''),
   status: z.enum(PERSON_STATUS).default('alive'),
@@ -124,6 +141,8 @@ const PlaceDetails = z.object({
   parentId: id.nullable().default(null),
   /** Freie Art: Region, Stadt, Dorf, Gebäude, Wildnis … */
   category: z.string().default(''),
+  /** Klimazone für das Wetter; null = die des übergeordneten Ortes. */
+  climateId: id.nullable().default(null),
 });
 
 const FactionDetails = z.object({
@@ -167,6 +186,34 @@ const TopicDetails = z.object({
   category: z.string().default(''),
 });
 
+/** Familie, Haus oder Sippe. Mitglieder über Beziehungen der Art „member“. */
+const FamilyDetails = z.object({
+  /** Stammsitz. */
+  seatId: id.nullable().default(null),
+  category: z.string().default(''),
+});
+
+const SpeciesDetails = z.object({
+  /** Freie Einordnung, z. B. Humanoid, Fee, Untoter. */
+  category: z.string().default(''),
+});
+
+/** Sprache. Wer sie spricht, steht in Beziehungen der Art „speaks“. */
+const LanguageDetails = z.object({
+  /** Schrift, in der sie gewöhnlich geschrieben wird. */
+  scriptId: id.nullable().default(null),
+  category: z.string().default(''),
+});
+
+const ScriptDetails = z.object({
+  category: z.string().default(''),
+});
+
+/** Besondere Fähigkeit, Gabe oder Fluch. Wer sie hat, steht in Beziehungen der Art „has-ability“. */
+const AbilityDetails = z.object({
+  category: z.string().default(''),
+});
+
 export const EntitySchema = z.discriminatedUnion('kind', [
   z.object({ ...entityBase, kind: z.literal('person'), person: PersonDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('place'), place: PlaceDetails.prefault({}) }),
@@ -178,6 +225,11 @@ export const EntitySchema = z.discriminatedUnion('kind', [
   }),
   z.object({ ...entityBase, kind: z.literal('item'), item: ItemDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('topic'), topic: TopicDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('family'), family: FamilyDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('species'), species: SpeciesDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('language'), language: LanguageDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('script'), script: ScriptDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('ability'), ability: AbilityDetails.prefault({}) }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -187,6 +239,11 @@ export type Faction = EntityOf<'faction'>;
 export type Character = EntityOf<'character'>;
 export type Item = EntityOf<'item'>;
 export type Topic = EntityOf<'topic'>;
+export type Family = EntityOf<'family'>;
+export type Species = EntityOf<'species'>;
+export type Language = EntityOf<'language'>;
+export type Script = EntityOf<'script'>;
+export type Ability = EntityOf<'ability'>;
 
 // ── Beziehungen ────────────────────────────────────────────────────────────
 
@@ -297,19 +354,333 @@ export const SessionSchema = z.object({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
+export const TIMER_KINDS = ['effect', 'task', 'spell'] as const;
+export type TimerKind = (typeof TIMER_KINDS)[number];
+
 export const TimerSchema = z.object({
   ...base,
   label: z.string(),
-  /** effect = wirkt bis zum Ende; task = Tätigkeit, die bis dahin dauert. */
-  kind: z.enum(['effect', 'task']).default('effect'),
+  /** effect = wirkt bis zum Ende; task = Tätigkeit, die bis dahin dauert; spell = Zauber. */
+  kind: z.enum(TIMER_KINDS).default('effect'),
   start: worldTime,
   end: worldTime,
   refs: z.array(id).default([]),
   note: z.string().default(''),
   /** Abgelaufen und zur Kenntnis genommen, oder vorzeitig beendet. */
   done: z.boolean().default(false),
+  /** Wer den Zauber wirkt oder die Tätigkeit ausführt (Gefährte oder Person). */
+  casterId: id.nullable().default(null),
+  /** Zauber, der Konzentration erfordert. Ein Wirker hält höchstens eine Konzentration. */
+  concentration: z.boolean().default(false),
+  /** Betroffene Gefährten (Teilgruppe); leer = alle oder nicht zugeordnet. */
+  participants: z.array(id).default([]),
 });
 export type Timer = z.infer<typeof TimerSchema>;
+
+// ── Karten, Wege, Reisen ───────────────────────────────────────────────────
+
+/** Punkt in Karteneinheiten (Pixel des Kartenbilds, Ursprung oben links). */
+const point = z.tuple([z.number(), z.number()]);
+export type MapPoint = z.infer<typeof point>;
+
+/** Verweis auf eine Karte in LegendKeeper. */
+const LkMapSchema = z.object({
+  resourceId: z.string(),
+  docId: z.string(),
+});
+
+export const MapMarkerSchema = z.object({
+  id,
+  x: z.number(),
+  y: z.number(),
+  /** Verknüpfter Eintrag der Weltdatenbank (meist ein Ort). */
+  entityId: id.nullable().default(null),
+  /** Kartenfeature aus LegendKeeper, aus dem der Marker stammt. */
+  lkFeatureId: z.string().nullable().default(null),
+  label: z.string().default(''),
+});
+export type MapMarker = z.infer<typeof MapMarkerSchema>;
+
+export const MapScaleSchema = z.object({
+  /** Kilometer je Karteneinheit. */
+  kmPerUnit: z.number().positive(),
+  /** Wenn aus zwei Punkten bekannter Entfernung bestimmt: die Punkte und die Entfernung. */
+  calibration: z.object({ a: point, b: point, km: z.number().positive() }).nullable().default(null),
+});
+export type MapScale = z.infer<typeof MapScaleSchema>;
+
+export const MapSchema = z.object({
+  ...base,
+  name: z.string(),
+  /** Bild und Pins kommen aus LegendKeeper; Maßstab und Verknüpfungen sind Wayfarer-Daten. */
+  lk: LkMapSchema.nullable().default(null),
+  /** Welcher Ort auf der Karte zu sehen ist. */
+  placeId: id.nullable().default(null),
+  /** Größe des Kartenbilds in Karteneinheiten, sobald bekannt. */
+  frame: z
+    .object({ width: z.number().positive(), height: z.number().positive() })
+    .nullable()
+    .default(null),
+  scale: MapScaleSchema.nullable().default(null),
+  markers: z.array(MapMarkerSchema).default([]),
+  notes: z.string().default(''),
+});
+export type GameMap = z.infer<typeof MapSchema>;
+
+/** Gelände nach den Reiseregeln (D&D 2024). */
+export const TERRAINS = [
+  'grassland',
+  'forest',
+  'hills',
+  'mountains',
+  'swamp',
+  'desert',
+  'arctic',
+  'coast',
+  'water',
+  'underdark',
+  'urban',
+] as const;
+export type Terrain = (typeof TERRAINS)[number];
+
+export const ROAD_KINDS = ['none', 'trail', 'road'] as const;
+export type RoadKind = (typeof ROAD_KINDS)[number];
+
+/**
+ * Ein Weg zwischen zwei Orten – Grundlage für Reisen und Pointcrawl. Besteht unabhängig von
+ * einer Reise und wird wiederverwendet. Ohne Karte (Stadt ohne Plan) nur Orte und Wege.
+ */
+export const PathSchema = z.object({
+  ...base,
+  fromId: id,
+  toId: id,
+  name: z.string().default(''),
+  /** Länge in km; null = aus den Punkten und dem Kartenmaßstab berechnen. */
+  distanceKm: z.number().nonnegative().nullable().default(null),
+  /** Fester Aufwand in Minuten (z. B. Gasse durch die Stadt), unabhängig vom Tempo. */
+  minutes: z.number().int().nonnegative().nullable().default(null),
+  terrain: z.enum(TERRAINS).default('grassland'),
+  road: z.enum(ROAD_KINDS).default('none'),
+  /** Besonderheiten: Zoll, Brücke eingestürzt, nur bei Ebbe … */
+  conditions: z.string().default(''),
+  /** Nur in Richtung from → to begehbar. */
+  oneWay: z.boolean().default(false),
+  /** Die Gruppe kennt diesen Weg noch nicht. */
+  secret: z.boolean().default(false),
+  mapId: id.nullable().default(null),
+  /** Verlauf auf der Karte, von from nach to. */
+  points: z.array(point).default([]),
+});
+export type TravelPath = z.infer<typeof PathSchema>;
+
+export const PACES = ['slow', 'normal', 'fast'] as const;
+export type Pace = (typeof PACES)[number];
+
+export const JOURNEY_STATUS = ['planned', 'underway', 'arrived', 'aborted'] as const;
+export type JourneyStatus = (typeof JOURNEY_STATUS)[number];
+
+/** Ein Abschnitt einer Reise: entweder ein gespeicherter Weg oder eine freie Strecke auf der Karte. */
+export const JourneyLegSchema = z.object({
+  id,
+  pathId: id.nullable().default(null),
+  /** Gespeicherten Weg in Gegenrichtung (to → from) gehen. */
+  reverse: z.boolean().default(false),
+  /** Freie Strecke: Karte, Verlauf und Ziel. */
+  mapId: id.nullable().default(null),
+  points: z.array(point).default([]),
+  toId: id.nullable().default(null),
+  distanceKm: z.number().nonnegative().nullable().default(null),
+  terrain: z.enum(TERRAINS).nullable().default(null),
+});
+export type JourneyLeg = z.infer<typeof JourneyLegSchema>;
+
+export const JourneyLogSchema = z.object({
+  at: worldTime,
+  text: z.string(),
+  /** Zugehöriger Chronikeintrag, falls einer geschrieben wurde. */
+  chronicleId: id.nullable().default(null),
+});
+
+export const JourneySchema = z.object({
+  ...base,
+  name: z.string().default(''),
+  startId: id.nullable().default(null),
+  /** Reisende Gefährten; leer = die ganze aktive Gruppe. */
+  participants: z.array(id).default([]),
+  legs: z.array(JourneyLegSchema).default([]),
+  pace: z.enum(PACES).default('normal'),
+  /** Reittiere aus der Bibliothek (mounts). */
+  mountIds: z.array(id).default([]),
+  vehicleId: id.nullable().default(null),
+  /** Geplanter oder tatsächlicher Aufbruch. */
+  departAt: worldTime.nullable().default(null),
+  status: z.enum(JOURNEY_STATUS).default('planned'),
+  /** Wo die Reise gerade steht: Abschnitt und zurückgelegte km darin. */
+  progress: z
+    .object({ leg: z.number().int().nonnegative(), km: z.number().nonnegative() })
+    .prefault({ leg: 0, km: 0 }),
+  log: z.array(JourneyLogSchema).default([]),
+  notes: z.string().default(''),
+});
+export type Journey = z.infer<typeof JourneySchema>;
+
+/** Reittier oder Fahrzeug aus der kleinen Bibliothek der Kampagne. */
+export const MountSchema = z.object({
+  ...base,
+  kind: z.enum(['mount', 'vehicle']).default('mount'),
+  name: z.string(),
+  /** Bewegungsrate in Fuß. */
+  speed: z.number().int().nonnegative().nullable().default(null),
+  /** Traglast in Pfund. */
+  capacity: z.number().nonnegative().nullable().default(null),
+  /** Besonderheiten. */
+  notes: z.string().default(''),
+  /** Aus den Vorgaben des Regelwerks angelegt (sonst vom Spielleiter). */
+  builtIn: z.boolean().default(false),
+});
+export type Mount = z.infer<typeof MountSchema>;
+
+// ── Wetter ─────────────────────────────────────────────────────────────────
+
+const percent = z.number().min(0).max(100);
+
+/** Klimazone: je Monat des Kalenders Temperaturbereich und Neigungen. */
+export const ClimateSchema = z.object({
+  ...base,
+  name: z.string(),
+  months: z
+    .array(
+      z.object({
+        /** °C */
+        tempMin: z.number(),
+        tempMax: z.number(),
+        /** Wahrscheinlichkeit für Niederschlag an einem Tag, 0–100. */
+        precipitation: percent.default(30),
+        /** Wahrscheinlichkeit für Wind an einem Tag, 0–100. */
+        wind: percent.default(30),
+        /** Wahrscheinlichkeit für Nebel an einem Tag, 0–100. */
+        fog: percent.default(5),
+      }),
+    )
+    .default([]),
+  notes: z.string().default(''),
+});
+export type Climate = z.infer<typeof ClimateSchema>;
+
+export const PRECIPITATION = ['none', 'light', 'heavy'] as const;
+export const WIND = ['none', 'light', 'strong'] as const;
+
+/**
+ * Wetter eines Tages in einer Zone. Das Wetter wird reproduzierbar ausgewürfelt; gespeichert wird
+ * nur, was festgehalten oder von Hand gesetzt wurde. ID: `<climateId>-<Tagesindex>`.
+ */
+export const WeatherSchema = z.object({
+  ...base,
+  climateId: id,
+  /** Tagesindex (ganze Tage seit Beginn der Weltzeit). */
+  day: z.number().int().nonnegative(),
+  temperature: z.number(),
+  precipitation: z.enum(PRECIPITATION).default('none'),
+  wind: z.enum(WIND).default('none'),
+  fog: z.boolean().default(false),
+  /** Von Hand gesetzt – nie neu auswürfeln. */
+  manual: z.boolean().default(false),
+  note: z.string().default(''),
+});
+export type Weather = z.infer<typeof WeatherSchema>;
+
+export const weatherId = (climateId: string, day: number) => `${climateId}-${day}`;
+
+// ── Erkundung und Tabellen ─────────────────────────────────────────────────
+
+export const HexSchema = z.object({
+  /** Axiale Koordinaten. */
+  q: z.number().int(),
+  r: z.number().int(),
+  terrain: z.enum(TERRAINS).nullable().default(null),
+  placeId: id.nullable().default(null),
+  note: z.string().default(''),
+  discovered: z.boolean().default(false),
+  /** Vorbereitetes Ereignis, das beim Betreten eintritt. */
+  prepared: z.string().default(''),
+  /** Abweichende Tabellen für dieses Hex. */
+  tableIds: z.array(id).default([]),
+});
+export type Hex = z.infer<typeof HexSchema>;
+
+/** Erkundungsgebiet: Hexraster über einer Karte. */
+export const AreaSchema = z.object({
+  ...base,
+  name: z.string(),
+  mapId: id.nullable().default(null),
+  /** Hexgröße in km (von Seite zu Seite). */
+  hexKm: z.number().positive().default(10),
+  /** Lage des Rasters auf der Karte: Mittelpunkt von Hex (0, 0) und Hexgröße in Karteneinheiten. */
+  origin: point.default([0, 0]),
+  hexUnits: z.number().positive().nullable().default(null),
+  orientation: z.enum(['flat', 'pointy']).default('flat'),
+  hexes: z.array(HexSchema).default([]),
+  /** Tabellen, die im ganzen Gebiet gelten. */
+  tableIds: z.array(id).default([]),
+  notes: z.string().default(''),
+});
+export type Area = z.infer<typeof AreaSchema>;
+
+export const TABLE_KINDS = ['encounter', 'discovery'] as const;
+export type TableKind = (typeof TABLE_KINDS)[number];
+
+/** Begegnungs- oder Entdeckungstabelle, kampagnenweit wiederverwendbar. */
+export const RollTableSchema = z.object({
+  ...base,
+  name: z.string(),
+  kind: z.enum(TABLE_KINDS).default('encounter'),
+  /** Region, für die sie gedacht ist (Ort), oder null. */
+  placeId: id.nullable().default(null),
+  /** Würfel für die Tabelle, z. B. 8 für W8. */
+  die: z.number().int().min(2).default(6),
+  /** Schwierigkeit der Begegnungsprüfung; null = keine Prüfung, immer würfeln. */
+  dc: z.number().int().min(1).max(30).nullable().default(null),
+  entries: z
+    .array(
+      z.object({
+        id,
+        /** Bereich auf dem Würfel, z. B. 1–2. */
+        min: z.number().int().min(1),
+        max: z.number().int().min(1),
+        text: z.string().default(''),
+        refs: z.array(id).default([]),
+      }),
+    )
+    .default([]),
+  notes: z.string().default(''),
+});
+export type RollTable = z.infer<typeof RollTableSchema>;
+
+// ── Rast und Wachen ────────────────────────────────────────────────────────
+
+export const RestSchema = z.object({
+  ...base,
+  kind: z.enum(['short', 'long']).default('long'),
+  /** Rastende Gefährten; leer = die ganze aktive Gruppe. */
+  participants: z.array(id).default([]),
+  placeId: id.nullable().default(null),
+  sessionId: id.nullable().default(null),
+  start: worldTime,
+  end: worldTime.nullable().default(null),
+  status: z.enum(['running', 'done', 'interrupted']).default('running'),
+  /** Wachplan: wer wann wacht. */
+  watches: z
+    .array(
+      z.object({ id, start: worldTime, end: worldTime, characterIds: z.array(id).default([]) }),
+    )
+    .default([]),
+  /** Unterbrechungen der Rast. */
+  interruptions: z
+    .array(z.object({ at: worldTime, minutes: z.number().int().nonnegative(), text: z.string() }))
+    .default([]),
+  note: z.string().default(''),
+});
+export type Rest = z.infer<typeof RestSchema>;
 
 // ── Sammlungen ─────────────────────────────────────────────────────────────
 
@@ -320,30 +691,48 @@ export const COLLECTION_SCHEMAS = {
   events: CalendarEventSchema,
   sessions: SessionSchema,
   timers: TimerSchema,
+  maps: MapSchema,
+  paths: PathSchema,
+  journeys: JourneySchema,
+  mounts: MountSchema,
+  climates: ClimateSchema,
+  weather: WeatherSchema,
+  areas: AreaSchema,
+  tables: RollTableSchema,
+  rests: RestSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
 export const COLLECTION_NAMES = Object.keys(COLLECTION_SCHEMAS) as CollectionName[];
 
-export interface CollectionTypes {
-  entities: Entity;
-  relations: Relation;
-  chronicle: ChronicleEntry;
-  events: CalendarEvent;
-  sessions: Session;
-  timers: Timer;
-}
+/** Sammlungen, die mit der zweiten Welle hinzukamen; ältere Sicherungen kennen sie nicht. */
+export const LATER_COLLECTIONS: readonly CollectionName[] = [
+  'maps',
+  'paths',
+  'journeys',
+  'mounts',
+  'climates',
+  'weather',
+  'areas',
+  'tables',
+  'rests',
+];
+
+export type CollectionTypes = {
+  [C in CollectionName]: z.infer<(typeof COLLECTION_SCHEMAS)[C]>;
+};
 
 /** Der gesamte geladene Spielstand. Unveränderlich; jede Änderung erzeugt ein neues Objekt. */
-export interface CampaignData {
+export type CampaignData = {
   campaign: CampaignMeta;
   state: PlayState;
-  entities: Readonly<Record<string, Entity>>;
-  relations: Readonly<Record<string, Relation>>;
-  chronicle: Readonly<Record<string, ChronicleEntry>>;
-  events: Readonly<Record<string, CalendarEvent>>;
-  sessions: Readonly<Record<string, Session>>;
-  timers: Readonly<Record<string, Timer>>;
+} & { [C in CollectionName]: Readonly<Record<string, CollectionTypes[C]>> };
+
+/** Alle Sammlungen leer – für neue Kampagnen und Tests. */
+export function emptyCollections(): { [C in CollectionName]: Record<string, CollectionTypes[C]> } {
+  return Object.fromEntries(COLLECTION_NAMES.map((name) => [name, {}])) as {
+    [C in CollectionName]: Record<string, CollectionTypes[C]>;
+  };
 }
 
 // ── Hilfen ─────────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import { TIMER_KIND_LABEL, parseDuration, splitDuration } from './model';
 const KIND_HINT: Record<Timer['kind'], string> = {
   effect: 'Hält an, bis die Zeit um ist – ein Zauber, eine Fackel, ein Gift.',
   task: 'Ist fertig, wenn die Zeit um ist – eine Reparatur, ein Ritual, eine Wache.',
+  spell: 'Ein gewirkter Zauber, auf Wunsch mit Konzentration des Wirkers.',
 };
 
 const PRESETS: { label: string; days: string; hours: string; minutes: string }[] = [

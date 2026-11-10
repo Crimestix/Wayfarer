@@ -76,7 +76,41 @@ Ziel: Alles, was in v157 unfertig oder falsch war, funktioniert und ist ausgearb
 siehe `docs/FUNKTIONSUMFANG.md`. Regeln nach D&D 2024 (Hausregeln vorerst nicht),
 Werte einstellbar, keine erfundenen Texte.
 
-### 4.1 Zuerst: Fundament erweitern (eine Hand, vor den Bereichen)
+### 4.1 Zuerst: Fundament erweitern (eine Hand, vor den Bereichen) – ✅ erledigt
+
+**Stand 10. 11. 2026, Zweig `welle2/fundament`:** Das Datenmodell unten ist in
+`src/domain/schema.ts` angelegt, mit Tests in `src/domain/__tests__/schema.test.ts`. Noch ohne
+Oberfläche; die Bereiche A–K bauen darauf auf. Festgelegt wurde dabei:
+
+- Neue Arten `family`, `species`, `language` (mit `scriptId`), `script`, `ability`; Person hat
+  `speciesId` und `workplaceId` (Ort oder Fraktion), das alte Freitextfeld `species` bleibt
+  für Bestandsdaten. Neue Beziehungsarten `speaks`, `writes`, `has-ability` (Gruppe „Wissen und
+  Können“); Familie über `member`.
+- Ort hat `climateId` (null = Zone des übergeordneten Ortes).
+- Sammlungen `maps`, `paths`, `journeys`, `mounts`, `climates`, `weather`, `areas`, `tables`,
+  `rests`. Karten-Punkte sind `[x, y]` in Pixeln des Kartenbilds (wie in v157). `weather/`
+  speichert nur festgehaltenes oder von Hand gesetztes Wetter (ID `<climateId>-<Tagesindex>`);
+  das übrige wird reproduzierbar ausgewürfelt (Bereich F).
+- Timer: Art `spell`, dazu `casterId`, `concentration`, `participants`. Der Timer-Dialog bietet
+  „Zauber“ noch nicht an (Bereich G).
+- Rast (`rests/`) mit Teilnehmern, Wachplan und Unterbrechungen ist ebenfalls schon angelegt,
+  damit G das Fundament nicht ändern muss.
+- Reittier-Vorgaben nach Regelwerk sind **noch nicht** eingetragen (`builtIn`), das macht E.
+- Sicherungen der ersten Welle ohne die neuen Sammlungen spielen sich ohne Meldung ein.
+- `repairReferences` kennt die neuen Verweise (Spezies, Arbeitsplatz, Klimazone, Wege, Karten,
+  Reisen, Rasten, Wirker).
+
+**Mit dem echten Backup geprüft** (`elaris-backup-2026-11-10.json`, liegt beim Spielleiter, nicht
+im Repository): Übernahme ohne übersprungene oder unlesbare Teile – 71 Orte, 18 Personen,
+6 Gefährten, 44 Beziehungen, 36 Chronikeinträge, 10 Termine, 2 Sessions; nach Speichern und
+Neuladen identisch. Noch nicht übernommen, jetzt aber möglich (eigener Arbeitsschritt
+„Übernahme nachziehen“, nach D/E/G): 14 Routen und 15 Kartenanker → `paths`/`maps`, 6 Karten
+und 2 Maßstäbe → `maps` (Schlüssel `["resourceId","docId"]`), 1 Erkundung mit Würfeltabellen
+→ `areas`/`tables`, 2 Rasten → `rests`, Konzentration/Teilnehmer der Timer → neue Timer-Felder,
+3 Themen „Spezies und Schriften“ → Arten `species`/`script`, Personenfelder `speciesId`,
+`workPlaceId`, `languageIds`, `scriptIds`, `abilityIds` der alten Weltdatenbank.
+
+Ursprünglicher Plan:
 
 Damit parallel arbeitende Agenten nicht gegeneinander bauen, legt **eine** Sitzung zuerst das
 Datenmodell an (`src/domain/schema.ts` + Tests), danach starten die Bereiche.
@@ -151,7 +185,7 @@ anders entscheidet.
 12. Soll das Trennen und Zurückkehren eines Gefährten immer in der Chronik stehen? (Beim Wechsel auf der Karte ja, im Dialog nein – vereinheitlichen.)
 
 **Übernahme des alten Spielstands**
-13. Liegt eine echte Backup-Datei der alten Version vor? (Bisher nur an nachgebauten Daten geprüft – das ist der wichtigste offene Punkt.)
+13. ~~Liegt eine echte Backup-Datei der alten Version vor?~~ Ja – am 10. 11. 2026 erfolgreich geprüft, siehe 4.1.
 14. Wie heißen die Session-Notizen in der alten Version? (Erkannt: „Session 12“, „Sitzung 12“, „Spielabend 12“, „Session #12“.)
 15. Meinungsskala alt → neu: Hass −3, Abneigung −2, Skepsis −1, Wohlwollen +1, Zuneigung +2, Liebe +3; gleiche Meinung bei allen sechs → Haltung zur Gruppe. (So umgesetzt.)
 16. Sollen die sechs Porträts aus der alten Version übernommen werden? Sie stecken im Programm (`public/character-portraits.js`), nicht im Backup.

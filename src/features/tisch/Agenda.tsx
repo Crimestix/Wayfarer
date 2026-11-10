@@ -27,6 +27,7 @@ const MARKS: Record<AgendaMark, LucideIcon> = {
   promise: Handshake,
   effect: Hourglass,
   task: Hourglass,
+  spell: Hourglass,
 };
 
 function AgendaRow({ item }: { item: AgendaItem }) {

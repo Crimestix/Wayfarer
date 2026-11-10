@@ -8,6 +8,7 @@ import {
   createEvent,
   createRelation,
   createSession,
+  emptyCollections,
   nowIso,
   type CampaignData,
   type ChronicleEntry,
@@ -29,12 +30,7 @@ export function emptyCampaign(name: string, calendar: CalendarDef, now: WorldTim
       updated: stamp,
     }),
     state: PlayStateSchema.parse({ id: 'state', now, updated: stamp }),
-    entities: {},
-    relations: {},
-    chronicle: {},
-    events: {},
-    sessions: {},
-    timers: {},
+    ...emptyCollections(),
   };
 }
 

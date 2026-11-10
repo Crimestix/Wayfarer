@@ -526,10 +526,7 @@ export function parseEventForm(cal: CalendarDef, form: EventForm): FormResult<Ev
 
 // ── Wirkungen und Tätigkeiten ──────────────────────────────────────────────
 
-export const TIMER_KIND_LABEL: Record<Timer['kind'], string> = {
-  effect: 'Wirkung',
-  task: 'Tätigkeit',
-};
+export { TIMER_KIND_LABEL } from '../../domain/derive';
 
 /** Dauer aus den drei Feldern Tage, Stunden, Minuten; null, wenn die Eingabe keine Dauer ergibt. */
 export function parseDuration(days: string, hours: string, minutes: string): number | null {

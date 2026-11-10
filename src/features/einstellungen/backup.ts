@@ -12,6 +12,7 @@ import {
   COLLECTION_SCHEMAS,
   CampaignMetaSchema,
   ENTITY_KINDS,
+  LATER_COLLECTIONS,
   PlayStateSchema,
   nowIso,
   type CampaignData,
@@ -42,23 +43,30 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   events: ['Termin', 'Termine'],
   sessions: ['Session', 'Sessions'],
   timers: ['Timer', 'Timer'],
+  maps: ['Karte', 'Karten'],
+  paths: ['Weg', 'Wege'],
+  journeys: ['Reise', 'Reisen'],
+  mounts: ['Reittier oder Fahrzeug', 'Reittiere und Fahrzeuge'],
+  climates: ['Klimazone', 'Klimazonen'],
+  weather: ['Tageswetter', 'Tageswetter'],
+  areas: ['Erkundungsgebiet', 'Erkundungsgebiete'],
+  tables: ['Tabelle', 'Tabellen'],
+  rests: ['Rast', 'Rasten'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {
-  const byId = <T extends { id: string }>(docs: Readonly<Record<string, T>>): T[] =>
+  const byId = (docs: Readonly<Record<string, { id: string }>>) =>
     Object.values(docs).sort((a, b) => a.id.localeCompare(b.id));
+  const collections = Object.fromEntries(
+    COLLECTION_NAMES.map((name) => [name, byId(data[name])]),
+  ) as unknown as { [C in CollectionName]: CollectionTypes[C][] };
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt,
     campaign: data.campaign,
     state: data.state,
-    entities: byId(data.entities),
-    relations: byId(data.relations),
-    chronicle: byId(data.chronicle),
-    events: byId(data.events),
-    sessions: byId(data.sessions),
-    timers: byId(data.timers),
+    ...collections,
   };
 }
 
@@ -137,7 +145,9 @@ export function readBackup(raw: unknown): RestoreResult {
   for (const name of COLLECTION_NAMES) {
     const docs: Record<string, CollectionTypes[CollectionName]> = {};
     const list = raw[name];
-    if (!Array.isArray(list)) {
+    if (list === undefined && LATER_COLLECTIONS.includes(name)) {
+      // Sicherung aus der Zeit, bevor es diesen Bereich gab: einfach leer.
+    } else if (!Array.isArray(list)) {
       skipped.push({
         label: COLLECTION_LABEL[name][1],
         reason: 'Der ganze Bereich fehlt in der Sicherung.',
@@ -216,7 +226,8 @@ export function summarize(data: CampaignData): CampaignSummary {
     const n = entities.filter((e) => e.kind === kind).length;
     if (n) parts.push(`${n} ${n === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}`);
   }
-  for (const name of ['relations', 'chronicle', 'events', 'sessions', 'timers'] as const) {
+  for (const name of COLLECTION_NAMES) {
+    if (name === 'entities') continue;
     const n = Object.keys(data[name]).length;
     if (n) parts.push(`${n} ${COLLECTION_LABEL[name][n === 1 ? 0 : 1]}`);
   }

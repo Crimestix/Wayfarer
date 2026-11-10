@@ -32,12 +32,40 @@ export function repairReferences(input: CampaignData): RepairResult {
     return out;
   };
 
+  const isKind =
+    (...kinds: Entity['kind'][]) =>
+    (id: string | null): boolean =>
+      has(id) && kinds.includes(entities[id]!.kind);
+
   for (const entity of Object.values(input.entities)) {
     if (entity.kind === 'person') {
-      const placeId = keep(entity.person.placeId, isPlace);
-      const homeId = keep(entity.person.homeId, isPlace);
-      if (placeId !== entity.person.placeId || homeId !== entity.person.homeId)
-        entities[entity.id] = { ...entity, person: { ...entity.person, placeId, homeId } };
+      const p = entity.person;
+      const placeId = keep(p.placeId, isPlace);
+      const homeId = keep(p.homeId, isPlace);
+      const speciesId = keep(p.speciesId, isKind('species'));
+      const workplaceId = keep(p.workplaceId, isKind('place', 'faction'));
+      if (
+        placeId !== p.placeId ||
+        homeId !== p.homeId ||
+        speciesId !== p.speciesId ||
+        workplaceId !== p.workplaceId
+      )
+        entities[entity.id] = {
+          ...entity,
+          person: { ...p, placeId, homeId, speciesId, workplaceId },
+        };
+    } else if (entity.kind === 'place') {
+      const climateId = keep(entity.place.climateId, (cid) => !!cid && cid in input.climates);
+      if (climateId !== entity.place.climateId)
+        entities[entity.id] = { ...entity, place: { ...entity.place, climateId } };
+    } else if (entity.kind === 'family') {
+      const seatId = keep(entity.family.seatId, isPlace);
+      if (seatId !== entity.family.seatId)
+        entities[entity.id] = { ...entity, family: { ...entity.family, seatId } };
+    } else if (entity.kind === 'language') {
+      const scriptId = keep(entity.language.scriptId, isKind('script'));
+      if (scriptId !== entity.language.scriptId)
+        entities[entity.id] = { ...entity, language: { ...entity.language, scriptId } };
     } else if (entity.kind === 'faction') {
       const seatId = keep(entity.faction.seatId, isPlace);
       if (seatId !== entity.faction.seatId)
@@ -91,8 +119,56 @@ export function repairReferences(input: CampaignData): RepairResult {
   );
   const timers = Object.fromEntries(
     Object.entries(input.timers).map(([id, t]) => {
+      const before = repaired;
       const refs = keepAll(t.refs);
-      return [id, refs.length === t.refs.length ? t : { ...t, refs }];
+      const participants = keepAll(t.participants);
+      const casterId = keep(t.casterId);
+      return [id, repaired === before ? t : { ...t, refs, participants, casterId }];
+    }),
+  );
+
+  // Wege ohne beide Endpunkte sagen nichts mehr aus.
+  const paths = Object.fromEntries(
+    Object.entries(input.paths).filter(([, p]) => {
+      const ok = isPlace(p.fromId) && isPlace(p.toId) && p.fromId !== p.toId;
+      if (!ok) repaired++;
+      return ok;
+    }),
+  );
+  const maps = Object.fromEntries(
+    Object.entries(input.maps).map(([id, m]) => {
+      const before = repaired;
+      const placeId = keep(m.placeId, isPlace);
+      const markers = m.markers.map((marker) => {
+        const entityId = keep(marker.entityId);
+        return entityId === marker.entityId ? marker : { ...marker, entityId };
+      });
+      return [id, repaired === before ? m : { ...m, placeId, markers }];
+    }),
+  );
+  const journeys = Object.fromEntries(
+    Object.entries(input.journeys).map(([id, j]) => {
+      const before = repaired;
+      const startId = keep(j.startId, isPlace);
+      const participants = keepAll(j.participants);
+      const legs = j.legs.map((leg) => {
+        const pathId = keep(leg.pathId, (pid) => !!pid && pid in paths);
+        const toId = keep(leg.toId, isPlace);
+        return pathId === leg.pathId && toId === leg.toId ? leg : { ...leg, pathId, toId };
+      });
+      return [id, repaired === before ? j : { ...j, startId, participants, legs }];
+    }),
+  );
+  const rests = Object.fromEntries(
+    Object.entries(input.rests).map(([id, r]) => {
+      const before = repaired;
+      const participants = keepAll(r.participants);
+      const placeId = keep(r.placeId, isPlace);
+      const watches = r.watches.map((w) => {
+        const characterIds = keepAll(w.characterIds);
+        return characterIds.length === w.characterIds.length ? w : { ...w, characterIds };
+      });
+      return [id, repaired === before ? r : { ...r, participants, placeId, watches }];
     }),
   );
 
@@ -126,5 +202,20 @@ export function repairReferences(input: CampaignData): RepairResult {
       : { ...input.state, placeId, sessionId };
 
   if (repaired === 0) return { data: input, repaired };
-  return { data: { ...input, state, entities, relations, chronicle, events, timers }, repaired };
+  return {
+    data: {
+      ...input,
+      state,
+      entities,
+      relations,
+      chronicle,
+      events,
+      timers,
+      paths,
+      maps,
+      journeys,
+      rests,
+    },
+    repaired,
+  };
 }

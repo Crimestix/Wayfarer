@@ -13,6 +13,7 @@ import {
   COLLECTION_SCHEMAS,
   CampaignMetaSchema,
   PlayStateSchema,
+  emptyCollections,
   nowIso,
   type CampaignData,
   type CampaignMeta,
@@ -79,16 +80,7 @@ export class CampaignDb {
     const campaign = CampaignMetaSchema.parse(JSON.parse(campaignRaw));
     const stateRaw = byPath.get(STATE_PATH);
     const state = PlayStateSchema.parse(stateRaw ? JSON.parse(stateRaw) : { id: 'state', now: 0 });
-    const data: CampaignData = {
-      campaign,
-      state,
-      entities: {},
-      relations: {},
-      chronicle: {},
-      events: {},
-      sessions: {},
-      timers: {},
-    };
+    const data: CampaignData = { campaign, state, ...emptyCollections() };
     const db = new CampaignDb(store, data);
     const next = { ...data } as Record<string, unknown>;
     for (const name of COLLECTION_NAMES) next[name] = {};

@@ -6,7 +6,8 @@ export interface RelationType {
   label: string;
   /** Aus Sicht von `to`: „wird gedient von“ … */
   inverse: string;
-  group: 'Bindung' | 'Konflikt' | 'Rangordnung' | 'Ort und Besitz' | 'Sonstiges';
+  group:
+    'Bindung' | 'Konflikt' | 'Rangordnung' | 'Ort und Besitz' | 'Wissen und Können' | 'Sonstiges';
 }
 
 export const RELATION_TYPES: RelationType[] = [
@@ -38,6 +39,14 @@ export const RELATION_TYPES: RelationType[] = [
     group: 'Ort und Besitz',
   },
   { key: 'owns', label: 'besitzt', inverse: 'gehört', group: 'Ort und Besitz' },
+  { key: 'speaks', label: 'spricht', inverse: 'wird gesprochen von', group: 'Wissen und Können' },
+  { key: 'writes', label: 'schreibt', inverse: 'wird geschrieben von', group: 'Wissen und Können' },
+  {
+    key: 'has-ability',
+    label: 'verfügt über',
+    inverse: 'ist eine Fähigkeit von',
+    group: 'Wissen und Können',
+  },
   { key: 'custom', label: 'eigene Bezeichnung', inverse: 'eigene Bezeichnung', group: 'Sonstiges' },
 ];
 

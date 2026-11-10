@@ -1,7 +1,22 @@
 /** Bausteine, die Einträge der Weltdatenbank darstellen und auswählen. */
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'wouter';
-import { Gem, MapPin, Plus, ScrollText, Shield, Swords, User, Users, X } from 'lucide-react';
+import {
+  Castle,
+  Dna,
+  Feather,
+  Flame,
+  Gem,
+  Languages,
+  MapPin,
+  Plus,
+  ScrollText,
+  Shield,
+  Swords,
+  User,
+  Users,
+  X,
+} from 'lucide-react';
 import { useData } from '../data/hooks';
 import { KIND_LABEL, placePath, searchEntities } from '../domain/derive';
 import { ATTITUDES, attitudeLevel, RULES_ATTITUDE_LABEL } from '../domain/relations';
@@ -15,6 +30,11 @@ const KIND_ICONS: Record<EntityKind, typeof User> = {
   character: Swords,
   item: Gem,
   topic: ScrollText,
+  family: Castle,
+  species: Dna,
+  language: Languages,
+  script: Feather,
+  ability: Flame,
 };
 
 export function KindIcon({ kind, size }: { kind: EntityKind; size?: number }) {

@@ -37,6 +37,11 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   character: 'Gefährte',
   item: 'Gegenstand',
   topic: 'Thema',
+  family: 'Familie',
+  species: 'Spezies',
+  language: 'Sprache',
+  script: 'Schrift',
+  ability: 'Fähigkeit',
 };
 
 export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
@@ -46,6 +51,11 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   character: 'Gefährten',
   item: 'Gegenstände',
   topic: 'Themen',
+  family: 'Familien',
+  species: 'Spezies',
+  language: 'Sprachen',
+  script: 'Schriften',
+  ability: 'Fähigkeiten',
 };
 
 const collator = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
@@ -457,6 +467,12 @@ export function overdueEvents(data: CampaignData): CalendarEvent[] {
 }
 
 // ── Timer ──────────────────────────────────────────────────────────────────
+
+export const TIMER_KIND_LABEL: Record<Timer['kind'], string> = {
+  effect: 'Wirkung',
+  task: 'Tätigkeit',
+  spell: 'Zauber',
+};
 
 export function runningTimers(data: CampaignData): Timer[] {
   return Object.values(data.timers)

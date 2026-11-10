@@ -59,6 +59,15 @@ const FOLDER_LABEL: Record<string, string> = {
   events: 'Termin',
   sessions: 'Session',
   timers: 'Timer',
+  maps: 'Karte',
+  paths: 'Weg',
+  journeys: 'Reise',
+  mounts: 'Reittier oder Fahrzeug',
+  climates: 'Klimazone',
+  weather: 'Tageswetter',
+  areas: 'Erkundungsgebiet',
+  tables: 'Tabelle',
+  rests: 'Rast',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */
