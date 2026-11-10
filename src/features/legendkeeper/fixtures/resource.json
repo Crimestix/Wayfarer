@@ -1,0 +1,48 @@
+{
+  "id": "dornhafn",
+  "name": "Dornhafen",
+  "tags": ["Stadt", "Hafen"],
+  "aliases": ["Die Dornenstadt"],
+  "iconGlyph": "fas fa-anchor",
+  "iconColor": "#C9A35B",
+  "parentId": "nebelkst",
+  "rank": "a0",
+  "pos": "a",
+  "isHidden": false,
+  "isLocked": false,
+  "showPropertyBar": true,
+  "banner": { "enabled": true, "url": "https://assets.legendkeeper.com/beispiel-banner-dornhafen.webp", "yPosition": 42 },
+  "permissions": { "cbeispielnutzer00000000001": 5 },
+  "createdAt": "2024-04-11T09:00:00.000Z",
+  "updatedAt": "2026-11-02T21:05:00.000Z",
+  "iconShape": "shield",
+  "iconSize": "medium",
+  "documents": [
+    { "id": "mapdorn1", "name": "Stadtplan", "type": "map", "rank": "a3", "isHidden": false, "createdAt": "2024-04-11T09:00:00.000Z", "updatedAt": "2026-01-01T09:00:00.000Z" },
+    { "id": "docdorn2", "name": "Geheimnisse", "type": "page", "rank": "a1", "isHidden": true, "createdAt": "2024-04-11T09:00:00.000Z", "updatedAt": "2026-11-02T21:05:00.000Z" },
+    { "id": "docdorn1", "name": "Überblick", "type": "page", "rank": "a0", "isHidden": false, "createdAt": "2024-04-11T09:00:00.000Z", "updatedAt": "2026-11-02T21:05:00.000Z" },
+    { "id": "docdorn3", "name": "Entwurf", "type": "blank", "rank": "a2", "isHidden": false, "createdAt": "2025-02-01T09:00:00.000Z", "updatedAt": "2025-02-01T09:00:00.000Z" },
+    { "id": "timdorn1", "name": "Stadtgeschichte", "type": "time", "rank": "a4", "isHidden": false, "createdAt": "2025-02-01T09:00:00.000Z", "updatedAt": "2025-02-01T09:00:00.000Z" }
+  ],
+  "properties": [
+    { "id": "propbild", "rank": "a0", "title": "Image", "isTitleHidden": true, "kind": "image", "url": "https://assets.legendkeeper.com/beispiel-wappen-dornhafen.webp" },
+    { "id": "propleer", "rank": "a1", "title": "Image", "isTitleHidden": true, "kind": "image", "url": "" },
+    {
+      "id": "propkurz",
+      "rank": "a2",
+      "title": "Am Tisch",
+      "isTitleHidden": false,
+      "kind": "textField",
+      "children": [
+        { "kind": "paragraph", "content": [{ "text": "Nasse Gassen, Teergeruch, überall das Knarren von Tauen. Die Wache trägt Grau und nimmt Münzen lieber als Fragen." }] }
+      ]
+    },
+    { "id": "propsieh", "rank": "a3", "title": "Siehe auch", "kind": "resourceLink", "items": [{ "id": "linkrabe", "rank": "a0", "resourceId": "salzrabe" }, { "id": "linkdusk", "rank": "a1", "resourceId": "hausdusk" }, { "id": "linkfort", "rank": "a2", "resourceId": "geloesch" }] },
+    { "id": "propstim", "rank": "a4", "title": "Stimmung", "isTitleHidden": false, "kind": "unsupported" },
+    { "id": "propstm2", "rank": "a5", "title": "Wetter", "isTitleHidden": false, "kind": "unsupported" }
+  ],
+  "ancestors": [
+    { "id": "weltelar", "name": "Elaris" },
+    { "id": "nebelkst", "name": "Nebelküste" }
+  ]
+}

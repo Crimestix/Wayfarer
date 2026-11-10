@@ -1,0 +1,149 @@
+{
+  "id": "docdorn1",
+  "version": "v-beispiel-0001",
+  "schema": 1,
+  "text": "…",
+  "blocks": [
+    {
+      "kind": "infobox",
+      "layout": "wrapRight",
+      "width": 40,
+      "rows": [
+        { "id": "ibbild01", "rank": "a0", "title": "Image", "isTitleHidden": true, "kind": "image", "url": "https://assets.legendkeeper.com/beispiel-hafen-dornhafen.webp" },
+        {
+          "id": "ibfakten",
+          "rank": "a1",
+          "title": "Stats",
+          "isTitleHidden": true,
+          "kind": "keyValue",
+          "rows": [
+            { "id": "kvrow001", "rank": "a0", "key": "Einwohner", "content": [{ "text": "etwa 12 000" }], "text": "etwa 12 000" },
+            { "id": "kvrow002", "rank": "a1", "key": "Herrschaft", "content": [{ "mention": { "resourceId": "hausdusk", "name": "Haus Duskryn" } }], "text": "Haus Duskryn" },
+            { "id": "kvrow003", "rank": "a2", "key": "Wache", "content": [{ "text": "Hafenwache unter " }, { "mention": { "resourceId": "persvoss", "name": "Voss", "text": "Hauptmann Voss" } }], "text": "Hafenwache unter Hauptmann Voss" },
+            { "id": "kvrow004", "rank": "a3", "key": "Handel", "content": [{ "text": "Salz, Tran, Bernstein" }, { "break": true }, { "text": "Schmuggel aus dem Moor", "italic": true }], "text": "Salz, Tran, Bernstein Schmuggel aus dem Moor" },
+            { "id": "kvrow005", "rank": "a4", "key": "Leer", "content": [], "text": "" }
+          ]
+        },
+        {
+          "id": "ibtext01",
+          "rank": "a2",
+          "title": "Wahlspruch",
+          "isTitleHidden": false,
+          "kind": "textField",
+          "children": [{ "kind": "paragraph", "content": [{ "text": "„Wer anlegt, zahlt.“", "italic": true }] }]
+        }
+      ]
+    },
+    { "kind": "heading", "level": 1, "content": [{ "text": "Dornhafen" }] },
+    {
+      "kind": "paragraph",
+      "content": [
+        { "text": "Dornhafen", "bold": true },
+        { "text": " ist der einzige Tiefwasserhafen der " },
+        { "mention": { "resourceId": "nebelkst", "name": "Nebelküste" } },
+        { "text": ". Die Stadt lebt vom Zoll, vom Tran und von allem, was nachts über das " },
+        { "mention": { "resourceId": "kraehenm", "name": "Krähenmoor", "text": "Moor" } },
+        { "text": " kommt. Wer hier etwas gelten will, steht auf der Lohnliste des " },
+        { "text": "Hauses Duskryn", "link": "https://www.legendkeeper.com/p/cbeispielprojekt000000001/hausdusk" },
+        { "text": " – oder gegen sie." }
+      ]
+    },
+    { "kind": "paragraph", "content": [] },
+    { "kind": "quote", "children": [{ "kind": "paragraph", "content": [{ "text": "In Dornhafen gibt es zwei Gezeiten: die des Meeres und die der Schulden." }, { "break": true }, { "text": "— Hafensprichwort", "italic": true }] }] },
+    { "kind": "heading", "level": 2, "content": [{ "text": "Viertel" }] },
+    {
+      "kind": "bulletList",
+      "children": [
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Kai der Lotsen", "bold": true }, { "text": " – Speicher, Seilerbahnen, die Halle der Bruderschaft." }] }] },
+        {
+          "kind": "listItem",
+          "children": [
+            { "kind": "paragraph", "content": [{ "text": "Oberstadt", "bold": true }, { "text": " – Kontore und Stadthäuser." }] },
+            {
+              "kind": "bulletList",
+              "children": [
+                { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "mention": { "resourceId": "kontordk", "name": "Kontor der Duskryn" } }] }] },
+                { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Zollhaus mit dem Glockenturm" }] }] }
+              ]
+            }
+          ]
+        },
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Dornengasse", "bold": true }, { "text": " – Schenken, Pfandleiher und die " }, { "mention": { "resourceId": "salzrabe", "name": "Taverne zum Salzigen Raben" } }, { "text": "." }] }] },
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [] }] }
+      ]
+    },
+    { "kind": "heading", "level": 2, "content": [{ "text": "Was jeder weiß" }] },
+    {
+      "kind": "orderedList",
+      "start": 1,
+      "children": [
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Ohne Lotsen läuft kein Schiff ein." }] }] },
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Nach der dritten Glocke gehört der Kai der Wache." }] }] },
+        { "kind": "listItem", "children": [{ "kind": "paragraph", "content": [{ "text": "Schulden bei den Duskryn verjähren nicht." }] }] }
+      ]
+    },
+    {
+      "kind": "callout",
+      "tone": "warning",
+      "icon": "fas fa-exclamation-triangle",
+      "children": [{ "kind": "paragraph", "content": [{ "text": "Seit dem Winter verschwinden Leute aus der Dornengasse.", "bold": true }, { "text": " Die Wache schreibt es dem Moor zu." }] }]
+    },
+    { "kind": "heading", "level": 2, "content": [{ "text": "Preise und Abgaben" }] },
+    {
+      "kind": "table",
+      "children": [
+        {
+          "kind": "tableRow",
+          "children": [
+            { "kind": "tableCell", "header": true, "children": [{ "kind": "paragraph", "content": [{ "text": "Leistung" }] }] },
+            { "kind": "tableCell", "header": true, "children": [{ "kind": "paragraph", "content": [{ "text": "Preis" }] }] },
+            { "kind": "tableCell", "header": true, "children": [{ "kind": "paragraph", "content": [{ "text": "Anmerkung" }] }] }
+          ]
+        },
+        {
+          "kind": "tableRow",
+          "children": [
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "Liegeplatz je Tag" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "2 Silber" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "doppelt für fremde Flaggen" }] }] }
+          ]
+        },
+        {
+          "kind": "tableRow",
+          "children": [
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "Lotse durch die Sandbänke" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "5 Silber" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [] }] }
+          ]
+        },
+        {
+          "kind": "tableRow",
+          "children": [
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "Zimmer im Salzigen Raben" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "8 Kupfer" }] }] },
+            { "kind": "tableCell", "children": [{ "kind": "paragraph", "content": [{ "text": "mit Frühstück, ohne Fragen" }] }] }
+          ]
+        }
+      ]
+    },
+    { "kind": "rule" },
+    { "kind": "heading", "level": 2, "content": [{ "text": "Für die Spielleitung" }] },
+    {
+      "kind": "secret",
+      "layout": "default",
+      "children": [
+        { "kind": "paragraph", "content": [{ "text": "Der Zollmeister führt ein zweites Buch. Es liegt unter den Dielen des Glockenturms." }] },
+        { "kind": "taskList", "children": [{ "kind": "taskItem", "checked": true, "content": [{ "text": "Die Gruppe kennt das Gerücht" }] }, { "kind": "taskItem", "checked": false, "content": [{ "text": "Die Gruppe hat das Buch gefunden" }] }] }
+      ]
+    },
+    { "kind": "expand", "title": "Zufallsbegegnungen am Kai", "children": [{ "kind": "paragraph", "content": [{ "text": "Ein betrunkener Lotse, der behauptet, die Sandbänke hätten sich über Nacht bewegt." }] }] },
+    { "kind": "image", "title": "Der Kai bei Ebbe", "isTitleHidden": false, "url": "https://assets.legendkeeper.com/beispiel-kai-bei-ebbe.webp", "alt": "Kai" },
+    { "kind": "code", "text": "Zollsiegel: drei Dornen über einer Welle" },
+    { "kind": "embed", "provider": "youtube", "url": "https://www.youtube.com/watch?v=beispiel", "title": "Hafenklänge", "isTitleHidden": false },
+    { "kind": "map", "resourceId": "dornhafn", "documentId": "mapdorn1", "title": "Map", "isTitleHidden": true },
+    { "kind": "unsupported" },
+    { "kind": "unsupported" },
+    { "kind": "sternkarte", "title": "Sternbild über dem Hafen", "children": [{ "kind": "paragraph", "content": [{ "text": "Der Anker steht im Herbst über der Mole." }] }] },
+    { "kind": "klangteppich", "volume": 3 }
+  ]
+}

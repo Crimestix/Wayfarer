@@ -1,23 +1,33 @@
-/** „Anstehend“: Überfälliges, kommende Termine, Fristen von Abmachungen und laufende Wirkungen. */
-import { useMemo } from 'react';
+/** „Anstehend“: Überfälliges, laufende und kommende Termine, offene Abmachungen, Wirkungen. */
+import { Fragment, useMemo } from 'react';
 import { Link } from 'wouter';
-import { CalendarDays, Check, Flag, Handshake, Hourglass, Milestone } from 'lucide-react';
+import {
+  CalendarDays,
+  Check,
+  Flag,
+  Handshake,
+  Hourglass,
+  Milestone,
+  Repeat,
+  type LucideIcon,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { openQuickLog } from '../../shell/commands';
 import { Button, EntityLinks, Panel, toast } from '../../ui';
 import { settleAgendaItem } from './commands';
-import { buildAgenda, type AgendaItem } from './model';
+import { buildAgenda, type AgendaItem, type AgendaMark } from './model';
 
 /** So viele Tage voraus zeigt der Spieltisch Termine. */
 const DAYS_AHEAD = 7;
 
-function icon(item: AgendaItem) {
-  if (item.source === 'timer') return <Hourglass />;
-  if (item.source === 'promise') return <Handshake />;
-  if (item.label === 'Frist') return <Flag />;
-  if (item.label === 'Vorhaben') return <Milestone />;
-  return <CalendarDays />;
-}
+const MARKS: Record<AgendaMark, LucideIcon> = {
+  deadline: Flag,
+  plan: Milestone,
+  world: CalendarDays,
+  promise: Handshake,
+  effect: Hourglass,
+  task: Hourglass,
+};
 
 function AgendaRow({ item }: { item: AgendaItem }) {
   const db = useDb();
@@ -32,10 +42,11 @@ function AgendaRow({ item }: { item: AgendaItem }) {
       action: { label: 'Rückgängig', run: () => settleAgendaItem(db, item, false) },
     });
   };
+  const Mark = MARKS[item.mark];
   return (
     <div className="wf-tisch-due" data-tone={item.tone}>
       <span className="wf-tisch-due__mark" title={item.label}>
-        {icon(item)}
+        <Mark />
       </span>
       <div className="wf-tisch-due__main">
         <div className="wf-tisch-due__title wf-clamp-2" title={item.title}>
@@ -45,7 +56,12 @@ function AgendaRow({ item }: { item: AgendaItem }) {
           <span className="wf-tisch-due__when" title={item.date}>
             {item.when}
           </span>
-          <span>{item.label}</span>
+          <span>
+            {item.label}
+            {item.repeats && (
+              <Repeat className="wf-tisch-due__repeat" aria-label="kehrt regelmäßig wieder" />
+            )}
+          </span>
           {links.length > 0 && (
             <span className="wf-tisch-due__links">
               <EntityLinks ids={links} />
@@ -97,7 +113,7 @@ export function AgendaPanel() {
         <div className="wf-tisch-agenda__empty">
           <p className="wf-tisch-hint">
             In den nächsten {DAYS_AHEAD} Tagen steht nichts an. Hier erscheinen Termine, Fristen,
-            Abmachungen mit Frist und laufende Wirkungen.
+            offene Abmachungen und laufende Wirkungen.
           </p>
           <div className="wf-row-wrap">
             <Link href="/kalender" className="wf-btn wf-btn--sm">
@@ -114,7 +130,14 @@ export function AgendaPanel() {
           </div>
         </div>
       ) : (
-        items.map((item) => <AgendaRow key={item.key} item={item} />)
+        items.map((item, i) => (
+          <Fragment key={item.key}>
+            {item.undated && !items[i - 1]?.undated && (
+              <div className="wf-tisch-subtitle wf-tisch-agenda__open">Offen, ohne Frist</div>
+            )}
+            <AgendaRow item={item} />
+          </Fragment>
+        ))
       )}
     </Panel>
   );

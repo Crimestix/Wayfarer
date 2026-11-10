@@ -712,3 +712,11 @@ textarea.wf-chronik-summary {
     gap: var(--s-4);
   }
 }
+
+/* Symbole in Knöpfen eines leeren Zustands behalten ihre Knopfgröße. */
+.wf-chronik .wf-empty .wf-btn svg {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  stroke-width: 1.6;
+}

@@ -3,7 +3,7 @@ import { Router } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { CampaignDb, CampaignMissingError } from './data/db';
 import { DbContext } from './data/hooks';
-import { FolderStore, getConfig, isDesktopApp } from './data/platform';
+import { FolderStore, getConfig, isDesktopApp, onAppClosing } from './data/platform';
 import { demoCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
 import { AppShell } from './shell/AppShell';
@@ -63,7 +63,13 @@ export function App() {
     const flush = () => void db.flush();
     window.addEventListener('beforeunload', flush);
     window.addEventListener('blur', flush);
+    // Installierte App: Das Fenster schließt erst, wenn alles geschrieben ist.
+    const offClosing = onAppClosing(async () => {
+      await db.flush();
+      return !db.hasUnsavedChanges();
+    });
     return () => {
+      offClosing();
       window.removeEventListener('beforeunload', flush);
       window.removeEventListener('blur', flush);
       db.close();

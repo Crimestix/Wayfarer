@@ -43,12 +43,21 @@ pub fn check_root(root: &str) -> Result<PathBuf, String> {
     if root.trim().is_empty() || !given.is_absolute() {
         return Err("Der Kampagnenordner muss als vollständiger Pfad angegeben sein.".into());
     }
-    // dunce liefert unter Windows gewöhnliche Pfade (C:\…) statt der \\?\-Schreibweise.
-    let real = dunce::canonicalize(given).map_err(|_| unreachable_root(root))?;
-    if !real.is_dir() {
+    if !given.is_dir() {
         return Err(unreachable_root(root));
     }
-    Ok(real)
+    // dunce liefert unter Windows gewöhnliche Pfade (C:\…) statt der \\?\-Schreibweise.
+    // Manche virtuellen Laufwerke (eingebundene Cloud-Laufwerke, RAM-Disks) können ihren
+    // „echten“ Pfad nicht nennen, obwohl der Ordner da ist – dann gilt der Pfad, wie angegeben.
+    Ok(dunce::canonicalize(given).unwrap_or_else(|_| lexically_clean(given)))
+}
+
+/// Der angegebene Pfad ohne „.“-Teile – für Laufwerke, die keinen echten Pfad liefern.
+/// „..“ bleibt stehen: Das Betriebssystem löst es beim Zugriff selbst auf.
+fn lexically_clean(path: &Path) -> PathBuf {
+    path.components()
+        .filter(|part| !matches!(part, std::path::Component::CurDir))
+        .collect()
 }
 
 fn unreachable_root(root: &str) -> String {
@@ -459,6 +468,21 @@ mod tests {
         let file = dir.path().join("datei.json");
         fs::write(&file, "{}").unwrap();
         assert!(check_root(file.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn a_root_without_a_real_path_is_used_as_given() {
+        let path = if cfg!(windows) {
+            "G:\\Meine Ablage\\.\\Elaris"
+        } else {
+            "/Volumes/Cloud/./Elaris/."
+        };
+        let expected = if cfg!(windows) {
+            "G:\\Meine Ablage\\Elaris"
+        } else {
+            "/Volumes/Cloud/Elaris"
+        };
+        assert_eq!(lexically_clean(Path::new(path)), Path::new(expected));
     }
 
     #[test]

@@ -5,19 +5,22 @@
 mod config;
 mod legendkeeper;
 mod links;
+mod menu;
 mod store;
 mod watch;
+mod window;
 
 use serde::Serialize;
 use serde_json::Value;
 use tauri::webview::NewWindowResponse;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 use config::AppConfig;
 use legendkeeper::{LegendKeeper, LkResponse, LkStatus};
 use links::LinkTarget;
 use store::StoredFile;
 use watch::WatchState;
+use window::{CloseAnswer, Closing, MAIN_WINDOW};
 
 /// Führt Dateiarbeit abseits der Oberfläche aus, damit ein träges Cloud-Laufwerk nichts blockiert.
 async fn blocking<T: Send + 'static>(
@@ -132,22 +135,48 @@ async fn lk_get<R: Runtime>(
     app.state::<LegendKeeper>().get(&key, &path, query.as_ref()).await
 }
 
-/// Öffnet das Hauptfenster, wie es in `tauri.conf.json` beschrieben ist, und legt fest, wohin
-/// Links führen: Die App bleibt im Fenster, Webadressen gehen an den Browser des Systems.
+// ── Fenster ──────────────────────────────────────────────────────────────────
+
+/// Antwort der Oberfläche auf das Ereignis „close-requested“: erst „saving“, dann „saved“
+/// oder „unsaved“ (siehe `window.rs`).
+#[tauri::command]
+fn app_close<R: Runtime>(window: WebviewWindow<R>, state: CloseAnswer) {
+    window::answer(&window, state);
+}
+
+/// Öffnet das Hauptfenster, wie es in `tauri.conf.json` beschrieben ist – in der Größe vom
+/// letzten Mal –, und legt fest, wohin Links führen: Die App bleibt im Fenster, Webadressen
+/// gehen an den Browser des Systems.
 fn open_main_window<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
     let config = app.config();
     let window = config
         .app
         .windows
-        .first()
+        .iter()
+        .find(|window| window.label == MAIN_WINDOW)
         .expect("tauri.conf.json beschreibt das Hauptfenster");
+    let remembered = config_dir(app.handle())
+        .ok()
+        .and_then(|dir| window::load_state(&dir));
+    let (width, height) = window::opening_size(
+        remembered,
+        (window.width, window.height),
+        (window.min_width.unwrap_or(0.0), window.min_height.unwrap_or(0.0)),
+        window::usable_screen(app.handle()),
+    );
     let dev_origin = if cfg!(dev) {
         config.build.dev_url.clone()
     } else {
         None
     };
     let dev_origin_for_new_windows = dev_origin.clone();
-    WebviewWindowBuilder::from_config(app, window)?
+    let mut builder = WebviewWindowBuilder::from_config(app, window)?
+        .inner_size(width, height)
+        .maximized(remembered.is_some_and(|state| state.maximized));
+    if !cfg!(debug_assertions) {
+        builder = builder.initialization_script(window::DESKTOP_MANNERS);
+    }
+    builder
         .on_navigation(move |url| match links::link_target(url, dev_origin.as_ref()) {
             LinkTarget::App => true,
             LinkTarget::Browser => {
@@ -169,14 +198,33 @@ fn open_main_window<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
 
 /// Meldet Plugins, Zustand und Befehle an – für die echte App ebenso wie für die Tests.
 fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    // Nur macOS hat eine Menüleiste; dort soll sie deutsch sein.
+    let builder = if cfg!(target_os = "macos") {
+        builder.menu(menu::build).on_menu_event(menu::on_event)
+    } else {
+        builder
+    };
     builder
         .setup(|app| {
             open_main_window(app)?;
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Erst speichern lassen, dann schließen.
+                if let Some(main) = window
+                    .get_webview_window(MAIN_WINDOW)
+                    .filter(|_| window.label() == MAIN_WINDOW)
+                {
+                    api.prevent_close();
+                    window::request_close(&main);
+                }
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .manage(WatchState::default())
         .manage(LegendKeeper::default())
+        .manage(Closing::default())
         .invoke_handler(tauri::generate_handler![
             config_get,
             config_set,
@@ -189,6 +237,7 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             lk_set_key,
             lk_clear_key,
             lk_get,
+            app_close,
         ])
 }
 

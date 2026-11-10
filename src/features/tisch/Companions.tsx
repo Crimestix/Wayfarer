@@ -1,5 +1,5 @@
 /** Die Gefährten als schmale Leiste am unteren Rand: Zustand der Gruppe auf einen Blick. */
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link } from 'wouter';
 import { Eye, MapPin, Swords } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -21,6 +21,21 @@ function Mate({ companion }: { companion: Companion }) {
   const c = character.character;
   const apart = elsewhere !== null || astray;
   const whereabouts = elsewhere ? elsewhere.name : 'nicht bei der Gruppe';
+  // Die sechs Marken sind zusammen ein Halt für die Tabulatortaste; Pfeiltasten ändern die Stufe.
+  const focusLevel = Math.max(1, c.exhaustion);
+  const onPipKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step =
+      e.key === 'ArrowRight' || e.key === 'ArrowUp'
+        ? 1
+        : e.key === 'ArrowLeft' || e.key === 'ArrowDown'
+          ? -1
+          : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = Math.min(MAX_EXHAUSTION, Math.max(0, c.exhaustion + step));
+    setExhaustion(db, character.id, next);
+    e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[Math.max(1, next) - 1]?.focus();
+  };
   return (
     <div className={cx('wf-tisch-mate', apart && 'wf-tisch-mate--apart')}>
       {character.image ? (
@@ -51,6 +66,7 @@ function Mate({ companion }: { companion: Companion }) {
             aria-label={`Erschöpfung von ${character.name}: ${c.exhaustion} von ${MAX_EXHAUSTION}`}
             title={exhaustionEffect(c.exhaustion)}
             data-level={c.exhaustion}
+            onKeyDown={onPipKey}
           >
             {LEVELS.map((level) => (
               <button
@@ -59,6 +75,7 @@ function Mate({ companion }: { companion: Companion }) {
                 className="wf-tisch-pip"
                 aria-label={`Erschöpfung ${level}`}
                 aria-pressed={level <= c.exhaustion}
+                tabIndex={level === focusLevel ? 0 : -1}
                 onClick={() =>
                   setExhaustion(db, character.id, exhaustionAfterClick(c.exhaustion, level))
                 }

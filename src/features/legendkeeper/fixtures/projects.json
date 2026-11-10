@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "id": "cbeispielprojekt000000001",
+      "name": "Elaris (Beispielwelt)",
+      "isPublic": false,
+      "createdAt": "2024-03-02T10:00:00.000Z",
+      "coverImageUrl": null,
+      "coverGradient": null,
+      "lastActivityAt": "2026-11-08T19:12:44.000Z"
+    }
+  ],
+  "hasMore": false,
+  "nextCursor": null
+}

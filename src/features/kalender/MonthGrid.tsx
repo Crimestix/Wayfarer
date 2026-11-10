@@ -7,20 +7,27 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
+  type MouseEvent,
 } from 'react';
 import { Feather, Footprints, Repeat } from 'lucide-react';
 import { entityName } from '../../domain/derive';
-import type { CampaignData } from '../../domain/schema';
+import type { CalendarEvent, CampaignData } from '../../domain/schema';
 import { dayIndexOf, formatClock, formatDate, weekdayOfDay } from '../../domain/time/calendar';
 import { MoonGlyph, Panel, cx } from '../../ui';
 import {
+  EVENT_DONE_LABEL,
+  EVENT_KIND_LABEL,
   chronicleMarks,
+  describeRepeat,
   layoutWeek,
   moonEventsBetween,
   spanState,
+  spansOnDay,
   type DayCell,
   type DaySpan,
   type MonthGrid as MonthGridModel,
+  type SpanState,
+  type WeekSegment,
 } from './model';
 
 const TOP_HEIGHT = 27;
@@ -34,6 +41,8 @@ export interface MonthGridProps {
   onSelect: (dayIndex: number) => void;
   /** Doppelklick oder Eingabetaste: neuer Termin an diesem Tag. */
   onCreate: (dayIndex: number) => void;
+  /** Doppelklick auf einen Terminbalken: diesen Termin bearbeiten. */
+  onEdit: (event: CalendarEvent) => void;
   /** Blättern mit Bild auf / Bild ab. */
   onShiftMonth: (offset: number) => void;
 }
@@ -45,6 +54,7 @@ export function MonthGrid({
   selected,
   onSelect,
   onCreate,
+  onEdit,
   onShiftMonth,
 }: MonthGridProps) {
   const cal = data.campaign.calendar;
@@ -111,6 +121,28 @@ export function MonthGrid({
     }
   };
 
+  /** Der Tag unter dem Mauszeiger – ein Balken kann über mehrere Tage laufen. */
+  const dayUnderPointer = (e: MouseEvent<HTMLElement>, weekStart: number, seg: WeekSegment) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const part = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
+    return weekStart + seg.col + Math.min(seg.length - 1, Math.max(0, Math.floor(part * seg.length)));
+  };
+  /** Kurzinfo eines Balkens: voller Titel, Art, Stand, Zeit und Ort. */
+  const barTitle = (span: DaySpan, state: SpanState) => {
+    const { event } = span;
+    const length = span.endDay - span.startDay + 1;
+    const facts = [
+      EVENT_KIND_LABEL[event.kind],
+      state === 'done' ? EVENT_DONE_LABEL[event.kind].toLowerCase() : '',
+      state === 'overdue' ? 'überfällig' : '',
+      event.timed ? `${formatClock(span.at)} Uhr` : '',
+      length > 1 ? `${length} Tage` : '',
+      event.repeat ? describeRepeat(event.repeat) : '',
+      event.placeId ? entityName(data, event.placeId) : '',
+    ].filter(Boolean);
+    return `${event.title}\n${facts.join(' · ')}\nDoppelklick öffnet den Termin.`;
+  };
+
   const selectedInGrid = selected >= grid.firstDay && selected <= grid.lastDay;
   const todayColumn =
     today >= grid.firstDay && today <= grid.lastDay ? weekdayOfDay(cal, today) : -1;
@@ -142,9 +174,7 @@ export function MonthGrid({
               const moonEvents = moons.get(cell.dayIndex) ?? [];
               const majors = moonEvents.filter((m) => m.quarter % 2 === 0).length;
               const isSelected = cell.dayIndex === selected;
-              const count = spans.filter(
-                (s) => s.startDay <= cell.dayIndex && s.endDay >= cell.dayIndex,
-              ).length;
+              const count = spansOnDay(spans, cell.dayIndex).length;
               return (
                 <div
                   key={col}
@@ -234,6 +264,7 @@ export function MonthGrid({
             {layouts[row]!.segments.map((seg) => {
               const { event } = seg.span;
               const state = spanState(seg.span, now);
+              const weekStart = grid.firstDay + row * width;
               return (
                 <div
                   key={event.id + seg.span.at}
@@ -243,11 +274,15 @@ export function MonthGrid({
                     state !== 'open' && `wf-kal-bar--${state}`,
                     seg.continuesBefore && 'wf-kal-bar--from-before',
                     seg.continuesAfter && 'wf-kal-bar--to-after',
+                    seg.tall && 'wf-kal-bar--tall',
                   )}
                   style={{
                     gridColumn: `${seg.col + 1} / span ${seg.length}`,
-                    gridRow: seg.lane + 2,
+                    gridRow: seg.tall ? `${seg.lane + 2} / span 2` : seg.lane + 2,
                   }}
+                  title={barTitle(seg.span, state)}
+                  onClick={(e) => onSelect(dayUnderPointer(e, weekStart, seg))}
+                  onDoubleClick={() => onEdit(event)}
                   aria-hidden="true"
                 >
                   {event.timed && !seg.continuesBefore && (
@@ -265,6 +300,9 @@ export function MonthGrid({
                     key={'more' + col}
                     className="wf-kal-more"
                     style={{ gridColumn: col + 1, gridRow: lanes + 1 }}
+                    title="Alle Termine dieses Tages zeigen"
+                    onClick={() => onSelect(grid.firstDay + row * width + col)}
+                    aria-hidden="true"
                   >
                     + {n} {n === 1 ? 'weiterer' : 'weitere'}
                   </div>

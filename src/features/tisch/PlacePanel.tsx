@@ -1,5 +1,5 @@
 /** Hauptfläche des Spieltischs: der Ort der Gruppe mit allem, was dort eine Rolle spielt. */
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'wouter';
 import {
   BookOpen,
@@ -13,6 +13,7 @@ import {
   Footprints,
   Handshake,
   MapPin,
+  ScrollText,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -29,7 +30,9 @@ import {
   ChronicleList,
   EmptyState,
   IconButton,
+  MenuItem,
   Panel,
+  Popover,
   Portrait,
   SectionTitle,
   cx,
@@ -40,22 +43,40 @@ import { undoMove } from './commands';
 import {
   absenceMinutes,
   castView,
+  changesFresh,
   earlierHere,
   nearbyPlaces,
   stayLabels,
   type CastRow,
+  type Nearby,
 } from './model';
 
-/** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. */
-const CHANGES_SHOWN = 4;
+/** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. In niedrigen Fenstern weniger. */
+const CHANGES_SHOWN = 3;
+const CHANGES_SHOWN_LOW = 2;
 /** Wie viele Einträge früherer Besuche der Spieltisch zeigt; mehr steht im Dossier. */
 const EARLIER_SHOWN = 4;
+/** Ab dieser Länge wird der Ortsname kleiner gesetzt, damit er den Kopf nicht sprengt. */
+const LONG_NAME = 30;
+/** Niedrige Fenster wie 1280 × 800 – dieselbe Grenze wie in tisch.css. */
+const LOW_WINDOW = '(max-height: 860px)';
 
 /**
- * Welcher Aufenthalt gerade eingeklappt ist. Gilt, solange die App läuft, damit die Veränderungen
- * nicht bei jedem Wechsel zwischen den Bereichen wieder aufklappen.
+ * Hat die Spielleitung die Veränderungen eines Aufenthalts von Hand auf- oder zugeklappt, gilt das,
+ * solange die App läuft – auch nach einem Wechsel in einen anderen Bereich und zurück.
  */
-let foldedStay: string | null = null;
+let foldChoice: { stay: string; folded: boolean } | null = null;
+
+function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      const media = window.matchMedia(query);
+      media.addEventListener('change', listener);
+      return () => media.removeEventListener('change', listener);
+    },
+    () => window.matchMedia(query).matches,
+  );
+}
 
 function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
   const { entity } = row;
@@ -158,6 +179,121 @@ function CastGroup({ title, rows, away }: { title?: string; rows: CastRow[]; awa
   );
 }
 
+/**
+ * „Orte hier“: zurück zum Ort darüber, hinein in die Orte darunter. Die Zeile bleibt einzeilig;
+ * was nicht mehr hineinpasst, steht in einer Liste hinter „weitere“.
+ */
+function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }) {
+  const row = useRef<HTMLDivElement>(null);
+  const more = useRef<HTMLButtonElement>(null);
+  const total = nearby.children.length;
+  const [fit, setFit] = useState(total);
+  const [open, setOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => {
+      let count = 0;
+      for (const chip of Array.from(el.children) as HTMLElement[]) {
+        if (chip.offsetLeft + chip.offsetWidth > el.clientWidth + 0.5) break;
+        count++;
+      }
+      setFit(count);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [nearby]);
+
+  const hidden = total - Math.min(fit, total);
+  return (
+    <nav className="wf-tisch-ways" aria-label="Orte hier">
+      <span className="wf-tisch-ways__label">Orte hier</span>
+      {nearby.parent && (
+        <button
+          type="button"
+          className="wf-tisch-way wf-tisch-way--back"
+          onClick={() => onGo(nearby.parent!)}
+          title={`Die Gruppe geht zurück nach ${nearby.parent.name}`}
+        >
+          <CornerLeftUp />
+          <span className="wf-clamp-1">Zurück nach {nearby.parent.name}</span>
+        </button>
+      )}
+      <div className="wf-tisch-ways__row" ref={row}>
+        {nearby.children.map(({ place: child, people }, i) => (
+          <button
+            key={child.id}
+            type="button"
+            className="wf-tisch-way"
+            onClick={() => onGo(child)}
+            // Was nicht mehr in die Zeile passt, bleibt zum Messen da, ist aber weder sicht- noch erreichbar.
+            style={i >= fit ? { visibility: 'hidden' } : undefined}
+            tabIndex={i >= fit ? -1 : undefined}
+            aria-hidden={i >= fit || undefined}
+            title={[`Die Gruppe geht hinein: ${child.name}`, child.place.category, child.tagline]
+              .filter(Boolean)
+              .join('\n')}
+          >
+            <DoorOpen />
+            <span className="wf-clamp-1">{child.name}</span>
+            {people > 0 && (
+              <span className="wf-tisch-way__count" aria-label={`${people} Personen dort`}>
+                <User />
+                {people}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {hidden > 0 && (
+        <>
+          <button
+            ref={more}
+            type="button"
+            className="wf-tisch-way wf-tisch-way--more"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            title="Alle Orte hier zeigen"
+          >
+            {fit === 0 ? `${total} Orte` : `+ ${hidden} weitere`}
+            <ChevronDown />
+          </button>
+          <Popover
+            open={open}
+            onClose={() => setOpen(false)}
+            anchor={more}
+            align="right"
+            width={340}
+            className="wf-tisch-waymenu"
+          >
+            <div className="wf-tisch-suggest__head">Hineingehen</div>
+            {nearby.children.map(({ place: child, people }) => (
+              <MenuItem
+                key={child.id}
+                icon={<DoorOpen />}
+                onClick={() => {
+                  setOpen(false);
+                  onGo(child);
+                }}
+              >
+                {child.name}
+                <span className="wf-mute">
+                  {child.place.category && ` · ${child.place.category}`}
+                  {people > 0 && ` · ${people === 1 ? '1 Person' : `${people} Personen`}`}
+                </span>
+              </MenuItem>
+            ))}
+          </Popover>
+        </>
+      )}
+    </nav>
+  );
+}
+
 export function PlacePanel({ place }: { place: Place }) {
   const db = useDb();
   const data = useData();
@@ -171,17 +307,20 @@ export function PlacePanel({ place }: { place: Place }) {
   const absence = absenceMinutes(status, now);
   const parentPath = place.place.parentId ? placePath(data, place.place.parentId) : '';
 
-  // Aufgeklappt bzw. eingeklappt gilt je Aufenthalt; beim nächsten Besuch ist alles wieder offen.
+  // Frisch angekommen stehen die Veränderungen offen da, nach einem Tag am Ort nur noch als Zeile
+  // zum Aufklappen. Von Hand auf- oder zugeklappt gilt je Aufenthalt.
   const stayKey = `${place.id}:${status.current?.from ?? ''}`;
-  const [folded, setFoldedState] = useState<string | null>(foldedStay);
-  const setFolded = (key: string | null) => {
-    foldedStay = key;
-    setFoldedState(key);
+  const [choice, setChoice] = useState(foldChoice);
+  const folded = choice?.stay === stayKey ? choice.folded : !changesFresh(status, now);
+  const setFolded = (next: boolean) => {
+    foldChoice = { stay: stayKey, folded: next };
+    setChoice(foldChoice);
   };
   const [expanded, setExpanded] = useState<string | null>(null);
   const changes = status.changesSince;
-  const showAll = expanded === stayKey || changes.length <= CHANGES_SHOWN;
-  const shownChanges = showAll ? changes : changes.slice(-CHANGES_SHOWN);
+  const shownAtOnce = useMediaQuery(LOW_WINDOW) ? CHANGES_SHOWN_LOW : CHANGES_SHOWN;
+  const showAll = expanded === stayKey || changes.length <= shownAtOnce;
+  const shownChanges = showAll ? changes : changes.slice(-shownAtOnce);
 
   const go = (target: Place) => {
     const entry = moveParty(db, target.id);
@@ -203,6 +342,8 @@ export function PlacePanel({ place }: { place: Place }) {
   };
 
   const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
+  /** Über den Ort ist noch gar nichts eingetragen. */
+  const bare = cast.total === 0 && !hasAside && changes.length === 0;
 
   return (
     <Panel flush className="wf-tisch-place">
@@ -220,7 +361,15 @@ export function PlacePanel({ place }: { place: Place }) {
               <span className="wf-tisch-hero__category">{place.place.category || 'Ort'}</span>
               {parentPath && <span className="wf-tisch-hero__path wf-clamp-1">{parentPath}</span>}
             </div>
-            <h1 className="wf-tisch-hero__name">{place.name}</h1>
+            <h1
+              className={cx(
+                'wf-tisch-hero__name',
+                place.name.length > LONG_NAME && 'wf-tisch-hero__name--long',
+              )}
+              title={place.name}
+            >
+              {place.name}
+            </h1>
           </div>
           <div className="wf-tisch-hero__actions">
             <Link href={entityHref(place)} className="wf-btn" title="Alles über diesen Ort">
@@ -236,7 +385,11 @@ export function PlacePanel({ place }: { place: Place }) {
             </Button>
           </div>
         </div>
-        {place.tagline && <p className="wf-tisch-hero__tagline">{place.tagline}</p>}
+        {place.tagline && (
+          <p className="wf-tisch-hero__tagline" title={place.tagline}>
+            {place.tagline}
+          </p>
+        )}
         <div className="wf-tisch-hero__status">
           <Badge tone={stay.first ? 'gold' : 'ember'} icon={<Footprints />}>
             {stay.headline}
@@ -246,42 +399,7 @@ export function PlacePanel({ place }: { place: Place }) {
         </div>
       </header>
 
-      {(nearby.parent || nearby.children.length > 0) && (
-        <nav className="wf-tisch-ways" aria-label="Orte hier">
-          <span className="wf-tisch-ways__label">Orte hier</span>
-          {nearby.parent && (
-            <button
-              type="button"
-              className="wf-tisch-way wf-tisch-way--back"
-              onClick={() => go(nearby.parent!)}
-              title={`Die Gruppe geht zurück nach ${nearby.parent.name}`}
-            >
-              <CornerLeftUp />
-              Zurück nach {nearby.parent.name}
-            </button>
-          )}
-          {nearby.children.map(({ place: child, people }) => (
-            <button
-              key={child.id}
-              type="button"
-              className="wf-tisch-way"
-              onClick={() => go(child)}
-              title={[`Die Gruppe geht hinein: ${child.name}`, child.place.category, child.tagline]
-                .filter(Boolean)
-                .join('\n')}
-            >
-              <DoorOpen />
-              {child.name}
-              {people > 0 && (
-                <span className="wf-tisch-way__count" aria-label={`${people} Personen dort`}>
-                  <User />
-                  {people}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-      )}
+      {(nearby.parent || nearby.children.length > 0) && <Ways nearby={nearby} onGo={go} />}
 
       <div className="wf-tisch-place__body">
         {changes.length > 0 && (
@@ -294,15 +412,16 @@ export function PlacePanel({ place }: { place: Place }) {
                 {absence ? `, während ihr ${formatDuration(absence)} fort wart` : ''}
               </span>
               <IconButton
-                label={folded === stayKey ? 'Veränderungen zeigen' : 'Veränderungen einklappen'}
+                label={folded ? 'Veränderungen zeigen' : 'Veränderungen einklappen'}
                 size="sm"
                 variant="ghost"
-                onClick={() => setFolded(folded === stayKey ? null : stayKey)}
+                aria-expanded={!folded}
+                onClick={() => setFolded(!folded)}
               >
-                {folded === stayKey ? <ChevronDown /> : <ChevronUp />}
+                {folded ? <ChevronDown /> : <ChevronUp />}
               </IconButton>
             </header>
-            {folded !== stayKey && (
+            {!folded && (
               <>
                 <ChronicleList entries={shownChanges} showDate hideRefs={[place.id]} />
                 {!showAll && (
@@ -311,9 +430,9 @@ export function PlacePanel({ place }: { place: Place }) {
                     className="wf-tisch-more"
                     onClick={() => setExpanded(stayKey)}
                   >
-                    {changes.length - CHANGES_SHOWN === 1
+                    {changes.length - shownAtOnce === 1
                       ? '1 ältere Veränderung zeigen'
-                      : `${changes.length - CHANGES_SHOWN} ältere Veränderungen zeigen`}
+                      : `${changes.length - shownAtOnce} ältere Veränderungen zeigen`}
                   </button>
                 )}
               </>
@@ -321,75 +440,95 @@ export function PlacePanel({ place }: { place: Place }) {
           </section>
         )}
 
-        <div className={cx('wf-tisch-cols', hasAside && 'wf-tisch-cols--split')}>
-          <section className="wf-col" aria-label="Wer hier ist">
-            <SectionTitle>
-              Wer hier ist
-              {cast.present.length > 0 && (
-                <span className="wf-tisch-count">{cast.present.length}</span>
-              )}
-            </SectionTitle>
-            {cast.total === 0 ? (
-              <p className="wf-tisch-hint">
-                Hier ist noch niemand eingetragen. Wer in der Welt diesen Ort als Aufenthalt oder
-                Zuhause hat, erscheint hier von selbst. <Link href="/welt">Zur Welt</Link>
-              </p>
-            ) : (
-              <>
-                {cast.present.length === 0 && (
-                  <p className="wf-tisch-hint">
-                    Gerade hält sich hier niemand auf, den du eingetragen hast.
-                  </p>
-                )}
-                <CastGroup rows={cast.present} />
-                <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
-                <CastGroup title="Hier zu Hause, aber fort" rows={cast.away} away />
-                <CastGroup title="Gegenstände hier" rows={cast.items} />
-                <CastGroup title="Mit dem Ort verbunden" rows={cast.linked} />
-              </>
-            )}
-          </section>
+        {bare && (
+          <div className="wf-tisch-bare">
+            <EmptyState
+              icon={<ScrollText />}
+              title="Über diesen Ort ist noch nichts eingetragen"
+              action={
+                <Link href={entityHref(place)} className="wf-btn">
+                  <BookOpen />
+                  Im Dossier ausarbeiten
+                </Link>
+              }
+            >
+              Wer hier lebt oder sich aufhält, Fraktionen mit Sitz hier und deine Notizen zum Ort
+              erscheinen an dieser Stelle, sobald du sie in der Welt einträgst.
+            </EmptyState>
+          </div>
+        )}
 
-          {hasAside && (
-            <div className="wf-col wf-tisch-aside">
-              {place.notes.trim() && (
-                <section className="wf-col" aria-label="Notizen">
-                  <SectionTitle>Notizen</SectionTitle>
-                  <p className="wf-prose wf-soft">{place.notes.trim()}</p>
-                </section>
+        {!bare && (
+          <div className={cx('wf-tisch-cols', hasAside && 'wf-tisch-cols--split')}>
+            <section className="wf-col" aria-label="Wer hier ist">
+              <SectionTitle>
+                Wer hier ist
+                {cast.present.length > 0 && (
+                  <span className="wf-tisch-count">{cast.present.length}</span>
+                )}
+              </SectionTitle>
+              {cast.total === 0 ? (
+                <p className="wf-tisch-hint">
+                  Hier ist noch niemand eingetragen. Wer in der Welt diesen Ort als Aufenthalt oder
+                  Zuhause hat, erscheint hier von selbst. <Link href="/welt">Zur Welt</Link>
+                </p>
+              ) : (
+                <>
+                  {cast.present.length === 0 && (
+                    <p className="wf-tisch-hint">
+                      Gerade hält sich hier niemand auf, den du eingetragen hast.
+                    </p>
+                  )}
+                  <CastGroup rows={cast.present} />
+                  <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
+                  <CastGroup title="Hier zu Hause, aber fort" rows={cast.away} away />
+                  <CastGroup title="Gegenstände hier" rows={cast.items} />
+                  <CastGroup title="Mit dem Ort verbunden" rows={cast.linked} />
+                </>
               )}
-              {place.secret.trim() && (
-                <section className="wf-tisch-secret" aria-label="Spielleiterwissen">
-                  <div className="wf-tisch-secret__label">
-                    <EyeOff />
-                    Spielleiterwissen
-                  </div>
-                  <p className="wf-prose">{place.secret.trim()}</p>
-                </section>
-              )}
-              {earlier.length > 0 && (
-                <section className="wf-col" aria-label="Was hier bisher geschah">
-                  <SectionTitle>Was hier bisher geschah</SectionTitle>
-                  <div className="wf-tisch-earlier">
-                    <ChronicleList
-                      entries={earlier.slice(-EARLIER_SHOWN)}
-                      newestFirst
-                      showDate
-                      hideRefs={[place.id]}
-                    />
-                    {earlier.length > EARLIER_SHOWN && (
-                      <Link href={entityHref(place)} className="wf-tisch-more">
-                        {earlier.length - EARLIER_SHOWN === 1
-                          ? '1 älterer Eintrag steht im Dossier'
-                          : `${earlier.length - EARLIER_SHOWN} ältere Einträge stehen im Dossier`}
-                      </Link>
-                    )}
-                  </div>
-                </section>
-              )}
-            </div>
-          )}
-        </div>
+            </section>
+
+            {hasAside && (
+              <div className="wf-col wf-tisch-aside">
+                {place.notes.trim() && (
+                  <section className="wf-col" aria-label="Notizen">
+                    <SectionTitle>Notizen</SectionTitle>
+                    <p className="wf-prose wf-soft">{place.notes.trim()}</p>
+                  </section>
+                )}
+                {place.secret.trim() && (
+                  <section className="wf-tisch-secret" aria-label="Spielleiterwissen">
+                    <div className="wf-tisch-secret__label">
+                      <EyeOff />
+                      Spielleiterwissen
+                    </div>
+                    <p className="wf-prose">{place.secret.trim()}</p>
+                  </section>
+                )}
+                {earlier.length > 0 && (
+                  <section className="wf-col" aria-label="Was hier bisher geschah">
+                    <SectionTitle>Was hier bisher geschah</SectionTitle>
+                    <div className="wf-tisch-earlier">
+                      <ChronicleList
+                        entries={earlier.slice(-EARLIER_SHOWN)}
+                        newestFirst
+                        showDate
+                        hideRefs={[place.id]}
+                      />
+                      {earlier.length > EARLIER_SHOWN && (
+                        <Link href={entityHref(place)} className="wf-tisch-more">
+                          {earlier.length - EARLIER_SHOWN === 1
+                            ? '1 älterer Eintrag steht im Dossier'
+                            : `${earlier.length - EARLIER_SHOWN} ältere Einträge stehen im Dossier`}
+                        </Link>
+                      )}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Panel>
   );

@@ -13,6 +13,9 @@
  *   lk_status() -> { hasKey: boolean }
  *   lk_set_key({ key })   lk_clear_key()                    Schlüssel liegt im Schlüsselbund des Systems
  *   lk_get({ path, query }) -> { status: number, body: string }   nur GET auf die LegendKeeper-API
+ *   app_close({ state: 'saving' | 'saved' | 'unsaved' })    Antwort auf das Ereignis „close-requested“:
+ *                                                           sofort „saving“, nach dem Speichern „saved“ –
+ *                                                           oder „unsaved“, dann fragt die App nach
  *
  * Die Rust-Seite meldet Fehler als deutschen Satz. Hier wird daraus ein gewöhnlicher Error,
  * damit `error.message` überall den Satz liefert.
@@ -116,3 +119,37 @@ export const lkClearKey = () => invoke<void>('lk_clear_key');
  */
 export const lkGet = (path: string, query?: LkQuery) =>
   invoke<LkResponse>('lk_get', { path, query: query ?? null });
+
+// ── Schließen (nur in der installierten App) ─────────────────────────────────
+
+/** Schreibt, was noch aussteht. Ergebnis: Ist jetzt alles gespeichert? */
+export type ClosingHandler = () => Promise<boolean>;
+
+const closingHandlers = new Set<ClosingHandler>();
+
+/**
+ * Meldet an, was vor dem Schließen des Fensters noch gespeichert werden muss. Die App wartet
+ * darauf; bleibt etwas ungespeichert, fragt sie nach, statt die Änderungen stillschweigend zu
+ * verlieren. Gibt die Abmeldung zurück. In der Browser-Vorschau geschieht nichts.
+ */
+export function onAppClosing(handler: ClosingHandler): () => void {
+  closingHandlers.add(handler);
+  return () => {
+    closingHandlers.delete(handler);
+  };
+}
+
+/** Fragt alle angemeldeten Stellen. Ein Fehler zählt als „nicht gespeichert“. */
+export async function settleBeforeClosing(handlers: Iterable<ClosingHandler>): Promise<boolean> {
+  const results = await Promise.all([...handlers].map((handler) => handler().catch(() => false)));
+  return results.every(Boolean);
+}
+
+if (isDesktopApp()) {
+  void listen('close-requested', async () => {
+    // Sofort melden, dass gespeichert wird – sonst schließt das Fenster nach kurzer Frist von selbst.
+    await invoke('app_close', { state: 'saving' }).catch(() => undefined);
+    const saved = await settleBeforeClosing(closingHandlers);
+    await invoke('app_close', { state: saved ? 'saved' : 'unsaved' }).catch(() => undefined);
+  });
+}

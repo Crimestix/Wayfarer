@@ -1,5 +1,5 @@
 /** Mitschrift am Spieltisch: eine Zeile zum Festhalten und darunter der Verlauf der Session. */
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { CornerDownLeft, Feather, Play, Trash2, X } from 'lucide-react';
 import { logEntry, startSession } from '../../data/actions';
@@ -306,6 +306,12 @@ export function JournalPanel() {
   const editing = editingId ? data.chronicle[editingId] : undefined;
   const placeId = data.state.placeId;
   const hidden = useMemo(() => (placeId ? [placeId] : []), [placeId]);
+  // Kommt oben etwas Neues dazu, rollt der Verlauf dorthin – sonst bliebe es ungesehen.
+  const logBox = useRef<HTMLDivElement>(null);
+  const newestId = log.entries[0]?.id;
+  useEffect(() => {
+    if (logBox.current) logBox.current.scrollTop = 0;
+  }, [newestId]);
 
   return (
     <Panel
@@ -350,7 +356,7 @@ export function JournalPanel() {
         placeholder="Was passiert gerade?"
         onSubmit={(text, refs) => logEntry(db, { text, refs })}
       />
-      <div className="wf-tisch-journal__log">
+      <div className="wf-tisch-journal__log" ref={logBox}>
         {groups.length === 0 ? (
           <EmptyState
             icon={<Feather />}

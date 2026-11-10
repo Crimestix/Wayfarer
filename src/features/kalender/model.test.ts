@@ -36,6 +36,7 @@ import {
   spanState,
   spansBetween,
   spansOnDay,
+  splitDuration,
   timerProgress,
   type DaySpan,
 } from './model';
@@ -293,6 +294,41 @@ describe('layoutWeek', () => {
   it('kommt mit anderer Wochenlänge zurecht', () => {
     const { segments } = layoutWeek([mk('Zug', 8, 5)], 0, 10, 3);
     expect(segments[0]).toMatchObject({ col: 8, length: 2, continuesAfter: true });
+  });
+
+  it('lässt eintägige Termine die freie Zeile darunter mitbenutzen', () => {
+    const spans = [mk('Allein', 70), mk('Oben', 71), mk('Unten', 71), mk('Lang', 72, 2)];
+    const { segments } = layoutWeek(spans, 70, 7, 3);
+    const tall = (title: string) => segments.find((s) => s.span.event.title === title)!.tall;
+    expect(tall('Allein')).toBe(true);
+    // Darunter steht schon ein Termin.
+    expect(tall('Oben')).toBe(false);
+    expect(tall('Unten')).toBe(true);
+    // Mehrtägige Balken bleiben einzeilig.
+    expect(tall('Lang')).toBe(false);
+  });
+
+  it('bricht nicht um, wo die letzte Zeile fehlt oder „weitere“ anzeigt', () => {
+    // Nur eine Zeile: nichts darunter.
+    expect(layoutWeek([mk('A', 70)], 70, 7, 1).segments[0]!.tall).toBe(false);
+    // Vier Termine, drei Zeilen: A und B sichtbar, die dritte Zeile gehört dem Hinweis.
+    const { segments, hidden } = layoutWeek(
+      [mk('A', 70), mk('B', 70), mk('C', 70), mk('D', 70)],
+      70,
+      7,
+      3,
+    );
+    expect(hidden[0]).toBe(2);
+    expect(segments.map((s) => [s.span.event.title, s.tall])).toEqual([
+      ['A', false],
+      ['B', false],
+    ]);
+    // Ein Balken darunter, der nur über den Tag hinwegläuft, belegt die Zeile ebenfalls.
+    const crossing = layoutWeek([mk('Lang', 70, 3), mk('Kurz', 71)], 70, 7, 3);
+    const lang = crossing.segments.find((s) => s.span.event.title === 'Lang')!;
+    const kurz = crossing.segments.find((s) => s.span.event.title === 'Kurz')!;
+    expect(lang.lane).toBe(0);
+    expect(kurz).toMatchObject({ lane: 1, tall: true });
   });
 });
 
@@ -552,6 +588,11 @@ describe('Wirkungen und Tätigkeiten', () => {
     expect(parseDuration('0', '0', '0')).toBeNull();
     expect(parseDuration('', 'x', '')).toBeNull();
     expect(parseDuration('', '-1', '')).toBeNull();
+    expect(splitDuration(2 * DAY + 195)).toEqual({ days: '2', hours: '3', minutes: '15' });
+    expect(splitDuration(60)).toEqual({ days: '', hours: '1', minutes: '' });
+    expect(splitDuration(-5)).toEqual({ days: '', hours: '', minutes: '' });
+    const split = splitDuration(3 * DAY + 61);
+    expect(parseDuration(split.days, split.hours, split.minutes)).toBe(3 * DAY + 61);
   });
 
   it('gibt den verstrichenen Anteil an', () => {

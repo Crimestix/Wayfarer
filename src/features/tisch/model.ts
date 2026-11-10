@@ -9,6 +9,7 @@ import {
   chronicleFor,
   chronicleSorted,
   currentSession,
+  occurrencesBetween,
   openPromises,
   overdueEvents,
   placeAncestors,
@@ -18,6 +19,7 @@ import {
   runningTimers,
   searchEntities,
   upcomingOccurrences,
+  type Occurrence,
   type PlaceStatus,
 } from '../../domain/derive';
 import { relationLabel } from '../../domain/relations';
@@ -36,6 +38,7 @@ import type {
   Session,
 } from '../../domain/schema';
 import {
+  MINUTES_PER_DAY,
   dayIndexOf,
   formatClock,
   formatDayMonth,
@@ -87,6 +90,14 @@ export function stayLabels(cal: CalendarDef, now: WorldTime, status: PlaceStatus
 export function absenceMinutes(status: PlaceStatus, now: WorldTime): number | null {
   if (status.lastLeft === null) return null;
   return Math.max(0, (status.current ? status.current.from : now) - status.lastLeft);
+}
+
+/**
+ * Stehen die Veränderungen seit dem letzten Besuch von sich aus offen da? Ja, solange die Gruppe
+ * frisch angekommen ist (weniger als einen Tag hier). Danach genügt die Überschrift zum Aufklappen.
+ */
+export function changesFresh(status: PlaceStatus, now: WorldTime): boolean {
+  return !status.current || now - status.current.from < MINUTES_PER_DAY;
 }
 
 // ── Wer hier ist ───────────────────────────────────────────────────────────
@@ -311,6 +322,8 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
 
 export type AgendaTone = 'overdue' | 'today' | 'later';
 export type AgendaSource = 'event' | 'promise' | 'timer';
+/** Welches Zeichen vor der Zeile steht. */
+export type AgendaMark = EventKind | 'promise' | 'effect' | 'task';
 
 export interface AgendaItem {
   key: string;
@@ -320,9 +333,10 @@ export interface AgendaItem {
   title: string;
   /** Art in einem Wort: Frist, Vorhaben, Ereignis, Abmachung, Wirkung, Tätigkeit. */
   label: string;
+  mark: AgendaMark;
   at: WorldTime;
   tone: AgendaTone;
-  /** „seit gestern überfällig“, „heute“, „morgen, 22:00“, „noch 40 Min.“ */
+  /** „seit gestern überfällig“, „heute“, „morgen, 22:00“, „noch 40 Min.“, „ohne Frist“ */
   when: string;
   /** „18. Tauwind, 22:00“ */
   date: string;
@@ -332,6 +346,10 @@ export interface AgendaItem {
   checkable: boolean;
   /** Beschriftung des Hakens. */
   checkLabel: string;
+  /** Wiederkehrender Termin; hier steht nur sein nächstes Eintreten. */
+  repeats: boolean;
+  /** Abmachung ohne Frist: steht am Ende, drängt nicht. */
+  undated: boolean;
 }
 
 export const EVENT_KIND_LABEL: Record<EventKind, string> = {
@@ -358,70 +376,127 @@ export function overdueLabel(now: WorldTime, at: WorldTime): string {
   return days === 1 ? 'seit gestern überfällig' : `seit ${days} Tagen überfällig`;
 }
 
+/** Wie lange ein mehrtägiger Termin noch läuft: „endet heute“, „läuft bis morgen“, „läuft bis 21. Tauwind“. */
+export function runningLabel(cal: CalendarDef, now: WorldTime, endDay: number): string {
+  const left = endDay - dayIndexOf(now);
+  if (left <= 0) return 'endet heute';
+  if (left === 1) return 'läuft bis morgen';
+  return `läuft bis ${formatDayMonth(cal, endDay * MINUTES_PER_DAY)}`;
+}
+
 const dateLabel = (cal: CalendarDef, at: WorldTime, timed: boolean) =>
   timed ? `${formatDayMonth(cal, at)}, ${formatClock(at)}` : formatDayMonth(cal, at);
+
+/** Letzter Tag eines Termins, der an `at` beginnt. */
+const lastDayOf = (event: CalendarEvent, at: WorldTime) =>
+  dayIndexOf(at) + (event.durationDays ?? 1) - 1;
+
+/**
+ * Mehrtägige Termine, die vor heute begonnen haben und heute noch laufen – etwa ein Markt, der
+ * drei Tage dauert. Vorhaben und Fristen fehlen hier: Sie gelten ab ihrem Beginn als überfällig,
+ * bis sie abgehakt sind, und stehen dort.
+ */
+export function ongoingOccurrences(data: CampaignData): Occurrence[] {
+  const today = dayIndexOf(data.state.now);
+  const longest = Math.max(1, ...Object.values(data.events).map((e) => e.durationDays ?? 1));
+  if (longest < 2) return [];
+  const from = Math.max(0, today - (longest - 1)) * MINUTES_PER_DAY;
+  return occurrencesBetween(data, from, today * MINUTES_PER_DAY - 1).filter(
+    (o) =>
+      lastDayOf(o.event, o.at) >= today && (o.event.kind === 'world' || o.event.repeat !== null),
+  );
+}
 
 function eventItem(
   cal: CalendarDef,
   now: WorldTime,
   event: CalendarEvent,
   at: WorldTime,
-  overdue: boolean,
+  state: 'overdue' | 'ongoing' | 'upcoming',
 ): AgendaItem {
-  const today = dayIndexOf(at) === dayIndexOf(now);
+  const today = state === 'ongoing' || dayIndexOf(at) === dayIndexOf(now);
+  const lastDay = lastDayOf(event, at);
+  const date = dateLabel(cal, at, event.timed);
   return {
     key: `event:${event.id}:${at}`,
     source: 'event',
     id: event.id,
     title: event.title,
     label: EVENT_KIND_LABEL[event.kind],
+    mark: event.kind,
     at,
-    tone: overdue ? 'overdue' : today ? 'today' : 'later',
-    when: overdue ? overdueLabel(now, at) : whenLabel(now, at, event.timed),
-    date: dateLabel(cal, at, event.timed),
+    tone: state === 'overdue' ? 'overdue' : today ? 'today' : 'later',
+    when:
+      state === 'overdue'
+        ? overdueLabel(now, at)
+        : state === 'ongoing'
+          ? runningLabel(cal, now, lastDay)
+          : whenLabel(now, at, event.timed),
+    date:
+      lastDay > dayIndexOf(at)
+        ? `${date} bis ${formatDayMonth(cal, lastDay * MINUTES_PER_DAY)}`
+        : date,
     placeId: event.placeId,
     refs: event.refs,
     // Wiederkehrendes und Weltereignisse haken sich nicht ab – sie treten ein.
     checkable: event.kind !== 'world' && !event.repeat,
     checkLabel: 'Erledigt',
+    repeats: event.repeat !== null,
+    undated: false,
   };
 }
 
 /**
  * Alles, was die Gruppe im Blick behalten muss, nach Dringlichkeit:
- * erst Überfälliges (ältestes zuerst), dann nach Zeitpunkt. Termine reichen `days` Tage voraus;
- * Abmachungen mit Frist und laufende Wirkungen stehen immer darin.
+ * erst Überfälliges (ältestes zuerst), dann was gerade läuft und was kommt, nach Zeitpunkt.
+ * Termine reichen `days` Tage voraus; ein wiederkehrender Termin steht nur mit seinem nächsten
+ * Eintreten da. Abmachungen und laufende Wirkungen stehen immer darin – Abmachungen ohne Frist
+ * ganz am Ende.
  */
 export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const items: AgendaItem[] = [];
 
-  for (const event of overdueEvents(data)) items.push(eventItem(cal, now, event, event.at, true));
+  for (const event of overdueEvents(data))
+    items.push(eventItem(cal, now, event, event.at, 'overdue'));
 
-  for (const o of upcomingOccurrences(data, days, 40))
-    items.push(eventItem(cal, now, o.event, o.at, false));
+  const listed = new Set<string>();
+  for (const o of ongoingOccurrences(data)) {
+    listed.add(o.event.id);
+    items.push(eventItem(cal, now, o.event, o.at, 'ongoing'));
+  }
+  for (const o of upcomingOccurrences(data, days, 200)) {
+    if (o.event.repeat && listed.has(o.event.id)) continue;
+    listed.add(o.event.id);
+    items.push(eventItem(cal, now, o.event, o.at, 'upcoming'));
+  }
 
   for (const entry of openPromises(data)) {
     const due = entry.promise?.due ?? null;
-    if (due === null) continue;
-    const overdue = due < now;
+    const overdue = due !== null && due < now;
+    const today = due !== null && dayIndexOf(due) === dayIndexOf(now);
     items.push({
       key: `promise:${entry.id}`,
       source: 'promise',
       id: entry.id,
       title: entry.text || 'Abmachung',
       label: 'Abmachung',
-      at: due,
-      tone: overdue ? 'overdue' : dayIndexOf(due) === dayIndexOf(now) ? 'today' : 'later',
-      when: overdue
-        ? overdueLabel(now, due)
-        : whenLabel(now, due, dayIndexOf(due) === dayIndexOf(now)),
-      date: formatDayMonth(cal, due),
+      mark: 'promise',
+      at: due ?? entry.at,
+      tone: overdue ? 'overdue' : today ? 'today' : 'later',
+      when:
+        due === null ? 'ohne Frist' : overdue ? overdueLabel(now, due) : whenLabel(now, due, today),
+      date:
+        due === null
+          ? `festgehalten am ${formatDayMonth(cal, entry.at)}`
+          : formatDayMonth(cal, due),
       placeId: null,
       refs: entry.refs,
       checkable: true,
       checkLabel: 'Eingelöst',
+      repeats: false,
+      undated: due === null,
     });
   }
 
@@ -432,6 +507,7 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       id: timer.id,
       title: timer.label,
       label: timer.kind === 'task' ? 'Tätigkeit' : 'Wirkung',
+      mark: timer.kind,
       at: timer.end,
       tone: dayIndexOf(timer.end) === dayIndexOf(now) ? 'today' : 'later',
       when: `noch ${formatDuration(timer.end - now)}`,
@@ -440,9 +516,11 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       refs: timer.refs,
       checkable: true,
       checkLabel: 'Vorzeitig beenden',
+      repeats: false,
+      undated: false,
     });
 
-  const rank = (item: AgendaItem) => (item.tone === 'overdue' ? 0 : 1);
+  const rank = (item: AgendaItem) => (item.undated ? 2 : item.tone === 'overdue' ? 0 : 1);
   return items.sort(
     (a, b) => rank(a) - rank(b) || a.at - b.at || a.title.localeCompare(b.title, 'de'),
   );

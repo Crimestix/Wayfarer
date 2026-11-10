@@ -209,6 +209,45 @@ export class CampaignDb {
     this.enqueue(CAMPAIGN_PATH, serialize(campaign));
   }
 
+  /**
+   * Tauscht den gesamten Spielstand aus (Sicherung einspielen, alten Spielstand übernehmen):
+   * Alle bisherigen Dokumente werden entfernt, die neuen geschrieben, und es gibt genau eine
+   * Benachrichtigung. Vorher wird alles mit den Schemata geprüft – ist etwas ungültig, bleibt
+   * der bisherige Stand unangetastet. Dateien, die beim Laden unlesbar waren, bleiben liegen.
+   */
+  replaceAll(next: CampaignData): void {
+    const campaign = CampaignMetaSchema.parse(next.campaign);
+    const state = PlayStateSchema.parse(next.state);
+    const unreadable = new Set(this.problems.map((p) => p.path));
+    const collections = {} as Record<CollectionName, Record<string, CollectionTypes[CollectionName]>>;
+    for (const name of COLLECTION_NAMES) {
+      const docs: Record<string, CollectionTypes[CollectionName]> = {};
+      for (const [key, raw] of Object.entries(next[name])) {
+        const doc = COLLECTION_SCHEMAS[name].parse(raw);
+        if (doc.id !== key) throw new Error(`Ein Eintrag in „${name}“ trägt eine andere Kennung als sein Schlüssel.`);
+        if (unreadable.has(docPath(name, doc.id)))
+          throw new Error(
+            `Im Kampagnenordner liegt eine unlesbare Datei „${docPath(name, doc.id)}“, die nicht überschrieben wird. Bitte zuerst diese Datei prüfen.`,
+          );
+        docs[doc.id] = doc;
+      }
+      collections[name] = docs;
+    }
+    // Erst ab hier wird verändert.
+    for (const name of COLLECTION_NAMES) {
+      for (const id of Object.keys(this.data[name]))
+        if (!(id in collections[name])) this.pending.set(docPath(name, id), null);
+      for (const doc of Object.values(collections[name])) this.pending.set(docPath(name, doc.id), serialize(doc));
+    }
+    this.pending.set(CAMPAIGN_PATH, serialize(campaign));
+    this.pending.set(STATE_PATH, serialize(state));
+    this.data = { campaign, state, ...collections } as unknown as CampaignData;
+    this.setStatus('saving');
+    this.notify();
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => void this.flush(), 250);
+  }
+
   /** Fasst mehrere Änderungen zu einer Benachrichtigung zusammen. */
   batch<T>(fn: () => T): T {
     this.batchDepth++;

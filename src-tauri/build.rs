@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "lk_set_key",
     "lk_clear_key",
     "lk_get",
+    "app_close",
 ];
 
 fn main() {

@@ -16,6 +16,7 @@
     "allow-lk-set-key",
     "allow-lk-clear-key",
     "allow-lk-get",
+    "allow-app-close",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "dialog:allow-open"

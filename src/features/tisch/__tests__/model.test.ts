@@ -18,6 +18,7 @@ import {
   activeMention,
   buildAgenda,
   castView,
+  changesFresh,
   companions,
   earlierHere,
   exhaustionAfterClick,
@@ -28,8 +29,10 @@ import {
   keptMentions,
   mentionSuggestions,
   nearbyPlaces,
+  ongoingOccurrences,
   overdueLabel,
   partyPlace,
+  runningLabel,
   stayLabels,
   whenLabel,
 } from '../model';
@@ -81,11 +84,17 @@ describe('Ort der Gruppe', () => {
     expect(labels.visit).toBe('2. Besuch');
     expect(absenceMinutes(status, data.state.now)).toBe(6 * DAY);
 
+    expect(changesFresh(status, data.state.now)).toBe(true);
+
     advanceTime(db, data.state.now + 90);
     data = db.getSnapshot();
     status = placeStatus(data, hafen.id);
     labels = stayLabels(data.campaign.calendar, data.state.now, status);
     expect(labels.since).toBe('Seit 16:00 Uhr hier');
+    expect(changesFresh(status, data.state.now)).toBe(true);
+    // Nach einem Tag am Ort sind die Veränderungen keine Neuigkeit mehr.
+    expect(changesFresh(status, status.current!.from + DAY - 1)).toBe(true);
+    expect(changesFresh(status, status.current!.from + DAY)).toBe(false);
     // Die Abwesenheit wächst nicht weiter, während die Gruppe wieder da ist.
     expect(absenceMinutes(status, data.state.now)).toBe(6 * DAY);
   });
@@ -280,11 +289,15 @@ describe('Anstehend', () => {
         'in 2 Tagen',
       ],
       ['Vollmondmarkt in Dornhafen', 'later', 'in 5 Tagen'],
+      // Abmachungen ohne Frist stehen am Ende: Sie sind offen, drängen aber nicht.
+      ['Ohne Frist', 'later', 'ohne Frist'],
     ]);
-    expect(items.find((i) => i.title === 'Ohne Frist')).toBeUndefined();
+    expect(items.at(-1)).toMatchObject({ undated: true, checkable: true, checkLabel: 'Eingelöst' });
+    expect(items.filter((i) => i.undated)).toHaveLength(1);
     const byTitle = (title: string) => items.find((i) => i.title === title)!;
     expect(byTitle('Zoll bezahlen')).toMatchObject({
       label: 'Frist',
+      mark: 'deadline',
       checkable: true,
       source: 'event',
     });
@@ -304,6 +317,80 @@ describe('Anstehend', () => {
     expect(titles).toContain('Treffen mit Brann am Nordkai');
     expect(titles).not.toContain('Vollmondmarkt in Dornhafen');
     expect(titles.some((t) => t.startsWith('Brann besorgt'))).toBe(true);
+  });
+
+  it('nennt einen wiederkehrenden Termin nur mit seinem nächsten Eintreten', async () => {
+    const db = await CampaignDb.create(
+      new MemoryStore(),
+      emptyCampaign('Test', ELARIS_CALENDAR, ELARIS_START),
+    );
+    const now = db.getSnapshot().state.now;
+    db.put(
+      'events',
+      createEvent({
+        title: 'Abendglocke',
+        at: now - 3 * DAY + 120,
+        timed: true,
+        kind: 'world',
+        repeat: { every: 1, unit: 'day' },
+      }),
+    );
+    db.put('events', createEvent({ title: 'Markt', at: now + 2 * DAY, kind: 'world' }));
+    const items = buildAgenda(db.getSnapshot(), 7);
+    expect(items.map((i) => [i.title, i.when, i.repeats])).toEqual([
+      ['Abendglocke', 'in 2 Std.', true],
+      ['Markt', 'in 2 Tagen', false],
+    ]);
+    // Ist das heutige Läuten vorbei, steht das morgige da.
+    advanceTime(db, now + 180);
+    expect(buildAgenda(db.getSnapshot(), 7).map((i) => [i.title, i.when])).toEqual([
+      ['Abendglocke', 'morgen, 18:00'],
+      ['Markt', 'in 2 Tagen'],
+    ]);
+  });
+
+  it('zeigt mehrtägige Ereignisse, solange sie laufen', async () => {
+    const db = await CampaignDb.create(
+      new MemoryStore(),
+      emptyCampaign('Test', ELARIS_CALENDAR, ELARIS_START),
+    );
+    const now = db.getSnapshot().state.now;
+    db.put(
+      'events',
+      createEvent({ title: 'Erntefest', at: now + DAY, kind: 'world', durationDays: 3 }),
+    );
+    db.put(
+      'events',
+      createEvent({ title: 'Belagerung brechen', at: now + DAY, kind: 'plan', durationDays: 3 }),
+    );
+    const titles = () => buildAgenda(db.getSnapshot(), 7).map((i) => [i.title, i.tone, i.when]);
+    expect(ongoingOccurrences(db.getSnapshot())).toEqual([]);
+    expect(buildAgenda(db.getSnapshot(), 7)[1]).toMatchObject({
+      title: 'Erntefest',
+      when: 'morgen',
+      date: '18. Tauwind bis 20. Tauwind',
+    });
+
+    // Zweiter Tag: Das Fest läuft; das Vorhaben gilt seit seinem Beginn als überfällig.
+    advanceTime(db, now + 2 * DAY);
+    expect(ongoingOccurrences(db.getSnapshot()).map((o) => o.event.title)).toEqual(['Erntefest']);
+    expect(titles()).toEqual([
+      ['Belagerung brechen', 'overdue', 'seit gestern überfällig'],
+      ['Erntefest', 'today', 'läuft bis morgen'],
+    ]);
+    expect(buildAgenda(db.getSnapshot(), 7)[1]).toMatchObject({ checkable: false });
+
+    advanceTime(db, now + 3 * DAY);
+    expect(titles()[1]).toEqual(['Erntefest', 'today', 'endet heute']);
+    advanceTime(db, now + 4 * DAY);
+    expect(titles().map((t) => t[0])).toEqual(['Belagerung brechen']);
+  });
+
+  it('sagt, wie lange etwas noch läuft', () => {
+    const noon = 1000 * DAY + 12 * 60;
+    expect(runningLabel(ELARIS_CALENDAR, noon, 1000)).toBe('endet heute');
+    expect(runningLabel(ELARIS_CALENDAR, noon, 1001)).toBe('läuft bis morgen');
+    expect(runningLabel(ELARIS_CALENDAR, noon, 1004)).toMatch(/^läuft bis \d+\. \S+$/);
   });
 
   it('beschreibt Abstände in Worten', () => {

@@ -199,6 +199,67 @@ fn only_the_main_window_may_call_commands() {
     assert!(err.to_string().contains("not allowed"), "{err}");
 }
 
+#[test]
+fn closing_asks_the_frontend_first_and_closes_once_everything_is_saved() {
+    let app = app();
+    let main = window(&app, "main");
+    let (tx, rx) = mpsc::channel::<()>();
+    app.listen(crate::window::CLOSE_REQUESTED_EVENT, move |_| {
+        let _ = tx.send(());
+    });
+
+    // Ohne Schließwunsch bewirkt die Meldung der Oberfläche nichts.
+    assert_eq!(
+        invoke(&main, "app_close", json!({ "state": "saved" })),
+        Ok(Value::Null)
+    );
+    assert_eq!(
+        crate::window::current_phase(&main),
+        crate::window::ClosePhase::Open
+    );
+
+    crate::window::request_close(&main);
+    rx.recv_timeout(Duration::from_secs(5))
+        .expect("Ereignis „close-requested“ erwartet");
+    assert_eq!(
+        invoke(&main, "app_close", json!({ "state": "saving" })),
+        Ok(Value::Null)
+    );
+    // Solange gespeichert wird, bleibt das Fenster offen – auch über die Frist hinaus.
+    std::thread::sleep(Duration::from_millis(1800));
+    assert_eq!(
+        crate::window::current_phase(&main),
+        crate::window::ClosePhase::Saving
+    );
+    assert_eq!(
+        invoke(&main, "app_close", json!({ "state": "saved" })),
+        Ok(Value::Null)
+    );
+    assert_eq!(
+        crate::window::current_phase(&main),
+        crate::window::ClosePhase::Open
+    );
+
+    // Unbekannte Meldungen werden abgewiesen.
+    assert!(invoke(&main, "app_close", json!({ "state": "egal" })).is_err());
+}
+
+#[test]
+fn a_frontend_that_never_answers_cannot_keep_the_window_open() {
+    let app = app();
+    let main = window(&app, "main");
+    crate::window::request_close(&main);
+    assert!(matches!(
+        crate::window::current_phase(&main),
+        crate::window::ClosePhase::Requested(_)
+    ));
+    std::thread::sleep(Duration::from_millis(2000));
+    assert_eq!(
+        crate::window::current_phase(&main),
+        crate::window::ClosePhase::Open
+    );
+}
+
 /// Nur unter Linux lässt sich der Einstellungsordner für den Test umlenken (XDG_CONFIG_HOME).
 #[cfg(target_os = "linux")]
 #[test]

@@ -169,6 +169,11 @@ export interface WeekSegment {
   /** Der Termin begann schon vor dieser Woche bzw. läuft danach weiter. */
   continuesBefore: boolean;
   continuesAfter: boolean;
+  /**
+   * Die Zeile darunter ist an diesem Tag frei: ein eintägiger Termin darf seinen Titel auf zwei
+   * Zeilen umbrechen, statt ihn abzuschneiden.
+   */
+  tall: boolean;
 }
 
 export interface WeekLayout {
@@ -205,6 +210,7 @@ export function layoutWeek(
       lane,
       continuesBefore: span.startDay < weekStart,
       continuesAfter: span.endDay > weekEnd,
+      tall: false,
     });
   }
   const crowded = new Array<boolean>(weekLength).fill(false);
@@ -220,6 +226,14 @@ export function layoutWeek(
     if (fits) segments.push(seg);
     else for (const c of cols) hidden[c]! += 1;
   }
+  // Eintägige Termine dürfen die Zeile darunter mitbenutzen, wenn dort nichts steht.
+  const taken = new Set<string>();
+  for (const seg of segments)
+    for (let c = seg.col; c < seg.col + seg.length; c++) taken.add(`${seg.lane}:${c}`);
+  for (let c = 0; c < weekLength; c++) if (hidden[c]! > 0) taken.add(`${maxLanes - 1}:${c}`);
+  for (const seg of segments)
+    seg.tall =
+      seg.length === 1 && seg.lane + 1 < maxLanes && !taken.has(`${seg.lane + 1}:${seg.col}`);
   return { segments, hidden };
 }
 
@@ -352,6 +366,13 @@ export const EVENT_KIND_LABEL: Record<EventKind, string> = {
   world: 'Weltereignis',
   plan: 'Vorhaben',
   deadline: 'Frist',
+};
+
+/** Wie ein abgehakter Termin heißt: Weltereignisse treten ein, Vorhaben und Fristen werden erledigt. */
+export const EVENT_DONE_LABEL: Record<EventKind, string> = {
+  world: 'Eingetreten',
+  plan: 'Erledigt',
+  deadline: 'Erledigt',
 };
 
 export const EVENT_KIND_HINT: Record<EventKind, string> = {
@@ -516,6 +537,17 @@ export function parseDuration(days: string, hours: string, minutes: string): num
   if (parts.some((n) => n === null)) return null;
   const total = parts[0]! * MINUTES_PER_DAY + parts[1]! * MINUTES_PER_HOUR + parts[2]!;
   return total > 0 && Number.isSafeInteger(total) ? total : null;
+}
+
+/** Zerlegt eine Dauer in die drei Felder des Dialogs; leere Felder statt Nullen. */
+export function splitDuration(minutes: number): { days: string; hours: string; minutes: string } {
+  const total = Math.max(0, Math.round(minutes));
+  const text = (n: number) => (n ? String(n) : '');
+  return {
+    days: text(Math.floor(total / MINUTES_PER_DAY)),
+    hours: text(Math.floor((total % MINUTES_PER_DAY) / MINUTES_PER_HOUR)),
+    minutes: text(total % MINUTES_PER_HOUR),
+  };
 }
 
 /** Verstrichener Anteil 0–1. */

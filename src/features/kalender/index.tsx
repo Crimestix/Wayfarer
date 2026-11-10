@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { EVENT_KINDS, type CalendarEvent } from '../../domain/schema';
+import { EVENT_KINDS, type CalendarEvent, type Timer } from '../../domain/schema';
 import {
   MINUTES_PER_DAY,
   dayIndexOf,
@@ -21,7 +21,9 @@ import { MoonsPanel, TimersPanel, UpcomingPanel } from './panels';
 import './kalender.css';
 
 type OpenDialog =
-  { type: 'event'; event: CalendarEvent | null; day: WorldTime } | { type: 'timer' } | null;
+  | { type: 'event'; event: CalendarEvent | null; day: WorldTime }
+  | { type: 'timer'; timer: Timer | null }
+  | null;
 
 export default function KalenderPage() {
   const data = useData();
@@ -35,6 +37,19 @@ export default function KalenderPage() {
     return { year: d.year, month: d.month };
   });
   const [dialog, setDialog] = useState<OpenDialog>(null);
+
+  // Vergeht die Zeit über Mitternacht, wandert die Auswahl mit – sofern sie auf „heute“ stand.
+  const [seenToday, setSeenToday] = useState(today);
+  if (seenToday !== today) {
+    setSeenToday(today);
+    if (today > seenToday && selected === seenToday) {
+      const was = fromTime(cal, seenToday * MINUTES_PER_DAY);
+      const d = fromTime(cal, now);
+      setSelected(today);
+      if (view.year === was.year && view.month === was.month)
+        setView({ year: d.year, month: d.month });
+    }
+  }
 
   // Falls der Kalender der Kampagne wechselt, bleibt der Monat gültig.
   const month = Math.min(view.month, cal.months.length - 1);
@@ -63,6 +78,7 @@ export default function KalenderPage() {
     const next = shiftMonth(cal, view.year, month, offset);
     if (next.year >= 1) setView(next);
   };
+  const editEvent = (event: CalendarEvent) => setDialog({ type: 'event', event, day: event.at });
   const createOn = (dayIndex: number) => {
     setSelected(dayIndex);
     setDialog({ type: 'event', event: null, day: dayIndex * MINUTES_PER_DAY });
@@ -120,11 +136,16 @@ export default function KalenderPage() {
             selected={selected}
             onSelect={selectDay}
             onCreate={createOn}
+            onEdit={editEvent}
             onShiftMonth={shift}
           />
           <div className={cx('wf-kal-strip', cal.moons.length === 0 && 'wf-kal-strip--two')}>
             <UpcomingPanel data={data} onGoToDay={goToDay} onCreate={() => createOn(selected)} />
-            <TimersPanel data={data} onAdd={() => setDialog({ type: 'timer' })} />
+            <TimersPanel
+              data={data}
+              onAdd={() => setDialog({ type: 'timer', timer: null })}
+              onEdit={(timer) => setDialog({ type: 'timer', timer })}
+            />
             {cal.moons.length > 0 && <MoonsPanel data={data} />}
           </div>
         </div>
@@ -132,7 +153,7 @@ export default function KalenderPage() {
           data={data}
           day={selected}
           spans={daySpans}
-          onEdit={(event) => setDialog({ type: 'event', event, day: event.at })}
+          onEdit={editEvent}
           onCreate={createOn}
         />
       </div>
@@ -145,7 +166,9 @@ export default function KalenderPage() {
           onSaved={(at) => goToDay(dayIndexOf(at))}
         />
       )}
-      {dialog?.type === 'timer' && <TimerDialog onClose={() => setDialog(null)} />}
+      {dialog?.type === 'timer' && (
+        <TimerDialog timer={dialog.timer} onClose={() => setDialog(null)} />
+      )}
     </div>
   );
 }

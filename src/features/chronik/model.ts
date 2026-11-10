@@ -29,6 +29,7 @@ import {
   formatDateTime,
   formatDayMonth,
   formatDuration,
+  formatRelative,
   formatYear,
   fromTime,
   isValidDate,
@@ -60,6 +61,21 @@ export const isManualKind = (kind: ChronicleKind): kind is ManualKind =>
 /** Ist die Abmachung offen und ihre Frist verstrichen? */
 export function isOverdue(entry: ChronicleEntry, now: WorldTime): boolean {
   return !!entry.promise && !entry.promise.done && entry.promise.due !== null && entry.promise.due < now;
+}
+
+/** Frist einer offenen Abmachung in wenigen Worten: „Seit 3 Tagen überfällig · 12. Tauwind“. */
+export function promiseDueLabel(cal: CalendarDef, entry: ChronicleEntry, now: WorldTime): string {
+  const due = entry.promise?.due ?? null;
+  if (due === null) return 'Ohne Frist';
+  if (!isOverdue(entry, now)) return `Frist ${formatDayMonth(cal, due)} · ${formatRelative(now, due)}`;
+  const days = dayIndexOf(now) - dayIndexOf(due);
+  const since = days === 0 ? 'Seit heute' : days === 1 ? 'Seit gestern' : `Seit ${days} Tagen`;
+  return `${since} überfällig · ${formatDayMonth(cal, due)}`;
+}
+
+/** Mit wem eine Abmachung besteht: die verknüpften Einträge ohne den Ort des Geschehens. */
+export function promiseParties(data: CampaignData, entry: ChronicleEntry): string[] {
+  return entry.refs.filter((id) => id !== entry.placeId && data.entities[id]).map((id) => entityName(data, id));
 }
 
 // ── Filter ─────────────────────────────────────────────────────────────────
@@ -229,6 +245,16 @@ export function sessionAt(data: CampaignData, at: WorldTime): Session | null {
   return hit?.session ?? null;
 }
 
+/**
+ * Die Session, die sich fortsetzen lässt: die jüngste, solange keine läuft. So lässt sich ein
+ * versehentliches Beenden zurücknehmen oder ein Abend nach einer Pause weiterführen.
+ */
+export function resumableSessionId(data: CampaignData): string | null {
+  if (data.state.sessionId && data.sessions[data.state.sessionId]) return null;
+  const sessions = sessionsSorted(data);
+  return sessions[sessions.length - 1]?.id ?? null;
+}
+
 /** „Session 12 – Die Glocke“ bzw. „Session 12“. Ein Titel, der nur die Nummer wiederholt, entfällt. */
 export function sessionLabel(session: Session): string {
   const name = `Session ${session.number}`;
@@ -253,7 +279,8 @@ export interface SessionMarker {
 export type TimelineRow =
   | { type: 'day'; day: number; count: number }
   | { type: 'entry'; entry: ChronicleEntry }
-  | ({ type: 'marker' } & SessionMarker);
+  /** `dated`: Die Grenze steht nicht bei Einträgen ihres eigenen Tages und braucht deshalb ein Datum. */
+  | ({ type: 'marker'; dated: boolean } & SessionMarker);
 
 /**
  * Grenzen der Sessions für den Zeitstrahl. Mit `onlySessionIds` nur für Sessions, von denen
@@ -299,7 +326,7 @@ export function timelineRows(
       group: marker.session.number,
       rank: marker.edge === 'start' ? 0 : 2,
       seq,
-      row: { type: 'marker', ...marker },
+      row: { type: 'marker', dated: false, ...marker },
     }),
   );
   items.sort((a, b) => a.at - b.at || a.group - b.group || a.rank - b.rank || a.seq - b.seq);
@@ -310,6 +337,21 @@ export function timelineRows(
     const day = dayIndexOf(entry.at);
     perDay.set(day, (perDay.get(day) ?? 0) + 1);
   }
+  // Eine Grenze steht optisch bei den Einträgen davor und danach. Liegt sie an keinem dieser
+  // beiden Tage, wäre ohne eigenes Datum nicht zu erkennen, wann die Session begann oder endete.
+  const neighbourDay = (from: number, step: 1 | -1): number | null => {
+    for (let i = from + step; i >= 0 && i < items.length; i += step) {
+      const row = items[i]!.row;
+      if (row.type === 'entry') return dayIndexOf(row.entry.at);
+    }
+    return null;
+  };
+  items.forEach((item, i) => {
+    if (item.row.type !== 'marker') return;
+    const day = dayIndexOf(item.row.at);
+    item.row.dated = neighbourDay(i, -1) !== day && neighbourDay(i, 1) !== day;
+  });
+
   const rows: TimelineRow[] = [];
   let currentDay: number | null = null;
   for (const item of items) {
@@ -546,6 +588,29 @@ export function keepsOrder(data: CampaignData, entry: ChronicleEntry, at: WorldT
     .sort(byTime)
     .map((e) => e.id);
   return before.every((id, i) => id === after[i]);
+}
+
+/**
+ * Was gegen einen Zeitpunkt spricht – leer, wenn alles in Ordnung ist. `entry` ist der Eintrag,
+ * der bearbeitet wird, oder null beim Nachtragen; `at` ist null, wenn es das Datum nicht gibt.
+ * Ein unveränderter Zeitpunkt wird nie beanstandet.
+ */
+export function entryTimeProblem(data: CampaignData, entry: ChronicleEntry | null, at: WorldTime | null): string {
+  if (at === null) return 'Dieses Datum gibt es im Kalender nicht.';
+  if (entry && at === entry.at) return '';
+  if (at > data.state.now) return 'Der Zeitpunkt liegt in der Zukunft. Was noch bevorsteht, gehört in den Kalender.';
+  if (!entry || keepsOrder(data, entry, at)) return '';
+  const cal = data.campaign.calendar;
+  const { previous, next } = timeBounds(data, entry);
+  const range = [
+    previous && `nach dem ${formatDateTime(cal, previous.at)}`,
+    next && `vor dem ${formatDateTime(cal, next.at)}`,
+  ]
+    .filter(Boolean)
+    .join(' und ');
+  return entry.kind === 'travel'
+    ? `Die Reihenfolge der Ortswechsel muss bleiben: Dieser liegt ${range}.`
+    : `Die Reihenfolge der Haltungsänderungen muss bleiben: Diese liegt ${range}.`;
 }
 
 const partyName = (data: CampaignData, id: string) => (id === PARTY_ID ? 'der Gruppe' : entityName(data, id));
