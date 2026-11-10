@@ -234,8 +234,10 @@ export function nameMatcher(
 
 // ── In die Knoten der Anzeige einsetzen ────────────────────────────────────
 
+type Finder = (text: string) => NameHit[];
+
 /** Teilt die Textstücke eines Absatzes an den erkannten Namen. Ohne Treffer dieselbe Liste. */
-function linkInlines(inlines: Inline[], matcher: NameMatcher, selfId: string): Inline[] {
+function linkInlines(inlines: Inline[], find: Finder, selfId: string): Inline[] {
   let out: Inline[] | null = null;
   inlines.forEach((inline, index) => {
     if (inline.type !== 'text' || inline.code || inline.href) {
@@ -243,7 +245,7 @@ function linkInlines(inlines: Inline[], matcher: NameMatcher, selfId: string): I
       return;
     }
     // Der Artikel verweist nie auf sich selbst.
-    const hits = matcher.find(inline.text).filter((hit) => hit.id !== selfId);
+    const hits = find(inline.text).filter((hit) => hit.id !== selfId);
     if (!hits.length) {
       out?.push(inline);
       return;
@@ -287,8 +289,12 @@ export function linkNames(
   matcher: NameMatcher,
   selfId: string,
 ): ArticleNode[] {
-  const inlines = (list: Inline[]) => linkInlines(list, matcher, selfId);
-  const many = (list: ArticleNode[]) => linkNames(list, matcher, selfId);
+  return linkWith(nodes, matcher.find, selfId);
+}
+
+function linkWith(nodes: ArticleNode[], find: Finder, selfId: string): ArticleNode[] {
+  const inlines = (list: Inline[]) => linkInlines(list, find, selfId);
+  const many = (list: ArticleNode[]) => linkWith(list, find, selfId);
   return mapSame(nodes, (node) => {
     switch (node.type) {
       case 'paragraph': {
@@ -339,4 +345,174 @@ export function linkNames(
         return node;
     }
   });
+}
+
+// ── Vornamen und Nachnamen allein ──────────────────────────────────────────
+
+/**
+ * Eine Person, die auf einer Seite mit vollem Namen steht, heißt danach oft nur noch „Mira“ oder
+ * „Tannhaus“. Das gilt wie in jedem Text nur dort, wo sie vorgestellt wurde: auf derselben Seite.
+ * Eine Suche über die ganze Welt gäbe es bei tausenden Personen nie eindeutig her. Tragen auf der
+ * Seite zwei Personen denselben Namensteil – oder der Artikel selbst und eine weitere –, wird er
+ * nicht verknüpft.
+ */
+
+/** Wörter eines Namens, die allein niemanden bezeichnen. */
+const NOT_A_NAME = new Set(
+  [
+    'von',
+    'van',
+    'de',
+    'der',
+    'den',
+    'die',
+    'das',
+    'zu',
+    'zur',
+    'zum',
+    'vom',
+    'am',
+    'di',
+    'da',
+    'la',
+    'le',
+    'al',
+    'el',
+    'bin',
+    'ibn',
+    'of',
+    'the',
+    'und',
+    'dr',
+    'prof',
+    'herr',
+    'frau',
+    'meister',
+    'meisterin',
+    'graf',
+    'gräfin',
+    'baron',
+    'baronin',
+    'fürst',
+    'fürstin',
+    'herzog',
+    'herzogin',
+    'könig',
+    'königin',
+    'prinz',
+    'prinzessin',
+    'lord',
+    'lady',
+    'sir',
+    'hauptmann',
+    'kapitän',
+    'kommandant',
+    'kommandantin',
+    'bruder',
+    'schwester',
+    'vater',
+    'mutter',
+    'onkel',
+    'tante',
+    'alte',
+    'alter',
+    'junge',
+    'haus',
+  ].map((word) => word.toLocaleLowerCase('de')),
+);
+
+/**
+ * Die Namensteile, unter denen eine Person kurz genannt wird: ihr erstes und ihr letztes Wort,
+ * ohne Titel und Partikel („Dr. Odo von Tannhaus“ → Odo, Tannhaus). Ein einzelnes Wort gibt nichts
+ * her – es ist schon der ganze Name.
+ */
+export function shortNames(title: string): string[] {
+  const words = title
+    .replace(LEADING_ARTICLE, '')
+    .split(/\s+/)
+    .map((word) => word.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ''))
+    .filter((word) => word && !NOT_A_NAME.has(word.toLocaleLowerCase('de')));
+  if (words.length < 2) return [];
+  return [...new Set([words[0]!, words[words.length - 1]!])].filter(isLinkableName);
+}
+
+/** Sammelt, auf welche Artikel die Knoten verweisen. */
+function mentioned(value: unknown, into: Set<string>, depth = 0): void {
+  if (depth > 96 || typeof value !== 'object' || value === null) return;
+  if (Array.isArray(value)) {
+    for (const part of value) mentioned(part, into, depth + 1);
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.type === 'mention' && typeof record.resourceId === 'string' && record.resourceId)
+    into.add(record.resourceId);
+  else for (const part of Object.values(record)) mentioned(part, into, depth + 1);
+}
+
+/** Wörter, nach denen ein Nachname stehen darf, ohne zu einem fremden Vornamen zu gehören. */
+const BEFORE_SURNAME = new Set(
+  ['der', 'die', 'das', 'den', 'dem', 'des', 'herr', 'frau', 'familie', 'haus', 'und', 'oder'].map(
+    (word) => word,
+  ),
+);
+
+/**
+ * Setzt auf einer Seite Vornamen und Nachnamen als Verweise ein, wenn die Person dort schon mit
+ * vollem Namen (oder als Verweis) steht und der Namensteil auf der Seite nur zu ihr gehört.
+ * `personTitle` gibt den Titel eines Artikels zurück, wenn er eine Person beschreibt.
+ */
+export function linkShortNames(
+  nodes: ArticleNode[],
+  personTitle: (id: string) => string | null,
+  selfId: string,
+): ArticleNode[] {
+  const ids = new Set<string>([selfId]);
+  mentioned(nodes, ids);
+  const owners = new Map<string, Set<string>>();
+  for (const id of ids) {
+    const title = personTitle(id);
+    if (!title) continue;
+    for (const name of shortNames(title)) {
+      const set = owners.get(name);
+      if (set) set.add(id);
+      else owners.set(name, new Set([id]));
+    }
+  }
+  // Nur, was auf dieser Seite eindeutig ist – und nicht der Artikel selbst.
+  const unique = new Map<string, string>();
+  for (const [name, set] of owners) {
+    const [only] = set;
+    if (set.size === 1 && only !== selfId) unique.set(name, only!);
+  }
+  if (!unique.size) return nodes;
+
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `(?<![\\p{L}\\p{N}])(${[...unique.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map(escape)
+      .join('|')})(?:s(?![\\p{L}\\p{N}])|(?![\\p{L}\\p{N}]))`,
+    'gu',
+  );
+  const find: Finder = (text) => {
+    const hits: NameHit[] = [];
+    for (const match of text.matchAll(pattern)) {
+      const name = match[1]!;
+      const from = match.index;
+      const to = from + name.length;
+      // „Mira Kohl“ ist jemand anderes als die Mira dieser Seite; „Jost Tannhaus“ ebenso.
+      // Mit angehängtem „s“ folgt dagegen ein Hauptwort („Miras Boot“) – das ist in Ordnung.
+      const after = /^\s(\p{Lu}[\p{L}'’-]+)/u.exec(text.slice(to))?.[1];
+      if (after && !NOT_A_NAME.has(after.toLocaleLowerCase('de'))) continue;
+      const before = /(\p{Lu}[\p{L}'’-]*)\s$/u.exec(text.slice(0, from))?.[1];
+      if (before && !BEFORE_SURNAME.has(before.toLocaleLowerCase('de'))) {
+        // Ein großes Wort davor ist nur am Satzanfang unverdächtig („Gestern kam Mira“ ist klein).
+        const lead = text.slice(0, from - before.length - 1);
+        if (lead.trim() !== '' && !/[.!?:;„"»(–-]\s*$/.test(lead)) continue;
+      }
+      hits.push({ from, to, id: unique.get(name)! });
+    }
+    return hits;
+  };
+  return linkWith(nodes, find, selfId);
 }

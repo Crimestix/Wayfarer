@@ -138,6 +138,10 @@ const STRUCTURE_TAGS = words(
   'index',
 );
 
+/** Trägt ein Artikel das Symbol oder ein Schlagwort einer Person? */
+export const looksLikePerson = (icon: string, tags: readonly string[]): boolean =>
+  ICONS.person.test(icon) || tags.some((tag) => TAGS.person.has(norm(tag)));
+
 /** Entwürfe und Abgelegtes gehören nicht in die Welt. */
 const DRAFT_TAGS = words('draft', 'Entwurf', 'Entwürfe', 'unused', 'Archiv');
 

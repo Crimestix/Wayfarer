@@ -6,7 +6,8 @@
  */
 import type { Article, ArticleDoc, CampaignData } from '../../domain/schema';
 import type { ArticleNode } from '../legendkeeper/model';
-import { linkNames, nameMatcher, type NameMatcher } from './names';
+import { linkNames, linkShortNames, nameMatcher, type NameMatcher } from './names';
+import { looksLikePerson } from './recognize';
 import {
   parseMarkdown,
   splitTarget,
@@ -38,6 +39,28 @@ export interface LinkIndex {
 
 let lastStamp: { signature: string; stamp: object } | null = null;
 
+const personCache = new WeakMap<Article, boolean>();
+
+/** Steckbriefzeilen, die nur bei einer Person stehen. */
+const PERSON_LINE =
+  /^>\s*(?:(?:Art|Typ)\s*:\s*(?:Person|NSC|NPC|Figur|Charakter)\b|(?:Spezies|Volk|Rasse)\s*:\s*\S)/imu;
+
+/**
+ * Beschreibt der Artikel eine Person? Am Symbol, an den Schlagworten oder an seinem Steckbrief
+ * abgelesen – ohne die Welt zu fragen, damit das Wiki für sich allein lesbar bleibt.
+ */
+export function isPersonArticle(article: Article): boolean {
+  let known = personCache.get(article);
+  if (known === undefined) {
+    known =
+      !article.template &&
+      (looksLikePerson(article.icon, article.tags) ||
+        article.docs.some((doc) => PERSON_LINE.test(doc.text)));
+    personCache.set(article, known);
+  }
+  return known;
+}
+
 const indexCache = new WeakMap<object, LinkIndex>();
 
 /** Wohin Verweise führen. Titel gehen vor Zweitnamen, Artikel vor Vorlagen. */
@@ -62,7 +85,14 @@ export function linkIndex(articles: Articles): LinkIndex {
   }
   const signature = sorted
     .map((a) =>
-      [a.id, a.title, a.template ? 1 : 0, a.autoLink ? 1 : 0, ...a.aliases].join('\u0001'),
+      [
+        a.id,
+        a.title,
+        a.template ? 1 : 0,
+        a.autoLink ? 1 : 0,
+        isPersonArticle(a) ? 1 : 0,
+        ...a.aliases,
+      ].join('\u0001'),
     )
     .join('\u0002');
   const stamp = lastStamp?.signature === signature ? lastStamp.stamp : {};
@@ -149,9 +179,17 @@ export function pageNodes(articles: Articles, article: Article, doc: ArticleDoc)
   // Erst die Verweise in Klammern, dann die Namen, die ohne Klammern dastehen.
   const nodes =
     doc.kind === 'page'
-      ? linkNames(
-          parseMarkdown(pageText(articles, article, doc), { resolve, headings: 0 }),
-          matcherFor(articles),
+      ? linkShortNames(
+          linkNames(
+            parseMarkdown(pageText(articles, article, doc), { resolve, headings: 0 }),
+            matcherFor(articles),
+            article.id,
+          ),
+          // Vornamen und Nachnamen allein gelten für Personen, die auf dieser Seite stehen.
+          (id) => {
+            const other = articles[id];
+            return other && other.autoLink && isPersonArticle(other) ? other.title : null;
+          },
           article.id,
         )
       : [];

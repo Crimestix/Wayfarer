@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ArticleSchema, type Article } from '../../domain/schema';
 import type { ArticleNode, Inline } from '../legendkeeper/model';
 import { backlinks, coMentions } from './model';
-import { isLinkableName, nameMatcher } from './names';
+import { isLinkableName, nameMatcher, shortNames } from './names';
 import { linkIndex, pageNodes } from './text';
 
 const stamp = '2026-01-01T00:00:00.000Z';
@@ -157,6 +157,69 @@ describe('Namen ohne Klammern erkennen', () => {
       ['Odo', 2],
     ]);
     expect(coMentions(articles, 'furt')).toEqual([]);
+  });
+
+  it('kennt Vornamen und Nachnamen allein – aber nur auf der Seite, auf der die Person steht', () => {
+    expect(shortNames('Mira Tannhaus')).toEqual(['Mira', 'Tannhaus']);
+    expect(shortNames('Dr. Odo von Tannhaus')).toEqual(['Odo', 'Tannhaus']);
+    expect(shortNames('Die Alte Berta')).toEqual([]);
+    expect(shortNames('Odo')).toEqual([]);
+
+    const person = { tags: ['NSC'] };
+    const people = [
+      article('mira', 'Mira Tannhaus', '', person),
+      article('odo', 'Odo Tannhaus', '', person),
+      article('vera', 'Vera Kohl', '> [!steckbrief]\n> Art: Person', {}),
+      article('furt', 'Hohenfurt Altstadt'),
+    ];
+    const page = (text: string, id = 'text') => {
+      const articles = world(...people, article(id, 'Bericht', text));
+      return mentions(pageNodes(articles, articles[id]!, articles[id]!.docs[0]!));
+    };
+    // Vorgestellt mit vollem Namen, danach kurz genannt.
+    expect(page('Mira Tannhaus kam spät. Mira war müde, und Miras Boot leckte.')).toEqual([
+      '~Mira Tannhaus→mira',
+      '~Mira→mira',
+      '~Mira→mira',
+    ]);
+    // Ohne Vorstellung auf dieser Seite bleibt „Mira“ ein Wort – es gibt zu viele davon.
+    expect(page('Mira war müde.')).toEqual([]);
+    // Zwei Tannhaus auf einer Seite: Der Nachname ist nicht eindeutig, die Vornamen schon.
+    expect(
+      page('[[Mira Tannhaus]] und [[Odo Tannhaus]] stritten. Tannhaus schwieg, Odo ging.'),
+    ).toEqual(['Mira Tannhaus→mira', 'Odo Tannhaus→odo', '~Odo→odo']);
+    // Wer am Steckbrief als Person erkennbar ist, zählt auch; Orte nie.
+    expect(page('Vera Kohl wohnt in Hohenfurt Altstadt. Kohl mag die Altstadt.')).toEqual([
+      '~Vera Kohl→vera',
+      '~Hohenfurt Altstadt→furt',
+      '~Kohl→vera',
+    ]);
+    // Ein fremder Nachname dahinter oder ein fremder Vorname davor: jemand anderes.
+    expect(page('Mira Tannhaus traf Mira Kohl und Jost Tannhaus.')).toEqual([
+      '~Mira Tannhaus→mira',
+    ]);
+    // Am Satzanfang ist ein großes Wort davor unverdächtig.
+    expect(page('Mira Tannhaus lachte. Dann ging Mira. Später kam Tannhaus zurück.')).toEqual([
+      '~Mira Tannhaus→mira',
+      '~Mira→mira',
+      '~Tannhaus→mira',
+    ]);
+  });
+
+  it('verknüpft im eigenen Artikel nie den eigenen Namen – und hält ihn für mehrdeutig', () => {
+    const articles = world(
+      article(
+        'mira',
+        'Mira Tannhaus',
+        'Mira ist die Schwester von Odo Tannhaus. Tannhaus heißen beide.',
+        {
+          tags: ['NSC'],
+        },
+      ),
+      article('odo', 'Odo Tannhaus', '', { tags: ['NSC'] }),
+    );
+    const mira = articles.mira!;
+    expect(mentions(pageNodes(articles, mira, mira.docs[0]!))).toEqual(['~Odo Tannhaus→odo']);
   });
 
   it('folgt Umbenennungen und dem Abschalten', () => {
