@@ -31,9 +31,13 @@ eigene Software nicht geht. Daran wird jede Entscheidung gemessen:
   Personen, statt einzeln angelegt zu werden. **Generatoren** (zuerst für NSC) liefern auf Wunsch
   Vorschläge, die zur eigenen Welt passen.
 
-Keine KI-Funktionen und keine mitgelieferten Beispielinhalte: Wayfarer rechnet, leitet ab und
-simuliert nach festen Regeln. Generatoren laufen nur, wenn der Spielleiter sie auslöst; ihr
-Ergebnis ist ein Vorschlag und speist sich aus der eigenen Welt.
+**Was Wayfarer erzeugt und was nicht** (Spielleiter, 10. 11. 2026): „Keine Inhaltsgenerierung“
+gilt für alles, was für die Geschichte wichtig ist – das kommt vom Spielleiter. Dagegen gilt:
+**„Wo andere Spielleiter Zufallstabellen nutzen, nutzen wir Wayfarer.“** Eine Hexkarte zwischen
+zwei Orten soll entstehen können, ohne dass vorher eine Karte angelegt wurde: Wayfarer erkennt,
+was für ein Gebiet das ist, wie groß es ist und was dort liegt, und baut daraus eine interessante
+Karte. Dasselbe gilt für Wetter, Begegnungen unterwegs und Beiwerk-NSC. Keine KI-Funktionen,
+keine mitgelieferten Beispielwelten; Erzeugtes ist wiederholbar und von Hand übersteuerbar.
 
 ## Bereiche
 

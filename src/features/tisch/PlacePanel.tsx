@@ -17,8 +17,7 @@ import {
   Sparkles,
   User,
 } from 'lucide-react';
-import { moveParty } from '../../data/actions';
-import { useData, useDb } from '../../data/hooks';
+import { useData } from '../../data/hooks';
 import { placePath, placeStatus } from '../../domain/derive';
 import type { Place } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
@@ -37,9 +36,7 @@ import {
   SectionTitle,
   cx,
   entityHref,
-  toast,
 } from '../../ui';
-import { undoMove } from './commands';
 import {
   absenceMinutes,
   castView,
@@ -217,7 +214,7 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
             type="button"
             className="wf-tisch-way wf-tisch-way--back"
             onClick={() => onGo(nearby.parent!)}
-            title={`Die Gruppe geht zurück nach ${nearby.parent.name}`}
+            title={`Die Gruppe nach ${nearby.parent.name} versetzen …`}
           >
             <CornerLeftUp />
             <span className="wf-clamp-1">Zurück nach {nearby.parent.name}</span>
@@ -234,7 +231,11 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
               style={i >= fit ? { visibility: 'hidden' } : undefined}
               tabIndex={i >= fit ? -1 : undefined}
               aria-hidden={i >= fit || undefined}
-              title={[`Die Gruppe geht hinein: ${child.name}`, child.place.category, child.tagline]
+              title={[
+                `Die Gruppe hierher versetzen: ${child.name} …`,
+                child.place.category,
+                child.tagline,
+              ]
                 .filter(Boolean)
                 .join('\n')}
             >
@@ -296,7 +297,6 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
 }
 
 export function PlacePanel({ place }: { place: Place }) {
-  const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
   const now = data.state.now;
@@ -323,24 +323,8 @@ export function PlacePanel({ place }: { place: Place }) {
   const showAll = expanded === stayKey || changes.length <= shownAtOnce;
   const shownChanges = showAll ? changes : changes.slice(-shownAtOnce);
 
-  const go = (target: Place) => {
-    const entry = moveParty(db, target.id);
-    if (!entry) return;
-    toast({
-      title: target.name,
-      body: 'Die Gruppe ist jetzt hier. Der Ortswechsel steht in der Chronik.',
-      action: {
-        label: 'Rückgängig',
-        run: () => {
-          if (!undoMove(db, entry.id))
-            toast({
-              title: 'Lässt sich nicht mehr zurücknehmen',
-              body: 'Die Gruppe ist inzwischen weitergezogen.',
-            });
-        },
-      },
-    });
-  };
+  // Ein Klick versetzt die Gruppe nicht: Er schlägt den Ort nur vor, der Spielleiter bestätigt.
+  const go = (target: Place) => openMoveParty({ placeId: target.id });
 
   const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
   /** Über den Ort ist noch gar nichts eingetragen. */
@@ -379,7 +363,7 @@ export function PlacePanel({ place }: { place: Place }) {
             </Link>
             <Button
               icon={<Footprints />}
-              onClick={openMoveParty}
+              onClick={() => openMoveParty()}
               title="Die Gruppe zieht an einen anderen Ort"
             >
               Weiterziehen
@@ -543,7 +527,7 @@ export function NoPlace() {
         icon={<Compass />}
         title="Wo ist die Gruppe gerade?"
         action={
-          <Button variant="primary" icon={<MapPin />} onClick={openMoveParty}>
+          <Button variant="primary" icon={<MapPin />} onClick={() => openMoveParty()}>
             Ort der Gruppe festlegen
           </Button>
         }

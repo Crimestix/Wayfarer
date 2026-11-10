@@ -116,7 +116,7 @@ export function Landing() {
           ) : (
             <Hint
               action={
-                <Button size="sm" onClick={openMoveParty}>
+                <Button size="sm" onClick={() => openMoveParty()}>
                   Ort der Gruppe festlegen
                 </Button>
               }

@@ -102,12 +102,15 @@ export const LEGACY_OPINIONS = [
 ] as const;
 
 /**
- * Alte Meinung (1 Hass … 6 Liebe) → neue Haltung (−3 Feindselig … +3 Ergeben).
- * Die alte Skala hatte keine neutrale Mitte, deshalb bleibt 0 unbesetzt.
+ * Alte Meinung (1 Hass … 6 Liebe) → neue Haltung auf der Skala −5 … +5: Hass → Hasserfüllt (−4),
+ * Abneigung → Ablehnend (−2), Skepsis → Misstrauisch (−1), Wohlwollen → Wohlgesonnen (+2),
+ * Zuneigung → Befreundet (+3), Liebe → Ergeben (+5). Die alte Skala hatte keine neutrale Mitte
+ * und keine Zwischenstufen; die bleiben frei für spätere Feinheiten.
  */
+const OPINION_ATTITUDE = [-4, -2, -1, 2, 3, 5] as const;
 export function opinionToAttitude(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 6) return null;
-  return value <= 3 ? value - 4 : value - 3;
+  return OPINION_ATTITUDE[value - 1]!;
 }
 
 const PLACE_KIND_LABEL: Record<string, string> = {
@@ -1179,7 +1182,7 @@ class Importer {
             const value = opinionToAttitude(i + 1)!;
             return `${label} → ${attitudeLabel(value)} (${value > 0 ? '+' : '−'}${Math.abs(value)})`;
           }).join(', ') +
-          '. „Neutral“ (0) gab es in der alten Version nicht. War die Meinung zu allen sechs Gefährten gleich, gilt sie jetzt als Haltung gegenüber der Gruppe; abweichende Meinungen stehen bei den einzelnen Gefährten.',
+          '. Die neue Skala hat elf Stufen von Todfeind (−5) bis Ergeben (+5); „Neutral“ (0) und die Zwischenstufen gab es in der alten Version nicht – sie stehen jetzt zum Nachschärfen bereit. War die Meinung zu allen sechs Gefährten gleich, gilt sie jetzt als Haltung gegenüber der Gruppe; abweichende Meinungen stehen bei den einzelnen Gefährten.',
       );
     }
   }

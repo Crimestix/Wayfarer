@@ -169,7 +169,7 @@ function WorldBar() {
         <button
           type="button"
           className="wf-bar__place"
-          onClick={openMoveParty}
+          onClick={() => openMoveParty()}
           title="Ort der Gruppe wechseln"
         >
           <MapPin />

@@ -257,8 +257,8 @@ export const RelationSchema = z.object({
   type: z.string().default('knows'),
   /** Eigene Bezeichnung bei type = custom. */
   label: z.string().default(''),
-  /** Haltung von `from` gegenüber `to`: −3 … +3, null = unbekannt. */
-  attitude: z.number().int().min(-3).max(3).nullable().default(null),
+  /** Haltung von `from` gegenüber `to`: −5 (Todfeind) … +5 (Ergeben), null = unbekannt. */
+  attitude: z.number().int().min(-5).max(5).nullable().default(null),
   note: z.string().default(''),
   /** Die Gruppe weiß nichts davon. */
   secret: z.boolean().default(false),

@@ -237,10 +237,10 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
 
 // ── Ort wechseln ───────────────────────────────────────────────────────────
 
-function MovePartyDialog() {
+function MovePartyDialog({ preset }: { preset?: string }) {
   const db = useDb();
   const data = useData();
-  const [placeId, setPlaceId] = useState<string | null>(null);
+  const [placeId, setPlaceId] = useState<string | null>(preset ?? null);
   const [text, setText] = useState('');
   const save = () => {
     moveParty(db, placeId, text);
@@ -255,7 +255,12 @@ function MovePartyDialog() {
       footer={
         <>
           <Button onClick={closeShellRequest}>Abbrechen</Button>
-          <Button variant="primary" onClick={save} disabled={placeId === data.state.placeId}>
+          <Button
+            variant="primary"
+            onClick={save}
+            disabled={placeId === data.state.placeId}
+            data-autofocus={preset ? true : undefined}
+          >
             Ort wechseln
           </Button>
         </>
@@ -273,7 +278,7 @@ function MovePartyDialog() {
             value={placeId}
             onChange={setPlaceId}
             kinds={['place']}
-            autoFocus
+            autoFocus={!preset}
             placeholder="Ort wählen oder neu anlegen …"
             onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
           />
@@ -557,7 +562,7 @@ export function ShellDialogs() {
     case 'attitude':
       return <AttitudeDialog request={request.request} />;
     case 'move':
-      return <MovePartyDialog />;
+      return <MovePartyDialog preset={request.placeId} />;
     case 'time':
       return <TimeDialog />;
     case 'search':

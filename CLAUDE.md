@@ -19,9 +19,15 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
 - Keine KI-Funktionen, keine mitgelieferten Beispielinhalte. Wayfarer rechnet, leitet ab und
   simuliert nach festen Regeln. In der App steht nur, was der Spielleiter eingetragen, übernommen
   oder ausdrücklich angenommen hat.
-- Generatoren (z. B. für NSC) sind erwünscht, aber nur als Werkzeug: Der Spielleiter löst sie
-  aus, das Ergebnis ist ein Vorschlag zum Annehmen, Ändern oder Verwerfen, und es speist sich aus
-  der eigenen Welt (vorhandene Namen, Spezies, Orte, Familien) – nichts entsteht von selbst.
+- **Was erzeugt werden darf:** „Wo andere Spielleiter Zufallstabellen nutzen, nutzen wir
+  Wayfarer.“ Alles Prozedurale erzeugt Wayfarer selbst und nach festen, wiederholbaren Regeln:
+  Gelände und Hexkarten zwischen zwei Orten (auch ohne vorher angelegte Karte), Wetter,
+  Begegnungen und Entdeckungen unterwegs, Beiwerk-NSC. Dabei erkennt es aus der Welt, was für ein
+  Gebiet das ist, wie groß es ist und was dort liegt.
+- **Was nie erzeugt wird:** alles, was für die Geschichte wichtig ist – Handlung, bedeutende
+  Personen und Orte, Geheimnisse, Abmachungen. Das kommt vom Spielleiter.
+- Erzeugtes ist als solches erkennbar, lässt sich von Hand übersteuern und bleibt stabil
+  (gleicher Ausgangswert → gleiches Ergebnis), damit eine Rückreise dieselbe Welt vorfindet.
 - Leitbild (ausführlich in `docs/FUNKTIONSUMFANG.md`): ein starkes Werkzeug für die Spielleitung,
   das die Welt simuliert, durch die die Gruppe läuft (Zeit, Wetter, Reisen), möglichst viel selbst
   erkennt und ableitet statt abzufragen, und beim Leiten nicht stört.

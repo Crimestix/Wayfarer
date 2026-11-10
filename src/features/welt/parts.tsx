@@ -9,6 +9,7 @@ import type { Entity, EventKind } from '../../domain/schema';
 import { formatClock, formatRelative } from '../../domain/time/calendar';
 import {
   AttitudeBadge,
+  attitudeColor,
   Button,
   EntityLink,
   EntityPicker,
@@ -25,10 +26,7 @@ import { patchEntityIfPresent } from './actions';
 import { entitySubline, formatShortDate, type Fact, type WorldEntity } from './model';
 
 /** CSS-Farbe einer Haltungsstufe. */
-export const attitudeVar = (value: number | null): string =>
-  value === null
-    ? 'var(--ink-mute)'
-    : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
+export const attitudeVar = attitudeColor;
 
 /** Abschnitt mit Titel in Versalien und optionalen Knöpfen rechts. */
 export function Section({
@@ -68,7 +66,7 @@ export function Hint({ children, action }: { children: ReactNode; action?: React
   );
 }
 
-/** Sieben Rauten; die aktuelle Stufe leuchtet. Nur Anzeige. */
+/** Elf Rauten; die aktuelle Stufe leuchtet. Nur Anzeige. */
 export function AttitudePips({ value }: { value: number | null }) {
   return (
     <span className="wf-welt-pips" aria-hidden>
@@ -76,6 +74,8 @@ export function AttitudePips({ value }: { value: number | null }) {
         <i
           key={level.value}
           data-on={level.value === value}
+          data-zero={level.value === 0 || undefined}
+          title={level.label}
           style={{ '--att-color': attitudeVar(level.value) } as CSSProperties}
         />
       ))}

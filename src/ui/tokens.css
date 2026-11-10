@@ -44,13 +44,17 @@
   --ember-wash: rgba(213, 140, 60, 0.14);
 
   /* Haltung von feindselig bis ergeben */
-  --att-n3: #d9584c;
-  --att-n2: #c9704f;
+  --att-n5: #e2463c;
+  --att-n4: #d9584c;
+  --att-n3: #d06a4c;
+  --att-n2: #c98050;
   --att-n1: #c49a5a;
   --att-0: #a39a86;
-  --att-p1: #a9b07a;
-  --att-p2: #86b07a;
-  --att-p3: #5fb39a;
+  --att-p1: #b0b07c;
+  --att-p2: #9bb17a;
+  --att-p3: #86b07a;
+  --att-p4: #72b28a;
+  --att-p5: #5fb39a;
 
   /* Schriften */
   --font-display: 'Cormorant Garamond Variable', 'Cormorant Garamond', Georgia, serif;

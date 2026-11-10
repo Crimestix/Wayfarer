@@ -390,13 +390,13 @@ describe('Vollständiges Backup', () => {
     const ardo = byName(data, 'person', 'Ardo Venn');
     const ilse = byName(data, 'person', 'Ilse Kornblum');
     // Ardo (nur Weltdatenbank): Gruppe „Zuneigung“ (5) → +2, Tomlin „Abneigung“ (2) → −2.
-    expect(attitudeToParty(data, ardo.id)).toBe(2);
+    expect(attitudeToParty(data, ardo.id)).toBe(3);
     expect(findRelation(data, ardo.id, 'tomlin')?.attitude).toBe(-2);
     // Ilse (LegendKeeper-NPC mit Stammdaten): Gruppe 4 → +1; Tomlin 5 → +2, Neil 3 → −1 aus npcOpinions.
     expect(ilse.lk).toEqual({ resourceId: 'lkres-ilse', title: '' });
     expect(ilse.person.met).toBe(true);
-    expect(attitudeToParty(data, ilse.id)).toBe(1);
-    expect(findRelation(data, ilse.id, 'tomlin')?.attitude).toBe(2);
+    expect(attitudeToParty(data, ilse.id)).toBe(2);
+    expect(findRelation(data, ilse.id, 'tomlin')?.attitude).toBe(3);
     expect(findRelation(data, ilse.id, 'neil')?.attitude).toBe(-1);
     expect(findRelation(data, ilse.id, 'veres')).toBeUndefined();
   });
@@ -433,8 +433,8 @@ describe('Vollständiges Backup', () => {
         e.attitude!.after,
       ]),
     ).toEqual([
-      [null, 3],
-      [3, null],
+      [null, 5],
+      [5, null],
     ]);
   });
 
@@ -448,15 +448,15 @@ describe('Vollständiges Backup', () => {
         fromId: ilse.id,
         toId: 'tomlin',
         before: null,
-        after: 1,
+        after: 2,
       },
       {
         at: T0 + DAY,
         text: 'Er hat ihren Sohn geheilt.',
         fromId: ilse.id,
         toId: 'tomlin',
-        before: 1,
-        after: 2,
+        before: 2,
+        after: 3,
       },
     ]);
     expect(history[0]!.refs).toEqual([ilse.id, 'tomlin']);
@@ -662,7 +662,7 @@ describe('Vollständiges Backup', () => {
     expect(Object.values(data.relations).filter((r) => r.to === PARTY_ID)).toHaveLength(3);
     // Die Skala wird erklärt.
     expect(hints.join(' ')).toContain(
-      'Hass → Feindselig (−3), Abneigung → Ablehnend (−2), Skepsis → Misstrauisch (−1), Wohlwollen → Wohlgesonnen (+1), Zuneigung → Freundlich (+2), Liebe → Ergeben (+3)',
+      'Hass → Hasserfüllt (−4), Abneigung → Ablehnend (−2), Skepsis → Misstrauisch (−1), Wohlwollen → Wohlgesonnen (+2), Zuneigung → Befreundet (+3), Liebe → Ergeben (+5)',
     );
     expect(hints.join(' ')).toContain('„wichtig“ (1 Termin) und „lokales Ereignis“ (1 Termin)');
     // Tomlin hat ein eigenes Bild, Neil einen Link; die übrigen vier nutzten das mitgelieferte Porträt.
@@ -807,8 +807,8 @@ describe('Unberührter Spielstand der alten Version', () => {
 });
 
 describe('Meinungsskala', () => {
-  it('bildet 1–6 auf −3…+3 ohne Mitte ab', () => {
-    expect([1, 2, 3, 4, 5, 6].map(opinionToAttitude)).toEqual([-3, -2, -1, 1, 2, 3]);
+  it('bildet 1–6 auf die elf Stufen ab: gleiche Reihenfolge, ohne Mitte', () => {
+    expect([1, 2, 3, 4, 5, 6].map(opinionToAttitude)).toEqual([-4, -2, -1, 2, 3, 5]);
     expect(LEGACY_OPINIONS).toHaveLength(6);
   });
   it('kennt „unbekannt“ und weist alles andere ab', () => {
@@ -1170,7 +1170,7 @@ describe('Mehrere Verbindungen zwischen denselben beiden Einträgen', () => {
       note: 'Teilorganisation · verbunden mit',
     });
     const sibling = findRelation(data, byName(data, 'person', 'Ardo Venn').id, 'veres')!;
-    expect(sibling).toMatchObject({ type: 'family', note: 'Geschwister', attitude: 3 });
+    expect(sibling).toMatchObject({ type: 'family', note: 'Geschwister', attitude: 5 });
     const pairs = Object.values(data.relations).map((r) => `${r.from}→${r.to}`);
     expect(new Set(pairs).size).toBe(pairs.length);
   });

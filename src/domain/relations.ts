@@ -70,19 +70,88 @@ export function relationLabel(
 export interface AttitudeLevel {
   value: number;
   label: string;
+  /** Was die Stufe am Tisch bedeutet – ein Satz, der mit dem Namen der Figur beginnen könnte. */
+  hint: string;
   /** Einordnung nach D&D 2024: feindselig, gleichgültig, freundlich. */
   rules: 'hostile' | 'indifferent' | 'friendly';
 }
 
+export const ATTITUDE_MIN = -5;
+export const ATTITUDE_MAX = 5;
+
+/** Elf Stufen von Todfeind bis Ergeben; 0 ist die neutrale Mitte. */
 export const ATTITUDES: AttitudeLevel[] = [
-  { value: -3, label: 'Feindselig', rules: 'hostile' },
-  { value: -2, label: 'Ablehnend', rules: 'hostile' },
-  { value: -1, label: 'Misstrauisch', rules: 'indifferent' },
-  { value: 0, label: 'Neutral', rules: 'indifferent' },
-  { value: 1, label: 'Wohlgesonnen', rules: 'indifferent' },
-  { value: 2, label: 'Freundlich', rules: 'friendly' },
-  { value: 3, label: 'Ergeben', rules: 'friendly' },
+  {
+    value: -5,
+    label: 'Todfeind',
+    hint: 'Will schaden, koste es, was es wolle – auch unter eigenen Opfern.',
+    rules: 'hostile',
+  },
+  {
+    value: -4,
+    label: 'Hasserfüllt',
+    hint: 'Hasst und arbeitet aktiv dagegen, sobald sich eine Gelegenheit bietet.',
+    rules: 'hostile',
+  },
+  {
+    value: -3,
+    label: 'Feindselig',
+    hint: 'Stellt sich offen dagegen, droht oder greift an, wenn es sich lohnt.',
+    rules: 'hostile',
+  },
+  {
+    value: -2,
+    label: 'Ablehnend',
+    hint: 'Will nichts damit zu tun haben, verweigert Hilfe und redet schlecht.',
+    rules: 'hostile',
+  },
+  {
+    value: -1,
+    label: 'Misstrauisch',
+    hint: 'Bleibt auf Abstand und hilft nur gegen Sicherheiten oder guten Lohn.',
+    rules: 'indifferent',
+  },
+  {
+    value: 0,
+    label: 'Neutral',
+    hint: 'Keine besondere Meinung – hilft oder schadet, wie es gerade passt.',
+    rules: 'indifferent',
+  },
+  {
+    value: 1,
+    label: 'Aufgeschlossen',
+    hint: 'Hört zu und hilft bei Kleinigkeiten, die nichts kosten.',
+    rules: 'indifferent',
+  },
+  {
+    value: 2,
+    label: 'Wohlgesonnen',
+    hint: 'Mag sie und hilft, solange es wenig kostet und nichts riskiert.',
+    rules: 'friendly',
+  },
+  {
+    value: 3,
+    label: 'Befreundet',
+    hint: 'Setzt sich ein, gibt Rat und Auskunft und nimmt Mühe auf sich.',
+    rules: 'friendly',
+  },
+  {
+    value: 4,
+    label: 'Treu',
+    hint: 'Steht auch in schweren Zeiten dazu und geht dafür Risiken ein.',
+    rules: 'friendly',
+  },
+  {
+    value: 5,
+    label: 'Ergeben',
+    hint: 'Würde alles geben – auch gegen die eigenen Interessen.',
+    rules: 'friendly',
+  },
 ];
+
+/** Name der CSS-Farbe einer Stufe: `--att-n5` … `--att-0` … `--att-p5`. */
+export const attitudeToken = (value: number): string =>
+  `--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'}`;
 
 export const RULES_ATTITUDE_LABEL: Record<AttitudeLevel['rules'], string> = {
   hostile: 'Feindselig',

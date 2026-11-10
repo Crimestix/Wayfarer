@@ -402,6 +402,41 @@
   background: var(--att-color);
   box-shadow: 0 0 8px var(--att-color);
 }
+/* Die neutrale Mitte ist an einem kleinen Abstand zu erkennen. */
+.wf-attitude-scale button[data-zero] {
+  margin: 0 5px;
+}
+.wf-attitude-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-attitude-pick__meaning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--s-3);
+  align-items: baseline;
+  min-height: 3.2em;
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--att-color, var(--line));
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-attitude-pick__meaning b {
+  color: var(--att-color);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-attitude-pick__meaning em {
+  grid-column: 2;
+  color: var(--ink-mute);
+}
+.wf-attitude-pick__meaning > span:only-child {
+  grid-column: 1 / -1;
+  color: var(--ink-mute);
+  font-style: italic;
+}
 
 /* ── Einträge der Weltdatenbank ─────────────────────────────────────────── */
 .wf-portrait {

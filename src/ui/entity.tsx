@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../data/hooks';
 import { KIND_LABEL, placePath, searchEntities } from '../domain/derive';
-import { ATTITUDES, attitudeLevel, RULES_ATTITUDE_LABEL } from '../domain/relations';
+import { ATTITUDES, attitudeLevel, attitudeToken, RULES_ATTITUDE_LABEL } from '../domain/relations';
 import { PARTY_ID, type Entity, type EntityKind } from '../domain/schema';
 import { Input, MenuItem, Popover, cx } from './components';
 
@@ -105,17 +105,16 @@ export function EntityLinks({ ids }: { ids: string[] }) {
 
 // ── Haltung ────────────────────────────────────────────────────────────────
 
-const attitudeColor = (value: number | null): string =>
-  value === null
-    ? 'var(--ink-mute)'
-    : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
+/** CSS-Farbe einer Haltungsstufe; unbekannt ist gedämpft. */
+export const attitudeColor = (value: number | null): string =>
+  value === null ? 'var(--ink-mute)' : `var(${attitudeToken(value)})`;
 
 /** Haltung als farbige Raute mit Bezeichnung. null = unbekannt. */
 export function AttitudeBadge({ value, label = true }: { value: number | null; label?: boolean }) {
   const level = attitudeLevel(value);
   const text = level?.label ?? 'Unbekannt';
   const rules = level
-    ? `Nach Regelwerk: ${RULES_ATTITUDE_LABEL[level.rules]}`
+    ? `${level.hint} Nach Regelwerk: ${RULES_ATTITUDE_LABEL[level.rules].toLowerCase()}.`
     : 'Haltung noch nicht festgelegt';
   return (
     <span
@@ -129,7 +128,10 @@ export function AttitudeBadge({ value, label = true }: { value: number | null; l
   );
 }
 
-/** Sieben Stufen zum Anklicken. Ein Klick auf die gewählte Stufe setzt auf „unbekannt“ zurück. */
+/**
+ * Elf Stufen zum Anklicken, darunter Name und Bedeutung der Stufe unter dem Zeiger (sonst der
+ * gewählten). Ein Klick auf die gewählte Stufe setzt auf „unbekannt“ zurück.
+ */
 export function AttitudeScale({
   value,
   onChange,
@@ -137,21 +139,51 @@ export function AttitudeScale({
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = attitudeLevel(hover ?? value);
   return (
-    <div className="wf-attitude-scale" role="group" aria-label="Haltung">
-      {ATTITUDES.map((level) => (
-        <button
-          key={level.value}
-          type="button"
-          title={level.label}
-          aria-label={level.label}
-          aria-pressed={value === level.value}
-          style={{ '--att-color': attitudeColor(level.value) } as CSSProperties}
-          onClick={() => onChange(value === level.value ? null : level.value)}
-        >
-          <i />
-        </button>
-      ))}
+    <div className="wf-attitude-pick">
+      <div
+        className="wf-attitude-scale"
+        role="group"
+        aria-label="Haltung"
+        onMouseLeave={() => setHover(null)}
+      >
+        {ATTITUDES.map((level) => (
+          <button
+            key={level.value}
+            type="button"
+            title={level.label}
+            aria-label={`${level.label}: ${level.hint}`}
+            aria-pressed={value === level.value}
+            data-zero={level.value === 0 || undefined}
+            style={{ '--att-color': attitudeColor(level.value) } as CSSProperties}
+            onMouseEnter={() => setHover(level.value)}
+            onFocus={() => setHover(level.value)}
+            onBlur={() => setHover(null)}
+            onClick={() => onChange(value === level.value ? null : level.value)}
+          >
+            <i />
+          </button>
+        ))}
+      </div>
+      <div
+        className="wf-attitude-pick__meaning"
+        style={{ '--att-color': attitudeColor(shown?.value ?? null) } as CSSProperties}
+        aria-live="polite"
+      >
+        {shown ? (
+          <>
+            <b>{shown.label}</b>
+            <span>{shown.hint}</span>
+            <em>Nach Regelwerk: {RULES_ATTITUDE_LABEL[shown.rules].toLowerCase()}</em>
+          </>
+        ) : (
+          <span>
+            Noch nicht festgelegt – wähle eine Stufe von Todfeind (links) bis Ergeben (rechts).
+          </span>
+        )}
+      </div>
     </div>
   );
 }

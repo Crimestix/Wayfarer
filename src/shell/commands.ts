@@ -20,7 +20,7 @@ export interface AttitudeRequest {
 export type ShellRequest =
   | { type: 'log'; request: QuickLogRequest }
   | { type: 'attitude'; request: AttitudeRequest }
-  | { type: 'move' }
+  | { type: 'move'; placeId?: string }
   | { type: 'search' }
   | { type: 'time' }
   | null;
@@ -37,8 +37,12 @@ function set(next: ShellRequest) {
 export const openQuickLog = (request: QuickLogRequest = {}) => set({ type: 'log', request });
 /** Öffnet den Dialog, um die Haltung einer Person oder Fraktion zu ändern. */
 export const openAttitude = (request: AttitudeRequest) => set({ type: 'attitude', request });
-/** Öffnet die Ortswahl für die Gruppe. */
-export const openMoveParty = () => set({ type: 'move' });
+/**
+ * Öffnet die Ortswahl für die Gruppe, auf Wunsch mit einem vorgeschlagenen Ort. Die Gruppe zieht
+ * erst um, wenn der Spielleiter das bestätigt – ein bloßer Klick auf einen Ort versetzt sie nie.
+ */
+export const openMoveParty = (preset: { placeId?: string } = {}) =>
+  set({ type: 'move', placeId: preset.placeId });
 /** Öffnet die Suche. */
 export const openSearch = () => set({ type: 'search' });
 /** Öffnet „Zeit vergehen lassen“ mit freier Dauer oder Zieldatum. */
