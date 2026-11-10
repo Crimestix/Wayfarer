@@ -413,6 +413,12 @@ describe('Absatz einfügen', () => {
     );
   });
 
+  it('lässt Leerzeichen am Ende stehen, damit gleich weitergetippt werden kann', () => {
+    expect(insert('Text', 4, '> [!steckbrief]\n> Art: \n')).toBe(
+      'Text\n\n> [!steckbrief]\n> Art: ‸',
+    );
+  });
+
   it('erzeugt keine doppelten Leerzeilen', () => {
     expect(insert('Eins\n\n\n\nZwei', 2, 'Neu')).toBe('Eins\n\nNeu‸\n\nZwei');
     expect(insert('Eins\nZwei', 0, 'Neu')).toBe('Eins\nZwei\n\nNeu‸');

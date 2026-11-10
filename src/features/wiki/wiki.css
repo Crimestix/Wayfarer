@@ -279,6 +279,270 @@ button.wf-wiki-row__toggle:hover {
   color: var(--gold-bright);
 }
 
+/* Erwähnt, aber noch nicht angelegt */
+.wf-wiki-landing__new {
+  margin-bottom: var(--s-5);
+}
+.wf-wiki-wanted {
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-wiki-wanted > p {
+  margin: var(--s-1) 0 var(--s-3);
+}
+.wf-wiki-wanted__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2px var(--s-5);
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  list-style: none;
+}
+.wf-wiki-wanted__list li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-wiki-wanted__name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  text-align: left;
+}
+.wf-wiki-wanted__name:hover {
+  color: var(--gold-bright);
+}
+.wf-wiki-wanted__name svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--gold-deep);
+}
+.wf-wiki-wanted__from {
+  overflow: hidden;
+  padding-left: 21px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-wiki-wanted__from a {
+  color: var(--ink-soft);
+}
+.wf-wiki-wanted__from a:hover {
+  color: var(--gold-bright);
+}
+
+/* Umschalter Lesen / Schreiben / Quelltext */
+.wf-wiki-mode {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-wiki-mode button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid var(--line-faint);
+  background: none;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wf-wiki-mode button:last-child {
+  border-right: 0;
+}
+.wf-wiki-mode button:hover {
+  color: var(--ink);
+}
+.wf-wiki-mode button[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-wiki-mode svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Titel als Eingabefeld */
+.wf-wiki-titleinput {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dashed var(--line);
+  background: none;
+  outline: none;
+}
+.wf-wiki-titleinput:hover,
+.wf-wiki-titleinput:focus {
+  border-bottom-color: var(--gold-deep);
+}
+
+/* Seiten hinzufügen, umbenennen, löschen */
+.wf-lk-pages .wf-wiki-pagetool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  width: 28px;
+  padding: 0;
+  color: var(--ink-faint);
+}
+.wf-lk-pages .wf-wiki-pagetool:hover {
+  color: var(--gold-bright);
+}
+.wf-lk-pages .wf-wiki-pagetool svg {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+.wf-wiki-nopage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+
+/* Schreiben: Werkzeugleiste und Editor */
+.wf-wiki-edit {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-wiki-edit__bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: var(--s-3);
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-raised);
+}
+.wf-wiki-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+}
+.wf-wiki-tool:hover,
+.wf-wiki-tool[aria-expanded='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-wiki-tool svg {
+  width: 16px;
+  height: 16px;
+}
+.wf-wiki-tool--wide {
+  padding: 0 8px;
+  font-size: var(--text-sm);
+}
+.wf-wiki-edit__sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 5px;
+  background: var(--line);
+}
+.wf-wiki-edit__state {
+  margin-left: auto;
+  padding: 0 6px;
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-wiki-edit__state[data-dirty='true'] {
+  color: var(--gold);
+}
+.wf-wiki-edit__hint {
+  display: block;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+/* Der Editor wächst mit dem Text; gerollt wird die Seite, die Werkzeugleiste bleibt oben. */
+.wf-wiki-edit .wf-wiki-edit__text,
+.wf-wiki-edit .wf-wiki-edit__text .cm-editor {
+  height: auto;
+}
+.wf-wiki-edit .wf-wiki-edit__text .cm-content {
+  min-height: 46vh;
+}
+
+/* Auswahl eines Artikels in einem Fenster (Verschieben) */
+.wf-wiki-pick {
+  display: flex;
+  flex-direction: column;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-wiki-pick__row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: 7px var(--s-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.wf-wiki-pick__row:hover:not(:disabled) {
+  background: var(--gold-glow);
+}
+.wf-wiki-pick__row:disabled {
+  color: var(--ink-mute);
+}
+.wf-wiki-pick__row svg {
+  align-self: center;
+  width: 15px;
+  height: 15px;
+  color: var(--gold-deep);
+}
+.wf-wiki-pick__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-wiki-pick__path {
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Übersicht ohne gewählten Artikel */
 .wf-wiki-landing {
   max-width: 1080px;
@@ -500,4 +764,11 @@ button.wf-wiki-row__toggle:hover {
   border-color: var(--gold-deep);
   background: var(--bg-0);
   color: var(--gold-bright);
+}
+
+/* Wenig Platz neben dem Titel: nur die gewählte Ansicht trägt ihren Namen */
+@container wf-lk (max-width: 1000px) {
+  .wf-wiki-mode button:not([aria-pressed='true']) span {
+    display: none;
+  }
 }

@@ -28,7 +28,14 @@ export interface LinkIndex {
   targetOf: (id: string) => { title: string; unique: boolean } | null;
   /** Der Verweis auf einen Artikel als Text: `[[Titel]]`. */
   linkTo: (id: string, label?: string) => string;
+  /**
+   * Bleibt dasselbe Objekt, solange sich an Titeln und Zweitnamen nichts ändert. Was nur davon
+   * abhängt, wohin Verweise führen, muss dann nicht neu gerechnet werden – etwa beim Tippen.
+   */
+  stamp: object;
 }
+
+let lastStamp: { signature: string; stamp: object } | null = null;
 
 const indexCache = new WeakMap<object, LinkIndex>();
 
@@ -52,6 +59,11 @@ export function linkIndex(articles: Articles): LinkIndex {
     add(byTitle, titleKey(article.title), article);
     for (const alias of article.aliases) add(byAlias, titleKey(alias), article);
   }
+  const signature = sorted
+    .map((a) => [a.id, a.title, a.template ? 1 : 0, ...a.aliases].join('\u0001'))
+    .join('\u0002');
+  const stamp = lastStamp?.signature === signature ? lastStamp.stamp : {};
+  lastStamp = { signature, stamp };
   const targetOf: LinkIndex['targetOf'] = (id) => {
     const article = articles[id];
     if (!article) return null;
@@ -69,6 +81,7 @@ export function linkIndex(articles: Articles): LinkIndex {
       return found ? { id: found.id, title: found.title } : null;
     },
     targetOf,
+    stamp,
     linkTo: (id, label = '') => {
       const target = targetOf(id);
       if (!target) return label ? wikiLink(label) : '';
@@ -110,12 +123,13 @@ export function pageText(articles: Articles, article: Article, doc: ArticleDoc):
   );
 }
 
-const nodeCache = new WeakMap<ArticleDoc, { articles: Articles; nodes: ArticleNode[] }>();
+const nodeCache = new WeakMap<ArticleDoc, { stamp: object; nodes: ArticleNode[] }>();
 
 /** Die Knoten der Anzeige zu einer Seite, gelesen aus ihrem Text. */
 export function pageNodes(articles: Articles, article: Article, doc: ArticleDoc): ArticleNode[] {
+  const { stamp } = linkIndex(articles);
   const cached = nodeCache.get(doc);
-  if (cached && cached.articles === articles) return cached.nodes;
+  if (cached && cached.stamp === stamp) return cached.nodes;
   const nodes =
     doc.kind === 'page'
       ? parseMarkdown(pageText(articles, article, doc), {
@@ -123,7 +137,7 @@ export function pageNodes(articles: Articles, article: Article, doc: ArticleDoc)
           headings: 0,
         })
       : [];
-  nodeCache.set(doc, { articles, nodes });
+  nodeCache.set(doc, { stamp, nodes });
   return nodes;
 }
 

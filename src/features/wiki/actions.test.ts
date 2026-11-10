@@ -18,7 +18,7 @@ import {
 } from './actions';
 import { planLkImport } from './apply';
 import { convertLkExport } from './lkexport';
-import { backlinks, splitPage } from './model';
+import { articleSuggestions, backlinks, splitPage, wantedArticles } from './model';
 import { articleAsText, linkIndex, linkTargets, pageNodes, pageText, relinked } from './text';
 
 const imported = (): CampaignData =>
@@ -122,6 +122,72 @@ describe('Schreiben', () => {
     expect(again.sections.hints.join(' ')).toMatch(/1 Artikel wurde in Wayfarer geändert/);
     // Die übrigen werden aufgefrischt wie zuvor.
     expect(again.data.articles.hohenf01!.source).toBe('legendkeeper');
+  });
+
+  it('liest beim Tippen nur die geänderte Seite neu', async () => {
+    const { db, articles, byTitle } = await setup();
+    const odo = byTitle('Odo Tannhaus');
+    const mira = byTitle('Mira Tannhaus');
+    const before = articles();
+    const stamp = linkIndex(before).stamp;
+    const miraNodes = pageNodes(before, mira, mira.docs[0]!);
+    savePageText(db, odo.id, odo.docs[0]!.id, 'Fährmann am [[Hohenfurt]]er Ufer.');
+    // Kein Titel hat sich geändert: Was andere Seiten zeigen, gilt weiter.
+    expect(linkIndex(articles()).stamp).toBe(stamp);
+    expect(pageNodes(articles(), byTitle('Mira Tannhaus'), mira.docs[0]!)).toBe(miraNodes);
+    expect(
+      backlinks(articles())
+        .get('hohenf01')
+        ?.map((a) => a.title),
+    ).toContain('Odo Tannhaus');
+    // Ein neuer Titel kann Verweise anders auflösen – dann wird neu gelesen.
+    renameArticle(db, mira.id, 'Mira vom Fluss');
+    expect(linkIndex(articles()).stamp).not.toBe(stamp);
+  });
+
+  it('schlägt Artikel zum Verknüpfen vor: Titelanfang vor Wortanfang vor Zweitnamen', async () => {
+    const { db, articles, byTitle } = await setup();
+    setArticleMeta(db, byTitle('Hohenfurt').id, { aliases: ['Die Tannenstadt'] });
+    const titles = (query: string) => articleSuggestions(articles(), query).map((a) => a.title);
+    // Bei gleichem Rang zuerst der kürzere Titel.
+    expect(titles('tann')).toEqual(['Odo Tannhaus', 'Mira Tannhaus', 'Hohenfurt']);
+    expect(titles('odo')[0]).toBe('Odo Tannhaus');
+    expect(titles('gibt es nicht')).toEqual([]);
+    // Vorlagen werden nie vorgeschlagen; ohne Eingabe kommen die zuletzt geänderten.
+    expect(articleSuggestions(articles(), '').some((a) => a.template)).toBe(false);
+    savePageText(db, byTitle('Odo Tannhaus').id, byTitle('Odo Tannhaus').docs[0]!.id, 'Neu.');
+    expect(titles('')[0]).toBe('Odo Tannhaus');
+  });
+
+  it('zeigt, was erwähnt wird, aber noch keinen Artikel hat', async () => {
+    const { db, articles, byTitle } = await setup();
+    const page = (title: string) => byTitle(title).docs[0]!.id;
+    savePageText(
+      db,
+      byTitle('Odo Tannhaus').id,
+      page('Odo Tannhaus'),
+      'Freund von [[Graufels]], fürchtet [[Die Nebelbank]].',
+    );
+    savePageText(
+      db,
+      byTitle('Mira Tannhaus').id,
+      page('Mira Tannhaus'),
+      'Kennt [[graufels|die alte Feste]] gut.',
+    );
+    const before = wantedArticles(articles()).filter((w) => /graufels|nebelbank/i.test(w.title));
+    // Am häufigsten Erwähntes zuerst; Groß- und Kleinschreibung zählt nicht.
+    expect(before.map((w) => [w.title, w.from.map((a) => a.title)])).toEqual([
+      ['graufels', ['Mira Tannhaus', 'Odo Tannhaus']],
+      ['Die Nebelbank', ['Odo Tannhaus']],
+    ]);
+    // Angelegt verschwindet der Name aus der Liste, und die Verweise führen hin.
+    const created = createArticle(db, { title: 'Graufels' })!;
+    expect(wantedArticles(articles()).map((w) => w.title)).not.toContain('graufels');
+    expect(
+      backlinks(articles())
+        .get(created.id)
+        ?.map((a) => a.title),
+    ).toEqual(['Mira Tannhaus', 'Odo Tannhaus']);
   });
 
   it('legt Artikel an, auch unter einem anderen', async () => {

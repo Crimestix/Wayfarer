@@ -509,6 +509,16 @@
   border-bottom-color: var(--gold-bright);
   background: var(--gold-glow);
 }
+/* Verweis auf einen Artikel, den es noch nicht gibt */
+.wf-lk-mention--missing {
+  border-bottom: 1px dashed var(--ink-faint);
+  color: var(--ink-soft);
+}
+.wf-lk-mention--missing:hover {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--gold);
+  color: var(--gold-bright);
+}
 .wf-lk-mark {
   padding: 0 2px;
   background: color-mix(in srgb, var(--gold) 22%, transparent);

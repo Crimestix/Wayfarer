@@ -1,13 +1,23 @@
 /**
  * Ein Artikel aus dem eigenen Wiki: Kopf, Seiten, Steckbrief, Text oder Karte, Unterartikel und
- * Rückverweise. Zeigt, was im Spielstand liegt – ohne Verbindung zu LegendKeeper.
+ * Rückverweise. Zeigt, was im Spielstand liegt – ohne Verbindung zu LegendKeeper. In den Ansichten
+ * „Schreiben“ und „Quelltext“ steht statt des gesetzten Textes der Editor.
  */
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
-import { EyeOff, Map as MapIcon } from 'lucide-react';
-import { useData } from '../../data/hooks';
+import {
+  Fragment,
+  Suspense,
+  lazy,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { EyeOff, FilePlus2, Map as MapIcon } from 'lucide-react';
+import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import type { Article } from '../../domain/schema';
-import { Badge, cx } from '../../ui';
+import { Badge, Button, cx, toast } from '../../ui';
 import {
   ArticleNodes,
   Mention,
@@ -15,6 +25,9 @@ import {
   type OpenTarget,
 } from '../legendkeeper/Article';
 import '../legendkeeper/legendkeeper.css';
+import { addPage, renameArticle } from './actions';
+import { PageTools } from './ArticleTools';
+import { flushEdits, type WikiMode } from './editing';
 import { MapView } from './MapView';
 import {
   DOC_KIND_LABEL,
@@ -26,6 +39,9 @@ import {
   shownDocs,
   splitPage,
 } from './model';
+
+// Der Editor ist groß und wird erst geladen, wenn geschrieben wird.
+const PageEditor = lazy(() => import('./PageEditor'));
 
 const backlinkCache = new WeakMap<object, ReturnType<typeof backlinks>>();
 
@@ -85,21 +101,75 @@ function ArticleList({
   );
 }
 
+/** Der Titel als Eingabefeld: Mit Enter oder beim Verlassen heißt der Artikel so. */
+function TitleInput({ article }: { article: Article }) {
+  const db = useDb();
+  const [value, setValue] = useState(article.title);
+  const skip = useRef(false);
+  useEffect(() => setValue(article.title), [article.title]);
+
+  const commit = () => {
+    if (skip.current) {
+      skip.current = false;
+      return;
+    }
+    flushEdits();
+    const result = renameArticle(db, article.id, value);
+    if (result === 'empty' || result === 'missing') {
+      setValue(article.title);
+      return;
+    }
+    if (result.relinked > 0)
+      toast({
+        title: 'Verweise angepasst',
+        body:
+          result.relinked === 1
+            ? 'Ein Artikel verweist jetzt auf den neuen Titel.'
+            : `${result.relinked} Artikel verweisen jetzt auf den neuen Titel.`,
+      });
+  };
+
+  return (
+    <input
+      className="wf-lk-title wf-wiki-titleinput"
+      value={value}
+      aria-label="Titel des Artikels"
+      placeholder="Titel"
+      spellCheck={false}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') {
+          skip.current = true;
+          setValue(article.title);
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export function LocalArticle({
   article,
   onOpen,
   actions,
   below,
+  mode = 'read',
 }: {
   article: Article;
-  /** Ein Verweis auf einen anderen Artikel wurde angeklickt. */
+  /** Ein Verweis wurde angeklickt. Ohne `resourceId` gibt es den Artikel noch nicht. */
   onOpen: (target: OpenTarget) => void;
   /** Knöpfe rechts im Kopf. */
   actions?: ReactNode;
   /** Zeile unter Titel und Schlagworten, z. B. die Einträge der Welt zu diesem Artikel. */
   below?: ReactNode;
+  /** Lesen, Schreiben oder Quelltext. */
+  mode?: WikiMode;
 }) {
+  const db = useDb();
   const data = useData();
+  const editing = mode !== 'read';
   const docs = useMemo(() => shownDocs(article), [article]);
   const [chosen, setChosen] = useState<string | null>(null);
   const doc = docs.find((entry) => entry.id === chosen) ?? docs[0];
@@ -125,6 +195,13 @@ export function LocalArticle({
   const jumps = jump.length > 14 ? jump.filter((entry) => entry.level === 1) : jump;
   const map = doc?.kind === 'map' && doc.mapId ? data.maps[doc.mapId] : undefined;
   const hasAside = side.length > 0;
+  const showJumps = !editing && jumps.length > 2;
+
+  const newPage = () => {
+    flushEdits();
+    const id = addPage(db, article.id);
+    if (id) setChosen(id);
+  };
 
   return (
     <article className="wf-lk-article">
@@ -165,7 +242,11 @@ export function LocalArticle({
               </Fragment>
             ))}
           </nav>
-          <h2 className="wf-lk-title">{article.title}</h2>
+          {editing ? (
+            <TitleInput article={article} />
+          ) : (
+            <h2 className="wf-lk-title">{article.title}</h2>
+          )}
           {(article.tags.length > 0 ||
             article.aliases.length > 0 ||
             article.hidden ||
@@ -173,11 +254,7 @@ export function LocalArticle({
             <div className="wf-lk-meta">
               {article.template && <Badge tone="ember">Vorlage</Badge>}
               {article.hidden && (
-                <Badge
-                  tone="arcane"
-                  icon={<EyeOff />}
-                  title="War in LegendKeeper vor den Spielern verborgen"
-                >
+                <Badge tone="arcane" icon={<EyeOff />} title="Vor den Spielern verborgen">
                   Verborgen
                 </Badge>
               )}
@@ -194,9 +271,9 @@ export function LocalArticle({
         {actions && <div className="wf-lk-head__actions">{actions}</div>}
       </header>
 
-      {(docs.length > 1 || jumps.length > 2) && (
+      {(docs.length > 1 || showJumps || (editing && docs.length > 0)) && (
         <div className="wf-lk-nav">
-          {docs.length > 1 && (
+          {(docs.length > 1 || editing) && (
             <div className="wf-lk-pages" role="tablist" aria-label="Seiten dieses Artikels">
               {docs.map((entry, index) => (
                 <button
@@ -204,9 +281,7 @@ export function LocalArticle({
                   type="button"
                   role="tab"
                   aria-selected={entry.id === doc?.id}
-                  title={
-                    entry.hidden ? 'War in LegendKeeper vor den Spielern verborgen' : undefined
-                  }
+                  title={entry.hidden ? 'Vor den Spielern verborgen' : undefined}
                   onClick={() => setChosen(entry.id)}
                 >
                   {entry.kind === 'map' && <MapIcon aria-hidden className="wf-wiki-tabicon" />}
@@ -214,9 +289,18 @@ export function LocalArticle({
                   {docTitle(entry, index)}
                 </button>
               ))}
+              {editing && doc && (
+                <PageTools
+                  article={article}
+                  doc={doc}
+                  name={docTitle(doc, docs.indexOf(doc))}
+                  canRemove={docs.length > 1}
+                  onAdd={newPage}
+                />
+              )}
             </div>
           )}
-          {jumps.length > 2 && (
+          {showJumps && (
             <div className="wf-lk-jump">
               <span className="wf-lk-jump__label">Abschnitte</span>
               {jumps.map((entry, index) => (
@@ -246,6 +330,23 @@ export function LocalArticle({
 
       {map ? (
         <MapView key={map.id} map={map} />
+      ) : editing && doc?.kind === 'page' ? (
+        <Suspense fallback={<p className="wf-lk-blank">Der Editor wird geladen …</p>}>
+          <PageEditor
+            key={`${article.id}:${doc.id}`}
+            article={article}
+            doc={doc}
+            mode={mode === 'source' ? 'source' : 'live'}
+            onOpen={onOpen}
+          />
+        </Suspense>
+      ) : editing && !doc ? (
+        <div className="wf-wiki-nopage">
+          <p className="wf-lk-blank">Dieser Artikel hat noch keine Textseite.</p>
+          <Button icon={<FilePlus2 />} onClick={newPage}>
+            Textseite anlegen
+          </Button>
+        </div>
       ) : (
         <div className={cx('wf-lk-layout', !hasAside && 'wf-lk-layout--single')}>
           {hasAside && (

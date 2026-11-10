@@ -471,7 +471,8 @@ export function blockInsertion(text: string, pos: number, block: string): BlockI
   const from = before >= 0 ? starts[before]! + lines[before]!.length : 0;
   const to = after < lines.length ? starts[after]! : text.length;
   const lead = before >= 0 ? '\n\n' : '';
-  const body = block.replace(/^\n+|\s+$/g, '');
+  // Leerzeichen am Ende bleiben: Nach „> Feld: “ soll gleich der Wert getippt werden können.
+  const body = block.replace(/^\n+|\n+$/g, '');
   return {
     from,
     to,

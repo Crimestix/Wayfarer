@@ -1,7 +1,7 @@
 /** Das eigene Wiki: Baum, Pfad, Suche und Rückverweise. Reine Funktionen. */
 import type { Article, ArticleDoc, CampaignData, Entity } from '../../domain/schema';
 import { nodeText, outlineOf, type ArticleNode, type OutlineEntry } from '../legendkeeper/model';
-import { articleNodes, pageNodes } from './text';
+import { articleNodes, linkIndex, pageNodes, titleKey } from './text';
 
 /**
  * Der Inhalt eines Artikels ist im Spielstand nur als Liste von Objekten geprüft; ihre Form ist
@@ -226,16 +226,40 @@ export function searchArticles(
 
 // ── Rückverweise ───────────────────────────────────────────────────────────
 
+interface Targets {
+  /** Kennungen der Artikel, auf die verwiesen wird. */
+  ids: Set<string>;
+  /** Titel, auf die verwiesen wird, ohne dass es den Artikel gibt – je Schreibweise einmal. */
+  wanted: Map<string, string>;
+}
+
 /** Sammelt alle Artikel, auf die ein Inhalt verweist – im Fließtext wie in Verweislisten. */
-function collectTargets(value: unknown, into: Set<string>, depth = 0): void {
+function collectTargets(value: unknown, into: Targets, depth = 0): void {
   if (depth > 96 || typeof value !== 'object' || value === null) return;
   if (Array.isArray(value)) {
     for (const part of value) collectTargets(part, into, depth + 1);
     return;
   }
   const record = value as Record<string, unknown>;
-  if (typeof record.resourceId === 'string') into.add(record.resourceId);
+  if (typeof record.resourceId === 'string') into.ids.add(record.resourceId);
+  if (typeof record.wanted === 'string' && record.type === 'mention') {
+    const key = titleKey(record.wanted);
+    if (key && !into.wanted.has(key)) into.wanted.set(key, record.wanted);
+  }
   for (const part of Object.values(record)) collectTargets(part, into, depth + 1);
+}
+
+const targetCache = new WeakMap<Article, { stamp: object; targets: Targets }>();
+
+/** Wohin ein Artikel verweist – je Artikel nur einmal gelesen, solange sich kein Titel ändert. */
+function targetsOf(articles: Articles, article: Article): Targets {
+  const { stamp } = linkIndex(articles);
+  const cached = targetCache.get(article);
+  if (cached && cached.stamp === stamp) return cached.targets;
+  const targets: Targets = { ids: new Set(), wanted: new Map() };
+  collectTargets(articleNodes(articles, article), targets);
+  targetCache.set(article, { stamp, targets });
+  return targets;
 }
 
 /** Für jeden Artikel: welche anderen ihn erwähnen. */
@@ -243,9 +267,7 @@ export function backlinks(articles: Articles): Map<string, Article[]> {
   const out = new Map<string, Article[]>();
   for (const article of Object.values(articles)) {
     if (article.template) continue;
-    const targets = new Set<string>();
-    collectTargets(articleNodes(articles, article), targets);
-    for (const target of targets) {
+    for (const target of targetsOf(articles, article).ids) {
       if (target === article.id || !articles[target]) continue;
       const list = out.get(target);
       if (list) list.push(article);
@@ -254,4 +276,74 @@ export function backlinks(articles: Articles): Map<string, Article[]> {
   }
   for (const list of out.values()) list.sort((a, b) => a.title.localeCompare(b.title, 'de'));
   return out;
+}
+
+// ── Erwähnt, aber noch nicht angelegt ──────────────────────────────────────
+
+export interface WantedArticle {
+  /** So steht der Titel im ersten Verweis. */
+  title: string;
+  /** Artikel, die darauf verweisen, nach Titel. */
+  from: Article[];
+}
+
+/**
+ * Titel, auf die Verweise zeigen, ohne dass es den Artikel schon gibt. Am häufigsten Erwähntes
+ * zuerst – das sind die Lücken, die sich am ehesten lohnen.
+ */
+export function wantedArticles(articles: Articles): WantedArticle[] {
+  const found = new Map<string, WantedArticle>();
+  const sorted = Object.values(articles)
+    .filter((article) => !article.template)
+    .sort((a, b) => a.title.localeCompare(b.title, 'de') || a.id.localeCompare(b.id));
+  for (const article of sorted)
+    for (const [key, title] of targetsOf(articles, article).wanted) {
+      const entry = found.get(key);
+      if (entry) entry.from.push(article);
+      else found.set(key, { title, from: [article] });
+    }
+  return [...found.values()].sort(
+    (a, b) => b.from.length - a.from.length || a.title.localeCompare(b.title, 'de'),
+  );
+}
+
+// ── Vorschläge ─────────────────────────────────────────────────────────────
+
+/**
+ * Artikel, die zu einer Eingabe passen: zuerst Titel, die so beginnen, dann Titel, die es
+ * enthalten, dann Zweitnamen. Ohne Eingabe die zuletzt geänderten.
+ */
+export function articleSuggestions(articles: Articles, query: string, limit = 12): Article[] {
+  const q = fold(query).trim();
+  const all = Object.values(articles).filter((article) => !article.template);
+  if (!q)
+    return all
+      .sort((a, b) => b.updated.localeCompare(a.updated) || a.title.localeCompare(b.title, 'de'))
+      .slice(0, limit);
+  const ranked: { article: Article; rank: number }[] = [];
+  for (const article of all) {
+    const title = fold(article.title);
+    const rank =
+      title === q
+        ? 0
+        : title.startsWith(q)
+          ? 1
+          : title.split(/\s+/).some((word) => word.startsWith(q))
+            ? 2
+            : title.includes(q)
+              ? 3
+              : article.aliases.some((alias) => fold(alias).includes(q))
+                ? 4
+                : -1;
+    if (rank >= 0) ranked.push({ article, rank });
+  }
+  return ranked
+    .sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        a.article.title.length - b.article.title.length ||
+        a.article.title.localeCompare(b.article.title, 'de'),
+    )
+    .slice(0, limit)
+    .map((entry) => entry.article);
 }

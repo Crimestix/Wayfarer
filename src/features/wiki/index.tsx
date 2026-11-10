@@ -1,7 +1,18 @@
 /** Wiki – alle Artikel der Welt als Baum, mit Suche. Links der Baum, rechts der Artikel. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { ChevronRight, EyeOff, Library, Plus, Search, X } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronRight,
+  Code,
+  EyeOff,
+  FilePlus2,
+  Library,
+  PenLine,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import type { Article, EntityKind } from '../../domain/schema';
@@ -9,6 +20,7 @@ import {
   Button,
   EmptyState,
   EntityLink,
+  IconButton,
   Input,
   KindIcon,
   MenuItem,
@@ -19,6 +31,8 @@ import {
 } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
+import { ArticleMenu, NewArticleDialog } from './ArticleTools';
+import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
 import { ArticleIcon } from './icons';
 import { LocalArticle } from './LocalArticle';
 import {
@@ -27,8 +41,10 @@ import {
   entitiesOfArticle,
   searchArticles,
   searchIndex,
+  wantedArticles,
   type SearchIndexEntry,
   type TreeNode,
+  type WantedArticle,
 } from './model';
 import './wiki.css';
 
@@ -45,7 +61,33 @@ const ADOPT_KINDS: EntityKind[] = [
 ];
 
 /** Was aufgeklappt ist und wonach gesucht wurde, bleibt beim Wechsel des Bereichs erhalten. */
-const memory = { open: new Set<string>(), query: '' };
+const memory = { open: new Set<string>(), query: '', mode: 'read' as WikiMode };
+
+const MODES: { id: WikiMode; icon: ReactNode; hint: string }[] = [
+  { id: 'read', icon: <BookOpen />, hint: 'Der fertige Artikel, wie am Tisch' },
+  { id: 'live', icon: <PenLine />, hint: 'Schreiben in der schönen Ansicht' },
+  { id: 'source', icon: <Code />, hint: 'Der reine Text mit allen Zeichen' },
+];
+
+/** Umschalter zwischen Lesen, Schreiben und Quelltext. */
+function ModeSwitch({ mode, onChange }: { mode: WikiMode; onChange: (mode: WikiMode) => void }) {
+  return (
+    <div className="wf-wiki-mode" role="group" aria-label="Ansicht des Artikels">
+      {MODES.map((entry) => (
+        <button
+          key={entry.id}
+          type="button"
+          aria-pressed={entry.id === mode}
+          title={`${entry.hint} (Strg+E wechselt zwischen Lesen und Schreiben)`}
+          onClick={() => onChange(entry.id)}
+        >
+          {entry.icon}
+          <span>{MODE_LABEL[entry.id]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const indexCache = new WeakMap<object, SearchIndexEntry[]>();
 
@@ -155,7 +197,79 @@ function AdoptButton({ article }: { article: Article }) {
   );
 }
 
-function Landing({ roots, total }: { roots: TreeNode[]; total: number }) {
+const wantedCache = new WeakMap<object, WantedArticle[]>();
+const WANTED_SHOWN = 24;
+
+/** Titel, auf die verwiesen wird, die aber noch keinen Artikel haben. */
+function Wanted({
+  articles,
+  onCreate,
+}: {
+  articles: Record<string, Article>;
+  onCreate: (title: string, from: Article) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const wanted = useMemo(() => {
+    let list = wantedCache.get(articles);
+    if (!list) {
+      list = wantedArticles(articles);
+      wantedCache.set(articles, list);
+    }
+    return list;
+  }, [articles]);
+  if (!wanted.length) return null;
+  const shown = all ? wanted : wanted.slice(0, WANTED_SHOWN);
+  return (
+    <section className="wf-wiki-wanted" aria-label="Erwähnt, aber noch nicht angelegt">
+      <h2 className="wf-lk-label">Erwähnt, aber noch nicht angelegt</h2>
+      <p className="wf-mute">
+        Auf diese Namen verweist dein Text, ohne dass es den Artikel gibt. Ein Klick legt ihn an.
+      </p>
+      <ul className="wf-wiki-wanted__list">
+        {shown.map((entry) => (
+          <li key={entry.title}>
+            <button
+              type="button"
+              className="wf-wiki-wanted__name"
+              title={`Artikel „${entry.title}“ anlegen`}
+              onClick={() => onCreate(entry.title, entry.from[0]!)}
+            >
+              <FilePlus2 aria-hidden />
+              {entry.title}
+            </button>
+            <span className="wf-wiki-wanted__from">
+              erwähnt in{' '}
+              {entry.from.slice(0, 3).map((article, index) => (
+                <Fragment key={article.id}>
+                  {index > 0 && ', '}
+                  <Link href={`/wiki/${article.id}`}>{article.title}</Link>
+                </Fragment>
+              ))}
+              {entry.from.length > 3 && ` und ${entry.from.length - 3} weiteren`}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {wanted.length > shown.length && (
+        <button type="button" className="wf-wiki-more" onClick={() => setAll(true)}>
+          und {wanted.length - shown.length} weitere
+        </button>
+      )}
+    </section>
+  );
+}
+
+function Landing({
+  roots,
+  total,
+  articles,
+  onCreate,
+}: {
+  roots: TreeNode[];
+  total: number;
+  articles: Record<string, Article>;
+  onCreate: (title: string, from: Article | null) => void;
+}) {
   return (
     <div className="wf-wiki-landing">
       <h1 className="wf-page__title">Wiki</h1>
@@ -163,6 +277,13 @@ function Landing({ roots, total }: { roots: TreeNode[]; total: number }) {
         {total === 1 ? 'Ein Artikel' : `${total} Artikel`} über die Welt – dein Nachschlagewerk,
         gespeichert in Wayfarer. Links steht der Baum; die Suche findet auch Wörter mitten im Text.
       </p>
+      <Button
+        icon={<FilePlus2 />}
+        className="wf-wiki-landing__new"
+        onClick={() => onCreate('', null)}
+      >
+        Neuer Artikel
+      </Button>
       <div className="wf-wiki-shelf">
         {roots.map(({ article, size }) => (
           <Link key={article.id} href={`/wiki/${article.id}`} className="wf-wiki-book">
@@ -174,6 +295,7 @@ function Landing({ roots, total }: { roots: TreeNode[]; total: number }) {
           </Link>
         ))}
       </div>
+      <Wanted articles={articles} onCreate={onCreate} />
     </div>
   );
 }
@@ -190,21 +312,45 @@ export default function WikiPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const total = Object.keys(articles).length - tree.templates.length;
   const main = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<WikiMode>(memory.mode);
+  /** Zuletzt benutzte Schreibansicht – dorthin wechselt Strg+E. */
+  const lastEdit = useRef<WikiMode>(memory.mode === 'source' ? 'source' : 'live');
+  const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
 
   useEffect(() => {
     memory.query = query;
     memory.open = open;
-  }, [query, open]);
+    memory.mode = mode;
+    if (mode !== 'read') lastEdit.current = mode;
+  }, [query, open, mode]);
 
-  // Der gewählte Artikel soll im Baum zu sehen sein.
+  // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'e')
+        return;
+      event.preventDefault();
+      setMode((current) => (current === 'read' ? lastEdit.current : 'read'));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Der gewählte Artikel soll im Baum zu sehen sein. Hängt am Platz im Baum, nicht am Inhalt:
+  // Beim Schreiben ändert sich das Wiki laufend, ohne dass die Ansicht springen darf.
+  const place = id
+    ? articlePath(articles, id)
+        .map((step) => step.id)
+        .join('/')
+    : '';
   useEffect(() => {
     if (!id) return;
-    const path = articlePath(articles, id);
+    const path = place ? place.split('/') : [];
     if (path.length)
       setOpen((current) => {
-        if (path.every((step) => current.has(step.id))) return current;
+        if (path.every((step) => current.has(step))) return current;
         const next = new Set(current);
-        for (const step of path) next.add(step.id);
+        for (const step of path) next.add(step);
         return next;
       });
     main.current?.scrollTo({ top: 0 });
@@ -217,7 +363,7 @@ export default function WikiPage() {
       30,
     );
     return () => clearTimeout(timer);
-  }, [id, articles]);
+  }, [id, place]);
 
   const toggle = useCallback(
     (nodeId: string) =>
@@ -243,13 +389,34 @@ export default function WikiPage() {
   const onOpen = useCallback(
     (target: OpenTarget) => {
       if (articles[target.resourceId]) navigate(`/wiki/${target.resourceId}`);
+      else if (!target.resourceId && (target.wanted ?? target.title))
+        // Ein Verweis auf etwas, das noch keinen Artikel hat: anbieten, ihn anzulegen.
+        setCreating({
+          parent: article && !article.template ? article : null,
+          title: target.wanted ?? target.title,
+        });
       else
         toast({
           title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht`,
           body: 'Der Verweis führt zu einem Artikel, der gelöscht wurde.',
         });
     },
-    [articles, navigate],
+    [articles, article, navigate],
+  );
+
+  const newArticle = () =>
+    setCreating({ parent: article && !article.template ? article : null, title: '' });
+  const dialog = creating && (
+    <NewArticleDialog
+      parent={creating.parent}
+      initialTitle={creating.title}
+      onClose={() => setCreating(null)}
+      onCreated={(created) => {
+        setCreating(null);
+        setMode((current) => (current === 'read' ? lastEdit.current : current));
+        navigate(`/wiki/${created.id}`);
+      }}
+    />
   );
 
   if (!Object.keys(articles).length)
@@ -259,15 +426,19 @@ export default function WikiPage() {
           icon={<Library />}
           title="Das Wiki ist noch leer"
           action={
-            <Button variant="primary" onClick={() => navigate('/einstellungen')}>
-              Zu den Einstellungen
-            </Button>
+            <div className="wf-row" style={{ gap: 'var(--s-3)' }}>
+              <Button variant="primary" icon={<FilePlus2 />} onClick={newArticle}>
+                Ersten Artikel schreiben
+              </Button>
+              <Button onClick={() => navigate('/einstellungen')}>LegendKeeper übernehmen</Button>
+            </div>
           }
         >
-          Hier stehen die Artikel über deine Welt. In den Einstellungen unter „LegendKeeper ganz
-          übernehmen“ liest Wayfarer die Exportdatei deines LegendKeeper-Projekts ein – mit allen
-          Artikeln, Karten und Steckbriefen.
+          Hier stehen die Artikel über deine Welt. Schreib sie direkt hier – oder lies in den
+          Einstellungen unter „LegendKeeper ganz übernehmen“ die Exportdatei deines
+          LegendKeeper-Projekts ein, mit allen Artikeln, Karten und Steckbriefen.
         </EmptyState>
+        {dialog}
       </div>
     );
 
@@ -281,6 +452,17 @@ export default function WikiPage() {
             Wiki
           </Link>
           <span className="wf-wiki-side__total">{total} Artikel</span>
+          <IconButton
+            label={
+              article && !article.template
+                ? `Neuer Artikel – auf Wunsch unter „${article.title}“`
+                : 'Neuer Artikel'
+            }
+            size="sm"
+            onClick={newArticle}
+          >
+            <FilePlus2 />
+          </IconButton>
         </div>
         <div className="wf-wiki-search">
           <Search aria-hidden />
@@ -369,8 +551,22 @@ export default function WikiPage() {
               key={article.id}
               article={article}
               onOpen={onOpen}
+              mode={mode}
               actions={
-                !article.template && owners.length === 0 && <AdoptButton article={article} />
+                <>
+                  <ModeSwitch
+                    mode={mode}
+                    onChange={(next) => {
+                      flushEdits();
+                      setMode(next);
+                    }}
+                  />
+                  {!article.template && owners.length === 0 && <AdoptButton article={article} />}
+                  <ArticleMenu
+                    article={article}
+                    onNewChild={() => setCreating({ parent: article, title: '' })}
+                  />
+                </>
               }
               below={
                 owners.length > 0 && (
@@ -395,9 +591,15 @@ export default function WikiPage() {
             </EmptyState>
           </div>
         ) : (
-          <Landing roots={tree.roots} total={total} />
+          <Landing
+            roots={tree.roots}
+            total={total}
+            articles={articles}
+            onCreate={(title, from) => setCreating({ parent: from, title })}
+          />
         )}
       </div>
+      {dialog}
     </div>
   );
 }
@@ -415,6 +617,11 @@ export function WikiArticlePanel({ articleId }: { articleId: string }) {
       const owner = entitiesOfArticle(data, target.resourceId)[0];
       if (owner) navigate(entityHref(owner));
       else if (data.articles[target.resourceId]) navigate(`/wiki/${target.resourceId}`);
+      else if (!target.resourceId)
+        toast({
+          title: `„${target.wanted ?? target.title}“ hat noch keinen Artikel`,
+          body: 'Im Wiki lässt er sich mit einem Klick auf den Verweis anlegen.',
+        });
       else toast({ title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht` });
     },
     [data, navigate],

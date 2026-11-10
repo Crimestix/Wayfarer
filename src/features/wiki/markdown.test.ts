@@ -100,7 +100,11 @@ describe('Fließtext lesen', () => {
     ]);
     // Ein Verweis ohne Artikel bleibt ein Verweis – ohne Ziel.
     expect(inline('[[Graufels]]')).toEqual([
-      { type: 'mention', resourceId: '', label: 'Graufels' },
+      { type: 'mention', resourceId: '', label: 'Graufels', wanted: 'Graufels' },
+    ]);
+    // Gezeigt wird der eigene Wortlaut; angelegt würde der Artikel unter seinem Titel.
+    expect(inline('[[Graufels|die alte Feste]]')).toEqual([
+      { type: 'mention', resourceId: '', label: 'die alte Feste', wanted: 'Graufels' },
     ]);
     expect(inline('[[Der Markt~doppelt]]')).toEqual([
       { type: 'mention', resourceId: 'doppelt', label: 'Der Markt' },

@@ -79,7 +79,7 @@ interface Piece {
   text: string;
   marks: Mark[];
   href?: string;
-  mention?: { resourceId: string; label: string };
+  mention?: { resourceId: string; label: string; wanted?: string };
   break?: true;
 }
 
@@ -200,7 +200,9 @@ export function parseInline(source: string, ctx: MarkdownContext, href?: string)
         pieces.push({
           text: '',
           marks: [],
-          mention: { resourceId: found?.id ?? '', label },
+          mention: found
+            ? { resourceId: found.id, label }
+            : { resourceId: '', label, wanted: splitTarget(target).title },
         });
         i = end + 2;
         continue;

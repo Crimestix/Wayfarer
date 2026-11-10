@@ -26,7 +26,14 @@ export type Inline =
       href?: string;
     }
   /** Verweis auf einen anderen Artikel in LegendKeeper. */
-  | { type: 'mention'; resourceId: string; documentId?: string; label: string }
+  | {
+      type: 'mention';
+      resourceId: string;
+      documentId?: string;
+      label: string;
+      /** Nur im eigenen Wiki: Titel des Artikels, den es noch nicht gibt (`resourceId` ist leer). */
+      wanted?: string;
+    }
   | { type: 'break' };
 
 type TextInline = Extract<Inline, { type: 'text' }>;

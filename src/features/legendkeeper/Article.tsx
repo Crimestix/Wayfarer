@@ -9,6 +9,8 @@ export interface OpenTarget {
   resourceId: string;
   documentId?: string;
   title: string;
+  /** Der Artikel fehlt noch; so soll er heißen. */
+  wanted?: string;
 }
 
 export interface ArticleContext {
@@ -33,13 +35,19 @@ export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleConte
     event.preventDefault();
     ctx.onOpen(target);
   };
+  // Im eigenen Wiki darf ein Verweis ins Leere gehen: Der Artikel ist dann noch nicht angelegt.
+  const missing = ctx.local === true && !target.resourceId;
   return (
     <span
       role="link"
       tabIndex={0}
-      className="wf-lk-mention"
+      className={cx('wf-lk-mention', missing && 'wf-lk-mention--missing')}
       title={
-        ctx.local ? `„${target.title}“ öffnen` : `„${target.title}“ in LegendKeeper nachschlagen`
+        missing
+          ? `„${target.wanted ?? target.title}“ gibt es noch nicht – anklicken, um den Artikel anzulegen`
+          : ctx.local
+            ? `„${target.title}“ öffnen`
+            : `„${target.title}“ in LegendKeeper nachschlagen`
       }
       onClick={() => ctx.onOpen(target)}
       onKeyDown={onKeyDown}
@@ -63,6 +71,7 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
                 resourceId: inline.resourceId,
                 documentId: inline.documentId,
                 title: inline.label,
+                ...(inline.wanted ? { wanted: inline.wanted } : {}),
               }}
             />
           );

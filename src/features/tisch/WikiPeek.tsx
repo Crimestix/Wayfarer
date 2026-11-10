@@ -33,6 +33,8 @@ export function ArticleDialog({
   const onOpen = useCallback(
     (target: OpenTarget) => {
       if (articles[target.resourceId]) setTrail((t) => [...t, target.resourceId]);
+      else if (!target.resourceId)
+        toast({ title: `„${target.wanted ?? target.title}“ hat noch keinen Artikel` });
       else toast({ title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht` });
     },
     [articles],
