@@ -1,0 +1,42 @@
+[package]
+name = "wayfarer"
+version = "0.1.0"
+description = "Wayfarer – digitaler Spielleiterschirm für Pen-&-Paper-Kampagnen"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[lib]
+name = "wayfarer_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wayfarer"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Dateiüberwachung des Kampagnenordners
+notify = "8"
+# Schlüsselbund des Betriebssystems (macOS-Schlüsselbund, Windows-Anmeldeinformationen, Secret Service)
+keyring = "4"
+# LegendKeeper-Abruf: rustls statt OpenSSL, damit der Bau auf allen Plattformen ohne Zusatzwerkzeuge gelingt
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "system-proxy", "charset"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+url = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

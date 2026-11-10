@@ -1,6 +1,7 @@
 /**
  * LegendKeeper in Wayfarer: Artikel nachschlagen und mit Einträgen verknüpfen (nur lesen).
  * Diese beiden Bausteine sind die Schnittstelle zum Rest der App.
+ * Vor dem Bauen API-NOTIZEN.md in diesem Ordner lesen.
  */
 import { BookOpen } from 'lucide-react';
 import type { LkLink } from '../../domain/schema';
