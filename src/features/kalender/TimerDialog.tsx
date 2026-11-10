@@ -83,7 +83,7 @@ export function TimerDialog({ timer, onClose }: TimerDialogProps) {
     <Dialog
       open
       onClose={onClose}
-      title={timer ? `${TIMER_KIND_LABEL[timer.kind]} ändern` : 'Wirkung oder Tätigkeit'}
+      title={timer ? `${TIMER_KIND_LABEL[kind]} ändern` : 'Wirkung oder Tätigkeit'}
       width={560}
       footer={
         <>

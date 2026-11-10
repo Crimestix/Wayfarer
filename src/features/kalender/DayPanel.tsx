@@ -25,6 +25,7 @@ import {
   describePassage,
   describeRepeat,
   moonEventsBetween,
+  occurredBeforeDay,
   overdueLabel,
   previewPassage,
   relativeDay,
@@ -86,9 +87,14 @@ export interface DayPanelProps {
   spans: DaySpan[];
   onEdit: (event: CalendarEvent) => void;
   onCreate: (dayIndex: number) => void;
+  /** Einen anderen Tag wählen (aus „Auf dem Weg dorthin“). */
+  onSelect: (dayIndex: number) => void;
 }
 
-export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) {
+/** So viele Zeilen zeigt „Auf dem Weg dorthin“ höchstens. */
+const ON_THE_WAY_LIMIT = 8;
+
+export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPanelProps) {
   const db = useDb();
   const cal = data.campaign.calendar;
   const now = data.state.now;
@@ -103,6 +109,7 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
   // Monde so, wie sie jetzt stehen (heute) bzw. zur Tagesmitte.
   const moonTime = day === today ? now : start + MINUTES_PER_DAY / 2;
   const passage = day > today ? previewPassage(data, start + hour * MINUTES_PER_HOUR) : null;
+  const onTheWay = passage ? occurredBeforeDay(passage, day) : [];
 
   return (
     <Panel className="wf-kal-side" flush>
@@ -191,6 +198,42 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
               </div>
             );
           })
+        )}
+
+        {passage && onTheWay.length + passage.expired.length > 0 && (
+          <>
+            <div className="wf-kal-side__section">
+              <SectionTitle>Auf dem Weg dorthin</SectionTitle>
+            </div>
+            {onTheWay.slice(0, ON_THE_WAY_LIMIT).map((o) => (
+              <button
+                key={o.event.id + o.at}
+                type="button"
+                className={cx('wf-kal-row', `wf-kal-kind--${o.event.kind}`)}
+                onClick={() => onSelect(dayIndexOf(o.at))}
+                title={`${EVENT_KIND_LABEL[o.event.kind]} – diesen Tag zeigen`}
+              >
+                <i className="wf-kal-gem" />
+                <span className="wf-kal-row__main">
+                  <span className="wf-kal-row__title">{o.event.title}</span>
+                  <span className="wf-kal-row__meta">
+                    <b>{relativeDay(today, dayIndexOf(o.at))}</b> · {formatDayMonth(cal, o.at)}
+                    {o.event.timed && `, ${formatClock(o.at)} Uhr`}
+                  </span>
+                </span>
+              </button>
+            ))}
+            {onTheWay.length > ON_THE_WAY_LIMIT && (
+              <div className="wf-kal-row wf-kal-row--note">
+                und {onTheWay.length - ON_THE_WAY_LIMIT} weitere Termine
+              </div>
+            )}
+            {passage.expired.length > 0 && (
+              <div className="wf-kal-row wf-kal-row--note">
+                Bis dahin endet: {passage.expired.map((t) => t.label).join(', ')}
+              </div>
+            )}
+          </>
         )}
 
         {day <= today && (

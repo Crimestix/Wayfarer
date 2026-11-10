@@ -20,8 +20,13 @@ export interface CatalogEntry {
 }
 
 export interface Catalog {
+  /** Alle Artikel, nach Titel sortiert. */
   entries: CatalogEntry[];
   byId: Map<string, CatalogEntry>;
+  /** Artikel der obersten Ebene (auch solche, deren übergeordneter Artikel nicht sichtbar ist). */
+  roots: CatalogEntry[];
+  /** Unterartikel je Artikel, nach Titel sortiert. */
+  children: Map<string, CatalogEntry[]>;
 }
 
 export interface CatalogHit {
@@ -87,7 +92,16 @@ export function buildCatalog(items: LkResourceListItem[]): Catalog {
     byId.set(entry.id, entry);
   }
   entries.sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  return { entries, byId };
+  const roots: CatalogEntry[] = [];
+  const children = new Map<string, CatalogEntry[]>();
+  for (const entry of entries) {
+    if (entry.parentId && entry.parentId !== entry.id && byId.has(entry.parentId)) {
+      const siblings = children.get(entry.parentId);
+      if (siblings) siblings.push(entry);
+      else children.set(entry.parentId, [entry]);
+    } else roots.push(entry);
+  }
+  return { entries, byId, roots, children };
 }
 
 /** Titel der übergeordneten Artikel von der Wurzel abwärts (ohne den Artikel selbst). */
@@ -103,6 +117,24 @@ export function catalogPath(catalog: Catalog, id: string): string[] {
     current = parent.parentId;
   }
   return path;
+}
+
+/** Zahl aller Artikel unterhalb eines Artikels (über alle Ebenen). */
+export function descendantCount(catalog: Catalog, id: string): number {
+  let total = 0;
+  const seen = new Set<string>([id]);
+  const queue = [id];
+  while (queue.length) {
+    const current = queue.pop();
+    if (current === undefined) break;
+    for (const child of catalog.children.get(current) ?? []) {
+      if (seen.has(child.id)) continue;
+      seen.add(child.id);
+      total += 1;
+      queue.push(child.id);
+    }
+  }
+  return total;
 }
 
 /** Wie gut passt ein Suchwort auf einen aufbereiteten Namen? 0 = gar nicht. */

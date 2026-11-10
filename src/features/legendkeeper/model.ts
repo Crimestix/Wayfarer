@@ -706,8 +706,14 @@ export interface ArticleBody {
   outline: OutlineEntry[];
 }
 
-/** Inhalt einer Seite: Fließtext, Randspalte und Inhaltsverzeichnis. */
-export function articleBody(blocks: unknown, projectId?: string): ArticleBody {
+const sameTitle = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase('de') === b.trim().toLocaleLowerCase('de') && a.trim() !== '';
+
+/**
+ * Inhalt einer Seite: Fließtext, Randspalte und Inhaltsverzeichnis. Beginnt der Text mit einer
+ * Überschrift, die nur den Titel des Artikels wiederholt, entfällt sie – der Titel steht schon darüber.
+ */
+export function articleBody(blocks: unknown, projectId?: string, title?: string): ArticleBody {
   const nodes = convertBlocks(blocks, newContext(projectId));
   const body: ArticleNode[] = [];
   const aside: ArticleNode[] = [];
@@ -715,5 +721,13 @@ export function articleBody(blocks: unknown, projectId?: string): ArticleBody {
     if (node.type === 'infobox' && node.beside) aside.push(...node.children);
     else body.push(node);
   }
+  const first = body[0];
+  if (title && first?.type === 'heading' && sameTitle(inlineText(first.inlines), title)) body.shift();
   return { body, aside, outline: outlineOf(body) };
+}
+
+/** Bezeichnung eines Dokuments, das nur in LegendKeeper anzusehen ist: „Karte „Stadtplan““. */
+export function docLabel(doc: ArticleDoc): string {
+  const kind = DOC_KIND_LABEL[doc.kind];
+  return sameTitle(doc.name, kind) || doc.name === 'Main' ? kind : `${kind} „${doc.name}“`;
 }

@@ -6,7 +6,7 @@ import { ArticleNodes, type ArticleContext, type OpenTarget } from './Article';
 import { articleUrl, fetchBlocks, fetchResource, forgetResource } from './client';
 import { describeError, type LkError } from './errors';
 import { useLoad } from './hooks';
-import { DOC_KIND_LABEL, articleBody, articleHead, linkedResourceIds, type ArticleHead } from './model';
+import { articleBody, articleHead, docLabel, linkedResourceIds, type ArticleHead } from './model';
 import { useCatalog } from './state';
 import { clockTime } from './status';
 
@@ -49,15 +49,16 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
     refreshFailed,
   );
   const head = article.load.data;
+  const title = head?.title;
 
   const [chosenDoc, setChosenDoc] = useState<string | null>(target.documentId ?? null);
   const doc = head ? (head.pages.find((page) => page.id === chosenDoc) ?? head.pages[0] ?? null) : null;
   const docId = doc?.id ?? null;
   const page = useLoad(
-    docId ? `${resourceId}/${docId}` : null,
+    docId ? `${resourceId}/${docId}/${title ?? ''}` : null,
     async ({ signal, force }) => {
       if (!docId) throw new Error('Keine Seite gewählt.');
-      return articleBody((await fetchBlocks(resourceId, docId, { signal, force })).blocks, projectId);
+      return articleBody((await fetchBlocks(resourceId, docId, { signal, force })).blocks, projectId, title);
     },
     refreshFailed,
   );
@@ -113,7 +114,8 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
   const busy = article.refreshing || page.refreshing;
   const jump = (body?.outline ?? []).filter((entry) => entry.level <= 2 && entry.text);
   const jumps = jump.length > 14 ? jump.filter((entry) => entry.level === 1) : jump;
-  const aside = [...(body?.aside ?? []), ...head.side];
+  const boxed = body?.aside ?? [];
+  const hasAside = boxed.length + head.side.length > 0;
   const fetchedAt = page.load.status === 'ready' ? page.load.at : article.load.status === 'ready' ? article.load.at : null;
 
   return (
@@ -230,7 +232,7 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
         </div>
       )}
 
-      <div className={cx('wf-lk-layout', aside.length === 0 && 'wf-lk-layout--single')}>
+      <div className={cx('wf-lk-layout', !hasAside && 'wf-lk-layout--single')}>
         <div className="wf-lk-main wf-lk-flow">
           {!doc ? (
             <p className="wf-lk-blank">
@@ -243,7 +245,7 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
             <Skeleton />
           ) : body.body.length === 0 ? (
             <p className="wf-lk-blank">
-              {aside.length > 0
+              {hasAside
                 ? 'Diese Seite enthält in LegendKeeper keinen Fließtext – nur die Angaben daneben.'
                 : 'Diese Seite ist in LegendKeeper noch leer.'}
             </p>
@@ -251,9 +253,18 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
             <ArticleNodes nodes={body.body} ctx={ctx} />
           )}
         </div>
-        {aside.length > 0 && (
+        {hasAside && (
           <aside className="wf-lk-aside" aria-label="Steckbrief">
-            <ArticleNodes nodes={aside} ctx={ctx} />
+            {boxed.length > 0 && (
+              <div className="wf-lk-aside__part">
+                <ArticleNodes nodes={boxed} ctx={ctx} />
+              </div>
+            )}
+            {head.side.length > 0 && (
+              <div className="wf-lk-aside__part">
+                <ArticleNodes nodes={head.side} ctx={ctx} />
+              </div>
+            )}
           </aside>
         )}
       </div>
@@ -270,7 +281,7 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
                 target="_blank"
                 rel="noreferrer noopener"
               >
-                {DOC_KIND_LABEL[other.kind]} „{other.name}“
+                {docLabel(other)}
                 <ExternalLink aria-hidden />
               </a>
             ))}

@@ -155,6 +155,7 @@ export default function KalenderPage() {
           spans={daySpans}
           onEdit={editEvent}
           onCreate={createOn}
+          onSelect={selectDay}
         />
       </div>
 

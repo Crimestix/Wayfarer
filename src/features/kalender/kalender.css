@@ -455,6 +455,13 @@ button.wf-kal-row:hover,
     transparent 75%
   );
 }
+.wf-kal-row--note {
+  display: block;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-mute);
+  line-height: 1.35;
+}
 .wf-kal-row > .wf-kal-gem {
   margin-top: 7px;
 }

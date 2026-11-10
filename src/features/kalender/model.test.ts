@@ -28,6 +28,7 @@ import {
   monthGrid,
   moonEventsBetween,
   nextOccurrences,
+  occurredBeforeDay,
   overdueLabel,
   parseDuration,
   parseEventForm,
@@ -624,6 +625,11 @@ describe('Zeit bis zu einem Tag', () => {
     expect(describePassage(preview)).toBe(
       '1 Tag 14 Std. vergehen · 2 Termine treten ein · 1 Wirkung oder Tätigkeit endet',
     );
+    // Auf dem Weg zum 19. liegt nur das Treffen am 18.; die Abfahrt gehört zum Zieltag selbst.
+    expect(occurredBeforeDay(preview, dayIndexOf(target)).map((o) => o.event.title)).toEqual([
+      'Treffen mit Brann am Nordkai',
+    ]);
+    expect(occurredBeforeDay(preview, dayIndexOf(now) + 1)).toEqual([]);
     expect(previewPassage(data, now)).toBeNull();
     expect(previewPassage(data, now - 5)).toBeNull();
   });

@@ -37,34 +37,33 @@ export function CalendarSection() {
         <p className="wf-einstellungen-footnote">{leapText(cal, now)}</p>
       </div>
 
-      <div className="wf-einstellungen-calendar__pair">
-        <div>
-          <SectionTitle>Wochentage</SectionTitle>
-          <ol className="wf-einstellungen-weekdays">
-            {weekdays.map((d) => (
-              <li key={d.index} className={cx(d.today && 'wf-einstellungen-weekday--today')}>
-                <span className="wf-einstellungen-month__no wf-num">{d.index + 1}</span>
-                {d.name}
-                {d.today && <span className="wf-einstellungen-now">heute</span>}
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div>
-          <SectionTitle>Zeitrechnungen</SectionTitle>
-          <ul className="wf-einstellungen-eras">
-            {eras.map((era) => (
-              <li key={era.id}>
-                <span className="wf-einstellungen-era__year wf-num">
-                  {era.year} <span className="wf-gold">{era.label}</span>
-                </span>
-                <span className="wf-mute">
-                  {era.primary ? 'Hauptanzeige – so steht das Jahr überall in Wayfarer' : `beginnt ${era.relation}`}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div>
+        <SectionTitle>Wochentage</SectionTitle>
+        <ol className="wf-einstellungen-weekdays">
+          {weekdays.map((d) => (
+            <li key={d.index} className={cx(d.today && 'wf-einstellungen-weekday--today')}>
+              <span className="wf-einstellungen-month__no wf-num">{d.index + 1}</span>
+              {d.name}
+              {d.today && <span className="wf-einstellungen-now">heute</span>}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div>
+        <SectionTitle>Zeitrechnungen</SectionTitle>
+        <ul className="wf-einstellungen-eras">
+          {eras.map((era) => (
+            <li key={era.id}>
+              <span className="wf-einstellungen-era__year wf-num">
+                {era.year} <span className="wf-gold">{era.label}</span>
+              </span>
+              <span className="wf-mute">
+                {era.primary ? 'Hauptanzeige – so steht das Jahr überall in Wayfarer.' : `Beginnt ${era.relation}.`}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {moons.length > 0 && (
@@ -77,7 +76,7 @@ export function CalendarSection() {
                 <div className="wf-grow">
                   <div className="wf-einstellungen-moon__name">{row.moon.name}</div>
                   <div className="wf-soft">
-                    Umlauf {row.cycle} · gerade {row.phase}, {row.light} % beleuchtet
+                    {row.phase} · Umlauf {row.cycle}
                   </div>
                 </div>
                 <dl className="wf-einstellungen-moon__dates">

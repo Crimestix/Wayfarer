@@ -582,6 +582,11 @@ export function previewPassage(data: CampaignData, to: WorldTime): PassagePrevie
   };
 }
 
+/** Was auf dem Weg zu einem Tag eintritt, bevor dieser Tag selbst beginnt. */
+export function occurredBeforeDay(preview: PassagePreview, dayIndex: number): Occurrence[] {
+  return preview.occurred.filter((o) => dayIndexOf(o.at) < dayIndex);
+}
+
 /** „2 Tage 14 Std. vergehen · 1 Termin tritt ein · 1 Wirkung endet“ */
 export function describePassage(preview: PassagePreview): string {
   const parts = [`${formatDuration(preview.minutes)} vergehen`];
