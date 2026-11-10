@@ -284,7 +284,7 @@
   background: color-mix(in srgb, var(--gold) 7%, transparent);
 }
 
-/* Terminbalken: liegen über den Tagesfeldern und lassen Klicks durch */
+/* Terminbalken: liegen über den Tagesfeldern; Klick wählt den Tag, Doppelklick öffnet den Termin */
 .wf-kal-bar {
   position: relative;
   z-index: 1;
@@ -300,8 +300,33 @@
   color: var(--ink);
   font-size: var(--text-xs);
   line-height: 18px;
-  pointer-events: none;
+  cursor: pointer;
   container-type: inline-size;
+  transition: background 0.12s var(--ease);
+}
+.wf-kal-bar:hover {
+  background: color-mix(in srgb, var(--kind) 26%, transparent);
+}
+/* Ist die Zeile darunter frei, darf ein langer Titel auf zwei Zeilen umbrechen. */
+.wf-kal-bar--tall {
+  align-self: start;
+  align-items: flex-start;
+  height: auto;
+  min-height: 18px;
+  max-height: 38px;
+  overflow: hidden;
+}
+.wf-kal-bar--tall .wf-kal-bar__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  mask-image: none;
+}
+.wf-kal-bar--tall svg {
+  margin-top: 4px;
 }
 /* Die Uhrzeit steht nur im Balken, wenn daneben noch Platz für den Titel bleibt. */
 @container (max-width: 150px) {
@@ -342,7 +367,8 @@
 .wf-kal-bar--done {
   opacity: 0.5;
 }
-.wf-kal-bar--done .wf-kal-bar__title {
+/* Erledigte Vorhaben und Fristen sind durchgestrichen; ein eingetretenes Weltereignis ist nur vorbei. */
+.wf-kal-bar--done:not(.wf-kal-kind--world) .wf-kal-bar__title {
   text-decoration: line-through;
   text-decoration-color: var(--ink-mute);
 }
@@ -350,6 +376,9 @@
   --kind: var(--blood-bright);
   background: var(--blood-wash);
   color: var(--blood-bright);
+}
+.wf-kal-bar--overdue:hover {
+  background: color-mix(in srgb, var(--blood) 30%, transparent);
 }
 .wf-kal-more {
   position: relative;
@@ -361,7 +390,10 @@
   color: var(--ink-mute);
   white-space: nowrap;
   overflow: hidden;
-  pointer-events: none;
+  cursor: pointer;
+}
+.wf-kal-more:hover {
+  color: var(--gold);
 }
 
 /* ── Leiste unter dem Raster ────────────────────────────────────────────── */
@@ -519,7 +551,21 @@ button.wf-kal-row:hover,
 .wf-kal-timer--task .wf-kal-timer__icon {
   color: var(--ember);
 }
+.wf-kal-timer .wf-kal-row__main:hover .wf-kal-row__title {
+  color: var(--gold-bright);
+}
+/* Restzeit und Ende brechen in schmalen Flächen um, statt abgeschnitten zu werden. */
+.wf-kal-timer .wf-kal-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  white-space: normal;
+}
+.wf-kal-timer .wf-kal-row__meta b {
+  white-space: nowrap;
+}
 .wf-kal-timer__bar {
+  display: block;
   height: 2px;
   margin-top: 5px;
   background: var(--line);
@@ -763,6 +809,8 @@ button.wf-kal-row:hover,
 }
 .wf-kal-event--done .wf-kal-event__title {
   color: var(--ink-mute);
+}
+.wf-kal-event--done:not(.wf-kal-kind--world) .wf-kal-event__title {
   text-decoration: line-through;
   text-decoration-color: var(--ink-faint);
 }

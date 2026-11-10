@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { Hammer, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { entityName, overdueEvents, runningTimers, upcomingOccurrences } from '../../domain/derive';
-import type { CampaignData } from '../../domain/schema';
+import type { CampaignData, Timer } from '../../domain/schema';
 import {
   dayIndexOf,
   formatClock,
@@ -127,7 +127,15 @@ export function UpcomingPanel({
 
 // ── Wirkungen und Tätigkeiten ──────────────────────────────────────────────
 
-export function TimersPanel({ data, onAdd }: { data: CampaignData; onAdd: () => void }) {
+export function TimersPanel({
+  data,
+  onAdd,
+  onEdit,
+}: {
+  data: CampaignData;
+  onAdd: () => void;
+  onEdit: (timer: Timer) => void;
+}) {
   const db = useDb();
   const cal = data.campaign.calendar;
   const now = data.state.now;
@@ -169,23 +177,30 @@ export function TimersPanel({ data, onAdd }: { data: CampaignData; onAdd: () => 
         const Icon = timer.kind === 'task' ? Hammer : Sparkles;
         const refs = timer.refs.map((id) => entityName(data, id)).join(', ');
         return (
-          <div key={timer.id} className={cx('wf-kal-row', `wf-kal-timer--${timer.kind}`)}>
+          <div
+            key={timer.id}
+            className={cx('wf-kal-row wf-kal-timer', `wf-kal-timer--${timer.kind}`)}
+          >
             <Icon className="wf-kal-timer__icon" aria-label={TIMER_KIND_LABEL[timer.kind]} />
-            <div
+            <button
+              type="button"
               className="wf-kal-row__main"
-              title={`${TIMER_KIND_LABEL[timer.kind]}${refs ? ` – ${refs}` : ''}`}
+              onClick={() => onEdit(timer)}
+              title={`${TIMER_KIND_LABEL[timer.kind]}: ${timer.label}${
+                refs ? ` – ${refs}` : ''
+              }\nAnklicken zum Ändern.`}
             >
               <span className="wf-kal-row__title">
                 {timer.label}
                 {refs && <span className="wf-mute"> · {refs}</span>}
               </span>
               <span className="wf-kal-row__meta">
-                <b>noch {formatDuration(timer.end - now)}</b> · {endLabel(timer.end)}
+                <b>noch {formatDuration(timer.end - now)}</b> <span>{endLabel(timer.end)}</span>
               </span>
-              <div className="wf-kal-timer__bar">
+              <span className="wf-kal-timer__bar">
                 <i style={{ width: `${Math.round(timerProgress(timer, now) * 100)}%` }} />
-              </div>
-            </div>
+              </span>
+            </button>
             <IconButton
               label={`„${timer.label}“ vorzeitig beenden`}
               size="sm"

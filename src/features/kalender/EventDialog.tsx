@@ -32,6 +32,7 @@ import {
   cx,
 } from '../../ui';
 import {
+  EVENT_DONE_LABEL,
   EVENT_KIND_HINT,
   EVENT_KIND_LABEL,
   blankEventForm,
@@ -152,7 +153,7 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
           {event && form.repeatUnit === 'none' && (
             <span style={{ marginLeft: 'var(--s-2)', alignSelf: 'center' }}>
               <Checkbox checked={form.done} onChange={(done) => set({ done })}>
-                Erledigt
+                {EVENT_DONE_LABEL[form.kind]}
               </Checkbox>
             </span>
           )}

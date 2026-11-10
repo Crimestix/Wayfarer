@@ -1,12 +1,12 @@
-/** Neue Wirkung oder Tätigkeit, die eine Weile andauert. */
+/** Wirkung oder Tätigkeit, die eine Weile andauert: beginnen oder nachträglich ändern. */
 import { useState } from 'react';
-import { Hammer, Sparkles } from 'lucide-react';
+import { Hammer, Sparkles, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { createTimer, type Timer } from '../../domain/schema';
 import { dayIndexOf, formatClock, formatDateTime } from '../../domain/time/calendar';
-import { Button, Dialog, EntityRefsEditor, Field, Input } from '../../ui';
+import { Button, Dialog, EntityRefsEditor, Field, Input, confirmDialog } from '../../ui';
 import { saveOnEnter } from './EventDialog';
-import { TIMER_KIND_LABEL, parseDuration } from './model';
+import { TIMER_KIND_LABEL, parseDuration, splitDuration } from './model';
 
 const KIND_HINT: Record<Timer['kind'], string> = {
   effect: 'Hält an, bis die Zeit um ist – ein Zauber, eine Fackel, ein Gift.',
@@ -22,26 +22,59 @@ const PRESETS: { label: string; days: string; hours: string; minutes: string }[]
   { label: '7 Tage', days: '7', hours: '', minutes: '' },
 ];
 
-export function TimerDialog({ onClose }: { onClose: () => void }) {
+export interface TimerDialogProps {
+  /** Laufende Wirkung oder Tätigkeit, die geändert wird; null = neu beginnen. */
+  timer: Timer | null;
+  onClose: () => void;
+}
+
+export function TimerDialog({ timer, onClose }: TimerDialogProps) {
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
   const now = data.state.now;
-  const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<Timer['kind']>('effect');
-  const [days, setDays] = useState('');
-  const [hours, setHours] = useState('1');
-  const [minutes, setMinutes] = useState('');
-  const [refs, setRefs] = useState<string[]>([]);
+  // Beim Ändern steht in den Feldern, wie lange es von jetzt an noch dauert.
+  const [initial] = useState(() =>
+    timer ? splitDuration(timer.end - now) : { days: '', hours: '1', minutes: '' },
+  );
+  const [label, setLabel] = useState(timer?.label ?? '');
+  const [kind, setKind] = useState<Timer['kind']>(timer?.kind ?? 'effect');
+  const [days, setDays] = useState(initial.days);
+  const [hours, setHours] = useState(initial.hours);
+  const [minutes, setMinutes] = useState(initial.minutes);
+  const [refs, setRefs] = useState<string[]>(timer?.refs ?? []);
 
   const duration = parseDuration(days, hours, minutes);
   const ok = label.trim() !== '' && duration !== null;
   const save = () => {
     if (!ok || duration === null) return;
-    db.put(
-      'timers',
-      createTimer({ label: label.trim(), kind, start: now, end: now + duration, refs }),
-    );
+    if (timer) {
+      // Nur ändern, was noch da ist – ein anderes Gerät könnte sie inzwischen entfernt haben.
+      if (db.getSnapshot().timers[timer.id])
+        db.patch('timers', timer.id, { label: label.trim(), kind, end: now + duration, refs });
+    } else {
+      db.put(
+        'timers',
+        createTimer({ label: label.trim(), kind, start: now, end: now + duration, refs }),
+      );
+    }
+    onClose();
+  };
+  const remove = async () => {
+    if (!timer) return;
+    const ok = await confirmDialog({
+      title: `${TIMER_KIND_LABEL[timer.kind]} löschen?`,
+      body: (
+        <>
+          „{timer.label}“ wird ganz entfernt, als hätte es sie nie gegeben. Soll sie nur aufhören,
+          beende sie stattdessen vorzeitig.
+        </>
+      ),
+      confirmLabel: 'Löschen',
+      danger: true,
+    });
+    if (!ok) return;
+    if (db.getSnapshot().timers[timer.id]) db.remove('timers', timer.id);
     onClose();
   };
   const end = duration === null ? null : now + duration;
@@ -50,13 +83,19 @@ export function TimerDialog({ onClose }: { onClose: () => void }) {
     <Dialog
       open
       onClose={onClose}
-      title="Wirkung oder Tätigkeit"
+      title={timer ? `${TIMER_KIND_LABEL[timer.kind]} ändern` : 'Wirkung oder Tätigkeit'}
       width={560}
       footer={
         <>
+          {timer && (
+            <Button variant="danger" icon={<Trash2 />} onClick={remove}>
+              Löschen
+            </Button>
+          )}
+          <span className="wf-grow" />
           <Button onClick={onClose}>Abbrechen</Button>
           <Button variant="primary" onClick={save} disabled={!ok}>
-            Beginnen
+            {timer ? 'Speichern' : 'Beginnen'}
           </Button>
         </>
       }
@@ -94,7 +133,7 @@ export function TimerDialog({ onClose }: { onClose: () => void }) {
           </div>
         </Field>
         <Field
-          label="Dauer"
+          label={timer ? 'Dauert von jetzt an noch' : 'Dauer'}
           hint={
             end === null
               ? 'Gib eine Dauer in ganzen Tagen, Stunden oder Minuten an.'

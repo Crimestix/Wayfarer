@@ -210,9 +210,7 @@ export function summarize(data: CampaignData): CampaignSummary {
 export function formatRealTime(iso: string): string {
   const date = new Date(iso);
   if (!iso || Number.isNaN(date.getTime())) return '';
-  return (
-    new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(
-      date,
-    ) + ' Uhr'
-  );
+  const day = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+  const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date);
+  return `${day}, ${clock} Uhr`;
 }

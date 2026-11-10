@@ -278,3 +278,17 @@ export function deleteSession(db: CampaignDb, sessionId: string): void {
     db.remove('sessions', sessionId);
   });
 }
+
+/**
+ * Setzt eine beendete Session fort – etwa nach einem versehentlichen Beenden oder einer Pause.
+ * Ihr Ende wird gelöscht; eine andere laufende Session wird vorher beendet.
+ */
+export function resumeSession(db: CampaignDb, sessionId: string): void {
+  const data = db.getSnapshot();
+  if (!data.sessions[sessionId] || data.state.sessionId === sessionId) return;
+  db.batch(() => {
+    if (data.state.sessionId) endSession(db);
+    db.patch('sessions', sessionId, { endAt: null });
+    db.setState({ sessionId });
+  });
+}

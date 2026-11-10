@@ -19,6 +19,7 @@ import { advanceAndReport } from '../../shell/dialogs';
 import { openQuickLog } from '../../shell/commands';
 import { Button, ChronicleList, MoonGlyph, Panel, SectionTitle, Select, cx, toast } from '../../ui';
 import {
+  EVENT_DONE_LABEL,
   EVENT_KIND_LABEL,
   chronicleOnDay,
   describePassage,
@@ -66,7 +67,9 @@ export function EventCheck({ event }: { event: CalendarEvent }) {
       className="wf-kal-check"
       aria-pressed={event.done}
       aria-label={event.done ? `„${event.title}“ wieder öffnen` : `„${event.title}“ abhaken`}
-      title={event.done ? 'Wieder öffnen' : 'Abhaken'}
+      title={
+        event.done ? 'Wieder öffnen' : `Als ${EVENT_DONE_LABEL[event.kind].toLowerCase()} abhaken`
+      }
       onClick={() => setEventDone(db, event, !event.done)}
     >
       {event.done && <Check />}
@@ -148,6 +151,7 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
             const state = spanState(span, now);
             const length = span.endDay - span.startDay + 1;
             const meta = [
+              state === 'done' ? EVENT_DONE_LABEL[event.kind].toLowerCase() : '',
               event.timed && span.startDay === day ? `${formatClock(span.at)} Uhr` : '',
               length > 1 ? `Tag ${day - span.startDay + 1} von ${length}` : '',
               event.repeat ? describeRepeat(event.repeat) : '',
@@ -191,24 +195,21 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
 
         {day <= today && (
           <>
-            <div className="wf-kal-side__section">
+            <div className="wf-kal-side__section wf-kal-side__section--action">
               <SectionTitle>Chronik</SectionTitle>
+              {day === today && (
+                <Button size="sm" icon={<Feather />} onClick={() => openQuickLog()}>
+                  Festhalten
+                </Button>
+              )}
             </div>
             <ChronicleList
               entries={chronicle}
               empty={
                 <div className="wf-kal-hint">
-                  {day === today ? (
-                    <>
-                      Heute wurde noch nichts festgehalten.
-                      <br />
-                      <Button size="sm" icon={<Feather />} onClick={() => openQuickLog()}>
-                        Festhalten
-                      </Button>
-                    </>
-                  ) : (
-                    'An diesem Tag wurde nichts festgehalten.'
-                  )}
+                  {day === today
+                    ? 'Heute wurde noch nichts festgehalten. Notizen, Abmachungen und Ortswechsel dieses Tages erscheinen hier.'
+                    : 'An diesem Tag wurde nichts festgehalten.'}
                 </div>
               }
             />
