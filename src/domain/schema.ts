@@ -55,6 +55,10 @@ export const CampaignMetaSchema = z.object({
   rev: base.rev,
   name: z.string(),
   calendar: CalendarSchema,
+  /** Eigene Zustände neben den 14 des Regelwerks, z. B. „Verflucht“. */
+  customConditions: z
+    .array(z.object({ name: z.string().min(1), rule: z.string().default('') }))
+    .default([]),
   created: z.string().default(''),
   updated: z.string().default(''),
 });
@@ -161,6 +165,14 @@ const CharacterDetails = z.object({
   speed: z.number().int().nonnegative().default(30),
   armorClass: z.number().int().nullable().default(null),
   hpMax: z.number().int().nullable().default(null),
+  /** Aktuelle Trefferpunkte; null = wird nicht mitgeführt. */
+  hp: z.number().int().nonnegative().nullable().default(null),
+  /** Initiativebonus, z. B. +3. */
+  initiative: z.number().int().nullable().default(null),
+  /** Zauberrettungswurf-SG. */
+  spellSaveDc: z.number().int().nullable().default(null),
+  /** Dunkelsicht in Fuß; null = keine. */
+  darkvision: z.number().int().nonnegative().nullable().default(null),
   passivePerception: z.number().int().nullable().default(null),
   passiveInsight: z.number().int().nullable().default(null),
   passiveInvestigation: z.number().int().nullable().default(null),

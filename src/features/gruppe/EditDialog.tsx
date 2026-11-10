@@ -273,6 +273,10 @@ export function EditDialog({
         <div className="wf-gruppe-form__grid">
           {number('armorClass', 'Rüstungsklasse')}
           {number('hpMax', 'Max. Trefferpunkte')}
+          {number('hp', 'Aktuelle Trefferpunkte')}
+          {number('initiative', 'Initiative (Bonus)', '+0')}
+          {number('spellSaveDc', 'Zauberrettungswurf-SG')}
+          {number('darkvision', 'Dunkelsicht (Fuß)')}
           {number('speed', 'Bewegungsrate (Fuß)', '30')}
           {number('passivePerception', 'Passive Wahrnehmung')}
           {number('passiveInsight', 'Passive Einsicht')}

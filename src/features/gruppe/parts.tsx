@@ -5,15 +5,25 @@ import { useData, useDb } from '../../data/hooks';
 import { entityName, placePath } from '../../domain/derive';
 import { createEntity, type Character } from '../../domain/schema';
 import { EntityPicker, MenuItem, Popover, cx, toast } from '../../ui';
-import { clickExhaustion, moveCharacter, toggleCharacterCondition } from './actions';
+import {
+  addOwnCondition,
+  changeHp,
+  clickExhaustion,
+  moveCharacter,
+  patchCharacter,
+  removeOwnCondition,
+  toggleCharacterCondition,
+} from './actions';
 import {
   CONDITIONS,
   EXHAUSTION_MAX,
   EXHAUSTION_RULE,
+  combatFacts,
   conditionRule,
   exhaustionEffect,
   exhaustionText,
   hasCondition,
+  ruleOf,
   sheetHref,
   sortConditions,
   speedInfo,
@@ -138,19 +148,42 @@ export function ConditionToggles({
   onToggle: (name: string) => void;
   rules?: 'hover' | 'active' | 'none';
 }) {
+  const db = useDb();
+  const custom = useData().campaign.customConditions;
   const [hover, setHover] = useState<string | null>(null);
+  const [own, setOwn] = useState('');
   const active = sortConditions(value);
   const track = rules === 'hover';
+  // Eigene Zustände der Kampagne, dazu gesetzte, die es in keiner Liste (mehr) gibt.
+  const extra = [
+    ...custom.map((c) => c.name),
+    ...active.filter((name) => !conditionRule(name) && !custom.some((c) => c.name === name)),
+  ];
+  const listed = [
+    ...CONDITIONS.map((c) => ({ name: c.name, own: false })),
+    ...extra.map((name) => ({ name, own: true })),
+  ];
+  const addOwn = () => {
+    const name = own.trim();
+    if (!name) return;
+    addOwnCondition(db, null, name);
+    if (!hasCondition(value, name)) onToggle(name);
+    setOwn('');
+  };
   return (
     <div className="wf-gruppe-conditions">
       <div className="wf-gruppe-conditions__grid" role="group" aria-label="Zustände">
-        {CONDITIONS.map((condition) => (
+        {listed.map((condition) => (
           <button
             key={condition.name}
             type="button"
-            className="wf-gruppe-condition"
+            className={cx('wf-gruppe-condition', condition.own && 'wf-gruppe-condition--own')}
             aria-pressed={hasCondition(value, condition.name)}
-            title={track ? undefined : condition.rule}
+            title={
+              track
+                ? undefined
+                : ruleOf(condition.name, custom) || (condition.own ? 'Eigener Zustand' : undefined)
+            }
             onClick={() => onToggle(condition.name)}
             onMouseEnter={track ? () => setHover(condition.name) : undefined}
             onFocus={track ? () => setHover(condition.name) : undefined}
@@ -159,13 +192,46 @@ export function ConditionToggles({
           </button>
         ))}
       </div>
+      {/* Kein eigenes Formular: Die Schalter stehen auch im Bearbeiten-Dialog, der selbst eines ist. */}
+      <div className="wf-gruppe-conditions__own">
+        <input
+          className="wf-input"
+          value={own}
+          onChange={(e) => setOwn(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || e.ctrlKey || e.metaKey) return;
+            e.preventDefault();
+            e.stopPropagation();
+            addOwn();
+          }}
+          placeholder="Eigener Zustand, z. B. Verflucht"
+          aria-label="Eigenen Zustand anlegen"
+          maxLength={40}
+        />
+        <button type="button" className="wf-btn wf-btn--sm" disabled={!own.trim()} onClick={addOwn}>
+          Anlegen
+        </button>
+        {hover && custom.some((c) => c.name === hover) && (
+          <button
+            type="button"
+            className="wf-btn wf-btn--sm wf-btn--ghost"
+            title="Aus der Liste der eigenen Zustände nehmen. Wer ihn gerade hat, behält ihn."
+            onClick={() => {
+              removeOwnCondition(db, hover);
+              setHover(null);
+            }}
+          >
+            „{hover}“ aus der Liste nehmen
+          </button>
+        )}
+      </div>
       {rules === 'hover' && (
         <p
           className={cx('wf-gruppe-conditions__rule', !hover && 'wf-gruppe-conditions__rule--idle')}
         >
           {hover ? (
             <>
-              <b>{hover}.</b> {conditionRule(hover)}
+              <b>{hover}.</b> {ruleOf(hover, custom) || 'Eigener Zustand ohne hinterlegte Regel.'}
             </>
           ) : (
             'Anklicken schaltet einen Zustand an oder aus. Zeig auf einen Zustand, um seine Regel zu lesen.'
@@ -176,7 +242,7 @@ export function ConditionToggles({
         <div className="wf-gruppe-conditions__active">
           {active.map((name) => (
             <p key={name}>
-              <b>{name}.</b> {conditionRule(name) || 'Eigener Zustand ohne hinterlegte Regel.'}
+              <b>{name}.</b> {ruleOf(name, custom) || 'Eigener Zustand ohne hinterlegte Regel.'}
             </p>
           ))}
         </div>
@@ -327,17 +393,21 @@ export function Stat({
   unit,
   title,
   tone,
+  of,
 }: {
   label: string;
   value: number | null;
   unit?: string;
   title?: string;
   tone?: 'warn';
+  /** Maximum hinter dem Wert: „24 / 38“. */
+  of?: number | null;
 }) {
   return (
     <div className={cx('wf-gruppe-stat', tone === 'warn' && 'wf-gruppe-stat--warn')} title={title}>
       <div className="wf-gruppe-stat__value wf-num">
         {value === null ? <span className="wf-gruppe-stat__none">–</span> : value}
+        {value !== null && of !== undefined && of !== null && <small>/ {of}</small>}
         {value !== null && unit && <small>{unit}</small>}
       </div>
       <div className="wf-gruppe-stat__label">{label}</div>
@@ -349,12 +419,28 @@ export function Stat({
 export function StatBand({ character }: { character: Character }) {
   const d = character.character;
   const speed = speedInfo(d);
+  const facts = combatFacts(d);
+  const hurt = d.hp !== null && d.hpMax !== null && d.hp * 2 <= d.hpMax;
   return (
     <div className="wf-gruppe-stats">
       <div className="wf-gruppe-stats__inner">
         <div className="wf-gruppe-stats__group">
           <Stat label="Rüstung" value={d.armorClass} title="Rüstungsklasse" />
-          <Stat label="Treffer" value={d.hpMax} title="Maximale Trefferpunkte" />
+          {d.hp === null ? (
+            <Stat label="Treffer" value={d.hpMax} title="Maximale Trefferpunkte" />
+          ) : (
+            <Stat
+              label="Treffer"
+              value={d.hp}
+              of={d.hpMax}
+              tone={hurt ? 'warn' : undefined}
+              title={
+                d.hpMax === null
+                  ? 'Aktuelle Trefferpunkte'
+                  : `Aktuelle von maximalen Trefferpunkten${hurt ? ' – höchstens die Hälfte' : ''}`
+              }
+            />
+          )}
           <Stat
             label="Bewegung"
             value={speed.value}
@@ -374,6 +460,58 @@ export function StatBand({ character }: { character: Character }) {
           />
         </div>
       </div>
+      {facts.length > 0 && (
+        <dl className="wf-gruppe-stats__extra">
+          {facts.map((fact) => (
+            <div key={fact.label} title={fact.title}>
+              <dt>{fact.label}</dt>
+              <dd className="wf-num">{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+/** Schaden und Heilung mit einem Handgriff: −5, −1, +1, +5 und „voll“. */
+export function HpControl({ character }: { character: Character }) {
+  const db = useDb();
+  const { hp, hpMax } = character.character;
+  if (hp === null && hpMax === null)
+    return <span className="wf-mute">Noch keine Trefferpunkte eingetragen.</span>;
+  const current = hp ?? hpMax ?? 0;
+  const step = (delta: number, label: string) => (
+    <button
+      type="button"
+      className="wf-gruppe-hp__step"
+      aria-label={label}
+      title={label}
+      disabled={delta < 0 ? current <= 0 : hpMax !== null && current >= hpMax}
+      onClick={() => changeHp(db, character.id, delta)}
+    >
+      {delta > 0 ? `+${delta}` : `−${-delta}`}
+    </button>
+  );
+  return (
+    <div className="wf-gruppe-hp">
+      {step(-5, '5 Trefferpunkte Schaden')}
+      {step(-1, '1 Trefferpunkt Schaden')}
+      <span className="wf-gruppe-hp__value wf-num" data-down={current === 0 || undefined}>
+        {current}
+        {hpMax !== null && <small> / {hpMax}</small>}
+      </span>
+      {step(1, '1 Trefferpunkt heilen')}
+      {step(5, '5 Trefferpunkte heilen')}
+      {hpMax !== null && current < hpMax && (
+        <button
+          type="button"
+          className="wf-gruppe-hp__full"
+          onClick={() => patchCharacter(db, character.id, { hp: hpMax })}
+        >
+          voll
+        </button>
+      )}
     </div>
   );
 }

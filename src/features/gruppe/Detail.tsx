@@ -40,7 +40,14 @@ import {
   sortConditions,
   type CharacterBond,
 } from './model';
-import { ConditionToggles, ExhaustionControl, LocationControl, SheetLink, StatBand } from './parts';
+import {
+  ConditionToggles,
+  ExhaustionControl,
+  HpControl,
+  LocationControl,
+  SheetLink,
+  StatBand,
+} from './parts';
 
 // ── Wechsel zwischen den Gefährten ─────────────────────────────────────────
 
@@ -336,6 +343,10 @@ export function Detail({
             <Panel title="Am Tisch" flush>
               <StatBand character={character} />
               <dl className="wf-gruppe-rows wf-gruppe-rows--roomy">
+                <dt>Trefferpunkte</dt>
+                <dd>
+                  <HpControl character={character} />
+                </dd>
                 <dt>Erschöpfung</dt>
                 <dd>
                   <ExhaustionControl character={character} size="lg" />

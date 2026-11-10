@@ -4,6 +4,8 @@ import type { CampaignDb } from '../../data/db';
 import { activeParty, entityName, findRelation } from '../../domain/derive';
 import { createEntity, createRelation, type Character, type Relation } from '../../domain/schema';
 import {
+  addCustomCondition,
+  adjustHp,
   clickExhaustionMark,
   longRestChanges,
   longRestText,
@@ -39,6 +41,46 @@ export function toggleCharacterCondition(db: CampaignDb, id: string, name: strin
   patchCharacter(db, id, { conditions: toggleCondition(current.character.conditions, name) });
 }
 
+/** Schaden (negativ) oder Heilung (positiv). Beginnt bei den maximalen Trefferpunkten, wenn noch nichts mitgeführt wird. */
+export function changeHp(db: CampaignDb, id: string, delta: number): void {
+  const current = getCharacter(db, id);
+  if (!current) return;
+  const { hp, hpMax } = current.character;
+  patchCharacter(db, id, { hp: adjustHp(hp, hpMax, delta) });
+}
+
+/** Legt einen eigenen Zustand für die Kampagne an (falls neu) und setzt ihn beim Gefährten. */
+export function addOwnCondition(db: CampaignDb, id: string | null, name: string, rule = ''): void {
+  const campaign = db.getSnapshot().campaign;
+  const next = addCustomCondition(campaign.customConditions, name, rule);
+  db.batch(() => {
+    if (next.length !== campaign.customConditions.length)
+      db.setCampaign({ customConditions: next });
+    const current = id ? getCharacter(db, id) : null;
+    const clean = name.trim().replace(/\s+/g, ' ');
+    if (current && clean && !current.character.conditions.some((c) => c === clean))
+      patchCharacter(db, current.id, {
+        conditions: toggleCondition(
+          current.character.conditions.filter((c) => c !== clean),
+          clean,
+        ),
+      });
+  });
+}
+
+/** Entfernt einen eigenen Zustand aus der Liste der Kampagne. Wer ihn gerade hat, behält ihn. */
+export function removeOwnCondition(db: CampaignDb, name: string): void {
+  const campaign = db.getSnapshot().campaign;
+  db.setCampaign({ customConditions: campaign.customConditions.filter((c) => c.name !== name) });
+}
+
+/** Satz für die Chronik, wenn ein Gefährte die Gruppe verlässt oder zu ihr zurückkehrt. */
+function placeChangeText(db: CampaignDb, name: string, placeId: string | null): string {
+  return placeId
+    ? `${name} ist abseits der Gruppe unterwegs: ${entityName(db.getSnapshot(), placeId)}.`
+    : `${name} ist wieder bei der Gruppe.`;
+}
+
 export interface PlaceChangeResult {
   /** Stellt den vorigen Aufenthaltsort wieder her und nimmt die Chroniknotiz zurück. */
   undo: () => void;
@@ -58,9 +100,7 @@ export function moveCharacter(
   if (!current || current.character.placeId === placeId) return null;
   const before = current.character.placeId;
   const data = db.getSnapshot();
-  const text = placeId
-    ? `${current.name} ist abseits der Gruppe unterwegs: ${entityName(data, placeId)}.`
-    : `${current.name} ist wieder bei der Gruppe.`;
+  const text = placeChangeText(db, current.name, placeId);
   const entry = db.batch(() => {
     patchCharacter(db, id, { placeId });
     return logEntry(db, {
@@ -87,12 +127,23 @@ export function saveCharacter(
 ): string {
   const current = id ? getCharacter(db, id) : null;
   if (current) {
-    db.put('entities', {
-      ...current,
-      name: value.name,
-      tagline: value.tagline,
-      image: value.image,
-      character: value.character,
+    const before = current.character.placeId;
+    const after = value.character.placeId;
+    db.batch(() => {
+      db.put('entities', {
+        ...current,
+        name: value.name,
+        tagline: value.tagline,
+        image: value.image,
+        character: value.character,
+      });
+      // Trennen und Zurückkehren steht immer in der Chronik – auch wenn es im Dialog geschieht.
+      if (before !== after)
+        logEntry(db, {
+          text: placeChangeText(db, value.name, after),
+          refs: [current.id, after ?? before].filter((ref): ref is string => !!ref),
+          placeId: after ?? db.getSnapshot().state.placeId,
+        });
     });
     return current.id;
   }

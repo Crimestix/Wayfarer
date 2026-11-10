@@ -563,6 +563,10 @@ export interface CharacterDraft {
   speed: string;
   armorClass: string;
   hpMax: string;
+  hp: string;
+  initiative: string;
+  spellSaveDc: string;
+  darkvision: string;
   passivePerception: string;
   passiveInsight: string;
   passiveInvestigation: string;
@@ -588,6 +592,10 @@ export function emptyDraft(): CharacterDraft {
     speed: '30',
     armorClass: '',
     hpMax: '',
+    hp: '',
+    initiative: '',
+    spellSaveDc: '',
+    darkvision: '',
     passivePerception: '',
     passiveInsight: '',
     passiveInvestigation: '',
@@ -613,6 +621,10 @@ export function draftFromCharacter(c: Character): CharacterDraft {
     speed: String(d.speed),
     armorClass: text(d.armorClass),
     hpMax: text(d.hpMax),
+    hp: text(d.hp),
+    initiative: d.initiative === null ? '' : signed(d.initiative),
+    spellSaveDc: text(d.spellSaveDc),
+    darkvision: text(d.darkvision),
     passivePerception: text(d.passivePerception),
     passiveInsight: text(d.passiveInsight),
     passiveInvestigation: text(d.passiveInvestigation),
@@ -631,6 +643,10 @@ export type DraftField =
   | 'speed'
   | 'armorClass'
   | 'hpMax'
+  | 'hp'
+  | 'initiative'
+  | 'spellSaveDc'
+  | 'darkvision'
   | 'passivePerception'
   | 'passiveInsight'
   | 'passiveInvestigation'
@@ -646,6 +662,81 @@ export interface DraftResult {
     image: string | null;
     character: Details;
   } | null;
+}
+
+/** „+3“, „0“, „−1“ – ein Bonus mit Vorzeichen. */
+export const signed = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+
+/** Liest einen Bonus mit Vorzeichen; versteht „+3“, „3“, „-1“ und „−1“. */
+export function parseSigned(raw: string, min: number, max: number): number | null | 'invalid' {
+  const trimmed = raw.trim().replace(/[−–]/g, '-');
+  if (!trimmed) return null;
+  if (!/^[+-]?\d+$/.test(trimmed)) return 'invalid';
+  const n = Number(trimmed);
+  return n >= min && n <= max ? n : 'invalid';
+}
+
+/** Neue Trefferpunkte nach Schaden (negativ) oder Heilung (positiv), in den Grenzen 0 … Maximum. */
+export function adjustHp(current: number | null, max: number | null, delta: number): number {
+  const base = current ?? max ?? 0;
+  const next = Math.max(0, base + delta);
+  return max === null ? next : Math.min(max, next);
+}
+
+/** Die Werte unter der Leiste: nur was eingetragen ist. */
+export function combatFacts(details: {
+  initiative: number | null;
+  spellSaveDc: number | null;
+  darkvision: number | null;
+}): { label: string; value: string; title: string }[] {
+  const facts: { label: string; value: string; title: string }[] = [];
+  if (details.initiative !== null)
+    facts.push({
+      label: 'Initiative',
+      value: signed(details.initiative),
+      title: 'Initiativebonus',
+    });
+  if (details.spellSaveDc !== null)
+    facts.push({
+      label: 'Zauber-SG',
+      value: String(details.spellSaveDc),
+      title: 'Zauberrettungswurf-Schwierigkeitsgrad',
+    });
+  if (details.darkvision !== null && details.darkvision > 0)
+    facts.push({
+      label: 'Dunkelsicht',
+      value: `${details.darkvision} Fuß`,
+      title: 'Reichweite der Dunkelsicht',
+    });
+  return facts;
+}
+
+/** Ein eigener Zustand der Kampagne. */
+export interface CustomCondition {
+  name: string;
+  rule: string;
+}
+
+/** Regeltext eines Zustands – aus dem Regelwerk oder aus den eigenen Zuständen der Kampagne. */
+export function ruleOf(name: string, custom: readonly CustomCondition[] = []): string {
+  return conditionRule(name) || (custom.find((c) => sameText(c.name, name))?.rule ?? '');
+}
+
+/**
+ * Nimmt einen eigenen Zustand in die Liste der Kampagne auf. Namen des Regelwerks und schon
+ * vorhandene eigene bleiben, wie sie sind; gibt die (ggf. unveränderte) Liste zurück.
+ */
+export function addCustomCondition(
+  custom: readonly CustomCondition[],
+  name: string,
+  rule = '',
+): CustomCondition[] {
+  const clean = name.trim().replace(/\s+/g, ' ');
+  if (!clean || conditionIndex(clean) >= 0 || custom.some((c) => sameText(c.name, clean)))
+    return [...custom];
+  return [...custom, { name: clean, rule: rule.trim() }].sort((a, b) =>
+    collator.compare(a.name, b.name),
+  );
 }
 
 function wholeNumber(raw: string, min: number, max: number): number | null | 'invalid' {
@@ -679,6 +770,23 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
     'Eine Zahl wie 16 – oder leer lassen.',
   );
   const hpMax = optional('hpMax', draft.hpMax, 999, 'Eine Zahl wie 38 – oder leer lassen.');
+  const hp = optional('hp', draft.hp, 999, 'Eine Zahl wie 24 – oder leer lassen.');
+  if (hp !== null && hpMax !== null && hp > hpMax && !errors.hp)
+    errors.hp = 'Nicht mehr als die maximalen Trefferpunkte.';
+  const spellSaveDc = optional(
+    'spellSaveDc',
+    draft.spellSaveDc,
+    40,
+    'Eine Zahl wie 15 – oder leer lassen.',
+  );
+  const darkvision = optional(
+    'darkvision',
+    draft.darkvision,
+    600,
+    'Reichweite in Fuß, z. B. 60 – oder leer lassen.',
+  );
+  const initiative = parseSigned(draft.initiative, -10, 30);
+  if (initiative === 'invalid') errors.initiative = 'Ein Bonus wie +3 oder −1 – oder leer lassen.';
   const passivePerception = optional(
     'passivePerception',
     draft.passivePerception,
@@ -716,6 +824,10 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
         speed: speed as number,
         armorClass,
         hpMax,
+        hp,
+        initiative: initiative === 'invalid' ? null : initiative,
+        spellSaveDc,
+        darkvision,
         passivePerception,
         passiveInsight,
         passiveInvestigation,

@@ -727,7 +727,6 @@ class Importer {
         clamped++;
         facts.push(`Stufe in der alten Version: ${level}`);
       }
-      if (int(c.spellDC) !== null) facts.push(`Zauberrettungs-SG: ${int(c.spellDC)}`);
       for (const p of list(c.proficiencies)) {
         if (!isObj(p) || !text(p.name)) continue;
         const details = [
@@ -762,6 +761,7 @@ class Importer {
           className: text(c.className) || member.className,
           level: Math.max(1, Math.min(20, level)),
           armorClass: int(c.ac),
+          spellSaveDc: int(c.spellDC),
           passivePerception: int(c.perception),
           passiveInvestigation: int(c.investigation),
           passiveInsight: int(c.insight),
@@ -774,8 +774,8 @@ class Importer {
     this.adopted.push(
       `Die ${LEGACY_PARTY.length} Gefährten wurden angelegt` +
         (withValues
-          ? `; für ${withValues} von ihnen standen Werte im Backup (Klasse, Stufe, Rüstungsklasse, passive Werte, Sprachen, Erschöpfung, Bild). ` +
-            'Zauberrettungs-SG, Übungen und frühere Aufenthalte stehen als Text in ihren Notizen.'
+          ? `; für ${withValues} von ihnen standen Werte im Backup (Klasse, Stufe, Rüstungsklasse, Zauber-SG, passive Werte, Sprachen, Erschöpfung, Bild). ` +
+            'Übungen und frühere Aufenthalte stehen als Text in ihren Notizen.'
           : ' – eigene Werte standen nicht im Backup, deshalb gelten Klasse und Stufe 6 wie in der alten Anzeige.'),
     );
     if (clamped)
