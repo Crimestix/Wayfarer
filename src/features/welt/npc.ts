@@ -113,8 +113,8 @@ export function learnedName(rng: Rng, samples: readonly string[]): string | null
 
 /** Silben für den Fall, dass die Welt noch zu wenige Namen zum Lernen hat. */
 const ONSETS = 'b br d dr f g gr h k kr l m n r s st t th tr v w z'.split(' ');
-// Einfache Vokale kommen öfter vor als Doppellaute.
-const VOWELS = 'a e i o u a e i o ei au'.split(' ');
+// Nur einfache Vokale: Doppellaute wie „ei“ oder „au“ ergeben zu leicht zufällige deutsche Wörter.
+const VOWELS = 'a e i o u a e i o y'.split(' ');
 const CODAS = 'l n r s th nd rn m k t'.split(' ');
 
 /** Ein Name aus allgemeinen Silben – nur, solange die Welt keinen eigenen Klang vorgibt. */

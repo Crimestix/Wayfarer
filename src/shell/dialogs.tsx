@@ -29,7 +29,6 @@ import {
 } from '../domain/time/calendar';
 import { AREAS } from '../features/registry';
 import {
-  AttitudeBadge,
   AttitudeScale,
   Button,
   Checkbox,
@@ -218,13 +217,12 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
           <ArrowRight width={16} height={16} className="wf-mute" />
           <span className="wf-display">{entityName(data, toId)}</span>
         </div>
-        <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
-          <AttitudeScale value={value} onChange={setValue} />
-          <span>
-            <AttitudeBadge value={value} />
-            {value !== before && <span className="wf-mute"> · bisher {attitudeLabel(before)}</span>}
-          </span>
-        </div>
+        <AttitudeScale value={value} onChange={setValue} />
+        {value !== before && (
+          <div className="wf-mute" style={{ fontSize: 'var(--text-sm)' }}>
+            Bisher: {attitudeLabel(before)}
+          </div>
+        )}
         <Field label="Grund" hint="Steht mit Datum im Verlauf der Beziehung.">
           <TextArea
             autoFocus

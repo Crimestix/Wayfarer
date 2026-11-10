@@ -185,8 +185,46 @@ Reihenfolge: 4.1 → (A, B, C, D, F, G, I, J, K parallel, soweit der Rechner tr�
 
 ## 5. Antworten des Spielleiters (10. 11. 2026)
 
-Die Fragen aus den Prüfungen der ersten Welle sind beantwortet. „Umgesetzt“ heißt: gebaut und
-getestet; „offen“ heißt: entschieden, aber noch nicht gebaut.
+Die Fragen aus den Prüfungen der ersten Welle sind beantwortet und – bis auf die unten als
+„offen“ genannten – am 10. 11. 2026 umgesetzt (Zweig `welle2/antworten`):
+
+- **3** Ein Klick unter „Orte hier“ öffnet „Die Gruppe zieht weiter“ mit dem Ort als Vorschlag;
+  versetzt wird erst nach Bestätigung (`openMoveParty({ placeId })`).
+- **7** Wiederkehrende Termine haben `skip` (Tagesindizes); im Kalender lässt ein Knopf am Termin
+  dieses eine Mal ausfallen, der Termin-Dialog nimmt es wieder auf.
+- **8** „Frühere Session nachtragen“ (Chronik → Sessions), `addPastSession`.
+- **9** „Für die Spieler“ kopiert die Zusammenfassung ohne Notizen der Spielleitung, ohne
+  Haltungen, ohne Einträge mit `secret` und ohne Personen, die die Gruppe nicht kennt.
+  Chronikeinträge lassen sich als „Nur für die Spielleitung“ markieren.
+- **10** Gefährten: `hp`, `initiative`, `spellSaveDc`, `darkvision`; Schaden und Heilung auf
+  der Detailseite. Die Lange Rast setzt die Trefferpunkte noch nicht zurück (Bereich G).
+- **11** Eigene Zustände: `campaign.customConditions`, anlegbar bei den Zuständen.
+- **12** Trennen und Zurückkehren steht auch aus dem Bearbeiten-Dialog in der Chronik.
+- **15** Haltungsskala mit elf Stufen (−5 Todfeind … +5 Ergeben), jede mit Bedeutung;
+  alte Meinungen: Hass −4, Abneigung −2, Skepsis −1, Wohlwollen +2, Zuneigung +3, Liebe +5.
+
+**Offen:** 2 (keine Änderung nötig), 6 (bleibt), 16 (Porträts kommen vom Spielleiter),
+17 (entfällt).
+
+**Zusätzlich gewünscht und gebaut (10. 11. 2026):**
+
+- **Familien aus Nachnamen** (`welt/dynasty.ts`, `adoptFamilies`): beim Anlegen einer Person,
+  nach der Übernahme des alten Spielstands und nach dem Nachladen der LegendKeeper-Namen;
+  Titel, Beinamen und Einzelnamen ergeben keinen Nachnamen. Angelegte Familien tragen das
+  Schlagwort „aus Nachnamen“.
+- **NSC-Generator** (`welt/npc.ts`): Würfel-Knopf im Dialog „Neue Person“. Namen lernen den
+  Klang der vorhandenen Namen (ab sechs Vorlagen, je Spezies), sonst allgemeine Silben;
+  Tätigkeit nach Art des Ortes; Nachname oft vom selben Ort.
+- **Wiederholbarer Zufall** (`domain/random.ts`: `rngOf`, `seedOf`) – Grundlage für alles
+  Erzeugte (Wetter, Hexkarten, Begegnungen). Nie `Math.random` in Fachlogik.
+
+**Desktop auf Windows (10. 11. 2026):** Rust 1.99 ist installiert, Visual Studio 2026 mit
+C++-Werkzeugen war vorhanden. `cargo build` läuft durch, `cargo test`: 47 Tests grün.
+Start mit laufender Vorschau: `npx tauri dev -c '{"build":{"beforeDevCommand":""}}'`.
+
+**Nächste große Schritte nach dem Leitbild** (`docs/FUNKTIONSUMFANG.md`): Wettersimulation (F),
+Hexkarte zwischen zwei Orten erzeugen (H, auch ohne Karte), Karten und Wege (D), Reisen (E),
+LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
 
 **Am Tisch**
 1. Bildschirm: Geleitet wird an einem **MacBook Air 13" (M1, 8 GB)**, etwa 1440×900. Vorbereitet
