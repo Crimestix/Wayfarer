@@ -41,6 +41,9 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
   const expired = Object.values(data.timers).filter((t) => !t.done && t.end > from && t.end <= to);
   db.batch(() => {
     for (const o of occurred) {
+      // Wiederkehrende Termine (Markttag, Wachwechsel …) sind Routine: Sie stehen in der Meldung,
+      // aber nicht bei jedem Eintreten in der Chronik – sonst füllt eine lange Reise sie mit Wiederholungen.
+      if (o.event.repeat) continue;
       db.put(
         'chronicle',
         createChronicleEntry({

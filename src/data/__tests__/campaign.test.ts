@@ -244,3 +244,18 @@ describe('Speichern', () => {
     }
   });
 });
+
+describe('Wiederkehrende Termine', () => {
+  it('melden sich beim Zeitsprung, füllen aber nicht die Chronik', async () => {
+    const { db } = await demoDb();
+    const now = db.getSnapshot().state.now;
+    db.put('events', createEvent({ title: 'Wachwechsel', at: now + 60, timed: true, repeat: { every: 1, unit: 'day' } }));
+    const before = Object.keys(db.getSnapshot().chronicle).length;
+    const result = advanceTime(db, now + 5 * 1440);
+    expect(result.occurred.filter((o) => o.event.title === 'Wachwechsel')).toHaveLength(5);
+    const logged = Object.values(db.getSnapshot().chronicle).filter((e) => e.text === 'Wachwechsel');
+    expect(logged).toHaveLength(0);
+    // Die drei einmaligen Termine der Beispielwelt in diesen fünf Tagen stehen weiterhin in der Chronik.
+    expect(Object.keys(db.getSnapshot().chronicle).length).toBe(before + 3);
+  });
+});

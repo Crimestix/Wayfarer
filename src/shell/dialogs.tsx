@@ -40,12 +40,23 @@ import {
 } from '../ui';
 import { closeShellRequest, useShellRequest, type AttitudeRequest, type QuickLogRequest } from './commands';
 
+/** „Eingetreten: Markttag (3×)“ – wiederkehrende Termine nur einmal mit Anzahl. */
+function summarizeOccurred(occurred: { event: { id: string; title: string } }[]): string[] {
+  const counts = new Map<string, { title: string; n: number }>();
+  for (const o of occurred) {
+    const c = counts.get(o.event.id);
+    if (c) c.n++;
+    else counts.set(o.event.id, { title: o.event.title, n: 1 });
+  }
+  return [...counts.values()].map((c) => `Eingetreten: ${c.title}${c.n > 1 ? ` (${c.n}×)` : ''}`);
+}
+
 /** Lässt Zeit vergehen und meldet, was dabei eingetreten ist – mit „Rückgängig“. */
 export function advanceAndReport(db: CampaignDb, to: WorldTime) {
   try {
     const result = advanceTime(db, to);
     const lines = [
-      ...result.occurred.map((o) => `Eingetreten: ${o.event.title}`),
+      ...summarizeOccurred(result.occurred),
       ...result.expired.map((t) => `Abgelaufen: ${t.label}`),
     ];
     toast({
