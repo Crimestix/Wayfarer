@@ -23,7 +23,7 @@ import {
   entityFacts,
   entityFromDraft,
   entitySubline,
-  factionMembers,
+  groupMembers,
   fitWithin,
   forbiddenParents,
   isLongName,
@@ -65,7 +65,18 @@ const withEntities = (source: CampaignData, ...entities: Entity[]): CampaignData
 
 describe('Übersicht', () => {
   it('zählt die Einträge je Art ohne Gefährten', () => {
-    expect(worldCounts(data)).toEqual({ place: 6, person: 6, faction: 2, item: 1, topic: 0 });
+    expect(worldCounts(data)).toEqual({
+      place: 6,
+      person: 6,
+      faction: 2,
+      item: 1,
+      topic: 0,
+      family: 0,
+      species: 0,
+      language: 0,
+      script: 0,
+      ability: 0,
+    });
   });
 
   it('zeigt Orte als Baum; anfangs sind nur die obersten Orte aufgeklappt', () => {
@@ -236,12 +247,12 @@ describe('Dossier', () => {
   });
 
   it('nennt die Mitglieder einer Fraktion, die Führung zuerst', () => {
-    const members = factionMembers(data, find('Haus Duskryn').id);
+    const members = groupMembers(data, find('Haus Duskryn').id);
     expect(members.map((m) => `${m.entity.name} ${m.label}`)).toEqual([
       'Maera Duskryn führt',
       'Brann Eisenhaken arbeitet für',
     ]);
-    const lotsen = factionMembers(data, find('Bruderschaft der Lotsen').id);
+    const lotsen = groupMembers(data, find('Bruderschaft der Lotsen').id);
     expect(lotsen.map((m) => m.entity.name)).toEqual(['Isolde Rabenschwinge', 'Kessa Flutwind']);
     expect(lotsen[0]!.label).toBe('gehört zu');
   });
@@ -253,7 +264,7 @@ describe('Dossier', () => {
     const hire = createRelation({ from: haus.id, to: voss.id, type: 'employs' });
     const old = createRelation({ from: kessa.id, to: haus.id, type: 'member', ended: true });
     const next = { ...data, relations: { ...data.relations, [hire.id]: hire, [old.id]: old } };
-    const members = factionMembers(next, haus.id);
+    const members = groupMembers(next, haus.id);
     expect(members.find((m) => m.entity.id === voss.id)!.label).toBe('arbeitet für');
     expect(members.some((m) => m.entity.id === kessa.id)).toBe(false);
   });
@@ -631,7 +642,7 @@ describe('Ergänzungen der Prüfung', () => {
     expect(seen.freeText).toBe(true);
     expect(own.freeText).toBe(true);
     expect(relationRows(next, maera.id).find((r) => r.otherId === voss.id)!.freeText).toBe(false);
-    const member = factionMembers(next, haus.id).find((m) => m.entity.name.startsWith('Isolde'))!;
+    const member = groupMembers(next, haus.id).find((m) => m.entity.name.startsWith('Isolde'))!;
     expect(member.label).toBe('Haus Duskryn bezahlt heimlich Isolde Rabenschwinge');
     const link = placeCast(next, moor.id).linked.find((l) => l.entity.id === voss.id)!;
     expect(linkedSubline(next, moor.id, link)).toBe(

@@ -58,6 +58,52 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   ability: 'Fähigkeiten',
 };
 
+/**
+ * Einzelangaben, die auf einen anderen Eintrag verweisen – je Art. Grundlage für Löschen,
+ * Aufräumen und „wird noch verwendet“. Der Elternort eines Ortes steht mit drin; beim Löschen
+ * rückt ein Ort aber eine Ebene nach oben, statt den Verweis zu verlieren.
+ */
+export const DETAIL_LINKS = {
+  person: ['placeId', 'homeId', 'speciesId', 'workplaceId'],
+  place: ['parentId'],
+  faction: ['seatId'],
+  character: ['placeId'],
+  item: ['holderId'],
+  family: ['seatId'],
+  language: ['scriptId'],
+} as const satisfies Partial<Record<EntityKind, readonly string[]>>;
+
+type LinkKind = keyof typeof DETAIL_LINKS;
+const hasLinks = (kind: EntityKind): kind is LinkKind => kind in DETAIL_LINKS;
+
+/** Die Einzelangaben eines Eintrags als Liste von Feld und Ziel; leere Angaben fehlen. */
+export function detailLinks(entity: Entity): { field: string; id: string }[] {
+  if (!hasLinks(entity.kind)) return [];
+  const details = (entity as unknown as Record<string, Record<string, string | null>>)[
+    entity.kind
+  ]!;
+  const links: { field: string; id: string }[] = [];
+  for (const field of DETAIL_LINKS[entity.kind]) {
+    const id = details[field];
+    if (id) links.push({ field, id });
+  }
+  return links;
+}
+
+/** Verweist eine Einzelangabe dieses Eintrags auf `targetId`? */
+export const linksTo = (entity: Entity, targetId: string): boolean =>
+  detailLinks(entity).some((link) => link.id === targetId);
+
+/** Der Eintrag mit allen Einzelangaben, die auf `targetId` zeigen, ersetzt durch `replacement`. */
+export function replaceLink(entity: Entity, targetId: string, replacement: string | null): Entity {
+  if (!linksTo(entity, targetId)) return entity;
+  const kind = entity.kind as LinkKind;
+  const details = { ...(entity as unknown as Record<string, Record<string, unknown>>)[kind] };
+  for (const field of DETAIL_LINKS[kind])
+    if (details[field] === targetId) details[field] = replacement;
+  return { ...entity, [kind]: details } as Entity;
+}
+
 const collator = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
 export const byName = (a: { name: string }, b: { name: string }) =>
   collator.compare(a.name, b.name);

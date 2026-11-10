@@ -6,8 +6,10 @@ import { useData } from '../../data/hooks';
 import { EmptyState } from '../../ui';
 import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
+import { Gallery } from './Gallery';
 import { Landing } from './Landing';
 import { isWorldEntity } from './model';
+import { useKindFilter } from './overview';
 import { Sidebar } from './Sidebar';
 import './welt.css';
 
@@ -15,6 +17,7 @@ export default function WeltPage() {
   const data = useData();
   const { id } = useParams<{ id?: string }>();
   const entity = id ? data.entities[id] : undefined;
+  const filter = useKindFilter();
   const stage = useRef<HTMLDivElement>(null);
   // Ein anderer Eintrag beginnt wieder oben.
   useEffect(() => {
@@ -40,6 +43,8 @@ export default function WeltPage() {
           >
             Er wurde gelöscht oder auf einem anderen Gerät entfernt.
           </EmptyState>
+        ) : filter === 'person' ? (
+          <Gallery />
         ) : (
           <Landing />
         )}

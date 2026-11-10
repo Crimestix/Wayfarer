@@ -13,6 +13,7 @@ import {
   relationPairs,
   searchEntities,
   upcomingOccurrences,
+  linksTo,
   wouldCreatePlaceCycle,
   type Occurrence,
   type PlaceCast,
@@ -46,7 +47,18 @@ import {
 // ── Arten ──────────────────────────────────────────────────────────────────
 
 /** Was in der Weltdatenbank steht. Gefährten haben ihren eigenen Bereich. */
-export const WORLD_KINDS = ['place', 'person', 'faction', 'item', 'topic'] as const;
+export const WORLD_KINDS = [
+  'place',
+  'person',
+  'family',
+  'faction',
+  'item',
+  'topic',
+  'species',
+  'language',
+  'script',
+  'ability',
+] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 export type KindFilter = 'all' | WorldKind;
 export type WorldEntity = Extract<Entity, { kind: WorldKind }>;
@@ -81,6 +93,11 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   faction: ['Adelshaus', 'Gilde', 'Orden', 'Kult', 'Bande', 'Handelshaus', 'Stadtwache'],
   item: ['Artefakt', 'Waffe', 'Schriftstück', 'Schlüssel', 'Schatz'],
   topic: ['Gerücht', 'Geschichte', 'Glaube', 'Rätsel', 'Handlungsfaden'],
+  family: ['Adelshaus', 'Sippe', 'Clan', 'Dynastie', 'Kaufmannsfamilie'],
+  species: ['Humanoid', 'Fee', 'Elementar', 'Untoter', 'Drache', 'Tier'],
+  language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
+  script: ['Alphabet', 'Runen', 'Bilderschrift', 'Geheimschrift'],
+  ability: ['Gabe', 'Talent', 'Segen', 'Fluch', 'Magie'],
 };
 
 /** Vorschläge für „Art“: bereits verwendete Werte zuerst, dann die üblichen. */
@@ -96,25 +113,20 @@ export function categoryOptions(data: CampaignData, kind: Exclude<WorldKind, 'pe
   return [...[...used].sort(collator.compare), ...rest];
 }
 
-function entityCategory(entity: Entity): string {
-  switch (entity.kind) {
-    case 'place':
-      return entity.place.category;
-    case 'faction':
-      return entity.faction.category;
-    case 'item':
-      return entity.item.category;
-    case 'topic':
-      return entity.topic.category;
-    default:
-      return '';
-  }
+/** Das freie Feld „Art“ eines Eintrags; Personen und Gefährten haben keines. */
+export function entityCategory(entity: Entity): string {
+  if (entity.kind === 'person' || entity.kind === 'character') return '';
+  const details = (entity as unknown as Record<string, { category?: string }>)[entity.kind];
+  return details?.category ?? '';
 }
 
 // ── Übersicht ──────────────────────────────────────────────────────────────
 
 export function worldCounts(data: CampaignData): Record<WorldKind, number> {
-  const counts: Record<WorldKind, number> = { place: 0, person: 0, faction: 0, item: 0, topic: 0 };
+  const counts = Object.fromEntries(WORLD_KINDS.map((kind) => [kind, 0])) as Record<
+    WorldKind,
+    number
+  >;
   for (const entity of Object.values(data.entities))
     if (isWorldKind(entity.kind)) counts[entity.kind]++;
   return counts;
@@ -245,23 +257,27 @@ export function entitySubline(data: CampaignData, entity: Entity): string {
       if (entity.person.status !== 'alive') parts.push(PERSON_STATUS_LABEL[entity.person.status]);
       if (entity.person.placeId) parts.push(entityName(data, entity.person.placeId));
       break;
-    case 'place':
-      parts.push(entity.place.category);
-      break;
     case 'faction':
       parts.push(entity.faction.category);
       if (entity.faction.seatId) parts.push(entityName(data, entity.faction.seatId));
+      break;
+    case 'family':
+      parts.push(entity.family.category);
+      if (entity.family.seatId) parts.push(entityName(data, entity.family.seatId));
       break;
     case 'item':
       parts.push(entity.item.category);
       if (entity.item.holderId) parts.push(entityName(data, entity.item.holderId));
       break;
-    case 'topic':
-      parts.push(entity.topic.category);
+    case 'language':
+      parts.push(entity.language.category);
+      if (entity.language.scriptId) parts.push(entityName(data, entity.language.scriptId));
       break;
     case 'character':
       parts.push(entity.character.className, entity.character.player);
       break;
+    default:
+      parts.push(entityCategory(entity));
   }
   return parts.filter(Boolean).join(' · ');
 }
@@ -278,8 +294,9 @@ export interface Fact {
   label: string;
   /** Freier Text. */
   text?: string;
-  /** Verweise auf Einträge; mehrere werden als Pfad mit „›“ dargestellt. */
+  /** Verweise auf Einträge; mehrere werden als Pfad mit „›“ dargestellt, mit `list` als Aufzählung. */
   ids?: string[];
+  list?: boolean;
   /** So viele Ebenen des Pfades sind nach dem ersten Verweis ausgelassen. */
   skipped?: number;
   /** Hebt den Wert hervor, z. B. „Tot“. */
@@ -292,17 +309,39 @@ export function entityFacts(data: CampaignData, entity: Entity): Fact[] {
   const text = (label: string, value: string, tone?: Fact['tone']) => {
     if (value.trim()) facts.push({ label, text: value.trim(), tone });
   };
+  const list = (label: string, ids: string[]) => {
+    if (ids.length) facts.push({ label, ids, list: true });
+  };
   switch (entity.kind) {
     case 'person': {
       const p = entity.person;
       text('Rolle', p.role);
-      text('Volk', p.species);
+      if (p.speciesId) facts.push({ label: 'Spezies', ids: [p.speciesId] });
+      else text('Volk', p.species);
       text('Zustand', PERSON_STATUS_LABEL[p.status], p.status === 'alive' ? undefined : 'danger');
       if (p.placeId) facts.push({ label: 'Aufenthalt', ids: [p.placeId] });
       else facts.push({ label: 'Aufenthalt', text: 'unbekannt' });
       if (p.homeId) facts.push({ label: 'Zuhause', ids: [p.homeId] });
+      if (p.workplaceId) facts.push({ label: 'Arbeitet bei', ids: [p.workplaceId] });
+      list('Familie', families(data, entity.id));
+      list('Sprachen', linkedIds(data, entity.id, 'speaks', ['language']));
+      list('Fähigkeiten', linkedIds(data, entity.id, 'has-ability', ['ability']));
       break;
     }
+    case 'family':
+      if (entity.family.seatId) facts.push({ label: 'Stammsitz', ids: [entity.family.seatId] });
+      text('Art', entity.family.category);
+      break;
+    case 'language':
+      if (entity.language.scriptId)
+        facts.push({ label: 'Schrift', ids: [entity.language.scriptId] });
+      text('Art', entity.language.category);
+      break;
+    case 'species':
+    case 'script':
+    case 'ability':
+      text('Art', entityCategory(entity));
+      break;
     case 'place': {
       const above = placeAncestors(data, entity.id).reverse();
       if (above.length) facts.push({ label: 'Liegt in', ...shortPath(above.map((p) => p.id)) });
@@ -443,14 +482,84 @@ export function recentChronicle(
 
 export interface Member {
   entity: Person | Character;
-  relation: Relation;
+  /** null = gehört dazu, weil die Person dort arbeitet. */
+  relation: Relation | null;
   /** Bezeichnung aus Sicht des Mitglieds: „führt“, „gehört zu“, „arbeitet für“. */
   label: string;
 }
 
-/** Personen und Gefährten, die über eine bestehende Beziehung mit der Fraktion verbunden sind. */
-export function factionMembers(data: CampaignData, factionId: string): Member[] {
+/**
+ * Ziele der bestehenden Beziehungen einer Art, die von `fromId` ausgehen – etwa die Sprachen,
+ * die eine Person spricht. Nach Namen sortiert.
+ */
+export function linkedIds(
+  data: CampaignData,
+  fromId: string,
+  type: string,
+  kinds: readonly Entity['kind'][],
+): string[] {
+  const ids = new Set<string>();
+  for (const relation of Object.values(data.relations)) {
+    if (relation.ended || relation.from !== fromId || relation.type !== type) continue;
+    const target = data.entities[relation.to];
+    if (target && kinds.includes(target.kind)) ids.add(target.id);
+  }
+  return [...ids].sort((a, b) => byName(data.entities[a]!, data.entities[b]!));
+}
+
+/** Wer über eine bestehende Beziehung einer Art auf `targetId` verweist: Sprecher einer Sprache … */
+export function linkedFrom(
+  data: CampaignData,
+  targetId: string,
+  type: string,
+  kinds: readonly Entity['kind'][] = ['person', 'character'],
+): Entity[] {
+  const found = new Map<string, Entity>();
+  for (const relation of Object.values(data.relations)) {
+    if (relation.ended || relation.to !== targetId || relation.type !== type) continue;
+    const source = data.entities[relation.from];
+    if (source && kinds.includes(source.kind)) found.set(source.id, source);
+  }
+  return [...found.values()].sort(byName);
+}
+
+/** Familien, zu denen eine Person über eine bestehende Beziehung gehört (Mitglied, führt …). */
+export function families(data: CampaignData, personId: string): string[] {
+  const ids = new Set<string>();
+  for (const relation of Object.values(data.relations)) {
+    if (relation.ended) continue;
+    const otherId =
+      relation.from === personId ? relation.to : relation.to === personId ? relation.from : null;
+    if (otherId && data.entities[otherId]?.kind === 'family') ids.add(otherId);
+  }
+  return [...ids].sort((a, b) => byName(data.entities[a]!, data.entities[b]!));
+}
+
+/** Personen einer Spezies. */
+export function speciesMembers(data: CampaignData, speciesId: string): Person[] {
+  return entitiesOfKind(data, 'person').filter((p) => p.person.speciesId === speciesId);
+}
+
+/** Sprachen, die in dieser Schrift geschrieben werden. */
+export function languagesInScript(data: CampaignData, scriptId: string): Entity[] {
+  return entitiesOfKind(data, 'language').filter((l) => l.language.scriptId === scriptId);
+}
+
+/** Personen, die an diesem Ort (oder in einem Ort darunter) arbeiten. */
+export function workersAt(data: CampaignData, placeId: string): Person[] {
+  const ids = placeSubtreeIds(data, placeId);
+  return entitiesOfKind(data, 'person').filter(
+    (p) => p.person.workplaceId !== null && ids.has(p.person.workplaceId),
+  );
+}
+
+/**
+ * Personen und Gefährten, die zu einer Fraktion oder Familie gehören: über eine bestehende
+ * Beziehung oder weil sie dort arbeiten.
+ */
+export function groupMembers(data: CampaignData, groupId: string): Member[] {
   const members = new Map<string, Member>();
+  const factionId = groupId;
   for (const relation of Object.values(data.relations)) {
     if (relation.ended) continue;
     const outgoing = relation.to === factionId;
@@ -468,8 +577,44 @@ export function factionMembers(data: CampaignData, factionId: string): Member[] 
           : relationLabel(relation, outgoing ? 'from' : 'to'),
     });
   }
-  const rank = (m: Member) => (m.relation.type === 'leads' && m.relation.to === factionId ? 0 : 1);
+  for (const person of entitiesOfKind(data, 'person'))
+    if (person.person.workplaceId === factionId && !members.has(person.id))
+      members.set(person.id, { entity: person, relation: null, label: 'arbeitet hier' });
+  const rank = (m: Member) => (m.relation?.type === 'leads' && m.relation.to === factionId ? 0 : 1);
   return [...members.values()].sort((a, b) => rank(a) - rank(b) || byName(a.entity, b.entity));
+}
+
+// ── Galerie der Personen ───────────────────────────────────────────────────
+
+export type KnownFilter = 'all' | 'known' | 'unknown';
+
+export interface GalleryFilter {
+  query: string;
+  /** Nur Personen, die hier (oder darunter) sind, wohnen oder arbeiten. */
+  placeId: string | null;
+  known: KnownFilter;
+}
+
+/** Personen für die Galerie, nach Namen sortiert. */
+export function galleryPeople(data: CampaignData, filter: GalleryFilter): Person[] {
+  const ids = filter.placeId ? placeSubtreeIds(data, filter.placeId) : null;
+  const inPlace = (id: string | null) => id !== null && ids !== null && ids.has(id);
+  const pool =
+    filter.query.trim() !== ''
+      ? searchEntities(data, filter.query, { kinds: ['person'], limit: 1000 }).filter(
+          (e): e is Person => e.kind === 'person',
+        )
+      : entitiesOfKind(data, 'person');
+  return pool
+    .filter(
+      (p) =>
+        (filter.known === 'all' || p.person.met === (filter.known === 'known')) &&
+        (ids === null ||
+          inPlace(p.person.placeId) ||
+          inPlace(p.person.homeId) ||
+          inPlace(p.person.workplaceId)),
+    )
+    .sort(byName);
 }
 
 /** Gegenstände, die bei diesem Eintrag sind (bei Orten auch in Orten darunter). */
@@ -648,7 +793,7 @@ export interface DeletionImpact {
   chronicle: number;
   /** Orte direkt darunter; sie rücken eine Ebene nach oben. */
   children: number;
-  /** Personen, Fraktionen, Gegenstände und Gefährten, deren Ortsangabe geleert wird. */
+  /** Andere Einträge, bei denen eine Angabe zu diesem Eintrag geleert wird. */
   residents: number;
   events: number;
   partyIsHere: boolean;
@@ -659,16 +804,9 @@ export function deletionImpact(data: CampaignData, entityId: string): DeletionIm
   let residents = 0;
   let children = 0;
   for (const other of Object.values(data.entities)) {
-    if (other.id === entityId) continue;
-    if (
-      other.kind === 'person' &&
-      (other.person.placeId === entityId || other.person.homeId === entityId)
-    )
-      residents++;
-    else if (other.kind === 'faction' && other.faction.seatId === entityId) residents++;
-    else if (other.kind === 'item' && other.item.holderId === entityId) residents++;
-    else if (other.kind === 'character' && other.character.placeId === entityId) residents++;
-    else if (other.kind === 'place' && other.place.parentId === entityId) children++;
+    if (other.id === entityId || !linksTo(other, entityId)) continue;
+    if (other.kind === 'place') children++;
+    else residents++;
   }
   return {
     relations: Object.values(data.relations).filter((r) => r.from === entityId || r.to === entityId)
@@ -749,18 +887,38 @@ export interface EntityDraft {
   category: string;
   // Person
   role: string;
+  /** Freitext der ersten Welle; gilt nur, solange keine Spezies gewählt ist. */
   species: string;
+  speciesId: string | null;
+  workplaceId: string | null;
   status: PersonStatus;
   placeId: string | null;
   homeId: string | null;
   met: boolean;
+  /** Über Beziehungen: Familien („gehört zu“), Sprachen („spricht“), Fähigkeiten („verfügt über“). */
+  familyIds: string[];
+  languageIds: string[];
+  abilityIds: string[];
   // Ort
   parentId: string | null;
-  // Fraktion
+  // Fraktion und Familie
   seatId: string | null;
   // Gegenstand
   holderId: string | null;
+  // Sprache
+  scriptId: string | null;
 }
+
+/** Beziehungen, die der Dialog bei einer Person als Auswahl führt: Feld, Art und Ziel. */
+export const PERSON_LINKS = [
+  { field: 'familyIds', type: 'member', kinds: ['family'] },
+  { field: 'languageIds', type: 'speaks', kinds: ['language'] },
+  { field: 'abilityIds', type: 'has-ability', kinds: ['ability'] },
+] as const satisfies readonly {
+  field: keyof EntityDraft;
+  type: string;
+  kinds: readonly Entity['kind'][];
+}[];
 
 export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): EntityDraft {
   return {
@@ -775,18 +933,25 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     category: '',
     role: '',
     species: '',
+    speciesId: null,
+    workplaceId: null,
     status: 'alive',
     placeId: null,
     homeId: null,
     met: false,
+    familyIds: [],
+    languageIds: [],
+    abilityIds: [],
     parentId: null,
     seatId: null,
     holderId: null,
+    scriptId: null,
     ...preset,
   };
 }
 
-export function draftOf(entity: WorldEntity): EntityDraft {
+/** Entwurf aus einem gespeicherten Eintrag; `data` liefert die Auswahl, die über Beziehungen läuft. */
+export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
   const draft = emptyDraft(entity.kind, {
     name: entity.name,
     aliases: entity.aliases.join(', '),
@@ -796,24 +961,26 @@ export function draftOf(entity: WorldEntity): EntityDraft {
     tags: entity.tags.join(', '),
     image: entity.image,
   });
-  switch (entity.kind) {
-    case 'person':
-      return { ...draft, ...entity.person };
-    case 'place':
-      return { ...draft, ...entity.place };
-    case 'faction':
-      return { ...draft, ...entity.faction };
-    case 'item':
-      return { ...draft, ...entity.item };
-    case 'topic':
-      return { ...draft, ...entity.topic };
+  if (entity.kind === 'person') {
+    const links = Object.fromEntries(
+      PERSON_LINKS.map(({ field, type, kinds }) => [
+        field,
+        data ? linkedIds(data, entity.id, type, kinds) : [],
+      ]),
+    );
+    return { ...draft, ...entity.person, ...links };
   }
+  const details = (entity as unknown as Record<string, Partial<EntityDraft>>)[entity.kind];
+  return { ...draft, ...details };
 }
+
+const sameValue = (a: unknown, b: unknown) =>
+  Array.isArray(a) && Array.isArray(b) ? a.join('\u0000') === b.join('\u0000') : a === b;
 
 /** Wurde im Dialog etwas eingetragen oder geändert? Die gewählte Art allein zählt nicht. */
 export function draftChanged(draft: EntityDraft, baseline: EntityDraft): boolean {
   return (Object.keys(baseline) as (keyof EntityDraft)[]).some(
-    (key) => key !== 'kind' && draft[key] !== baseline[key],
+    (key) => key !== 'kind' && !sameValue(draft[key], baseline[key]),
   );
 }
 
@@ -858,7 +1025,10 @@ export function entityFromDraft(draft: EntityDraft, existing?: WorldEntity): Wor
     case 'person': {
       const person = {
         role: draft.role.trim(),
-        species: draft.species.trim(),
+        // Mit gewählter Spezies ist der alte Freitext überholt.
+        species: draft.speciesId ? '' : draft.species.trim(),
+        speciesId: draft.speciesId,
+        workplaceId: draft.workplaceId,
         status: draft.status,
         placeId: draft.placeId,
         homeId: draft.homeId,
@@ -886,11 +1056,28 @@ export function entityFromDraft(draft: EntityDraft, existing?: WorldEntity): Wor
         ? { ...base, ...common, item: { ...base.item, ...item } }
         : createEntity({ kind: 'item', ...common, item });
     }
-    case 'topic': {
-      const topic = { category };
-      return base?.kind === 'topic'
-        ? { ...base, ...common, topic: { ...base.topic, ...topic } }
-        : createEntity({ kind: 'topic', ...common, topic });
+    case 'family': {
+      const family = { seatId: draft.seatId, category };
+      return base?.kind === 'family'
+        ? { ...base, ...common, family: { ...base.family, ...family } }
+        : createEntity({ kind: 'family', ...common, family });
+    }
+    case 'language': {
+      const language = { scriptId: draft.scriptId, category };
+      return base?.kind === 'language'
+        ? { ...base, ...common, language: { ...base.language, ...language } }
+        : createEntity({ kind: 'language', ...common, language });
+    }
+    case 'topic':
+    case 'species':
+    case 'script':
+    case 'ability': {
+      const kind = draft.kind;
+      if (base) {
+        const details = (base as unknown as Record<string, object>)[kind];
+        return { ...base, ...common, [kind]: { ...details, category } } as WorldEntity;
+      }
+      return createEntity({ kind, ...common, [kind]: { category } }) as WorldEntity;
     }
   }
 }

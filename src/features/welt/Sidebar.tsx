@@ -34,6 +34,11 @@ const EMPTY_HINT: Record<WorldKind, string> = {
   faction: 'Häuser, Gilden, Orden und Kulte mit eigenen Zielen.',
   item: 'Artefakte, Schriftstücke und andere Dinge von Bedeutung.',
   topic: 'Gerüchte, Glaubensfragen und Handlungsfäden.',
+  family: 'Häuser, Sippen und Dynastien – wer zu wem gehört.',
+  species: 'Die Völker und Wesen der Welt.',
+  language: 'Was in der Welt gesprochen wird.',
+  script: 'Wie in der Welt geschrieben wird.',
+  ability: 'Gaben, Flüche und besondere Fähigkeiten.',
 };
 
 export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {

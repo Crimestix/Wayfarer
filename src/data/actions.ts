@@ -2,7 +2,13 @@
  * Befehle, die mehrere Dokumente zusammen ändern. Die Oberfläche ruft diese Funktionen auf,
  * statt Zeit, Ort, Beziehungen und Chronik einzeln zu verändern – so bleiben sie stimmig.
  */
-import { occurrencesBetween, findRelation, type Occurrence } from '../domain/derive';
+import {
+  findRelation,
+  linksTo,
+  occurrencesBetween,
+  replaceLink,
+  type Occurrence,
+} from '../domain/derive';
 import {
   PARTY_ID,
   createChronicleEntry,
@@ -230,30 +236,12 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
     for (const relation of Object.values(data.relations))
       if (relation.from === entityId || relation.to === entityId)
         db.remove('relations', relation.id);
+    const removed = data.entities[entityId];
+    // Orte darunter rücken eine Ebene nach oben; alle anderen Angaben werden geleert.
+    const grandparent = removed?.kind === 'place' ? removed.place.parentId : null;
     for (const other of Object.values(data.entities)) {
-      if (other.id === entityId) continue;
-      if (other.kind === 'person') {
-        const { placeId, homeId } = other.person;
-        if (placeId === entityId || homeId === entityId)
-          db.put('entities', {
-            ...other,
-            person: {
-              ...other.person,
-              placeId: placeId === entityId ? null : placeId,
-              homeId: homeId === entityId ? null : homeId,
-            },
-          });
-      } else if (other.kind === 'place' && other.place.parentId === entityId) {
-        const removed = data.entities[entityId];
-        const parentId = removed?.kind === 'place' ? removed.place.parentId : null;
-        db.put('entities', { ...other, place: { ...other.place, parentId } });
-      } else if (other.kind === 'faction' && other.faction.seatId === entityId) {
-        db.put('entities', { ...other, faction: { ...other.faction, seatId: null } });
-      } else if (other.kind === 'character' && other.character.placeId === entityId) {
-        db.put('entities', { ...other, character: { ...other.character, placeId: null } });
-      } else if (other.kind === 'item' && other.item.holderId === entityId) {
-        db.put('entities', { ...other, item: { ...other.item, holderId: null } });
-      }
+      if (other.id === entityId || !linksTo(other, entityId)) continue;
+      db.put('entities', replaceLink(other, entityId, other.kind === 'place' ? grandparent : null));
     }
     for (const event of Object.values(data.events))
       if (event.placeId === entityId || event.refs.includes(entityId))

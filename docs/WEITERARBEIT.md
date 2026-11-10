@@ -147,7 +147,7 @@ Datenmodell an (`src/domain/schema.ts` + Tests), danach starten die Bereiche.
 
 | # | Bereich | Inhalt | Hängt ab von |
 |---|---|---|---|
-| A | Welt erweitern | neue Arten, „arbeitet bei“, NSC-Galerie mit Porträts und Filtern (Ort, bekannt/unbekannt), Dossiers zeigen Familie, Spezies, Sprachen, Kartenpunkte und Ereignisse eines Ortes | 4.1 |
+| A | Welt erweitern ✅ | neue Arten, „arbeitet bei“, NSC-Galerie mit Porträts und Filtern (Ort, bekannt/unbekannt), Dossiers zeigen Familie, Spezies, Sprachen, Kartenpunkte und Ereignisse eines Ortes | 4.1 |
 | B | Seitenfläche | Dossier, LegendKeeper-Artikel und Notizen neben der aktuellen Arbeit öffnen, ohne Seitenwechsel (aus jedem Verweis heraus) | 4.1 |
 | C | LegendKeeper-Einordnung | jeder Artikel: als was er erkannt wird (Ort, Person, Familie …), ob er in Ortssuche und Reiseplanung auftaucht; einzeln oder gesammelt prüfen und als Wayfarer-Eintrag übernehmen/verknüpfen; nur lesend | 4.1 |
 | D | Karten und Wege | Karten aus LegendKeeper wählen, zoomen, kalibrieren; Marker mit Orten verbinden; Wege zeichnen, speichern, wiederverwenden; Wegenetz ohne Karte (Pointcrawl) | 4.1 |
@@ -158,6 +158,19 @@ Datenmodell an (`src/domain/schema.ts` + Tests), danach starten die Bereiche.
 | I | Abgleich über GitHub | Spielstand in einem privaten GitHub-Repository (Entscheidung des Spielleiters, kein Cloud-Laufwerk); Rust-Seite über die GitHub-API (Bäume/Blobs, kein libgit2), Zugangsschlüssel im Schlüsselbund, Abgleich beim Öffnen, nach Änderungen und beim Schließen; Dreiwegevergleich je Datei mit gespeichertem gemeinsamem Stand; Konflikte zur Entscheidung anzeigen | – |
 | J | Testspielstand | Kopie der Kampagne zum Ausprobieren, unübersehbar gekennzeichnet, mit einem Klick verwerfen | – |
 | K | D&D-Beyond-Werte | Werte aus dem D&D-Beyond-Link eines Charakters holen (öffentlicher Charakter), über die Rust-Seite; Werte kennzeichnen, von Hand überschreibbar | – |
+
+**Stand A (10. 11. 2026):** Die fünf neuen Arten stehen in Übersicht, Einstieg, Suche und
+Dialog „Neuer Eintrag“. Personen haben Spezies (Auswahl; alter Freitext lässt sich mit einem Klick
+übernehmen), „Arbeitet bei“ (Ort oder Fraktion) sowie Familien, Sprachen und Fähigkeiten – die drei
+Listen laufen über Beziehungen (`member`, `speaks`, `has-ability`, Abgleich in
+`welt/actions.ts` `syncLinkedRelations`). Dossiers: Familie mit Mitgliedern und Stammsitz,
+Spezies mit Vertretern, Sprache mit Sprechern und Schrift, Schrift mit Sprachen, Fähigkeit mit
+Trägern; Orte zeigen „Arbeiten hier“, Fraktionen zählen Arbeitende zu den Mitgliedern. Galerie der
+Personen: links „Personen“ wählen, ohne offenen Eintrag – Porträts, Suche, Ortsfilter (auch Wohn-
+und Arbeitsort), bekannt/unbekannt, Bekanntheit per Augen-Knopf umschalten. Verweise der
+Einzelangaben stehen zentral in `DETAIL_LINKS` (`domain/derive.ts`); Löschen und Aufräumen nutzen
+sie. **Offen:** Kartenpunkte eines Ortes (kommt mit D), NSC mit LegendKeeper-Artikel anlegen (C),
+Beziehung „schreibt“ hat noch keine eigene Auswahl im Personen-Dialog.
 
 Reihenfolge: 4.1 → (A, B, C, D, F, G, I, J, K parallel, soweit der Rechner trägt) → E → H.
 

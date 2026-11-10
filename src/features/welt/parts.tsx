@@ -95,7 +95,7 @@ export function Facts({ facts }: { facts: Fact[] }) {
             {fact.text}
             {fact.ids?.map((id, i) => (
               <span key={id}>
-                {i > 0 && <span className="wf-welt-fact__sep"> › </span>}
+                {i > 0 && <span className="wf-welt-fact__sep">{fact.list ? ', ' : ' › '}</span>}
                 {i === 1 && !!fact.skipped && (
                   <span
                     className="wf-welt-fact__sep"
@@ -273,6 +273,11 @@ const NOTES_HINT: Record<WorldEntity['kind'], string> = {
   faction: 'Ziele, Mittel, Geschichte und Einzelheiten',
   item: 'Aussehen, Wirkung und Herkunft',
   topic: 'was man weiß und was gemunkelt wird',
+  family: 'Herkunft, Ruf, Geschichte und Einzelheiten',
+  species: 'Aussehen, Lebensweise und Eigenheiten',
+  language: 'Klang, Verbreitung und Eigenheiten',
+  script: 'Aussehen, Herkunft und Verbreitung',
+  ability: 'Wirkung, Herkunft und Grenzen',
 };
 
 export function NotesSection({ entity }: { entity: WorldEntity }) {

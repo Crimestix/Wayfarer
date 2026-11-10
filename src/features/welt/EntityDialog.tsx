@@ -9,15 +9,15 @@ import {
   Button,
   Checkbox,
   Dialog,
+  EntityRefsEditor,
   Field,
   Input,
   Portrait,
   Select,
-  Tabs,
   TextArea,
   toast,
 } from '../../ui';
-import { discardUnusedDrafts } from './actions';
+import { discardUnusedDrafts, syncLinkedRelations } from './actions';
 import {
   closeEntityDialog,
   openEntityDialog,
@@ -27,6 +27,7 @@ import {
 import { fileToImage } from './image';
 import { Picker } from './parts';
 import {
+  PERSON_LINKS,
   PERSON_STATUS_LABEL,
   WORLD_KINDS,
   categoryOptions,
@@ -48,6 +49,11 @@ const KIND_HINT: Record<WorldKind, string> = {
   faction: 'Häuser, Gilden, Orden, Kulte – Gruppen mit eigenen Zielen.',
   item: 'Dinge von Bedeutung: Artefakte, Schriftstücke, Schlüssel.',
   topic: 'Gerüchte, Glaube, Handlungsfäden – was sonst kein Zuhause hat.',
+  family: 'Häuser, Sippen und Dynastien. Mitglieder trägst du bei den Personen ein.',
+  species: 'Völker und Wesen. Personen wählen ihre Spezies aus dieser Liste.',
+  language: 'Gesprochene Sprachen. Wer sie spricht, steht bei der Person.',
+  script: 'Schriften und Alphabete, in denen Sprachen geschrieben werden.',
+  ability: 'Gaben, Flüche und Besonderheiten, die Personen haben können.',
 };
 
 const TAGLINE_HINT: Record<WorldKind, string> = {
@@ -56,6 +62,11 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   faction: 'z. B. Gilde der Lotsen. Kennt jede Sandbank.',
   item: 'z. B. Bronzeglocke, die schlägt, wenn jemand stirbt.',
   topic: 'z. B. Niemand weiß, warum das Leuchtfeuer erloschen ist.',
+  family: 'z. B. Altes Seefahrerhaus, das seine Schulden verbirgt.',
+  species: 'Ein Satz, woran man sie am Tisch erkennt.',
+  language: 'Ein Satz, wie sie klingt und wo man sie hört.',
+  script: 'Ein Satz, wie sie aussieht.',
+  ability: 'Ein Satz, was sie bewirkt.',
 };
 
 export function EntityDialogHost() {
@@ -73,7 +84,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   /** Stand beim Öffnen – daran misst sich, ob etwas geändert wurde. */
   const [baseline] = useState<EntityDraft>(() =>
     existing
-      ? draftOf(existing)
+      ? draftOf(existing, data)
       : emptyDraft(
           request.mode === 'create' ? request.kind : 'person',
           request.mode === 'create' ? request.preset : {},
@@ -96,11 +107,16 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     [data, draft.kind],
   );
   const noParents = useMemo(() => forbiddenParents(data, entityId), [data, entityId]);
-  const createPlace = (name: string) => {
-    const id = db.put('entities', createEntity({ kind: 'place', name })).id;
+  /** Legt aus dem Dialog heraus einen Eintrag an; wird er am Ende nicht verwendet, verschwindet er wieder. */
+  const createDraftEntity = (
+    kind: 'place' | 'species' | 'family' | 'language' | 'script' | 'ability',
+    name: string,
+  ) => {
+    const id = db.put('entities', createEntity({ kind, name: name.trim() })).id;
     created.current.push(id);
     return id;
   };
+  const createPlace = (name: string) => createDraftEntity('place', name);
 
   if (request.mode === 'edit' && !existing) return null;
 
@@ -109,7 +125,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     if (problem) return;
     const saved = db.batch(() => {
       const entity = db.put('entities', entityFromDraft(draft, existing));
-      // Neu angelegte Orte, die am Ende doch nicht gewählt wurden, bleiben nicht liegen.
+      if (entity.kind === 'person')
+        for (const { field, type, kinds } of PERSON_LINKS)
+          syncLinkedRelations(db, entity.id, type, kinds, draft[field]);
+      // Neu angelegte Einträge, die am Ende doch nicht gewählt wurden, bleiben nicht liegen.
       discardUnusedDrafts(db, created.current, []);
       return entity;
     });
@@ -188,11 +207,23 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
       <div className="wf-col wf-welt-form" onKeyDown={onKeyDown}>
         {!existing && (
           <div>
-            <Tabs
-              tabs={WORLD_KINDS.map((kind) => ({ id: kind, label: KIND_LABEL[kind] }))}
-              value={draft.kind}
-              onChange={(kind) => set({ kind })}
-            />
+            <div
+              className="wf-welt-filter wf-welt-filter--kinds"
+              role="radiogroup"
+              aria-label="Art"
+            >
+              {WORLD_KINDS.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  role="radio"
+                  aria-checked={draft.kind === kind}
+                  onClick={() => set({ kind })}
+                >
+                  {KIND_LABEL[kind]}
+                </button>
+              ))}
+            </div>
             <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
           </div>
         )}
@@ -256,8 +287,32 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               <Field label="Rolle" hint="Beruf, Amt oder Aufgabe in der Geschichte.">
                 <Input value={draft.role} onChange={(e) => set({ role: e.target.value })} />
               </Field>
-              <Field label="Volk">
-                <Input value={draft.species} onChange={(e) => set({ species: e.target.value })} />
+              <Field
+                label="Spezies"
+                hint={
+                  !draft.speciesId && draft.species.trim() ? (
+                    <span>
+                      Bisher als Text: „{draft.species.trim()}“.{' '}
+                      <button
+                        type="button"
+                        className="wf-welt-form__link"
+                        onClick={() =>
+                          set({ speciesId: createDraftEntity('species', draft.species) })
+                        }
+                      >
+                        Als Spezies übernehmen
+                      </button>
+                    </span>
+                  ) : undefined
+                }
+              >
+                <Picker
+                  value={draft.speciesId}
+                  onChange={(speciesId) => set({ speciesId })}
+                  kinds={['species']}
+                  placeholder="Spezies wählen oder neu anlegen …"
+                  onCreate={(name) => createDraftEntity('species', name)}
+                />
               </Field>
               <Field label="Hält sich auf in">
                 <Picker
@@ -277,6 +332,15 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   onCreate={createPlace}
                 />
               </Field>
+              <Field label="Arbeitet bei" hint="Ein Ort oder eine Fraktion.">
+                <Picker
+                  value={draft.workplaceId}
+                  onChange={(workplaceId) => set({ workplaceId })}
+                  kinds={['place', 'faction']}
+                  placeholder="Arbeitsplatz wählen …"
+                  onCreate={createPlace}
+                />
+              </Field>
               <Field label="Zustand">
                 <Select
                   value={draft.status}
@@ -289,6 +353,15 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   ))}
                 </Select>
               </Field>
+              <Field label="Familie" hint="Gehört zu diesen Familien oder Häusern.">
+                <EntityRefsEditor
+                  value={draft.familyIds}
+                  onChange={(familyIds) => set({ familyIds })}
+                  kinds={['family']}
+                  placeholder="Familie hinzufügen …"
+                  onCreate={(name) => createDraftEntity('family', name)}
+                />
+              </Field>
               <Field label="Bekanntheit">
                 <div className="wf-welt-form__check">
                   <Checkbox checked={draft.met} onChange={(met) => set({ met })}>
@@ -296,7 +369,47 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   </Checkbox>
                 </div>
               </Field>
+              <Field label="Sprachen">
+                <EntityRefsEditor
+                  value={draft.languageIds}
+                  onChange={(languageIds) => set({ languageIds })}
+                  kinds={['language']}
+                  placeholder="Sprache hinzufügen …"
+                  onCreate={(name) => createDraftEntity('language', name)}
+                />
+              </Field>
+              <Field label="Fähigkeiten">
+                <EntityRefsEditor
+                  value={draft.abilityIds}
+                  onChange={(abilityIds) => set({ abilityIds })}
+                  kinds={['ability']}
+                  placeholder="Fähigkeit hinzufügen …"
+                  onCreate={(name) => createDraftEntity('ability', name)}
+                />
+              </Field>
             </>
+          )}
+          {draft.kind === 'family' && (
+            <Field label="Stammsitz">
+              <Picker
+                value={draft.seatId}
+                onChange={(seatId) => set({ seatId })}
+                kinds={['place']}
+                placeholder="Ort wählen oder neu anlegen …"
+                onCreate={createPlace}
+              />
+            </Field>
+          )}
+          {draft.kind === 'language' && (
+            <Field label="Schrift" hint="In welcher Schrift sie gewöhnlich geschrieben wird.">
+              <Picker
+                value={draft.scriptId}
+                onChange={(scriptId) => set({ scriptId })}
+                kinds={['script']}
+                placeholder="Schrift wählen oder neu anlegen …"
+                onCreate={(name) => createDraftEntity('script', name)}
+              />
+            </Field>
           )}
           {draft.kind === 'place' && (
             <Field

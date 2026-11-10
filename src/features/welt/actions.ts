@@ -1,8 +1,10 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
 import { deleteEntity, moveParty } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { linksTo } from '../../domain/derive';
 import {
   COLLECTION_NAMES,
+  createRelation,
   type ChronicleEntry,
   type CollectionName,
   type CollectionTypes,
@@ -116,20 +118,49 @@ export function discardUnusedDrafts(
 function isReferenced(db: CampaignDb, id: string): boolean {
   const data = db.getSnapshot();
   if (data.state.placeId === id) return true;
-  for (const other of Object.values(data.entities)) {
-    if (other.id === id) continue;
-    if (other.kind === 'person' && (other.person.placeId === id || other.person.homeId === id))
-      return true;
-    if (other.kind === 'place' && other.place.parentId === id) return true;
-    if (other.kind === 'faction' && other.faction.seatId === id) return true;
-    if (other.kind === 'item' && other.item.holderId === id) return true;
-    if (other.kind === 'character' && other.character.placeId === id) return true;
-  }
+  for (const other of Object.values(data.entities))
+    if (other.id !== id && linksTo(other, id)) return true;
   return (
     Object.values(data.relations).some((r) => r.from === id || r.to === id) ||
     Object.values(data.chronicle).some((e) => e.placeId === id || e.refs.includes(id)) ||
     Object.values(data.events).some((e) => e.placeId === id || e.refs.includes(id))
   );
+}
+
+/**
+ * Gleicht die Beziehungen einer Art ab, die von `fromId` ausgehen – etwa die Sprachen einer
+ * Person („spricht“). Fehlende werden angelegt, nicht mehr gewählte entfernt; nur Beziehungen
+ * dieser Art zu Einträgen der genannten Arten sind betroffen, alles andere bleibt unangetastet.
+ */
+export function syncLinkedRelations(
+  db: CampaignDb,
+  fromId: string,
+  type: string,
+  targetKinds: readonly Entity['kind'][],
+  targetIds: readonly string[],
+): void {
+  const data = db.getSnapshot();
+  const wanted = new Set(targetIds.filter((id) => targetKinds.includes(data.entities[id]?.kind!)));
+  db.batch(() => {
+    const present = new Set<string>();
+    for (const relation of Object.values(data.relations)) {
+      if (relation.from !== fromId || relation.type !== type) continue;
+      const target = data.entities[relation.to];
+      if (!target || !targetKinds.includes(target.kind)) continue;
+      if (wanted.has(relation.to)) present.add(relation.to);
+      else db.remove('relations', relation.id);
+    }
+    for (const id of wanted) {
+      if (present.has(id)) continue;
+      // Gibt es zwischen beiden schon eine Beziehung anderer Art, bekommt sie die neue Art nicht
+      // übergestülpt; eine zweite in dieselbe Richtung legt Wayfarer nicht an.
+      const other = Object.values(db.getSnapshot().relations).find(
+        (r) => r.from === fromId && r.to === id,
+      );
+      if (other) continue;
+      db.put('relations', createRelation({ from: fromId, to: id, type }));
+    }
+  });
 }
 
 /**

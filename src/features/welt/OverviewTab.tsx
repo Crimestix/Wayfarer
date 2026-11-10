@@ -27,12 +27,18 @@ import {
   PARTY_ID,
   PERSON_STATUS,
   createEntity,
+  type Ability,
+  type CampaignData,
   type Entity,
   type Faction,
+  type Family,
   type Item,
+  type Language,
   type Person,
   type PersonStatus,
   type Place,
+  type Script,
+  type Species,
   type Topic,
 } from '../../domain/schema';
 import { formatClock } from '../../domain/time/calendar';
@@ -54,14 +60,18 @@ import {
   PERSON_STATUS_LABEL,
   castSubline,
   describeVisit,
-  factionMembers,
   formatShortDate,
+  groupMembers,
   itemsHeldBy,
+  languagesInScript,
+  linkedFrom,
   linkedSubline,
   partyAttitudes,
   recentChronicle,
   relationRows,
+  speciesMembers,
   upcomingFor,
+  workersAt,
   type WorldEntity,
 } from './model';
 import {
@@ -96,6 +106,13 @@ export function OverviewTab({ entity, onShowTab }: Props<WorldEntity>) {
       return <ItemOverview entity={entity} onShowTab={onShowTab} />;
     case 'topic':
       return <TopicOverview entity={entity} onShowTab={onShowTab} />;
+    case 'family':
+      return <FamilyOverview entity={entity} onShowTab={onShowTab} />;
+    case 'species':
+    case 'language':
+    case 'script':
+    case 'ability':
+      return <KnowledgeOverview entity={entity} onShowTab={onShowTab} />;
   }
 }
 
@@ -115,11 +132,17 @@ function PlaceOverview({ entity: place }: Props<Place>) {
   const cast = placeCast(data, place.id);
   const attitudes = partyAttitudes(data);
   const attitude = (id: string) => attitudes.get(id) ?? null;
+  const shown = new Set([...cast.present, ...cast.away].map((p) => p.id));
+  // Wer hier arbeitet, aber weder hier ist noch hier wohnt.
+  const workers = workersAt(data, place.id).filter((p) => !shown.has(p.id));
+  const workerIds = new Set(workers.map((p) => p.id));
+  const linked = cast.linked.filter((link) => !workerIds.has(link.entity.id));
   const castCount =
     cast.present.length +
     cast.away.length +
+    workers.length +
     cast.factions.length +
-    cast.linked.length +
+    linked.length +
     cast.characters.length;
   const items = itemsHeldBy(data, place.id);
   // Kehrt die Gruppe zurück, ist das Wichtigste, was sich seitdem getan hat – dann steht es oben.
@@ -208,9 +231,21 @@ function PlaceOverview({ entity: place }: Props<Place>) {
                     ))}
                   </CastGroup>
                 )}
-                {cast.linked.length > 0 && (
-                  <CastGroup label="Verbunden" count={cast.linked.length}>
-                    {cast.linked.map((link) => (
+                {workers.length > 0 && (
+                  <CastGroup label="Arbeiten hier" count={workers.length}>
+                    {workers.map((p) => (
+                      <EntryRow
+                        key={p.id}
+                        entity={p}
+                        sub={castSubline(data, p, place.id, true)}
+                        attitude={attitude(p.id)}
+                      />
+                    ))}
+                  </CastGroup>
+                )}
+                {linked.length > 0 && (
+                  <CastGroup label="Verbunden" count={linked.length}>
+                    {linked.map((link) => (
                       <EntryRow
                         key={link.relation.id}
                         entity={link.entity}
@@ -807,67 +842,16 @@ function Whereabouts({ person }: { person: Person }) {
 function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
   const db = useDb();
   const data = useData();
-  const members = factionMembers(data, faction.id);
-  const attitudes = partyAttitudes(data);
+  const members = groupMembers(data, faction.id);
   return (
     <Columns
       main={
         <>
-          <Section
-            title="Mitglieder"
-            count={members.length || undefined}
-            action={
-              members.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Plus />}
-                  onClick={() => onShowTab('relations', 'member')}
-                >
-                  Mitglied
-                </Button>
-              )
-            }
-          >
-            {members.length ? (
-              <div className="wf-welt-rows">
-                {members.map((member) => (
-                  <EntryRow
-                    key={member.entity.id}
-                    entity={member.entity}
-                    sub={[
-                      member.label,
-                      member.entity.kind === 'person' && member.entity.person.role,
-                      member.entity.kind === 'person' &&
-                        entityName(data, member.entity.person.placeId),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    attitude={
-                      member.entity.kind === 'person'
-                        ? (attitudes.get(member.entity.id) ?? null)
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <Hint
-                action={
-                  <Button
-                    size="sm"
-                    icon={<Plus />}
-                    onClick={() => onShowTab('relations', 'member')}
-                  >
-                    Mitglied eintragen
-                  </Button>
-                }
-              >
-                Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt oder
-                ihr dient, erscheint hier.
-              </Hint>
-            )}
-          </Section>
+          <MemberList
+            group={faction}
+            onShowTab={onShowTab}
+            empty="Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, erscheint hier."
+          />
           <Promises entity={faction} />
           <NotesSection entity={faction} />
           <SecretSection entity={faction} />
@@ -930,6 +914,214 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
           </Section>
           <Connections entity={item} onShowTab={onShowTab} />
           <Upcoming entity={item} />
+        </>
+      }
+    />
+  );
+}
+
+// ── Familie ────────────────────────────────────────────────────────────────
+
+function FamilyOverview({ entity: family, onShowTab }: Props<Family>) {
+  const db = useDb();
+  const data = useData();
+  return (
+    <Columns
+      main={
+        <>
+          <MemberList
+            group={family}
+            onShowTab={onShowTab}
+            empty="Noch niemand. Wer bei einer Person als Mitglied dieser Familie eingetragen ist, sie führt oder hier arbeitet, erscheint hier."
+          />
+          <Promises entity={family} />
+          <NotesSection entity={family} />
+          <SecretSection entity={family} />
+          <RecentChronicle entity={family} onShowTab={onShowTab} />
+        </>
+      }
+      side={
+        <>
+          <Section title="Stammsitz">
+            <Picker
+              value={family.family.seatId}
+              onChange={(seatId) => patchDetails(db, family, { seatId })}
+              kinds={['place']}
+              placeholder="Kein Stammsitz – Ort wählen …"
+              onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
+            />
+          </Section>
+          <Connections
+            entity={family}
+            onShowTab={onShowTab}
+            skip={groupMembers(data, family.id).map((m) => m.entity.id)}
+          />
+          <Belongings entity={family} title="Im Besitz" />
+          <Upcoming entity={family} />
+        </>
+      }
+    />
+  );
+}
+
+/** Mitglieder einer Fraktion oder Familie, mit Haltung zur Gruppe. */
+function MemberList({
+  group,
+  onShowTab,
+  empty,
+}: Omit<Props<Faction | Family>, 'entity'> & { group: Faction | Family; empty: string }) {
+  const data = useData();
+  const members = groupMembers(data, group.id);
+  const attitudes = partyAttitudes(data);
+  return (
+    <Section
+      title="Mitglieder"
+      count={members.length || undefined}
+      action={
+        members.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<Plus />}
+            onClick={() => onShowTab('relations', 'member')}
+          >
+            Mitglied
+          </Button>
+        )
+      }
+    >
+      {members.length ? (
+        <div className="wf-welt-rows">
+          {members.map((member) => (
+            <EntryRow
+              key={member.entity.id}
+              entity={member.entity}
+              sub={[
+                member.label,
+                member.entity.kind === 'person' && member.entity.person.role,
+                member.entity.kind === 'person' && entityName(data, member.entity.person.placeId),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              attitude={
+                member.entity.kind === 'person'
+                  ? (attitudes.get(member.entity.id) ?? null)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      ) : (
+        <Hint
+          action={
+            <Button size="sm" icon={<Plus />} onClick={() => onShowTab('relations', 'member')}>
+              Mitglied eintragen
+            </Button>
+          }
+        >
+          {empty}
+        </Hint>
+      )}
+    </Section>
+  );
+}
+
+// ── Spezies, Sprache, Schrift, Fähigkeit ───────────────────────────────────
+
+type KnowledgeEntity = Species | Language | Script | Ability;
+
+/** Wer zu einer Spezies gehört, eine Sprache spricht, eine Schrift schreibt, eine Fähigkeit hat. */
+const KNOWLEDGE: Record<
+  KnowledgeEntity['kind'],
+  { title: string; empty: string; people: (data: CampaignData, id: string) => Entity[] }
+> = {
+  species: {
+    title: 'Vertreter',
+    empty:
+      'Noch niemand. Personen dieser Spezies erscheinen hier – die Spezies wählst du bei der Person.',
+    people: (data, id) => speciesMembers(data, id),
+  },
+  language: {
+    title: 'Sprechen sie',
+    empty:
+      'Noch niemand. Wer diese Sprache spricht, trägst du bei der Person unter „Sprachen“ ein.',
+    people: (data, id) => linkedFrom(data, id, 'speaks'),
+  },
+  script: {
+    title: 'Schreiben sie',
+    empty:
+      'Noch niemand. Wer diese Schrift beherrscht, steht hier, sobald eine Beziehung „schreibt“ besteht.',
+    people: (data, id) => linkedFrom(data, id, 'writes'),
+  },
+  ability: {
+    title: 'Verfügen darüber',
+    empty:
+      'Noch niemand. Wer diese Fähigkeit hat, trägst du bei der Person unter „Fähigkeiten“ ein.',
+    people: (data, id) => linkedFrom(data, id, 'has-ability'),
+  },
+};
+
+function KnowledgeOverview({ entity, onShowTab }: Props<KnowledgeEntity>) {
+  const db = useDb();
+  const data = useData();
+  const spec = KNOWLEDGE[entity.kind];
+  const people = spec.people(data, entity.id);
+  const attitudes = partyAttitudes(data);
+  const languages = entity.kind === 'script' ? languagesInScript(data, entity.id) : [];
+  return (
+    <Columns
+      main={
+        <>
+          <Section title={spec.title} count={people.length || undefined}>
+            {people.length ? (
+              <div className="wf-welt-rows">
+                {people.map((person) => (
+                  <EntryRow
+                    key={person.id}
+                    entity={person}
+                    attitude={
+                      person.kind === 'person' ? (attitudes.get(person.id) ?? null) : undefined
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <Hint>{spec.empty}</Hint>
+            )}
+          </Section>
+          <NotesSection entity={entity} />
+          <SecretSection entity={entity} />
+          <RecentChronicle entity={entity} onShowTab={onShowTab} />
+        </>
+      }
+      side={
+        <>
+          {entity.kind === 'language' && (
+            <Section title="Schrift">
+              <Picker
+                value={entity.language.scriptId}
+                onChange={(scriptId) => patchDetails(db, entity, { scriptId })}
+                kinds={['script']}
+                placeholder="Keine Schrift – auswählen …"
+                onCreate={(name) => db.put('entities', createEntity({ kind: 'script', name })).id}
+              />
+            </Section>
+          )}
+          {entity.kind === 'script' && languages.length > 0 && (
+            <Section title="Sprachen in dieser Schrift" count={languages.length}>
+              <div className="wf-welt-rows">
+                {languages.map((language) => (
+                  <EntryRow key={language.id} entity={language} />
+                ))}
+              </div>
+            </Section>
+          )}
+          <Connections
+            entity={entity}
+            onShowTab={onShowTab}
+            title="Zusammenhänge"
+            skip={people.map((p) => p.id)}
+          />
         </>
       }
     />
