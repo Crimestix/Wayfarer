@@ -39,6 +39,8 @@ export function useLoad<T>(
   onRefreshError?: (error: LkError) => void,
 ): { load: Load<T>; reload: () => void; refreshing: boolean } {
   const [slot, setSlot] = useState<Slot<T>>({ key, load: { status: 'loading', data: null } });
+  const slotRef = useRef(slot);
+  slotRef.current = slot;
   const [round, setRound] = useState(0);
   const force = useRef(false);
   const loaderRef = useRef(loader);
@@ -63,12 +65,16 @@ export function useLoad<T>(
       (cause: unknown) => {
         if (controller.signal.aborted || isAborted(cause)) return;
         const error = transportError(cause);
-        setSlot((previous) => {
-          const kept = previous.key === key ? previous.load.data : null;
-          if (kept === null) return { key, load: { status: 'failed', error, data: null } };
-          errorRef.current?.(error);
-          return { key, load: { status: 'ready', data: kept, at: Date.now() } };
-        });
+        // Nicht im Aktualisierer von setSlot melden: der läuft während des Zeichnens (und im
+        // Entwicklungsmodus doppelt) – eine Meldung von dort ändert ein anderes Bauteil mittendrin.
+        const previous = slotRef.current;
+        const kept = previous.key === key ? previous.load.data : null;
+        if (kept === null) {
+          setSlot({ key, load: { status: 'failed', error, data: null } });
+          return;
+        }
+        setSlot({ key, load: { status: 'ready', data: kept, at: Date.now() } });
+        errorRef.current?.(error);
       },
     );
     return () => controller.abort();

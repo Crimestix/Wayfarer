@@ -9,6 +9,7 @@ import { CalendarSection } from './CalendarSection';
 import { CampaignSection } from './CampaignSection';
 import { LegacySection } from './LegacySection';
 import { Boundary, Section } from './parts';
+import { explainProblems } from './model';
 import { ProblemsSection } from './ProblemsSection';
 import './einstellungen.css';
 
@@ -16,7 +17,7 @@ const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 export default function Page() {
   const db = useDb();
-  const problems = db.problems.length;
+  const problems = explainProblems(db.problems).length;
   const desktop = isDesktopApp();
   let n = 0;
   const numeral = () => NUMERALS[n++] ?? '';

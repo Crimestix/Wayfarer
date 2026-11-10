@@ -7,6 +7,7 @@ import {
   currentYearLength,
   eraRows,
   explainProblem,
+  explainProblems,
   isInsideFolder,
   leapText,
   monthRows,
@@ -98,6 +99,18 @@ describe('Probleme beim Laden erklären', () => {
     expect(shape.reason).not.toMatch(/invalid_type|JSON/);
     expect(shape.detail).toContain('invalid_type');
     expect(explainProblem({ path: 'sonstwo/x.json', message: 'Unlesbar' }).what).toBe('Datei');
+  });
+
+  it('nennt jede Datei nur einmal, auch wenn sie mehrfach gemeldet wurde', () => {
+    const list = explainProblems([
+      { path: 'events/b.json', message: 'Unexpected end of JSON input' },
+      { path: 'chronicle/a.json', message: 'Unexpected token' },
+      { path: 'events/b.json', message: '[{"code":"invalid_type"}]' },
+    ]);
+    expect(list.map((p) => p.path)).toEqual(['chronicle/a.json', 'events/b.json']);
+    // Die letzte Meldung zählt.
+    expect(list[1]).toMatchObject({ kind: 'shape', detail: '[{"code":"invalid_type"}]' });
+    expect(explainProblems([])).toEqual([]);
   });
 });
 

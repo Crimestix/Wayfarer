@@ -94,6 +94,18 @@ export function explainProblem(problem: LoadProblem): ExplainedProblem {
   };
 }
 
+/**
+ * Alle Ladeprobleme, je Datei einmal und nach Pfad sortiert. Meldet die Dateiüberwachung eine
+ * unlesbare Datei mehrfach (etwa während das Cloud-Laufwerk abgleicht), zählt die letzte Meldung.
+ */
+export function explainProblems(problems: readonly LoadProblem[]): ExplainedProblem[] {
+  const byPath = new Map<string, LoadProblem>();
+  for (const problem of problems) byPath.set(problem.path, problem);
+  return [...byPath.values()]
+    .map(explainProblem)
+    .sort((a, b) => a.path.localeCompare(b.path, 'de'));
+}
+
 // ── Kalender lesbar ────────────────────────────────────────────────────────
 
 const numberDe = (value: number, digits = 0) =>

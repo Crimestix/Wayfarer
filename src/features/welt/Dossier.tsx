@@ -32,7 +32,7 @@ import {
   relationRows,
   type WorldEntity,
 } from './model';
-import { OverviewTab, type DossierTab } from './OverviewTab';
+import { OverviewTab, type DossierTab, type RelationIntent } from './OverviewTab';
 import { AttitudePips, Facts, attitudeVar } from './parts';
 import { RelationsTab } from './RelationsTab';
 
@@ -40,7 +40,13 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
-  const [tab, setTab] = useState<DossierTab>('overview');
+  const [tab, setTabState] = useState<DossierTab>('overview');
+  /** Aus dem Überblick heraus: im Reiter „Beziehungen“ gleich den Dialog öffnen. */
+  const [intent, setIntent] = useState<RelationIntent | undefined>();
+  const setTab = (next: DossierTab, nextIntent?: RelationIntent) => {
+    setTabState(next);
+    setIntent(nextIntent);
+  };
   const chronicle = chronicleFor(data, entity.id);
   const relationCount = relationRows(data, entity.id).length;
   const partyHere = entity.kind === 'place' && data.state.placeId === entity.id;
@@ -174,7 +180,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
 
       <div className="wf-welt-body">
         {tab === 'overview' && <OverviewTab entity={entity} onShowTab={setTab} />}
-        {tab === 'relations' && <RelationsTab entity={entity} />}
+        {tab === 'relations' && <RelationsTab entity={entity} startNew={intent} />}
         {tab === 'chronicle' && (
           <div className="wf-welt-chron">
             <div className="wf-welt-rel__bar">

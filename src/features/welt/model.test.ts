@@ -40,12 +40,14 @@ import {
   recentlyChanged,
   relationDraft,
   relationDraftChanged,
+  relationDrafts,
   relationRows,
   relationSentence,
   savesDirection,
   searchWorld,
   shortPath,
   splitList,
+  startDirection,
   treeIndent,
   upcomingFor,
   worldCounts,
@@ -237,7 +239,7 @@ describe('Dossier', () => {
     const members = factionMembers(data, find('Haus Duskryn').id);
     expect(members.map((m) => `${m.entity.name} ${m.label}`)).toEqual([
       'Maera Duskryn führt',
-      'Brann Eisenhaken beschäftigt',
+      'Brann Eisenhaken arbeitet für',
     ]);
     const lotsen = factionMembers(data, find('Bruderschaft der Lotsen').id);
     expect(lotsen.map((m) => m.entity.name)).toEqual(['Isolde Rabenschwinge', 'Kessa Flutwind']);
@@ -625,12 +627,36 @@ describe('Ergänzungen der Prüfung', () => {
     // Von der Erpresserin aus bleibt es beim Satzteil.
     const own = relationRows(next, extort.from).find((r) => r.otherId === maera.id)!;
     expect(own.label).toBe('erpresst');
+    // Frei formulierte Bezeichnungen werden nicht in Versalien gesetzt.
+    expect(seen.freeText).toBe(true);
+    expect(own.freeText).toBe(true);
+    expect(relationRows(next, maera.id).find((r) => r.otherId === voss.id)!.freeText).toBe(false);
     const member = factionMembers(next, haus.id).find((m) => m.entity.name.startsWith('Isolde'))!;
     expect(member.label).toBe('Haus Duskryn bezahlt heimlich Isolde Rabenschwinge');
     const link = placeCast(next, moor.id).linked.find((l) => l.entity.id === voss.id)!;
     expect(linkedSubline(next, moor.id, link)).toBe(
       'Krähenmoor verschlang die Patrouille von Hauptmann Voss',
     );
+  });
+
+  it('beginnt den Beziehungsdialog in der Richtung, die es schon gibt', () => {
+    const out = createRelation({ from: 'a', to: 'b', type: 'serves' });
+    const back = createRelation({ from: 'b', to: 'a', type: 'knows' });
+    expect(startDirection(null, null)).toBe('out');
+    expect(startDirection(null, null, 'in')).toBe('in');
+    expect(startDirection(out, null, 'in')).toBe('out');
+    expect(startDirection(null, back)).toBe('in');
+    expect(startDirection(out, back, 'in')).toBe('in');
+  });
+
+  it('trägt ein neues Mitglied vom Mitglied aus ein, ohne Vorhandenes zu überschreiben', () => {
+    const fresh = relationDrafts(null, null, true);
+    expect(fresh.in.type).toBe('member');
+    expect(fresh.out.type).toBe('knows');
+    const serves = createRelation({ from: 'b', to: 'a', type: 'serves', attitude: 1 });
+    const loaded = relationDrafts(null, serves, true);
+    expect(loaded.in).toMatchObject({ type: 'serves', attitude: 1 });
+    expect(relationDrafts(null, null).in.type).toBe('knows');
   });
 
   it('schreibt beim Speichern nur Richtungen, die es geben soll', () => {

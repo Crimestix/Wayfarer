@@ -133,6 +133,22 @@ describe('Eintrag löschen und zurückholen', () => {
 });
 
 describe('Kleine Handgriffe', () => {
+  it('ändert Felder einer Art vom gespeicherten Stand aus', async () => {
+    const { db } = await demoDb();
+    const shown = find(db, 'Kessa Flutwind');
+    if (shown.kind !== 'person') throw new Error('Kessa fehlt');
+    const hafen = find(db, 'Dornhafen');
+    // Inzwischen geändert – der gezeigte Stand ist veraltet.
+    patchDetails(db, shown, { met: true });
+    patchDetails(db, shown, { placeId: hafen.id });
+    const after = find(db, 'Kessa Flutwind');
+    expect(after.kind === 'person' && after.person).toMatchObject({ met: true, placeId: hafen.id });
+    // Gelöscht: kein neues Leben durch eine späte Änderung.
+    db.remove('entities', shown.id);
+    patchDetails(db, shown, { status: 'dead' });
+    expect(db.getSnapshot().entities[shown.id]).toBeUndefined();
+  });
+
   it('ändert Notizen nur, wenn es den Eintrag noch gibt', async () => {
     const { db } = await demoDb();
     const brann = find(db, 'Brann Eisenhaken');

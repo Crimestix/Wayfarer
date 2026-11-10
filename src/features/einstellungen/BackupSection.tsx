@@ -14,7 +14,7 @@ import {
 } from './backup';
 import { errorText, readJsonFile, saveBackupFile } from './files';
 import { ActionRow, Notice, useFilePicker } from './parts';
-import { ReplaceDialog } from './ReplaceDialog';
+import { PartsLine, ReplaceDialog } from './ReplaceDialog';
 
 const MAX_LISTED = 6;
 
@@ -77,9 +77,11 @@ export function BackupSection() {
       <div className="wf-einstellungen-contents">
         <span className="wf-caps">In dieser Kampagne</span>
         <span>
-          {summary.parts.length
-            ? summary.parts.join(' · ')
-            : 'Noch keine Einträge – lege in der Welt etwas an oder hole weiter unten den alten Spielstand herüber.'}
+          {summary.parts.length ? (
+            <PartsLine parts={summary.parts} />
+          ) : (
+            'Noch keine Einträge – lege in der Welt etwas an oder hole weiter unten den alten Spielstand herüber.'
+          )}
         </span>
       </div>
       <div className="wf-einstellungen-actions">

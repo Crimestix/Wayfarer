@@ -75,10 +75,13 @@ import {
 } from './parts';
 
 export type DossierTab = 'overview' | 'relations' | 'chronicle' | 'lk';
+/** Was der Reiter „Beziehungen“ beim Öffnen gleich anbietet. */
+export type RelationIntent = 'relation' | 'member';
 
 interface Props<E> {
   entity: E;
-  onShowTab: (tab: DossierTab) => void;
+  /** Wechselt den Reiter; mit `intent` öffnet „Beziehungen“ gleich den Dialog zum Anlegen. */
+  onShowTab: (tab: DossierTab, intent?: RelationIntent) => void;
 }
 
 export function OverviewTab({ entity, onShowTab }: Props<WorldEntity>) {
@@ -119,6 +122,8 @@ function PlaceOverview({ entity: place }: Props<Place>) {
     cast.linked.length +
     cast.characters.length;
   const items = itemsHeldBy(data, place.id);
+  // Kehrt die Gruppe zurück, ist das Wichtigste, was sich seitdem getan hat – dann steht es oben.
+  const changesFirst = placeStatus(data, place.id).changesSince.length > 0;
   const createPerson = () =>
     openEntityDialog({
       mode: 'create',
@@ -130,6 +135,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
     <Columns
       main={
         <>
+          {changesFirst && <ChangesSince place={place} />}
           <Section
             title="Wer hier eine Rolle spielt"
             count={castCount || undefined}
@@ -221,7 +227,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
               </div>
             )}
           </Section>
-          <ChangesSince place={place} />
+          {!changesFirst && <ChangesSince place={place} />}
           {items.length > 0 && (
             <Section title="Gegenstände hier" count={items.length}>
               <div className="wf-welt-rows">
@@ -669,7 +675,7 @@ function Connections({
       ) : (
         <Hint
           action={
-            <Button size="sm" icon={<Plus />} onClick={() => onShowTab('relations')}>
+            <Button size="sm" icon={<Plus />} onClick={() => onShowTab('relations', 'relation')}>
               Beziehung anlegen
             </Button>
           }
@@ -704,10 +710,10 @@ function PersonOverview({ entity: person, onShowTab }: Props<Person>) {
       main={
         <>
           <Promises entity={person} />
-          <AttitudeTrail entity={person} />
-          <RecentChronicle entity={person} onShowTab={onShowTab} />
           <NotesSection entity={person} />
           <SecretSection entity={person} />
+          <AttitudeTrail entity={person} />
+          <RecentChronicle entity={person} onShowTab={onShowTab} />
         </>
       }
       side={
@@ -816,7 +822,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
                   size="sm"
                   variant="ghost"
                   icon={<Plus />}
-                  onClick={() => onShowTab('relations')}
+                  onClick={() => onShowTab('relations', 'member')}
                 >
                   Mitglied
                 </Button>
@@ -848,8 +854,12 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
             ) : (
               <Hint
                 action={
-                  <Button size="sm" icon={<Plus />} onClick={() => onShowTab('relations')}>
-                    Beziehung anlegen
+                  <Button
+                    size="sm"
+                    icon={<Plus />}
+                    onClick={() => onShowTab('relations', 'member')}
+                  >
+                    Mitglied eintragen
                   </Button>
                 }
               >
@@ -859,10 +869,10 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
             )}
           </Section>
           <Promises entity={faction} />
-          <AttitudeTrail entity={faction} />
-          <RecentChronicle entity={faction} onShowTab={onShowTab} />
           <NotesSection entity={faction} />
           <SecretSection entity={faction} />
+          <AttitudeTrail entity={faction} />
+          <RecentChronicle entity={faction} onShowTab={onShowTab} />
         </>
       }
       side={
@@ -879,7 +889,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
           <Connections
             entity={faction}
             onShowTab={onShowTab}
-            title="Weitere Beziehungen"
+            title="Beziehungen"
             skip={members.map((m) => m.entity.id)}
           />
           <Belongings entity={faction} title="Im Besitz" />
@@ -938,7 +948,7 @@ function TopicOverview({ entity: topic, onShowTab }: Props<Topic>) {
       }
       side={
         <>
-          <Connections entity={topic} onShowTab={onShowTab} title="Hängt zusammen mit" />
+          <Connections entity={topic} onShowTab={onShowTab} title="Zusammenhänge" />
           <Upcoming entity={topic} />
         </>
       }

@@ -3,7 +3,7 @@
  * übernehmen): zeigt, was kommt, was dafür verschwindet, und bietet an, den jetzigen Stand
  * vorher zu sichern.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Download, TriangleAlert } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { Button, Dialog } from '../../ui';
@@ -11,13 +11,31 @@ import { backupFileName, serializeBackup, summarize, type CampaignSummary } from
 import { errorText, saveBackupFile } from './files';
 import { Notice } from './parts';
 
+/** „6 Personen · 6 Orte · …“ – jede Angabe bleibt beim Umbruch zusammen. */
+export function PartsLine({ parts }: { parts: string[] }) {
+  // Der Punkt hängt fest am Teil davor; umbrochen wird nur im Leerraum danach.
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={part}>
+          <span className="wf-einstellungen-part">
+            {part}
+            {i < parts.length - 1 && '\u00a0·'}
+          </span>
+          {i < parts.length - 1 && ' '}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 export function SummaryLine({ summary }: { summary: CampaignSummary }) {
   return (
     <div className="wf-einstellungen-summary">
       <div className="wf-einstellungen-summary__name">{summary.name}</div>
       <div className="wf-einstellungen-summary__date">Weltzeit {summary.worldDate} Uhr</div>
       <div className="wf-einstellungen-summary__parts">
-        {summary.parts.length ? summary.parts.join(' · ') : 'Noch ohne Einträge'}
+        {summary.parts.length ? <PartsLine parts={summary.parts} /> : 'Noch ohne Einträge'}
       </div>
     </div>
   );
@@ -117,11 +135,13 @@ export function ReplaceDialog({
       <div className="wf-einstellungen-replace">
         <div className="wf-einstellungen-replace__pair">
           <div>
-            <div className="wf-caps">Das kommt · {incomingLabel}</div>
+            <div className="wf-caps">Das kommt</div>
+            <div className="wf-einstellungen-summary__source">{incomingLabel}</div>
             {incoming && <SummaryLine summary={incoming} />}
           </div>
           <div>
-            <div className="wf-caps">Das verschwindet · der jetzige Stand</div>
+            <div className="wf-caps">Das verschwindet</div>
+            <div className="wf-einstellungen-summary__source">der jetzige Stand</div>
             <SummaryLine summary={current} />
           </div>
         </div>

@@ -1,9 +1,8 @@
 /** Abschnitt „Probleme beim Laden“: Dateien, die Wayfarer nicht lesen konnte – mit Erklärung. */
-import { useMemo } from 'react';
 import { Copy, FileWarning } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { Badge } from '../../ui';
-import { explainProblem, type ProblemKind } from './model';
+import { explainProblems, type ProblemKind } from './model';
 
 const KIND_BADGE: Record<ProblemKind, { label: string; tone: 'ember' | 'blood' | 'arcane' }> = {
   conflict: { label: 'Konfliktkopie', tone: 'ember' },
@@ -13,7 +12,10 @@ const KIND_BADGE: Record<ProblemKind, { label: string; tone: 'ember' | 'blood' |
 
 export function ProblemsSection() {
   const db = useDb();
-  const problems = useMemo(() => db.problems.map(explainProblem), [db]);
+  // db.problems ist eine Liste, die wachsen kann – deshalb nicht nach db zwischenspeichern.
+  const problems = explainProblems(db.problems);
+  const conflicts = problems.some((p) => p.kind === 'conflict');
+  const others = problems.some((p) => p.kind !== 'conflict');
   return (
     <div className="wf-einstellungen-stack">
       <div className="wf-einstellungen-problems">
@@ -41,18 +43,27 @@ export function ProblemsSection() {
         ))}
       </div>
       <div className="wf-einstellungen-help">
+        {conflicts && (
+          <p>
+            <strong>Konfliktkopien:</strong> Ändern zwei Rechner dieselbe Datei, bevor das
+            Cloud-Laufwerk abgeglichen hat, legt es eine zweite Datei daneben – oft mit einem Zusatz
+            wie „(Konflikt)“, „(1)“ oder dem Namen des Rechners. Wayfarer lädt solche Dateien nicht
+            und überschreibt oder löscht sie nie. Schließe Wayfarer und suche die Datei im
+            Kampagnenordner: Ist die Kopie die ältere Fassung, kannst du sie löschen. Ist sie die
+            neuere, benenne sie auf den Namen der Datei ohne Zusatz um und ersetze diese damit.
+          </p>
+        )}
+        {others && (
+          <p>
+            <strong>Beschädigte oder unerwartete Dateien:</strong> Oft ist das Cloud-Laufwerk noch
+            nicht fertig mit dem Abgleich – dann hilft es, kurz zu warten und Wayfarer neu zu
+            starten. Bleibt die Meldung, lässt sich die Datei meist über den Versionsverlauf des
+            Cloud-Laufwerks wiederherstellen. Wayfarer überschreibt sie nicht.
+          </p>
+        )}
         <p>
-          <strong>Was ist passiert?</strong> Ändern zwei Rechner dieselbe Datei, bevor das
-          Cloud-Laufwerk abgeglichen hat, legt es eine zweite Datei daneben – eine Konfliktkopie,
-          oft mit einem Zusatz wie „(Konflikt)“, „(1)“ oder dem Namen des Rechners. Wayfarer lädt
-          solche Dateien nicht und überschreibt oder löscht sie nie.
-        </p>
-        <p>
-          <strong>Was tun?</strong> Wayfarer schließen und die genannte Datei im Kampagnenordner
-          suchen. Ist die Kopie die ältere Fassung, kannst du sie löschen. Ist sie die neuere,
-          benenne sie auf den Namen der Datei ohne Zusatz um und ersetze diese damit. Beim nächsten
-          Start verschwindet die Meldung. Im Zweifel vorher unter „Sicherung“ den jetzigen Stand
-          sichern.
+          Beim nächsten Start verschwindet die Meldung. Im Zweifel vorher unter „Sicherung“ den
+          jetzigen Stand sichern.
         </p>
       </div>
     </div>

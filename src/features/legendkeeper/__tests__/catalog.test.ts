@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,
   catalogPath,
+  childList,
   descendantCount,
   finderHits,
   mergeHits,
@@ -70,6 +71,20 @@ describe('Verzeichnis', () => {
     ]);
     expect(orphaned.roots.map((entry) => entry.id).sort()).toEqual(['a', 'b']);
     expect(descendantCount(orphaned, 'b')).toBe(0);
+  });
+
+  it('listet die Unterartikel eines Artikels, auf Wunsch gekürzt', () => {
+    expect(childList(catalog, 'nebelkst').items.map((item) => item.title)).toEqual([
+      'Dornhafen',
+      'Haus Duskryn',
+      'Krähenmoor',
+    ]);
+    expect(childList(catalog, 'nebelkst').more).toBe(0);
+    const short = childList(catalog, 'nebelkst', 2);
+    expect(short.items).toHaveLength(2);
+    expect(short.more).toBe(1);
+    expect(childList(catalog, 'persvoss')).toEqual({ items: [], more: 0 });
+    expect(childList(catalog, 'gibtesnicht')).toEqual({ items: [], more: 0 });
   });
 
   it('nimmt doppelte Einträge nur einmal', () => {

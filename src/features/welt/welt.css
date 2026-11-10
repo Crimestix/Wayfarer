@@ -255,6 +255,22 @@
   gap: 8px;
   padding: 5px var(--s-4) 5px 4px;
 }
+/* Im Baum leuchtet die ganze Zeile samt Einzug – sonst klebte der Messingstrich am Namen. */
+.wf-welt-tree__row:has(> .wf-welt-row[aria-current='page']) {
+  background: linear-gradient(
+    90deg,
+    var(--gold-glow),
+    color-mix(in srgb, var(--gold) 3%, transparent)
+  );
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.wf-welt-row--place[aria-current='page'] {
+  background: none;
+  box-shadow: none;
+}
+.wf-welt-row--place[aria-current='page']:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
 .wf-welt-row--place .wf-welt-row__name {
   flex: 0 1 auto;
 }
@@ -629,6 +645,10 @@
   flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
+  overflow: hidden;
+}
+.wf-welt-sec__head > :not(.wf-section-title) {
+  flex: none;
 }
 .wf-welt-cols__side .wf-section-title {
   letter-spacing: 0.1em;
@@ -1020,6 +1040,22 @@
   font-size: 0.68rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+  color: var(--gold);
+}
+/* „gehört zu“ bricht nicht mitten durch; die Umkehrung rückt bei Platzmangel als Ganzes nach unten. */
+.wf-welt-rel__label:not(.wf-welt-rel__label--free) .wf-welt-rel__main {
+  white-space: nowrap;
+}
+.wf-welt-rel__label--free {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--gold);
 }
 .wf-welt-rel__inverse {

@@ -23,7 +23,12 @@ Wayfarer liest aus LegendKeeper und schreibt dort nie. Dieser Ordner enthält al
 - Adressen außerhalb `/projects/…` beantwortet LegendKeeper mit einer **HTML-404-Seite**; das wird
   als „unerwartete Antwort“ erkannt, nicht als „Artikel fehlt“ (`errors.ts`).
 - Grenzen je Key: 300 Anfragen pro Minute, 6 000 pro Stunde. Das Verzeichnis kostet eine Anfrage
-  je 100 Artikel und wird 15 Minuten gemerkt, Artikel 5 Minuten, Suchen 1 Minute.
+  je 100 Artikel und wird 15 Minuten gemerkt, Artikel 5 Minuten, Suchen 1 Minute. Ist danach
+  keine Verbindung da (oder LegendKeeper gestört), gilt die ältere Antwort weiter, solange die App
+  läuft – „Aktualisieren“ dagegen meldet ehrlich, dass es nicht geklappt hat.
+- Übersichtsseiten listen ihre Unterartikel in LegendKeeper oft über einen Block, den die
+  Schnittstelle nur als `unsupported` liefert. Wayfarer zeigt die Unterartikel deshalb selbst aus
+  dem Verzeichnis an („Darunter in LegendKeeper“).
 - Vorlagen hängen unter dem gedachten Artikel `templates` und stehen in der Artikelliste mit drin;
   das Verzeichnis lässt sie weg (`catalog.ts`).
 - Bilder liegen öffentlich auf `assets.legendkeeper.com` und werden direkt als `<img>` geladen.

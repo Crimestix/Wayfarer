@@ -182,7 +182,7 @@ export function demoCampaign(): CampaignData {
   const relations: Relation[] = [
     createRelation({ from: maera.id, to: haus.id, type: 'leads' }),
     createRelation({ from: voss.id, to: maera.id, type: 'serves', attitude: 2 }),
-    createRelation({ from: brann.id, to: haus.id, type: 'employs', note: 'Wird vom Haus bezahlt, nicht von der Stadt.' }),
+    createRelation({ from: haus.id, to: brann.id, type: 'employs', note: 'Wird vom Haus bezahlt, nicht von der Stadt.' }),
     createRelation({ from: isolde.id, to: lotsen.id, type: 'member' }),
     createRelation({ from: kessa.id, to: lotsen.id, type: 'member' }),
     createRelation({ from: isolde.id, to: maera.id, type: 'fears', attitude: -1, secret: true }),

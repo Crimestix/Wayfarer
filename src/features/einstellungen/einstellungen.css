@@ -237,6 +237,16 @@
 .wf-einstellungen-summary {
   margin-top: var(--s-2);
 }
+/* Eine Angabe wie „12 Beziehungen“ bricht nicht mitten durch. */
+.wf-einstellungen-part {
+  white-space: nowrap;
+}
+.wf-einstellungen-summary__source {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
 .wf-einstellungen-summary__name {
   font-family: var(--font-display);
   font-size: var(--text-xl);

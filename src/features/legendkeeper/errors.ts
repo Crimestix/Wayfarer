@@ -56,6 +56,11 @@ export class LkError extends Error {
 }
 
 export const isLkError = (value: unknown): value is LkError => value instanceof LkError;
+
+/** Störungen, die von selbst vorübergehen: kein Netz, keine Antwort, Störung, Bremse. */
+const PASSING_KINDS: readonly LkErrorKind[] = ['offline', 'timeout', 'server', 'rate-limited'];
+export const isPassing = (value: unknown): boolean =>
+  isLkError(value) && PASSING_KINDS.includes(value.kind);
 export const isAborted = (value: unknown): boolean => isLkError(value) && value.kind === 'aborted';
 
 function parseJson(body: string): unknown {
@@ -139,8 +144,13 @@ export function transportError(cause: unknown): LkError {
   return new LkError('offline', { detail: appSentence(cause) });
 }
 
-/** Wo der Fehler angezeigt wird – der Text passt sich an. */
-export type LkErrorContext = 'article' | 'search' | 'connection';
+/**
+ * Wo der Fehler angezeigt wird – der Text passt sich an:
+ * `article` der verknüpfte Artikel eines Eintrags, `browse` ein Artikel, in dem nur geblättert
+ * wird (nichts verknüpft), `page` eine einzelne Seite eines Artikels, `search` die Suche,
+ * `connection` die Einstellungen selbst.
+ */
+export type LkErrorContext = 'article' | 'browse' | 'page' | 'search' | 'connection';
 
 export interface LkErrorView {
   title: string;
@@ -160,11 +170,16 @@ function waitText(seconds: number | undefined): string {
 
 /** Überschrift, Erklärung und nächster Schritt zu einem Fehler – in ganzen deutschen Sätzen. */
 export function describeError(error: LkError, context: LkErrorContext = 'article'): LkErrorView {
+  // In den Einstellungen selbst wäre „in den Einstellungen“ ein Verweis auf die eigene Seite.
+  const there = context === 'connection' ? 'hier' : 'in den Einstellungen';
   switch (error.kind) {
     case 'not-configured':
       return {
         title: 'LegendKeeper ist noch nicht eingerichtet',
-        text: 'Hinterlege in den Einstellungen den Schlüssel (API-Key) deines LegendKeeper-Projekts. Danach kannst du hier Artikel nachschlagen und verknüpfen.',
+        text:
+          context === 'connection'
+            ? 'Hinterlege hier den Schlüssel (API-Key) deines LegendKeeper-Projekts. Danach lassen sich Artikel nachschlagen und mit Einträgen verknüpfen.'
+            : 'Hinterlege in den Einstellungen den Schlüssel (API-Key) deines LegendKeeper-Projekts. Danach kannst du hier Artikel nachschlagen und verknüpfen.',
         action: 'settings',
         tone: 'hint',
       };
@@ -178,7 +193,7 @@ export function describeError(error: LkError, context: LkErrorContext = 'article
     case 'unauthorized':
       return {
         title: 'LegendKeeper lehnt den Schlüssel ab',
-        text: 'Der hinterlegte API-Key ist unbekannt, abgelaufen oder wurde widerrufen. Erzeuge in LegendKeeper einen neuen und trage ihn in den Einstellungen ein.',
+        text: `Der hinterlegte API-Key ist unbekannt, abgelaufen oder wurde widerrufen. Erzeuge in LegendKeeper einen neuen und trage ihn ${there} ein.`,
         action: 'settings',
         tone: 'problem',
       };
@@ -187,7 +202,7 @@ export function describeError(error: LkError, context: LkErrorContext = 'article
         title: 'Kein Zugriff',
         text:
           error.code === 'WRONG_PROJECT'
-            ? 'Der API-Key gehört zu einem anderen LegendKeeper-Projekt als dem, das Wayfarer lesen wollte. Prüfe den Key in den Einstellungen.'
+            ? `Der API-Key gehört zu einem anderen LegendKeeper-Projekt als dem, das Wayfarer lesen wollte. Prüfe den Key ${there}.`
             : 'Der API-Key darf das nicht lesen. Prüfe in LegendKeeper, welche Rolle der Key hat.',
         action: 'settings',
         tone: 'problem',
@@ -200,10 +215,24 @@ export function describeError(error: LkError, context: LkErrorContext = 'article
         tone: 'problem',
       };
     case 'not-found':
-      return context === 'article'
+      if (context === 'article')
+        return {
+          title: 'Artikel nicht gefunden',
+          text: 'Diesen Artikel gibt es in LegendKeeper nicht mehr – oder der API-Key darf ihn nicht sehen. Löse die Verknüpfung und wähle den passenden Artikel neu.',
+          action: 'retry',
+          tone: 'problem',
+        };
+      if (context === 'page')
+        return {
+          title: 'Seite nicht gefunden',
+          text: 'Diese Seite des Artikels gibt es in LegendKeeper nicht mehr. Lade den Artikel neu, um seine aktuellen Seiten zu sehen.',
+          action: 'retry',
+          tone: 'problem',
+        };
+      return context === 'browse'
         ? {
             title: 'Artikel nicht gefunden',
-            text: 'Diesen Artikel gibt es in LegendKeeper nicht mehr – oder der API-Key darf ihn nicht sehen. Löse die Verknüpfung und wähle den passenden Artikel neu.',
+            text: 'Diesen Artikel gibt es in LegendKeeper nicht mehr – oder der API-Key darf ihn nicht sehen. Der Verweis darauf ist veraltet.',
             action: 'retry',
             tone: 'problem',
           }

@@ -196,4 +196,24 @@ describe('Fehler erklären', () => {
   it('rät bei einem verschwundenen Artikel zum Neuverknüpfen', () => {
     expect(describeError(new LkError('not-found'), 'article').text).toContain('Verknüpfung');
   });
+
+  it('rät beim Blättern und bei einer fehlenden Seite nicht zum Lösen einer Verknüpfung', () => {
+    for (const context of ['browse', 'page'] as const) {
+      const view = describeError(new LkError('not-found'), context);
+      expect(view.text).not.toContain('Verknüpfung');
+      expect(view.action).toBe('retry');
+    }
+    expect(describeError(new LkError('not-found'), 'page').title).toBe('Seite nicht gefunden');
+  });
+
+  it('verweist in den Einstellungen nicht auf die Einstellungen', () => {
+    for (const error of [
+      new LkError('unauthorized'),
+      new LkError('forbidden', { code: 'WRONG_PROJECT' }),
+      new LkError('not-configured'),
+    ]) {
+      expect(describeError(error, 'connection').text).not.toContain('Einstellungen');
+      expect(describeError(error, 'article').text).toContain('in den Einstellungen');
+    }
+  });
 });

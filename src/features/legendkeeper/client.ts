@@ -11,7 +11,7 @@
  * Anfragen und seitenweises Laden.
  */
 import { isDesktopApp, lkGet as invokeLkGet, type LkQuery } from '../../data/platform';
-import { LkError, parseRetryAfter, readResponse, transportError } from './errors';
+import { LkError, isPassing, parseRetryAfter, readResponse, transportError } from './errors';
 import type {
   LkDocumentBlocks,
   LkPage,
@@ -40,9 +40,13 @@ export interface LkTransport {
 export interface LkGetOptions {
   /** Bricht ab, sobald das Ergebnis niemand mehr braucht. */
   signal?: AbortSignal;
-  /** So alt darf eine gemerkte Antwort höchstens sein (Millisekunden). */
+  /**
+   * So alt darf eine gemerkte Antwort höchstens sein (Millisekunden). Eine ältere wird neu
+   * geholt – scheitert das an einer vorübergehenden Störung (kein Netz, keine Antwort), gilt
+   * die ältere weiter: am Tisch bleibt lesbar, was schon einmal da war.
+   */
   maxAgeMs?: number;
-  /** Gemerkte Antwort übergehen und neu holen. */
+  /** Gemerkte Antwort übergehen und neu holen – ohne Rückgriff auf die alte („Aktualisieren“). */
   force?: boolean;
 }
 
@@ -186,11 +190,15 @@ export function createLkClient(transport: LkTransport, now: () => number = Date.
       const { signal, maxAgeMs = ARTICLE_MAX_AGE, force = false } = options;
       if (signal?.aborted) return Promise.reject(new LkError('aborted'));
       const key = cacheKey(path, query);
-      if (!force) {
-        const hit = cache.get(key);
-        if (hit && now() - hit.at <= maxAgeMs) return Promise.resolve(hit.value as T);
-      }
-      return join<T>(key, flights.get(key) ?? start(key, path, query), signal);
+      const hit = force ? undefined : cache.get(key);
+      if (hit && now() - hit.at <= maxAgeMs) return Promise.resolve(hit.value as T);
+      const fresh = join<T>(key, flights.get(key) ?? start(key, path, query), signal);
+      if (!hit) return fresh;
+      return fresh.catch((error: unknown) => {
+        // Bei einer vorübergehenden Störung ist die ältere Antwort besser als gar keine.
+        if (isPassing(error)) return hit.value as T;
+        throw error;
+      });
     },
 
     async list<T>(path: string, query: LkQuery = {}, options: LkListOptions = {}): Promise<T[]> {

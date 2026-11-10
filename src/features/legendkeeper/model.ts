@@ -613,9 +613,10 @@ export function noteText(node: Extract<ArticleNode, { type: 'note' }>): string {
       return `Bild${named ? ` ${named}` : ''} – lässt sich hier nicht laden.`;
     case 'unknown':
     default:
+      // Die Art steht nur im Tooltip (`kind`); als Text wäre sie Fachsprache von LegendKeeper.
       return node.count > 1
-        ? `${node.count} Bausteine (${node.kind ?? 'unbekannt'}) kennt Wayfarer noch nicht – in LegendKeeper ansehen.`
-        : `Einen Baustein (${node.kind ?? 'unbekannt'}) kennt Wayfarer noch nicht – in LegendKeeper ansehen.`;
+        ? `${node.count} Abschnitte haben eine Form, die Wayfarer nicht darstellen kann – sie sind nur in LegendKeeper zu sehen.`
+        : 'Ein Abschnitt hat eine Form, die Wayfarer nicht darstellen kann – er ist nur in LegendKeeper zu sehen.';
   }
 }
 

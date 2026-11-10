@@ -1,5 +1,5 @@
 /** Was die Einstellungen über die Verbindung sagen. Reine Funktionen. */
-import { describeError, type LkError, type LkErrorKind } from './errors';
+import { describeError, isPassing, type LkError } from './errors';
 
 export interface StatusInput {
   phase: 'idle' | 'checking' | 'ready' | 'failed';
@@ -71,15 +71,13 @@ export function statusView(input: StatusInput): StatusView {
     return {
       tone: 'off',
       title: 'In der Vorschau nicht verbunden',
-      text: 'Die Vorschau im Browser hat keinen Zugang zu LegendKeeper.',
+      text: 'Die Vorschau im Browser hat keinen Zugang zu LegendKeeper. Eingerichtet wird die Verbindung in der installierten App – nur dort liegt der API-Key sicher im Schlüsselbund des Systems.',
     };
   }
   const view = describeError(error, 'connection');
   return { tone: 'problem', title: view.title, text: view.text };
 }
 
-/** Störungen, die von selbst vorübergehen – kein Grund, auf einen Klick zu warten. */
-const PASSING: readonly LkErrorKind[] = ['offline', 'timeout', 'server', 'rate-limited'];
 export const RECHECK_AFTER_MS = 15_000;
 
 /**
@@ -92,5 +90,6 @@ export function shouldRecheck(
   now: number,
 ): boolean {
   if (state.phase !== 'failed' || !state.error || state.checkedAt === undefined) return false;
-  return PASSING.includes(state.error.kind) && now - state.checkedAt >= RECHECK_AFTER_MS;
+  // Was von selbst vorübergeht, ist kein Grund, auf einen Klick zu warten.
+  return isPassing(state.error) && now - state.checkedAt >= RECHECK_AFTER_MS;
 }

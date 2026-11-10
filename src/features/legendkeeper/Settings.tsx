@@ -165,7 +165,8 @@ export function LegendKeeperSettings() {
             </div>
           )}
         </form>
-      ) : (
+      ) : connection.phase === 'failed' && connection.error.kind === 'preview' ? null : (
+        // Steht der Zugang in der Vorschau trotzdem, sagt der Hinweis, warum hier kein Feld ist.
         <div className="wf-lk-settings__notice">
           Dies ist die Vorschau im Browser. Die Verbindung zu LegendKeeper wird in der installierten
           App eingerichtet: Nur dort kann der API-Key sicher im Schlüsselbund des Systems liegen.

@@ -496,6 +496,11 @@ export interface RelationRow {
   label: string;
   /** Bezeichnung aus Sicht des Gegenübers. */
   inverseLabel: string;
+  /**
+   * Die Bezeichnung ist frei formuliert („schuldet seit Jahren Geld an“) oder ein ganzer Satz.
+   * Solche Bezeichnungen stehen nicht in Versalien, sonst werden sie unlesbar.
+   */
+  freeText: boolean;
   /** Alle vorhandenen Richtungen sind beendet. */
   ended: boolean;
   /** Mindestens eine Richtung ist der Gruppe unbekannt. */
@@ -531,6 +536,7 @@ export function relationRows(data: CampaignData, entityId: string): RelationRow[
       inverseLabel:
         spelledOut ??
         (telling === outgoing ? relationLabel(telling!, 'to') : relationLabel(telling!, 'from')),
+      freeText: isOneWay(telling!),
       ended: present.every((r) => r.ended),
       secret: present.some((r) => r.secret),
       notes: present.map((r) => r.note.trim()).filter(Boolean),
@@ -598,6 +604,37 @@ export function savesDirection(
 ): boolean {
   if (relationDraftChanged(draft, current)) return true;
   return !current && context.active && !context.pairExists;
+}
+
+/**
+ * In welcher Richtung der Beziehungsdialog beginnt: bei einer vorhandenen Beziehung in ihrer
+ * Richtung, sonst in der gewünschten (`prefer`).
+ */
+export function startDirection(
+  outgoing: Relation | null | undefined,
+  incoming: Relation | null | undefined,
+  prefer: 'out' | 'in' = 'out',
+): 'out' | 'in' {
+  if (outgoing && incoming) return prefer;
+  if (outgoing) return 'out';
+  if (incoming) return 'in';
+  return prefer;
+}
+
+/**
+ * Entwürfe beider Richtungen für ein gewähltes Gegenüber. Beim Eintragen eines Mitglieds geht
+ * eine neue Beziehung vom Mitglied aus: „Kessa gehört zu den Lotsen“.
+ */
+export function relationDrafts(
+  outgoing: Relation | null | undefined,
+  incoming: Relation | null | undefined,
+  asMember = false,
+): Record<'out' | 'in', RelationDraft> {
+  const fresh = !outgoing && !incoming;
+  return {
+    out: relationDraft(outgoing),
+    in: fresh && asMember ? { ...relationDraft(), type: 'member' } : relationDraft(incoming),
+  };
 }
 
 /** Die Gruppe kann nur Ziel einer Beziehung sein, nie ihr Ausgangspunkt. */

@@ -132,6 +132,47 @@ describe('Zwischenspeicher', () => {
     expect(seen.filter((key) => key === '/projects/p/resources/r10')).toHaveLength(1);
   });
 
+  it('liest ohne Netz weiter, was schon einmal geholt wurde – aber nicht beim Aktualisieren', async () => {
+    let time = 1_000;
+    let online = true;
+    const transport: LkTransport = {
+      mode: 'desktop',
+      async get() {
+        if (!online) throw 'LegendKeeper ist nicht erreichbar. Besteht eine Internetverbindung?';
+        return ok(`{"at":${time}}`);
+      },
+    };
+    const client = createLkClient(transport, () => time);
+    await client.get('/a', undefined, { maxAgeMs: 5_000 });
+    online = false;
+    time += 60_000;
+    // Abgelaufen, aber kein Netz: die ältere Antwort gilt weiter, mit ihrem echten Zeitpunkt.
+    await expect(client.get('/a', undefined, { maxAgeMs: 5_000 })).resolves.toEqual({ at: 1_000 });
+    expect(client.fetchedAt('/a')).toBe(1_000);
+    // „Aktualisieren“ sagt ehrlich, dass es nicht geklappt hat.
+    expect(await kindOf(client.get('/a', undefined, { force: true }))).toBe('offline');
+    // Nie Geholtes bleibt ein Fehler.
+    expect(await kindOf(client.get('/b'))).toBe('offline');
+    online = true;
+    await expect(client.get('/a', undefined, { maxAgeMs: 5_000 })).resolves.toEqual({ at: 61_000 });
+  });
+
+  it('greift bei einer Ablehnung nicht auf Altes zurück', async () => {
+    let time = 1_000;
+    let status = 200;
+    const transport: LkTransport = {
+      mode: 'desktop',
+      async get() {
+        return status === 200 ? ok('{"n":1}') : { status, body: fixtureText('error-404.json') };
+      },
+    };
+    const client = createLkClient(transport, () => time);
+    await client.get('/a', undefined, { maxAgeMs: 5_000 });
+    time += 60_000;
+    status = 404;
+    expect(await kindOf(client.get('/a', undefined, { maxAgeMs: 5_000 }))).toBe('not-found');
+  });
+
   it('merkt sich keine Fehler', async () => {
     let count = 0;
     const transport: LkTransport = {

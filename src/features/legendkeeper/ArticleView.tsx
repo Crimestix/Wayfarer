@@ -1,19 +1,22 @@
 /** Ein LegendKeeper-Artikel zum Lesen: Kopf, Seiten, Fließtext und Randspalte. */
-import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { ExternalLink, EyeOff, RefreshCw } from 'lucide-react';
 import { Badge, Button, cx, toast } from '../../ui';
-import { ArticleNodes, type ArticleContext, type OpenTarget } from './Article';
+import { ArticleNodes, Mention, type ArticleContext, type OpenTarget } from './Article';
+import { childList } from './catalog';
 import { articleFetchedAt, articleUrl, fetchBlocks, fetchResource, forgetResource } from './client';
 import { describeError, type LkError } from './errors';
 import { useFitsWindow, useLoad } from './hooks';
-import {
-  articleBody,
-  articleHead,
-  docLabel,
-  linkedResourceIds,
-  shortPath,
-  type ArticleHead,
-} from './model';
+import { articleBody, articleHead, docLabel, shortPath, type ArticleHead } from './model';
 import { useCatalog } from './state';
 import { clockTime } from './status';
 
@@ -59,6 +62,20 @@ const refreshFailed = (error: LkError) => {
   });
 };
 
+/** Artikel und Seite scheitern beim Aktualisieren meist gemeinsam – gemeldet wird einmal. */
+function useOnceReporter(report: (error: LkError) => void, windowMs = 2000) {
+  const last = useRef(0);
+  return useCallback(
+    (error: LkError) => {
+      const now = Date.now();
+      if (now - last.current < windowMs) return;
+      last.current = now;
+      report(error);
+    },
+    [report, windowMs],
+  );
+}
+
 export function ArticleView({
   target,
   projectId,
@@ -68,13 +85,14 @@ export function ArticleView({
   onHead,
 }: ArticleViewProps) {
   const { resourceId } = target;
+  const reportRefresh = useOnceReporter(refreshFailed);
   const article = useLoad(
     resourceId,
     async ({ signal, force }) => {
       if (force) forgetResource(resourceId);
       return articleHead(await fetchResource(resourceId, { signal, force }), projectId);
     },
-    refreshFailed,
+    reportRefresh,
   );
   const head = article.load.data;
   const title = head?.title;
@@ -97,7 +115,7 @@ export function ArticleView({
         title,
       );
     },
-    refreshFailed,
+    reportRefresh,
   );
   const body = page.load.data;
 
@@ -106,14 +124,13 @@ export function ArticleView({
     // Bewusst nur abhängig vom geladenen Kopf: `onHead` darf bei jedem Zeichnen neu sein.
   }, [article.load]);
 
-  // Namen verlinkter Artikel stehen nur im Verzeichnis – geladen wird es erst, wenn sie gebraucht werden.
-  const needsNames = useMemo(
-    () =>
-      linkedResourceIds([...(head?.side ?? []), ...(body?.aside ?? []), ...(body?.body ?? [])])
-        .length > 0,
-    [head, body],
+  // Aus dem Verzeichnis kommen die Namen verlinkter Artikel und die Unterartikel. Es wird einmal
+  // geladen (und eine Weile gemerkt) und ist mit der Suche geteilt.
+  const catalog = useCatalog(head !== null);
+  const children = useMemo(
+    () => (head && catalog.catalog ? childList(catalog.catalog, head.id) : null),
+    [head, catalog.catalog],
   );
-  const catalog = useCatalog(needsNames);
   const ctx: ArticleContext = useMemo(
     () => ({
       onOpen,
@@ -335,7 +352,8 @@ export function ArticleView({
               {head.others.length > 0 ? ' – nur das, was unten aufgeführt ist.' : '.'}
             </p>
           ) : page.load.status === 'failed' ? (
-            renderError(page.load.error, page.reload, 'page')
+            // Fehlt die Seite, ist auch die Liste der Seiten veraltet: beides neu holen.
+            renderError(page.load.error, refresh, 'page')
           ) : !body ? (
             <Skeleton />
           ) : body.body.length === 0 ? (
@@ -346,6 +364,32 @@ export function ArticleView({
             </p>
           ) : (
             <ArticleNodes nodes={body.body} ctx={ctx} />
+          )}
+          {children && children.items.length > 0 && (
+            <nav className="wf-lk-children" aria-label="Unterartikel in LegendKeeper">
+              <div className="wf-lk-label">Darunter in LegendKeeper</div>
+              <p>
+                {children.items.map((child, index) => (
+                  <Fragment key={child.id}>
+                    {index > 0 && (
+                      <span className="wf-lk-children__sep" aria-hidden>
+                        ·
+                      </span>
+                    )}
+                    <Mention ctx={ctx} target={{ resourceId: child.id, title: child.title }} />
+                    {child.hidden && (
+                      <EyeOff
+                        className="wf-lk-children__hidden"
+                        aria-label="vor den Spielern verborgen"
+                      />
+                    )}
+                  </Fragment>
+                ))}
+                {children.more > 0 && (
+                  <span className="wf-lk-children__more"> und {children.more} weitere</span>
+                )}
+              </p>
+            </nav>
           )}
         </div>
       </div>

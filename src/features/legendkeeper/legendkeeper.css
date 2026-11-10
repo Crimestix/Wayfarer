@@ -190,12 +190,17 @@
   color: var(--ink-mute);
 }
 .wf-lk-path button {
+  /* Lange Namen im Pfad werden gekürzt; der ganze Pfad steht im Tooltip. */
+  max-width: 26ch;
+  overflow: hidden;
   padding: 0;
   border: 0;
   background: none;
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: inherit;
 }
 .wf-lk-path button:hover {
@@ -357,8 +362,15 @@
   padding-top: var(--s-4);
   border-top: 1px solid var(--line);
 }
+/* Im Steckbrief füllen Bilder die Breite und dürfen dafür oben und unten etwas verlieren. */
+.wf-lk-aside .wf-lk-figure a {
+  display: block;
+}
 .wf-lk-aside .wf-lk-figure img {
+  width: 100%;
   max-height: 300px;
+  object-fit: cover;
+  object-position: 50% 25%;
 }
 /* Das erste Bild des Steckbriefs füllt den Rahmen bis an den Rand */
 .wf-lk-aside > .wf-lk-aside__part:first-child > .wf-lk-figure:first-child {
@@ -728,13 +740,17 @@
   margin-right: 0;
 }
 .wf-lk-figure a {
-  display: block;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
 }
+/* Im Text wird nichts beschnitten: eine Karte oder ein hohes Bild bleibt ganz zu sehen. */
 .wf-lk-figure img {
   display: block;
-  width: 100%;
-  max-height: 520px;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  max-height: 560px;
+  object-fit: contain;
   border: 1px solid var(--line);
   background: var(--bg-inset);
 }
@@ -880,6 +896,32 @@
 }
 
 /* Fuß des Artikels */
+/* Unterartikel – am Ende des Texts, wie ein Verzeichnis im Buch */
+.wf-lk-children {
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-lk-children p {
+  margin: 0;
+  line-height: 1.9;
+}
+.wf-lk-children__sep {
+  margin: 0 8px;
+  color: var(--gold-deep);
+}
+.wf-lk-children__hidden {
+  width: 13px;
+  height: 13px;
+  margin-left: 4px;
+  vertical-align: -1px;
+  color: var(--ink-faint);
+}
+.wf-lk-children__more {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
 .wf-lk-foot {
   display: flex;
   flex-wrap: wrap;
@@ -1037,6 +1079,14 @@
 .wf-lk-hit__path {
   color: var(--ink-mute);
   font-size: var(--text-sm);
+}
+.wf-lk-hit__path > span {
+  display: inline-block;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .wf-lk-hit__path i {
   margin: 0 5px;

@@ -164,6 +164,25 @@ export function descendantCount(catalog: Catalog, id: string): number {
   return total;
 }
 
+/**
+ * Die Artikel direkt unter einem Artikel, nach Titel – für Übersichtsseiten, deren Liste der
+ * Unterartikel LegendKeeper über die Schnittstelle nicht herausgibt. Höchstens `limit`;
+ * `more` zählt, was darüber hinaus fehlt.
+ */
+export function childList(
+  catalog: Catalog,
+  id: string,
+  limit = 40,
+): { items: { id: string; title: string; hidden: boolean }[]; more: number } {
+  const all = catalog.children.get(id) ?? [];
+  return {
+    items: all
+      .slice(0, limit)
+      .map((entry) => ({ id: entry.id, title: entry.title, hidden: entry.hidden })),
+    more: Math.max(0, all.length - limit),
+  };
+}
+
 /** Wie gut passt ein Suchwort auf einen aufbereiteten Namen? 0 = gar nicht. */
 function nameScore(name: string, query: string, tokens: string[]): number {
   if (!name) return 0;

@@ -132,14 +132,23 @@ function isReferenced(db: CampaignDb, id: string): boolean {
   );
 }
 
-/** Ändert die Felder, die zur Art des Eintrags gehören (z. B. Aufenthaltsort einer Person). */
+/**
+ * Ändert die Felder, die zur Art des Eintrags gehören (z. B. Aufenthaltsort einer Person).
+ * Geht vom gespeicherten Stand aus, nicht vom gezeigten: So geht keine Änderung verloren, die
+ * inzwischen hinzukam, und ein gelöschter Eintrag entsteht nicht neu.
+ */
 export function patchDetails<E extends Entity>(
   db: CampaignDb,
   entity: E,
   change: Partial<DetailsOf<E>>,
 ): void {
-  const key = entity.kind as keyof E;
-  db.put('entities', { ...entity, [key]: { ...(entity[key] as object), ...change } } as Entity);
+  const current = db.getSnapshot().entities[entity.id];
+  if (!current || current.kind !== entity.kind) return;
+  const key = current.kind as keyof Entity;
+  db.put('entities', {
+    ...current,
+    [key]: { ...(current[key] as object), ...change },
+  } as Entity);
 }
 
 type DetailsOf<E extends Entity> = E extends { kind: infer K }

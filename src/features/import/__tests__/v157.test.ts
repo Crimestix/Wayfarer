@@ -962,6 +962,39 @@ describe('Unbekanntes und Kaputtes', () => {
     expect(entitiesOfKind(data, 'character')).toHaveLength(6);
     expect(Object.keys(data.entities)).toHaveLength(6);
     expect(data.campaign.calendar).toEqual(ELARIS_CALENDAR);
+    // Kein Bereich verschwindet stillschweigend: Jeder mit falschem Aufbau steht im Bericht.
+    const skipped = previewV157Backup(backup).sections.skipped.join(' ');
+    for (const label of [
+      'Welt',
+      'Gefährten',
+      'Notizen',
+      'Timer',
+      'Dossiereinträge',
+      'Meinungen',
+      'Mond-Kalibrierung',
+      'Gelöschte Timer',
+    ])
+      expect(skipped).toContain(`Bereich „${label}“ (unerwarteter Aufbau)`);
+    // Fehlende Bereiche (null) sind kein Fehler – ältere Backups kennen sie nicht.
+    expect(skipped).not.toContain('„Termine“');
+    expect(skipped).not.toContain('„Bekanntheit der Personen“');
+  });
+
+  it('nennt Teilbereiche der Welt mit falschem Aufbau, ohne den Rest zu verlieren', () => {
+    const backup = full() as unknown as Record<string, unknown>;
+    const world = backup.world as Record<string, unknown>;
+    world.visits = 'unterwegs';
+    backup.events = 'x';
+    const { data, sections } = previewV157Backup(backup);
+    expectValid(data);
+    expect(entitiesOfKind(data, 'place').length).toBeGreaterThan(0);
+    expect(sections.skipped).toContain(
+      'Übersprungen, weil unlesbar: 1 Bereich „Ortswechsel“ (unerwarteter Aufbau).',
+    );
+    expect(sections.skipped).toContain(
+      'Übersprungen, weil unlesbar: 1 Bereich „Termine“ (unerwarteter Aufbau).',
+    );
+    expect(sections.skipped.join(' ')).not.toContain('„Welt“');
   });
 
   it('lässt gelöschte Timer weg, auch wenn ein älteres Gerät sie noch im Backup hatte', () => {

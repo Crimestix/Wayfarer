@@ -1,10 +1,11 @@
 /** Abschnitt „Kampagne“: Name, Ablageort, Ordner wechseln bzw. Hinweis auf die Browser-Vorschau. */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Cloud, FlaskConical, FolderOpen, RotateCcw } from 'lucide-react';
 import { CampaignDb, CampaignMissingError } from '../../data/db';
 import { useData, useDb } from '../../data/hooks';
 import { FolderStore, isDesktopApp, pickFolder, setConfig } from '../../data/platform';
 import { demoCampaign } from '../../data/seed';
+import { formatDate } from '../../domain/time/calendar';
 import { Button, Dialog, Field, Input, toast } from '../../ui';
 import { errorText } from './files';
 import { CAMPAIGN_NAME_MAX, cleanCampaignName, isInsideFolder } from './model';
@@ -205,6 +206,10 @@ export function CampaignSection() {
   const desktop = isDesktopApp();
 
   const [resetOpen, setResetOpen] = useState(false);
+  const demoStart = useMemo(() => {
+    const demo = demoCampaign();
+    return formatDate(demo.campaign.calendar, demo.state.now);
+  }, []);
   const resetDemo = () => {
     setResetOpen(false);
     db.replaceAll(demoCampaign());
@@ -235,16 +240,17 @@ export function CampaignSection() {
       ) : (
         <Notice
           icon={<FlaskConical />}
-          title="Vorschau im Browser mit Beispielwelt"
+          title="Vorschau im Browser"
           action={
             <Button icon={<RotateCcw />} onClick={() => setResetOpen(true)}>
               Beispielwelt zurücksetzen
             </Button>
           }
         >
-          Orte und Personen hier sind erfunden. Änderungen bleiben nur in diesem Browser. Erst die
-          installierte App speichert die Kampagne als Ordner – auf Wunsch im Cloud-Laufwerk, damit
-          Mac und Windows denselben Spielstand haben.
+          Hier lässt sich Wayfarer ausprobieren – zu Beginn mit einer erfundenen Beispielwelt.
+          Änderungen bleiben nur in diesem Browser. Erst die installierte App speichert die Kampagne
+          als Ordner, auf Wunsch im Cloud-Laufwerk, damit Mac und Windows denselben Spielstand
+          haben.
         </Notice>
       )}
 
@@ -263,8 +269,8 @@ export function CampaignSection() {
         }
       >
         <p className="wf-soft">
-          Alles, was du in der Vorschau geändert hast, geht verloren. Die Beispielwelt beginnt
-          wieder am 17. Tauwind 701 AD.
+          Der jetzige Stand dieser Vorschau geht verloren – auch ein eingespielter oder
+          übernommener. Die Beispielwelt beginnt wieder am {demoStart}.
         </p>
       </Dialog>
     </div>

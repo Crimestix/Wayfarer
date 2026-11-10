@@ -24,7 +24,7 @@ export interface ArticleContext {
  * Verweis auf einen anderen Artikel. Bewusst kein <button>: ein Knopf im Fließtext zählt als
  * eigener Kasten, und der Satz bräche vor dem folgenden Punkt oder Komma um.
  */
-function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleContext }) {
+export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleContext }) {
   const onKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
@@ -91,9 +91,9 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
   );
 }
 
-function Note({ children, href }: { children: ReactNode; href?: string }) {
+function Note({ children, href, hint }: { children: ReactNode; href?: string; hint?: string }) {
   return (
-    <p className="wf-lk-note">
+    <p className="wf-lk-note" title={hint}>
       <Info aria-hidden />
       <span>
         {children}
@@ -362,12 +362,21 @@ function Node({ node, ctx }: { node: ArticleNode; ctx: ArticleContext }) {
         </section>
       );
     case 'note':
-      return <Note href={node.href}>{noteText(node)}</Note>;
+      return (
+        <Note
+          href={node.href}
+          hint={
+            node.reason === 'unknown' && node.kind ? `Art in LegendKeeper: ${node.kind}` : undefined
+          }
+        >
+          {noteText(node)}
+        </Note>
+      );
     case 'unknown':
       return (
-        <div className="wf-lk-unknown">
+        <div className="wf-lk-unknown" title={`Art in LegendKeeper: ${node.kind}`}>
           <div className="wf-lk-unknown__label">
-            Baustein „{node.kind}“ – Wayfarer kennt ihn noch nicht und zeigt nur den Text
+            Diesen Abschnitt kann Wayfarer nicht in seiner Form zeigen – hier steht nur sein Text
           </div>
           <p className="wf-prose">{node.text}</p>
         </div>

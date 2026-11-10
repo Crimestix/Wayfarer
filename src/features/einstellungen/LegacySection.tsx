@@ -251,23 +251,29 @@ export function LegacySection() {
       </div>
       {picker.input}
 
-      <MissingNames />
-
       {last && (
         <Notice
           icon={<Check />}
-          title={last.fileName ? `Übernommen aus ${last.fileName}` : 'Alter Spielstand übernommen'}
+          title={
+            last.fileName
+              ? `Zuletzt übernommen: ${last.fileName}`
+              : 'Zuletzt übernommen: Backup der alten Version'
+          }
           action={<Button onClick={() => setViewing(true)}>Bericht ansehen</Button>}
         >
           {formatRealTime(last.at)}. Der Bericht bleibt hier einsehbar, bis du Wayfarer schließt.
         </Notice>
       )}
 
+      <MissingNames />
+
       <ReplaceDialog
         open={pending !== null}
         onClose={() => setPending(null)}
         title="Alten Spielstand übernehmen"
-        incomingLabel={shown ? shown.fileName : 'Backup der alten Version'}
+        incomingLabel={
+          shown ? `Backup der alten Version: ${shown.fileName}` : 'Backup der alten Version'
+        }
         incoming={shown ? summarize(shown.result.data) : null}
         confirmLabel="Übernehmen und Stand ersetzen"
         onConfirm={apply}

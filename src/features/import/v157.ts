@@ -266,6 +266,7 @@ class Importer {
   }
 
   run(): ImportResult {
+    this.checkShapes();
     this.guard('Orte', () => this.importPlaces());
     this.guard('Einträge der Weltdatenbank', () => this.importRecords());
     this.guard('Gefährten', () => this.importParty());
@@ -281,6 +282,43 @@ class Importer {
     this.reportSky();
     this.reportOmitted();
     return this.finish();
+  }
+
+  /**
+   * Bereiche, die vorhanden sind, aber eine ganz falsche Form haben (etwa Text statt Liste),
+   * werden beim Lesen wie leere behandelt. Damit sie nicht stillschweigend verschwinden,
+   * nennt der Bericht sie hier. Fehlende Bereiche (ältere Backups) sind kein Fehler.
+   */
+  private checkShapes() {
+    const world = this.raw.world;
+    const database = obj(world).database;
+    const shapes: [value: unknown, expected: 'list' | 'object', label: string][] = [
+      [this.raw.notes, 'list', 'Notizen'],
+      [this.raw.events, 'list', 'Termine'],
+      [this.raw.timers, 'list', 'Timer'],
+      [this.raw.removedTimers, 'list', 'Gelöschte Timer'],
+      [world, 'object', 'Welt'],
+      [obj(world).places, 'list', 'Orte'],
+      [obj(world).visits, 'list', 'Ortswechsel'],
+      [database, 'object', 'Weltdatenbank'],
+      [obj(database).records, 'object', 'Weltdatenbank'],
+      [this.raw.characters, 'object', 'Gefährten'],
+      [this.raw.npcOpinions, 'object', 'Meinungen'],
+      [this.raw.npcKnowledge, 'object', 'Bekanntheit der Personen'],
+      [this.raw.dossierJournal, 'object', 'Dossiereinträge'],
+      [this.raw.sky, 'object', 'Mond-Kalibrierung'],
+    ];
+    const broken = new Set<string>();
+    for (const [value, expected, label] of shapes) {
+      if (value === undefined || value === null) continue;
+      const fits = expected === 'list' ? Array.isArray(value) : isObj(value);
+      if (!fits) broken.add(label);
+    }
+    for (const label of broken)
+      this.skip(
+        `Bereich „${label}“ (unerwarteter Aufbau)`,
+        `Bereiche „${label}“ (unerwarteter Aufbau)`,
+      );
   }
 
   /** Ein kaputter Bereich darf den Rest nicht aufhalten. */

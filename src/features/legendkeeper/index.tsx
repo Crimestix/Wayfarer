@@ -3,7 +3,7 @@
  * Diese beiden Bausteine sind die Schnittstelle zum Rest der App.
  * Wie die Anbindung arbeitet, steht in API-NOTIZEN.md in diesem Ordner.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
   ArrowLeft,
@@ -57,14 +57,17 @@ function Unavailable({
   onRetry,
   link,
   onUnlink,
+  context = 'article',
 }: {
   error: LkError;
   onRetry: () => void;
   link: LkLink | null;
   onUnlink?: () => void;
+  /** `browse`: ein Artikel, in dem nur geblättert wird. `page`: nur eine Seite eines Artikels. */
+  context?: 'article' | 'browse' | 'page';
 }) {
   const [, navigate] = useLocation();
-  const view = describeError(error, 'article');
+  const view = describeError(error, context);
   const toSettings = (
     <Button
       variant={view.action === 'settings' ? 'primary' : 'default'}
@@ -76,7 +79,9 @@ function Unavailable({
   );
   const retry = (
     <Button
-      variant={view.action === 'retry' && error.kind !== 'not-found' ? 'primary' : 'default'}
+      variant={
+        view.action === 'retry' && (error.kind !== 'not-found' || !onUnlink) ? 'primary' : 'default'
+      }
       onClick={onRetry}
     >
       Erneut versuchen
@@ -139,19 +144,22 @@ export function LkArticlePanel({
   const linked = useLinkedEntries();
   /** Artikel, in denen gerade geblättert wird – der letzte ist zu sehen. Leer: der verknüpfte. */
   const [trail, setTrail] = useState<OpenTarget[]>([]);
-  /** Titel des gerade angesehenen Artikels, wie LegendKeeper ihn nennt. */
-  const seenTitle = useRef<string | null>(null);
+  /**
+   * Der gerade angesehene Artikel, sobald LegendKeeper ihn geliefert hat. Erst dann lässt er sich
+   * verknüpfen – einen Verweis ins Leere verknüpft man nicht.
+   */
+  const [seen, setSeen] = useState<{ id: string; title: string } | null>(null);
 
   // Wechselt der Eintrag (oder seine Verknüpfung), beginnt das Blättern von vorn.
   const linkedId = link?.resourceId ?? null;
   useEffect(() => setTrail([]), [linkedId, suggest]);
 
   const open = (target: OpenTarget) => {
-    seenTitle.current = null;
+    setSeen(null);
     setTrail((current) => (target.resourceId === linkedId ? [] : [...current, target]));
   };
   const back = () => {
-    seenTitle.current = null;
+    setSeen(null);
     setTrail((current) => current.slice(0, -1));
   };
 
@@ -237,26 +245,31 @@ export function LkArticlePanel({
               </span>
             )}
           </span>
-          <Button
-            size="sm"
-            variant="primary"
-            icon={<Link2 />}
-            onClick={() =>
-              linkTo({ resourceId: peek.resourceId, title: seenTitle.current ?? peek.title })
-            }
-          >
-            {link ? 'Stattdessen diesen verknüpfen' : 'Diesen Artikel verknüpfen'}
-          </Button>
+          {seen?.id === peek.resourceId && (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Link2 />}
+              onClick={() => linkTo({ resourceId: peek.resourceId, title: seen.title })}
+            >
+              {link ? 'Stattdessen diesen verknüpfen' : 'Diesen Artikel verknüpfen'}
+            </Button>
+          )}
         </div>
         <ArticleView
           key={`${peek.resourceId}/${peek.documentId ?? ''}`}
           target={peek}
           projectId={project.id}
           onOpen={open}
-          onHead={(head: ArticleHead) => {
-            seenTitle.current = head.title;
-          }}
-          renderError={(error, retry) => <Unavailable error={error} onRetry={retry} link={null} />}
+          onHead={(head: ArticleHead) => setSeen({ id: head.id, title: head.title })}
+          renderError={(error, retry, scope) => (
+            <Unavailable
+              error={error}
+              onRetry={retry}
+              link={null}
+              context={scope === 'page' ? 'page' : 'browse'}
+            />
+          )}
         />
       </div>
     );
@@ -290,7 +303,7 @@ export function LkArticlePanel({
           }
           renderError={(error, retry, scope) =>
             scope === 'page' ? (
-              <Unavailable error={error} onRetry={retry} link={null} />
+              <Unavailable error={error} onRetry={retry} link={null} context="page" />
             ) : (
               <Unavailable error={error} onRetry={retry} link={link} onUnlink={unlink} />
             )

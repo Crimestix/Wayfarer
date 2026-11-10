@@ -27,14 +27,16 @@ import {
   toast,
 } from '../../ui';
 import { removeRelation } from './actions';
+import type { RelationIntent } from './OverviewTab';
 import { Picker } from './parts';
 import {
   canRelateFrom,
   entitySubline,
-  relationDraft,
+  relationDrafts,
   relationRows,
   relationSentence,
   savesDirection,
+  startDirection,
   type RelationDraft,
   type RelationRow,
   type WorldEntity,
@@ -42,11 +44,23 @@ import {
 
 const TYPE_GROUPS = [...new Set(RELATION_TYPES.map((t) => t.group))];
 
-export function RelationsTab({ entity }: { entity: WorldEntity }) {
+export function RelationsTab({
+  entity,
+  startNew,
+}: {
+  entity: WorldEntity;
+  /** Öffnet gleich den Dialog zum Anlegen – bei „member“ für ein neues Mitglied. */
+  startNew?: RelationIntent;
+}) {
   const data = useData();
   const rows = relationRows(data, entity.id);
   /** null = geschlossen; '' = neue Beziehung; sonst die ID des Gegenübers. */
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(startNew ? '' : null);
+  const [asMember, setAsMember] = useState(startNew === 'member');
+  const edit = (otherId: string) => {
+    setAsMember(false);
+    setEditing(otherId);
+  };
 
   return (
     <div className="wf-welt-rel">
@@ -54,7 +68,7 @@ export function RelationsTab({ entity }: { entity: WorldEntity }) {
         <p className="wf-welt-lead">
           Wer mit {entity.name} verbunden ist – und wie beide Seiten zueinander stehen.
         </p>
-        <Button icon={<Plus />} onClick={() => setEditing('')}>
+        <Button icon={<Plus />} onClick={() => edit('')}>
           Beziehung anlegen
         </Button>
       </div>
@@ -79,7 +93,7 @@ export function RelationsTab({ entity }: { entity: WorldEntity }) {
             <span />
           </div>
           {rows.map((row) => (
-            <RelationLine key={row.otherId} row={row} onEdit={() => setEditing(row.otherId)} />
+            <RelationLine key={row.otherId} row={row} onEdit={() => edit(row.otherId)} />
           ))}
         </div>
       ) : (
@@ -87,7 +101,7 @@ export function RelationsTab({ entity }: { entity: WorldEntity }) {
           icon={<Waypoints />}
           title="Noch keine Beziehungen"
           action={
-            <Button variant="primary" icon={<Plus />} onClick={() => setEditing('')}>
+            <Button variant="primary" icon={<Plus />} onClick={() => edit('')}>
               Beziehung anlegen
             </Button>
           }
@@ -101,6 +115,7 @@ export function RelationsTab({ entity }: { entity: WorldEntity }) {
           key={editing}
           self={entity}
           otherId={editing || null}
+          asMember={asMember && !editing}
           onClose={() => setEditing(null)}
         />
       )}
@@ -123,8 +138,11 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
           </span>
         )}
         <div className="wf-grow">
-          <div className="wf-welt-rel__label">
-            {row.label}
+          <div
+            className={cx('wf-welt-rel__label', row.freeText && 'wf-welt-rel__label--free')}
+            title={row.freeText ? row.label : undefined}
+          >
+            <span className="wf-welt-rel__main">{row.label}</span>
             {!symmetric && !isParty && (
               <span className="wf-welt-rel__inverse"> · umgekehrt: {row.inverseLabel}</span>
             )}
@@ -199,10 +217,13 @@ type Direction = 'out' | 'in';
 function RelationDialog({
   self,
   otherId: initialOther,
+  asMember = false,
   onClose,
 }: {
   self: WorldEntity;
   otherId: string | null;
+  /** Ein neues Mitglied eintragen: Personen und Gefährten, Beziehung vom Mitglied aus. */
+  asMember?: boolean;
   onClose: () => void;
 }) {
   const db = useDb();
@@ -215,12 +236,11 @@ function RelationDialog({
       : dir === 'out'
         ? findRelation(data, self.id, other)
         : findRelation(data, other, self.id);
-  const [drafts, setDrafts] = useState<Record<Direction, RelationDraft>>(() => ({
-    out: relationDraft(stored(initialOther, 'out')),
-    in: relationDraft(stored(initialOther, 'in')),
-  }));
+  const [drafts, setDrafts] = useState<Record<Direction, RelationDraft>>(() =>
+    relationDrafts(stored(initialOther, 'out'), stored(initialOther, 'in')),
+  );
   const [dir, setDir] = useState<Direction>(() =>
-    initialOther && !stored(initialOther, 'out') && stored(initialOther, 'in') ? 'in' : 'out',
+    startDirection(stored(initialOther, 'out'), stored(initialOther, 'in')),
   );
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
@@ -243,9 +263,13 @@ function RelationDialog({
       : null;
 
   const pickOther = (id: string | null) => {
+    const outgoing = stored(id, 'out');
+    const incoming = stored(id, 'in');
     setOtherId(id);
-    setDir('out');
-    setDrafts({ out: relationDraft(stored(id, 'out')), in: relationDraft(stored(id, 'in')) });
+    setDir(
+      id && canRelateFrom(id) ? startDirection(outgoing, incoming, asMember ? 'in' : 'out') : 'out',
+    );
+    setDrafts(relationDrafts(outgoing, incoming, asMember));
   };
 
   const save = () => {
@@ -313,7 +337,7 @@ function RelationDialog({
     <Dialog
       open
       onClose={onClose}
-      title={isNew ? 'Beziehung anlegen' : 'Beziehung bearbeiten'}
+      title={asMember ? 'Mitglied eintragen' : isNew ? 'Beziehung anlegen' : 'Beziehung bearbeiten'}
       width={640}
       footer={
         <>
@@ -346,10 +370,14 @@ function RelationDialog({
                 <Picker
                   value={otherId}
                   onChange={pickOther}
-                  allowParty
+                  allowParty={!asMember}
+                  kinds={asMember ? ['person', 'character'] : undefined}
                   exclude={[self.id]}
                   autoFocus
-                  placeholder="Person, Ort, Fraktion … oder die Gruppe"
+                  openOnMount
+                  placeholder={
+                    asMember ? 'Person oder Gefährte …' : 'Person, Ort, Fraktion … oder die Gruppe'
+                  }
                 />
               </div>
             ) : (

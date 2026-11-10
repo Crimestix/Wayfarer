@@ -122,8 +122,22 @@ export function Facts({ facts }: { facts: Fact[] }) {
  * Auswahl eines Eintrags, die nach der Wahl den Fokus behält. Ohne das stünde der Fokus danach
  * im Leeren, und Tab oder Strg+Eingabe griffen im Dialog nicht mehr.
  */
-export function Picker(props: EntityPickerProps) {
+export function Picker({
+  openOnMount = false,
+  ...props
+}: EntityPickerProps & {
+  /** Klappt die Suche gleich beim Öffnen auf – wenn ohnehin zuerst gewählt werden muss. */
+  openOnMount?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openOnMount) return;
+    // Erst nach dem Dialog, der beim Öffnen selbst den Fokus setzt.
+    const timer = window.setTimeout(() =>
+      box.current?.querySelector<HTMLElement>('.wf-picker__value')?.click(),
+    );
+    return () => window.clearTimeout(timer);
+  }, [openOnMount]);
   return (
     <div ref={box} className="wf-welt-picker">
       <EntityPicker
@@ -252,6 +266,15 @@ function useInlineText(
   return { editing, start, editor };
 }
 
+/** Was in die Notizen gehört – je Art. */
+const NOTES_HINT: Record<WorldEntity['kind'], string> = {
+  place: 'Beschreibung, Stimmung und Einzelheiten',
+  person: 'Auftreten, Stimme, Hintergründe und Einzelheiten',
+  faction: 'Ziele, Mittel, Geschichte und Einzelheiten',
+  item: 'Aussehen, Wirkung und Herkunft',
+  topic: 'was man weiß und was gemunkelt wird',
+};
+
 export function NotesSection({ entity }: { entity: WorldEntity }) {
   const db = useDb();
   const { editing, start, editor } = useInlineText(
@@ -285,7 +308,7 @@ export function NotesSection({ entity }: { entity: WorldEntity }) {
               </Button>
             }
           >
-            Noch keine Notizen – hierher gehören Auftreten, Hintergründe und Einzelheiten.
+            Noch keine Notizen – hierher gehören {NOTES_HINT[entity.kind]}.
           </Hint>
         ))}
     </Section>
@@ -311,7 +334,7 @@ export function SecretSection({ entity }: { entity: WorldEntity }) {
         <span className="wf-welt-secret__title">Geheimnis</span>
         <span className="wf-welt-secret__note">
           {empty
-            ? 'Noch keines – hierher gehört, was nur du weißt.'
+            ? 'Noch keines – hier steht, was nur du weißt.'
             : 'Nur für dich – die Gruppe weiß das nicht.'}
         </span>
         {empty ? (

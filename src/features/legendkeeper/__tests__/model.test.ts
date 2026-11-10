@@ -334,10 +334,18 @@ describe('Nichts verschlucken', () => {
     });
   });
 
-  it('nennt eine unbekannte Blockart ohne Text beim Namen', () => {
+  it('merkt sich eine unbekannte Blockart ohne Text, sagt dem Spielleiter aber nur, was er tun kann', () => {
     const note = ofType(body, 'note').find((node) => node.reason === 'unknown');
     expect(note?.kind).toBe('klangteppich');
-    expect(note && noteText(note)).toContain('klangteppich');
+    const sentence = note ? noteText(note) : '';
+    // Kein Fachbegriff von LegendKeeper im sichtbaren Satz
+    expect(sentence).not.toContain('klangteppich');
+    expect(sentence).toBe(
+      'Ein Abschnitt hat eine Form, die Wayfarer nicht darstellen kann – er ist nur in LegendKeeper zu sehen.',
+    );
+    expect(noteText({ type: 'note', reason: 'unknown', kind: 'x', count: 3 })).toMatch(
+      /^3 Abschnitte/,
+    );
   });
 
   it('weist auf Medien und Karten hin, statt sie wegzulassen', () => {
@@ -367,8 +375,9 @@ describe('Nichts verschlucken', () => {
   it('bricht bei endloser Verschachtelung ab', () => {
     let deep: Record<string, unknown> = { kind: 'paragraph', content: [{ text: 'unten' }] };
     for (let i = 0; i < 200; i += 1) deep = { kind: 'quote', children: [deep] };
-    const text = convertBlocks([deep], newContext()).map(nodeText).join('');
-    expect(text).toContain('zu tief verschachtelt');
+    const nodes = convertBlocks([deep], newContext());
+    expect(JSON.stringify(nodes)).toContain('zu tief verschachtelt');
+    expect(nodes.map(nodeText).join('')).toContain('nicht darstellen');
   });
 
   it('zeigt verirrte Teile (Listenpunkt ohne Liste) trotzdem', () => {
