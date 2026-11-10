@@ -914,7 +914,6 @@
 .wf-gruppe-note__text {
   color: var(--ink-soft);
   line-height: 1.55;
-  overflow-wrap: anywhere;
 }
 .wf-gruppe-note__icon {
   width: 14px;

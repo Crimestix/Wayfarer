@@ -12,18 +12,26 @@ import {
   effectiveSpeed,
   emptyDraft,
   exhaustionEffect,
+  exhaustionLine,
   exhaustionText,
   fitWithin,
+  groupLine,
+  haltsMovement,
   joinNames,
   lacksValues,
+  languageSuggestions,
   longRestChanges,
   longRestText,
   parseDraft,
   partySummary,
   removeLanguage,
   sheetHref,
+  shortNames,
+  slowestLine,
   soleLanguages,
   sortConditions,
+  speakersLabel,
+  speedInfo,
   toggleCondition,
 } from '../model';
 
@@ -58,6 +66,15 @@ describe('Erschöpfung', () => {
     expect(effectiveSpeed({ speed: 30, exhaustion: 2 })).toBe(20);
     expect(effectiveSpeed({ speed: 10, exhaustion: 4 })).toBe(0);
   });
+
+  it('erklärt in Worten, warum die Bewegungsrate gesenkt ist', () => {
+    expect(speedInfo({ speed: 30, exhaustion: 0 })).toEqual({ base: 30, value: 30, reason: null });
+    expect(speedInfo({ speed: 30, exhaustion: 2, conditions: ['Vergiftet'] })).toEqual({
+      base: 30,
+      value: 20,
+      reason: 'Bewegungsrate 30 Fuß, durch Erschöpfung auf 20 Fuß gesenkt',
+    });
+  });
 });
 
 describe('Zustände', () => {
@@ -77,6 +94,27 @@ describe('Zustände', () => {
     expect(toggleCondition(list, 'blind')).toEqual(['Vergiftet', 'Verflucht']);
   });
 
+  it('weiß, welche Zustände die Bewegungsrate auf 0 setzen', () => {
+    expect(CONDITIONS.filter((c) => c.halts).map((c) => c.name)).toEqual([
+      'Bewusstlos',
+      'Festgesetzt',
+      'Gelähmt',
+      'Gepackt',
+      'Versteinert',
+    ]);
+    expect(haltsMovement('gepackt')).toBe(true);
+    expect(haltsMovement('Liegend')).toBe(false);
+    expect(haltsMovement('Verflucht')).toBe(false);
+    expect(effectiveSpeed({ speed: 30, exhaustion: 1, conditions: ['Vergiftet'] })).toBe(25);
+    expect(speedInfo({ speed: 30, exhaustion: 1, conditions: ['gepackt', 'Festgesetzt'] })).toEqual(
+      {
+        base: 30,
+        value: 0,
+        reason: 'Festgesetzt und Gepackt: Bewegungsrate 0 statt 25 Fuß',
+      },
+    );
+  });
+
   it('räumt Doppelte und Leeres auf', () => {
     expect(sortConditions(['vergiftet', ' ', 'Vergiftet', 'Taub'])).toEqual(['Taub', 'Vergiftet']);
   });
@@ -90,6 +128,17 @@ describe('Sprachen', () => {
       'zwergisch',
     ]);
     expect(removeLanguage(['Gemeinsprache', 'Elfisch'], 'ELFISCH')).toEqual(['Gemeinsprache']);
+  });
+
+  it('schlägt zuerst die Sprachen der Gruppe vor, ohne die schon eingetragenen', () => {
+    const suggestions = languageSuggestions(
+      ['Thalassisch', 'elfisch', 'Thalassisch'],
+      ['Gemeinsprache'],
+    );
+    expect(suggestions.slice(0, 2)).toEqual(['Thalassisch', 'elfisch']);
+    expect(suggestions).not.toContain('Gemeinsprache');
+    expect(suggestions.filter((l) => l.toLowerCase() === 'elfisch')).toHaveLength(1);
+    expect(suggestions).toContain('Zwergisch');
   });
 });
 
@@ -136,13 +185,91 @@ describe('Kennzahlen der Gruppe', () => {
 
   it('trennt gemeinsame Sprachen von denen, die nur einzelne sprechen', () => {
     expect(summary.commonLanguages).toEqual(['Gemeinsprache']);
-    expect(summary.partialLanguages).toEqual([
+    expect(
+      summary.partialLanguages.map(({ language, speakers }) => ({ language, speakers })),
+    ).toEqual([
       { language: 'Elfisch', speakers: ['Naelmira', 'Neil'] },
       { language: 'Sylvanisch', speakers: ['Naelmira'] },
       { language: 'Zwergisch', speakers: ['Tomlin'] },
     ]);
-    expect(soleLanguages(summary, 'Naelmira')).toEqual(['Sylvanisch']);
-    expect(soleLanguages(summary, 'Neil')).toEqual([]);
+    const id = (name: string) => party.find((c) => c.name === name)!.id;
+    expect(soleLanguages(summary, id('Naelmira'))).toEqual(['Sylvanisch']);
+    expect(soleLanguages(summary, id('Neil'))).toEqual([]);
+  });
+
+  it('verwechselt zwei Gefährten gleichen Namens nicht', () => {
+    const twins = [
+      hero('Finn', { languages: ['Gemeinsprache', 'Orkisch'] }),
+      hero('Finn', { languages: ['Gemeinsprache', 'Elfisch'] }),
+    ];
+    const both = partySummary(twins);
+    expect(both.commonLanguages).toEqual(['Gemeinsprache']);
+    expect(soleLanguages(both, twins[0]!.id)).toEqual(['Orkisch']);
+    expect(soleLanguages(both, twins[1]!.id)).toEqual(['Elfisch']);
+  });
+
+  it('nennt Sprecher knapp: bis zu zwei Namen, darüber die Anzahl', () => {
+    const [elfisch, sylvanisch] = summary.partialLanguages;
+    expect(speakersLabel(elfisch!, summary.count)).toBe('Naelmira, Neil');
+    expect(speakersLabel(sylvanisch!, summary.count)).toBe('Naelmira');
+    expect(
+      speakersLabel({ language: 'Zwergisch', speakers: ['A', 'B', 'C'], speakerIds: [] }, 6),
+    ).toBe('3 von 6');
+  });
+
+  it('schreibt die Unterzeilen der Kopfzeile', () => {
+    expect(groupLine(summary)).toBe('Stufe 4–5');
+    expect(groupLine(partySummary([hero('A', { placeId: 'ort1' }), hero('B')]))).toBe(
+      'alle Stufe 1, 1 abseits',
+    );
+    expect(groupLine(partySummary([hero('A', { level: 3 })]))).toBe('Stufe 3');
+    expect(groupLine(partySummary([]))).toBe('');
+
+    expect(slowestLine(summary)).toBe('Corrin und Neil am langsamsten');
+    expect(slowestLine(partySummary([hero('A'), hero('B')]))).toBe('alle gleich schnell');
+    expect(slowestLine(partySummary([hero('A')]))).toBe('A');
+    expect(
+      slowestLine(
+        partySummary([
+          hero('A', { speed: 25 }),
+          hero('B', { speed: 25 }),
+          hero('C', { speed: 25 }),
+          hero('D'),
+        ]),
+      ),
+    ).toBe('A und 2 weitere am langsamsten');
+    expect(slowestLine(partySummary([]))).toBe('');
+
+    expect(exhaustionLine(summary)).toBe('Corrin und Neil');
+    expect(exhaustionLine(partySummary([hero('A')]))).toBe('niemand ist erschöpft');
+    expect(
+      exhaustionLine(
+        partySummary([
+          hero('A', { exhaustion: 3 }),
+          hero('B', { exhaustion: 1 }),
+          hero('C', { exhaustion: 1 }),
+        ]),
+      ),
+    ).toBe('A, dazu 2 weitere');
+    expect(
+      exhaustionLine(partySummary([hero('A', { exhaustion: 3 }), hero('B', { exhaustion: 1 })])),
+    ).toBe('A, dazu 1 weiterer');
+    expect(shortNames(['A', 'B'])).toBe('A und B');
+    expect(shortNames(['A', 'B', 'C', 'D'])).toBe('A und 3 weitere');
+  });
+
+  it('merkt, wenn die passive Wahrnehmung bei allen gleich ist', () => {
+    expect(summary.perception?.uniform).toBe(false);
+    const same = partySummary([
+      hero('A', { passivePerception: 12 }),
+      hero('B', { passivePerception: 12 }),
+    ]);
+    expect(same.perception?.uniform).toBe(true);
+  });
+
+  it('rechnet Zustände ein, die die Bewegungsrate auf 0 setzen', () => {
+    const held = partySummary([hero('A', { conditions: ['Gepackt'] }), hero('B')]);
+    expect(held.slowest).toEqual({ value: 0, names: ['A'] });
   });
 
   it('nennt die höchste Erschöpfung', () => {

@@ -132,11 +132,7 @@ export function EditDialog({
 
   // Schlichte Textfelder statt Zahlenfelder: Das Mausrad verstellt sonst beim Rollen durch den
   // Dialog unbemerkt den Wert, über dem der Zeiger gerade steht. Geprüft wird in parseDraft.
-  const number = (
-    field: DraftField & keyof CharacterDraft,
-    label: string,
-    placeholder = '–',
-  ) => (
+  const number = (field: DraftField & keyof CharacterDraft, label: string, placeholder = '–') => (
     <Field
       label={label}
       hint={error(field)}

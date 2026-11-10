@@ -257,7 +257,10 @@ export function addLanguages(languages: readonly string[], input: string): strin
  * Vorschläge beim Eintragen: zuerst, was andere Gefährten schon sprechen, dann die Sprachen des
  * Regelwerks – ohne das, was der Gefährte bereits spricht.
  */
-export function languageSuggestions(known: readonly string[], current: readonly string[]): string[] {
+export function languageSuggestions(
+  known: readonly string[],
+  current: readonly string[],
+): string[] {
   return addLanguages([], [...known, ...LANGUAGE_SUGGESTIONS].join(',')).filter(
     (l) => !current.some((c) => sameText(c, l)),
   );
