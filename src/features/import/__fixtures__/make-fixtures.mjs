@@ -29,7 +29,7 @@ function full() {
   s.previous = s.now - 60;
   s.lk = 'https://www.legendkeeper.com/app/beispielprojekt/startseite/';
   s.sky = { caldus: stamp(701, 0, 3, 4, 30) };
-  s.travelScales = { 'karte-aschenmark': 2.5 };
+  s.travelScales = { 'elaris-travel-scale:karte:aschenmark:4000x3000': 2.5 };
 
   // ── Notizen ──────────────────────────────────────────────────────────────
   s.notes[0].body =
@@ -235,14 +235,16 @@ function full() {
   ];
   world.maps = [
     {
-      id: 'karte-aschenmark',
+      id: JSON.stringify(['karte', 'aschenmark']),
       placeId: 'p-mark',
       kind: 'region',
       environment: 'surface',
       frame: [4000, 3000],
     },
   ];
-  world.mapPreferences = [{ id: 'karte-aschenmark', favorite: true, lastOpenedAt: 1760000000000 }];
+  world.mapPreferences = [
+    { id: JSON.stringify(['karte', 'aschenmark']), favorite: true, lastOpenedAt: 1760000000000 },
+  ];
   world.wikiAssignments = [
     {
       id: 'proj1:lkres-hohenfurt',

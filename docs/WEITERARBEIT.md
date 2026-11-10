@@ -103,12 +103,21 @@ Oberfläche; die Bereiche A–K bauen darauf auf. Festgelegt wurde dabei:
 **Mit dem echten Backup geprüft** (`elaris-backup-2026-11-10.json`, liegt beim Spielleiter, nicht
 im Repository): Übernahme ohne übersprungene oder unlesbare Teile – 71 Orte, 18 Personen,
 6 Gefährten, 44 Beziehungen, 36 Chronikeinträge, 10 Termine, 2 Sessions; nach Speichern und
-Neuladen identisch. Noch nicht übernommen, jetzt aber möglich (eigener Arbeitsschritt
-„Übernahme nachziehen“, nach D/E/G): 14 Routen und 15 Kartenanker → `paths`/`maps`, 6 Karten
-und 2 Maßstäbe → `maps` (Schlüssel `["resourceId","docId"]`), 1 Erkundung mit Würfeltabellen
-→ `areas`/`tables`, 2 Rasten → `rests`, Konzentration/Teilnehmer der Timer → neue Timer-Felder,
-3 Themen „Spezies und Schriften“ → Arten `species`/`script`, Personenfelder `speciesId`,
-`workPlaceId`, `languageIds`, `scriptIds`, `abilityIds` der alten Weltdatenbank.
+Neuladen identisch.
+
+**Übernahme nachgezogen (10. 11. 2026, Zweig `welle2/uebernahme`):** Der Importer (`import/v157.ts`)
+übernimmt jetzt auch Spezies, Fähigkeiten, Sprachen und Schriften als eigene Arten, Familien als
+Art `family`, Spezies und Arbeitsort der Personen als Felder, Sprachen/Schriften/Fähigkeiten als
+Beziehungen (`speaks`, `writes`, `has-ability`), Karten mit Maßstab und Kartenpunkten
+(`maps`), Routen als Wege (`paths`), Erkundungen als Gebiete mit Würfeltabellen
+(`areas`/`tables`), Rasten mit Wachen (`rests`) und bei Timern Wirker, Konzentration und
+Teilnehmer (Konzentration → Art „Zauber“). Kartenpunkte ohne Ort werden einem vorhandenen Ort
+zugeordnet (LegendKeeper-Kennung, sonst Name mit kleinen Schreibunterschieden); nur wo keiner
+existiert, entsteht ein Ort der Art „Kartenpunkt“ (beim echten Backup: Thalanor). Echtes Backup
+damit geprüft: nichts übersprungen, 6 Karten, 15 Kartenpunkte, 14 Wege, 1 Gebiet, 6 Tabellen,
+2 Rasten. Weiterhin nicht übernommen: Dungeonräume, Tagging von LegendKeeper-Artikeln,
+Gewaltmarsch-Prüfungen. Die Testdaten (`v157-voll.json`) nutzen jetzt das echte Kartenformat
+(Schlüssel als JSON-Liste, Maßstab unter `elaris-travel-scale:<res>:<doc>:<B>x<H>`).
 
 Ursprünglicher Plan:
 

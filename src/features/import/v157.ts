@@ -8,26 +8,37 @@
  * Beginn des kosmischen Jahres 1) und wird unverändert übernommen.
  */
 import {
+  AreaSchema,
   CalendarEventSchema,
   CampaignMetaSchema,
   ChronicleEntrySchema,
   EntitySchema,
+  MapSchema,
   PARTY_ID,
+  PathSchema,
   PlayStateSchema,
   emptyCollections,
   RelationSchema,
+  RestSchema,
+  RollTableSchema,
   SessionSchema,
   TimerSchema,
   newId,
   nowIso,
   safeId,
+  type Area,
   type CalendarEvent,
   type CampaignData,
   type ChronicleEntry,
   type Entity,
+  type GameMap,
+  type MapPoint,
   type Relation,
+  type Rest,
+  type RollTable,
   type Session,
   type Timer,
+  type TravelPath,
 } from '../../domain/schema';
 import { attitudeLabel } from '../../domain/relations';
 import {
@@ -105,11 +116,18 @@ const PLACE_KIND_LABEL: Record<string, string> = {
   site: '',
   route: 'Reiseabschnitt',
 };
-const TOPIC_CATEGORY: Record<string, string> = {
-  species: 'Spezies',
-  abilities: 'Fähigkeit',
-  languages: 'Sprache',
-  scripts: 'Schrift',
+/** Kategorien der alten Weltdatenbank, die im neuen Wayfarer eine eigene Art sind. */
+const RECORD_KIND = {
+  species: 'species',
+  abilities: 'ability',
+  languages: 'language',
+  scripts: 'script',
+} as const;
+const RECORD_KIND_PLURAL: Record<keyof typeof RECORD_KIND, [one: string, many: string]> = {
+  species: ['Spezies', 'Spezies'],
+  abilities: ['Fähigkeit', 'Fähigkeiten'],
+  languages: ['Sprache', 'Sprachen'],
+  scripts: ['Schrift', 'Schriften'],
 };
 const JOURNAL_PREFIX: Record<string, string> = {
   promise: 'Zusage',
@@ -164,13 +182,79 @@ const strings = (v: unknown): string[] => unique(list(v).map(text));
 const isImageData = (v: string) => /^data:image\/(png|jpeg|webp);base64,/.test(v);
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/** Kartenschlüssel der alten Version: eine JSON-Liste `["resourceId","docId"]` aus LegendKeeper. */
+function parseMapKey(key: string): { resourceId: string; docId: string } | null {
+  try {
+    const value: unknown = JSON.parse(key);
+    if (
+      Array.isArray(value) &&
+      value.length === 2 &&
+      value.every((part) => typeof part === 'string' && part)
+    )
+      return { resourceId: value[0] as string, docId: value[1] as string };
+  } catch {
+    // Kein gültiger Schlüssel.
+  }
+  return null;
+}
+type Frame = { width: number; height: number };
+const frameOf = (v: unknown): Frame | null => {
+  const [w, h] = list(v).map(num);
+  return w && h && w > 0 && h > 0 ? { width: w, height: h } : null;
+};
+const pointOf = (v: unknown): MapPoint | null => {
+  const [x, y] = list(v).map(num);
+  return x !== null && x !== undefined && y !== null && y !== undefined ? [x, y] : null;
+};
+/** Name ohne Akzente, Apostrophe, Satzzeichen und vorangestellten Artikel – zum Vergleichen. */
+const looseName = (name: string): string =>
+  name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('de')
+    .replace(/['’`´]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/^(der|die|das|the) /, '');
+
+/** Rechnet einen Punkt aus dem Bildformat, in dem er gespeichert war, ins Format der Karte um. */
+const toFrame = (p: MapPoint, from: Frame | null, to: Frame | null): MapPoint =>
+  from && to && (from.width !== to.width || from.height !== to.height)
+    ? [(p[0] * to.width) / from.width, (p[1] * to.height) / from.height]
+    : p;
+
+/** Gebiete der Würfeltabellen einer Erkundung in der alten Version. */
+const PROFILE_LABEL: Record<string, string> = {
+  city: 'Stadt',
+  outskirts: 'Randgebiet',
+  deep: 'Tiefe Wildnis',
+};
+const EXPLORATION_STATUS: Record<string, string> = {
+  finished: 'abgeschlossen',
+  active: 'unterwegs',
+  planned: 'geplant',
+  cancelled: 'abgebrochen',
+};
 const joinAnd = (parts: string[]): string =>
   parts.length <= 1
     ? (parts[0] ?? '')
     : `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}`;
 
 /** Vergibt gültige, eindeutige Kennungen und merkt sich, welche alte zu welcher neuen gehört. */
-type Space = 'entities' | 'relations' | 'chronicle' | 'events' | 'sessions' | 'timers';
+type Space =
+  | 'entities'
+  | 'relations'
+  | 'chronicle'
+  | 'events'
+  | 'sessions'
+  | 'timers'
+  | 'maps'
+  | 'paths'
+  | 'areas'
+  | 'tables'
+  | 'rests';
 
 class Ids {
   /** Vergebene Kennungen je Sammlung, kleingeschrieben. */
@@ -236,6 +320,11 @@ class Importer {
   private readonly events: CalendarEvent[] = [];
   private readonly sessions: Session[] = [];
   private readonly timers: Timer[] = [];
+  private readonly maps = new Map<string, GameMap>();
+  private readonly paths: TravelPath[] = [];
+  private readonly areas: Area[] = [];
+  private readonly tables: RollTable[] = [];
+  private readonly rests: Rest[] = [];
   private readonly opinions = new Map<string, NpcOpinions>();
   /** Alte Timer nach Kennung – für Reisen, die an Ortswechseln hängen. */
   private readonly legacyTimers = new Map<string, Raw>();
@@ -279,6 +368,9 @@ class Importer {
     this.guard('Ortswechsel', () => this.importVisits());
     this.guard('Termine', () => this.importEvents());
     this.guard('Notizen', () => this.importNotes());
+    this.guard('Karten und Routen', () => this.importMaps());
+    this.guard('Erkundungen', () => this.importExplorations());
+    this.guard('Rasten', () => this.importRests());
     this.assignSessions();
     this.reportSky();
     this.reportOmitted();
@@ -358,6 +450,10 @@ class Importer {
   private entityId(legacyId: unknown): string | null {
     const id = typeof legacyId === 'string' && legacyId ? this.ids.get(`db:${legacyId}`) : null;
     return id && this.entities.has(id) ? id : null;
+  }
+  private entityOfKind(legacyId: unknown, kind: Entity['kind']): string | null {
+    const id = this.entityId(legacyId);
+    return id && this.entities.get(id)?.kind === kind ? id : null;
   }
   private placeIdOf(legacyId: unknown): string | null {
     const id = this.entityId(legacyId);
@@ -512,7 +608,7 @@ class Importer {
     const records = obj(obj(obj(this.raw.world).database).records);
     const unknown = Object.keys(records).filter(
       (key) =>
-        !['characters', 'organizations', 'families', ...Object.keys(TOPIC_CATEGORY)].includes(key),
+        !['characters', 'organizations', 'families', ...Object.keys(RECORD_KIND)].includes(key),
     );
     if (unknown.length)
       this.omitted.push(
@@ -520,7 +616,7 @@ class Importer {
       );
 
     // Erst alle Kennungen vergeben, damit Einträge aufeinander verweisen können.
-    const topics = Object.keys(TOPIC_CATEGORY).flatMap((category) =>
+    const topics = (Object.keys(RECORD_KIND) as (keyof typeof RECORD_KIND)[]).flatMap((category) =>
       this.records(category).map((r) => ({ r, category })),
     );
     for (const { r } of topics) this.ids.claim('entities', `db:${idOf(r.id)}`, idOf(r.id));
@@ -528,11 +624,10 @@ class Importer {
       text(topics.find(({ r }) => r.id === legacyId && typeof legacyId === 'string')?.r.name);
     const topicNames = (legacyIds: unknown) => unique(list(legacyIds).map(topicName));
 
-    const topicCounts = new Map<string, number>();
+    const topicCounts = new Map<keyof typeof RECORD_KIND, number>();
     for (const { r, category } of topics) {
       const { aliases, tags, notes, link } = this.common(r);
       const facts: string[] = [];
-      if (text(r.type)) facts.push(`Art: ${text(r.type)}`);
       if (category === 'species') {
         const parent = topicName(r.parentSpeciesId);
         if (parent) facts.push(`Übergeordnete Spezies: ${parent}`);
@@ -544,14 +639,15 @@ class Importer {
         if (excluded.length) facts.push(`Nicht geerbte Fähigkeiten: ${excluded.join(', ')}`);
       }
       if (link) facts.push(`LegendKeeper: ${link}`);
+      const kind = RECORD_KIND[category];
       const added = this.addEntity({
         id: this.ids.get(`db:${idOf(r.id)}`)!,
-        kind: 'topic',
+        kind,
         name: text(r.name),
         aliases,
         tags,
         notes: Importer.composeNotes(notes, facts),
-        topic: { category: TOPIC_CATEGORY[category] },
+        [kind]: { category: text(r.type) },
       });
       if (added) topicCounts.set(category, (topicCounts.get(category) ?? 0) + 1);
       else this.skip('Eintrag der Weltdatenbank', 'Einträge der Weltdatenbank');
@@ -567,14 +663,15 @@ class Importer {
         const roles = strings(r.roles);
         if (roles.length) facts.push(`Rollen: ${roles.join(', ')}`);
         if (link) facts.push(`LegendKeeper: ${link}`);
+        const kind = category === 'families' ? 'family' : 'faction';
         const added = this.addEntity({
           id: this.ids.claim('entities', `db:${idOf(r.id)}`, idOf(r.id)),
-          kind: 'faction',
+          kind,
           name: text(r.name),
           aliases,
           tags: strings(r.tags),
           notes: Importer.composeNotes(notes, facts),
-          faction: { category: category === 'families' ? 'Familie' : text(r.type) },
+          [kind]: { category: text(r.type) },
         });
         if (!added) this.skip('Eintrag der Weltdatenbank', 'Einträge der Weltdatenbank');
         else if (category === 'families') families++;
@@ -582,24 +679,24 @@ class Importer {
       }
     }
 
+    // Schrift einer Sprache: erst jetzt sind alle Schriften angelegt.
+    for (const { r, category } of topics) {
+      if (category !== 'languages') continue;
+      const language = this.entities.get(this.ids.get(`db:${idOf(r.id)}`) ?? '');
+      const scriptId = this.entityOfKind(r.scriptId, 'script');
+      if (language?.kind === 'language' && scriptId)
+        this.entities.set(language.id, {
+          ...language,
+          language: { ...language.language, scriptId },
+        });
+    }
+
     const parts: string[] = [];
-    if (factions + families)
-      parts.push(
-        count(factions + families, 'Fraktion', 'Fraktionen') +
-          (families ? ` (davon ${count(families, 'Familie', 'Familien')})` : ''),
-      );
-    const topicTotal = [...topicCounts.values()].reduce((a, b) => a + b, 0);
-    if (topicTotal) {
-      const kinds = [...topicCounts.keys()].map((c) =>
-        c === 'species'
-          ? 'Spezies'
-          : c === 'abilities'
-            ? 'Fähigkeiten'
-            : c === 'languages'
-              ? 'Sprachen'
-              : 'Schriften',
-      );
-      parts.push(`${count(topicTotal, 'Thema', 'Themen')} (${joinAnd(kinds)})`);
+    if (factions) parts.push(count(factions, 'Fraktion', 'Fraktionen'));
+    if (families) parts.push(count(families, 'Familie', 'Familien'));
+    for (const [category, n] of topicCounts) {
+      const [one, many] = RECORD_KIND_PLURAL[category];
+      parts.push(count(n, one, many));
     }
     if (parts.length) this.adopted.push(`Aus der Weltdatenbank: ${joinAnd(parts)}.`);
   }
@@ -734,12 +831,7 @@ class Importer {
         );
       }
       const work = this.placeIdOf(r.workPlaceId);
-      const abilities = this.names(r.abilityIds);
-      if (abilities.length) facts.push(`Fähigkeiten: ${abilities.join(', ')}`);
       const languages = this.names(r.languageIds);
-      const languagesAt = facts.length;
-      const scripts = this.names(r.scriptIds);
-      if (scripts.length) facts.push(`Schriften: ${scripts.join(', ')}`);
       if (text(dynamic.health)) facts.push(`Zustand: ${text(dynamic.health)}`);
       if (text(dynamic.goals)) facts.push(`Ziele: ${text(dynamic.goals)}`);
       if (link) facts.push(`LegendKeeper: ${link}`);
@@ -748,7 +840,8 @@ class Importer {
         linkedPortraits++;
         facts.push(`Bild (Link): ${portrait}`);
       }
-      const species = this.name(this.entityId(r.speciesId));
+      const speciesId = this.entityOfKind(r.speciesId, 'species');
+      const species = this.name(speciesId);
       const home = this.placeIdOf(r.homeId);
 
       const existing = this.entities.get(id);
@@ -757,6 +850,10 @@ class Importer {
         if (home) facts.push(`Heimat: ${this.name(home)}`);
         if (work) facts.push(`Arbeitsort: ${this.name(work)}`);
         if (text(r.profession)) facts.push(`Beruf: ${text(r.profession)}`);
+        const abilities = this.names(r.abilityIds);
+        if (abilities.length) facts.push(`Fähigkeiten: ${abilities.join(', ')}`);
+        const scripts = this.names(r.scriptIds);
+        if (scripts.length) facts.push(`Schriften: ${scripts.join(', ')}`);
         this.entities.set(id, {
           ...existing,
           aliases: unique([...existing.aliases, ...aliases]),
@@ -773,7 +870,6 @@ class Importer {
         continue;
       }
 
-      if (languages.length) facts.splice(languagesAt, 0, `Sprachen: ${languages.join(', ')}`);
       const ref = obj(r.npcRef);
       const project = idOf(ref.projectId);
       const resource = idOf(ref.resourceId);
@@ -804,7 +900,8 @@ class Importer {
         image: isImageData(portrait) ? portrait : null,
         lk: isLinked ? { resourceId: resource, title: '' } : null,
         person: {
-          species,
+          speciesId,
+          workplaceId: work,
           role: text(r.profession),
           placeId: this.placeIdOf(dynamic.locationId),
           homeId: home,
@@ -816,7 +913,16 @@ class Importer {
         continue;
       }
       persons++;
-      if (work) this.relate(id, work, { type: 'resides', note: 'Arbeitsort' });
+      // Sprachen, Schriften und Fähigkeiten sind eigene Einträge, verbunden über Beziehungen.
+      for (const [field, type, kind] of [
+        ['languageIds', 'speaks', 'language'],
+        ['scriptIds', 'writes', 'script'],
+        ['abilityIds', 'has-ability', 'ability'],
+      ] as const)
+        for (const legacy of list(r[field])) {
+          const target = this.entityOfKind(legacy, kind);
+          if (target) this.relate(id, target, { type });
+        }
       if (group !== null || members.size) this.opinions.set(id, { entityId: id, group, members });
     }
     if (persons)
@@ -906,13 +1012,13 @@ class Importer {
           add(from, to, { type: 'custom', label: 'verbunden mit' });
           break;
         case 'seat': {
-          const faction = this.entities.get(from);
-          if (
-            faction?.kind === 'faction' &&
-            faction.faction.seatId === null &&
-            this.entities.get(to)?.kind === 'place'
-          ) {
-            this.entities.set(from, { ...faction, faction: { ...faction.faction, seatId: to } });
+          const group = this.entities.get(from);
+          const isPlace = this.entities.get(to)?.kind === 'place';
+          if (group?.kind === 'faction' && group.faction.seatId === null && isPlace) {
+            this.entities.set(from, { ...group, faction: { ...group.faction, seatId: to } });
+            seats++;
+          } else if (group?.kind === 'family' && group.family.seatId === null && isPlace) {
+            this.entities.set(from, { ...group, family: { ...group.family, seatId: to } });
             seats++;
           } else add(from, to, { type: 'resides', note: 'Weiterer Sitz' });
           break;
@@ -1217,17 +1323,23 @@ class Importer {
         .filter(Boolean)
         .join(' · ');
       const done = stopped !== null || end <= this.now;
+      const concentration = t.concentration === true;
+      const subgroup = participants.length === LEGACY_PARTY.length ? [] : participants;
       const parsed = TimerSchema.safeParse({
         id: this.ids.claim('timers', `timer:${idOf(t.id)}`, idOf(t.id)),
         created: this.stamp,
         updated: this.stamp,
         label: text(t.name),
-        kind: t.kind === 'activity' ? 'task' : 'effect',
+        // Konzentration gibt es nur bei Zaubern.
+        kind: t.kind === 'activity' ? 'task' : concentration ? 'spell' : 'effect',
         start,
         end,
-        refs: participants.length === LEGACY_PARTY.length ? [] : participants,
+        refs: subgroup,
         note,
         done,
+        casterId: this.whoId(text(t.who)),
+        concentration,
+        participants: subgroup,
       });
       if (!parsed.success) {
         this.skip('Timer', 'Timer');
@@ -1242,8 +1354,21 @@ class Importer {
           (running
             ? ` (${running === 1 ? '1 läuft' : `${running} laufen`} noch)`
             : ' (alle bereits abgelaufen oder beendet)') +
-          '; Wirkender, Ziel und Konzentration stehen in der Notiz.',
+          '; Wirkender, Konzentration und Teilnehmer sind eingetragen, das Ziel steht in der Notiz.',
       );
+  }
+
+  /** Gefährte oder Person mit diesem Namen – für „Wirkender“ und „Ausführend“ der alten Timer. */
+  private whoId(name: string): string | null {
+    const wanted = name.trim().toLocaleLowerCase('de');
+    if (!wanted) return null;
+    for (const entity of this.entities.values())
+      if (
+        (entity.kind === 'character' || entity.kind === 'person') &&
+        entity.name.trim().toLocaleLowerCase('de') === wanted
+      )
+        return entity.id;
+    return null;
   }
 
   // ── Ortswechsel der Gruppe ───────────────────────────────────────────────
@@ -1502,6 +1627,466 @@ class Importer {
       );
   }
 
+  /** Ort mit genau diesem Namen (ohne Rücksicht auf Groß- und Kleinschreibung), sonst null. */
+  private placeByName(name: string): string | null {
+    const wanted = name.trim().toLocaleLowerCase('de');
+    if (!wanted) return null;
+    const places = [...this.entities.values()].filter((e) => e.kind === 'place');
+    const exact = places.find((p) => p.name.trim().toLocaleLowerCase('de') === wanted);
+    if (exact) return exact.id;
+    // Kleine Schreibunterschiede („Morthi's Gifte“ / „Morthis' Gifte“, „Der Basar …“ / „Basar …“)
+    // gelten als derselbe Ort – aber nur, wenn es genau einen solchen gibt.
+    const loose = looseName(name);
+    const similar = places.filter((p) => looseName(p.name) === loose);
+    return loose && similar.length === 1 ? similar[0]!.id : null;
+  }
+
+  /** Ort, der mit diesem LegendKeeper-Artikel verknüpft ist („lk://resources/abc“ oder „abc“). */
+  private placeByLk(uri: string): string | null {
+    const resourceId = uri.replace(/^lk:\/\/resources\//, '').trim();
+    if (!resourceId) return null;
+    for (const entity of this.entities.values())
+      if (entity.kind === 'place' && entity.lk?.resourceId === resourceId) return entity.id;
+    return null;
+  }
+
+  private partyNames(legacyIds: unknown): string[] {
+    return strings(legacyIds).map((id) => LEGACY_PARTY.find((p) => p.id === id)?.name ?? id);
+  }
+
+  private partyIds(legacyIds: unknown): string[] {
+    return strings(legacyIds)
+      .map((id) => this.ids.get(`party:${id}`))
+      .filter((id): id is string => !!id && this.entities.has(id));
+  }
+
+  // ── Karten, Kartenpunkte und Routen ──────────────────────────────────────
+
+  private importMaps() {
+    const world = obj(this.raw.world);
+    const library = obj(this.raw.travelLibrary);
+    const scales = obj(this.raw.travelScales);
+    const info = new Map<string, Raw>();
+    for (const m of list(world.maps))
+      if (isObj(m) && parseMapKey(idOf(m.id))) info.set(idOf(m.id), m);
+    const anchors = list(library.anchors).filter(
+      (a): a is Raw => isObj(a) && !!idOf(a.id) && !!parseMapKey(idOf(a.mapKey)),
+    );
+    const routes = list(library.routes);
+    const keys = unique([
+      ...info.keys(),
+      ...anchors.map((a) => idOf(a.mapKey)),
+      ...routes.map((r) => (isObj(r) && parseMapKey(idOf(r.mapKey)) ? idOf(r.mapKey) : '')),
+    ]);
+
+    let scaled = 0;
+    for (const key of keys) {
+      const lk = parseMapKey(key)!;
+      const m = info.get(key) ?? {};
+      const placeId = this.placeIdOf(m.placeId);
+      const frame = frameOf(m.frame) ?? frameOf(anchors.find((a) => idOf(a.mapKey) === key)?.frame);
+      const kmPerUnit = this.mapScale(scales, key, lk, frame);
+      if (kmPerUnit) scaled++;
+      const notes = [
+        idOf(m.kind) === 'city' ? 'Stadtkarte' : idOf(m.kind) === 'region' ? 'Regionalkarte' : '',
+        idOf(m.environment) === 'underdark' ? 'im Unterreich' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const parsed = MapSchema.safeParse({
+        id: this.ids.claim('maps', `map:${key}`, `${lk.resourceId}-${lk.docId}`),
+        created: this.stamp,
+        updated: this.stamp,
+        name: this.name(placeId) || `Karte ${lk.resourceId}`,
+        lk,
+        placeId,
+        frame,
+        scale: kmPerUnit ? { kmPerUnit } : null,
+        notes: notes ? `${notes} (laut alter Version).` : '',
+      });
+      if (parsed.success) this.maps.set(key, parsed.data);
+      else this.skip('Karte', 'Karten');
+    }
+
+    // Kartenpunkte: Marker auf der Karte, verbunden mit dem Ort, sofern bekannt.
+    const anchorById = new Map<string, Raw>();
+    const anchorPlace = new Map<string, string | null>();
+    const markerOf = new Map<string, { mapKey: string; markerId: string }>();
+    let markers = 0;
+    let deleted = 0;
+    for (const a of anchors) {
+      const anchorId = idOf(a.id);
+      if (anchorById.has(anchorId)) continue;
+      anchorById.set(anchorId, a);
+      const map = this.maps.get(idOf(a.mapKey));
+      const point = pointOf(a.point);
+      anchorPlace.set(
+        anchorId,
+        this.placeIdOf(a.placeId) ??
+          this.placeByLk(text(a.sourceUri)) ??
+          this.placeByName(text(a.name)),
+      );
+      if (!map || !point) {
+        this.skip('Kartenpunkt', 'Kartenpunkte');
+        continue;
+      }
+      if (a.deleted === true) {
+        deleted++;
+        continue;
+      }
+      const [x, y] = toFrame(point, frameOf(a.frame), map.frame);
+      const markerId = newId();
+      map.markers.push({
+        id: markerId,
+        x,
+        y,
+        entityId: anchorPlace.get(anchorId) ?? null,
+        lkFeatureId: idOf(a.sourceId) || null,
+        label: text(a.name),
+      });
+      markerOf.set(anchorId, { mapKey: idOf(a.mapKey), markerId });
+      markers++;
+    }
+
+    // Routen werden zu Wegen zwischen zwei Orten. Kartenpunkte ohne Ort bekommen einen.
+    const newPlaces: string[] = [];
+    const placeOfAnchor = (anchorId: string): string | null => {
+      const known = anchorPlace.get(anchorId);
+      if (known) return known;
+      const a = anchorById.get(anchorId);
+      if (!a || !text(a.name)) return null;
+      const map = this.maps.get(idOf(a.mapKey));
+      const added = this.addEntity({
+        id: this.ids.claim('entities', `anchor:${anchorId}`),
+        kind: 'place',
+        name: text(a.name),
+        tagline: 'Kartenpunkt aus der alten Version.',
+        place: { parentId: map?.placeId ?? null, category: 'Kartenpunkt' },
+      });
+      if (!added) return null;
+      anchorPlace.set(anchorId, added.id);
+      newPlaces.push(added.name);
+      const marker = markerOf.get(anchorId);
+      const onMap = marker && this.maps.get(marker.mapKey);
+      if (onMap)
+        onMap.markers = onMap.markers.map((mk) =>
+          mk.id === marker.markerId ? { ...mk, entityId: added.id } : mk,
+        );
+      return added.id;
+    };
+    let paths = 0;
+    for (const r of routes) {
+      if (!isObj(r) || !idOf(r.id)) {
+        this.skip('Route', 'Routen');
+        continue;
+      }
+      const mapKey = idOf(r.mapKey);
+      const map = this.maps.get(mapKey);
+      const fromId = placeOfAnchor(idOf(r.startId));
+      const toId = placeOfAnchor(idOf(r.endId));
+      if (!fromId || !toId || fromId === toId) {
+        this.skip('Route ohne lesbaren Start oder Ziel', 'Routen ohne lesbaren Start oder Ziel');
+        continue;
+      }
+      const m = info.get(mapKey) ?? {};
+      const terrain =
+        idOf(m.kind) === 'city'
+          ? 'urban'
+          : idOf(m.environment) === 'underdark'
+            ? 'underdark'
+            : undefined;
+      const parsed = PathSchema.safeParse({
+        id: this.ids.claim('paths', `route:${idOf(r.id)}`, idOf(r.id)),
+        created: this.stamp,
+        updated: this.stamp,
+        fromId,
+        toId,
+        name: text(r.name),
+        terrain,
+        mapId: map?.id ?? null,
+        points: list(r.points)
+          .map(pointOf)
+          .filter((p): p is MapPoint => p !== null)
+          .map((p) => toFrame(p, frameOf(r.frame), map?.frame ?? null)),
+      });
+      if (!parsed.success) {
+        this.skip('Route', 'Routen');
+        continue;
+      }
+      this.paths.push(parsed.data);
+      paths++;
+    }
+
+    if (this.maps.size)
+      this.adopted.push(
+        `${count(this.maps.size, 'Karte wurde', 'Karten wurden')} mit LegendKeeper-Verweis übernommen` +
+          (scaled ? ` (${scaled === 1 ? 'eine' : scaled} mit Maßstab)` : '') +
+          (markers ? `, dazu ${count(markers, 'Kartenpunkt', 'Kartenpunkte')}` : '') +
+          (paths
+            ? ` und ${count(paths, 'gespeicherte Route', 'gespeicherte Routen')} als Wege`
+            : '') +
+          '. Der Verlauf der Routen liegt auf der Karte; die Länge berechnet Wayfarer aus dem Maßstab.',
+      );
+    if (newPlaces.length)
+      this.hints.push(
+        `${count(newPlaces.length, 'Kartenpunkt', 'Kartenpunkte')} ohne Ort in der alten Version (${joinAnd(newPlaces)}) ${newPlaces.length === 1 ? 'wurde' : 'wurden'} als Ort der Art „Kartenpunkt“ angelegt, damit die Routen daran hängen.`,
+      );
+    if (paths)
+      this.hints.push(
+        'Das Gelände der Wege ist aus der Karte abgeleitet (Stadtkarte: Stadt, Unterreich: Unterreich, sonst Grasland) – bitte bei Gelegenheit prüfen.',
+      );
+    if (deleted)
+      this.hints.push(
+        `${count(deleted, 'gelöschter Kartenpunkt wurde', 'gelöschte Kartenpunkte wurden')} weggelassen.`,
+      );
+  }
+
+  /**
+   * Maßstab einer Karte in km je Karteneinheit. Die alte Version speicherte ihn unter
+   * „elaris-travel-scale:<resourceId>:<docId>:<Breite>x<Höhe>“ – in km je Pixel dieses Bildformats.
+   */
+  private mapScale(
+    scales: Raw,
+    key: string,
+    lk: { resourceId: string; docId: string },
+    frame: Frame | null,
+  ): number | null {
+    const direct = num(scales[key]);
+    if (direct && direct > 0) return direct;
+    const prefix = `elaris-travel-scale:${lk.resourceId}:${lk.docId}:`;
+    for (const [name, value] of Object.entries(scales)) {
+      const km = num(value);
+      if (!name.startsWith(prefix) || !km || km <= 0) continue;
+      const [w] = name
+        .slice(prefix.length)
+        .split('x')
+        .map((n) => Number(n));
+      // Anderes Bildformat: auf die Breite der Karte umrechnen.
+      return frame && w && w > 0 && w !== frame.width ? (km * w) / frame.width : km;
+    }
+    return null;
+  }
+
+  // ── Erkundungen ──────────────────────────────────────────────────────────
+
+  private importExplorations() {
+    let areas = 0;
+    let tables = 0;
+    for (const e of Object.values(obj(this.raw.explorations))) {
+      if (!isObj(e) || !idOf(e.id) || !text(e.name)) {
+        this.skip('Erkundung', 'Erkundungen');
+        continue;
+      }
+      const name = text(e.name);
+      const tableIds = new Map<string, string[]>();
+      for (const [profile, t] of Object.entries(obj(e.tables))) {
+        if (!isObj(t)) continue;
+        const label = PROFILE_LABEL[profile] ?? profile;
+        const die = int(t.die);
+        const dc = int(t.dc);
+        const values = [
+          die !== null ? `Würfel W${die}` : '',
+          dc !== null ? `Schwierigkeit ${dc}` : '',
+        ].filter(Boolean);
+        const origin =
+          `Aus der Erkundung „${name}“ der alten Version, Gebiet „${label}“.` +
+          (values.length ? ` Dort eingestellt: ${values.join(', ')}.` : '');
+        const ids: string[] = [];
+        for (const [kind, field, title] of [
+          ['encounter', 'encounters', 'Begegnungen'],
+          ['discovery', 'contents', 'Entdeckungen'],
+        ] as const) {
+          const rows = list(t[field]).map(text);
+          const entries = rows
+            .map((row, i) => ({ id: newId(), min: i + 1, max: i + 1, text: row }))
+            .filter((row) => row.text && row.text !== '—');
+          if (!entries.length) continue;
+          const parsed = RollTableSchema.safeParse({
+            id: this.ids.claim('tables', `table:${idOf(e.id)}:${profile}:${kind}`),
+            created: this.stamp,
+            updated: this.stamp,
+            name: `${title} · ${label} (${name})`,
+            kind,
+            die: Math.max(2, rows.length),
+            entries,
+            notes:
+              origin +
+              (rows.length > entries.length ? ' Leere Zeilen („—“) bedeuten: nichts.' : ''),
+          });
+          if (!parsed.success) {
+            this.skip('Würfeltabelle', 'Würfeltabellen');
+            continue;
+          }
+          this.tables.push(parsed.data);
+          ids.push(parsed.data.id);
+          tables++;
+        }
+        tableIds.set(profile, ids);
+      }
+
+      const hexes = Object.entries(obj(e.hexes)).flatMap(([key, h]) => {
+        const [q, r] = key.split(',').map((n) => Number(n));
+        if (!isObj(h) || !Number.isInteger(q) || !Number.isInteger(r)) return [];
+        const content = text(h.content);
+        const placeId = this.placeByName(content);
+        const scene = obj(h.scene);
+        const note = [
+          !placeId && content ? content : '',
+          text(h.notes),
+          text(scene.description),
+          text(scene.outcome) && `Ausgespielt: ${text(scene.outcome)}`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+        return [
+          {
+            q,
+            r,
+            placeId,
+            note,
+            discovered: h.visited === true,
+            tableIds: tableIds.get(idOf(h.profile)) ?? [],
+          },
+        ];
+      });
+      const route = list(e.route).length;
+      const participants = this.partyNames(e.participants);
+      const log = list(e.log)
+        .filter((l): l is Raw => isObj(l) && time(l.at) !== null && !!text(l.text))
+        .map((l) => `${this.dateTime(time(l.at)!)}: ${text(l.text).replace(/\n/g, ' · ')}`);
+      const notes = [
+        [
+          text(e.origin) && `Von ${text(e.origin)}`,
+          text(e.destination) && `nach ${text(e.destination)}`,
+        ]
+          .filter(Boolean)
+          .join(' '),
+        route ? `Geplanter Weg: ${route} Hexfelder.` : '',
+        num(e.directDistanceKm) ? `Luftlinie: ${Math.round(num(e.directDistanceKm)!)} km.` : '',
+        int(e.minutesPerHex) ? `Zeit je Hexfeld: ${int(e.minutesPerHex)} Min.` : '',
+        participants.length ? `Teilnehmer: ${participants.join(', ')}.` : '',
+        EXPLORATION_STATUS[idOf(e.status)]
+          ? `Stand in der alten Version: ${EXPLORATION_STATUS[idOf(e.status)]}.`
+          : '',
+        log.length ? `Verlauf:\n${log.map((l) => `– ${l}`).join('\n')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const parsed = AreaSchema.safeParse({
+        id: this.ids.claim('areas', `area:${idOf(e.id)}`, idOf(e.id)),
+        created: this.stamp,
+        updated: this.stamp,
+        name,
+        hexKm: num(e.hexKm) && num(e.hexKm)! > 0 ? num(e.hexKm) : undefined,
+        hexes,
+        tableIds: [...tableIds.values()].flat(),
+        notes,
+      });
+      if (!parsed.success) {
+        this.skip('Erkundung', 'Erkundungen');
+        continue;
+      }
+      this.areas.push(parsed.data);
+      areas++;
+    }
+    if (areas)
+      this.adopted.push(
+        `${count(areas, 'Erkundung wurde', 'Erkundungen wurden')} als Erkundungsgebiet übernommen – mit den besuchten Hexfeldern, dem Verlauf als Notiz` +
+          (tables
+            ? ` und ${count(tables, 'Würfeltabelle', 'Würfeltabellen')} für Begegnungen und Entdeckungen`
+            : '') +
+          '. Ein Gebiet liegt noch auf keiner Karte; das lässt sich mit dem Bereich Karten nachholen.',
+      );
+  }
+
+  // ── Rasten ───────────────────────────────────────────────────────────────
+
+  private importRests() {
+    let rests = 0;
+    for (const r of Object.values(obj(this.raw.rests))) {
+      const steps = (isObj(r) ? list(r.steps) : [])
+        .filter((s): s is Raw => isObj(s) && time(s.at) !== null)
+        .sort((a, b) => time(a.at)! - time(b.at)!);
+      if (!isObj(r) || !idOf(r.id) || !steps.length) {
+        this.skip('Rast', 'Rasten');
+        continue;
+      }
+      const legacyParticipants = strings(r.participants);
+      const participants = this.partyIds(r.participants);
+      const start = time(steps[0]!.at)!;
+      const closure = obj(r.closure);
+      const closedAt = time(closure.at);
+      const last = steps[steps.length - 1]!;
+      const results = obj(last.results);
+      const complete =
+        legacyParticipants.length > 0 && legacyParticipants.every((p) => !!results[p]);
+      const status =
+        closedAt !== null
+          ? closure.kind === 'cancelled'
+            ? 'interrupted'
+            : 'done'
+          : complete
+            ? 'done'
+            : 'running';
+      const end = closedAt ?? (complete ? time(last.at) : null);
+
+      // Wachen: wer in einem Abschnitt wacht, wacht bis zum nächsten Abschnitt.
+      const watches: { id: string; start: number; end: number; characterIds: string[] }[] = [];
+      steps.forEach((step, i) => {
+        const from = time(step.at)!;
+        const until = i + 1 < steps.length ? time(steps[i + 1]!.at)! : (end ?? from);
+        const watching = Object.entries(obj(step.modes))
+          .filter(([, mode]) => mode === 'watch')
+          .map(([id]) => this.ids.get(`party:${id}`))
+          .filter((id): id is string => !!id && this.entities.has(id));
+        if (!watching.length || until <= from) return;
+        const previous = watches[watches.length - 1];
+        if (previous && previous.end === from && previous.characterIds.join() === watching.join())
+          previous.end = until;
+        else watches.push({ id: newId(), start: from, end: until, characterIds: watching });
+      });
+      const first = steps[0]!;
+      const noteId = idOf(r.noteId);
+      const sessionId = noteId ? this.ids.get(`note:${noteId}`) : null;
+      const note = [
+        text(r.place) && `Ort laut alter Version: ${text(r.place)}`,
+        first.safe === true
+          ? 'sicherer Lagerplatz'
+          : first.safe === false
+            ? 'unsicherer Lagerplatz'
+            : '',
+        first.fire === true ? 'mit Feuer' : '',
+        closure.kind === 'cancelled' ? 'abgebrochen' : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const parsed = RestSchema.safeParse({
+        id: this.ids.claim('rests', `rest:${idOf(r.id)}`, idOf(r.id)),
+        created: this.stamp,
+        updated: this.stamp,
+        kind: r.kind === 'short' ? 'short' : 'long',
+        participants: participants.length === LEGACY_PARTY.length ? [] : participants,
+        placeId: this.placeByName(text(r.place)),
+        sessionId: sessionId && this.sessions.some((s) => s.id === sessionId) ? sessionId : null,
+        start,
+        end,
+        status,
+        watches,
+        note,
+      });
+      if (!parsed.success) {
+        this.skip('Rast', 'Rasten');
+        continue;
+      }
+      this.rests.push(parsed.data);
+      rests++;
+    }
+    if (rests)
+      this.adopted.push(
+        `${count(rests, 'Rast wurde', 'Rasten wurden')} mit Teilnehmern, Wachen und Ausgang übernommen; Lagerplatz und Feuer stehen in der Notiz.`,
+      );
+  }
+
   // ── Berichtsteile ohne eigene Daten ──────────────────────────────────────
 
   private reportSky() {
@@ -1516,30 +2101,6 @@ class Importer {
   private reportOmitted() {
     const raw = this.raw;
     const world = obj(raw.world);
-    const library = obj(raw.travelLibrary);
-    const routes = list(library.routes).length;
-    const anchors = list(library.anchors).filter((a) => isObj(a) && a.deleted !== true).length;
-    const maps = list(world.maps).length;
-    const scales = Object.keys(obj(raw.travelScales)).length;
-    const travel = [
-      routes ? count(routes, 'gespeicherte Route', 'gespeicherte Routen') : '',
-      anchors ? count(anchors, 'Kartenanker', 'Kartenanker') : '',
-      maps ? count(maps, 'Kartenzuordnung', 'Kartenzuordnungen') : '',
-      scales ? count(scales, 'Kartenmaßstab', 'Kartenmaßstäbe') : '',
-    ].filter(Boolean);
-    if (travel.length)
-      this.omitted.push(`Nicht übernommen: ${joinAnd(travel)} – folgt mit dem Bereich Reisen.`);
-
-    const explorations = Object.keys(obj(raw.explorations)).length;
-    if (explorations)
-      this.omitted.push(
-        `Nicht übernommen: ${count(explorations, 'Erkundung', 'Erkundungen')} mit Hexfeldern und Würfeltabellen – dafür gibt es im neuen Wayfarer noch keinen Bereich.`,
-      );
-    const rests = Object.keys(obj(raw.rests)).length;
-    if (rests)
-      this.omitted.push(
-        `Nicht übernommen: ${count(rests, 'protokollierte Rast', 'protokollierte Rasten')} mit Wachen und Schlafzeiten. Die Erschöpfung der Gefährten ist übernommen.`,
-      );
     const rooms = Object.values(obj(raw.dungeons)).reduce<number>(
       (n, d) => n + Object.keys(obj(obj(d).rooms)).length,
       0,
@@ -1602,6 +2163,11 @@ class Importer {
       events: index(this.events),
       sessions: index(this.sessions),
       timers: index(this.timers),
+      maps: index(this.maps.values()),
+      paths: index(this.paths),
+      areas: index(this.areas),
+      tables: index(this.tables),
+      rests: index(this.rests),
     };
     const { data, repaired } = repairReferences(built);
     if (repaired)

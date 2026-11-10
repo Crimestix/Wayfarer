@@ -147,6 +147,8 @@ describe('Vollständiges Backup', () => {
     expect(places.map((p) => p.name)).toEqual([
       'Alte Salzstraße',
       'Aschenmark',
+      // Kartenpunkt ohne Ort in der alten Version; die gespeicherte Route endet dort.
+      'Graufels',
       'Hohenfurt',
       'Verlassene Mühle',
       'Wachturm Graufels',
@@ -267,7 +269,7 @@ describe('Vollständiges Backup', () => {
     expect(entitiesOfKind(data, 'person').some((p) => p.name === 'Veres')).toBe(false);
   });
 
-  it('übernimmt Personen, Fraktionen und Themen der Weltdatenbank', () => {
+  it('übernimmt Personen, Fraktionen, Familien, Spezies, Sprachen, Schriften und Fähigkeiten', () => {
     const ardo = byName(data, 'person', 'Ardo Venn');
     const turm = byName(data, 'place', 'Wachturm Graufels');
     const hohenfurt = byName(data, 'place', 'Hohenfurt');
@@ -276,7 +278,9 @@ describe('Vollständiges Backup', () => {
       tags: ['Wacht'],
       lk: null,
       person: {
-        species: 'Mensch',
+        species: '',
+        speciesId: byName(data, 'species', 'Mensch').id,
+        workplaceId: turm.id,
         role: 'Hauptmann der Wacht',
         status: 'alive',
         placeId: turm.id,
@@ -292,9 +296,6 @@ describe('Vollständiges Backup', () => {
         'Titel: Hauptmann',
         'Geschlecht: Männlich',
         'Geboren: 12. Sonnfeld 660 AD in Hohenfurt',
-        'Fähigkeiten: Dunkelsicht',
-        'Sprachen: Gemeinsprache, Zwergisch',
-        'Schriften: Markrunen',
         'Zustand: Alte Beinwunde.',
         'Ziele: Den Turm halten, bis Ablösung kommt.',
       ].join('\n'),
@@ -309,21 +310,26 @@ describe('Vollständiges Backup', () => {
       faction: { category: 'Stadtwache', seatId: turm.id },
     });
     expect(byName(data, 'faction', 'Salzgilde').faction.seatId).toBe(hohenfurt.id);
-    expect(byName(data, 'faction', 'Familie Venn').faction.category).toBe('Familie');
-    expect(byName(data, 'topic', 'Halbelf')).toMatchObject({
+    expect(byName(data, 'family', 'Familie Venn').kind).toBe('family');
+    expect(byName(data, 'species', 'Halbelf')).toMatchObject({
       notes: 'Selten in der Mark.\n\nÜbergeordnete Spezies: Mensch\nLebenserwartung: 180 Jahre',
-      topic: { category: 'Spezies' },
     });
-    expect(entitiesOfKind(data, 'topic').map((t) => `${t.topic.category}: ${t.name}`)).toEqual([
-      'Notiz: Abenteuerverlauf · Exploration',
-      'Fähigkeit: Dunkelsicht',
-      'Sprache: Gemeinsprache',
-      'Notiz: Gerüchte in Hohenfurt',
-      'Spezies: Halbelf',
-      'Schrift: Markrunen',
-      'Spezies: Mensch',
-      'Sprache: Zwergisch',
-    ]);
+    const names = (kind: EntityKind) => entitiesOfKind(data, kind).map((e) => e.name);
+    expect(names('species')).toEqual(['Halbelf', 'Mensch']);
+    expect(names('language')).toEqual(['Gemeinsprache', 'Zwergisch']);
+    expect(names('script')).toEqual(['Markrunen']);
+    expect(names('ability')).toEqual(['Dunkelsicht']);
+    // Als Themen bleiben nur die Notizen, die zu keiner Session gehören.
+    expect(names('topic')).toEqual(['Abenteuerverlauf · Exploration', 'Gerüchte in Hohenfurt']);
+    // Sprachen, Schriften und Fähigkeiten hängen über Beziehungen an der Person.
+    const linked = (type: string) =>
+      Object.values(data.relations)
+        .filter((r) => r.from === ardo.id && r.type === type)
+        .map((r) => data.entities[r.to]!.name)
+        .sort();
+    expect(linked('speaks')).toEqual(['Gemeinsprache', 'Zwergisch']);
+    expect(linked('writes')).toEqual(['Markrunen']);
+    expect(linked('has-ability')).toEqual(['Dunkelsicht']);
   });
 
   it('übersetzt die Beziehungen der Weltdatenbank in die Beziehungsarten des neuen Modells', () => {
@@ -341,11 +347,9 @@ describe('Vollständiges Backup', () => {
       note: 'Hauptmann',
       attitude: null,
     });
-    expect(rel(ardo, id('faction', 'Familie Venn')).type).toBe('member');
-    expect(rel(ardo, id('place', 'Wachturm Graufels'))).toMatchObject({
-      type: 'resides',
-      note: 'Arbeitsort',
-    });
+    expect(rel(ardo, id('family', 'Familie Venn')).type).toBe('member');
+    // Der Arbeitsort ist jetzt eine Angabe der Person, keine Beziehung mehr.
+    expect(findRelation(data, ardo, id('place', 'Wachturm Graufels'))).toBeUndefined();
     expect(rel(id('person', 'Edda Venn'), ardo)).toMatchObject({
       type: 'family',
       note: 'Edda Venn ist die Mutter von Ardo Venn.',
@@ -584,20 +588,27 @@ describe('Vollständiges Backup', () => {
   it('übernimmt Timer mit Art, Beteiligten und Status', () => {
     const timer = (label: string) => Object.values(data.timers).find((t) => t.label === label)!;
     expect(Object.keys(data.timers)).toHaveLength(4);
+    // Mit Konzentration ist es ein Zauber; der Wirkende ist der Gefährte Tomlin.
     expect(timer('Unsichtbarkeit')).toMatchObject({
-      kind: 'effect',
+      kind: 'spell',
       start: fullBackup.now - 20,
       end: fullBackup.now + 40,
       refs: ['naelmira'],
+      participants: ['naelmira'],
+      casterId: 'tomlin',
+      concentration: true,
       note: 'Wirkender: Tomlin · Ziel / Ort: Naelmira · Konzentration',
       done: false,
     });
     expect(timer('Ritual: Magie entdecken')).toMatchObject({
       kind: 'task',
       refs: ['nex'],
+      casterId: 'nex',
+      concentration: false,
       note: 'Ausführend: Nex · Vorzeitig beendet am 17. Tauwind 701 AD, 16:15 Uhr',
       done: true,
     });
+    expect(timer('Fackel')).toMatchObject({ kind: 'effect', casterId: null });
     // Ganze Gruppe: keine einzelnen Beteiligten. Abgelaufen: erledigt.
     expect(timer('Reise nach Graufels')).toMatchObject({
       kind: 'task',
@@ -621,7 +632,7 @@ describe('Vollständiges Backup', () => {
     expect(adopted).toEqual([
       'Die Weltzeit steht auf dem 19. Tauwind 701 AD, 21:00 Uhr.',
       '6 Orte wurden mit Gliederung, Beschreibung und Schlagworten übernommen, 1 davon mit Verknüpfung zu einem LegendKeeper-Artikel.',
-      'Aus der Weltdatenbank: 4 Fraktionen (davon 1 Familie) und 6 Themen (Spezies, Fähigkeiten, Sprachen und Schriften).',
+      'Aus der Weltdatenbank: 3 Fraktionen, 1 Familie, 2 Spezies, 1 Fähigkeit, 2 Sprachen und 1 Schrift.',
       'Die 6 Gefährten wurden angelegt; für 3 von ihnen standen Werte im Backup (Klasse, Stufe, Rüstungsklasse, passive Werte, Sprachen, Erschöpfung, Bild). Zauberrettungs-SG, Übungen und frühere Aufenthalte stehen als Text in ihren Notizen.',
       '4 Personen wurden aus der Weltdatenbank übernommen – mit Beruf, Spezies, Heimat und Aufenthaltsort; Titel, Geburt, Alter, Zustand und Ziele stehen als Text in den Notizen.',
       'Die Stammdaten von 1 Gefährten aus der Weltdatenbank wurden in dessen Eintrag eingearbeitet.',
@@ -630,16 +641,21 @@ describe('Vollständiges Backup', () => {
       'Haltungen: 3 gegenüber der Gruppe und 3 gegenüber einzelnen Gefährten.',
       'Aus den Dossiers stehen 1 Notiz und 4 Abmachungen (davon 1 erledigt) samt Fristen in der Chronik bei der jeweiligen Person. Zusagen, Schulden und Gefallen sind am Wort vor dem Text zu erkennen.',
       '6 Haltungsänderungen stehen mit Grund und Zeitpunkt in der Chronik und bilden den Verlauf bei der Person.',
-      '4 Timer wurden übernommen (2 laufen noch); Wirkender, Ziel und Konzentration stehen in der Notiz.',
+      '4 Timer wurden übernommen (2 laufen noch); Wirkender, Konzentration und Teilnehmer sind eingetragen, das Ziel steht in der Notiz.',
       '6 Ortswechsel der Gruppe stehen in der Chronik; daraus ergeben sich die Besuche der Orte. Die Gruppe ist jetzt in „Wachturm Graufels“.',
       '6 Termine wurden übernommen (davon 2 mit Wiederholung) – mit Art, Uhrzeit, Dauer, Ort und Erledigt-Haken.',
       '2 Sessions wurden aus den Notizen mit dem Titel „Session …“ angelegt, der Notiztext steht in der Mitschrift. Session 13 gilt als laufende Session.',
       '2 weitere Notizen wurden als Thema der Art „Notiz“ in die Welt übernommen, weil sie zu keiner Session gehören.',
+      '1 Karte wurde mit LegendKeeper-Verweis übernommen (eine mit Maßstab), dazu 3 Kartenpunkte und 1 gespeicherte Route als Wege. Der Verlauf der Routen liegt auf der Karte; die Länge berechnet Wayfarer aus dem Maßstab.',
+      '1 Erkundung wurde als Erkundungsgebiet übernommen – mit den besuchten Hexfeldern, dem Verlauf als Notiz und 6 Würfeltabellen für Begegnungen und Entdeckungen. Ein Gebiet liegt noch auf keiner Karte; das lässt sich mit dem Bereich Karten nachholen.',
+      '1 Rast wurde mit Teilnehmern, Wachen und Ausgang übernommen; Lagerplatz und Feuer stehen in der Notiz.',
       'Die Mond-Kalibrierung für Caldus wurde in den Kalender übernommen.',
     ]);
     // Die Zahlen des Berichts stimmen mit dem Ergebnis überein.
-    expect(entitiesOfKind(data, 'place')).toHaveLength(6);
-    expect(entitiesOfKind(data, 'faction')).toHaveLength(4);
+    // 6 Orte und der Kartenpunkt „Graufels“, an dem die Route endet.
+    expect(entitiesOfKind(data, 'place')).toHaveLength(6 + 1);
+    expect(entitiesOfKind(data, 'faction')).toHaveLength(3);
+    expect(entitiesOfKind(data, 'family')).toHaveLength(1);
     expect(entitiesOfKind(data, 'person')).toHaveLength(4 + 3);
     expect(Object.values(data.chronicle).filter((e) => e.kind === 'travel')).toHaveLength(6);
     expect(Object.values(data.chronicle).filter((e) => e.kind === 'attitude')).toHaveLength(6);
@@ -658,11 +674,77 @@ describe('Vollständiges Backup', () => {
     );
   });
 
+  it('übernimmt Karten mit Maßstab und Kartenpunkten sowie Routen als Wege', () => {
+    const map = Object.values(data.maps)[0]!;
+    expect(Object.keys(data.maps)).toHaveLength(1);
+    expect(map).toMatchObject({
+      name: 'Aschenmark',
+      lk: { resourceId: 'karte', docId: 'aschenmark' },
+      placeId: byName(data, 'place', 'Aschenmark').id,
+      frame: { width: 4000, height: 3000 },
+      scale: { kmPerUnit: 2.5 },
+    });
+    const hohenfurt = byName(data, 'place', 'Hohenfurt');
+    const graufels = byName(data, 'place', 'Graufels');
+    expect(graufels.place).toMatchObject({ category: 'Kartenpunkt', parentId: map.placeId });
+    expect(map.markers.map((m) => [m.label, m.x, m.y, m.entityId])).toEqual([
+      ['Hohenfurt', 1200, 900, hohenfurt.id],
+      ['Graufels', 2600, 700, graufels.id],
+      // Ein Kartenpunkt ohne Ort und ohne Route bleibt ein bloßer Marker.
+      ['Salzstraße', 1900, 800, null],
+    ]);
+    const paths = Object.values(data.paths);
+    expect(paths).toHaveLength(1);
+    expect(paths[0]).toMatchObject({
+      name: 'Über die Salzstraße',
+      fromId: hohenfurt.id,
+      toId: graufels.id,
+      mapId: map.id,
+      distanceKm: null,
+      points: [
+        [1200, 900],
+        [1900, 800],
+        [2600, 700],
+      ],
+    });
+  });
+
+  it('übernimmt Erkundungen als Gebiet mit Würfeltabellen und Rasten mit Wachen', () => {
+    const area = Object.values(data.areas)[0]!;
+    expect(area).toMatchObject({ name: 'Durch die Salzsümpfe', hexKm: 10, mapId: null });
+    expect(area.notes).toContain('Von Hohenfurt nach Graufels');
+    expect(area.notes).toContain('Teilnehmer: Tomlin, Naelmira, Neil, Corrin, Veres, Nex.');
+    const tables = Object.values(data.tables);
+    expect(tables).toHaveLength(6);
+    expect(area.tableIds.sort()).toEqual(tables.map((t) => t.id).sort());
+    const deep = tables.find((t) => t.name.startsWith('Begegnungen · Tiefe Wildnis'))!;
+    expect(deep).toMatchObject({ kind: 'encounter', dc: null });
+    expect(deep.entries[0]).toMatchObject({
+      min: 1,
+      max: 1,
+      text: 'Frische Schleifspuren verschwinden in einem Seitentunnel.',
+    });
+    expect(deep.notes).toContain('Würfel W4, Schwierigkeit 15');
+    // „—“ heißt in der alten Version: hier ist nichts.
+    const finds = tables.find((t) => t.name.startsWith('Entdeckungen · Stadt'))!;
+    expect(finds.entries.map((e) => e.min)).toEqual([4, 5, 6]);
+    expect(finds.die).toBe(6);
+
+    const rest = Object.values(data.rests)[0]!;
+    expect(rest).toMatchObject({
+      kind: 'long',
+      participants: ['tomlin', 'neil'],
+      placeId: byName(data, 'place', 'Zum Lahmen Eber').id,
+      status: 'running',
+      end: null,
+    });
+    expect(rest.note).toBe(
+      'Ort laut alter Version: Zum Lahmen Eber · sicherer Lagerplatz · mit Feuer',
+    );
+  });
+
   it('nennt klar, was nicht übernommen wurde, statt es zu erfinden', () => {
     expect(result.sections.omitted).toEqual([
-      'Nicht übernommen: 1 gespeicherte Route, 3 Kartenanker, 1 Kartenzuordnung und 1 Kartenmaßstab – folgt mit dem Bereich Reisen.',
-      'Nicht übernommen: 1 Erkundung mit Hexfeldern und Würfeltabellen – dafür gibt es im neuen Wayfarer noch keinen Bereich.',
-      'Nicht übernommen: 1 protokollierte Rast mit Wachen und Schlafzeiten. Die Erschöpfung der Gefährten ist übernommen.',
       'Nicht übernommen: Stand und Notizen zu 2 Dungeonräumen.',
       'Nicht übernommen: 1 Einordnung von LegendKeeper-Artikeln (Tagging). Verknüpfte Artikel an Orten und Personen bleiben erhalten.',
       'Nicht übernommen: 1 Gewaltmarsch-Prüfung und die aufgelaufene Reisezeit der Gefährten – folgt mit dem Bereich Reisen.',
@@ -671,12 +753,7 @@ describe('Vollständiges Backup', () => {
     expect(result.sections.skipped).toEqual([]);
     // Nichts davon taucht als erfundener Eintrag auf.
     const everything = JSON.stringify(data);
-    for (const needle of [
-      'Über die Salzstraße',
-      'Durch die Salzsümpfe',
-      'Eingangshalle',
-      'beispielprojekt/startseite',
-    ])
+    for (const needle of ['Eingangshalle', 'beispielprojekt/startseite'])
       expect(everything).not.toContain(needle);
   });
 
@@ -837,6 +914,24 @@ describe('Kennungen', () => {
   });
 });
 
+describe('Kartenpunkte ohne Ort', () => {
+  it('erkennen vorhandene Orte trotz kleiner Schreibunterschiede und legen keinen zweiten an', () => {
+    const backup = full() as unknown as {
+      travelLibrary: { anchors: { id: string; name: string }[] };
+    };
+    const turm = backup.travelLibrary.anchors.find((a) => a.id === 'anker-turm')!;
+    turm.name = 'Der Wachturm Graufels’';
+    const { data } = importV157Backup(backup);
+    const path = Object.values(data.paths)[0]!;
+    expect(data.entities[path.toId]!.name).toBe('Wachturm Graufels');
+    expect(
+      Object.values(data.entities).filter(
+        (e) => e.kind === 'place' && e.place.category === 'Kartenpunkt',
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('Unbekanntes und Kaputtes', () => {
   it('lehnt Dateien ab, die kein Backup der alten Version sind', () => {
     for (const raw of [
@@ -960,7 +1055,11 @@ describe('Unbekanntes und Kaputtes', () => {
     expect(data.state.now).toBe(ELARIS_START);
     expect(report.join(' ')).toContain('Die Weltzeit im Backup war unlesbar');
     expect(entitiesOfKind(data, 'character')).toHaveLength(6);
-    expect(Object.keys(data.entities)).toHaveLength(6);
+    // Ohne Welt gibt es keine Orte; die Endpunkte der gespeicherten Route werden Kartenpunkte.
+    const others = Object.values(data.entities).filter((e) => e.kind !== 'character');
+    expect(
+      others.map((e) => (e.kind === 'place' ? `${e.place.category}: ${e.name}` : e.kind)),
+    ).toEqual(['Kartenpunkt: Hohenfurt', 'Kartenpunkt: Graufels']);
     expect(data.campaign.calendar).toEqual(ELARIS_CALENDAR);
     // Kein Bereich verschwindet stillschweigend: Jeder mit falschem Aufbau steht im Bericht.
     const skipped = previewV157Backup(backup).sections.skipped.join(' ');
