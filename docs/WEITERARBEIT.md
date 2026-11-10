@@ -23,9 +23,13 @@ nachgebessert worden. Typprüfung fehlerfrei, alle Tests grün, `npm run build` 
 Das Gerüst (Weltleiste, Navigation, Suche Strg+K, Festhalten Strg+E, Zeitdialog, Ortswechsel,
 Haltungsdialog) und das Fundament (`src/domain`, `src/data`, `src/ui`) sind gemeinsam genutzt.
 
-### Nur unter Linux geprüft
+### Auf macOS und Windows bisher nur teilweise geprüft
 
-Die erste Welle lief in einem Linux-Container. Auf macOS und Windows ist noch nichts gelaufen.
+Die erste Welle lief in einem Linux-Container. Die Rust-Tests der Desktop-Seite laufen seit dem
+10. 11. auch auf echten Mac- und Windows-Rechnern bei GitHub grün (Ablauf „Desktop prüfen“; dabei
+wurden drei Fehler gefunden und behoben: doppeltes `generate_context!` auf macOS, fehlendes
+Manifest für Windows-Testprogramme, Menü außerhalb des Hauptthreads). Die Oberfläche selbst und
+die Installationspakete sind auf Mac und Windows noch nicht gelaufen.
 **Erste Aufgabe auf dem eigenen Rechner:** `npm run tauri dev` starten, eine Kampagne anlegen,
 die wichtigsten Abläufe einmal durchklicken (Zeit vorstellen, Ort wechseln, Person anlegen,
 Haltung ändern, Festhalten, Neustart → alles noch da). Besonders prüfen:
