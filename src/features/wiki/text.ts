@@ -165,3 +165,57 @@ export function articleAsText(
     });
   return { article: { ...article, sidebar: [], docs }, dropped: writer.dropped };
 }
+
+// ── Verweise nachziehen ────────────────────────────────────────────────────
+
+/** Ein Verweis im Text: `[[Ziel]]` oder `[[Ziel|Text]]`, nicht mit „\\“ davor. */
+const LINK = /(?<!\\)\[\[([^[\]\n|]+)(\|[^[\]\n]*)?\]\]/g;
+
+/** Alle Verweisziele im Text einer Seite, wie sie geschrieben stehen. */
+export function linkTargets(text: string): string[] {
+  return [...text.matchAll(LINK)].map((match) => match[1]!.trim());
+}
+
+/**
+ * Hält Verweise beim Alten, wenn sich Titel ändern: Jeder Verweis, der vorher zu einem Artikel
+ * führte, führt danach zu demselben – auch wenn der Artikel umbenannt wurde oder ein anderer nun
+ * genauso heißt. Verweise auf gelöschte Artikel bleiben als Name stehen. Gibt nur die Artikel
+ * zurück, deren Text sich dabei geändert hat.
+ */
+export function relinked(before: Articles, after: Articles): Article[] {
+  const was = linkIndex(before);
+  const now = linkIndex(after);
+  const changed: Article[] = [];
+  for (const article of Object.values(after)) {
+    let touched = false;
+    const docs = article.docs.map((doc) => {
+      // Seiten der alten Form merken sich ihre Ziele über die Kennung – dort ändert sich nichts.
+      if (doc.kind !== 'page' || !doc.text) return doc;
+      const next = doc.text.replace(LINK, (whole, target: string, label: string | undefined) => {
+        const aim = was.resolve(target.trim());
+        if (!aim || !after[aim.id]) return whole;
+        const canonical = now.targetOf(aim.id)!;
+        const written = canonical.unique ? canonical.title : `${canonical.title}~${aim.id}`;
+        const { title, id } = splitTarget(target);
+        const byTitle = titleKey(title) === titleKey(canonical.title);
+        if (id) {
+          // Mit Kennung geschrieben: nur anfassen, wenn Titel oder Eindeutigkeit sich geändert haben.
+          if (byTitle && !canonical.unique) return whole;
+        } else if (now.resolve(target.trim())?.id === aim.id && (!byTitle || canonical.unique)) {
+          // Führt weiter zum selben Artikel – über den eindeutigen Titel oder einen Zweitnamen.
+          return whole;
+        }
+        // Stand dort der alte Titel, zeigt der Verweis künftig den neuen. War es ein Zweitname,
+        // den es nicht mehr gibt, bleibt der Wortlaut als gezeigter Text erhalten.
+        const wasTitle = titleKey(title) === titleKey(before[aim.id]?.title ?? '');
+        const shown = label ?? (wasTitle || byTitle ? '' : `|${title}`);
+        return `[[${written}${shown}]]`;
+      });
+      if (next === doc.text) return doc;
+      touched = true;
+      return { ...doc, text: next };
+    });
+    if (touched) changed.push({ ...article, docs });
+  }
+  return changed;
+}

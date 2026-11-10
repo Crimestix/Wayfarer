@@ -1,9 +1,12 @@
 /** Befehle des Bereichs „Wiki“. */
 import type { CampaignDb } from '../../data/db';
 import {
+  ArticleSchema,
   createEntity,
+  newId,
   nowIso,
   type Article,
+  type ArticleDoc,
   type CampaignData,
   type Entity,
   type EntityKind,
@@ -11,6 +14,7 @@ import {
 import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
+import { articleAsText, relinked, titleKey } from './text';
 
 export interface AppliedLkImport {
   at: string;
@@ -67,4 +71,260 @@ export function adoptArticle(db: CampaignDb, article: Article, kind: EntityKind)
       lk: { resourceId: article.id, title: article.title },
     }),
   );
+}
+
+// ── Schreiben ──────────────────────────────────────────────────────────────
+
+type Articles = CampaignData['articles'];
+
+/**
+ * Bringt einen Artikel in die Textform, falls er noch in der alten liegt, und macht ihn zu einem
+ * Artikel von Wayfarer: Was hier geschrieben wurde, überschreibt ein späterer Import nicht mehr.
+ */
+function owned(articles: Articles, article: Article): Article {
+  const legacy =
+    article.sidebar.length > 0 || article.docs.some((doc) => doc.nodes.length > 0 && !doc.text);
+  const base = legacy ? articleAsText(articles, article).article : article;
+  return base.source === 'wayfarer' ? base : { ...base, source: 'wayfarer' };
+}
+
+/** Schreibt die Artikel, deren Verweise nach einer Änderung der Titel nachgezogen wurden. */
+function putRelinked(db: CampaignDb, before: Articles): number {
+  const changed = relinked(before, db.getSnapshot().articles);
+  for (const article of changed) db.put('articles', article);
+  return changed.length;
+}
+
+/** Speichert den Text einer Seite. Ohne Änderung geschieht nichts. */
+export function savePageText(db: CampaignDb, articleId: string, docId: string, text: string): void {
+  const articles = db.getSnapshot().articles;
+  const current = articles[articleId];
+  if (!current) return;
+  const article = owned(articles, current);
+  const doc = article.docs.find((d) => d.id === docId);
+  if (!doc || doc.kind !== 'page') return;
+  if (doc.text === text && article === current) return;
+  db.put('articles', {
+    ...article,
+    docs: article.docs.map((d) => (d.id === docId ? { ...d, text, nodes: [] } : d)),
+  });
+}
+
+/** Sortierschlüssel hinter dem letzten Geschwister-Artikel. */
+function orderAfterLast(articles: Articles, parentId: string | null, exceptId?: string): string {
+  const last = Object.values(articles)
+    .filter((a) => a.parentId === parentId && a.id !== exceptId && !a.template)
+    .map((a) => a.order)
+    .sort()
+    .pop();
+  return last ? `${last}V` : 'V';
+}
+
+const emptyPage = (title = ''): ArticleDoc => ({
+  id: newId(),
+  title,
+  kind: 'page',
+  hidden: false,
+  text: '',
+  nodes: [],
+  mapId: null,
+});
+
+/**
+ * Legt einen neuen Artikel an – ganz oben oder unter einem anderen. Heißt schon ein Artikel so,
+ * bleiben die bisherigen Verweise bei ihm.
+ */
+export function createArticle(
+  db: CampaignDb,
+  input: { title: string; parentId?: string | null; text?: string },
+): Article | null {
+  const title = input.title.replace(/\s+/g, ' ').trim();
+  if (!title) return null;
+  const before = db.getSnapshot().articles;
+  const parentId = input.parentId && before[input.parentId] ? input.parentId : null;
+  const stamp = nowIso();
+  return db.batch(() => {
+    const article = db.put(
+      'articles',
+      ArticleSchema.parse({
+        id: newId(),
+        created: stamp,
+        updated: stamp,
+        title,
+        parentId,
+        order: orderAfterLast(before, parentId),
+        docs: [{ ...emptyPage(), text: input.text ?? '' }],
+        source: 'wayfarer',
+      }),
+    );
+    putRelinked(db, before);
+    return article;
+  });
+}
+
+export type RenameProblem = 'empty' | 'missing';
+
+/**
+ * Benennt einen Artikel um. Alle Verweise auf ihn ziehen mit; Einträge der Welt, die zu ihm
+ * gehören, merken sich den neuen Titel. Gibt zurück, in wie vielen Artikeln Verweise angepasst
+ * wurden.
+ */
+export function renameArticle(
+  db: CampaignDb,
+  articleId: string,
+  newTitle: string,
+): { relinked: number } | RenameProblem {
+  const title = newTitle.replace(/\s+/g, ' ').trim();
+  if (!title) return 'empty';
+  const before = db.getSnapshot().articles;
+  const current = before[articleId];
+  if (!current) return 'missing';
+  if (current.title === title) return { relinked: 0 };
+  return db.batch(() => {
+    db.put('articles', { ...owned(before, current), title });
+    const count = putRelinked(db, before);
+    for (const entity of Object.values(db.getSnapshot().entities))
+      if (entity.lk?.resourceId === articleId && entity.lk.title !== title)
+        db.put('entities', { ...entity, lk: { ...entity.lk, title } });
+    return { relinked: count };
+  });
+}
+
+/** Liegt `candidate` unter `ancestorId` (oder ist es derselbe Artikel)? */
+export function isWithin(
+  articles: Articles,
+  candidate: string | null,
+  ancestorId: string,
+): boolean {
+  const seen = new Set<string>();
+  let current = candidate;
+  while (current && !seen.has(current)) {
+    if (current === ancestorId) return true;
+    seen.add(current);
+    current = articles[current]?.parentId ?? null;
+  }
+  return false;
+}
+
+/** Hängt einen Artikel unter einen anderen (oder mit `null` ganz nach oben), ans Ende der Reihe. */
+export function moveArticle(db: CampaignDb, articleId: string, parentId: string | null): boolean {
+  const articles = db.getSnapshot().articles;
+  const article = articles[articleId];
+  if (!article || article.parentId === parentId) return false;
+  if (parentId !== null && (!articles[parentId] || isWithin(articles, parentId, articleId)))
+    return false;
+  db.put('articles', {
+    ...article,
+    parentId,
+    order: orderAfterLast(articles, parentId, articleId),
+  });
+  return true;
+}
+
+/**
+ * Löscht einen Artikel. Unterartikel rücken eine Ebene nach oben; Einträge der Welt bleiben,
+ * verlieren aber die Verknüpfung. Verweise auf den Artikel bleiben als Name stehen. `undo`
+ * stellt alles wieder her, was seither niemand angefasst hat.
+ */
+export function deleteArticle(db: CampaignDb, articleId: string): (() => void) | null {
+  const data = db.getSnapshot();
+  const article = data.articles[articleId];
+  if (!article) return null;
+  const children = Object.values(data.articles).filter((a) => a.parentId === articleId);
+  const owners = Object.values(data.entities).filter((e) => e.lk?.resourceId === articleId);
+  db.batch(() => {
+    for (const child of children) db.put('articles', { ...child, parentId: article.parentId });
+    for (const owner of owners) db.put('entities', { ...owner, lk: null });
+    db.remove('articles', articleId);
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot();
+      if (!now.articles[articleId]) db.put('articles', { ...article, rev: 0 });
+      for (const child of children) {
+        const current = now.articles[child.id];
+        if (current && current.parentId === article.parentId)
+          db.put('articles', { ...current, parentId: articleId });
+      }
+      for (const owner of owners) {
+        const current = now.entities[owner.id];
+        if (current && current.lk === null) db.put('entities', { ...current, lk: owner.lk });
+      }
+    });
+}
+
+/** Fügt einem Artikel eine weitere Textseite hinzu und gibt ihre Kennung zurück. */
+export function addPage(db: CampaignDb, articleId: string, title = ''): string | null {
+  const articles = db.getSnapshot().articles;
+  const current = articles[articleId];
+  if (!current) return null;
+  const article = owned(articles, current);
+  const page = emptyPage(title.trim());
+  // Vor den Seiten, die Wayfarer nicht zeigt (Zeitleiste, Zeichenfläche), aber nach Text und Karten.
+  const at = article.docs.filter((d) => d.kind === 'page' || d.kind === 'map').length;
+  db.put('articles', {
+    ...article,
+    docs: [...article.docs.slice(0, at), page, ...article.docs.slice(at)],
+  });
+  return page.id;
+}
+
+/** Benennt eine Seite eines Artikels um. */
+export function renamePage(db: CampaignDb, articleId: string, docId: string, title: string): void {
+  const articles = db.getSnapshot().articles;
+  const current = articles[articleId];
+  const doc = current?.docs.find((d) => d.id === docId);
+  if (!current || !doc || doc.title === title.trim()) return;
+  const article = owned(articles, current);
+  db.put('articles', {
+    ...article,
+    docs: article.docs.map((d) => (d.id === docId ? { ...d, title: title.trim() } : d)),
+  });
+}
+
+/** Entfernt eine Seite eines Artikels; `undo` holt sie an ihre Stelle zurück. */
+export function removePage(db: CampaignDb, articleId: string, docId: string): (() => void) | null {
+  const articles = db.getSnapshot().articles;
+  const current = articles[articleId];
+  if (!current || !current.docs.some((d) => d.id === docId)) return null;
+  const article = owned(articles, current);
+  const index = article.docs.findIndex((d) => d.id === docId);
+  const removed = article.docs[index]!;
+  db.put('articles', { ...article, docs: article.docs.filter((d) => d.id !== docId) });
+  return () => {
+    const now = db.getSnapshot().articles[articleId];
+    if (!now || now.docs.some((d) => d.id === docId)) return;
+    db.put('articles', {
+      ...now,
+      docs: [...now.docs.slice(0, index), removed, ...now.docs.slice(index)],
+    });
+  };
+}
+
+/** Ändert Schlagworte, Zweitnamen oder das Symbol eines Artikels. */
+export function setArticleMeta(
+  db: CampaignDb,
+  articleId: string,
+  change: Partial<Pick<Article, 'tags' | 'aliases' | 'icon' | 'hidden'>>,
+): void {
+  const before = db.getSnapshot().articles;
+  const current = before[articleId];
+  if (!current) return;
+  /** Ohne Leeres und ohne Doppeltes; bei gleicher Schreibweise bleibt die erste. */
+  const clean = (values: string[]) => {
+    const seen = new Map<string, string>();
+    for (const value of values.map((v) => v.trim()).filter(Boolean))
+      if (!seen.has(titleKey(value))) seen.set(titleKey(value), value);
+    return [...seen.values()];
+  };
+  db.batch(() => {
+    db.put('articles', {
+      ...owned(before, current),
+      ...change,
+      ...(change.tags ? { tags: clean(change.tags) } : {}),
+      ...(change.aliases ? { aliases: clean(change.aliases) } : {}),
+    });
+    // Ein neuer Zweitname kann Verweise auflösen oder verschieben.
+    if (change.aliases) putRelinked(db, before);
+  });
 }
