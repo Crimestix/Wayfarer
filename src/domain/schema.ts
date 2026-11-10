@@ -155,6 +155,11 @@ const PlaceDetails = z.object({
   category: z.string().default(''),
   /** Klimazone für das Wetter; null = die des übergeordneten Ortes. */
   climateId: id.nullable().default(null),
+  /**
+   * Lage auf dem Planeten in Grad (Länge −180…180, Breite −90…90). Ohne Angabe gilt die Lage des
+   * nächsten übergeordneten Ortes, der eine hat.
+   */
+  geo: z.object({ lon: z.number(), lat: z.number() }).nullable().default(null),
 });
 
 const FactionDetails = z.object({
@@ -811,6 +816,58 @@ export const RestSchema = z.object({
 });
 export type Rest = z.infer<typeof RestSchema>;
 
+// ── Atlas: der Planet ──────────────────────────────────────────────────────
+
+/** Ein Ring als flache Liste `[Länge, Breite, Länge, Breite, …]` (siehe `domain/geo.ts`). */
+const ring = z.array(z.number());
+
+/**
+ * Der Planet, wie er aus dem Atlas übernommen wurde. Zwei Dokumente: `planet` (Gestalt, Küsten,
+ * Gewässer) und `relief` (das Höhenraster). Getrennt, weil das Raster groß ist und sich nie ändert.
+ */
+export const AtlasSchema = z.object({
+  ...base,
+  kind: z.enum(['planet', 'relief']).default('planet'),
+  name: z.string().default(''),
+  radiusKm: z.number().positive().default(6371),
+  /** Länge eines Tages in Stunden und eines Jahres in Tagen. */
+  dayHours: z.number().positive().default(24),
+  yearDays: z.number().positive().default(365),
+  /** Neigung der Achse in Grad – bestimmt, wie stark sich die Tageslänge übers Jahr ändert. */
+  obliquityDeg: z.number().min(0).max(90).default(0),
+  /** Landmassen: Küsten als Ringe, Binnenmeere und große Seen als Löcher. */
+  lands: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().default(''),
+        rings: z.array(ring).default([]),
+        holes: z.array(ring).default([]),
+      }),
+    )
+    .default([]),
+  lakes: z.array(z.object({ id: z.string(), name: z.string().default(''), ring })).default([]),
+  /** Flüsse als Linie; die Breite gilt für den ganzen Lauf. */
+  rivers: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().default(''),
+        points: ring,
+        widthKm: z.number().nonnegative().default(0),
+      }),
+    )
+    .default([]),
+  /** Höhenraster: Breite und Höhe in Zellen; Zeile 0 liegt im Norden, Spalte 0 bei Länge −180. */
+  width: z.number().int().nonnegative().default(0),
+  height: z.number().int().nonnegative().default(0),
+  /** Höhen in Metern als 16-Bit-Zahlen, Base64; −32768 = keine Angabe. */
+  heights: z.string().default(''),
+  /** Woher die Daten stammen (Name der übernommenen Datei). */
+  source: z.string().default(''),
+});
+export type Atlas = z.infer<typeof AtlasSchema>;
+
 // ── Sammlungen ─────────────────────────────────────────────────────────────
 
 export const COLLECTION_SCHEMAS = {
@@ -830,6 +887,7 @@ export const COLLECTION_SCHEMAS = {
   tables: RollTableSchema,
   rests: RestSchema,
   articles: ArticleSchema,
+  atlas: AtlasSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -847,6 +905,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'tables',
   'rests',
   'articles',
+  'atlas',
 ];
 
 export type CollectionTypes = {
