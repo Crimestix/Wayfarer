@@ -671,7 +671,7 @@ describe('Reiner Text', () => {
     expect(entryHeadline(data, all.find((e) => e.kind === 'note')!)).toBe('');
     moveParty(db, null);
     const leave = entries(db).at(-1)!;
-    expect(entryHeadline(db.getSnapshot(), leave)).toBe('Die Gruppe verlässt Krähenmoor');
+    expect(entryHeadline(db.getSnapshot(), leave)).toBe('Aufbruch aus Krähenmoor');
   });
 
   it('nennt Ort und Beteiligte nur, wenn sie nicht schon im Text stehen', async () => {

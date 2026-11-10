@@ -1,5 +1,5 @@
 /** Ein Gefährte im Ganzen: Werte, Notizen, Geheimnis, Beziehungen, Abmachungen, Chronik. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import {
   ArrowLeft,
@@ -45,13 +45,27 @@ import { ConditionToggles, ExhaustionControl, LocationControl, SheetLink, StatBa
 
 function Roster({ all, currentId }: { all: Character[]; currentId: string }) {
   const sorted = [...all].sort((a, b) => Number(b.character.active) - Number(a.character.active));
+  const list = useRef<HTMLDivElement>(null);
+  // Bei vielen Gefährten rollt die Leiste; der gewählte soll dabei immer zu sehen sein.
+  useEffect(() => {
+    list.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [currentId, all.length]);
   return (
     <nav className="wf-gruppe-roster" aria-label="Gefährten">
       <Link href="/gruppe" className="wf-gruppe-roster__back">
         <ArrowLeft />
         Alle Gefährten
       </Link>
-      <div className="wf-gruppe-roster__list">
+      <div
+        ref={list}
+        className="wf-gruppe-roster__list"
+        // Das Mausrad rollt die Leiste seitwärts.
+        onWheel={(e) => {
+          if (e.deltaY) e.currentTarget.scrollLeft += e.deltaY;
+        }}
+      >
         {sorted.map((c) => (
           <Link
             key={c.id}
@@ -64,7 +78,7 @@ function Roster({ all, currentId }: { all: Character[]; currentId: string }) {
             title={c.character.active ? c.name : `${c.name} – nicht dabei`}
           >
             <Portrait entity={c} size={30} round />
-            <span className="wf-clamp-1">{c.name}</span>
+            <span className="wf-gruppe-roster__name">{c.name}</span>
             {(c.character.exhaustion > 0 || c.character.conditions.length > 0) && (
               <i className="wf-gruppe-roster__flag" aria-label="erschöpft oder mit Zustand" />
             )}
@@ -391,7 +405,11 @@ export function Detail({
 
           <div className="wf-gruppe-col">
             <Panel
-              title={`Wer wie zu ${character.name} steht`}
+              title={
+                <span className="wf-gruppe-clip" title={`Wer wie zu ${character.name} steht`}>
+                  Wer wie zu {character.name} steht
+                </span>
+              }
               count={bonds.length || undefined}
               flush
               actions={
