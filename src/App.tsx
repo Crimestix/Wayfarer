@@ -3,6 +3,7 @@ import { Router } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { CampaignDb, CampaignMissingError } from './data/db';
 import { DbContext } from './data/hooks';
+import { loadLocalMedia } from './data/media';
 import { FolderStore, getConfig, isDesktopApp, onAppClosing } from './data/platform';
 import { elarisCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
@@ -66,6 +67,8 @@ export function App() {
   useEffect(() => {
     if (phase.kind !== 'ready') return;
     const { db } = phase;
+    // Welche Bilder schon auf diesem Rechner liegen (nur in der installierten App).
+    void loadLocalMedia(db.store.location);
     const flush = () => void db.flush();
     window.addEventListener('beforeunload', flush);
     window.addEventListener('blur', flush);

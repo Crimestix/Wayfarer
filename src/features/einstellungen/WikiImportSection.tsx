@@ -14,6 +14,7 @@ import { Button, Checkbox, Dialog, toast } from '../../ui';
 import { formatRealTime } from './backup';
 import { errorText } from './files';
 import { ImportReport, copyReport } from './LegacySection';
+import { MediaSection } from './MediaSection';
 import { ActionRow, Notice, useFilePicker } from './parts';
 
 interface Picked {
@@ -139,6 +140,8 @@ export function WikiImportSection() {
           </Notice>
         )
       )}
+
+      <MediaSection />
 
       <Dialog
         open={picked !== null}

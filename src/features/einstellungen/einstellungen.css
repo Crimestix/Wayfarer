@@ -596,3 +596,25 @@
     gap: var(--s-6);
   }
 }
+
+/* Fortschritt beim Holen der Bilder */
+.wf-einstellungen-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.wf-einstellungen-progress__bar {
+  flex: 1 1 auto;
+  height: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-einstellungen-progress__bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  transition: width 0.2s var(--ease);
+}

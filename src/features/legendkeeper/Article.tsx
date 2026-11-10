@@ -1,6 +1,7 @@
 /** Stellt die Knoten eines Artikels dar (siehe model.ts). Rechnet nichts, zeigt nur. */
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { ExternalLink, EyeOff, Info } from 'lucide-react';
+import { useMediaSrc } from '../../data/media';
 import { Divider, cx } from '../../ui';
 import { noteText, type ArticleNode, type Inline } from './model';
 
@@ -118,6 +119,8 @@ function Note({ children, href, hint }: { children: ReactNode; href?: string; hi
 /** Bild aus LegendKeeper; lässt es sich nicht laden, steht ein Hinweis an seiner Stelle. */
 function Figure({ node }: { node: Extract<ArticleNode, { type: 'image' }> }) {
   const [broken, setBroken] = useState(false);
+  // Liegt das Bild auf diesem Rechner, kommt es von dort.
+  const src = useMediaSrc();
   if (broken)
     return (
       <Note>
@@ -133,7 +136,7 @@ function Figure({ node }: { node: Extract<ArticleNode, { type: 'image' }> }) {
         title="Bild in voller Größe im Browser öffnen"
       >
         <img
-          src={node.url}
+          src={src(node.url)}
           alt={node.alt}
           loading="lazy"
           decoding="async"

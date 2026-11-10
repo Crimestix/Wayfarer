@@ -4,6 +4,7 @@ import { Link, useLocation } from 'wouter';
 import { ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
 import type { Entity } from '../../domain/schema';
 import { useData, useDb } from '../../data/hooks';
+import { useMediaSrc } from '../../data/media';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
 import {
   AttitudeBadge,
@@ -68,6 +69,7 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const dbRef = useDb();
   const [, navigate] = useLocation();
   const filter = useKindFilter();
+  const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
   const list = useRef<HTMLDivElement>(null);
@@ -193,7 +195,11 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
       title={entity.name}
     >
       <span className="wf-welt-row__icon">
-        {entity.image ? <img src={entity.image} alt="" /> : <KindIcon kind={entity.kind} />}
+        {entity.image ? (
+          <img src={src(entity.image)} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <KindIcon kind={entity.kind} />
+        )}
       </span>
       <span className="wf-welt-row__main">
         <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>

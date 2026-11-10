@@ -5,6 +5,7 @@
 import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react';
 import { EyeOff, Map as MapIcon } from 'lucide-react';
 import { useData } from '../../data/hooks';
+import { useMediaSrc } from '../../data/media';
 import type { Article } from '../../domain/schema';
 import { Badge, cx } from '../../ui';
 import {
@@ -104,6 +105,7 @@ export function LocalArticle({
   const doc = docs.find((entry) => entry.id === chosen) ?? docs[0];
   const { side, body, outline } = useMemo(() => splitPage(article, doc), [article, doc]);
   const [bannerBroken, setBannerBroken] = useState(false);
+  const src = useMediaSrc();
   const mentionedIn = useBacklinks(data.articles, article.id);
   const articles = data.articles;
   const ctx = useMemo<ArticleContext>(
@@ -125,7 +127,7 @@ export function LocalArticle({
     <article className="wf-lk-article">
       {article.banner && !bannerBroken && (
         <div className="wf-lk-banner" aria-hidden>
-          <img src={article.banner} alt="" onError={() => setBannerBroken(true)} />
+          <img src={src(article.banner)} alt="" onError={() => setBannerBroken(true)} />
         </div>
       )}
 

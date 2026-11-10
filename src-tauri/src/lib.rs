@@ -5,6 +5,7 @@
 mod config;
 mod legendkeeper;
 mod links;
+mod media;
 mod menu;
 mod store;
 mod watch;
@@ -18,6 +19,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow, WebviewW
 use config::AppConfig;
 use legendkeeper::{LegendKeeper, LkResponse, LkStatus};
 use links::LinkTarget;
+use media::Media;
 use store::StoredFile;
 use watch::WatchState;
 use window::{CloseAnswer, Closing, MAIN_WINDOW};
@@ -135,6 +137,49 @@ async fn lk_get<R: Runtime>(
     app.state::<LegendKeeper>().get(&key, &path, query.as_ref()).await
 }
 
+// ── Bilder ───────────────────────────────────────────────────────────────────
+
+/// Welche Bilder im Kampagnenordner liegen. Merkt sich zugleich, aus welchem Ordner das Fenster
+/// Bilder anzeigen darf.
+#[tauri::command]
+async fn media_list<R: Runtime>(app: AppHandle<R>, root: String) -> Result<Vec<String>, String> {
+    let (root, names) = blocking(move || media::list(&root)).await?;
+    app.state::<Media>().set_root(root);
+    Ok(names)
+}
+
+/// Holt ein Bild aus dem Netz in den Kampagnenordner. Gibt die Größe der Datei zurück.
+#[tauri::command]
+async fn media_fetch<R: Runtime>(
+    app: AppHandle<R>,
+    root: String,
+    url: String,
+    name: String,
+) -> Result<u64, String> {
+    app.state::<Media>().fetch(&root, &url, &name).await
+}
+
+/// Beantwortet Anfragen des Fensters nach einem Bild („wfmedia://…/name.png“): die Datei aus
+/// dem Ordner `media/` der geöffneten Kampagne – und nichts anderes.
+fn serve_media<R: Runtime>(app: &AppHandle<R>, path: &str) -> tauri::http::Response<Vec<u8>> {
+    let found = media::name_from_request_path(path).and_then(|name| {
+        let root = app.state::<Media>().root()?;
+        media::read(&root, name)
+    });
+    let response = tauri::http::Response::builder();
+    match found {
+        Some((bytes, mime)) => response
+            .status(200)
+            .header("Content-Type", mime)
+            // Ein Bild ändert sich unter seinem Namen nie.
+            .header("Cache-Control", "private, max-age=31536000, immutable")
+            .header("X-Content-Type-Options", "nosniff")
+            .body(bytes),
+        None => response.status(404).body(Vec::new()),
+    }
+    .expect("feste Kopfzeilen")
+}
+
 // ── Fenster ──────────────────────────────────────────────────────────────────
 
 /// Antwort der Oberfläche auf das Ereignis „close-requested“: erst „saving“, dann „saved“
@@ -223,6 +268,13 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             }
         })
         .plugin(tauri_plugin_dialog::init())
+        .register_asynchronous_uri_scheme_protocol(media::SCHEME, |context, request, responder| {
+            let app = context.app_handle().clone();
+            let path = request.uri().path().to_string();
+            // Große Kartenbilder werden abseits der Oberfläche gelesen.
+            std::thread::spawn(move || responder.respond(serve_media(&app, &path)));
+        })
+        .manage(Media::default())
         .manage(WatchState::default())
         .manage(LegendKeeper::default())
         .manage(Closing::default())
@@ -238,6 +290,8 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             lk_set_key,
             lk_clear_key,
             lk_get,
+            media_list,
+            media_fetch,
             app_close,
         ])
 }

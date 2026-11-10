@@ -8,6 +8,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { BookOpen, Footprints, ImageOff, Minus, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
+import { useMediaSrc } from '../../data/media';
 import { placeAncestors } from '../../domain/derive';
 import type { GameMap, MapMarker } from '../../domain/schema';
 import { openMoveParty } from '../../shell/commands';
@@ -32,6 +33,7 @@ export function MapView({
   const [broken, setBroken] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const anchor = useRef<HTMLElement | null>(null);
+  const src = useMediaSrc();
   const frame = map.frame;
 
   // Wo die Gruppe auf dieser Karte steht: ihr Ort selbst, sonst der nächste Ort darüber, der
@@ -123,8 +125,8 @@ export function MapView({
         <div className="wf-wiki-map__broken">
           <ImageOff aria-hidden />
           <p>
-            Das Kartenbild ließ sich nicht laden. Es liegt noch bei LegendKeeper – ohne Verbindung
-            ins Netz oder nach einer Kündigung dort ist es nicht erreichbar.
+            Das Kartenbild ließ sich nicht laden. Es liegt noch im Netz – ohne Verbindung ist es
+            nicht erreichbar. In den Einstellungen lassen sich alle Bilder auf diesen Rechner holen.
           </p>
         </div>
       ) : (
@@ -136,7 +138,7 @@ export function MapView({
               aspectRatio: `${frame.width} / ${frame.height}`,
             }}
           >
-            <img src={map.image} alt={map.name} onError={() => setBroken(true)} />
+            <img src={src(map.image)} alt={map.name} onError={() => setBroken(true)} />
             {map.shapes.length > 0 && (
               <svg
                 viewBox={`0 0 ${frame.width} ${frame.height}`}

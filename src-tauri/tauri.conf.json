@@ -32,7 +32,7 @@
         "script-src": "'self'",
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",
-        "img-src": "'self' data: blob: https:",
+        "img-src": "'self' data: blob: https: wfmedia: http://wfmedia.localhost",
         "connect-src": "'self' ipc: http://ipc.localhost",
         "object-src": "'none'",
         "base-uri": "'self'",

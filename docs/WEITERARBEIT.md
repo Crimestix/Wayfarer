@@ -268,15 +268,30 @@ nicht die Schnittstelle. Bereich `features/wiki/`:
 - Mit dem echten Export geprüft (nur lokal): 656 Artikel, 861 Seiten, 64 Karten, 174
   Kartenpunkte; alle 15 namenlosen Personen tragen ihren Namen.
 
+**Bilder auf dem Rechner (10. 11. 2026) – gebaut.** Im Spielstand bleibt bei jedem Bild die
+Adresse stehen, von der es stammt. „Bilder holen“ (Einstellungen → LegendKeeper ganz übernehmen,
+`einstellungen/MediaSection`) lädt sie in den Kampagnenordner unter `media/<letzter Teil der
+Adresse>`; angezeigt wird die Datei von dort, sobald sie da ist (`data/media.ts`:
+`useMediaSrc`), sonst die Adresse im Netz. Rust-Seite: `src-tauri/src/media.rs` (nur https,
+keine IP-Adressen, nur echte Bilddateien, atomar geschrieben), Befehle `media_list` und
+`media_fetch`, Adressschema `wfmedia` für die Anzeige (in `tauri.conf.json` unter `img-src`
+erlaubt). Die Ablage (`store.rs`) sieht den Ordner nicht. Unter Windows in der echten App
+geprüft (Holen, Anhalten, Anzeige); **auf macOS noch nicht**. Gemessen: 481 Bilder, 1,35 GB,
+etwa drei Minuten.
+- Die Sicherungsdatei enthält die geholten Bilder nicht; auf einem zweiten Rechner holt man sie
+  neu (solange der Ursprung besteht) oder kopiert den Ordner `media`.
+- **Vor einer Kündigung von LegendKeeper** müssen die Bilder auf **beiden** Rechnern geholt sein
+  – oder der Ordner `media` wird mit dem Spielstand abgeglichen. Für den Abgleich über GitHub
+  (Bereich I) ist er mit 1,35 GB zu groß; dafür braucht es kleinere Fassungen der Bilder oder
+  einen anderen Weg.
+- Offen: kleine Vorschaubilder für Listen (jetzt werden die großen Bilder erst beim Hinsehen
+  geladen), ein Bild von Hand ersetzen, Aufräumen nicht mehr gebrauchter Dateien.
+
 **Noch offen, in dieser Reihenfolge:**
-1. **Bilder lokal speichern** (rund 480 Bilder, alle bei `assets.legendkeeper.com`): Artikel,
-   Karten und Porträts (`entity.image`) verweisen noch dorthin. Braucht Befehle auf der
-   Rust-Seite (Abruf, Ablage als Dateien im Kampagnenordner) und das Umschreiben der Adressen.
-   **Erst danach darf LegendKeeper gekündigt werden.**
-2. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
-3. Artikel in Wayfarer schreiben und ändern (eigener Editor), Vorlagen nutzen.
-4. Die Zeichenfläche („Board“, 1) bleibt außen vor.
-5. Karten des Wikis mit Karten/Wegen (Bereich D) zusammenführen: Maßstab, Wege, Reisen.
+1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
+2. Artikel in Wayfarer schreiben und ändern (eigener Editor), Vorlagen nutzen.
+3. Die Zeichenfläche („Board“, 1) bleibt außen vor.
+4. Karten des Wikis mit Karten/Wegen (Bereich D) zusammenführen: Maßstab, Wege, Reisen.
 
 **Nächste große Schritte nach dem Leitbild** (`docs/FUNKTIONSUMFANG.md`): Wettersimulation (F),
 Hexkarte zwischen zwei Orten erzeugen (H, auch ohne Karte), Karten und Wege (D), Reisen (E),

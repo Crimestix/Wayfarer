@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useData } from '../data/hooks';
+import { useMediaSrc } from '../data/media';
 import { KIND_LABEL, placePath, searchEntities } from '../domain/derive';
 import { ATTITUDES, attitudeLevel, attitudeToken, RULES_ATTITUDE_LABEL } from '../domain/relations';
 import { PARTY_ID, type Entity, type EntityKind } from '../domain/schema';
@@ -57,12 +58,17 @@ export function Portrait({
   size?: number;
   round?: boolean;
 }) {
+  const src = useMediaSrc();
   return (
     <span
       className="wf-portrait"
       style={{ width: size, height: size, borderRadius: round ? '50%' : undefined }}
     >
-      {entity.image ? <img src={entity.image} alt="" /> : <KindIcon kind={entity.kind} />}
+      {entity.image ? (
+        <img src={src(entity.image)} alt="" loading="lazy" decoding="async" />
+      ) : (
+        <KindIcon kind={entity.kind} />
+      )}
     </span>
   );
 }

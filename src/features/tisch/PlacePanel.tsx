@@ -20,6 +20,7 @@ import {
   User,
 } from 'lucide-react';
 import { useData } from '../../data/hooks';
+import { useMediaSrc } from '../../data/media';
 import { placePath, placeStatus } from '../../domain/derive';
 import type { Place } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
@@ -302,6 +303,7 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
 
 export function PlacePanel({ place }: { place: Place }) {
   const data = useData();
+  const src = useMediaSrc();
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const status = useMemo(() => placeStatus(data, place.id), [data, place.id]);
@@ -355,7 +357,7 @@ export function PlacePanel({ place }: { place: Place }) {
         {place.image && (
           <div
             className="wf-tisch-hero__image"
-            style={{ backgroundImage: `url(${JSON.stringify(place.image)})` }}
+            style={{ backgroundImage: `url(${JSON.stringify(src(place.image))})` }}
             aria-hidden
           />
         )}

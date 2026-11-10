@@ -13,6 +13,10 @@
  *   lk_status() -> { hasKey: boolean }
  *   lk_set_key({ key })   lk_clear_key()                    Schlüssel liegt im Schlüsselbund des Systems
  *   lk_get({ path, query }) -> { status: number, body: string }   nur GET auf die LegendKeeper-API
+ *   media_list({ root }) -> string[]                        Namen der Bilder in <root>/media
+ *   media_fetch({ root, url, name }) -> number              holt ein Bild (nur https) nach <root>/media/<name>;
+ *                                                           Ergebnis: Größe in Bytes
+ *   Adressschema „wfmedia“                                   liefert <root>/media/<name> an das Fenster
  *   app_close({ state: 'saving' | 'saved' | 'unsaved' })    Antwort auf das Ereignis „close-requested“:
  *                                                           sofort „saving“, nach dem Speichern „saved“ –
  *                                                           oder „unsaved“, dann fragt die App nach
@@ -20,7 +24,7 @@
  * Die Rust-Seite meldet Fehler als deutschen Satz. Hier wird daraus ein gewöhnlicher Error,
  * damit `error.message` überall den Satz liefert.
  */
-import { invoke as tauriInvoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { CampaignStore, StoredFile } from './store';
 
@@ -119,6 +123,16 @@ export const lkClearKey = () => invoke<void>('lk_clear_key');
  */
 export const lkGet = (path: string, query?: LkQuery) =>
   invoke<LkResponse>('lk_get', { path, query: query ?? null });
+
+// ── Bilder (nur in der installierten App) ────────────────────────────────────
+
+/** Namen der Bilder, die im Kampagnenordner unter „media“ liegen. */
+export const mediaList = (root: string) => invoke<string[]>('media_list', { root });
+/** Holt ein Bild aus dem Netz in den Kampagnenordner. Ergebnis: Größe der Datei in Bytes. */
+export const mediaFetch = (root: string, url: string, name: string) =>
+  invoke<number>('media_fetch', { root, url, name });
+/** Die Adresse, unter der das Fenster ein Bild aus dem Kampagnenordner lädt. */
+export const mediaAddress = (name: string): string => convertFileSrc(name, 'wfmedia');
 
 // ── Schließen (nur in der installierten App) ─────────────────────────────────
 

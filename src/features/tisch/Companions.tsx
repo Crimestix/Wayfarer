@@ -3,6 +3,7 @@ import { useMemo, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link } from 'wouter';
 import { ExternalLink, Eye, MapPin, Swords } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { useMediaSrc } from '../../data/media';
 import { cx, entityHref } from '../../ui';
 import { setExhaustion } from './commands';
 import {
@@ -36,11 +37,12 @@ function Mate({ companion }: { companion: Companion }) {
     setExhaustion(db, character.id, next);
     e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[Math.max(1, next) - 1]?.focus();
   };
+  const src = useMediaSrc();
   // Ohne Bild der Anfangsbuchstabe: Sechs gleiche Schwert-Symbole würden niemanden unterscheiden.
   const face = (
     <span className="wf-portrait wf-tisch-mate__face" aria-hidden>
       {character.image ? (
-        <img src={character.image} alt="" />
+        <img src={src(character.image)} alt="" />
       ) : (
         character.name.trim().charAt(0).toUpperCase() || '?'
       )}

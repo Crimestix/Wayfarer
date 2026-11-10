@@ -62,7 +62,7 @@ nicht übernommen.
   `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel, Übernahme des LegendKeeper-Exports),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
-  LegendKeeper-Abruf, Schlüsselbund. Die Befehle stehen als Vertrag in `src/data/platform.ts`.
+  LegendKeeper-Abruf, Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
 
 ## Daten
 
@@ -81,6 +81,8 @@ nicht übernommen.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.
   Was mehrere Dokumente betrifft (Zeit, Ort, Haltung), gehört in `actions.ts`, nicht in die Oberfläche.
 - Ungültige oder fremde Dateien werden nie überschrieben, nur gemeldet (`db.problems`).
+- Bilder: Im Spielstand steht die Adresse des Ursprungs; zum Anzeigen immer `useMediaSrc()` aus
+  `data/media.ts` nehmen – dann kommt die Datei vom Rechner, wenn sie geholt wurde.
 
 ## Regeln für Code
 

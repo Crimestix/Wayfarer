@@ -94,8 +94,9 @@ export function BackupSection() {
             </Button>
           }
         >
-          Schreibt die gesamte Kampagne in eine einzige Datei – Welt, Chronik, Kalender, Gefährten,
-          Bilder.
+          Schreibt die gesamte Kampagne in eine einzige Datei – Welt, Wiki, Chronik, Kalender,
+          Gefährten. Aus dem Netz geholte Bilder (Ordner „media“) gehören nicht dazu; sie lassen
+          sich auf jedem Rechner neu holen.
           {desktop && ' Du wählst den Ordner; am besten einen außerhalb des Kampagnenordners.'}
         </ActionRow>
         <ActionRow

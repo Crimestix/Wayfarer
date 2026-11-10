@@ -16,6 +16,8 @@
     "allow-lk-set-key",
     "allow-lk-clear-key",
     "allow-lk-get",
+    "allow-media-list",
+    "allow-media-fetch",
     "allow-app-close",
     "core:event:allow-listen",
     "core:event:allow-unlisten",

@@ -12,6 +12,8 @@ const COMMANDS: &[&str] = &[
     "lk_set_key",
     "lk_clear_key",
     "lk_get",
+    "media_list",
+    "media_fetch",
     "app_close",
 ];
 

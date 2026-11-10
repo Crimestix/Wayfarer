@@ -30,6 +30,8 @@ import {
   shownDocs,
   splitPage,
 } from './model';
+import { setLocalMedia } from '../../data/media';
+import { campaignImages, fetchImages, formatBytes } from './media';
 import { recognizeKind } from './recognize';
 
 const conversion = () => convertLkExport(lkExportFixture());
@@ -534,5 +536,89 @@ describe('Wiki', () => {
     ]);
     // Verweise auf gelöschte Artikel zählen nicht.
     expect(links.has('gibtsnicht')).toBe(false);
+  });
+});
+
+describe('Bilder der Kampagne', () => {
+  it('sammelt jedes Bild einmal: Karten, Banner, Artikel, Porträts', () => {
+    const data = planLkImport(elarisCampaign(), conversion()).data;
+    expect(campaignImages(data).map((item) => item.name)).toEqual([
+      'aal-wappen.png',
+      'aal.jpg',
+      'banner.jpg',
+      'hohenfurt.png',
+      'markt.jpg',
+    ]);
+    expect(campaignImages(elarisCampaign())).toEqual([]);
+  });
+
+  it('holt nur, was fehlt, und lässt sich von einzelnen Fehlschlägen nicht aufhalten', async () => {
+    const data = planLkImport(elarisCampaign(), conversion()).data;
+    const images = campaignImages(data);
+    setLocalMedia(['banner.jpg']);
+    const asked: string[] = [];
+    const steps: number[] = [];
+    const result = await fetchImages(
+      'ordner',
+      images,
+      (progress) => steps.push(progress.done),
+      undefined,
+      async (_root, _url, name) => {
+        asked.push(name);
+        if (name === 'markt.jpg') throw new Error('Dieses Bild gibt es am Ursprung nicht mehr.');
+        return 1000;
+      },
+    );
+    expect(asked.sort()).toEqual(['aal-wappen.png', 'aal.jpg', 'hohenfurt.png', 'markt.jpg']);
+    expect(result).toMatchObject({ done: 4, total: 4, bytes: 3000 });
+    expect(result.failed.map((f) => [f.item.name, f.reason])).toEqual([
+      ['markt.jpg', 'Dieses Bild gibt es am Ursprung nicht mehr.'],
+    ]);
+    expect(steps[0]).toBe(0);
+    expect(steps[steps.length - 1]).toBe(4);
+    // Ein zweiter Versuch fragt nur noch nach dem, was fehlt.
+    asked.length = 0;
+    await fetchImages(
+      'ordner',
+      images,
+      () => {},
+      undefined,
+      async (_r, _u, name) => {
+        asked.push(name);
+        return 1;
+      },
+    );
+    expect(asked).toEqual(['markt.jpg']);
+    setLocalMedia([]);
+  });
+
+  it('hält an, wenn abgebrochen wird', async () => {
+    const data = planLkImport(elarisCampaign(), conversion()).data;
+    setLocalMedia([]);
+    const controller = new AbortController();
+    let calls = 0;
+    const result = await fetchImages(
+      'ordner',
+      campaignImages(data),
+      () => {},
+      controller.signal,
+      async () => {
+        calls++;
+        controller.abort();
+        return 1;
+      },
+    );
+    // Was schon unterwegs war, wird fertig – mehr nicht.
+    expect(calls).toBeLessThanOrEqual(4);
+    expect(result.done).toBe(calls);
+    expect(result.total).toBe(5);
+    setLocalMedia([]);
+  });
+
+  it('nennt Datenmengen verständlich', () => {
+    expect(formatBytes(1_350_000_000)).toBe('1,4 GB');
+    expect(formatBytes(310_400_000)).toBe('310 MB');
+    expect(formatBytes(2_000)).toBe('2 KB');
+    expect(formatBytes(10)).toBe('1 KB');
   });
 });

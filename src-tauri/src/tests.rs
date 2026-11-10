@@ -179,6 +179,68 @@ fn legendkeeper_commands_validate_before_anything_leaves_the_machine() {
 }
 
 #[test]
+fn media_commands_follow_the_contract() {
+    let app = app();
+    let main = window(&app, "main");
+    let dir = TempDir::new().unwrap();
+    let root = dir.path().to_str().unwrap();
+
+    // Ohne Bilder: eine leere Liste, kein Fehler.
+    assert_eq!(
+        invoke(&main, "media_list", json!({ "root": root })),
+        Ok(json!([]))
+    );
+
+    // Liegt das Bild schon da, wird nichts geholt – auch ohne Netz.
+    std::fs::create_dir_all(dir.path().join("media")).unwrap();
+    std::fs::write(
+        dir.path().join("media").join("karte.png"),
+        b"\x89PNG\r\n\x1a\n rest",
+    )
+    .unwrap();
+    assert_eq!(
+        invoke(
+            &main,
+            "media_fetch",
+            json!({ "root": root, "url": "https://assets.example.org/karte.png", "name": "karte.png" })
+        ),
+        Ok(json!(13))
+    );
+    assert_eq!(
+        invoke(&main, "media_list", json!({ "root": root })),
+        Ok(json!(["karte.png"]))
+    );
+
+    // Geprüft wird, bevor irgendetwas den Rechner verlässt.
+    for (url, name, expected) in [
+        (
+            "http://assets.example.org/neu.png",
+            "neu.png",
+            "keine Bildadresse",
+        ),
+        ("https://127.0.0.1/neu.png", "neu.png", "keine Bildadresse"),
+        (
+            "https://assets.example.org/neu.png",
+            "../neu.png",
+            "Ungültiger Name",
+        ),
+        (
+            "https://assets.example.org/neu.png",
+            "neu.json",
+            "Ungültiger Name",
+        ),
+    ] {
+        let err = invoke(
+            &main,
+            "media_fetch",
+            json!({ "root": root, "url": url, "name": name }),
+        )
+        .unwrap_err();
+        assert!(err.as_str().unwrap().contains(expected), "{url} {name}: {err}");
+    }
+}
+
+#[test]
 fn only_the_main_window_may_call_commands() {
     let app = app();
     let main = window(&app, "main");
