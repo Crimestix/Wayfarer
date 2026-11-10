@@ -458,6 +458,7 @@ export function occurrencesOf(
   if (!event.repeat) return base >= from && base <= to ? [{ event, at: base }] : [];
   const out: Occurrence[] = [];
   const { every, unit } = event.repeat;
+  const skipped = new Set(event.skip);
   // Bei Tages- und Wochenrhythmus direkt in die Nähe des Zeitraums springen.
   const stepMinutes =
     unit === 'day'
@@ -470,7 +471,8 @@ export function occurrencesOf(
   for (let guard = 0; guard < 5000; guard++, step++) {
     const at = step === 0 ? base : addRepeat(cal, base, every * step, unit);
     if (at > to) break;
-    if (at >= from) out.push({ event, at });
+    // Einzelne Male können ausfallen, ohne dass die Reihe endet.
+    if (at >= from && !skipped.has(dayIndexOf(at))) out.push({ event, at });
   }
   return out;
 }

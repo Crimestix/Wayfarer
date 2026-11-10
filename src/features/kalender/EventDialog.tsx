@@ -1,6 +1,7 @@
 /** Termin anlegen, bearbeiten, löschen. */
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { Trash2 } from 'lucide-react';
+import { skipOccurrence } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import {
   EVENT_KINDS,
@@ -10,6 +11,7 @@ import {
   type EntityKind,
 } from '../../domain/schema';
 import {
+  MINUTES_PER_DAY,
   formatDate,
   formatDayMonth,
   formatYear,
@@ -84,6 +86,9 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
+  // Der gespeicherte Stand, nicht der beim Öffnen: Ausnahmen ändern sich, während der Dialog offen ist.
+  const stored = event ? data.events[event.id] : undefined;
+  const skipped = stored?.repeat ? stored.skip : [];
   const [form, setForm] = useState<EventForm>(() =>
     event ? eventToForm(cal, event) : blankEventForm(cal, day),
   );
@@ -341,6 +346,23 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
             </span>
           </span>
         </Field>
+        {skipped.length > 0 && event && (
+          <Field label="Fällt aus am" hint="Ein Klick nimmt den Termin an diesem Tag wieder auf.">
+            <div className="wf-row-wrap">
+              {skipped.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  className="wf-badge wf-kal-skipped"
+                  title="Wieder stattfinden lassen"
+                  onClick={() => skipOccurrence(db, event.id, day, false)}
+                >
+                  {formatDate(cal, day * MINUTES_PER_DAY)} ×
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
         <Field label="Einzelheiten">
           <TextArea
             value={form.details}

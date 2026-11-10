@@ -941,3 +941,36 @@ button.wf-kal-row:hover,
   text-transform: uppercase;
   color: var(--ink-mute);
 }
+
+/* ── Einzelnes Mal einer Reihe ausfallen lassen ─────────────────────────── */
+.wf-kal-event__skip {
+  flex: none;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--s-2);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-kal-event__skip svg {
+  width: 15px;
+  height: 15px;
+}
+.wf-kal-event__skip:hover,
+.wf-kal-event__skip:focus-visible {
+  border-color: var(--line);
+  color: var(--gold-bright);
+}
+.wf-kal-skipped {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+.wf-kal-skipped:hover {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}

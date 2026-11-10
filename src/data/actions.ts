@@ -255,6 +255,20 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
 }
 
 /**
+ * Lässt einen wiederkehrenden Termin an einem Tag ausfallen (`skip = true`) oder nimmt ihn dort
+ * wieder auf. Die Reihe selbst bleibt, wie sie ist. Gibt zurück, ob sich etwas geändert hat.
+ */
+export function skipOccurrence(db: CampaignDb, eventId: string, day: number, skip = true): boolean {
+  const event = db.getSnapshot().events[eventId];
+  if (!event?.repeat || event.skip.includes(day) === skip) return false;
+  const next = skip
+    ? [...event.skip, day].sort((a, b) => a - b)
+    : event.skip.filter((d) => d !== day);
+  db.patch('events', eventId, { skip: next });
+  return true;
+}
+
+/**
  * Löscht eine Session. Was in ihr festgehalten wurde, bleibt in der Chronik, gehört dann aber
  * zu keiner Session mehr. Läuft die Session gerade, endet sie damit.
  */

@@ -348,6 +348,8 @@ export const CalendarEventSchema = z.object({
   refs: z.array(id).default([]),
   durationDays: z.number().int().positive().nullable().default(null),
   repeat: RepeatSchema.nullable().default(null),
+  /** Tage (Tagesindex), an denen ein wiederkehrender Termin ausnahmsweise ausfällt. */
+  skip: z.array(z.number().int().nonnegative()).default([]),
   /** Erledigt bzw. eingetreten und abgehakt. */
   done: z.boolean().default(false),
 });

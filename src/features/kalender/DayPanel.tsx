@@ -1,6 +1,7 @@
 /** Seitenleiste: alles zum gewählten Tag – Monde, Termine, Chronik, nächste Schritte. */
 import { useState } from 'react';
-import { CalendarPlus, Check, Feather, Hourglass, Repeat } from 'lucide-react';
+import { CalendarOff, CalendarPlus, Check, Feather, Hourglass, Repeat } from 'lucide-react';
+import { skipOccurrence } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
@@ -195,6 +196,27 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
                     <span className="wf-kal-event__details wf-clamp-2">{event.details}</span>
                   )}
                 </button>
+                {event.repeat && span.startDay === day && (
+                  <button
+                    type="button"
+                    className="wf-kal-event__skip"
+                    aria-label={`„${event.title}“ an diesem Tag ausfallen lassen`}
+                    title="Dieses eine Mal ausfallen lassen – die Reihe läuft weiter"
+                    onClick={() => {
+                      if (!skipOccurrence(db, event.id, day)) return;
+                      toast({
+                        title: 'Fällt dieses Mal aus',
+                        body: `${event.title} · ${formatDayMonth(cal, start)}`,
+                        action: {
+                          label: 'Rückgängig',
+                          run: () => skipOccurrence(db, event.id, day, false),
+                        },
+                      });
+                    }}
+                  >
+                    <CalendarOff />
+                  </button>
+                )}
               </div>
             );
           })
