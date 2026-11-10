@@ -98,6 +98,17 @@ export function isFilterActive(filter: ChronicleFilter): boolean {
   );
 }
 
+/** Nimmt Filter zurück, deren Session, Eintrag oder Ort es nicht mehr gibt. */
+export function sanitizeFilter(data: CampaignData, filter: ChronicleFilter): ChronicleFilter {
+  const session =
+    filter.session === 'all' || filter.session === 'none' || data.sessions[filter.session] ? filter.session : 'all';
+  const entityId =
+    filter.entityId && filter.entityId !== PARTY_ID && !data.entities[filter.entityId] ? null : filter.entityId;
+  const placeId = filter.placeId && !data.entities[filter.placeId] ? null : filter.placeId;
+  if (session === filter.session && entityId === filter.entityId && placeId === filter.placeId) return filter;
+  return { ...filter, session, entityId, placeId };
+}
+
 /** Alle Einträge der Weltdatenbank, die ein Chronik-Eintrag nennt – auch Ort, Reiseziel, Haltung. */
 export function involvedIds(entry: ChronicleEntry): string[] {
   const ids = new Set(entry.refs);

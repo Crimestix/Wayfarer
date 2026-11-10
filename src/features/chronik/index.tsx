@@ -1,5 +1,5 @@
 /** Chronik: das Gedächtnis der Kampagne – als Verlauf aller Einträge und nach Sessions. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { History } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import type { ChronicleEntry } from '../../domain/schema';
@@ -7,7 +7,7 @@ import { Button, Tabs } from '../../ui';
 import { EntryDialog, type EntryDialogRequest } from './EntryDialog';
 import { Sessions } from './Sessions';
 import { Verlauf } from './Verlauf';
-import { EMPTY_FILTER, sessionSpans, type ChronicleFilter } from './model';
+import { EMPTY_FILTER, sanitizeFilter, sessionSpans, type ChronicleFilter } from './model';
 import './chronik.css';
 
 type View = 'verlauf' | 'sessions';
@@ -23,7 +23,9 @@ const remembered: { view: View; filter: ChronicleFilter; newestFirst: boolean; s
 export default function ChronikPage() {
   const data = useData();
   const [view, setView] = useState<View>(remembered.view);
-  const [filter, setFilter] = useState(remembered.filter);
+  const [storedFilter, setFilter] = useState(remembered.filter);
+  const { sessions, entities } = data;
+  const filter = useMemo(() => sanitizeFilter(data, storedFilter), [storedFilter, sessions, entities]);
   const [newestFirst, setNewestFirst] = useState(remembered.newestFirst);
   const [sessionId, setSessionId] = useState(remembered.sessionId);
   const [dialog, setDialog] = useState<(EntryDialogRequest & { key: number }) | null>(null);

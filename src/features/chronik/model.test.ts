@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteSession, endSession, logEntry, moveParty, setAttitude, startSession } from '../../data/actions';
+import { deleteEntity, deleteSession, endSession, logEntry, moveParty, setAttitude, startSession } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { demoCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -26,6 +26,7 @@ import {
   parseRealDate,
   realDateInput,
   relativeDay,
+  sanitizeFilter,
   sessionAt,
   sessionLabel,
   sessionMarkers,
@@ -123,6 +124,19 @@ describe('Filter', () => {
     const hafen = byName(db, 'Dornhafen');
     expect(filtered(db, { placeId: hafen.id, kinds: ['change'], query: 'kessa' })).toHaveLength(1);
     expect(filtered(db, { placeId: hafen.id, kinds: ['travel'], query: 'kessa' })).toHaveLength(0);
+  });
+
+  it('nimmt Filter auf Gelöschtes zurück und lässt gültige unverändert', async () => {
+    const db = await demoDb();
+    const voss = byName(db, 'Hauptmann Voss');
+    const hafen = byName(db, 'Dornhafen');
+    const session = Object.values(db.getSnapshot().sessions)[0]!;
+    const filter = { ...EMPTY_FILTER, session: session.id, entityId: voss.id, placeId: hafen.id, query: 'x' };
+    expect(sanitizeFilter(db.getSnapshot(), filter)).toBe(filter);
+    expect(sanitizeFilter(db.getSnapshot(), { ...EMPTY_FILTER, entityId: PARTY_ID }).entityId).toBe(PARTY_ID);
+    deleteEntity(db, voss.id);
+    deleteSession(db, session.id);
+    expect(sanitizeFilter(db.getSnapshot(), filter)).toEqual({ ...EMPTY_FILTER, placeId: hafen.id, query: 'x' });
   });
 
   it('zählt, wer und was in einer Auswahl am häufigsten vorkommt', async () => {

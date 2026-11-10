@@ -29,7 +29,6 @@ import {
   sessionLabel,
   sessionSpans,
   sessionSummaryText,
-  sessionTitle,
   spanDuration,
   timelineRows,
   type SessionSpan,
@@ -58,7 +57,8 @@ function useAutosave(value: string, save: (value: string) => void, delay = 600) 
   }, []);
 
   useEffect(() => {
-    if (dirty.current) return;
+    // Der eigene, eben gespeicherte Stand kommt zurück: nichts tun, sonst springt die Eingabe.
+    if (dirty.current || value.trim() === latest.current.trim()) return;
     latest.current = value;
     setDraft(value);
   }, [value]);
@@ -153,7 +153,7 @@ function SessionDetail({
   const { status } = useSaveStatus();
   const { session } = span;
   const exists = () => !!db.getSnapshot().sessions[session.id];
-  const title = useAutosave(sessionTitle(session), (value) => {
+  const title = useAutosave(session.title, (value) => {
     if (exists()) db.patch('sessions', session.id, { title: value.trim() });
   });
   const notes = useAutosave(session.notes, (value) => {
@@ -404,7 +404,7 @@ export function Sessions({
         <div className="wf-chronik-list__action">{toggle}</div>
         {spans.map((span) => {
           const { session } = span;
-          const title = sessionTitle(session);
+          const title = session.title.trim();
           return (
             <button
               key={session.id}
