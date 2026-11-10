@@ -13,6 +13,7 @@ const weekly = () =>
   createEvent({
     title: 'Markt',
     at: ELARIS_START,
+    timed: true,
     repeat: { every: 1, unit: 'week' },
   });
 const week = ELARIS_CALENDAR.weekdays.length * MINUTES_PER_DAY;
