@@ -3,6 +3,7 @@ import type { CampaignDb } from '../../data/db';
 import {
   ArticleSchema,
   createEntity,
+  createRelation,
   newId,
   nowIso,
   type Article,
@@ -14,6 +15,7 @@ import {
 import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
+import { articleFacts, planFacts, statedKind } from './facts';
 import { articleAsText, relinked, titleKey } from './text';
 
 export interface AppliedLkImport {
@@ -327,4 +329,97 @@ export function setArticleMeta(
     // Ein neuer Zweitname kann Verweise auflösen oder verschieben.
     if (change.aliases) putRelinked(db, before);
   });
+}
+
+// ── Steckbrief speist die Welt ─────────────────────────────────────────────
+
+export interface FactsSync {
+  /** Einträge, die neu entstanden sind, weil der Steckbrief ihre Art nennt. */
+  created: Entity[];
+  /** Je geändertem Eintrag, was sich geändert hat. */
+  changed: { entity: Entity; changes: string[] }[];
+}
+
+/**
+ * Liest die Steckbriefe der genannten Artikel (ohne Angabe: aller) und trägt in die Welt ein, was
+ * dort steht: Beruf, Zustand, Aufenthaltsort, Zuhause, Zugehörigkeit, Lage, Sitz, Führung … Ein
+ * Artikel ohne Eintrag bekommt einen, wenn sein Steckbrief die Art nennt („Art: Dorf“). Gibt
+ * zurück, was sich geändert hat, und `undo`, das genau diese Änderungen zurücknimmt.
+ */
+export function syncFacts(
+  db: CampaignDb,
+  articleIds?: readonly string[],
+): FactsSync & { undo: () => void } {
+  const before = db.getSnapshot();
+  const ids = articleIds ?? Object.keys(before.articles);
+  const out: FactsSync = { created: [], changed: [] };
+  const touchedEntities = new Set<string>();
+  const addedRelations: string[] = [];
+  const removedRelations = new Set<string>();
+
+  db.batch(() => {
+    // Erst fehlende Einträge anlegen, damit sich die Steckbriefe gegenseitig finden.
+    for (const id of ids) {
+      const article = db.getSnapshot().articles[id];
+      if (!article || article.template) continue;
+      const data = db.getSnapshot();
+      if (Object.values(data.entities).some((e) => e.lk?.resourceId === id)) continue;
+      const stated = statedKind(articleFacts(data.articles, article));
+      if (!stated) continue;
+      const entity = db.put(
+        'entities',
+        createEntity({
+          kind: stated.kind,
+          name: article.title,
+          aliases: article.aliases,
+          lk: { resourceId: article.id, title: article.title },
+        }),
+      );
+      touchedEntities.add(entity.id);
+      out.created.push(entity);
+    }
+    for (const id of ids) {
+      const article = db.getSnapshot().articles[id];
+      if (!article || article.template) continue;
+      const owners = Object.values(db.getSnapshot().entities).filter(
+        (e) => e.lk?.resourceId === id,
+      );
+      for (const owner of owners) {
+        const plan = planFacts(db.getSnapshot(), article, owner);
+        if (plan.entity !== owner) {
+          touchedEntities.add(owner.id);
+          db.put('entities', plan.entity);
+        }
+        for (const relationId of plan.removeRelations) {
+          removedRelations.add(relationId);
+          db.remove('relations', relationId);
+        }
+        for (const wish of plan.addRelations)
+          addedRelations.push(
+            db.put('relations', createRelation({ ...wish, articleId: article.id })).id,
+          );
+        if (plan.changes.length)
+          out.changed.push({
+            entity: db.getSnapshot().entities[owner.id] ?? plan.entity,
+            changes: plan.changes,
+          });
+      }
+    }
+  });
+
+  const undo = () =>
+    db.batch(() => {
+      const now = db.getSnapshot();
+      for (const id of addedRelations) if (now.relations[id]) db.remove('relations', id);
+      for (const id of removedRelations) {
+        const relation = before.relations[id];
+        if (relation && !now.relations[id]) db.put('relations', relation);
+      }
+      for (const id of touchedEntities) {
+        const old = before.entities[id];
+        if (old) db.put('entities', old);
+        else if (now.entities[id]) db.remove('entities', id);
+      }
+    });
+  return { ...out, undo };
 }

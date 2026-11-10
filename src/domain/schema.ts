@@ -117,8 +117,14 @@ const entityBase = {
   tags: z.array(z.string()).default([]),
   /** Bild als Data-URL. */
   image: z.string().nullable().default(null),
-  /** Verknüpfter LegendKeeper-Artikel. */
+  /** Verknüpfter Artikel im Wiki (der Name des Feldes stammt aus der Zeit vor dem eigenen Wiki). */
   lk: LkLinkSchema.nullable().default(null),
+  /**
+   * Was Wayfarer aus dem Steckbrief des verknüpften Artikels übernommen hat: je Angabe (etwa
+   * `homeId`) der Wortlaut, der dort stand. Ändert sich der Wortlaut im Artikel, gilt der Artikel;
+   * bleibt er gleich, bleibt stehen, was seither von Hand geändert wurde.
+   */
+  fromArticle: z.record(z.string(), z.string()).default({}),
 };
 
 export const PERSON_STATUS = ['alive', 'dead', 'missing', 'unknown'] as const;
@@ -278,6 +284,8 @@ export const RelationSchema = z.object({
   secret: z.boolean().default(false),
   /** Beziehung besteht nicht mehr. */
   ended: z.boolean().default(false),
+  /** Aus dem Steckbrief dieses Artikels gelesen; null = von Hand eingetragen. */
+  articleId: id.nullable().default(null),
 });
 export type Relation = z.infer<typeof RelationSchema>;
 

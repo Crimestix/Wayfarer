@@ -1,0 +1,307 @@
+import { describe, expect, it } from 'vitest';
+import { CampaignDb } from '../../data/db';
+import { elarisCampaign } from '../../data/seed';
+import { MemoryStore } from '../../data/store';
+import type { CampaignData, Entity } from '../../domain/schema';
+import { lkExportFixture } from './__fixtures__/lkExport';
+import { createArticle, savePageText, syncFacts } from './actions';
+import { planLkImport } from './apply';
+import {
+  articleFacts,
+  factField,
+  kindFromText,
+  nameParts,
+  planFacts,
+  statedKind,
+  statusFromText,
+} from './facts';
+import { convertLkExport } from './lkexport';
+
+const imported = (): CampaignData =>
+  planLkImport(elarisCampaign(), convertLkExport(lkExportFixture())).data;
+
+async function setup() {
+  const db = await CampaignDb.create(new MemoryStore(), imported());
+  const data = () => db.getSnapshot();
+  const entity = <K extends Entity['kind']>(name: string, kind: K) =>
+    Object.values(data().entities).find((e) => e.name === name && e.kind === kind) as Extract<
+      Entity,
+      { kind: K }
+    >;
+  /** Schreibt den Text der ersten Seite eines Artikels. */
+  const write = (articleId: string, text: string) =>
+    savePageText(db, articleId, data().articles[articleId]!.docs[0]!.id, text);
+  const relations = () =>
+    Object.values(data().relations)
+      .map((r) => `${r.from} ${r.type} ${r.to}${r.articleId ? ` (${r.articleId})` : ''}`)
+      .sort();
+  return { db, data, entity, write, relations };
+}
+
+describe('Steckbrief lesen', () => {
+  it('kennt die Bezeichnungen je Art von Eintrag', () => {
+    expect(factField('person', 'Aufenthaltsort')).toBe('whereabouts');
+    expect(factField('person', 'TITEL')).toBe('role');
+    expect(factField('person', 'Zugehörigkeit')).toBe('membership');
+    // Dasselbe Wort heißt je nach Eintrag etwas anderes.
+    expect(factField('person', 'Ort')).toBe('whereabouts');
+    expect(factField('place', 'Ort')).toBe('location');
+    expect(factField('item', 'Ort')).toBe('owner');
+    expect(factField('faction', 'Führung')).toBe('leader');
+    // Was Wayfarer nicht kennt, lässt es in Ruhe.
+    expect(factField('person', 'Haare')).toBeNull();
+    expect(factField('character', 'Titel')).toBeNull();
+  });
+
+  it('liest die Art aus einem Wort', () => {
+    expect(kindFromText('Dorf')).toBe('place');
+    expect(kindFromText('Rebellenfraktion')).toBe('faction');
+    expect(kindFromText('Religiöse Bewegung / Kult')).toBe('faction');
+    expect(kindFromText('Gladiatorenarena')).toBe('place');
+    expect(kindFromText('Stadt am Fluss')).toBe('place');
+    expect(kindFromText('Person')).toBe('person');
+    expect(kindFromText('Adelshaus')).toBe('family');
+    // Kurze Wörter zählen nur ganz, nicht als Ende eines anderen Wortes.
+    expect(kindFromText('Pirat')).toBeNull();
+    expect(kindFromText('Natürlicher Trabant')).toBeNull();
+    expect(kindFromText('')).toBeNull();
+  });
+
+  it('liest Zustand und Namensteile', () => {
+    expect(statusFromText('Lebendig')).toBe('alive');
+    expect(statusFromText('Verletzt')).toBe('alive');
+    expect(statusFromText('tot')).toBe('dead');
+    expect(statusFromText('Verschollen seit dem Winter')).toBe('missing');
+    expect(statusFromText('Totengräber')).toBeNull();
+    expect(statusFromText('schlecht gelaunt')).toBeNull();
+    expect(nameParts('Hohenfurt, Hafenviertel')).toEqual(['Hohenfurt', 'Hafenviertel']);
+    expect(nameParts('Der Speicher - Kammer 3 (oben)')).toEqual(['Der Speicher', 'Kammer 3']);
+    expect(nameParts('Mira und Odo')).toEqual(['Mira', 'Odo']);
+  });
+});
+
+describe('Steckbrief speist die Welt', () => {
+  it('trägt bei einer Person ein, was im Steckbrief steht', async () => {
+    const { db, data, entity, write, relations } = await setup();
+    const before = entity('Vera Kohl', 'person');
+    expect(before.person.role).toBe('');
+    write(
+      'vera0001',
+      [
+        '> [!steckbrief]',
+        '> Titel: Hafenmeisterin',
+        '> Spezies: Halbling - 41 Jahre',
+        '> Status: Verletzt',
+        '> Aufenthaltsort: Hohenfurt, Hafenviertel',
+        '> Herkunft: aus Hohenfurt',
+        '> Zugehörigkeit: Die Aalfischer',
+        '> Arbeitet bei: [[Zum Krummen Aal]]',
+        '> Haare: grau',
+        '',
+        'Sie führt Buch über jedes Boot.',
+      ].join('\n'),
+    );
+    const sync = syncFacts(db, ['vera0001']);
+    const vera = entity('Vera Kohl', 'person');
+    expect(vera.person).toMatchObject({
+      role: 'Hafenmeisterin',
+      species: 'Halbling',
+      speciesId: null,
+      status: 'alive',
+      // Von zwei genannten Orten zählt der genauere.
+      placeId: 'lk-hafen001',
+      // Die Herkunft gilt als Zuhause, solange kein Wohnort dasteht.
+      homeId: 'lk-hohenf01',
+      workplaceId: 'lk-aal00001',
+    });
+    // Der Eintrag merkt sich, was er aus dem Steckbrief hat – mit dem Wortlaut von dort.
+    expect(vera.fromArticle).toEqual({
+      role: 'Hafenmeisterin',
+      species: 'Halbling',
+      status: 'Verletzt',
+      placeId: 'Hohenfurt, Hafenviertel',
+      homeId: 'aus Hohenfurt',
+      workplaceId: 'Zum Krummen Aal',
+      'member>lk-fischer1': '1',
+    });
+    expect(relations()).toContain(`${vera.id} member lk-fischer1 (vera0001)`);
+    expect(sync.created).toEqual([]);
+    expect(sync.changed).toHaveLength(1);
+    expect(sync.changed[0]!.changes).toEqual([
+      'Beruf oder Rolle: Hafenmeisterin',
+      'Spezies: Halbling',
+      'Aufenthaltsort: Hafenviertel',
+      'Zuhause: Hohenfurt',
+      'Arbeitet bei: Zum Krummen Aal',
+      'Gehört zu: Die Aalfischer',
+    ]);
+
+    // Ein zweiter Lauf ändert nichts mehr.
+    const rev = vera.rev;
+    const again = syncFacts(db, ['vera0001']);
+    expect(again.changed).toEqual([]);
+    expect(entity('Vera Kohl', 'person').rev).toBe(rev);
+
+    // Der Steckbrief ändert sich: Der Wohnort geht der Herkunft vor, die Zugehörigkeit fällt weg.
+    write(
+      'vera0001',
+      ['> [!steckbrief]', '> Herkunft: Hohenfurt', '> Wohnort: Der Speicher', '> Status: tot'].join(
+        '\n',
+      ),
+    );
+    syncFacts(db, ['vera0001']);
+    const later = entity('Vera Kohl', 'person');
+    expect(later.person).toMatchObject({ homeId: 'lk-speich01', status: 'dead' });
+    // Was nicht mehr im Steckbrief steht, bleibt als Angabe stehen, gilt aber nicht mehr als gelesen.
+    expect(later.person.role).toBe('Hafenmeisterin');
+    expect(later.fromArticle).toEqual({ homeId: 'Der Speicher', status: 'tot' });
+    expect(relations().some((r) => r.includes('(vera0001)'))).toBe(false);
+
+    // Zurücknehmen stellt den Eintrag wieder her.
+    sync.undo();
+    expect(data().entities[vera.id]).toMatchObject({
+      person: before.person,
+      aliases: before.aliases,
+      fromArticle: {},
+    });
+  });
+
+  it('lässt stehen, was von Hand geändert wurde, bis der Artikel etwas anderes sagt', async () => {
+    const { db, data, entity, write, relations } = await setup();
+    const text = (place: string) =>
+      `> [!steckbrief]\n> Aufenthaltsort: ${place}\n> Zugehörigkeit: Die Aalfischer`;
+    write('vera0001', text('Hafenviertel'));
+    syncFacts(db, ['vera0001']);
+    const vera = entity('Vera Kohl', 'person');
+    expect(vera.person.placeId).toBe('lk-hafen001');
+
+    // Am Tisch zieht Vera weiter und verlässt die Fischer – von Hand eingetragen.
+    db.put('entities', { ...vera, person: { ...vera.person, placeId: 'lk-speich01' } });
+    const membership = Object.values(data().relations).find((r) => r.articleId === 'vera0001')!;
+    db.remove('relations', membership.id);
+    // Der Artikel wird an anderer Stelle geändert; der Steckbrief sagt dasselbe wie zuvor.
+    write('vera0001', `${text('Hafenviertel')}\n\nEin neuer Absatz.`);
+    expect(syncFacts(db, ['vera0001']).changed).toEqual([]);
+    expect(entity('Vera Kohl', 'person').person.placeId).toBe('lk-speich01');
+    expect(relations().some((r) => r.includes('(vera0001)'))).toBe(false);
+
+    // Erst wenn im Steckbrief etwas anderes steht, gilt wieder der Artikel.
+    write('vera0001', text('Zum Krummen Aal'));
+    expect(syncFacts(db, ['vera0001']).changed[0]!.changes).toEqual([
+      'Aufenthaltsort: Zum Krummen Aal',
+    ]);
+    expect(entity('Vera Kohl', 'person').person.placeId).toBe('lk-aal00001');
+  });
+
+  it('erkennt eine Person an ihren Feldern, auch ohne das Feld „Art“', async () => {
+    const { db, data, entity } = await setup();
+    createArticle(db, {
+      title: 'Brun Kesselflicker',
+      text: '> [!steckbrief]\n> Spezies: Zwerg\n> Titel: Kesselflicker\n> Herkunft: Hohenfurt',
+    });
+    // Ein einzelnes Feld reicht nicht.
+    const lone = createArticle(db, {
+      title: 'Die Flusskrebse',
+      text: '> [!steckbrief]\n> Volk: Krebse',
+    })!;
+    expect(statedKind(articleFacts(data().articles, data().articles[lone.id]!))).toBeNull();
+    const sync = syncFacts(db);
+    expect(sync.created.map((e) => `${e.kind} ${e.name}`)).toEqual(['person Brun Kesselflicker']);
+    expect(entity('Brun Kesselflicker', 'person').person).toMatchObject({
+      species: 'Zwerg',
+      role: 'Kesselflicker',
+      homeId: 'lk-hohenf01',
+    });
+  });
+
+  it('lässt von Hand eingetragene Beziehungen in Ruhe', async () => {
+    const { db, write, relations } = await setup();
+    // Odo gehört schon zu den Aalfischern – von der Übernahme, nicht aus dem Steckbrief.
+    expect(relations()).toContain('lk-odo00001 member lk-fischer1');
+    write('odo00001', '> [!steckbrief]\n> Zugehörigkeit: Die Aalfischer');
+    syncFacts(db, ['odo00001']);
+    expect(relations().filter((r) => r.startsWith('lk-odo00001 member'))).toEqual([
+      'lk-odo00001 member lk-fischer1',
+    ]);
+    write('odo00001', 'Ohne Steckbrief.');
+    syncFacts(db, ['odo00001']);
+    expect(relations()).toContain('lk-odo00001 member lk-fischer1');
+  });
+
+  it('liest Lage, Sitz, Führung und Art bei Orten und Fraktionen', async () => {
+    const { db, data, entity, write, relations } = await setup();
+    write(
+      'hafen001',
+      [
+        '> [!steckbrief]',
+        '> Art: Stadtviertel',
+        // Der Speicher liegt im Hafenviertel – umgekehrt geht es nicht.
+        '> Liegt in: Der Speicher',
+        '> Herrscher: Mira Tannhaus',
+      ].join('\n'),
+    );
+    write(
+      'fischer1',
+      [
+        '> [!steckbrief]',
+        '> Art: Fischergilde',
+        '> Sitz: Der Speicher',
+        '> Führung: Jost Reuse, Die Alte vom Wehr',
+      ].join('\n'),
+    );
+    syncFacts(db);
+    const quarter = entity('Hafenviertel', 'place');
+    expect(quarter.place).toMatchObject({ category: 'Stadtviertel', parentId: 'lk-hohenf01' });
+    expect(Object.keys(quarter.fromArticle).sort()).toEqual(['category', 'rules<lk-mira0001']);
+    const guild = entity('Die Aalfischer', 'faction');
+    expect(guild.faction).toMatchObject({ category: 'Fischergilde', seatId: 'lk-speich01' });
+    expect(relations()).toEqual(
+      expect.arrayContaining([
+        'lk-mira0001 rules lk-hafen001 (hafen001)',
+        'lk-jost0001 leads lk-fischer1 (fischer1)',
+      ]),
+    );
+    // Wen es nicht gibt, nennt der Plan – angelegt wird niemand.
+    const plan = planFacts(data(), data().articles.fischer1!, guild);
+    expect(plan.readings.find((r) => r.field === 'leader')).toMatchObject({
+      missing: ['Die Alte vom Wehr'],
+      kinds: expect.arrayContaining(['person']),
+    });
+    expect(plan.changes).toEqual([]);
+  });
+
+  it('legt einen Eintrag an, wenn der Steckbrief die Art nennt', async () => {
+    const { db, data, entity, write } = await setup();
+    const village = createArticle(db, {
+      title: 'Graufels',
+      text: '> [!steckbrief]\n> Art: Bergdorf\n> Region: Hohenfurt\n\nEin Dorf am Hang.',
+    })!;
+    // Eine Person, die auf das neue Dorf zeigt – im selben Lauf.
+    const smith = createArticle(db, {
+      title: 'Bran Eisenhand',
+      text: '> [!steckbrief]\n> Art: Person\n> Beruf: Schmied\n> Wohnort: Graufels',
+    })!;
+    // Kein Wort, das eine Art verrät: bleibt ein reiner Artikel.
+    write('entwurf1', '> [!steckbrief]\n> Art: Natürlicher Trabant');
+    expect(statedKind(articleFacts(data().articles, data().articles.entwurf1!))).toBeNull();
+
+    const sync = syncFacts(db);
+    expect(sync.created.map((e) => `${e.kind} ${e.name}`).sort()).toEqual([
+      'person Bran Eisenhand',
+      'place Graufels',
+    ]);
+    const place = entity('Graufels', 'place');
+    expect(place.lk).toEqual({ resourceId: village.id, title: 'Graufels' });
+    expect(place.place).toMatchObject({ category: 'Bergdorf', parentId: 'lk-hohenf01' });
+    const person = entity('Bran Eisenhand', 'person');
+    expect(person.lk?.resourceId).toBe(smith.id);
+    expect(person.person).toMatchObject({ role: 'Schmied', homeId: place.id });
+
+    // Zurücknehmen entfernt auch die neuen Einträge.
+    sync.undo();
+    expect(entity('Graufels', 'place')).toBeUndefined();
+    expect(entity('Bran Eisenhand', 'person')).toBeUndefined();
+    // Vorlagen bekommen nie einen Eintrag.
+    expect(Object.values(data().entities).some((e) => e.lk?.resourceId === 'vorlage1')).toBe(false);
+  });
+});
