@@ -5,6 +5,7 @@
 import { addLocalMedia, hasLocalMedia, mediaName } from '../../data/media';
 import { mediaFetch } from '../../data/platform';
 import type { CampaignData } from '../../domain/schema';
+import { articleNodes } from './text';
 
 /** Sammelt alle Bildadressen aus dem Inhalt eines Artikels (Knoten der Art „image“). */
 function collectImages(value: unknown, into: Set<string>, depth = 0): void {
@@ -34,8 +35,7 @@ export function campaignImages(data: CampaignData): MediaItem[] {
   for (const entity of Object.values(data.entities)) if (entity.image) urls.add(entity.image);
   for (const article of Object.values(data.articles)) {
     if (article.banner) urls.add(article.banner);
-    collectImages(article.sidebar, urls);
-    for (const doc of article.docs) collectImages(doc.nodes, urls);
+    collectImages(articleNodes(data.articles, article), urls);
   }
   const byName = new Map<string, MediaItem>();
   for (const url of urls) {

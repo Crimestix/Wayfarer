@@ -340,7 +340,10 @@ export function PlacePanel({ place }: { place: Place }) {
 
   // Aus dem Wiki: der Artikel zum Ort und die Karten, auf denen die Gruppe steht.
   const article = articleOf(data, place);
-  const excerpt = useMemo(() => (article ? articleExcerpt(article) : null), [article]);
+  const excerpt = useMemo(
+    () => (article ? articleExcerpt(data.articles, article) : null),
+    [data.articles, article],
+  );
   const maps = useMemo(() => placeMaps(data, place), [data, place]);
   const [reading, setReading] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);

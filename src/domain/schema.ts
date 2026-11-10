@@ -716,8 +716,8 @@ export type RollTable = z.infer<typeof RollTableSchema>;
 
 /**
  * Inhalt eines Artikels als Knoten der Anzeige (`ArticleNode` in
- * `features/legendkeeper/model.ts`). Hier nur als Liste von Objekten geprüft; ihre Form kennt
- * der Bereich Wiki.
+ * `features/legendkeeper/model.ts`) – die alte Form, in der Artikel aus LegendKeeper ankommen.
+ * Hier nur als Liste von Objekten geprüft; ihre Form kennt der Bereich Wiki.
  */
 const articleNodes = z.array(z.record(z.string(), z.unknown())).default([]);
 
@@ -730,6 +730,9 @@ export const ArticleDocSchema = z.object({
   kind: z.enum(ARTICLE_DOC_KINDS).default('page'),
   /** In LegendKeeper vor den Spielern verborgen. */
   hidden: z.boolean().default(false),
+  /** Der Text der Seite als Markdown (`features/wiki/markdown.ts`) – die Quelle der Anzeige. */
+  text: z.string().default(''),
+  /** Alte Form vor der Umstellung auf Text; wird beim Lesen in Text umgeschrieben. */
   nodes: articleNodes,
   /** kind = map: die Karte in der Sammlung `maps`. */
   mapId: id.nullable().default(null),
@@ -756,7 +759,7 @@ export const ArticleSchema = z.object({
   hidden: z.boolean().default(false),
   /** Vorlage für neue Artikel, kein Inhalt der Welt. */
   template: z.boolean().default(false),
-  /** Steckbrief neben dem Text. */
+  /** Alte Form: Steckbrief als Knoten. Steht seit der Umstellung auf Text oben auf der ersten Seite. */
   sidebar: articleNodes,
   docs: z.array(ArticleDocSchema).default([]),
   /** Woher der Artikel stammt. */

@@ -1,6 +1,7 @@
 /** Das eigene Wiki: Baum, Pfad, Suche und Rückverweise. Reine Funktionen. */
 import type { Article, ArticleDoc, CampaignData, Entity } from '../../domain/schema';
 import { nodeText, outlineOf, type ArticleNode, type OutlineEntry } from '../legendkeeper/model';
+import { articleNodes, pageNodes } from './text';
 
 /**
  * Der Inhalt eines Artikels ist im Spielstand nur als Liste von Objekten geprüft; ihre Form ist
@@ -110,13 +111,14 @@ export function docTitle(doc: ArticleDoc, index: number): string {
 
 /** Steckbrief neben dem Text: die Felder des Artikels und Kästen, die in der Seite stehen. */
 export function splitPage(
+  articles: Articles,
   article: Article,
   doc: ArticleDoc | undefined,
 ): { side: ArticleNode[]; body: ArticleNode[]; outline: OutlineEntry[] } {
-  const nodes = doc?.kind === 'page' ? asNodes(doc.nodes) : [];
-  const boxed = nodes.filter((node) => node.type === 'infobox' && node.beside);
+  const nodes = doc?.kind === 'page' ? pageNodes(articles, article, doc) : [];
+  const side = nodes.filter((node) => node.type === 'infobox' && node.beside);
   const body = nodes.filter((node) => !(node.type === 'infobox' && node.beside));
-  return { side: [...boxed, ...asNodes(article.sidebar)], body, outline: outlineOf(body) };
+  return { side, body, outline: outlineOf(body) };
 }
 
 /** Einträge der Weltdatenbank, die zu einem Artikel gehören. */
@@ -147,10 +149,7 @@ export function searchIndex(articles: Articles): SearchIndexEntry[] {
   return Object.values(articles)
     .filter((article) => !article.template)
     .map((article) => {
-      const plain = [
-        ...asNodes(article.sidebar).map(nodeText),
-        ...article.docs.flatMap((doc) => asNodes(doc.nodes).map(nodeText)),
-      ]
+      const plain = [...articleNodes(articles, article).map(nodeText)]
         .join(' ')
         .replace(/\s+/g, ' ');
       return {
@@ -245,8 +244,7 @@ export function backlinks(articles: Articles): Map<string, Article[]> {
   for (const article of Object.values(articles)) {
     if (article.template) continue;
     const targets = new Set<string>();
-    collectTargets(article.sidebar, targets);
-    for (const doc of article.docs) collectTargets(doc.nodes, targets);
+    collectTargets(articleNodes(articles, article), targets);
     for (const target of targets) {
       if (target === article.id || !articles[target]) continue;
       const list = out.get(target);

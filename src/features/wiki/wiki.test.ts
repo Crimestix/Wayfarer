@@ -81,12 +81,12 @@ describe('LegendKeeper-Export lesen', () => {
       template: false,
     });
     const nodes = asNodes(city.docs[0]!.nodes);
+    // Das Verzeichnis der Unterseiten entfällt: Die Unterartikel führt Wayfarer selbst auf.
     expect(nodes.map((n) => n.type)).toEqual([
       'heading',
       'paragraph',
       'list',
       'secret',
-      'links',
       'image',
       'paragraph',
     ]);
@@ -98,17 +98,8 @@ describe('LegendKeeper-Export lesen', () => {
       { type: 'mention', resourceId: 'mira0001', label: 'Mira Tannhaus' },
       { type: 'text', text: '.' },
     ]);
-    // Das Verzeichnis der Unterseiten nennt die Unterartikel in ihrer Reihenfolge.
-    const index = nodes[4]!;
-    expect(index.type === 'links' && index.items.map((i) => i.resourceId)).toEqual([
-      'aal00001',
-      'hafen001',
-      'mira0001',
-      'odo00001',
-      'fischer1',
-    ]);
     // Aus der unbekannten Blockart bleibt der Text.
-    const rescued = nodes[6]!;
+    const rescued = nodes[5]!;
     expect(rescued.type === 'paragraph' && rescued.inlines).toEqual([
       { type: 'text', text: 'Gerettet.' },
     ]);
@@ -497,8 +488,15 @@ describe('Wiki', () => {
     expect(shownDocs(city).map((d) => d.kind)).toEqual(['page', 'map']);
     expect(missingDocs(city).map((d) => d.kind)).toEqual(['time', 'board']);
     const inn = articles().aal00001!;
-    const page = splitPage(inn, shownDocs(inn)[0]);
-    expect(page.side.map((n) => n.type)).toEqual(['image', 'group', 'links']);
+    const page = splitPage(articles(), inn, shownDocs(inn)[0]);
+    // Der Steckbrief steht jetzt im Text der ersten Seite und wird beim Lesen wieder zum Kasten.
+    expect(page.side.map((n) => n.type)).toEqual(['infobox']);
+    const box = page.side[0]!;
+    expect(box.type === 'infobox' && box.children.map((n) => n.type)).toEqual([
+      'image',
+      'group',
+      'facts',
+    ]);
     expect(page.body.map((n) => n.type)).toEqual(['paragraph']);
   });
 
@@ -507,17 +505,16 @@ describe('Wiki', () => {
     expect(searchArticles(index, 'tannhaus').map((h) => [h.article.title, h.where])).toEqual([
       ['Mira Tannhaus', 'title'],
       ['Odo Tannhaus', 'title'],
-      // Auch ein Verweis im Fließtext zählt als Text.
+      // Auch Verweise im Fließtext und im Steckbrief zählen als Text.
+      ['Die Aalfischer', 'text'],
       ['Hohenfurt', 'text'],
     ]);
     expect(searchArticles(index, 'furt')[0]).toMatchObject({ where: 'title' });
-    expect(searchArticles(index, 'die furt').map((h) => h.where)).toEqual(['names']);
+    expect(searchArticles(index, 'die furt')[0]).toMatchObject({ where: 'names' });
     const teer = searchArticles(index, 'TEER');
     expect(teer).toHaveLength(1);
-    expect(teer[0]).toMatchObject({
-      where: 'text',
-      snippet: '… Der Wirt schweigt. Liegt in Es riecht nach Teer.',
-    });
+    expect(teer[0]).toMatchObject({ where: 'text' });
+    expect(teer[0]!.snippet).toMatch(/^… .*Liegt in: Hafenviertel Es riecht nach Teer\.$/);
     expect(searchArticles(index, 'fähre schlüssel').map((h) => h.article.title)).toEqual([
       'Mira Tannhaus',
     ]);
@@ -529,11 +526,7 @@ describe('Wiki', () => {
   it('weiß, wo ein Artikel erwähnt wird', () => {
     const links = backlinks(articles());
     expect(links.get('mira0001')?.map((a) => a.title)).toEqual(['Hohenfurt']);
-    expect(links.get('odo00001')?.map((a) => a.title)).toEqual([
-      'Die Aalfischer',
-      'Hohenfurt',
-      'Mira Tannhaus',
-    ]);
+    expect(links.get('odo00001')?.map((a) => a.title)).toEqual(['Die Aalfischer', 'Mira Tannhaus']);
     // Verweise auf gelöschte Artikel zählen nicht.
     expect(links.has('gibtsnicht')).toBe(false);
   });

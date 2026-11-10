@@ -103,7 +103,10 @@ export function LocalArticle({
   const docs = useMemo(() => shownDocs(article), [article]);
   const [chosen, setChosen] = useState<string | null>(null);
   const doc = docs.find((entry) => entry.id === chosen) ?? docs[0];
-  const { side, body, outline } = useMemo(() => splitPage(article, doc), [article, doc]);
+  const { side, body, outline } = useMemo(
+    () => splitPage(data.articles, article, doc),
+    [data.articles, article, doc],
+  );
   const [bannerBroken, setBannerBroken] = useState(false);
   const src = useMediaSrc();
   const mentionedIn = useBacklinks(data.articles, article.id);

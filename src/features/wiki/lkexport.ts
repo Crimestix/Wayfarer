@@ -332,12 +332,7 @@ function blocksOf(nodes: unknown, ctx: Ctx, depth = 0): ArticleNode[] {
             out.push(imageNode(params.url, title, title || undefined));
             break;
           case 'block-subpage-index':
-            if (ctx.children.length)
-              out.push({
-                type: 'links',
-                title: 'Unterseiten',
-                items: ctx.children.map((resourceId) => ({ resourceId })),
-              });
+            // Die Unterartikel führt Wayfarer am Ende jedes Artikels selbst auf.
             break;
           case 'block-resource-collection': {
             const items = list(params.items)

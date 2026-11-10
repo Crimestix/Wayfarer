@@ -4,6 +4,7 @@
  */
 import { placeAncestors } from '../../domain/derive';
 import type { Article, CampaignData, GameMap, MapMarker, Place } from '../../domain/schema';
+import { pageNodes } from '../wiki/text';
 
 type Raw = Record<string, unknown>;
 const isRaw = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -47,9 +48,15 @@ export interface Excerpt {
  * Textseite, bis `maxChars` erreicht sind. Überschriften, Listen und Kästen bleiben dem Artikel
  * selbst vorbehalten; Abschnitte nur für die Spielleitung gehören nicht in den Auszug.
  */
-export function articleExcerpt(article: Article, maxChars = 520, maxParagraphs = 3): Excerpt {
+export function articleExcerpt(
+  articles: CampaignData['articles'],
+  article: Article,
+  maxChars = 520,
+  maxParagraphs = 3,
+): Excerpt {
   const page = article.docs.find((doc) => doc.kind === 'page');
-  const all = (page?.nodes ?? [])
+  const nodes = page ? pageNodes(articles, article, page) : [];
+  const all = nodes
     .filter((node) => node.type === 'paragraph')
     .map((node) => inlineText(node.inlines))
     .filter(Boolean);
@@ -74,8 +81,9 @@ export function articleExcerpt(article: Article, maxChars = 520, maxParagraphs =
   }
   const shownAll =
     paragraphs.length === all.length && !paragraphs[paragraphs.length - 1]?.endsWith(' …');
+  // Der Steckbrief zählt nicht als „mehr Text“ – er steht ohnehin im Artikel daneben.
   const otherContent =
-    (page?.nodes.length ?? 0) > all.length ||
+    nodes.filter((node) => node.type !== 'infobox').length > all.length ||
     article.docs.filter((doc) => doc.kind === 'page').length > 1;
   return { paragraphs, more: !shownAll || otherContent };
 }

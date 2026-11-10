@@ -23,7 +23,7 @@ describe('Wiki am Spieltisch', () => {
   it('zeigt den Anfang des Artikels ohne Überschriften und Geheimes', () => {
     const data = world();
     const city = articleOf(data, place(data, 'Hohenfurt'))!;
-    const excerpt = articleExcerpt(city);
+    const excerpt = articleExcerpt(data.articles, city);
     // Der Absatz der unbekannten Blockart steht weiter unten, zählt aber als Text.
     expect(excerpt.paragraphs).toEqual([
       'Hohenfurt liegt an der Brack. Hier herrscht Mira Tannhaus.',
@@ -34,7 +34,10 @@ describe('Wiki am Spieltisch', () => {
     expect(excerpt.more).toBe(true);
 
     const inn = articleOf(data, place(data, 'Zum Krummen Aal'))!;
-    expect(articleExcerpt(inn)).toEqual({ paragraphs: ['Es riecht nach Teer.'], more: false });
+    expect(articleExcerpt(data.articles, inn)).toEqual({
+      paragraphs: ['Es riecht nach Teer.'],
+      more: false,
+    });
   });
 
   it('kürzt lange Absätze am Satzende', () => {
@@ -46,14 +49,11 @@ describe('Wiki am Spieltisch', () => {
       docs: [
         {
           ...base.docs[0]!,
-          nodes: [
-            { type: 'paragraph', inlines: [{ type: 'text', text: sentence.repeat(30).trim() }] },
-            { type: 'paragraph', inlines: [{ type: 'text', text: 'Zweiter Absatz.' }] },
-          ],
+          text: `${sentence.repeat(30).trim()}\n\nZweiter Absatz.`,
         },
       ],
     };
-    const excerpt = articleExcerpt(long, 200);
+    const excerpt = articleExcerpt(data.articles, long, 200);
     expect(excerpt.paragraphs).toHaveLength(1);
     expect(excerpt.paragraphs[0]!.length).toBeLessThanOrEqual(202);
     expect(excerpt.paragraphs[0]).toMatch(/voll\. …$/);

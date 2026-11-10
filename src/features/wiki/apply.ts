@@ -24,6 +24,7 @@ import { nameFixes, type LkArticleName } from '../import/lknames';
 import { looseName, type ImportSections } from '../import/v157';
 import type { LkConversion, LkResourceInfo } from './lkexport';
 import { isDraft, recognizeKind, type RecognizedKind } from './recognize';
+import { articleAsText } from './text';
 
 export interface LkImportOptions {
   /** Personen, Orte, Fraktionen und Gegenstände erkennen und in der Welt anlegen. */
@@ -158,18 +159,36 @@ export function planLkImport(
     };
   }
 
-  // ── Artikel: Die aus LegendKeeper werden durch den Export ersetzt, eigene bleiben.
-  const articles: Record<string, Article> = {};
+  // ── Artikel: Die aus LegendKeeper werden durch den Export ersetzt. Eigene Artikel und
+  //    solche, die in Wayfarer geändert wurden, bleiben, wie sie sind.
+  const raw: Record<string, Article> = {};
   for (const article of Object.values(data.articles))
-    if (article.source !== 'legendkeeper') articles[article.id] = article;
+    if (article.source !== 'legendkeeper') raw[article.id] = article;
+  let kept = 0;
   for (const incoming of conversion.articles) {
     const old = data.articles[incoming.id];
+    if (old && old.source !== 'legendkeeper') {
+      kept++;
+      continue;
+    }
     const docs = incoming.docs.map((doc) =>
       doc.mapId && mapIdOf.has(doc.mapId) ? { ...doc, mapId: mapIdOf.get(doc.mapId)! } : doc,
     );
-    articles[incoming.id] = old
+    raw[incoming.id] = old
       ? { ...incoming, docs, created: old.created, rev: old.rev + 1 }
       : { ...incoming, docs };
+  }
+  // Erst wenn alle Titel bekannt sind, lassen sich die Verweise als Text schreiben.
+  const articles: Record<string, Article> = {};
+  let placeholders = 0;
+  for (const article of Object.values(raw)) {
+    if (article.source !== 'legendkeeper') {
+      articles[article.id] = article;
+      continue;
+    }
+    const converted = articleAsText(raw, article);
+    articles[article.id] = converted.article;
+    placeholders += converted.dropped;
   }
 
   // ── Namen für Einträge, die bisher nur ein Verweis auf LegendKeeper waren.
@@ -464,6 +483,14 @@ export function planLkImport(
     );
   if (!options.recognize)
     hints.push('Die Erkennung war abgewählt: In der Welt wurde nichts angelegt.');
+  if (kept)
+    hints.push(
+      `${amount(kept, 'Artikel wurde', 'Artikel wurden')} in Wayfarer geändert und ${kept === 1 ? 'bleibt' : 'bleiben'}, wie ${kept === 1 ? 'er ist' : 'sie sind'} – der Stand aus LegendKeeper überschreibt ${kept === 1 ? 'ihn' : 'sie'} nicht.`,
+    );
+  if (placeholders)
+    hints.push(
+      `${amount(placeholders, 'Stelle', 'Stellen')}, die es so nur in LegendKeeper gibt (selbst zusammengestellte Sammlungen), ${placeholders === 1 ? 'fehlt' : 'fehlen'} im Text.`,
+    );
 
   const omitted: string[] = [];
   if (stats.timelines)
