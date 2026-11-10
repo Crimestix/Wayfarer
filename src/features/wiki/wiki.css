@@ -343,6 +343,22 @@ button.wf-wiki-row__toggle:hover {
   color: var(--ink-mute);
   font-size: var(--text-sm);
 }
+.wf-wiki-map__here {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ember);
+}
+.wf-wiki-map__menuhead {
+  padding: 6px 12px 4px;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .wf-wiki-map__zoom {
   display: flex;
   gap: var(--s-1);
@@ -432,6 +448,36 @@ button.wf-wiki-row__toggle:hover {
 .wf-wiki-pin--linked .wf-wiki-pin__dot {
   background: var(--gold-bright);
   box-shadow: 0 0 0 1px var(--gold-deep);
+}
+/* Wo die Gruppe ist: größer, glutfarben, mit ruhigem Puls. */
+.wf-wiki-pin--here {
+  z-index: 1;
+}
+.wf-wiki-pin__dot--here,
+.wf-wiki-pin--linked .wf-wiki-pin__dot--here {
+  width: 14px;
+  height: 14px;
+  background: var(--ember);
+  box-shadow:
+    0 0 0 1px var(--bg-0),
+    0 0 0 3px color-mix(in srgb, var(--ember) 55%, transparent);
+  animation: wf-wiki-here 2.4s var(--ease) infinite;
+}
+@keyframes wf-wiki-here {
+  50% {
+    box-shadow:
+      0 0 0 1px var(--bg-0),
+      0 0 0 7px color-mix(in srgb, var(--ember) 18%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wf-wiki-pin__dot--here {
+    animation: none;
+  }
+}
+.wf-wiki-pin--here .wf-wiki-pin__label {
+  border-color: var(--ember);
+  color: var(--ink);
 }
 .wf-wiki-pin__label {
   padding: 0 5px;

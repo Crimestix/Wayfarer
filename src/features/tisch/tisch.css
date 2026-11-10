@@ -153,6 +153,33 @@
   background-color: var(--bg-1);
 }
 
+/* In schmalen Fenstern zeigen „Karte“ und „Artikel“ nur ihr Symbol – der Ortsname braucht den Platz. */
+@media (max-width: 1400px) {
+  .wf-tisch-hero__label {
+    display: none;
+  }
+}
+
+/* Nachschlagen über dem Tisch: Artikel und Karte */
+.wf-tisch-peek {
+  min-width: 0;
+}
+.wf-tisch-peek--map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+/* Im Fenster bleibt weniger Höhe als auf der Seite des Wikis. */
+.wf-tisch-peek--map .wf-wiki-map__view {
+  max-height: calc(100vh - 340px);
+}
+.wf-tisch-peek__around {
+  font-style: italic;
+}
+.wf-tisch-wiki .wf-prose {
+  margin: 0;
+}
+
 /* Wege: zurück zum Ort darüber, hinein in die Orte darunter */
 .wf-tisch-ways {
   display: flex;

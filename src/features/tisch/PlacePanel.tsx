@@ -12,6 +12,8 @@ import {
   Feather,
   Footprints,
   Handshake,
+  Library,
+  Map as MapIcon,
   MapPin,
   ScrollText,
   Sparkles,
@@ -47,6 +49,8 @@ import {
   type CastRow,
   type Nearby,
 } from './model';
+import { articleExcerpt, articleOf, placeMaps } from './wiki';
+import { ArticleDialog, MapDialog } from './WikiPeek';
 
 /** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. In niedrigen Fenstern weniger. */
 const CHANGES_SHOWN = 3;
@@ -326,7 +330,22 @@ export function PlacePanel({ place }: { place: Place }) {
   // Ein Klick versetzt die Gruppe nicht: Er schlägt den Ort nur vor, der Spielleiter bestätigt.
   const go = (target: Place) => openMoveParty({ placeId: target.id });
 
-  const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
+  // Wer hier wohnt und von dem nichts anderes bekannt ist, ist vermutlich da – nur wer
+  // nachweislich woanders ist (oder tot, verschollen), gilt als fort.
+  const atHome = cast.away.filter((row) => row.whereId === null && !row.fate);
+  const gone = cast.away.filter((row) => row.whereId !== null || row.fate);
+
+  // Aus dem Wiki: der Artikel zum Ort und die Karten, auf denen die Gruppe steht.
+  const article = articleOf(data, place);
+  const excerpt = useMemo(() => (article ? articleExcerpt(article) : null), [article]);
+  const maps = useMemo(() => placeMaps(data, place), [data, place]);
+  const [reading, setReading] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const hasExcerpt = Boolean(excerpt?.paragraphs.length);
+
+  const hasAside = Boolean(
+    place.notes.trim() || place.secret.trim() || earlier.length || hasExcerpt,
+  );
   /** Über den Ort ist noch gar nichts eingetragen. */
   const bare = cast.total === 0 && !hasAside && changes.length === 0;
 
@@ -357,6 +376,30 @@ export function PlacePanel({ place }: { place: Place }) {
             </h1>
           </div>
           <div className="wf-tisch-hero__actions">
+            {maps.length > 0 && (
+              <Button
+                icon={<MapIcon />}
+                onClick={() => setMapOpen(true)}
+                title={
+                  maps[0]!.own
+                    ? 'Die Karte dieses Ortes'
+                    : `Die Karte der Umgebung: ${maps[0]!.of.name}`
+                }
+                aria-label="Karte"
+              >
+                <span className="wf-tisch-hero__label">Karte</span>
+              </Button>
+            )}
+            {article && (
+              <Button
+                icon={<Library />}
+                onClick={() => setReading(article.id)}
+                title="Den Artikel zu diesem Ort lesen, ohne den Spieltisch zu verlassen"
+                aria-label="Artikel"
+              >
+                <span className="wf-tisch-hero__label">Artikel</span>
+              </Button>
+            )}
             <Link href={entityHref(place)} className="wf-btn" title="Alles über diesen Ort">
               <BookOpen />
               Dossier
@@ -448,8 +491,8 @@ export function PlacePanel({ place }: { place: Place }) {
             <section className="wf-col" aria-label="Wer hier ist">
               <SectionTitle>
                 Wer hier ist
-                {cast.present.length > 0 && (
-                  <span className="wf-tisch-count">{cast.present.length}</span>
+                {cast.present.length + atHome.length > 0 && (
+                  <span className="wf-tisch-count">{cast.present.length + atHome.length}</span>
                 )}
               </SectionTitle>
               {cast.total === 0 ? (
@@ -459,14 +502,18 @@ export function PlacePanel({ place }: { place: Place }) {
                 </p>
               ) : (
                 <>
-                  {cast.present.length === 0 && (
+                  {cast.present.length + atHome.length === 0 && (
                     <p className="wf-tisch-hint">
                       Gerade hält sich hier niemand auf, den du eingetragen hast.
                     </p>
                   )}
                   <CastGroup rows={cast.present} />
+                  <CastGroup
+                    title={cast.present.length > 0 ? 'Hier zu Hause' : undefined}
+                    rows={atHome}
+                  />
                   <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
-                  <CastGroup title="Hier zu Hause, aber fort" rows={cast.away} away />
+                  <CastGroup title="Hier zu Hause, aber fort" rows={gone} away />
                   <CastGroup title="Gegenstände hier" rows={cast.items} />
                   <CastGroup title="Mit dem Ort verbunden" rows={cast.linked} />
                 </>
@@ -488,6 +535,25 @@ export function PlacePanel({ place }: { place: Place }) {
                       Spielleiterwissen
                     </div>
                     <p className="wf-prose">{place.secret.trim()}</p>
+                  </section>
+                )}
+                {excerpt && hasExcerpt && article && (
+                  <section className="wf-col wf-tisch-wiki" aria-label="Aus dem Wiki">
+                    <SectionTitle>Aus dem Wiki</SectionTitle>
+                    {excerpt.paragraphs.map((paragraph, index) => (
+                      <p key={index} className="wf-prose wf-soft">
+                        {paragraph}
+                      </p>
+                    ))}
+                    {excerpt.more && (
+                      <button
+                        type="button"
+                        className="wf-tisch-more"
+                        onClick={() => setReading(article.id)}
+                      >
+                        Ganzen Artikel lesen
+                      </button>
+                    )}
                   </section>
                 )}
                 {earlier.length > 0 && (
@@ -515,6 +581,8 @@ export function PlacePanel({ place }: { place: Place }) {
           </div>
         )}
       </div>
+      <ArticleDialog articleId={reading} onClose={() => setReading(null)} />
+      <MapDialog maps={maps} open={mapOpen} onClose={() => setMapOpen(false)} />
     </Panel>
   );
 }
