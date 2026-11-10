@@ -66,8 +66,10 @@ export function WikiImportSection() {
   const apply = () => {
     if (!picked || !plan) return;
     try {
-      const families = applyLkImport(db, plan, picked.fileName);
-      setLast(lastLkImport());
+      // Mit dem Erkennen der Einträge werden auch ihre Steckbriefe gleich gelesen.
+      const families = applyLkImport(db, plan, picked.fileName, { facts: recognize });
+      const applied = lastLkImport();
+      setLast(applied);
       setPicked(null);
       if (families)
         toast({
@@ -77,7 +79,14 @@ export function WikiImportSection() {
         });
       toast({
         title: 'LegendKeeper übernommen',
-        body: `${plan.counts.articles} Artikel und ${plan.counts.maps} Karten liegen jetzt in Wayfarer.`,
+        body: [
+          `${plan.counts.articles} Artikel und ${plan.counts.maps} Karten liegen jetzt in Wayfarer.`,
+          applied && applied.facts.changed + applied.facts.created > 0
+            ? ` Aus den Steckbriefen kamen Angaben zu ${applied.facts.changed} Einträgen in die Welt${
+                applied.facts.created ? `, ${applied.facts.created} Einträge entstanden neu` : ''
+              }.`
+            : '',
+        ].join(''),
         action: { label: 'Zum Wiki', run: () => navigate('/wiki') },
         duration: 12000,
       });

@@ -420,6 +420,28 @@ export function weatherEffects(
   return effects;
 }
 
+/** Ein Tag als Ganzes: der stärkste Niederschlag, der Himmel am Tag. */
+export function dayGlance(day: DayWeather): Described {
+  return {
+    precipitation: day.precipitation,
+    kind: day.kind,
+    wind: day.wind,
+    fog: day.fog && day.precipitation === 'none',
+    sky: day.sky,
+    sheltered: day.sheltered,
+  };
+}
+
+/** Alle Folgen nach dem Regelwerk, die an einem Tag zu irgendeiner Tageszeit gelten. */
+export function dayEffects(day: DayWeather): WeatherEffect[] {
+  const seen = new Map<string, WeatherEffect>();
+  // Zur Mitte jedes der vier Tagesabschnitte.
+  for (let part = 0; part < DAY_PARTS.length; part++)
+    for (const effect of weatherEffects(weatherAtMinute(day, part * 360 + 180)))
+      if (!seen.has(effect.title)) seen.set(effect.title, effect);
+  return [...seen.values()];
+}
+
 // ── Vorgaben für Klimazonen ────────────────────────────────────────────────
 
 export const CLIMATE_PRESETS = [

@@ -26,6 +26,7 @@ import TischPage from '../features/tisch';
 import WeltPage from '../features/welt';
 import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster } from '../ui';
 import { openMoveParty, openQuickLog, openRest, openSearch, openTimeDialog } from './commands';
+import { ErrorBoundary } from './ErrorBoundary';
 import { ShellDialogs, advanceAndReport } from './dialogs';
 import { Sigil } from './Sigil';
 import './shell.css';
@@ -282,22 +283,25 @@ function useShortcuts() {
 
 export function AppShell() {
   useShortcuts();
+  const [location, navigate] = useLocation();
   return (
     <div className="wf-app">
       <NavRail />
       <WorldBar />
       <main className="wf-main">
-        <Switch>
-          <Route path="/" component={TischPage} />
-          <Route path="/welt/:id?" component={WeltPage} />
-          <Route path="/wiki/:id?" component={WikiPage} />
-          <Route path="/chronik" component={ChronikPage} />
-          <Route path="/kalender" component={KalenderPage} />
-          <Route path="/gruppe/:id?" component={GruppePage} />
-          <Route path="/erkundung/:id?" component={ErkundungPage} />
-          <Route path="/einstellungen" component={EinstellungenPage} />
-          <Route component={TischPage} />
-        </Switch>
+        <ErrorBoundary resetKey={location} onLeave={() => navigate('/')}>
+          <Switch>
+            <Route path="/" component={TischPage} />
+            <Route path="/welt/:id?" component={WeltPage} />
+            <Route path="/wiki/:id?" component={WikiPage} />
+            <Route path="/chronik" component={ChronikPage} />
+            <Route path="/kalender" component={KalenderPage} />
+            <Route path="/gruppe/:id?" component={GruppePage} />
+            <Route path="/erkundung/:id?" component={ErkundungPage} />
+            <Route path="/einstellungen" component={EinstellungenPage} />
+            <Route component={TischPage} />
+          </Switch>
+        </ErrorBoundary>
       </main>
       <ShellDialogs />
       <LkNameSync />

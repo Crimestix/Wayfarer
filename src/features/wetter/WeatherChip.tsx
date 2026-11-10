@@ -37,6 +37,7 @@ import {
   WIND_LABEL,
   describeWeather,
   temperatureLabel,
+  dayGlance,
   type ClimatePreset,
   type DayWeather,
   type WeatherNow,
@@ -70,14 +71,7 @@ export function WeatherIcon({ weather, night }: { weather: Glance; night?: boole
 }
 
 /** Ein Tag als Ganzes für die Vorschau: der stärkste Niederschlag, der Himmel am Tag. */
-const glanceOfDay = (day: DayWeather): Glance => ({
-  precipitation: day.precipitation,
-  kind: day.kind,
-  wind: day.wind,
-  fog: day.fog && day.precipitation === 'none',
-  sky: day.sky,
-  sheltered: day.sheltered,
-});
+const glanceOfDay = dayGlance;
 
 const SOURCE_TEXT: Record<WeatherZone['source'], (zone: WeatherZone) => string> = {
   chosen: (zone) => `festgelegt für „${zone.from?.name ?? 'diesen Ort'}“`,

@@ -16,9 +16,11 @@ import {
   fromTime,
   moonPhase,
 } from '../../domain/time/calendar';
+import { weatherZone, zoneWeather } from '../../domain/weatherZone';
 import { advanceAndReport } from '../../shell/dialogs';
 import { openQuickLog } from '../../shell/commands';
 import { Button, ChronicleList, MoonGlyph, Panel, SectionTitle, Select, cx, toast } from '../../ui';
+import { DayWeatherBlock } from '../wetter/DayWeather';
 import {
   EVENT_DONE_LABEL,
   EVENT_KIND_LABEL,
@@ -103,6 +105,7 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
   const start = day * MINUTES_PER_DAY;
   const date = fromTime(cal, start);
   const [hour, setHour] = useState(6);
+  const zone = weatherZone(data, data.state.placeId);
 
   const events = spansOnDay(spans, day);
   const chronicle = day <= today ? chronicleOnDay(data, day) : [];
@@ -142,6 +145,10 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
       </header>
 
       <div className="wf-kal-side__scroll">
+        <div className="wf-kal-side__section">
+          <SectionTitle>Wetter</SectionTitle>
+        </div>
+        <DayWeatherBlock weather={zoneWeather(data, zone, day)} zone={zone} />
         <div className="wf-kal-side__section wf-kal-side__section--action">
           <SectionTitle>Termine</SectionTitle>
           <Button size="sm" icon={<CalendarPlus />} onClick={() => onCreate(day)}>

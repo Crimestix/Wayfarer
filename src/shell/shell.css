@@ -391,3 +391,30 @@
     height: 18px;
   }
 }
+
+/* Auffangstelle, wenn ein Bereich nicht angezeigt werden kann */
+.wf-shell-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  min-height: 60vh;
+}
+.wf-shell-fault__detail {
+  max-width: 70ch;
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+}
+.wf-shell-fault__detail summary {
+  cursor: pointer;
+  text-align: center;
+}
+.wf-shell-fault__detail pre {
+  margin: var(--s-2) 0 0;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-faint);
+  background: var(--bg-inset);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

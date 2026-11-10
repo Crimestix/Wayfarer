@@ -27,6 +27,8 @@ export interface AppliedLkImport {
   before: CampaignData;
   /** Der Stand direkt danach. Solange er unverändert ist, lässt sich die Übernahme zurücknehmen. */
   after: CampaignData;
+  /** Was die Steckbriefe der Artikel gleich mit in die Welt gebracht haben. */
+  facts: { created: number; changed: number };
 }
 
 // Bewusst nur im Arbeitsspeicher: gilt, bis Wayfarer geschlossen wird.
@@ -42,12 +44,23 @@ export function applyLkImport(
   db: CampaignDb,
   plan: LkImportPlan,
   fileName: string,
+  options: { facts?: boolean } = {},
 ): FamilyAdoption | null {
   const before = db.getSnapshot();
   db.replaceAll(plan.data);
   // Bei so vielen neuen Personen entsteht eine Familie erst ab zwei Trägern des Nachnamens.
   const families = plan.personIds.length ? adoptFamilies(db, undefined, 2) : null;
-  last = { at: nowIso(), fileName, sections: plan.sections, before, after: db.getSnapshot() };
+  // Die Steckbriefe gleich auswerten: Beruf, Aufenthaltsort, Zugehörigkeit … stehen dann schon
+  // in der Welt, ohne dass jemand einen Knopf drücken muss.
+  const sync = options.facts ? syncFacts(db) : null;
+  last = {
+    at: nowIso(),
+    fileName,
+    sections: plan.sections,
+    before,
+    after: db.getSnapshot(),
+    facts: { created: sync?.created.length ?? 0, changed: sync?.changed.length ?? 0 },
+  };
   return families;
 }
 

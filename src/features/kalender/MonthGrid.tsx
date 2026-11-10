@@ -13,7 +13,9 @@ import { Feather, Footprints, Repeat } from 'lucide-react';
 import { entityName } from '../../domain/derive';
 import type { CalendarEvent, CampaignData } from '../../domain/schema';
 import { dayIndexOf, formatClock, formatDate, weekdayOfDay } from '../../domain/time/calendar';
+import { weatherZone, zoneWeather } from '../../domain/weatherZone';
 import { MoonGlyph, Panel, cx } from '../../ui';
+import { DayWeatherMark } from '../wetter/DayWeather';
 import {
   EVENT_DONE_LABEL,
   EVENT_KIND_LABEL,
@@ -63,6 +65,8 @@ export function MonthGrid({
   const width = cal.weekdays.length;
   const weeksRef = useRef<HTMLDivElement>(null);
   const [lanes, setLanes] = useState(2);
+  // Das Wetter dort, wo die Gruppe ist – errechnet, also auch für kommende Tage schon bekannt.
+  const zone = useMemo(() => weatherZone(data, data.state.placeId), [data]);
 
   // So viele Terminzeilen, wie in die Höhe einer Woche passen.
   useLayoutEffect(() => {
@@ -238,6 +242,7 @@ export function MonthGrid({
                         )}
                       </span>
                     )}
+                    <DayWeatherMark weather={zoneWeather(data, zone, cell.dayIndex)} />
                     {moonEvents.length > 0 && (
                       <span className="wf-kal-day__moons">
                         {moonEvents.map((m) => {

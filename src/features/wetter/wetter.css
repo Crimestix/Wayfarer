@@ -281,3 +281,85 @@
     font-size: var(--text-md);
   }
 }
+
+/* Wetter im Kalender: Zeichen im Tagesfeld und Abschnitt in der Tagesansicht */
+.wf-wetter-mark {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  color: var(--ink-faint);
+}
+.wf-wetter-mark svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-wetter-mark--alert {
+  color: var(--ember);
+}
+.wf-wetter-day {
+  padding: 2px var(--s-4) var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.wf-wetter-day__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wf-wetter-day__head svg {
+  width: 18px;
+  height: 18px;
+  color: var(--gold);
+}
+.wf-wetter-day__head b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.wf-wetter-day__head span {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.wf-wetter-day__parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: var(--s-2);
+}
+.wf-wetter-day__parts > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  border: 1px solid var(--line-faint);
+  background: var(--bg-inset);
+}
+.wf-wetter-day__parts span {
+  font-family: var(--font-caps);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-wetter-day__parts b {
+  font-weight: 500;
+  color: var(--ink);
+}
+.wf-wetter-day__parts em {
+  font-style: normal;
+  color: var(--ink-mute);
+}
+.wf-wetter-day__effect {
+  margin: var(--s-2) 0 0;
+  padding: 4px var(--s-2);
+  border-left: 2px solid var(--ember);
+  background: var(--ember-wash);
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wf-wetter-day__where {
+  margin: var(--s-2) 0 0;
+  color: var(--ink-mute);
+}

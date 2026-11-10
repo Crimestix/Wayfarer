@@ -190,7 +190,7 @@ export function RestDialog({
         {wait > 0 && (
           <p className="wf-gruppe-rest__warn">
             Eine Lange Rast ist nur einmal in 24 Stunden möglich – nach den Regeln erst wieder in{' '}
-            {formatDuration(wait)}. Du kannst sie trotzdem gewähren.
+            {formatDuration(wait)}; du kannst sie trotzdem gewähren.
           </p>
         )}
 

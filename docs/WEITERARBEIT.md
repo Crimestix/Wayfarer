@@ -390,7 +390,9 @@ ist ausgeschlossen; alles Erkennen läuft über festen Code.
   - Offen: Zeitleisten-Felder (Zeitraum, Beteiligte, Zeitalter) lesen; gebeugte Namen („Altes
     Zollhaus“ für „Das Alte Zollhaus“); die Welt zeigt noch nicht an, welche Angaben aus dem
     Steckbrief stammen; nach einer Übernahme aus LegendKeeper läuft das Auswerten nicht von
-    selbst; Zweitnamen aus dem Steckbrief werden bewusst nicht übernommen.
+    selbst (seit 10. 11.: doch – `applyLkImport` liest die Steckbriefe gleich mit, wenn das
+    Erkennen der Einträge eingeschaltet ist); Zweitnamen aus dem Steckbrief werden bewusst nicht
+    übernommen.
 - **Stufe 4 – Erkennen über Code** (alles feste Regeln mit Test, nichts davon ändert den Text):
   - **Namen ohne Klammern** (`wiki/names.ts`): Steht der Titel oder ein Zweitname eines anderen
     Artikels im Text, wird er beim Lesen zum Verweis (`mention.implicit`, gepunktet
@@ -414,10 +416,38 @@ ist ausgeschlossen; alles Erkennen läuft über festen Code.
     Export nur eine Handvoll Treffer – die Texte nutzen diese Wendungen selten.
   - **Oft zusammen genannt** (`coMentions` in `wiki/model.ts`): unter dem Artikel, wer mindestens
     zweimal im selben Absatz mit ihm steht.
-  - Offen: Vornamen allein („Mira“ für „Mira Tannhaus“), gebeugte Namen, Namen über
+  - **Vornamen und Nachnamen allein** (`linkShortNames` in `wiki/names.ts`): nur auf der
+    Seite, auf der die Person mit vollem Namen oder als Verweis steht – nie über die ganze Welt
+    (bei tausenden NSC wäre kein Vorname eindeutig). Zwei Träger desselben Namensteils auf einer
+    Seite, oder der Artikel selbst und ein weiterer: bleibt Text. Ob ein Artikel eine Person
+    beschreibt, liest das Wiki an Symbol, Schlagworten oder Steckbrief ab (`isPersonArticle`).
+  - Offen: gebeugte Namen, Namen über
     Auszeichnungsgrenzen hinweg; erkannte Namen im Editor zeigen und auf Wunsch in echte
     Verweise umwandeln; Daten aus Zeitleisten-Steckbriefen in den Kalender übernehmen; mehr
     Satzmuster nach dem Sprachgebrauch der echten Texte.
+
+**Rast (10. 11. 2026) – Bereich G, gebaut.** `domain/rest.ts` rechnet nach D&D 2024: Kurze Rast
+eine Stunde; Lange Rast acht Stunden, jeder wacht höchstens zwei (`proposeWatches` verteilt
+reihum, zeigt je Wache die höchste Passive Wahrnehmung); danach Trefferpunkte voll und
+Erschöpfung −1; eine Lange Rast je 24 Stunden (16 Stunden Abstand, als Hinweis, nicht als
+Sperre). `gruppe/rest.ts` `takeRest` lässt die Zeit über `advanceTime` vergehen, legt ein
+Dokument in `rests` an und schreibt die Chronik; alles mit `undo`. Eine Rast kann gestört enden
+(„Störung nach 3 Std.“ – in Meldung und Chronik steht, wer gerade wachte) und später fortgesetzt
+werden: Rest der acht Stunden plus eine Stunde je Störung. Fenster: `gruppe/RestDialog.tsx`,
+geöffnet über `openRest` (Weltleiste › Zeit, Seite „Gefährten“). Der alte Knopf „Lange Rast
+abschließen“ (ließ die Zeit stehen) ist ersetzt.
+- Offen: Trefferwürfel bei der Kurzen Rast, Zauberplätze, Lager unterwegs auf der Hexkarte,
+  Teilgruppen an verschiedenen Orten, Rast als Eintrag im Kalender.
+
+**Wetter im Kalender (10. 11. 2026) – gebaut.** Jedes Tagesfeld trägt ein Wetterzeichen (auffällig
+bei Folgen nach dem Regelwerk), die Tagesansicht den Abschnitt „Wetter“ mit den vier
+Tagesabschnitten und den Regelfolgen (`wetter/DayWeather.tsx`, `dayGlance`/`dayEffects` in
+`domain/weather.ts`). Es gilt das Wetter am Ort der Gruppe – errechnet, also auch für kommende
+Tage. Offen: Wetter vergangener Tage an dem Ort, an dem die Gruppe damals war.
+
+**Auffangstelle (10. 11. 2026).** `shell/ErrorBoundary.tsx` umschließt die Bereiche: Scheitert der
+Aufbau einer Seite oder lädt ein Teil nicht, bleiben Navigation und Weltleiste bedienbar, und es
+steht da, wie es weitergeht.
 
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
@@ -480,4 +510,3 @@ LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
 - Die Hauptdatei des Clients ist groß (Warnung beim Bauen); Bereiche bei Bedarf nachladen.
 - `wiki/editor/helpers.ts` wiederholt `splitTarget` und die Zeilenmuster aus `wiki/markdown.ts`
   (der Editor entstand getrennt) – zusammenführen.
-- Es gibt keine Auffangstelle, wenn ein nachgeladener Bereich nicht lädt (weiße Seite).

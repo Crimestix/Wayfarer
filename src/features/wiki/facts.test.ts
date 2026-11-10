@@ -4,7 +4,16 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import type { CampaignData, Entity } from '../../domain/schema';
 import { lkExportFixture } from './__fixtures__/lkExport';
-import { createArticle, createNamedEntity, savePageText, syncFacts } from './actions';
+import {
+  applyLkImport,
+  canUndoLkImport,
+  createArticle,
+  createNamedEntity,
+  lastLkImport,
+  savePageText,
+  syncFacts,
+  undoLkImport,
+} from './actions';
 import { planLkImport } from './apply';
 import {
   articleFacts,
@@ -268,6 +277,23 @@ describe('Steckbrief speist die Welt', () => {
     idea.undo();
     expect(data().entities[idea.entity.id]).toBeUndefined();
     expect(entity('Vera Kohl', 'person').person.placeId).toBeNull();
+  });
+
+  it('wertet die Steckbriefe bei der Übernahme gleich mit aus', async () => {
+    const before = elarisCampaign();
+    const db = await CampaignDb.create(new MemoryStore(), before);
+    const plan = planLkImport(before, convertLkExport(lkExportFixture()));
+    applyLkImport(db, plan, 'welt.lk', { facts: true });
+    // Nichts mehr offen: Was die Steckbriefe der Übernahme sagen, steht schon in der Welt.
+    expect(pendingFacts(db.getSnapshot()).changes).toEqual([]);
+    expect(lastLkImport()?.facts).toEqual({
+      created: expect.any(Number),
+      changed: expect.any(Number),
+    });
+    // Die Übernahme lässt sich weiterhin als Ganzes zurücknehmen.
+    expect(canUndoLkImport(db)).toBe(true);
+    expect(undoLkImport(db)).toBe(true);
+    expect(Object.keys(db.getSnapshot().articles)).toEqual([]);
   });
 
   it('lässt von Hand eingetragene Beziehungen in Ruhe', async () => {
