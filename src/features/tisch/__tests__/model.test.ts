@@ -33,6 +33,7 @@ import {
   overdueLabel,
   partyPlace,
   runningLabel,
+  sheetLink,
   stayLabels,
   whenLabel,
 } from '../model';
@@ -524,6 +525,17 @@ describe('Gefährten', () => {
     expect(exhaustionEffect(0)).toBe('Nicht erschöpft');
     expect(exhaustionEffect(3)).toBe('Erschöpfung 3: −6 auf alle W20-Würfe, Bewegungsrate −15 Fuß');
     expect(exhaustionEffect(6)).toContain('stirbt');
+  });
+
+  it('öffnet nur Charakterbögen mit gefahrloser Adresse', () => {
+    expect(sheetLink('')).toBeNull();
+    expect(sheetLink('  https://www.dndbeyond.com/characters/123 ')).toBe(
+      'https://www.dndbeyond.com/characters/123',
+    );
+    expect(sheetLink('dndbeyond.com/characters/123')).toBe('https://dndbeyond.com/characters/123');
+    expect(sheetLink('javascript:alert(1)')).toBeNull();
+    expect(sheetLink('file:///etc/passwd')).toBeNull();
+    expect(sheetLink('kein link')).toBeNull();
   });
 
   it('zeigt die aktive Gruppe und wer woanders ist', async () => {

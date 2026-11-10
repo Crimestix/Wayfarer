@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { deleteEntity, deleteSession, endSession, logEntry, moveParty, setAttitude, startSession } from '../../data/actions';
+import {
+  deleteEntity,
+  deleteSession,
+  endSession,
+  logEntry,
+  moveParty,
+  resumeSession,
+  setAttitude,
+  setPromiseDone,
+  startSession,
+} from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { demoCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { chronicleSorted, entitiesOfKind, partyStays } from '../../domain/derive';
 import { PARTY_ID, type ChronicleEntry } from '../../domain/schema';
+import { onChroniclePreset, remembered, showInChronicle, showSessionInChronicle } from './link';
 import { MINUTES_PER_DAY, dayIndexOf, formatDate, toTime } from '../../domain/time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
 import {
@@ -15,6 +26,7 @@ import {
   entryFromDraft,
   entryHeadline,
   entryPlainText,
+  entryTimeProblem,
   filterEntries,
   formatRealDate,
   formatWorldRange,
@@ -24,8 +36,11 @@ import {
   lockedRefs,
   mentionCounts,
   parseRealDate,
+  promiseDueLabel,
+  promiseParties,
   realDateInput,
   relativeDay,
+  resumableSessionId,
   sanitizeFilter,
   sessionAt,
   sessionLabel,
@@ -223,6 +238,50 @@ describe('Sessions', () => {
     expect(reopened.getSnapshot()).toEqual(data);
   });
 
+  it('setzt eine beendete Session fort und nimmt damit ein versehentliches Beenden zurück', async () => {
+    const db = await demoDb();
+    const first = Object.values(db.getSnapshot().sessions)[0]!;
+    expect(resumableSessionId(db.getSnapshot())).toBeNull(); // sie läuft ja
+    db.setState({ now: ELARIS_START + 60 });
+    endSession(db);
+    expect(db.getSnapshot().sessions[first.id]!.endAt).toBe(ELARIS_START + 60);
+    expect(resumableSessionId(db.getSnapshot())).toBe(first.id);
+
+    resumeSession(db, first.id);
+    let data = db.getSnapshot();
+    expect(data.state.sessionId).toBe(first.id);
+    expect(data.sessions[first.id]!.endAt).toBeNull();
+    expect(sessionSpans(data)[0]!.running).toBe(true);
+    expect(logEntry(db, { text: 'Weiter geht es' }).sessionId).toBe(first.id);
+
+    // Nur die jüngste Session lässt sich fortsetzen; läuft eine, dann keine.
+    endSession(db);
+    const second = startSession(db);
+    expect(resumableSessionId(db.getSnapshot())).toBeNull();
+    endSession(db);
+    expect(resumableSessionId(db.getSnapshot())).toBe(second.id);
+
+    // Fortsetzen einer älteren beendet die laufende; Unbekanntes und bereits Laufendes ändern nichts.
+    resumeSession(db, second.id);
+    resumeSession(db, first.id);
+    data = db.getSnapshot();
+    expect(data.state.sessionId).toBe(first.id);
+    expect(data.sessions[second.id]!.endAt).not.toBeNull();
+    const before = db.getSnapshot();
+    resumeSession(db, first.id);
+    resumeSession(db, 'gibt-es-nicht');
+    expect(db.getSnapshot()).toBe(before);
+
+    await db.flush();
+    expect((await CampaignDb.open(db.store)).getSnapshot()).toEqual(db.getSnapshot());
+  });
+
+  it('kennt keine fortsetzbare Session, solange es keine gibt', async () => {
+    const db = await demoDb();
+    deleteSession(db, Object.values(db.getSnapshot().sessions)[0]!.id);
+    expect(resumableSessionId(db.getSnapshot())).toBeNull();
+  });
+
   it('lässt beim Löschen einer beendeten Session die laufende in Ruhe', async () => {
     const db = await demoDb();
     const first = Object.values(db.getSnapshot().sessions)[0]!;
@@ -288,6 +347,26 @@ describe('Zeitstrahl', () => {
       'start 13',
       'Erster Satz des neuen Abends',
     ]);
+  });
+
+  it('gibt einer Session-Grenze ein Datum, wenn sie nicht bei Einträgen ihres Tages steht', async () => {
+    const db = await demoDb();
+    // Die Session endet zwei Tage nach dem letzten Eintrag; die nächste beginnt am Tag ihres ersten Eintrags.
+    db.setState({ now: ELARIS_START + 2 * day });
+    endSession(db);
+    db.setState({ now: ELARIS_START + 5 * day });
+    startSession(db);
+    logEntry(db, { text: 'Neuer Abend' });
+    const data = db.getSnapshot();
+    for (const newestFirst of [false, true]) {
+      const markers = timelineRows(entries(db), sessionMarkers(sessionSpans(data)), newestFirst).flatMap((r) =>
+        r.type === 'marker' ? [`${r.edge} ${r.session.number} ${r.dated ? 'mit' : 'ohne'} Datum`] : [],
+      );
+      expect(markers.sort()).toEqual(['end 12 mit Datum', 'start 12 ohne Datum', 'start 13 ohne Datum']);
+    }
+    // Ohne jeden Eintrag in der Nähe steht das Datum immer dabei.
+    const alone = timelineRows([], sessionMarkers(sessionSpans(data)), true);
+    expect(alone.every((r) => r.type === 'marker' && r.dated)).toBe(true);
   });
 
   it('zeigt bei aktivem Filter nur Grenzen von Sessions, aus denen etwas zu sehen ist', async () => {
@@ -500,6 +579,50 @@ describe('Einträge bearbeiten', () => {
     expect(deleteConsequence(data, find(db, 'note'))).toContain('verschwindet aus der Chronik');
   });
 
+  it('sagt, was gegen einen Zeitpunkt spricht', async () => {
+    const db = await demoDb();
+    const data = db.getSnapshot();
+    const note = find(db, 'note');
+    expect(entryTimeProblem(data, note, null)).toContain('gibt es im Kalender nicht');
+    expect(entryTimeProblem(data, note, note.at - 5 * day)).toBe('');
+    expect(entryTimeProblem(data, note, ELARIS_START)).toBe('');
+    expect(entryTimeProblem(data, note, ELARIS_START + 1)).toContain('Zukunft');
+    // Nachtragen: bis jetzt erlaubt, danach nicht.
+    expect(entryTimeProblem(data, null, ELARIS_START)).toBe('');
+    expect(entryTimeProblem(data, null, ELARIS_START + 1)).toContain('Kalender');
+    // Ein unveränderter Zeitpunkt wird nie beanstandet – auch wenn die Weltzeit zurückgestellt wurde.
+    const earlier = { ...data, state: { ...data.state, now: note.at - day } };
+    expect(entryTimeProblem(earlier, note, note.at)).toBe('');
+    expect(entryTimeProblem(earlier, note, note.at + 1)).toContain('Zukunft');
+    // Ortswechsel bleiben in ihrer Reihenfolge; die Meldung nennt die Grenzen.
+    const travels = entries(db).filter((e) => e.kind === 'travel');
+    const problem = entryTimeProblem(data, travels[1]!, travels[0]!.at - 10);
+    expect(problem).toContain('Reihenfolge der Ortswechsel');
+    expect(problem).toContain(`nach dem ${formatDate(cal, travels[0]!.at)}`);
+    expect(problem).toContain(`vor dem ${formatDate(cal, travels[2]!.at)}`);
+    expect(entryTimeProblem(data, travels[1]!, travels[1]!.at + 30)).toBe('');
+  });
+
+  it('beschreibt Frist und Beteiligte einer offenen Abmachung in wenigen Worten', async () => {
+    const db = await demoDb();
+    const promise = find(db, 'promise');
+    const due = promise.promise!.due!;
+    expect(promiseDueLabel(cal, promise, ELARIS_START)).toBe('Frist 19. Tauwind · in 2 Tagen');
+    expect(promiseDueLabel(cal, promise, due + 60)).toBe('Seit heute überfällig · 19. Tauwind');
+    expect(promiseDueLabel(cal, promise, due + day)).toBe('Seit gestern überfällig · 19. Tauwind');
+    expect(promiseDueLabel(cal, promise, due + 5 * day)).toBe('Seit 5 Tagen überfällig · 19. Tauwind');
+    expect(promiseDueLabel(cal, { ...promise, promise: { due: null, done: false } }, ELARIS_START)).toBe('Ohne Frist');
+    // Der Ort des Geschehens und Gelöschtes zählen nicht zu den Beteiligten.
+    expect(promiseParties(db.getSnapshot(), promise)).toEqual(['Brann Eisenhaken']);
+    const withPlace = { ...promise, refs: [...promise.refs, promise.placeId!, 'geloescht'] };
+    expect(promiseParties(db.getSnapshot(), withPlace)).toEqual(['Brann Eisenhaken']);
+    // Abhaken und wieder öffnen.
+    setPromiseDone(db, promise.id, true);
+    expect(isOverdue(db.getSnapshot().chronicle[promise.id]!, due + day)).toBe(false);
+    setPromiseDone(db, promise.id, false);
+    expect(isOverdue(db.getSnapshot().chronicle[promise.id]!, due + day)).toBe(true);
+  });
+
   it('erkennt überfällige Abmachungen', async () => {
     const db = await demoDb();
     const promise = find(db, 'promise');
@@ -584,5 +707,24 @@ describe('Reiner Text', () => {
     const text = sessionSummaryText(db.getSnapshot(), fresh.id);
     expect(text).toContain('In dieser Session wurde nichts festgehalten.');
     expect(entitiesOfKind(db.getSnapshot(), 'place').length).toBeGreaterThan(0);
+  });
+});
+
+describe('Vorwahl aus anderen Bereichen', () => {
+  it('stellt den Verlauf auf einen Eintrag ein und setzt alle anderen Filter zurück', () => {
+    let calls = 0;
+    const off = onChroniclePreset(() => calls++);
+    Object.assign(remembered, { view: 'sessions', filter: { ...EMPTY_FILTER, query: 'alt', kinds: ['note'] } });
+    showInChronicle({ entityId: 'abc' });
+    expect(remembered.view).toBe('verlauf');
+    expect(remembered.filter).toEqual({ ...EMPTY_FILTER, entityId: 'abc' });
+    showSessionInChronicle('s1');
+    expect(remembered.view).toBe('sessions');
+    expect(remembered.sessionId).toBe('s1');
+    expect(calls).toBe(2);
+    off();
+    showInChronicle({});
+    expect(calls).toBe(2);
+    expect(isFilterActive(remembered.filter)).toBe(false);
   });
 });

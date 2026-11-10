@@ -65,6 +65,8 @@
   flex: 1 1 auto;
   min-width: 0;
   padding-top: 2px;
+  /* Sehr lange Namen brechen um, statt aus dem Rahmen zu laufen. */
+  overflow-wrap: anywhere;
 }
 .wf-chron__meta {
   display: flex;
@@ -75,6 +77,13 @@
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--ink-mute);
+}
+/* Die Versalienschrift zeichnet die 1 wie ein I („II:00“); Uhrzeiten stehen in der Textschrift. */
+.wf-chron__meta .wf-num {
+  font-family: var(--font-body);
+  font-size: 1.22em;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 .wf-chron__meta .wf-entity-link {
   color: var(--ink-soft);

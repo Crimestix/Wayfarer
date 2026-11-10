@@ -204,6 +204,15 @@ fn close_now<R: Runtime>(window: &WebviewWindow<R>) {
     let _ = window.destroy();
 }
 
+/// Holt das Hauptfenster nach vorn – wenn Wayfarer ein zweites Mal gestartet wird.
+pub fn bring_to_front<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 // ── Größe merken ─────────────────────────────────────────────────────────────
 
 const WINDOW_FILE: &str = "window.json";
@@ -258,6 +267,13 @@ pub fn usable_screen<R: Runtime>(app: &AppHandle<R>) -> Option<(f64, f64)> {
         .then(|| (f64::from(area.width) / scale, f64::from(area.height) / scale))
 }
 
+/// Die Vorgabegröße aus `tauri.conf.json`.
+fn configured_size<R: Runtime>(window: &WebviewWindow<R>) -> Option<(f64, f64)> {
+    let config = window.config();
+    let main = config.app.windows.iter().find(|w| w.label == MAIN_WINDOW)?;
+    Some((main.width, main.height))
+}
+
 /// Merkt sich Größe und „maximiert“ für den nächsten Start.
 fn remember<R: Runtime>(window: &WebviewWindow<R>) {
     let Ok(dir) = window.path().app_config_dir() else {
@@ -266,8 +282,11 @@ fn remember<R: Runtime>(window: &WebviewWindow<R>) {
     let maximized = window.is_maximized().unwrap_or(false);
     let special =
         maximized || window.is_fullscreen().unwrap_or(false) || window.is_minimized().unwrap_or(false);
-    let current = if special {
-        None
+    let size = if special {
+        // Maximiert, im Vollbild oder im Dock: die zuletzt gemerkte gewöhnliche Größe bleibt gültig.
+        load_state(&dir)
+            .map(|state| (state.width, state.height))
+            .or_else(|| configured_size(window))
     } else {
         match (window.inner_size(), window.scale_factor()) {
             (Ok(size), Ok(scale)) if scale > 0.0 && size.width > 0 && size.height > 0 => {
@@ -276,8 +295,6 @@ fn remember<R: Runtime>(window: &WebviewWindow<R>) {
             _ => None,
         }
     };
-    // Maximiert, im Vollbild oder im Dock: die zuletzt gemerkte gewöhnliche Größe bleibt gültig.
-    let size = current.or_else(|| load_state(&dir).map(|state| (state.width, state.height)));
     if let Some((width, height)) = size {
         save_state(
             &dir,

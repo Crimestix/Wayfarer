@@ -41,10 +41,13 @@ import {
  */
 export function MentionInput({
   onSubmit,
+  label,
   placeholder,
   autoFocus,
 }: {
   onSubmit: (text: string, refs: string[]) => void;
+  /** Name des Feldes für Vorleseprogramme. */
+  label: string;
   placeholder: string;
   autoFocus?: boolean;
 }) {
@@ -116,7 +119,7 @@ export function MentionInput({
           rows={1}
           autoFocus={autoFocus}
           className="wf-tisch-composer__field"
-          aria-label={placeholder}
+          aria-label={label}
           aria-autocomplete="list"
           aria-expanded={open}
           placeholder={placeholder}
@@ -160,7 +163,7 @@ export function MentionInput({
           <CornerDownLeft />
         </IconButton>
       </div>
-      {kept.length > 0 ? (
+      {kept.length > 0 && (
         <div className="wf-tisch-composer__refs">
           <span className="wf-tisch-composer__hint">Verknüpft mit</span>
           {kept.map((m) => {
@@ -178,10 +181,6 @@ export function MentionInput({
               </span>
             );
           })}
-        </div>
-      ) : (
-        <div className="wf-tisch-composer__hint">
-          Eingabetaste hält fest · <b>@</b> verknüpft Personen, Orte und mehr
         </div>
       )}
       <Popover open={open} onClose={closeSuggestions} anchor={box} className="wf-tisch-suggest">
@@ -353,7 +352,8 @@ export function JournalPanel() {
       )}
       <MentionInput
         autoFocus
-        placeholder="Was passiert gerade?"
+        label="Was passiert gerade?"
+        placeholder="Was passiert gerade? (@ verknüpft)"
         onSubmit={(text, refs) => logEntry(db, { text, refs })}
       />
       <div className="wf-tisch-journal__log" ref={logBox}>

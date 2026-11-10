@@ -1,5 +1,5 @@
 /** Ansicht „Verlauf“: Filter, Zeitstrahl aller Einträge und die offenen Abmachungen daneben. */
-import { useDeferredValue, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -13,9 +13,8 @@ import {
 } from 'lucide-react';
 import { setPromiseDone } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
-import { chronicleSorted, entityName, openPromises } from '../../domain/derive';
+import { chronicleSorted, openPromises } from '../../domain/derive';
 import { CHRONICLE_KINDS, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
-import { formatDayMonth, formatRelative } from '../../domain/time/calendar';
 import { openQuickLog } from '../../shell/commands';
 import {
   Button,
@@ -28,8 +27,10 @@ import {
   Panel,
   Select,
   cx,
+  toast,
 } from '../../ui';
-import { Timeline } from './Timeline';
+import { Caps } from './parts';
+import { TIMELINE_PAGE, Timeline } from './Timeline';
 import {
   EMPTY_FILTER,
   KIND_SHORT,
@@ -37,8 +38,9 @@ import {
   filterEntries,
   isFilterActive,
   isOverdue,
-  lockedRefs,
   mentionCounts,
+  promiseDueLabel,
+  promiseParties,
   sessionLabel,
   sessionMarkers,
   sessionSpans,
@@ -70,12 +72,26 @@ function FilterBar({
   const set = (change: Partial<ChronicleFilter>) => onChange({ ...filter, ...change });
   const toggleKind = (kind: ChronicleKind) =>
     set({ kinds: filter.kinds.includes(kind) ? filter.kinds.filter((k) => k !== kind) : [...filter.kinds, kind] });
+  // Strg+F springt in die Suche, wie man es von jedem Programm kennt.
+  const search = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.key.toLowerCase() !== 'f') return;
+      if (document.querySelector('dialog[open]')) return;
+      e.preventDefault();
+      search.current?.focus();
+      search.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   return (
     <div className="wf-chronik-filter">
       <div className="wf-chronik-filter__row">
-        <label className="wf-chronik-search">
+        <label className="wf-chronik-search" title="Sucht in Texten und in den Namen von Orten und Beteiligten (Strg+F)">
           <Search aria-hidden />
           <Input
+            ref={search}
             value={filter.query}
             onChange={(e) => set({ query: e.target.value })}
             placeholder="Im Verlauf suchen …"
@@ -175,6 +191,15 @@ function OpenPromises({
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const open = useMemo(() => openPromises(data), [data]);
+  // Die Abmachung verschwindet beim Abhaken aus dieser Liste – ein Fehlgriff muss sich zurücknehmen lassen.
+  const done = (entry: ChronicleEntry) => {
+    setPromiseDone(db, entry.id, true);
+    toast({
+      title: 'Abmachung erledigt',
+      body: entry.text.slice(0, 120),
+      action: { label: 'Rückgängig', run: () => setPromiseDone(db, entry.id, false) },
+    });
+  };
   return (
     <Panel
       className="wf-chronik-promises"
@@ -210,12 +235,8 @@ function OpenPromises({
         </EmptyState>
       ) : (
         open.map((entry) => {
-          const due = entry.promise!.due;
           const late = isOverdue(entry, now);
-          const fixed = lockedRefs(entry);
-          const who = entry.refs
-            .filter((id) => !fixed.includes(id) && id !== entry.placeId && data.entities[id])
-            .map((id) => entityName(data, id));
+          const who = promiseParties(data, entry);
           return (
             <div key={entry.id} className={cx('wf-chronik-promise', late && 'wf-chronik-promise--late')}>
               <button
@@ -224,19 +245,13 @@ function OpenPromises({
                 aria-label="Als erledigt abhaken"
                 title="Als erledigt abhaken"
                 aria-pressed={false}
-                onClick={() => setPromiseDone(db, entry.id, true)}
+                onClick={() => done(entry)}
               />
               <button type="button" className="wf-chronik-promise__body" onClick={() => onEdit(entry)} title="Abmachung öffnen">
                 <span className="wf-chronik-promise__text wf-clamp-2">{entry.text || 'Ohne Text'}</span>
                 <span className="wf-chronik-promise__meta">
                   {who.length > 0 && <span className="wf-clamp-1">{who.join(', ')}</span>}
-                  <span className="wf-chronik-promise__due">
-                    {due === null
-                      ? 'ohne Frist'
-                      : late
-                        ? `Überfällig · Frist war ${formatDayMonth(cal, due)} (${formatRelative(now, due)})`
-                        : `Frist ${formatDayMonth(cal, due)} · ${formatRelative(now, due)}`}
-                  </span>
+                  <span className="wf-chronik-promise__due wf-num">{promiseDueLabel(cal, entry, now)}</span>
                 </span>
               </button>
             </div>
@@ -290,6 +305,15 @@ function Mentions({
   );
 }
 
+/**
+ * Wo man im Verlauf zuletzt stand – solange die App läuft. Nach einem Abstecher zu einer Person
+ * oder einem Ort steht man wieder an derselben Stelle.
+ */
+const position = { key: '', top: 0, limit: TIMELINE_PAGE };
+const rememberLimit = (limit: number) => {
+  position.limit = limit;
+};
+
 export function Verlauf({
   filter,
   onFilter,
@@ -329,7 +353,17 @@ export function Verlauf({
   }, [visible, spans, applied.session, active, newestFirst]);
 
   const resetKey = JSON.stringify([applied, newestFirst]);
+  const initialLimit = position.key === resetKey ? position.limit : TIMELINE_PAGE;
+  useLayoutEffect(() => {
+    if (scroll.current && position.key === resetKey) scroll.current.scrollTop = position.top;
+    // Nur beim Öffnen der Ansicht.
+  }, []);
+  // Andere Auswahl oder Reihenfolge: wieder von oben.
+  const shownKey = useRef(resetKey);
   useEffect(() => {
+    if (shownKey.current === resetKey) return;
+    shownKey.current = resetKey;
+    Object.assign(position, { key: resetKey, top: 0, limit: TIMELINE_PAGE });
     if (scroll.current) scroll.current.scrollTop = 0;
   }, [resetKey]);
 
@@ -337,37 +371,50 @@ export function Verlauf({
   return (
     <div className="wf-chronik-verlauf">
       <div className="wf-chronik-main">
-        <FilterBar filter={filter} onChange={onFilter} />
+        {total > 0 && <FilterBar filter={filter} onChange={onFilter} />}
         <Panel
           className="wf-chronik-fill"
           flush
           title={
-            active
-              ? `${visible.length.toLocaleString('de-DE')} von ${total.toLocaleString('de-DE')} Einträgen`
-              : total === 1
-                ? '1 Eintrag'
-                : `${total.toLocaleString('de-DE')} Einträge`
+            <Caps>
+              {total === 0
+                ? 'Verlauf'
+                : active
+                  ? `${visible.length.toLocaleString('de-DE')} von ${total.toLocaleString('de-DE')} Einträgen`
+                  : total === 1
+                    ? '1 Eintrag'
+                    : `${total.toLocaleString('de-DE')} Einträge`}
+            </Caps>
           }
           actions={
-            <>
-              {isFilterActive(filter) && (
-                <Button size="sm" icon={<FilterX />} onClick={() => onFilter(EMPTY_FILTER)}>
-                  Filter zurücksetzen
+            total > 0 && (
+              <>
+                {isFilterActive(filter) && (
+                  <Button size="sm" icon={<FilterX />} onClick={() => onFilter(EMPTY_FILTER)}>
+                    Filter zurücksetzen
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={newestFirst ? <ArrowDownWideNarrow /> : <ArrowUpNarrowWide />}
+                  onClick={() => onNewestFirst(!newestFirst)}
+                  title="Reihenfolge umkehren"
+                >
+                  {newestFirst ? 'Neueste zuerst' : 'Älteste zuerst'}
                 </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={newestFirst ? <ArrowDownWideNarrow /> : <ArrowUpNarrowWide />}
-                onClick={() => onNewestFirst(!newestFirst)}
-                title="Reihenfolge umkehren"
-              >
-                {newestFirst ? 'Neueste zuerst' : 'Älteste zuerst'}
-              </Button>
-            </>
+              </>
+            )
           }
         >
-          <div className="wf-chronik-scroll" ref={scroll}>
+          <div
+            className="wf-chronik-scroll"
+            ref={scroll}
+            onScroll={(e) => {
+              position.key = resetKey;
+              position.top = e.currentTarget.scrollTop;
+            }}
+          >
             {total === 0 ? (
               <EmptyState
                 icon={<BookOpen />}
@@ -397,7 +444,14 @@ export function Verlauf({
                 Kein Eintrag passt zu dieser Auswahl.
               </EmptyState>
             ) : (
-              <Timeline key={resetKey} rows={rows} onEdit={onEdit} onOpenSession={onOpenSession} />
+              <Timeline
+                key={resetKey}
+                rows={rows}
+                onEdit={onEdit}
+                onOpenSession={onOpenSession}
+                initialLimit={initialLimit}
+                onLimit={rememberLimit}
+              />
             )}
           </div>
         </Panel>

@@ -209,47 +209,47 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
 
   const hidden = total - Math.min(fit, total);
   return (
-    <nav className="wf-tisch-ways" aria-label="Orte hier">
-      <span className="wf-tisch-ways__label">Orte hier</span>
-      {nearby.parent && (
-        <button
-          type="button"
-          className="wf-tisch-way wf-tisch-way--back"
-          onClick={() => onGo(nearby.parent!)}
-          title={`Die Gruppe geht zurück nach ${nearby.parent.name}`}
-        >
-          <CornerLeftUp />
-          <span className="wf-clamp-1">Zurück nach {nearby.parent.name}</span>
-        </button>
-      )}
-      <div className="wf-tisch-ways__row" ref={row}>
-        {nearby.children.map(({ place: child, people }, i) => (
+    <>
+      <nav className="wf-tisch-ways" aria-label="Orte hier">
+        <span className="wf-tisch-ways__label">Orte hier</span>
+        {nearby.parent && (
           <button
-            key={child.id}
             type="button"
-            className="wf-tisch-way"
-            onClick={() => onGo(child)}
-            // Was nicht mehr in die Zeile passt, bleibt zum Messen da, ist aber weder sicht- noch erreichbar.
-            style={i >= fit ? { visibility: 'hidden' } : undefined}
-            tabIndex={i >= fit ? -1 : undefined}
-            aria-hidden={i >= fit || undefined}
-            title={[`Die Gruppe geht hinein: ${child.name}`, child.place.category, child.tagline]
-              .filter(Boolean)
-              .join('\n')}
+            className="wf-tisch-way wf-tisch-way--back"
+            onClick={() => onGo(nearby.parent!)}
+            title={`Die Gruppe geht zurück nach ${nearby.parent.name}`}
           >
-            <DoorOpen />
-            <span className="wf-clamp-1">{child.name}</span>
-            {people > 0 && (
-              <span className="wf-tisch-way__count" aria-label={`${people} Personen dort`}>
-                <User />
-                {people}
-              </span>
-            )}
+            <CornerLeftUp />
+            <span className="wf-clamp-1">Zurück nach {nearby.parent.name}</span>
           </button>
-        ))}
-      </div>
-      {hidden > 0 && (
-        <>
+        )}
+        <div className="wf-tisch-ways__row" ref={row}>
+          {nearby.children.map(({ place: child, people }, i) => (
+            <button
+              key={child.id}
+              type="button"
+              className="wf-tisch-way"
+              onClick={() => onGo(child)}
+              // Was nicht mehr in die Zeile passt, bleibt zum Messen da, ist aber weder sicht- noch erreichbar.
+              style={i >= fit ? { visibility: 'hidden' } : undefined}
+              tabIndex={i >= fit ? -1 : undefined}
+              aria-hidden={i >= fit || undefined}
+              title={[`Die Gruppe geht hinein: ${child.name}`, child.place.category, child.tagline]
+                .filter(Boolean)
+                .join('\n')}
+            >
+              <DoorOpen />
+              <span className="wf-clamp-1">{child.name}</span>
+              {people > 0 && (
+                <span className="wf-tisch-way__count" aria-label={`${people} Personen dort`}>
+                  <User />
+                  {people}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {hidden > 0 && (
           <button
             ref={more}
             type="button"
@@ -262,35 +262,36 @@ function Ways({ nearby, onGo }: { nearby: Nearby; onGo: (place: Place) => void }
             {fit === 0 ? `${total} Orte` : `+ ${hidden} weitere`}
             <ChevronDown />
           </button>
-          <Popover
-            open={open}
-            onClose={() => setOpen(false)}
-            anchor={more}
-            align="right"
-            width={340}
-            className="wf-tisch-waymenu"
+        )}
+      </nav>
+      {/* Außerhalb der Zeile, damit die Liste am Fenster ausgerichtet wird und nicht an der Zeile. */}
+      <Popover
+        open={open && hidden > 0}
+        onClose={() => setOpen(false)}
+        anchor={more}
+        align="right"
+        width={340}
+        className="wf-tisch-waymenu"
+      >
+        <div className="wf-tisch-suggest__head">Hineingehen</div>
+        {nearby.children.map(({ place: child, people }) => (
+          <MenuItem
+            key={child.id}
+            icon={<DoorOpen />}
+            onClick={() => {
+              setOpen(false);
+              onGo(child);
+            }}
           >
-            <div className="wf-tisch-suggest__head">Hineingehen</div>
-            {nearby.children.map(({ place: child, people }) => (
-              <MenuItem
-                key={child.id}
-                icon={<DoorOpen />}
-                onClick={() => {
-                  setOpen(false);
-                  onGo(child);
-                }}
-              >
-                {child.name}
-                <span className="wf-mute">
-                  {child.place.category && ` · ${child.place.category}`}
-                  {people > 0 && ` · ${people === 1 ? '1 Person' : `${people} Personen`}`}
-                </span>
-              </MenuItem>
-            ))}
-          </Popover>
-        </>
-      )}
-    </nav>
+            {child.name}
+            <span className="wf-mute">
+              {child.place.category && ` · ${child.place.category}`}
+              {people > 0 && ` · ${people === 1 ? '1 Person' : `${people} Personen`}`}
+            </span>
+          </MenuItem>
+        ))}
+      </Popover>
+    </>
   );
 }
 

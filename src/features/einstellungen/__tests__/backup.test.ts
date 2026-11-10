@@ -129,13 +129,16 @@ describe('Sicherung einspielen: Prüfung', () => {
 
 describe('Dateiname und Zusammenfassung', () => {
   it('bildet einen Dateinamen, der auf macOS und Windows gilt', () => {
-    const day = new Date(2026, 10, 10, 9, 0);
-    expect(backupFileName('Elaris', day)).toBe('wayfarer-sicherung-elaris-2026-11-10.json');
+    const day = new Date(2026, 10, 10, 9, 5);
+    expect(backupFileName('Elaris', day)).toBe('wayfarer-sicherung-elaris-2026-11-10-0905.json');
     expect(backupFileName('Die Gezeichneten: Käfig & Süßholz?', day)).toBe(
-      'wayfarer-sicherung-die-gezeichneten-kaefig-suessholz-2026-11-10.json',
+      'wayfarer-sicherung-die-gezeichneten-kaefig-suessholz-2026-11-10-0905.json',
     );
-    expect(backupFileName('   ', day)).toBe('wayfarer-sicherung-kampagne-2026-11-10.json');
-    expect(backupFileName('x'.repeat(200), new Date(2026, 0, 5))).toBe(`wayfarer-sicherung-${'x'.repeat(40)}-2026-01-05.json`);
+    expect(backupFileName('   ', day)).toBe('wayfarer-sicherung-kampagne-2026-11-10-0905.json');
+    const long = backupFileName('x'.repeat(200), new Date(2026, 0, 5, 23, 59));
+    expect(long).toBe(`wayfarer-sicherung-${'x'.repeat(40)}-2026-01-05-2359.json`);
+    // Keine Zeichen, die Windows oder der Kampagnenordner ablehnen.
+    expect(long).toMatch(/^[a-z0-9-]+\.json$/);
   });
 
   it('fasst einen Spielstand in Worten zusammen', () => {

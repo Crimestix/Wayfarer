@@ -1,5 +1,5 @@
 /** Dialog zum Bearbeiten eines Chronik-Eintrags und zum Nachtragen von Vergangenem. */
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName, sessionsSorted } from '../../domain/derive';
@@ -7,7 +7,6 @@ import { createEntity, type ChronicleEntry, type ChronicleKind } from '../../dom
 import {
   MINUTES_PER_DAY,
   dayIndexOf,
-  formatDateTime,
   primaryEra,
   startOfDay,
   weekdayName,
@@ -35,12 +34,11 @@ import {
   entryChange,
   entryFromDraft,
   entryHeadline,
+  entryTimeProblem,
   isManualKind,
-  keepsOrder,
   relativeDay,
   sessionAt,
   sessionLabel,
-  timeBounds,
   timeDraftOf,
   timeOfDraft,
   type EntryDraft,
@@ -186,25 +184,9 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
     sessionChoice === 'auto' ? (at !== null ? (sessionAt(data, at)?.id ?? null) : null) : sessionChoice;
   const isPromise = manual && kind === 'promise';
   const needsText = manual || entry?.kind === 'event';
-  const moved = !entry || (at !== null && at !== entry.at);
-
-  let problem = '';
-  if (at === null) problem = 'Dieses Datum gibt es im Kalender nicht.';
-  else if (moved && at > now)
-    problem = 'Der Zeitpunkt liegt in der Zukunft. Was noch bevorsteht, gehört in den Kalender.';
-  else if (entry && moved && !keepsOrder(data, entry, at)) {
-    const { previous, next } = timeBounds(data, entry);
-    const range = [
-      previous && `nach dem ${formatDateTime(cal, previous.at)}`,
-      next && `vor dem ${formatDateTime(cal, next.at)}`,
-    ]
-      .filter(Boolean)
-      .join(' und ');
-    problem =
-      entry.kind === 'travel'
-        ? `Die Reihenfolge der Ortswechsel muss bleiben: Dieser liegt ${range}.`
-        : `Die Reihenfolge der Haltungsänderungen muss bleiben: Diese liegt ${range}.`;
-  } else if (isPromise && hasDue && dueAt === null) problem = 'Die Frist ist kein gültiges Datum.';
+  const problem =
+    entryTimeProblem(data, entry, at) ||
+    (isPromise && hasDue && dueAt === null ? 'Die Frist ist kein gültiges Datum.' : '');
   const ready = !problem && (!needsText || text.trim() !== '');
 
   const save = () => {
@@ -257,6 +239,15 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
       save();
     }
   };
+
+  // Das Textfeld wächst mit dem Text, damit auch lange Einträge am Stück zu lesen sind.
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [text]);
 
   const KindIcon = entry ? CHRONICLE_KIND_ICON[entry.kind] : null;
   const headline = entry && !manual ? (entry.kind === 'event' ? '' : entryHeadline(data, entry)) : '';
@@ -318,6 +309,7 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
           hint={manual ? KIND_HINT[kind] : undefined}
         >
           <TextArea
+            ref={textRef}
             data-autofocus
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -356,13 +348,8 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
               />
             </Field>
           )}
-          <Field
-            label="Session"
-          >
-            <Select
-              value={sessionId ?? ''}
-              title={sessionChoice === 'auto' ? 'Richtet sich nach dem Zeitpunkt, solange du nichts wählst.' : undefined}
-              onChange={(e) => setSessionChoice(e.target.value || null)}>
+          <Field label="Session" hint={sessionChoice === 'auto' ? 'Richtet sich nach dem Zeitpunkt, solange du nichts wählst.' : undefined}>
+            <Select value={sessionId ?? ''} onChange={(e) => setSessionChoice(e.target.value || null)}>
               <option value="">Keine Session</option>
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>

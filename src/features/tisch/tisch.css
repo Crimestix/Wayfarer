@@ -588,7 +588,7 @@
 
 .wf-tisch-composer {
   flex: none;
-  padding: var(--s-3) var(--s-3) var(--s-2);
+  padding: var(--s-3);
   border-bottom: 1px solid var(--line-faint);
 }
 .wf-tisch-composer__box {
@@ -642,10 +642,6 @@
   margin-top: 5px;
   font-size: var(--text-xs);
   color: var(--ink-faint);
-}
-.wf-tisch-composer__hint b {
-  color: var(--gold);
-  font-weight: 600;
 }
 .wf-tisch-composer__refs {
   display: flex;
@@ -913,6 +909,7 @@
   font-style: normal;
 }
 .wf-tisch-mate {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -923,13 +920,43 @@
 .wf-tisch-mate:first-child {
   border-left: 0;
 }
-.wf-tisch-mate__initial {
-  width: 38px;
-  height: 38px;
+.wf-tisch-mate__face {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   font-size: 1.25rem;
   line-height: 1;
   color: var(--gold);
+}
+/* Bild als Verweis zum Charakterbogen, mit kleinem Zeichen in der Ecke */
+.wf-tisch-mate__sheet {
+  position: relative;
+  flex: none;
+  display: block;
+  border-radius: 50%;
+}
+.wf-tisch-mate__sheet > svg {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 15px;
+  height: 15px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--bg-1);
+  color: var(--gold);
+  stroke-width: 2;
+  transition:
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.wf-tisch-mate__sheet:hover .wf-portrait {
+  border-color: var(--gold);
+}
+.wf-tisch-mate__sheet:hover > svg {
+  border-color: var(--gold);
+  color: var(--gold-bright);
 }
 .wf-tisch-mate__main {
   flex: 1 1 auto;
@@ -1035,6 +1062,19 @@
   box-shadow: 0 0 7px color-mix(in srgb, var(--pip) 55%, transparent);
 }
 
+/* Schmale Leiste (sechs Gefährten bei 1280 Breite): Bild und Marken etwas kleiner, damit die
+   passive Wahrnehmung nicht an den Rand stößt. */
+@container (max-width: 180px) {
+  .wf-tisch-mate__face {
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+  }
+  .wf-tisch-pip {
+    width: 11px;
+  }
+}
+
 /* ── Niedrige Fenster (1280 × 800): enger setzen, damit alles zugleich sichtbar bleibt ───── */
 @media (max-height: 860px) {
   .wf-tisch {
@@ -1069,7 +1109,7 @@
     padding: var(--s-3) var(--s-4) var(--s-4);
   }
   .wf-tisch-composer {
-    padding: var(--s-2) var(--s-3) 6px;
+    padding: var(--s-2) var(--s-3);
   }
   .wf-tisch-due {
     padding-top: 6px;

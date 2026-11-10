@@ -1,7 +1,7 @@
 /** Ansicht „Sessions“: Liste der Spielabende und die gewählte Session mit Notizen und ihrem Verlauf. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, CircleStop, Copy, Feather, History, Play, Trash2, Users } from 'lucide-react';
-import { deleteSession, endSession, startSession } from '../../data/actions';
+import { deleteSession, endSession, resumeSession, startSession } from '../../data/actions';
 import { useData, useDb, useSaveStatus } from '../../data/hooks';
 import { chronicleSorted } from '../../domain/derive';
 import type { ChronicleEntry } from '../../domain/schema';
@@ -20,15 +20,18 @@ import {
   cx,
   toast,
 } from '../../ui';
+import { Caps } from './parts';
 import { Timeline } from './Timeline';
 import {
   formatRealDate,
   formatWorldRange,
   parseRealDate,
   realDateInput,
+  resumableSessionId,
   sessionLabel,
   sessionSpans,
   sessionSummaryText,
+  sessionTitle,
   spanDuration,
   timelineRows,
   type SessionSpan,
@@ -141,10 +144,13 @@ const entryCount = (n: number) => (n === 1 ? '1 Eintrag' : `${n.toLocaleString('
 
 function SessionDetail({
   span,
+  resumable,
   onEdit,
   onBackfill,
 }: {
   span: SessionSpan;
+  /** Die Session ist beendet, lässt sich aber fortsetzen. */
+  resumable: boolean;
   onEdit: (entry: ChronicleEntry) => void;
   onBackfill: (sessionId: string) => void;
 }) {
@@ -153,7 +159,8 @@ function SessionDetail({
   const { status } = useSaveStatus();
   const { session } = span;
   const exists = () => !!db.getSnapshot().sessions[session.id];
-  const title = useAutosave(session.title, (value) => {
+  // Ein Titel, der nur „Session 12“ wiederholt, gilt als leer.
+  const title = useAutosave(sessionTitle(session), (value) => {
     if (exists()) db.patch('sessions', session.id, { title: value.trim() });
   });
   const notes = useAutosave(session.notes, (value) => {
@@ -161,13 +168,16 @@ function SessionDetail({
   });
   const [summary, setSummary] = useState<string | null>(null);
 
+  // Titel und Notizen wachsen mit ihrem Text.
+  const titleRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
-    const el = notesRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight + 2}px`;
-  }, [notes.draft]);
+    for (const el of [titleRef.current, notesRef.current]) {
+      if (!el) continue;
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight + 2}px`;
+    }
+  }, [title.draft, notes.draft]);
 
   const { chronicle } = data;
   const rows = useMemo(
@@ -216,7 +226,9 @@ function SessionDetail({
         <header className="wf-chronik-detail__head">
           <div className="wf-chronik-detail__top">
             <span className="wf-chronik-detail__eyebrow">
-              Session {session.number}
+              <span>
+                <Caps>{`Session ${session.number}`}</Caps>
+              </span>
               {span.running && (
                 <span className="wf-chronik-running">
                   <i className="wf-session-dot" /> läuft gerade
@@ -224,6 +236,16 @@ function SessionDetail({
               )}
             </span>
             <span className="wf-grow" />
+            {resumable && (
+              <Button
+                size="sm"
+                icon={<Play />}
+                onClick={() => resumeSession(db, session.id)}
+                title="Die Session läuft weiter, als wäre sie nicht beendet worden"
+              >
+                Fortsetzen
+              </Button>
+            )}
             <Button size="sm" icon={<Copy />} onClick={copy} title="Die Chronik dieser Session als Text in die Zwischenablage legen">
               Zusammenfassung kopieren
             </Button>
@@ -231,15 +253,19 @@ function SessionDetail({
               <Trash2 />
             </IconButton>
           </div>
-          <input
+          <textarea
+            ref={titleRef}
+            rows={1}
             className="wf-chronik-detail__title"
             value={title.draft}
             placeholder="Titel des Spielabends …"
             aria-label="Titel der Session"
-            onChange={(e) => title.change(e.target.value)}
+            onChange={(e) => title.change(e.target.value.replace(/\s*\n\s*/g, ' '))}
             onBlur={title.flush}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              e.currentTarget.blur();
             }}
           />
           <dl className="wf-chronik-facts">
@@ -367,9 +393,27 @@ export function Sessions({
   const running = spans.find((span) => span.running) ?? null;
   const selected = spans.find((span) => span.session.id === selectedId) ?? running ?? spans[0] ?? null;
 
+  const resumableId = useMemo(() => resumableSessionId(data), [data]);
+
   const begin = () => onSelect(startSession(db).id);
+  // Ein Fehlgriff am Tisch darf die Session nicht kosten: Beenden lässt sich zurücknehmen.
+  const end = () => {
+    if (!running) return;
+    const { id, number } = running.session;
+    endSession(db);
+    toast({
+      title: `Session ${number} beendet`,
+      body: 'Was du ab jetzt festhältst, gehört zu keiner Session.',
+      action: {
+        label: 'Rückgängig',
+        run: () => {
+          if (!db.getSnapshot().state.sessionId) resumeSession(db, id);
+        },
+      },
+    });
+  };
   const toggle = running ? (
-    <Button icon={<CircleStop />} onClick={() => endSession(db)}>
+    <Button icon={<CircleStop />} onClick={end}>
       Session {running.session.number} beenden
     </Button>
   ) : (
@@ -404,7 +448,8 @@ export function Sessions({
         <div className="wf-chronik-list__action">{toggle}</div>
         {spans.map((span) => {
           const { session } = span;
-          const title = session.title.trim();
+          const title = sessionTitle(session);
+          const real = session.realDate ? formatRealDate(session.realDate) : '';
           return (
             <button
               key={session.id}
@@ -416,16 +461,18 @@ export function Sessions({
               <span className="wf-chronik-session__no wf-num">{session.number}</span>
               <span className="wf-chronik-session__main">
                 <span className="wf-chronik-session__title wf-clamp-1">
-                  {title || <span className="wf-mute wf-italic">Ohne Titel</span>}
+                  {title || real || <span className="wf-mute wf-italic">Ohne Titel</span>}
                 </span>
-                <span className="wf-chronik-session__real">
-                  {session.realDate ? formatRealDate(session.realDate) : 'Datum offen'}
-                  {span.running && (
-                    <span className="wf-chronik-running">
-                      <i className="wf-session-dot" /> läuft
-                    </span>
-                  )}
-                </span>
+                {(title || !real || span.running) && (
+                  <span className="wf-chronik-session__real">
+                    {title && real ? real : !real ? 'Datum offen' : null}
+                    {span.running && (
+                      <span className="wf-chronik-running">
+                        <i className="wf-session-dot" /> läuft
+                      </span>
+                    )}
+                  </span>
+                )}
                 <span className="wf-chronik-session__world wf-clamp-1">{worldRange(span, data)}</span>
                 <span className="wf-chronik-session__world">
                   {formatDuration(spanDuration(span, data.state.now))} · {entryCount(span.entryCount)}
@@ -436,7 +483,13 @@ export function Sessions({
         })}
       </Panel>
       {selected && (
-        <SessionDetail key={selected.session.id} span={selected} onEdit={onEdit} onBackfill={onBackfill} />
+        <SessionDetail
+          key={selected.session.id}
+          span={selected}
+          resumable={selected.session.id === resumableId}
+          onEdit={onEdit}
+          onBackfill={onBackfill}
+        />
       )}
     </div>
   );

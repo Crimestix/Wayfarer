@@ -683,8 +683,26 @@ export function exhaustionEffect(level: number): string {
   return `Erschöpfung ${level}: −${level * 2} auf alle W20-Würfe, Bewegungsrate −${level * 5} Fuß`;
 }
 
+/**
+ * Adresse des Charakterbogens (D&D Beyond), sofern sie sich gefahrlos öffnen lässt: nur http und
+ * https. Ohne Angabe eines Protokolls wird https angenommen.
+ */
+export function sheetLink(url: string): string | null {
+  const raw = url.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.hostname.includes('.') ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface Companion {
   character: Character;
+  /** Link zum Charakterbogen, falls einer eingetragen ist. */
+  sheet: string | null;
   /** Ort, an dem der Gefährte abseits der Gruppe ist; null = bei der Gruppe. */
   elsewhere: Place | null;
   /** Abseits der Gruppe, aber der Ort ist nicht (mehr) bekannt. */
@@ -699,6 +717,7 @@ export function companions(data: CampaignData): Companion[] {
     const place = apart ? data.entities[own] : undefined;
     return {
       character,
+      sheet: sheetLink(character.character.sheetUrl),
       elsewhere: place?.kind === 'place' ? place : null,
       astray: apart && place?.kind !== 'place',
     };

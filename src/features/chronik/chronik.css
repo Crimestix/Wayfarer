@@ -32,6 +32,20 @@
   overflow: auto;
 }
 
+/*
+ * Zahlen in Versalien-Etiketten: Die Versalienschrift zeichnet die 1 wie ein I („Session II“).
+ * Zahlen stehen deshalb in der Textschrift.
+ */
+.wf-chronik-figure,
+.wf-chronik .wf-tab__count,
+.wf-chronik .wf-panel__count {
+  font-family: var(--font-body);
+  font-size: 1.22em;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
 /* ── Verlauf ────────────────────────────────────────────────────────────── */
 .wf-chronik-verlauf {
   flex: 1 1 auto;
@@ -253,26 +267,37 @@
   padding: 11px var(--s-4);
   border: 0;
   background: none;
-  font-family: var(--font-caps);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   color: var(--gold);
 }
 .wf-chronik-marker::before,
 .wf-chronik-marker::after {
   content: '';
   flex: 1 1 0;
+  min-width: var(--s-5);
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--gold-deep));
 }
 .wf-chronik-marker::after {
   background: linear-gradient(90deg, var(--gold-deep), transparent);
 }
+.wf-chronik-marker__label {
+  flex: none;
+  font-family: var(--font-caps);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Titel und Datum: eine Zeile, lange Titel werden gekürzt. */
 .wf-chronik-marker__detail {
-  font-weight: 400;
-  letter-spacing: 0.12em;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--ink-mute);
 }
 .wf-chronik-marker[data-edge='end'] {
@@ -284,7 +309,7 @@
 .wf-chronik-marker[data-edge='end']::after {
   background: linear-gradient(90deg, var(--line), transparent);
 }
-.wf-chronik-marker:hover {
+button.wf-chronik-marker:hover {
   color: var(--gold-bright);
 }
 
@@ -509,7 +534,7 @@
 }
 .wf-chronik-detail__title {
   display: block;
-  width: 100%;
+  width: calc(100% + 8px);
   margin: 2px 0 0 -8px;
   padding: 2px 8px;
   border: 1px solid transparent;
@@ -520,6 +545,9 @@
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   transition: border-color 0.15s var(--ease);
 }
 .wf-chronik-detail__title::placeholder {
@@ -620,6 +648,21 @@ textarea.wf-chronik-summary {
 }
 .wf-chronik-dialog .wf-textarea {
   min-height: 80px;
+  max-height: 34vh;
+}
+/* Lange Namen brechen um, statt aus dem Dialog zu ragen. */
+.wf-chronik-dialog .wf-badge {
+  height: auto;
+  min-height: 22px;
+  max-width: 100%;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.wf-chronik-dialog .wf-badge svg,
+.wf-chronik .wf-picker__value svg {
+  flex: none;
 }
 .wf-chronik-dialog__auto {
   display: flex;

@@ -125,7 +125,9 @@ export function MonthGrid({
   const dayUnderPointer = (e: MouseEvent<HTMLElement>, weekStart: number, seg: WeekSegment) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const part = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-    return weekStart + seg.col + Math.min(seg.length - 1, Math.max(0, Math.floor(part * seg.length)));
+    return (
+      weekStart + seg.col + Math.min(seg.length - 1, Math.max(0, Math.floor(part * seg.length)))
+    );
   };
   /** Kurzinfo eines Balkens: voller Titel, Art, Stand, Zeit und Ort. */
   const barTitle = (span: DaySpan, state: SpanState) => {

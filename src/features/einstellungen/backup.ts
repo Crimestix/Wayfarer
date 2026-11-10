@@ -66,7 +66,10 @@ export function serializeBackup(data: CampaignData, exportedAt?: string): string
   return JSON.stringify(createBackup(data, exportedAt), null, 1) + '\n';
 }
 
-/** „wayfarer-sicherung-elaris-2026-11-10.json“ – auf macOS und Windows ein gültiger Dateiname. */
+/**
+ * „wayfarer-sicherung-elaris-2026-11-10-1405.json“ – auf macOS und Windows ein gültiger
+ * Dateiname. Die Uhrzeit verhindert, dass zwei Sicherungen desselben Tages einander überschreiben.
+ */
 export function backupFileName(campaignName: string, date: Date = new Date()): string {
   const slug = campaignName
     .toLowerCase()
@@ -78,10 +81,9 @@ export function backupFileName(campaignName: string, date: Date = new Date()): s
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 40);
-  const day = [date.getFullYear(), date.getMonth() + 1, date.getDate()]
-    .map((n) => String(n).padStart(2, '0'))
-    .join('-');
-  return `wayfarer-sicherung-${slug || 'kampagne'}-${day}.json`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const day = [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
+  return `wayfarer-sicherung-${slug || 'kampagne'}-${day}-${pad(date.getHours())}${pad(date.getMinutes())}.json`;
 }
 
 export interface SkippedDoc {

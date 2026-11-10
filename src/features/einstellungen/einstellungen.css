@@ -1,0 +1,572 @@
+/* Einstellungen: ruhige Abschnitte – links Titel und Erklärung, rechts der Inhalt. */
+.wf-einstellungen {
+  max-width: 1180px;
+}
+
+.wf-einstellungen-section {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--s-7);
+  padding: var(--s-6) 0;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-einstellungen-section:first-child {
+  border-top-color: var(--line);
+}
+.wf-einstellungen-section__head {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+.wf-einstellungen-section__numeral {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+.wf-einstellungen-section__numeral::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: var(--gold-deep);
+}
+.wf-einstellungen-section__title {
+  margin: 6px 0 var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.wf-einstellungen-section__lead {
+  color: var(--ink-mute);
+  font-style: italic;
+  line-height: 1.45;
+}
+.wf-einstellungen-section__body {
+  min-width: 0;
+}
+
+.wf-einstellungen-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+/* ── Kampagne ───────────────────────────────────────────────────────────── */
+.wf-einstellungen-name {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+}
+.wf-einstellungen-name .wf-input {
+  height: 44px;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.wf-einstellungen-name__actions {
+  display: flex;
+  gap: var(--s-2);
+  /* auf Höhe des Eingabefelds, unter der Feldbezeichnung */
+  margin-top: 26px;
+}
+.wf-einstellungen-location {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-faint);
+  background: var(--bg-inset);
+}
+.wf-einstellungen-path {
+  overflow-wrap: anywhere;
+  font-variant-numeric: lining-nums;
+  color: var(--ink-soft);
+}
+
+/* ── Handgriffe ─────────────────────────────────────────────────────────── */
+.wf-einstellungen-actions {
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-einstellungen-action {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+}
+.wf-einstellungen-actions > .wf-einstellungen-action + .wf-einstellungen-action {
+  border-top: 1px solid var(--line-faint);
+}
+/* Einzelner Handgriff außerhalb einer Gruppe */
+.wf-einstellungen-stack > .wf-einstellungen-action {
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-einstellungen-action__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--gold);
+}
+.wf-einstellungen-action__icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.4;
+}
+.wf-einstellungen-action__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wf-einstellungen-action__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-einstellungen-action__hint {
+  margin-top: 2px;
+  color: var(--ink-mute);
+  line-height: 1.4;
+}
+.wf-einstellungen-action__do {
+  flex: none;
+}
+
+.wf-einstellungen-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums;
+}
+
+/* ── Hinweisflächen ─────────────────────────────────────────────────────── */
+.wf-einstellungen-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--line-faint);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-1);
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.wf-einstellungen-notice--warn {
+  border-left-color: var(--ember);
+  background: var(--ember-wash);
+}
+.wf-einstellungen-notice--danger {
+  border-left-color: var(--blood-bright);
+  background: var(--blood-wash);
+  color: var(--ink);
+}
+.wf-einstellungen-notice__icon {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--gold);
+}
+.wf-einstellungen-notice--warn .wf-einstellungen-notice__icon {
+  color: var(--ember);
+}
+.wf-einstellungen-notice--danger .wf-einstellungen-notice__icon {
+  color: var(--blood-bright);
+}
+.wf-einstellungen-notice__icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.4;
+}
+.wf-einstellungen-notice__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+.wf-einstellungen-notice .wf-btn {
+  flex: none;
+}
+.wf-einstellungen-list {
+  margin: var(--s-1) 0 0;
+  padding-left: 1.1em;
+}
+
+/* ── Dialog: Stand ersetzen ─────────────────────────────────────────────── */
+.wf-einstellungen-replace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.wf-einstellungen-replace__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-5);
+}
+.wf-einstellungen-replace__pair > div + div {
+  padding-left: var(--s-5);
+  border-left: 1px solid var(--line-faint);
+}
+.wf-einstellungen-replace__saved {
+  margin-top: 4px;
+  color: var(--moss);
+  overflow-wrap: anywhere;
+}
+.wf-einstellungen-summary {
+  margin-top: var(--s-2);
+}
+.wf-einstellungen-summary__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-einstellungen-summary__date {
+  color: var(--gold);
+  font-variant-numeric: lining-nums;
+}
+.wf-einstellungen-summary__parts {
+  margin-top: 4px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  font-variant-numeric: lining-nums;
+}
+.wf-einstellungen-keyhint {
+  margin-right: auto;
+  align-self: center;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* ── Bericht der Übernahme ──────────────────────────────────────────────── */
+.wf-einstellungen-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.wf-einstellungen-report__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-einstellungen-report__title svg {
+  width: 15px;
+  height: 15px;
+}
+.wf-einstellungen-report__title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--line), transparent);
+}
+.wf-einstellungen-report__count {
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+.wf-einstellungen-report__group--ok .wf-einstellungen-report__title {
+  color: var(--moss);
+}
+.wf-einstellungen-report__group--warn .wf-einstellungen-report__title {
+  color: var(--ember);
+}
+.wf-einstellungen-report__group--danger .wf-einstellungen-report__title {
+  color: var(--blood-bright);
+}
+.wf-einstellungen-report__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: lining-nums;
+}
+.wf-einstellungen-report__list li {
+  position: relative;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+.wf-einstellungen-report__list li::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  transform: rotate(45deg);
+  background: currentColor;
+  opacity: 0.45;
+}
+.wf-einstellungen-report__group--ok li {
+  color: var(--ink);
+}
+
+/* ── Auswahl im Dialog „Ordner ohne Kampagne“ ───────────────────────────── */
+.wf-einstellungen-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  text-align: left;
+  transition:
+    border-color 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+.wf-einstellungen-choice:hover:not(:disabled) {
+  border-color: var(--gold-deep);
+  background: var(--bg-2);
+}
+.wf-einstellungen-choice:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.wf-einstellungen-choice__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* ── Probleme beim Laden ────────────────────────────────────────────────── */
+.wf-einstellungen-problems {
+  border: 1px solid var(--blood);
+  background: var(--blood-wash);
+}
+.wf-einstellungen-problem {
+  display: flex;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+}
+.wf-einstellungen-problem + .wf-einstellungen-problem {
+  border-top: 1px solid var(--blood);
+}
+.wf-einstellungen-problem__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--blood-bright);
+}
+.wf-einstellungen-problem__icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.4;
+}
+.wf-einstellungen-problem__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: 2px;
+}
+.wf-einstellungen-problem__head .wf-einstellungen-path {
+  color: var(--ink);
+  font-weight: 600;
+}
+.wf-einstellungen-problem__detail {
+  margin-top: var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-problem__detail summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.wf-einstellungen-problem__detail pre {
+  max-height: 140px;
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  overflow: auto;
+  border: 1px solid var(--line-faint);
+  background: var(--bg-inset);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wf-einstellungen-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  max-width: 76ch;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.wf-einstellungen-help strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── Kalender ───────────────────────────────────────────────────────────── */
+.wf-einstellungen-calendar__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-einstellungen-months {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+  gap: 1px;
+  margin: var(--s-3) 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  background: var(--line-faint);
+}
+.wf-einstellungen-month {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: var(--s-2);
+  align-items: baseline;
+  padding: 10px var(--s-3);
+  background: var(--bg-1);
+}
+.wf-einstellungen-month--current {
+  background: var(--gold-glow);
+  box-shadow: inset 0 0 0 1px var(--gold-deep);
+}
+.wf-einstellungen-month__no {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.wf-einstellungen-month__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-einstellungen-month__days {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-now {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-family: var(--font-caps);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-einstellungen-footnote {
+  margin-top: var(--s-3);
+  max-width: 80ch;
+  color: var(--ink-mute);
+  font-style: italic;
+  line-height: 1.45;
+  font-variant-numeric: lining-nums;
+}
+.wf-einstellungen-calendar__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: var(--s-6);
+}
+.wf-einstellungen-weekdays,
+.wf-einstellungen-eras,
+.wf-einstellungen-moons {
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-einstellungen-weekdays li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: var(--s-2);
+  align-items: baseline;
+  padding: 5px var(--s-3) 5px 0;
+  border-bottom: 1px solid var(--line-faint);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+.wf-einstellungen-weekdays li:last-child {
+  border-bottom: 0;
+}
+.wf-einstellungen-weekdays .wf-einstellungen-now {
+  top: 9px;
+  right: 0;
+}
+.wf-einstellungen-weekday--today {
+  color: var(--gold-bright);
+}
+.wf-einstellungen-eras li {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-einstellungen-eras li:last-child {
+  border-bottom: 0;
+}
+.wf-einstellungen-era__year {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-einstellungen-moon {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-einstellungen-moon:last-child {
+  border-bottom: 0;
+}
+.wf-einstellungen-moon svg {
+  flex: none;
+}
+.wf-einstellungen-moon__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-einstellungen-moon__dates {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--s-4);
+  row-gap: 2px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-moon__dates dt {
+  color: var(--ink-mute);
+}
+.wf-einstellungen-moon__dates dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 1360px) {
+  .wf-einstellungen-section {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: var(--s-6);
+  }
+}

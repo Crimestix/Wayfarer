@@ -1,9 +1,9 @@
 /** Die Gefährten als schmale Leiste am unteren Rand: Zustand der Gruppe auf einen Blick. */
 import { useMemo, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link } from 'wouter';
-import { Eye, MapPin, Swords } from 'lucide-react';
+import { ExternalLink, Eye, MapPin, Swords } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { Portrait, cx, entityHref } from '../../ui';
+import { cx, entityHref } from '../../ui';
 import { setExhaustion } from './commands';
 import {
   MAX_EXHAUSTION,
@@ -17,7 +17,7 @@ const LEVELS = Array.from({ length: MAX_EXHAUSTION }, (_, i) => i + 1);
 
 function Mate({ companion }: { companion: Companion }) {
   const db = useDb();
-  const { character, elsewhere, astray } = companion;
+  const { character, elsewhere, astray, sheet } = companion;
   const c = character.character;
   const apart = elsewhere !== null || astray;
   const whereabouts = elsewhere ? elsewhere.name : 'nicht bei der Gruppe';
@@ -36,14 +36,32 @@ function Mate({ companion }: { companion: Companion }) {
     setExhaustion(db, character.id, next);
     e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[Math.max(1, next) - 1]?.focus();
   };
+  // Ohne Bild der Anfangsbuchstabe: Sechs gleiche Schwert-Symbole würden niemanden unterscheiden.
+  const face = (
+    <span className="wf-portrait wf-tisch-mate__face" aria-hidden>
+      {character.image ? (
+        <img src={character.image} alt="" />
+      ) : (
+        character.name.trim().charAt(0).toUpperCase() || '?'
+      )}
+    </span>
+  );
   return (
     <div className={cx('wf-tisch-mate', apart && 'wf-tisch-mate--apart')}>
-      {character.image ? (
-        <Portrait entity={character} size={40} round />
+      {sheet ? (
+        <a
+          className="wf-tisch-mate__sheet"
+          href={sheet}
+          target="_blank"
+          rel="noreferrer noopener"
+          title={`Charakterbogen von ${character.name} öffnen`}
+          aria-label={`Charakterbogen von ${character.name} öffnen`}
+        >
+          {face}
+          <ExternalLink aria-hidden />
+        </a>
       ) : (
-        <span className="wf-portrait wf-tisch-mate__initial" aria-hidden>
-          {character.name.trim().charAt(0).toUpperCase() || '?'}
-        </span>
+        face
       )}
       <div className="wf-tisch-mate__main">
         <Link

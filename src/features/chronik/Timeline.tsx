@@ -2,12 +2,14 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useData } from '../../data/hooks';
 import type { ChronicleEntry } from '../../domain/schema';
-import { MINUTES_PER_DAY, dayIndexOf, formatDate, weekdayName } from '../../domain/time/calendar';
+import { MINUTES_PER_DAY, dayIndexOf, formatDate, formatDateTime, formatDayMonth, weekdayName } from '../../domain/time/calendar';
 import { Button, ChronicleItem, MoonGlyph } from '../../ui';
+import { Caps } from './parts';
 import { formatRealDate, relativeDay, sessionTitle, type SessionMarker, type TimelineRow } from './model';
 
 /** So viele Zeilen erscheinen zuerst und kommen je Nachladen dazu. */
-const PAGE = 120;
+export const TIMELINE_PAGE = 120;
+const PAGE = TIMELINE_PAGE;
 
 /** Ein Eintrag, der beim Nachladen weiterer Einträge nicht neu gezeichnet wird. */
 const Entry = memo(function Entry({
@@ -37,7 +39,9 @@ const DayHeader = memo(function DayHeader({ day, count }: { day: number; count: 
         </span>
       )}
       <span className="wf-grow" />
-      <span className="wf-chronik-day__rel">{relativeDay(today, day)}</span>
+      <span className="wf-chronik-day__rel">
+        <Caps>{relativeDay(today, day)}</Caps>
+      </span>
       <span className="wf-chronik-day__count wf-num" title={count === 1 ? '1 Eintrag' : `${count} Einträge`}>
         {count}
       </span>
@@ -45,25 +49,50 @@ const DayHeader = memo(function DayHeader({ day, count }: { day: number; count: 
   );
 });
 
-function Marker({ marker, onOpen }: { marker: SessionMarker; onOpen?: (sessionId: string) => void }) {
-  const { session, edge } = marker;
+function Marker({
+  marker,
+  dated,
+  onOpen,
+}: {
+  marker: SessionMarker;
+  /** Das Datum der Grenze dazuschreiben, weil sie nicht bei Einträgen ihres Tages steht. */
+  dated: boolean;
+  onOpen?: (sessionId: string) => void;
+}) {
+  const cal = useData().campaign.calendar;
+  const { session, edge, at } = marker;
   const title = sessionTitle(session);
-  const detail = [title && `„${title}“`, edge === 'start' && session.realDate && formatRealDate(session.realDate)]
+  const detail = [
+    dated && `am ${formatDayMonth(cal, at)}`,
+    title && `„${title}“`,
+    edge === 'start' && session.realDate && formatRealDate(session.realDate),
+  ]
     .filter(Boolean)
     .join(' · ');
-  return (
+  const label = `Session ${session.number} ${edge === 'start' ? 'beginnt' : 'endet'}`;
+  const when = formatDateTime(cal, at);
+  const body = (
+    <>
+      <span className="wf-chronik-marker__label">
+        <Caps>{label}</Caps>
+      </span>
+      {detail && <span className="wf-chronik-marker__detail">{detail}</span>}
+    </>
+  );
+  return onOpen ? (
     <button
       type="button"
       className="wf-chronik-marker"
       data-edge={edge}
-      onClick={() => onOpen?.(session.id)}
-      title="Diese Session öffnen"
+      onClick={() => onOpen(session.id)}
+      title={`${when} – diese Session öffnen`}
     >
-      <span>
-        Session {session.number} {edge === 'start' ? 'beginnt' : 'endet'}
-      </span>
-      {detail && <span className="wf-chronik-marker__detail">{detail}</span>}
+      {body}
     </button>
+  ) : (
+    <div className="wf-chronik-marker" data-edge={edge} title={when}>
+      {body}
+    </div>
   );
 }
 
@@ -72,14 +101,21 @@ export function Timeline({
   onEdit,
   onOpenSession,
   stickyDays = true,
+  initialLimit = PAGE,
+  onLimit,
 }: {
   rows: TimelineRow[];
   onEdit: (entry: ChronicleEntry) => void;
   onOpenSession?: (sessionId: string) => void;
   /** Tagesüberschriften bleiben beim Rollen oben stehen. */
   stickyDays?: boolean;
+  /** So viele Zeilen sofort zeigen – um eine frühere Rollposition wiederherzustellen. */
+  initialLimit?: number;
+  /** Meldet, wie viele Zeilen gerade geladen sind. */
+  onLimit?: (limit: number) => void;
 }) {
-  const [limit, setLimit] = useState(PAGE);
+  const [limit, setLimit] = useState(Math.max(PAGE, initialLimit));
+  useEffect(() => onLimit?.(limit), [limit, onLimit]);
   const sentinel = useRef<HTMLDivElement>(null);
   const more = rows.length > limit;
 
@@ -117,7 +153,10 @@ export function Timeline({
       }
       flush();
       if (row.type === 'day') out.push(<DayHeader key={`d-${row.day}`} day={row.day} count={row.count} />);
-      else out.push(<Marker key={`m-${row.session.id}-${row.edge}`} marker={row} onOpen={onOpenSession} />);
+      else
+        out.push(
+          <Marker key={`m-${row.session.id}-${row.edge}`} marker={row} dated={row.dated} onOpen={onOpenSession} />,
+        );
     }
     flush();
     return out;

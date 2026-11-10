@@ -7,18 +7,11 @@ import { Button, Tabs } from '../../ui';
 import { EntryDialog, type EntryDialogRequest } from './EntryDialog';
 import { Sessions } from './Sessions';
 import { Verlauf } from './Verlauf';
-import { EMPTY_FILTER, sanitizeFilter, sessionSpans, type ChronicleFilter } from './model';
+import { onChroniclePreset, remembered, type ChronikView } from './link';
+import { sanitizeFilter, sessionSpans } from './model';
 import './chronik.css';
 
-type View = 'verlauf' | 'sessions';
-
-/** Merkt sich die Ansicht, solange die App läuft – beim Wechsel zwischen den Bereichen geht nichts verloren. */
-const remembered: { view: View; filter: ChronicleFilter; newestFirst: boolean; sessionId: string | null } = {
-  view: 'verlauf',
-  filter: EMPTY_FILTER,
-  newestFirst: true,
-  sessionId: null,
-};
+type View = ChronikView;
 
 export default function ChronikPage() {
   const data = useData();
@@ -33,6 +26,16 @@ export default function ChronikPage() {
   useEffect(() => {
     Object.assign(remembered, { view, filter, newestFirst, sessionId });
   }, [view, filter, newestFirst, sessionId]);
+  // Ein anderer Bereich hat eine Vorwahl gesetzt, während die Chronik offen ist.
+  useEffect(
+    () =>
+      onChroniclePreset(() => {
+        setView(remembered.view);
+        setFilter(remembered.filter);
+        setSessionId(remembered.sessionId);
+      }),
+    [],
+  );
 
   const edit = useCallback((entry: ChronicleEntry) => setDialog({ mode: 'edit', entry, key: Date.now() }), []);
   const openSession = useCallback((id: string) => {

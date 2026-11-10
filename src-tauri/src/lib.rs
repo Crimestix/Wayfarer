@@ -242,7 +242,15 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
 }
 
 pub fn run() {
-    wayfarer(tauri::Builder::default())
+    let mut builder = tauri::Builder::default();
+    // Im fertigen Programm läuft Wayfarer nur einmal: Ein zweiter Start holt das offene Fenster
+    // nach vorn, statt dieselbe Kampagne doppelt zu öffnen. (Muss als Erstes angemeldet werden.)
+    if !cfg!(debug_assertions) {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            window::bring_to_front(app);
+        }));
+    }
+    wayfarer(builder)
         .run(tauri::generate_context!())
         .expect("Wayfarer konnte nicht gestartet werden");
 }

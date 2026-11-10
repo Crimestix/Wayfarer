@@ -17,7 +17,7 @@
         "title": "Wayfarer",
         "width": 1440,
         "height": 900,
-        "minWidth": 1200,
+        "minWidth": 1280,
         "minHeight": 720,
         "center": true,
         "theme": "Dark",

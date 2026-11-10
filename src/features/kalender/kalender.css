@@ -398,11 +398,13 @@
 
 /* ── Leiste unter dem Raster ────────────────────────────────────────────── */
 .wf-kal-strip {
-  flex: none;
+  /* Braucht das Raster mehr Höhe (sechs Wochenzeilen auf kleinem Bildschirm), gibt die Leiste nach. */
+  flex: 0 1 auto;
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.15fr);
   gap: var(--s-4);
   height: clamp(204px, 27vh, 236px);
+  min-height: 146px;
 }
 .wf-kal-strip--two {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
@@ -560,9 +562,6 @@ button.wf-kal-row:hover,
   flex-wrap: wrap;
   column-gap: 8px;
   white-space: normal;
-}
-.wf-kal-timer .wf-kal-row__meta b {
-  white-space: nowrap;
 }
 .wf-kal-timer__bar {
   display: block;

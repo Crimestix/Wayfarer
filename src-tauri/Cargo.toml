@@ -20,6 +20,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
+# Ein zweiter Start holt das laufende Fenster nach vorn, statt die Kampagne doppelt zu öffnen
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Dateiüberwachung des Kampagnenordners
