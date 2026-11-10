@@ -251,9 +251,15 @@ pub fn run() {
         }));
     }
     wayfarer(builder)
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("Wayfarer konnte nicht gestartet werden");
 }
 
 #[cfg(test)]
 mod tests;
+
+/// Der Kontext der App (Einstellungen, Symbole, Berechtigungen). Das Makro darf im ganzen Paket
+/// nur einmal vorkommen: Auf macOS legt es ein Symbol an, das ein zweites Mal den Bau abbricht.
+pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
+    tauri::generate_context!()
+}

@@ -14,7 +14,7 @@ use tempfile::TempDir;
 
 fn app() -> tauri::App<MockRuntime> {
     crate::wayfarer(mock_builder())
-        .build(tauri::generate_context!())
+        .build(crate::context())
         .expect("App für Tests")
 }
 
