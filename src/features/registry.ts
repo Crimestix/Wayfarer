@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   Flame,
+  Globe,
   Hexagon,
   Landmark,
   Library,
@@ -25,4 +26,5 @@ export const AREAS: Area[] = [
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },
   { path: '/erkundung', label: 'Erkundung', hint: 'Hexkarten zwischen Orten', icon: Hexagon },
+  { path: '/atlas', label: 'Atlas', hint: 'Der Planet und wo alles liegt', icon: Globe },
 ];

@@ -11,6 +11,7 @@ import { LegacySection } from './LegacySection';
 import { Boundary, Section } from './parts';
 import { explainProblems } from './model';
 import { ProblemsSection } from './ProblemsSection';
+import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import './einstellungen.css';
 
@@ -82,6 +83,14 @@ export default function Page() {
             lead="Holt das ganze LegendKeeper-Projekt aus seiner Exportdatei herüber: alle Artikel, Karten und Steckbriefe liegen danach in Wayfarers eigenem Wiki – lesbar ohne LegendKeeper."
           >
             <WikiImportSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Atlas übernehmen"
+            lead="Holt den Planeten aus dem alten Atlas herüber: Küsten, Seen, Flüsse und Höhen. Damit weiß Wayfarer, wo Land und Wasser sind – und sobald du Orte auf die Weltkarte setzt, wie weit sie auseinanderliegen."
+          >
+            <AtlasSection />
           </Section>
 
           <Section

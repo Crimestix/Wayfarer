@@ -7,15 +7,19 @@ import { NODATA } from '../../domain/geo';
 import { applyAtlas, removeAtlas, setPlaceGeo } from './actions';
 import { NOT_AN_ATLAS, NOT_A_HEIGHTMAP, convertAtlasWorld, convertHeights } from './import';
 import {
+  daylightAt,
   decodeHeights,
   describeTerrain,
   encodeHeights,
   formatGeo,
+  formatHours,
   formatKm,
   legBetween,
   placeGeo,
+  placedPlaces,
   planetOf,
   reliefOf,
+  seasonFraction,
   terrainAt,
 } from './model';
 
@@ -231,6 +235,42 @@ describe('Der Planet im Spielstand', () => {
     undo();
     expect(placeGeo(db.getSnapshot(), child.id)).toBeNull();
     expect(legBetween(db.getSnapshot(), parent.id, other.id)).toBeNull();
+  });
+
+  it('kennt Jahreszeit und Tageslicht an einer Lage', async () => {
+    const { db, places } = await setup();
+    const data = db.getSnapshot();
+    const now = data.state.now;
+    const fraction = seasonFraction(data, now);
+    expect(fraction).toBeGreaterThanOrEqual(0);
+    expect(fraction).toBeLessThan(1);
+    // Ein halbes Jahr später steht die Sonne gegenüber: Was im Norden lang war, ist dann kurz.
+    // Das Jahr ist das des Kalenders der Kampagne (365 Tage), nicht das der Planetendatei.
+    const half = Math.round((365 / 2) * 1440);
+    const north = daylightAt(data, { lon: 0, lat: 50 }, now)!;
+    db.setState({ now: now + half });
+    const later = daylightAt(db.getSnapshot(), { lon: 0, lat: 50 }, now + half)!;
+    expect(north + later).toBeCloseTo(20, 0);
+    // Am Äquator ist der Tag immer halb so lang wie der ganze (hier 20 Stunden).
+    expect(daylightAt(data, { lon: 0, lat: 0 }, now)).toBeCloseTo(10, 6);
+    expect(formatHours(9.667)).toBe('9 Std. 40 Min.');
+    expect(formatHours(12)).toBe('12 Std.');
+
+    // Für die Karte: nur Orte mit eigener Lage; groß ist, über wem kein gesetzter Ort liegt.
+    const parent = places.find((p) => places.some((c) => c.place.parentId === p.id))!;
+    const child = places.find((c) => c.place.parentId === parent.id)!;
+    setPlaceGeo(db, parent.id, { lon: 5, lat: 5 });
+    setPlaceGeo(db, child.id, { lon: 6, lat: 6 });
+    expect(
+      placedPlaces(db.getSnapshot())
+        .map((p) => [p.place.id, p.major])
+        .sort(),
+    ).toEqual(
+      [
+        [parent.id, true],
+        [child.id, false],
+      ].sort(),
+    );
   });
 
   it('lässt sich wieder herausnehmen, ohne die Lage der Orte zu verlieren', async () => {

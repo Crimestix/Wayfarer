@@ -1,0 +1,246 @@
+/* Atlas: Ortsliste links, Weltkarte rechts. Klassen: „wf-atlas-“. */
+.wf-atlas {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+@media (max-width: 1500px) {
+  .wf-atlas {
+    grid-template-columns: 272px minmax(0, 1fr);
+  }
+}
+.wf-atlas-empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--s-6);
+}
+.wf-atlas-empty .wf-empty {
+  max-width: 560px;
+}
+
+/* ── Ortsliste ──────────────────────────────────────────────────────────── */
+.wf-atlas-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-void) 30%, transparent);
+}
+.wf-atlas-side__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-4) var(--s-2);
+}
+.wf-atlas-side__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-atlas-side__total {
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.wf-atlas-search {
+  position: relative;
+  margin: 0 var(--s-3) var(--s-2);
+}
+.wf-atlas-search > svg {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+.wf-atlas-search .wf-input {
+  width: 100%;
+  padding-left: 30px;
+  padding-right: 28px;
+}
+.wf-atlas-search > button {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+}
+.wf-atlas-search > button svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-atlas-side__filter {
+  padding: 0 var(--s-4) var(--s-2);
+  font-size: var(--text-sm);
+}
+.wf-atlas-side__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-atlas-side__none {
+  margin: 0;
+  padding: var(--s-4);
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-atlas-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 5px var(--s-4);
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.wf-atlas-row:hover {
+  background: var(--gold-glow);
+}
+.wf-atlas-row[data-current='true'] {
+  border-left-color: var(--gold);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-atlas-row svg {
+  width: 14px;
+  height: 14px;
+  color: var(--gold-deep);
+}
+.wf-atlas-row .wf-atlas-row__inherited {
+  color: var(--ink-faint);
+}
+.wf-atlas-row .wf-atlas-row__none {
+  color: var(--ink-faint);
+  opacity: 0.6;
+}
+.wf-atlas-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-atlas-row__state {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Der gewählte Ort */
+.wf-atlas-card {
+  flex: none;
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  border-top: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-atlas-card__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-atlas-card__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px var(--s-3);
+  margin: var(--s-2) 0;
+  font-size: var(--text-sm);
+}
+.wf-atlas-card__facts dt {
+  font-family: var(--font-caps);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding-top: 3px;
+}
+.wf-atlas-card__facts dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.wf-atlas-card__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-2);
+}
+
+/* ── Karte ──────────────────────────────────────────────────────────────── */
+.wf-atlas-main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.wf-atlas-map {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--terrain-water);
+}
+.wf-atlas-map__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+.wf-atlas-map__canvas:active {
+  cursor: grabbing;
+}
+.wf-atlas-map__canvas[data-placing='true'] {
+  cursor: crosshair;
+}
+.wf-atlas-map__zoom {
+  position: absolute;
+  right: var(--s-3);
+  bottom: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-atlas-map__zoom .wf-btn {
+  background: var(--bg-1);
+}
+.wf-atlas-readout {
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  right: var(--s-3);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: 5px var(--s-3);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-void) 78%, transparent);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+.wf-atlas-readout b {
+  font-weight: 500;
+  color: var(--gold-bright);
+}

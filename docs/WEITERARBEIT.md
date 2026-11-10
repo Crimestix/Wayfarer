@@ -449,6 +449,38 @@ Tage. Offen: Wetter vergangener Tage an dem Ort, an dem die Gruppe damals war.
 Aufbau einer Seite oder lädt ein Teil nicht, bleiben Navigation und Weltleiste bedienbar, und es
 steht da, wie es weitergeht.
 
+**Atlas – Lage und Weltkarte (11. 11. 2026) – vierte Welle, Schritte 1 und 2 gebaut.** Der
+Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
+- **Quelle:** der alte Atlas (Ordner `Atlas-Elaris` auf dem Desktop des Spielleiters, nur lokal,
+  nie ins Repository). Brauchbar: `inputs/world.json` (Planet, Küsten der Landmassen als Ringe,
+  Seen, Flüsse) und `artifacts/4096x2048/height.f32` (Höhenkarte). Orte mit Position gibt es
+  dort keine.
+- **Rechnen** (`domain/geo.ts`, mit Test): Entfernung über die Oberfläche, Richtung, Zielpunkt,
+  Punkt im Ring (auch über die Datumsgrenze und um die Pole), Küsten vereinfachen, Höhe aus dem
+  Raster, Tageslänge aus Breite und Achsneigung.
+- **Daten:** Sammlung `atlas` mit zwei Dokumenten – `planet` (Radius, Tag, Jahr, Achsneigung,
+  Landmassen mit Ringen und Löchern, Seen, Flüsse) und `relief` (Höhen 1024 × 512, 16 Bit,
+  Base64). Orte haben `place.geo` (Länge, Breite); ohne eigene Lage gilt die des nächsten
+  übergeordneten Ortes (`placeGeo`).
+- **Übernahme:** Einstellungen → „Atlas übernehmen“ (`einstellungen/AtlasSection`,
+  `atlas/import.ts`): Weltdatei wählen, Vorschau, übernehmen; Höhenkarte dazu. Küsten werden auf
+  etwa 700 m vereinfacht (79 000 → 50 000 Punkte), die Höhenkarte gemittelt verkleinert.
+- **Weltkarte:** Bereich „Atlas“ (`features/atlas`): der Planet flach ausgebreitet, verschieben
+  und vergrößern, Gelände nach Höhe gefärbt mit Licht von Nordwesten, scharfe Küsten, Seen,
+  Flüsse, Gradnetz, Maßstab. Links die Orte (große zuerst); Ort wählen, auf die Karte klicken –
+  gesetzt. Unter dem Zeiger: Lage, Landmasse oder Meer, Höhe. Am gewählten Ort: Luftlinie und
+  Richtung von der Gruppe, Tageslicht heute (`daylightAt`; die Sonnenwende wird am Beginn des
+  wärmsten Monats angenommen).
+- Geprüft in der Vorschau mit den echten Dateien. **Nicht geprüft:** installierte App, macOS.
+- **Schritt 3 (als Nächstes):** was Wayfarer aus der Lage rechnet – Reisestrecke und -dauer
+  zwischen Orten, Gelände auf dem Weg für die Hexkarten (statt erfundenem), Klima aus Breite,
+  Höhe und Küstennähe (statt aus Wörtern im Namen), Tageslänge im Wetter und am Spieltisch.
+- **Schritt 4:** die drehbare Kugel als zweite Ansicht derselben Karte.
+- Offen: eine Wiki-Karte über zwei bekannte Punkte einhängen (dann haben alle ihre Kartenpunkte
+  eine Lage); ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
+  Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die
+  Zeitrechnung des alten Atlas (Jahresbeginn im Frühling) mit dem Kalender abgleichen.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

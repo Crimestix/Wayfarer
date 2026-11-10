@@ -15,6 +15,7 @@ import {
 } from '../domain/time/calendar';
 import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
+import AtlasPage from '../features/atlas';
 import ErkundungPage from '../features/erkundung';
 import { WeatherChip } from '../features/wetter';
 import WikiPage from '../features/wiki';
@@ -298,6 +299,7 @@ export function AppShell() {
             <Route path="/kalender" component={KalenderPage} />
             <Route path="/gruppe/:id?" component={GruppePage} />
             <Route path="/erkundung/:id?" component={ErkundungPage} />
+            <Route path="/atlas/:id?" component={AtlasPage} />
             <Route path="/einstellungen" component={EinstellungenPage} />
             <Route component={TischPage} />
           </Switch>

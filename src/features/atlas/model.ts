@@ -6,6 +6,7 @@ import {
   NODATA,
   compass,
   bearingDeg,
+  daylightHours,
   distanceKm,
   heightAt,
   inRing,
@@ -16,6 +17,8 @@ import {
   type RingBounds,
 } from '../../domain/geo';
 import type { Atlas, CampaignData, Place } from '../../domain/schema';
+import { MINUTES_PER_DAY, daysBeforeYear, fromTime, yearLength } from '../../domain/time/calendar';
+import { warmestMonth } from '../../domain/weatherZone';
 
 export const PLANET_ID = 'planet';
 export const RELIEF_ID = 'relief';
@@ -200,4 +203,63 @@ export function describeTerrain(terrain: Terrain): string {
     terrain.heightM === null ? '' : ` · ${Math.round(terrain.heightM).toLocaleString('de-DE')} m`;
   if (terrain.water === 'lake') return `See${height}`;
   return `${terrain.land?.name || 'Land'}${height}`;
+}
+
+// ── Sonne ──────────────────────────────────────────────────────────────────
+
+/**
+ * Wie weit das Jahr seit der Frühlings-Tagundnachtgleiche der Nordhalbkugel fortgeschritten ist
+ * (0…1). Der Kalender nennt keine Sonnenwende; Wayfarer nimmt den längsten Tag am Beginn des
+ * wärmsten Monats an – das Wetter hinkt der Sonne etwa einen halben Monat nach.
+ */
+export function seasonFraction(data: CampaignData, time: number): number {
+  const cal = data.campaign.calendar;
+  const date = fromTime(cal, time);
+  const length = yearLength(cal, date.year);
+  const dayOfYear = Math.floor(time / MINUTES_PER_DAY) - daysBeforeYear(cal, date.year);
+  let solstice = 0;
+  const warmest = warmestMonth(data);
+  for (let month = 0; month < warmest; month++) solstice += cal.months[month]!.days;
+  const fraction = (dayOfYear - solstice) / length + 0.25;
+  return ((fraction % 1) + 1) % 1;
+}
+
+/** Stunden Tageslicht an einer Lage zur Weltzeit – null, solange kein Atlas übernommen ist. */
+export function daylightAt(data: CampaignData, point: LonLat, time: number): number | null {
+  const planet = planetOf(data);
+  if (!planet) return null;
+  return daylightHours(
+    point.lat,
+    planet.doc.obliquityDeg,
+    seasonFraction(data, time),
+    planet.doc.dayHours,
+  );
+}
+
+/** „9 Std. 40 Min.“ */
+export function formatHours(hours: number): string {
+  const minutes = Math.round(hours * 60);
+  const h = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${h} Std. ${rest} Min.` : `${h} Std.`;
+}
+
+// ── Orte für die Karte ─────────────────────────────────────────────────────
+
+export interface PlacedPlace {
+  place: Place;
+  geo: LonLat;
+  /** Kein Ort darüber hat selbst eine Lage. */
+  major: boolean;
+}
+
+/** Alle Orte, an denen selbst eine Lage eingetragen ist. */
+export function placedPlaces(data: Pick<CampaignData, 'entities'>): PlacedPlace[] {
+  const out: PlacedPlace[] = [];
+  for (const entity of Object.values(data.entities)) {
+    if (entity.kind !== 'place' || !entity.place.geo) continue;
+    const above = entity.place.parentId ? placeGeo(data, entity.place.parentId) : null;
+    out.push({ place: entity, geo: entity.place.geo, major: above === null });
+  }
+  return out.sort((a, b) => a.place.name.localeCompare(b.place.name, 'de'));
 }
