@@ -619,6 +619,8 @@ export const HexSchema = z.object({
   discovered: z.boolean().default(false),
   /** Vorbereitetes Ereignis, das beim Betreten eintritt. */
   prepared: z.string().default(''),
+  /** Besonderheit der Landschaft, die Wayfarer erzeugt hat (z. B. „Lichtung“); frei änderbar. */
+  feature: z.string().default(''),
   /** Abweichende Tabellen für dieses Hex. */
   tableIds: z.array(id).default([]),
 });
@@ -639,6 +641,13 @@ export const AreaSchema = z.object({
   /** Tabellen, die im ganzen Gebiet gelten. */
   tableIds: z.array(id).default([]),
   notes: z.string().default(''),
+  /** Erzeugte Karte zwischen zwei Orten: Start, Ziel, Landschaft und Ausgangswert des Zufalls. */
+  fromId: id.nullable().default(null),
+  toId: id.nullable().default(null),
+  biome: z.enum(TERRAINS).nullable().default(null),
+  seed: z.number().int().nonnegative().nullable().default(null),
+  /** Entfernung zwischen Start und Ziel in km, wie sie beim Erzeugen galt. */
+  distanceKm: z.number().positive().nullable().default(null),
 });
 export type Area = z.infer<typeof AreaSchema>;
 
