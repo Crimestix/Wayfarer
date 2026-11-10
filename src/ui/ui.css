@@ -667,7 +667,7 @@ button.wf-item:hover,
   text-align: center;
   color: var(--ink-mute);
 }
-.wf-empty svg {
+.wf-empty > svg {
   width: 30px;
   height: 30px;
   color: var(--gold-deep);

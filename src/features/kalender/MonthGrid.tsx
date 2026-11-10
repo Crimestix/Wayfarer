@@ -217,8 +217,8 @@ export function MonthGrid({
                             title={mark.travels
                               .map((t) =>
                                 t.travel?.toId
-                                  ? `Die Gruppe erreicht ${entityName(data, t.travel.toId)}`
-                                  : `Die Gruppe verlässt ${entityName(data, t.travel?.fromId)}`,
+                                  ? `Ankunft: ${entityName(data, t.travel.toId)}`
+                                  : `Aufbruch aus ${entityName(data, t.travel?.fromId)}`,
                               )
                               .join('\n')}
                           >
