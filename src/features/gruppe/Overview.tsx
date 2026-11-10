@@ -17,6 +17,7 @@ import {
   toast,
 } from '../../ui';
 import { completeLongRest, patchCharacter } from './actions';
+import type { EditFocus } from './EditDialog';
 import {
   classLine,
   exhaustionEffect,
@@ -193,7 +194,7 @@ function CharacterCard({
 }: {
   character: Character;
   summary: PartySummary;
-  onEdit: () => void;
+  onEdit: (focus?: EditFocus) => void;
 }) {
   const d = character.character;
   const sole = soleLanguages(summary, character.id);
@@ -209,10 +210,12 @@ function CharacterCard({
           <Portrait entity={character} size={72} />
         </Link>
         <div className="wf-grow">
-          <Link href={href} className="wf-gruppe-card__name wf-clamp-1">
+          <Link href={href} className="wf-gruppe-card__name wf-clamp-1" title={character.name}>
             {character.name}
           </Link>
-          <div className="wf-gruppe-card__class wf-clamp-1">{classLine(d)}</div>
+          <div className="wf-gruppe-card__class wf-clamp-1" title={classLine(d)}>
+            {classLine(d)}
+          </div>
           <div className="wf-gruppe-card__player wf-clamp-1">
             {d.player ? `gespielt von ${d.player}` : character.tagline}
           </div>
@@ -221,14 +224,14 @@ function CharacterCard({
           label={`${character.name} bearbeiten`}
           variant="ghost"
           size="sm"
-          onClick={onEdit}
+          onClick={() => onEdit()}
         >
           <Pencil />
         </IconButton>
       </header>
 
       {lacksValues(d) ? (
-        <button type="button" className="wf-gruppe-card__invite" onClick={onEdit}>
+        <button type="button" className="wf-gruppe-card__invite" onClick={() => onEdit()}>
           <b>Werte eintragen</b>
           <span>Rüstungsklasse, passive Werte und Sprachen fehlen noch.</span>
         </button>
@@ -269,7 +272,7 @@ function CharacterCard({
       <footer className="wf-gruppe-card__foot">
         <LocationControl character={character} />
         <span className="wf-grow" />
-        <SheetLink character={character} onMissing={onEdit} />
+        <SheetLink character={character} onMissing={() => onEdit('sheet')} />
       </footer>
     </Panel>
   );
@@ -343,7 +346,7 @@ export function Overview({
   onEdit,
   onCreate,
 }: {
-  onEdit: (id: string) => void;
+  onEdit: (id: string, focus?: EditFocus) => void;
   onCreate: () => void;
 }) {
   const db = useDb();
@@ -397,7 +400,7 @@ export function Overview({
                       key={c.id}
                       character={c}
                       summary={summary}
-                      onEdit={() => onEdit(c.id)}
+                      onEdit={(focus) => onEdit(c.id, focus)}
                     />
                   ))}
                 </div>
@@ -416,7 +419,11 @@ export function Overview({
                     <div key={c.id} className="wf-gruppe-bench__item">
                       <Portrait entity={c} size={40} />
                       <div className="wf-grow">
-                        <Link href={`/gruppe/${c.id}`} className="wf-gruppe-bench__name wf-clamp-1">
+                        <Link
+                          href={`/gruppe/${c.id}`}
+                          className="wf-gruppe-bench__name wf-clamp-1"
+                          title={c.name}
+                        >
                           {c.name}
                         </Link>
                         <div className="wf-gruppe-bench__sub wf-clamp-1">

@@ -2,7 +2,6 @@
 import { useState, type CSSProperties } from 'react';
 import { useLocation } from 'wouter';
 import { BookOpen, EyeOff, Feather, Footprints, Pencil, Trash2 } from 'lucide-react';
-import { deleteEntity } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, attitudeHistory, attitudeToParty, chronicleFor } from '../../domain/derive';
 import { RULES_ATTITUDE_LABEL, attitudeLevel } from '../../domain/relations';
@@ -19,14 +18,17 @@ import {
   Portrait,
   Tabs,
   confirmDialog,
+  cx,
   toast,
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
+import { deleteEntityUndoable } from './actions';
 import { openEntityDialog } from './editor';
 import {
   deletionImpact,
   deletionNotes,
   entityFacts,
+  isLongName,
   relationRows,
   type WorldEntity,
 } from './model';
@@ -50,7 +52,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       title: `„${entity.name}“ löschen?`,
       body: (
         <div className="wf-col">
-          <p>Der Eintrag wird endgültig aus der Weltdatenbank entfernt.</p>
+          <p>Der Eintrag wird aus der Weltdatenbank entfernt.</p>
           {notes.length > 0 && (
             <ul className="wf-welt-confirm">
               {notes.map((note) => (
@@ -60,13 +62,23 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           )}
         </div>
       ),
-      confirmLabel: 'Endgültig löschen',
+      confirmLabel: 'Löschen',
       danger: true,
     });
     if (!ok) return;
     navigate('/welt');
-    deleteEntity(db, entity.id);
-    toast({ title: 'Eintrag gelöscht', body: entity.name });
+    const undo = deleteEntityUndoable(db, entity.id);
+    toast({
+      title: 'Eintrag gelöscht',
+      body: entity.name,
+      action: {
+        label: 'Rückgängig',
+        run: () => {
+          undo();
+          navigate(`/welt/${entity.id}`);
+        },
+      },
+    });
   };
 
   return (
@@ -89,7 +101,14 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
               </Badge>
             )}
           </div>
-          <h1 className="wf-welt-hero__name">{entity.name}</h1>
+          <h1
+            className={cx(
+              'wf-welt-hero__name',
+              isLongName(entity.name) && 'wf-welt-hero__name--long',
+            )}
+          >
+            {entity.name}
+          </h1>
           {entity.aliases.length > 0 && (
             <div className="wf-welt-hero__alias">auch: {entity.aliases.join(', ')}</div>
           )}
@@ -194,6 +213,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           <LkArticlePanel
             link={entity.lk}
             onLink={(lk) => db.patch('entities', entity.id, { lk })}
+            suggest={entity.name}
           />
         )}
       </div>

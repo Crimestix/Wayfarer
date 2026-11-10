@@ -12,6 +12,7 @@ import {
 import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
 import { openEntityDialog } from './editor';
+import { setKindFilter } from './overview';
 import {
   WORLD_KINDS,
   castSubline,
@@ -50,22 +51,28 @@ export function Landing() {
 
       <div className="wf-welt-counts">
         {WORLD_KINDS.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            className="wf-welt-count"
-            onClick={() => openEntityDialog({ mode: 'create', kind })}
-            title={`${KIND_LABEL[kind]} anlegen`}
-          >
-            <KindIcon kind={kind} />
-            <span className="wf-welt-count__n">{counts[kind]}</span>
-            <span className="wf-welt-count__label">
-              {counts[kind] === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}
-            </span>
-            <span className="wf-welt-count__add">
+          <div key={kind} className="wf-welt-count">
+            <button
+              type="button"
+              className="wf-welt-count__show"
+              onClick={() => setKindFilter(kind)}
+              title={`${KIND_LABEL_PLURAL[kind]} in der Übersicht zeigen`}
+            >
+              <KindIcon kind={kind} />
+              <span className="wf-welt-count__n">{counts[kind]}</span>
+              <span className="wf-welt-count__label">
+                {counts[kind] === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="wf-welt-count__add"
+              onClick={() => openEntityDialog({ mode: 'create', kind })}
+              aria-label={`${KIND_LABEL[kind]} anlegen`}
+            >
               <Plus /> anlegen
-            </span>
-          </button>
+            </button>
+          </div>
         ))}
       </div>
 

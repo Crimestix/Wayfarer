@@ -76,7 +76,11 @@ export function BackupSection() {
     <div className="wf-einstellungen-stack">
       <div className="wf-einstellungen-contents">
         <span className="wf-caps">In dieser Kampagne</span>
-        <span>{summary.parts.length ? summary.parts.join(' · ') : 'Noch keine Einträge.'}</span>
+        <span>
+          {summary.parts.length
+            ? summary.parts.join(' · ')
+            : 'Noch keine Einträge – lege in der Welt etwas an oder hole weiter unten den alten Spielstand herüber.'}
+        </span>
       </div>
       <div className="wf-einstellungen-actions">
         <ActionRow

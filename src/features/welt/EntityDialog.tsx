@@ -9,7 +9,6 @@ import {
   Button,
   Checkbox,
   Dialog,
-  EntityPicker,
   Field,
   Input,
   Portrait,
@@ -18,12 +17,20 @@ import {
   TextArea,
   toast,
 } from '../../ui';
-import { closeEntityDialog, useEntityDialogRequest, type EntityDialogRequest } from './editor';
+import { discardUnusedDrafts } from './actions';
+import {
+  closeEntityDialog,
+  openEntityDialog,
+  useEntityDialogRequest,
+  type EntityDialogRequest,
+} from './editor';
 import { fileToImage } from './image';
+import { Picker } from './parts';
 import {
   PERSON_STATUS_LABEL,
   WORLD_KINDS,
   categoryOptions,
+  draftChanged,
   draftOf,
   draftProblem,
   emptyDraft,
@@ -63,7 +70,8 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   const [, navigate] = useLocation();
   const stored = request.mode === 'edit' ? data.entities[request.id] : undefined;
   const existing = isWorldEntity(stored) ? stored : undefined;
-  const [draft, setDraft] = useState<EntityDraft>(() =>
+  /** Stand beim Öffnen – daran misst sich, ob etwas geändert wurde. */
+  const [baseline] = useState<EntityDraft>(() =>
     existing
       ? draftOf(existing)
       : emptyDraft(
@@ -71,6 +79,9 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           request.mode === 'create' ? request.preset : {},
         ),
   );
+  const [draft, setDraft] = useState<EntityDraft>(request.resume?.draft ?? baseline);
+  /** Orte, die in diesem Dialog über „neu anlegen“ entstanden sind. */
+  const created = useRef<string[]>(request.resume?.created ?? []);
   const [imageError, setImageError] = useState('');
   const [tried, setTried] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -85,17 +96,46 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     [data, draft.kind],
   );
   const noParents = useMemo(() => forbiddenParents(data, entityId), [data, entityId]);
-  const createPlace = (name: string) =>
-    db.put('entities', createEntity({ kind: 'place', name })).id;
+  const createPlace = (name: string) => {
+    const id = db.put('entities', createEntity({ kind: 'place', name })).id;
+    created.current.push(id);
+    return id;
+  };
 
   if (request.mode === 'edit' && !existing) return null;
 
   const save = () => {
     setTried(true);
     if (problem) return;
-    const saved = db.put('entities', entityFromDraft(draft, existing));
+    const saved = db.batch(() => {
+      const entity = db.put('entities', entityFromDraft(draft, existing));
+      // Neu angelegte Orte, die am Ende doch nicht gewählt wurden, bleiben nicht liegen.
+      discardUnusedDrafts(db, created.current, []);
+      return entity;
+    });
     closeEntityDialog();
     if (!existing) navigate(`/welt/${saved.id}`);
+  };
+
+  /** Schließen ohne Speichern. Eingetragenes geht nicht stillschweigend verloren. */
+  const cancel = () => {
+    const removed = discardUnusedDrafts(db, created.current, []);
+    closeEntityDialog();
+    if (!draftChanged(draft, baseline)) return;
+    toast({
+      title: existing ? 'Änderungen verworfen' : 'Neuer Eintrag verworfen',
+      body: draft.name.trim() || existing?.name || KIND_LABEL[draft.kind],
+      action: {
+        label: 'Weiter bearbeiten',
+        run: () => {
+          db.batch(() => {
+            for (const place of removed)
+              if (!db.getSnapshot().entities[place.id]) db.put('entities', { ...place, rev: 0 });
+          });
+          openEntityDialog({ ...request, resume: { draft, created: created.current } });
+        },
+      },
+    });
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -124,7 +164,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   return (
     <Dialog
       open
-      onClose={closeEntityDialog}
+      onClose={cancel}
       title={existing ? `${kindLabel} bearbeiten` : 'Neuer Eintrag'}
       width={760}
       footer={
@@ -138,7 +178,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               'Eingabe speichert · in Textfeldern Strg+Eingabe'
             )}
           </span>
-          <Button onClick={closeEntityDialog}>Abbrechen</Button>
+          <Button onClick={cancel}>Abbrechen</Button>
           <Button variant="primary" onClick={save}>
             {existing ? 'Speichern' : `${kindLabel} anlegen`}
           </Button>
@@ -220,7 +260,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 <Input value={draft.species} onChange={(e) => set({ species: e.target.value })} />
               </Field>
               <Field label="Hält sich auf in">
-                <EntityPicker
+                <Picker
                   value={draft.placeId}
                   onChange={(placeId) => set({ placeId })}
                   kinds={['place']}
@@ -229,7 +269,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 />
               </Field>
               <Field label="Ist zu Hause in">
-                <EntityPicker
+                <Picker
                   value={draft.homeId}
                   onChange={(homeId) => set({ homeId })}
                   kinds={['place']}
@@ -263,7 +303,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               label="Liegt in"
               hint="Der Ort, zu dem dieser gehört – leer für eine oberste Ebene."
             >
-              <EntityPicker
+              <Picker
                 value={draft.parentId}
                 onChange={(parentId) => set({ parentId })}
                 kinds={['place']}
@@ -275,7 +315,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           )}
           {draft.kind === 'faction' && (
             <Field label="Sitz">
-              <EntityPicker
+              <Picker
                 value={draft.seatId}
                 onChange={(seatId) => set({ seatId })}
                 kinds={['place']}
@@ -289,7 +329,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               label="Befindet sich bei"
               hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte."
             >
-              <EntityPicker
+              <Picker
                 value={draft.holderId}
                 onChange={(holderId) => set({ holderId })}
                 kinds={['place', 'person', 'faction', 'character']}

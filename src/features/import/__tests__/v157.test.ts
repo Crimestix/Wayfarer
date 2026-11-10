@@ -626,7 +626,7 @@ describe('Vollständiges Backup', () => {
       '4 Personen wurden aus der Weltdatenbank übernommen – mit Beruf, Spezies, Heimat und Aufenthaltsort; Titel, Geburt, Alter, Zustand und Ziele stehen als Text in den Notizen.',
       'Die Stammdaten von 1 Gefährten aus der Weltdatenbank wurden in dessen Eintrag eingearbeitet.',
       'Verknüpfungen der Weltdatenbank: 9 Beziehungen (Mitgliedschaften, Familie, Wirkungsgebiete, Verbindungen), 2 Sitze von Fraktionen und 1 räumliche Zuordnung als übergeordneter Ort.',
-      '3 Personen kannte die alte Version nur als Verweis auf einen LegendKeeper-Artikel. Sie wurden mit dieser Verknüpfung angelegt und tragen das Schlagwort „Name fehlt“, weil der Name nicht im Backup steht.',
+      '3 Personen kannte die alte Version nur als Verweis auf einen LegendKeeper-Artikel. Sie wurden mit dieser Verknüpfung angelegt und tragen das Schlagwort „Name fehlt“, weil der Name nicht im Backup steht. Steht die Verbindung zu LegendKeeper, holt ein Klick in den Einstellungen unter „Alten Spielstand übernehmen“ die Namen nach.',
       'Haltungen: 3 gegenüber der Gruppe und 3 gegenüber einzelnen Gefährten.',
       'Aus den Dossiers stehen 1 Notiz und 4 Abmachungen (davon 1 erledigt) samt Fristen in der Chronik bei der jeweiligen Person. Zusagen, Schulden und Gefallen sind am Wort vor dem Text zu erkennen.',
       '6 Haltungsänderungen stehen mit Grund und Zeitpunkt in der Chronik und bilden den Verlauf bei der Person.',
@@ -649,6 +649,10 @@ describe('Vollständiges Backup', () => {
       'Hass → Feindselig (−3), Abneigung → Ablehnend (−2), Skepsis → Misstrauisch (−1), Wohlwollen → Wohlgesonnen (+1), Zuneigung → Freundlich (+2), Liebe → Ergeben (+3)',
     );
     expect(hints.join(' ')).toContain('„wichtig“ (1 Termin) und „lokales Ereignis“ (1 Termin)');
+    // Tomlin hat ein eigenes Bild, Neil einen Link; die übrigen vier nutzten das mitgelieferte Porträt.
+    expect(hints).toContain(
+      '4 Gefährten zeigten in der alten Version das mitgelieferte Porträt. Es steht nicht im Backup; das Bild lässt sich im Bereich „Gefährten“ neu einfügen.',
+    );
     expect(hints.join(' ')).toContain(
       '1 von ihnen gilt als getroffen, weil eine Meinung zur Gruppe oder zu Gefährten eingetragen war.',
     );
@@ -720,6 +724,7 @@ describe('Unberührter Spielstand der alten Version', () => {
       'Die 6 Gefährten wurden angelegt – eigene Werte standen nicht im Backup, deshalb gelten Klasse und Stufe 6 wie in der alten Anzeige.',
       '2 Termine wurden übernommen – mit Art, Uhrzeit, Dauer, Ort und Erledigt-Haken.',
       '1 Session wurde aus den Notizen mit dem Titel „Session …“ angelegt, der Notiztext steht in der Mitschrift. Session 12 gilt als laufende Session.',
+      '6 Gefährten zeigten in der alten Version das mitgelieferte Porträt. Es steht nicht im Backup; das Bild lässt sich im Bereich „Gefährten“ neu einfügen.',
     ]);
   });
 });
@@ -1005,6 +1010,40 @@ describe('Unbekanntes und Kaputtes', () => {
   });
 });
 
+describe('Mehrere Verbindungen zwischen denselben beiden Einträgen', () => {
+  it('werden zu einer Beziehung je Richtung zusammengelegt', () => {
+    const backup = full();
+    const relations = backup.world.database.relations as {
+      id: string;
+      type: string;
+      from: string;
+      to: string;
+    }[];
+    // Die Zollstube ist Teil der Salzgilde und zusätzlich mit ihr „verbunden“.
+    relations.push({ id: 'r20', type: 'connection', from: 'o-zoll', to: 'o-gilde' });
+    // Ardo ist mit dem Gefährten Veres verschwistert und hat zugleich eine Meinung über ihn.
+    relations.push({ id: 'r21', type: 'sibling', from: 'c-ardo', to: 'c-veres-db' });
+    const ardo = backup.world.database.records.characters.find((c) => c.id === 'c-ardo')!;
+    (ardo.dynamic!.opinions as Record<string, number>).veres = 6;
+    const { data } = importV157Backup(backup);
+    expectValid(data);
+    const zoll = findRelation(
+      data,
+      byName(data, 'faction', 'Zollstube').id,
+      byName(data, 'faction', 'Salzgilde').id,
+    )!;
+    expect(zoll).toMatchObject({
+      type: 'member',
+      label: '',
+      note: 'Teilorganisation · verbunden mit',
+    });
+    const sibling = findRelation(data, byName(data, 'person', 'Ardo Venn').id, 'veres')!;
+    expect(sibling).toMatchObject({ type: 'family', note: 'Geschwister', attitude: 3 });
+    const pairs = Object.values(data.relations).map((r) => `${r.from}→${r.to}`);
+    expect(new Set(pairs).size).toBe(pairs.length);
+  });
+});
+
 describe('Bericht der letzten Übernahme', () => {
   it('bleibt nach einer Übernahme einsehbar, eine bloße Vorschau ändert ihn nicht', () => {
     const first = importV157Backup(structuredClone(minimalBackup));
@@ -1087,5 +1126,36 @@ describe('Verweise aufräumen (repairReferences)', () => {
     for (const place of entitiesOfKind(fixed, 'place'))
       expect(placePath(fixed, place.id).split(' › ').length).toBeLessThan(6);
     expect(repairReferences(fixed).repaired).toBe(0);
+  });
+});
+
+describe('Session-Notizen in anderer Schreibweise', () => {
+  it('erkennt auch „Sitzung 3“, „Spielabend 4“ und „Session #5“ – sonstige Titel bleiben Themen', () => {
+    const raw = structuredClone(minimalBackup) as Record<string, unknown> & typeof minimalBackup;
+    const at = raw.notes[0]!.at;
+    raw.notes = [
+      { id: 'a', title: 'Sitzung 3: Der Markt', body: 'Text A', at: at - 3000 },
+      { id: 'b', title: 'spielabend 4', body: 'Text B', at: at - 2000 },
+      { id: 'c', title: 'Session #5 – Aufbruch', body: 'Text C', at: at - 1000 },
+      { id: 'd', title: 'Sessionplanung 6', body: 'Kein Abend, nur Planung.', at },
+      { id: 'e', title: 'Sitzungsprotokoll', body: 'Auch kein Abend.', at },
+    ];
+    raw.active = 'c';
+    const { data } = previewV157Backup(raw);
+    expect(
+      Object.values(data.sessions)
+        .sort((x, y) => x.number - y.number)
+        .map((s) => [s.number, s.title, s.notes]),
+    ).toEqual([
+      [3, 'Der Markt', 'Text A'],
+      [4, '', 'Text B'],
+      [5, 'Aufbruch', 'Text C'],
+    ]);
+    expect(data.state.sessionId).toBe('c');
+    expect(
+      entitiesOfKind(data, 'topic')
+        .map((t) => t.name)
+        .sort(),
+    ).toEqual(['Sessionplanung 6', 'Sitzungsprotokoll']);
   });
 });

@@ -1,5 +1,5 @@
 /** Was die Einstellungen über die Verbindung sagen. Reine Funktionen. */
-import { describeError, type LkError } from './errors';
+import { describeError, type LkError, type LkErrorKind } from './errors';
 
 export interface StatusInput {
   phase: 'idle' | 'checking' | 'ready' | 'failed';
@@ -31,7 +31,9 @@ function catalogText(catalog: StatusInput['catalog']): string {
     case 'ready':
       return `${articles(catalog.loaded)} im Verzeichnis`;
     case 'loading':
-      return catalog.loaded > 0 ? `Verzeichnis wird geladen – bisher ${articles(catalog.loaded)}` : 'Verzeichnis wird geladen …';
+      return catalog.loaded > 0
+        ? `Verzeichnis wird geladen – bisher ${articles(catalog.loaded)}`
+        : 'Verzeichnis wird geladen …';
     case 'failed':
       return 'Das Verzeichnis der Artikel ließ sich nicht laden';
     default:
@@ -42,7 +44,11 @@ function catalogText(catalog: StatusInput['catalog']): string {
 /** Eine Zeile Zustand: verbunden, nicht eingerichtet oder was schiefgeht. */
 export function statusView(input: StatusInput): StatusView {
   if (input.phase === 'idle' || input.phase === 'checking') {
-    return { tone: 'busy', title: 'Verbindung wird geprüft …', text: 'Wayfarer fragt bei LegendKeeper nach.' };
+    return {
+      tone: 'busy',
+      title: 'Verbindung wird geprüft …',
+      text: 'Wayfarer fragt bei LegendKeeper nach.',
+    };
   }
   if (input.phase === 'ready') {
     const checked = input.checkedAt ? ` · geprüft um ${clockTime(input.checkedAt)}` : '';
@@ -70,4 +76,21 @@ export function statusView(input: StatusInput): StatusView {
   }
   const view = describeError(error, 'connection');
   return { tone: 'problem', title: view.title, text: view.text };
+}
+
+/** Störungen, die von selbst vorübergehen – kein Grund, auf einen Klick zu warten. */
+const PASSING: readonly LkErrorKind[] = ['offline', 'timeout', 'server', 'rate-limited'];
+export const RECHECK_AFTER_MS = 15_000;
+
+/**
+ * Soll die Verbindung von selbst noch einmal geprüft werden? Ja, wenn die letzte Prüfung an
+ * etwas Vorübergehendem scheiterte (kein Netz, keine Antwort) und eine Weile her ist – etwa wenn
+ * das WLAN am Spieltisch kurz weg war und man den nächsten Eintrag öffnet.
+ */
+export function shouldRecheck(
+  state: { phase: string; error?: LkError; checkedAt?: number },
+  now: number,
+): boolean {
+  if (state.phase !== 'failed' || !state.error || state.checkedAt === undefined) return false;
+  return PASSING.includes(state.error.kind) && now - state.checkedAt >= RECHECK_AFTER_MS;
 }

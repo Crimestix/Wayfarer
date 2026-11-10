@@ -118,6 +118,21 @@ function FolderSwitch() {
       await switchTo(folder);
     });
 
+  /**
+   * Zum Startbildschirm, ohne einen Ordner vorzumerken: Dort wird der leere Ordner neu gewählt.
+   * Bliebe er vorgemerkt, meldete der Start „keine Kampagne mehr“, als wäre etwas verloren gegangen.
+   */
+  const startFresh = () =>
+    run(async () => {
+      await db.flush();
+      if (db.hasUnsavedChanges())
+        throw new Error(
+          'Die letzten Änderungen sind noch nicht gespeichert. Bitte gleich noch einmal versuchen.',
+        );
+      await setConfig({ campaignDir: null });
+      window.location.reload();
+    });
+
   const copyThere = () =>
     run(async () => {
       if (!emptyFolder) return;
@@ -169,13 +184,14 @@ function FolderSwitch() {
           <button
             type="button"
             className="wf-einstellungen-choice"
-            onClick={() => run(() => switchTo(emptyFolder!))}
+            onClick={startFresh}
             disabled={busy}
           >
             <span className="wf-einstellungen-choice__title">Dort etwas Neues beginnen</span>
             <span className="wf-mute">
-              Wechselt zum Startbildschirm. Dort wählst du den Ordner noch einmal und beginnst eine
-              neue Kampagne oder übernimmst den Spielstand der alten Version.
+              Schließt „{data.campaign.name}“ und wechselt zum Startbildschirm. Dort wählst du den
+              Ordner noch einmal und beginnst eine neue Kampagne oder übernimmst den Spielstand der
+              alten Version. Der bisherige Ordner bleibt unverändert liegen.
             </span>
           </button>
         </div>

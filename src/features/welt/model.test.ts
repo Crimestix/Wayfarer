@@ -16,6 +16,7 @@ import {
   deletionImpact,
   deletionNotes,
   describeVisit,
+  draftChanged,
   draftOf,
   draftProblem,
   emptyDraft,
@@ -25,10 +26,13 @@ import {
   factionMembers,
   fitWithin,
   forbiddenParents,
+  isLongName,
   isWorldEntity,
   itemsHeldBy,
   linkedSubline,
+  listKeyMove,
   nameTwin,
+  nextRowIndex,
   openAncestors,
   partyAttitudes,
   placeTreeRows,
@@ -38,8 +42,11 @@ import {
   relationDraftChanged,
   relationRows,
   relationSentence,
+  savesDirection,
   searchWorld,
+  shortPath,
   splitList,
+  treeIndent,
   upcomingFor,
   worldCounts,
   type WorldEntity,
@@ -199,7 +206,8 @@ describe('Dossier', () => {
     const now = data.state.now;
     const stays = partyStays(data);
     const first = describeVisit(cal, now, stays[0]!);
-    expect(first).toMatchObject({ duration: '3 Tage', ongoing: false, ago: 'vor 9 Tagen' });
+    // Die Gruppe kam vor neun Tagen an und brach vor sechs Tagen auf – „zuletzt hier“ meint den Aufbruch.
+    expect(first).toMatchObject({ duration: '3 Tage', ongoing: false, ago: 'vor 6 Tagen' });
     expect(first.from).toBe('8. Tauwind');
     expect(first.to).toBe('11. Tauwind');
     const current = describeVisit(cal, now, stays[stays.length - 1]!);
@@ -534,5 +542,118 @@ describe('Bild', () => {
 describe('Beispielwelt', () => {
   it('enthält die Einträge, auf die sich diese Tests stützen', () => {
     expect(entitiesOfKind(data, 'person')).toHaveLength(6);
+  });
+});
+
+describe('Ergänzungen der Prüfung', () => {
+  const data = demoCampaign();
+  const find = (name: string) => Object.values(data.entities).find((e) => e.name === name)!;
+
+  it('führt mit den Pfeiltasten durch die Übersicht und bleibt an den Enden stehen', () => {
+    expect(listKeyMove('ArrowDown')).toBe('down');
+    expect(listKeyMove('ArrowUp')).toBe('up');
+    expect(listKeyMove('Home')).toBe('first');
+    expect(listKeyMove('End')).toBe('last');
+    expect(listKeyMove('a')).toBeNull();
+    expect(nextRowIndex(0, 5, 'down')).toBe(1);
+    expect(nextRowIndex(4, 5, 'down')).toBe(4);
+    expect(nextRowIndex(0, 5, 'up')).toBe(0);
+    expect(nextRowIndex(3, 5, 'first')).toBe(0);
+    expect(nextRowIndex(1, 5, 'last')).toBe(4);
+    expect(nextRowIndex(0, 0, 'down')).toBe(-1);
+  });
+
+  it('erkennt, ob im Dialog etwas eingetragen wurde – die Art allein zählt nicht', () => {
+    const empty = emptyDraft('person', { placeId: 'x' });
+    expect(draftChanged(empty, empty)).toBe(false);
+    expect(draftChanged({ ...empty, kind: 'place' }, empty)).toBe(false);
+    expect(draftChanged({ ...empty, name: 'Jorun' }, empty)).toBe(true);
+    expect(draftChanged({ ...empty, placeId: null }, empty)).toBe(true);
+    const maera = find('Maera Duskryn');
+    if (!isWorldEntity(maera)) throw new Error('Maera fehlt');
+    const stored = draftOf(maera);
+    expect(draftChanged(draftOf(maera), stored)).toBe(false);
+    expect(draftChanged({ ...stored, met: false }, stored)).toBe(true);
+  });
+
+  it('kürzt tiefe Pfade und rückt tiefe Ebenen im Baum weniger ein', () => {
+    expect(shortPath(['a', 'b', 'c', 'd'])).toEqual({ ids: ['a', 'b', 'c', 'd'] });
+    expect(shortPath(['a', 'b', 'c', 'd', 'e', 'f'])).toEqual({
+      ids: ['a', 'd', 'e', 'f'],
+      skipped: 2,
+    });
+    expect([0, 1, 4, 5, 9].map(treeIndent)).toEqual([6, 22, 70, 78, 110]);
+    expect(isLongName('Maera Duskryn')).toBe(false);
+    expect(isLongName('Großherzogliche Freie und Hansestadt Ödmarschen')).toBe(true);
+    // Ein tief verschachtelter Ort nennt die oberste und die drei nächsten Ebenen.
+    let world = data;
+    let parentId = find('Dornhafen').id;
+    for (let depth = 0; depth < 5; depth++) {
+      const place = createEntity({ kind: 'place', name: `Ebene ${depth}`, place: { parentId } });
+      world = { ...world, entities: { ...world.entities, [place.id]: place } };
+      parentId = place.id;
+    }
+    const fact = entityFacts(world, world.entities[parentId]!).find((f) => f.label === 'Liegt in')!;
+    expect(fact.ids).toHaveLength(4);
+    expect(fact.ids![0]).toBe(find('Nebelküste').id);
+    expect(fact.skipped).toBe(2);
+  });
+
+  it('liest eigene Bezeichnungen nie verkehrt herum', () => {
+    const maera = find('Maera Duskryn');
+    const voss = find('Hauptmann Voss');
+    const haus = find('Haus Duskryn');
+    const moor = find('Krähenmoor');
+    const custom = (from: string, to: string, label: string) =>
+      createRelation({ from, to, type: 'custom', label });
+    const extort = custom(find('Kessa Flutwind').id, maera.id, 'erpresst');
+    const pays = custom(haus.id, find('Isolde Rabenschwinge').id, 'bezahlt heimlich');
+    const swallows = custom(moor.id, voss.id, 'verschlang die Patrouille von');
+    const next = {
+      ...data,
+      relations: {
+        ...data.relations,
+        [extort.id]: extort,
+        [pays.id]: pays,
+        [swallows.id]: swallows,
+      },
+    };
+    // Von der Erpressten aus gesehen steht der ganze Satz da.
+    const seen = relationRows(next, maera.id).find((r) => r.otherId === extort.from)!;
+    expect(seen.label).toBe('Kessa Flutwind erpresst Maera Duskryn');
+    expect(seen.inverseLabel).toBe(seen.label);
+    // Von der Erpresserin aus bleibt es beim Satzteil.
+    const own = relationRows(next, extort.from).find((r) => r.otherId === maera.id)!;
+    expect(own.label).toBe('erpresst');
+    const member = factionMembers(next, haus.id).find((m) => m.entity.name.startsWith('Isolde'))!;
+    expect(member.label).toBe('Haus Duskryn bezahlt heimlich Isolde Rabenschwinge');
+    const link = placeCast(next, moor.id).linked.find((l) => l.entity.id === voss.id)!;
+    expect(linkedSubline(next, moor.id, link)).toBe(
+      'Krähenmoor verschlang die Patrouille von Hauptmann Voss',
+    );
+  });
+
+  it('schreibt beim Speichern nur Richtungen, die es geben soll', () => {
+    const untouched = relationDraft();
+    const existing = createRelation({ from: 'a', to: 'b', type: 'serves' });
+    // Ganz neue Beziehung: was zu sehen ist, wird angelegt – auch mit den Vorgaben.
+    expect(savesDirection(untouched, null, { active: true, pairExists: false })).toBe(true);
+    // Die Gegenrichtung, die niemand angesehen hat, bleibt leer.
+    expect(savesDirection(untouched, null, { active: false, pairExists: false })).toBe(false);
+    // Besteht schon eine Richtung, entsteht die andere nicht durch bloßes Hineinsehen.
+    expect(savesDirection(untouched, null, { active: true, pairExists: true })).toBe(false);
+    expect(
+      savesDirection({ ...untouched, type: 'fears' }, null, { active: false, pairExists: true }),
+    ).toBe(true);
+    // Vorhandenes wird nur geschrieben, wenn sich etwas geändert hat.
+    expect(
+      savesDirection(relationDraft(existing), existing, { active: true, pairExists: true }),
+    ).toBe(false);
+    expect(
+      savesDirection({ ...relationDraft(existing), ended: true }, existing, {
+        active: true,
+        pairExists: true,
+      }),
+    ).toBe(true);
   });
 });

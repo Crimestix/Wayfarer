@@ -152,7 +152,14 @@ export function BondDialog({
             </Select>
           </Field>
           {type === 'custom' ? (
-            <Field label="Eigene Bezeichnung">
+            <Field
+              label="Eigene Bezeichnung"
+              hint={
+                label.trim()
+                  ? undefined
+                  : 'Trag ein, wie die Beziehung heißt – erst dann lässt sie sich speichern.'
+              }
+            >
               <Input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}

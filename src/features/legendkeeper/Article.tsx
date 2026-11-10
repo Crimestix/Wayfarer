@@ -1,5 +1,5 @@
 /** Stellt die Knoten eines Artikels dar (siehe model.ts). Rechnet nichts, zeigt nur. */
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { ExternalLink, EyeOff, Info } from 'lucide-react';
 import { Divider, cx } from '../../ui';
 import { noteText, type ArticleNode, type Inline } from './model';
@@ -20,16 +20,27 @@ export interface ArticleContext {
   titleOf: (resourceId: string) => string | null | undefined;
 }
 
+/**
+ * Verweis auf einen anderen Artikel. Bewusst kein <button>: ein Knopf im Fließtext zählt als
+ * eigener Kasten, und der Satz bräche vor dem folgenden Punkt oder Komma um.
+ */
 function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleContext }) {
+  const onKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    ctx.onOpen(target);
+  };
   return (
-    <button
-      type="button"
+    <span
+      role="link"
+      tabIndex={0}
       className="wf-lk-mention"
       title={`„${target.title}“ in LegendKeeper nachschlagen`}
       onClick={() => ctx.onOpen(target)}
+      onKeyDown={onKeyDown}
     >
       {target.title}
-    </button>
+    </span>
   );
 }
 
@@ -43,7 +54,11 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
             <Mention
               key={index}
               ctx={ctx}
-              target={{ resourceId: inline.resourceId, documentId: inline.documentId, title: inline.label }}
+              target={{
+                resourceId: inline.resourceId,
+                documentId: inline.documentId,
+                title: inline.label,
+              }}
             />
           );
         }
@@ -58,7 +73,13 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
         if (inline.highlight) node = <mark className="wf-lk-mark">{node}</mark>;
         if (inline.href) {
           node = (
-            <a className="wf-lk-link" href={inline.href} target="_blank" rel="noreferrer noopener" title="Öffnet im Browser">
+            <a
+              className="wf-lk-link"
+              href={inline.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              title="Öffnet im Browser"
+            >
               {node}
               <ExternalLink aria-hidden />
             </a>
@@ -93,27 +114,55 @@ function Note({ children, href }: { children: ReactNode; href?: string }) {
 /** Bild aus LegendKeeper; lässt es sich nicht laden, steht ein Hinweis an seiner Stelle. */
 function Figure({ node }: { node: Extract<ArticleNode, { type: 'image' }> }) {
   const [broken, setBroken] = useState(false);
-  if (broken) return <Note>Ein Bild{node.caption ? ` („${node.caption}“)` : ''} lässt sich gerade nicht laden.</Note>;
+  if (broken)
+    return (
+      <Note>
+        Ein Bild{node.caption ? ` („${node.caption}“)` : ''} lässt sich gerade nicht laden.
+      </Note>
+    );
   return (
     <figure className="wf-lk-figure">
-      <a href={node.url} target="_blank" rel="noreferrer noopener" title="Bild in voller Größe im Browser öffnen">
-        <img src={node.url} alt={node.alt} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+      <a
+        href={node.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        title="Bild in voller Größe im Browser öffnen"
+      >
+        <img
+          src={node.url}
+          alt={node.alt}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
       </a>
       {node.caption && <figcaption>{node.caption}</figcaption>}
     </figure>
   );
 }
 
-const Label = ({ children }: { children: ReactNode }) => <div className="wf-lk-label">{children}</div>;
+const Label = ({ children }: { children: ReactNode }) => (
+  <div className="wf-lk-label">{children}</div>
+);
 
 const alignStyle = (align: 'center' | 'right' | undefined): CSSProperties | undefined =>
   align ? { textAlign: align } : undefined;
 
-function Heading({ node, ctx }: { node: Extract<ArticleNode, { type: 'heading' }>; ctx: ArticleContext }) {
+function Heading({
+  node,
+  ctx,
+}: {
+  node: Extract<ArticleNode, { type: 'heading' }>;
+  ctx: ArticleContext;
+}) {
   // Im Dossier sind h1 und h2 vergeben; der Artikel beginnt eine Ebene darunter.
   const Tag = (['h3', 'h4', 'h5', 'h6', 'h6', 'h6'] as const)[node.level - 1] ?? 'h6';
   return (
-    <Tag id={node.anchor} className={cx('wf-lk-h', `wf-lk-h--${Math.min(node.level, 4)}`)} style={alignStyle(node.align)}>
+    <Tag
+      id={node.anchor}
+      className={cx('wf-lk-h', `wf-lk-h--${Math.min(node.level, 4)}`)}
+      style={alignStyle(node.align)}
+    >
       <Inlines inlines={node.inlines} ctx={ctx} />
     </Tag>
   );
@@ -213,7 +262,10 @@ function Node({ node, ctx }: { node: ArticleNode; ctx: ArticleContext }) {
       );
     case 'columns':
       return (
-        <div className="wf-lk-columns" style={{ '--wf-lk-cols': node.columns.length } as CSSProperties}>
+        <div
+          className="wf-lk-columns"
+          style={{ '--wf-lk-cols': node.columns.length } as CSSProperties}
+        >
           {node.columns.map((column, index) => (
             <div key={index} className="wf-lk-flow">
               <ArticleNodes nodes={column} ctx={ctx} />
@@ -271,7 +323,9 @@ function Node({ node, ctx }: { node: ArticleNode; ctx: ArticleContext }) {
                     <Mention ctx={ctx} target={{ ...item, title }} />
                   ) : (
                     <span className="wf-lk-links__gone">
-                      {title === undefined ? 'Wird nachgeschlagen …' : 'Artikel nicht mehr vorhanden'}
+                      {title === undefined
+                        ? 'Wird nachgeschlagen …'
+                        : 'Artikel nicht mehr vorhanden'}
                     </span>
                   )}
                 </li>

@@ -18,7 +18,7 @@ import {
   type PlaceCast,
   type Stay,
 } from '../../domain/derive';
-import { relationLabel } from '../../domain/relations';
+import { relationLabel, relationType } from '../../domain/relations';
 import {
   PARTY_ID,
   createEntity,
@@ -191,6 +191,14 @@ export function placeTreeRows(
   return rows;
 }
 
+/** Einzug einer Zeile im Baum der Orte in Pixeln; ab der fünften Ebene nur noch halb so weit. */
+export function treeIndent(depth: number): number {
+  return 6 + Math.min(depth, 4) * 16 + Math.max(0, depth - 4) * 8;
+}
+
+/** So viele Zeilen zeigt eine Gruppe der Besetzung, bevor sie „weitere anzeigen“ anbietet. */
+export const CAST_PREVIEW = 8;
+
 /** Klappt alle übergeordneten Orte auf, damit `placeId` im Baum sichtbar ist. */
 export function openAncestors(
   data: CampaignData,
@@ -200,6 +208,32 @@ export function openAncestors(
   const next = { ...openState };
   for (const ancestor of placeAncestors(data, placeId)) next[ancestor.id] = true;
   return next;
+}
+
+export type ListMove = 'up' | 'down' | 'first' | 'last';
+
+/** Welche Taste in der Übersicht wohin führt; null = keine Bewegung. */
+export function listKeyMove(key: string): ListMove | null {
+  switch (key) {
+    case 'ArrowDown':
+      return 'down';
+    case 'ArrowUp':
+      return 'up';
+    case 'Home':
+      return 'first';
+    case 'End':
+      return 'last';
+    default:
+      return null;
+  }
+}
+
+/** Zeile, die nach einer Bewegung den Fokus bekommt; an den Enden bleibt er stehen. */
+export function nextRowIndex(index: number, count: number, move: ListMove): number {
+  if (count <= 0) return -1;
+  if (move === 'first') return 0;
+  if (move === 'last') return count - 1;
+  return Math.min(count - 1, Math.max(0, index + (move === 'down' ? 1 : -1)));
 }
 
 /** Unterzeile eines Eintrags in Listen: das Wichtigste in wenigen Wörtern. */
@@ -246,6 +280,8 @@ export interface Fact {
   text?: string;
   /** Verweise auf Einträge; mehrere werden als Pfad mit „›“ dargestellt. */
   ids?: string[];
+  /** So viele Ebenen des Pfades sind nach dem ersten Verweis ausgelassen. */
+  skipped?: number;
   /** Hebt den Wert hervor, z. B. „Tot“. */
   tone?: 'danger';
 }
@@ -269,7 +305,7 @@ export function entityFacts(data: CampaignData, entity: Entity): Fact[] {
     }
     case 'place': {
       const above = placeAncestors(data, entity.id).reverse();
-      if (above.length) facts.push({ label: 'Liegt in', ids: above.map((p) => p.id) });
+      if (above.length) facts.push({ label: 'Liegt in', ...shortPath(above.map((p) => p.id)) });
       text('Art', entity.place.category);
       break;
     }
@@ -294,6 +330,15 @@ export function entityFacts(data: CampaignData, entity: Entity): Fact[] {
   return facts;
 }
 
+/** Sehr lange Namen stehen im Kopf des Dossiers eine Stufe kleiner, damit sie ihn nicht sprengen. */
+export const isLongName = (name: string) => name.trim().length > 36;
+
+/** Kürzt einen langen Pfad auf die oberste und die nächstgelegenen Ebenen. */
+export function shortPath(ids: string[], max = 4): { ids: string[]; skipped?: number } {
+  if (ids.length <= max) return { ids };
+  return { ids: [ids[0]!, ...ids.slice(-(max - 1))], skipped: ids.length - max };
+}
+
 // ── Dossier: Zeit ──────────────────────────────────────────────────────────
 
 /** Datum ohne Jahr, solange es im laufenden Jahr liegt. */
@@ -312,7 +357,7 @@ export interface VisitInfo {
   /** „3 Tage“ – bei laufendem Besuch die Dauer bis jetzt. */
   duration: string;
   ongoing: boolean;
-  /** „vor 9 Tagen“ */
+  /** Wann die Gruppe zuletzt hier war: Ende des Besuchs, bei laufendem Besuch sein Beginn – „vor 6 Tagen“. */
   ago: string;
 }
 
@@ -325,7 +370,7 @@ export function describeVisit(cal: CalendarDef, now: WorldTime, stay: Stay): Vis
     to: stay.to === null || sameDay ? '' : formatShortDate(cal, now, stay.to),
     duration: formatDuration(Math.max(0, end - stay.from)),
     ongoing: stay.to === null,
-    ago: formatRelative(now, stay.from),
+    ago: formatRelative(now, stay.to ?? stay.from),
   };
 }
 
@@ -372,6 +417,8 @@ export function linkedSubline(
   placeId: string,
   link: PlaceCast['linked'][number],
 ): string {
+  if (link.perspective === 'from' && isOneWay(link.relation))
+    return relationSentence(data, placeId, link.entity.id, link.relation);
   const label = relationLabel(link.relation, link.perspective === 'from' ? 'to' : 'from');
   return `${label} ${entityName(data, placeId)}`;
 }
@@ -415,7 +462,10 @@ export function factionMembers(data: CampaignData, factionId: string): Member[] 
     members.set(entity.id, {
       entity,
       relation,
-      label: relationLabel(relation, outgoing ? 'from' : 'to'),
+      label:
+        !outgoing && isOneWay(relation)
+          ? relationSentence(data, relation.from, relation.to, relation)
+          : relationLabel(relation, outgoing ? 'from' : 'to'),
     });
   }
   const rank = (m: Member) => (m.relation.type === 'leads' && m.relation.to === factionId ? 0 : 1);
@@ -439,7 +489,10 @@ export interface RelationRow {
   entity: Entity | undefined;
   outgoing: Relation | null;
   incoming: Relation | null;
-  /** Bezeichnung aus Sicht dieses Eintrags: „führt“, „wird gefürchtet von“. */
+  /**
+   * Bezeichnung aus Sicht dieses Eintrags: „führt“, „wird gefürchtet von“. Bei einer eigenen
+   * Bezeichnung, die vom Gegenüber ausgeht, der ganze Satz: „Voss erpresst Maera“.
+   */
   label: string;
   /** Bezeichnung aus Sicht des Gegenübers. */
   inverseLabel: string;
@@ -460,15 +513,24 @@ export function relationRows(data: CampaignData, entityId: string): RelationRow[
       outgoing && (outgoing.type !== 'knows' || !incoming || incoming.type === 'knows')
         ? outgoing
         : (incoming ?? outgoing);
+    // Eine eigene Bezeichnung („erpresst“) gilt nur in ihrer Richtung. Vom Gegenüber aus gesehen
+    // steht deshalb der ganze Satz da, sonst läse sie sich verkehrt herum.
+    const spelledOut =
+      telling !== outgoing && isOneWay(telling!)
+        ? relationSentence(data, pair.otherId, entityId, telling!)
+        : null;
     return {
       otherId: pair.otherId,
       name: entityName(data, pair.otherId),
       entity: data.entities[pair.otherId],
       outgoing,
       incoming,
-      label: telling === outgoing ? relationLabel(telling!, 'from') : relationLabel(telling!, 'to'),
+      label:
+        spelledOut ??
+        (telling === outgoing ? relationLabel(telling!, 'from') : relationLabel(telling!, 'to')),
       inverseLabel:
-        telling === outgoing ? relationLabel(telling!, 'to') : relationLabel(telling!, 'from'),
+        spelledOut ??
+        (telling === outgoing ? relationLabel(telling!, 'to') : relationLabel(telling!, 'from')),
       ended: present.every((r) => r.ended),
       secret: present.some((r) => r.secret),
       notes: present.map((r) => r.note.trim()).filter(Boolean),
@@ -476,6 +538,9 @@ export function relationRows(data: CampaignData, entityId: string): RelationRow[
   });
   return [...rows.filter((r) => !r.ended), ...rows.filter((r) => r.ended)];
 }
+
+/** Eigene Bezeichnungen haben keine Umkehrung; sie lassen sich nur von ihrem Ausgangspunkt aus lesen. */
+const isOneWay = (relation: { type: string }) => relationType(relation.type).key === 'custom';
 
 /** „Maera Duskryn führt Haus Duskryn“ */
 export function relationSentence(
@@ -518,6 +583,21 @@ export function relationDraftChanged(draft: RelationDraft, relation?: Relation |
     draft.secret !== base.secret ||
     draft.ended !== base.ended
   );
+}
+
+/**
+ * Wird diese Richtung beim Speichern geschrieben? Geändertes immer. Unverändertes nur, wenn
+ * zwischen den beiden noch gar nichts besteht: Dann entsteht die Beziehung, die im Dialog gerade
+ * zu sehen ist, auch mit den Vorgaben („kennt“). Eine leere Gegenrichtung, in die man nur
+ * hineingesehen hat, bleibt leer.
+ */
+export function savesDirection(
+  draft: RelationDraft,
+  current: Relation | null | undefined,
+  context: { active: boolean; pairExists: boolean },
+): boolean {
+  if (relationDraftChanged(draft, current)) return true;
+  return !current && context.active && !context.pairExists;
 }
 
 /** Die Gruppe kann nur Ziel einer Beziehung sein, nie ihr Ausgangspunkt. */
@@ -691,6 +771,13 @@ export function draftOf(entity: WorldEntity): EntityDraft {
     case 'topic':
       return { ...draft, ...entity.topic };
   }
+}
+
+/** Wurde im Dialog etwas eingetragen oder geändert? Die gewählte Art allein zählt nicht. */
+export function draftChanged(draft: EntityDraft, baseline: EntityDraft): boolean {
+  return (Object.keys(baseline) as (keyof EntityDraft)[]).some(
+    (key) => key !== 'kind' && draft[key] !== baseline[key],
+  );
 }
 
 /** Prüft den Entwurf; gibt eine Meldung zurück oder null, wenn gespeichert werden kann. */

@@ -1,1 +1,5 @@
-{ "message": "Rate limit exceeded", "code": "RATE_LIMITED", "requestId": "req_beispiel_000000000429" }
+{
+  "message": "Rate limit exceeded",
+  "code": "RATE_LIMITED",
+  "requestId": "req_beispiel_000000000429"
+}

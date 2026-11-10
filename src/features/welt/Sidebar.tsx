@@ -1,27 +1,29 @@
 /** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ChevronRight, Footprints, Plus, Search, X } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
 import { AttitudeBadge, Button, EmptyState, IconButton, Input, KindIcon, cx } from '../../ui';
 import { openEntityDialog } from './editor';
+import { getKindFilter, setKindFilter, useKindFilter } from './overview';
 import {
   WORLD_KINDS,
   entitySubline,
+  listKeyMove,
+  nextRowIndex,
   openAncestors,
   partyAttitudes,
   placeTreeRows,
   searchWorld,
+  treeIndent,
   worldCounts,
-  type KindFilter,
   type WorldEntity,
   type WorldKind,
 } from './model';
 
-/** Merkt sich Filter, Suche und aufgeklappte Orte, solange die App läuft. */
-const memory: { filter: KindFilter; query: string; open: Record<string, boolean> } = {
-  filter: 'all',
+/** Merkt sich Suche und aufgeklappte Orte, solange die App läuft. */
+const memory: { query: string; open: Record<string, boolean> } = {
   query: '',
   open: {},
 };
@@ -37,27 +39,31 @@ const EMPTY_HINT: Record<WorldKind, string> = {
 export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const data = useData();
   const [, navigate] = useLocation();
-  const [filter, setFilter] = useState<KindFilter>(memory.filter);
+  const filter = useKindFilter();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
   const list = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const dataRef = useRef(data);
   dataRef.current = data;
 
   useEffect(() => {
-    memory.filter = filter;
     memory.query = query;
     memory.open = open;
-  }, [filter, query, open]);
+  }, [query, open]);
 
   // Der gewählte Eintrag soll in der Übersicht zu sehen sein.
   const selectedId = selected?.id;
   const selectedKind = selected?.kind;
   useEffect(() => {
     if (!selectedId || !selectedKind) return;
-    setFilter((f) => (f === 'all' || f === selectedKind ? f : 'all'));
+    if (getKindFilter() !== selectedKind) setKindFilter('all');
     if (selectedKind === 'place') setOpen((o) => openAncestors(dataRef.current, selectedId, o));
   }, [selectedId, selectedKind]);
+  // Eine neue Suche oder ein anderer Filter beginnt oben.
+  useEffect(() => {
+    list.current?.scrollTo(0, 0);
+  }, [query, filter]);
   // Erst rollen, wenn die Zeile nach dem Aufklappen wirklich da ist – und nur nach einer neuen Auswahl.
   const scrollPending = useRef(true);
   useEffect(() => {
@@ -84,12 +90,40 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const create = (preset?: { name: string }) =>
     openEntityDialog({ mode: 'create', kind: createKind, preset });
 
+  /** Pfeiltasten wandern durch die Übersicht; links und rechts klappen Orte zu und auf. */
+  const rowLinks = () =>
+    Array.from(list.current?.querySelectorAll<HTMLAnchorElement>('a.wf-welt-row') ?? []);
+  const onListKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const link = (e.target as HTMLElement).closest<HTMLAnchorElement>('a.wf-welt-row');
+    if (!link) return;
+    const move = listKeyMove(e.key);
+    if (move !== null) {
+      e.preventDefault();
+      const links = rowLinks();
+      const index = links.indexOf(link);
+      if (move === 'up' && index === 0) search.current?.focus();
+      else links[nextRowIndex(index, links.length, move)]?.focus();
+      return;
+    }
+    const placeId = link.dataset.place;
+    const branch = link.dataset.open;
+    if (!placeId || branch === undefined) return;
+    if (
+      (e.key === 'ArrowRight' && branch === 'false') ||
+      (e.key === 'ArrowLeft' && branch === 'true')
+    ) {
+      e.preventDefault();
+      setOpen((o) => ({ ...o, [placeId]: branch === 'false' }));
+    }
+  };
+
   const row = (entity: WorldEntity, withKind: boolean): ReactNode => (
     <Link
       key={entity.id}
       href={`/welt/${entity.id}`}
       className="wf-welt-row"
       aria-current={entity.id === selectedId ? 'page' : undefined}
+      title={entity.name}
     >
       <span className="wf-welt-row__icon">
         {entity.image ? <img src={entity.image} alt="" /> : <KindIcon kind={entity.kind} />}
@@ -111,7 +145,11 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const places = (
     <div className="wf-welt-tree">
       {tree.map(({ place, depth, childCount, open: isOpen, partyHere, partyBelow }) => (
-        <div key={place.id} className="wf-welt-tree__row" style={{ paddingLeft: 6 + depth * 16 }}>
+        <div
+          key={place.id}
+          className="wf-welt-tree__row"
+          style={{ paddingLeft: treeIndent(depth) }}
+        >
           {childCount > 0 ? (
             <button
               type="button"
@@ -129,6 +167,9 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
             href={`/welt/${place.id}`}
             className="wf-welt-row wf-welt-row--place"
             aria-current={place.id === selectedId ? 'page' : undefined}
+            title={place.name}
+            data-place={place.id}
+            data-open={childCount > 0 ? isOpen : undefined}
           >
             <span className="wf-welt-row__name wf-clamp-1">{place.name}</span>
             <span className="wf-welt-row__sub wf-clamp-1">
@@ -165,13 +206,17 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
         <div className="wf-welt-search">
           <Search />
           <Input
+            ref={search}
             value={query}
             placeholder="Suchen …"
             aria-label="In der Welt suchen"
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && hits[0]) navigate(`/welt/${hits[0].id}`);
-              else if (e.key === 'Escape' && query) {
+              else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                rowLinks()[0]?.focus();
+              } else if (e.key === 'Escape' && query) {
                 e.preventDefault();
                 setQuery('');
               }
@@ -190,7 +235,7 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
               type="button"
               role="tab"
               aria-selected={filter === kind}
-              onClick={() => setFilter(kind)}
+              onClick={() => setKindFilter(kind)}
             >
               {kind === 'all' ? 'Alle' : KIND_LABEL_PLURAL[kind]}
               <span>{kind === 'all' ? total : counts[kind]}</span>
@@ -199,7 +244,7 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
         </div>
       </div>
 
-      <div className="wf-welt-side__list" ref={list}>
+      <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {searching ? (
           hits.length ? (
             <>

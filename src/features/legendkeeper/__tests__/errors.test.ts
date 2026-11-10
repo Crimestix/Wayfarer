@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LkError, appSentence, describeError, parseRetryAfter, readResponse, transportError, type LkErrorKind } from '../errors';
+import {
+  LkError,
+  appSentence,
+  describeError,
+  parseRetryAfter,
+  readResponse,
+  transportError,
+  type LkErrorKind,
+} from '../errors';
 import { fixtureText } from './fixtures';
 
 const kindOf = (run: () => unknown): LkErrorKind | 'kein Fehler' => {
@@ -19,8 +27,14 @@ describe('Antworten der API auswerten', () => {
 
   it('unterscheidet abgelehnten Key, fehlende Rechte und fehlenden Tarif', () => {
     expect(kindOf(() => readResponse(401, fixtureText('error-401.json')))).toBe('unauthorized');
-    expect(kindOf(() => readResponse(403, '{"message":"x","code":"WRONG_PROJECT","requestId":"r"}'))).toBe('forbidden');
-    expect(kindOf(() => readResponse(402, '{"message":"x","code":"PAID_PLAN_REQUIRED","requestId":"r"}'))).toBe('plan');
+    expect(
+      kindOf(() => readResponse(403, '{"message":"x","code":"WRONG_PROJECT","requestId":"r"}')),
+    ).toBe('forbidden');
+    expect(
+      kindOf(() =>
+        readResponse(402, '{"message":"x","code":"PAID_PLAN_REQUIRED","requestId":"r"}'),
+      ),
+    ).toBe('plan');
   });
 
   it('erkennt „gibt es nicht“ nur, wenn die API es selbst sagt', () => {
@@ -49,10 +63,14 @@ describe('Antworten der API auswerten', () => {
   });
 
   it('ordnet Störungen und Zeitüberschreitungen des Servers ein', () => {
-    expect(kindOf(() => readResponse(500, '{"message":"x","code":"INTERNAL","requestId":"r"}'))).toBe('server');
+    expect(
+      kindOf(() => readResponse(500, '{"message":"x","code":"INTERNAL","requestId":"r"}')),
+    ).toBe('server');
     expect(kindOf(() => readResponse(503, ''))).toBe('server');
     expect(kindOf(() => readResponse(504, ''))).toBe('timeout');
-    expect(kindOf(() => readResponse(400, '{"message":"x","code":"KIND_MISMATCH","requestId":"r"}'))).toBe('unexpected');
+    expect(
+      kindOf(() => readResponse(400, '{"message":"x","code":"KIND_MISMATCH","requestId":"r"}')),
+    ).toBe('unexpected');
   });
 
   it('liest „Retry-After“ nur als Sekundenzahl', () => {
@@ -66,28 +84,50 @@ describe('Antworten der API auswerten', () => {
 
 describe('Fehler ohne Antwort einordnen', () => {
   it('versteht die Sätze der App-Seite', () => {
-    expect(transportError('Es ist noch kein LegendKeeper-Key hinterlegt.').kind).toBe('not-configured');
-    expect(transportError('LegendKeeper hat nicht rechtzeitig geantwortet. Bitte später erneut versuchen.').kind).toBe('timeout');
-    expect(transportError('LegendKeeper ist nicht erreichbar. Besteht eine Internetverbindung?').kind).toBe('offline');
+    expect(transportError('Es ist noch kein LegendKeeper-Key hinterlegt.').kind).toBe(
+      'not-configured',
+    );
+    expect(
+      transportError(
+        'LegendKeeper hat nicht rechtzeitig geantwortet. Bitte später erneut versuchen.',
+      ).kind,
+    ).toBe('timeout');
+    expect(
+      transportError('LegendKeeper ist nicht erreichbar. Besteht eine Internetverbindung?').kind,
+    ).toBe('offline');
   });
 
   it('reicht einen unbekannten Satz der App-Seite zur Anzeige weiter', () => {
-    const error = transportError('Die Antwort von LegendKeeper ist unerwartet groß und wurde verworfen.');
+    const error = transportError(
+      'Die Antwort von LegendKeeper ist unerwartet groß und wurde verworfen.',
+    );
     expect(error.kind).toBe('offline');
     expect(describeError(error).text).toContain('unerwartet groß');
   });
 
   it('versteht dieselben Sätze, wenn sie als Error ankommen', () => {
-    expect(transportError(new Error('Es ist noch kein LegendKeeper-Key hinterlegt.')).kind).toBe('not-configured');
-    expect(transportError(new Error('LegendKeeper hat nicht rechtzeitig geantwortet.')).kind).toBe('timeout');
-    const other = transportError(new Error('Auf diesem System steht kein Schlüsselbund zur Verfügung.'));
+    expect(transportError(new Error('Es ist noch kein LegendKeeper-Key hinterlegt.')).kind).toBe(
+      'not-configured',
+    );
+    expect(transportError(new Error('LegendKeeper hat nicht rechtzeitig geantwortet.')).kind).toBe(
+      'timeout',
+    );
+    const other = transportError(
+      new Error('Auf diesem System steht kein Schlüsselbund zur Verfügung.'),
+    );
     expect(other.kind).toBe('offline');
-    expect(describeError(other).text).toBe('Auf diesem System steht kein Schlüsselbund zur Verfügung.');
+    expect(describeError(other).text).toBe(
+      'Auf diesem System steht kein Schlüsselbund zur Verfügung.',
+    );
   });
 
   it('erkennt den Satz der App-Seite, aber nicht Fehler des Browsers', () => {
-    expect(appSentence('  Bitte den LegendKeeper-Key eingeben. ')).toBe('Bitte den LegendKeeper-Key eingeben.');
-    expect(appSentence(new Error('Bitte den LegendKeeper-Key eingeben.'))).toBe('Bitte den LegendKeeper-Key eingeben.');
+    expect(appSentence('  Bitte den LegendKeeper-Key eingeben. ')).toBe(
+      'Bitte den LegendKeeper-Key eingeben.',
+    );
+    expect(appSentence(new Error('Bitte den LegendKeeper-Key eingeben.'))).toBe(
+      'Bitte den LegendKeeper-Key eingeben.',
+    );
     expect(appSentence(new TypeError('x is not a function'))).toBeUndefined();
     expect(appSentence(new LkError('timeout'))).toBeUndefined();
     expect(appSentence('')).toBeUndefined();
@@ -108,8 +148,18 @@ describe('Fehler ohne Antwort einordnen', () => {
 
 describe('Fehler erklären', () => {
   const kinds: LkErrorKind[] = [
-    'not-configured', 'preview', 'unauthorized', 'forbidden', 'plan', 'not-found', 'rate-limited',
-    'offline', 'timeout', 'server', 'unexpected', 'aborted',
+    'not-configured',
+    'preview',
+    'unauthorized',
+    'forbidden',
+    'plan',
+    'not-found',
+    'rate-limited',
+    'offline',
+    'timeout',
+    'server',
+    'unexpected',
+    'aborted',
   ];
 
   it('hat für jeden Fehler Überschrift und ganzen Satz', () => {
@@ -128,13 +178,19 @@ describe('Fehler erklären', () => {
   });
 
   it('nennt die Wartezeit bei zu vielen Anfragen', () => {
-    expect(describeError(new LkError('rate-limited', { retryAfterSec: 30 })).text).toContain('in 30 Sekunden');
-    expect(describeError(new LkError('rate-limited', { retryAfterSec: 240 })).text).toContain('4 Minuten');
+    expect(describeError(new LkError('rate-limited', { retryAfterSec: 30 })).text).toContain(
+      'in 30 Sekunden',
+    );
+    expect(describeError(new LkError('rate-limited', { retryAfterSec: 240 })).text).toContain(
+      '4 Minuten',
+    );
     expect(describeError(new LkError('rate-limited')).text).toContain('etwa einer Minute');
   });
 
   it('erklärt einen Key aus einem anderen Projekt eigens', () => {
-    expect(describeError(new LkError('forbidden', { code: 'WRONG_PROJECT' })).text).toContain('anderen LegendKeeper-Projekt');
+    expect(describeError(new LkError('forbidden', { code: 'WRONG_PROJECT' })).text).toContain(
+      'anderen LegendKeeper-Projekt',
+    );
   });
 
   it('rät bei einem verschwundenen Artikel zum Neuverknüpfen', () => {

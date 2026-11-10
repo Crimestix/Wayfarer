@@ -1,15 +1,71 @@
 {
   "data": [
     {
-      "resource": { "id": "dornhafn", "name": "Dornhafen", "iconGlyph": "fas fa-anchor", "iconColor": "#C9A35B", "parentId": "nebelkst", "tags": ["Stadt", "Hafen"], "path": [{ "id": "weltelar", "name": "Elaris" }, { "id": "nebelkst", "name": "Nebelküste" }], "iconShape": "shield" }
+      "resource": {
+        "id": "dornhafn",
+        "name": "Dornhafen",
+        "iconGlyph": "fas fa-anchor",
+        "iconColor": "#C9A35B",
+        "parentId": "nebelkst",
+        "tags": ["Stadt", "Hafen"],
+        "path": [
+          { "id": "weltelar", "name": "Elaris" },
+          { "id": "nebelkst", "name": "Nebelküste" }
+        ],
+        "iconShape": "shield"
+      }
     },
     {
-      "resource": { "id": "lotsenbr", "name": "Bruderschaft der Lotsen", "iconGlyph": "fas fa-ship", "iconColor": "#5FA39A", "parentId": "dornhafn", "tags": ["Fraktion", "Gilde"], "path": [{ "id": "weltelar", "name": "Elaris" }, { "id": "nebelkst", "name": "Nebelküste" }, { "id": "dornhafn", "name": "Dornhafen" }], "iconShape": "pin" },
-      "document": { "id": "doclots1", "name": "Main", "highlights": [{ "segment": "Ohne einen Lotsen der Bruderschaft läuft kein Schiff in Dornhafen ein.", "index": 0, "matchStart": 56, "matchEnd": 65 }], "isSolo": true }
+      "resource": {
+        "id": "lotsenbr",
+        "name": "Bruderschaft der Lotsen",
+        "iconGlyph": "fas fa-ship",
+        "iconColor": "#5FA39A",
+        "parentId": "dornhafn",
+        "tags": ["Fraktion", "Gilde"],
+        "path": [
+          { "id": "weltelar", "name": "Elaris" },
+          { "id": "nebelkst", "name": "Nebelküste" },
+          { "id": "dornhafn", "name": "Dornhafen" }
+        ],
+        "iconShape": "pin"
+      },
+      "document": {
+        "id": "doclots1",
+        "name": "Main",
+        "highlights": [
+          {
+            "segment": "Ohne einen Lotsen der Bruderschaft läuft kein Schiff in Dornhafen ein.",
+            "index": 0,
+            "matchStart": 56,
+            "matchEnd": 65
+          }
+        ],
+        "isSolo": true
+      }
     },
     {
-      "resource": { "id": "weltelar", "name": "Elaris", "iconGlyph": "fas fa-globe", "iconColor": "#C9A35B", "parentId": null, "tags": ["Welt"] },
-      "document": { "id": "docwelt1", "name": "Main", "highlights": [{ "segment": "Die größte Stadt der Nebelküste ist Dornhafen, ein Freihafen unter der Hand des Hauses Duskryn.", "index": 0, "matchStart": 36, "matchEnd": 45 }], "isSolo": true }
+      "resource": {
+        "id": "weltelar",
+        "name": "Elaris",
+        "iconGlyph": "fas fa-globe",
+        "iconColor": "#C9A35B",
+        "parentId": null,
+        "tags": ["Welt"]
+      },
+      "document": {
+        "id": "docwelt1",
+        "name": "Main",
+        "highlights": [
+          {
+            "segment": "Die größte Stadt der Nebelküste ist Dornhafen, ein Freihafen unter der Hand des Hauses Duskryn.",
+            "index": 0,
+            "matchStart": 36,
+            "matchEnd": 45
+          }
+        ],
+        "isSolo": true
+      }
     }
   ]
 }

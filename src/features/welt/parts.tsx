@@ -1,5 +1,5 @@
 /** Kleine Bausteine, die mehrere Teile des Dossiers verwenden. */
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import { Eye, Pencil } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -11,13 +11,17 @@ import {
   AttitudeBadge,
   Button,
   EntityLink,
+  EntityPicker,
   IconButton,
   Portrait,
   SectionTitle,
   TextArea,
   cx,
   entityHref,
+  toast,
+  type EntityPickerProps,
 } from '../../ui';
+import { patchEntityIfPresent } from './actions';
 import { entitySubline, formatShortDate, type Fact, type WorldEntity } from './model';
 
 /** CSS-Farbe einer Haltungsstufe. */
@@ -92,6 +96,18 @@ export function Facts({ facts }: { facts: Fact[] }) {
             {fact.ids?.map((id, i) => (
               <span key={id}>
                 {i > 0 && <span className="wf-welt-fact__sep"> › </span>}
+                {i === 1 && !!fact.skipped && (
+                  <span
+                    className="wf-welt-fact__sep"
+                    title={
+                      fact.skipped === 1
+                        ? 'Eine Ebene dazwischen'
+                        : `${fact.skipped} Ebenen dazwischen`
+                    }
+                  >
+                    … ›{' '}
+                  </span>
+                )}
                 <EntityLink id={id} icon={false} />
               </span>
             ))}
@@ -99,6 +115,26 @@ export function Facts({ facts }: { facts: Fact[] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * Auswahl eines Eintrags, die nach der Wahl den Fokus behält. Ohne das stünde der Fokus danach
+ * im Leeren, und Tab oder Strg+Eingabe griffen im Dialog nicht mehr.
+ */
+export function Picker(props: EntityPickerProps) {
+  const box = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={box} className="wf-welt-picker">
+      <EntityPicker
+        {...props}
+        onChange={(id) => {
+          props.onChange(id);
+          // Sofort, solange das Suchfeld der Auswahl noch da ist – so springt der Fokus nie ins Leere.
+          box.current?.querySelector<HTMLElement>('.wf-picker__value')?.focus();
+        }}
+      />
+    </div>
   );
 }
 
@@ -158,10 +194,26 @@ export function UpcomingList({ occurrences }: { occurrences: Occurrence[] }) {
   );
 }
 
-/** Text, der an Ort und Stelle bearbeitet werden kann: Strg+Eingabe speichert, Escape verwirft. */
-function useInlineText(value: string, onSave: (text: string) => void) {
+/**
+ * Text, der an Ort und Stelle bearbeitet werden kann: Strg+Eingabe speichert, Escape verwirft.
+ * Wer mitten im Schreiben woandershin klickt, verliert nichts – dann ruft der Baustein `onLeave`.
+ */
+function useInlineText(
+  value: string,
+  onSave: (text: string) => void,
+  onLeave: (text: string) => void,
+) {
   const [draft, setDraft] = useState<string | null>(null);
   const editing = draft !== null;
+  const latest = useRef({ draft, value, onLeave });
+  latest.current = { draft, value, onLeave };
+  useEffect(
+    () => () => {
+      const { draft, value, onLeave } = latest.current;
+      if (draft !== null && draft.trim() !== value) onLeave(draft.trim());
+    },
+    [],
+  );
   const start = () => setDraft(value);
   const cancel = () => setDraft(null);
   const save = () => {
@@ -202,8 +254,13 @@ function useInlineText(value: string, onSave: (text: string) => void) {
 
 export function NotesSection({ entity }: { entity: WorldEntity }) {
   const db = useDb();
-  const { editing, start, editor } = useInlineText(entity.notes, (notes) =>
-    db.put('entities', { ...entity, notes }),
+  const { editing, start, editor } = useInlineText(
+    entity.notes,
+    (notes) => patchEntityIfPresent(db, entity.id, { notes }),
+    (notes) => {
+      if (patchEntityIfPresent(db, entity.id, { notes }))
+        toast({ title: 'Notizen gespeichert', body: entity.name });
+    },
   );
   return (
     <Section
@@ -238,8 +295,13 @@ export function NotesSection({ entity }: { entity: WorldEntity }) {
 /** Spielleiterwissen: deutlich abgesetzt, damit es nie mit Vorlesbarem verwechselt wird. */
 export function SecretSection({ entity }: { entity: WorldEntity }) {
   const db = useDb();
-  const { editing, start, editor } = useInlineText(entity.secret, (secret) =>
-    db.put('entities', { ...entity, secret }),
+  const { editing, start, editor } = useInlineText(
+    entity.secret,
+    (secret) => patchEntityIfPresent(db, entity.id, { secret }),
+    (secret) => {
+      if (patchEntityIfPresent(db, entity.id, { secret }))
+        toast({ title: 'Geheimnis gespeichert', body: entity.name });
+    },
   );
   const empty = !entity.secret && !editing;
   return (

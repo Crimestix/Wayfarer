@@ -26,7 +26,11 @@
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.36));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-void) 22%, transparent),
+    color-mix(in srgb, var(--bg-void) 36%, transparent)
+  );
 }
 .wf-welt-side__head {
   display: flex;
@@ -99,7 +103,11 @@
 }
 .wf-welt-filter button[aria-selected='true'] {
   color: var(--gold-bright);
-  background: linear-gradient(180deg, rgba(201, 163, 91, 0.16), rgba(201, 163, 91, 0.06));
+  background: linear-gradient(
+    180deg,
+    var(--gold-glow),
+    color-mix(in srgb, var(--gold) 6%, transparent)
+  );
   box-shadow: inset 0 -1px 0 var(--gold);
 }
 .wf-welt-filter button[aria-selected='true'] span {
@@ -151,10 +159,14 @@
   transition: background 0.12s var(--ease);
 }
 .wf-welt-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 .wf-welt-row[aria-current='page'] {
-  background: linear-gradient(90deg, rgba(201, 163, 91, 0.16), rgba(201, 163, 91, 0.03));
+  background: linear-gradient(
+    90deg,
+    var(--gold-glow),
+    color-mix(in srgb, var(--gold) 3%, transparent)
+  );
   box-shadow: inset 2px 0 0 var(--gold);
 }
 .wf-welt-row[aria-current='page'] .wf-welt-row__name {
@@ -255,7 +267,7 @@
   align-self: center;
   display: grid;
   color: var(--gold-bright);
-  filter: drop-shadow(0 0 5px rgba(201, 163, 91, 0.5));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) 50%, transparent));
 }
 .wf-welt-row__party svg {
   width: 14px;
@@ -360,7 +372,11 @@
   font-size: var(--text-3xl);
   line-height: 1.04;
   overflow-wrap: anywhere;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 18px color-mix(in srgb, var(--bg-void) 60%, transparent);
+}
+.wf-welt-hero__name.wf-welt-hero__name--long {
+  font-size: var(--text-2xl);
+  line-height: 1.1;
 }
 .wf-welt-hero__alias {
   margin-top: 2px;
@@ -397,7 +413,7 @@
   gap: var(--s-2);
 }
 .wf-welt-hero__actions .wf-btn--icon:hover:not(:disabled) {
-  border-color: #6d2a26;
+  border-color: color-mix(in srgb, var(--blood) 65%, var(--bg-0));
   background: var(--blood-wash);
   color: var(--blood-bright);
 }
@@ -520,7 +536,7 @@
   gap: var(--s-5);
   padding: var(--s-4);
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, #171311 0%, #110e0d 100%);
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
   box-shadow: var(--shadow-raised);
 }
 .wf-welt-cols__side::before,
@@ -560,6 +576,9 @@
   }
   .wf-welt-hero__name {
     font-size: 2.3rem;
+  }
+  .wf-welt-hero__name.wf-welt-hero__name--long {
+    font-size: 1.75rem;
   }
   .wf-welt-hero__wide {
     display: none;
@@ -676,7 +695,11 @@
   border-bottom: 0;
 }
 .wf-welt-entry:hover {
-  background: linear-gradient(90deg, rgba(201, 163, 91, 0.09), transparent 80%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gold) 9%, transparent),
+    transparent 80%
+  );
 }
 .wf-welt-entry:hover .wf-welt-entry__name {
   color: var(--gold-bright);
@@ -730,6 +753,11 @@
   color: var(--ink-faint);
 }
 
+.wf-welt-cast__more {
+  align-self: flex-start;
+  margin-top: var(--s-1);
+}
+
 /* Die Gruppe an diesem Ort */
 .wf-welt-party {
   display: flex;
@@ -745,7 +773,7 @@
 }
 .wf-welt-party[data-here='true'] > svg {
   color: var(--gold-bright);
-  filter: drop-shadow(0 0 8px rgba(201, 163, 91, 0.45));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gold) 45%, transparent));
 }
 .wf-welt-party__state {
   font-family: var(--font-display);
@@ -759,6 +787,29 @@
 .wf-welt-party__sub {
   font-size: var(--text-sm);
   color: var(--ink-mute);
+}
+.wf-welt-party__changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--text-sm);
+  color: var(--ember);
+  text-align: left;
+}
+.wf-welt-party__changes:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-party__changes svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.wf-welt-sec--changes {
+  scroll-margin-top: var(--s-4);
 }
 .wf-welt-party__move {
   align-self: stretch;
@@ -879,7 +930,7 @@
   flex-direction: column;
   gap: var(--s-2);
   padding: var(--s-3) var(--s-4) var(--s-4);
-  border: 1px solid #4a201d;
+  border: 1px solid color-mix(in srgb, var(--blood) 42%, var(--bg-0));
   border-left: 3px solid var(--blood);
   background: linear-gradient(90deg, var(--blood-wash), transparent 70%), var(--bg-inset);
 }
@@ -973,6 +1024,7 @@
 }
 .wf-welt-rel__inverse {
   color: var(--ink-faint);
+  white-space: nowrap;
 }
 .wf-welt-rel__name {
   display: flex;
@@ -1111,7 +1163,7 @@
   margin-top: var(--s-2);
   font-size: 3.4rem;
   line-height: 1.05;
-  background: linear-gradient(180deg, #f6e7c2, #b9965a);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1130,17 +1182,22 @@
   gap: 1px;
 }
 .wf-welt-count {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+}
+.wf-welt-count__show {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: var(--s-4) var(--s-2) var(--s-3);
+  padding: var(--s-4) var(--s-2) var(--s-1);
   border: 0;
-  background: linear-gradient(180deg, #171311, #110e0d);
+  background: none;
   transition: background 0.15s var(--ease);
 }
-.wf-welt-count > svg {
+.wf-welt-count__show > svg {
   width: 18px;
   height: 18px;
   stroke-width: 1.4;
@@ -1164,21 +1221,33 @@
 .wf-welt-count__add {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  margin-top: 4px;
+  padding: 4px var(--s-2) var(--s-3);
+  border: 0;
+  background: none;
   font-size: var(--text-xs);
   color: var(--ink-faint);
-  transition: color 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .wf-welt-count__add svg {
   width: 12px;
   height: 12px;
 }
-.wf-welt-count:hover {
+.wf-welt-count__show:hover,
+.wf-welt-count__add:hover {
   background: var(--bg-3);
 }
-.wf-welt-count:hover .wf-welt-count__add {
+.wf-welt-count__show:hover .wf-welt-count__label,
+.wf-welt-count__add:hover {
   color: var(--gold-bright);
+}
+.wf-welt-count__show:focus-visible,
+.wf-welt-count__add:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
 }
 .wf-welt-landing__cols {
   display: grid;
@@ -1229,4 +1298,9 @@
 }
 .wf-welt-side .wf-empty {
   padding: var(--s-6) var(--s-4);
+}
+
+/* Auswahl, die den Fokus behält – der Rahmen selbst nimmt keinen Platz ein. */
+.wf-welt-picker {
+  display: contents;
 }

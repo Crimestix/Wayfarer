@@ -32,7 +32,8 @@ export async function fileToImage(file: File): Promise<string> {
     const webp = canvas.toDataURL('image/webp', 0.86);
     if (webp.startsWith('data:image/webp')) return webp;
     ctx.globalCompositeOperation = 'destination-over';
-    ctx.fillStyle = '#100d0c';
+    ctx.fillStyle =
+      getComputedStyle(document.documentElement).getPropertyValue('--bg-1').trim() || 'black';
     ctx.fillRect(0, 0, size.width, size.height);
     return canvas.toDataURL('image/jpeg', 0.86);
   } finally {

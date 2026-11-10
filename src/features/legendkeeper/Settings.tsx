@@ -4,17 +4,30 @@ import { KeyRound, RefreshCw, Trash2 } from 'lucide-react';
 import { isDesktopApp } from '../../data/platform';
 import { Button, Field, Input, cx, confirmDialog, toast } from '../../ui';
 import { appSentence, describeError } from './errors';
-import { checkConnection, ensureCatalog, removeKey, saveKey, useCatalog, useConnection, type Connection } from './state';
+import {
+  checkConnection,
+  ensureCatalog,
+  removeKey,
+  saveKey,
+  useCatalog,
+  useConnection,
+  type Connection,
+} from './state';
 import { statusView } from './status';
 import './legendkeeper.css';
 
 type Busy = 'save' | 'remove' | 'check' | null;
 
 function report(result: Connection, done: string) {
-  if (result.phase === 'ready') toast({ title: done, body: `Verbunden mit „${result.project.name}“.` });
+  if (result.phase === 'ready')
+    toast({ title: done, body: `Verbunden mit „${result.project.name}“.` });
   else if (result.phase === 'failed') {
     const view = describeError(result.error, 'connection');
-    toast({ title: view.title, body: view.text, tone: view.tone === 'problem' ? 'danger' : 'default' });
+    toast({
+      title: view.title,
+      body: view.text,
+      tone: view.tone === 'problem' ? 'danger' : 'default',
+    });
   }
 }
 
@@ -32,7 +45,10 @@ export function LegendKeeperSettings() {
     error: connection.phase === 'failed' ? connection.error : undefined,
     desktop,
     catalog,
-    checkedAt: connection.phase === 'ready' || connection.phase === 'failed' ? connection.checkedAt : undefined,
+    checkedAt:
+      connection.phase === 'ready' || connection.phase === 'failed'
+        ? connection.checkedAt
+        : undefined,
   });
   const hasKey = connection.hasKey === true;
 
@@ -95,7 +111,11 @@ export function LegendKeeperSettings() {
           <div className="wf-lk-status__text">{status.text}</div>
         </div>
         {(hasKey || !desktop) && (
-          <Button icon={<RefreshCw />} onClick={check} disabled={busy !== null || connection.phase === 'checking'}>
+          <Button
+            icon={<RefreshCw />}
+            onClick={check}
+            disabled={busy !== null || connection.phase === 'checking'}
+          >
             Verbindung prüfen
           </Button>
         )}
@@ -116,7 +136,11 @@ export function LegendKeeperSettings() {
                 type="password"
                 name="legendkeeper-key"
                 value={key}
-                placeholder={hasKey ? 'Neuen Key einfügen, um den hinterlegten zu ersetzen' : 'Key aus LegendKeeper hier einfügen'}
+                placeholder={
+                  hasKey
+                    ? 'Neuen Key einfügen, um den hinterlegten zu ersetzen'
+                    : 'Key aus LegendKeeper hier einfügen'
+                }
                 aria-label="API-Key von LegendKeeper"
                 autoComplete="off"
                 spellCheck={false}
@@ -125,7 +149,12 @@ export function LegendKeeperSettings() {
                   setFormError('');
                 }}
               />
-              <Button type="submit" variant="primary" icon={<KeyRound />} disabled={busy !== null || !key.trim()}>
+              <Button
+                type="submit"
+                variant="primary"
+                icon={<KeyRound />}
+                disabled={busy !== null || !key.trim()}
+              >
                 {busy === 'save' ? 'Wird geprüft …' : 'Speichern und prüfen'}
               </Button>
             </div>
@@ -138,8 +167,9 @@ export function LegendKeeperSettings() {
         </form>
       ) : (
         <div className="wf-lk-settings__notice">
-          Dies ist die Vorschau im Browser. Die Verbindung zu LegendKeeper wird in der installierten App eingerichtet:
-          Nur dort kann der API-Key sicher im Schlüsselbund des Systems liegen. Hier lässt sich kein Key eingeben.
+          Dies ist die Vorschau im Browser. Die Verbindung zu LegendKeeper wird in der installierten
+          App eingerichtet: Nur dort kann der API-Key sicher im Schlüsselbund des Systems liegen.
+          Hier lässt sich kein Key eingeben.
         </div>
       )}
 
@@ -148,7 +178,8 @@ export function LegendKeeperSettings() {
         <ol>
           <li>Öffne dein Projekt in LegendKeeper (legendkeeper.com).</li>
           <li>
-            Gehe in die Projekteinstellungen: <em>Project Settings</em> → <em>Developers</em> → <em>API Keys</em>.
+            Gehe in die Projekteinstellungen: <em>Project Settings</em> → <em>Developers</em> →{' '}
+            <em>API Keys</em>.
           </li>
           <li>Erzeuge dort einen neuen Key und kopiere ihn.</li>
           <li>
@@ -160,18 +191,24 @@ export function LegendKeeperSettings() {
         <ul className="wf-lk-howto__notes">
           <li>Wayfarer liest nur. In LegendKeeper wird nichts angelegt, geändert oder gelöscht.</li>
           <li>
-            Der Key gilt je Gerät: Auf dem Mac und unter Windows trägst du ihn jeweils einmal ein. Im Kampagnenordner
-            steht er nie.
+            Der Key gilt je Gerät: Auf dem Mac und unter Windows trägst du ihn jeweils einmal ein.
+            Im Kampagnenordner steht er nie.
           </li>
           <li>
-            Geheime Abschnitte und verborgene Seiten liefert LegendKeeper nur, wenn der Key Admin-Rechte hat. API-Keys
-            setzen einen bezahlten LegendKeeper-Tarif voraus.
+            Geheime Abschnitte und verborgene Seiten liefert LegendKeeper nur, wenn der Key
+            Admin-Rechte hat. API-Keys setzen einen bezahlten LegendKeeper-Tarif voraus.
           </li>
         </ul>
       </div>
 
       {desktop && hasKey && (
-        <Button className="wf-lk-settings__remove" variant="danger" icon={<Trash2 />} onClick={() => void remove()} disabled={busy !== null}>
+        <Button
+          className="wf-lk-settings__remove"
+          variant="danger"
+          icon={<Trash2 />}
+          onClick={() => void remove()}
+          disabled={busy !== null}
+        >
           Key von diesem Gerät entfernen
         </Button>
       )}

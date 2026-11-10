@@ -649,8 +649,11 @@
 .wf-gruppe-place--away {
   color: var(--ember);
 }
-.wf-gruppe-place--away b {
+.wf-gruppe-place b {
   font-weight: 500;
+}
+.wf-gruppe-place:not(.wf-gruppe-place--away) b {
+  color: var(--ink-soft);
 }
 .wf-gruppe-sheet {
   display: inline-flex;
@@ -1074,15 +1077,18 @@
 .wf-gruppe-languages__remove:hover {
   opacity: 1;
 }
-.wf-gruppe-languages__input {
+/* Das Feld selbst trägt keinen Rahmen – den hat die Liste, in der es steht. */
+.wf-gruppe-languages .wf-gruppe-languages__input {
   flex: 1 1 200px;
   width: auto;
-  min-height: 26px;
+  height: 28px;
+  min-height: 0;
   padding: 0 4px;
   border: 0;
   background: none;
 }
-.wf-gruppe-languages__input:focus {
+.wf-gruppe-languages .wf-gruppe-languages__input:focus {
+  border: 0;
   box-shadow: none;
 }
 .wf-gruppe-form__now {

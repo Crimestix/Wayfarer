@@ -4,14 +4,26 @@
  * Wie die Anbindung arbeitet, steht in API-NOTIZEN.md in diesem Ordner.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation } from 'wouter';
-import { ArrowLeft, BookOpen, CloudOff, KeyRound, Link2, LoaderCircle, MonitorDown, Settings, TriangleAlert, Unlink } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
+import {
+  ArrowLeft,
+  BookOpen,
+  CloudOff,
+  KeyRound,
+  Link2,
+  LoaderCircle,
+  MonitorDown,
+  Settings,
+  TriangleAlert,
+  Unlink,
+} from 'lucide-react';
 import type { LkLink } from '../../domain/schema';
-import { Button, EmptyState, cx, toast } from '../../ui';
+import { Button, EmptyState, KindIcon, cx, entityHref, toast } from '../../ui';
 import type { OpenTarget } from './Article';
 import { ArticleView } from './ArticleView';
 import { describeError, type LkError } from './errors';
 import { Finder } from './Finder';
+import { useLinkedEntries } from './hooks';
 import type { ArticleHead } from './model';
 import { checkConnection, useConnection } from './state';
 import './legendkeeper.css';
@@ -54,17 +66,27 @@ function Unavailable({
   const [, navigate] = useLocation();
   const view = describeError(error, 'article');
   const toSettings = (
-    <Button variant={view.action === 'settings' ? 'primary' : 'default'} icon={<Settings />} onClick={() => navigate(SETTINGS_PATH)}>
+    <Button
+      variant={view.action === 'settings' ? 'primary' : 'default'}
+      icon={<Settings />}
+      onClick={() => navigate(SETTINGS_PATH)}
+    >
       Zu den Einstellungen
     </Button>
   );
   const retry = (
-    <Button variant={view.action === 'retry' && error.kind !== 'not-found' ? 'primary' : 'default'} onClick={onRetry}>
+    <Button
+      variant={view.action === 'retry' && error.kind !== 'not-found' ? 'primary' : 'default'}
+      onClick={onRetry}
+    >
       Erneut versuchen
     </Button>
   );
   return (
-    <div className={cx('wf-lk-state', view.tone === 'problem' && 'wf-lk-state--problem')} role="status">
+    <div
+      className={cx('wf-lk-state', view.tone === 'problem' && 'wf-lk-state--problem')}
+      role="status"
+    >
       <EmptyState
         icon={errorIcon(error)}
         title={view.title}
@@ -86,7 +108,8 @@ function Unavailable({
       {link && error.kind !== 'not-found' && (
         <div className="wf-lk-state__link">
           <span>
-            Verknüpft ist der Artikel <strong>„{link.title || 'ohne Titel'}“</strong>. Die Verknüpfung bleibt erhalten.
+            Verknüpft ist der Artikel <strong>„{link.title || 'ohne Titel'}“</strong>. Die
+            Verknüpfung bleibt erhalten.
           </span>
           {onUnlink && (
             <Button size="sm" variant="ghost" icon={<Unlink />} onClick={onUnlink}>
@@ -113,6 +136,7 @@ export function LkArticlePanel({
   suggest?: string;
 }) {
   const connection = useConnection();
+  const linked = useLinkedEntries();
   /** Artikel, in denen gerade geblättert wird – der letzte ist zu sehen. Leer: der verknüpfte. */
   const [trail, setTrail] = useState<OpenTarget[]>([]);
   /** Titel des gerade angesehenen Artikels, wie LegendKeeper ihn nennt. */
@@ -166,7 +190,12 @@ export function LkArticlePanel({
   if (connection.phase === 'failed') {
     return (
       <div className="wf-lk">
-        <Unavailable error={connection.error} onRetry={() => void checkConnection(true)} link={link} onUnlink={link ? unlink : undefined} />
+        <Unavailable
+          error={connection.error}
+          onRetry={() => void checkConnection(true)}
+          link={link}
+          onUnlink={link ? unlink : undefined}
+        />
       </div>
     );
   }
@@ -175,6 +204,8 @@ export function LkArticlePanel({
   const peek = trail[trail.length - 1];
 
   if (peek) {
+    // Gehört der angesehene Artikel zu einem Eintrag der Weltdatenbank, führt ein Klick dorthin.
+    const owners = linked.get(peek.resourceId) ?? [];
     return (
       <div className="wf-lk">
         <div className="wf-lk-browse">
@@ -189,12 +220,30 @@ export function LkArticlePanel({
             ) : (
               'Nur zur Ansicht – noch nichts verknüpft.'
             )}
+            {owners.length > 0 && (
+              <span className="wf-lk-browse__owners">
+                {' '}
+                In Wayfarer gehört dieser Artikel zu{' '}
+                {owners.map((owner, index) => (
+                  <span key={owner.id}>
+                    {index > 0 && ', '}
+                    <Link href={entityHref(owner)} className="wf-entity-link">
+                      <KindIcon kind={owner.kind} />
+                      {owner.name}
+                    </Link>
+                  </span>
+                ))}
+                .
+              </span>
+            )}
           </span>
           <Button
             size="sm"
             variant="primary"
             icon={<Link2 />}
-            onClick={() => linkTo({ resourceId: peek.resourceId, title: seenTitle.current ?? peek.title })}
+            onClick={() =>
+              linkTo({ resourceId: peek.resourceId, title: seenTitle.current ?? peek.title })
+            }
           >
             {link ? 'Stattdessen diesen verknüpfen' : 'Diesen Artikel verknüpfen'}
           </Button>
@@ -253,7 +302,13 @@ export function LkArticlePanel({
 
   return (
     <div className="wf-lk">
-      <Finder suggest={suggest} projectName={project.name} onLink={linkTo} onPeek={open} />
+      <Finder
+        suggest={suggest}
+        projectName={project.name}
+        linked={linked}
+        onLink={linkTo}
+        onPeek={open}
+      />
     </div>
   );
 }

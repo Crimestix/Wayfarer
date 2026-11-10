@@ -3,10 +3,17 @@ import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactN
 import { ExternalLink, EyeOff, RefreshCw } from 'lucide-react';
 import { Badge, Button, cx, toast } from '../../ui';
 import { ArticleNodes, type ArticleContext, type OpenTarget } from './Article';
-import { articleUrl, fetchBlocks, fetchResource, forgetResource } from './client';
+import { articleFetchedAt, articleUrl, fetchBlocks, fetchResource, forgetResource } from './client';
 import { describeError, type LkError } from './errors';
-import { useLoad } from './hooks';
-import { articleBody, articleHead, docLabel, linkedResourceIds, type ArticleHead } from './model';
+import { useFitsWindow, useLoad } from './hooks';
+import {
+  articleBody,
+  articleHead,
+  docLabel,
+  linkedResourceIds,
+  shortPath,
+  type ArticleHead,
+} from './model';
 import { useCatalog } from './state';
 import { clockTime } from './status';
 
@@ -15,11 +22,18 @@ export function Skeleton() {
     <div className="wf-lk-skeleton" aria-hidden>
       <i className="wf-lk-skeleton__head" style={{ '--w': '38%' } as CSSProperties} />
       {['96%', '100%', '91%', '64%', '0', '98%', '87%', '45%'].map((width, index) =>
-        width === '0' ? <span key={index} /> : <i key={index} style={{ '--w': width } as CSSProperties} />,
+        width === '0' ? (
+          <span key={index} />
+        ) : (
+          <i key={index} style={{ '--w': width } as CSSProperties} />
+        ),
       )}
     </div>
   );
 }
+
+/** Platz, den Weltleiste und Abstände über dem Steckbrief brauchen. */
+const ASIDE_RESERVE_PX = 132;
 
 export interface ArticleViewProps {
   target: OpenTarget;
@@ -38,10 +52,21 @@ export interface ArticleViewProps {
 
 const refreshFailed = (error: LkError) => {
   const view = describeError(error, 'article');
-  toast({ title: 'Aktualisieren fehlgeschlagen', body: `${view.title}. ${view.text}`, tone: 'danger' });
+  toast({
+    title: 'Aktualisieren fehlgeschlagen',
+    body: `${view.title}. ${view.text}`,
+    tone: 'danger',
+  });
 };
 
-export function ArticleView({ target, projectId, actions, renderError, onOpen, onHead }: ArticleViewProps) {
+export function ArticleView({
+  target,
+  projectId,
+  actions,
+  renderError,
+  onOpen,
+  onHead,
+}: ArticleViewProps) {
   const { resourceId } = target;
   const article = useLoad(
     resourceId,
@@ -55,14 +80,22 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
   const title = head?.title;
 
   const [bannerBroken, setBannerBroken] = useState(false);
+  // Ein Steckbrief, der ganz ins Fenster passt, bleibt beim Lesen langer Artikel stehen.
+  const [asideRef, asideFits] = useFitsWindow<HTMLElement>(ASIDE_RESERVE_PX);
   const [chosenDoc, setChosenDoc] = useState<string | null>(target.documentId ?? null);
-  const doc = head ? (head.pages.find((page) => page.id === chosenDoc) ?? head.pages[0] ?? null) : null;
+  const doc = head
+    ? (head.pages.find((page) => page.id === chosenDoc) ?? head.pages[0] ?? null)
+    : null;
   const docId = doc?.id ?? null;
   const page = useLoad(
     docId ? `${resourceId}/${docId}/${title ?? ''}` : null,
     async ({ signal, force }) => {
       if (!docId) throw new Error('Keine Seite gewählt.');
-      return articleBody((await fetchBlocks(resourceId, docId, { signal, force })).blocks, projectId, title);
+      return articleBody(
+        (await fetchBlocks(resourceId, docId, { signal, force })).blocks,
+        projectId,
+        title,
+      );
     },
     refreshFailed,
   );
@@ -75,7 +108,9 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
 
   // Namen verlinkter Artikel stehen nur im Verzeichnis – geladen wird es erst, wenn sie gebraucht werden.
   const needsNames = useMemo(
-    () => linkedResourceIds([...(head?.side ?? []), ...(body?.aside ?? []), ...(body?.body ?? [])]).length > 0,
+    () =>
+      linkedResourceIds([...(head?.side ?? []), ...(body?.aside ?? []), ...(body?.body ?? [])])
+        .length > 0,
     [head, body],
   );
   const catalog = useCatalog(needsNames);
@@ -118,9 +153,21 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
   const busy = article.refreshing || page.refreshing;
   const jump = (body?.outline ?? []).filter((entry) => entry.level <= 2 && entry.text);
   const jumps = jump.length > 14 ? jump.filter((entry) => entry.level === 1) : jump;
+  const path = shortPath(head.path);
   const boxed = body?.aside ?? [];
   const hasAside = boxed.length + head.side.length > 0;
-  const fetchedAt = page.load.status === 'ready' ? page.load.at : article.load.status === 'ready' ? article.load.at : null;
+  // Der Zeitpunkt des echten Abrufs – eine gemerkte Antwort kann ein paar Minuten alt sein.
+  const shownAt =
+    page.load.status === 'ready'
+      ? page.load.at
+      : article.load.status === 'ready'
+        ? article.load.at
+        : null;
+  const fetchedAt =
+    shownAt === null
+      ? null
+      : (articleFetchedAt(projectId, head.id, page.load.status === 'ready' ? docId : null) ??
+        shownAt);
 
   return (
     <article className="wf-lk-article">
@@ -137,9 +184,21 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
 
       <header className="wf-lk-head">
         <div className="wf-lk-head__main">
-          <nav className="wf-lk-path" aria-label="Platz im LegendKeeper-Baum">
+          <nav
+            className="wf-lk-path"
+            aria-label="Platz im LegendKeeper-Baum"
+            title={[...head.path.map((step) => step.name), head.title].join(' › ')}
+          >
             <span className="wf-lk-path__source">LegendKeeper</span>
-            {head.path.map((step) => (
+            {path.skipped > 0 && (
+              <>
+                <span className="wf-lk-path__sep" aria-hidden>
+                  ›
+                </span>
+                <span>…</span>
+              </>
+            )}
+            {path.steps.map((step) => (
               <Fragment key={step.id}>
                 <span className="wf-lk-path__sep" aria-hidden>
                   ›
@@ -158,14 +217,20 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
           {(head.tags.length > 0 || head.aliases.length > 0 || head.hidden) && (
             <div className="wf-lk-meta">
               {head.hidden && (
-                <Badge tone="arcane" icon={<EyeOff />} title="In LegendKeeper vor den Spielern verborgen">
+                <Badge
+                  tone="arcane"
+                  icon={<EyeOff />}
+                  title="In LegendKeeper vor den Spielern verborgen"
+                >
                   Verborgen
                 </Badge>
               )}
               {head.tags.map((tag) => (
                 <Badge key={tag}>{tag}</Badge>
               ))}
-              {head.aliases.length > 0 && <span className="wf-lk-meta__alias">auch: {head.aliases.join(', ')}</span>}
+              {head.aliases.length > 0 && (
+                <span className="wf-lk-meta__alias">auch: {head.aliases.join(', ')}</span>
+              )}
             </div>
           )}
         </div>
@@ -229,7 +294,9 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
                     type="button"
                     data-level={entry.level}
                     onClick={() =>
-                      document.getElementById(entry.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      document
+                        .getElementById(entry.anchor)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                     }
                   >
                     {entry.text}
@@ -243,7 +310,12 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
 
       <div className={cx('wf-lk-layout', !hasAside && 'wf-lk-layout--single')}>
         {hasAside && (
-          <aside className="wf-lk-aside" aria-label="Steckbrief">
+          <aside
+            ref={asideRef}
+            className="wf-lk-aside"
+            data-pinned={asideFits}
+            aria-label="Steckbrief"
+          >
             {boxed.length > 0 && (
               <div className="wf-lk-aside__part">
                 <ArticleNodes nodes={boxed} ctx={ctx} />
@@ -296,8 +368,17 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
             ))}
           </span>
         )}
+        {head.sideMissing.length > 0 && (
+          <span
+            className="wf-lk-foot__others"
+            title="LegendKeeper gibt diese Teile der Seitenleiste nicht heraus"
+          >
+            Nur in LegendKeeper zu sehen: {head.sideMissing.map((title) => `„${title}“`).join(', ')}
+          </span>
+        )}
         <span className="wf-lk-foot__stamp">
-          {fetchedAt ? `Abgerufen um ${clockTime(fetchedAt)} · ` : ''}Nur gelesen – geändert wird in LegendKeeper
+          {fetchedAt ? `Abgerufen um ${clockTime(fetchedAt)} · ` : ''}Nur gelesen – geändert wird in
+          LegendKeeper
         </span>
       </footer>
     </article>

@@ -1,12 +1,30 @@
 /** Artikel in LegendKeeper finden: Suche nach Titel und Text, Vorschläge, Verknüpfen. */
-import { Fragment, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { ChevronDown, ChevronRight, EyeOff, Link2, LoaderCircle, Search, X } from 'lucide-react';
-import { Button, IconButton, Input } from '../../ui';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react';
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  EyeOff,
+  Link2,
+  LoaderCircle,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react';
+import { Button, EmptyState, IconButton, Input } from '../../ui';
 import type { OpenTarget } from './Article';
+import { shortPath } from './model';
 import {
   descendantCount,
+  finderHits,
   mergeHits,
-  searchCatalog,
   suggestForName,
   type Catalog,
   type CatalogEntry,
@@ -15,43 +33,73 @@ import {
 import { searchRemote } from './client';
 import { describeError } from './errors';
 import { useDebounced, useLoad } from './hooks';
+import { entryNames, type EntriesByArticle, type LinkedEntry } from './links';
 import { ensureCatalog, useCatalog } from './state';
 
 const HIT_LIMIT = 30;
 
+/** Sagt, dass ein Artikel schon zu einem anderen Eintrag gehört – man verknüpft ihn selten doppelt. */
+function TakenNote({ entries }: { entries: LinkedEntry[] }) {
+  return (
+    <span className="wf-lk-taken">
+      <Link2 aria-hidden />
+      Schon verknüpft mit {entryNames(entries)}
+    </span>
+  );
+}
+
 function HitRow({
   hit,
+  taken,
   active,
   onPeek,
   onLink,
   onHover,
 }: {
   hit: FinderHit;
+  /** Einträge, die bereits mit diesem Artikel verknüpft sind. */
+  taken: LinkedEntry[];
   active: boolean;
   onPeek: () => void;
   onLink: () => void;
   onHover: () => void;
 }) {
+  const path = shortPath(hit.path);
   return (
     <li className="wf-lk-hit" data-active={active} onMouseMove={onHover}>
-      <button type="button" className="wf-lk-hit__main" onClick={onPeek} title="Artikel ansehen, ohne ihn zu verknüpfen">
+      <button
+        type="button"
+        className="wf-lk-hit__main"
+        onClick={onPeek}
+        title="Artikel ansehen, ohne ihn zu verknüpfen"
+      >
         <span className="wf-lk-hit__title">
           {hit.title}
           {hit.hidden && (
-            <span title="In LegendKeeper vor den Spielern verborgen" style={{ display: 'inline-flex' }}>
+            <span
+              title="In LegendKeeper vor den Spielern verborgen"
+              style={{ display: 'inline-flex' }}
+            >
               <EyeOff aria-label="Verborgen" />
             </span>
           )}
+          {hit.tags.length > 0 && (
+            <span className="wf-lk-hit__tags">{hit.tags.slice(0, 3).join(' · ')}</span>
+          )}
         </span>
-        <span className="wf-lk-hit__path">
-          {hit.path.length === 0
-            ? 'Oberste Ebene'
-            : hit.path.map((step, index) => (
-                <span key={index}>
-                  {index > 0 && <i aria-hidden>›</i>}
-                  {step}
-                </span>
-              ))}
+        <span className="wf-lk-hit__path" title={hit.path.join(' › ')}>
+          {hit.path.length === 0 && 'Oberste Ebene'}
+          {path.skipped > 0 && (
+            <span>
+              …<i aria-hidden>›</i>
+            </span>
+          )}
+          {path.steps.map((step, index) => (
+            <span key={index}>
+              {index > 0 && <i aria-hidden>›</i>}
+              {step}
+            </span>
+          ))}
         </span>
         {hit.snippet && (
           <span className="wf-lk-hit__snippet">
@@ -60,6 +108,7 @@ function HitRow({
             {hit.snippet.after}
           </span>
         )}
+        {taken.length > 0 && <TakenNote entries={taken} />}
       </button>
       <Button size="sm" variant={active ? 'primary' : 'default'} icon={<Link2 />} onClick={onLink}>
         Verknüpfen
@@ -71,6 +120,7 @@ function HitRow({
 /** Der Baum von LegendKeeper zum Durchblättern – für den Fall, dass einem der Name nicht einfällt. */
 function TreeRows({
   catalog,
+  linked,
   entries,
   depth,
   open,
@@ -79,6 +129,7 @@ function TreeRows({
   onLink,
 }: {
   catalog: Catalog;
+  linked: EntriesByArticle;
   entries: CatalogEntry[];
   depth: number;
   open: Set<string>;
@@ -91,6 +142,7 @@ function TreeRows({
       {entries.map((entry) => {
         const children = catalog.children.get(entry.id) ?? [];
         const expanded = open.has(entry.id);
+        const taken = linked.get(entry.id) ?? [];
         return (
           <Fragment key={entry.id}>
             <li className="wf-lk-tree__row" style={{ '--wf-lk-depth': depth } as CSSProperties}>
@@ -115,19 +167,32 @@ function TreeRows({
               >
                 {entry.title}
                 {entry.hidden && (
-                  <span title="In LegendKeeper vor den Spielern verborgen" style={{ display: 'inline-flex' }}>
+                  <span
+                    title="In LegendKeeper vor den Spielern verborgen"
+                    style={{ display: 'inline-flex' }}
+                  >
                     <EyeOff aria-label="Verborgen" />
                   </span>
                 )}
-                {children.length > 0 && <span className="wf-lk-tree__count">{descendantCount(catalog, entry.id)}</span>}
+                {children.length > 0 && (
+                  <span className="wf-lk-tree__count">{descendantCount(catalog, entry.id)}</span>
+                )}
+                {taken.length > 0 && <TakenNote entries={taken} />}
               </button>
-              <Button size="sm" variant="ghost" icon={<Link2 />} className="wf-lk-tree__link" onClick={() => onLink(entry)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Link2 />}
+                className="wf-lk-tree__link"
+                onClick={() => onLink(entry)}
+              >
                 Verknüpfen
               </Button>
             </li>
             {expanded && (
               <TreeRows
                 catalog={catalog}
+                linked={linked}
                 entries={children}
                 depth={depth + 1}
                 open={open}
@@ -145,15 +210,22 @@ function TreeRows({
 
 function Tree({
   catalog,
+  linked,
+  reloading,
   onPeek,
   onLink,
 }: {
   catalog: Catalog;
+  linked: EntriesByArticle;
+  /** Das Verzeichnis wird gerade neu geholt. */
+  reloading: boolean;
   onPeek: (entry: CatalogEntry) => void;
   onLink: (entry: CatalogEntry) => void;
 }) {
   // Gibt es nur eine Wurzel (die Welt selbst), ist sie von Anfang an aufgeklappt.
-  const [open, setOpen] = useState<Set<string>>(() => new Set(catalog.roots.length === 1 ? [catalog.roots[0]?.id ?? ''] : []));
+  const [open, setOpen] = useState<Set<string>>(
+    () => new Set(catalog.roots.length === 1 ? [catalog.roots[0]?.id ?? ''] : []),
+  );
   const toggle = (id: string) =>
     setOpen((current) => {
       const next = new Set(current);
@@ -165,10 +237,31 @@ function Tree({
     <section className="wf-lk-tree">
       <div className="wf-lk-tree__head">
         <span className="wf-lk-label">Im Baum von LegendKeeper blättern</span>
-        <span className="wf-lk-tree__total">{catalog.entries.length.toLocaleString('de-DE')} Artikel</span>
+        <span className="wf-lk-tree__total">
+          {catalog.entries.length.toLocaleString('de-DE')} Artikel
+          <IconButton
+            label="Verzeichnis neu aus LegendKeeper laden"
+            size="sm"
+            variant="ghost"
+            className={reloading ? 'wf-lk-spinning' : undefined}
+            disabled={reloading}
+            onClick={() => ensureCatalog(true)}
+          >
+            <RefreshCw />
+          </IconButton>
+        </span>
       </div>
       <ul className="wf-lk-tree__list">
-        <TreeRows catalog={catalog} entries={catalog.roots} depth={0} open={open} onToggle={toggle} onPeek={onPeek} onLink={onLink} />
+        <TreeRows
+          catalog={catalog}
+          linked={linked}
+          entries={catalog.roots}
+          depth={0}
+          open={open}
+          onToggle={toggle}
+          onPeek={onPeek}
+          onLink={onLink}
+        />
       </ul>
     </section>
   );
@@ -177,12 +270,15 @@ function Tree({
 export function Finder({
   suggest,
   projectName,
+  linked,
   onLink,
   onPeek,
 }: {
   /** Name des Eintrags, zu dem ein Artikel gesucht wird – für Vorschläge. */
   suggest?: string;
   projectName: string;
+  /** Welche Artikel schon mit Einträgen verknüpft sind. */
+  linked: EntriesByArticle;
   onLink: (target: OpenTarget) => void;
   onPeek: (target: OpenTarget) => void;
 }) {
@@ -193,16 +289,19 @@ export function Finder({
   const catalog = useCatalog(true);
 
   // Volltext: erst wenn das Tippen kurz ruht; überholte Anfragen werden abgebrochen.
-  const remote = useLoad(settled.length >= 2 ? settled : null, ({ signal }) => searchRemote(settled, HIT_LIMIT, { signal }));
-  const remoteCurrent = settled === text && remote.load.status === 'ready' ? remote.load.data : null;
+  const remote = useLoad(settled.length >= 2 ? settled : null, ({ signal }) =>
+    searchRemote(settled, HIT_LIMIT, { signal }),
+  );
+  const remoteCurrent =
+    settled === text && remote.load.status === 'ready' ? remote.load.data : null;
   const searching = text.length >= 2 && (settled !== text || remote.load.status === 'loading');
-  const remoteError = settled === text && remote.load.status === 'failed' ? remote.load.error : null;
+  const remoteError =
+    settled === text && remote.load.status === 'failed' ? remote.load.error : null;
 
-  const hits = useMemo(() => {
-    if (!text) return [];
-    const local = catalog.catalog ? searchCatalog(catalog.catalog, text, HIT_LIMIT) : [];
-    return mergeHits(local, remoteCurrent ?? [], catalog.catalog, HIT_LIMIT);
-  }, [text, catalog.catalog, remoteCurrent]);
+  const { hits, more } = useMemo(
+    () => finderHits(catalog.catalog, text, remoteCurrent ?? [], HIT_LIMIT),
+    [text, catalog.catalog, remoteCurrent],
+  );
 
   const suggestions = useMemo<FinderHit[]>(() => {
     if (!suggest?.trim() || !catalog.catalog) return [];
@@ -213,7 +312,11 @@ export function Finder({
   useEffect(() => setActive(0), [text]);
   const current = shown[Math.min(active, shown.length - 1)];
 
-  const targetOf = (hit: FinderHit): OpenTarget => ({ resourceId: hit.resourceId, title: hit.title, documentId: hit.documentId });
+  const targetOf = (hit: FinderHit): OpenTarget => ({
+    resourceId: hit.resourceId,
+    title: hit.title,
+    documentId: hit.documentId,
+  });
   // Verknüpft wird der Artikel, nicht eine einzelne Seite darin.
   const link = (hit: FinderHit) => onLink({ resourceId: hit.resourceId, title: hit.title });
 
@@ -243,8 +346,8 @@ export function Finder({
   return (
     <div className="wf-lk-finder">
       <p className="wf-lk-finder__lead">
-        Noch kein Artikel verknüpft. Suche den passenden Artikel in LegendKeeper – nach seinem Namen oder nach einem
-        Wort, das darin vorkommt.
+        Noch kein Artikel verknüpft. Suche den passenden Artikel in LegendKeeper – nach seinem Namen
+        oder nach einem Wort, das darin vorkommt.
       </p>
 
       <div className="wf-lk-search">
@@ -261,38 +364,47 @@ export function Finder({
           onKeyDown={onKeyDown}
         />
         {query && (
-          <IconButton className="wf-lk-search__clear" label="Suche leeren" size="sm" variant="ghost" onClick={() => setQuery('')}>
+          <IconButton
+            className="wf-lk-search__clear"
+            label="Suche leeren"
+            size="sm"
+            variant="ghost"
+            onClick={() => setQuery('')}
+          >
             <X />
           </IconButton>
         )}
       </div>
 
-      <div className="wf-lk-finder__hint">
-        {shown.length > 0 && (
-          <span>
-            <kbd>↑</kbd> <kbd>↓</kbd> wählen · <kbd>Eingabe</kbd> verknüpft den markierten Artikel · ein Klick auf den
-            Namen zeigt ihn erst an
-          </span>
-        )}
-        {searching && (
-          <span className="wf-lk-finder__busy">
-            <LoaderCircle className="wf-lk-spin" aria-hidden />
-            Texte werden durchsucht …
-          </span>
-        )}
-        {!text && loadingLine && (
-          <span className="wf-lk-finder__busy">
-            <LoaderCircle className="wf-lk-spin" aria-hidden />
-            {loadingLine}
-          </span>
-        )}
-      </div>
+      {(shown.length > 0 || searching || (!text && loadingLine)) && (
+        <div className="wf-lk-finder__hint">
+          {shown.length > 0 && (
+            <span>
+              <kbd>↑</kbd> <kbd>↓</kbd> wählen · <kbd>Eingabe</kbd> verknüpft den markierten Artikel
+              · ein Klick auf den Namen zeigt ihn erst an
+            </span>
+          )}
+          {searching && (
+            <span className="wf-lk-finder__busy">
+              <LoaderCircle className="wf-lk-spin" aria-hidden />
+              Texte werden durchsucht …
+            </span>
+          )}
+          {!text && loadingLine && (
+            <span className="wf-lk-finder__busy">
+              <LoaderCircle className="wf-lk-spin" aria-hidden />
+              {loadingLine}
+            </span>
+          )}
+        </div>
+      )}
 
       {catalog.status === 'failed' && catalog.error && (
         <p className="wf-lk-note">
           <span>
-            Das Verzeichnis der Artikel ließ sich nicht laden ({describeError(catalog.error, 'search').title}). Die Suche
-            arbeitet solange nur über LegendKeeper selbst.{' '}
+            Das Verzeichnis der Artikel ließ sich nicht laden (
+            {describeError(catalog.error, 'search').title}). Die Suche arbeitet solange nur über
+            LegendKeeper selbst.{' '}
             <button type="button" className="wf-lk-mention" onClick={() => ensureCatalog(true)}>
               Erneut laden
             </button>
@@ -302,7 +414,8 @@ export function Finder({
       {remoteError && (
         <p className="wf-lk-note">
           <span>
-            Die Suche in den Texten ist gerade nicht möglich: {describeError(remoteError, 'search').title}.
+            Die Suche in den Texten ist gerade nicht möglich:{' '}
+            {describeError(remoteError, 'search').title}.
             {hits.length > 0 ? ' Treffer in den Titeln siehst du trotzdem.' : ''}
           </span>
         </p>
@@ -313,9 +426,12 @@ export function Finder({
           {!text && <li className="wf-lk-hits__group">Vorschläge zu „{suggest}“</li>}
           {shown.map((hit, index) => (
             <Fragment key={`${hit.resourceId}-${hit.match}`}>
-              {text && index === titleCount && titleCount > 0 && <li className="wf-lk-hits__group">Im Text gefunden</li>}
+              {text && index === titleCount && titleCount > 0 && (
+                <li className="wf-lk-hits__group">Im Text gefunden</li>
+              )}
               <HitRow
                 hit={hit}
+                taken={linked.get(hit.resourceId) ?? []}
                 active={hit === current}
                 onHover={() => setActive(index)}
                 onPeek={() => onPeek(targetOf(hit))}
@@ -323,12 +439,40 @@ export function Finder({
               />
             </Fragment>
           ))}
+          {text && more && (
+            <li className="wf-lk-hits__more">
+              Es gibt weitere Treffer. Tippe genauer, um sie einzugrenzen.
+            </li>
+          )}
         </ul>
+      )}
+
+      {!text && catalog.catalog && catalog.catalog.entries.length === 0 && (
+        <div className="wf-lk-state">
+          <EmptyState
+            icon={<BookOpen />}
+            title="In LegendKeeper gibt es noch keine Artikel"
+            action={
+              <Button
+                icon={<RefreshCw />}
+                disabled={catalog.status === 'loading'}
+                onClick={() => ensureCatalog(true)}
+              >
+                Verzeichnis neu laden
+              </Button>
+            }
+          >
+            Das Projekt „{projectName}“ ist leer – oder der API-Key darf seine Artikel nicht sehen.
+            Lege den Artikel in LegendKeeper an und lade das Verzeichnis dann neu.
+          </EmptyState>
+        </div>
       )}
 
       {!text && catalog.catalog && catalog.catalog.entries.length > 0 && (
         <Tree
           catalog={catalog.catalog}
+          linked={linked}
+          reloading={catalog.status === 'loading'}
           onPeek={(entry) => onPeek({ resourceId: entry.id, title: entry.title })}
           onLink={(entry) => onLink({ resourceId: entry.id, title: entry.title })}
         />
@@ -340,8 +484,8 @@ export function Finder({
             'Tippe mindestens zwei Buchstaben.'
           ) : (
             <>
-              Kein Artikel passt zu <strong>„{text}“</strong>. Prüfe die Schreibweise – oder lege den Artikel erst in
-              LegendKeeper an.
+              Kein Artikel passt zu <strong>„{text}“</strong>. Prüfe die Schreibweise – oder lege
+              den Artikel erst in LegendKeeper an.
             </>
           )}
         </div>

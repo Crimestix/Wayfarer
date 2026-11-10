@@ -1,7 +1,17 @@
 /** Abschnitt „Alten Spielstand übernehmen“: Backup der alten Version wählen, Bericht ansehen, einspielen. */
-import { useState, type ReactNode } from 'react';
-import { Check, CircleSlash, Copy, Info, ScrollText, TriangleAlert } from 'lucide-react';
-import { useDb } from '../../data/hooks';
+import { useMemo, useState, type ReactNode } from 'react';
+import {
+  Check,
+  CircleSlash,
+  Copy,
+  Info,
+  ScrollText,
+  TriangleAlert,
+  UserRoundSearch,
+} from 'lucide-react';
+import { useLocation } from 'wouter';
+import { useData, useDb } from '../../data/hooks';
+import { namesFromCatalog, nameFixes, unnamedFromLk, withLkNames } from '../import/lknames';
 import {
   lastImport,
   previewV157Backup,
@@ -9,6 +19,7 @@ import {
   type ImportResult,
   type ImportSections,
 } from '../import/v157';
+import { useCatalog, useConnection } from '../legendkeeper/state';
 import { Button, Dialog, toast } from '../../ui';
 import { formatRealTime, summarize } from './backup';
 import { errorText, readJsonFile } from './files';
@@ -97,8 +108,96 @@ async function copyReport(sections: ImportSections) {
   }
 }
 
+/**
+ * Personen, die die alte Version nur als Verweis auf LegendKeeper kannte, kommen ohne Namen an.
+ * Steht die Verbindung, holt ein Klick die Namen aus dem Artikelverzeichnis.
+ */
+function MissingNames() {
+  const db = useDb();
+  const data = useData();
+  const waiting = useMemo(() => unnamedFromLk(data), [data]);
+  const connection = useConnection();
+  const catalog = useCatalog(connection.phase === 'ready');
+  const names = useMemo(
+    () => (catalog.catalog ? namesFromCatalog(catalog.catalog.entries) : null),
+    [catalog.catalog],
+  );
+  const fixes = useMemo(() => (names ? nameFixes(data, names) : null), [data, names]);
+  const [, navigate] = useLocation();
+  if (!waiting.length) return null;
+
+  const count = waiting.length;
+  const title =
+    count === 1 ? 'Eine Person hat noch keinen Namen' : `${count} Personen haben noch keinen Namen`;
+  const intro =
+    'Die alte Version kannte sie nur als Verweis auf einen LegendKeeper-Artikel; der Name steht dort, nicht im Backup. ';
+
+  const apply = () => {
+    if (!fixes?.named) return;
+    db.batch(() => {
+      for (const entity of fixes.changed) db.put('entities', entity);
+    });
+    toast({
+      title:
+        fixes.named === 1
+          ? 'Eine Person trägt jetzt ihren Namen'
+          : `${fixes.named} Personen tragen jetzt ihren Namen`,
+      body: fixes.notFound
+        ? `Zu ${fixes.notFound === 1 ? 'einer weiteren' : `${fixes.notFound} weiteren`} gibt es in LegendKeeper keinen Artikel mehr.`
+        : 'Die Namen stammen aus dem Artikelverzeichnis von LegendKeeper.',
+    });
+  };
+
+  if (fixes && fixes.named > 0)
+    return (
+      <Notice
+        icon={<UserRoundSearch />}
+        title={title}
+        action={
+          <Button variant="primary" onClick={apply}>
+            Namen aus LegendKeeper holen
+          </Button>
+        }
+      >
+        {intro}
+        {fixes.notFound
+          ? `Für ${fixes.named} von ihnen steht der Artikel im Verzeichnis; für ${fixes.notFound === 1 ? 'eine' : fixes.notFound} gibt es dort keinen mehr.`
+          : 'Das Artikelverzeichnis ist geladen – ein Klick trägt die Namen ein.'}
+      </Notice>
+    );
+
+  const loading =
+    connection.phase === 'idle' ||
+    connection.phase === 'checking' ||
+    (connection.phase === 'ready' && !fixes && catalog.status !== 'failed');
+  return (
+    <Notice
+      icon={<UserRoundSearch />}
+      title={title}
+      action={
+        fixes ? (
+          <Button onClick={() => navigate(`/welt/${waiting[0]!.id}`)}>
+            {count === 1 ? 'In der Welt öffnen' : 'Erste in der Welt öffnen'}
+          </Button>
+        ) : undefined
+      }
+    >
+      {intro}
+      {fixes
+        ? count === 1
+          ? 'Im Artikelverzeichnis von LegendKeeper gibt es zu ihr keinen Artikel mehr. Du findest sie in der Welt unter dem Schlagwort „Name fehlt“ und kannst sie dort von Hand benennen oder löschen.'
+          : 'Im Artikelverzeichnis von LegendKeeper gibt es zu ihnen keinen Artikel mehr. Du findest sie in der Welt unter dem Schlagwort „Name fehlt“ und kannst sie dort von Hand benennen oder löschen.'
+        : loading
+          ? 'Das Artikelverzeichnis von LegendKeeper wird gerade geladen …'
+          : 'Sobald weiter unten unter „LegendKeeper“ die Verbindung steht, lassen sich die Namen hier mit einem Klick holen.'}
+    </Notice>
+  );
+}
+
 export function LegacySection() {
   const db = useDb();
+  const connection = useConnection();
+  const catalog = useCatalog(connection.phase === 'ready');
   const [pending, setPending] = useState<Picked | null>(null);
   const [shown, setShown] = useState<Picked | null>(null);
   // Auch eine Übernahme vom Startbildschirm aus ist hier nachzulesen.
@@ -107,7 +206,12 @@ export function LegacySection() {
 
   const picker = useFilePicker(async (file) => {
     try {
-      const next = { result: previewV157Backup(await readJsonFile(file)), fileName: file.name };
+      const plain = previewV157Backup(await readJsonFile(file));
+      // Liegt das Artikelverzeichnis von LegendKeeper schon vor, kommen die Personen gleich mit Namen an.
+      const result = catalog.catalog
+        ? withLkNames(plain, namesFromCatalog(catalog.catalog.entries))
+        : plain;
+      const next = { result, fileName: file.name };
       setShown(next);
       setPending(next);
     } catch (e) {
@@ -146,6 +250,8 @@ export function LegacySection() {
         </ActionRow>
       </div>
       {picker.input}
+
+      <MissingNames />
 
       {last && (
         <Notice

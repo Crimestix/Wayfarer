@@ -5,6 +5,7 @@ import {
   convertBlocks,
   convertProperties,
   convertRuns,
+  docLabel,
   inlineText,
   internalTarget,
   linkedResourceIds,
@@ -13,6 +14,7 @@ import {
   noteText,
   safeHref,
   safeImageUrl,
+  shortPath,
   type ArticleNode,
 } from '../model';
 import type { LkDocumentBlocks, LkResource } from '../types';
@@ -68,24 +70,44 @@ describe('Textläufe', () => {
     expect(safeHref('data:text/html,x')).toBeUndefined();
     expect(safeHref('/relativ')).toBeUndefined();
     expect(safeImageUrl('http://example.org/bild.png')).toBeUndefined();
-    expect(safeImageUrl('https://assets.legendkeeper.com/bild.webp')).toBe('https://assets.legendkeeper.com/bild.webp');
+    expect(safeImageUrl('https://assets.legendkeeper.com/bild.webp')).toBe(
+      'https://assets.legendkeeper.com/bild.webp',
+    );
     const [inline] = convertRuns([{ text: 'klick', link: 'javascript:alert(1)' }], newContext());
     expect(inline).toEqual({ type: 'text', text: 'klick' });
   });
 
   it('macht Links auf Artikel des eigenen Projekts zu Verweisen', () => {
-    expect(internalTarget(`https://www.legendkeeper.com/p/${PROJECT}/hausdusk`, PROJECT)).toEqual({ resourceId: 'hausdusk' });
-    expect(internalTarget(`https://www.legendkeeper.com/p/${PROJECT}/hausdusk/doc1/`, PROJECT)).toEqual({
+    expect(internalTarget(`https://www.legendkeeper.com/p/${PROJECT}/hausdusk`, PROJECT)).toEqual({
+      resourceId: 'hausdusk',
+    });
+    expect(
+      internalTarget(`https://www.legendkeeper.com/p/${PROJECT}/hausdusk/doc1/`, PROJECT),
+    ).toEqual({
       resourceId: 'hausdusk',
       documentId: 'doc1',
     });
-    expect(internalTarget('https://www.legendkeeper.com/p/anderesprojekt/hausdusk', PROJECT)).toBeNull();
-    expect(internalTarget(`https://legendkeeper.com.example.org/p/${PROJECT}/x`, PROJECT)).toBeNull();
+    expect(
+      internalTarget('https://www.legendkeeper.com/p/anderesprojekt/hausdusk', PROJECT),
+    ).toBeNull();
+    expect(
+      internalTarget(`https://legendkeeper.com.example.org/p/${PROJECT}/x`, PROJECT),
+    ).toBeNull();
     expect(internalTarget(`https://www.legendkeeper.com/p/${PROJECT}/x`, undefined)).toBeNull();
+    // Frühere Schreibweise der Adresse; LegendKeeper leitet sie heute um.
+    expect(
+      internalTarget(`https://www.legendkeeper.com/app/${PROJECT}/hausdusk/`, PROJECT),
+    ).toEqual({ resourceId: 'hausdusk' });
+    expect(
+      internalTarget(`https://www.legendkeeper.com/api/${PROJECT}/hausdusk`, PROJECT),
+    ).toBeNull();
   });
 
   it('entfernt Zeilenumbrüche am Rand', () => {
-    const inlines = convertRuns([{ break: true }, { text: 'a' }, { break: true }, { text: 'b' }, { break: true }], newContext());
+    const inlines = convertRuns(
+      [{ break: true }, { text: 'a' }, { break: true }, { text: 'b' }, { break: true }],
+      newContext(),
+    );
     expect(inlineText(inlines)).toBe('a\nb');
   });
 });
@@ -94,9 +116,22 @@ describe('Blöcke umwandeln', () => {
   it('lässt leere Absätze, Listenpunkte und Tabellen weg', () => {
     expect(one({ kind: 'paragraph', content: [] })).toEqual([]);
     expect(one({ kind: 'paragraph', content: [{ text: '   ' }] })).toEqual([]);
-    expect(one({ kind: 'bulletList', children: [{ kind: 'listItem', children: [{ kind: 'paragraph', content: [] }] }] })).toEqual([]);
     expect(
-      one({ kind: 'table', children: [{ kind: 'tableRow', children: [{ kind: 'tableCell', children: [{ kind: 'paragraph', content: [] }] }] }] }),
+      one({
+        kind: 'bulletList',
+        children: [{ kind: 'listItem', children: [{ kind: 'paragraph', content: [] }] }],
+      }),
+    ).toEqual([]);
+    expect(
+      one({
+        kind: 'table',
+        children: [
+          {
+            kind: 'tableRow',
+            children: [{ kind: 'tableCell', children: [{ kind: 'paragraph', content: [] }] }],
+          },
+        ],
+      }),
     ).toEqual([]);
     expect(one({ kind: 'quote', children: [] })).toEqual([]);
   });
@@ -111,8 +146,18 @@ describe('Blöcke umwandeln', () => {
       newContext(),
     );
     expect(nodes).toEqual([
-      { type: 'heading', level: 6, inlines: [{ type: 'text', text: 'Tief' }], anchor: 'lk-abschnitt-1' },
-      { type: 'heading', level: 2, inlines: [{ type: 'text', text: 'Ohne Ebene' }], anchor: 'lk-abschnitt-2' },
+      {
+        type: 'heading',
+        level: 6,
+        inlines: [{ type: 'text', text: 'Tief' }],
+        anchor: 'lk-abschnitt-1',
+      },
+      {
+        type: 'heading',
+        level: 2,
+        inlines: [{ type: 'text', text: 'Ohne Ebene' }],
+        anchor: 'lk-abschnitt-2',
+      },
     ]);
   });
 
@@ -141,7 +186,19 @@ describe('Blöcke umwandeln', () => {
     const [table] = ofType(
       one({
         kind: 'table',
-        children: [{ kind: 'tableRow', children: [{ kind: 'tableCell', colspan: 3, rowspan: 2, children: [{ kind: 'paragraph', content: [{ text: 'x' }] }] }] }],
+        children: [
+          {
+            kind: 'tableRow',
+            children: [
+              {
+                kind: 'tableCell',
+                colspan: 3,
+                rowspan: 2,
+                children: [{ kind: 'paragraph', content: [{ text: 'x' }] }],
+              },
+            ],
+          },
+        ],
       }),
       'table',
     );
@@ -152,10 +209,19 @@ describe('Blöcke umwandeln', () => {
     const body = articleBody(blocks.blocks, PROJECT).body;
     const [secret] = ofType(body, 'secret');
     expect(secret?.children.map((child) => child.type)).toEqual(['paragraph', 'tasks']);
-    expect(ofType(secret?.children ?? [], 'tasks')[0]?.items.map((item) => item.checked)).toEqual([true, false]);
+    expect(ofType(secret?.children ?? [], 'tasks')[0]?.items.map((item) => item.checked)).toEqual([
+      true,
+      false,
+    ]);
     expect(ofType(body, 'callout')[0]?.tone).toBe('warning');
     expect(ofType(body, 'expand')[0]?.title).toBe('Zufallsbegegnungen am Kai');
-    expect(one({ kind: 'callout', tone: 'schrill', children: [{ kind: 'paragraph', content: [{ text: 'x' }] }] })).toMatchObject([{ tone: 'note' }]);
+    expect(
+      one({
+        kind: 'callout',
+        tone: 'schrill',
+        children: [{ kind: 'paragraph', content: [{ text: 'x' }] }],
+      }),
+    ).toMatchObject([{ tone: 'note' }]);
   });
 
   it('zeigt Bilder nur mit sicherer Adresse und mit sichtbarem Titel als Bildunterschrift', () => {
@@ -167,10 +233,17 @@ describe('Blöcke umwandeln', () => {
       caption: 'Der Kai bei Ebbe',
     });
     expect(one({ kind: 'image', url: '', title: 'Image', isTitleHidden: true })).toEqual([]);
-    expect(one({ kind: 'image', url: 'javascript:alert(1)' })).toMatchObject([{ type: 'note', reason: 'image' }]);
-    expect(one({ kind: 'image', url: 'https://assets.legendkeeper.com/x.webp', title: 'Image', isTitleHidden: true })).toEqual([
-      { type: 'image', url: 'https://assets.legendkeeper.com/x.webp', alt: '' },
+    expect(one({ kind: 'image', url: 'javascript:alert(1)' })).toMatchObject([
+      { type: 'note', reason: 'image' },
     ]);
+    expect(
+      one({
+        kind: 'image',
+        url: 'https://assets.legendkeeper.com/x.webp',
+        title: 'Image',
+        isTitleHidden: true,
+      }),
+    ).toEqual([{ type: 'image', url: 'https://assets.legendkeeper.com/x.webp', alt: '' }]);
   });
 
   it('macht aus mehreren Spalten ein Spaltenlayout, aus einer einzigen Fließtext', () => {
@@ -185,6 +258,45 @@ describe('Blöcke umwandeln', () => {
       ],
     });
     expect(single).toEqual([{ type: 'paragraph', inlines: [{ type: 'text', text: 'allein' }] }]);
+  });
+
+  it('zeigt Titel nur, wenn jemand sie vergeben hat – nicht die Vorgaben von LegendKeeper', () => {
+    const facts = (title: string, extra: object = {}) =>
+      ofType(
+        one({ kind: 'keyValue', title, rows: [{ key: 'a', text: 'b' }], ...extra }),
+        'facts',
+      )[0]?.title;
+    expect(facts('Stats')).toBeUndefined();
+    expect(facts('STATS')).toBeUndefined();
+    expect(facts('Eckdaten')).toBe('Eckdaten');
+    expect(facts('Eckdaten', { isTitleHidden: true })).toBeUndefined();
+    expect(
+      ofType(
+        one({ kind: 'image', url: 'https://assets.legendkeeper.com/x.webp', title: 'Image' }),
+        'image',
+      )[0]?.caption,
+    ).toBeUndefined();
+    expect(
+      ofType(
+        one({
+          kind: 'textField',
+          title: 'Text',
+          children: [{ kind: 'paragraph', content: [{ text: 'x' }] }],
+        }),
+        'group',
+      )[0]?.title,
+    ).toBeUndefined();
+    // „Image“ als Titel eines Textfelds ist kein Vorgabetitel und bleibt stehen.
+    expect(
+      ofType(
+        one({
+          kind: 'textField',
+          title: 'Image',
+          children: [{ kind: 'paragraph', content: [{ text: 'x' }] }],
+        }),
+        'group',
+      )[0]?.title,
+    ).toBe('Image');
   });
 
   it('zeigt Anzeigen (Balken) mit ihren Werten', () => {
@@ -208,7 +320,9 @@ describe('Nichts verschlucken', () => {
     const notes = ofType(body, 'note').filter((node) => node.reason === 'unsupported');
     expect(notes).toHaveLength(1);
     expect(notes[0]?.count).toBe(2);
-    expect(notes[0] && noteText(notes[0])).toBe('2 Abschnitte lassen sich nur in LegendKeeper ansehen.');
+    expect(notes[0] && noteText(notes[0])).toBe(
+      '2 Abschnitte lassen sich nur in LegendKeeper ansehen.',
+    );
   });
 
   it('rettet den Text aus einer unbekannten Blockart', () => {
@@ -228,8 +342,14 @@ describe('Nichts verschlucken', () => {
 
   it('weist auf Medien und Karten hin, statt sie wegzulassen', () => {
     const embed = ofType(body, 'note').find((node) => node.reason === 'embed');
-    expect(embed).toMatchObject({ title: 'Hafenklänge', href: 'https://www.youtube.com/watch?v=beispiel', kind: 'youtube' });
-    expect(embed && noteText(embed)).toBe('Eingebettetes Medium (YouTube) „Hafenklänge“ – öffnet sich im Browser.');
+    expect(embed).toMatchObject({
+      title: 'Hafenklänge',
+      href: 'https://www.youtube.com/watch?v=beispiel',
+      kind: 'youtube',
+    });
+    expect(embed && noteText(embed)).toBe(
+      'Eingebettetes Medium (YouTube) „Hafenklänge“ – öffnet sich im Browser.',
+    );
     const map = ofType(body, 'note').find((node) => node.reason === 'map');
     expect(map && noteText(map)).toBe('Karte – nur in LegendKeeper zu sehen.');
   });
@@ -237,7 +357,9 @@ describe('Nichts verschlucken', () => {
   it('verkraftet Unsinn, ohne zu scheitern', () => {
     expect(convertBlocks(null, newContext())).toEqual([]);
     expect(convertBlocks('text', newContext())).toEqual([]);
-    expect(convertBlocks([null, 7, 'x', [], {}], newContext())).toEqual([{ type: 'note', reason: 'unknown', kind: 'ohne Art', count: 1 }]);
+    expect(convertBlocks([null, 7, 'x', [], {}], newContext())).toEqual([
+      { type: 'note', reason: 'unknown', kind: 'ohne Art', count: 1 },
+    ]);
     expect(one({ kind: 'paragraph', content: 'kein Feld' })).toEqual([]);
     expect(one({ kind: 'bulletList', children: 'kaputt' })).toEqual([]);
   });
@@ -250,9 +372,9 @@ describe('Nichts verschlucken', () => {
   });
 
   it('zeigt verirrte Teile (Listenpunkt ohne Liste) trotzdem', () => {
-    expect(one({ kind: 'listItem', children: [{ kind: 'paragraph', content: [{ text: 'allein' }] }] })).toEqual([
-      { type: 'paragraph', inlines: [{ type: 'text', text: 'allein' }] },
-    ]);
+    expect(
+      one({ kind: 'listItem', children: [{ kind: 'paragraph', content: [{ text: 'allein' }] }] }),
+    ).toEqual([{ type: 'paragraph', inlines: [{ type: 'text', text: 'allein' }] }]);
   });
 });
 
@@ -264,14 +386,27 @@ describe('Seite als Ganzes', () => {
     expect(article.aside.map((node) => node.type)).toEqual(['image', 'facts', 'group']);
     const [facts] = ofType(article.aside, 'facts');
     expect(facts?.title).toBeUndefined();
-    expect(facts?.rows.map((row) => row.key)).toEqual(['Einwohner', 'Herrschaft', 'Wache', 'Handel']);
-    expect(facts?.rows[1]?.value).toEqual([{ type: 'mention', resourceId: 'hausdusk', label: 'Haus Duskryn' }]);
+    expect(facts?.rows.map((row) => row.key)).toEqual([
+      'Einwohner',
+      'Herrschaft',
+      'Wache',
+      'Handel',
+    ]);
+    expect(facts?.rows[1]?.value).toEqual([
+      { type: 'mention', resourceId: 'hausdusk', label: 'Haus Duskryn' },
+    ]);
     expect(ofType(article.aside, 'group')[0]?.title).toBe('Wahlspruch');
   });
 
   it('lässt einen Steckbrief ohne Umfließen im Text stehen', () => {
     const inline = articleBody(
-      [{ kind: 'infobox', layout: 'center', rows: [{ kind: 'keyValue', rows: [{ key: 'Rang', text: 'Hauptmann' }] }] }],
+      [
+        {
+          kind: 'infobox',
+          layout: 'center',
+          rows: [{ kind: 'keyValue', rows: [{ key: 'Rang', text: 'Hauptmann' }] }],
+        },
+      ],
       PROJECT,
     );
     expect(inline.aside).toEqual([]);
@@ -279,7 +414,13 @@ describe('Seite als Ganzes', () => {
   });
 
   it('liest Werte aus dem schlichten Text, wenn keine Läufe da sind', () => {
-    const [facts] = ofType(convertProperties([{ kind: 'keyValue', rows: [{ key: 'Rang', text: 'Hauptmann' }] }], newContext()), 'facts');
+    const [facts] = ofType(
+      convertProperties(
+        [{ kind: 'keyValue', rows: [{ key: 'Rang', text: 'Hauptmann' }] }],
+        newContext(),
+      ),
+      'facts',
+    );
     expect(facts?.rows).toEqual([{ key: 'Rang', value: [{ type: 'text', text: 'Hauptmann' }] }]);
   });
 
@@ -302,12 +443,41 @@ describe('Seite als Ganzes', () => {
   it('erkennt den Link auf einen eigenen Artikel im Fließtext als Verweis', () => {
     const [, intro] = article.body;
     expect(intro?.type).toBe('paragraph');
-    const mentions = intro?.type === 'paragraph' ? intro.inlines.filter((inline) => inline.type === 'mention') : [];
+    const mentions =
+      intro?.type === 'paragraph'
+        ? intro.inlines.filter((inline) => inline.type === 'mention')
+        : [];
     expect(mentions.map((mention) => (mention.type === 'mention' ? mention.label : ''))).toEqual([
       'Nebelküste',
       'Moor',
       'Hauses Duskryn',
     ]);
+  });
+
+  it('lässt eine erste Überschrift weg, die nur den Titel des Artikels wiederholt', () => {
+    const titled = articleBody(blocks.blocks, PROJECT, 'dornhafen ');
+    expect(titled.body[0]?.type).toBe('paragraph');
+    expect(titled.outline.map((entry) => entry.text)).toEqual([
+      'Viertel',
+      'Was jeder weiß',
+      'Preise und Abgaben',
+      'Für die Spielleitung',
+    ]);
+    // Die übrigen Ebenen rücken dadurch auf.
+    expect(titled.outline.every((entry) => entry.level === 1)).toBe(true);
+    // Ein anderer Titel lässt die Überschrift stehen; eine spätere gleichlautende ebenfalls.
+    expect(articleBody(blocks.blocks, PROJECT, 'Dornhafen bei Nacht').body[0]?.type).toBe(
+      'heading',
+    );
+    const later = articleBody(
+      [
+        { kind: 'paragraph', content: [{ text: 'Vorweg.' }] },
+        { kind: 'heading', level: 1, content: [{ text: 'Dornhafen' }] },
+      ],
+      PROJECT,
+      'Dornhafen',
+    );
+    expect(later.body.map((node) => node.type)).toEqual(['paragraph', 'heading']);
   });
 
   it('ergibt für eine leere Seite nichts', () => {
@@ -323,34 +493,90 @@ describe('Kopf eines Artikels', () => {
     expect(head.path.map((step) => step.name)).toEqual(['Elaris', 'Nebelküste']);
     expect(head.tags).toEqual(['Stadt', 'Hafen']);
     expect(head.aliases).toEqual(['Die Dornenstadt']);
-    expect(head.banner).toEqual({ url: 'https://assets.legendkeeper.com/beispiel-banner-dornhafen.webp', position: 42 });
+    expect(head.banner).toEqual({
+      url: 'https://assets.legendkeeper.com/beispiel-banner-dornhafen.webp',
+      position: 42,
+    });
   });
 
   it('ordnet die Seiten wie in LegendKeeper und trennt Karten und Zeitleisten ab', () => {
-    expect(head.pages.map((doc) => `${doc.name}${doc.hidden ? ' (verborgen)' : ''}`)).toEqual(['Überblick', 'Geheimnisse (verborgen)']);
-    expect(head.others.map((doc) => `${doc.kind}:${doc.name}`)).toEqual(['map:Stadtplan', 'time:Stadtgeschichte']);
+    expect(head.pages.map((doc) => `${doc.name}${doc.hidden ? ' (verborgen)' : ''}`)).toEqual([
+      'Überblick',
+      'Geheimnisse (verborgen)',
+    ]);
+    expect(head.others.map((doc) => `${doc.kind}:${doc.name}`)).toEqual([
+      'map:Stadtplan',
+      'time:Stadtgeschichte',
+    ]);
   });
 
   it('wandelt die Seitenleiste um und lässt Leeres weg', () => {
-    expect(head.side.map((node) => node.type)).toEqual(['image', 'group', 'links', 'note', 'note']);
+    expect(head.side.map((node) => node.type)).toEqual(['image', 'group', 'links']);
     expect(ofType(head.side, 'group')[0]?.title).toBe('Am Tisch');
-    expect(ofType(head.side, 'links')[0]?.items.map((item) => item.resourceId)).toEqual(['salzrabe', 'hausdusk', 'geloesch']);
-    // Betitelte Hinweise bleiben einzeln, damit man sieht, was fehlt.
-    expect(ofType(head.side, 'note').map(noteText)).toEqual([
-      '„Stimmung“ lässt sich nur in LegendKeeper ansehen.',
-      '„Wetter“ lässt sich nur in LegendKeeper ansehen.',
+    expect(ofType(head.side, 'links')[0]?.items.map((item) => item.resourceId)).toEqual([
+      'salzrabe',
+      'hausdusk',
+      'geloesch',
     ]);
     expect(linkedResourceIds(head.side)).toEqual(['salzrabe', 'hausdusk', 'geloesch']);
   });
 
+  it('sammelt, was LegendKeeper von der Seitenleiste nicht herausgibt – ohne die Schlagwort-Anzeige', () => {
+    expect(head.sideMissing).toEqual(['Stimmung', 'Wetter']);
+    const odd = articleHead({
+      ...resource,
+      properties: [
+        { kind: 'unsupported', id: 'a', title: 'Tags' },
+        { kind: 'unsupported', id: 'b', title: '  ' },
+        { kind: 'unsupported', id: 'c' },
+      ],
+    });
+    expect(odd.side).toEqual([]);
+    expect(odd.sideMissing).toEqual(['Abschnitt ohne Titel', 'Abschnitt ohne Titel']);
+  });
+
+  it('nennt Karten und Zeitleisten beim Namen, ohne die Art zu doppeln', () => {
+    expect(head.others.map(docLabel)).toEqual([
+      'Karte „Stadtplan“',
+      'Zeitleiste „Stadtgeschichte“',
+    ]);
+    expect(docLabel({ id: 'm', name: 'Karte', kind: 'map', hidden: false })).toBe('Karte');
+    expect(docLabel({ id: 'b', name: 'Stammbaum', kind: 'board', hidden: false })).toBe(
+      'Tafel „Stammbaum“',
+    );
+  });
+
   it('zeigt ein abgeschaltetes oder unsicheres Banner nicht', () => {
-    expect(articleHead({ ...resource, banner: { enabled: false, url: 'https://assets.legendkeeper.com/x.webp' } }).banner).toBeNull();
+    expect(
+      articleHead({
+        ...resource,
+        banner: { enabled: false, url: 'https://assets.legendkeeper.com/x.webp' },
+      }).banner,
+    ).toBeNull();
     expect(articleHead({ ...resource, banner: { enabled: true, url: '' } }).banner).toBeNull();
     expect(articleHead({ ...resource, banner: null }).banner).toBeNull();
   });
 
+  it('kürzt lange Pfade auf die letzten Schritte', () => {
+    expect(shortPath(['a', 'b', 'c', 'd'])).toEqual({ skipped: 0, steps: ['a', 'b', 'c', 'd'] });
+    expect(shortPath(['a', 'b', 'c', 'd', 'e', 'f'])).toEqual({
+      skipped: 3,
+      steps: ['d', 'e', 'f'],
+    });
+    expect(shortPath([])).toEqual({ skipped: 0, steps: [] });
+    expect(shortPath(['a', 'b', 'c'], 1)).toEqual({ skipped: 2, steps: ['c'] });
+  });
+
   it('kommt mit einem kargen Artikel zurecht', () => {
     const bare = articleHead({ id: 'x1', name: '  ' });
-    expect(bare).toMatchObject({ title: 'Unbenannter Artikel', path: [], tags: [], pages: [], others: [], side: [], banner: null });
+    expect(bare).toMatchObject({
+      title: 'Unbenannter Artikel',
+      path: [],
+      tags: [],
+      pages: [],
+      others: [],
+      side: [],
+      banner: null,
+    });
   });
 });

@@ -36,11 +36,16 @@ import {
 } from './model';
 import { ConditionToggles, ExhaustionMarks } from './parts';
 
+/** Feld, auf dem der Dialog beim Öffnen steht; Vorgabe ist der Name. */
+export type EditFocus = 'languages' | 'sheet';
+
 export function EditDialog({
   character,
+  focus,
   onClose,
 }: {
   character: Character | null;
+  focus?: EditFocus;
   onClose: () => void;
 }) {
   const db = useDb();
@@ -215,7 +220,7 @@ export function EditDialog({
               className={cx('wf-gruppe-col-4', error('name') && 'wf-gruppe-field--error')}
             >
               <Input
-                data-autofocus
+                data-autofocus={focus ? undefined : true}
                 value={draft.name}
                 onChange={(e) => set('name', e.target.value)}
                 placeholder="Name des Charakters"
@@ -291,6 +296,7 @@ export function EditDialog({
           ))}
           <Input
             className="wf-gruppe-languages__input"
+            data-autofocus={focus === 'languages' ? true : undefined}
             list={listId}
             value={language}
             placeholder={
@@ -374,6 +380,7 @@ export function EditDialog({
             className={cx('wf-gruppe-col-4', error('sheetUrl') && 'wf-gruppe-field--error')}
           >
             <Input
+              data-autofocus={focus === 'sheet' ? true : undefined}
               value={draft.sheetUrl}
               onChange={(e) => set('sheetUrl', e.target.value)}
               placeholder="https://www.dndbeyond.com/characters/…"

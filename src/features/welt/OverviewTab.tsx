@@ -1,5 +1,5 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
-import type { ReactNode } from 'react';
+import { Children, useState, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import {
   ArrowRight,
@@ -9,11 +9,13 @@ import {
   Handshake,
   Home,
   Plus,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
   attitudeHistory,
+  attitudeToParty,
   entityName,
   openPromises,
   placeCast,
@@ -41,7 +43,6 @@ import {
   Button,
   Checkbox,
   ChronicleList,
-  EntityPicker,
   Field,
   Select,
   toast,
@@ -49,6 +50,7 @@ import {
 import { movePartyTo, patchDetails } from './actions';
 import { openEntityDialog } from './editor';
 import {
+  CAST_PREVIEW,
   PERSON_STATUS_LABEL,
   castSubline,
   describeVisit,
@@ -62,7 +64,15 @@ import {
   upcomingFor,
   type WorldEntity,
 } from './model';
-import { EntryRow, Hint, NotesSection, SecretSection, Section, UpcomingList } from './parts';
+import {
+  EntryRow,
+  Hint,
+  NotesSection,
+  SecretSection,
+  Section,
+  UpcomingList,
+  Picker,
+} from './parts';
 
 export type DossierTab = 'overview' | 'relations' | 'chronicle' | 'lk';
 
@@ -254,12 +264,26 @@ function CastGroup({
   count: number;
   children: ReactNode;
 }) {
+  // In einer großen Stadt stehen Dutzende Leute – der Rest der Seite soll erreichbar bleiben.
+  const [showAll, setShowAll] = useState(false);
+  const rows = Children.toArray(children);
+  const shown = showAll || rows.length <= CAST_PREVIEW + 2 ? rows : rows.slice(0, CAST_PREVIEW);
   return (
     <div className="wf-welt-cast__group">
       <div className="wf-welt-cast__label">
         {label} <span>{count}</span>
       </div>
-      <div className="wf-welt-rows">{children}</div>
+      <div className="wf-welt-rows">{shown}</div>
+      {rows.length > shown.length && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="wf-welt-cast__more"
+          onClick={() => setShowAll(true)}
+        >
+          Weitere {rows.length - shown.length} anzeigen
+        </Button>
+      )}
     </div>
   );
 }
@@ -277,6 +301,7 @@ function PartyAtPlace({ place }: { place: Place }) {
   const last = visits.find((v) => !v.ongoing);
   const earlier = visits.filter((v) => !v.ongoing);
   const shown = earlier.slice(0, 5);
+  const changes = status.changesSince.length;
 
   const move = () => {
     const result = movePartyTo(db, place.id);
@@ -308,6 +333,20 @@ function PartyAtPlace({ place }: { place: Place }) {
               <div className="wf-welt-party__sub">
                 {visits.length === 1 ? 'Ein Besuch bisher' : `${visits.length} Besuche bisher`}
               </div>
+              {changes > 0 && (
+                <button
+                  type="button"
+                  className="wf-welt-party__changes"
+                  onClick={() =>
+                    document
+                      .querySelector('.wf-welt-sec--changes')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }
+                >
+                  <Sparkles />
+                  {changes === 1 ? 'Seitdem eine Veränderung' : `Seitdem ${changes} Veränderungen`}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -353,6 +392,7 @@ function ChangesSince({ place }: { place: Place }) {
   const logChange = () => openQuickLog({ kind: 'change', refs: [place.id] });
   return (
     <Section
+      className="wf-welt-sec--changes"
       title="Seit dem letzten Besuch"
       count={status.changesSince.length || undefined}
       action={
@@ -464,6 +504,7 @@ function AttitudeTrail({ entity }: { entity: Person | Faction }) {
   const data = useData();
   const cal = data.campaign.calendar;
   const history = [...attitudeHistory(data, entity.id, PARTY_ID)].reverse();
+  const known = attitudeToParty(data, entity.id) !== null;
   const change = () => openAttitude({ fromId: entity.id });
   return (
     <Section
@@ -497,11 +538,13 @@ function AttitudeTrail({ entity }: { entity: Person | Faction }) {
         <Hint
           action={
             <Button size="sm" onClick={change}>
-              Haltung festlegen
+              {known ? 'Haltung ändern' : 'Haltung festlegen'}
             </Button>
           }
         >
-          Noch keine Änderung – jede steht hier mit Datum und Grund.
+          {known
+            ? 'Seit dem Anlegen unverändert – jede Änderung steht hier mit Datum und Grund.'
+            : 'Noch nicht festgelegt – jede Änderung steht hier mit Datum und Grund.'}
         </Hint>
       )}
     </Section>
@@ -690,7 +733,7 @@ function Whereabouts({ person }: { person: Person }) {
     <Section title="Aufenthalt">
       <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
         <Field label="Hält sich auf in">
-          <EntityPicker
+          <Picker
             value={placeId}
             onChange={(next) => patchDetails(db, person, { placeId: next })}
             kinds={['place']}
@@ -725,7 +768,7 @@ function Whereabouts({ person }: { person: Person }) {
           </div>
         </Field>
         <Field label="Ist zu Hause in">
-          <EntityPicker
+          <Picker
             value={homeId}
             onChange={(next) => patchDetails(db, person, { homeId: next })}
             kinds={['place']}
@@ -825,7 +868,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
       side={
         <>
           <Section title="Sitz">
-            <EntityPicker
+            <Picker
               value={faction.faction.seatId}
               onChange={(seatId) => patchDetails(db, faction, { seatId })}
               kinds={['place']}
@@ -867,7 +910,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
               label="Befindet sich bei"
               hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte."
             >
-              <EntityPicker
+              <Picker
                 value={item.item.holderId}
                 onChange={(holderId) => patchDetails(db, item, { holderId })}
                 kinds={['place', 'person', 'faction', 'character']}

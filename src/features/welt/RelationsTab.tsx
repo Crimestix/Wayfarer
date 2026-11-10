@@ -15,7 +15,6 @@ import {
   Checkbox,
   Dialog,
   EmptyState,
-  EntityPicker,
   Field,
   IconButton,
   Input,
@@ -28,13 +27,14 @@ import {
   toast,
 } from '../../ui';
 import { removeRelation } from './actions';
+import { Picker } from './parts';
 import {
   canRelateFrom,
   entitySubline,
   relationDraft,
-  relationDraftChanged,
   relationRows,
   relationSentence,
+  savesDirection,
   type RelationDraft,
   type RelationRow,
   type WorldEntity,
@@ -125,7 +125,7 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
         <div className="wf-grow">
           <div className="wf-welt-rel__label">
             {row.label}
-            {!symmetric && (
+            {!symmetric && !isParty && (
               <span className="wf-welt-rel__inverse"> · umgekehrt: {row.inverseLabel}</span>
             )}
           </div>
@@ -251,6 +251,7 @@ function RelationDialog({
   const save = () => {
     setTried(true);
     if (problem || !otherId) return;
+    const pairExists = !!stored(otherId, 'out') || !!stored(otherId, 'in');
     db.batch(() => {
       for (const d of ['out', 'in'] as const) {
         const from = d === 'out' ? self.id : otherId;
@@ -259,7 +260,7 @@ function RelationDialog({
         const current = stored(otherId, d);
         const next = drafts[d];
         // Eine Richtung, die es nicht gibt und die niemand angefasst hat, bleibt leer.
-        if (!relationDraftChanged(next, current) && (current || d !== dir)) continue;
+        if (!savesDirection(next, current, { active: d === dir, pairExists })) continue;
         const fields = {
           type: next.type,
           label: next.type === 'custom' ? next.label.trim() : '',
@@ -342,7 +343,7 @@ function RelationDialog({
             <span className="wf-mute">und</span>
             {isNew ? (
               <div className="wf-grow">
-                <EntityPicker
+                <Picker
                   value={otherId}
                   onChange={pickOther}
                   allowParty
@@ -372,6 +373,12 @@ function RelationDialog({
             {isNew && existing && (
               <p className="wf-welt-form__kindhint">
                 Diese Beziehung gibt es schon – du bearbeitest die vorhandene.
+              </p>
+            )}
+            {!isNew && !existing && (
+              <p className="wf-welt-form__kindhint">
+                In dieser Richtung ist noch nichts eingetragen. Was du hier festlegst, kommt beim
+                Speichern dazu.
               </p>
             )}
             <div className="wf-form-grid">

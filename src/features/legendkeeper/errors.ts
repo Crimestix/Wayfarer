@@ -242,7 +242,12 @@ export function describeError(error: LkError, context: LkErrorContext = 'article
         tone: 'problem',
       };
     case 'aborted':
-      return { title: 'Abgebrochen', text: 'Die Anfrage wurde abgebrochen.', action: 'retry', tone: 'hint' };
+      return {
+        title: 'Abgebrochen',
+        text: 'Die Anfrage wurde abgebrochen.',
+        action: 'retry',
+        tone: 'hint',
+      };
     case 'unexpected':
     default:
       return {

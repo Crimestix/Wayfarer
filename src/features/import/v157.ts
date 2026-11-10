@@ -68,6 +68,14 @@ export const LEGACY_PARTY = [
   { id: 'veres', name: 'Veres', className: 'Paladin · Schwur der Alten' },
   { id: 'nex', name: 'Nex', className: 'Kleriker / Druide' },
 ] as const;
+/** Schlagwort für Personen, deren Name nicht im Backup stand (nur ein Verweis auf LegendKeeper). */
+export const MISSING_NAME_TAG = 'Name fehlt';
+/** Kurzbeschreibung solcher Personen, bis der Name nachgetragen ist. */
+export const MISSING_NAME_TAGLINE =
+  'Der Name stand nicht im Backup – er steht im verknüpften LegendKeeper-Artikel.';
+/** Vorläufiger Name einer Person, von der nur die Kennung des LegendKeeper-Artikels bekannt ist. */
+export const placeholderName = (resourceId: string) =>
+  `Person aus LegendKeeper (${resourceId.slice(0, 8)})`;
 /** Stufe, die die alte Version anzeigte, solange keine eingetragen war. */
 const LEGACY_DEFAULT_LEVEL = 6;
 
@@ -337,12 +345,14 @@ class Importer {
     const existingId = this.relationByPair.get(pair);
     const existing = existingId ? this.relations.get(existingId) : undefined;
     if (existing) {
-      const extra = [init.label, init.note].filter(Boolean).join(': ');
+      // Eine bloße Haltung („kennt“) nimmt die genauere Art an; sonst wandert die zweite
+      // Verbindung als Zusatz in die Notiz.
+      const adopt = existing.type === 'knows' && !!init.type && init.type !== 'knows';
+      const extra = adopt ? (init.note ?? '') : [init.label, init.note].filter(Boolean).join(': ');
       this.relations.set(existing.id, {
         ...existing,
-        type: existing.type === 'knows' && init.type ? init.type : existing.type,
-        label:
-          existing.type === 'knows' && init.type === 'custom' ? (init.label ?? '') : existing.label,
+        type: adopt ? init.type! : existing.type,
+        label: adopt ? (init.label ?? '') : existing.label,
         note:
           extra && !existing.note.includes(extra)
             ? [existing.note, extra].filter(Boolean).join(' · ')
@@ -565,10 +575,13 @@ class Importer {
     );
     let clamped = 0;
     let linkedPortraits = 0;
+    let builtInPortraits = 0;
     let withValues = 0;
     for (const member of LEGACY_PARTY) {
       const c = obj(characters[member.id]);
       if (Object.keys(c).length) withValues++;
+      // Ohne eigenes Bild zeigte die alte Version ein mitgeliefertes Porträt, das nicht im Backup steht.
+      if (!Object.hasOwn(c, 'portrait')) builtInPortraits++;
       const facts: string[] = [];
       const level = int(c.level) ?? LEGACY_DEFAULT_LEVEL;
       if (level > 20) {
@@ -629,6 +642,10 @@ class Importer {
     if (clamped)
       this.hints.push(
         `${count(clamped, 'Gefährte hatte', 'Gefährten hatten')} eine Stufe über 20; eingetragen ist Stufe 20, der alte Wert steht in den Notizen.`,
+      );
+    if (builtInPortraits)
+      this.hints.push(
+        `${count(builtInPortraits, 'Gefährte zeigte', 'Gefährten zeigten')} in der alten Version das mitgelieferte Porträt. Es steht nicht im Backup; das Bild lässt sich im Bereich „Gefährten“ neu einfügen.`,
       );
     if (linkedPortraits)
       this.hints.push(
@@ -943,9 +960,9 @@ class Importer {
     const added = this.addEntity({
       id,
       kind: 'person',
-      name: `Person aus LegendKeeper (${resource.slice(0, 8)})`,
-      tagline: 'Der Name stand nicht im Backup – er steht im verknüpften LegendKeeper-Artikel.',
-      tags: ['Name fehlt'],
+      name: placeholderName(resource),
+      tagline: MISSING_NAME_TAGLINE,
+      tags: [MISSING_NAME_TAG],
       lk: { resourceId: resource, title: '' },
       person: { met: obj(obj(this.raw.npcKnowledge)[project])[resource] === true },
     });
@@ -1000,7 +1017,7 @@ class Importer {
     if (this.unnamed)
       this.adopted.push(
         `${count(this.unnamed, 'Person kannte', 'Personen kannte')} die alte Version nur als Verweis auf einen LegendKeeper-Artikel. ` +
-          `${this.unnamed === 1 ? 'Sie wurde' : 'Sie wurden'} mit dieser Verknüpfung angelegt und ${this.unnamed === 1 ? 'trägt' : 'tragen'} das Schlagwort „Name fehlt“, weil der Name nicht im Backup steht.`,
+          `${this.unnamed === 1 ? 'Sie wurde' : 'Sie wurden'} mit dieser Verknüpfung angelegt und ${this.unnamed === 1 ? 'trägt' : 'tragen'} das Schlagwort „${MISSING_NAME_TAG}“, weil der Name nicht im Backup steht. Steht die Verbindung zu LegendKeeper, holt ein Klick in den Einstellungen unter „Alten Spielstand übernehmen“ die Namen nach.`,
       );
     if (toParty + toMembers) {
       this.adopted.push(
@@ -1374,7 +1391,10 @@ class Importer {
       }
       const at = time(n.at) ?? this.now;
       const title = n.title.trim();
-      const match = /^session\s*#?\s*(\d{1,6})\b[\s:–—·-]*(.*)$/i.exec(title);
+      const match =
+        /^(?:session|sitzung|spielsitzung|spielabend)\s*#?\s*(\d{1,6})\b[\s:–—·-]*(.*)$/i.exec(
+          title,
+        );
       if (match) {
         const parsed = SessionSchema.safeParse({
           id: this.ids.claim('sessions', `note:${idOf(n.id) || newId()}`, idOf(n.id)),

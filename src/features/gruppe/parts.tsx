@@ -1,5 +1,5 @@
 /** Kleine Bausteine des Bereichs „Gefährten“: Erschöpfung, Zustände, Aufenthaltsort, Werte. */
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ExternalLink, MapPin, Plus, Users, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName, placePath } from '../../domain/derive';
@@ -32,7 +32,10 @@ function closeToAnchor(anchor: HTMLElement | null, setOpen: (open: boolean) => v
 
 // ── Erschöpfung ────────────────────────────────────────────────────────────
 
-/** Sechs Marken. Ein Klick setzt die Stufe; ein Klick auf die aktuelle Stufe nimmt eine zurück. */
+/**
+ * Sechs Marken. Ein Klick setzt die Stufe; ein Klick auf die aktuelle Stufe nimmt eine zurück.
+ * Mit der Tastatur ist die Reihe ein einziger Halt: Pfeil rechts erhöht, Pfeil links senkt.
+ */
 export function ExhaustionMarks({
   level,
   onMark,
@@ -42,21 +45,36 @@ export function ExhaustionMarks({
   onMark: (mark: number) => void;
   size?: 'md' | 'lg';
 }) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const up = e.key === 'ArrowRight' || e.key === 'ArrowUp';
+    const down = e.key === 'ArrowLeft' || e.key === 'ArrowDown';
+    if (!up && !down) return;
+    e.preventDefault();
+    // Dieselbe Regel wie beim Klick: die nächste Marke setzen bzw. die aktuelle zurücknehmen.
+    if (up && level < EXHAUSTION_MAX) onMark(level + 1);
+    if (down && level > 0) onMark(level);
+  };
   return (
     <div
       className={cx('wf-gruppe-marks', size === 'lg' && 'wf-gruppe-marks--lg')}
-      role="group"
-      aria-label={`Erschöpfung: Stufe ${level} von ${EXHAUSTION_MAX}`}
+      role="slider"
+      tabIndex={0}
+      aria-label="Erschöpfung"
+      aria-valuemin={0}
+      aria-valuemax={EXHAUSTION_MAX}
+      aria-valuenow={level}
+      aria-valuetext={`Stufe ${level} von ${EXHAUSTION_MAX}: ${exhaustionText(level, true)}`}
       title={EXHAUSTION_RULE}
+      onKeyDown={onKeyDown}
     >
       {Array.from({ length: EXHAUSTION_MAX }, (_, i) => i + 1).map((mark) => (
         <button
           key={mark}
           type="button"
+          tabIndex={-1}
           className="wf-gruppe-mark"
           data-on={mark <= level}
           data-last={mark === EXHAUSTION_MAX}
-          aria-pressed={mark <= level}
           aria-label={
             mark === level
               ? `Erschöpfung auf Stufe ${mark - 1} senken`
@@ -216,7 +234,14 @@ export function ConditionChips({ character }: { character: Character }) {
 // ── Aufenthaltsort ─────────────────────────────────────────────────────────
 
 /** Zeigt, wo der Gefährte ist, und lässt ihn sich von der Gruppe trennen oder zurückkehren. */
-export function LocationControl({ character }: { character: Character }) {
+export function LocationControl({
+  character,
+  roomy,
+}: {
+  character: Character;
+  /** Wo Platz ist, steht dabei, wo die Gruppe gerade ist. */
+  roomy?: boolean;
+}) {
   const db = useDb();
   const data = useData();
   const anchor = useRef<HTMLButtonElement>(null);
@@ -253,6 +278,10 @@ export function LocationControl({ character }: { character: Character }) {
           {own ? (
             <>
               Abseits: <b>{entityName(data, own)}</b>
+            </>
+          ) : roomy && partyPlace ? (
+            <>
+              Bei der Gruppe · <b>{entityName(data, partyPlace)}</b>
             </>
           ) : (
             'Bei der Gruppe'

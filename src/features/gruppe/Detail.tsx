@@ -31,6 +31,7 @@ import {
 } from '../../ui';
 import { patchCharacter, toggleCharacterCondition } from './actions';
 import { BondDialog } from './BondDialog';
+import type { EditFocus } from './EditDialog';
 import {
   characterBonds,
   classLine,
@@ -248,7 +249,7 @@ export function Detail({
   onCreate,
 }: {
   id: string;
-  onEdit: (id: string) => void;
+  onEdit: (id: string, focus?: EditFocus) => void;
   onCreate: () => void;
 }) {
   const db = useDb();
@@ -326,7 +327,7 @@ export function Detail({
                 Bearbeiten
               </Button>
             </div>
-            <SheetLink character={character} onMissing={() => onEdit(character.id)} />
+            <SheetLink character={character} onMissing={() => onEdit(character.id, 'sheet')} />
           </div>
         </header>
 
@@ -369,7 +370,7 @@ export function Detail({
                     <button
                       type="button"
                       className="wf-gruppe-textlink"
-                      onClick={() => onEdit(character.id)}
+                      onClick={() => onEdit(character.id, 'languages')}
                     >
                       Sprachen eintragen
                     </button>
@@ -382,7 +383,7 @@ export function Detail({
                 </dd>
                 <dt>Aufenthalt</dt>
                 <dd>
-                  <LocationControl character={character} />
+                  <LocationControl character={character} roomy />
                 </dd>
               </dl>
             </Panel>

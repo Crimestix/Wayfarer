@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCatalog,
   catalogPath,
+  descendantCount,
+  finderHits,
   mergeHits,
   normalize,
+  normalizePlain,
   searchCatalog,
   snippetOf,
   suggestForName,
@@ -27,7 +30,12 @@ describe('Verzeichnis', () => {
   });
 
   it('kennt den Pfad im Baum von der Wurzel abwärts', () => {
-    expect(catalogPath(catalog, 'persisol')).toEqual(['Elaris', 'Nebelküste', 'Dornhafen', 'Taverne zum Salzigen Raben']);
+    expect(catalogPath(catalog, 'persisol')).toEqual([
+      'Elaris',
+      'Nebelküste',
+      'Dornhafen',
+      'Taverne zum Salzigen Raben',
+    ]);
     expect(catalogPath(catalog, 'weltelar')).toEqual([]);
     expect(catalogPath(catalog, 'gibtesnicht')).toEqual([]);
   });
@@ -40,6 +48,28 @@ describe('Verzeichnis', () => {
     ]);
     expect(catalogPath(odd, 'a')).toEqual(['B']);
     expect(catalogPath(odd, 'c')).toEqual([]);
+  });
+
+  it('ordnet die Artikel als Baum: Wurzeln, Unterartikel, Zahl aller Nachfahren', () => {
+    expect(catalog.roots.map((entry) => entry.title)).toEqual(['Elaris']);
+    expect(catalog.children.get('nebelkst')?.map((entry) => entry.title)).toEqual([
+      'Dornhafen',
+      'Haus Duskryn',
+      'Krähenmoor',
+    ]);
+    expect(catalog.children.get('persvoss')).toBeUndefined();
+    expect(descendantCount(catalog, 'weltelar')).toBe(12);
+    expect(descendantCount(catalog, 'kraehenm')).toBe(2);
+    expect(descendantCount(catalog, 'persvoss')).toBe(0);
+  });
+
+  it('behandelt Artikel, deren übergeordneter Artikel nicht sichtbar ist, als Wurzeln', () => {
+    const orphaned = buildCatalog([
+      { id: 'a', name: 'Sichtbar', parentId: 'verborgen', tags: [], aliases: [], documents: [] },
+      { id: 'b', name: 'Selbstbezug', parentId: 'b', tags: [], aliases: [], documents: [] },
+    ]);
+    expect(orphaned.roots.map((entry) => entry.id).sort()).toEqual(['a', 'b']);
+    expect(descendantCount(orphaned, 'b')).toBe(0);
   });
 
   it('nimmt doppelte Einträge nur einmal', () => {
@@ -57,7 +87,10 @@ describe('Suche nach Titel', () => {
 
   it('stellt den genauen Titel vor Titel, die nur damit beginnen oder ihn enthalten', () => {
     expect(titles(searchCatalog(catalog, 'dornhafen'))).toEqual(['Dornhafen']);
-    expect(titles(searchCatalog(catalog, 'sankt vael'))).toEqual(['Kloster Sankt Vael', 'Die Glocke von Sankt Vael']);
+    expect(titles(searchCatalog(catalog, 'sankt vael'))).toEqual([
+      'Kloster Sankt Vael',
+      'Die Glocke von Sankt Vael',
+    ]);
   });
 
   it('findet Wortanfänge in beliebiger Reihenfolge', () => {
@@ -93,11 +126,15 @@ describe('Vorschläge zu einem Eintragsnamen', () => {
   });
 
   it('findet einen Artikel, dessen Titel den Eintragsnamen enthält', () => {
-    expect(titles(suggestForName(catalog, 'Zum Salzigen Raben'))[0]).toBe('Taverne zum Salzigen Raben');
+    expect(titles(suggestForName(catalog, 'Zum Salzigen Raben'))[0]).toBe(
+      'Taverne zum Salzigen Raben',
+    );
   });
 
   it('schlägt bei teilweiser Übereinstimmung vor, aber nicht bei bloßen Füllwörtern oder Schlagworten', () => {
-    expect(titles(suggestForName(catalog, 'Glocke Sankt Vael'))).toContain('Die Glocke von Sankt Vael');
+    expect(titles(suggestForName(catalog, 'Glocke Sankt Vael'))).toContain(
+      'Die Glocke von Sankt Vael',
+    );
     expect(suggestForName(catalog, 'Der von und zu')).toEqual([]);
     expect(suggestForName(catalog, 'Fraktion')).toEqual([]);
     expect(suggestForName(catalog, 'Bruder Teoric')).toEqual([]);
@@ -153,5 +190,71 @@ describe('Trefferliste', () => {
 
   it('hält die Obergrenze ein', () => {
     expect(mergeHits(searchCatalog(catalog, 'a'), remote, catalog, 2)).toHaveLength(2);
+  });
+});
+
+const numbered = (names: string[]): LkResourceListItem[] =>
+  names.map((name, index) => ({
+    id: `n${index}`,
+    name,
+    parentId: null,
+    tags: [],
+    aliases: [],
+    documents: [],
+  }));
+
+describe('Reihenfolge und Schreibweisen', () => {
+  it('sortiert Zahlen im Titel nach ihrem Wert, nicht Zeichen für Zeichen', () => {
+    const sorted = buildCatalog(
+      numbered(['Kapitel 10', 'Kapitel 2', 'kapitel 1', 'Ähre', 'Zunft']),
+    );
+    expect(sorted.entries.map((entry) => entry.title)).toEqual([
+      'Ähre',
+      'kapitel 1',
+      'Kapitel 2',
+      'Kapitel 10',
+      'Zunft',
+    ]);
+  });
+
+  it('findet Umlaute auch, wenn sie ohne Punkte oder ausgeschrieben getippt werden', () => {
+    const world = buildCatalog(numbered(['Überfälle am Öl-Kai', 'Krähenmoor', 'Uhrmacher']));
+    expect(normalizePlain('  Krähenmoor – „Öl-Kai“ ')).toBe('krahenmoor ol kai');
+    for (const typed of ['uber ol', 'ueber oel', 'Über Öl', 'ÜBERFÄLLE']) {
+      expect(titles(searchCatalog(world, typed)), typed).toEqual(['Überfälle am Öl-Kai']);
+    }
+    expect(titles(searchCatalog(world, 'krahen'))).toEqual(['Krähenmoor']);
+    expect(titles(searchCatalog(world, 'kraehen'))).toEqual(['Krähenmoor']);
+    // Kein Freibrief: „uhr“ findet nicht „Über…“.
+    expect(titles(searchCatalog(world, 'uhr'))).toEqual(['Uhrmacher']);
+    expect(titles(suggestForName(world, 'Krahenmoor'))).toEqual(['Krähenmoor']);
+  });
+});
+
+describe('Trefferliste der Artikelsuche', () => {
+  const many = buildCatalog(
+    numbered(Array.from({ length: 12 }, (_, index) => `Turm ${index + 1}`)),
+  );
+
+  it('meldet, wenn es mehr Treffer gibt als gezeigt werden', () => {
+    const cut = finderHits(many, 'turm', [], 5);
+    expect(cut.hits.map((hit) => hit.title)).toEqual([
+      'Turm 1',
+      'Turm 2',
+      'Turm 3',
+      'Turm 4',
+      'Turm 5',
+    ]);
+    expect(cut.more).toBe(true);
+    expect(finderHits(many, 'turm 12', [], 5)).toMatchObject({ more: false });
+    expect(finderHits(many, 'turm', [], 12).more).toBe(false);
+  });
+
+  it('ist ohne Suchtext leer und arbeitet auch ohne Verzeichnis', () => {
+    expect(finderHits(many, '   ', [])).toEqual({ hits: [], more: false });
+    const remote: RemoteHit[] = [{ resource: { id: 'x1', name: 'Nur aus der Volltextsuche' } }];
+    expect(finderHits(null, 'voll', remote).hits.map((hit) => hit.title)).toEqual([
+      'Nur aus der Volltextsuche',
+    ]);
   });
 });

@@ -56,6 +56,10 @@
 .wf-einstellungen-section__body {
   min-width: 0;
 }
+/* Der eingebettete LegendKeeper-Baustein schließt rechts mit den übrigen Abschnitten ab. */
+.wf-einstellungen-section__body > .wf-lk-settings {
+  max-width: none;
+}
 
 .wf-einstellungen-stack {
   display: flex;

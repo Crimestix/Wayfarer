@@ -2,8 +2,16 @@
 import { useSyncExternalStore } from 'react';
 import type { EntityDraft, WorldKind } from './model';
 
-export type EntityDialogRequest =
-  { mode: 'create'; kind: WorldKind; preset?: Partial<EntityDraft> } | { mode: 'edit'; id: string };
+/** Ein abgebrochener Entwurf, mit dem der Dialog dort weitermacht, wo er geschlossen wurde. */
+export interface EntityDialogResume {
+  draft: EntityDraft;
+  /** Orte, die im Dialog über „neu anlegen“ entstanden sind. */
+  created: string[];
+}
+
+export type EntityDialogRequest = (
+  { mode: 'create'; kind: WorldKind; preset?: Partial<EntityDraft> } | { mode: 'edit'; id: string }
+) & { resume?: EntityDialogResume };
 
 let current: EntityDialogRequest | null = null;
 const listeners = new Set<() => void>();

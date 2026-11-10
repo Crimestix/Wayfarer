@@ -62,7 +62,13 @@ export type NoteReason =
 
 export type ArticleNode =
   | { type: 'paragraph'; inlines: Inline[]; align?: 'center' | 'right' }
-  | { type: 'heading'; level: number; inlines: Inline[]; anchor: string; align?: 'center' | 'right' }
+  | {
+      type: 'heading';
+      level: number;
+      inlines: Inline[];
+      anchor: string;
+      align?: 'center' | 'right';
+    }
   | { type: 'quote'; children: ArticleNode[] }
   | { type: 'code'; text: string }
   | { type: 'rule' }
@@ -84,7 +90,14 @@ export type ArticleNode =
   | { type: 'infobox'; beside: boolean; children: ArticleNode[] }
   /** Abschnitt, den in LegendKeeper nur die Spielleitung sieht. */
   | { type: 'secret'; children: ArticleNode[] }
-  | { type: 'note'; reason: NoteReason; title?: string; href?: string; kind?: string; count: number }
+  | {
+      type: 'note';
+      reason: NoteReason;
+      title?: string;
+      href?: string;
+      kind?: string;
+      count: number;
+    }
   /** Unbekannte Blockart, deren Text gerettet wurde. */
   | { type: 'unknown'; kind: string; text: string };
 
@@ -92,7 +105,8 @@ export type ArticleNode =
 
 type Raw = Record<string, unknown>;
 
-const isRaw = (value: unknown): value is Raw => typeof value === 'object' && value !== null && !Array.isArray(value);
+const isRaw = (value: unknown): value is Raw =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 const flag = (value: unknown): boolean => value === true;
@@ -107,7 +121,9 @@ export function safeHref(value: unknown): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
-    return url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'mailto:' ? url.href : undefined;
+    return url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'mailto:'
+      ? url.href
+      : undefined;
   } catch {
     return undefined;
   }
@@ -129,7 +145,8 @@ export function internalTarget(
     const url = new URL(href);
     if (url.protocol !== 'https:' || !/^(www\.)?legendkeeper\.com$/.test(url.hostname)) return null;
     const [marker, project, resourceId, documentId] = url.pathname.split('/').filter(Boolean);
-    if (marker !== 'p' || project !== projectId || !resourceId) return null;
+    // „/app/…“ ist die frühere Schreibweise; LegendKeeper leitet sie auf „/p/…“ um.
+    if ((marker !== 'p' && marker !== 'app') || project !== projectId || !resourceId) return null;
     return documentId ? { resourceId, documentId } : { resourceId };
   } catch {
     return null;
@@ -158,7 +175,8 @@ export function convertRuns(runs: unknown, ctx: ConvertContext): Inline[] {
     }
     if (isRaw(run.mention)) {
       const resourceId = text(run.mention.resourceId);
-      const label = text(run.mention.text).trim() || text(run.mention.name).trim() || 'Unbenannter Artikel';
+      const label =
+        text(run.mention.text).trim() || text(run.mention.name).trim() || 'Unbenannter Artikel';
       if (!resourceId) out.push({ type: 'text', text: label });
       else {
         const documentId = text(run.mention.documentId) || undefined;
@@ -194,7 +212,9 @@ export function convertRuns(runs: unknown, ctx: ConvertContext): Inline[] {
 
 export function inlineText(inlines: Inline[]): string {
   return inlines
-    .map((inline) => (inline.type === 'text' ? inline.text : inline.type === 'mention' ? inline.label : '\n'))
+    .map((inline) =>
+      inline.type === 'text' ? inline.text : inline.type === 'mention' ? inline.label : '\n',
+    )
     .join('');
 }
 
@@ -202,13 +222,31 @@ const isBlank = (inlines: Inline[]) => inlineText(inlines).trim() === '';
 
 // ── Eigenschaften (Seitenleiste und Steckbrief) ──────────────────────────────
 
-/** Titel einer Eigenschaft oder eines Blocks, wenn LegendKeeper ihn anzeigt. */
+/**
+ * Titel, die LegendKeeper von sich aus vergibt, solange niemand einen eigenen einträgt.
+ * Sie sagen nichts über den Inhalt und werden deshalb nicht gezeigt.
+ */
+const DEFAULT_TITLES: Record<string, string> = {
+  image: 'image',
+  keyValue: 'stats',
+  textField: 'text',
+  meter: 'meter',
+  resourceLink: 'links',
+  resourceCollection: 'collection',
+  embed: 'embed',
+  map: 'map',
+};
+
+/** Titel einer Eigenschaft oder eines Blocks, wenn LegendKeeper ihn anzeigt und er etwas sagt. */
 function shownTitle(raw: Raw): string | undefined {
   const title = text(raw.title).trim();
-  return title && !flag(raw.isTitleHidden) ? title : undefined;
+  if (!title || flag(raw.isTitleHidden) || title.toLowerCase() === DEFAULT_TITLES[text(raw.kind)])
+    return undefined;
+  return title;
 }
 
-const withTitle = <T extends ArticleNode>(node: T, title: string | undefined): T => (title ? { ...node, title } : node);
+const withTitle = <T extends ArticleNode>(node: T, title: string | undefined): T =>
+  title ? { ...node, title } : node;
 
 function convertRows(rows: unknown, ctx: ConvertContext): FactRow[] {
   const out: FactRow[] = [];
@@ -216,7 +254,8 @@ function convertRows(rows: unknown, ctx: ConvertContext): FactRow[] {
     if (!isRaw(row)) continue;
     const key = text(row.key).trim();
     let value = convertRuns(row.content, ctx);
-    if (isBlank(value) && text(row.text).trim()) value = [{ type: 'text', text: text(row.text).trim() }];
+    if (isBlank(value) && text(row.text).trim())
+      value = [{ type: 'text', text: text(row.text).trim() }];
     if (isBlank(value)) continue;
     out.push({ key, value });
   }
@@ -235,7 +274,10 @@ function convertTargets(items: unknown): { resourceId: string; documentId?: stri
   return out;
 }
 
-function note(reason: NoteReason, extra: { title?: string; href?: string; kind?: string } = {}): ArticleNode {
+function note(
+  reason: NoteReason,
+  extra: { title?: string; href?: string; kind?: string } = {},
+): ArticleNode {
   return { type: 'note', reason, count: 1, ...extra };
 }
 
@@ -244,14 +286,23 @@ function note(reason: NoteReason, extra: { title?: string; href?: string; kind?:
  * Medien, Karte, Textfeld). Gibt `undefined` zurück, wenn die Art hier nicht hingehört,
  * und `null`, wenn der Inhalt leer ist.
  */
-function convertStructured(raw: Raw, ctx: ConvertContext, depth: number): ArticleNode | null | undefined {
+function convertStructured(
+  raw: Raw,
+  ctx: ConvertContext,
+  depth: number,
+): ArticleNode | null | undefined {
   const title = shownTitle(raw);
   switch (text(raw.kind)) {
     case 'image': {
       if (!text(raw.url).trim()) return null;
       const url = safeImageUrl(raw.url);
       if (!url) return note('image', { title });
-      return { type: 'image', url, alt: text(raw.alt).trim() || title || '', ...(title ? { caption: title } : {}) };
+      return {
+        type: 'image',
+        url,
+        alt: text(raw.alt).trim() || title || '',
+        ...(title ? { caption: title } : {}),
+      };
     }
     case 'keyValue': {
       const rows = convertRows(raw.rows, ctx);
@@ -292,16 +343,25 @@ function convertStructured(raw: Raw, ctx: ConvertContext, depth: number): Articl
 }
 
 /** Eine Eigenschaft der Seitenleiste oder eines Steckbriefs. `null`, wenn sie leer ist. */
-export function convertProperty(property: unknown, ctx: ConvertContext, depth = 0): ArticleNode | null {
+export function convertProperty(
+  property: unknown,
+  ctx: ConvertContext,
+  depth = 0,
+): ArticleNode | null {
   if (!isRaw(property)) return null;
   const structured = convertStructured(property, ctx, depth);
   if (structured !== undefined) return structured;
   const kind = text(property.kind);
-  if (kind === 'unsupported') return note('unsupported', { title: text(property.title).trim() || undefined });
+  if (kind === 'unsupported')
+    return note('unsupported', { title: text(property.title).trim() || undefined });
   return rescue(property, kind);
 }
 
-export function convertProperties(properties: unknown, ctx: ConvertContext, depth = 0): ArticleNode[] {
+export function convertProperties(
+  properties: unknown,
+  ctx: ConvertContext,
+  depth = 0,
+): ArticleNode[] {
   const out: ArticleNode[] = [];
   for (const property of list(properties)) {
     const node = convertProperty(property, ctx, depth);
@@ -325,14 +385,17 @@ function rescueText(value: unknown, depth: number, lines: string[]): void {
   const body = runs || text(value.text).trim();
   const line = [...own, body].filter(Boolean).join(': ');
   if (line) lines.push(line);
-  for (const field of ['children', 'rows', 'items', 'blocks']) rescueText(value[field], depth + 1, lines);
+  for (const field of ['children', 'rows', 'items', 'blocks'])
+    rescueText(value[field], depth + 1, lines);
 }
 
 function rescue(raw: Raw, kind: string): ArticleNode {
   const lines: string[] = [];
   rescueText(raw, 0, lines);
   const label = kind || 'ohne Art';
-  return lines.length ? { type: 'unknown', kind: label, text: lines.join('\n') } : note('unknown', { kind: label });
+  return lines.length
+    ? { type: 'unknown', kind: label, text: lines.join('\n') }
+    : note('unknown', { kind: label });
 }
 
 const ALIGN = { center: 'center', right: 'right' } as const;
@@ -359,7 +422,15 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
       if (isBlank(inlines)) return [];
       const level = Math.min(6, Math.max(1, Math.round(count(block.level, 2))));
       ctx.headings += 1;
-      return [{ type: 'heading', level, inlines, anchor: `lk-abschnitt-${ctx.headings}`, ...alignOf(block) }];
+      return [
+        {
+          type: 'heading',
+          level,
+          inlines,
+          anchor: `lk-abschnitt-${ctx.headings}`,
+          ...alignOf(block),
+        },
+      ];
     }
     case 'quote': {
       const inner = children();
@@ -376,12 +447,22 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
       const items: ArticleNode[][] = [];
       for (const child of list(block.children)) {
         // Ein Listenpunkt enthält Absätze und weitere Listen; alles andere wird selbst zum Punkt.
-        const item = isRaw(child) && child.kind === 'listItem' ? convertBlocks(child.children, ctx, depth + 2) : convertBlock(child, ctx, depth + 1);
+        const item =
+          isRaw(child) && child.kind === 'listItem'
+            ? convertBlocks(child.children, ctx, depth + 2)
+            : convertBlock(child, ctx, depth + 1);
         if (item.length) items.push(item);
       }
       if (!items.length) return [];
       const ordered = kind === 'orderedList';
-      return [{ type: 'list', ordered, start: ordered ? Math.max(0, Math.round(count(block.start, 1))) : 1, items }];
+      return [
+        {
+          type: 'list',
+          ordered,
+          start: ordered ? Math.max(0, Math.round(count(block.start, 1))) : 1,
+          items,
+        },
+      ];
     }
     case 'taskList': {
       const items: { checked: boolean; inlines: Inline[] }[] = [];
@@ -409,7 +490,9 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
         if (cells.length) rows.push(cells);
       }
       // Eine Tabelle ohne jeden Inhalt ist nur ein leeres Gitter.
-      return rows.some((cells) => cells.some((cell) => cell.children.length)) ? [{ type: 'table', rows }] : [];
+      return rows.some((cells) => cells.some((cell) => cell.children.length))
+        ? [{ type: 'table', rows }]
+        : [];
     }
     case 'callout': {
       const inner = children();
@@ -425,7 +508,11 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
     }
     case 'layout': {
       const columns = list(block.children)
-        .map((column) => (isRaw(column) && column.kind === 'layoutColumn' ? convertBlocks(column.children, ctx, depth + 2) : convertBlock(column, ctx, depth + 1)))
+        .map((column) =>
+          isRaw(column) && column.kind === 'layoutColumn'
+            ? convertBlocks(column.children, ctx, depth + 2)
+            : convertBlock(column, ctx, depth + 1),
+        )
         .filter((column) => column.length > 0);
       if (columns.length === 0) return [];
       // Eine einzige gefüllte Spalte ist einfach Fließtext.
@@ -435,7 +522,13 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
       const inner = convertProperties(block.rows, ctx, depth + 1);
       if (!inner.length) return [];
       const layout = text(block.layout);
-      return [{ type: 'infobox', beside: layout === '' || layout === 'wrapLeft' || layout === 'wrapRight', children: inner }];
+      return [
+        {
+          type: 'infobox',
+          beside: layout === '' || layout === 'wrapLeft' || layout === 'wrapRight',
+          children: inner,
+        },
+      ];
     }
     case 'secret': {
       const inner = children();
@@ -451,7 +544,9 @@ function convertBlock(block: unknown, ctx: ConvertContext, depth: number): Artic
       return children();
     case 'taskItem': {
       const inlines = convertRuns(block.content, ctx);
-      return isBlank(inlines) ? [] : [{ type: 'tasks', items: [{ checked: flag(block.checked), inlines }] }];
+      return isBlank(inlines)
+        ? []
+        : [{ type: 'tasks', items: [{ checked: flag(block.checked), inlines }] }];
     }
     default: {
       const structured = convertStructured(block, ctx, depth);
@@ -501,7 +596,8 @@ export function noteText(node: Extract<ArticleNode, { type: 'note' }>): string {
   const named = node.title ? `„${node.title}“` : '';
   switch (node.reason) {
     case 'unsupported':
-      if (node.count > 1) return `${node.count} Abschnitte lassen sich nur in LegendKeeper ansehen.`;
+      if (node.count > 1)
+        return `${node.count} Abschnitte lassen sich nur in LegendKeeper ansehen.`;
       return named
         ? `${named} lässt sich nur in LegendKeeper ansehen.`
         : 'Dieser Abschnitt lässt sich nur in LegendKeeper ansehen.';
@@ -575,7 +671,8 @@ export interface OutlineEntry {
 export function outlineOf(nodes: ArticleNode[]): OutlineEntry[] {
   const out: OutlineEntry[] = [];
   const visit = (node: ArticleNode) => {
-    if (node.type === 'heading') out.push({ anchor: node.anchor, level: node.level, text: inlineText(node.inlines).trim() });
+    if (node.type === 'heading')
+      out.push({ anchor: node.anchor, level: node.level, text: inlineText(node.inlines).trim() });
     else if (node.type === 'columns') node.columns.forEach((column) => column.forEach(visit));
     else if (node.type === 'secret' || node.type === 'group') node.children.forEach(visit);
   };
@@ -664,38 +761,89 @@ export interface ArticleHead {
   pages: ArticleDoc[];
   /** Karten, Tafeln und Zeitleisten – nur in LegendKeeper selbst anzusehen. */
   others: ArticleDoc[];
-  /** Eigenschaften der Seitenleiste. */
+  /** Eigenschaften der Seitenleiste, soweit Wayfarer sie darstellen kann. */
   side: ArticleNode[];
+  /**
+   * Titel der Eigenschaften der Seitenleiste, die LegendKeeper nicht herausgibt. Sie stehen
+   * gesammelt am Fuß des Artikels statt als einzelne Hinweise in der Randspalte.
+   */
+  sideMissing: string[];
+}
+
+/**
+ * Trennt die Seitenleiste in Darstellbares und in das, was LegendKeeper nicht herausgibt.
+ * Die Schlagwort-Anzeige der Seitenleiste („Tags“) gehört zu Letzterem, ist aber kein Verlust:
+ * die Schlagworte stehen ohnehin im Kopf des Artikels.
+ */
+function splitSide(
+  properties: unknown,
+  ctx: ConvertContext,
+): { side: ArticleNode[]; missing: string[] } {
+  const side: ArticleNode[] = [];
+  const missing: string[] = [];
+  for (const property of list(properties)) {
+    if (isRaw(property) && property.kind === 'unsupported') {
+      const title = text(property.title).trim();
+      if (title.toLowerCase() === 'tags') continue;
+      missing.push(title || 'Abschnitt ohne Titel');
+      continue;
+    }
+    const node = convertProperty(property, ctx);
+    if (node) side.push(node);
+  }
+  return { side: mergeNotes(side), missing };
 }
 
 /** Kopf eines Artikels: Titel, Pfad, Dokumente und Seitenleiste. */
 export function articleHead(resource: LkResource, projectId?: string): ArticleHead {
   const docs = [...list(resource.documents)]
-    .filter((document): document is LkDocument => isRaw(document) && typeof document.id === 'string')
+    .filter(
+      (document): document is LkDocument => isRaw(document) && typeof document.id === 'string',
+    )
     .sort((a, b) => {
       const left = text(a.rank);
       const right = text(b.rank);
       return left < right ? -1 : left > right ? 1 : 0;
     })
     .map(docOf);
-  const bannerUrl = resource.banner && resource.banner.enabled !== false ? safeImageUrl(resource.banner.url) : undefined;
+  const bannerUrl =
+    resource.banner && resource.banner.enabled !== false
+      ? safeImageUrl(resource.banner.url)
+      : undefined;
+  const { side, missing } = splitSide(resource.properties, newContext(projectId));
   return {
     id: resource.id,
     title: text(resource.name).trim() || 'Unbenannter Artikel',
     path: list(resource.ancestors)
       .filter(isRaw)
-      .map((ancestor) => ({ id: text(ancestor.id), name: text(ancestor.name).trim() || 'Unbenannt' }))
+      .map((ancestor) => ({
+        id: text(ancestor.id),
+        name: text(ancestor.name).trim() || 'Unbenannt',
+      }))
       .filter((ancestor) => ancestor.id),
     tags: list(resource.tags).map(text).filter(Boolean),
     aliases: list(resource.aliases).map(text).filter(Boolean),
     hidden: flag(resource.isHidden),
     banner: bannerUrl
-      ? { url: bannerUrl, position: Math.min(100, Math.max(0, count(resource.banner?.yPosition, 50))) }
+      ? {
+          url: bannerUrl,
+          position: Math.min(100, Math.max(0, count(resource.banner?.yPosition, 50))),
+        }
       : null,
     pages: docs.filter((doc) => doc.kind === 'page'),
     others: docs.filter((doc) => doc.kind !== 'page' && doc.kind !== 'blank'),
-    side: convertProperties(resource.properties, newContext(projectId)),
+    side,
+    sideMissing: missing,
   };
+}
+
+/**
+ * Kürzt einen langen Pfad auf seine letzten Schritte. `skipped` sagt, wie viele davor entfallen.
+ * Tiefe Bäume (Welt › Kontinent › Reich › … ) passen sonst in keine Zeile.
+ */
+export function shortPath<T>(path: T[], keep = 3): { skipped: number; steps: T[] } {
+  if (path.length <= keep + 1) return { skipped: 0, steps: path };
+  return { skipped: path.length - keep, steps: path.slice(path.length - keep) };
 }
 
 export interface ArticleBody {
@@ -722,7 +870,8 @@ export function articleBody(blocks: unknown, projectId?: string, title?: string)
     else body.push(node);
   }
   const first = body[0];
-  if (title && first?.type === 'heading' && sameTitle(inlineText(first.inlines), title)) body.shift();
+  if (title && first?.type === 'heading' && sameTitle(inlineText(first.inlines), title))
+    body.shift();
   return { body, aside, outline: outlineOf(body) };
 }
 

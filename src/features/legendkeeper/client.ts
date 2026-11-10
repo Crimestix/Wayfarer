@@ -63,6 +63,8 @@ export interface LkClient {
   project(options?: LkGetOptions): Promise<Required<LkProject>>;
   /** Vergisst gemerkte Antworten – alle oder die, deren Pfad passt. */
   forget(match?: (path: string) => boolean): void;
+  /** Wann die gemerkte Antwort zu einem Pfad tatsächlich geholt wurde – falls eine gemerkt ist. */
+  fetchedAt(path: string, query?: LkQuery): number | undefined;
 }
 
 const MINUTE = 60_000;
@@ -103,8 +105,10 @@ interface Flight {
  */
 function previewError(error: LkError, path: string): LkError {
   if (error.kind === 'unauthorized') return new LkError('preview', { status: error.status });
-  if (error.kind === 'unexpected' && path === '/projects') return new LkError('preview', { status: error.status });
-  if (error.kind === 'server' && !error.code) return new LkError('offline', { status: error.status });
+  if (error.kind === 'unexpected' && path === '/projects')
+    return new LkError('preview', { status: error.status });
+  if (error.kind === 'server' && !error.code)
+    return new LkError('offline', { status: error.status });
   return error;
 }
 
@@ -194,7 +198,11 @@ export function createLkClient(transport: LkTransport, now: () => number = Date.
       const items: T[] = [];
       let cursor: string | null = null;
       for (let page = 0; page < maxPages; page += 1) {
-        const answer: LkPage<T> = await client.get<LkPage<T>>(path, { ...query, limit: pageSize, cursor }, rest);
+        const answer: LkPage<T> = await client.get<LkPage<T>>(
+          path,
+          { ...query, limit: pageSize, cursor },
+          rest,
+        );
         if (!Array.isArray(answer.data)) {
           throw new LkError('unexpected', { detail: 'LegendKeeper hat keine Liste geschickt.' });
         }
@@ -215,9 +223,14 @@ export function createLkClient(transport: LkTransport, now: () => number = Date.
       );
       const first = Array.isArray(page.data) ? page.data[0] : undefined;
       if (!first || typeof first.id !== 'string' || !first.id) {
-        throw new LkError('unexpected', { detail: 'Zu diesem API-Key gehört kein LegendKeeper-Projekt.' });
+        throw new LkError('unexpected', {
+          detail: 'Zu diesem API-Key gehört kein LegendKeeper-Projekt.',
+        });
       }
-      const name = typeof first.name === 'string' && first.name.trim() ? first.name.trim() : 'LegendKeeper-Projekt';
+      const name =
+        typeof first.name === 'string' && first.name.trim()
+          ? first.name.trim()
+          : 'LegendKeeper-Projekt';
       return { id: first.id, name };
     },
 
@@ -230,6 +243,10 @@ export function createLkClient(transport: LkTransport, now: () => number = Date.
         return;
       }
       for (const key of [...cache.keys()]) if (match(pathOfKey(key))) cache.delete(key);
+    },
+
+    fetchedAt(path: string, query?: LkQuery) {
+      return cache.get(cacheKey(path, query))?.at;
     },
   };
   return client;
@@ -325,7 +342,10 @@ async function projectPath(rest: string, options?: LkGetOptions): Promise<string
 }
 
 /** Ein Artikel mit Dokumenten, Eigenschaften der Seitenleiste und Pfad. */
-export async function fetchResource(resourceId: string, options?: LkGetOptions): Promise<LkResource> {
+export async function fetchResource(
+  resourceId: string,
+  options?: LkGetOptions,
+): Promise<LkResource> {
   const path = await projectPath(`/resources/${idSegment(resourceId)}`, options);
   return lk.get<LkResource>(path, undefined, options);
 }
@@ -358,17 +378,44 @@ export async function searchRemote(
   const q = text.trim().slice(0, 200);
   if (!q) return [];
   const path = await projectPath('/search', options);
-  const page = await lk.get<LkPage<LkSearchHit>>(path, { q, limit }, { maxAgeMs: SEARCH_MAX_AGE, ...options });
+  const page = await lk.get<LkPage<LkSearchHit>>(
+    path,
+    { q, limit },
+    { maxAgeMs: SEARCH_MAX_AGE, ...options },
+  );
   return Array.isArray(page.data) ? page.data : [];
 }
 
 /** Vergisst alles, was zu einem Artikel gemerkt ist (für „Aktualisieren“). */
 export function forgetResource(resourceId: string): void {
-  lk.forget((path) => path.endsWith(`/resources/${resourceId}`) || path.includes(`/resources/${resourceId}/`));
+  lk.forget(
+    (path) =>
+      path.endsWith(`/resources/${resourceId}`) || path.includes(`/resources/${resourceId}/`),
+  );
+}
+
+/**
+ * Wann ein Artikel (oder der Text einer seiner Seiten) zuletzt wirklich aus LegendKeeper geholt
+ * wurde. Eine gemerkte Antwort kann einige Minuten alt sein; der Zeitpunkt der Anzeige wäre
+ * dann geschönt.
+ */
+export function articleFetchedAt(
+  projectId: string,
+  resourceId: string,
+  documentId?: string | null,
+): number | undefined {
+  const base = `/projects/${projectId}/resources/${resourceId}`;
+  return lk.fetchedAt(documentId ? `${base}/docs/${documentId}/blocks` : base);
 }
 
 /** Adresse eines Artikels in LegendKeeper selbst – zum Öffnen im Browser. */
-export function articleUrl(projectId: string, resourceId: string, documentId?: string | null): string {
-  const parts = [projectId, resourceId, ...(documentId ? [documentId] : [])].map(encodeURIComponent);
+export function articleUrl(
+  projectId: string,
+  resourceId: string,
+  documentId?: string | null,
+): string {
+  const parts = [projectId, resourceId, ...(documentId ? [documentId] : [])].map(
+    encodeURIComponent,
+  );
   return `https://www.legendkeeper.com/p/${parts.join('/')}/`;
 }

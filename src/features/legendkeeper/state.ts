@@ -8,6 +8,7 @@ import { isDesktopApp, lkClearKey, lkSetKey, lkStatus } from '../../data/platfor
 import { buildCatalog, type Catalog } from './catalog';
 import { CATALOG_MAX_AGE, fetchResourceList, lk } from './client';
 import { LkError, isAborted, transportError } from './errors';
+import { shouldRecheck } from './status';
 
 function createStore<T>(initial: T) {
   let value = initial;
@@ -33,7 +34,12 @@ export type Connection =
   /** Noch nicht geprüft. */
   | { phase: 'idle'; hasKey: boolean | null }
   | { phase: 'checking'; hasKey: boolean | null }
-  | { phase: 'ready'; hasKey: boolean | null; project: { id: string; name: string }; checkedAt: number }
+  | {
+      phase: 'ready';
+      hasKey: boolean | null;
+      project: { id: string; name: string };
+      checkedAt: number;
+    }
   | { phase: 'failed'; hasKey: boolean | null; error: LkError; checkedAt: number };
 
 const connection = createStore<Connection>({ phase: 'idle', hasKey: null });
@@ -70,11 +76,16 @@ export function checkConnection(force = false): Promise<Connection> {
   return checking;
 }
 
-/** Stand der Verbindung. Prüft beim ersten Gebrauch von selbst. */
+/**
+ * Stand der Verbindung. Prüft beim ersten Gebrauch von selbst – und noch einmal, wenn die letzte
+ * Prüfung an etwas Vorübergehendem scheiterte und eine Weile her ist.
+ */
 export function useConnection(): Connection {
   const state = useSyncExternalStore(connection.subscribe, connection.get);
   useEffect(() => {
-    if (connection.get().phase === 'idle') void checkConnection();
+    const current = connection.get();
+    if (current.phase === 'idle') void checkConnection();
+    else if (shouldRecheck(current, Date.now())) void checkConnection(true);
   }, []);
   return state;
 }
@@ -115,7 +126,13 @@ export interface CatalogState {
   loadedAt: number | null;
 }
 
-const EMPTY_CATALOG: CatalogState = { status: 'idle', loaded: 0, catalog: null, error: null, loadedAt: null };
+const EMPTY_CATALOG: CatalogState = {
+  status: 'idle',
+  loaded: 0,
+  catalog: null,
+  error: null,
+  loadedAt: null,
+};
 const catalog = createStore<CatalogState>(EMPTY_CATALOG);
 let catalogAbort: AbortController | null = null;
 
@@ -123,7 +140,10 @@ let catalogAbort: AbortController | null = null;
 export function ensureCatalog(force = false): void {
   const current = catalog.get();
   if (current.status === 'loading') return;
-  const fresh = current.status === 'ready' && current.loadedAt !== null && Date.now() - current.loadedAt < CATALOG_MAX_AGE;
+  const fresh =
+    current.status === 'ready' &&
+    current.loadedAt !== null &&
+    Date.now() - current.loadedAt < CATALOG_MAX_AGE;
   if (fresh && !force) return;
   const controller = new AbortController();
   catalogAbort = controller;
@@ -138,7 +158,13 @@ export function ensureCatalog(force = false): void {
     (items) => {
       if (catalogAbort !== controller) return;
       const built = buildCatalog(items);
-      catalog.set({ status: 'ready', loaded: built.entries.length, catalog: built, error: null, loadedAt: Date.now() });
+      catalog.set({
+        status: 'ready',
+        loaded: built.entries.length,
+        catalog: built,
+        error: null,
+        loadedAt: Date.now(),
+      });
     },
     (cause: unknown) => {
       if (catalogAbort !== controller || isAborted(cause)) return;
