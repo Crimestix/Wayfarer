@@ -268,6 +268,34 @@ nicht die Schnittstelle. Bereich `features/wiki/`:
 - Mit dem echten Export geprüft (nur lokal): 656 Artikel, 861 Seiten, 64 Karten, 174
   Kartenpunkte; alle 15 namenlosen Personen tragen ihren Namen.
 
+**Spieltisch und Wiki (10. 11. 2026):** Im Kopf des Ortes öffnen „Karte“ und „Artikel“ ein
+Fenster über dem Tisch (`tisch/WikiPeek.tsx`, `tisch/wiki.ts`): die Karte des Ortes und die der
+Orte darüber, der Artikel zum Blättern. Auf jeder Karte ist markiert, wo die Gruppe steht
+(`wiki/MapView.tsx`); ein Klick auf einen Kartenpunkt bietet „Artikel lesen“, „In der Welt
+öffnen“ und „Gruppe hierher versetzen“. Neben der Besetzung steht ein Auszug „Aus dem Wiki“.
+Wer an einem Ort wohnt und keinen anderen Aufenthalt hat, zählt als anwesend.
+
+**Welt eingrenzen (10. 11. 2026):** `welt/scope.ts` – „Bereich“ (Ort der Gruppe oder ein Ort
+darüber: zeigt nur, was dazugehört) und „Nur Bekanntes“ (getroffene Personen, besuchte Orte).
+
+**Wetter (10. 11. 2026) – Bereich F, erster Teil gebaut.** `domain/weather.ts` rechnet das
+Wetter eines Tages aus Klima, Kalender, Ausgangswert und Tag – ohne etwas zu speichern und ohne
+die Tage davor durchzugehen. Feuchte, Wind und Temperatur folgen Wetterlagen über mehrere Tage
+(`drift`: gleitender Mittelwert von Zufallswerten, zurückgerechnet auf Gleichverteilung, damit
+die Häufigkeiten des Klimas stimmen). Der Tag hat vier Abschnitte mit eigener Temperatur,
+Niederschlag und Nebel. Folgen nach Regelwerk 2024: extreme Kälte/Hitze, starker Wind, starker
+Niederschlag, Nebel. `domain/weatherZone.ts` findet die Klimazone eines Ortes: festgelegt
+(`place.climateId`, gilt für alles darunter) vor erkannt (Worte in Namen, Art, Schlagworten;
+unter der Erde gibt es kein Wetter) vor der Vorgabe „Gemäßigt“. Neun Vorgaben (`PRESET`); als
+Klimazone gespeichert werden sie erst, wenn etwas daran hängt. Der wärmste Monat steht in der
+Kampagne (`warmestMonth`; für Elaris angenommen: Hochbrand) und ist in den Einstellungen unter
+„Kalender“ wählbar. Oberfläche: `features/wetter` – Feld in der Weltleiste (Tagesverlauf, vier
+Tage Vorschau, Regelfolgen, „Heute festlegen“, „Klima festlegen“), Zeile am Spieltisch.
+- Orte derselben Zone unter demselben Ort haben dasselbe Wetter. Entfernung spielt noch keine
+  Rolle; dafür braucht es die Lage der Orte auf Karten (Bereich D).
+- Offen: Wetter im Kalender, Wetter auf Reisen (Bereich E), Südhalbkugel, eigene Klimazonen mit
+  eigenen Monatswerten bearbeiten.
+
 **Bilder auf dem Rechner (10. 11. 2026) – gebaut.** Im Spielstand bleibt bei jedem Bild die
 Adresse stehen, von der es stammt. „Bilder holen“ (Einstellungen → LegendKeeper ganz übernehmen,
 `einstellungen/MediaSection`) lädt sie in den Kampagnenordner unter `media/<letzter Teil der

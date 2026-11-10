@@ -177,6 +177,18 @@
 .wf-bar__cell--grow {
   flex: 1 1 auto;
 }
+/* Das Wetterfeld: ohne Ort der Gruppe leer und dann ohne Platzbedarf. */
+.wf-bar__cell--weather {
+  padding: 0 var(--s-2);
+}
+@media (max-width: 1400px) {
+  .wf-bar__cell--weather {
+    padding: 0 var(--s-1);
+  }
+}
+.wf-bar__cell--weather:empty {
+  display: none;
+}
 .wf-bar__cell--end {
   border-right: 0;
   padding-right: var(--s-4);

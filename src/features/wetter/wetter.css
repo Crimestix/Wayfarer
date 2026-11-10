@@ -1,0 +1,283 @@
+/* Wetter: das Feld in der Weltleiste und die aufgeklappte Übersicht. Klassen: „wf-wetter-“. */
+.wf-wetter-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  height: 40px;
+  padding: 0 8px;
+  /* Ohne Rahmen, solange niemand hinsieht: Die Leiste ist schon voll genug. */
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  transition:
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
+}
+.wf-wetter-chip:hover,
+.wf-wetter-chip[aria-expanded='true'] {
+  border-color: var(--gold-deep);
+  background: var(--bg-1);
+  color: var(--ink);
+}
+.wf-wetter-chip svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--gold);
+  stroke-width: 1.6;
+}
+.wf-wetter-chip--alert {
+  border-color: color-mix(in srgb, var(--ember) 60%, var(--line));
+}
+.wf-wetter-chip--alert svg {
+  color: var(--ember);
+}
+.wf-wetter-chip__temp {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wf-wetter-chip__text {
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+/* In schmalen Fenstern bleiben Zeichen und Temperatur; die Worte stehen im Tooltip. */
+@media (max-width: 1500px) {
+  .wf-wetter-chip__text {
+    display: none;
+  }
+}
+
+/* ── Aufgeklappt ────────────────────────────────────────────────────────── */
+.wf-wetter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4);
+}
+.wf-wetter__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wf-wetter__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-wetter__icon svg {
+  width: 28px;
+  height: 28px;
+  color: var(--gold);
+  stroke-width: 1.4;
+}
+.wf-wetter__summary {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.wf-wetter__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-wetter__note {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-style: italic;
+  font-size: var(--text-sm);
+}
+.wf-wetter__effects {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid color-mix(in srgb, var(--ember) 45%, var(--line));
+  background: var(--ember-wash);
+  list-style: none;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.wf-wetter__effects li {
+  display: flex;
+  gap: var(--s-2);
+}
+.wf-wetter__effects svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  color: var(--ember);
+}
+.wf-wetter__effects strong {
+  color: var(--ink);
+}
+.wf-wetter__label {
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-wetter__parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  background: var(--line-faint);
+  gap: 1px;
+}
+.wf-wetter__part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--s-2) 2px;
+  background: var(--bg-1);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.wf-wetter__part[data-current='true'] {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--gold) 14%, transparent),
+    color-mix(in srgb, var(--gold) 4%, transparent)
+  );
+  color: var(--ink);
+}
+.wf-wetter__part svg,
+.wf-wetter__day svg {
+  width: 18px;
+  height: 18px;
+  color: var(--gold-deep);
+  stroke-width: 1.6;
+}
+.wf-wetter__part[data-current='true'] svg {
+  color: var(--gold-bright);
+}
+/* Ein Raster für alle Tage, damit die Spalten untereinander stehen – so breit, wie die
+   Namen der Wochentage und Monate es brauchen. */
+.wf-wetter__days {
+  display: grid;
+  grid-template-columns: auto auto 20px auto minmax(0, 1fr);
+  column-gap: var(--s-3);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.wf-wetter__day {
+  display: contents;
+}
+.wf-wetter__day > * {
+  padding: 5px 0;
+  border-top: 1px solid var(--line-faint);
+  /* Die Trennlinie läuft durch die Spaltenabstände hindurch. */
+  box-shadow: var(--s-3) 0 0 0 transparent;
+}
+.wf-wetter__date {
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.wf-wetter__range {
+  white-space: nowrap;
+}
+.wf-wetter__daytext {
+  color: var(--ink-mute);
+}
+.wf-wetter__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-wetter__zone {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+.wf-wetter__zone strong {
+  color: var(--ink-soft);
+}
+.wf-wetter__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/* Festlegen von Hand */
+.wf-wetter-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-wetter-form__row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--s-3);
+}
+.wf-wetter-form__row--two {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.wf-wetter-form__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+.wf-wetter-hint {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Am Spieltisch: eine Zeile im Kopf des Ortes */
+.wf-wetter-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-soft);
+}
+.wf-wetter-line svg {
+  width: 15px;
+  height: 15px;
+  color: var(--gold-deep);
+}
+.wf-wetter-line--alert,
+.wf-wetter-line--alert svg {
+  color: var(--ember);
+}
+
+/* Einstellungen: wärmster Monat */
+.wf-wetter-season {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 420px;
+}
+
+/* Schmale Fenster: Das Feld rückt zusammen, damit der Ortsname daneben Platz behält. */
+@media (max-width: 1400px) {
+  .wf-wetter-chip {
+    gap: 6px;
+    padding: 0 4px;
+  }
+  .wf-wetter-chip__temp {
+    font-size: var(--text-md);
+  }
+}

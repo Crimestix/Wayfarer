@@ -51,6 +51,7 @@ import {
   type Nearby,
 } from './model';
 import { articleExcerpt, articleOf, placeMaps } from './wiki';
+import { WeatherLine } from '../wetter';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
 /** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. In niedrigen Fenstern weniger. */
@@ -426,6 +427,7 @@ export function PlacePanel({ place }: { place: Place }) {
           </Badge>
           {stay.visit && <span>{stay.visit}</span>}
           {stay.since && <span>{stay.since}</span>}
+          <WeatherLine />
         </div>
       </header>
 

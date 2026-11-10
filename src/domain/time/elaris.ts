@@ -34,6 +34,9 @@ const ELARIS_BASE: Omit<CalendarDef, 'weekdayAnchor'> = {
   ],
 };
 
+/** Der wärmste Monat des Jahres: Hochbrand (0-basiert). Das Jahr beginnt mit der Schneeschmelze. */
+export const ELARIS_WARMEST_MONTH = 4;
+
 /** Der 14. Blüthain 0 AD war ein Windtag. */
 const anchorDay = Math.floor(
   toTime(

@@ -16,6 +16,7 @@ import {
 import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import ErkundungPage from '../features/erkundung';
+import { WeatherChip } from '../features/wetter';
 import WikiPage from '../features/wiki';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
@@ -189,6 +190,10 @@ function WorldBar() {
             </span>
           </span>
         </button>
+      </div>
+
+      <div className="wf-bar__cell wf-bar__cell--weather">
+        <WeatherChip />
       </div>
 
       <div className="wf-bar__cell wf-bar__cell--end">

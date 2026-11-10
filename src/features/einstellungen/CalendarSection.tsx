@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useCalendar, useNow } from '../../data/hooks';
 import { formatDateTime, formatRelative } from '../../domain/time/calendar';
 import { MoonGlyph, SectionTitle, cx } from '../../ui';
+import { SeasonSetting } from '../wetter';
 import { calendarSummary, eraRows, leapText, monthRows, moonRows, weekdayRows } from './model';
 
 export function CalendarSection() {
@@ -44,6 +45,11 @@ export function CalendarSection() {
           ))}
         </ol>
         <p className="wf-einstellungen-footnote">{leapText(cal, now)}</p>
+      </div>
+
+      <div>
+        <SectionTitle>Jahreszeiten für das Wetter</SectionTitle>
+        <SeasonSetting />
       </div>
 
       <div>

@@ -55,6 +55,8 @@ export const CampaignMetaSchema = z.object({
   rev: base.rev,
   name: z.string(),
   calendar: CalendarSchema,
+  /** Der wärmste Monat des Jahres (0-basiert) für das Wetter; null = aus dem Kalender abgeleitet. */
+  warmestMonth: z.number().int().nonnegative().nullable().default(null),
   /** Eigene Zustände neben den 14 des Regelwerks, z. B. „Verflucht“. */
   customConditions: z
     .array(z.object({ name: z.string().min(1), rule: z.string().default('') }))

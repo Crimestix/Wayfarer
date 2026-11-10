@@ -60,6 +60,7 @@ nicht übernommen.
   `openTimeDialog`).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
   `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel, Übernahme des LegendKeeper-Exports),
+  `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
