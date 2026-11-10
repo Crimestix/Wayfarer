@@ -58,18 +58,31 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
     setFilter((f) => (f === 'all' || f === selectedKind ? f : 'all'));
     if (selectedKind === 'place') setOpen((o) => openAncestors(dataRef.current, selectedId, o));
   }, [selectedId, selectedKind]);
+  // Erst rollen, wenn die Zeile nach dem Aufklappen wirklich da ist – und nur nach einer neuen Auswahl.
+  const scrollPending = useRef(true);
   useEffect(() => {
-    list.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest' });
-  }, [selectedId, filter, open]);
+    scrollPending.current = true;
+  }, [selectedId]);
+  useEffect(() => {
+    if (!scrollPending.current) return;
+    const row = list.current?.querySelector('[aria-current="page"]');
+    if (!row) return;
+    scrollPending.current = false;
+    row.scrollIntoView({ block: 'nearest' });
+  });
 
   const counts = useMemo(() => worldCounts(data), [data]);
   const total = WORLD_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
   const attitudes = useMemo(() => partyAttitudes(data), [data]);
   const searching = query.trim() !== '';
-  const hits = useMemo(() => (searching ? searchWorld(data, query, filter) : []), [data, query, filter, searching]);
+  const hits = useMemo(
+    () => (searching ? searchWorld(data, query, filter) : []),
+    [data, query, filter, searching],
+  );
   const tree = useMemo(() => placeTreeRows(data, open), [data, open]);
   const createKind: WorldKind = filter === 'all' ? 'person' : filter;
-  const create = (preset?: { name: string }) => openEntityDialog({ mode: 'create', kind: createKind, preset });
+  const create = (preset?: { name: string }) =>
+    openEntityDialog({ mode: 'create', kind: createKind, preset });
 
   const row = (entity: WorldEntity, withKind: boolean): ReactNode => (
     <Link
@@ -84,8 +97,9 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
       <span className="wf-welt-row__main">
         <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>
         <span className="wf-welt-row__sub wf-clamp-1">
-          {[withKind && KIND_LABEL[entity.kind], entitySubline(data, entity)].filter(Boolean).join(' · ') ||
-            entity.tagline}
+          {[withKind && KIND_LABEL[entity.kind], entitySubline(data, entity)]
+            .filter(Boolean)
+            .join(' · ') || entity.tagline}
         </span>
       </span>
       {(entity.kind === 'person' || entity.kind === 'faction') && (
@@ -205,7 +219,8 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
                 </Button>
               }
             >
-              Kein Eintrag passt zu dieser Suche{filter === 'all' ? '' : ` unter ${KIND_LABEL_PLURAL[filter]}`}.
+              Kein Eintrag passt zu dieser Suche
+              {filter === 'all' ? '' : ` unter ${KIND_LABEL_PLURAL[filter]}`}.
             </EmptyState>
           )
         ) : total === 0 ? (
@@ -244,7 +259,9 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
                   {KIND_LABEL_PLURAL[kind]} <span>{counts[kind]}</span>
                 </div>
               )}
-              {kind === 'place' ? places : entitiesOfKind(data, kind).map((entity) => row(entity, false))}
+              {kind === 'place'
+                ? places
+                : entitiesOfKind(data, kind).map((entity) => row(entity, false))}
             </div>
           ))
         )}

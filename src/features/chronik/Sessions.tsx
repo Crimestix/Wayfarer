@@ -369,11 +369,11 @@ export function Sessions({
 
   const begin = () => onSelect(startSession(db).id);
   const toggle = running ? (
-    <Button size="sm" icon={<CircleStop />} onClick={() => endSession(db)}>
+    <Button icon={<CircleStop />} onClick={() => endSession(db)}>
       Session {running.session.number} beenden
     </Button>
   ) : (
-    <Button size="sm" variant="primary" icon={<Play />} onClick={begin}>
+    <Button variant="primary" icon={<Play />} onClick={begin}>
       Session beginnen
     </Button>
   );
@@ -400,7 +400,8 @@ export function Sessions({
 
   return (
     <div className="wf-chronik-sessions">
-      <Panel className="wf-chronik-list" title="Spielabende" count={spans.length} actions={toggle} flush scroll>
+      <Panel className="wf-chronik-list" title="Spielabende" count={spans.length} flush scroll>
+        <div className="wf-chronik-list__action">{toggle}</div>
         {spans.map((span) => {
           const { session } = span;
           const title = sessionTitle(session);

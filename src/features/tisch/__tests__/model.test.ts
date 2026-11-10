@@ -4,7 +4,13 @@ import { CampaignDb } from '../../../data/db';
 import { demoCampaign, emptyCampaign } from '../../../data/seed';
 import { MemoryStore } from '../../../data/store';
 import { entitiesOfKind, placeStatus } from '../../../domain/derive';
-import { createEntity, createEvent, createRelation, createTimer, type CampaignData } from '../../../domain/schema';
+import {
+  createEntity,
+  createEvent,
+  createRelation,
+  createTimer,
+  type CampaignData,
+} from '../../../domain/schema';
 import { MINUTES_PER_DAY } from '../../../domain/time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../../domain/time/elaris';
 import {
@@ -50,7 +56,11 @@ describe('Ort der Gruppe', () => {
   it('nennt den ersten Besuch und seit wann die Gruppe da ist', async () => {
     const db = await demoDb();
     const data = db.getSnapshot();
-    const labels = stayLabels(data.campaign.calendar, data.state.now, placeStatus(data, data.state.placeId!));
+    const labels = stayLabels(
+      data.campaign.calendar,
+      data.state.now,
+      placeStatus(data, data.state.placeId!),
+    );
     expect(labels.first).toBe(true);
     expect(labels.headline).toBe('Erster Besuch');
     // Moor und Kloster darunter zählen als ein Aufenthalt seit sechs Tagen.
@@ -83,8 +93,16 @@ describe('Ort der Gruppe', () => {
   it('sagt „Erster Besuch“, wenn der Ort ohne Ortswechsel gesetzt wurde', () => {
     const data = emptyCampaign('Test', ELARIS_CALENDAR, ELARIS_START);
     const place = createEntity({ kind: 'place', name: 'Irgendwo' });
-    const withPlace = { ...data, entities: { [place.id]: place }, state: { ...data.state, placeId: place.id } };
-    const labels = stayLabels(withPlace.campaign.calendar, withPlace.state.now, placeStatus(withPlace, place.id));
+    const withPlace = {
+      ...data,
+      entities: { [place.id]: place },
+      state: { ...data.state, placeId: place.id },
+    };
+    const labels = stayLabels(
+      withPlace.campaign.calendar,
+      withPlace.state.now,
+      placeStatus(withPlace, place.id),
+    );
     expect(labels).toEqual({ headline: 'Erster Besuch', first: true, since: null, visit: null });
   });
 });
@@ -129,12 +147,17 @@ describe('Wer hier ist', () => {
     const teoric = view.away[0]!.entity;
     if (teoric.kind !== 'person') throw new Error('Person erwartet');
     db.put('entities', { ...teoric, person: { ...teoric.person, status: 'alive' } });
-    expect(castView(db.getSnapshot(), kloster.id).away[0]).toMatchObject({ fate: null, where: 'Aufenthalt unbekannt' });
+    expect(castView(db.getSnapshot(), kloster.id).away[0]).toMatchObject({
+      fate: null,
+      where: 'Aufenthalt unbekannt',
+    });
     db.put('entities', {
       ...teoric,
       person: { ...teoric.person, status: 'alive', placeId: byName(data, 'Dornhafen').id },
     });
-    expect(castView(db.getSnapshot(), kloster.id).away[0]).toMatchObject({ where: 'jetzt: Dornhafen' });
+    expect(castView(db.getSnapshot(), kloster.id).away[0]).toMatchObject({
+      where: 'jetzt: Dornhafen',
+    });
     db.put('entities', teoric);
     data = db.getSnapshot();
 
@@ -146,7 +169,10 @@ describe('Wer hier ist', () => {
     const glocke = byName(data, 'Die Glocke von Sankt Vael');
     db.put('relations', createRelation({ from: voss.id, to: kloster.id, type: 'seeks' }));
     db.put('relations', createRelation({ from: kloster.id, to: glocke.id, type: 'owns' }));
-    db.put('relations', createRelation({ from: kloster.id, to: byName(data, 'Krähenmoor').id, type: 'knows' }));
+    db.put(
+      'relations',
+      createRelation({ from: kloster.id, to: byName(data, 'Krähenmoor').id, type: 'knows' }),
+    );
     data = db.getSnapshot();
     view = castView(data, kloster.id);
     // Die Glocke liegt im Kloster und steht deshalb bei den Gegenständen – nicht noch einmal als Verbundene.
@@ -170,14 +196,23 @@ describe('Wer hier ist', () => {
     const view = castView(data, byName(data, 'Dornhafen').id);
     const brann = view.present.find((r) => r.entity.name === 'Brann Eisenhaken')!;
     expect(brann.tagline).toBe('Hafenmeister. Schuldet der Gruppe einen Gefallen und hasst es.');
-    expect(brann.promises).toEqual(['Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt.']);
+    expect(brann.promises).toEqual([
+      'Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt.',
+    ]);
     expect(view.present.find((r) => r.entity.name === 'Hauptmann Voss')!.promises).toEqual([]);
     // Ohne Rolle und Volk dient die Kurzbeschreibung als Unterzeile und steht nicht doppelt da.
     const stranger = db.put(
       'entities',
-      createEntity({ kind: 'person', name: 'Fremder', tagline: 'Sagt nichts.', person: { placeId: byName(data, 'Dornhafen').id } }),
+      createEntity({
+        kind: 'person',
+        name: 'Fremder',
+        tagline: 'Sagt nichts.',
+        person: { placeId: byName(data, 'Dornhafen').id },
+      }),
     );
-    const row = castView(db.getSnapshot(), byName(data, 'Dornhafen').id).present.find((r) => r.entity.id === stranger.id)!;
+    const row = castView(db.getSnapshot(), byName(data, 'Dornhafen').id).present.find(
+      (r) => r.entity.id === stranger.id,
+    )!;
     expect(row).toMatchObject({ role: 'Sagt nichts.', tagline: '' });
   });
 
@@ -193,7 +228,11 @@ describe('Wer hier ist', () => {
     data = db.getSnapshot();
     const status = placeStatus(data, hafen.id);
     expect(status.changesSince).toHaveLength(2);
-    expect(earlierHere(data, hafen.id, status).map((e) => e.kind)).toEqual(['note', 'attitude', 'promise']);
+    expect(earlierHere(data, hafen.id, status).map((e) => e.kind)).toEqual([
+      'note',
+      'attitude',
+      'promise',
+    ]);
   });
 });
 
@@ -220,7 +259,10 @@ describe('Anstehend', () => {
     const db = await demoDb();
     const now = db.getSnapshot().state.now;
     db.put('events', createEvent({ title: 'Zoll bezahlen', at: now - 2 * DAY, kind: 'deadline' }));
-    db.put('events', createEvent({ title: 'Wachwechsel', at: now + 30, timed: true, kind: 'world' }));
+    db.put(
+      'events',
+      createEvent({ title: 'Wachwechsel', at: now + 30, timed: true, kind: 'world' }),
+    );
     db.put('timers', createTimer({ label: 'Fackel brennt', start: now - 20, end: now + 40 }));
     logEntry(db, { kind: 'promise', text: 'Voss die Papiere zeigen', due: now - 60 });
     logEntry(db, { kind: 'promise', text: 'Ohne Frist' });
@@ -232,14 +274,26 @@ describe('Anstehend', () => {
       ['Fackel brennt', 'today', 'noch 40 Min.'],
       ['Treffen mit Brann am Nordkai', 'later', 'morgen, 22:00'],
       ['Der Graue Fang legt ab', 'later', 'in 2 Tagen'],
-      ['Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt.', 'later', 'in 2 Tagen'],
+      [
+        'Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt.',
+        'later',
+        'in 2 Tagen',
+      ],
       ['Vollmondmarkt in Dornhafen', 'later', 'in 5 Tagen'],
     ]);
     expect(items.find((i) => i.title === 'Ohne Frist')).toBeUndefined();
     const byTitle = (title: string) => items.find((i) => i.title === title)!;
-    expect(byTitle('Zoll bezahlen')).toMatchObject({ label: 'Frist', checkable: true, source: 'event' });
+    expect(byTitle('Zoll bezahlen')).toMatchObject({
+      label: 'Frist',
+      checkable: true,
+      source: 'event',
+    });
     expect(byTitle('Wachwechsel')).toMatchObject({ label: 'Ereignis', checkable: false });
-    expect(byTitle('Fackel brennt')).toMatchObject({ label: 'Wirkung', checkable: true, source: 'timer' });
+    expect(byTitle('Fackel brennt')).toMatchObject({
+      label: 'Wirkung',
+      checkable: true,
+      source: 'timer',
+    });
     expect(byTitle('Treffen mit Brann am Nordkai').date).toBe('18. Tauwind, 22:00');
     expect(byTitle('Vollmondmarkt in Dornhafen').date).toBe('22. Tauwind');
   });
@@ -282,6 +336,7 @@ describe('Mitschrift', () => {
     j = journal(db.getSnapshot());
     expect(j.session?.number).toBe(13);
     expect(j.entries).toEqual([]);
+    await pause();
     logEntry(db, { text: 'Neue Session' });
     expect(journal(db.getSnapshot()).entries.map((e) => e.text)).toEqual(['Neue Session']);
 
@@ -344,10 +399,9 @@ describe('Verweise mit @', () => {
       { id: 'b', name: 'Isolde Rabenschwinge' },
       { id: 'a', name: 'Brann Eisenhaken' },
     ];
-    expect(keptMentions('Brann Eisenhaken und Isolde Rabenschwinge streiten', mentions).map((m) => m.id)).toEqual([
-      'a',
-      'b',
-    ]);
+    expect(
+      keptMentions('Brann Eisenhaken und Isolde Rabenschwinge streiten', mentions).map((m) => m.id),
+    ).toEqual(['a', 'b']);
     expect(keptMentions('Brann Eisenhaken geht', mentions).map((m) => m.id)).toEqual(['a']);
     expect(keptMentions('', mentions)).toEqual([]);
   });
@@ -391,12 +445,21 @@ describe('Gefährten', () => {
     const [corrin, naelmira, neil] = entitiesOfKind(data, 'character');
     const hafen = byName(data, 'Dornhafen');
     db.put('entities', { ...corrin!, character: { ...corrin!.character, placeId: hafen.id } });
-    db.put('entities', { ...naelmira!, character: { ...naelmira!.character, placeId: data.state.placeId } });
+    db.put('entities', {
+      ...naelmira!,
+      character: { ...naelmira!.character, placeId: data.state.placeId },
+    });
     db.put('entities', { ...neil!, character: { ...neil!.character, active: false } });
     const list = companions(db.getSnapshot());
     expect(list).toHaveLength(5);
-    expect(list.find((c) => c.character.id === corrin!.id)).toMatchObject({ elsewhere: { name: 'Dornhafen' }, astray: false });
-    expect(list.find((c) => c.character.id === naelmira!.id)).toMatchObject({ elsewhere: null, astray: false });
+    expect(list.find((c) => c.character.id === corrin!.id)).toMatchObject({
+      elsewhere: { name: 'Dornhafen' },
+      astray: false,
+    });
+    expect(list.find((c) => c.character.id === naelmira!.id)).toMatchObject({
+      elsewhere: null,
+      astray: false,
+    });
     expect(list.every((c) => c.character.id !== neil!.id)).toBe(true);
   });
 });

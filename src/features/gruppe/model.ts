@@ -80,31 +80,31 @@ export interface ConditionDef {
 export const CONDITIONS: ConditionDef[] = [
   {
     name: 'Betäubt',
-    rule: 'Kampfunfähig. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen ihn sind im Vorteil.',
+    rule: 'Kampfunfähig. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen das Ziel sind im Vorteil.',
   },
   {
     name: 'Bewusstlos',
-    rule: 'Kampfunfähig und liegend, lässt alles fallen, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen ihn sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
+    rule: 'Kampfunfähig und liegend, lässt alles fallen, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen das Ziel sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
   },
   {
     name: 'Bezaubert',
-    rule: 'Kann den Bezaubernden weder angreifen noch mit Schädlichem belegen. Der Bezaubernde hat Vorteil bei sozialen Prüfungen gegen ihn.',
+    rule: 'Kann den Bezaubernden weder angreifen noch mit Schädlichem belegen. Der Bezaubernde hat Vorteil bei sozialen Prüfungen gegen das Ziel.',
   },
   {
     name: 'Blind',
-    rule: 'Sieht nichts; Prüfungen, die Sicht verlangen, scheitern. Angriffe gegen ihn sind im Vorteil, seine eigenen im Nachteil.',
+    rule: 'Sieht nichts; Prüfungen, die Sicht verlangen, scheitern. Angriffe gegen das Ziel sind im Vorteil, eigene Angriffe im Nachteil.',
   },
   {
     name: 'Festgesetzt',
-    rule: 'Bewegungsrate 0. Angriffe gegen ihn sind im Vorteil, seine eigenen im Nachteil. Nachteil bei Geschicklichkeitsrettungswürfen.',
+    rule: 'Bewegungsrate 0. Angriffe gegen das Ziel sind im Vorteil, eigene Angriffe im Nachteil. Nachteil bei Geschicklichkeitsrettungswürfen.',
   },
   {
     name: 'Gelähmt',
-    rule: 'Kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen ihn sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
+    rule: 'Kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen das Ziel sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
   },
   {
     name: 'Gepackt',
-    rule: 'Bewegungsrate 0. Nachteil bei Angriffen gegen alle außer dem, der ihn gepackt hält. Der kann ihn mit sich ziehen.',
+    rule: 'Bewegungsrate 0. Nachteil bei Angriffen gegen alle außer dem Packenden. Der Packende kann das Ziel mit sich ziehen.',
   },
   {
     name: 'Kampfunfähig',
@@ -112,12 +112,12 @@ export const CONDITIONS: ConditionDef[] = [
   },
   {
     name: 'Liegend',
-    rule: 'Kann nur kriechen; Aufstehen kostet die halbe Bewegungsrate. Eigene Angriffe im Nachteil. Angriffe aus 5 Fuß gegen ihn im Vorteil, aus größerer Entfernung im Nachteil.',
+    rule: 'Kann nur kriechen; Aufstehen kostet die halbe Bewegungsrate. Eigene Angriffe im Nachteil. Angriffe aus 5 Fuß gegen das Ziel im Vorteil, aus größerer Entfernung im Nachteil.',
   },
   { name: 'Taub', rule: 'Hört nichts; Prüfungen, die Gehör verlangen, scheitern.' },
   {
     name: 'Unsichtbar',
-    rule: 'Vorteil bei Initiative. Lässt sich nicht durch Sicht anvisieren. Eigene Angriffe im Vorteil, Angriffe gegen ihn im Nachteil.',
+    rule: 'Vorteil bei Initiative. Lässt sich nicht durch Sicht anvisieren. Eigene Angriffe im Vorteil, Angriffe gegen das Ziel im Nachteil.',
   },
   {
     name: 'Verängstigt',
@@ -126,7 +126,7 @@ export const CONDITIONS: ConditionDef[] = [
   { name: 'Vergiftet', rule: 'Nachteil bei Angriffswürfen und Attributswürfen.' },
   {
     name: 'Versteinert',
-    rule: 'Zu Stein geworden: kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern, Angriffe gegen ihn sind im Vorteil. Resistenz gegen jeden Schaden, immun gegen Gift.',
+    rule: 'Zu Stein geworden: kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern, Angriffe gegen das Ziel sind im Vorteil. Resistenz gegen jeden Schaden, immun gegen Gift.',
   },
 ];
 
@@ -146,7 +146,8 @@ export function sortConditions(conditions: readonly string[]): string[] {
   const unique: string[] = [];
   for (const raw of conditions) {
     const name = raw.trim();
-    if (name && !hasCondition(unique, name)) unique.push(CONDITIONS[conditionIndex(name)]?.name ?? name);
+    if (name && !hasCondition(unique, name))
+      unique.push(CONDITIONS[conditionIndex(name)]?.name ?? name);
   }
   return unique.sort((a, b) => {
     const ia = conditionIndex(a);
@@ -317,7 +318,8 @@ export function partySummary(party: Character[]): PartySummary {
     }
   }
   const everyone = sorted.length;
-  const byLanguage = (a: LanguageSpeakers, b: LanguageSpeakers) => collator.compare(a.language, b.language);
+  const byLanguage = (a: LanguageSpeakers, b: LanguageSpeakers) =>
+    collator.compare(a.language, b.language);
   const exhaustion = extreme(sorted, (c) => c.character.exhaustion || null, higher);
 
   return {
@@ -334,7 +336,9 @@ export function partySummary(party: Character[]): PartySummary {
         ? {
             lowest: perceptionLow,
             highest: perceptionHigh,
-            missing: sorted.filter((c) => c.character.passivePerception === null).map((c) => c.name),
+            missing: sorted
+              .filter((c) => c.character.passivePerception === null)
+              .map((c) => c.name),
           }
         : null,
     commonLanguages: languages
@@ -498,7 +502,16 @@ export function draftFromCharacter(c: Character): CharacterDraft {
   };
 }
 
-export type DraftField = 'name' | 'level' | 'speed' | 'armorClass' | 'hpMax' | 'passivePerception' | 'passiveInsight' | 'passiveInvestigation' | 'sheetUrl';
+export type DraftField =
+  | 'name'
+  | 'level'
+  | 'speed'
+  | 'armorClass'
+  | 'hpMax'
+  | 'passivePerception'
+  | 'passiveInsight'
+  | 'passiveInvestigation'
+  | 'sheetUrl';
 
 export interface DraftResult {
   /** Fehlermeldungen je Feld; leer = alles in Ordnung. */
@@ -536,11 +549,31 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
     if (n === 'invalid') errors[field] = hint;
     return n === 'invalid' ? null : n;
   };
-  const armorClass = optional('armorClass', draft.armorClass, 40, 'Eine Zahl wie 16 – oder leer lassen.');
+  const armorClass = optional(
+    'armorClass',
+    draft.armorClass,
+    40,
+    'Eine Zahl wie 16 – oder leer lassen.',
+  );
   const hpMax = optional('hpMax', draft.hpMax, 999, 'Eine Zahl wie 38 – oder leer lassen.');
-  const passivePerception = optional('passivePerception', draft.passivePerception, 40, 'Eine Zahl wie 14 – oder leer lassen.');
-  const passiveInsight = optional('passiveInsight', draft.passiveInsight, 40, 'Eine Zahl wie 12 – oder leer lassen.');
-  const passiveInvestigation = optional('passiveInvestigation', draft.passiveInvestigation, 40, 'Eine Zahl wie 11 – oder leer lassen.');
+  const passivePerception = optional(
+    'passivePerception',
+    draft.passivePerception,
+    40,
+    'Eine Zahl wie 14 – oder leer lassen.',
+  );
+  const passiveInsight = optional(
+    'passiveInsight',
+    draft.passiveInsight,
+    40,
+    'Eine Zahl wie 12 – oder leer lassen.',
+  );
+  const passiveInvestigation = optional(
+    'passiveInvestigation',
+    draft.passiveInvestigation,
+    40,
+    'Eine Zahl wie 11 – oder leer lassen.',
+  );
 
   const sheetUrl = draft.sheetUrl.trim();
   if (sheetUrl && !sheetHref(sheetUrl)) errors.sheetUrl = 'Das ist keine gültige Internetadresse.';
@@ -579,7 +612,11 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
 export const PORTRAIT_MAX = 512;
 
 /** Verkleinert Maße so, dass die längere Seite höchstens `max` misst. Vergrößert nie. */
-export function fitWithin(width: number, height: number, max = PORTRAIT_MAX): { width: number; height: number } {
+export function fitWithin(
+  width: number,
+  height: number,
+  max = PORTRAIT_MAX,
+): { width: number; height: number } {
   if (!(width > 0) || !(height > 0)) return { width: 0, height: 0 };
   const scale = Math.min(1, max / Math.max(width, height));
   return {

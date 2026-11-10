@@ -41,7 +41,11 @@ export function setExhaustion(db: CampaignDb, characterId: string, level: number
 }
 
 /** Hakt etwas Anstehendes ab (oder nimmt den Haken zurück): Vorhaben, Frist, Abmachung, Timer. */
-export function settleAgendaItem(db: CampaignDb, item: Pick<AgendaItem, 'source' | 'id'>, done = true): void {
+export function settleAgendaItem(
+  db: CampaignDb,
+  item: Pick<AgendaItem, 'source' | 'id'>,
+  done = true,
+): void {
   const data = db.getSnapshot();
   if (item.source === 'promise') setPromiseDone(db, item.id, done);
   else if (item.source === 'event' && data.events[item.id]) db.patch('events', item.id, { done });

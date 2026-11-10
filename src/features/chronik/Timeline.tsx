@@ -1,15 +1,26 @@
 /** Zeitstrahl: Tagesüberschriften, Einträge und Session-Grenzen. Lädt beim Rollen portionsweise nach. */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useData } from '../../data/hooks';
 import type { ChronicleEntry } from '../../domain/schema';
 import { MINUTES_PER_DAY, dayIndexOf, formatDate, weekdayName } from '../../domain/time/calendar';
-import { Button, ChronicleList, MoonGlyph } from '../../ui';
+import { Button, ChronicleItem, MoonGlyph } from '../../ui';
 import { formatRealDate, relativeDay, sessionTitle, type SessionMarker, type TimelineRow } from './model';
 
 /** So viele Zeilen erscheinen zuerst und kommen je Nachladen dazu. */
 const PAGE = 120;
 
-function DayHeader({ day, count }: { day: number; count: number }) {
+/** Ein Eintrag, der beim Nachladen weiterer Einträge nicht neu gezeichnet wird. */
+const Entry = memo(function Entry({
+  entry,
+  onEdit,
+}: {
+  entry: ChronicleEntry;
+  onEdit: (entry: ChronicleEntry) => void;
+}) {
+  return <ChronicleItem entry={entry} onEdit={onEdit} />;
+});
+
+const DayHeader = memo(function DayHeader({ day, count }: { day: number; count: number }) {
   const data = useData();
   const cal = data.campaign.calendar;
   const time = day * MINUTES_PER_DAY;
@@ -32,7 +43,7 @@ function DayHeader({ day, count }: { day: number; count: number }) {
       </span>
     </header>
   );
-}
+});
 
 function Marker({ marker, onOpen }: { marker: SessionMarker; onOpen?: (sessionId: string) => void }) {
   const { session, edge } = marker;
@@ -90,7 +101,13 @@ export function Timeline({
     let run: ChronicleEntry[] = [];
     const flush = () => {
       if (!run.length) return;
-      out.push(<ChronicleList key={`e-${run[0]!.id}`} entries={run} onEdit={onEdit} />);
+      out.push(
+        <div key={`e-${run[0]!.id}`} className="wf-chron-list">
+          {run.map((entry) => (
+            <Entry key={entry.id} entry={entry} onEdit={onEdit} />
+          ))}
+        </div>,
+      );
       run = [];
     };
     for (const row of shown) {

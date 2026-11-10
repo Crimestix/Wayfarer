@@ -37,10 +37,17 @@ import {
   toast,
 } from '../../ui';
 import { undoMove } from './commands';
-import { absenceMinutes, castView, earlierHere, nearbyPlaces, stayLabels, type CastRow } from './model';
+import {
+  absenceMinutes,
+  castView,
+  earlierHere,
+  nearbyPlaces,
+  stayLabels,
+  type CastRow,
+} from './model';
 
 /** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. */
-const CHANGES_SHOWN = 3;
+const CHANGES_SHOWN = 4;
 /** Wie viele Einträge früherer Besuche der Spieltisch zeigt; mehr steht im Dossier. */
 const EARLIER_SHOWN = 4;
 
@@ -53,7 +60,13 @@ let foldedStay: string | null = null;
 function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
   const { entity } = row;
   return (
-    <div className={cx('wf-tisch-cast', row.unmet && 'wf-tisch-cast--unmet', away && 'wf-tisch-cast--away')}>
+    <div
+      className={cx(
+        'wf-tisch-cast',
+        row.unmet && 'wf-tisch-cast--unmet',
+        away && 'wf-tisch-cast--away',
+      )}
+    >
       <Link
         href={entityHref(entity)}
         className="wf-tisch-cast__who"
@@ -64,7 +77,10 @@ function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
           <span className="wf-tisch-cast__title">
             <span className="wf-tisch-cast__name wf-clamp-1">{entity.name}</span>
             {row.unmet && (
-              <span className="wf-tisch-cast__tag" title="Die Gruppe hat diese Person noch nicht getroffen.">
+              <span
+                className="wf-tisch-cast__tag"
+                title="Die Gruppe hat diese Person noch nicht getroffen."
+              >
                 fremd
               </span>
             )}
@@ -72,7 +88,9 @@ function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
               <span
                 className="wf-tisch-cast__promise"
                 title={[
-                  row.promises.length === 1 ? 'Offene Abmachung:' : `${row.promises.length} offene Abmachungen:`,
+                  row.promises.length === 1
+                    ? 'Offene Abmachung:'
+                    : `${row.promises.length} offene Abmachungen:`,
                   ...row.promises,
                 ].join('\n')}
               >
@@ -190,7 +208,11 @@ export function PlacePanel({ place }: { place: Place }) {
     <Panel flush className="wf-tisch-place">
       <header className="wf-tisch-hero">
         {place.image && (
-          <div className="wf-tisch-hero__image" style={{ backgroundImage: `url(${place.image})` }} aria-hidden />
+          <div
+            className="wf-tisch-hero__image"
+            style={{ backgroundImage: `url(${JSON.stringify(place.image)})` }}
+            aria-hidden
+          />
         )}
         <div className="wf-tisch-hero__top">
           <div className="wf-tisch-hero__heading">
@@ -205,7 +227,11 @@ export function PlacePanel({ place }: { place: Place }) {
               <BookOpen />
               Dossier
             </Link>
-            <Button icon={<Footprints />} onClick={openMoveParty} title="Die Gruppe zieht an einen anderen Ort">
+            <Button
+              icon={<Footprints />}
+              onClick={openMoveParty}
+              title="Die Gruppe zieht an einen anderen Ort"
+            >
               Weiterziehen
             </Button>
           </div>
@@ -280,7 +306,11 @@ export function PlacePanel({ place }: { place: Place }) {
               <>
                 <ChronicleList entries={shownChanges} showDate hideRefs={[place.id]} />
                 {!showAll && (
-                  <button type="button" className="wf-tisch-more" onClick={() => setExpanded(stayKey)}>
+                  <button
+                    type="button"
+                    className="wf-tisch-more"
+                    onClick={() => setExpanded(stayKey)}
+                  >
                     {changes.length - CHANGES_SHOWN === 1
                       ? '1 ältere Veränderung zeigen'
                       : `${changes.length - CHANGES_SHOWN} ältere Veränderungen zeigen`}
@@ -295,17 +325,21 @@ export function PlacePanel({ place }: { place: Place }) {
           <section className="wf-col" aria-label="Wer hier ist">
             <SectionTitle>
               Wer hier ist
-              {cast.present.length > 0 && <span className="wf-tisch-count">{cast.present.length}</span>}
+              {cast.present.length > 0 && (
+                <span className="wf-tisch-count">{cast.present.length}</span>
+              )}
             </SectionTitle>
             {cast.total === 0 ? (
               <p className="wf-tisch-hint">
-                Hier ist noch niemand eingetragen. Wer in der Welt diesen Ort als Aufenthalt oder Zuhause hat,
-                erscheint hier von selbst. <Link href="/welt">Zur Welt</Link>
+                Hier ist noch niemand eingetragen. Wer in der Welt diesen Ort als Aufenthalt oder
+                Zuhause hat, erscheint hier von selbst. <Link href="/welt">Zur Welt</Link>
               </p>
             ) : (
               <>
                 {cast.present.length === 0 && (
-                  <p className="wf-tisch-hint">Gerade hält sich hier niemand auf, den du eingetragen hast.</p>
+                  <p className="wf-tisch-hint">
+                    Gerade hält sich hier niemand auf, den du eingetragen hast.
+                  </p>
                 )}
                 <CastGroup rows={cast.present} />
                 <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
@@ -334,8 +368,8 @@ export function PlacePanel({ place }: { place: Place }) {
                 </section>
               )}
               {earlier.length > 0 && (
-                <section className="wf-col" aria-label="Früher hier">
-                  <SectionTitle>Früher hier</SectionTitle>
+                <section className="wf-col" aria-label="Was hier bisher geschah">
+                  <SectionTitle>Was hier bisher geschah</SectionTitle>
                   <div className="wf-tisch-earlier">
                     <ChronicleList
                       entries={earlier.slice(-EARLIER_SHOWN)}
@@ -374,8 +408,8 @@ export function NoPlace() {
           </Button>
         }
       >
-        Sobald die Gruppe an einem Ort ist, siehst du hier, wer dort ist, wie er zur Gruppe steht und was sich
-        seit dem letzten Besuch verändert hat.
+        Sobald die Gruppe an einem Ort ist, siehst du hier, wer dort ist, wie er zur Gruppe steht
+        und was sich seit dem letzten Besuch verändert hat.
       </EmptyState>
     </Panel>
   );

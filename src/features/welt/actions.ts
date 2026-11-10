@@ -31,15 +31,25 @@ export function removeRelation(db: CampaignDb, relation: Relation): () => void {
   db.remove('relations', relation.id);
   return () => {
     const data = db.getSnapshot();
-    const taken = Object.values(data.relations).some((r) => r.from === relation.from && r.to === relation.to);
+    const taken = Object.values(data.relations).some(
+      (r) => r.from === relation.from && r.to === relation.to,
+    );
     if (!taken) db.put('relations', relation);
   };
 }
 
 /** Ändert die Felder, die zur Art des Eintrags gehören (z. B. Aufenthaltsort einer Person). */
-export function patchDetails<E extends Entity>(db: CampaignDb, entity: E, change: Partial<DetailsOf<E>>): void {
+export function patchDetails<E extends Entity>(
+  db: CampaignDb,
+  entity: E,
+  change: Partial<DetailsOf<E>>,
+): void {
   const key = entity.kind as keyof E;
   db.put('entities', { ...entity, [key]: { ...(entity[key] as object), ...change } } as Entity);
 }
 
-type DetailsOf<E extends Entity> = E extends { kind: infer K } ? (K extends keyof E ? E[K] : never) : never;
+type DetailsOf<E extends Entity> = E extends { kind: infer K }
+  ? K extends keyof E
+    ? E[K]
+    : never
+  : never;

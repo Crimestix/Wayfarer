@@ -19,13 +19,13 @@ export default function GruppePage() {
   return (
     <>
       {params.id ? (
-        <Detail key={params.id} id={params.id} onEdit={edit} onCreate={create} />
+        <Detail key={`detail-${params.id}`} id={params.id} onEdit={edit} onCreate={create} />
       ) : (
         <Overview onEdit={edit} onCreate={create} />
       )}
       {editing && (editing.id === null || target?.kind === 'character') && (
         <EditDialog
-          key={editing.id ?? 'new'}
+          key={`edit-${editing.id ?? 'new'}`}
           character={target?.kind === 'character' ? target : null}
           onClose={() => setEditing(null)}
         />

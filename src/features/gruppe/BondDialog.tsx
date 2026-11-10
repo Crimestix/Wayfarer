@@ -153,12 +153,16 @@ export function BondDialog({
           </Field>
           {type === 'custom' ? (
             <Field label="Eigene Bezeichnung">
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="z. B. bewundert" />
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="z. B. bewundert"
+              />
             </Field>
           ) : (
             <div className="wf-gruppe-bond__sentence">
-              {fromId ? entityName(data, fromId) : '…'} <em>{relationLabel({ type, label }, 'from')}</em>{' '}
-              {character.name}
+              {fromId ? entityName(data, fromId) : '…'}{' '}
+              <em>{relationLabel({ type, label }, 'from')}</em> {character.name}
             </div>
           )}
         </div>

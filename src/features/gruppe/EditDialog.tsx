@@ -36,7 +36,13 @@ import {
 } from './model';
 import { ConditionToggles, ExhaustionMarks } from './parts';
 
-export function EditDialog({ character, onClose }: { character: Character | null; onClose: () => void }) {
+export function EditDialog({
+  character,
+  onClose,
+}: {
+  character: Character | null;
+  onClose: () => void;
+}) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
@@ -72,7 +78,9 @@ export function EditDialog({ character, onClose }: { character: Character | null
 
   const save = () => {
     // Eine getippte, noch nicht übernommene Sprache geht nicht verloren.
-    const pending = language.trim() ? { ...draft, languages: addLanguages(draft.languages, language) } : draft;
+    const pending = language.trim()
+      ? { ...draft, languages: addLanguages(draft.languages, language) }
+      : draft;
     const checked = parseDraft(pending);
     if (!checked.value) {
       setShowErrors(true);
@@ -88,9 +96,9 @@ export function EditDialog({ character, onClose }: { character: Character | null
       title: `${character.name} löschen?`,
       body: (
         <>
-          Der Gefährte verschwindet samt seinen Beziehungen. Was in der Chronik über ihn steht, bleibt
-          erhalten. Das lässt sich nicht rückgängig machen – wer nur pausiert, lässt sich stattdessen
-          auf „Nicht dabei“ stellen.
+          {character.name} verschwindet samt allen Beziehungen aus der Gruppe. Was in der Chronik
+          steht, bleibt erhalten. Das lässt sich nicht rückgängig machen – wer nur pausiert, lässt
+          sich stattdessen auf „Nicht dabei“ stellen.
         </>
       ),
       confirmLabel: 'Endgültig löschen',
@@ -120,8 +128,17 @@ export function EditDialog({ character, onClose }: { character: Character | null
     }
   };
 
-  const number = (field: DraftField & keyof CharacterDraft, label: string, max: number, placeholder = '–') => (
-    <Field label={label} hint={error(field)} className={error(field) ? 'wf-gruppe-field--error' : undefined}>
+  const number = (
+    field: DraftField & keyof CharacterDraft,
+    label: string,
+    max: number,
+    placeholder = '–',
+  ) => (
+    <Field
+      label={label}
+      hint={error(field)}
+      className={error(field) ? 'wf-gruppe-field--error' : undefined}
+    >
       <Input
         type="number"
         inputMode="numeric"
@@ -170,7 +187,10 @@ export function EditDialog({ character, onClose }: { character: Character | null
       >
         <div className="wf-gruppe-form__top">
           <div className="wf-gruppe-form__image">
-            <Portrait entity={{ kind: 'character', image: draft.image, name: draft.name }} size={132} />
+            <Portrait
+              entity={{ kind: 'character', image: draft.image, name: draft.name }}
+              size={132}
+            />
             <input
               ref={fileInput}
               type="file"
@@ -205,7 +225,11 @@ export function EditDialog({ character, onClose }: { character: Character | null
               />
             </Field>
             <Field label="Gespielt von" className="wf-gruppe-col-2">
-              <Input value={draft.player} onChange={(e) => set('player', e.target.value)} placeholder="Spieler" />
+              <Input
+                value={draft.player}
+                onChange={(e) => set('player', e.target.value)}
+                placeholder="Spieler"
+              />
             </Field>
             <Field label="Kurzbeschreibung" className="wf-gruppe-col-6">
               <Input
@@ -215,10 +239,18 @@ export function EditDialog({ character, onClose }: { character: Character | null
               />
             </Field>
             <Field label="Volk" className="wf-gruppe-col-2">
-              <Input value={draft.species} onChange={(e) => set('species', e.target.value)} placeholder="z. B. Halbling" />
+              <Input
+                value={draft.species}
+                onChange={(e) => set('species', e.target.value)}
+                placeholder="z. B. Halbling"
+              />
             </Field>
             <Field label="Klasse" className="wf-gruppe-col-3">
-              <Input value={draft.className} onChange={(e) => set('className', e.target.value)} placeholder="z. B. Schurke" />
+              <Input
+                value={draft.className}
+                onChange={(e) => set('className', e.target.value)}
+                placeholder="z. B. Schurke"
+              />
             </Field>
             <Field
               label="Stufe"
@@ -266,21 +298,25 @@ export function EditDialog({ character, onClose }: { character: Character | null
             className="wf-gruppe-languages__input"
             list={listId}
             value={language}
-            placeholder={draft.languages.length ? 'Weitere Sprache …' : 'Sprache eintragen, Eingabe fügt hinzu'}
+            placeholder={
+              draft.languages.length ? 'Weitere Sprache …' : 'Sprache eintragen, Eingabe fügt hinzu'
+            }
             onChange={(e) => {
               const value = e.target.value;
               // Ein Komma oder die Auswahl aus den Vorschlägen übernimmt sofort; beim Tippen nicht,
               // sonst ließe sich „Gemeinsprache der Unterreiche“ nie zu Ende schreiben.
               const inputType = (e.nativeEvent as InputEvent).inputType;
               const picked =
-                suggestions.includes(value) && (inputType === undefined || inputType === 'insertReplacementText');
+                suggestions.includes(value) &&
+                (inputType === undefined || inputType === 'insertReplacementText');
               if (value.includes(',') || picked) {
                 set('languages', addLanguages(draft.languages, value));
                 setLanguage('');
               } else setLanguage(value);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && commitLanguage()) e.preventDefault();
+              if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && commitLanguage())
+                e.preventDefault();
               if (e.key === 'Backspace' && !language && draft.languages.length)
                 set('languages', draft.languages.slice(0, -1));
             }}
@@ -301,15 +337,22 @@ export function EditDialog({ character, onClose }: { character: Character | null
                 <div className="wf-gruppe-exhaustion">
                   <ExhaustionMarks
                     level={draft.exhaustion}
-                    onMark={(mark) => set('exhaustion', clickExhaustionMark(draft.exhaustion, mark))}
+                    onMark={(mark) =>
+                      set('exhaustion', clickExhaustionMark(draft.exhaustion, mark))
+                    }
                   />
                   <span className="wf-gruppe-exhaustion__text">
-                    {draft.exhaustion > 0 && draft.exhaustion < 6 && <b>Stufe {draft.exhaustion}</b>}
+                    {draft.exhaustion > 0 && draft.exhaustion < 6 && (
+                      <b>Stufe {draft.exhaustion}</b>
+                    )}
                     {exhaustionText(draft.exhaustion, true)}
                   </span>
                 </div>
               </Field>
-              <Field label="Aufenthaltsort" hint="Leer lassen, solange der Gefährte bei der Gruppe ist.">
+              <Field
+                label="Aufenthaltsort"
+                hint="Leer lassen, solange der Gefährte bei der Gruppe ist."
+              >
                 <EntityPicker
                   value={draft.placeId}
                   onChange={(id) => set('placeId', id)}
@@ -346,7 +389,9 @@ export function EditDialog({ character, onClose }: { character: Character | null
               Gehört zur aktiven Gruppe
             </Checkbox>
             <div className="wf-field__hint">
-              {draft.active ? 'Zählt bei den Kennzahlen und der Langen Rast mit.' : 'Steht unter „Nicht dabei“.'}
+              {draft.active
+                ? 'Zählt bei den Kennzahlen und der Langen Rast mit.'
+                : 'Steht unter „Nicht dabei“.'}
             </div>
           </div>
         </div>

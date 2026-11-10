@@ -382,6 +382,9 @@ describe('Löschen', () => {
     const notes = deletionNotes(impact);
     expect(notes[0]).toBe('Eine Beziehung wird mit gelöscht.');
     expect(notes[1]).toBe('2 Orte darunter rücken eine Ebene nach oben.');
+    expect(notes[2]).toBe('Bei 3 anderen Einträgen wird die Angabe zu diesem Eintrag geleert.');
+    expect(notes[3]).toBe('3 Termine verlieren den Verweis auf diesen Eintrag.');
+    expect(notes[4]).toMatch(/^\d+ Chronik-Einträge bleiben erhalten, nennen dann aber/);
     expect(notes).toHaveLength(5);
   });
 

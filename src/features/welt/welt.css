@@ -11,7 +11,7 @@
     grid-template-columns: 300px minmax(0, 1fr);
   }
   .wf-welt-filter button {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     gap: 4px;
   }
   .wf-welt-side__head {
@@ -374,6 +374,18 @@
   font-style: italic;
   line-height: 1.35;
   color: var(--ink-soft);
+}
+.wf-welt-hero__tagline--missing {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-size: var(--text-md);
+  color: var(--ink-faint);
+}
+.wf-welt-hero__tagline--missing:hover {
+  color: var(--gold-bright);
 }
 .wf-welt-hero__tags {
   margin-top: var(--s-3);
@@ -812,10 +824,10 @@
 
 /* Verlauf der Haltung */
 .wf-welt-trail li {
-  display: grid;
-  grid-template-columns: 96px auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--s-4);
+  gap: 2px var(--s-4);
   padding: 7px 0;
   border-bottom: 1px solid var(--line-faint);
 }
@@ -823,6 +835,8 @@
   border-bottom: 0;
 }
 .wf-welt-trail__when {
+  flex: none;
+  width: 92px;
   font-family: var(--font-caps);
   font-size: 0.66rem;
   letter-spacing: 0.13em;
@@ -830,16 +844,29 @@
   color: var(--ink-mute);
 }
 .wf-welt-trail__change {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 264px;
 }
 .wf-welt-trail__change svg {
   color: var(--ink-faint);
 }
 .wf-welt-trail__why {
+  flex: 1 1 200px;
+  min-width: 0;
   color: var(--ink-soft);
   font-style: italic;
+}
+@container (max-width: 860px) {
+  .wf-welt-trail__change {
+    min-width: 0;
+  }
+  .wf-welt-trail__why {
+    flex-basis: 100%;
+    padding-left: calc(92px + var(--s-4));
+  }
 }
 .wf-welt-quick {
   gap: 2px;
@@ -854,9 +881,7 @@
   padding: var(--s-3) var(--s-4) var(--s-4);
   border: 1px solid #4a201d;
   border-left: 3px solid var(--blood);
-  background:
-    linear-gradient(90deg, var(--blood-wash), transparent 70%),
-    var(--bg-inset);
+  background: linear-gradient(90deg, var(--blood-wash), transparent 70%), var(--bg-inset);
 }
 .wf-welt-secret__head {
   display: flex;
@@ -1193,4 +1218,15 @@
   display: block;
   font-size: var(--text-sm);
   color: var(--ink-mute);
+}
+
+/* Knöpfe in leeren Zuständen behalten ihre normale Symbolgröße. */
+.wf-welt .wf-empty .wf-btn svg {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  stroke-width: 1.6;
+}
+.wf-welt-side .wf-empty {
+  padding: var(--s-6) var(--s-4);
 }

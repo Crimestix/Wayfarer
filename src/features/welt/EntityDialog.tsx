@@ -64,7 +64,12 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   const stored = request.mode === 'edit' ? data.entities[request.id] : undefined;
   const existing = isWorldEntity(stored) ? stored : undefined;
   const [draft, setDraft] = useState<EntityDraft>(() =>
-    existing ? draftOf(existing) : emptyDraft(request.mode === 'create' ? request.kind : 'person', request.mode === 'create' ? request.preset : {}),
+    existing
+      ? draftOf(existing)
+      : emptyDraft(
+          request.mode === 'create' ? request.kind : 'person',
+          request.mode === 'create' ? request.preset : {},
+        ),
   );
   const [imageError, setImageError] = useState('');
   const [tried, setTried] = useState(false);
@@ -80,7 +85,8 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     [data, draft.kind],
   );
   const noParents = useMemo(() => forbiddenParents(data, entityId), [data, entityId]);
-  const createPlace = (name: string) => db.put('entities', createEntity({ kind: 'place', name })).id;
+  const createPlace = (name: string) =>
+    db.put('entities', createEntity({ kind: 'place', name })).id;
 
   if (request.mode === 'edit' && !existing) return null;
 
@@ -95,8 +101,9 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Enter' || e.defaultPrevented) return;
     const target = e.target as HTMLElement;
-    const inPicker = target.closest('.wf-picker') !== null;
-    if (e.ctrlKey || e.metaKey || (target.tagName === 'INPUT' && !inPicker)) {
+    // In der Ortsauswahl und in Feldern mit Vorschlagsliste wählt die Eingabetaste einen Vorschlag.
+    const choosing = target.closest('.wf-picker') !== null || target.hasAttribute('list');
+    if (e.ctrlKey || e.metaKey || (target.tagName === 'INPUT' && !choosing)) {
       e.preventDefault();
       save();
     }
@@ -152,7 +159,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
 
         <div className="wf-welt-form__top">
           <div className="wf-welt-form__image">
-            <Portrait entity={{ kind: draft.kind, image: draft.image, name: draft.name }} size={132} />
+            <Portrait
+              entity={{ kind: draft.kind, image: draft.image, name: draft.name }}
+              size={132}
+            />
             <input
               ref={fileInput}
               type="file"
@@ -228,7 +238,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 />
               </Field>
               <Field label="Zustand">
-                <Select value={draft.status} onChange={(e) => set({ status: e.target.value as PersonStatus })}>
+                <Select
+                  value={draft.status}
+                  onChange={(e) => set({ status: e.target.value as PersonStatus })}
+                >
                   {PERSON_STATUS.map((status) => (
                     <option key={status} value={status}>
                       {PERSON_STATUS_LABEL[status]}
@@ -246,7 +259,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
             </>
           )}
           {draft.kind === 'place' && (
-            <Field label="Liegt in" hint="Der Ort, zu dem dieser gehört – leer für eine oberste Ebene.">
+            <Field
+              label="Liegt in"
+              hint="Der Ort, zu dem dieser gehört – leer für eine oberste Ebene."
+            >
               <EntityPicker
                 value={draft.parentId}
                 onChange={(parentId) => set({ parentId })}
@@ -269,7 +285,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
             </Field>
           )}
           {draft.kind === 'item' && (
-            <Field label="Befindet sich bei" hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte.">
+            <Field
+              label="Befindet sich bei"
+              hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte."
+            >
               <EntityPicker
                 value={draft.holderId}
                 onChange={(holderId) => set({ holderId })}
@@ -317,7 +336,11 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 </span>
               }
             >
-              <TextArea value={draft.secret} onChange={(e) => set({ secret: e.target.value })} rows={3} />
+              <TextArea
+                value={draft.secret}
+                onChange={(e) => set({ secret: e.target.value })}
+                rows={3}
+              />
             </Field>
           </div>
         </div>

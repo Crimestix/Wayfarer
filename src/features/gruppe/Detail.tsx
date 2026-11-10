@@ -1,7 +1,16 @@
 /** Ein Gefährte im Ganzen: Werte, Notizen, Geheimnis, Beziehungen, Abmachungen, Chronik. */
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, EyeOff, Feather, Handshake, Pencil, Plus, Swords, UserPlus } from 'lucide-react';
+import {
+  ArrowLeft,
+  EyeOff,
+  Feather,
+  Handshake,
+  Pencil,
+  Plus,
+  Swords,
+  UserPlus,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
 import { relationLabel } from '../../domain/relations';
@@ -20,9 +29,16 @@ import {
   TextArea,
   cx,
 } from '../../ui';
-import { toggleCharacterCondition } from './actions';
+import { patchCharacter, toggleCharacterCondition } from './actions';
 import { BondDialog } from './BondDialog';
-import { characterBonds, classLine, partySummary, soleLanguages, sortConditions, type CharacterBond } from './model';
+import {
+  characterBonds,
+  classLine,
+  partySummary,
+  soleLanguages,
+  sortConditions,
+  type CharacterBond,
+} from './model';
 import { ConditionToggles, ExhaustionControl, LocationControl, SheetLink, StatBand } from './parts';
 
 // ── Wechsel zwischen den Gefährten ─────────────────────────────────────────
@@ -40,7 +56,10 @@ function Roster({ all, currentId }: { all: Character[]; currentId: string }) {
           <Link
             key={c.id}
             href={`/gruppe/${c.id}`}
-            className={cx('wf-gruppe-roster__item', !c.character.active && 'wf-gruppe-roster__item--resting')}
+            className={cx(
+              'wf-gruppe-roster__item',
+              !c.character.active && 'wf-gruppe-roster__item--resting',
+            )}
             aria-current={c.id === currentId ? 'page' : undefined}
             title={c.character.active ? c.name : `${c.name} – nicht dabei`}
           >
@@ -98,7 +117,12 @@ function NotePanel({
       }
       actions={
         !editing && (
-          <IconButton label={`${title} bearbeiten`} variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          <IconButton
+            label={`${title} bearbeiten`}
+            variant="ghost"
+            size="sm"
+            onClick={() => setEditing(true)}
+          >
             <Pencil />
           </IconButton>
         )
@@ -204,7 +228,15 @@ function BondRow({
 
 // ── Seite ──────────────────────────────────────────────────────────────────
 
-export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: string) => void; onCreate: () => void }) {
+export function Detail({
+  id,
+  onEdit,
+  onCreate,
+}: {
+  id: string;
+  onEdit: (id: string) => void;
+  onCreate: () => void;
+}) {
   const db = useDb();
   const data = useData();
   const all = entitiesOfKind(data, 'character');
@@ -212,7 +244,6 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
   const character = entity?.kind === 'character' ? entity : null;
   /** undefined = zu, null = neue Beziehung, sonst das Gegenüber. */
   const [bondFor, setBondFor] = useState<string | null | undefined>(undefined);
-  useEffect(() => setBondFor(undefined), [id]);
 
   if (!character)
     return (
@@ -257,7 +288,9 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
         <header className="wf-gruppe-hero">
           <Portrait entity={character} size={124} />
           <div className="wf-grow">
-            <div className="wf-caps">{d.active ? 'Gefährte' : 'Gefährte · im Augenblick nicht dabei'}</div>
+            <div className="wf-caps">
+              {d.active ? 'Gefährte' : 'Gefährte · im Augenblick nicht dabei'}
+            </div>
             <h1 className="wf-gruppe-hero__name">{character.name}</h1>
             <div className="wf-gruppe-hero__class">
               {classLine(d)}
@@ -270,6 +303,11 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
               <Button variant="primary" icon={<Feather />} onClick={() => log()}>
                 Festhalten
               </Button>
+              {!d.active && (
+                <Button onClick={() => patchCharacter(db, character.id, { active: true })}>
+                  Wieder aufnehmen
+                </Button>
+              )}
               <Button icon={<Pencil />} onClick={() => onEdit(character.id)}>
                 Bearbeiten
               </Button>
@@ -291,6 +329,7 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                 <dd>
                   <ConditionToggles
                     value={active}
+                    rules="active"
                     onToggle={(name) => toggleCharacterCondition(db, character.id, name)}
                   />
                 </dd>
@@ -301,7 +340,10 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                       <span key={l}>
                         {i > 0 && ', '}
                         {sole.includes(l) ? (
-                          <span className="wf-gruppe-sole" title={`Nur ${character.name} spricht ${l}.`}>
+                          <span
+                            className="wf-gruppe-sole"
+                            title={`Nur ${character.name} spricht ${l}.`}
+                          >
                             {l}
                           </span>
                         ) : (
@@ -310,12 +352,18 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                       </span>
                     ))
                   ) : (
-                    <button type="button" className="wf-gruppe-textlink" onClick={() => onEdit(character.id)}>
+                    <button
+                      type="button"
+                      className="wf-gruppe-textlink"
+                      onClick={() => onEdit(character.id)}
+                    >
                       Sprachen eintragen
                     </button>
                   )}
                   {sole.length > 0 && (
-                    <div className="wf-field__hint">Hervorgehoben: spricht in der Gruppe sonst niemand.</div>
+                    <div className="wf-field__hint">
+                      Hervorgehoben: spricht in der Gruppe sonst niemand.
+                    </div>
                   )}
                 </dd>
                 <dt>Aufenthalt</dt>
@@ -363,9 +411,13 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                 ))
               ) : (
                 <p className="wf-gruppe-hint wf-gruppe-hint--pad">
-                  Wer kennt {character.name}, sucht nach ihm oder schuldet ihm etwas? Solche Beziehungen
-                  von Personen und Fraktionen stehen hier – jede mit eigener Haltung.{' '}
-                  <button type="button" className="wf-gruppe-textlink" onClick={() => setBondFor(null)}>
+                  Wer {character.name} kennt, sucht oder etwas schuldet, steht hier: Personen und
+                  Fraktionen, jede mit eigener Haltung.{' '}
+                  <button
+                    type="button"
+                    className="wf-gruppe-textlink"
+                    onClick={() => setBondFor(null)}
+                  >
                     Beziehung anlegen
                   </button>
                 </p>
@@ -388,8 +440,8 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                 hideRefs={[character.id]}
                 empty={
                   <p className="wf-gruppe-hint wf-gruppe-hint--pad">
-                    Nichts offen. Versprechen, Schulden und Aufträge, die {character.name} betreffen,
-                    bleiben hier stehen, bis du sie abhakst.
+                    Nichts offen. Versprechen, Schulden und Aufträge, die {character.name}{' '}
+                    betreffen, bleiben hier stehen, bis du sie abhakst.
                   </p>
                 }
               />
@@ -412,8 +464,8 @@ export function Detail({ id, onEdit, onCreate }: { id: string; onEdit: (id: stri
                 hideRefs={[character.id]}
                 empty={
                   <p className="wf-gruppe-hint wf-gruppe-hint--pad">
-                    Noch nichts festgehalten. Was am Tisch mit {character.name} geschieht, erscheint
-                    hier, sobald du es mit ihm verknüpfst.
+                    Noch nichts festgehalten. Was am Tisch geschieht, erscheint hier, sobald du es
+                    mit {character.name} verknüpfst.
                   </p>
                 }
               />

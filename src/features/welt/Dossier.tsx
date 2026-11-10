@@ -23,7 +23,13 @@ import {
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
 import { openEntityDialog } from './editor';
-import { deletionImpact, deletionNotes, entityFacts, relationRows, type WorldEntity } from './model';
+import {
+  deletionImpact,
+  deletionNotes,
+  entityFacts,
+  relationRows,
+  type WorldEntity,
+} from './model';
 import { OverviewTab, type DossierTab } from './OverviewTab';
 import { AttitudePips, Facts, attitudeVar } from './parts';
 import { RelationsTab } from './RelationsTab';
@@ -89,7 +95,17 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           )}
         </div>
         <div className="wf-welt-hero__more">
-          {entity.tagline && <p className="wf-welt-hero__tagline">{entity.tagline}</p>}
+          {entity.tagline ? (
+            <p className="wf-welt-hero__tagline">{entity.tagline}</p>
+          ) : (
+            <button
+              type="button"
+              className="wf-welt-hero__tagline wf-welt-hero__tagline--missing"
+              onClick={() => openEntityDialog({ mode: 'edit', id: entity.id })}
+            >
+              Noch ohne Kurzbeschreibung – ein Satz, der am Tisch reicht.
+            </button>
+          )}
           <Facts facts={entityFacts(data, entity)} />
           {entity.tags.length > 0 && (
             <div className="wf-row-wrap wf-welt-hero__tags">
@@ -100,13 +116,19 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           )}
         </div>
         <div className="wf-welt-hero__actions">
-          <Button variant="primary" icon={<Feather />} onClick={log} title="Etwas zu diesem Eintrag festhalten">
+          <Button
+            variant="primary"
+            icon={<Feather />}
+            onClick={log}
+            title="Etwas zu diesem Eintrag festhalten"
+          >
             Festhalten
           </Button>
           <Button
             icon={<Pencil />}
             onClick={() => openEntityDialog({ mode: 'edit', id: entity.id })}
             title="Eintrag bearbeiten"
+            aria-label="Bearbeiten"
           >
             <span className="wf-welt-hero__wide">Bearbeiten</span>
           </Button>
@@ -169,7 +191,10 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           </div>
         )}
         {tab === 'lk' && (
-          <LkArticlePanel link={entity.lk} onLink={(lk) => db.patch('entities', entity.id, { lk })} />
+          <LkArticlePanel
+            link={entity.lk}
+            onLink={(lk) => db.patch('entities', entity.id, { lk })}
+          />
         )}
       </div>
     </article>
@@ -201,7 +226,9 @@ function AttitudeBand({ entity }: { entity: Person | Faction }) {
           'Noch nicht festgelegt.'
         )}
       </div>
-      <Button onClick={() => openAttitude({ fromId: entity.id })}>{level ? 'Ändern' : 'Festlegen'}</Button>
+      <Button onClick={() => openAttitude({ fromId: entity.id })}>
+        {level ? 'Ändern' : 'Festlegen'}
+      </Button>
     </section>
   );
 }

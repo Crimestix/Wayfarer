@@ -133,6 +133,10 @@
   flex: none;
   gap: var(--s-2);
 }
+/* Deckend, damit ein Bild des Ortes die Beschriftung nicht stört. */
+.wf-tisch-hero__actions .wf-btn {
+  background-color: var(--bg-1);
+}
 
 /* Wege: zurück zum Ort darüber, hinein in die Orte darunter */
 .wf-tisch-ways {
@@ -712,17 +716,31 @@
 }
 .wf-tisch-due__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0 var(--s-2);
-  white-space: nowrap;
+  /* Genau eine Zeile: Was nicht mehr hineinpasst, fällt weg statt umzubrechen. */
+  height: 1.45em;
   margin-top: 2px;
+  overflow: hidden;
   font-size: var(--text-sm);
+  white-space: nowrap;
   color: var(--ink-mute);
+}
+.wf-tisch-due__meta > span {
+  flex: none;
+  max-width: 100%;
 }
 .wf-tisch-due__meta > span + span::before {
   content: '·';
   margin-right: var(--s-2);
   color: var(--ink-faint);
+}
+.wf-tisch-due__meta > .wf-tisch-due__links {
+  flex: 1 1 96px;
+  min-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .wf-tisch-due__when {
   font-family: var(--font-caps);
@@ -736,15 +754,6 @@
 }
 .wf-tisch-due[data-tone='overdue'] .wf-tisch-due__when {
   color: var(--blood-bright);
-}
-.wf-tisch-due__meta > span {
-  flex: none;
-}
-.wf-tisch-due__meta > .wf-tisch-due__links {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .wf-tisch-due__links .wf-entity-link {
   color: var(--ink-soft);

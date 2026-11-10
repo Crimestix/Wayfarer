@@ -3,7 +3,13 @@ import { logEntry, moveParty } from '../../../data/actions';
 import { CampaignDb } from '../../../data/db';
 import { demoCampaign } from '../../../data/seed';
 import { MemoryStore } from '../../../data/store';
-import { entitiesOfKind, openPromises, overdueEvents, placeStatus, runningTimers } from '../../../domain/derive';
+import {
+  entitiesOfKind,
+  openPromises,
+  overdueEvents,
+  placeStatus,
+  runningTimers,
+} from '../../../domain/derive';
 import { createEvent, createTimer } from '../../../domain/schema';
 import {
   canDeleteEntry,
@@ -57,11 +63,16 @@ describe('Erschöpfung', () => {
     const tomlin = entitiesOfKind(db.getSnapshot(), 'character').find((c) => c.name === 'Tomlin')!;
     setExhaustion(db, tomlin.id, 3);
     setExhaustion(db, tomlin.id, 3);
-    expect(db.getSnapshot().entities[tomlin.id]).toMatchObject({ character: { exhaustion: 3 }, rev: tomlin.rev + 1 });
+    expect(db.getSnapshot().entities[tomlin.id]).toMatchObject({
+      character: { exhaustion: 3 },
+      rev: tomlin.rev + 1,
+    });
     setExhaustion(db, tomlin.id, 11);
     await db.flush();
     const reopened = await CampaignDb.open(store);
-    expect(reopened.getSnapshot().entities[tomlin.id]).toMatchObject({ character: { exhaustion: 6 } });
+    expect(reopened.getSnapshot().entities[tomlin.id]).toMatchObject({
+      character: { exhaustion: 6 },
+    });
     setExhaustion(db, tomlin.id, -2);
     expect(db.getSnapshot().entities[tomlin.id]).toMatchObject({ character: { exhaustion: 0 } });
     // Kein Gefährte: nichts geschieht.
@@ -74,7 +85,10 @@ describe('Anstehendes abhaken', () => {
   it('erledigt Fristen, Abmachungen und Timer und nimmt den Haken zurück', async () => {
     const { db } = await demoDb();
     const now = db.getSnapshot().state.now;
-    const deadline = db.put('events', createEvent({ title: 'Zoll bezahlen', at: now - 2880, kind: 'deadline' }));
+    const deadline = db.put(
+      'events',
+      createEvent({ title: 'Zoll bezahlen', at: now - 2880, kind: 'deadline' }),
+    );
     const timer = db.put('timers', createTimer({ label: 'Fackel', start: now, end: now + 60 }));
     const promise = openPromises(db.getSnapshot())[0]!;
     const item = (id: string) => buildAgenda(db.getSnapshot()).find((i) => i.id === id);

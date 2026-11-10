@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Wayfarer",
         "width": 1440,
         "height": 900,
@@ -50,7 +51,7 @@
     "longDescription": "Wayfarer verbindet Weltwissen, Gruppe, Weltzeit und das, was am Spieltisch passiert, zu einem Spielleiterschirm für Pen-&-Paper-Kampagnen.",
     "publisher": "Wayfarer",
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "12.0",
       "signingIdentity": "-"
     },
     "windows": {

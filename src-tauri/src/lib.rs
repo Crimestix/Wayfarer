@@ -4,15 +4,18 @@
 
 mod config;
 mod legendkeeper;
+mod links;
 mod store;
 mod watch;
 
 use serde::Serialize;
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+use tauri::webview::NewWindowResponse;
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindowBuilder};
 
 use config::AppConfig;
 use legendkeeper::{LegendKeeper, LkResponse, LkStatus};
+use links::LinkTarget;
 use store::StoredFile;
 use watch::WatchState;
 
@@ -129,9 +132,48 @@ async fn lk_get<R: Runtime>(
     app.state::<LegendKeeper>().get(&key, &path, query.as_ref()).await
 }
 
+/// Öffnet das Hauptfenster, wie es in `tauri.conf.json` beschrieben ist, und legt fest, wohin
+/// Links führen: Die App bleibt im Fenster, Webadressen gehen an den Browser des Systems.
+fn open_main_window<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
+    let config = app.config();
+    let window = config
+        .app
+        .windows
+        .first()
+        .expect("tauri.conf.json beschreibt das Hauptfenster");
+    let dev_origin = if cfg!(dev) {
+        config.build.dev_url.clone()
+    } else {
+        None
+    };
+    let dev_origin_for_new_windows = dev_origin.clone();
+    WebviewWindowBuilder::from_config(app, window)?
+        .on_navigation(move |url| match links::link_target(url, dev_origin.as_ref()) {
+            LinkTarget::App => true,
+            LinkTarget::Browser => {
+                links::open_in_browser(url);
+                false
+            }
+            LinkTarget::Blocked => false,
+        })
+        .on_new_window(move |url, _features| {
+            // Wayfarer öffnet nie selbst weitere Fenster; „in neuem Tab öffnen“ meint den Browser.
+            if links::link_target(&url, dev_origin_for_new_windows.as_ref()) == LinkTarget::Browser {
+                links::open_in_browser(&url);
+            }
+            NewWindowResponse::Deny
+        })
+        .build()?;
+    Ok(())
+}
+
 /// Meldet Plugins, Zustand und Befehle an – für die echte App ebenso wie für die Tests.
 fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder
+        .setup(|app| {
+            open_main_window(app)?;
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .manage(WatchState::default())
         .manage(LegendKeeper::default())

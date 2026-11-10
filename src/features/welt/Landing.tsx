@@ -2,7 +2,13 @@
 import { Link } from 'wouter';
 import { ArrowRight, MapPin, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { KIND_LABEL, KIND_LABEL_PLURAL, placeCast, placePath, placeStatus } from '../../domain/derive';
+import {
+  KIND_LABEL,
+  KIND_LABEL_PLURAL,
+  placeCast,
+  placePath,
+  placeStatus,
+} from '../../domain/derive';
 import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
 import { openEntityDialog } from './editor';
@@ -53,7 +59,9 @@ export function Landing() {
           >
             <KindIcon kind={kind} />
             <span className="wf-welt-count__n">{counts[kind]}</span>
-            <span className="wf-welt-count__label">{counts[kind] === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}</span>
+            <span className="wf-welt-count__label">
+              {counts[kind] === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}
+            </span>
             <span className="wf-welt-count__add">
               <Plus /> anlegen
             </span>
@@ -99,9 +107,15 @@ export function Landing() {
               )}
             </>
           ) : (
-            <Hint action={<Button size="sm" onClick={openMoveParty}>Ort der Gruppe festlegen</Button>}>
-              Die Gruppe hat noch keinen Aufenthaltsort. Sobald sie einen hat, siehst du hier, wer dort
-              eine Rolle spielt.
+            <Hint
+              action={
+                <Button size="sm" onClick={openMoveParty}>
+                  Ort der Gruppe festlegen
+                </Button>
+              }
+            >
+              Die Gruppe hat noch keinen Aufenthaltsort. Sobald sie einen hat, siehst du hier, wer
+              dort eine Rolle spielt.
             </Hint>
           )}
         </Section>
@@ -121,7 +135,12 @@ export function Landing() {
           ) : (
             <Hint
               action={
-                <Button size="sm" variant="primary" icon={<Plus />} onClick={() => openEntityDialog({ mode: 'create', kind: 'place' })}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={<Plus />}
+                  onClick={() => openEntityDialog({ mode: 'create', kind: 'place' })}
+                >
                   Ersten Ort anlegen
                 </Button>
               }

@@ -61,7 +61,6 @@ export function UpcomingPanel({
   return (
     <Panel
       title="Anstehend"
-      count={upcoming.length}
       flush
       scroll
       actions={<span className="wf-caps">{UPCOMING_DAYS} Tage</span>}
@@ -153,7 +152,6 @@ export function TimersPanel({ data, onAdd }: { data: CampaignData; onAdd: () => 
   return (
     <Panel
       title="Läuft gerade"
-      count={timers.length || undefined}
       flush
       scroll
       actions={
@@ -292,7 +290,7 @@ export function MoonsPanel({ data }: { data: CampaignData }) {
             align="right"
             width={260}
           >
-            <div className="wf-kal-menu-head">Mondlauf an die Welt angleichen</div>
+            <div className="wf-kal-menu-head">Mond neu stellen</div>
             {cal.moons.map((moon) => (
               <div key={moon.id}>
                 <MenuItem

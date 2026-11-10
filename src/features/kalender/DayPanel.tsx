@@ -131,8 +131,11 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
       </header>
 
       <div className="wf-kal-side__scroll">
-        <div className="wf-kal-side__section">
+        <div className="wf-kal-side__section wf-kal-side__section--action">
           <SectionTitle>Termine</SectionTitle>
+          <Button size="sm" icon={<CalendarPlus />} onClick={() => onCreate(day)}>
+            Termin an diesem Tag
+          </Button>
         </div>
         {events.length === 0 ? (
           <div className="wf-kal-hint">
@@ -213,37 +216,32 @@ export function DayPanel({ data, day, spans, onEdit, onCreate }: DayPanelProps) 
         )}
       </div>
 
-      <footer className="wf-kal-side__foot">
-        <Button icon={<CalendarPlus />} onClick={() => onCreate(day)}>
-          Termin an diesem Tag
-        </Button>
-        {passage && (
-          <div className="wf-kal-pass">
-            <div className="wf-kal-pass__row">
-              <span className="wf-grow">Ankunft am {formatDayMonth(cal, start)} um</span>
-              <Select
-                value={hour}
-                onChange={(e) => setHour(Number(e.target.value))}
-                aria-label="Uhrzeit der Ankunft"
-              >
-                {HOURS.map((h) => (
-                  <option key={h} value={h}>
-                    {formatClock(h * MINUTES_PER_HOUR)} Uhr
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button
-              variant="primary"
-              icon={<Hourglass />}
-              onClick={() => advanceAndReport(db, passage.to)}
+      {passage && (
+        <footer className="wf-kal-side__foot">
+          <div className="wf-kal-pass__row">
+            <span className="wf-grow">Ankunft am {formatDayMonth(cal, start)} um</span>
+            <Select
+              value={hour}
+              onChange={(e) => setHour(Number(e.target.value))}
+              aria-label="Uhrzeit der Ankunft"
             >
-              Zeit bis zu diesem Tag vergehen lassen
-            </Button>
-            <div className="wf-kal-pass__preview">{describePassage(passage)}</div>
+              {HOURS.map((h) => (
+                <option key={h} value={h}>
+                  {formatClock(h * MINUTES_PER_HOUR)} Uhr
+                </option>
+              ))}
+            </Select>
           </div>
-        )}
-      </footer>
+          <Button
+            variant="primary"
+            icon={<Hourglass />}
+            onClick={() => advanceAndReport(db, passage.to)}
+          >
+            Zeit bis zu diesem Tag vergehen lassen
+          </Button>
+          <div className="wf-kal-pass__preview">{describePassage(passage)}</div>
+        </footer>
+      )}
     </Panel>
   );
 }

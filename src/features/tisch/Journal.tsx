@@ -188,7 +188,7 @@ export function MentionInput({
         {/* Die Schreibmarke bleibt im Feld, auch wenn man einen Vorschlag anklickt. */}
         <div role="listbox" aria-label="Vorschläge" onMouseDown={(e) => e.preventDefault()}>
           <div className="wf-tisch-suggest__head">
-            {range?.query ? 'Verknüpfen mit' : 'Hier und in der Gruppe – tippe weiter, um zu suchen'}
+            {range?.query ? 'Verknüpfen mit' : 'Hier am Ort · weitertippen sucht überall'}
           </div>
           {suggestions.map((entity, i) => (
             <MenuItem
@@ -279,7 +279,11 @@ function EntryDialog({ entry, onClose }: { entry: ChronicleEntry; onClose: () =>
         </Field>
         {free && (
           <Field label="Betrifft">
-            <EntityRefsEditor value={refs} onChange={setRefs} placeholder="Person, Ort, Fraktion … verknüpfen" />
+            <EntityRefsEditor
+              value={refs}
+              onChange={setRefs}
+              placeholder="Person, Ort, Fraktion … verknüpfen"
+            />
           </Field>
         )}
       </div>
@@ -294,7 +298,10 @@ export function JournalPanel() {
   const data = useData();
   const cal = data.campaign.calendar;
   const log = useMemo(() => journal(data), [data]);
-  const groups = useMemo(() => groupByDay(cal, data.state.now, log.entries), [cal, data.state.now, log.entries]);
+  const groups = useMemo(
+    () => groupByDay(cal, data.state.now, log.entries),
+    [cal, data.state.now, log.entries],
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId ? data.chronicle[editingId] : undefined;
   const placeId = data.state.placeId;
@@ -311,7 +318,11 @@ export function JournalPanel() {
         </>
       }
       actions={
-        <Link href="/chronik" className="wf-btn wf-btn--ghost wf-btn--sm" title="Die ganze Chronik öffnen">
+        <Link
+          href="/chronik"
+          className="wf-btn wf-btn--ghost wf-btn--sm"
+          title="Die ganze Chronik öffnen"
+        >
           Chronik
         </Link>
       }
@@ -324,7 +335,10 @@ export function JournalPanel() {
             icon={<Play />}
             onClick={() => {
               const session = startSession(db);
-              toast({ title: `Session ${session.number} hat begonnen`, body: 'Die Mitschrift beginnt neu.' });
+              toast({
+                title: `Session ${session.number} hat begonnen`,
+                body: 'Die Mitschrift beginnt neu.',
+              });
             }}
           >
             Session beginnen
@@ -338,20 +352,29 @@ export function JournalPanel() {
       />
       <div className="wf-tisch-journal__log">
         {groups.length === 0 ? (
-          <EmptyState icon={<Feather />} title={log.session ? 'Die Seite ist noch leer' : 'Noch nichts festgehalten'}>
-            Schreib oben in einem Satz auf, was gerade geschieht. Ortswechsel, geänderte Haltungen und
-            eingetretene Termine tragen sich von selbst ein.
+          <EmptyState
+            icon={<Feather />}
+            title={log.session ? 'Die Seite ist noch leer' : 'Noch nichts festgehalten'}
+          >
+            Schreib oben in einem Satz auf, was gerade geschieht. Ortswechsel, geänderte Haltungen
+            und eingetretene Termine tragen sich von selbst ein.
           </EmptyState>
         ) : (
           <>
-            {!log.session && <div className="wf-tisch-subtitle wf-tisch-journal__recent">Zuletzt festgehalten</div>}
+            {!log.session && (
+              <div className="wf-tisch-subtitle wf-tisch-journal__recent">Zuletzt festgehalten</div>
+            )}
             {groups.map((group) => (
               <section key={group.day}>
                 <h4 className="wf-tisch-day">
                   <span>{group.label}</span>
                   <span className="wf-tisch-day__date">{group.date}</span>
                 </h4>
-                <ChronicleList entries={group.entries} hideRefs={hidden} onEdit={(entry) => setEditingId(entry.id)} />
+                <ChronicleList
+                  entries={group.entries}
+                  hideRefs={hidden}
+                  onEdit={(entry) => setEditingId(entry.id)}
+                />
               </section>
             ))}
             {log.total > log.entries.length && (
@@ -362,7 +385,9 @@ export function JournalPanel() {
           </>
         )}
       </div>
-      {editing && <EntryDialog key={editing.id} entry={editing} onClose={() => setEditingId(null)} />}
+      {editing && (
+        <EntryDialog key={editing.id} entry={editing} onClose={() => setEditingId(null)} />
+      )}
     </Panel>
   );
 }

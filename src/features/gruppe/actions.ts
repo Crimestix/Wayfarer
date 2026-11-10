@@ -49,7 +49,11 @@ export interface PlaceChangeResult {
  * Ein Gefährte trennt sich von der Gruppe (placeId) oder stößt wieder zu ihr (null).
  * Das steht als Notiz in der Chronik.
  */
-export function moveCharacter(db: CampaignDb, id: string, placeId: string | null): PlaceChangeResult | null {
+export function moveCharacter(
+  db: CampaignDb,
+  id: string,
+  placeId: string | null,
+): PlaceChangeResult | null {
   const current = getCharacter(db, id);
   if (!current || current.character.placeId === placeId) return null;
   const before = current.character.placeId;
@@ -170,7 +174,12 @@ export function saveBond(db: CampaignDb, input: BondInput): Relation {
     if (existing) return db.patch('relations', existing.id, fields);
     return db.put(
       'relations',
-      createRelation({ from: input.fromId, to: input.characterId, attitude: input.attitude, ...fields }),
+      createRelation({
+        from: input.fromId,
+        to: input.characterId,
+        attitude: input.attitude,
+        ...fields,
+      }),
     );
   });
 }

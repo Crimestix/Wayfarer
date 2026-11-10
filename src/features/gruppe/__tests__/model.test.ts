@@ -95,9 +95,25 @@ describe('Sprachen', () => {
 
 describe('Kennzahlen der Gruppe', () => {
   const party = [
-    hero('Tomlin', { speed: 25, passivePerception: 12, languages: ['Gemeinsprache', 'Zwergisch'], level: 5 }),
-    hero('Naelmira', { speed: 30, passivePerception: 17, languages: ['Gemeinsprache', 'Elfisch', 'Sylvanisch'], level: 5 }),
-    hero('Neil', { speed: 30, passivePerception: 12, languages: ['gemeinsprache', 'Elfisch'], exhaustion: 2, level: 4 }),
+    hero('Tomlin', {
+      speed: 25,
+      passivePerception: 12,
+      languages: ['Gemeinsprache', 'Zwergisch'],
+      level: 5,
+    }),
+    hero('Naelmira', {
+      speed: 30,
+      passivePerception: 17,
+      languages: ['Gemeinsprache', 'Elfisch', 'Sylvanisch'],
+      level: 5,
+    }),
+    hero('Neil', {
+      speed: 30,
+      passivePerception: 12,
+      languages: ['gemeinsprache', 'Elfisch'],
+      exhaustion: 2,
+      level: 4,
+    }),
     hero('Corrin', { speed: 30, languages: ['Gemeinsprache'], exhaustion: 2, level: 5 }),
   ];
   const summary = partySummary(party);
@@ -182,7 +198,9 @@ describe('Lange Rast', () => {
 
 describe('Darstellung', () => {
   it('baut die Zeile aus Volk, Klasse und Stufe', () => {
-    expect(classLine({ species: 'Elfin', className: 'Waldläuferin', level: 5 })).toBe('Elfin · Waldläuferin · Stufe 5');
+    expect(classLine({ species: 'Elfin', className: 'Waldläuferin', level: 5 })).toBe(
+      'Elfin · Waldläuferin · Stufe 5',
+    );
     expect(classLine({ species: '', className: '', level: 1 })).toBe('Stufe 1');
   });
 
@@ -194,7 +212,9 @@ describe('Darstellung', () => {
   it('öffnet nur echte Internetadressen', () => {
     expect(sheetHref('')).toBeNull();
     expect(sheetHref('dndbeyond.com/characters/123')).toBe('https://dndbeyond.com/characters/123');
-    expect(sheetHref(' https://www.dndbeyond.com/characters/123 ')).toBe('https://www.dndbeyond.com/characters/123');
+    expect(sheetHref(' https://www.dndbeyond.com/characters/123 ')).toBe(
+      'https://www.dndbeyond.com/characters/123',
+    );
     expect(sheetHref('javascript:alert(1)')).toBeNull();
     expect(sheetHref('file:///etc/passwd')).toBeNull();
     expect(sheetHref('irgendwas')).toBeNull();
@@ -213,7 +233,10 @@ describe('Beziehungen zu einem Gefährten', () => {
       createRelation({ from: maera.id, to: tomlin.id, type: 'seeks', ended: true }),
       createRelation({ from: tomlin.id, to: PARTY_ID, type: 'member' }),
     ];
-    const next = { ...data, relations: { ...data.relations, ...Object.fromEntries(relations.map((r) => [r.id, r])) } };
+    const next = {
+      ...data,
+      relations: { ...data.relations, ...Object.fromEntries(relations.map((r) => [r.id, r])) },
+    };
     const bonds = characterBonds(next, tomlin.id);
     expect(bonds.map((b) => b.other.name)).toEqual(['Brann Eisenhaken', 'Maera Duskryn']);
     expect(bonds[0]!.incoming?.type).toBe('owes');
@@ -271,7 +294,14 @@ describe('Bearbeiten-Dialog', () => {
       sheetUrl: 'javascript:alert(1)',
     });
     expect(result.value).toBeNull();
-    expect(Object.keys(result.errors).sort()).toEqual(['armorClass', 'hpMax', 'level', 'name', 'sheetUrl', 'speed']);
+    expect(Object.keys(result.errors).sort()).toEqual([
+      'armorClass',
+      'hpMax',
+      'level',
+      'name',
+      'sheetUrl',
+      'speed',
+    ]);
   });
 
   it('füllt den Dialog aus einem vorhandenen Gefährten und zurück ohne Verlust', () => {

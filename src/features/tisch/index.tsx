@@ -15,7 +15,9 @@ export default function TischPage() {
   const place = partyPlace(data);
   return (
     <div className="wf-tisch">
-      <div className="wf-tisch__place">{place ? <PlacePanel key={place.id} place={place} /> : <NoPlace />}</div>
+      <div className="wf-tisch__place">
+        {place ? <PlacePanel key={place.id} place={place} /> : <NoPlace />}
+      </div>
       <div className="wf-tisch__side">
         <JournalPanel />
         <AgendaPanel />

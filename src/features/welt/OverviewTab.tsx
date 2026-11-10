@@ -1,7 +1,16 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
-import { ArrowRight, EyeOff, Feather, Footprints, Handshake, Home, Plus, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  EyeOff,
+  Feather,
+  Footprints,
+  Handshake,
+  Home,
+  Plus,
+  Users,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
   attitudeHistory,
@@ -94,10 +103,18 @@ function PlaceOverview({ entity: place }: Props<Place>) {
   const attitudes = partyAttitudes(data);
   const attitude = (id: string) => attitudes.get(id) ?? null;
   const castCount =
-    cast.present.length + cast.away.length + cast.factions.length + cast.linked.length + cast.characters.length;
+    cast.present.length +
+    cast.away.length +
+    cast.factions.length +
+    cast.linked.length +
+    cast.characters.length;
   const items = itemsHeldBy(data, place.id);
   const createPerson = () =>
-    openEntityDialog({ mode: 'create', kind: 'person', preset: { placeId: place.id, homeId: place.id } });
+    openEntityDialog({
+      mode: 'create',
+      kind: 'person',
+      preset: { placeId: place.id, homeId: place.id },
+    });
 
   return (
     <Columns
@@ -107,9 +124,11 @@ function PlaceOverview({ entity: place }: Props<Place>) {
             title="Wer hier eine Rolle spielt"
             count={castCount || undefined}
             action={
-              <Button size="sm" variant="ghost" icon={<Plus />} onClick={createPerson}>
-                Person
-              </Button>
+              castCount > 0 && (
+                <Button size="sm" variant="ghost" icon={<Plus />} onClick={createPerson}>
+                  Person
+                </Button>
+              )
             }
           >
             {castCount === 0 ? (
@@ -128,7 +147,12 @@ function PlaceOverview({ entity: place }: Props<Place>) {
                 {cast.present.length > 0 && (
                   <CastGroup label="Anwesend" count={cast.present.length}>
                     {cast.present.map((p) => (
-                      <EntryRow key={p.id} entity={p} sub={castSubline(data, p, place.id)} attitude={attitude(p.id)} />
+                      <EntryRow
+                        key={p.id}
+                        entity={p}
+                        sub={castSubline(data, p, place.id)}
+                        attitude={attitude(p.id)}
+                      />
                     ))}
                   </CastGroup>
                 )}
@@ -195,7 +219,10 @@ function PlaceOverview({ entity: place }: Props<Place>) {
                   <EntryRow
                     key={item.id}
                     entity={item}
-                    sub={[item.item.category, item.item.holderId !== place.id && entityName(data, item.item.holderId)]
+                    sub={[
+                      item.item.category,
+                      item.item.holderId !== place.id && entityName(data, item.item.holderId),
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   />
@@ -218,7 +245,15 @@ function PlaceOverview({ entity: place }: Props<Place>) {
   );
 }
 
-function CastGroup({ label, count, children }: { label: string; count: number; children: ReactNode }) {
+function CastGroup({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: ReactNode;
+}) {
   return (
     <div className="wf-welt-cast__group">
       <div className="wf-welt-cast__label">
@@ -240,7 +275,8 @@ function PartyAtPlace({ place }: { place: Place }) {
   const visits = [...status.visits].reverse().map((stay) => describeVisit(cal, now, stay));
   const current = visits.find((v) => v.ongoing);
   const last = visits.find((v) => !v.ongoing);
-  const shown = visits.slice(0, 5);
+  const earlier = visits.filter((v) => !v.ongoing);
+  const shown = earlier.slice(0, 5);
 
   const move = () => {
     const result = movePartyTo(db, place.id);
@@ -261,7 +297,8 @@ function PartyAtPlace({ place }: { place: Place }) {
             <>
               <div className="wf-welt-party__state">Die Gruppe ist gerade hier</div>
               <div className="wf-welt-party__sub">
-                seit {current.from}, {formatClock(current.stay.from)} · {current.duration}
+                seit {current.from}, {formatClock(current.stay.from)}
+                {current.stay.from < now && ` · ${current.duration}`}
                 {!exactlyHere && partyPlaceId && ` · in ${entityName(data, partyPlaceId)}`}
               </div>
             </>
@@ -292,14 +329,13 @@ function PartyAtPlace({ place }: { place: Place }) {
               <span className="wf-welt-visits__when">
                 {visit.from}
                 {visit.to && ` – ${visit.to}`}
-                {visit.ongoing && ' – jetzt'}
               </span>
               <span className="wf-welt-visits__dur">{visit.duration}</span>
             </li>
           ))}
-          {visits.length > shown.length && (
+          {earlier.length > shown.length && (
             <li className="wf-mute">
-              und {visits.length - shown.length} frühere – siehe Reiter „Chronik“
+              und {earlier.length - shown.length} frühere – siehe Reiter „Chronik“
             </li>
           )}
         </ul>
@@ -353,7 +389,8 @@ function ChangesSince({ place }: { place: Place }) {
 function PlacesBelow({ place }: { place: Place }) {
   const data = useData();
   const children = placeChildren(data, place.id);
-  const create = () => openEntityDialog({ mode: 'create', kind: 'place', preset: { parentId: place.id } });
+  const create = () =>
+    openEntityDialog({ mode: 'create', kind: 'place', preset: { parentId: place.id } });
   return (
     <Section
       title="Orte darunter"
@@ -390,7 +427,8 @@ function PlacesBelow({ place }: { place: Place }) {
             </Button>
           }
         >
-          Keine Orte darunter. Viertel, Gebäude oder Räume, die zu diesem Ort gehören, hängst du hier an.
+          Keine Orte darunter. Viertel, Gebäude oder Räume, die zu diesem Ort gehören, hängst du
+          hier an.
         </Hint>
       )}
     </Section>
@@ -443,7 +481,9 @@ function AttitudeTrail({ entity }: { entity: Person | Faction }) {
         <ol className="wf-welt-trail">
           {history.map((entry) => (
             <li key={entry.id}>
-              <span className="wf-welt-trail__when">{formatShortDate(cal, data.state.now, entry.at)}</span>
+              <span className="wf-welt-trail__when">
+                {formatShortDate(cal, data.state.now, entry.at)}
+              </span>
               <span className="wf-welt-trail__change">
                 <AttitudeBadge value={entry.attitude?.before ?? null} />
                 <ArrowRight width={14} height={14} />
@@ -542,9 +582,19 @@ function RecentChronicle({ entity, onShowTab }: Props<Entity>) {
   );
 }
 
-function Connections({ entity, onShowTab, title = 'Beziehungen' }: Props<Entity> & { title?: string }) {
+function Connections({
+  entity,
+  onShowTab,
+  title = 'Beziehungen',
+  skip = [],
+}: Props<Entity> & {
+  title?: string;
+  /** Gegenüber, die das Dossier schon an anderer Stelle zeigt. */ skip?: string[];
+}) {
   const data = useData();
-  const rows = relationRows(data, entity.id).filter((r) => r.otherId !== PARTY_ID && !r.ended && r.entity);
+  const rows = relationRows(data, entity.id).filter(
+    (r) => r.otherId !== PARTY_ID && !r.ended && r.entity && !skip.includes(r.otherId),
+  );
   const shown = rows.slice(0, 6);
   return (
     <Section
@@ -565,7 +615,11 @@ function Connections({ entity, onShowTab, title = 'Beziehungen' }: Props<Entity>
               key={row.otherId}
               entity={row.entity!}
               sub={row.label}
-              aside={row.secret ? <EyeOff className="wf-welt-entry__secret" aria-label="Geheim" /> : undefined}
+              aside={
+                row.secret ? (
+                  <EyeOff className="wf-welt-entry__secret" aria-label="Geheim" />
+                ) : undefined
+              }
             />
           ))}
         </div>
@@ -630,7 +684,8 @@ function Whereabouts({ person }: { person: Person }) {
   const data = useData();
   const { placeId, homeId, status, met } = person.person;
   const partyPlaceId = data.state.placeId;
-  const createPlace = (name: string) => db.put('entities', createEntity({ kind: 'place', name })).id;
+  const createPlace = (name: string) =>
+    db.put('entities', createEntity({ kind: 'place', name })).id;
   return (
     <Section title="Aufenthalt">
       <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
@@ -648,7 +703,11 @@ function Whereabouts({ person }: { person: Person }) {
               variant="ghost"
               icon={<Users />}
               disabled={!partyPlaceId || placeId === partyPlaceId}
-              title={partyPlaceId ? `Nach ${entityName(data, partyPlaceId)}` : 'Die Gruppe hat keinen Aufenthaltsort'}
+              title={
+                partyPlaceId
+                  ? `Nach ${entityName(data, partyPlaceId)}`
+                  : 'Die Gruppe hat keinen Aufenthaltsort'
+              }
               onClick={() => patchDetails(db, person, { placeId: partyPlaceId })}
             >
               Bei der Gruppe
@@ -710,7 +769,12 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
             count={members.length || undefined}
             action={
               members.length > 0 && (
-                <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => onShowTab('relations')}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Plus />}
+                  onClick={() => onShowTab('relations')}
+                >
                   Mitglied
                 </Button>
               )
@@ -725,11 +789,16 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
                     sub={[
                       member.label,
                       member.entity.kind === 'person' && member.entity.person.role,
-                      member.entity.kind === 'person' && entityName(data, member.entity.person.placeId),
+                      member.entity.kind === 'person' &&
+                        entityName(data, member.entity.person.placeId),
                     ]
                       .filter(Boolean)
                       .join(' · ')}
-                    attitude={member.entity.kind === 'person' ? (attitudes.get(member.entity.id) ?? null) : undefined}
+                    attitude={
+                      member.entity.kind === 'person'
+                        ? (attitudes.get(member.entity.id) ?? null)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -741,8 +810,8 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
                   </Button>
                 }
               >
-                Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt oder ihr
-                dient, erscheint hier.
+                Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt oder
+                ihr dient, erscheint hier.
               </Hint>
             )}
           </Section>
@@ -764,7 +833,12 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
               onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
             />
           </Section>
-          <Connections entity={faction} onShowTab={onShowTab} />
+          <Connections
+            entity={faction}
+            onShowTab={onShowTab}
+            title="Weitere Beziehungen"
+            skip={members.map((m) => m.entity.id)}
+          />
           <Belongings entity={faction} title="Im Besitz" />
           <Upcoming entity={faction} />
         </>
@@ -789,7 +863,10 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
       side={
         <>
           <Section title="Verbleib">
-            <Field label="Befindet sich bei" hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte.">
+            <Field
+              label="Befindet sich bei"
+              hint="Ein Ort, eine Person, eine Fraktion oder ein Gefährte."
+            >
               <EntityPicker
                 value={item.item.holderId}
                 onChange={(holderId) => patchDetails(db, item, { holderId })}

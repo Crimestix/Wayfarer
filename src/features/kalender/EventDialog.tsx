@@ -209,7 +209,7 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
             />
           </Field>
           <Field label="Uhrzeit">
-            <span className="wf-row" style={{ gap: 'var(--s-3)', height: 36 }}>
+            <span className="wf-row" style={{ gap: 'var(--s-3)', height: 38 }}>
               <Checkbox checked={form.timed} onChange={(timed) => set({ timed })}>
                 festgelegt
               </Checkbox>

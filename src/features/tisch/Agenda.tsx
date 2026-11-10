@@ -21,7 +21,9 @@ function icon(item: AgendaItem) {
 
 function AgendaRow({ item }: { item: AgendaItem }) {
   const db = useDb();
-  const links = [...new Set([item.placeId, ...item.refs])].filter((id): id is string => !!id).slice(0, 3);
+  const links = [...new Set([item.placeId, ...item.refs])]
+    .filter((id): id is string => !!id)
+    .slice(0, 3);
   const settle = () => {
     settleAgendaItem(db, item);
     toast({
@@ -82,7 +84,11 @@ export function AgendaPanel() {
         </>
       }
       actions={
-        <Link href="/kalender" className="wf-btn wf-btn--ghost wf-btn--sm" title="Den Kalender öffnen">
+        <Link
+          href="/kalender"
+          className="wf-btn wf-btn--ghost wf-btn--sm"
+          title="Den Kalender öffnen"
+        >
           Kalender
         </Link>
       }
@@ -90,15 +96,19 @@ export function AgendaPanel() {
       {items.length === 0 ? (
         <div className="wf-tisch-agenda__empty">
           <p className="wf-tisch-hint">
-            In den nächsten {DAYS_AHEAD} Tagen steht nichts an. Hier erscheinen Termine, Fristen, Abmachungen
-            mit Frist und laufende Wirkungen.
+            In den nächsten {DAYS_AHEAD} Tagen steht nichts an. Hier erscheinen Termine, Fristen,
+            Abmachungen mit Frist und laufende Wirkungen.
           </p>
-          <div className="wf-row">
+          <div className="wf-row-wrap">
             <Link href="/kalender" className="wf-btn wf-btn--sm">
               <CalendarDays />
-              Termin im Kalender anlegen
+              Termin anlegen
             </Link>
-            <Button size="sm" icon={<Handshake />} onClick={() => openQuickLog({ kind: 'promise' })}>
+            <Button
+              size="sm"
+              icon={<Handshake />}
+              onClick={() => openQuickLog({ kind: 'promise' })}
+            >
               Abmachung festhalten
             </Button>
           </div>

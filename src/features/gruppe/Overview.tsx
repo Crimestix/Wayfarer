@@ -1,10 +1,21 @@
 /** Übersicht der Gruppe: Kennzahlen, je Gefährte eine Karte, darunter wer gerade nicht dabei ist. */
+import { useState } from 'react';
 import { Link } from 'wouter';
 import { Pencil, Swords, Tent, UserPlus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind } from '../../domain/derive';
 import type { Character } from '../../domain/schema';
-import { Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, confirmDialog, cx, toast } from '../../ui';
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  IconButton,
+  Panel,
+  Portrait,
+  SectionTitle,
+  cx,
+  toast,
+} from '../../ui';
 import { completeLongRest, patchCharacter } from './actions';
 import {
   classLine,
@@ -23,7 +34,9 @@ import { ConditionChips, ExhaustionControl, LocationControl, SheetLink, StatBand
 
 /** „alle“, wenn es jeden betrifft, sonst die Namen. */
 const slowestText = (value: NamedValue, count: number) =>
-  value.names.length === count && count > 1 ? 'alle gleich schnell' : `${joinNames(value.names)} am langsamsten`;
+  value.names.length === count && count > 1
+    ? 'alle gleich schnell'
+    : `${joinNames(value.names)} am langsamsten`;
 
 function Figure({
   label,
@@ -72,7 +85,9 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
         value={count}
         unit={count === 1 ? 'Gefährte' : 'Gefährten'}
         sub={groupSub}
-        subTitle={summary.away.length ? `Abseits der Gruppe: ${joinNames(summary.away)}` : undefined}
+        subTitle={
+          summary.away.length ? `Abseits der Gruppe: ${joinNames(summary.away)}` : undefined
+        }
       />
       <Figure
         label="Bewegung"
@@ -90,7 +105,10 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
                   {perception[end].value}
                   <small>{end === 'lowest' ? 'niedrigste' : 'höchste'}</small>
                 </div>
-                <div className="wf-gruppe-figure__sub wf-clamp-1" title={joinNames(perception[end].names)}>
+                <div
+                  className="wf-gruppe-figure__sub wf-clamp-1"
+                  title={joinNames(perception[end].names)}
+                >
                   {joinNames(perception[end].names)}
                 </div>
               </div>
@@ -171,7 +189,11 @@ function CharacterCard({
   return (
     <Panel className="wf-gruppe-card" flush>
       <header className="wf-gruppe-card__head">
-        <Link href={href} className="wf-gruppe-card__portrait" aria-label={`${character.name} öffnen`}>
+        <Link
+          href={href}
+          className="wf-gruppe-card__portrait"
+          aria-label={`${character.name} öffnen`}
+        >
           <Portrait entity={character} size={72} />
         </Link>
         <div className="wf-grow">
@@ -183,7 +205,12 @@ function CharacterCard({
             {d.player ? `gespielt von ${d.player}` : character.tagline}
           </div>
         </div>
-        <IconButton label={`${character.name} bearbeiten`} variant="ghost" size="sm" onClick={onEdit}>
+        <IconButton
+          label={`${character.name} bearbeiten`}
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+        >
           <Pencil />
         </IconButton>
       </header>
@@ -236,50 +263,15 @@ function CharacterCard({
   );
 }
 
-// ── Seite ──────────────────────────────────────────────────────────────────
+// ── Lange Rast ─────────────────────────────────────────────────────────────
 
-export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; onCreate: () => void }) {
+/** Rückfrage vor dem Abschluss einer Langen Rast: zeigt, was sich ändert, und was nicht. */
+function LongRestDialog({ party, onClose }: { party: Character[]; onClose: () => void }) {
   const db = useDb();
-  const data = useData();
-  const all = entitiesOfKind(data, 'character');
-  const active = all.filter((c) => c.character.active);
-  const resting = all.filter((c) => !c.character.active);
-  const summary = partySummary(active);
-
-  const longRest = async () => {
-    const changes = longRestChanges(active);
-    const ok = await confirmDialog({
-      title: 'Lange Rast abschließen?',
-      confirmLabel: 'Rast abschließen',
-      body: (
-        <div className="wf-col">
-          <p>
-            Nach einer Langen Rast sinkt die Erschöpfung jedes aktiven Gefährten um eine Stufe. Das wird
-            als Notiz in der Chronik festgehalten.
-          </p>
-          {changes.length ? (
-            <ul className="wf-gruppe-restlist">
-              {changes.map((c) => (
-                <li key={c.id}>
-                  <b>{c.name}</b>
-                  <span className="wf-num">
-                    Stufe {c.before} → {c.after === 0 ? 'nicht mehr erschöpft' : `Stufe ${c.after}`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="wf-mute">Im Augenblick ist niemand erschöpft; es wird nur die Rast vermerkt.</p>
-          )}
-          <p className="wf-mute">
-            Die Weltzeit bleibt dabei stehen – die acht Stunden lässt du oben in der Weltleiste vergehen
-            (Zeit › Lange Rast).
-          </p>
-        </div>
-      ),
-    });
-    if (!ok) return;
+  const changes = longRestChanges(party);
+  const confirm = () => {
     const result = completeLongRest(db);
+    onClose();
     toast({
       title: 'Lange Rast abgeschlossen',
       body: result.changes.length
@@ -288,6 +280,67 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
       action: { label: 'Rückgängig', run: result.undo },
     });
   };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Lange Rast abschließen?"
+      width={500}
+      footer={
+        <>
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="primary" icon={<Tent />} onClick={confirm} data-autofocus>
+            Rast abschließen
+          </Button>
+        </>
+      }
+    >
+      <div className="wf-col wf-soft">
+        <p>
+          Nach einer Langen Rast sinkt die Erschöpfung jedes aktiven Gefährten um eine Stufe. Das
+          wird als Notiz in der Chronik festgehalten.
+        </p>
+        {changes.length ? (
+          <ul className="wf-gruppe-restlist">
+            {changes.map((c) => (
+              <li key={c.id}>
+                <b>{c.name}</b>
+                <span className="wf-num">
+                  Stufe {c.before} → {c.after === 0 ? 'nicht mehr erschöpft' : `Stufe ${c.after}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="wf-mute">
+            Im Augenblick ist niemand erschöpft; es wird nur die Rast vermerkt.
+          </p>
+        )}
+        <p className="wf-mute">
+          Die Weltzeit bleibt dabei stehen – die acht Stunden lässt du oben in der Weltleiste
+          vergehen (Zeit › Lange Rast).
+        </p>
+      </div>
+    </Dialog>
+  );
+}
+
+// ── Seite ──────────────────────────────────────────────────────────────────
+
+export function Overview({
+  onEdit,
+  onCreate,
+}: {
+  onEdit: (id: string) => void;
+  onCreate: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const all = entitiesOfKind(data, 'character');
+  const active = all.filter((c) => c.character.active);
+  const resting = all.filter((c) => !c.character.active);
+  const summary = partySummary(active);
+  const [restOpen, setResting] = useState(false);
 
   return (
     <div className="wf-page">
@@ -295,7 +348,12 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
         <div className="wf-grow">
           <h1 className="wf-page__title">Gefährten</h1>
         </div>
-        <Button icon={<Tent />} onClick={longRest} disabled={!active.length} title="Senkt die Erschöpfung aller um 1">
+        <Button
+          icon={<Tent />}
+          onClick={() => setResting(true)}
+          disabled={!active.length}
+          title="Senkt die Erschöpfung aller aktiven Gefährten um 1"
+        >
           Lange Rast abschließen
         </Button>
         <Button icon={<UserPlus />} onClick={onCreate}>
@@ -313,8 +371,8 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
               </Button>
             }
           >
-            Hier stehen die Spielercharaktere mit dem, was du am Tisch brauchst: Rüstungsklasse, passive
-            Werte, Sprachen, Erschöpfung und Zustände.
+            Hier stehen die Spielercharaktere mit dem, was du am Tisch brauchst: Rüstungsklasse,
+            passive Werte, Sprachen, Erschöpfung und Zustände.
           </EmptyState>
         ) : (
           <>
@@ -323,14 +381,19 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
                 <SummaryBand summary={summary} />
                 <div className="wf-gruppe-grid" data-count={Math.min(active.length, 6)}>
                   {active.map((c) => (
-                    <CharacterCard key={c.id} character={c} summary={summary} onEdit={() => onEdit(c.id)} />
+                    <CharacterCard
+                      key={c.id}
+                      character={c}
+                      summary={summary}
+                      onEdit={() => onEdit(c.id)}
+                    />
                   ))}
                 </div>
               </>
             ) : (
               <EmptyState icon={<Swords />} title="Im Augenblick ist niemand dabei">
-                Alle Gefährten stehen unter „Nicht dabei“. Nimm jemanden wieder auf, damit er hier mit
-                seinen Werten erscheint.
+                Alle Gefährten stehen unter „Nicht dabei“. Nimm jemanden wieder auf, damit er hier
+                mit seinen Werten erscheint.
               </EmptyState>
             )}
             {resting.length > 0 && (
@@ -345,7 +408,10 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
                           {c.name}
                         </Link>
                         <div className="wf-gruppe-bench__sub wf-clamp-1">
-                          {[classLine(c.character), c.character.player && `gespielt von ${c.character.player}`]
+                          {[
+                            classLine(c.character),
+                            c.character.player && `gespielt von ${c.character.player}`,
+                          ]
                             .filter(Boolean)
                             .join(' · ')}
                         </div>
@@ -353,7 +419,12 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
                       <Button size="sm" onClick={() => patchCharacter(db, c.id, { active: true })}>
                         Wieder aufnehmen
                       </Button>
-                      <IconButton label={`${c.name} bearbeiten`} variant="ghost" size="sm" onClick={() => onEdit(c.id)}>
+                      <IconButton
+                        label={`${c.name} bearbeiten`}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(c.id)}
+                      >
                         <Pencil />
                       </IconButton>
                     </div>
@@ -364,6 +435,7 @@ export function Overview({ onEdit, onCreate }: { onEdit: (id: string) => void; o
           </>
         )}
       </div>
+      {restOpen && <LongRestDialog party={active} onClose={() => setResting(false)} />}
     </div>
   );
 }

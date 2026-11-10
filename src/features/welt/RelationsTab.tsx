@@ -62,10 +62,18 @@ export function RelationsTab({ entity }: { entity: WorldEntity }) {
         <div className="wf-welt-rel__table" role="table">
           <div className="wf-welt-rel__row wf-welt-rel__row--head" role="row">
             <span role="columnheader">Gegenüber</span>
-            <span role="columnheader" className="wf-clamp-2" title={`Haltung von ${entity.name} gegenüber dem anderen`}>
+            <span
+              role="columnheader"
+              className="wf-clamp-2"
+              title={`Haltung von ${entity.name} gegenüber dem anderen`}
+            >
               Haltung von {entity.name}
             </span>
-            <span role="columnheader" className="wf-clamp-2" title={`Haltung des anderen gegenüber ${entity.name}`}>
+            <span
+              role="columnheader"
+              className="wf-clamp-2"
+              title={`Haltung des anderen gegenüber ${entity.name}`}
+            >
               Haltung zu {entity.name}
             </span>
             <span />
@@ -117,7 +125,9 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
         <div className="wf-grow">
           <div className="wf-welt-rel__label">
             {row.label}
-            {!symmetric && <span className="wf-welt-rel__inverse"> · umgekehrt: {row.inverseLabel}</span>}
+            {!symmetric && (
+              <span className="wf-welt-rel__inverse"> · umgekehrt: {row.inverseLabel}</span>
+            )}
           </div>
           <div className="wf-welt-rel__name">
             {row.entity ? (
@@ -133,7 +143,9 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
             )}
             {row.entity && (
               <span className="wf-welt-rel__kind">
-                {[KIND_LABEL[row.entity.kind], entitySubline(data, row.entity)].filter(Boolean).join(' · ')}
+                {[KIND_LABEL[row.entity.kind], entitySubline(data, row.entity)]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
             )}
           </div>
@@ -155,13 +167,26 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
         </div>
       </div>
       <div role="cell">
-        {row.outgoing ? <AttitudeBadge value={row.outgoing.attitude} /> : <span className="wf-welt-rel__none">–</span>}
+        {row.outgoing ? (
+          <AttitudeBadge value={row.outgoing.attitude} />
+        ) : (
+          <span className="wf-welt-rel__none">–</span>
+        )}
       </div>
       <div role="cell">
-        {row.incoming ? <AttitudeBadge value={row.incoming.attitude} /> : <span className="wf-welt-rel__none">–</span>}
+        {row.incoming ? (
+          <AttitudeBadge value={row.incoming.attitude} />
+        ) : (
+          <span className="wf-welt-rel__none">–</span>
+        )}
       </div>
       <div role="cell">
-        <IconButton label={`Beziehung zu ${row.name} bearbeiten`} size="sm" variant="ghost" onClick={onEdit}>
+        <IconButton
+          label={`Beziehung zu ${row.name} bearbeiten`}
+          size="sm"
+          variant="ghost"
+          onClick={onEdit}
+        >
           <Pencil />
         </IconButton>
       </div>
@@ -185,7 +210,11 @@ function RelationDialog({
   const isNew = initialOther === null;
   const [otherId, setOtherId] = useState<string | null>(initialOther);
   const stored = (other: string | null, dir: Direction): Relation | undefined =>
-    !other ? undefined : dir === 'out' ? findRelation(data, self.id, other) : findRelation(data, other, self.id);
+    !other
+      ? undefined
+      : dir === 'out'
+        ? findRelation(data, self.id, other)
+        : findRelation(data, other, self.id);
   const [drafts, setDrafts] = useState<Record<Direction, RelationDraft>>(() => ({
     out: relationDraft(stored(initialOther, 'out')),
     in: relationDraft(stored(initialOther, 'in')),
@@ -240,7 +269,12 @@ function RelationDialog({
         };
         // Die Haltung zur Gruppe läuft über setAttitude, damit sie im Verlauf steht.
         const viaHistory = to === PARTY_ID;
-        if (current) db.patch('relations', current.id, viaHistory ? fields : { ...fields, attitude: next.attitude });
+        if (current)
+          db.patch(
+            'relations',
+            current.id,
+            viaHistory ? fields : { ...fields, attitude: next.attitude },
+          );
         else
           db.put(
             'relations',
@@ -283,7 +317,11 @@ function RelationDialog({
       footer={
         <>
           {existing && (
-            <Button variant="danger" onClick={remove} title="Löscht nur diese Richtung der Beziehung">
+            <Button
+              variant="danger"
+              onClick={remove}
+              title="Löscht nur diese Richtung der Beziehung"
+            >
               Löschen
             </Button>
           )}
@@ -351,7 +389,10 @@ function RelationDialog({
                 </Select>
               </Field>
               {draft.type === 'custom' ? (
-                <Field label="Eigene Bezeichnung" hint="Als Satzteil, z. B. „erpresst“ oder „ist verlobt mit“.">
+                <Field
+                  label="Eigene Bezeichnung"
+                  hint="Als Satzteil, z. B. „erpresst“ oder „ist verlobt mit“."
+                >
                   <Input
                     value={draft.label}
                     onChange={(e) => set({ label: e.target.value })}
@@ -373,7 +414,10 @@ function RelationDialog({
                 className="wf-span-2"
               >
                 <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
-                  <AttitudeScale value={draft.attitude} onChange={(attitude) => set({ attitude })} />
+                  <AttitudeScale
+                    value={draft.attitude}
+                    onChange={(attitude) => set({ attitude })}
+                  />
                   <span>
                     <AttitudeBadge value={draft.attitude} />
                     {existing && attitudeChanged && (

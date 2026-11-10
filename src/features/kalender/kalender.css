@@ -93,7 +93,7 @@
 .wf-kal-weekdays {
   flex: none;
   border-bottom: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.22);
+  background: color-mix(in srgb, var(--bg-void) 22%, transparent);
 }
 .wf-kal-weekdays > span {
   padding: 7px var(--s-2) 6px;
@@ -157,7 +157,7 @@
   background: var(--bg-inset);
 }
 .wf-kal-day:not(.wf-kal-day--void):hover {
-  background: rgba(201, 163, 91, 0.05);
+  background: color-mix(in srgb, var(--gold) 5%, transparent);
 }
 .wf-kal-day:focus-visible {
   box-shadow: inset 0 0 0 1px var(--gold);
@@ -243,7 +243,7 @@
 
 /* Vergangenes zurückgenommen, Nachbarmonate noch leiser */
 .wf-kal-day--past {
-  background: rgba(0, 0, 0, 0.26);
+  background: color-mix(in srgb, var(--bg-void) 26%, transparent);
 }
 .wf-kal-day--past .wf-kal-day__num {
   color: var(--ink-mute);
@@ -260,7 +260,11 @@
 .wf-kal-day--today {
   background:
     linear-gradient(180deg, var(--gold-glow), transparent 85%),
-    radial-gradient(120% 90% at 0% 0%, rgba(201, 163, 91, 0.1), transparent 70%);
+    radial-gradient(
+      120% 90% at 0% 0%,
+      color-mix(in srgb, var(--gold) 10%, transparent),
+      transparent 70%
+    );
   box-shadow: inset 0 2px 0 var(--gold);
 }
 .wf-kal-day--today .wf-kal-day__num {
@@ -277,7 +281,7 @@
   pointer-events: none;
 }
 .wf-kal-day--selected:not(.wf-kal-day--today) {
-  background: rgba(201, 163, 91, 0.07);
+  background: color-mix(in srgb, var(--gold) 7%, transparent);
 }
 
 /* Terminbalken: liegen über den Tagesfeldern und lassen Klicks durch */
@@ -322,8 +326,9 @@
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  /* Lange Titel laufen am Rand aus, statt Platz an Auslassungspunkte zu verlieren. */
+  mask-image: linear-gradient(to left, transparent, #000 14px);
 }
 .wf-kal-bar svg {
   flex: none;
@@ -375,6 +380,7 @@
 }
 .wf-kal-strip .wf-panel__head {
   min-height: 38px;
+  padding-right: var(--s-3);
   white-space: nowrap;
 }
 .wf-kal-strip .wf-panel__title {
@@ -409,7 +415,11 @@
 }
 button.wf-kal-row:hover,
 .wf-kal-row--link:hover {
-  background: linear-gradient(90deg, rgba(201, 163, 91, 0.08), transparent 75%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gold) 8%, transparent),
+    transparent 75%
+  );
 }
 .wf-kal-row > .wf-kal-gem {
   margin-top: 7px;
@@ -532,7 +542,7 @@ button.wf-kal-row:hover,
   grid-template-columns: 32px minmax(0, 1fr);
   column-gap: 12px;
   align-items: center;
-  padding: 7px var(--s-4) 6px;
+  padding: 6px var(--s-4) 5px;
   border-bottom: 1px solid var(--line-faint);
 }
 .wf-kal-moonrow:last-child {
@@ -546,6 +556,7 @@ button.wf-kal-row:hover,
 }
 .wf-kal-moonrow__phase {
   font-size: var(--text-sm);
+  line-height: 1.2;
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -556,9 +567,9 @@ button.wf-kal-row:hover,
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 10px;
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   font-size: var(--text-sm);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 .wf-kal-moonrow dt {
   color: var(--ink-mute);
@@ -594,7 +605,7 @@ button.wf-kal-row:hover,
   flex: none;
   padding: var(--s-4) var(--s-4) var(--s-3);
   border-bottom: 1px solid var(--line-faint);
-  background: linear-gradient(180deg, rgba(201, 163, 91, 0.06), transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent);
 }
 .wf-kal-side__when {
   display: flex;
@@ -653,6 +664,15 @@ button.wf-kal-row:hover,
 .wf-kal-side__section {
   padding: var(--s-3) var(--s-4) 2px;
 }
+.wf-kal-side__section--action {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+}
+.wf-kal-side__section--action .wf-section-title {
+  flex: 1 1 auto;
+}
 .wf-kal-side__foot {
   flex: none;
   display: flex;
@@ -660,18 +680,10 @@ button.wf-kal-row:hover,
   gap: var(--s-2);
   padding: var(--s-3) var(--s-4) var(--s-4);
   border-top: 1px solid var(--line-faint);
-  background: rgba(0, 0, 0, 0.25);
+  background: color-mix(in srgb, var(--bg-void) 25%, transparent);
 }
 .wf-kal-side__foot .wf-btn {
   width: 100%;
-}
-.wf-kal-pass {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
-  margin-top: var(--s-1);
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--line-faint);
 }
 .wf-kal-pass__row {
   display: flex;
@@ -705,7 +717,11 @@ button.wf-kal-row:hover,
   border-bottom: 0;
 }
 .wf-kal-event:hover {
-  background: linear-gradient(90deg, rgba(201, 163, 91, 0.08), transparent 75%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gold) 8%, transparent),
+    transparent 75%
+  );
 }
 .wf-kal-event__main {
   flex: 1 1 auto;

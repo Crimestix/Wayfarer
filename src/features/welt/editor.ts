@@ -3,8 +3,7 @@ import { useSyncExternalStore } from 'react';
 import type { EntityDraft, WorldKind } from './model';
 
 export type EntityDialogRequest =
-  | { mode: 'create'; kind: WorldKind; preset?: Partial<EntityDraft> }
-  | { mode: 'edit'; id: string };
+  { mode: 'create'; kind: WorldKind; preset?: Partial<EntityDraft> } | { mode: 'edit'; id: string };
 
 let current: EntityDialogRequest | null = null;
 const listeners = new Set<() => void>();

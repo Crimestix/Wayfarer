@@ -571,25 +571,30 @@ export function deletionImpact(data: CampaignData, entityId: string): DeletionIm
 /** Sätze für die Rückfrage vor dem Löschen. */
 export function deletionNotes(impact: DeletionImpact): string[] {
   const notes: string[] = [];
-  const n = (count: number, one: string, many: string) => (count === 1 ? one : `${count} ${many}`);
-  if (impact.relations)
-    notes.push(`${n(impact.relations, 'Eine Beziehung wird', 'Beziehungen werden')} mit gelöscht.`);
-  if (impact.children)
-    notes.push(
-      `${n(impact.children, 'Ein Ort darunter rückt', 'Orte darunter rücken')} eine Ebene nach oben.`,
-    );
-  if (impact.residents)
-    notes.push(
-      `${n(impact.residents, 'Bei einem anderen Eintrag wird', 'Bei anderen Einträgen wird')} die Angabe zu diesem Eintrag geleert.`,
-    );
-  if (impact.events)
-    notes.push(
-      `${n(impact.events, 'Ein Termin verliert', 'Termine verlieren')} den Verweis auf diesen Eintrag.`,
-    );
-  if (impact.chronicle)
-    notes.push(
-      `${n(impact.chronicle, 'Ein Chronik-Eintrag bleibt', 'Chronik-Einträge bleiben')} erhalten, nennt dann aber einen gelöschten Eintrag.`,
-    );
+  const say = (count: number, one: string, many: string) => {
+    if (count > 0) notes.push(count === 1 ? one : many.replace('#', String(count)));
+  };
+  say(impact.relations, 'Eine Beziehung wird mit gelöscht.', '# Beziehungen werden mit gelöscht.');
+  say(
+    impact.children,
+    'Ein Ort darunter rückt eine Ebene nach oben.',
+    '# Orte darunter rücken eine Ebene nach oben.',
+  );
+  say(
+    impact.residents,
+    'Bei einem anderen Eintrag wird die Angabe zu diesem Eintrag geleert.',
+    'Bei # anderen Einträgen wird die Angabe zu diesem Eintrag geleert.',
+  );
+  say(
+    impact.events,
+    'Ein Termin verliert den Verweis auf diesen Eintrag.',
+    '# Termine verlieren den Verweis auf diesen Eintrag.',
+  );
+  say(
+    impact.chronicle,
+    'Ein Chronik-Eintrag bleibt erhalten, nennt dann aber einen gelöschten Eintrag.',
+    '# Chronik-Einträge bleiben erhalten, nennen dann aber einen gelöschten Eintrag.',
+  );
   if (impact.partyIsHere)
     notes.push('Die Gruppe ist gerade hier; ihr Aufenthaltsort ist danach offen.');
   return notes;

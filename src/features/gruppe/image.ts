@@ -12,7 +12,12 @@ async function load(file: File): Promise<Drawable> {
   if ('createImageBitmap' in window) {
     try {
       const bitmap = await createImageBitmap(file);
-      return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      };
     } catch {
       // Manche Formate (z. B. SVG) kann createImageBitmap nicht; dann über ein Bildelement.
     }
@@ -44,7 +49,8 @@ export async function fileToPortrait(file: File): Promise<string> {
   const image = await load(file);
   try {
     const size = fitWithin(image.width, image.height, PORTRAIT_MAX);
-    if (!size.width || !size.height) throw new Error('Diese Datei lässt sich nicht als Bild lesen.');
+    if (!size.width || !size.height)
+      throw new Error('Diese Datei lässt sich nicht als Bild lesen.');
     const canvas = document.createElement('canvas');
     canvas.width = size.width;
     canvas.height = size.height;

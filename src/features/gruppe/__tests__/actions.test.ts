@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../../data/db';
 import { demoCampaign } from '../../../data/seed';
 import { MemoryStore } from '../../../data/store';
-import { attitudeHistory, chronicleFor, entitiesOfKind, findRelation } from '../../../domain/derive';
+import {
+  attitudeHistory,
+  chronicleFor,
+  entitiesOfKind,
+  findRelation,
+} from '../../../domain/derive';
 import type { Character } from '../../../domain/schema';
 import {
   clickExhaustion,
@@ -116,10 +121,25 @@ describe('Lange Rast', () => {
 describe('Anlegen, ändern, wieder laden', () => {
   it('legt einen Gefährten an, ändert ihn und findet beides nach dem Laden wieder', async () => {
     const { store, db } = await demoDb();
-    const draft = parseDraft({ ...emptyDraft(), name: 'Sera', player: 'Kim', armorClass: '14', languages: ['Gemeinsprache'] });
+    const draft = parseDraft({
+      ...emptyDraft(),
+      name: 'Sera',
+      player: 'Kim',
+      armorClass: '14',
+      languages: ['Gemeinsprache'],
+    });
     const id = saveCharacter(db, null, draft.value!);
-    expect(hero(db, 'Sera').character).toMatchObject({ player: 'Kim', armorClass: 14, active: true });
-    const again = parseDraft({ ...emptyDraft(), name: 'Sera Windlauf', armorClass: '15', active: false });
+    expect(hero(db, 'Sera').character).toMatchObject({
+      player: 'Kim',
+      armorClass: 14,
+      active: true,
+    });
+    const again = parseDraft({
+      ...emptyDraft(),
+      name: 'Sera Windlauf',
+      armorClass: '15',
+      active: false,
+    });
     expect(saveCharacter(db, id, again.value!)).toBe(id);
     await db.flush();
     const reopened = await CampaignDb.open(store);
@@ -156,9 +176,23 @@ describe('Beziehungen zu einem Gefährten', () => {
     expect(attitudeHistory(db.getSnapshot(), brann.id, tomlin.id)).toHaveLength(1);
 
     // Ändern ohne neue Haltung: kein weiterer Chronikeintrag.
-    saveBond(db, { fromId: brann.id, characterId: tomlin.id, type: 'custom', label: 'trinkt mit', attitude: 1, note: '', secret: false, ended: false });
+    saveBond(db, {
+      fromId: brann.id,
+      characterId: tomlin.id,
+      type: 'custom',
+      label: 'trinkt mit',
+      attitude: 1,
+      note: '',
+      secret: false,
+      ended: false,
+    });
     const changed = findRelation(db.getSnapshot(), brann.id, tomlin.id)!;
-    expect(changed).toMatchObject({ id: relation.id, type: 'custom', label: 'trinkt mit', secret: false });
+    expect(changed).toMatchObject({
+      id: relation.id,
+      type: 'custom',
+      label: 'trinkt mit',
+      secret: false,
+    });
     expect(attitudeHistory(db.getSnapshot(), brann.id, tomlin.id)).toHaveLength(1);
 
     removeBond(db, relation.id);
@@ -179,6 +213,8 @@ describe('Beziehungen zu einem Gefährten', () => {
       ended: false,
     });
     expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(before);
-    expect(findRelation(db.getSnapshot(), byName(db, 'Haus Duskryn').id, hero(db, 'Veres').id)?.type).toBe('seeks');
+    expect(
+      findRelation(db.getSnapshot(), byName(db, 'Haus Duskryn').id, hero(db, 'Veres').id)?.type,
+    ).toBe('seeks');
   });
 });

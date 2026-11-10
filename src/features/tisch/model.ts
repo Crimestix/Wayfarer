@@ -134,7 +134,12 @@ export interface CastView {
 const promisesFor = (data: CampaignData, entityId: string) =>
   openPromises(data, entityId).map((entry) => entry.text || 'Abmachung ohne Wortlaut');
 
-function personRow(data: CampaignData, person: Person, where: string | null, whereId: string | null): CastRow {
+function personRow(
+  data: CampaignData,
+  person: Person,
+  where: string | null,
+  whereId: string | null,
+): CastRow {
   const role = person.person.role || person.person.species || person.tagline;
   return {
     entity: person,
@@ -158,7 +163,12 @@ export function castView(data: CampaignData, placeId: string): CastView {
   const present = cast.present
     .map((p) => {
       const exact = p.person.placeId === placeId;
-      return personRow(data, p, exact ? null : placeName(p.person.placeId), exact ? null : p.person.placeId);
+      return personRow(
+        data,
+        p,
+        exact ? null : placeName(p.person.placeId),
+        exact ? null : p.person.placeId,
+      );
     })
     // Erst wer unmittelbar hier ist, dann nach Ort darunter, dann nach Namen.
     .sort(
@@ -202,7 +212,9 @@ export function castView(data: CampaignData, placeId: string): CastView {
   const holders = new Set([...subtree, ...cast.present.map((p) => p.id)]);
   const listed = new Set<string>();
   const items = Object.values(data.entities)
-    .filter((e): e is Item => e.kind === 'item' && !!e.item.holderId && holders.has(e.item.holderId))
+    .filter(
+      (e): e is Item => e.kind === 'item' && !!e.item.holderId && holders.has(e.item.holderId),
+    )
     .sort(byName)
     .map((item): CastRow => {
       listed.add(item.id);
@@ -222,23 +234,25 @@ export function castView(data: CampaignData, placeId: string): CastView {
       };
     });
 
-  const linked = cast.linked.filter((l) => !listed.has(l.entity.id)).map(({ entity, relation, perspective }): CastRow => {
-    // Aus Sicht des Eintrags gesprochen: „herrscht über Dornhafen“.
-    const label = relationLabel(relation, perspective === 'to' ? 'from' : 'to');
-    const hasAttitude = entity.kind === 'person' || entity.kind === 'faction';
-    return {
-      entity,
-      attitude: hasAttitude ? attitudeToParty(data, entity.id) : null,
-      role: `${label} ${placeName(placeId) ?? ''}`.trim(),
-      where: null,
-      whereId: null,
-      fate: entity.kind === 'person' ? STATUS_NOTE[entity.person.status] : null,
-      unmet: entity.kind === 'person' && !entity.person.met,
-      hasAttitude,
-      tagline: entity.tagline,
-      promises: hasAttitude ? promisesFor(data, entity.id) : [],
-    };
-  });
+  const linked = cast.linked
+    .filter((l) => !listed.has(l.entity.id))
+    .map(({ entity, relation, perspective }): CastRow => {
+      // Aus Sicht des Eintrags gesprochen: „herrscht über Dornhafen“.
+      const label = relationLabel(relation, perspective === 'to' ? 'from' : 'to');
+      const hasAttitude = entity.kind === 'person' || entity.kind === 'faction';
+      return {
+        entity,
+        attitude: hasAttitude ? attitudeToParty(data, entity.id) : null,
+        role: `${label} ${placeName(placeId) ?? ''}`.trim(),
+        where: null,
+        whereId: null,
+        fate: entity.kind === 'person' ? STATUS_NOTE[entity.person.status] : null,
+        unmet: entity.kind === 'person' && !entity.person.met,
+        hasAttitude,
+        tagline: entity.tagline,
+        promises: hasAttitude ? promisesFor(data, entity.id) : [],
+      };
+    });
 
   return {
     present,
@@ -254,7 +268,11 @@ export function castView(data: CampaignData, placeId: string): CastView {
  * Was bei früheren Besuchen hier geschah: alles vor dem jetzigen Aufenthalt, ohne Ortswechsel und
  * ohne das, was schon unter „Seit eurem letzten Besuch“ steht. Älteste zuerst.
  */
-export function earlierHere(data: CampaignData, placeId: string, status: PlaceStatus): ChronicleEntry[] {
+export function earlierHere(
+  data: CampaignData,
+  placeId: string,
+  status: PlaceStatus,
+): ChronicleEntry[] {
   const before = status.current ? status.current.from : Number.MAX_SAFE_INTEGER;
   const shown = new Set(status.changesSince.map((entry) => entry.id));
   return chronicleFor(data, placeId).filter(
@@ -281,7 +299,10 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
   const persons = Object.values(data.entities).filter((e): e is Person => e.kind === 'person');
   const children = placeChildren(data, placeId).map((place) => {
     const ids = placeSubtreeIds(data, place.id);
-    return { place, people: persons.filter((p) => p.person.placeId && ids.has(p.person.placeId)).length };
+    return {
+      place,
+      people: persons.filter((p) => p.person.placeId && ids.has(p.person.placeId)).length,
+    };
   });
   return { parent: placeAncestors(data, placeId)[0] ?? null, children };
 }
@@ -376,8 +397,7 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
   const now = data.state.now;
   const items: AgendaItem[] = [];
 
-  for (const event of overdueEvents(data))
-    items.push(eventItem(cal, now, event, event.at, true));
+  for (const event of overdueEvents(data)) items.push(eventItem(cal, now, event, event.at, true));
 
   for (const o of upcomingOccurrences(data, days, 40))
     items.push(eventItem(cal, now, o.event, o.at, false));
@@ -394,7 +414,9 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       label: 'Abmachung',
       at: due,
       tone: overdue ? 'overdue' : dayIndexOf(due) === dayIndexOf(now) ? 'today' : 'later',
-      when: overdue ? overdueLabel(now, due) : whenLabel(now, due, dayIndexOf(due) === dayIndexOf(now)),
+      when: overdue
+        ? overdueLabel(now, due)
+        : whenLabel(now, due, dayIndexOf(due) === dayIndexOf(now)),
       date: formatDayMonth(cal, due),
       placeId: null,
       refs: entry.refs,
@@ -421,7 +443,9 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
     });
 
   const rank = (item: AgendaItem) => (item.tone === 'overdue' ? 0 : 1);
-  return items.sort((a, b) => rank(a) - rank(b) || a.at - b.at || a.title.localeCompare(b.title, 'de'));
+  return items.sort(
+    (a, b) => rank(a) - rank(b) || a.at - b.at || a.title.localeCompare(b.title, 'de'),
+  );
 }
 
 // ── Mitschrift ─────────────────────────────────────────────────────────────
@@ -453,7 +477,11 @@ export interface DayGroup {
 }
 
 /** Teilt Einträge in Tage auf; die Reihenfolge der Einträge bleibt erhalten. */
-export function groupByDay(cal: CalendarDef, now: WorldTime, entries: ChronicleEntry[]): DayGroup[] {
+export function groupByDay(
+  cal: CalendarDef,
+  now: WorldTime,
+  entries: ChronicleEntry[],
+): DayGroup[] {
   const groups: DayGroup[] = [];
   const today = dayIndexOf(now);
   for (const entry of entries) {

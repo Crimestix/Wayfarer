@@ -355,7 +355,7 @@ export const EVENT_KIND_LABEL: Record<EventKind, string> = {
 };
 
 export const EVENT_KIND_HINT: Record<EventKind, string> = {
-  world: 'Geschieht unabhängig von der Gruppe',
+  world: 'Unabhängig von der Gruppe',
   plan: 'Das hat die Gruppe vor',
   deadline: 'Bis dahin muss es erledigt sein',
 };

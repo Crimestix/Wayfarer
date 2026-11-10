@@ -1,6 +1,6 @@
 /* Chronik: Verlauf, Sessions und der Dialog zum Bearbeiten. */
 
-.wf-chronik-head {
+.wf-page__head.wf-chronik-head {
   align-items: center;
   gap: var(--s-6);
   padding-bottom: var(--s-3);
@@ -298,18 +298,6 @@
 }
 
 /* Offene Abmachungen */
-.wf-chronik-promises .wf-panel__title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 2px;
-}
-.wf-chronik-promises__overdue {
-  margin-left: 10px;
-  color: var(--blood-bright);
-  font-weight: 400;
-  letter-spacing: 0.1em;
-}
 .wf-chronik-promise {
   display: flex;
   align-items: flex-start;
@@ -404,6 +392,15 @@
 .wf-chronik-sessions--empty {
   display: block;
   max-width: 720px;
+}
+/* Session beginnen oder beenden: breite Fläche über der Liste, am Tisch leicht zu treffen. */
+.wf-chronik-list__action {
+  display: flex;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-chronik-list__action > .wf-btn {
+  flex: 1 1 auto;
 }
 /* Die Liste ist so hoch wie ihr Inhalt und rollt erst, wenn sie den Platz füllt. */
 .wf-chronik-list {
@@ -535,7 +532,7 @@
 .wf-chronik-facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3) var(--s-6);
+  gap: var(--s-3) var(--s-5);
   margin: var(--s-3) 0 0;
 }
 .wf-chronik-facts dt {
@@ -548,15 +545,14 @@
 .wf-chronik-facts dd {
   display: flex;
   align-items: center;
+  gap: var(--s-2);
   min-height: 30px;
   margin: 0;
   color: var(--ink);
 }
-.wf-chronik-facts dd {
-  gap: var(--s-2);
-}
-.wf-chronik-facts__date {
-  width: 112px;
+/* ui.css wird nach dieser Datei geladen; Abweichungen von den Bausteinen brauchen mehr Gewicht. */
+input.wf-chronik-facts__date {
+  width: 108px;
   min-height: 30px;
   padding: 2px 8px;
 }
@@ -598,7 +594,7 @@
 .wf-chronik-saved[data-state='error'] {
   color: var(--blood-bright);
 }
-.wf-chronik-notes {
+textarea.wf-chronik-notes {
   min-height: 150px;
   max-height: 46vh;
   padding: 10px 12px;
@@ -606,7 +602,7 @@
   font-size: var(--text-md);
   line-height: 1.5;
 }
-.wf-chronik-summary {
+textarea.wf-chronik-summary {
   min-height: 320px;
   font-size: var(--text-sm);
 }

@@ -14,11 +14,22 @@
  *   lk_set_key({ key })   lk_clear_key()                    Schlüssel liegt im Schlüsselbund des Systems
  *   lk_get({ path, query }) -> { status: number, body: string }   nur GET auf die LegendKeeper-API
  *
- * Fehler kommen als deutscher Satz (string) zurück, nicht als Error-Objekt.
+ * Die Rust-Seite meldet Fehler als deutschen Satz. Hier wird daraus ein gewöhnlicher Error,
+ * damit `error.message` überall den Satz liefert.
  */
-import { invoke } from '@tauri-apps/api/core';
+import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { CampaignStore, StoredFile } from './store';
+
+/** Ruft einen Befehl der Rust-Seite auf; Fehler kommen als Error mit verständlichem Satz an. */
+async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await tauriInvoke<T>(command, args);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(typeof error === 'string' ? error : 'Unerwarteter Fehler in der App.');
+  }
+}
 
 export const isDesktopApp = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -51,7 +62,10 @@ export class FolderStore implements CampaignStore {
   watch(onChange: (paths: string[]) => void) {
     let stopped = false;
     let unlisten: (() => void) | null = null;
-    void invoke('store_watch', { root: this.root });
+    // Ohne Überwachung läuft die App weiter; Änderungen von außen erscheinen dann erst beim nächsten Start.
+    invoke('store_watch', { root: this.root }).catch((error) =>
+      console.warn('Der Kampagnenordner wird nicht überwacht:', error),
+    );
     void listen<{ paths: string[] }>('store-changed', (event) => onChange(event.payload.paths)).then(
       (fn) => {
         if (stopped) fn();

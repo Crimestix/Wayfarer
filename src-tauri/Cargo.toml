@@ -30,6 +30,8 @@ keyring = "4"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "system-proxy", "charset"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 url = "2"
+# Öffnet fremde Adressen (D&D Beyond, LegendKeeper) im Browser des Systems
+open = "5"
 # Unter Windows gewöhnliche Pfade (C:\…) statt der \\?\-Schreibweise
 dunce = "1"
 

@@ -553,7 +553,7 @@
 }
 .wf-gruppe-conditions__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 5px;
 }
 .wf-gruppe-condition {
@@ -580,20 +580,32 @@
   color: var(--ember);
   box-shadow: inset 2px 0 0 var(--ember);
 }
+/* Feste Höhe für die längste Regel: Die Schalter dürfen beim Zeigen nicht wandern. */
 .wf-gruppe-conditions__rule {
-  min-height: 3.9em;
-  margin-top: var(--s-2);
+  height: 5.3em;
+  margin: var(--s-2) 0 0;
+  overflow: hidden;
   font-size: var(--text-sm);
   line-height: 1.3;
   color: var(--ink-mute);
 }
-.wf-gruppe-conditions__rule b {
+.wf-gruppe-conditions__rule b,
+.wf-gruppe-conditions__active b {
   font-weight: 500;
   color: var(--ink);
 }
 .wf-gruppe-conditions__rule--idle {
   font-style: italic;
   color: var(--ink-faint);
+}
+.wf-gruppe-conditions__active {
+  margin-top: var(--s-2);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  color: var(--ink-mute);
+}
+.wf-gruppe-conditions__active p + p {
+  margin-top: 3px;
 }
 
 /* Aufenthaltsort und Charakterbogen */
@@ -654,6 +666,12 @@
 .wf-gruppe-sheet:hover {
   color: var(--gold-bright);
   border-bottom-color: var(--gold-deep);
+}
+/* In schmalen Karten reicht „Charakterbogen“ mit dem Pfeil; so bleibt Platz für den Ort. */
+@media (max-width: 1450px) {
+  .wf-gruppe-card .wf-gruppe-sheet__verb {
+    display: none;
+  }
 }
 .wf-gruppe-sheet--missing {
   color: var(--ink-faint);
@@ -933,8 +951,9 @@
   font-size: var(--text-xl);
 }
 .wf-gruppe-bond__sentence {
-  align-self: end;
-  padding-bottom: 7px;
+  align-self: center;
+  padding-top: 20px;
+  line-height: 1.3;
   color: var(--ink-soft);
 }
 .wf-gruppe-bond__sentence em {

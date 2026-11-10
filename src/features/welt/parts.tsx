@@ -22,7 +22,9 @@ import { entitySubline, formatShortDate, type Fact, type WorldEntity } from './m
 
 /** CSS-Farbe einer Haltungsstufe. */
 export const attitudeVar = (value: number | null): string =>
-  value === null ? 'var(--ink-mute)' : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
+  value === null
+    ? 'var(--ink-mute)'
+    : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
 
 /** Abschnitt mit Titel in Versalien und optionalen Knöpfen rechts. */
 export function Section({
@@ -262,7 +264,10 @@ export function SecretSection({ entity }: { entity: WorldEntity }) {
           )
         )}
       </div>
-      {editor ?? (entity.secret ? <div className="wf-prose wf-welt-secret__text">{entity.secret}</div> : null)}
+      {editor ??
+        (entity.secret ? (
+          <div className="wf-prose wf-welt-secret__text">{entity.secret}</div>
+        ) : null)}
     </section>
   );
 }

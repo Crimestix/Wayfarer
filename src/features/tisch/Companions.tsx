@@ -34,7 +34,11 @@ function Mate({ companion }: { companion: Companion }) {
         <Link
           href={entityHref(character)}
           className="wf-tisch-mate__name wf-clamp-1"
-          title={[character.name, c.className && `${c.className} ${c.level}`, c.player && `gespielt von ${c.player}`]
+          title={[
+            character.name,
+            c.className && `${c.className} ${c.level}`,
+            c.player && `gespielt von ${c.player}`,
+          ]
             .filter(Boolean)
             .join(' · ')}
         >
@@ -55,7 +59,9 @@ function Mate({ companion }: { companion: Companion }) {
                 className="wf-tisch-pip"
                 aria-label={`Erschöpfung ${level}`}
                 aria-pressed={level <= c.exhaustion}
-                onClick={() => setExhaustion(db, character.id, exhaustionAfterClick(c.exhaustion, level))}
+                onClick={() =>
+                  setExhaustion(db, character.id, exhaustionAfterClick(c.exhaustion, level))
+                }
               >
                 <i />
               </button>
@@ -76,7 +82,10 @@ function Mate({ companion }: { companion: Companion }) {
         {(apart || c.conditions.length > 0) && (
           <div
             className="wf-tisch-mate__notes wf-clamp-1"
-            title={[apart && `Abseits der Gruppe: ${whereabouts}`, c.conditions.length > 0 && `Zustände: ${c.conditions.join(', ')}`]
+            title={[
+              apart && `Abseits der Gruppe: ${whereabouts}`,
+              c.conditions.length > 0 && `Zustände: ${c.conditions.join(', ')}`,
+            ]
               .filter(Boolean)
               .join('\n')}
           >
@@ -108,17 +117,15 @@ export function CompanionStrip() {
         <div className="wf-tisch-party__empty">
           <Swords aria-hidden />
           <span>
-            Noch keine aktiven Gefährten. Hier stehen Erschöpfung, Zustände und passive Wahrnehmung der Gruppe.
+            Noch keine aktiven Gefährten. Hier stehen Erschöpfung, Zustände und passive Wahrnehmung
+            der Gruppe.
           </span>
           <Link href="/gruppe" className="wf-btn wf-btn--sm">
             Gefährten anlegen
           </Link>
         </div>
       ) : (
-        <div
-          className="wf-tisch-party__list"
-          style={{ '--mates': list.length } as CSSProperties}
-        >
+        <div className="wf-tisch-party__list" style={{ '--mates': list.length } as CSSProperties}>
           {list.map((companion) => (
             <Mate key={companion.character.id} companion={companion} />
           ))}

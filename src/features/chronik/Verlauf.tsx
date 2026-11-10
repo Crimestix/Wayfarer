@@ -175,17 +175,11 @@ function OpenPromises({
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const open = useMemo(() => openPromises(data), [data]);
-  const overdue = open.filter((entry) => isOverdue(entry, now)).length;
   return (
     <Panel
       className="wf-chronik-promises"
-      title={
-        <>
-          Offene Abmachungen
-          <span className="wf-panel__count">{open.length}</span>
-          {overdue > 0 && <span className="wf-chronik-promises__overdue">{overdue} überfällig</span>}
-        </>
-      }
+      title="Offene Abmachungen"
+      count={open.length}
       actions={
         open.length > 0 && (
           <IconButton

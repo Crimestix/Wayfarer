@@ -47,7 +47,9 @@ export function ExhaustionMarks({
           data-last={mark === EXHAUSTION_MAX}
           aria-pressed={mark <= level}
           aria-label={
-            mark === level ? `Erschöpfung auf Stufe ${mark - 1} senken` : `Erschöpfung auf Stufe ${mark} setzen`
+            mark === level
+              ? `Erschöpfung auf Stufe ${mark - 1} senken`
+              : `Erschöpfung auf Stufe ${mark} setzen`
           }
           onClick={() => onMark(mark)}
         >
@@ -59,7 +61,13 @@ export function ExhaustionMarks({
 }
 
 /** Marken samt Auswirkung in Worten, direkt mit dem Gefährten verbunden. */
-export function ExhaustionControl({ character, size }: { character: Character; size?: 'md' | 'lg' }) {
+export function ExhaustionControl({
+  character,
+  size,
+}: {
+  character: Character;
+  size?: 'md' | 'lg';
+}) {
   // Auf der Karte ist wenig Platz; dort steht die Stufe in den Marken und der Text bleibt kurz.
   const roomy = size === 'lg';
   const db = useDb();
@@ -67,7 +75,11 @@ export function ExhaustionControl({ character, size }: { character: Character; s
   const effect = exhaustionEffect(level);
   return (
     <div className="wf-gruppe-exhaustion">
-      <ExhaustionMarks level={level} size={size} onMark={(mark) => clickExhaustion(db, character.id, mark)} />
+      <ExhaustionMarks
+        level={level}
+        size={size}
+        onMark={(mark) => clickExhaustion(db, character.id, mark)}
+      />
       <span
         className={cx(
           'wf-gruppe-exhaustion__text',
@@ -84,18 +96,22 @@ export function ExhaustionControl({ character, size }: { character: Character; s
 
 // ── Zustände ───────────────────────────────────────────────────────────────
 
-/** Alle Zustände als Schalter; darunter der Regeltext des Zustands unter dem Zeiger. */
+/**
+ * Alle Zustände als Schalter. Darunter wahlweise die Regel des Zustands unter dem Zeiger
+ * (`hover`, feste Höhe, damit nichts springt) oder die Regeln der gesetzten Zustände (`active`).
+ */
 export function ConditionToggles({
   value,
   onToggle,
-  showRule = true,
+  rules = 'none',
 }: {
   value: readonly string[];
   onToggle: (name: string) => void;
-  showRule?: boolean;
+  rules?: 'hover' | 'active' | 'none';
 }) {
   const [hover, setHover] = useState<string | null>(null);
   const active = sortConditions(value);
+  const track = rules === 'hover';
   return (
     <div className="wf-gruppe-conditions">
       <div className="wf-gruppe-conditions__grid" role="group" aria-label="Zustände">
@@ -105,35 +121,37 @@ export function ConditionToggles({
             type="button"
             className="wf-gruppe-condition"
             aria-pressed={hasCondition(value, condition.name)}
-            title={condition.rule}
+            title={track ? undefined : condition.rule}
             onClick={() => onToggle(condition.name)}
-            onMouseEnter={() => setHover(condition.name)}
-            onMouseLeave={() => setHover((h) => (h === condition.name ? null : h))}
-            onFocus={() => setHover(condition.name)}
-            onBlur={() => setHover((h) => (h === condition.name ? null : h))}
+            onMouseEnter={track ? () => setHover(condition.name) : undefined}
+            onFocus={track ? () => setHover(condition.name) : undefined}
           >
             {condition.name}
           </button>
         ))}
       </div>
-      {showRule &&
-        (hover ? (
-          <p className="wf-gruppe-conditions__rule">
-            <b>{hover}.</b> {conditionRule(hover)}
-          </p>
-        ) : active.length ? (
-          <div className="wf-gruppe-conditions__rule">
-            {active.map((name) => (
-              <p key={name}>
-                <b>{name}.</b> {conditionRule(name) || 'Eigener Zustand ohne hinterlegte Regel.'}
-              </p>
-            ))}
-          </div>
-        ) : (
-          <p className="wf-gruppe-conditions__rule wf-gruppe-conditions__rule--idle">
-            Anklicken schaltet einen Zustand an oder aus. Die Regel erscheint, sobald du auf einen zeigst.
-          </p>
-        ))}
+      {rules === 'hover' && (
+        <p
+          className={cx('wf-gruppe-conditions__rule', !hover && 'wf-gruppe-conditions__rule--idle')}
+        >
+          {hover ? (
+            <>
+              <b>{hover}.</b> {conditionRule(hover)}
+            </>
+          ) : (
+            'Anklicken schaltet einen Zustand an oder aus. Zeig auf einen Zustand, um seine Regel zu lesen.'
+          )}
+        </p>
+      )}
+      {rules === 'active' && active.length > 0 && (
+        <div className="wf-gruppe-conditions__active">
+          {active.map((name) => (
+            <p key={name}>
+              <b>{name}.</b> {conditionRule(name) || 'Eigener Zustand ohne hinterlegte Regel.'}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -171,8 +189,14 @@ export function ConditionChips({ character }: { character: Character }) {
         <Plus />
         {active.length ? 'Weiterer' : 'Zustand setzen'}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} width={372} className="wf-gruppe-pop">
-        <ConditionToggles value={active} onToggle={toggle} />
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchor={anchor}
+        width={372}
+        className="wf-gruppe-pop"
+      >
+        <ConditionToggles value={active} onToggle={toggle} rules="hover" />
       </Popover>
     </div>
   );
@@ -206,7 +230,11 @@ export function LocationControl({ character }: { character: Character }) {
         className={cx('wf-gruppe-place', own && 'wf-gruppe-place--away')}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="Aufenthaltsort ändern"
+        title={
+          own
+            ? `Abseits der Gruppe: ${placePath(data, own)} – anklicken, um den Aufenthaltsort zu ändern`
+            : 'Aufenthaltsort ändern'
+        }
         onClick={() => setOpen((o) => !o)}
       >
         {own ? <MapPin /> : <Users />}
@@ -220,7 +248,13 @@ export function LocationControl({ character }: { character: Character }) {
           )}
         </span>
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} width={340} className="wf-gruppe-pop">
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchor={anchor}
+        width={340}
+        className="wf-gruppe-pop"
+      >
         <MenuItem icon={<Users />} active={!own} onClick={() => move(null)}>
           Bei der Gruppe
           {partyPlace && <span className="wf-mute"> · {entityName(data, partyPlace)}</span>}
@@ -298,7 +332,11 @@ export function StatBand({ character }: { character: Character }) {
           <span className="wf-gruppe-stats__caption">Passiv</span>
           <Stat label="Wahrnehmung" value={d.passivePerception} title="Passive Wahrnehmung" />
           <Stat label="Einsicht" value={d.passiveInsight} title="Passive Einsicht" />
-          <Stat label="Nachforschung" value={d.passiveInvestigation} title="Passive Nachforschung" />
+          <Stat
+            label="Nachforschung"
+            value={d.passiveInvestigation}
+            title="Passive Nachforschung"
+          />
         </div>
       </div>
     </div>
@@ -309,7 +347,11 @@ export function StatBand({ character }: { character: Character }) {
 export function SheetLink({
   character,
   onMissing,
-  children = 'Charakterbogen öffnen',
+  children = (
+    <span>
+      Charakterbogen<span className="wf-gruppe-sheet__verb"> öffnen</span>
+    </span>
+  ),
 }: {
   character: Character;
   /** Wird angeboten, wenn noch kein Link eingetragen ist. */
@@ -319,12 +361,23 @@ export function SheetLink({
   const href = sheetHref(character.character.sheetUrl);
   if (!href)
     return onMissing ? (
-      <button type="button" className="wf-gruppe-sheet wf-gruppe-sheet--missing" onClick={onMissing}>
-        Charakterbogen verknüpfen
+      <button
+        type="button"
+        className="wf-gruppe-sheet wf-gruppe-sheet--missing"
+        title="Den Link zum Charakterbogen bei D&D Beyond eintragen"
+        onClick={onMissing}
+      >
+        Bogen verknüpfen
       </button>
     ) : null;
   return (
-    <a className="wf-gruppe-sheet" href={href} target="_blank" rel="noreferrer noopener" title={href}>
+    <a
+      className="wf-gruppe-sheet"
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      title={`Charakterbogen öffnen: ${href}`}
+    >
       {children}
       <ExternalLink />
     </a>
