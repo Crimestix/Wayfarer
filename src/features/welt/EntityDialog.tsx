@@ -17,7 +17,8 @@ import {
   TextArea,
   toast,
 } from '../../ui';
-import { discardUnusedDrafts, syncLinkedRelations } from './actions';
+import { adoptFamilies, discardUnusedDrafts, syncLinkedRelations } from './actions';
+import { surnameOf } from './dynasty';
 import {
   closeEntityDialog,
   openEntityDialog,
@@ -134,6 +135,18 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     });
     closeEntityDialog();
     if (!existing) navigate(`/welt/${saved.id}`);
+    // Familie aus dem Nachnamen: bei neuen Personen und wenn sich der Nachname geändert hat –
+    // nicht bei jedem Speichern, sonst käme eine bewusst entfernte Zuordnung immer wieder.
+    const surnameChanged =
+      saved.kind === 'person' &&
+      (!existing || surnameOf(existing.name)?.key !== surnameOf(saved.name)?.key);
+    const adopted = surnameChanged ? adoptFamilies(db, [saved.id]) : null;
+    if (adopted)
+      toast({
+        title: 'Familie aus dem Nachnamen',
+        body: adopted.text,
+        action: { label: 'Rückgängig', run: adopted.undo },
+      });
   };
 
   /** Schließen ohne Speichern. Eingetragenes geht nicht stillschweigend verloren. */

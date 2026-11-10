@@ -2,8 +2,10 @@
 import { deleteEntity, moveParty } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { linksTo } from '../../domain/derive';
+import { DERIVED_FAMILY_TAG, describePlan, planFamilies } from './dynasty';
 import {
   COLLECTION_NAMES,
+  createEntity,
   createRelation,
   type ChronicleEntry,
   type CollectionName,
@@ -125,6 +127,62 @@ function isReferenced(db: CampaignDb, id: string): boolean {
     Object.values(data.chronicle).some((e) => e.placeId === id || e.refs.includes(id)) ||
     Object.values(data.events).some((e) => e.placeId === id || e.refs.includes(id))
   );
+}
+
+export interface FamilyAdoption {
+  /** Ein Satz für die Meldung: „Familie Venn angelegt (2 Mitglieder)“. */
+  text: string;
+  /** Kennung der ersten angelegten Familie – zum Hinspringen. */
+  familyId: string | null;
+  /** Nimmt alles zurück, was seither niemand angefasst hat. */
+  undo: () => void;
+}
+
+/**
+ * Ordnet Personen der Familie zu, die ihr Nachname nahelegt, und legt fehlende Familien an.
+ * Ohne Angabe gilt das für alle Personen. Gibt null zurück, wenn nichts zu tun war.
+ */
+export function adoptFamilies(
+  db: CampaignDb,
+  personIds?: readonly string[],
+): FamilyAdoption | null {
+  const data = db.getSnapshot();
+  const plan = planFamilies(data, personIds);
+  if (!plan.create.length && !plan.join.length) return null;
+  const text = describePlan(data, plan);
+  const families: string[] = [];
+  const relations: string[] = [];
+  const member = (personId: string, familyId: string) =>
+    relations.push(
+      db.put('relations', createRelation({ from: personId, to: familyId, type: 'member' })).id,
+    );
+  db.batch(() => {
+    for (const planned of plan.create) {
+      const family = db.put(
+        'entities',
+        createEntity({ kind: 'family', name: planned.name, tags: [DERIVED_FAMILY_TAG] }),
+      );
+      families.push(family.id);
+      for (const personId of planned.personIds) member(personId, family.id);
+    }
+    for (const { personId, familyId } of plan.join) member(personId, familyId);
+  });
+  return {
+    text,
+    familyId: families[0] ?? null,
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot();
+        for (const id of relations) if (now.relations[id]?.rev === 1) db.remove('relations', id);
+        for (const id of families) {
+          const family = db.getSnapshot().entities[id];
+          const used = Object.values(db.getSnapshot().relations).some(
+            (r) => r.from === id || r.to === id,
+          );
+          if (family?.rev === 1 && !used) db.remove('entities', id);
+        }
+      }),
+  };
 }
 
 /**

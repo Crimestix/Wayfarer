@@ -1,10 +1,21 @@
 /** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronRight, Footprints, Plus, Search, X } from 'lucide-react';
-import { useData } from '../../data/hooks';
+import { ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
+import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
-import { AttitudeBadge, Button, EmptyState, IconButton, Input, KindIcon, cx } from '../../ui';
+import {
+  AttitudeBadge,
+  Button,
+  EmptyState,
+  IconButton,
+  Input,
+  KindIcon,
+  cx,
+  toast,
+} from '../../ui';
+import { adoptFamilies } from './actions';
+import { planFamilies } from './dynasty';
 import { openEntityDialog } from './editor';
 import { getKindFilter, setKindFilter, useKindFilter } from './overview';
 import {
@@ -43,6 +54,7 @@ const EMPTY_HINT: Record<WorldKind, string> = {
 
 export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const data = useData();
+  const dbRef = useDb();
   const [, navigate] = useLocation();
   const filter = useKindFilter();
   const [query, setQuery] = useState(memory.query);
@@ -91,6 +103,36 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
     [data, query, filter, searching],
   );
   const tree = useMemo(() => placeTreeRows(data, open), [data, open]);
+  // Personen, deren Nachname auf eine Familie schließen lässt, die es noch nicht gibt oder der sie
+  // noch nicht angehören. Nur gerechnet, solange die Familien zu sehen sind.
+  const familyPlan = useMemo(
+    () => (filter === 'family' ? planFamilies(data) : null),
+    [data, filter],
+  );
+  const pendingFamilies = familyPlan ? familyPlan.create.length : 0;
+  const pendingJoins = familyPlan ? familyPlan.join.length : 0;
+  const familyHint =
+    pendingFamilies + pendingJoins === 0
+      ? ''
+      : [
+          pendingFamilies
+            ? `${pendingFamilies === 1 ? 'Eine Familie' : `${pendingFamilies} Familien`} aus Nachnamen anlegen`
+            : '',
+          pendingJoins
+            ? `${pendingJoins === 1 ? 'eine Person' : `${pendingJoins} Personen`} zuordnen`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' und ');
+  const deriveFamilies = () => {
+    const adopted = adoptFamilies(dbRef);
+    if (adopted)
+      toast({
+        title: 'Familien aus Nachnamen',
+        body: adopted.text,
+        action: { label: 'Rückgängig', run: adopted.undo },
+      });
+  };
   const createKind: WorldKind = filter === 'all' ? 'person' : filter;
   const create = (preset?: { name: string }) =>
     openEntityDialog({ mode: 'create', kind: createKind, preset });
@@ -249,6 +291,12 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
         </div>
       </div>
 
+      {filter === 'family' && familyHint && (
+        <button type="button" className="wf-welt-derive" onClick={deriveFamilies}>
+          <Users />
+          <span>{familyHint}</span>
+        </button>
+      )}
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {searching ? (
           hits.length ? (

@@ -118,6 +118,30 @@
   position: relative;
   z-index: 1;
 }
+/* Vorschlag über der Liste der Familien: aus Nachnamen ableiten. */
+.wf-welt-derive {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: var(--s-2) var(--s-3) 0;
+  padding: 7px var(--s-3);
+  border: 1px dashed var(--gold-deep);
+  background: color-mix(in srgb, var(--gold) 6%, transparent);
+  color: var(--gold);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-derive:hover {
+  border-style: solid;
+  color: var(--gold-bright);
+}
+.wf-welt-derive svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
 .wf-welt-side__list {
   flex: 1 1 auto;
   min-height: 0;

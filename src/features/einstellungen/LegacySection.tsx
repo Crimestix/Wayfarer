@@ -20,6 +20,7 @@ import {
   type ImportSections,
 } from '../import/v157';
 import { useCatalog, useConnection } from '../legendkeeper/state';
+import { adoptFamilies } from '../welt/actions';
 import { Button, Dialog, toast } from '../../ui';
 import { formatRealTime, summarize } from './backup';
 import { errorText, readJsonFile } from './files';
@@ -137,6 +138,17 @@ function MissingNames() {
     db.batch(() => {
       for (const entity of fixes.changed) db.put('entities', entity);
     });
+    // Mit den Namen sind auch die Nachnamen da: Familien entstehen gleich mit.
+    const adopted = adoptFamilies(
+      db,
+      fixes.changed.map((entity) => entity.id),
+    );
+    if (adopted)
+      toast({
+        title: 'Familien aus Nachnamen',
+        body: adopted.text,
+        action: { label: 'Rückgängig', run: adopted.undo },
+      });
     toast({
       title:
         fixes.named === 1
@@ -228,6 +240,14 @@ export function LegacySection() {
     if (!pending) return;
     db.replaceAll(pending.result.data);
     rememberImport(pending.result, pending.fileName);
+    // Familien aus den Nachnamen der übernommenen Personen – ohne Nachfrage, mit Rücknahme.
+    const adopted = adoptFamilies(db);
+    if (adopted)
+      toast({
+        title: 'Familien aus Nachnamen',
+        body: adopted.text,
+        action: { label: 'Rückgängig', run: adopted.undo },
+      });
     setLast(lastImport());
     setPending(null);
     toast({ title: 'Alter Spielstand übernommen', body: `aus ${pending.fileName}` });
