@@ -91,7 +91,11 @@ describe('Filter', () => {
     const voss = byName(db, 'Hauptmann Voss');
     expect(filtered(db, { entityId: voss.id }).map((e) => e.kind)).toEqual(['attitude']);
     const kloster = byName(db, 'Kloster Sankt Vael');
-    expect(filtered(db, { entityId: kloster.id }).map((e) => e.kind)).toEqual(['travel', 'note', 'travel']);
+    expect(filtered(db, { entityId: kloster.id }).map((e) => e.kind)).toEqual([
+      'travel',
+      'note',
+      'travel',
+    ]);
   });
 
   it('nimmt beim Ort die Orte darunter mit', async () => {
@@ -148,12 +152,24 @@ describe('Filter', () => {
     const voss = byName(db, 'Hauptmann Voss');
     const hafen = byName(db, 'Dornhafen');
     const session = Object.values(db.getSnapshot().sessions)[0]!;
-    const filter = { ...EMPTY_FILTER, session: session.id, entityId: voss.id, placeId: hafen.id, query: 'x' };
+    const filter = {
+      ...EMPTY_FILTER,
+      session: session.id,
+      entityId: voss.id,
+      placeId: hafen.id,
+      query: 'x',
+    };
     expect(sanitizeFilter(db.getSnapshot(), filter)).toBe(filter);
-    expect(sanitizeFilter(db.getSnapshot(), { ...EMPTY_FILTER, entityId: PARTY_ID }).entityId).toBe(PARTY_ID);
+    expect(sanitizeFilter(db.getSnapshot(), { ...EMPTY_FILTER, entityId: PARTY_ID }).entityId).toBe(
+      PARTY_ID,
+    );
     deleteEntity(db, voss.id);
     deleteSession(db, session.id);
-    expect(sanitizeFilter(db.getSnapshot(), filter)).toEqual({ ...EMPTY_FILTER, placeId: hafen.id, query: 'x' });
+    expect(sanitizeFilter(db.getSnapshot(), filter)).toEqual({
+      ...EMPTY_FILTER,
+      placeId: hafen.id,
+      query: 'x',
+    });
   });
 
   it('zählt, wer und was in einer Auswahl am häufigsten vorkommt', async () => {
@@ -164,7 +180,11 @@ describe('Filter', () => {
     expect(counts.every((c) => c.id !== PARTY_ID)).toBe(true);
     expect(mentionCounts(entries(db), 3)).toHaveLength(3);
     const voss = byName(db, 'Hauptmann Voss');
-    expect(mentionCounts(filtered(db, { entityId: voss.id })).map((c) => c.id).sort()).toEqual([hafen.id, voss.id].sort());
+    expect(
+      mentionCounts(filtered(db, { entityId: voss.id }))
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual([hafen.id, voss.id].sort());
   });
 
   it('bleibt bei 3000 Einträgen schnell', async () => {
@@ -172,11 +192,20 @@ describe('Filter', () => {
     const hafen = byName(db, 'Dornhafen');
     db.batch(() => {
       for (let i = 0; i < 3000; i++)
-        logEntry(db, { text: `Ereignis ${i} am Kai`, at: ELARIS_START - i * 97, placeId: hafen.id, refs: [hafen.id] });
+        logEntry(db, {
+          text: `Ereignis ${i} am Kai`,
+          at: ELARIS_START - i * 97,
+          placeId: hafen.id,
+          refs: [hafen.id],
+        });
     });
     const all = entries(db);
     const started = performance.now();
-    const hits = filterEntries(db.getSnapshot(), all, { ...EMPTY_FILTER, query: 'ereignis 299', placeId: hafen.id });
+    const hits = filterEntries(db.getSnapshot(), all, {
+      ...EMPTY_FILTER,
+      query: 'ereignis 299',
+      placeId: hafen.id,
+    });
     const rows = timelineRows(all, sessionMarkers(sessionSpans(db.getSnapshot())), true);
     expect(performance.now() - started).toBeLessThan(400);
     // 299, 1299, 2299 und 2990–2999
@@ -325,20 +354,36 @@ describe('Zeitstrahl', () => {
     const rows = timelineRows(entries(db), sessionMarkers(sessionSpans(data)), false);
     expect(shape(rows)).toEqual([
       'Beginn 12',
-      'Tag -9 (2)', 'travel', 'note',
-      'Tag -8 (2)', 'attitude', 'promise',
-      'Tag -6 (1)', 'travel',
-      'Tag -5 (2)', 'travel', 'note',
-      'Tag -3 (1)', 'change',
-      'Tag -2 (1)', 'change',
-      'Tag 0 (1)', 'travel',
+      'Tag -9 (2)',
+      'travel',
+      'note',
+      'Tag -8 (2)',
+      'attitude',
+      'promise',
+      'Tag -6 (1)',
+      'travel',
+      'Tag -5 (2)',
+      'travel',
+      'note',
+      'Tag -3 (1)',
+      'change',
+      'Tag -2 (1)',
+      'change',
+      'Tag 0 (1)',
+      'travel',
     ]);
   });
 
   it('dreht die Reihenfolge um, behält aber Tagesüberschriften über ihren Einträgen', async () => {
     const db = await demoDb();
     const rows = timelineRows(entries(db), sessionMarkers(sessionSpans(db.getSnapshot())), true);
-    expect(shape(rows).slice(0, 5)).toEqual(['Tag 0 (1)', 'travel', 'Tag -2 (1)', 'change', 'Tag -3 (1)']);
+    expect(shape(rows).slice(0, 5)).toEqual([
+      'Tag 0 (1)',
+      'travel',
+      'Tag -2 (1)',
+      'change',
+      'Tag -3 (1)',
+    ]);
     expect(shape(rows).slice(-4)).toEqual(['Tag -9 (2)', 'note', 'travel', 'Beginn 12']);
   });
 
@@ -351,9 +396,15 @@ describe('Zeitstrahl', () => {
     logEntry(db, { text: 'Erster Satz des neuen Abends' });
     const data = db.getSnapshot();
     const rows = timelineRows(entries(db), sessionMarkers(sessionSpans(data)), false);
-    const tail = rows.slice(-7).map((r) =>
-      r.type === 'entry' ? r.entry.text || r.entry.kind : r.type === 'marker' ? `${r.edge} ${r.session.number}` : 'Tag',
-    );
+    const tail = rows
+      .slice(-7)
+      .map((r) =>
+        r.type === 'entry'
+          ? r.entry.text || r.entry.kind
+          : r.type === 'marker'
+            ? `${r.edge} ${r.session.number}`
+            : 'Tag',
+      );
     expect(tail).toEqual([
       'Tag',
       'Rückweg Richtung Dornhafen.',
@@ -375,10 +426,20 @@ describe('Zeitstrahl', () => {
     logEntry(db, { text: 'Neuer Abend' });
     const data = db.getSnapshot();
     for (const newestFirst of [false, true]) {
-      const markers = timelineRows(entries(db), sessionMarkers(sessionSpans(data)), newestFirst).flatMap((r) =>
-        r.type === 'marker' ? [`${r.edge} ${r.session.number} ${r.dated ? 'mit' : 'ohne'} Datum`] : [],
+      const markers = timelineRows(
+        entries(db),
+        sessionMarkers(sessionSpans(data)),
+        newestFirst,
+      ).flatMap((r) =>
+        r.type === 'marker'
+          ? [`${r.edge} ${r.session.number} ${r.dated ? 'mit' : 'ohne'} Datum`]
+          : [],
       );
-      expect(markers.sort()).toEqual(['end 12 mit Datum', 'start 12 ohne Datum', 'start 13 ohne Datum']);
+      expect(markers.sort()).toEqual([
+        'end 12 mit Datum',
+        'start 12 ohne Datum',
+        'start 13 ohne Datum',
+      ]);
     }
     // Ohne jeden Eintrag in der Nähe steht das Datum immer dabei.
     const alone = timelineRows([], sessionMarkers(sessionSpans(data)), true);
@@ -391,11 +452,14 @@ describe('Zeitstrahl', () => {
     startSession(db);
     const spans = sessionSpans(db.getSnapshot());
     expect(sessionMarkers(spans).map((m) => `${m.edge} ${m.session.number}`)).toEqual([
-      'start 12', 'end 12', 'start 13',
+      'start 12',
+      'end 12',
+      'start 13',
     ]);
     const visible = new Set(filtered(db, { kinds: ['promise'] }).map((e) => e.sessionId!));
     expect(sessionMarkers(spans, visible).map((m) => `${m.edge} ${m.session.number}`)).toEqual([
-      'start 12', 'end 12',
+      'start 12',
+      'end 12',
     ]);
   });
 
@@ -412,10 +476,14 @@ describe('Zeitstrahl', () => {
     const at = (month: number, d: number, hour = 0, year = 701) =>
       toTime(cal, { year: year + 27387, month, day: d, hour, minute: 0 });
     expect(formatWorldRange(cal, at(0, 17, 16), at(0, 17, 16))).toBe('17. Tauwind 701 AD, 16:00');
-    expect(formatWorldRange(cal, at(0, 17, 16), at(0, 17, 22))).toBe('17. Tauwind 701 AD, 16:00–22:00');
+    expect(formatWorldRange(cal, at(0, 17, 16), at(0, 17, 22))).toBe(
+      '17. Tauwind 701 AD, 16:00–22:00',
+    );
     expect(formatWorldRange(cal, at(0, 8), at(0, 17))).toBe('8.–17. Tauwind 701 AD');
     expect(formatWorldRange(cal, at(0, 28), at(1, 3))).toBe('28. Tauwind – 3. Grünbruch 701 AD');
-    expect(formatWorldRange(cal, at(11, 30, 0, 700), at(0, 2))).toBe('30. Sonnend 700 AD – 2. Tauwind 701 AD');
+    expect(formatWorldRange(cal, at(11, 30, 0, 700), at(0, 2))).toBe(
+      '30. Sonnend 700 AD – 2. Tauwind 701 AD',
+    );
   });
 
   it('schreibt das echte Datum eines Spielabends aus', () => {
@@ -469,20 +537,33 @@ describe('Zeitpunkt eingeben', () => {
 });
 
 describe('Einträge bearbeiten', () => {
-  const find = (db: CampaignDb, kind: ChronicleEntry['kind'], n = 0) => entries(db).filter((e) => e.kind === kind)[n]!;
+  const find = (db: CampaignDb, kind: ChronicleEntry['kind'], n = 0) =>
+    entries(db).filter((e) => e.kind === kind)[n]!;
 
   it('ändert Text, Zeit, Ort und Verweise einer Notiz und macht sie auf Wunsch zur Abmachung', async () => {
     const db = await demoDb();
     const note = find(db, 'note');
     const brann = byName(db, 'Brann Eisenhaken');
-    const draft = { ...draftOf(note), kind: 'promise' as const, text: '  Neu  ', at: note.at + 60, refs: [brann.id], due: note.at + day, done: false };
+    const draft = {
+      ...draftOf(note),
+      kind: 'promise' as const,
+      text: '  Neu  ',
+      at: note.at + 60,
+      refs: [brann.id],
+      due: note.at + day,
+      done: false,
+    };
     const saved = db.patch('chronicle', note.id, entryChange(note, draft));
     expect(saved.kind).toBe('promise');
     expect(saved.text).toBe('Neu');
     expect(saved.at).toBe(note.at + 60);
     expect(saved.refs).toEqual([brann.id]);
     expect(saved.promise).toEqual({ due: note.at + day, done: false });
-    const back = db.patch('chronicle', note.id, entryChange(saved, { ...draftOf(saved), kind: 'note' }));
+    const back = db.patch(
+      'chronicle',
+      note.id,
+      entryChange(saved, { ...draftOf(saved), kind: 'note' }),
+    );
     expect(back.promise).toBeNull();
   });
 
@@ -513,7 +594,11 @@ describe('Einträge bearbeiten', () => {
   it('behält bei einer Haltungsänderung den Schritt und die Beteiligten', async () => {
     const db = await demoDb();
     const attitude = find(db, 'attitude');
-    const saved = db.patch('chronicle', attitude.id, entryChange(attitude, { ...draftOf(attitude), refs: [], text: 'Grund' }));
+    const saved = db.patch(
+      'chronicle',
+      attitude.id,
+      entryChange(attitude, { ...draftOf(attitude), refs: [], text: 'Grund' }),
+    );
     expect(saved.attitude).toEqual(attitude.attitude);
     expect(saved.refs).toEqual([attitude.attitude!.fromId]);
     expect(lockedRefs(attitude)).not.toContain(PARTY_ID);
@@ -523,7 +608,11 @@ describe('Einträge bearbeiten', () => {
     const db = await demoDb();
     const event = db.put('chronicle', entryFromDraft({ ...draftOf(find(db, 'note')), text: 'x' }));
     const asEvent = db.patch('chronicle', event.id, { kind: 'event', eventId: null });
-    const change = entryChange(asEvent, { ...draftOf(asEvent), at: asEvent.at + 500, text: 'Der Graue Fang legt ab' });
+    const change = entryChange(asEvent, {
+      ...draftOf(asEvent),
+      at: asEvent.at + 500,
+      text: 'Der Graue Fang legt ab',
+    });
     expect(change.at).toBe(asEvent.at);
     expect(change.kind).toBe('event');
     expect(change.text).toBe('Der Graue Fang legt ab');
@@ -535,8 +624,14 @@ describe('Einträge bearbeiten', () => {
     const entry = db.put(
       'chronicle',
       entryFromDraft({
-        kind: 'change', text: ' Die Wache verdoppelt die Posten. ', at: ELARIS_START - 4 * day,
-        placeId: hafen.id, refs: [hafen.id, hafen.id], sessionId: null, due: ELARIS_START, done: false,
+        kind: 'change',
+        text: ' Die Wache verdoppelt die Posten. ',
+        at: ELARIS_START - 4 * day,
+        placeId: hafen.id,
+        refs: [hafen.id, hafen.id],
+        sessionId: null,
+        due: ELARIS_START,
+        done: false,
       }),
     );
     expect(entry.kind).toBe('change');
@@ -544,7 +639,12 @@ describe('Einträge bearbeiten', () => {
     expect(entry.refs).toEqual([hafen.id]);
     expect(entry.promise).toBeNull();
     expect(entry.sessionId).toBeNull();
-    const promise = entryFromDraft({ ...draftOf(entry), kind: 'promise', due: ELARIS_START, done: false });
+    const promise = entryFromDraft({
+      ...draftOf(entry),
+      kind: 'promise',
+      due: ELARIS_START,
+      done: false,
+    });
     expect(promise.promise).toEqual({ due: ELARIS_START, done: false });
     expect(entryFromDraft({ ...draftOf(entry), kind: 'travel' }).kind).toBe('note');
   });
@@ -575,7 +675,9 @@ describe('Einträge bearbeiten', () => {
     setAttitude(db, voss.id, PARTY_ID, -3, 'Noch ein Zwischenfall');
     setAttitude(db, isolde.id, PARTY_ID, 3, 'Gerettet');
     const data = db.getSnapshot();
-    const [first, second] = entries(db).filter((e) => e.kind === 'attitude' && e.attitude?.fromId === voss.id);
+    const [first, second] = entries(db).filter(
+      (e) => e.kind === 'attitude' && e.attitude?.fromId === voss.id,
+    );
     expect(keepsOrder(data, first!, second!.at + 10)).toBe(false);
     expect(keepsOrder(data, first!, second!.at - 10)).toBe(true);
     const other = entries(db).find((e) => e.attitude?.fromId === isolde.id)!;
@@ -626,8 +728,12 @@ describe('Einträge bearbeiten', () => {
     expect(promiseDueLabel(cal, promise, ELARIS_START)).toBe('Frist 19. Tauwind · in 2 Tagen');
     expect(promiseDueLabel(cal, promise, due + 60)).toBe('Seit heute überfällig · 19. Tauwind');
     expect(promiseDueLabel(cal, promise, due + day)).toBe('Seit gestern überfällig · 19. Tauwind');
-    expect(promiseDueLabel(cal, promise, due + 5 * day)).toBe('Seit 5 Tagen überfällig · 19. Tauwind');
-    expect(promiseDueLabel(cal, { ...promise, promise: { due: null, done: false } }, ELARIS_START)).toBe('Ohne Frist');
+    expect(promiseDueLabel(cal, promise, due + 5 * day)).toBe(
+      'Seit 5 Tagen überfällig · 19. Tauwind',
+    );
+    expect(
+      promiseDueLabel(cal, { ...promise, promise: { due: null, done: false } }, ELARIS_START),
+    ).toBe('Ohne Frist');
     // Der Ort des Geschehens und Gelöschtes zählen nicht zu den Beteiligten.
     expect(promiseParties(db.getSnapshot(), promise)).toEqual(['Brann Eisenhaken']);
     const withPlace = { ...promise, refs: [...promise.refs, promise.placeId!, 'geloescht'] };
@@ -644,8 +750,15 @@ describe('Einträge bearbeiten', () => {
     const promise = find(db, 'promise');
     expect(isOverdue(promise, ELARIS_START)).toBe(false);
     expect(isOverdue(promise, ELARIS_START + 3 * day)).toBe(true);
-    expect(isOverdue({ ...promise, promise: { due: promise.promise!.due, done: true } }, ELARIS_START + 3 * day)).toBe(false);
-    expect(isOverdue({ ...promise, promise: { due: null, done: false } }, ELARIS_START + 3 * day)).toBe(false);
+    expect(
+      isOverdue(
+        { ...promise, promise: { due: promise.promise!.due, done: true } },
+        ELARIS_START + 3 * day,
+      ),
+    ).toBe(false);
+    expect(
+      isOverdue({ ...promise, promise: { due: null, done: false } }, ELARIS_START + 3 * day),
+    ).toBe(false);
     expect(isOverdue(find(db, 'note'), ELARIS_START)).toBe(false);
   });
 });
@@ -653,7 +766,12 @@ describe('Einträge bearbeiten', () => {
 /** Aufenthalte der unveränderten Beispielwelt – zum Vergleich. Orte heißen dort gleich, IDs nicht. */
 function demoCampaignWith(db: CampaignDb) {
   const data = db.getSnapshot();
-  return { ...data, chronicle: Object.fromEntries(Object.values(data.chronicle).map((e) => [e.id, { ...e, text: '' }])) };
+  return {
+    ...data,
+    chronicle: Object.fromEntries(
+      Object.values(data.chronicle).map((e) => [e.id, { ...e, text: '' }]),
+    ),
+  };
 }
 
 describe('Reiner Text', () => {
@@ -661,14 +779,27 @@ describe('Reiner Text', () => {
     const db = await demoDb();
     const data = db.getSnapshot();
     const all = entries(db);
-    expect(entryHeadline(data, all.find((e) => e.kind === 'travel')!)).toBe('Ankunft: Dornhafen');
+    expect(
+      entryHeadline(
+        data,
+        all.find((e) => e.kind === 'travel')!,
+      ),
+    ).toBe('Ankunft: Dornhafen');
     expect(entryHeadline(data, all.filter((e) => e.kind === 'travel')[1]!)).toBe(
       'Ankunft: Krähenmoor (von Dornhafen)',
     );
-    expect(entryHeadline(data, all.find((e) => e.kind === 'attitude')!)).toBe(
-      'Hauptmann Voss gegenüber der Gruppe: Neutral → Ablehnend',
-    );
-    expect(entryHeadline(data, all.find((e) => e.kind === 'note')!)).toBe('');
+    expect(
+      entryHeadline(
+        data,
+        all.find((e) => e.kind === 'attitude')!,
+      ),
+    ).toBe('Hauptmann Voss gegenüber der Gruppe: Neutral → Ablehnend');
+    expect(
+      entryHeadline(
+        data,
+        all.find((e) => e.kind === 'note')!,
+      ),
+    ).toBe('');
     moveParty(db, null);
     const leave = entries(db).at(-1)!;
     expect(entryHeadline(db.getSnapshot(), leave)).toBe('Aufbruch aus Krähenmoor');
@@ -681,10 +812,20 @@ describe('Reiner Text', () => {
     expect(entryPlainText(data, all[1]!)).toBe(
       'Isolde vermittelt ein Zimmer und warnt vor der Hafenwache. [Zum Salzigen Raben, Isolde Rabenschwinge]',
     );
-    expect(entryPlainText(data, all.find((e) => e.kind === 'attitude')!)).toBe(
+    expect(
+      entryPlainText(
+        data,
+        all.find((e) => e.kind === 'attitude')!,
+      ),
+    ).toBe(
       'Hauptmann Voss gegenüber der Gruppe: Neutral → Ablehnend. Die Gruppe hat seine Leute am Zollhaus bloßgestellt. [Dornhafen]',
     );
-    expect(entryPlainText(data, all.find((e) => e.kind === 'promise')!)).toBe(
+    expect(
+      entryPlainText(
+        data,
+        all.find((e) => e.kind === 'promise')!,
+      ),
+    ).toBe(
       `Abmachung: Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt. (offen, Frist: ${formatDate(cal, ELARIS_START + 2 * day)}) [Dornhafen, Brann Eisenhaken]`,
     );
     expect(entryPlainText(data, all.filter((e) => e.kind === 'change')[1]!)).toBe(
@@ -695,7 +836,11 @@ describe('Reiner Text', () => {
   it('fasst eine Session als sauber gegliederten Text zusammen', async () => {
     const db = await demoDb();
     const session = Object.values(db.getSnapshot().sessions)[0]!;
-    db.patch('sessions', session.id, { title: 'Die Glocke schlägt', realDate: '2026-11-03', notes: 'Nächstes Mal: Kessa finden.\n' });
+    db.patch('sessions', session.id, {
+      title: 'Die Glocke schlägt',
+      realDate: '2026-11-03',
+      notes: 'Nächstes Mal: Kessa finden.\n',
+    });
     const text = sessionSummaryText(db.getSnapshot(), session.id);
     const lines = text.split('\n');
     expect(lines.slice(0, 3)).toEqual([
@@ -706,7 +851,9 @@ describe('Reiner Text', () => {
     expect(lines[3]).toBe('');
     expect(lines[4]).toBe('Erdtag, 8. Tauwind 701 AD'.replace('Erdtag', lines[4]!.split(',')[0]!));
     expect(lines[5]).toBe('16:00  Ankunft: Dornhafen. Ankunft mit dem Küstensegler.');
-    expect(text).toContain('\n\nOffene Abmachungen\n- Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt. (Frist: 19. Tauwind 701 AD)\n');
+    expect(text).toContain(
+      '\n\nOffene Abmachungen\n- Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt. (Frist: 19. Tauwind 701 AD)\n',
+    );
     expect(text.endsWith('\n\nNotizen\nNächstes Mal: Kessa finden.\n')).toBe(true);
     expect(text).not.toMatch(/\n\n\n/);
 
@@ -730,7 +877,10 @@ describe('Vorwahl aus anderen Bereichen', () => {
   it('stellt den Verlauf auf einen Eintrag ein und setzt alle anderen Filter zurück', () => {
     let calls = 0;
     const off = onChroniclePreset(() => calls++);
-    Object.assign(remembered, { view: 'sessions', filter: { ...EMPTY_FILTER, query: 'alt', kinds: ['note'] } });
+    Object.assign(remembered, {
+      view: 'sessions',
+      filter: { ...EMPTY_FILTER, query: 'alt', kinds: ['note'] },
+    });
     showInChronicle({ entityId: 'abc' });
     expect(remembered.view).toBe('verlauf');
     expect(remembered.filter).toEqual({ ...EMPTY_FILTER, entityId: 'abc' });

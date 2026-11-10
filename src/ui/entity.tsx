@@ -59,7 +59,8 @@ export function EntityLink({ id, icon = true }: { id: string | null | undefined;
       </Link>
     );
   const entity = data.entities[id];
-  if (!entity) return <span className="wf-entity-link wf-entity-link--gone">Gelöschter Eintrag</span>;
+  if (!entity)
+    return <span className="wf-entity-link wf-entity-link--gone">Gelöschter Eintrag</span>;
   return (
     <Link href={entityHref(entity)} className="wf-entity-link">
       {icon && <KindIcon kind={entity.kind} />}
@@ -85,13 +86,17 @@ export function EntityLinks({ ids }: { ids: string[] }) {
 // ── Haltung ────────────────────────────────────────────────────────────────
 
 const attitudeColor = (value: number | null): string =>
-  value === null ? 'var(--ink-mute)' : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
+  value === null
+    ? 'var(--ink-mute)'
+    : `var(--att-${value < 0 ? 'n' + -value : value > 0 ? 'p' + value : '0'})`;
 
 /** Haltung als farbige Raute mit Bezeichnung. null = unbekannt. */
 export function AttitudeBadge({ value, label = true }: { value: number | null; label?: boolean }) {
   const level = attitudeLevel(value);
   const text = level?.label ?? 'Unbekannt';
-  const rules = level ? `Nach Regelwerk: ${RULES_ATTITUDE_LABEL[level.rules]}` : 'Haltung noch nicht festgelegt';
+  const rules = level
+    ? `Nach Regelwerk: ${RULES_ATTITUDE_LABEL[level.rules]}`
+    : 'Haltung noch nicht festgelegt';
   return (
     <span
       className={cx('wf-attitude', value === null && 'wf-attitude--unknown')}
@@ -203,7 +208,9 @@ export function EntityPicker({
             <span className="wf-grow wf-clamp-1">{selected.name}</span>
           </>
         ) : (
-          <span className="wf-grow wf-picker__placeholder">{value ? 'Gelöschter Eintrag' : placeholder}</span>
+          <span className="wf-grow wf-picker__placeholder">
+            {value ? 'Gelöschter Eintrag' : placeholder}
+          </span>
         )}
         {value && allowClear && (
           <X

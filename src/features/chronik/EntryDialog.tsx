@@ -67,7 +67,8 @@ const KIND_TABS: { id: ManualKind; label: string }[] = [
 
 const KIND_HINT: Record<ManualKind, string> = {
   note: 'Was am Tisch passiert ist.',
-  change: 'Etwas in der Welt hat sich verändert – erscheint bei den verknüpften Orten und Personen.',
+  change:
+    'Etwas in der Welt hat sich verändert – erscheint bei den verknüpften Orten und Personen.',
   promise: 'Ein Versprechen, eine Schuld oder ein Auftrag. Bleibt offen, bis du es abhakst.',
 };
 
@@ -97,7 +98,11 @@ export function WorldTimeFields({
         />
       </Field>
       <Field label="Monat">
-        <Select value={value.month} disabled={disabled} onChange={(e) => set({ month: Number(e.target.value) })}>
+        <Select
+          value={value.month}
+          disabled={disabled}
+          onChange={(e) => set({ month: Number(e.target.value) })}
+        >
           {cal.months.map((month, i) => (
             <option key={month.name} value={i}>
               {month.name}
@@ -106,7 +111,12 @@ export function WorldTimeFields({
         </Select>
       </Field>
       <Field label={`Jahr ${primaryEra(cal).label}`.trim()}>
-        <Input type="number" value={value.year} disabled={disabled} onChange={(e) => set({ year: e.target.value })} />
+        <Input
+          type="number"
+          value={value.year}
+          disabled={disabled}
+          onChange={(e) => set({ year: e.target.value })}
+        />
       </Field>
       <Field label="Uhrzeit">
         <span className="wf-chronik-time__clock">
@@ -135,7 +145,13 @@ export function WorldTimeFields({
   );
 }
 
-export function EntryDialog({ request, onClose }: { request: EntryDialogRequest; onClose: () => void }) {
+export function EntryDialog({
+  request,
+  onClose,
+}: {
+  request: EntryDialogRequest;
+  onClose: () => void;
+}) {
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
@@ -168,7 +184,11 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
   const [refs, setRefs] = useState(initial.refs);
   /** 'auto' = die Session, in deren Weltzeit der Zeitpunkt fällt (nur beim Nachtragen). */
   const [sessionChoice, setSessionChoice] = useState<string | null>(
-    entry ? initial.sessionId : request.mode === 'new' && request.sessionId !== undefined ? request.sessionId : 'auto',
+    entry
+      ? initial.sessionId
+      : request.mode === 'new' && request.sessionId !== undefined
+        ? request.sessionId
+        : 'auto',
   );
   const [hasDue, setHasDue] = useState(initial.due !== null);
   const [due, setDue] = useState(() => timeDraftOf(cal, initial.due ?? defaultDue(now)));
@@ -178,7 +198,11 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
   const dueAt = hasDue ? timeOfDraft(cal, due) : null;
   const sessions = useMemo(() => sessionsSorted(data).reverse(), [data]);
   const sessionId =
-    sessionChoice === 'auto' ? (at !== null ? (sessionAt(data, at)?.id ?? null) : null) : sessionChoice;
+    sessionChoice === 'auto'
+      ? at !== null
+        ? (sessionAt(data, at)?.id ?? null)
+        : null
+      : sessionChoice;
   const isPromise = manual && kind === 'promise';
   const needsText = manual || entry?.kind === 'event';
   const problem =
@@ -247,7 +271,8 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
   }, [text]);
 
   const KindIcon = entry ? CHRONICLE_KIND_ICON[entry.kind] : null;
-  const headline = entry && !manual ? (entry.kind === 'event' ? '' : entryHeadline(data, entry)) : '';
+  const headline =
+    entry && !manual ? (entry.kind === 'event' ? '' : entryHeadline(data, entry)) : '';
   const today = dayIndexOf(now);
 
   return (
@@ -329,9 +354,14 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
         <div className="wf-form-grid">
           {entry?.kind === 'travel' ? (
             <Field label="Ort">
-              <div className="wf-chronik-dialog__fixed" title="Bei einem Ortswechsel ist der Ort immer das Ziel.">
+              <div
+                className="wf-chronik-dialog__fixed"
+                title="Bei einem Ortswechsel ist der Ort immer das Ziel."
+              >
                 <MapPin />
-                <span className="wf-clamp-1">{entityName(data, placeId) || 'Unterwegs, ohne festen Ort'}</span>
+                <span className="wf-clamp-1">
+                  {entityName(data, placeId) || 'Unterwegs, ohne festen Ort'}
+                </span>
               </div>
             </Field>
           ) : (
@@ -345,8 +375,18 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
               />
             </Field>
           )}
-          <Field label="Session" hint={sessionChoice === 'auto' ? 'Richtet sich nach dem Zeitpunkt, solange du nichts wählst.' : undefined}>
-            <Select value={sessionId ?? ''} onChange={(e) => setSessionChoice(e.target.value || null)}>
+          <Field
+            label="Session"
+            hint={
+              sessionChoice === 'auto'
+                ? 'Richtet sich nach dem Zeitpunkt, solange du nichts wählst.'
+                : undefined
+            }
+          >
+            <Select
+              value={sessionId ?? ''}
+              onChange={(e) => setSessionChoice(e.target.value || null)}
+            >
               <option value="">Keine Session</option>
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -358,7 +398,11 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
         </div>
 
         <Field label="Betrifft">
-          <EntityRefsEditor value={refs} onChange={setRefs} placeholder="Person, Ort, Fraktion … verknüpfen" />
+          <EntityRefsEditor
+            value={refs}
+            onChange={setRefs}
+            placeholder="Person, Ort, Fraktion … verknüpfen"
+          />
         </Field>
 
         {isPromise && (

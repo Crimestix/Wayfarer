@@ -2,10 +2,23 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useData } from '../../data/hooks';
 import type { ChronicleEntry } from '../../domain/schema';
-import { MINUTES_PER_DAY, dayIndexOf, formatDate, formatDateTime, formatDayMonth, weekdayName } from '../../domain/time/calendar';
+import {
+  MINUTES_PER_DAY,
+  dayIndexOf,
+  formatDate,
+  formatDateTime,
+  formatDayMonth,
+  weekdayName,
+} from '../../domain/time/calendar';
 import { Button, ChronicleItem, MoonGlyph } from '../../ui';
 import { Caps } from './parts';
-import { formatRealDate, relativeDay, sessionTitle, type SessionMarker, type TimelineRow } from './model';
+import {
+  formatRealDate,
+  relativeDay,
+  sessionTitle,
+  type SessionMarker,
+  type TimelineRow,
+} from './model';
 
 /** So viele Zeilen erscheinen zuerst und kommen je Nachladen dazu. */
 export const TIMELINE_PAGE = 120;
@@ -42,7 +55,10 @@ const DayHeader = memo(function DayHeader({ day, count }: { day: number; count: 
       <span className="wf-chronik-day__rel">
         <Caps>{relativeDay(today, day)}</Caps>
       </span>
-      <span className="wf-chronik-day__count wf-num" title={count === 1 ? '1 Eintrag' : `${count} Einträge`}>
+      <span
+        className="wf-chronik-day__count wf-num"
+        title={count === 1 ? '1 Eintrag' : `${count} Einträge`}
+      >
         {count}
       </span>
     </header>
@@ -152,10 +168,16 @@ export function Timeline({
         continue;
       }
       flush();
-      if (row.type === 'day') out.push(<DayHeader key={`d-${row.day}`} day={row.day} count={row.count} />);
+      if (row.type === 'day')
+        out.push(<DayHeader key={`d-${row.day}`} day={row.day} count={row.count} />);
       else
         out.push(
-          <Marker key={`m-${row.session.id}-${row.edge}`} marker={row} dated={row.dated} onOpen={onOpenSession} />,
+          <Marker
+            key={`m-${row.session.id}-${row.edge}`}
+            marker={row}
+            dated={row.dated}
+            onOpen={onOpenSession}
+          />,
         );
     }
     flush();

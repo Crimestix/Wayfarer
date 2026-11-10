@@ -249,13 +249,38 @@ describe('Wiederkehrende Termine', () => {
   it('melden sich beim Zeitsprung, füllen aber nicht die Chronik', async () => {
     const { db } = await demoDb();
     const now = db.getSnapshot().state.now;
-    db.put('events', createEvent({ title: 'Wachwechsel', at: now + 60, timed: true, repeat: { every: 1, unit: 'day' } }));
+    db.put(
+      'events',
+      createEvent({
+        title: 'Wachwechsel',
+        at: now + 60,
+        timed: true,
+        repeat: { every: 1, unit: 'day' },
+      }),
+    );
     const before = Object.keys(db.getSnapshot().chronicle).length;
     const result = advanceTime(db, now + 5 * 1440);
     expect(result.occurred.filter((o) => o.event.title === 'Wachwechsel')).toHaveLength(5);
-    const logged = Object.values(db.getSnapshot().chronicle).filter((e) => e.text === 'Wachwechsel');
+    const logged = Object.values(db.getSnapshot().chronicle).filter(
+      (e) => e.text === 'Wachwechsel',
+    );
     expect(logged).toHaveLength(0);
     // Die drei einmaligen Termine der Beispielwelt in diesen fünf Tagen stehen weiterhin in der Chronik.
     expect(Object.keys(db.getSnapshot().chronicle).length).toBe(before + 3);
+  });
+});
+
+describe('Ladeprobleme', () => {
+  it('führen jede Datei nur einmal und verschwinden, wenn sie behoben ist', async () => {
+    const { store } = await demoDb();
+    store.files.set('entities/kaputt.json', '{ nicht json');
+    const db = await CampaignDb.open(store);
+    expect(db.problems.map((p) => p.path)).toEqual(['entities/kaputt.json']);
+    store.externalWrite('entities/kaputt.json', '{ immer noch nicht');
+    await tick();
+    expect(db.problems).toHaveLength(1);
+    store.externalWrite('entities/kaputt.json', null);
+    await tick();
+    expect(db.problems).toHaveLength(0);
   });
 });

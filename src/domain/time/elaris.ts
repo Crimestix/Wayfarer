@@ -36,13 +36,16 @@ const ELARIS_BASE: Omit<CalendarDef, 'weekdayAnchor'> = {
 
 /** Der 14. Blüthain 0 AD war ein Windtag. */
 const anchorDay = Math.floor(
-  toTime({ ...ELARIS_BASE, weekdayAnchor: { day: 0, weekday: 0 } }, {
-    year: 27387,
-    month: 2,
-    day: 14,
-    hour: 0,
-    minute: 0,
-  }) / 1440,
+  toTime(
+    { ...ELARIS_BASE, weekdayAnchor: { day: 0, weekday: 0 } },
+    {
+      year: 27387,
+      month: 2,
+      day: 14,
+      hour: 0,
+      minute: 0,
+    },
+  ) / 1440,
 );
 
 export const ELARIS_CALENDAR: CalendarDef = {

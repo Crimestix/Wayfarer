@@ -401,7 +401,11 @@ button.wf-chronik-marker:hover {
 }
 .wf-chronik-mention:hover,
 .wf-chronik-mention[aria-pressed='true'] {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 70%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gold) 9%, transparent),
+    transparent 70%
+  );
   color: var(--gold-bright);
 }
 .wf-chronik-mention[aria-pressed='true'] {
@@ -453,7 +457,11 @@ button.wf-chronik-marker:hover {
 }
 .wf-chronik-session:hover,
 .wf-chronik-session[aria-current='true'] {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 70%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gold) 9%, transparent),
+    transparent 70%
+  );
 }
 .wf-chronik-session[aria-current='true'] {
   box-shadow: inset 2px 0 0 var(--gold);

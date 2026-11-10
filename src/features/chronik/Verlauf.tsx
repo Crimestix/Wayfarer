@@ -1,5 +1,12 @@
 /** Ansicht „Verlauf“: Filter, Zeitstrahl aller Einträge und die offenen Abmachungen daneben. */
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react';
+import {
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+} from 'react';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -71,7 +78,11 @@ function FilterBar({
   const spans = useMemo(() => sessionSpans(data).reverse(), [data]);
   const set = (change: Partial<ChronicleFilter>) => onChange({ ...filter, ...change });
   const toggleKind = (kind: ChronicleKind) =>
-    set({ kinds: filter.kinds.includes(kind) ? filter.kinds.filter((k) => k !== kind) : [...filter.kinds, kind] });
+    set({
+      kinds: filter.kinds.includes(kind)
+        ? filter.kinds.filter((k) => k !== kind)
+        : [...filter.kinds, kind],
+    });
   // Strg+F springt in die Suche, wie man es von jedem Programm kennt.
   const search = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -88,7 +99,10 @@ function FilterBar({
   return (
     <div className="wf-chronik-filter">
       <div className="wf-chronik-filter__row">
-        <label className="wf-chronik-search" title="Sucht in Texten und in den Namen von Orten und Beteiligten (Strg+F)">
+        <label
+          className="wf-chronik-search"
+          title="Sucht in Texten und in den Namen von Orten und Beteiligten (Strg+F)"
+        >
           <Search aria-hidden />
           <Input
             ref={search}
@@ -104,7 +118,12 @@ function FilterBar({
             }}
           />
           {filter.query && (
-            <button type="button" aria-label="Suche leeren" title="Suche leeren" onClick={() => set({ query: '' })}>
+            <button
+              type="button"
+              aria-label="Suche leeren"
+              title="Suche leeren"
+              onClick={() => set({ query: '' })}
+            >
               <X />
             </button>
           )}
@@ -131,7 +150,10 @@ function FilterBar({
             allowParty
           />
         </div>
-        <div data-active={filter.placeId !== null || undefined} title="Zeigt auch, was an Orten darunter geschah">
+        <div
+          data-active={filter.placeId !== null || undefined}
+          title="Zeigt auch, was an Orten darunter geschah"
+        >
           <EntityPicker
             value={filter.placeId}
             onChange={(placeId) => set({ placeId })}
@@ -238,7 +260,10 @@ function OpenPromises({
           const late = isOverdue(entry, now);
           const who = promiseParties(data, entry);
           return (
-            <div key={entry.id} className={cx('wf-chronik-promise', late && 'wf-chronik-promise--late')}>
+            <div
+              key={entry.id}
+              className={cx('wf-chronik-promise', late && 'wf-chronik-promise--late')}
+            >
               <button
                 type="button"
                 className="wf-chron__check"
@@ -247,11 +272,20 @@ function OpenPromises({
                 aria-pressed={false}
                 onClick={() => done(entry)}
               />
-              <button type="button" className="wf-chronik-promise__body" onClick={() => onEdit(entry)} title="Abmachung öffnen">
-                <span className="wf-chronik-promise__text wf-clamp-2">{entry.text || 'Ohne Text'}</span>
+              <button
+                type="button"
+                className="wf-chronik-promise__body"
+                onClick={() => onEdit(entry)}
+                title="Abmachung öffnen"
+              >
+                <span className="wf-chronik-promise__text wf-clamp-2">
+                  {entry.text || 'Ohne Text'}
+                </span>
                 <span className="wf-chronik-promise__meta">
                   {who.length > 0 && <span className="wf-clamp-1">{who.join(', ')}</span>}
-                  <span className="wf-chronik-promise__due wf-num">{promiseDueLabel(cal, entry, now)}</span>
+                  <span className="wf-chronik-promise__due wf-num">
+                    {promiseDueLabel(cal, entry, now)}
+                  </span>
                 </span>
               </button>
             </div>
@@ -277,12 +311,20 @@ function Mentions({
 }) {
   const data = useData();
   const counts = useMemo(
-    () => mentionCounts(entries, 40).filter((c) => data.entities[c.id]).slice(0, 10),
+    () =>
+      mentionCounts(entries, 40)
+        .filter((c) => data.entities[c.id])
+        .slice(0, 10),
     [entries, data.entities],
   );
   if (!counts.length) return null;
   return (
-    <Panel className="wf-chronik-mentions" title={filtered ? 'In dieser Auswahl genannt' : 'Häufig genannt'} flush scroll>
+    <Panel
+      className="wf-chronik-mentions"
+      title={filtered ? 'In dieser Auswahl genannt' : 'Häufig genannt'}
+      flush
+      scroll
+    >
       {counts.map(({ id, count }) => {
         const entity = data.entities[id]!;
         const active = id === entityId;
@@ -348,7 +390,10 @@ export function Verlauf({
     const markers =
       applied.session !== 'all'
         ? []
-        : sessionMarkers(spans, active ? new Set(visible.map((e) => e.sessionId ?? '')) : undefined);
+        : sessionMarkers(
+            spans,
+            active ? new Set(visible.map((e) => e.sessionId ?? '')) : undefined,
+          );
     return timelineRows(visible, markers, newestFirst);
   }, [visible, spans, applied.session, active, newestFirst]);
 
@@ -428,8 +473,8 @@ export function Verlauf({
                   </div>
                 }
               >
-                Hier sammelt sich alles, was am Tisch geschieht: Notizen, Ortswechsel, Abmachungen und
-                Veränderungen der Welt.
+                Hier sammelt sich alles, was am Tisch geschieht: Notizen, Ortswechsel, Abmachungen
+                und Veränderungen der Welt.
               </EmptyState>
             ) : visible.length === 0 ? (
               <EmptyState

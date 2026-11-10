@@ -1,6 +1,16 @@
 /** Darstellung von Chronik-Einträgen – überall gleich: am Spieltisch, in der Chronik, im Dossier. */
 import type { ReactNode } from 'react';
-import { ArrowRight, Check, Feather, Footprints, Handshake, Hourglass, Pencil, Sparkles, Waypoints } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  Feather,
+  Footprints,
+  Handshake,
+  Hourglass,
+  Pencil,
+  Sparkles,
+  Waypoints,
+} from 'lucide-react';
 import { setPromiseDone } from '../data/actions';
 import { useData, useDb } from '../data/hooks';
 import type { ChronicleEntry, ChronicleKind } from '../domain/schema';
@@ -87,7 +97,9 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   const overdue = promise && !promise.done && promise.due !== null && promise.due < data.state.now;
 
   return (
-    <article className={cx('wf-chron', `wf-chron--${entry.kind}`, promise?.done && 'wf-chron--done')}>
+    <article
+      className={cx('wf-chron', `wf-chron--${entry.kind}`, promise?.done && 'wf-chron--done')}
+    >
       <div className="wf-chron__mark" title={CHRONICLE_KIND_LABEL[entry.kind]}>
         <Icon />
       </div>
@@ -103,7 +115,9 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           )}
         </div>
         {headline && <div className="wf-chron__headline">{headline}</div>}
-        {entry.text && entry.kind !== 'event' && <div className="wf-chron__text wf-prose">{entry.text}</div>}
+        {entry.text && entry.kind !== 'event' && (
+          <div className="wf-chron__text wf-prose">{entry.text}</div>
+        )}
         {promise && (
           <div className="wf-chron__promise">
             <button
@@ -132,7 +146,13 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
         )}
       </div>
       {onEdit && (
-        <IconButton label="Eintrag bearbeiten" size="sm" variant="ghost" className="wf-chron__edit" onClick={() => onEdit(entry)}>
+        <IconButton
+          label="Eintrag bearbeiten"
+          size="sm"
+          variant="ghost"
+          className="wf-chron__edit"
+          onClick={() => onEdit(entry)}
+        >
           <Pencil />
         </IconButton>
       )}

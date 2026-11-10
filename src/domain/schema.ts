@@ -24,7 +24,13 @@ export const CalendarSchema = z.object({
   id: z.string(),
   name: z.string(),
   months: z
-    .array(z.object({ name: z.string(), days: z.number().int().positive(), leapDays: z.number().int().optional() }))
+    .array(
+      z.object({
+        name: z.string(),
+        days: z.number().int().positive(),
+        leapDays: z.number().int().optional(),
+      }),
+    )
     .min(1),
   weekdays: z.array(z.string()).min(1),
   leapRule: z.enum(['none', 'gregorian']),
@@ -165,7 +171,11 @@ export const EntitySchema = z.discriminatedUnion('kind', [
   z.object({ ...entityBase, kind: z.literal('person'), person: PersonDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('place'), place: PlaceDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('faction'), faction: FactionDetails.prefault({}) }),
-  z.object({ ...entityBase, kind: z.literal('character'), character: CharacterDetails.prefault({}) }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('character'),
+    character: CharacterDetails.prefault({}),
+  }),
   z.object({ ...entityBase, kind: z.literal('item'), item: ItemDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('topic'), topic: TopicDetails.prefault({}) }),
 ]);
@@ -202,7 +212,14 @@ export type Relation = z.infer<typeof RelationSchema>;
 
 // ── Chronik: was am Tisch passiert ist ─────────────────────────────────────
 
-export const CHRONICLE_KINDS = ['note', 'travel', 'attitude', 'event', 'promise', 'change'] as const;
+export const CHRONICLE_KINDS = [
+  'note',
+  'travel',
+  'attitude',
+  'event',
+  'promise',
+  'change',
+] as const;
 export type ChronicleKind = (typeof CHRONICLE_KINDS)[number];
 
 export const ChronicleEntrySchema = z.object({
@@ -351,7 +368,12 @@ type EntityInit<K extends EntityKind> = { kind: K; name: string } & Record<strin
 /** Legt einen vollständigen Eintrag mit allen Vorgaben an. */
 export function createEntity<K extends EntityKind>(init: EntityInit<K>): EntityOf<K> {
   const stamp = nowIso();
-  return EntitySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init }) as EntityOf<K>;
+  return EntitySchema.parse({
+    id: newId(),
+    created: stamp,
+    updated: stamp,
+    ...init,
+  }) as EntityOf<K>;
 }
 
 export function createRelation(init: Partial<Relation> & { from: string; to: string }): Relation {
@@ -366,17 +388,23 @@ export function createChronicleEntry(
   return ChronicleEntrySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
-export function createEvent(init: Partial<CalendarEvent> & { title: string; at: number }): CalendarEvent {
+export function createEvent(
+  init: Partial<CalendarEvent> & { title: string; at: number },
+): CalendarEvent {
   const stamp = nowIso();
   return CalendarEventSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
-export function createSession(init: Partial<Session> & { number: number; startAt: number }): Session {
+export function createSession(
+  init: Partial<Session> & { number: number; startAt: number },
+): Session {
   const stamp = nowIso();
   return SessionSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
-export function createTimer(init: Partial<Timer> & { label: string; start: number; end: number }): Timer {
+export function createTimer(
+  init: Partial<Timer> & { label: string; start: number; end: number },
+): Timer {
   const stamp = nowIso();
   return TimerSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }

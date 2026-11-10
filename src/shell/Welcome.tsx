@@ -10,11 +10,18 @@ import { Button, Panel } from '../ui';
 import { Sigil } from './Sigil';
 import './shell.css';
 
-export function Welcome({ onOpen, initialError }: { onOpen: (db: CampaignDb) => void; initialError?: string }) {
+export function Welcome({
+  onOpen,
+  initialError,
+}: {
+  onOpen: (db: CampaignDb) => void;
+  initialError?: string;
+}) {
   const [dir, setDir] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
   const [error, setError] = useState(initialError ?? '');
   const [report, setReport] = useState<string[]>([]);
+  const [pending, setPending] = useState<CampaignData | null>(null);
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
@@ -53,11 +60,20 @@ export function Welcome({ onOpen, initialError }: { onOpen: (db: CampaignDb) => 
       onOpen(db);
     });
 
+  /** Liest die Backup-Datei und zeigt erst den Bericht; übernommen wird nach Bestätigung. */
   const importFile = (f: File) =>
     run(async () => {
-      const result = importV157Backup(JSON.parse(await f.text()));
+      let raw: unknown;
+      try {
+        raw = JSON.parse(await f.text());
+      } catch {
+        throw new Error(
+          `„${f.name}“ ist keine lesbare Backup-Datei. Erwartet wird die .json-Datei aus dem Menü der alten Version („Backup herunterladen“).`,
+        );
+      }
+      const result = importV157Backup(raw);
       setReport(result.report);
-      await create(() => result.data);
+      setPending(result.data);
     });
 
   return (
@@ -73,38 +89,57 @@ export function Welcome({ onOpen, initialError }: { onOpen: (db: CampaignDb) => 
             {!empty ? (
               <>
                 <p className="wf-soft">
-                  Wayfarer speichert eine Kampagne als Ordner voller kleiner Dateien. Liegt der Ordner in
-                  einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud), teilen sich alle deine
-                  Rechner denselben Spielstand.
+                  Wayfarer speichert eine Kampagne als Ordner voller kleiner Dateien. Liegt der
+                  Ordner in einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud), teilen
+                  sich alle deine Rechner denselben Spielstand.
                 </p>
                 <button type="button" className="wf-choice" onClick={choose} disabled={busy}>
                   <FolderOpen />
                   <span>
                     <span className="wf-choice__title">Kampagnenordner wählen</span>
                     <br />
-                    <span className="wf-mute">Einen vorhandenen öffnen oder einen leeren Ordner für eine neue Kampagne.</span>
+                    <span className="wf-mute">
+                      Einen vorhandenen öffnen oder einen leeren Ordner für eine neue Kampagne.
+                    </span>
                   </span>
                 </button>
               </>
             ) : (
               <>
                 <p className="wf-soft">
-                  In <span className="wf-gold">{dir}</span> liegt noch keine Kampagne. Womit soll sie beginnen?
+                  In <span className="wf-gold">{dir}</span> liegt noch keine Kampagne. Womit soll
+                  sie beginnen?
                 </p>
-                <button type="button" className="wf-choice" onClick={() => file.current?.click()} disabled={busy}>
+                <button
+                  type="button"
+                  className="wf-choice"
+                  onClick={() => file.current?.click()}
+                  disabled={busy}
+                >
                   <Scroll />
                   <span>
-                    <span className="wf-choice__title">Spielstand der alten Version übernehmen</span>
+                    <span className="wf-choice__title">
+                      Spielstand der alten Version übernehmen
+                    </span>
                     <br />
-                    <span className="wf-mute">Backup-Datei (.json) aus dem bisherigen Wayfarer einlesen.</span>
+                    <span className="wf-mute">
+                      Backup-Datei (.json) aus dem bisherigen Wayfarer einlesen.
+                    </span>
                   </span>
                 </button>
-                <button type="button" className="wf-choice" onClick={() => create(elarisCampaign)} disabled={busy}>
+                <button
+                  type="button"
+                  className="wf-choice"
+                  onClick={() => create(elarisCampaign)}
+                  disabled={busy}
+                >
                   <Sparkles />
                   <span>
                     <span className="wf-choice__title">Elaris neu beginnen</span>
                     <br />
-                    <span className="wf-mute">Kalender von Elaris, die sechs Gefährten, 17. Tauwind 701 AD.</span>
+                    <span className="wf-mute">
+                      Kalender von Elaris, die sechs Gefährten, 17. Tauwind 701 AD.
+                    </span>
                   </span>
                 </button>
                 <div>
@@ -132,6 +167,30 @@ export function Welcome({ onOpen, initialError }: { onOpen: (db: CampaignDb) => 
                   <li key={i}>{line}</li>
                 ))}
               </ul>
+            )}
+            {pending && (
+              <div className="wf-row">
+                <Button
+                  variant="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    const data = pending;
+                    setPending(null);
+                    void create(() => data);
+                  }}
+                >
+                  So übernehmen
+                </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    setPending(null);
+                    setReport([]);
+                  }}
+                >
+                  Abbrechen
+                </Button>
+              </div>
             )}
           </div>
         </Panel>

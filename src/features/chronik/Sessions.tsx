@@ -118,7 +118,11 @@ function RealDateField({ value, onChange }: { value: string; onChange: (iso: str
       {value ? (
         <span className="wf-mute">{formatRealDate(value).split(',')[0]}</span>
       ) : (
-        <Button size="sm" variant="ghost" onClick={() => onChange(new Date().toLocaleDateString('sv-SE'))}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onChange(new Date().toLocaleDateString('sv-SE'))}
+        >
           Heute
         </Button>
       )}
@@ -137,7 +141,9 @@ async function copyText(text: string): Promise<boolean> {
 
 function worldRange(span: SessionSpan, data: ReturnType<typeof useData>): string {
   const cal = data.campaign.calendar;
-  return span.to === null ? `seit ${formatDateTime(cal, span.from)}` : formatWorldRange(cal, span.from, span.to);
+  return span.to === null
+    ? `seit ${formatDateTime(cal, span.from)}`
+    : formatWorldRange(cal, span.from, span.to);
 }
 
 const entryCount = (n: number) => (n === 1 ? '1 Eintrag' : `${n.toLocaleString('de-DE')} Einträge`);
@@ -195,7 +201,10 @@ function SessionDetail({
     notes.flush();
     const text = sessionSummaryText(db.getSnapshot(), session.id);
     if (await copyText(text))
-      toast({ title: 'Zusammenfassung kopiert', body: `${sessionLabel(session)} · ${entryCount(span.entryCount)}` });
+      toast({
+        title: 'Zusammenfassung kopiert',
+        body: `${sessionLabel(session)} · ${entryCount(span.entryCount)}`,
+      });
     else setSummary(text);
   };
 
@@ -216,7 +225,10 @@ function SessionDetail({
     });
     if (!ok) return;
     deleteSession(db, session.id);
-    toast({ title: `Session ${session.number} gelöscht`, body: 'Ihre Einträge stehen weiter im Verlauf.' });
+    toast({
+      title: `Session ${session.number} gelöscht`,
+      body: 'Ihre Einträge stehen weiter im Verlauf.',
+    });
   };
 
   const unsaved = title.pending || notes.pending || status === 'saving';
@@ -246,7 +258,12 @@ function SessionDetail({
                 Fortsetzen
               </Button>
             )}
-            <Button size="sm" icon={<Copy />} onClick={copy} title="Die Chronik dieser Session als Text in die Zwischenablage legen">
+            <Button
+              size="sm"
+              icon={<Copy />}
+              onClick={copy}
+              title="Die Chronik dieser Session als Text in die Zwischenablage legen"
+            >
               Zusammenfassung kopieren
             </Button>
             <IconButton size="sm" variant="danger" label="Session löschen" onClick={remove}>
@@ -296,7 +313,10 @@ function SessionDetail({
         <section className="wf-chronik-detail__section">
           <div className="wf-chronik-detail__sechead">
             <SectionTitle>Vorbereitung und Mitschrift</SectionTitle>
-            <span className="wf-chronik-saved" data-state={status === 'error' ? 'error' : unsaved ? 'saving' : 'saved'}>
+            <span
+              className="wf-chronik-saved"
+              data-state={status === 'error' ? 'error' : unsaved ? 'saving' : 'saved'}
+            >
               {status === 'error' ? (
                 'Speichern fehlgeschlagen'
               ) : unsaved ? (
@@ -322,7 +342,12 @@ function SessionDetail({
         <section className="wf-chronik-detail__section wf-chronik-detail__section--flush">
           <div className="wf-chronik-detail__sechead">
             <SectionTitle>Verlauf dieser Session</SectionTitle>
-            <Button size="sm" variant="ghost" icon={<History />} onClick={() => onBackfill(session.id)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<History />}
+              onClick={() => onBackfill(session.id)}
+            >
               Eintrag nachtragen
             </Button>
           </div>
@@ -361,8 +386,8 @@ function SessionDetail({
       >
         <div className="wf-col">
           <div className="wf-mute">
-            Die Zwischenablage ließ sich nicht direkt füllen. Der Text ist schon markiert – kopiere ihn mit Strg+C
-            (am Mac: Cmd+C).
+            Die Zwischenablage ließ sich nicht direkt füllen. Der Text ist schon markiert – kopiere
+            ihn mit Strg+C (am Mac: Cmd+C).
           </div>
           <TextArea
             readOnly
@@ -392,7 +417,8 @@ export function Sessions({
   const data = useData();
   const spans = useMemo(() => sessionSpans(data).reverse(), [data]);
   const running = spans.find((span) => span.running) ?? null;
-  const selected = spans.find((span) => span.session.id === selectedId) ?? running ?? spans[0] ?? null;
+  const selected =
+    spans.find((span) => span.session.id === selectedId) ?? running ?? spans[0] ?? null;
 
   const resumableId = useMemo(() => resumableSessionId(data), [data]);
 
@@ -436,8 +462,8 @@ export function Sessions({
               </Button>
             }
           >
-            Eine Session bündelt, was an einem Spielabend geschieht – mit Titel, Datum und deinen Notizen. Beginne
-            eine, sobald ihr spielt.
+            Eine Session bündelt, was an einem Spielabend geschieht – mit Titel, Datum und deinen
+            Notizen. Beginne eine, sobald ihr spielt.
           </EmptyState>
         </Panel>
       </div>
@@ -474,9 +500,12 @@ export function Sessions({
                     )}
                   </span>
                 )}
-                <span className="wf-chronik-session__world wf-clamp-1">{worldRange(span, data)}</span>
+                <span className="wf-chronik-session__world wf-clamp-1">
+                  {worldRange(span, data)}
+                </span>
                 <span className="wf-chronik-session__world">
-                  {formatDuration(spanDuration(span, data.state.now))} · {entryCount(span.entryCount)}
+                  {formatDuration(spanDuration(span, data.state.now))} ·{' '}
+                  {entryCount(span.entryCount)}
                 </span>
               </span>
             </button>

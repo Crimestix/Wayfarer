@@ -19,7 +19,10 @@ describe('Kalender von Elaris', () => {
   it('rechnet den Startzeitpunkt wie die bisherige App', () => {
     // 17. Tauwind 701 AD, 16:00 – Wert der v157-Zeitrechnung (Minuten seit kosmischem Jahr 1).
     const before = (y: number) =>
-      365 * (y - 1) + Math.floor((y - 1) / 4) - Math.floor((y - 1) / 100) + Math.floor((y - 1) / 400);
+      365 * (y - 1) +
+      Math.floor((y - 1) / 4) -
+      Math.floor((y - 1) / 100) +
+      Math.floor((y - 1) / 400);
     expect(ELARIS_START).toBe((before(28088) + 16) * 1440 + 16 * 60);
     expect(formatDate(cal, ELARIS_START)).toBe('17. Tauwind 701 AD');
     expect(formatDate(cal, ELARIS_START, cal.eras[1])).toBe('17. Tauwind 28088 JF');

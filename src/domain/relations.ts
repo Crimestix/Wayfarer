@@ -20,13 +20,23 @@ export const RELATION_TYPES: RelationType[] = [
   { key: 'enemy', label: 'verfeindet mit', inverse: 'verfeindet mit', group: 'Konflikt' },
   { key: 'fears', label: 'fürchtet', inverse: 'wird gefürchtet von', group: 'Konflikt' },
   { key: 'seeks', label: 'sucht', inverse: 'wird gesucht von', group: 'Konflikt' },
-  { key: 'owes', label: 'steht in der Schuld von', inverse: 'hat etwas gut bei', group: 'Konflikt' },
+  {
+    key: 'owes',
+    label: 'steht in der Schuld von',
+    inverse: 'hat etwas gut bei',
+    group: 'Konflikt',
+  },
   { key: 'serves', label: 'dient', inverse: 'gebietet über', group: 'Rangordnung' },
   { key: 'leads', label: 'führt', inverse: 'wird geführt von', group: 'Rangordnung' },
   { key: 'member', label: 'gehört zu', inverse: 'hat als Mitglied', group: 'Rangordnung' },
   { key: 'employs', label: 'beschäftigt', inverse: 'arbeitet für', group: 'Rangordnung' },
   { key: 'rules', label: 'herrscht über', inverse: 'wird beherrscht von', group: 'Ort und Besitz' },
-  { key: 'resides', label: 'ist verbunden mit', inverse: 'ist wichtig für', group: 'Ort und Besitz' },
+  {
+    key: 'resides',
+    label: 'ist verbunden mit',
+    inverse: 'ist wichtig für',
+    group: 'Ort und Besitz',
+  },
   { key: 'owns', label: 'besitzt', inverse: 'gehört', group: 'Ort und Besitz' },
   { key: 'custom', label: 'eigene Bezeichnung', inverse: 'eigene Bezeichnung', group: 'Sonstiges' },
 ];
@@ -42,7 +52,8 @@ export function relationLabel(
   relation: { type: string; label: string },
   perspective: 'from' | 'to',
 ): string {
-  if (relation.type === 'custom' || !byKey.has(relation.type)) return relation.label || 'verbunden mit';
+  if (relation.type === 'custom' || !byKey.has(relation.type))
+    return relation.label || 'verbunden mit';
   const type = relationType(relation.type);
   return perspective === 'from' ? type.label : type.inverse;
 }

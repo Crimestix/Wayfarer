@@ -16,7 +16,8 @@ import {
 } from 'react';
 import { X } from 'lucide-react';
 
-export const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
+export const cx = (...parts: (string | false | null | undefined)[]) =>
+  parts.filter(Boolean).join(' ');
 
 // ── Knöpfe ─────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,14 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   ref?: RefObject<HTMLButtonElement | null>;
 }
 
-export function Button({ variant = 'default', size = 'md', icon, className, children, ...rest }: ButtonProps) {
+export function Button({
+  variant = 'default',
+  size = 'md',
+  icon,
+  className,
+  children,
+  ...rest
+}: ButtonProps) {
   return (
     <button
       type="button"
@@ -77,7 +85,17 @@ export interface PanelProps {
   variant?: 'framed' | 'plain' | 'inset';
 }
 
-export function Panel({ title, count, actions, children, className, style, flush, scroll, variant = 'framed' }: PanelProps) {
+export function Panel({
+  title,
+  count,
+  actions,
+  children,
+  className,
+  style,
+  flush,
+  scroll,
+  variant = 'framed',
+}: PanelProps) {
   return (
     <section
       className={cx('wf-panel', variant !== 'framed' && `wf-panel--${variant}`, className)}
@@ -182,11 +200,17 @@ export function Field({
   );
 }
 
-export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { ref?: RefObject<HTMLInputElement | null> }) {
+export function Input({
+  className,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { ref?: RefObject<HTMLInputElement | null> }) {
   return <input {...rest} className={cx('wf-input', className)} />;
 }
 
-export function TextArea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement> & { ref?: RefObject<HTMLTextAreaElement | null> }) {
+export function TextArea({
+  className,
+  ...rest
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { ref?: RefObject<HTMLTextAreaElement | null> }) {
   return <textarea {...rest} className={cx('wf-textarea', className)} />;
 }
 
@@ -324,7 +348,15 @@ export interface PopoverProps {
  * Fläche, die unter (oder bei Platzmangel über) einem Element aufklappt.
  * Fest positioniert, damit sie in Dialogen und Rollbereichen nicht abgeschnitten wird.
  */
-export function Popover({ open, onClose, anchor, children, align = 'left', width, className }: PopoverProps) {
+export function Popover({
+  open,
+  onClose,
+  anchor,
+  children,
+  align = 'left',
+  width,
+  className,
+}: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Bis die Lage berechnet ist, unsichtbar – aber nicht „visibility: hidden“: darin ließe sich
   // nichts fokussieren, und das Suchfeld einer Auswahl bekäme beim Öffnen nie den Fokus.
@@ -338,7 +370,8 @@ export function Popover({ open, onClose, anchor, children, align = 'left', width
     if (below < 260 && rect.top > below) next.bottom = window.innerHeight - rect.top + 6;
     else next.top = rect.bottom + 6;
     if (align === 'right') next.right = Math.max(8, window.innerWidth - rect.right);
-    else next.left = Math.max(8, Math.min(rect.left, window.innerWidth - (width ?? rect.width) - 8));
+    else
+      next.left = Math.max(8, Math.min(rect.left, window.innerWidth - (width ?? rect.width) - 8));
     setStyle(next);
   }, [open, anchor, align, width]);
 
@@ -385,7 +418,13 @@ export function MenuItem({
   disabled?: boolean;
 }) {
   return (
-    <button type="button" className="wf-menu-item" data-active={active} disabled={disabled} onClick={onClick}>
+    <button
+      type="button"
+      className="wf-menu-item"
+      data-active={active}
+      disabled={disabled}
+      onClick={onClick}
+    >
       {icon}
       <span className="wf-grow">{children}</span>
     </button>
@@ -453,7 +492,12 @@ export function Toaster() {
               {t.action.label}
             </Button>
           )}
-          <IconButton label="Meldung schließen" size="sm" variant="ghost" onClick={() => dismissToast(t.id)}>
+          <IconButton
+            label="Meldung schließen"
+            size="sm"
+            variant="ghost"
+            onClick={() => dismissToast(t.id)}
+          >
             <X />
           </IconButton>
         </div>

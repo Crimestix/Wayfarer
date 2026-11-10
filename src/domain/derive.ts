@@ -49,10 +49,13 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
 };
 
 const collator = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
-export const byName = (a: { name: string }, b: { name: string }) => collator.compare(a.name, b.name);
+export const byName = (a: { name: string }, b: { name: string }) =>
+  collator.compare(a.name, b.name);
 
 export function entitiesOfKind<K extends EntityKind>(data: CampaignData, kind: K): EntityOf<K>[] {
-  return (Object.values(data.entities).filter((e) => e.kind === kind) as EntityOf<K>[]).sort(byName);
+  return (Object.values(data.entities).filter((e) => e.kind === kind) as EntityOf<K>[]).sort(
+    byName,
+  );
 }
 
 export function entityName(data: CampaignData, id: string | null | undefined): string {
@@ -141,7 +144,11 @@ export function placePath(data: CampaignData, placeId: string): string {
 }
 
 /** Wäre `parentId` als Elternort von `placeId` ein Zyklus? */
-export function wouldCreatePlaceCycle(data: CampaignData, placeId: string, parentId: string): boolean {
+export function wouldCreatePlaceCycle(
+  data: CampaignData,
+  placeId: string,
+  parentId: string,
+): boolean {
   return parentId === placeId || placeSubtreeIds(data, placeId).has(parentId);
 }
 
@@ -291,7 +298,10 @@ export function openPromises(data: CampaignData, entityId?: string): ChronicleEn
   return Object.values(data.chronicle)
     .filter(
       (e) =>
-        e.kind === 'promise' && e.promise && !e.promise.done && (!entityId || e.refs.includes(entityId)),
+        e.kind === 'promise' &&
+        e.promise &&
+        !e.promise.done &&
+        (!entityId || e.refs.includes(entityId)),
     )
     .sort(
       (a, b) =>
@@ -340,7 +350,11 @@ export function attitudeToParty(data: CampaignData, entityId: string): number | 
 }
 
 /** Verlauf der Haltung von `fromId` gegenüber `toId`, älteste zuerst. */
-export function attitudeHistory(data: CampaignData, fromId: string, toId: string): ChronicleEntry[] {
+export function attitudeHistory(
+  data: CampaignData,
+  fromId: string,
+  toId: string,
+): ChronicleEntry[] {
   return chronicleSorted(data).filter(
     (e) => e.kind === 'attitude' && e.attitude?.fromId === fromId && e.attitude.toId === toId,
   );
@@ -390,7 +404,11 @@ export function occurrencesOf(
   const { every, unit } = event.repeat;
   // Bei Tages- und Wochenrhythmus direkt in die Nähe des Zeitraums springen.
   const stepMinutes =
-    unit === 'day' ? every * MINUTES_PER_DAY : unit === 'week' ? every * cal.weekdays.length * MINUTES_PER_DAY : 0;
+    unit === 'day'
+      ? every * MINUTES_PER_DAY
+      : unit === 'week'
+        ? every * cal.weekdays.length * MINUTES_PER_DAY
+        : 0;
   let step = stepMinutes && from > base ? Math.floor((from - base) / stepMinutes) : 0;
   // Monats- und Jahresschritte rechnen immer vom Ursprungstermin, damit der 31. nicht verrutscht.
   for (let guard = 0; guard < 5000; guard++, step++) {
@@ -418,7 +436,9 @@ export function upcomingOccurrences(data: CampaignData, days: number, limit = 20
   const from = startOfDay(data.state.now);
   const to = from + days * MINUTES_PER_DAY;
   return occurrencesBetween(data, from, to)
-    .filter((o) => (o.event.timed ? o.at >= data.state.now : true) && !(o.event.done && !o.event.repeat))
+    .filter(
+      (o) => (o.event.timed ? o.at >= data.state.now : true) && !(o.event.done && !o.event.repeat),
+    )
     .slice(0, limit);
 }
 

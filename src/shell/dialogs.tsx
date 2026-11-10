@@ -2,7 +2,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowRight, Search } from 'lucide-react';
-import { advanceTime, logEntry, moveParty, setAttitude, setTime, undoTimeAdvance } from '../data/actions';
+import {
+  advanceTime,
+  logEntry,
+  moveParty,
+  setAttitude,
+  setTime,
+  undoTimeAdvance,
+} from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
 import { KIND_LABEL, entityName, findRelation, placePath, searchEntities } from '../domain/derive';
@@ -38,7 +45,12 @@ import {
   entityHref,
   toast,
 } from '../ui';
-import { closeShellRequest, useShellRequest, type AttitudeRequest, type QuickLogRequest } from './commands';
+import {
+  closeShellRequest,
+  useShellRequest,
+  type AttitudeRequest,
+  type QuickLogRequest,
+} from './commands';
 
 /** „Eingetreten: Markttag (3×)“ – wiederkehrende Termine nur einmal mit Anzahl. */
 function summarizeOccurred(occurred: { event: { id: string; title: string } }[]): string[] {
@@ -99,7 +111,10 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
       kind,
       text,
       refs,
-      due: kind === 'promise' && dueDays && days >= 0 ? data.state.now + Math.round(days * 1440) : null,
+      due:
+        kind === 'promise' && dueDays && days >= 0
+          ? data.state.now + Math.round(days * 1440)
+          : null,
     });
     closeShellRequest();
   };
@@ -250,7 +265,10 @@ function MovePartyDialog() {
         <div className="wf-mute">
           Bisher: {data.state.placeId ? placePath(data, data.state.placeId) : 'kein Ort festgelegt'}
         </div>
-        <Field label="Neuer Aufenthaltsort" hint="Der Wechsel steht in der Chronik; daraus entstehen die Besuche.">
+        <Field
+          label="Neuer Aufenthaltsort"
+          hint="Der Wechsel steht in der Chronik; daraus entstehen die Besuche."
+        >
           <EntityPicker
             value={placeId}
             onChange={setPlaceId}
@@ -261,7 +279,11 @@ function MovePartyDialog() {
           />
         </Field>
         <Field label="Anmerkung">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="z. B. über die Alte Straße" />
+          <Input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="z. B. über die Alte Straße"
+          />
         </Field>
       </div>
     </Dialog>
@@ -317,7 +339,9 @@ function TimeDialog() {
         <>
           <Button onClick={closeShellRequest}>Abbrechen</Button>
           <Button variant="primary" onClick={apply} disabled={!ok}>
-            {mode === 'pass' || (target ?? 0) > data.state.now ? 'Zeit vergehen lassen' : 'Zeit zurückstellen'}
+            {mode === 'pass' || (target ?? 0) > data.state.now
+              ? 'Zeit vergehen lassen'
+              : 'Zeit zurückstellen'}
           </Button>
         </>
       }
@@ -335,13 +359,29 @@ function TimeDialog() {
           <>
             <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
               <Field label="Tage">
-                <Input type="number" min={0} value={days} onChange={(e) => setDays(e.target.value)} autoFocus />
+                <Input
+                  type="number"
+                  min={0}
+                  value={days}
+                  onChange={(e) => setDays(e.target.value)}
+                  autoFocus
+                />
               </Field>
               <Field label="Stunden">
-                <Input type="number" min={0} value={hours} onChange={(e) => setHours(e.target.value)} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={hours}
+                  onChange={(e) => setHours(e.target.value)}
+                />
               </Field>
               <Field label="Minuten">
-                <Input type="number" min={0} value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={minutes}
+                  onChange={(e) => setMinutes(e.target.value)}
+                />
               </Field>
             </div>
             <div className="wf-mute">
@@ -363,7 +403,10 @@ function TimeDialog() {
                 />
               </Field>
               <Field label="Monat" className="wf-grow">
-                <Select value={date.month} onChange={(e) => setDate({ ...date, month: Number(e.target.value) })}>
+                <Select
+                  value={date.month}
+                  onChange={(e) => setDate({ ...date, month: Number(e.target.value) })}
+                >
                   {cal.months.map((m, i) => (
                     <option key={m.name} value={i}>
                       {m.name}
@@ -429,13 +472,15 @@ interface SearchHit {
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {
   const q = query.trim().toLowerCase();
-  const areas: SearchHit[] = AREAS.filter((a) => !q || a.label.toLowerCase().includes(q)).map((a) => ({
-    key: 'area:' + a.path,
-    label: a.label,
-    sub: a.hint,
-    href: a.path,
-    icon: <a.icon />,
-  }));
+  const areas: SearchHit[] = AREAS.filter((a) => !q || a.label.toLowerCase().includes(q)).map(
+    (a) => ({
+      key: 'area:' + a.path,
+      label: a.label,
+      sub: a.hint,
+      href: a.path,
+      icon: <a.icon />,
+    }),
+  );
   const entities: SearchHit[] = q
     ? searchEntities(data, query, { limit: 30 }).map((e) => ({
         key: e.id,
@@ -461,7 +506,16 @@ function SearchDialog() {
     closeShellRequest();
   };
   return (
-    <Dialog open onClose={closeShellRequest} title={<span className="wf-row"><Search width={20} height={20} /> Suchen</span>} width={640}>
+    <Dialog
+      open
+      onClose={closeShellRequest}
+      title={
+        <span className="wf-row">
+          <Search width={20} height={20} /> Suchen
+        </span>
+      }
+      width={640}
+    >
       <div style={{ margin: 'calc(var(--s-5) * -1)' }}>
         <Input
           className="wf-search__input"

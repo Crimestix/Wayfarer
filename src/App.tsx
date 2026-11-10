@@ -10,9 +10,7 @@ import { AppShell } from './shell/AppShell';
 import { Welcome } from './shell/Welcome';
 
 type Phase =
-  | { kind: 'loading' }
-  | { kind: 'welcome'; error?: string }
-  | { kind: 'ready'; db: CampaignDb };
+  { kind: 'loading' } | { kind: 'welcome'; error?: string } | { kind: 'ready'; db: CampaignDb };
 
 /** Öffnet die Kampagne: in der installierten App aus dem Ordner, im Browser eine Beispielwelt. */
 /**
@@ -57,7 +55,8 @@ export function App() {
     let cancelled = false;
     bootOnce().then(
       (next) => !cancelled && setPhase(next),
-      (error) => !cancelled && setPhase({ kind: 'welcome', error: String(error?.message ?? error) }),
+      (error) =>
+        !cancelled && setPhase({ kind: 'welcome', error: String(error?.message ?? error) }),
     );
     return () => {
       cancelled = true;

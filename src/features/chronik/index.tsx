@@ -18,7 +18,10 @@ export default function ChronikPage() {
   const [view, setView] = useState<View>(remembered.view);
   const [storedFilter, setFilter] = useState(remembered.filter);
   const { sessions, entities } = data;
-  const filter = useMemo(() => sanitizeFilter(data, storedFilter), [storedFilter, sessions, entities]);
+  const filter = useMemo(
+    () => sanitizeFilter(data, storedFilter),
+    [storedFilter, sessions, entities],
+  );
   const [newestFirst, setNewestFirst] = useState(remembered.newestFirst);
   const [sessionId, setSessionId] = useState(remembered.sessionId);
   const [dialog, setDialog] = useState<(EntryDialogRequest & { key: number }) | null>(null);
@@ -37,7 +40,10 @@ export default function ChronikPage() {
     [],
   );
 
-  const edit = useCallback((entry: ChronicleEntry) => setDialog({ mode: 'edit', entry, key: Date.now() }), []);
+  const edit = useCallback(
+    (entry: ChronicleEntry) => setDialog({ mode: 'edit', entry, key: Date.now() }),
+    [],
+  );
   const openSession = useCallback((id: string) => {
     setSessionId(id);
     setView('sessions');
@@ -45,7 +51,12 @@ export default function ChronikPage() {
   const backfill = (forSession?: string) =>
     setDialog(
       forSession
-        ? { mode: 'new', sessionId: forSession, at: sessionBackfillTime(data, forSession), key: Date.now() }
+        ? {
+            mode: 'new',
+            sessionId: forSession,
+            at: sessionBackfillTime(data, forSession),
+            key: Date.now(),
+          }
         : { mode: 'new', key: Date.now() },
     );
 
@@ -62,7 +73,11 @@ export default function ChronikPage() {
           onChange={setView}
         />
         <span className="wf-grow" />
-        <Button icon={<History />} onClick={() => backfill()} title="Etwas Vergangenes mit frei wählbarem Zeitpunkt in die Chronik schreiben">
+        <Button
+          icon={<History />}
+          onClick={() => backfill()}
+          title="Etwas Vergangenes mit frei wählbarem Zeitpunkt in die Chronik schreiben"
+        >
           Eintrag nachtragen
         </Button>
       </header>
@@ -78,7 +93,12 @@ export default function ChronikPage() {
             onOpenSession={openSession}
           />
         ) : (
-          <Sessions selectedId={sessionId} onSelect={setSessionId} onEdit={edit} onBackfill={backfill} />
+          <Sessions
+            selectedId={sessionId}
+            onSelect={setSessionId}
+            onEdit={edit}
+            onBackfill={backfill}
+          />
         )}
       </div>
       {dialog && <EntryDialog key={dialog.key} request={dialog} onClose={() => setDialog(null)} />}

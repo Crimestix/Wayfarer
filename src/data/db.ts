@@ -107,7 +107,8 @@ export class CampaignDb {
     db.pending.set(CAMPAIGN_PATH, serialize(seed.campaign));
     db.pending.set(STATE_PATH, serialize(seed.state));
     for (const name of COLLECTION_NAMES)
-      for (const doc of Object.values(seed[name])) db.pending.set(docPath(name, doc.id), serialize(doc));
+      for (const doc of Object.values(seed[name]))
+        db.pending.set(docPath(name, doc.id), serialize(doc));
     await db.flush();
     return db;
   }
@@ -122,20 +123,24 @@ export class CampaignDb {
     try {
       const doc = COLLECTION_SCHEMAS[collection].parse(JSON.parse(file.content));
       if (doc.id !== match[2]) {
-        this.problems.push({
-          path: file.path,
-          message: 'Dateiname und Kennung passen nicht zusammen (vermutlich eine Konfliktkopie).',
-        });
+        this.setProblem(
+          file.path,
+          'Dateiname und Kennung passen nicht zusammen (vermutlich eine Konfliktkopie).',
+        );
         return null;
       }
+      this.setProblem(file.path, null);
       return { collection, doc };
     } catch (error) {
-      this.problems.push({
-        path: file.path,
-        message: error instanceof Error ? error.message.slice(0, 300) : 'Unlesbar',
-      });
+      this.setProblem(file.path, error instanceof Error ? error.message.slice(0, 300) : 'Unlesbar');
       return null;
     }
+  }
+
+  /** Merkt ein Ladeproblem je Datei genau einmal; null entfernt es (Datei inzwischen in Ordnung). */
+  private setProblem(path: string, message: string | null) {
+    const rest = this.problems.filter((p) => p.path !== path);
+    this.problems = message === null ? rest : [...rest, { path, message }];
   }
 
   // ── Lesen ────────────────────────────────────────────────────────────────
@@ -363,6 +368,7 @@ export class CampaignDb {
     if (!COLLECTION_NAMES.includes(collection)) return false;
     const next = { ...this.data[collection] } as Record<string, unknown>;
     if (content === null) {
+      this.setProblem(path, null);
       if (!(match[2]! in next)) return false;
       delete next[match[2]!];
     } else {

@@ -117,12 +117,8 @@
         "placeClass": "Territorium",
         "type": "Grafschaft",
         "description": "Karges Hügelland zwischen Fluss und Salzsümpfen.",
-        "aliases": [
-          "Die Mark"
-        ],
-        "tags": [
-          "Grenzland"
-        ]
+        "aliases": ["Die Mark"],
+        "tags": ["Grenzland"]
       },
       {
         "id": "p-hohenfurt",
@@ -236,10 +232,7 @@
             "name": "Graufelser Wacht",
             "type": "Stadtwache",
             "description": "Hält Turm und Furt.",
-            "roles": [
-              "Hauptmann",
-              "Späher"
-            ]
+            "roles": ["Hauptmann", "Späher"]
           },
           {
             "id": "o-gilde",
@@ -272,16 +265,9 @@
             "birthPlaceId": "p-hohenfurt",
             "homeId": "p-hohenfurt",
             "workPlaceId": "p-turm",
-            "abilityIds": [
-              "a-dunkelsicht"
-            ],
-            "languageIds": [
-              "l-gemein",
-              "l-zwergisch"
-            ],
-            "scriptIds": [
-              "sc-runen"
-            ],
+            "abilityIds": ["a-dunkelsicht"],
+            "languageIds": ["l-gemein", "l-zwergisch"],
+            "scriptIds": ["sc-runen"],
             "birth": {
               "year": 660,
               "month": 3,
@@ -289,12 +275,8 @@
             },
             "description": "Müder Veteran, der den Turm nicht aufgeben will.",
             "portrait": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-            "aliases": [
-              "Venn"
-            ],
-            "tags": [
-              "Wacht"
-            ],
+            "aliases": ["Venn"],
+            "tags": ["Wacht"],
             "dynamic": {
               "locationId": "p-turm",
               "health": "Alte Beinwunde.",
@@ -433,10 +415,7 @@
         "placeId": "p-mark",
         "kind": "region",
         "environment": "surface",
-        "frame": [
-          4000,
-          3000
-        ]
+        "frame": [4000, 3000]
       }
     ],
     "mapPreferences": [
@@ -468,14 +447,7 @@
       "start": 14772361020,
       "end": 14772361380,
       "stoppedAt": null,
-      "participants": [
-        "tomlin",
-        "naelmira",
-        "neil",
-        "corrin",
-        "veres",
-        "nex"
-      ]
+      "participants": ["tomlin", "naelmira", "neil", "corrin", "veres", "nex"]
     },
     {
       "id": "t-unsichtbar",
@@ -487,9 +459,7 @@
       "start": 14772362200,
       "end": 14772362260,
       "stoppedAt": null,
-      "participants": [
-        "naelmira"
-      ]
+      "participants": ["naelmira"]
     },
     {
       "id": "t-ritual",
@@ -502,9 +472,7 @@
       "start": 14772359050,
       "end": 14772359060,
       "stoppedAt": 14772359055,
-      "participants": [
-        "nex"
-      ]
+      "participants": ["nex"]
     },
     {
       "id": "t-fackel",
@@ -517,9 +485,7 @@
       "end": 14772362250
     }
   ],
-  "removedTimers": [
-    "t-geloescht"
-  ],
+  "removedTimers": ["t-geloescht"],
   "characters": {
     "tomlin": {
       "className": "Magier · Illusion",
@@ -531,10 +497,7 @@
       "insight": 12,
       "portrait": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
       "notes": "Trägt das Buch der Schleier bei sich.",
-      "languages": [
-        "Gemeinsprache",
-        "Elfisch"
-      ],
+      "languages": ["Gemeinsprache", "Elfisch"],
       "proficiencies": [
         {
           "kind": "skill",
@@ -618,9 +581,7 @@
       "at": 14772359100,
       "createdAt": 1760000100000,
       "text": "Tomlin hat die Zeche bezahlt.",
-      "participants": [
-        "tomlin"
-      ],
+      "participants": ["tomlin"],
       "changes": {
         "tomlin": {
           "from": null,
@@ -636,9 +597,7 @@
       "at": 14772360480,
       "createdAt": 1760000200000,
       "text": "Er hat ihren Sohn geheilt.",
-      "participants": [
-        "tomlin"
-      ],
+      "participants": ["tomlin"],
       "changes": {
         "tomlin": {
           "from": 4,
@@ -654,14 +613,7 @@
       "at": 14772359130,
       "createdAt": 1760000300000,
       "text": "",
-      "participants": [
-        "tomlin",
-        "naelmira",
-        "neil",
-        "corrin",
-        "veres",
-        "nex"
-      ],
+      "participants": ["tomlin", "naelmira", "neil", "corrin", "veres", "nex"],
       "changes": {
         "tomlin": {
           "from": null,
@@ -697,14 +649,7 @@
       "at": 14772360510,
       "createdAt": 1760000400000,
       "text": "Die Gruppe hat ihn beim Würfeln bloßgestellt.",
-      "participants": [
-        "tomlin",
-        "naelmira",
-        "neil",
-        "corrin",
-        "veres",
-        "nex"
-      ],
+      "participants": ["tomlin", "naelmira", "neil", "corrin", "veres", "nex"],
       "changes": {
         "tomlin": {
           "from": 3,
@@ -740,9 +685,7 @@
       "at": 14772359140,
       "createdAt": 1760000500000,
       "text": "Corrin hat für ihn getanzt.",
-      "participants": [
-        "corrin"
-      ],
+      "participants": ["corrin"],
       "changes": {
         "corrin": {
           "from": null,
@@ -758,9 +701,7 @@
       "at": 14772359150,
       "createdAt": 1760000600000,
       "text": "Rücknahme: Corrin hat für ihn getanzt.",
-      "participants": [
-        "corrin"
-      ],
+      "participants": ["corrin"],
       "changes": {
         "corrin": {
           "from": 6,
@@ -785,10 +726,7 @@
       "resourceId": "lkres-ilse",
       "kind": "promise",
       "text": "Nachricht von ihrem Bruder aus Graufels mitbringen.",
-      "participants": [
-        "tomlin",
-        "veres"
-      ],
+      "participants": ["tomlin", "veres"],
       "at": 14772359120,
       "createdAt": 1760000800000,
       "doneAt": null,
@@ -800,9 +738,7 @@
       "resourceId": "lkres-fremder",
       "kind": "debt",
       "text": "12 Goldstücke Spielschuld.",
-      "participants": [
-        "neil"
-      ],
+      "participants": ["neil"],
       "at": 14772359135,
       "createdAt": 1760000900000,
       "doneAt": null,
@@ -814,14 +750,7 @@
       "resourceId": "lkres-ilse",
       "kind": "favor",
       "text": "Ein freies Zimmer, wann immer sie zurückkehren.",
-      "participants": [
-        "tomlin",
-        "naelmira",
-        "neil",
-        "corrin",
-        "veres",
-        "nex"
-      ],
+      "participants": ["tomlin", "naelmira", "neil", "corrin", "veres", "nex"],
       "at": 14772360490,
       "createdAt": 1760001000000,
       "doneAt": null,
@@ -855,14 +784,8 @@
         "id": "anker-furt",
         "mapKey": "[\"karte\",\"aschenmark\"]",
         "name": "Hohenfurt",
-        "point": [
-          1200,
-          900
-        ],
-        "frame": [
-          4000,
-          3000
-        ],
+        "point": [1200, 900],
+        "frame": [4000, 3000],
         "favorite": false,
         "revision": 1,
         "sourceId": null,
@@ -872,14 +795,8 @@
         "id": "anker-turm",
         "mapKey": "[\"karte\",\"aschenmark\"]",
         "name": "Graufels",
-        "point": [
-          2600,
-          700
-        ],
-        "frame": [
-          4000,
-          3000
-        ],
+        "point": [2600, 700],
+        "frame": [4000, 3000],
         "favorite": false,
         "revision": 1,
         "sourceId": null,
@@ -889,14 +806,8 @@
         "id": "anker-strasse",
         "mapKey": "[\"karte\",\"aschenmark\"]",
         "name": "Salzstraße",
-        "point": [
-          1900,
-          800
-        ],
-        "frame": [
-          4000,
-          3000
-        ],
+        "point": [1900, 800],
+        "frame": [4000, 3000],
         "favorite": false,
         "revision": 1,
         "sourceId": null,
@@ -911,27 +822,12 @@
         "startId": "anker-furt",
         "endId": "anker-turm",
         "points": [
-          [
-            1200,
-            900
-          ],
-          [
-            1900,
-            800
-          ],
-          [
-            2600,
-            700
-          ]
+          [1200, 900],
+          [1900, 800],
+          [2600, 700]
         ],
-        "frame": [
-          4000,
-          3000
-        ],
-        "anchorRevisions": [
-          1,
-          1
-        ],
+        "frame": [4000, 3000],
+        "anchorRevisions": [1, 1],
         "favorite": true,
         "lastUsedAt": 1760000000000
       }
@@ -943,14 +839,7 @@
       "name": "Durch die Salzsümpfe",
       "origin": "Hohenfurt",
       "destination": "Graufels",
-      "participants": [
-        "tomlin",
-        "naelmira",
-        "neil",
-        "corrin",
-        "veres",
-        "nex"
-      ],
+      "participants": ["tomlin", "naelmira", "neil", "corrin", "veres", "nex"],
       "at": 14772361020,
       "length": 40,
       "minutesPerHex": 125,
@@ -1025,10 +914,7 @@
           ]
         }
       },
-      "position": [
-        0,
-        0
-      ],
+      "position": [0, 0],
       "progress": 0,
       "revision": 0,
       "status": "active",
@@ -1055,10 +941,7 @@
       "id": "rast-1",
       "place": "Zum Lahmen Eber",
       "kind": "sleep",
-      "participants": [
-        "tomlin",
-        "neil"
-      ],
+      "participants": ["tomlin", "neil"],
       "noteId": null,
       "steps": [
         {

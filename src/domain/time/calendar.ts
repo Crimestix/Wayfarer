@@ -88,7 +88,9 @@ export function yearLength(cal: CalendarDef, year: number): number {
 export function daysBeforeYear(cal: CalendarDef, year: number): number {
   const y = year - 1;
   const leaps =
-    cal.leapRule === 'gregorian' ? Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) : 0;
+    cal.leapRule === 'gregorian'
+      ? Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400)
+      : 0;
   return commonYearLength(cal) * y + leapExtra(cal) * leaps;
 }
 
@@ -115,9 +117,11 @@ export function toTime(cal: CalendarDef, p: DateParts): WorldTime {
 }
 
 export function fromTime(cal: CalendarDef, time: WorldTime): DateInfo {
-  if (!Number.isSafeInteger(time) || time < 0) throw new Error('Zeitpunkt außerhalb des Kalenders.');
+  if (!Number.isSafeInteger(time) || time < 0)
+    throw new Error('Zeitpunkt außerhalb des Kalenders.');
   const dayIndex = Math.floor(time / MINUTES_PER_DAY);
-  const average = commonYearLength(cal) + (cal.leapRule === 'gregorian' ? leapExtra(cal) * 0.2425 : 0);
+  const average =
+    commonYearLength(cal) + (cal.leapRule === 'gregorian' ? leapExtra(cal) * 0.2425 : 0);
   let year = Math.max(1, Math.floor(dayIndex / average) + 1);
   while (daysBeforeYear(cal, year) > dayIndex) year--;
   while (daysBeforeYear(cal, year + 1) <= dayIndex) year++;
@@ -170,7 +174,11 @@ export function displayYear(cal: CalendarDef, year: number, era: EraDef = primar
 }
 
 /** Wandelt ein Jahr der Hauptzeitrechnung in ein absolutes Jahr um. */
-export function absoluteYear(cal: CalendarDef, shown: number, era: EraDef = primaryEra(cal)): number {
+export function absoluteYear(
+  cal: CalendarDef,
+  shown: number,
+  era: EraDef = primaryEra(cal),
+): number {
   return shown + era.offset;
 }
 

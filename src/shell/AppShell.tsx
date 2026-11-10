@@ -69,7 +69,11 @@ function NavRail() {
         </Link>
         <div className="wf-save" data-status={status} title={error || db.store.location}>
           <i />
-          {status === 'saved' ? 'Gespeichert' : status === 'saving' ? 'Speichert …' : 'Speichern fehlgeschlagen'}
+          {status === 'saved'
+            ? 'Gespeichert'
+            : status === 'saving'
+              ? 'Speichert …'
+              : 'Speichern fehlgeschlagen'}
         </div>
       </div>
     </nav>
@@ -162,14 +166,23 @@ function WorldBar() {
       </div>
 
       <div className="wf-bar__cell wf-bar__cell--grow">
-        <button type="button" className="wf-bar__place" onClick={openMoveParty} title="Ort der Gruppe wechseln">
+        <button
+          type="button"
+          className="wf-bar__place"
+          onClick={openMoveParty}
+          title="Ort der Gruppe wechseln"
+        >
           <MapPin />
           <span style={{ minWidth: 0 }}>
             <span className="wf-bar__place-name wf-clamp-1" style={{ display: 'block' }}>
               {place?.name ?? 'Aufenthaltsort offen'}
             </span>
             <span className="wf-bar__sub wf-clamp-1" style={{ display: 'block' }}>
-              {parent ? parent.name : place ? 'Aufenthaltsort der Gruppe' : 'Ort der Gruppe festlegen'}
+              {parent
+                ? parent.name
+                : place
+                  ? 'Aufenthaltsort der Gruppe'
+                  : 'Ort der Gruppe festlegen'}
             </span>
           </span>
         </button>
@@ -193,7 +206,13 @@ function WorldBar() {
           )}
           <ChevronDown />
         </Button>
-        <Popover open={sessionOpen} onClose={() => setSessionOpen(false)} anchor={sessionAnchor} align="right" width={260}>
+        <Popover
+          open={sessionOpen}
+          onClose={() => setSessionOpen(false)}
+          anchor={sessionAnchor}
+          align="right"
+          width={260}
+        >
           {session ? (
             <MenuItem
               onClick={() => {
@@ -216,7 +235,12 @@ function WorldBar() {
         <Button icon={<Search />} onClick={openSearch} title="Suchen (Strg+K)" aria-label="Suchen">
           <span className="wf-bar__wide">Suchen</span>
         </Button>
-        <Button variant="primary" icon={<Feather />} onClick={() => openQuickLog()} title="Festhalten (Strg+E)">
+        <Button
+          variant="primary"
+          icon={<Feather />}
+          onClick={() => openQuickLog()}
+          title="Festhalten (Strg+E)"
+        >
           Festhalten
         </Button>
       </div>

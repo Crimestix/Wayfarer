@@ -61,7 +61,9 @@ export const isManualKind = (kind: ChronicleKind): kind is ManualKind =>
 
 /** Ist die Abmachung offen und ihre Frist verstrichen? */
 export function isOverdue(entry: ChronicleEntry, now: WorldTime): boolean {
-  return !!entry.promise && !entry.promise.done && entry.promise.due !== null && entry.promise.due < now;
+  return (
+    !!entry.promise && !entry.promise.done && entry.promise.due !== null && entry.promise.due < now
+  );
 }
 
 /** Frist, die für eine neue Abmachung vorgeschlagen wird: in einer Woche, am Ende des Tages. */
@@ -73,7 +75,8 @@ export function defaultDue(now: WorldTime): WorldTime {
 export function promiseDueLabel(cal: CalendarDef, entry: ChronicleEntry, now: WorldTime): string {
   const due = entry.promise?.due ?? null;
   if (due === null) return 'Ohne Frist';
-  if (!isOverdue(entry, now)) return `Frist ${formatDayMonth(cal, due)} · ${formatRelative(now, due)}`;
+  if (!isOverdue(entry, now))
+    return `Frist ${formatDayMonth(cal, due)} · ${formatRelative(now, due)}`;
   const days = dayIndexOf(now) - dayIndexOf(due);
   const since = days === 0 ? 'Seit heute' : days === 1 ? 'Seit gestern' : `Seit ${days} Tagen`;
   return `${since} überfällig · ${formatDayMonth(cal, due)}`;
@@ -81,7 +84,9 @@ export function promiseDueLabel(cal: CalendarDef, entry: ChronicleEntry, now: Wo
 
 /** Mit wem eine Abmachung besteht: die verknüpften Einträge ohne den Ort des Geschehens. */
 export function promiseParties(data: CampaignData, entry: ChronicleEntry): string[] {
-  return entry.refs.filter((id) => id !== entry.placeId && data.entities[id]).map((id) => entityName(data, id));
+  return entry.refs
+    .filter((id) => id !== entry.placeId && data.entities[id])
+    .map((id) => entityName(data, id));
 }
 
 // ── Filter ─────────────────────────────────────────────────────────────────
@@ -123,11 +128,16 @@ export function isFilterActive(filter: ChronicleFilter): boolean {
 /** Nimmt Filter zurück, deren Session, Eintrag oder Ort es nicht mehr gibt. */
 export function sanitizeFilter(data: CampaignData, filter: ChronicleFilter): ChronicleFilter {
   const session =
-    filter.session === 'all' || filter.session === 'none' || data.sessions[filter.session] ? filter.session : 'all';
+    filter.session === 'all' || filter.session === 'none' || data.sessions[filter.session]
+      ? filter.session
+      : 'all';
   const entityId =
-    filter.entityId && filter.entityId !== PARTY_ID && !data.entities[filter.entityId] ? null : filter.entityId;
+    filter.entityId && filter.entityId !== PARTY_ID && !data.entities[filter.entityId]
+      ? null
+      : filter.entityId;
   const placeId = filter.placeId && !data.entities[filter.placeId] ? null : filter.placeId;
-  if (session === filter.session && entityId === filter.entityId && placeId === filter.placeId) return filter;
+  if (session === filter.session && entityId === filter.entityId && placeId === filter.placeId)
+    return filter;
   return { ...filter, session, entityId, placeId };
 }
 
@@ -153,7 +163,8 @@ export function buildSearchIndex(data: CampaignData): Map<string, string> {
   for (const entry of Object.values(data.chronicle)) {
     const parts = [entry.text, KIND_SHORT[entry.kind]];
     for (const id of involvedIds(entry)) parts.push(entityName(data, id));
-    if (entry.attitude) parts.push(attitudeLabel(entry.attitude.before), attitudeLabel(entry.attitude.after));
+    if (entry.attitude)
+      parts.push(attitudeLabel(entry.attitude.before), attitudeLabel(entry.attitude.after));
     index.set(entry.id, normalize(parts.join(' ')));
   }
   return index;
@@ -172,9 +183,16 @@ export function filterEntries(
   const words = normalize(filter.query).split(/\s+/).filter(Boolean);
   return entries.filter((entry) => {
     if (kinds && !kinds.has(entry.kind)) return false;
-    if (filter.openPromisesOnly && !(entry.kind === 'promise' && entry.promise && !entry.promise.done))
+    if (
+      filter.openPromisesOnly &&
+      !(entry.kind === 'promise' && entry.promise && !entry.promise.done)
+    )
       return false;
-    if (filter.session === 'none' ? entry.sessionId !== null : filter.session !== 'all' && entry.sessionId !== filter.session)
+    if (
+      filter.session === 'none'
+        ? entry.sessionId !== null
+        : filter.session !== 'all' && entry.sessionId !== filter.session
+    )
       return false;
     if (filter.entityId || placeIds) {
       const ids = involvedIds(entry);
@@ -190,10 +208,14 @@ export function filterEntries(
 }
 
 /** Welche Einträge der Weltdatenbank in diesen Chronik-Einträgen am häufigsten vorkommen. */
-export function mentionCounts(entries: ChronicleEntry[], limit = 10): { id: string; count: number }[] {
+export function mentionCounts(
+  entries: ChronicleEntry[],
+  limit = 10,
+): { id: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const entry of entries)
-    for (const id of involvedIds(entry)) if (id !== PARTY_ID) counts.set(id, (counts.get(id) ?? 0) + 1);
+    for (const id of involvedIds(entry))
+      if (id !== PARTY_ID) counts.set(id, (counts.get(id) ?? 0) + 1);
   return [...counts]
     .map(([id, count]) => ({ id, count }))
     .sort((a, b) => b.count - a.count)
@@ -298,7 +320,10 @@ export type TimelineRow =
  * Grenzen der Sessions für den Zeitstrahl. Mit `onlySessionIds` nur für Sessions, von denen
  * überhaupt etwas zu sehen ist (bei aktivem Filter).
  */
-export function sessionMarkers(spans: SessionSpan[], onlySessionIds?: Set<string>): SessionMarker[] {
+export function sessionMarkers(
+  spans: SessionSpan[],
+  onlySessionIds?: Set<string>,
+): SessionMarker[] {
   const markers: SessionMarker[] = [];
   for (const span of spans) {
     if (onlySessionIds && !onlySessionIds.has(span.session.id)) continue;
@@ -329,7 +354,8 @@ export function timelineRows(
   const items: Item[] = [];
   entries.forEach((entry, seq) => {
     const number = entry.sessionId ? numberOf.get(entry.sessionId) : undefined;
-    const group = number ?? (firstStartAt.has(entry.at) ? firstStartAt.get(entry.at)! - 0.5 : Infinity);
+    const group =
+      number ?? (firstStartAt.has(entry.at) ? firstStartAt.get(entry.at)! - 0.5 : Infinity);
     items.push({ at: entry.at, group, rank: 1, seq, row: { type: 'entry', entry } });
   });
   markers.forEach((marker, seq) =>
@@ -394,7 +420,8 @@ export function formatWorldRange(cal: CalendarDef, from: WorldTime, to: WorldTim
   const a = fromTime(cal, from);
   const b = fromTime(cal, to);
   if (from === to) return formatDateTime(cal, from);
-  if (a.dayIndex === b.dayIndex) return `${formatDate(cal, from)}, ${formatClock(from)}–${formatClock(to)}`;
+  if (a.dayIndex === b.dayIndex)
+    return `${formatDate(cal, from)}, ${formatClock(from)}–${formatClock(to)}`;
   if (a.year === b.year && a.month === b.month)
     return `${a.day}.–${b.day}. ${cal.months[a.month]!.name} ${formatYear(cal, a.year)}`;
   if (a.year === b.year) return `${formatDayMonth(cal, from)} – ${formatDate(cal, to)}`;
@@ -443,7 +470,12 @@ export function parseRealDate(input: string): string | null {
     day = Number(iso[3]);
   } else return null;
   const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  )
+    return null;
   const pad = (n: number, width = 2) => String(n).padStart(width, '0');
   return `${pad(year, 4)}-${pad(month)}-${pad(day)}`;
 }
@@ -495,7 +527,8 @@ export function lockedRefs(entry: ChronicleEntry): string[] {
     if (entry.travel.fromId) ids.push(entry.travel.fromId);
   }
   if (entry.attitude)
-    for (const id of [entry.attitude.fromId, entry.attitude.toId]) if (id !== PARTY_ID) ids.push(id);
+    for (const id of [entry.attitude.fromId, entry.attitude.toId])
+      if (id !== PARTY_ID) ids.push(id);
   return ids;
 }
 
@@ -563,7 +596,8 @@ export function entryFromDraft(draft: EntryDraft): ChronicleEntry {
 
 /** Einträge, deren Reihenfolge untereinander etwas bedeutet: alle Ortswechsel bzw. ein Haltungsverlauf. */
 function orderedGroup(data: CampaignData, entry: ChronicleEntry): ChronicleEntry[] {
-  if (entry.kind === 'travel') return Object.values(data.chronicle).filter((e) => e.kind === 'travel');
+  if (entry.kind === 'travel')
+    return Object.values(data.chronicle).filter((e) => e.kind === 'travel');
   if (entry.kind === 'attitude' && entry.attitude) {
     const { fromId, toId } = entry.attitude;
     return Object.values(data.chronicle).filter(
@@ -607,10 +641,15 @@ export function keepsOrder(data: CampaignData, entry: ChronicleEntry, at: WorldT
  * der bearbeitet wird, oder null beim Nachtragen; `at` ist null, wenn es das Datum nicht gibt.
  * Ein unveränderter Zeitpunkt wird nie beanstandet.
  */
-export function entryTimeProblem(data: CampaignData, entry: ChronicleEntry | null, at: WorldTime | null): string {
+export function entryTimeProblem(
+  data: CampaignData,
+  entry: ChronicleEntry | null,
+  at: WorldTime | null,
+): string {
   if (at === null) return 'Dieses Datum gibt es im Kalender nicht.';
   if (entry && at === entry.at) return '';
-  if (at > data.state.now) return 'Der Zeitpunkt liegt in der Zukunft. Was noch bevorsteht, gehört in den Kalender.';
+  if (at > data.state.now)
+    return 'Der Zeitpunkt liegt in der Zukunft. Was noch bevorsteht, gehört in den Kalender.';
   if (!entry || keepsOrder(data, entry, at)) return '';
   const cal = data.campaign.calendar;
   const { previous, next } = timeBounds(data, entry);
@@ -625,7 +664,8 @@ export function entryTimeProblem(data: CampaignData, entry: ChronicleEntry | nul
     : `Die Reihenfolge der Haltungsänderungen muss bleiben: Diese liegt ${range}.`;
 }
 
-const partyName = (data: CampaignData, id: string) => (id === PARTY_ID ? 'der Gruppe' : entityName(data, id));
+const partyName = (data: CampaignData, id: string) =>
+  id === PARTY_ID ? 'der Gruppe' : entityName(data, id);
 
 /** Was das Löschen eines Eintrags bedeutet – für die Rückfrage. */
 export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): string {
@@ -735,7 +775,9 @@ export function sessionSummaryText(data: CampaignData, sessionId: string): strin
     lines.push('', 'Offene Abmachungen');
     for (const entry of open) {
       const due = entry.promise!.due;
-      lines.push(`- ${entry.text.trim()}${due !== null ? ` (Frist: ${formatDate(cal, due)})` : ''}`);
+      lines.push(
+        `- ${entry.text.trim()}${due !== null ? ` (Frist: ${formatDate(cal, due)})` : ''}`,
+      );
     }
   }
   if (session.notes.trim()) lines.push('', 'Notizen', session.notes.trim());

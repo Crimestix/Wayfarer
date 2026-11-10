@@ -56,7 +56,8 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
           eventId: o.event.id,
         }),
       );
-      if (o.event.kind === 'world' && !o.event.repeat) db.patch('events', o.event.id, { done: true });
+      if (o.event.kind === 'world' && !o.event.repeat)
+        db.patch('events', o.event.id, { done: true });
     }
     for (const timer of expired) db.patch('timers', timer.id, { done: true });
     db.setState({ now: to, previousNow: from });
@@ -79,7 +80,8 @@ export function undoTimeAdvance(db: CampaignDb): boolean {
         db.patch('events', event.id, { done: false });
     }
     for (const timer of Object.values(data.timers))
-      if (timer.done && timer.end > back && timer.end <= now) db.patch('timers', timer.id, { done: false });
+      if (timer.done && timer.end > back && timer.end <= now)
+        db.patch('timers', timer.id, { done: false });
     db.setState({ now: back, previousNow: null });
   });
   return true;
@@ -93,11 +95,7 @@ export function setTime(db: CampaignDb, to: WorldTime): void {
 }
 
 /** Die Gruppe wechselt den Ort. Der Wechsel steht in der Chronik; daraus entstehen die Besuche. */
-export function moveParty(
-  db: CampaignDb,
-  toId: string | null,
-  text = '',
-): ChronicleEntry | null {
+export function moveParty(db: CampaignDb, toId: string | null, text = ''): ChronicleEntry | null {
   const data = db.getSnapshot();
   const fromId = data.state.placeId;
   if (fromId === toId) return null;
@@ -230,7 +228,8 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
   const data = db.getSnapshot();
   db.batch(() => {
     for (const relation of Object.values(data.relations))
-      if (relation.from === entityId || relation.to === entityId) db.remove('relations', relation.id);
+      if (relation.from === entityId || relation.to === entityId)
+        db.remove('relations', relation.id);
     for (const other of Object.values(data.entities)) {
       if (other.id === entityId) continue;
       if (other.kind === 'person') {
