@@ -26,8 +26,11 @@ export interface ArticleViewProps {
   projectId: string;
   /** Weitere Knöpfe rechts im Kopf, z. B. „Verknüpfung lösen“. */
   actions?: ReactNode;
-  /** Was statt des Artikels erscheint, wenn er sich nicht laden lässt. */
-  renderError: (error: LkError, retry: () => void) => ReactNode;
+  /**
+   * Was erscheint, wenn sich etwas nicht laden lässt: der ganze Artikel (`article`) oder nur
+   * der Text einer Seite, während Kopf und Steckbrief stehen bleiben (`page`).
+   */
+  renderError: (error: LkError, retry: () => void, scope: 'article' | 'page') => ReactNode;
   onOpen: (target: OpenTarget) => void;
   /** Meldet den geladenen Kopf, z. B. um einen geänderten Titel zu übernehmen. */
   onHead?: (head: ArticleHead) => void;
@@ -51,6 +54,7 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
   const head = article.load.data;
   const title = head?.title;
 
+  const [bannerBroken, setBannerBroken] = useState(false);
   const [chosenDoc, setChosenDoc] = useState<string | null>(target.documentId ?? null);
   const doc = head ? (head.pages.find((page) => page.id === chosenDoc) ?? head.pages[0] ?? null) : null;
   const docId = doc?.id ?? null;
@@ -87,7 +91,7 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
   );
 
   if (article.load.status === 'failed') {
-    return <>{renderError(article.load.error, article.reload)}</>;
+    return <>{renderError(article.load.error, article.reload, 'article')}</>;
   }
   if (!head) {
     return (
@@ -120,9 +124,14 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
 
   return (
     <article className="wf-lk-article">
-      {head.banner && (
+      {head.banner && !bannerBroken && (
         <div className="wf-lk-banner" aria-hidden>
-          <img src={head.banner.url} alt="" style={{ objectPosition: `50% ${head.banner.position}%` }} />
+          <img
+            src={head.banner.url}
+            alt=""
+            style={{ objectPosition: `50% ${head.banner.position}%` }}
+            onError={() => setBannerBroken(true)}
+          />
         </div>
       )}
 
@@ -233,26 +242,6 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
       )}
 
       <div className={cx('wf-lk-layout', !hasAside && 'wf-lk-layout--single')}>
-        <div className="wf-lk-main wf-lk-flow">
-          {!doc ? (
-            <p className="wf-lk-blank">
-              Dieser Artikel hat in LegendKeeper keine Textseite
-              {head.others.length > 0 ? ' – nur das, was unten aufgeführt ist.' : '.'}
-            </p>
-          ) : page.load.status === 'failed' ? (
-            renderError(page.load.error, page.reload)
-          ) : !body ? (
-            <Skeleton />
-          ) : body.body.length === 0 ? (
-            <p className="wf-lk-blank">
-              {hasAside
-                ? 'Diese Seite enthält in LegendKeeper keinen Fließtext – nur die Angaben daneben.'
-                : 'Diese Seite ist in LegendKeeper noch leer.'}
-            </p>
-          ) : (
-            <ArticleNodes nodes={body.body} ctx={ctx} />
-          )}
-        </div>
         {hasAside && (
           <aside className="wf-lk-aside" aria-label="Steckbrief">
             {boxed.length > 0 && (
@@ -267,6 +256,26 @@ export function ArticleView({ target, projectId, actions, renderError, onOpen, o
             )}
           </aside>
         )}
+        <div className="wf-lk-main wf-lk-flow">
+          {!doc ? (
+            <p className="wf-lk-blank">
+              Dieser Artikel hat in LegendKeeper keine Textseite
+              {head.others.length > 0 ? ' – nur das, was unten aufgeführt ist.' : '.'}
+            </p>
+          ) : page.load.status === 'failed' ? (
+            renderError(page.load.error, page.reload, 'page')
+          ) : !body ? (
+            <Skeleton />
+          ) : body.body.length === 0 ? (
+            <p className="wf-lk-blank">
+              {hasAside
+                ? 'Diese Seite enthält in LegendKeeper keinen Fließtext – nur die Angaben daneben.'
+                : 'Diese Seite ist in LegendKeeper noch leer.'}
+            </p>
+          ) : (
+            <ArticleNodes nodes={body.body} ctx={ctx} />
+          )}
+        </div>
       </div>
 
       <footer className="wf-lk-foot">

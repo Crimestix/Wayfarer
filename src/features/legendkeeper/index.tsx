@@ -59,7 +59,7 @@ function Unavailable({
     </Button>
   );
   const retry = (
-    <Button variant={view.action === 'retry' ? 'primary' : 'default'} onClick={onRetry}>
+    <Button variant={view.action === 'retry' && error.kind !== 'not-found' ? 'primary' : 'default'} onClick={onRetry}>
       Erneut versuchen
     </Button>
   );
@@ -239,7 +239,13 @@ export function LkArticlePanel({
               <span className="wf-lk-act__label">Verknüpfung lösen</span>
             </Button>
           }
-          renderError={(error, retry) => <Unavailable error={error} onRetry={retry} link={link} onUnlink={unlink} />}
+          renderError={(error, retry, scope) =>
+            scope === 'page' ? (
+              <Unavailable error={error} onRetry={retry} link={null} />
+            ) : (
+              <Unavailable error={error} onRetry={retry} link={link} onUnlink={unlink} />
+            )
+          }
         />
       </div>
     );

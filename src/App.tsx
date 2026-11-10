@@ -15,6 +15,13 @@ type Phase =
   | { kind: 'ready'; db: CampaignDb };
 
 /** Öffnet die Kampagne: in der installierten App aus dem Ordner, im Browser eine Beispielwelt. */
+/**
+ * Startet genau einmal, auch wenn React den Effekt im Entwicklungsmodus doppelt ausführt –
+ * sonst entstünde die Beispielwelt zweimal.
+ */
+let booting: Promise<Phase> | null = null;
+const bootOnce = () => (booting ??= boot());
+
 async function boot(): Promise<Phase> {
   if (isDesktopApp()) {
     const { campaignDir } = await getConfig();
@@ -48,7 +55,7 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    boot().then(
+    bootOnce().then(
       (next) => !cancelled && setPhase(next),
       (error) => !cancelled && setPhase({ kind: 'welcome', error: String(error?.message ?? error) }),
     );
@@ -72,7 +79,9 @@ export function App() {
       offClosing();
       window.removeEventListener('beforeunload', flush);
       window.removeEventListener('blur', flush);
-      db.close();
+      // Nicht schließen: Die Kampagne bleibt geöffnet, solange die App läuft. React führt diesen
+      // Effekt im Entwicklungsmodus doppelt aus; ein close() hier würde die Dateiüberwachung beenden.
+      flush();
     };
   }, [phase]);
 

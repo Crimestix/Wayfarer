@@ -29,6 +29,10 @@ klappe dort „Assets“ auf.
 Andere Dateien in der Liste brauchst du nicht. Voraussetzung ist macOS 12 (Monterey) oder neuer
 mit installierten Systemupdates bzw. Windows 10 oder 11.
 
+Steht auf der Seite noch kein Eintrag, wurde noch keine Version gebaut. Wie das geht, steht unten
+unter [Eine neue Version veröffentlichen](#eine-neue-version-veröffentlichen) – es sind drei Klicks
+auf GitHub.
+
 ### macOS
 
 1. Die `.dmg`-Datei öffnen und **Wayfarer** in den Ordner **Programme** ziehen.
@@ -95,6 +99,12 @@ Wayfarer nach diesem Ordner.
 Wayfarer merkt sich den Ordner auf jedem Rechner einzeln und öffnet ihn beim nächsten Start von
 selbst.
 
+Wayfarer **speichert von selbst**, sobald du etwas änderst; einen Speichern-Knopf gibt es nicht.
+Unten links steht „Gespeichert“, wenn alles im Ordner angekommen ist. Beim Schließen wartet
+Wayfarer, bis die letzte Änderung geschrieben ist. Gelingt das nicht – etwa weil das
+Cloud-Laufwerk gerade nicht verbunden ist –, fragt Wayfarer nach, statt die Änderungen
+stillschweigend zu verlieren.
+
 **Damit nichts durcheinandergerät:**
 
 - **Immer nur an einem Rechner gleichzeitig arbeiten.** Wayfarer am einen Rechner schließen, bevor
@@ -116,9 +126,12 @@ einmal eine „Konfliktkopie“ an, rührt Wayfarer sie nicht an und überschrei
 - *„Der Kampagnenordner … ist nicht erreichbar“* beim Start: Das Cloud-Laufwerk läuft noch nicht
   oder der Ordner wurde verschoben. Cloud-Laufwerk starten und Wayfarer neu öffnen – oder über
   „Kampagnenordner wählen“ den Ordner neu auswählen.
-- *Unten links steht dauerhaft „Speichern fehlgeschlagen“* (Windows, „Zugriff
-  verweigert“): In der Windows-Sicherheit ist vermutlich der „Überwachte Ordnerzugriff“ aktiv.
-  Dort Wayfarer als zugelassene App eintragen oder den Kampagnenordner an einen anderen Ort legen.
+- *Unten links steht „Speichern fehlgeschlagen“:* Wayfarer erreicht den Kampagnenordner gerade
+  nicht. Wayfarer **offen lassen**, das Cloud-Laufwerk wieder verbinden und in Wayfarer irgendetwas
+  ändern (zum Beispiel eine Notiz festhalten) – dann wird alles Ausstehende nachgeholt.
+  Bleibt die Meldung unter Windows dauerhaft stehen, ist in der Windows-Sicherheit vermutlich der
+  „Überwachte Ordnerzugriff“ aktiv. Dort Wayfarer als zugelassene App eintragen oder den
+  Kampagnenordner an einen anderen Ort legen.
 - Änderungen vom anderen Rechner erscheinen nicht, obwohl das Cloud-Laufwerk fertig ist: Wayfarer
   einmal schließen und wieder öffnen.
 
@@ -220,6 +233,9 @@ In der Browser-Vorschau stellt `?reset` vor dem `#` die Beispielwelt wieder her
   - `src/legendkeeper.rs` – Key im Schlüsselbund, Abruf nur per GET von der fest eingebauten Adresse
   - `src/links.rs` – fremde Adressen öffnen sich im Browser des Systems, nie im App-Fenster
   - `src/config.rs` – merkt sich den Kampagnenordner im Konfigurationsordner der App
+  - `src/window.rs` – das Hauptfenster: Größe vom letzten Mal, erst speichern und dann schließen
+    (Ereignis `close-requested`, Befehl `app_close`), kein Browser-Kontextmenü im fertigen Programm
+  - `src/menu.rs` – die deutsche Menüleiste unter macOS
   - `src/lib.rs` – die Befehle; `src/tests.rs` prüft sie so, wie die Oberfläche sie aufruft
 - Der **Vertrag** zwischen Oberfläche und Rust-Seite steht in `src/data/platform.ts`. Ein neuer
   Befehl muss an drei Stellen eingetragen werden: in `src-tauri/src/lib.rs` (Funktion und

@@ -673,6 +673,13 @@ button.wf-item:hover,
   color: var(--gold-deep);
   stroke-width: 1.2;
 }
+/* Symbole in Knöpfen eines leeren Zustands behalten die Größe und Farbe des Knopfes. */
+.wf-empty .wf-btn svg {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  stroke-width: 1.6;
+}
 .wf-empty__title {
   font-family: var(--font-display);
   font-size: var(--text-lg);
@@ -743,4 +750,16 @@ button.wf-item:hover,
   min-height: 0;
   overflow: auto;
   padding: 0 var(--s-6) var(--s-6);
+}
+
+/* Lange Namen: Marken und Auswahlfelder bleiben innerhalb ihres Rahmens. */
+.wf-badge {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-badge svg,
+.wf-picker__value svg {
+  flex: none;
 }

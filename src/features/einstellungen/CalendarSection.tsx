@@ -24,11 +24,20 @@ export function CalendarSection() {
         <SectionTitle>Monate</SectionTitle>
         <ol className="wf-einstellungen-months">
           {months.map((m) => (
-            <li key={m.index} className={cx('wf-einstellungen-month', m.current && 'wf-einstellungen-month--current')}>
+            <li
+              key={m.index}
+              className={cx(
+                'wf-einstellungen-month',
+                m.current && 'wf-einstellungen-month--current',
+              )}
+            >
               <span className="wf-einstellungen-month__no wf-num">{m.index + 1}</span>
               <span className="wf-einstellungen-month__name">{m.name}</span>
               <span className="wf-einstellungen-month__days wf-num">
-                {m.days} Tage{m.leapDays !== null && <span className="wf-mute"> · {m.leapDays} im Schaltjahr</span>}
+                {m.days} Tage
+                {m.leapDays !== null && (
+                  <span className="wf-mute"> · {m.leapDays} im Schaltjahr</span>
+                )}
               </span>
               {m.current && <span className="wf-einstellungen-now">jetzt</span>}
             </li>
@@ -59,7 +68,9 @@ export function CalendarSection() {
                 {era.year} <span className="wf-gold">{era.label}</span>
               </span>
               <span className="wf-mute">
-                {era.primary ? 'Hauptanzeige – so steht das Jahr überall in Wayfarer.' : `Beginnt ${era.relation}.`}
+                {era.primary
+                  ? 'Hauptanzeige – so steht das Jahr überall in Wayfarer.'
+                  : `Beginnt ${era.relation}.`}
               </span>
             </li>
           ))}
@@ -99,8 +110,8 @@ export function CalendarSection() {
       )}
 
       <p className="wf-einstellungen-footnote">
-        Der Kalender gehört zur Kampagne und steckt in jeder Sicherung. Ändern lässt er sich hier noch nicht; die
-        Mondphasen stellst du im Bereich „Kalender“ über „Monde stellen“ nach.
+        Der Kalender gehört zur Kampagne und steckt in jeder Sicherung. Ändern lässt er sich hier
+        noch nicht; die Mondphasen stellst du im Bereich „Kalender“ über „Monde stellen“ nach.
       </p>
     </div>
   );

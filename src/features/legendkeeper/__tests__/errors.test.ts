@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LkError, describeError, parseRetryAfter, readResponse, transportError, type LkErrorKind } from '../errors';
+import { LkError, appSentence, describeError, parseRetryAfter, readResponse, transportError, type LkErrorKind } from '../errors';
 import { fixtureText } from './fixtures';
 
 const kindOf = (run: () => unknown): LkErrorKind | 'kein Fehler' => {
@@ -75,6 +75,27 @@ describe('Fehler ohne Antwort einordnen', () => {
     const error = transportError('Die Antwort von LegendKeeper ist unerwartet groß und wurde verworfen.');
     expect(error.kind).toBe('offline');
     expect(describeError(error).text).toContain('unerwartet groß');
+  });
+
+  it('versteht dieselben Sätze, wenn sie als Error ankommen', () => {
+    expect(transportError(new Error('Es ist noch kein LegendKeeper-Key hinterlegt.')).kind).toBe('not-configured');
+    expect(transportError(new Error('LegendKeeper hat nicht rechtzeitig geantwortet.')).kind).toBe('timeout');
+    const other = transportError(new Error('Auf diesem System steht kein Schlüsselbund zur Verfügung.'));
+    expect(other.kind).toBe('offline');
+    expect(describeError(other).text).toBe('Auf diesem System steht kein Schlüsselbund zur Verfügung.');
+  });
+
+  it('erkennt den Satz der App-Seite, aber nicht Fehler des Browsers', () => {
+    expect(appSentence('  Bitte den LegendKeeper-Key eingeben. ')).toBe('Bitte den LegendKeeper-Key eingeben.');
+    expect(appSentence(new Error('Bitte den LegendKeeper-Key eingeben.'))).toBe('Bitte den LegendKeeper-Key eingeben.');
+    expect(appSentence(new TypeError('x is not a function'))).toBeUndefined();
+    expect(appSentence(new LkError('timeout'))).toBeUndefined();
+    expect(appSentence('')).toBeUndefined();
+    expect(appSentence(undefined)).toBeUndefined();
+    // Ein Fehler des Browsers wird nie wörtlich angezeigt.
+    expect(describeError(transportError(new TypeError('x is not a function'))).text).toBe(
+      'LegendKeeper ist nicht erreichbar. Besteht eine Internetverbindung?',
+    );
   });
 
   it('versteht Fehler des Browsers', () => {

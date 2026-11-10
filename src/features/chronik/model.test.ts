@@ -20,6 +20,7 @@ import { MINUTES_PER_DAY, dayIndexOf, formatDate, toTime } from '../../domain/ti
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
 import {
   EMPTY_FILTER,
+  defaultDue,
   deleteConsequence,
   draftOf,
   entryChange,
@@ -43,6 +44,7 @@ import {
   resumableSessionId,
   sanitizeFilter,
   sessionAt,
+  sessionBackfillTime,
   sessionLabel,
   sessionMarkers,
   sessionSpans,
@@ -274,6 +276,20 @@ describe('Sessions', () => {
 
     await db.flush();
     expect((await CampaignDb.open(db.store)).getSnapshot()).toEqual(db.getSnapshot());
+  });
+
+  it('schlägt beim Nachtragen zu einer Session ihr Ende vor, bei der laufenden jetzt', async () => {
+    const db = await demoDb();
+    const first = Object.values(db.getSnapshot().sessions)[0]!;
+    expect(sessionBackfillTime(db.getSnapshot(), first.id)).toBe(ELARIS_START);
+    db.setState({ now: ELARIS_START + day });
+    endSession(db);
+    db.setState({ now: ELARIS_START + 4 * day });
+    expect(sessionBackfillTime(db.getSnapshot(), first.id)).toBe(ELARIS_START + day);
+    expect(sessionBackfillTime(db.getSnapshot(), 'gibt-es-nicht')).toBe(ELARIS_START + 4 * day);
+    // Eine neue Abmachung bekommt als Vorschlag eine Woche Frist, bis zum Ende des Tages.
+    expect(formatDate(cal, defaultDue(ELARIS_START))).toBe('24. Tauwind 701 AD');
+    expect(defaultDue(ELARIS_START) % day).toBe(day - 1);
   });
 
   it('kennt keine fortsetzbare Session, solange es keine gibt', async () => {
@@ -645,9 +661,9 @@ describe('Reiner Text', () => {
     const db = await demoDb();
     const data = db.getSnapshot();
     const all = entries(db);
-    expect(entryHeadline(data, all.find((e) => e.kind === 'travel')!)).toBe('Die Gruppe erreicht Dornhafen');
+    expect(entryHeadline(data, all.find((e) => e.kind === 'travel')!)).toBe('Ankunft: Dornhafen');
     expect(entryHeadline(data, all.filter((e) => e.kind === 'travel')[1]!)).toBe(
-      'Die Gruppe erreicht Krähenmoor (von Dornhafen)',
+      'Ankunft: Krähenmoor (von Dornhafen)',
     );
     expect(entryHeadline(data, all.find((e) => e.kind === 'attitude')!)).toBe(
       'Hauptmann Voss gegenüber der Gruppe: Neutral → Ablehnend',
@@ -689,7 +705,7 @@ describe('Reiner Text', () => {
     ]);
     expect(lines[3]).toBe('');
     expect(lines[4]).toBe('Erdtag, 8. Tauwind 701 AD'.replace('Erdtag', lines[4]!.split(',')[0]!));
-    expect(lines[5]).toBe('16:00  Die Gruppe erreicht Dornhafen. Ankunft mit dem Küstensegler.');
+    expect(lines[5]).toBe('16:00  Ankunft: Dornhafen. Ankunft mit dem Küstensegler.');
     expect(text).toContain('\n\nOffene Abmachungen\n- Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt. (Frist: 19. Tauwind 701 AD)\n');
     expect(text.endsWith('\n\nNotizen\nNächstes Mal: Kessa finden.\n')).toBe(true);
     expect(text).not.toMatch(/\n\n\n/);

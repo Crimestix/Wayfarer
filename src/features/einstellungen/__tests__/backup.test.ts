@@ -36,10 +36,23 @@ describe('Sicherung: Hin- und Rückweg', () => {
     const file = createBackup(data, STAMP);
     expect(file.format).toBe(BACKUP_FORMAT);
     expect(file.version).toBe(BACKUP_VERSION);
-    expect(Object.keys(file)).toEqual(['format', 'version', 'exportedAt', 'campaign', 'state', ...COLLECTION_NAMES]);
-    for (const name of COLLECTION_NAMES) expect(file[name]).toHaveLength(Object.keys(data[name]).length);
+    expect(Object.keys(file)).toEqual([
+      'format',
+      'version',
+      'exportedAt',
+      'campaign',
+      'state',
+      ...COLLECTION_NAMES,
+    ]);
+    for (const name of COLLECTION_NAMES)
+      expect(file[name]).toHaveLength(Object.keys(data[name]).length);
     // Gleicher Stand, gleiche Datei: die Reihenfolge hängt nicht vom Zufall ab.
-    expect(serializeBackup(data, STAMP)).toBe(serializeBackup({ ...data, entities: Object.fromEntries(Object.entries(data.entities).reverse()) }, STAMP));
+    expect(serializeBackup(data, STAMP)).toBe(
+      serializeBackup(
+        { ...data, entities: Object.fromEntries(Object.entries(data.entities).reverse()) },
+        STAMP,
+      ),
+    );
   });
 
   it('übersteht den ganzen Weg: sichern, in eine andere Kampagne einspielen, speichern, neu laden', async () => {
@@ -53,7 +66,9 @@ describe('Sicherung: Hin- und Rückweg', () => {
     expect(reopened.problems).toEqual([]);
     expect(reopened.getSnapshot()).toEqual(original);
     // Von der Beispielwelt ist nichts übrig.
-    expect(entitiesOfKind(reopened.getSnapshot(), 'place').some((p) => p.name === 'Dornhafen')).toBe(false);
+    expect(
+      entitiesOfKind(reopened.getSnapshot(), 'place').some((p) => p.name === 'Dornhafen'),
+    ).toBe(false);
   });
 });
 
@@ -71,13 +86,17 @@ describe('Sicherung einspielen: Prüfung', () => {
   });
 
   it('lehnt Sicherungen aus einer neueren Version ab', () => {
-    expect(() => readBackup({ ...valid(), version: BACKUP_VERSION + 1 })).toThrow(/neueren Version/);
+    expect(() => readBackup({ ...valid(), version: BACKUP_VERSION + 1 })).toThrow(
+      /neueren Version/,
+    );
     expect(() => readBackup({ ...valid(), version: 'eins' })).toThrow(/Versionsangabe/);
     expect(() => readBackup({ ...valid(), version: 0 })).toThrow(/Versionsangabe/);
   });
 
   it('lehnt Sicherungen ohne lesbare Kampagne oder Weltzeit ab', () => {
-    expect(() => readBackup({ ...valid(), campaign: { name: 'Ohne Kalender' } })).toThrow(/Name und Kalender/);
+    expect(() => readBackup({ ...valid(), campaign: { name: 'Ohne Kalender' } })).toThrow(
+      /Name und Kalender/,
+    );
     expect(() => readBackup({ ...valid(), state: { id: 'state', now: -5 } })).toThrow(/Weltzeit/);
   });
 
@@ -85,17 +104,33 @@ describe('Sicherung einspielen: Prüfung', () => {
     const raw = valid();
     const entities = raw.entities as Record<string, unknown>[];
     const total = entities.length;
-    (entities as unknown[]).push({ ...entities[0]! }, { id: 'kaputt', kind: 'drache', name: 'Smaragd' }, 'kein Dokument');
+    (entities as unknown[]).push(
+      { ...entities[0]! },
+      { id: 'kaputt', kind: 'drache', name: 'Smaragd' },
+      'kein Dokument',
+    );
     (raw.chronicle as unknown[]).push({ id: 'ohne-zeit', text: 'Ohne Zeitangabe' });
     delete raw.timers;
     const result = readBackup(raw);
     expect(Object.keys(result.data.entities)).toHaveLength(total);
     expect(result.data.timers).toEqual({});
     expect(result.skipped).toEqual([
-      { label: `Eintrag der Welt ${total + 1} („${entities[0]!.name as string}“)`, reason: 'Die Kennung kommt doppelt vor.' },
-      { label: `Eintrag der Welt ${total + 2} („Smaragd“)`, reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.' },
-      { label: `Eintrag der Welt ${total + 3}`, reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.' },
-      { label: `Chronikeintrag ${(raw.chronicle as unknown[]).length} („Ohne Zeitangabe“)`, reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.' },
+      {
+        label: `Eintrag der Welt ${total + 1} („${entities[0]!.name as string}“)`,
+        reason: 'Die Kennung kommt doppelt vor.',
+      },
+      {
+        label: `Eintrag der Welt ${total + 2} („Smaragd“)`,
+        reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.',
+      },
+      {
+        label: `Eintrag der Welt ${total + 3}`,
+        reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.',
+      },
+      {
+        label: `Chronikeintrag ${(raw.chronicle as unknown[]).length} („Ohne Zeitangabe“)`,
+        reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.',
+      },
       { label: 'Timer', reason: 'Der ganze Bereich fehlt in der Sicherung.' },
     ]);
   });
@@ -123,7 +158,9 @@ describe('Sicherung einspielen: Prüfung', () => {
     }
     const result = readBackup(raw);
     expect(result.skipped).toEqual([]);
-    expect(Object.values(result.data.entities).every((e) => Array.isArray(e.tags) && e.secret === '')).toBe(true);
+    expect(
+      Object.values(result.data.entities).every((e) => Array.isArray(e.tags) && e.secret === ''),
+    ).toBe(true);
   });
 });
 

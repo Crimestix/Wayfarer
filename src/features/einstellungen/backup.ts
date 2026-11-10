@@ -101,7 +101,8 @@ export interface RestoreResult {
   repaired: number;
 }
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === 'object' && !Array.isArray(v);
 
 /** Prüft eine Sicherung vollständig und baut daraus den Spielstand. Wirft mit einem deutschen Satz. */
 export function readBackup(raw: unknown): RestoreResult {
@@ -122,10 +123,14 @@ export function readBackup(raw: unknown): RestoreResult {
 
   const campaign = CampaignMetaSchema.safeParse(raw.campaign);
   if (!campaign.success)
-    throw new Error('Name und Kalender der Kampagne in dieser Sicherung sind unlesbar. Sie lässt sich nicht einspielen.');
+    throw new Error(
+      'Name und Kalender der Kampagne in dieser Sicherung sind unlesbar. Sie lässt sich nicht einspielen.',
+    );
   const state = PlayStateSchema.safeParse(raw.state);
   if (!state.success)
-    throw new Error('Weltzeit und Aufenthaltsort in dieser Sicherung sind unlesbar. Sie lässt sich nicht einspielen.');
+    throw new Error(
+      'Weltzeit und Aufenthaltsort in dieser Sicherung sind unlesbar. Sie lässt sich nicht einspielen.',
+    );
 
   const skipped: SkippedDoc[] = [];
   const collections = {} as Record<CollectionName, Record<string, CollectionTypes[CollectionName]>>;
@@ -133,14 +138,20 @@ export function readBackup(raw: unknown): RestoreResult {
     const docs: Record<string, CollectionTypes[CollectionName]> = {};
     const list = raw[name];
     if (!Array.isArray(list)) {
-      skipped.push({ label: COLLECTION_LABEL[name][1], reason: 'Der ganze Bereich fehlt in der Sicherung.' });
+      skipped.push({
+        label: COLLECTION_LABEL[name][1],
+        reason: 'Der ganze Bereich fehlt in der Sicherung.',
+      });
     } else {
       const seen = new Set<string>();
       list.forEach((item, index) => {
         const label = `${COLLECTION_LABEL[name][0]} ${index + 1}`;
         const parsed = COLLECTION_SCHEMAS[name].safeParse(item);
         if (!parsed.success) {
-          skipped.push({ label: describe(label, item), reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.' });
+          skipped.push({
+            label: describe(label, item),
+            reason: 'Die Angaben sind unvollständig oder haben eine falsche Form.',
+          });
         } else if (seen.has(parsed.data.id.toLowerCase())) {
           skipped.push({ label: describe(label, item), reason: 'Die Kennung kommt doppelt vor.' });
         } else {
@@ -151,7 +162,11 @@ export function readBackup(raw: unknown): RestoreResult {
     }
     collections[name] = docs;
   }
-  const built = { campaign: campaign.data, state: state.data, ...collections } as unknown as CampaignData;
+  const built = {
+    campaign: campaign.data,
+    state: state.data,
+    ...collections,
+  } as unknown as CampaignData;
   const { data, repaired } = repairReferences(built);
   return {
     data,
@@ -163,7 +178,9 @@ export function readBackup(raw: unknown): RestoreResult {
 
 function describe(label: string, item: unknown): string {
   if (!isObj(item)) return label;
-  const name = [item.name, item.title, item.label, item.text].find((v) => typeof v === 'string' && v.trim());
+  const name = [item.name, item.title, item.label, item.text].find(
+    (v) => typeof v === 'string' && v.trim(),
+  );
   return typeof name === 'string' ? `${label} („${name.trim().slice(0, 60)}“)` : label;
 }
 
@@ -177,7 +194,9 @@ export function parseJson(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error('Die Datei lässt sich nicht lesen – sie ist beschädigt oder keine Wayfarer-Datei.');
+    throw new Error(
+      'Die Datei lässt sich nicht lesen – sie ist beschädigt oder keine Wayfarer-Datei.',
+    );
   }
 }
 
@@ -212,7 +231,13 @@ export function summarize(data: CampaignData): CampaignSummary {
 export function formatRealTime(iso: string): string {
   const date = new Date(iso);
   if (!iso || Number.isNaN(date.getTime())) return '';
-  const day = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
-  const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date);
+  const day = new Intl.DateTimeFormat('de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+  const clock = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(
+    date,
+  );
   return `${day}, ${clock} Uhr`;
 }

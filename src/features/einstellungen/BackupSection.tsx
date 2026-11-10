@@ -50,7 +50,12 @@ export function BackupSection() {
       setShown(next);
       setPending(next);
     } catch (e) {
-      toast({ title: 'Diese Datei lässt sich nicht einspielen', body: errorText(e), tone: 'danger', duration: 12000 });
+      toast({
+        title: 'Diese Datei lässt sich nicht einspielen',
+        body: errorText(e),
+        tone: 'danger',
+        duration: 12000,
+      });
     }
   });
 
@@ -58,7 +63,10 @@ export function BackupSection() {
     if (!pending) return;
     db.replaceAll(pending.result.data);
     setPending(null);
-    toast({ title: 'Sicherung eingespielt', body: `„${pending.result.data.campaign.name}“ aus ${pending.fileName}` });
+    toast({
+      title: 'Sicherung eingespielt',
+      body: `„${pending.result.data.campaign.name}“ aus ${pending.fileName}`,
+    });
   };
 
   const result = shown?.result;
@@ -80,7 +88,8 @@ export function BackupSection() {
             </Button>
           }
         >
-          Schreibt die gesamte Kampagne in eine einzige Datei – Welt, Chronik, Kalender, Gefährten, Bilder.
+          Schreibt die gesamte Kampagne in eine einzige Datei – Welt, Chronik, Kalender, Gefährten,
+          Bilder.
           {desktop && ' Du wählst den Ordner; am besten einen außerhalb des Kampagnenordners.'}
         </ActionRow>
         <ActionRow
@@ -92,8 +101,8 @@ export function BackupSection() {
             </Button>
           }
         >
-          Ersetzt den jetzigen Stand durch den einer Sicherungsdatei. Vorher siehst du, was darin steckt, und wirst
-          gefragt.
+          Ersetzt den jetzigen Stand durch den einer Sicherungsdatei. Vorher siehst du, was darin
+          steckt, und wirst gefragt.
         </ActionRow>
       </div>
       {picker.input}
@@ -108,14 +117,19 @@ export function BackupSection() {
         onConfirm={apply}
       >
         {result && result.skipped.length > 0 && (
-          <Notice tone="warn" title={`${result.skipped.length === 1 ? 'Ein Teil' : `${result.skipped.length} Teile`} der Sicherung ${result.skipped.length === 1 ? 'ist' : 'sind'} unlesbar und ${result.skipped.length === 1 ? 'wird' : 'werden'} ausgelassen`}>
+          <Notice
+            tone="warn"
+            title={`${result.skipped.length === 1 ? 'Ein Teil' : `${result.skipped.length} Teile`} der Sicherung ${result.skipped.length === 1 ? 'ist' : 'sind'} unlesbar und ${result.skipped.length === 1 ? 'wird' : 'werden'} ausgelassen`}
+          >
             <ul className="wf-einstellungen-list">
               {result.skipped.slice(0, MAX_LISTED).map((s, i) => (
                 <li key={i}>
                   {s.label} – {s.reason}
                 </li>
               ))}
-              {result.skipped.length > MAX_LISTED && <li>… und {result.skipped.length - MAX_LISTED} weitere.</li>}
+              {result.skipped.length > MAX_LISTED && (
+                <li>… und {result.skipped.length - MAX_LISTED} weitere.</li>
+              )}
             </ul>
           </Notice>
         )}

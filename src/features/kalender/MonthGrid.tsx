@@ -194,6 +194,7 @@ export function MonthGrid({
                     'wf-kal-day',
                     last && 'wf-kal-day--last',
                     !cell.inMonth && 'wf-kal-day--out',
+                    mark && 'wf-kal-day--marked',
                     cell.dayIndex < today && 'wf-kal-day--past',
                     cell.dayIndex === today && 'wf-kal-day--today',
                     isSelected && 'wf-kal-day--selected',

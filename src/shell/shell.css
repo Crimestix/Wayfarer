@@ -343,3 +343,40 @@
   font-size: var(--text-lg);
   font-weight: 600;
 }
+
+/* Schmalere Fenster (Laptop am Tisch): Weltleiste verdichten, damit nichts überläuft. */
+@media (max-width: 1599px) {
+  .wf-bar__cell {
+    padding: 0 var(--s-3);
+  }
+  .wf-bar__cell--end {
+    padding-right: var(--s-3);
+  }
+  .wf-bar__wide {
+    display: none;
+  }
+  .wf-bar__date {
+    font-size: 1.32rem;
+  }
+  .wf-bar__clock {
+    font-size: 2rem;
+  }
+  .wf-bar .wf-btn {
+    padding: 0 10px;
+  }
+  .wf-bar .wf-btn--icon {
+    padding: 0;
+  }
+}
+@media (max-width: 1365px) {
+  .wf-bar__mid {
+    display: none;
+  }
+  .wf-bar__sub {
+    letter-spacing: 0.1em;
+  }
+  .wf-bar__moons svg {
+    width: 18px;
+    height: 18px;
+  }
+}

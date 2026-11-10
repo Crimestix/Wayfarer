@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   attitudeHistory,
   attitudeToParty,
@@ -218,5 +218,29 @@ describe('Zeit', () => {
     expect(
       searchEntities(db.getSnapshot(), 'dusk', { kinds: ['person'] }).map((e) => e.name),
     ).toEqual(['Maera Duskryn', 'Hauptmann Voss']); // Voss nur über die Kurzbeschreibung
+  });
+});
+
+describe('Speichern', () => {
+  it('versucht nach einem Fehler von selbst erneut zu speichern', async () => {
+    vi.useFakeTimers();
+    try {
+      const { store, db } = await demoDb();
+      const write = store.write.bind(store);
+      let fail = true;
+      store.write = async (path, content) => {
+        if (fail) throw new Error('Laufwerk nicht erreichbar');
+        return write(path, content);
+      };
+      db.setState({ placeId: null });
+      await vi.advanceTimersByTimeAsync(300);
+      expect(db.getStatus()).toBe('error');
+      fail = false;
+      await vi.advanceTimersByTimeAsync(5100);
+      expect(db.getStatus()).toBe('saved');
+      expect(JSON.parse(store.files.get('state.json')!).placeId).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

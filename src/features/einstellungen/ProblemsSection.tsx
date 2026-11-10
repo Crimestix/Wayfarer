@@ -19,7 +19,9 @@ export function ProblemsSection() {
       <div className="wf-einstellungen-problems">
         {problems.map((p) => (
           <div key={p.path} className="wf-einstellungen-problem">
-            <div className="wf-einstellungen-problem__icon">{p.kind === 'conflict' ? <Copy /> : <FileWarning />}</div>
+            <div className="wf-einstellungen-problem__icon">
+              {p.kind === 'conflict' ? <Copy /> : <FileWarning />}
+            </div>
             <div className="wf-grow">
               <div className="wf-einstellungen-problem__head">
                 <span className="wf-einstellungen-path">{p.path}</span>
@@ -40,15 +42,17 @@ export function ProblemsSection() {
       </div>
       <div className="wf-einstellungen-help">
         <p>
-          <strong>Was ist passiert?</strong> Ändern zwei Rechner dieselbe Datei, bevor das Cloud-Laufwerk abgeglichen
-          hat, legt es eine zweite Datei daneben – eine Konfliktkopie, oft mit einem Zusatz wie „(Konflikt)“, „(1)“
-          oder dem Namen des Rechners. Wayfarer lädt solche Dateien nicht und überschreibt oder löscht sie nie.
+          <strong>Was ist passiert?</strong> Ändern zwei Rechner dieselbe Datei, bevor das
+          Cloud-Laufwerk abgeglichen hat, legt es eine zweite Datei daneben – eine Konfliktkopie,
+          oft mit einem Zusatz wie „(Konflikt)“, „(1)“ oder dem Namen des Rechners. Wayfarer lädt
+          solche Dateien nicht und überschreibt oder löscht sie nie.
         </p>
         <p>
-          <strong>Was tun?</strong> Wayfarer schließen und die genannte Datei im Kampagnenordner suchen. Ist die Kopie
-          die ältere Fassung, kannst du sie löschen. Ist sie die neuere, benenne sie auf den Namen der Datei ohne
-          Zusatz um und ersetze diese damit. Beim nächsten Start verschwindet die Meldung. Im Zweifel vorher unter
-          „Sicherung“ den jetzigen Stand sichern.
+          <strong>Was tun?</strong> Wayfarer schließen und die genannte Datei im Kampagnenordner
+          suchen. Ist die Kopie die ältere Fassung, kannst du sie löschen. Ist sie die neuere,
+          benenne sie auf den Namen der Datei ohne Zusatz um und ersetze diese damit. Beim nächsten
+          Start verschwindet die Meldung. Im Zweifel vorher unter „Sicherung“ den jetzigen Stand
+          sichern.
         </p>
       </div>
     </div>

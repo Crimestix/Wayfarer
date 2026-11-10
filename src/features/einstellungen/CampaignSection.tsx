@@ -5,7 +5,7 @@ import { CampaignDb, CampaignMissingError } from '../../data/db';
 import { useData, useDb } from '../../data/hooks';
 import { FolderStore, isDesktopApp, pickFolder, setConfig } from '../../data/platform';
 import { demoCampaign } from '../../data/seed';
-import { Button, Dialog, Field, Input, confirmDialog, toast } from '../../ui';
+import { Button, Dialog, Field, Input, toast } from '../../ui';
 import { errorText } from './files';
 import { CAMPAIGN_NAME_MAX, cleanCampaignName, isInsideFolder } from './model';
 import { ActionRow, Notice } from './parts';
@@ -92,7 +92,10 @@ function FolderSwitch() {
 
   const switchTo = async (folder: string) => {
     await db.flush();
-    if (db.hasUnsavedChanges()) throw new Error('Die letzten Änderungen sind noch nicht gespeichert. Bitte gleich noch einmal versuchen.');
+    if (db.hasUnsavedChanges())
+      throw new Error(
+        'Die letzten Änderungen sind noch nicht gespeichert. Bitte gleich noch einmal versuchen.',
+      );
     await setConfig({ campaignDir: folder });
     window.location.reload();
   };
@@ -134,7 +137,8 @@ function FolderSwitch() {
           </Button>
         }
       >
-        Öffnet eine andere Kampagne – oder nimmt diese mit in einen neuen Ordner, etwa in dein Cloud-Laufwerk.
+        Öffnet eine andere Kampagne – oder nimmt diese mit in einen neuen Ordner, etwa in dein
+        Cloud-Laufwerk.
       </ActionRow>
       <Dialog
         open={emptyFolder !== null}
@@ -147,11 +151,19 @@ function FolderSwitch() {
           <p className="wf-soft">
             <span className="wf-gold wf-einstellungen-path">{emptyFolder}</span>
           </p>
-          <button type="button" className="wf-einstellungen-choice" onClick={copyThere} disabled={busy} data-autofocus>
-            <span className="wf-einstellungen-choice__title">„{data.campaign.name}“ dorthin mitnehmen</span>
+          <button
+            type="button"
+            className="wf-einstellungen-choice"
+            onClick={copyThere}
+            disabled={busy}
+            data-autofocus
+          >
+            <span className="wf-einstellungen-choice__title">
+              „{data.campaign.name}“ dorthin mitnehmen
+            </span>
             <span className="wf-mute">
-              Kopiert den gesamten Spielstand in den neuen Ordner und arbeitet ab jetzt dort. Der bisherige Ordner
-              bleibt unverändert liegen.
+              Kopiert den gesamten Spielstand in den neuen Ordner und arbeitet ab jetzt dort. Der
+              bisherige Ordner bleibt unverändert liegen.
             </span>
           </button>
           <button
@@ -162,8 +174,8 @@ function FolderSwitch() {
           >
             <span className="wf-einstellungen-choice__title">Dort etwas Neues beginnen</span>
             <span className="wf-mute">
-              Wechselt zum Startbildschirm. Dort wählst du den Ordner noch einmal und beginnst eine neue Kampagne oder
-              übernimmst den Spielstand der alten Version.
+              Wechselt zum Startbildschirm. Dort wählst du den Ordner noch einmal und beginnst eine
+              neue Kampagne oder übernimmst den Spielstand der alten Version.
             </span>
           </button>
         </div>
@@ -176,14 +188,9 @@ export function CampaignSection() {
   const db = useDb();
   const desktop = isDesktopApp();
 
-  const resetDemo = async () => {
-    const ok = await confirmDialog({
-      title: 'Beispielwelt zurücksetzen?',
-      body: 'Alles, was du in der Vorschau geändert hast, geht verloren. Die Beispielwelt beginnt wieder am 17. Tauwind 701 AD.',
-      confirmLabel: 'Zurücksetzen',
-      danger: true,
-    });
-    if (!ok) return;
+  const [resetOpen, setResetOpen] = useState(false);
+  const resetDemo = () => {
+    setResetOpen(false);
     db.replaceAll(demoCampaign());
     toast({ title: 'Beispielwelt zurückgesetzt' });
   };
@@ -203,9 +210,10 @@ export function CampaignSection() {
         <>
           <FolderSwitch />
           <Notice icon={<Cloud />} title="Ein Spielstand auf Mac und Windows">
-            Liegt der Ordner in einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud), arbeiten alle deine
-            Rechner mit demselben Spielstand. Öffne Wayfarer immer nur auf einem Rechner zur selben Zeit und warte nach
-            dem Schließen, bis das Laufwerk fertig abgeglichen hat – sonst legt es Konfliktkopien an.
+            Liegt der Ordner in einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud),
+            arbeiten alle deine Rechner mit demselben Spielstand. Öffne Wayfarer immer nur auf einem
+            Rechner zur selben Zeit und warte nach dem Schließen, bis das Laufwerk fertig
+            abgeglichen hat – sonst legt es Konfliktkopien an.
           </Notice>
         </>
       ) : (
@@ -213,16 +221,36 @@ export function CampaignSection() {
           icon={<FlaskConical />}
           title="Vorschau im Browser mit Beispielwelt"
           action={
-            <Button icon={<RotateCcw />} onClick={resetDemo}>
+            <Button icon={<RotateCcw />} onClick={() => setResetOpen(true)}>
               Beispielwelt zurücksetzen
             </Button>
           }
         >
-          Orte und Personen hier sind erfunden. Änderungen bleiben nur in diesem Browser. Erst die installierte App
-          speichert die Kampagne als Ordner – auf Wunsch im Cloud-Laufwerk, damit Mac und Windows denselben Spielstand
-          haben.
+          Orte und Personen hier sind erfunden. Änderungen bleiben nur in diesem Browser. Erst die
+          installierte App speichert die Kampagne als Ordner – auf Wunsch im Cloud-Laufwerk, damit
+          Mac und Windows denselben Spielstand haben.
         </Notice>
       )}
+
+      <Dialog
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        title="Beispielwelt zurücksetzen?"
+        width={480}
+        footer={
+          <>
+            <Button onClick={() => setResetOpen(false)}>Abbrechen</Button>
+            <Button variant="danger" onClick={resetDemo} data-autofocus>
+              Zurücksetzen
+            </Button>
+          </>
+        }
+      >
+        <p className="wf-soft">
+          Alles, was du in der Vorschau geändert hast, geht verloren. Die Beispielwelt beginnt
+          wieder am 17. Tauwind 701 AD.
+        </p>
+      </Dialog>
     </div>
   );
 }

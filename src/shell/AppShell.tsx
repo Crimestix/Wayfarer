@@ -124,8 +124,15 @@ function WorldBar() {
           <Button onClick={() => pass(60)} title="1 Stunde vergehen lassen">
             +1 Std.
           </Button>
-          <Button ref={moreAnchor} onClick={() => setMoreOpen((o) => !o)} icon={<Hourglass />} aria-haspopup="menu">
-            Zeit <ChevronDown />
+          <Button
+            ref={moreAnchor}
+            onClick={() => setMoreOpen((o) => !o)}
+            icon={<Hourglass />}
+            aria-haspopup="menu"
+            aria-label="Zeit vergehen lassen"
+            title="Rast, bis zum Morgen, andere Dauer …"
+          >
+            <span className="wf-bar__mid">Zeit</span> <ChevronDown />
           </Button>
           <IconButton
             label="Letzten Zeitsprung zurücknehmen"
@@ -174,8 +181,16 @@ function WorldBar() {
           variant="ghost"
           onClick={() => setSessionOpen((o) => !o)}
           icon={session ? <i className="wf-session-dot" /> : undefined}
+          title={session ? `Session ${session.number} läuft` : 'Keine Session läuft'}
         >
-          {session ? `Session ${session.number}` : 'Keine Session'}
+          {session ? (
+            <>
+              <span className="wf-bar__mid">Session&nbsp;</span>
+              {session.number}
+            </>
+          ) : (
+            'Keine Session'
+          )}
           <ChevronDown />
         </Button>
         <Popover open={sessionOpen} onClose={() => setSessionOpen(false)} anchor={sessionAnchor} align="right" width={260}>
@@ -198,8 +213,8 @@ function WorldBar() {
             Neue Session beginnen
           </MenuItem>
         </Popover>
-        <Button icon={<Search />} onClick={openSearch} title="Suchen (Strg+K)">
-          Suchen
+        <Button icon={<Search />} onClick={openSearch} title="Suchen (Strg+K)" aria-label="Suchen">
+          <span className="wf-bar__wide">Suchen</span>
         </Button>
         <Button variant="primary" icon={<Feather />} onClick={() => openQuickLog()} title="Festhalten (Strg+E)">
           Festhalten

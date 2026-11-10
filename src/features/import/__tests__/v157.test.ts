@@ -44,7 +44,15 @@ import minimalBackup from '../__fixtures__/v157-minimal.json';
 import fullBackup from '../__fixtures__/v157-voll.json';
 import legacyTime from '../__fixtures__/v157-zeit.json';
 import { repairReferences } from '../integrity';
-import { LEGACY_OPINIONS, LEGACY_PARTY, importV157Backup, opinionToAttitude } from '../v157';
+import {
+  LEGACY_OPINIONS,
+  LEGACY_PARTY,
+  importV157Backup,
+  lastImport,
+  opinionToAttitude,
+  previewV157Backup,
+  rememberImport,
+} from '../v157';
 
 type Legacy = Record<string, unknown> & typeof fullBackup;
 const full = (): Legacy => structuredClone(fullBackup) as Legacy;
@@ -85,7 +93,13 @@ describe('Weltzeit: alte und neue Version rechnen gleich', () => {
     expect(legacyTime.samples.length).toBeGreaterThan(250);
     const era = ELARIS_CALENDAR.eras[0]!;
     for (const s of legacyTime.samples) {
-      const parts = { year: s.year + era.offset, month: s.month, day: s.day, hour: s.hour, minute: s.minute };
+      const parts = {
+        year: s.year + era.offset,
+        month: s.month,
+        day: s.day,
+        hour: s.hour,
+        minute: s.minute,
+      };
       expect(toTime(ELARIS_CALENDAR, parts)).toBe(s.stamp);
       const back = fromTime(ELARIS_CALENDAR, s.stamp);
       expect(back).toMatchObject({ ...parts, year: s.cosmic, weekday: s.weekday });
@@ -96,16 +110,18 @@ describe('Weltzeit: alte und neue Version rechnen gleich', () => {
   });
 
   it('die Monde haben dieselbe Umlaufzeit und denselben Bezugspunkt', () => {
-    expect(ELARIS_CALENDAR.moons.map(({ id, period, anchor }) => ({ id, period, shift: anchor }))).toEqual(
-      legacyTime.moons,
-    );
+    expect(
+      ELARIS_CALENDAR.moons.map(({ id, period, anchor }) => ({ id, period, shift: anchor })),
+    ).toEqual(legacyTime.moons);
   });
 
   it('übernimmt die aktuelle Weltzeit und den letzten Zeitsprung unverändert', () => {
     const { data } = importV157Backup(full());
     expect(data.state.now).toBe(fullBackup.now);
     expect(data.state.previousNow).toBe(fullBackup.previous);
-    expect(formatDateTime(data.campaign.calendar, data.state.now)).toBe('19. Tauwind 701 AD, 21:00');
+    expect(formatDateTime(data.campaign.calendar, data.state.now)).toBe(
+      '19. Tauwind 701 AD, 21:00',
+    );
   });
 });
 
@@ -121,7 +137,9 @@ describe('Vollständiges Backup', () => {
     expect(reopened.problems).toEqual([]);
     expect(reopened.getSnapshot()).toEqual(db.getSnapshot());
     expect(data.campaign.name).toBe('Elaris');
-    expect(data.campaign.calendar.months.map((m) => m.name)).toEqual(ELARIS_CALENDAR.months.map((m) => m.name));
+    expect(data.campaign.calendar.months.map((m) => m.name)).toEqual(
+      ELARIS_CALENDAR.months.map((m) => m.name),
+    );
   });
 
   it('übernimmt die Orte mit Gliederung, Beschreibung, Schlagworten und LegendKeeper-Verknüpfung', () => {
@@ -138,9 +156,18 @@ describe('Vollständiges Backup', () => {
       'Aschenmark › Hohenfurt › Zum Lahmen Eber',
     );
     const mark = byName(data, 'place', 'Aschenmark');
-    expect(mark).toMatchObject({ aliases: ['Die Mark'], tags: ['Grenzland'], place: { category: 'Grafschaft' } });
-    expect(mark.notes).toBe('Karges Hügelland zwischen Fluss und Salzsümpfen.\n\nEinordnung: Territorium');
-    expect(byName(data, 'place', 'Hohenfurt').lk).toEqual({ resourceId: 'lkres-hohenfurt', title: '' });
+    expect(mark).toMatchObject({
+      aliases: ['Die Mark'],
+      tags: ['Grenzland'],
+      place: { category: 'Grafschaft' },
+    });
+    expect(mark.notes).toBe(
+      'Karges Hügelland zwischen Fluss und Salzsümpfen.\n\nEinordnung: Territorium',
+    );
+    expect(byName(data, 'place', 'Hohenfurt').lk).toEqual({
+      resourceId: 'lkres-hohenfurt',
+      title: '',
+    });
     expect(byName(data, 'place', 'Alte Salzstraße').place.category).toBe('Reiseabschnitt');
     // Alte Kennungen bleiben erhalten, wo sie gültig sind.
     expect(mark.id).toBe('p-mark');
@@ -154,7 +181,9 @@ describe('Vollständiges Backup', () => {
 
   it('setzt räumliche Zuordnungen der Weltdatenbank als übergeordneten Ort', () => {
     // „Aschenmark enthält Wachturm Graufels“ – der Turm hatte keinen Navigations-Elternort.
-    expect(placePath(data, byName(data, 'place', 'Wachturm Graufels').id)).toBe('Aschenmark › Wachturm Graufels');
+    expect(placePath(data, byName(data, 'place', 'Wachturm Graufels').id)).toBe(
+      'Aschenmark › Wachturm Graufels',
+    );
   });
 
   it('leitet aus den Besuchen die Ortswechsel der Chronik und den Aufenthaltsort ab', () => {
@@ -178,7 +207,9 @@ describe('Vollständiges Backup', () => {
     ]);
     expect(placeStatus(data, turm.id).here).toBe(true);
     expect(placeStatus(data, hohenfurt.id).lastLeft).toBe(T0 + DAY + 9 * 60);
-    const arrival = Object.values(data.chronicle).find((e) => e.kind === 'travel' && e.at === T0 + DAY + 15 * 60)!;
+    const arrival = Object.values(data.chronicle).find(
+      (e) => e.kind === 'travel' && e.at === T0 + DAY + 15 * 60,
+    )!;
     expect(arrival.text).toBe('Ankunft: Reise nach Graufels');
     expect(arrival.travel).toEqual({ fromId: strasse.id, toId: turm.id });
   });
@@ -230,7 +261,9 @@ describe('Vollständiges Backup', () => {
   it('arbeitet Stammdaten eines Gefährten aus der Weltdatenbank in dessen Eintrag ein', () => {
     const veres = byName(data, 'character', 'Veres');
     expect(veres.character).toMatchObject({ species: 'Halbelf', armorClass: 19 });
-    expect(veres.notes).toBe('Schwur am Furtstein.\n\nAufgewachsen an der Furt.\n\nHeimat: Hohenfurt');
+    expect(veres.notes).toBe(
+      'Schwur am Furtstein.\n\nAufgewachsen an der Furt.\n\nHeimat: Hohenfurt',
+    );
     expect(entitiesOfKind(data, 'person').some((p) => p.name === 'Veres')).toBe(false);
   });
 
@@ -266,7 +299,9 @@ describe('Vollständiges Backup', () => {
         'Ziele: Den Turm halten, bis Ablösung kommt.',
       ].join('\n'),
     );
-    expect(byName(data, 'person', 'Edda Venn').notes).toContain('Geschätztes Alter: 70 Jahre (Stand 1. Erntfall 700 AD)');
+    expect(byName(data, 'person', 'Edda Venn').notes).toContain(
+      'Geschätztes Alter: 70 Jahre (Stand 1. Erntfall 700 AD)',
+    );
     expect(byName(data, 'person', 'Der Fährmann').person.met).toBe(false);
 
     expect(byName(data, 'faction', 'Graufelser Wacht')).toMatchObject({
@@ -300,9 +335,17 @@ describe('Vollständiges Backup', () => {
     };
     const ardo = id('person', 'Ardo Venn');
     const wacht = id('faction', 'Graufelser Wacht');
-    expect(rel(ardo, wacht)).toEqual({ type: 'member', label: '', note: 'Hauptmann', attitude: null });
+    expect(rel(ardo, wacht)).toEqual({
+      type: 'member',
+      label: '',
+      note: 'Hauptmann',
+      attitude: null,
+    });
     expect(rel(ardo, id('faction', 'Familie Venn')).type).toBe('member');
-    expect(rel(ardo, id('place', 'Wachturm Graufels'))).toMatchObject({ type: 'resides', note: 'Arbeitsort' });
+    expect(rel(ardo, id('place', 'Wachturm Graufels'))).toMatchObject({
+      type: 'resides',
+      note: 'Arbeitsort',
+    });
     expect(rel(id('person', 'Edda Venn'), ardo)).toMatchObject({
       type: 'family',
       note: 'Edda Venn ist die Mutter von Ardo Venn.',
@@ -312,8 +355,14 @@ describe('Vollständiges Backup', () => {
       label: 'Vormundschaft',
       note: 'Ilse Kornblum betreut Der Fährmann.',
     });
-    expect(rel(wacht, id('place', 'Aschenmark'))).toMatchObject({ type: 'resides', note: 'Wirkungsgebiet' });
-    expect(rel(wacht, id('faction', 'Salzgilde'))).toMatchObject({ type: 'custom', label: 'verbunden mit' });
+    expect(rel(wacht, id('place', 'Aschenmark'))).toMatchObject({
+      type: 'resides',
+      note: 'Wirkungsgebiet',
+    });
+    expect(rel(wacht, id('faction', 'Salzgilde'))).toMatchObject({
+      type: 'custom',
+      label: 'verbunden mit',
+    });
     expect(rel(id('faction', 'Zollstube'), id('faction', 'Salzgilde'))).toMatchObject({
       type: 'member',
       note: 'Teilorganisation',
@@ -341,6 +390,7 @@ describe('Vollständiges Backup', () => {
     expect(findRelation(data, ardo.id, 'tomlin')?.attitude).toBe(-2);
     // Ilse (LegendKeeper-NPC mit Stammdaten): Gruppe 4 → +1; Tomlin 5 → +2, Neil 3 → −1 aus npcOpinions.
     expect(ilse.lk).toEqual({ resourceId: 'lkres-ilse', title: '' });
+    expect(ilse.person.met).toBe(true);
     expect(attitudeToParty(data, ilse.id)).toBe(1);
     expect(findRelation(data, ilse.id, 'tomlin')?.attitude).toBe(2);
     expect(findRelation(data, ilse.id, 'neil')?.attitude).toBe(-1);
@@ -349,13 +399,23 @@ describe('Vollständiges Backup', () => {
 
   it('legt Personen an, die es nur als LegendKeeper-Verweis gab – ohne Namen zu erfinden', () => {
     const unnamed = entitiesOfKind(data, 'person').filter((p) => p.tags.includes('Name fehlt'));
-    expect(unnamed.map((p) => p.lk?.resourceId).sort()).toEqual(['lkres-bote', 'lkres-fremder', 'lkres-zoellner']);
-    for (const p of unnamed) {
+    expect(unnamed.map((p) => p.lk?.resourceId).sort()).toEqual([
+      'lkres-bote',
+      'lkres-fremder',
+      'lkres-zoellner',
+    ]);
+    for (const p of unnamed)
       expect(p.name).toBe(`Person aus LegendKeeper (${p.lk!.resourceId.slice(0, 8)})`);
-      expect(p.person.met).toBe(true);
-    }
+    // „Der Gruppe bekannt“ war eine eigene Angabe der alten Version – unabhängig von Meinungen.
+    expect(Object.fromEntries(unnamed.map((p) => [p.lk!.resourceId, p.person.met]))).toEqual({
+      'lkres-bote': true,
+      'lkres-fremder': true,
+      'lkres-zoellner': false,
+    });
     // „lkres-geruecht“ stand nur als „nicht bekannt“ im Backup: dafür entsteht kein Eintrag.
-    expect(Object.values(data.entities).some((e) => e.lk?.resourceId === 'lkres-geruecht')).toBe(false);
+    expect(Object.values(data.entities).some((e) => e.lk?.resourceId === 'lkres-geruecht')).toBe(
+      false,
+    );
     // Alle sechs Gefährten hatten dieselbe Meinung (2 „Abneigung“): das ist die Haltung zur Gruppe.
     const fremder = unnamed.find((p) => p.lk!.resourceId === 'lkres-fremder')!;
     expect(attitudeToParty(data, fremder.id)).toBe(-2);
@@ -363,7 +423,12 @@ describe('Vollständiges Backup', () => {
     // Beim Zöllner wurde die einzige Meinung zurückgenommen: keine Beziehung, aber der Verlauf bleibt.
     const zoellner = unnamed.find((p) => p.lk!.resourceId === 'lkres-zoellner')!;
     expect(Object.values(data.relations).some((r) => r.from === zoellner.id)).toBe(false);
-    expect(attitudeHistory(data, zoellner.id, 'corrin').map((e) => [e.attitude!.before, e.attitude!.after])).toEqual([
+    expect(
+      attitudeHistory(data, zoellner.id, 'corrin').map((e) => [
+        e.attitude!.before,
+        e.attitude!.after,
+      ]),
+    ).toEqual([
       [null, 3],
       [3, null],
     ]);
@@ -373,14 +438,34 @@ describe('Vollständiges Backup', () => {
     const ilse = byName(data, 'person', 'Ilse Kornblum');
     const history = attitudeHistory(data, ilse.id, 'tomlin');
     expect(history.map((e) => ({ at: e.at, text: e.text, ...e.attitude }))).toEqual([
-      { at: T0 + 60, text: 'Tomlin hat die Zeche bezahlt.', fromId: ilse.id, toId: 'tomlin', before: null, after: 1 },
-      { at: T0 + DAY, text: 'Er hat ihren Sohn geheilt.', fromId: ilse.id, toId: 'tomlin', before: 1, after: 2 },
+      {
+        at: T0 + 60,
+        text: 'Tomlin hat die Zeche bezahlt.',
+        fromId: ilse.id,
+        toId: 'tomlin',
+        before: null,
+        after: 1,
+      },
+      {
+        at: T0 + DAY,
+        text: 'Er hat ihren Sohn geheilt.',
+        fromId: ilse.id,
+        toId: 'tomlin',
+        before: 1,
+        after: 2,
+      },
     ]);
     expect(history[0]!.refs).toEqual([ilse.id, 'tomlin']);
     // Die echte Entstehungszeit bleibt für die Reihenfolge erhalten.
     expect(history[0]!.created).toBe(new Date(1760000100000).toISOString());
     const fremder = Object.values(data.entities).find((e) => e.lk?.resourceId === 'lkres-fremder')!;
-    expect(attitudeHistory(data, fremder.id, PARTY_ID).map((e) => [e.attitude!.before, e.attitude!.after, e.refs])).toEqual([
+    expect(
+      attitudeHistory(data, fremder.id, PARTY_ID).map((e) => [
+        e.attitude!.before,
+        e.attitude!.after,
+        e.refs,
+      ]),
+    ).toEqual([
       [null, -1, [fremder.id]],
       [-1, -2, [fremder.id]],
     ]);
@@ -390,15 +475,26 @@ describe('Vollständiges Backup', () => {
     const ilse = byName(data, 'person', 'Ilse Kornblum');
     const fremder = Object.values(data.entities).find((e) => e.lk?.resourceId === 'lkres-fremder')!;
     const note = Object.values(data.chronicle).find((e) => e.kind === 'note')!;
-    expect(note).toMatchObject({ text: 'Ilse kennt den alten Schmugglerpfad.', at: T0 + 70, refs: [ilse.id], promise: null });
+    expect(note).toMatchObject({
+      text: 'Ilse kennt den alten Schmugglerpfad.',
+      at: T0 + 70,
+      refs: [ilse.id],
+      promise: null,
+    });
     const open = openPromises(data);
     expect(open.map((e) => e.text)).toEqual([
       'Schuld: 12 Goldstücke Spielschuld.',
       'Zusage: Nachricht von ihrem Bruder aus Graufels mitbringen.',
       'Gefallen: Ein freies Zimmer, wann immer sie zurückkehren.',
     ]);
-    expect(open[0]).toMatchObject({ refs: [fremder.id, 'neil'], promise: { due: fullBackup.now - DAY, done: false } });
-    expect(open[1]).toMatchObject({ refs: [ilse.id, 'tomlin', 'veres'], promise: { due: fullBackup.now + 5 * DAY, done: false } });
+    expect(open[0]).toMatchObject({
+      refs: [fremder.id, 'neil'],
+      promise: { due: fullBackup.now - DAY, done: false },
+    });
+    expect(open[1]).toMatchObject({
+      refs: [ilse.id, 'tomlin', 'veres'],
+      promise: { due: fullBackup.now + 5 * DAY, done: false },
+    });
     // Betraf es die ganze Gruppe, steht nur die Person in den Beteiligten.
     expect(open[2]).toMatchObject({ refs: [ilse.id], promise: { due: null, done: false } });
     const done = Object.values(data.chronicle).filter((e) => e.promise?.done);
@@ -429,7 +525,12 @@ describe('Vollständiges Backup', () => {
     });
     expect(event('Wachwechsel am Tor').repeat).toEqual({ every: 2, unit: 'week' });
     expect(event('Zoll bezahlen').done).toBe(true);
-    expect(event('Der Graue Fang legt ab')).toMatchObject({ id: 'grauer-fang', kind: 'world', timed: false, done: false });
+    expect(event('Der Graue Fang legt ab')).toMatchObject({
+      id: 'grauer-fang',
+      kind: 'world',
+      timed: false,
+      done: false,
+    });
     // Die Termine greifen in der neuen Kalenderrechnung: heute der Graue Fang, morgen das Treffen,
     // in drei Tagen der Markt.
     expect(upcomingOccurrences(data, 4).map((o) => o.event.title)).toEqual([
@@ -448,9 +549,17 @@ describe('Vollständiges Backup', () => {
         title: '',
         startAt: T0,
         endAt: T0 + DAY + 8 * 60,
-        notes: 'Ankunft in Hohenfurt. Die Wache am Tor war nervös.\n\nIlse Kornblum bot ein Zimmer an.',
+        notes:
+          'Ankunft in Hohenfurt. Die Wache am Tor war nervös.\n\nIlse Kornblum bot ein Zimmer an.',
       },
-      { id: 'session13', number: 13, title: 'Der Turm im Nebel', startAt: T0 + DAY + 8 * 60, endAt: null, notes: 'Aufbruch zur Salzstraße.' },
+      {
+        id: 'session13',
+        number: 13,
+        title: 'Der Turm im Nebel',
+        startAt: T0 + DAY + 8 * 60,
+        endAt: null,
+        notes: 'Aufbruch zur Salzstraße.',
+      },
     ]);
     expect(data.state.sessionId).toBe('session13');
     const rumours = byName(data, 'topic', 'Gerüchte in Hohenfurt');
@@ -465,7 +574,8 @@ describe('Vollständiges Backup', () => {
 
   it('ordnet Chronikeinträge der Session zu, in deren Zeitraum sie fallen', () => {
     for (const entry of Object.values(data.chronicle)) {
-      const expected = entry.at < T0 ? null : entry.at < T0 + DAY + 8 * 60 ? 'session12' : 'session13';
+      const expected =
+        entry.at < T0 ? null : entry.at < T0 + DAY + 8 * 60 ? 'session12' : 'session13';
       expect(entry.sessionId).toBe(expected);
     }
     expect(Object.values(data.chronicle).filter((e) => e.sessionId === null)).toHaveLength(2);
@@ -489,7 +599,12 @@ describe('Vollständiges Backup', () => {
       done: true,
     });
     // Ganze Gruppe: keine einzelnen Beteiligten. Abgelaufen: erledigt.
-    expect(timer('Reise nach Graufels')).toMatchObject({ kind: 'task', refs: [], note: 'Reise · Ziel / Ort: Wachturm Graufels', done: true });
+    expect(timer('Reise nach Graufels')).toMatchObject({
+      kind: 'task',
+      refs: [],
+      note: 'Reise · Ziel / Ort: Wachturm Graufels',
+      done: true,
+    });
     expect(runningTimers(data).map((t) => t.label)).toEqual(['Fackel', 'Unsichtbarkeit']);
   });
 
@@ -534,6 +649,9 @@ describe('Vollständiges Backup', () => {
       'Hass → Feindselig (−3), Abneigung → Ablehnend (−2), Skepsis → Misstrauisch (−1), Wohlwollen → Wohlgesonnen (+1), Zuneigung → Freundlich (+2), Liebe → Ergeben (+3)',
     );
     expect(hints.join(' ')).toContain('„wichtig“ (1 Termin) und „lokales Ereignis“ (1 Termin)');
+    expect(hints.join(' ')).toContain(
+      '1 von ihnen gilt als getroffen, weil eine Meinung zur Gruppe oder zu Gefährten eingetragen war.',
+    );
   });
 
   it('nennt klar, was nicht übernommen wurde, statt es zu erfinden', () => {
@@ -549,7 +667,12 @@ describe('Vollständiges Backup', () => {
     expect(result.sections.skipped).toEqual([]);
     // Nichts davon taucht als erfundener Eintrag auf.
     const everything = JSON.stringify(data);
-    for (const needle of ['Über die Salzstraße', 'Durch die Salzsümpfe', 'Eingangshalle', 'beispielprojekt/startseite'])
+    for (const needle of [
+      'Über die Salzstraße',
+      'Durch die Salzsümpfe',
+      'Eingangshalle',
+      'beispielprojekt/startseite',
+    ])
       expect(everything).not.toContain(needle);
   });
 
@@ -570,12 +693,22 @@ describe('Unberührter Spielstand der alten Version', () => {
   it('ergibt die sechs Gefährten, die laufende Session 12 und die beiden Start-Termine', () => {
     expectValid(result.data);
     const { data } = result;
-    expect(data.state).toMatchObject({ now: ELARIS_START + 90, previousNow: ELARIS_START, placeId: null });
+    expect(data.state).toMatchObject({
+      now: ELARIS_START + 90,
+      previousNow: ELARIS_START,
+      placeId: null,
+    });
     expect(entitiesOfKind(data, 'character')).toHaveLength(6);
     expect(Object.keys(data.entities)).toHaveLength(6);
-    expect(Object.values(data.sessions)).toMatchObject([{ number: 12, startAt: ELARIS_START, endAt: null, notes: '' }]);
+    expect(Object.values(data.sessions)).toMatchObject([
+      { number: 12, startAt: ELARIS_START, endAt: null, notes: '' },
+    ]);
     expect(data.state.sessionId).toBe(Object.keys(data.sessions)[0]);
-    expect(Object.values(data.events).map((e) => e.title).sort()).toEqual(['Der Graue Fang legt ab', 'Session 12']);
+    expect(
+      Object.values(data.events)
+        .map((e) => e.title)
+        .sort(),
+    ).toEqual(['Der Graue Fang legt ab', 'Session 12']);
     expect(data.campaign.calendar).toEqual(ELARIS_CALENDAR);
     expect(Object.keys(data.relations)).toHaveLength(0);
     expect(Object.keys(data.chronicle)).toHaveLength(0);
@@ -597,7 +730,8 @@ describe('Meinungsskala', () => {
     expect(LEGACY_OPINIONS).toHaveLength(6);
   });
   it('kennt „unbekannt“ und weist alles andere ab', () => {
-    for (const value of [null, undefined, 0, 7, 2.5, '3', NaN]) expect(opinionToAttitude(value)).toBeNull();
+    for (const value of [null, undefined, 0, 7, 2.5, '3', NaN])
+      expect(opinionToAttitude(value)).toBeNull();
   });
 });
 
@@ -609,7 +743,9 @@ describe('Reisen und Zeitsprünge', () => {
     const { data, sections } = importV157Backup(backup);
     expectValid(data);
     expect(data.state.placeId).toBe(byName(data, 'place', 'Alte Salzstraße').id);
-    expect(Object.values(data.chronicle).every((e) => e.at <= data.state.now || e.kind !== 'travel')).toBe(true);
+    expect(
+      Object.values(data.chronicle).every((e) => e.at <= data.state.now || e.kind !== 'travel'),
+    ).toBe(true);
     expect(sections.hints.join(' ')).toContain('Eine Reise der Gruppe läuft noch.');
     // Die beiden späteren Ortswechsel liegen jetzt in der Zukunft.
     expect(sections.hints.join(' ')).toContain('2 Ortswechsel lagen nach der aktuellen Weltzeit');
@@ -628,7 +764,10 @@ describe('Reisen und Zeitsprünge', () => {
     const last = Object.values(data.chronicle)
       .filter((e) => e.kind === 'travel')
       .sort((a, b) => b.at - a.at)[0]!;
-    expect(last).toMatchObject({ at: T0 + DAY + 11 * 60, text: 'Reise abgebrochen: Reise nach Graufels' });
+    expect(last).toMatchObject({
+      at: T0 + DAY + 11 * 60,
+      text: 'Reise abgebrochen: Reise nach Graufels',
+    });
     expect(last.travel?.toId).toBe(eber.id);
   });
 
@@ -652,7 +791,12 @@ describe('Reisen und Zeitsprünge', () => {
 describe('Kennungen', () => {
   it('weicht reservierten, doppelten und zu langen Kennungen aus und hält alle Verweise zusammen', () => {
     const backup = full();
-    const places = backup.world.places as { id: string; name: string; kind: string; parentId: string | null }[];
+    const places = backup.world.places as {
+      id: string;
+      name: string;
+      kind: string;
+      parentId: string | null;
+    }[];
     const long = 'x'.repeat(80);
     places.push(
       { id: 'party', name: 'Ort namens party', kind: 'site', parentId: null },
@@ -662,7 +806,16 @@ describe('Kennungen', () => {
       { id: long, name: 'Langer Ort', kind: 'site', parentId: 'abc' },
       { id: 'ä ö/ü', name: 'Umlaut-Ort', kind: 'site', parentId: long },
     );
-    backup.events.push({ id: 'ä ö/ü', title: 'Fest am Umlaut-Ort', at: backup.now + 60, timed: true, kind: 'plan', details: '', done: false, locationId: 'ä ö/ü' } as never);
+    backup.events.push({
+      id: 'ä ö/ü',
+      title: 'Fest am Umlaut-Ort',
+      at: backup.now + 60,
+      timed: true,
+      kind: 'plan',
+      details: '',
+      done: false,
+      locationId: 'ä ö/ü',
+    } as never);
     backup.world.visits.push({ id: 'v6', at: backup.now, placeId: 'ä ö/ü' } as never);
     const { data } = importV157Backup(backup);
     expectValid(data);
@@ -672,35 +825,82 @@ describe('Kennungen', () => {
     );
     expect(byName(data, 'place', 'Ort namens party').id).not.toBe('party');
     expect(byName(data, 'place', 'Langer Ort').id).toBe('x'.repeat(64));
-    expect(Object.values(data.events).find((e) => e.title === 'Fest am Umlaut-Ort')?.placeId).toBe(umlaut.id);
+    expect(Object.values(data.events).find((e) => e.title === 'Fest am Umlaut-Ort')?.placeId).toBe(
+      umlaut.id,
+    );
     expect(data.state.placeId).toBe(umlaut.id);
   });
 });
 
 describe('Unbekanntes und Kaputtes', () => {
   it('lehnt Dateien ab, die kein Backup der alten Version sind', () => {
-    for (const raw of [null, undefined, 'text', 42, [], {}, { version: 2, notes: [], events: [] }, { version: 1 }])
-      expect(() => importV157Backup(raw)).toThrow(/kein(en)? (Backup|Spielstand) der alten Wayfarer-Version/);
-    expect(() => importV157Backup({ format: 'wayfarer-sicherung', version: 1 })).toThrow(/Sicherung einspielen/);
+    for (const raw of [
+      null,
+      undefined,
+      'text',
+      42,
+      [],
+      {},
+      { version: 2, notes: [], events: [] },
+      { version: 1 },
+    ])
+      expect(() => importV157Backup(raw)).toThrow(
+        /kein(en)? (Backup|Spielstand) der alten Wayfarer-Version/,
+      );
+    expect(() => importV157Backup({ format: 'wayfarer-sicherung', version: 1 })).toThrow(
+      /Sicherung einspielen/,
+    );
   });
 
   it('überspringt kaputte Einträge, nennt sie im Bericht und übernimmt den Rest', () => {
     const backup = full() as Record<string, unknown> & Legacy;
-    const world = backup.world as unknown as Record<string, unknown[]> & { database: { records: Record<string, unknown[]>; relations: unknown[] } };
-    world.places!.push(null, { id: 'ohne-namen', kind: 'site', parentId: null }, { id: 'p-mark', name: 'Doppelte Mark', kind: 'region', parentId: null });
+    const world = backup.world as unknown as Record<string, unknown[]> & {
+      database: { records: Record<string, unknown[]>; relations: unknown[] };
+    };
+    world.places!.push(
+      null,
+      { id: 'ohne-namen', kind: 'site', parentId: null },
+      { id: 'p-mark', name: 'Doppelte Mark', kind: 'region', parentId: null },
+    );
     world.places!.push({ id: 'waise', name: 'Waise', kind: 'site', parentId: 'gibt-es-nicht' });
-    world.visits!.push({ id: 'vx', at: T0 - DAY, placeId: 'gibt-es-nicht' }, { id: 'vy', at: 'gestern', placeId: null });
+    world.visits!.push(
+      { id: 'vx', at: T0 - DAY, placeId: 'gibt-es-nicht' },
+      { id: 'vy', at: 'gestern', placeId: null },
+    );
     world.database.records.characters!.push({ id: 'c-kaputt' }, 'kein Objekt');
     world.database.records.kreaturen = [{ id: 'k1', name: 'Grottenschrat' }];
     world.database.relations.push(
       { id: 'rx', type: 'membership', from: 'c-ardo', to: 'gibt-es-nicht' },
       { id: 'ry', type: 'zauber', from: 'c-ardo', to: 'o-wacht' },
     );
-    (backup.events as unknown[]).push({ id: 'ohne-zeit', title: 'Ohne Zeit' }, 17, { id: 'markt', title: 'Doppelter Markt', at: T0, timed: false, kind: 'world', details: '', done: false });
-    (backup.timers as unknown[]).push({ id: 'rueckwaerts', name: 'Rückwärts', kind: 'effect', start: 20, end: 10 }, null);
+    (backup.events as unknown[]).push({ id: 'ohne-zeit', title: 'Ohne Zeit' }, 17, {
+      id: 'markt',
+      title: 'Doppelter Markt',
+      at: T0,
+      timed: false,
+      kind: 'world',
+      details: '',
+      done: false,
+    });
+    (backup.timers as unknown[]).push(
+      { id: 'rueckwaerts', name: 'Rückwärts', kind: 'effect', start: 20, end: 10 },
+      null,
+    );
     (backup.notes as unknown[]).push({ id: 'n-kaputt', title: 5, body: 'x' });
-    (backup.dossierJournal as Record<string, unknown>).kaputt = { id: 'kaputt', kind: 'note', text: 'ohne Verweis', at: T0 };
-    (backup.dossierJournal as Record<string, unknown>).raetsel = { id: 'raetsel', projectId: 'proj1', resourceId: 'lkres-ilse', kind: 'orakel', text: 'unbekannte Art', at: T0 };
+    (backup.dossierJournal as Record<string, unknown>).kaputt = {
+      id: 'kaputt',
+      kind: 'note',
+      text: 'ohne Verweis',
+      at: T0,
+    };
+    (backup.dossierJournal as Record<string, unknown>).raetsel = {
+      id: 'raetsel',
+      projectId: 'proj1',
+      resourceId: 'lkres-ilse',
+      kind: 'orakel',
+      text: 'unbekannte Art',
+      at: T0,
+    };
     (backup.npcOpinions as Record<string, unknown>).proj2 = { 'lkres-x': { tomlin: 9, fremd: 3 } };
     (backup.characters as Record<string, unknown>).gast = { level: 3 };
     backup.wetter = { heute: 'Nebel' };
@@ -719,8 +919,12 @@ describe('Unbekanntes und Kaputtes', () => {
       'Übersprungen, weil unlesbar: 3 Orte.',
       'Übersprungen, weil unlesbar: 3 Termine.',
     ]);
-    expect(sections.omitted).toContain('Nicht übernommen: unbekannte Kategorien der Weltdatenbank (kreaturen).');
-    expect(sections.omitted).toContain('Nicht übernommen: unbekannte Bereiche des Backups (wetter).');
+    expect(sections.omitted).toContain(
+      'Nicht übernommen: unbekannte Kategorien der Weltdatenbank (kreaturen).',
+    );
+    expect(sections.omitted).toContain(
+      'Nicht übernommen: unbekannte Bereiche des Backups (wetter).',
+    );
     expect(report.join(' ')).not.toMatch(/undefined|NaN/);
     // Der Rest ist vollständig da.
     expect(entitiesOfKind(data, 'place').map((p) => p.name)).toContain('Waise');
@@ -757,7 +961,17 @@ describe('Unbekanntes und Kaputtes', () => {
 
   it('lässt gelöschte Timer weg, auch wenn ein älteres Gerät sie noch im Backup hatte', () => {
     const backup = full();
-    (backup.timers as unknown[]).push({ id: 't-geloescht', name: 'Gelöscht', kind: 'effect', who: '', target: '', concentration: false, start: T0, end: T0 + 10, stoppedAt: null });
+    (backup.timers as unknown[]).push({
+      id: 't-geloescht',
+      name: 'Gelöscht',
+      kind: 'effect',
+      who: '',
+      target: '',
+      concentration: false,
+      start: T0,
+      end: T0 + 10,
+      stoppedAt: null,
+    });
     const { data, sections } = importV157Backup(backup);
     expect(Object.values(data.timers).some((t) => t.label === 'Gelöscht')).toBe(false);
     expect(sections.skipped).toEqual([]);
@@ -791,6 +1005,29 @@ describe('Unbekanntes und Kaputtes', () => {
   });
 });
 
+describe('Bericht der letzten Übernahme', () => {
+  it('bleibt nach einer Übernahme einsehbar, eine bloße Vorschau ändert ihn nicht', () => {
+    const first = importV157Backup(structuredClone(minimalBackup));
+    expect(lastImport()?.sections).toBe(first.sections);
+    expect(lastImport()?.fileName).toBe('');
+    const preview = previewV157Backup(full());
+    expect(preview.report.length).toBeGreaterThan(first.report.length);
+    expect(lastImport()?.sections).toBe(first.sections);
+    rememberImport(preview, 'elaris-backup-2026-11-09.json');
+    expect(lastImport()).toMatchObject({
+      sections: preview.sections,
+      fileName: 'elaris-backup-2026-11-09.json',
+    });
+    expect(Number.isNaN(Date.parse(lastImport()!.at))).toBe(false);
+  });
+
+  it('eine abgelehnte Datei lässt den letzten Bericht stehen', () => {
+    const before = lastImport();
+    expect(() => importV157Backup({ version: 3 })).toThrow();
+    expect(lastImport()).toBe(before);
+  });
+});
+
 describe('Verweise aufräumen (repairReferences)', () => {
   const base = () => importV157Backup(full()).data;
   const drop = (data: CampaignData, ...ids: string[]): CampaignData => ({
@@ -816,14 +1053,22 @@ describe('Verweise aufräumen (repairReferences)', () => {
     expect(fixed.state).toMatchObject({ placeId: null, sessionId: null });
     expect(byName(fixed, 'person', 'Ardo Venn').person.placeId).toBeNull();
     expect(byName(fixed, 'faction', 'Graufelser Wacht').faction.seatId).toBeNull();
-    expect(Object.values(fixed.relations).some((r) => r.from === ilse.id || r.to === turm.id)).toBe(false);
+    expect(Object.values(fixed.relations).some((r) => r.from === ilse.id || r.to === turm.id)).toBe(
+      false,
+    );
     // Haltungsänderungen ohne Person entfallen, Notizen bleiben ohne den Verweis erhalten.
     expect(Object.values(fixed.chronicle).some((e) => e.attitude?.fromId === ilse.id)).toBe(false);
-    expect(Object.values(fixed.chronicle).find((e) => e.text === 'Ilse kennt den alten Schmugglerpfad.')?.refs).toEqual([]);
+    expect(
+      Object.values(fixed.chronicle).find((e) => e.text === 'Ilse kennt den alten Schmugglerpfad.')
+        ?.refs,
+    ).toEqual([]);
     expect(Object.values(fixed.chronicle).every((e) => e.sessionId === null)).toBe(true);
-    expect(Object.values(fixed.events).find((e) => e.title === 'Treffen mit Ardo Venn am Turm')?.placeId).toBeNull();
+    expect(
+      Object.values(fixed.events).find((e) => e.title === 'Treffen mit Ardo Venn am Turm')?.placeId,
+    ).toBeNull();
     for (const name of COLLECTION_NAMES)
-      for (const doc of Object.values(fixed[name])) expect(COLLECTION_SCHEMAS[name].parse(doc)).toEqual(doc);
+      for (const doc of Object.values(fixed[name]))
+        expect(COLLECTION_SCHEMAS[name].parse(doc)).toEqual(doc);
   });
 
   it('verlangt, dass Orte auf Orte zeigen, und bricht Kreise auf', () => {
@@ -839,7 +1084,8 @@ describe('Verweise aufräumen (repairReferences)', () => {
     const { data: fixed, repaired } = repairReferences({ ...data, entities });
     expect(repaired).toBeGreaterThan(0);
     expect(byName(fixed, 'person', 'Ardo Venn').person.homeId).toBeNull();
-    for (const place of entitiesOfKind(fixed, 'place')) expect(placePath(fixed, place.id).split(' › ').length).toBeLessThan(6);
+    for (const place of entitiesOfKind(fixed, 'place'))
+      expect(placePath(fixed, place.id).split(' › ').length).toBeLessThan(6);
     expect(repairReferences(fixed).repaired).toBe(0);
   });
 });

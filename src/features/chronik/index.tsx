@@ -8,7 +8,7 @@ import { EntryDialog, type EntryDialogRequest } from './EntryDialog';
 import { Sessions } from './Sessions';
 import { Verlauf } from './Verlauf';
 import { onChroniclePreset, remembered, type ChronikView } from './link';
-import { sanitizeFilter, sessionSpans } from './model';
+import { sanitizeFilter, sessionBackfillTime } from './model';
 import './chronik.css';
 
 type View = ChronikView;
@@ -42,17 +42,12 @@ export default function ChronikPage() {
     setSessionId(id);
     setView('sessions');
   }, []);
-  const backfill = (forSession?: string) => {
-    if (!forSession) return setDialog({ mode: 'new', key: Date.now() });
-    // Nachtrag zu einer Session: an ihr Ende, bei der laufenden auf jetzt.
-    const span = sessionSpans(data).find((s) => s.session.id === forSession);
-    setDialog({
-      mode: 'new',
-      sessionId: forSession,
-      at: Math.min(span?.to ?? data.state.now, data.state.now),
-      key: Date.now(),
-    });
-  };
+  const backfill = (forSession?: string) =>
+    setDialog(
+      forSession
+        ? { mode: 'new', sessionId: forSession, at: sessionBackfillTime(data, forSession), key: Date.now() }
+        : { mode: 'new', key: Date.now() },
+    );
 
   return (
     <div className="wf-page wf-chronik">

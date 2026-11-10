@@ -55,7 +55,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   if (entry.kind === 'travel' && entry.travel) {
     headline = entry.travel.toId ? (
       <>
-        Die Gruppe erreicht <EntityLink id={entry.travel.toId} icon={false} />
+        Ankunft: <EntityLink id={entry.travel.toId} icon={false} />
         {entry.travel.fromId && (
           <span className="wf-mute">
             {' '}
@@ -65,7 +65,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
       </>
     ) : (
       <>
-        Die Gruppe verlässt <EntityLink id={entry.travel.fromId} icon={false} />
+        Aufbruch aus <EntityLink id={entry.travel.fromId} icon={false} />
       </>
     );
   } else if (entry.kind === 'attitude' && entry.attitude) {

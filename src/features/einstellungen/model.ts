@@ -62,7 +62,8 @@ const FOLDER_LABEL: Record<string, string> = {
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */
-const CONFLICT_NAME = /konflikt|conflict|\(\d+\)\.json$| - kopie| copy|-[A-Z0-9]{4,}-[A-Z0-9-]+\.json$|\s\d+\.json$/i;
+const CONFLICT_NAME =
+  /konflikt|conflict|\(\d+\)\.json$| - kopie| copy|-[A-Z0-9]{4,}-[A-Z0-9-]+\.json$|\s\d+\.json$/i;
 
 export function explainProblem(problem: LoadProblem): ExplainedProblem {
   const folder = problem.path.split('/')[0] ?? '';
@@ -72,25 +73,34 @@ export function explainProblem(problem: LoadProblem): ExplainedProblem {
     return {
       ...base,
       kind: 'conflict',
-      reason: 'Vermutlich eine Konfliktkopie: Der Dateiname passt nicht zum Inhalt oder trägt einen Zusatz des Cloud-Laufwerks.',
+      reason:
+        'Vermutlich eine Konfliktkopie: Der Dateiname passt nicht zum Inhalt oder trägt einen Zusatz des Cloud-Laufwerks.',
     };
-  if (/JSON|Unexpected|Unterminated|Expected .* in|end of data|Unlesbar/i.test(problem.message) && !/^\[/.test(problem.message.trim()))
+  if (
+    /JSON|Unexpected|Unterminated|Expected .* in|end of data|Unlesbar/i.test(problem.message) &&
+    !/^\[/.test(problem.message.trim())
+  )
     return {
       ...base,
       kind: 'damaged',
-      reason: 'Die Datei ist beschädigt oder unvollständig – oft, weil sie beim Abgleich nur halb übertragen wurde.',
+      reason:
+        'Die Datei ist beschädigt oder unvollständig – oft, weil sie beim Abgleich nur halb übertragen wurde.',
     };
   return {
     ...base,
     kind: 'shape',
-    reason: 'Der Inhalt hat nicht die erwartete Form – etwa von Hand geändert oder von einer neueren Wayfarer-Version geschrieben.',
+    reason:
+      'Der Inhalt hat nicht die erwartete Form – etwa von Hand geändert oder von einer neueren Wayfarer-Version geschrieben.',
   };
 }
 
 // ── Kalender lesbar ────────────────────────────────────────────────────────
 
 const numberDe = (value: number, digits = 0) =>
-  new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: digits }).format(value);
+  new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: digits,
+  }).format(value);
 
 export interface MonthRow {
   index: number;
@@ -116,7 +126,8 @@ export function monthRows(cal: CalendarDef, now: WorldTime): MonthRow[] {
 /** „12 Monate · 365 Tage, im Schaltjahr 366 · Woche mit 7 Tagen“ */
 export function calendarSummary(cal: CalendarDef): string {
   const common = cal.months.reduce((n, m) => n + m.days, 0);
-  const leap = common + (cal.leapRule === 'none' ? 0 : cal.months.reduce((n, m) => n + (m.leapDays ?? 0), 0));
+  const leap =
+    common + (cal.leapRule === 'none' ? 0 : cal.months.reduce((n, m) => n + (m.leapDays ?? 0), 0));
   return [
     cal.months.length === 1 ? '1 Monat' : `${cal.months.length} Monate`,
     leap !== common ? `${common} Tage, im Schaltjahr ${leap}` : `${common} Tage`,

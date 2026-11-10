@@ -111,6 +111,18 @@ export function readResponse<T>(status: number, body: string, retryAfterSec?: nu
 }
 
 /**
+ * Der Satz, den die App-Seite zu einem Fehler geliefert hat – als Text oder als schlichter
+ * `Error` (so reicht `platform.ts` ihn weiter). Fehler des Browsers (TypeError …) zählen nicht.
+ */
+export function appSentence(cause: unknown): string | undefined {
+  if (typeof cause === 'string') return cause.trim() || undefined;
+  if (cause instanceof Error && cause.name === 'Error' && !(cause instanceof LkError)) {
+    return cause.message.trim() || undefined;
+  }
+  return undefined;
+}
+
+/**
  * Ordnet einen Fehler ein, bei dem gar keine Antwort der API zustande kam. Die App-Seite meldet
  * solche Fehler als deutschen Satz; im Browser wirft `fetch` einen `TypeError`.
  */
@@ -124,7 +136,7 @@ export function transportError(cause: unknown): LkError {
     return new LkError('offline');
   }
   // Ein Satz der App-Seite ist bereits für den Spielleiter geschrieben und wird mit angezeigt.
-  return new LkError('offline', { detail: typeof cause === 'string' ? cause : undefined });
+  return new LkError('offline', { detail: appSentence(cause) });
 }
 
 /** Wo der Fehler angezeigt wird – der Text passt sich an. */

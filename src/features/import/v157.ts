@@ -29,7 +29,12 @@ import {
   type Timer,
 } from '../../domain/schema';
 import { attitudeLabel } from '../../domain/relations';
-import { formatDate, formatDateTime, isValidDate, type CalendarDef } from '../../domain/time/calendar';
+import {
+  formatDate,
+  formatDateTime,
+  isValidDate,
+  type CalendarDef,
+} from '../../domain/time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
 import { repairReferences } from './integrity';
 
@@ -67,7 +72,14 @@ export const LEGACY_PARTY = [
 const LEGACY_DEFAULT_LEVEL = 6;
 
 /** Alte Meinungsskala 1–6 (0 = unbekannt gab es nur als „kein Wert“). */
-export const LEGACY_OPINIONS = ['Hass', 'Abneigung', 'Skepsis', 'Wohlwollen', 'Zuneigung', 'Liebe'] as const;
+export const LEGACY_OPINIONS = [
+  'Hass',
+  'Abneigung',
+  'Skepsis',
+  'Wohlwollen',
+  'Zuneigung',
+  'Liebe',
+] as const;
 
 /**
  * Alte Meinung (1 Hass … 6 Liebe) → neue Haltung (−3 Feindselig … +3 Ergeben).
@@ -78,14 +90,24 @@ export function opinionToAttitude(value: unknown): number | null {
   return value <= 3 ? value - 4 : value - 3;
 }
 
-const PLACE_KIND_LABEL: Record<string, string> = { region: 'Region', city: 'Stadt', site: '', route: 'Reiseabschnitt' };
+const PLACE_KIND_LABEL: Record<string, string> = {
+  region: 'Region',
+  city: 'Stadt',
+  site: '',
+  route: 'Reiseabschnitt',
+};
 const TOPIC_CATEGORY: Record<string, string> = {
   species: 'Spezies',
   abilities: 'Fähigkeit',
   languages: 'Sprache',
   scripts: 'Schrift',
 };
-const JOURNAL_PREFIX: Record<string, string> = { promise: 'Zusage', debt: 'Schuld', favor: 'Gefallen', agreement: '' };
+const JOURNAL_PREFIX: Record<string, string> = {
+  promise: 'Zusage',
+  debt: 'Schuld',
+  favor: 'Gefallen',
+  agreement: '',
+};
 const PROFICIENCY_KIND: Record<string, string> = {
   skill: 'Fertigkeit',
   save: 'Rettungswurf',
@@ -93,9 +115,27 @@ const PROFICIENCY_KIND: Record<string, string> = {
   other: 'Weitere Übung',
 };
 const KNOWN_TOP_LEVEL = new Set([
-  'version', 'now', 'previous', 'lk', 'split', 'active', 'notes', 'events', 'sky', 'travelScales', 'travelLibrary',
-  'world', 'dungeons', 'explorations', 'npcOpinions', 'npcKnowledge', 'dossierJournal', 'rests', 'removedTimers',
-  'timers', 'characters',
+  'version',
+  'now',
+  'previous',
+  'lk',
+  'split',
+  'active',
+  'notes',
+  'events',
+  'sky',
+  'travelScales',
+  'travelLibrary',
+  'world',
+  'dungeons',
+  'explorations',
+  'npcOpinions',
+  'npcKnowledge',
+  'dossierJournal',
+  'rests',
+  'removedTimers',
+  'timers',
+  'characters',
 ]);
 
 // ── Kleine Lesehilfen ──────────────────────────────────────────────────────
@@ -108,14 +148,17 @@ const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const idOf = (v: unknown): string => (typeof v === 'string' ? v : '');
 const time = (v: unknown): number | null =>
   typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : null;
-const int = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) ? v : null);
+const int = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isInteger(v) ? v : null;
 const unique = (values: string[]): string[] => [...new Set(values.filter(Boolean))];
 const strings = (v: unknown): string[] => unique(list(v).map(text));
 const isImageData = (v: string) => /^data:image\/(png|jpeg|webp);base64,/.test(v);
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const joinAnd = (parts: string[]): string =>
-  parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}`;
+  parts.length <= 1
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}`;
 
 /** Vergibt gültige, eindeutige Kennungen und merkt sich, welche alte zu welcher neuen gehört. */
 type Space = 'entities' | 'relations' | 'chronicle' | 'events' | 'sessions' | 'timers';
@@ -197,6 +240,8 @@ class Importer {
   private sessionId: string | null = null;
   /** Personen, die nur als LegendKeeper-Verweis existierten und deshalb keinen Namen haben. */
   private unnamed = 0;
+  /** Personen der Weltdatenbank, die wegen einer Meinung als „getroffen“ gelten. */
+  private metByOpinion = 0;
 
   constructor(private readonly raw: Raw) {
     const moons = ELARIS_CALENDAR.moons.map((moon) => {
@@ -205,7 +250,10 @@ class Importer {
     });
     this.cal = { ...ELARIS_CALENDAR, moons };
     const now = time(raw.now);
-    if (now === null) this.hints.push('Die Weltzeit im Backup war unlesbar; sie steht jetzt auf dem Startdatum von Elaris (17. Tauwind 701 AD, 16:00 Uhr).');
+    if (now === null)
+      this.hints.push(
+        'Die Weltzeit im Backup war unlesbar; sie steht jetzt auf dem Startdatum von Elaris (17. Tauwind 701 AD, 16:00 Uhr).',
+      );
     this.now = now ?? ELARIS_START;
   }
 
@@ -232,7 +280,10 @@ class Importer {
     try {
       fn();
     } catch {
-      this.skip(`Bereich „${label}“ (unerwarteter Aufbau)`, `Bereiche „${label}“ (unerwarteter Aufbau)`);
+      this.skip(
+        `Bereich „${label}“ (unerwarteter Aufbau)`,
+        `Bereiche „${label}“ (unerwarteter Aufbau)`,
+      );
     }
   }
 
@@ -290,8 +341,12 @@ class Importer {
       this.relations.set(existing.id, {
         ...existing,
         type: existing.type === 'knows' && init.type ? init.type : existing.type,
-        label: existing.type === 'knows' && init.type === 'custom' ? (init.label ?? '') : existing.label,
-        note: extra && !existing.note.includes(extra) ? [existing.note, extra].filter(Boolean).join(' · ') : existing.note,
+        label:
+          existing.type === 'knows' && init.type === 'custom' ? (init.label ?? '') : existing.label,
+        note:
+          extra && !existing.note.includes(extra)
+            ? [existing.note, extra].filter(Boolean).join(' · ')
+            : existing.note,
         attitude: init.attitude === undefined ? existing.attitude : init.attitude,
       });
       return false;
@@ -314,7 +369,11 @@ class Importer {
   }
 
   private addChronicle(init: Raw & { id: string; at: number }): boolean {
-    const parsed = ChronicleEntrySchema.safeParse({ created: this.stamp, updated: this.stamp, ...init });
+    const parsed = ChronicleEntrySchema.safeParse({
+      created: this.stamp,
+      updated: this.stamp,
+      ...init,
+    });
     if (parsed.success) this.chronicle.push(parsed.data);
     return parsed.success;
   }
@@ -353,7 +412,8 @@ class Importer {
       const id = this.ids.get(`db:${idOf(p.id)}`)!;
       const { aliases, tags, notes, link } = this.common(p);
       const kind = PLACE_KIND_LABEL[idOf(p.kind)] ?? '';
-      const placeClass = text(p.placeClass) === 'Raumcontainer' ? 'Welt / Ebene' : text(p.placeClass);
+      const placeClass =
+        text(p.placeClass) === 'Raumcontainer' ? 'Welt / Ebene' : text(p.placeClass);
       const type = text(p.type);
       const facts: string[] = [];
       if (type && placeClass) facts.push(`Einordnung: ${placeClass}`);
@@ -402,10 +462,13 @@ class Importer {
   private importRecords() {
     const records = obj(obj(obj(this.raw.world).database).records);
     const unknown = Object.keys(records).filter(
-      (key) => !['characters', 'organizations', 'families', ...Object.keys(TOPIC_CATEGORY)].includes(key),
+      (key) =>
+        !['characters', 'organizations', 'families', ...Object.keys(TOPIC_CATEGORY)].includes(key),
     );
     if (unknown.length)
-      this.omitted.push(`Nicht übernommen: unbekannte Kategorien der Weltdatenbank (${unknown.join(', ')}).`);
+      this.omitted.push(
+        `Nicht übernommen: unbekannte Kategorien der Weltdatenbank (${unknown.join(', ')}).`,
+      );
 
     // Erst alle Kennungen vergeben, damit Einträge aufeinander verweisen können.
     const topics = Object.keys(TOPIC_CATEGORY).flatMap((category) =>
@@ -424,7 +487,8 @@ class Importer {
       if (category === 'species') {
         const parent = topicName(r.parentSpeciesId);
         if (parent) facts.push(`Übergeordnete Spezies: ${parent}`);
-        if (typeof r.lifespan === 'number' && Number.isFinite(r.lifespan)) facts.push(`Lebenserwartung: ${r.lifespan} Jahre`);
+        if (typeof r.lifespan === 'number' && Number.isFinite(r.lifespan))
+          facts.push(`Lebenserwartung: ${r.lifespan} Jahre`);
         const abilities = topicNames(r.abilityIds);
         if (abilities.length) facts.push(`Fähigkeiten: ${abilities.join(', ')}`);
         const excluded = topicNames(r.excludedAbilityIds);
@@ -478,7 +542,13 @@ class Importer {
     const topicTotal = [...topicCounts.values()].reduce((a, b) => a + b, 0);
     if (topicTotal) {
       const kinds = [...topicCounts.keys()].map((c) =>
-        c === 'species' ? 'Spezies' : c === 'abilities' ? 'Fähigkeiten' : c === 'languages' ? 'Sprachen' : 'Schriften',
+        c === 'species'
+          ? 'Spezies'
+          : c === 'abilities'
+            ? 'Fähigkeiten'
+            : c === 'languages'
+              ? 'Sprachen'
+              : 'Schriften',
       );
       parts.push(`${count(topicTotal, 'Thema', 'Themen')} (${joinAnd(kinds)})`);
     }
@@ -490,7 +560,9 @@ class Importer {
   private importParty() {
     const characters = obj(this.raw.characters);
     const unknown = Object.keys(characters).filter((id) => !LEGACY_PARTY.some((p) => p.id === id));
-    unknown.forEach(() => this.skip('Gefährte mit unbekannter Kennung', 'Gefährten mit unbekannter Kennung'));
+    unknown.forEach(() =>
+      this.skip('Gefährte mit unbekannter Kennung', 'Gefährten mit unbekannter Kennung'),
+    );
     let clamped = 0;
     let linkedPortraits = 0;
     let withValues = 0;
@@ -569,7 +641,6 @@ class Importer {
   private importPersons() {
     const knowledge = obj(this.raw.npcKnowledge);
     const npcOpinions = obj(this.raw.npcOpinions);
-    const journal = Object.values(obj(this.raw.dossierJournal)).filter(isObj);
     let persons = 0;
     let merged = 0;
     let linkedPortraits = 0;
@@ -577,7 +648,8 @@ class Importer {
     for (const r of personRecords) {
       const partyId = idOf(r.partyId);
       const member = this.ids.get(`party:${partyId}`);
-      if (partyId && member && this.entities.has(member)) this.ids.alias(`db:${idOf(r.id)}`, member);
+      if (partyId && member && this.entities.has(member))
+        this.ids.alias(`db:${idOf(r.id)}`, member);
       else this.ids.claim('entities', `db:${idOf(r.id)}`, idOf(r.id));
     }
     for (const r of personRecords) {
@@ -596,11 +668,14 @@ class Importer {
           `Geboren: ${[birth, birthPlace && `in ${birthPlace}`].filter(Boolean).join(' ')}` +
             (r.birthGenerated === true ? ' (Datum aus dem Alter errechnet)' : ''),
         );
-      if (typeof r.biologicalAge === 'number') facts.push(`Biologisches Alter: ${r.biologicalAge} Jahre`);
+      if (typeof r.biologicalAge === 'number')
+        facts.push(`Biologisches Alter: ${r.biologicalAge} Jahre`);
       const estimate = obj(r.ageEstimate);
       if (int(estimate.age) !== null) {
         const asOf = this.birthText(estimate.asOf);
-        facts.push(`Geschätztes Alter: ${int(estimate.age)} Jahre${asOf ? ` (Stand ${asOf})` : ''}`);
+        facts.push(
+          `Geschätztes Alter: ${int(estimate.age)} Jahre${asOf ? ` (Stand ${asOf})` : ''}`,
+        );
       }
       const work = this.placeIdOf(r.workPlaceId);
       const abilities = this.names(r.abilityIds);
@@ -656,8 +731,13 @@ class Importer {
         if (opinionToAttitude(value) !== null) members.set(p.id, value as number);
       }
       const group = opinionToAttitude(own.group) !== null ? (own.group as number) : null;
-      const hasJournal = isLinked && journal.some((e) => e.projectId === project && e.resourceId === resource);
-      const known = isLinked && obj(knowledge[project])[resource] === true;
+      // „Der Gruppe bekannt“ war bei LegendKeeper-Personen eine eigene Angabe, unabhängig von
+      // Meinungen. Für Personen nur aus der Weltdatenbank gab es sie nicht; dort gilt eine
+      // Meinung zur Gruppe oder zu Gefährten als Zeichen, dass man sich begegnet ist.
+      const known = isLinked
+        ? obj(knowledge[project])[resource] === true
+        : group !== null || members.size > 0;
+      if (!isLinked && known) this.metByOpinion++;
       const added = this.addEntity({
         id,
         kind: 'person',
@@ -672,7 +752,7 @@ class Importer {
           role: text(r.profession),
           placeId: this.placeIdOf(dynamic.locationId),
           homeId: home,
-          met: known || hasJournal || group !== null || members.size > 0,
+          met: known,
         },
       });
       if (!added) {
@@ -696,6 +776,14 @@ class Importer {
       this.hints.push(
         `${count(linkedPortraits, 'Personenbild war', 'Personenbilder waren')} nur als Internet-Link hinterlegt; der Link steht in den Notizen.`,
       );
+    if (persons)
+      this.hints.push(
+        'Als „getroffen“ gelten Personen aus LegendKeeper, die in der alten Version als der Gruppe bekannt markiert waren. ' +
+          'Für Personen, die es nur in der Weltdatenbank gab, fehlte diese Angabe' +
+          (this.metByOpinion
+            ? `; ${count(this.metByOpinion, 'von ihnen gilt', 'von ihnen gelten')} als getroffen, weil eine Meinung zur Gruppe oder zu Gefährten eingetragen war.`
+            : '; sie gelten als noch nicht getroffen.'),
+      );
   }
 
   /** „12. Sonnfeld 660 AD“ aus { year (AD), month, day } der alten Version. */
@@ -706,7 +794,8 @@ class Importer {
     const day = int(b.day);
     if (year === null || month === null || day === null) return '';
     const era = this.cal.eras[0]!;
-    if (!isValidDate(this.cal, { year: year + era.offset, month, day, hour: 0, minute: 0 })) return '';
+    if (!isValidDate(this.cal, { year: year + era.offset, month, day, hour: 0, minute: 0 }))
+      return '';
     return `${day}. ${this.cal.months[month]!.name} ${year} ${era.label}`;
   }
 
@@ -733,7 +822,12 @@ class Importer {
       switch (type) {
         case 'contains':
           if (this.setParent(to, from)) parents++;
-          else add(to, from, { type: 'custom', label: 'räumlich zugeordnet', note: sentence('enthält') });
+          else
+            add(to, from, {
+              type: 'custom',
+              label: 'räumlich zugeordnet',
+              note: sentence('enthält'),
+            });
           break;
         case 'partOf':
         case 'container':
@@ -757,7 +851,11 @@ class Importer {
           break;
         case 'seat': {
           const faction = this.entities.get(from);
-          if (faction?.kind === 'faction' && faction.faction.seatId === null && this.entities.get(to)?.kind === 'place') {
+          if (
+            faction?.kind === 'faction' &&
+            faction.faction.seatId === null &&
+            this.entities.get(to)?.kind === 'place'
+          ) {
             this.entities.set(from, { ...faction, faction: { ...faction.faction, seatId: to } });
             seats++;
           } else add(from, to, { type: 'resides', note: 'Weiterer Sitz' });
@@ -797,9 +895,15 @@ class Importer {
     }
     if (created + parents + seats) {
       const parts = [
-        created ? count(created, 'Beziehung', 'Beziehungen') + ' (Mitgliedschaften, Familie, Wirkungsgebiete, Verbindungen)' : '',
+        created
+          ? count(created, 'Beziehung', 'Beziehungen') +
+            ' (Mitgliedschaften, Familie, Wirkungsgebiete, Verbindungen)'
+          : '',
         seats ? count(seats, 'Sitz einer Fraktion', 'Sitze von Fraktionen') : '',
-        parents ? count(parents, 'räumliche Zuordnung', 'räumliche Zuordnungen') + ' als übergeordneter Ort' : '',
+        parents
+          ? count(parents, 'räumliche Zuordnung', 'räumliche Zuordnungen') +
+            ' als übergeordneter Ort'
+          : '',
       ].filter(Boolean);
       this.adopted.push(`Verknüpfungen der Weltdatenbank: ${joinAnd(parts)}.`);
       this.hints.push(
@@ -843,7 +947,7 @@ class Importer {
       tagline: 'Der Name stand nicht im Backup – er steht im verknüpften LegendKeeper-Artikel.',
       tags: ['Name fehlt'],
       lk: { resourceId: resource, title: '' },
-      person: { met: true },
+      person: { met: obj(obj(this.raw.npcKnowledge)[project])[resource] === true },
     });
     if (!added) return null;
     this.unnamed++;
@@ -869,7 +973,8 @@ class Importer {
       }
     }
     for (const [project, rows] of Object.entries(obj(this.raw.npcKnowledge)))
-      for (const [resource, known] of Object.entries(obj(rows))) if (known === true) this.npc(project, resource);
+      for (const [resource, known] of Object.entries(obj(rows)))
+        if (known === true) this.npc(project, resource);
     for (const e of Object.values(obj(this.raw.dossierJournal)))
       if (isObj(e)) this.npc(idOf(e.projectId), idOf(e.resourceId));
 
@@ -886,7 +991,8 @@ class Importer {
       for (const p of LEGACY_PARTY) {
         const value = members.get(p.id);
         const character = this.ids.get(`party:${p.id}`);
-        if (value === undefined || value === party || !character || !this.entities.has(character)) continue;
+        if (value === undefined || value === party || !character || !this.entities.has(character))
+          continue;
         this.relate(entityId, character, { attitude: opinionToAttitude(value) });
         toMembers++;
       }
@@ -931,9 +1037,10 @@ class Importer {
         this.skip('Dossiereintrag', 'Dossiereinträge');
         continue;
       }
-      const created = typeof e.createdAt === 'number' && e.createdAt > 0 && e.createdAt < 8.64e15
-        ? new Date(e.createdAt).toISOString()
-        : this.stamp;
+      const created =
+        typeof e.createdAt === 'number' && e.createdAt > 0 && e.createdAt < 8.64e15
+          ? new Date(e.createdAt).toISOString()
+          : this.stamp;
       const participants = strings(e.participants)
         .map((p) => this.ids.get(`party:${p}`))
         .filter((id): id is string => !!id && this.entities.has(id));
@@ -947,7 +1054,10 @@ class Importer {
             from: obj(c).from,
             to: obj(c).to,
           }))
-          .filter((c): c is { character: string; from: unknown; to: unknown } => !!c.character && this.entities.has(c.character));
+          .filter(
+            (c): c is { character: string; from: unknown; to: unknown } =>
+              !!c.character && this.entities.has(c.character),
+          );
         if (!changed.length) {
           this.skip('Dossiereintrag', 'Dossiereinträge');
           continue;
@@ -1003,7 +1113,8 @@ class Importer {
           [
             notes ? count(notes, 'Notiz', 'Notizen') : '',
             promises
-              ? count(promises, 'Abmachung', 'Abmachungen') + (done ? ` (davon ${done} erledigt)` : '')
+              ? count(promises, 'Abmachung', 'Abmachungen') +
+                (done ? ` (davon ${done} erledigt)` : '')
               : '',
           ].filter(Boolean),
         )} samt Fristen in der Chronik bei der jeweiligen Person. Zusagen, Schulden und Gefallen sind am Wort vor dem Text zu erkennen.`,
@@ -1023,7 +1134,12 @@ class Importer {
       const start = isObj(t) ? time(t.start) : null;
       const end = isObj(t) ? time(t.end) : null;
       if (
-        !isObj(t) || !idOf(t.id) || !text(t.name) || start === null || end === null || end <= start ||
+        !isObj(t) ||
+        !idOf(t.id) ||
+        !text(t.name) ||
+        start === null ||
+        end === null ||
+        end <= start ||
         this.legacyTimers.has(idOf(t.id))
       ) {
         this.skip('Timer', 'Timer');
@@ -1067,7 +1183,9 @@ class Importer {
     if (this.timers.length)
       this.adopted.push(
         `${count(this.timers.length, 'Timer wurde', 'Timer wurden')} übernommen` +
-          (running ? ` (${running === 1 ? '1 läuft' : `${running} laufen`} noch)` : ' (alle bereits abgelaufen oder beendet)') +
+          (running
+            ? ` (${running === 1 ? '1 läuft' : `${running} laufen`} noch)`
+            : ' (alle bereits abgelaufen oder beendet)') +
           '; Wirkender, Ziel und Konzentration stehen in der Notiz.',
       );
   }
@@ -1077,7 +1195,8 @@ class Importer {
   private importVisits() {
     const visits = list(obj(this.raw.world).visits)
       .filter((v): v is Raw => {
-        const ok = isObj(v) && time(v.at) !== null && (v.placeId === null || !!this.placeIdOf(v.placeId));
+        const ok =
+          isObj(v) && time(v.at) !== null && (v.placeId === null || !!this.placeIdOf(v.placeId));
         if (!ok) this.skip('Ortswechsel', 'Ortswechsel');
         return ok;
       })
@@ -1091,7 +1210,8 @@ class Importer {
         future++;
         return;
       }
-      const nextAt = index + 1 < visits.length ? time(visits[index + 1]!.at)! : Number.POSITIVE_INFINITY;
+      const nextAt =
+        index + 1 < visits.length ? time(visits[index + 1]!.at)! : Number.POSITIVE_INFINITY;
       const here = v.placeId === null ? null : this.placeIdOf(v.placeId);
       const travel = v.travelId ? this.legacyTimers.get(idOf(v.travelId)) : undefined;
       if (!travel) {
@@ -1109,14 +1229,27 @@ class Importer {
       const placeAt = (t: number) =>
         t >= end ? (stopped !== null ? origin : arrival) : t < start ? origin : here;
       const textAt = (t: number) =>
-        t >= end ? (stopped !== null ? `Reise abgebrochen: ${label}` : `Ankunft: ${label}`) : t < start ? '' : label;
-      for (const t of unique([at, start, end].filter((x) => x >= at).map(String)).map(Number).sort((a, b) => a - b)) {
+        t >= end
+          ? stopped !== null
+            ? `Reise abgebrochen: ${label}`
+            : `Ankunft: ${label}`
+          : t < start
+            ? ''
+            : label;
+      for (const t of unique([at, start, end].filter((x) => x >= at).map(String))
+        .map(Number)
+        .sort((a, b) => a - b)) {
         if (t >= nextAt) break;
         if (t > this.now) {
           pending++;
           break;
         }
-        steps.push({ at: t, placeId: placeAt(t), text: textAt(t), key: `visit:${idOf(v.id) || at}:${t}` });
+        steps.push({
+          at: t,
+          placeId: placeAt(t),
+          text: textAt(t),
+          key: `visit:${idOf(v.id) || at}:${t}`,
+        });
       }
     });
     let previous: string | null = null;
@@ -1140,7 +1273,9 @@ class Importer {
     if (moves)
       this.adopted.push(
         `${count(moves, 'Ortswechsel der Gruppe steht', 'Ortswechsel der Gruppe stehen')} in der Chronik; daraus ergeben sich die Besuche der Orte. ` +
-          (previous ? `Die Gruppe ist jetzt in „${this.name(previous)}“.` : 'Der Aufenthaltsort der Gruppe ist offen.'),
+          (previous
+            ? `Die Gruppe ist jetzt in „${this.name(previous)}“.`
+            : 'Der Aufenthaltsort der Gruppe ist offen.'),
       );
     if (future)
       this.hints.push(
@@ -1161,14 +1296,20 @@ class Importer {
     let local = 0;
     for (const e of list(this.raw.events)) {
       const at = isObj(e) ? time(e.at) : null;
-      if (!isObj(e) || !text(e.title) || at === null || (idOf(e.id) && this.ids.get(`event:${idOf(e.id)}`))) {
+      if (
+        !isObj(e) ||
+        !text(e.title) ||
+        at === null ||
+        (idOf(e.id) && this.ids.get(`event:${idOf(e.id)}`))
+      ) {
         this.skip('Termin', 'Termine');
         continue;
       }
       const repeat = obj(e.repeat);
       const every = int(repeat.interval);
       const unit = idOf(repeat.unit);
-      const hasRepeat = every !== null && every >= 1 && ['day', 'week', 'month', 'year'].includes(unit);
+      const hasRepeat =
+        every !== null && every >= 1 && ['day', 'week', 'month', 'year'].includes(unit);
       const duration = int(e.durationDays);
       const parsed = CalendarEventSchema.safeParse({
         id: this.ids.claim('events', `event:${idOf(e.id) || newId()}`, idOf(e.id)),
@@ -1223,7 +1364,9 @@ class Importer {
     let empty = 0;
     for (const n of list(this.raw.notes)) {
       if (
-        !isObj(n) || typeof n.title !== 'string' || typeof n.body !== 'string' ||
+        !isObj(n) ||
+        typeof n.title !== 'string' ||
+        typeof n.body !== 'string' ||
         (idOf(n.id) && this.ids.get(`note:${idOf(n.id)}`))
       ) {
         this.skip('Notiz', 'Notizen');
@@ -1264,7 +1407,9 @@ class Importer {
     sessions.sort((a, b) => a.startAt - b.startAt || a.number - b.number);
     sessions.forEach((session, i) => {
       const next = sessions[i + 1];
-      this.sessions.push(next ? { ...session, endAt: Math.max(session.startAt, next.startAt) } : session);
+      this.sessions.push(
+        next ? { ...session, endAt: Math.max(session.startAt, next.startAt) } : session,
+      );
     });
     const last = this.sessions[this.sessions.length - 1];
     this.sessionId = last?.id ?? null;
@@ -1277,7 +1422,8 @@ class Importer {
       this.adopted.push(
         `${count(free, 'weitere Notiz wurde', 'weitere Notizen wurden')} als Thema der Art „Notiz“ in die Welt übernommen, weil sie zu keiner Session ${free === 1 ? 'gehört' : 'gehören'}.`,
       );
-    if (empty) this.hints.push(`${count(empty, 'leere Notiz wurde', 'leere Notizen wurden')} weggelassen.`);
+    if (empty)
+      this.hints.push(`${count(empty, 'leere Notiz wurde', 'leere Notizen wurden')} weggelassen.`);
   }
 
   /** Ordnet Chronikeinträge der Session zu, in deren Zeitraum sie fallen. */
@@ -1303,7 +1449,9 @@ class Importer {
     const sky = obj(this.raw.sky);
     const moons = ELARIS_CALENDAR.moons.filter((m) => time(sky[m.id]) !== null).map((m) => m.name);
     if (moons.length)
-      this.adopted.push(`Die Mond-Kalibrierung für ${joinAnd(moons)} wurde in den Kalender übernommen.`);
+      this.adopted.push(
+        `Die Mond-Kalibrierung für ${joinAnd(moons)} wurde in den Kalender übernommen.`,
+      );
   }
 
   private reportOmitted() {
@@ -1320,7 +1468,8 @@ class Importer {
       maps ? count(maps, 'Kartenzuordnung', 'Kartenzuordnungen') : '',
       scales ? count(scales, 'Kartenmaßstab', 'Kartenmaßstäbe') : '',
     ].filter(Boolean);
-    if (travel.length) this.omitted.push(`Nicht übernommen: ${joinAnd(travel)} – folgt mit dem Bereich Reisen.`);
+    if (travel.length)
+      this.omitted.push(`Nicht übernommen: ${joinAnd(travel)} – folgt mit dem Bereich Reisen.`);
 
     const explorations = Object.keys(obj(raw.explorations)).length;
     if (explorations)
@@ -1337,7 +1486,9 @@ class Importer {
       0,
     );
     if (rooms)
-      this.omitted.push(`Nicht übernommen: Stand und Notizen zu ${count(rooms, 'Dungeonraum', 'Dungeonräumen')}.`);
+      this.omitted.push(
+        `Nicht übernommen: Stand und Notizen zu ${count(rooms, 'Dungeonraum', 'Dungeonräumen')}.`,
+      );
     const assignments = list(world.wikiAssignments).length;
     if (assignments)
       this.omitted.push(
@@ -1356,7 +1507,10 @@ class Importer {
         'Nicht übernommen: der Link zum LegendKeeper-Projekt. Die Verbindung wird in den Einstellungen unter „LegendKeeper“ neu eingerichtet.',
       );
     const unknown = Object.keys(raw).filter((key) => !KNOWN_TOP_LEVEL.has(key));
-    if (unknown.length) this.omitted.push(`Nicht übernommen: unbekannte Bereiche des Backups (${unknown.join(', ')}).`);
+    if (unknown.length)
+      this.omitted.push(
+        `Nicht übernommen: unbekannte Bereiche des Backups (${unknown.join(', ')}).`,
+      );
   }
 
   // ── Abschluss ────────────────────────────────────────────────────────────
@@ -1414,9 +1568,13 @@ class Importer {
   }
 }
 
-/** Liest ein Backup der alten Wayfarer-Version (v157) und baut daraus eine neue Kampagne. */
-export function importV157Backup(raw: unknown): ImportResult {
-  if (!isObj(raw)) throw new Error('Diese Datei enthält keinen Spielstand der alten Wayfarer-Version.');
+/**
+ * Liest ein Backup der alten Wayfarer-Version (v157) und baut daraus eine neue Kampagne –
+ * ohne etwas zu merken. Für die Vorschau, bei der noch abgebrochen werden kann.
+ */
+export function previewV157Backup(raw: unknown): ImportResult {
+  if (!isObj(raw))
+    throw new Error('Diese Datei enthält keinen Spielstand der alten Wayfarer-Version.');
   if (raw.format === 'wayfarer-sicherung')
     throw new Error(
       'Das ist eine Sicherung des neuen Wayfarer. Bitte unter „Sicherung einspielen“ wählen.',
@@ -1426,4 +1584,34 @@ export function importV157Backup(raw: unknown): ImportResult {
       'Diese Datei ist kein Backup der alten Wayfarer-Version (erwartet wird die Datei „elaris-backup-….json“).',
     );
   return new Importer(raw).run();
+}
+
+export interface AppliedImport {
+  sections: ImportSections;
+  /** Name der Backup-Datei, soweit bekannt. */
+  fileName: string;
+  /** Echte Zeit der Übernahme. */
+  at: string;
+}
+
+let applied: AppliedImport | null = null;
+
+/** Merkt sich den Bericht einer vollzogenen Übernahme, damit er in den Einstellungen nachzulesen ist. */
+export function rememberImport(result: ImportResult, fileName = ''): void {
+  applied = { sections: result.sections, fileName, at: nowIso() };
+}
+
+/** Bericht der letzten Übernahme seit dem Start von Wayfarer; null, wenn es keine gab. */
+export function lastImport(): AppliedImport | null {
+  return applied;
+}
+
+/**
+ * Liest ein Backup der alten Wayfarer-Version (v157) und baut daraus eine neue Kampagne.
+ * Der Bericht bleibt bis zum Schließen der App unter „Einstellungen“ einsehbar.
+ */
+export function importV157Backup(raw: unknown): ImportResult {
+  const result = previewV157Backup(raw);
+  rememberImport(result);
+  return result;
 }

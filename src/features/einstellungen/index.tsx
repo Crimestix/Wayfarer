@@ -25,13 +25,16 @@ export default function Page() {
     <div className="wf-page">
       <header className="wf-page__head">
         <h1 className="wf-page__title">Einstellungen</h1>
-        <p className="wf-page__lead">Kampagne, Sicherung und Kalender – alles, was nicht am Spieltisch gebraucht wird.</p>
+        <p className="wf-page__lead">
+          Kampagne, Sicherung und Kalender – alles, was nicht am Spieltisch gebraucht wird.
+        </p>
       </header>
       <div className="wf-page__body">
         <div className="wf-einstellungen">
           {problems > 0 && (
             <Section
               numeral="!"
+              alert
               title="Probleme beim Laden"
               lead={
                 problems === 1
@@ -78,8 +81,12 @@ export default function Page() {
           >
             <Boundary
               fallback={
-                <EmptyState icon={<BookOpen />} title="LegendKeeper lässt sich gerade nicht anzeigen">
-                  Die übrigen Einstellungen sind davon nicht betroffen. Ein Neustart von Wayfarer hilft meistens.
+                <EmptyState
+                  icon={<BookOpen />}
+                  title="LegendKeeper lässt sich gerade nicht anzeigen"
+                >
+                  Die übrigen Einstellungen sind davon nicht betroffen. Ein Neustart von Wayfarer
+                  hilft meistens.
                 </EmptyState>
               }
             >

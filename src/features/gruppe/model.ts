@@ -64,9 +64,46 @@ export function clickExhaustionMark(current: number, mark: number): number {
   return clampExhaustion(current) === m ? Math.max(0, m - 1) : m;
 }
 
-/** Bewegungsrate nach Abzug der Erschöpfung, nie unter 0. */
-export function effectiveSpeed(details: Pick<Details, 'speed' | 'exhaustion'>): number {
-  return Math.max(0, details.speed + exhaustionEffect(details.exhaustion).speed);
+export interface SpeedInfo {
+  /** Eingetragene Bewegungsrate in Fuß. */
+  base: number;
+  /** Was im Augenblick davon bleibt. */
+  value: number;
+  /** In Worten, warum weniger bleibt; null = unverändert. */
+  reason: string | null;
+}
+
+/**
+ * Bewegungsrate im Augenblick: Erschöpfung zieht je Stufe 5 Fuß ab (nie unter 0); Zustände wie
+ * Gepackt oder Festgesetzt setzen sie auf 0.
+ */
+export function speedInfo(
+  details: Pick<Details, 'speed' | 'exhaustion'> & { conditions?: readonly string[] },
+): SpeedInfo {
+  const base = details.speed;
+  const tired = Math.max(0, base + exhaustionEffect(details.exhaustion).speed);
+  const halting = sortConditions(details.conditions ?? []).filter((name) => haltsMovement(name));
+  if (halting.length)
+    return {
+      base,
+      value: 0,
+      reason: `${joinNames(halting)}: Bewegungsrate 0 statt ${tired} Fuß`,
+    };
+  return {
+    base,
+    value: tired,
+    reason:
+      tired === base
+        ? null
+        : `Bewegungsrate ${base} Fuß, durch Erschöpfung auf ${tired} Fuß gesenkt`,
+  };
+}
+
+/** Bewegungsrate im Augenblick, siehe speedInfo. */
+export function effectiveSpeed(
+  details: Pick<Details, 'speed' | 'exhaustion'> & { conditions?: readonly string[] },
+): number {
+  return speedInfo(details).value;
 }
 
 // ── Zustände (D&D 2024) ────────────────────────────────────────────────────
@@ -75,6 +112,8 @@ export interface ConditionDef {
   name: string;
   /** Regel in einem Satz. */
   rule: string;
+  /** Der Zustand setzt die Bewegungsrate auf 0. */
+  halts?: boolean;
 }
 
 export const CONDITIONS: ConditionDef[] = [
@@ -85,6 +124,7 @@ export const CONDITIONS: ConditionDef[] = [
   {
     name: 'Bewusstlos',
     rule: 'Kampfunfähig und liegend, lässt alles fallen, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen das Ziel sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
+    halts: true,
   },
   {
     name: 'Bezaubert',
@@ -97,14 +137,17 @@ export const CONDITIONS: ConditionDef[] = [
   {
     name: 'Festgesetzt',
     rule: 'Bewegungsrate 0. Angriffe gegen das Ziel sind im Vorteil, eigene Angriffe im Nachteil. Nachteil bei Geschicklichkeitsrettungswürfen.',
+    halts: true,
   },
   {
     name: 'Gelähmt',
     rule: 'Kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern. Angriffe gegen das Ziel sind im Vorteil; Treffer aus 5 Fuß sind kritisch.',
+    halts: true,
   },
   {
     name: 'Gepackt',
     rule: 'Bewegungsrate 0. Nachteil bei Angriffen gegen alle außer dem Packenden. Der Packende kann das Ziel mit sich ziehen.',
+    halts: true,
   },
   {
     name: 'Kampfunfähig',
@@ -127,6 +170,7 @@ export const CONDITIONS: ConditionDef[] = [
   {
     name: 'Versteinert',
     rule: 'Zu Stein geworden: kampfunfähig, Bewegungsrate 0. Stärke- und Geschicklichkeitsrettungswürfe scheitern, Angriffe gegen das Ziel sind im Vorteil. Resistenz gegen jeden Schaden, immun gegen Gift.',
+    halts: true,
   },
 ];
 
@@ -135,6 +179,11 @@ const conditionIndex = (name: string) => CONDITIONS.findIndex((c) => sameText(c.
 /** Regeltext zu einem Zustand; leer bei eigenen Bezeichnungen. */
 export function conditionRule(name: string): string {
   return CONDITIONS[conditionIndex(name)]?.rule ?? '';
+}
+
+/** Setzt dieser Zustand die Bewegungsrate auf 0? */
+export function haltsMovement(name: string): boolean {
+  return CONDITIONS[conditionIndex(name)]?.halts === true;
 }
 
 export function hasCondition(conditions: readonly string[], name: string): boolean {
@@ -204,6 +253,16 @@ export function addLanguages(languages: readonly string[], input: string): strin
   return out;
 }
 
+/**
+ * Vorschläge beim Eintragen: zuerst, was andere Gefährten schon sprechen, dann die Sprachen des
+ * Regelwerks – ohne das, was der Gefährte bereits spricht.
+ */
+export function languageSuggestions(known: readonly string[], current: readonly string[]): string[] {
+  return addLanguages([], [...known, ...LANGUAGE_SUGGESTIONS].join(',')).filter(
+    (l) => !current.some((c) => sameText(c, l)),
+  );
+}
+
 export function removeLanguage(languages: readonly string[], name: string): string[] {
   return languages.filter((l) => !sameText(l, name));
 }
@@ -260,6 +319,8 @@ export interface NamedValue {
 export interface LanguageSpeakers {
   language: string;
   speakers: string[];
+  /** IDs der Sprecher, in derselben Reihenfolge wie die Namen. */
+  speakerIds: string[];
 }
 
 export interface PartySummary {
@@ -269,7 +330,14 @@ export interface PartySummary {
   /** Langsamste Bewegungsrate (Erschöpfung eingerechnet). */
   slowest: NamedValue | null;
   /** Niedrigste und höchste passive Wahrnehmung unter denen, bei denen sie eingetragen ist. */
-  perception: { lowest: NamedValue; highest: NamedValue; missing: string[] } | null;
+  perception: {
+    lowest: NamedValue;
+    highest: NamedValue;
+    /** Niedrigster und höchster Wert sind gleich. */
+    uniform: boolean;
+    /** Bei wem der Wert noch nicht eingetragen ist. */
+    missing: string[];
+  } | null;
   /** Sprachen, die alle sprechen. */
   commonLanguages: string[];
   /** Sprachen, die nicht alle sprechen – nach Namen sortiert, damit man sie schnell findet. */
@@ -313,8 +381,11 @@ export function partySummary(party: Character[]): PartySummary {
       const name = raw.trim();
       if (!name) continue;
       let entry = languages.find((l) => sameText(l.language, name));
-      if (!entry) languages.push((entry = { language: name, speakers: [] }));
-      if (!entry.speakers.includes(c.name)) entry.speakers.push(c.name);
+      if (!entry) languages.push((entry = { language: name, speakers: [], speakerIds: [] }));
+      if (!entry.speakerIds.includes(c.id)) {
+        entry.speakers.push(c.name);
+        entry.speakerIds.push(c.id);
+      }
     }
   }
   const everyone = sorted.length;
@@ -336,6 +407,7 @@ export function partySummary(party: Character[]): PartySummary {
         ? {
             lowest: perceptionLow,
             highest: perceptionHigh,
+            uniform: perceptionLow.value === perceptionHigh.value,
             missing: sorted
               .filter((c) => c.character.passivePerception === null)
               .map((c) => c.name),
@@ -359,10 +431,58 @@ export function joinNames(names: readonly string[]): string {
 }
 
 /** Sprachen, die in der aktiven Gruppe nur dieser eine Gefährte spricht. */
-export function soleLanguages(summary: PartySummary, name: string): string[] {
+export function soleLanguages(summary: PartySummary, characterId: string): string[] {
   return summary.partialLanguages
-    .filter((l) => l.speakers.length === 1 && l.speakers[0] === name)
+    .filter((l) => l.speakerIds.length === 1 && l.speakerIds[0] === characterId)
     .map((l) => l.language);
+}
+
+/** Bis zu zwei Namen ausgeschrieben, darüber „Tomlin und 2 weitere“. */
+export function shortNames(names: readonly string[]): string {
+  if (names.length <= 2) return joinNames(names);
+  return `${names[0]} und ${names.length - 1} weitere`;
+}
+
+/** Unterzeile zur Gruppe: „alle Stufe 5“ oder „Stufe 4–5“, dazu wer abseits unterwegs ist. */
+export function groupLine(summary: PartySummary): string {
+  const { levels, away } = summary;
+  if (!levels) return '';
+  const level =
+    levels.min === levels.max
+      ? summary.count === 1
+        ? `Stufe ${levels.min}`
+        : `alle Stufe ${levels.min}`
+      : `Stufe ${levels.min}–${levels.max}`;
+  return away.length ? `${level}, ${away.length} abseits` : level;
+}
+
+/** Unterzeile zur langsamsten Bewegungsrate. */
+export function slowestLine(summary: PartySummary): string {
+  const slowest = summary.slowest;
+  if (!slowest) return '';
+  if (summary.count === 1) return slowest.names[0] ?? '';
+  if (slowest.names.length === summary.count) return 'alle gleich schnell';
+  return `${shortNames(slowest.names)} am langsamsten`;
+}
+
+/** Unterzeile zur höchsten Erschöpfung: wen sie trifft und wie viele sonst noch erschöpft sind. */
+export function exhaustionLine(summary: PartySummary): string {
+  const worst = summary.exhaustion;
+  if (!worst) return 'niemand ist erschöpft';
+  const others = summary.exhaustedCount - worst.names.length;
+  const names = shortNames(worst.names);
+  if (others <= 0) return names;
+  return `${names}, dazu ${others} ${others === 1 ? 'weiterer' : 'weitere'}`;
+}
+
+/**
+ * Wer eine Sprache spricht, knapp für die Kopfzeile: ein oder zwei Namen ausgeschrieben,
+ * darüber „4 von 6“.
+ */
+export function speakersLabel(entry: LanguageSpeakers, count: number): string {
+  return entry.speakers.length <= 2
+    ? entry.speakers.join(', ')
+    : `${entry.speakers.length} von ${count}`;
 }
 
 // ── Lange Rast ─────────────────────────────────────────────────────────────

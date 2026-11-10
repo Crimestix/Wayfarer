@@ -326,7 +326,9 @@ export interface PopoverProps {
  */
 export function Popover({ open, onClose, anchor, children, align = 'left', width, className }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' });
+  // Bis die Lage berechnet ist, unsichtbar – aber nicht „visibility: hidden“: darin ließe sich
+  // nichts fokussieren, und das Suchfeld einer Auswahl bekäme beim Öffnen nie den Fokus.
+  const [style, setStyle] = useState<CSSProperties>({ position: 'fixed', opacity: 0 });
 
   useLayoutEffect(() => {
     if (!open || !anchor.current) return;
@@ -503,7 +505,16 @@ export function ConfirmHost() {
       footer={
         <>
           <Button onClick={() => finish(false)}>Abbrechen</Button>
-          <Button variant={state?.danger ? 'danger' : 'primary'} onClick={() => finish(true)} autoFocus>
+          <Button
+            variant={state?.danger ? 'danger' : 'primary'}
+            onClick={() => finish(true)}
+            autoFocus
+            data-autofocus
+            // Eine noch gehaltene Eingabetaste (vom Knopf, der die Rückfrage geöffnet hat) bestätigt nicht.
+            onKeyDown={(e) => {
+              if (e.repeat) e.preventDefault();
+            }}
+          >
             {state?.confirmLabel ?? 'Bestätigen'}
           </Button>
         </>

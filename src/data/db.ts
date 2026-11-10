@@ -37,6 +37,8 @@ export class CampaignMissingError extends Error {
 }
 
 const CAMPAIGN_PATH = 'campaign.json';
+/** Wartezeit bis zum nächsten Speicherversuch nach einem Fehler. */
+const RETRY_MS = 5000;
 const STATE_PATH = 'state.json';
 const docPath = (collection: CollectionName, id: string) => `${collection}/${id}.json`;
 const serialize = (doc: unknown) => JSON.stringify(doc, null, 1) + '\n';
@@ -219,12 +221,16 @@ export class CampaignDb {
     const campaign = CampaignMetaSchema.parse(next.campaign);
     const state = PlayStateSchema.parse(next.state);
     const unreadable = new Set(this.problems.map((p) => p.path));
-    const collections = {} as Record<CollectionName, Record<string, CollectionTypes[CollectionName]>>;
+    const collections = {} as Record<
+      CollectionName,
+      Record<string, CollectionTypes[CollectionName]>
+    >;
     for (const name of COLLECTION_NAMES) {
       const docs: Record<string, CollectionTypes[CollectionName]> = {};
       for (const [key, raw] of Object.entries(next[name])) {
         const doc = COLLECTION_SCHEMAS[name].parse(raw);
-        if (doc.id !== key) throw new Error(`Ein Eintrag in „${name}“ trägt eine andere Kennung als sein Schlüssel.`);
+        if (doc.id !== key)
+          throw new Error(`Ein Eintrag in „${name}“ trägt eine andere Kennung als sein Schlüssel.`);
         if (unreadable.has(docPath(name, doc.id)))
           throw new Error(
             `Im Kampagnenordner liegt eine unlesbare Datei „${docPath(name, doc.id)}“, die nicht überschrieben wird. Bitte zuerst diese Datei prüfen.`,
@@ -237,7 +243,8 @@ export class CampaignDb {
     for (const name of COLLECTION_NAMES) {
       for (const id of Object.keys(this.data[name]))
         if (!(id in collections[name])) this.pending.set(docPath(name, id), null);
-      for (const doc of Object.values(collections[name])) this.pending.set(docPath(name, doc.id), serialize(doc));
+      for (const doc of Object.values(collections[name]))
+        this.pending.set(docPath(name, doc.id), serialize(doc));
     }
     this.pending.set(CAMPAIGN_PATH, serialize(campaign));
     this.pending.set(STATE_PATH, serialize(state));
@@ -309,6 +316,8 @@ export class CampaignDb {
         this.setStatus('saved');
       } catch (error) {
         this.setStatus('error', error instanceof Error ? error.message : String(error));
+        // Von selbst erneut versuchen (z. B. wenn ein Laufwerk kurz nicht erreichbar war).
+        if (!this.flushTimer) this.flushTimer = setTimeout(() => void this.flush(), RETRY_MS);
       } finally {
         this.writing = null;
       }

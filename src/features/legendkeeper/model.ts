@@ -729,5 +729,5 @@ export function articleBody(blocks: unknown, projectId?: string, title?: string)
 /** Bezeichnung eines Dokuments, das nur in LegendKeeper anzusehen ist: „Karte „Stadtplan““. */
 export function docLabel(doc: ArticleDoc): string {
   const kind = DOC_KIND_LABEL[doc.kind];
-  return sameTitle(doc.name, kind) || doc.name === 'Main' ? kind : `${kind} „${doc.name}“`;
+  return sameTitle(doc.name, kind) ? kind : `${kind} „${doc.name}“`;
 }

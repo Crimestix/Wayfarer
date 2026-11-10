@@ -30,7 +30,9 @@ const SIMPLE: CalendarDef = {
 describe('Kampagnenname', () => {
   it('räumt Leerraum auf und begrenzt die Länge', () => {
     expect(cleanCampaignName('  Elaris  ')).toBe('Elaris');
-    expect(cleanCampaignName('Die   Gezeichneten\n von Elaris')).toBe('Die Gezeichneten von Elaris');
+    expect(cleanCampaignName('Die   Gezeichneten\n von Elaris')).toBe(
+      'Die Gezeichneten von Elaris',
+    );
     expect(cleanCampaignName('x'.repeat(100))).toHaveLength(60);
   });
   it('lehnt leere Namen ab', () => {
@@ -44,7 +46,9 @@ describe('Ordnerprüfung', () => {
     expect(isInsideFolder('/Users/sl/Elaris', '/Users/sl/Elaris')).toBe(true);
     expect(isInsideFolder('/Users/sl/Elaris', '/users/SL/elaris/Sicherungen')).toBe(true);
     expect(isInsideFolder('/Users/sl/Elaris/', '/Users/sl/Elaris')).toBe(true);
-    expect(isInsideFolder('C:\\Users\\SL\\OneDrive\\Elaris', 'c:/users/sl/onedrive/elaris\\alt')).toBe(true);
+    expect(
+      isInsideFolder('C:\\Users\\SL\\OneDrive\\Elaris', 'c:/users/sl/onedrive/elaris\\alt'),
+    ).toBe(true);
   });
   it('verwechselt keine Ordner mit gleichem Anfang', () => {
     expect(isInsideFolder('/Users/sl/Elaris', '/Users/sl/Elaris-Sicherungen')).toBe(false);
@@ -59,7 +63,11 @@ describe('Probleme beim Laden erklären', () => {
       path: 'entities/abc123.json',
       message: 'Dateiname und Kennung passen nicht zusammen (vermutlich eine Konfliktkopie).',
     });
-    expect(byMessage).toMatchObject({ kind: 'conflict', what: 'Eintrag der Welt', path: 'entities/abc123.json' });
+    expect(byMessage).toMatchObject({
+      kind: 'conflict',
+      what: 'Eintrag der Welt',
+      path: 'entities/abc123.json',
+    });
     for (const path of [
       'chronicle/abc (Konflikt).json',
       'chronicle/abc (conflicted copy 2026-11-10).json',
@@ -68,16 +76,23 @@ describe('Probleme beim Laden erklären', () => {
       'chronicle/abc-DESKTOP-4F2K.json',
       'chronicle/abc 2.json',
     ])
-      expect(explainProblem({ path, message: 'Unexpected token' })).toMatchObject({ kind: 'conflict', what: 'Chronikeintrag' });
+      expect(explainProblem({ path, message: 'Unexpected token' })).toMatchObject({
+        kind: 'conflict',
+        what: 'Chronikeintrag',
+      });
   });
 
   it('unterscheidet beschädigte Dateien von Dateien mit falschem Inhalt', () => {
     expect(
-      explainProblem({ path: 'events/markt.json', message: "Expected property name or '}' in JSON at position 2" }),
+      explainProblem({
+        path: 'events/markt.json',
+        message: "Expected property name or '}' in JSON at position 2",
+      }),
     ).toMatchObject({ kind: 'damaged', what: 'Termin' });
     const shape = explainProblem({
       path: 'timers/fackel.json',
-      message: '[\n  {\n    "expected": "string",\n    "code": "invalid_type",\n    "path": ["label"]',
+      message:
+        '[\n  {\n    "expected": "string",\n    "code": "invalid_type",\n    "path": ["label"]',
     });
     expect(shape).toMatchObject({ kind: 'shape', what: 'Timer' });
     expect(shape.reason).not.toMatch(/invalid_type|JSON/);
@@ -88,7 +103,9 @@ describe('Probleme beim Laden erklären', () => {
 
 describe('Kalender lesbar', () => {
   it('fasst Jahr und Woche zusammen', () => {
-    expect(calendarSummary(cal)).toBe('12 Monate · 365 Tage, im Schaltjahr 366 · Woche mit 7 Tagen');
+    expect(calendarSummary(cal)).toBe(
+      '12 Monate · 365 Tage, im Schaltjahr 366 · Woche mit 7 Tagen',
+    );
     expect(calendarSummary(SIMPLE)).toBe('1 Monat · 30 Tage · Woche mit 1 Tag');
   });
 
@@ -96,7 +113,13 @@ describe('Kalender lesbar', () => {
     const rows = monthRows(cal, ELARIS_START);
     expect(rows).toHaveLength(12);
     expect(rows[0]).toEqual({ index: 0, name: 'Tauwind', days: 31, leapDays: null, current: true });
-    expect(rows[1]).toEqual({ index: 1, name: 'Grünbruch', days: 28, leapDays: 29, current: false });
+    expect(rows[1]).toEqual({
+      index: 1,
+      name: 'Grünbruch',
+      days: 28,
+      leapDays: 29,
+      current: false,
+    });
     expect(rows.filter((r) => r.current)).toHaveLength(1);
     expect(monthRows({ ...cal, leapRule: 'none' }, ELARIS_START)[1]!.leapDays).toBeNull();
   });

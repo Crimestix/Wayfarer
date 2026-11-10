@@ -361,7 +361,8 @@ function SessionDetail({
       >
         <div className="wf-col">
           <div className="wf-mute">
-            Die Zwischenablage ließ sich nicht direkt füllen. Markiere den Text (Strg+A) und kopiere ihn mit Strg+C.
+            Die Zwischenablage ließ sich nicht direkt füllen. Der Text ist schon markiert – kopiere ihn mit Strg+C
+            (am Mac: Cmd+C).
           </div>
           <TextArea
             readOnly

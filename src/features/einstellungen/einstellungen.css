@@ -34,6 +34,12 @@
   height: 1px;
   background: var(--gold-deep);
 }
+.wf-einstellungen-section--alert .wf-einstellungen-section__numeral {
+  color: var(--blood-bright);
+}
+.wf-einstellungen-section--alert .wf-einstellungen-section__numeral::after {
+  background: var(--blood);
+}
 .wf-einstellungen-section__title {
   margin: 6px 0 var(--s-2);
   font-family: var(--font-display);

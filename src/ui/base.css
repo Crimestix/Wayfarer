@@ -6,6 +6,20 @@
 @import '@fontsource/cinzel/600.css';
 @import './tokens.css';
 
+/*
+ * Ziffern für die Versalienschrift: Cinzel zeichnet die 1 wie ein großes I („Session II“).
+ * Diese Schriftfamilie deckt nur Ziffern und Zahlzeichen ab; --font-caps nennt sie vor Cinzel,
+ * so stehen Zahlen in Etiketten überall in der lesbaren Textschrift.
+ */
+@font-face {
+  font-family: 'WF Caps Digits';
+  src: url('../../node_modules/@fontsource-variable/crimson-pro/files/crimson-pro-latin-wght-normal.woff2')
+    format('woff2-variations');
+  font-weight: 200 900;
+  font-display: swap;
+  unicode-range: U+0030-0039, U+002B, U+002D, U+002E, U+002C, U+003A, U+0025, U+2013, U+2212;
+}
+
 *,
 *::before,
 *::after {

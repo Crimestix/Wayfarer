@@ -5,10 +5,8 @@ import { useData, useDb } from '../../data/hooks';
 import { entityName, sessionsSorted } from '../../domain/derive';
 import { createEntity, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
 import {
-  MINUTES_PER_DAY,
   dayIndexOf,
   primaryEra,
-  startOfDay,
   weekdayName,
   type CalendarDef,
   type WorldTime,
@@ -29,6 +27,7 @@ import {
   toast,
 } from '../../ui';
 import {
+  defaultDue,
   deleteConsequence,
   draftOf,
   entryChange,
@@ -172,9 +171,7 @@ export function EntryDialog({ request, onClose }: { request: EntryDialogRequest;
     entry ? initial.sessionId : request.mode === 'new' && request.sessionId !== undefined ? request.sessionId : 'auto',
   );
   const [hasDue, setHasDue] = useState(initial.due !== null);
-  const [due, setDue] = useState(() =>
-    timeDraftOf(cal, initial.due ?? startOfDay(now) + 8 * MINUTES_PER_DAY - 1),
-  );
+  const [due, setDue] = useState(() => timeDraftOf(cal, initial.due ?? defaultDue(now)));
   const [done, setDone] = useState(initial.done);
 
   const at = timeLocked ? initial.at : timeOfDraft(cal, time);

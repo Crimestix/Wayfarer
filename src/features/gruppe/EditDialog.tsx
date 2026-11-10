@@ -22,12 +22,12 @@ import {
 import { saveCharacter } from './actions';
 import { fileToPortrait } from './image';
 import {
-  LANGUAGE_SUGGESTIONS,
   addLanguages,
   clickExhaustionMark,
   draftFromCharacter,
   emptyDraft,
   exhaustionText,
+  languageSuggestions,
   parseDraft,
   removeLanguage,
   toggleCondition,
@@ -62,12 +62,14 @@ export function EditDialog({
   const error = (field: DraftField) => (showErrors ? result.errors[field] : undefined);
 
   // Vorschläge: Sprachen der anderen Gefährten zuerst, dann die des Regelwerks.
-  const suggestions = useMemo(() => {
-    const known = entitiesOfKind(data, 'character').flatMap((c) => c.character.languages);
-    return addLanguages([], [...known, ...LANGUAGE_SUGGESTIONS].join(',')).filter(
-      (l) => addLanguages(draft.languages, l).length > draft.languages.length,
-    );
-  }, [data, draft.languages]);
+  const suggestions = useMemo(
+    () =>
+      languageSuggestions(
+        entitiesOfKind(data, 'character').flatMap((c) => c.character.languages),
+        draft.languages,
+      ),
+    [data, draft.languages],
+  );
 
   const commitLanguage = () => {
     if (!language.trim()) return false;
@@ -128,10 +130,11 @@ export function EditDialog({
     }
   };
 
+  // Schlichte Textfelder statt Zahlenfelder: Das Mausrad verstellt sonst beim Rollen durch den
+  // Dialog unbemerkt den Wert, über dem der Zeiger gerade steht. Geprüft wird in parseDraft.
   const number = (
     field: DraftField & keyof CharacterDraft,
     label: string,
-    max: number,
     placeholder = '–',
   ) => (
     <Field
@@ -140,10 +143,8 @@ export function EditDialog({
       className={error(field) ? 'wf-gruppe-field--error' : undefined}
     >
       <Input
-        type="number"
         inputMode="numeric"
-        min={0}
-        max={max}
+        autoComplete="off"
         placeholder={placeholder}
         value={draft[field] as string}
         onChange={(e) => set(field, e.target.value)}
@@ -258,10 +259,8 @@ export function EditDialog({
               className={cx('wf-gruppe-col-1', error('level') && 'wf-gruppe-field--error')}
             >
               <Input
-                type="number"
                 inputMode="numeric"
-                min={1}
-                max={20}
+                autoComplete="off"
                 value={draft.level}
                 onChange={(e) => set('level', e.target.value)}
               />
@@ -271,12 +270,12 @@ export function EditDialog({
 
         <SectionTitle>Werte für den Tisch</SectionTitle>
         <div className="wf-gruppe-form__grid">
-          {number('armorClass', 'Rüstungsklasse', 40)}
-          {number('hpMax', 'Max. Trefferpunkte', 999)}
-          {number('speed', 'Bewegungsrate (Fuß)', 300, '30')}
-          {number('passivePerception', 'Passive Wahrnehmung', 40)}
-          {number('passiveInsight', 'Passive Einsicht', 40)}
-          {number('passiveInvestigation', 'Passive Nachforschung', 40)}
+          {number('armorClass', 'Rüstungsklasse')}
+          {number('hpMax', 'Max. Trefferpunkte')}
+          {number('speed', 'Bewegungsrate (Fuß)', '30')}
+          {number('passivePerception', 'Passive Wahrnehmung')}
+          {number('passiveInsight', 'Passive Einsicht')}
+          {number('passiveInvestigation', 'Passive Nachforschung')}
         </div>
 
         <SectionTitle>Sprachen</SectionTitle>

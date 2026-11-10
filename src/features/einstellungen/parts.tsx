@@ -8,16 +8,22 @@ export function Section({
   title,
   lead,
   children,
+  alert,
 }: {
   /** Römische Ziffer als Zierde vor dem Titel. */
   numeral: string;
   title: string;
   lead: ReactNode;
   children: ReactNode;
+  /** Abschnitt, der Aufmerksamkeit braucht (Probleme beim Laden). */
+  alert?: boolean;
 }) {
   const id = useId();
   return (
-    <section className="wf-einstellungen-section" aria-labelledby={id}>
+    <section
+      className={cx('wf-einstellungen-section', alert && 'wf-einstellungen-section--alert')}
+      aria-labelledby={id}
+    >
       <header className="wf-einstellungen-section__head">
         <div className="wf-einstellungen-section__numeral" aria-hidden="true">
           {numeral}
@@ -70,7 +76,10 @@ export function Notice({
   action?: ReactNode;
 }) {
   return (
-    <div className={cx('wf-einstellungen-notice', `wf-einstellungen-notice--${tone}`)} role={tone === 'danger' ? 'alert' : 'note'}>
+    <div
+      className={cx('wf-einstellungen-notice', `wf-einstellungen-notice--${tone}`)}
+      role={tone === 'danger' ? 'alert' : 'note'}
+    >
       {icon && <div className="wf-einstellungen-notice__icon">{icon}</div>}
       <div className="wf-grow">
         {title && <div className="wf-einstellungen-notice__title">{title}</div>}
@@ -105,7 +114,10 @@ export function useFilePicker(onFile: (file: File) => void) {
  * Fängt Fehler eines eingebetteten Bausteins ab, damit die übrigen Einstellungen – vor allem die
  * Sicherung – erreichbar bleiben.
  */
-export class Boundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+export class Boundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };

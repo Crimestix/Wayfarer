@@ -2,7 +2,13 @@
 import { useState, type ReactNode } from 'react';
 import { Check, CircleSlash, Copy, Info, ScrollText, TriangleAlert } from 'lucide-react';
 import { useDb } from '../../data/hooks';
-import { importV157Backup, type ImportResult, type ImportSections } from '../import/v157';
+import {
+  lastImport,
+  previewV157Backup,
+  rememberImport,
+  type ImportResult,
+  type ImportSections,
+} from '../import/v157';
 import { Button, Dialog, toast } from '../../ui';
 import { formatRealTime, summarize } from './backup';
 import { errorText, readJsonFile } from './files';
@@ -14,8 +20,11 @@ interface Picked {
   fileName: string;
 }
 
-/** Der Bericht der letzten Übernahme – bleibt bis zum Schließen der App einsehbar. */
-let lastImport: { sections: ImportSections; fileName: string; at: string } | null = null;
+/** Die Gruppe trägt die Überschrift schon; der Satz beginnt danach wieder groß. */
+function withoutPrefix(line: string): string {
+  const rest = line.replace(/^(Nicht übernommen|Übersprungen, weil unlesbar): /, '');
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
 
 function ReportGroup({
   tone,
@@ -38,7 +47,7 @@ function ReportGroup({
       </h3>
       <ul className="wf-einstellungen-report__list">
         {lines.map((line, i) => (
-          <li key={i}>{line.replace(/^(Nicht übernommen|Übersprungen, weil unlesbar): /, '')}</li>
+          <li key={i}>{withoutPrefix(line)}</li>
         ))}
       </ul>
     </section>
@@ -50,8 +59,18 @@ export function ImportReport({ sections }: { sections: ImportSections }) {
     <div className="wf-einstellungen-report">
       <ReportGroup tone="ok" icon={<Check />} title="Übernommen" lines={sections.adopted} />
       <ReportGroup tone="info" icon={<Info />} title="Dabei angepasst" lines={sections.hints} />
-      <ReportGroup tone="warn" icon={<CircleSlash />} title="Nicht übernommen" lines={sections.omitted} />
-      <ReportGroup tone="danger" icon={<TriangleAlert />} title="Übersprungen, weil unlesbar" lines={sections.skipped} />
+      <ReportGroup
+        tone="warn"
+        icon={<CircleSlash />}
+        title="Nicht übernommen"
+        lines={sections.omitted}
+      />
+      <ReportGroup
+        tone="danger"
+        icon={<TriangleAlert />}
+        title="Übersprungen, weil unlesbar"
+        lines={sections.skipped}
+      />
     </div>
   );
 }
@@ -82,24 +101,30 @@ export function LegacySection() {
   const db = useDb();
   const [pending, setPending] = useState<Picked | null>(null);
   const [shown, setShown] = useState<Picked | null>(null);
+  // Auch eine Übernahme vom Startbildschirm aus ist hier nachzulesen.
   const [last, setLast] = useState(lastImport);
   const [viewing, setViewing] = useState(false);
 
   const picker = useFilePicker(async (file) => {
     try {
-      const next = { result: importV157Backup(await readJsonFile(file)), fileName: file.name };
+      const next = { result: previewV157Backup(await readJsonFile(file)), fileName: file.name };
       setShown(next);
       setPending(next);
     } catch (e) {
-      toast({ title: 'Diese Datei lässt sich nicht übernehmen', body: errorText(e), tone: 'danger', duration: 12000 });
+      toast({
+        title: 'Diese Datei lässt sich nicht übernehmen',
+        body: errorText(e),
+        tone: 'danger',
+        duration: 12000,
+      });
     }
   });
 
   const apply = () => {
     if (!pending) return;
     db.replaceAll(pending.result.data);
-    lastImport = { sections: pending.result.sections, fileName: pending.fileName, at: new Date().toISOString() };
-    setLast(lastImport);
+    rememberImport(pending.result, pending.fileName);
+    setLast(lastImport());
     setPending(null);
     toast({ title: 'Alter Spielstand übernommen', body: `aus ${pending.fileName}` });
   };
@@ -116,8 +141,8 @@ export function LegacySection() {
             </Button>
           }
         >
-          Die Datei heißt „elaris-backup-….json“ und entsteht im alten Wayfarer über das Menü mit „Backup
-          herunterladen“. Erst nach deiner Bestätigung wird etwas ersetzt.
+          Die Datei heißt „elaris-backup-….json“ und entsteht im alten Wayfarer über das Menü mit
+          „Backup herunterladen“. Erst nach deiner Bestätigung wird etwas ersetzt.
         </ActionRow>
       </div>
       {picker.input}
@@ -125,7 +150,7 @@ export function LegacySection() {
       {last && (
         <Notice
           icon={<Check />}
-          title={`Übernommen aus ${last.fileName}`}
+          title={last.fileName ? `Übernommen aus ${last.fileName}` : 'Alter Spielstand übernommen'}
           action={<Button onClick={() => setViewing(true)}>Bericht ansehen</Button>}
         >
           {formatRealTime(last.at)}. Der Bericht bleibt hier einsehbar, bis du Wayfarer schließt.

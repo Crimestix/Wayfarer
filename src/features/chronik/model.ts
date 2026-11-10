@@ -21,6 +21,7 @@ import {
   type Session,
 } from '../../domain/schema';
 import {
+  MINUTES_PER_DAY,
   absoluteYear,
   dayIndexOf,
   displayYear,
@@ -61,6 +62,11 @@ export const isManualKind = (kind: ChronicleKind): kind is ManualKind =>
 /** Ist die Abmachung offen und ihre Frist verstrichen? */
 export function isOverdue(entry: ChronicleEntry, now: WorldTime): boolean {
   return !!entry.promise && !entry.promise.done && entry.promise.due !== null && entry.promise.due < now;
+}
+
+/** Frist, die für eine neue Abmachung vorgeschlagen wird: in einer Woche, am Ende des Tages. */
+export function defaultDue(now: WorldTime): WorldTime {
+  return (dayIndexOf(now) + 8) * MINUTES_PER_DAY - 1;
 }
 
 /** Frist einer offenen Abmachung in wenigen Worten: „Seit 3 Tagen überfällig · 12. Tauwind“. */
@@ -253,6 +259,12 @@ export function resumableSessionId(data: CampaignData): string | null {
   if (data.state.sessionId && data.sessions[data.state.sessionId]) return null;
   const sessions = sessionsSorted(data);
   return sessions[sessions.length - 1]?.id ?? null;
+}
+
+/** Zeitpunkt, der beim Nachtragen zu einer Session vorgeschlagen wird: ihr Ende, bei der laufenden jetzt. */
+export function sessionBackfillTime(data: CampaignData, sessionId: string): WorldTime {
+  const span = sessionSpans(data).find((s) => s.session.id === sessionId);
+  return Math.min(span?.to ?? data.state.now, data.state.now);
 }
 
 /** „Session 12 – Die Glocke“ bzw. „Session 12“. Ein Titel, der nur die Nummer wiederholt, entfällt. */
@@ -643,8 +655,8 @@ export function entryHeadline(data: CampaignData, entry: ChronicleEntry): string
   if (entry.kind === 'travel' && entry.travel) {
     const { fromId, toId } = entry.travel;
     if (toId)
-      return `Die Gruppe erreicht ${entityName(data, toId)}${fromId ? ` (von ${entityName(data, fromId)})` : ''}`;
-    return fromId ? `Die Gruppe verlässt ${entityName(data, fromId)}` : 'Die Gruppe bricht auf';
+      return `Ankunft: ${entityName(data, toId)}${fromId ? ` (von ${entityName(data, fromId)})` : ''}`;
+    return fromId ? `Aufbruch aus ${entityName(data, fromId)}` : 'Die Gruppe bricht auf';
   }
   if (entry.kind === 'attitude' && entry.attitude) {
     const { fromId, toId, before, after } = entry.attitude;

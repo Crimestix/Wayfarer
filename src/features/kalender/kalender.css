@@ -241,6 +241,25 @@
   }
 }
 
+/* Sehr schmale Felder: Zeichen und Monde rücken zusammen, damit nichts am Rand abgeschnitten wird. */
+@container (max-width: 104px) {
+  .wf-kal-day__top {
+    gap: 3px;
+    padding: 0 4px 0 3px;
+  }
+  .wf-kal-day__marks,
+  .wf-kal-day__moons {
+    gap: 2px;
+  }
+  .wf-kal-moon--major svg {
+    width: 13px;
+    height: 13px;
+  }
+  .wf-kal-day--marked .wf-kal-moon__name {
+    display: none;
+  }
+}
+
 /* Vergangenes zurückgenommen, Nachbarmonate noch leiser */
 .wf-kal-day--past {
   background: color-mix(in srgb, var(--bg-void) 26%, transparent);

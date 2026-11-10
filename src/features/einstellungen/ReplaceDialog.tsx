@@ -135,7 +135,8 @@ export function ReplaceDialog({
             </Button>
           }
         >
-          Der jetzige Stand wird vollständig ersetzt. Das lässt sich nicht zurücknehmen – außer mit einer Sicherung.
+          Der jetzige Stand wird vollständig ersetzt. Das lässt sich nicht zurücknehmen – außer mit
+          einer Sicherung.
           {saved && <div className="wf-einstellungen-replace__saved">Gesichert: {saved}</div>}
         </Notice>
 

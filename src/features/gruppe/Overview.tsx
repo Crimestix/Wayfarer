@@ -20,23 +20,21 @@ import { completeLongRest, patchCharacter } from './actions';
 import {
   classLine,
   exhaustionEffect,
+  exhaustionLine,
+  groupLine,
   joinNames,
   lacksValues,
   longRestChanges,
   partySummary,
+  shortNames,
+  slowestLine,
   soleLanguages,
-  type NamedValue,
+  speakersLabel,
   type PartySummary,
 } from './model';
 import { ConditionChips, ExhaustionControl, LocationControl, SheetLink, StatBand } from './parts';
 
 // ── Kennzahlen ─────────────────────────────────────────────────────────────
-
-/** „alle“, wenn es jeden betrifft, sonst die Namen. */
-const slowestText = (value: NamedValue, count: number) =>
-  value.names.length === count && count > 1
-    ? 'alle gleich schnell'
-    : `${joinNames(value.names)} am langsamsten`;
 
 function Figure({
   label,
@@ -69,14 +67,7 @@ function Figure({
 }
 
 function SummaryBand({ summary }: { summary: PartySummary }) {
-  const { count, levels, slowest, perception, exhaustion } = summary;
-  const levelText = !levels
-    ? ''
-    : levels.min === levels.max
-      ? `alle Stufe ${levels.min}`
-      : `Stufe ${levels.min}–${levels.max}`;
-  const groupSub = summary.away.length ? `${levelText}, ${summary.away.length} abseits` : levelText;
-  const alsoExhausted = exhaustion ? summary.exhaustedCount - exhaustion.names.length : 0;
+  const { count, slowest, perception, exhaustion } = summary;
   const partial = summary.partialLanguages;
   return (
     <Panel className="wf-gruppe-summary" flush>
@@ -84,7 +75,7 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
         label="Aktive Gruppe"
         value={count}
         unit={count === 1 ? 'Gefährte' : 'Gefährten'}
-        sub={groupSub}
+        sub={groupLine(summary)}
         subTitle={
           summary.away.length ? `Abseits der Gruppe: ${joinNames(summary.away)}` : undefined
         }
@@ -93,32 +84,56 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
         label="Bewegung"
         value={slowest ? slowest.value : '–'}
         unit={slowest ? 'Fuß' : undefined}
-        sub={slowest ? slowestText(slowest, count) : ''}
+        sub={slowestLine(summary)}
+        subTitle={slowest ? `${joinNames(slowest.names)}: ${slowest.value} Fuß` : undefined}
+        tone={slowest && slowest.value === 0 ? 'warn' : undefined}
       />
       <div className="wf-gruppe-figure">
         <div className="wf-gruppe-figure__label">Passive Wahrnehmung</div>
-        {perception ? (
-          <div className="wf-gruppe-range">
-            {(['lowest', 'highest'] as const).map((end) => (
-              <div key={end}>
-                <div className="wf-gruppe-figure__value wf-num">
-                  {perception[end].value}
-                  <small>{end === 'lowest' ? 'niedrigste' : 'höchste'}</small>
-                </div>
-                <div
-                  className="wf-gruppe-figure__sub wf-clamp-1"
-                  title={joinNames(perception[end].names)}
-                >
-                  {joinNames(perception[end].names)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
+        {!perception ? (
           <>
-            <div className="wf-gruppe-figure__value">–</div>
+            <div className="wf-gruppe-figure__value wf-gruppe-figure__value--none">–</div>
             <div className="wf-gruppe-figure__sub">noch bei niemandem eingetragen</div>
           </>
+        ) : (
+          <div
+            className="wf-gruppe-range"
+            title={
+              perception.missing.length
+                ? `Noch nicht eingetragen bei ${joinNames(perception.missing)}`
+                : undefined
+            }
+          >
+            {(perception.uniform ? (['lowest'] as const) : (['lowest', 'highest'] as const)).map(
+              (end) => (
+                <div key={end}>
+                  <div className="wf-gruppe-figure__value wf-num">
+                    {perception[end].value}
+                    <small>
+                      {perception.uniform
+                        ? 'bei allen'
+                        : end === 'lowest'
+                          ? 'niedrigste'
+                          : 'höchste'}
+                    </small>
+                  </div>
+                  {!perception.uniform && (
+                    <div
+                      className="wf-gruppe-figure__sub wf-clamp-1"
+                      title={joinNames(perception[end].names)}
+                    >
+                      {shortNames(perception[end].names)}
+                    </div>
+                  )}
+                </div>
+              ),
+            )}
+            {perception.missing.length > 0 && (
+              <div className="wf-gruppe-range__missing wf-clamp-1">
+                fehlt noch bei {shortNames(perception.missing)}
+              </div>
+            )}
+          </div>
         )}
       </div>
       <div className="wf-gruppe-figure wf-gruppe-figure--tongues">
@@ -142,7 +157,9 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
                 partial.map((l, i) => (
                   <span key={l.language}>
                     {i > 0 && ' · '}
-                    {l.language} <span className="wf-mute">({l.speakers.join(', ')})</span>
+                    <span className="wf-gruppe-tongues__one">
+                      {l.language} <span className="wf-mute">({speakersLabel(l, count)})</span>
+                    </span>
                   </span>
                 ))
               ) : (
@@ -159,13 +176,8 @@ function SummaryBand({ summary }: { summary: PartySummary }) {
       <Figure
         label="Erschöpfung"
         value={exhaustion ? `Stufe ${exhaustion.value}` : '–'}
-        sub={
-          !exhaustion
-            ? 'niemand ist erschöpft'
-            : alsoExhausted
-              ? `${joinNames(exhaustion.names)}, dazu ${alsoExhausted} ${alsoExhausted === 1 ? 'weiterer' : 'weitere'}`
-              : joinNames(exhaustion.names)
-        }
+        sub={exhaustionLine(summary)}
+        subTitle={exhaustion ? joinNames(exhaustion.names) : undefined}
         tone={!exhaustion ? 'quiet' : exhaustionEffect(exhaustion.value).dead ? 'danger' : 'warn'}
       />
     </Panel>
@@ -184,7 +196,7 @@ function CharacterCard({
   onEdit: () => void;
 }) {
   const d = character.character;
-  const sole = soleLanguages(summary, character.name);
+  const sole = soleLanguages(summary, character.id);
   const href = `/gruppe/${character.id}`;
   return (
     <Panel className="wf-gruppe-card" flush>

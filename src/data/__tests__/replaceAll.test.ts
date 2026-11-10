@@ -31,7 +31,10 @@ describe('Spielstand austauschen (replaceAll)', () => {
     ]);
     expect(new Set(store.files.keys())).toEqual(expected);
     // Von der Beispielwelt ist außer campaign.json und state.json nichts mehr übrig.
-    expect([...before].filter((path) => store.files.has(path)).sort()).toEqual(['campaign.json', 'state.json']);
+    expect([...before].filter((path) => store.files.has(path)).sort()).toEqual([
+      'campaign.json',
+      'state.json',
+    ]);
 
     const reopened = await CampaignDb.open(store);
     expect(reopened.getSnapshot()).toEqual(next);
@@ -72,7 +75,9 @@ describe('Spielstand austauschen (replaceAll)', () => {
     const db = await CampaignDb.open(store);
     const place = { ...createEntity({ kind: 'place', name: 'Neu' }), id: 'kaputt' };
     const next = elarisCampaign();
-    expect(() => db.replaceAll({ ...next, entities: { ...next.entities, kaputt: place } })).toThrow(/unlesbare Datei/);
+    expect(() => db.replaceAll({ ...next, entities: { ...next.entities, kaputt: place } })).toThrow(
+      /unlesbare Datei/,
+    );
     db.replaceAll(next);
     await db.flush();
     expect(store.files.get('entities/kaputt.json')).toBe('{ nicht json');
@@ -88,6 +93,8 @@ describe('Spielstand austauschen (replaceAll)', () => {
     const reopened = await CampaignDb.open(store);
     expect(reopened.getSnapshot().entities[place.id]?.name).toBe('Furt');
     expect(reopened.getSnapshot().campaign.name).toBe('Neue Kampagne');
-    expect(Object.keys(reopened.getSnapshot().entities)).toHaveLength(Object.keys(next.entities).length + 1);
+    expect(Object.keys(reopened.getSnapshot().entities)).toHaveLength(
+      Object.keys(next.entities).length + 1,
+    );
   });
 });

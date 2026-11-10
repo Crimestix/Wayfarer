@@ -277,7 +277,7 @@ export function Detail({
   const bonds = characterBonds(data, character.id);
   const promises = openPromises(data, character.id);
   const chronicle = chronicleFor(data, character.id);
-  const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.name);
+  const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
   const log = (kind?: 'promise') => openQuickLog({ kind, refs: [character.id] });
 

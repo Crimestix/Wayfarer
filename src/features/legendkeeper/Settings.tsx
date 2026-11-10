@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { KeyRound, RefreshCw, Trash2 } from 'lucide-react';
 import { isDesktopApp } from '../../data/platform';
 import { Button, Field, Input, cx, confirmDialog, toast } from '../../ui';
-import { describeError } from './errors';
+import { appSentence, describeError } from './errors';
 import { checkConnection, ensureCatalog, removeKey, saveKey, useCatalog, useConnection, type Connection } from './state';
 import { statusView } from './status';
 import './legendkeeper.css';
@@ -44,7 +44,7 @@ export function LegendKeeperSettings() {
       await work();
     } catch (cause) {
       // Die App-Seite meldet Fehler als fertigen deutschen Satz.
-      setFormError(typeof cause === 'string' ? cause : 'Das hat nicht geklappt. Bitte versuche es noch einmal.');
+      setFormError(appSentence(cause) ?? 'Das hat nicht geklappt. Bitte versuche es noch einmal.');
     } finally {
       setBusy(null);
     }
@@ -151,7 +151,11 @@ export function LegendKeeperSettings() {
             Gehe in die Projekteinstellungen: <em>Project Settings</em> → <em>Developers</em> → <em>API Keys</em>.
           </li>
           <li>Erzeuge dort einen neuen Key und kopiere ihn.</li>
-          <li>Füge ihn oben ein und wähle „Speichern und prüfen“.</li>
+          <li>
+            {desktop
+              ? 'Füge ihn oben ein und wähle „Speichern und prüfen“.'
+              : 'Füge ihn in der installierten App an dieser Stelle ein und wähle „Speichern und prüfen“.'}
+          </li>
         </ol>
         <ul className="wf-lk-howto__notes">
           <li>Wayfarer liest nur. In LegendKeeper wird nichts angelegt, geändert oder gelöscht.</li>

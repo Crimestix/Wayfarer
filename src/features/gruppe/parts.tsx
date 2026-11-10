@@ -11,13 +11,24 @@ import {
   EXHAUSTION_MAX,
   EXHAUSTION_RULE,
   conditionRule,
-  effectiveSpeed,
   exhaustionEffect,
   exhaustionText,
   hasCondition,
   sheetHref,
   sortConditions,
+  speedInfo,
 } from './model';
+
+/**
+ * Schließt eine Aufklappfläche. Lag der Fokus in ihr (Tastatur), geht er zurück auf den Knopf,
+ * der sie geöffnet hat – sonst stünde man nach Escape im Nichts.
+ */
+function closeToAnchor(anchor: HTMLElement | null, setOpen: (open: boolean) => void) {
+  const focused = document.activeElement;
+  const inside = focused instanceof HTMLElement && focused.closest('.wf-gruppe-pop') !== null;
+  setOpen(false);
+  if (inside) anchor?.focus();
+}
 
 // ── Erschöpfung ────────────────────────────────────────────────────────────
 
@@ -191,7 +202,7 @@ export function ConditionChips({ character }: { character: Character }) {
       </button>
       <Popover
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => closeToAnchor(anchor.current, setOpen)}
         anchor={anchor}
         width={372}
         className="wf-gruppe-pop"
@@ -213,7 +224,7 @@ export function LocationControl({ character }: { character: Character }) {
   const own = character.character.placeId;
   const partyPlace = data.state.placeId;
   const move = (placeId: string | null) => {
-    setOpen(false);
+    closeToAnchor(anchor.current, setOpen);
     const result = moveCharacter(db, character.id, placeId);
     if (result)
       toast({
@@ -250,7 +261,7 @@ export function LocationControl({ character }: { character: Character }) {
       </button>
       <Popover
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => closeToAnchor(anchor.current, setOpen)}
         anchor={anchor}
         width={340}
         className="wf-gruppe-pop"
@@ -308,8 +319,7 @@ export function Stat({
 /** Die sechs Werte, die der Spielleiter am Tisch braucht. */
 export function StatBand({ character }: { character: Character }) {
   const d = character.character;
-  const speed = effectiveSpeed(d);
-  const slowed = speed !== d.speed;
+  const speed = speedInfo(d);
   return (
     <div className="wf-gruppe-stats">
       <div className="wf-gruppe-stats__inner">
@@ -318,14 +328,10 @@ export function StatBand({ character }: { character: Character }) {
           <Stat label="Treffer" value={d.hpMax} title="Maximale Trefferpunkte" />
           <Stat
             label="Bewegung"
-            value={speed}
+            value={speed.value}
             unit="Fuß"
-            tone={slowed ? 'warn' : undefined}
-            title={
-              slowed
-                ? `Bewegungsrate ${d.speed} Fuß, durch Erschöpfung auf ${speed} Fuß gesenkt`
-                : 'Bewegungsrate in Fuß'
-            }
+            tone={speed.reason ? 'warn' : undefined}
+            title={speed.reason ?? 'Bewegungsrate in Fuß'}
           />
         </div>
         <div className="wf-gruppe-stats__group wf-gruppe-stats__group--passive">
