@@ -334,11 +334,46 @@ etwa drei Minuten.
 - Offen: kleine Vorschaubilder für Listen (jetzt werden die großen Bilder erst beim Hinsehen
   geladen), ein Bild von Hand ersetzen, Aufräumen nicht mehr gebrauchter Dateien.
 
+**In Wayfarer schreiben (10. 11. 2026) – dritte Welle, Stufen 1 und 2 gebaut.** Entscheidung des
+Spielleiters: Er will künftig nur noch in Wayfarer schreiben („schreiben, simpel verbinden und
+managen – anstatt 20 Jahre Datensätze zu pflegen“), mit einem Editor wie in Obsidian (schöne
+Ansicht und Quelltext). Ziel: aus Text eine simulierte Welt. Eine eingebaute KI, die Geld kostet,
+ist ausgeschlossen; alles Erkennen läuft über festen Code.
+- **Artikel sind Text.** Jede Seite hat `text` (Markdown). Dialekt in `wiki/markdown.ts`:
+  `[[Titel]]`, `[[Titel|gezeigter Text]]`, `[[Titel~kennung]]` (nur bei doppelten Titeln), Kästen
+  `> [!steckbrief]` (Zeilen „Feld: Wert“, Bild, `**Gruppentitel**`), `> [!geheim]`, `> [!info]`,
+  `> [!warnung]`, `> [!aufklappen] Titel`; `==markiert==`, Tabellen, Bildzeilen. Die alte Form
+  (Knoten, eigener Steckbrief) wird beim Lesen umgeschrieben und beim ersten Speichern ersetzt
+  (`wiki/text.ts`). An den echten Daten geprüft: 877 von 899 Seiten kommen gleich wieder heraus,
+  der Rest unterscheidet sich nur harmlos.
+- **Verweise** führen über den Titel, dann über Zweitnamen. Umbenennen, Anlegen, Löschen und neue
+  Zweitnamen ziehen alle Verweise nach (`relinked`). Ein neuer Import überschreibt nicht, was in
+  Wayfarer geändert wurde (`source: 'wayfarer'`).
+- **Editor** (`wiki/editor`, CodeMirror 6, eigener Ladeblock): Ansichten Lesen / Schreiben /
+  Quelltext (Strg+E wechselt), Vorschläge nach `[[` und `@`, Listen und Kästen setzen sich fort,
+  Suche im Text, Werkzeugleiste. `wiki/PageEditor.tsx` speichert 0,6 s nach dem letzten
+  Tastendruck und vor jedem anderen Handgriff (`flushEdits`). Beim Tippen wird nur die geänderte
+  Seite neu gelesen (`linkIndex().stamp`).
+- **Verwalten** (`wiki/ArticleTools.tsx`): neuer Artikel (auch als Unterartikel), verschieben,
+  Schlagworte und Zweitnamen, löschen mit Rückgängig; Seiten hinzufügen, umbenennen, entfernen.
+- **Erwähnt, aber noch nicht angelegt:** Verweise ohne Artikel sind gestrichelt, ein Klick bietet
+  das Anlegen an; die Startseite des Wikis listet sie (`wantedArticles`).
+- Geprüft im Browser (1440×900, 1280×800) mit dem echten Export. **Nicht geprüft:** die
+  installierte App und macOS (Befehlstaste, WebKit).
+- Offen im Editor: Tabellen nur als Quelltext, Bilder einfügen nur per Adresse, kein
+  Rechtschreibprüfer, Vorlagen beim Anlegen nutzen, Steckbrief in der Schreibansicht steht über
+  statt neben dem Text.
+- **Stufe 3 (als Nächstes):** Der Steckbrief speist die Welt – eine Quelle. Die Felder der echten
+  Steckbriefe sind reiner Text ohne Verweise (Name, Titel, Spezies, Herkunft, Zugehörigkeit,
+  Aufenthaltsort, Status; bei Orten Ort/Region/Art; bei Fraktionen Sitz/Führung). Wayfarer muss
+  die Werte also über Namen auflösen.
+- **Stufe 4:** Erkennen über Code – bekannte Namen ohne Klammern, Satzmuster, Daten des
+  Kalenders.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
-2. Artikel in Wayfarer schreiben und ändern (eigener Editor), Vorlagen nutzen.
-3. Die Zeichenfläche („Board“, 1) bleibt außen vor.
-4. Karten des Wikis mit Karten/Wegen (Bereich D) zusammenführen: Maßstab, Wege, Reisen.
+2. Die Zeichenfläche („Board“, 1) bleibt außen vor.
+3. Karten des Wikis mit Karten/Wegen (Bereich D) zusammenführen: Maßstab, Wege, Reisen.
 
 **Nächste große Schritte nach dem Leitbild** (`docs/FUNKTIONSUMFANG.md`): Wettersimulation (F),
 Hexkarte zwischen zwei Orten erzeugen (H, auch ohne Karte), Karten und Wege (D), Reisen (E),
@@ -394,3 +429,6 @@ LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
 - Wiederkehrende Termine schreiben beim Zeitsprung keinen Chronik-Eintrag mehr (stehen nur in
   der Meldung) – bewusst so, damit lange Reisen die Chronik nicht füllen.
 - Die Hauptdatei des Clients ist groß (Warnung beim Bauen); Bereiche bei Bedarf nachladen.
+- `wiki/editor/helpers.ts` wiederholt `splitTarget` und die Zeilenmuster aus `wiki/markdown.ts`
+  (der Editor entstand getrennt) – zusammenführen.
+- Es gibt keine Auffangstelle, wenn ein nachgeladener Bereich nicht lädt (weiße Seite).

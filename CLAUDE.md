@@ -18,9 +18,15 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
 - Wayfarers Weltdatenbank ist führend. LegendKeeper wird nur gelesen und verknüpft, nie beschrieben.
   Ziel ist, ohne LegendKeeper auszukommen: Das eigene Wiki (`features/wiki`) hält alle Artikel und
   Karten im Spielstand; übernommen werden sie aus der Exportdatei („.lk“).
-- Keine KI-Funktionen, keine mitgelieferten Beispielinhalte. Wayfarer rechnet, leitet ab und
-  simuliert nach festen Regeln. In der App steht nur, was der Spielleiter eingetragen, übernommen
-  oder ausdrücklich angenommen hat.
+- **Geschrieben wird in Wayfarer.** Ein Artikel ist Text (Markdown mit `[[Verweisen]]`, Kästen
+  wie `> [!steckbrief]` und `> [!geheim]`), geschrieben in einem Editor mit gesetzter Ansicht
+  und Quelltext. Das Ziel dahinter: aus geschriebenem Text eine simulierte Welt machen – der
+  Spielleiter schreibt und verbindet, Wayfarer liest daraus, was es wissen muss, statt dass
+  Datensätze gepflegt werden.
+- Geschichte und Welt schreibt der Spielleiter – nie eine KI und nie Wayfarer. Wayfarer liest,
+  was geschrieben ist, rechnet, leitet ab und simuliert nach festen Regeln; eine eingebaute KI,
+  die Geld kostet, gibt es nicht. Keine mitgelieferten Beispielinhalte. In der App steht nur, was
+  der Spielleiter geschrieben, eingetragen, übernommen oder ausdrücklich angenommen hat.
 - **Was erzeugt werden darf:** „Wo andere Spielleiter Zufallstabellen nutzen, nutzen wir
   Wayfarer.“ Alles Prozedurale erzeugt Wayfarer selbst und nach festen, wiederholbaren Regeln:
   Gelände und Hexkarten zwischen zwei Orten (auch ohne vorher angelegte Karte), Wetter,
@@ -59,7 +65,8 @@ nicht übernommen.
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
   `openTimeDialog`).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
-  `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel, Übernahme des LegendKeeper-Exports),
+  `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
+  LegendKeeper-Exports),
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
@@ -84,6 +91,11 @@ nicht übernommen.
 - Ungültige oder fremde Dateien werden nie überschrieben, nur gemeldet (`db.problems`).
 - Bilder: Im Spielstand steht die Adresse des Ursprungs; zum Anzeigen immer `useMediaSrc()` aus
   `data/media.ts` nehmen – dann kommt die Datei vom Rechner, wenn sie geholt wurde.
+- Artikel: Der Text jeder Seite (`ArticleDoc.text`) ist die Quelle; die Anzeige liest ihn mit
+  `pageNodes()` aus `wiki/text.ts`. Den Dialekt (beide Richtungen) beschreibt
+  `wiki/markdown.ts`. Verweise gehen über den Titel (`linkIndex`); Umbenennen, Anlegen und
+  Löschen laufen über `wiki/actions.ts`, damit Verweise mitziehen. Vor solchen Handgriffen
+  `flushEdits()` aus `wiki/editing.ts` aufrufen – ein offener Editor speichert dann zuerst.
 
 ## Regeln für Code
 
@@ -94,7 +106,8 @@ nicht übernommen.
   mit Test. Komponenten rechnen nicht selbst.
 - Nur Farben, Schriften und Abstände aus `tokens.css`. Erst die Bausteine aus `src/ui` verwenden;
   eigenes CSS je Bereich in `features/x/x.css` mit Klassenpräfix `wf-<bereich>-`.
-- Keine weiteren Abhängigkeiten ohne guten Grund.
+- Keine weiteren Abhängigkeiten ohne guten Grund. (Der Editor nutzt CodeMirror 6; er wird erst
+  geladen, wenn geschrieben wird.)
 - Kein Zustand im Browser-Speicher außer über `BrowserStore` (Vorschau).
 
 ## Gestaltung
