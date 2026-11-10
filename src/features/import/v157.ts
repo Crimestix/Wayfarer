@@ -1634,7 +1634,7 @@ class Importer {
     const places = [...this.entities.values()].filter((e) => e.kind === 'place');
     const exact = places.find((p) => p.name.trim().toLocaleLowerCase('de') === wanted);
     if (exact) return exact.id;
-    // Kleine Schreibunterschiede („Morthi's Gifte“ / „Morthis' Gifte“, „Der Basar …“ / „Basar …“)
+    // Kleine Schreibunterschiede (Apostrophe, Akzente, vorangestellter Artikel: „Der Markt“ / „Markt“)
     // gelten als derselbe Ort – aber nur, wenn es genau einen solchen gibt.
     const loose = looseName(name);
     const similar = places.filter((p) => looseName(p.name) === loose);

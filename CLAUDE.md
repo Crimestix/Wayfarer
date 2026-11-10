@@ -16,7 +16,18 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   Abmachungen und Veränderungen der Welt. Besuche und „seitdem verändert“ werden daraus abgeleitet.
 - Die **Weltzeit** läuft nur, wenn der Spielleiter sie vorstellt; dabei treten Termine ein.
 - Wayfarers Weltdatenbank ist führend. LegendKeeper wird nur gelesen und verknüpft, nie beschrieben.
-- Keine Inhaltsgenerierung, keine KI-Funktionen.
+- Keine KI-Funktionen, keine mitgelieferten Beispielinhalte. Wayfarer rechnet, leitet ab und
+  simuliert nach festen Regeln. In der App steht nur, was der Spielleiter eingetragen, übernommen
+  oder ausdrücklich angenommen hat.
+- Generatoren (z. B. für NSC) sind erwünscht, aber nur als Werkzeug: Der Spielleiter löst sie
+  aus, das Ergebnis ist ein Vorschlag zum Annehmen, Ändern oder Verwerfen, und es speist sich aus
+  der eigenen Welt (vorhandene Namen, Spezies, Orte, Familien) – nichts entsteht von selbst.
+- Leitbild (ausführlich in `docs/FUNKTIONSUMFANG.md`): ein starkes Werkzeug für die Spielleitung,
+  das die Welt simuliert, durch die die Gruppe läuft (Zeit, Wetter, Reisen), möglichst viel selbst
+  erkennt und ableitet statt abzufragen, und beim Leiten nicht stört.
+- Geleitet wird an einem MacBook Air 13" (etwa 1440×900), vorbereitet an einem Windows-PC.
+- **Das Repository ist öffentlich.** Nie einen Spielstand, ein Backup, Schlüssel oder andere
+  private Daten einchecken – auch nicht als Testmaterial.
 
 Dies ist ein Neubau. Die alte Version (v157) ist nur Ideenquelle; Code, Aufbau und Oberfläche werden
 nicht übernommen.

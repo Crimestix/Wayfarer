@@ -113,7 +113,7 @@ Beziehungen (`speaks`, `writes`, `has-ability`), Karten mit Maßstab und Kartenp
 (`areas`/`tables`), Rasten mit Wachen (`rests`) und bei Timern Wirker, Konzentration und
 Teilnehmer (Konzentration → Art „Zauber“). Kartenpunkte ohne Ort werden einem vorhandenen Ort
 zugeordnet (LegendKeeper-Kennung, sonst Name mit kleinen Schreibunterschieden); nur wo keiner
-existiert, entsteht ein Ort der Art „Kartenpunkt“ (beim echten Backup: Thalanor). Echtes Backup
+existiert, entsteht ein Ort der Art „Kartenpunkt“ (beim echten Backup genau einer). Echtes Backup
 damit geprüft: nichts übersprungen, 6 Karten, 15 Kartenpunkte, 14 Wege, 1 Gebiet, 6 Tabellen,
 2 Rasten. Weiterhin nicht übernommen: Dungeonräume, Tagging von LegendKeeper-Artikeln,
 Gewaltmarsch-Prüfungen. Die Testdaten (`v157-voll.json`) nutzen jetzt das echte Kartenformat
@@ -183,40 +183,46 @@ Beziehung „schreibt“ hat noch keine eigene Auswahl im Personen-Dialog.
 
 Reihenfolge: 4.1 → (A, B, C, D, F, G, I, J, K parallel, soweit der Rechner trägt) → E → H.
 
-## 5. Offene Fragen an den Spielleiter
+## 5. Antworten des Spielleiters (10. 11. 2026)
 
-Gesammelt aus den Prüfungen der ersten Welle; Vorschlag in Klammern ist umgesetzt, bis er
-anders entscheidet.
+Die Fragen aus den Prüfungen der ersten Welle sind beantwortet. „Umgesetzt“ heißt: gebaut und
+getestet; „offen“ heißt: entschieden, aber noch nicht gebaut.
 
 **Am Tisch**
-1. Welche Bildschirmgröße hat der Laptop am Tisch? (Gebaut für 1280×800 bis 1920×1080.)
-2. Sehen Spieler den Bildschirm? Dann sollte „Spielleiterwissen“ verdeckt sein. (Offen sichtbar, blutrot abgesetzt.)
-3. Ein Klick auf einen Ort unter „Orte hier“ verlegt die Gruppe sofort. (Ja, mit „Rückgängig“.)
-4. Wie weit soll „Anstehend“ vorausschauen? (Spieltisch 7 Tage, Kalender 30 Tage.)
+1. Bildschirm: Geleitet wird an einem **MacBook Air 13" (M1, 8 GB)**, etwa 1440×900. Vorbereitet
+   wird an einem **Windows-PC**. Jede Oberfläche ist in 1440×900 zu prüfen (zusätzlich zu
+   1280×800 und 1600×950). Der Abgleich Mac ↔ Windows (Bereich I) ist damit wichtig.
+2. Die Spieler sehen den Bildschirm **nicht**. Spielleiterwissen bleibt offen sichtbar.
+3. Ein Klick auf einen Ort darf die Gruppe **nicht** versetzen. Die Gruppe wird nur bewusst
+   versetzt (eigener Knopf mit Rückfrage) oder durch Reisen und das laufende Spiel.
+4. „Anstehend“: Spieltisch 7 Tage, Kalender 30 Tage – bleibt.
 
 **Kalender und Chronik**
-5. Beginnt die Woche in Elaris mit Ruhnacht? (So dargestellt.)
-6. Sollen Vorhaben beim Eintreten von selbst als erledigt gelten, und nur Fristen überfällig werden? (Bisher bleiben beide überfällig, bis sie abgehakt sind.)
-7. Ausnahmen bei wiederkehrenden Terminen (einmal ausfallen lassen)? (Nicht vorhanden.)
-8. Vergangene Sessions 1–11 nachträglich anlegen? (Nicht möglich.)
-9. Zusammenfassung einer Session auch in einer Fassung ohne Spielleiterwissen zum Weitergeben? (Nur die vollständige.)
+5. Die Woche beginnt mit Ruhnacht – bleibt.
+6. Vorhaben und Fristen bleiben überfällig, bis sie abgehakt sind – bleibt vorerst.
+7. Wiederkehrende Termine: einzelne Male sollen ausfallen können.
+8. Vergangene Sessions (1–11) sollen sich nachträglich anlegen lassen.
+9. Eine Zusammenfassung einer Session ohne Spielleiterwissen zum Weitergeben ist gewünscht.
 
 **Gefährten**
-10. Welche Werte fehlen am Tisch: Initiative, Zauberrettungswurf-SG, Dunkelsicht, aktuelle Trefferpunkte? (Vorhanden: RK, max. TP, Bewegung, drei passive Werte.)
-11. Eigene Zustände neben den 14 des Regelwerks (z. B. „Verflucht“)? (Nicht anlegbar.)
-12. Soll das Trennen und Zurückkehren eines Gefährten immer in der Chronik stehen? (Beim Wechsel auf der Karte ja, im Dialog nein – vereinheitlichen.)
+10. Gewünschte Werte: Initiative, Zauberrettungswurf-SG, Dunkelsicht, aktuelle Trefferpunkte.
+11. Eigene Zustände neben den 14 des Regelwerks sind gewünscht.
+12. Trennen und Zurückkehren eines Gefährten steht immer in der Chronik.
 
 **Übernahme des alten Spielstands**
-13. ~~Liegt eine echte Backup-Datei der alten Version vor?~~ Ja – am 10. 11. 2026 erfolgreich geprüft, siehe 4.1.
-14. Wie heißen die Session-Notizen in der alten Version? (Erkannt: „Session 12“, „Sitzung 12“, „Spielabend 12“, „Session #12“.)
-15. Meinungsskala alt → neu: Hass −3, Abneigung −2, Skepsis −1, Wohlwollen +1, Zuneigung +2, Liebe +3; gleiche Meinung bei allen sechs → Haltung zur Gruppe. (So umgesetzt.)
-16. Sollen die sechs Porträts aus der alten Version übernommen werden? Sie stecken im Programm (`public/character-portraits.js`), nicht im Backup.
-17. Dungeon-Notizen, Rastprotokolle, Explorationen, gespeicherte Routen: jetzt als Text sichern oder auf die eigenen Bereiche der zweiten Welle warten? (Werden derzeit im Bericht als „nicht übernommen“ genannt.)
+13. Echtes Backup liegt vor und ist geprüft (siehe 4.1).
+14. Session-Notizen heißen im echten Backup „Session 12“ / „Session 13“ – wird erkannt.
+15. Die Haltungsskala soll **deutlich feiner und klarer** sein als die sieben Stufen der ersten
+    Welle. Die Ausgestaltung ist dem Bau überlassen.
+16. Die sechs Porträts hat der Spielleiter auf dem Rechner und liefert sie nach.
+17. Der Dungeonraum der alten Version wird weggelassen.
 
 **Desktop**
-18. Welche macOS-Version? (Voraussetzung macOS 12 oder neuer.)
-19. Ist das Repository privat? (Dann kosten Mac-Bauten bei GitHub Actions Freiminuten, grob 150–250 Minuten je Version.)
-20. Sollen Warnungen beim ersten Start verschwinden? (Nur mit Apple-Entwicklerkonto, ca. 99 $/Jahr, und Windows-Zertifikat.)
+18. macOS: die neueste Version, die auf dem M1 läuft – Voraussetzung (macOS 12) erfüllt.
+19. **Das Repository ist öffentlich.** Folgen: GitHub Actions kostet keine Freiminuten. Es darf
+    **nie** ein Spielstand, ein Backup, ein Schlüssel oder sonst etwas Privates hineingeraten.
+    Der Abgleich des Spielstands (Bereich I) braucht ein **eigenes, privates** Repository.
+20. Warnungen beim ersten Start sind in Ordnung – keine Signierung nötig.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

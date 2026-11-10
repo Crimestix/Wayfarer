@@ -5,6 +5,38 @@ Vom Spielleiter beschrieben (10. 11. 2026). Maßstab für den Neubau.
 Wayfarer soll der Arbeitsplatz für die ganze Pen-&-Paper-Kampagne sein: Welt und Sessions
 vorbereiten, am Tisch leiten und danach nachvollziehen, was passiert ist.
 
+## Leitbild (Spielleiter, 10. 11. 2026)
+
+Wayfarer soll ein **starkes Werkzeug für die Spielleitung** sein: übersichtlich und so mächtig wie
+LegendKeeper, World Anvil und Vergleichbares – und deutlich darüber hinaus bei allem, was ohne
+eigene Software nicht geht. Daran wird jede Entscheidung gemessen:
+
+- **Die Welt simulieren, durch die die Gruppe läuft.** Zeit, Wetter, Reisen, Termine und Orte
+  greifen ineinander und laufen von selbst weiter, wenn die Weltzeit fortschreitet. Dazu gehört
+  eine **realistische Wettersimulation** für die eigene Welt (Klima, Jahreszeiten, Lage,
+  zusammenhängende Wetterlagen statt Würfelwurf je Tag).
+- **Wenig von Hand einpflegen.** Wayfarer soll selbst erkennen, was es schon weiß: Orte aus
+  LegendKeeper (oder später aus dem eigenen Wiki) werden als Orte erkannt, eingeordnet und –
+  über Karten und Kartenpunkte – **räumlich verortet**. Was sich ableiten lässt, wird abgeleitet
+  und zur Bestätigung vorgeschlagen, nicht abgefragt.
+- **Der ganze Globus.** Später soll sich die Welt als Ganzes ansehen lassen, mit Hineinzoomen
+  vom Planeten bis zum Ort. Karten, Maßstäbe und Positionen sind von Anfang an so zu speichern,
+  dass das möglich bleibt (Lage einer Karte auf der Welt, nicht nur Pixel auf einem Bild).
+- **Beim Leiten nicht stören.** Am Tisch zählt ein Blick und ein Handgriff. Nichts fragt nach,
+  was nicht nötig ist; Automatik läuft still mit und lässt sich jederzeit von Hand übersteuern.
+- **Auf Dauer ein eigenes Wiki**, das LegendKeeper ebenbürtig ist, sodass die Welt ganz in
+  Wayfarer leben kann.
+
+- **Mitdenken bei der Pflege.** Familien und Dynastien entstehen aus den Nachnamen der
+  Personen, statt einzeln angelegt zu werden. **Generatoren** (zuerst für NSC) liefern auf Wunsch
+  Vorschläge, die zur eigenen Welt passen.
+
+Keine KI-Funktionen und keine mitgelieferten Beispielinhalte: Wayfarer rechnet, leitet ab und
+simuliert nach festen Regeln. Generatoren laufen nur, wenn der Spielleiter sie auslöst; ihr
+Ergebnis ist ein Vorschlag und speist sich aus der eigenen Welt.
+
+## Bereiche
+
 | Bereich | Was Wayfarer können soll |
 |---|---|
 | Spielleiterschirm | Aktuellen Ort, Kampagnenzeit, nächste Ereignisse und laufende Vorgänge im Blick halten. Notizen, globale Schnellsuche und LegendKeeper öffnen, ohne den aktuellen Arbeitskontext zu verlieren. |
