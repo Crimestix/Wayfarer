@@ -2,15 +2,18 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
+import type { Entity } from '../../domain/schema';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
 import {
   AttitudeBadge,
   Button,
+  Checkbox,
   EmptyState,
   IconButton,
   Input,
   KindIcon,
+  Select,
   cx,
   toast,
 } from '../../ui';
@@ -18,7 +21,14 @@ import { MissingNamesHint } from '../import/NameSync';
 import { adoptFamilies } from './actions';
 import { planFamilies } from './dynasty';
 import { openEntityDialog } from './editor';
-import { getKindFilter, setKindFilter, useKindFilter } from './overview';
+import {
+  getKindFilter,
+  setKindFilter,
+  setWorldView,
+  useKindFilter,
+  useWorldView,
+} from './overview';
+import { scopeChoices, visibleIds } from './scope';
 import {
   WORLD_KINDS,
   entitySubline,
@@ -95,15 +105,24 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
     row.scrollIntoView({ block: 'nearest' });
   });
 
-  const counts = useMemo(() => worldCounts(data), [data]);
+  // Eingrenzung: ein Bereich (Ort mit allem, was dazugehört) und nur, was die Gruppe kennt.
+  const view = useWorldView();
+  const visible = useMemo(() => visibleIds(data, view), [data, view]);
+  const choices = useMemo(() => scopeChoices(data, view.scopeId), [data, view.scopeId]);
+  const scopePlace = view.scopeId ? data.entities[view.scopeId] : undefined;
+  const narrowed = visible !== null;
+  const shown = <E extends Entity>(entities: E[]): E[] =>
+    visible ? entities.filter((entity) => visible.has(entity.id)) : entities;
+
+  const counts = useMemo(() => worldCounts(data, visible), [data, visible]);
   const total = WORLD_KINDS.reduce((sum, kind) => sum + counts[kind], 0);
   const attitudes = useMemo(() => partyAttitudes(data), [data]);
   const searching = query.trim() !== '';
   const hits = useMemo(
-    () => (searching ? searchWorld(data, query, filter) : []),
-    [data, query, filter, searching],
+    () => (searching ? searchWorld(data, query, filter, visible) : []),
+    [data, query, filter, searching, visible],
   );
-  const tree = useMemo(() => placeTreeRows(data, open), [data, open]);
+  const tree = useMemo(() => placeTreeRows(data, open, visible), [data, open, visible]);
   // Personen, deren Nachname auf eine Familie schließen lässt, die es noch nicht gibt oder der sie
   // noch nicht angehören. Nur gerechnet, solange die Familien zu sehen sind.
   const familyPlan = useMemo(
@@ -290,6 +309,34 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
             </button>
           ))}
         </div>
+        {(choices.length > 0 || narrowed) && (
+          <div className="wf-welt-scope">
+            {choices.length > 0 && (
+              <Select
+                value={scopePlace ? scopePlace.id : ''}
+                aria-label="Bereich eingrenzen"
+                title="Nur zeigen, was zu diesem Ort gehört: Orte darunter, wer dort lebt, Fraktionen mit Sitz dort"
+                onChange={(e) => setWorldView({ scopeId: e.target.value || null })}
+              >
+                <option value="">Ganze Welt</option>
+                {choices.map((place, index) => (
+                  <option key={place.id} value={place.id}>
+                    {index === 0 && place.id === data.state.placeId ? 'Hier: ' : 'In: '}
+                    {place.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <Checkbox
+              checked={view.knownOnly}
+              onChange={(knownOnly) => setWorldView({ knownOnly })}
+            >
+              <span title="Nur Personen, die die Gruppe getroffen hat, und Orte, an denen sie war">
+                Nur Bekanntes
+              </span>
+            </Checkbox>
+          </div>
+        )}
       </div>
 
       <MissingNamesHint />
@@ -323,6 +370,20 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
               {filter === 'all' ? '' : ` unter ${KIND_LABEL_PLURAL[filter]}`}.
             </EmptyState>
           )
+        ) : narrowed && (total === 0 || (filter !== 'all' && counts[filter] === 0)) ? (
+          <EmptyState
+            icon={<Search />}
+            title="Hier passt nichts"
+            action={
+              <Button size="sm" onClick={() => setWorldView({ scopeId: null, knownOnly: false })}>
+                Ganze Welt zeigen
+              </Button>
+            }
+          >
+            {scopePlace
+              ? `Zu „${scopePlace.name}“ gehört nichts${view.knownOnly ? ', das die Gruppe schon kennt' : ''}.`
+              : 'Die Gruppe kennt noch nichts davon. Getroffene Personen und besuchte Orte erscheinen hier.'}
+          </EmptyState>
         ) : total === 0 ? (
           <EmptyState
             title="Die Welt ist noch leer"
@@ -361,7 +422,7 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
               )}
               {kind === 'place'
                 ? places
-                : entitiesOfKind(data, kind).map((entity) => row(entity, false))}
+                : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false))}
             </div>
           ))
         )}

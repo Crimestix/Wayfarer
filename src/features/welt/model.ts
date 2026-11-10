@@ -122,13 +122,16 @@ export function entityCategory(entity: Entity): string {
 
 // ── Übersicht ──────────────────────────────────────────────────────────────
 
-export function worldCounts(data: CampaignData): Record<WorldKind, number> {
+export function worldCounts(
+  data: CampaignData,
+  visible: ReadonlySet<string> | null = null,
+): Record<WorldKind, number> {
   const counts = Object.fromEntries(WORLD_KINDS.map((kind) => [kind, 0])) as Record<
     WorldKind,
     number
   >;
   for (const entity of Object.values(data.entities))
-    if (isWorldKind(entity.kind)) counts[entity.kind]++;
+    if (isWorldKind(entity.kind) && (!visible || visible.has(entity.id))) counts[entity.kind]++;
   return counts;
 }
 
@@ -161,13 +164,15 @@ export interface PlaceRow {
 
 /**
  * Orte als eingerückter Baum, in Lesereihenfolge. `openState` enthält, was von Hand auf- oder
- * zugeklappt wurde; ohne Angabe sind nur die obersten Orte aufgeklappt.
+ * zugeklappt wurde; ohne Angabe sind nur die obersten Orte aufgeklappt. Mit `visible` zeigt
+ * der Baum nur diese Orte; wessen Ort darüber fehlt, steht dann ganz oben.
  */
 export function placeTreeRows(
   data: CampaignData,
   openState: Readonly<Record<string, boolean>> = {},
+  visible: ReadonlySet<string> | null = null,
 ): PlaceRow[] {
-  const places = entitiesOfKind(data, 'place');
+  const places = entitiesOfKind(data, 'place').filter((p) => !visible || visible.has(p.id));
   const byId = new Map(places.map((p) => [p.id, p]));
   const children = new Map<string | null, Place[]>();
   for (const place of places) {
@@ -283,9 +288,16 @@ export function entitySubline(data: CampaignData, entity: Entity): string {
 }
 
 /** Treffer der Suche in der Übersicht, beste zuerst; Gefährten gehören nicht dazu. */
-export function searchWorld(data: CampaignData, query: string, filter: KindFilter): WorldEntity[] {
+export function searchWorld(
+  data: CampaignData,
+  query: string,
+  filter: KindFilter,
+  visible: ReadonlySet<string> | null = null,
+): WorldEntity[] {
   const kinds: WorldKind[] = filter === 'all' ? [...WORLD_KINDS] : [filter];
-  return searchEntities(data, query, { kinds, limit: 500 }).filter(isWorldEntity);
+  return searchEntities(data, query, { kinds, limit: 500 })
+    .filter(isWorldEntity)
+    .filter((entity) => !visible || visible.has(entity.id));
 }
 
 // ── Dossier: Fakten im Kopf ────────────────────────────────────────────────

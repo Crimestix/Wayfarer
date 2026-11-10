@@ -69,6 +69,24 @@
   position: absolute;
   right: 4px;
 }
+/* Eingrenzen: Bereich und „Nur Bekanntes“ */
+.wf-welt-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.wf-welt-scope select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  font-size: var(--text-sm);
+}
+.wf-welt-scope .wf-check {
+  flex: none;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
 .wf-welt-filter {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
