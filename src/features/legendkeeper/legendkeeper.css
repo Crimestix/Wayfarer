@@ -509,6 +509,26 @@
   border-bottom-color: var(--gold-bright);
   background: var(--gold-glow);
 }
+/* Ein Datum des Kalenders im Text */
+.wf-lk-date {
+  border-bottom: 1px dotted var(--verdigris);
+  cursor: pointer;
+}
+.wf-lk-date:hover {
+  border-bottom-style: solid;
+  color: var(--gold-bright);
+}
+/* Am Namen erkannt, nicht in Klammern gesetzt: zurückhaltend, damit der Text ruhig bleibt */
+.wf-lk-mention--implicit {
+  border-bottom: 1px dotted var(--line-strong);
+  color: inherit;
+  font-weight: inherit;
+}
+.wf-lk-mention--implicit:hover {
+  border-bottom-style: solid;
+  border-bottom-color: var(--gold);
+  color: var(--gold-bright);
+}
 /* Verweis auf einen Artikel, den es noch nicht gibt */
 .wf-lk-mention--missing {
   border-bottom: 1px dashed var(--ink-faint);

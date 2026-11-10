@@ -26,8 +26,10 @@ export interface Fact {
   label: string;
   /** Der Wert als reiner Text. */
   text: string;
-  /** Artikel, auf die der Wert verweist. */
+  /** Artikel, auf die der Wert verweist – in Klammern gesetzt oder am Namen erkannt. */
   links: string[];
+  /** Was vom Wert übrig bleibt, wenn man die Verweise herausnimmt. */
+  rest: string;
 }
 
 const plain = (inlines: Inline[]): string =>
@@ -49,12 +51,14 @@ function collectFacts(value: unknown, into: Fact[], depth = 0): void {
       const label = row.key.replace(/\s+/g, ' ').trim();
       const text = plain(row.value);
       if (!label || !text) continue;
+      const linked = (i: Inline) => i.type === 'mention' && i.resourceId !== '';
       into.push({
         label,
         text,
         links: row.value.flatMap((i) =>
           i.type === 'mention' && i.resourceId ? [i.resourceId] : [],
         ),
+        rest: plain(row.value.filter((i) => !linked(i))),
       });
     }
     return;
@@ -531,19 +535,26 @@ export interface Resolved {
  */
 export function resolveEntities(
   index: WorldIndex,
-  fact: Pick<Fact, 'text' | 'links'>,
+  fact: Pick<Fact, 'text' | 'links'> & { rest?: string },
   kinds: readonly EntityKind[],
 ): Resolved {
-  const linked = fact.links.flatMap(
-    (id) => index.byArticle.get(id)?.filter((e) => kinds.includes(e.kind)) ?? [],
-  );
-  if (linked.length) return { found: [...new Set(linked)], missing: [] };
-  if (NOTHING.has(titleKey(fact.text))) return { found: [], missing: [] };
-  const whole = lookup(index, fact.text, kinds);
-  if (whole) return { found: [whole], missing: [] };
-  const found: Entity[] = [];
+  const linked = [
+    ...new Set(
+      fact.links.flatMap(
+        (id) => index.byArticle.get(id)?.filter((e) => kinds.includes(e.kind)) ?? [],
+      ),
+    ),
+  ];
+  // Neben den Verweisen kann der Wert weitere Namen nennen: „[[Jost Reuse]], Die Alte vom Wehr“.
+  const text = linked.length ? (fact.rest ?? '') : fact.text;
+  if (!linked.length) {
+    if (NOTHING.has(titleKey(text))) return { found: [], missing: [] };
+    const whole = lookup(index, text, kinds);
+    if (whole) return { found: [whole], missing: [] };
+  }
+  const found: Entity[] = linked;
   const missing: string[] = [];
-  for (const part of nameParts(fact.text)) {
+  for (const part of nameParts(text)) {
     if (NOTHING.has(titleKey(part))) continue;
     const entity = lookup(index, part, kinds);
     if (entity) {

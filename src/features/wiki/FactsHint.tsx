@@ -11,9 +11,12 @@ import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import type { Article, CampaignData, EntityKind } from '../../domain/schema';
 import { Button, KindIcon, MenuItem, Popover, entityHref, toast } from '../../ui';
-import { createNamedEntity, syncFacts } from './actions';
+import { relationType } from '../../domain/relations';
+import { acceptHint, createNamedEntity, dismissHint, syncFacts } from './actions';
 import { flushEdits } from './editing';
 import { FIELD_LABEL, pendingFacts, type MissingName, type PendingFacts } from './facts';
+import { entitiesOfArticle } from './model';
+import { allRelationHints, relationHints, type ArticleHints, type RelationHint } from './sentences';
 
 const MANY = 4;
 
@@ -101,16 +104,64 @@ function CreateMissing({ missing }: { missing: MissingName }) {
   );
 }
 
-/** Am Artikel: was sein Steckbrief sagt und in der Welt noch fehlt. */
+/** „verwandt mit“, „dient“ … – oder „ist zu Hause in“ für das Zuhause. */
+const hintLabel = (type: string) =>
+  type === 'home' ? 'ist zu Hause in' : relationType(type).label;
+
+/** Ein Vorschlag aus einem Satz: eintragen oder ablehnen. */
+function HintRow({ article, hint }: { article: Article; hint: RelationHint }) {
+  const db = useDb();
+  const accept = () => {
+    flushEdits();
+    const undo = acceptHint(db, hint);
+    toast({
+      title: 'In die Welt eingetragen',
+      body: `${hint.from.name} ${hintLabel(hint.type)} ${hint.to.name}`,
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
+  const dismiss = () => {
+    flushEdits();
+    const undo = dismissHint(db, article.id, hint.key);
+    toast({
+      title: 'Vorschlag verworfen',
+      body: 'Er wird für diesen Artikel nicht wieder gezeigt.',
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
+  return (
+    <div className="wf-wiki-facts__row" title={`Gelesen aus: „${hint.sentence}“`}>
+      <span className="wf-wiki-facts__label">Im Text</span>
+      <span>
+        <span className="wf-wiki-facts__what">{hint.from.name}</span> {hintLabel(hint.type)}{' '}
+        <span className="wf-wiki-facts__what">{hint.to.name}</span>
+      </span>
+      <button type="button" className="wf-wiki-facts__act" onClick={accept}>
+        Eintragen
+      </button>
+      <button type="button" className="wf-wiki-facts__act" onClick={dismiss}>
+        Stimmt nicht
+      </button>
+    </div>
+  );
+}
+
+/** Am Artikel: was sein Steckbrief und sein Text sagen und in der Welt noch fehlt. */
 export function FactsHint({ article }: { article: Article }) {
   const db = useDb();
+  const data = useData();
   const [, navigate] = useLocation();
   const pending = usePending(article.id);
+  const hints = useMemo(
+    () => relationHints(data, article, entitiesOfArticle(data, article.id)[0]),
+    [data, article],
+  );
   const apply = () => {
     flushEdits();
     applyFacts(db, [article.id]);
   };
-  if (!pending.changes.length && !pending.create.length && !pending.missing.length) return null;
+  if (!pending.changes.length && !pending.create.length && !pending.missing.length && !hints.length)
+    return null;
   return (
     <div className="wf-wiki-facts" role="status">
       {pending.create.map(({ kind }) => (
@@ -158,9 +209,14 @@ export function FactsHint({ article }: { article: Article }) {
           <CreateMissing missing={missing} />
         </div>
       ))}
+      {hints.map((hint) => (
+        <HintRow key={hint.key} article={article} hint={hint} />
+      ))}
     </div>
   );
 }
+
+const hintCache = new WeakMap<CampaignData, ArticleHints[]>();
 
 const SHOWN = 12;
 
@@ -170,8 +226,19 @@ export function FactsOverview() {
   const data = useData();
   const pending = usePending();
   const [all, setAll] = useState(false);
+  const [allHints, setAllHints] = useState(false);
+  const hinted = useMemo(() => {
+    let list = hintCache.get(data);
+    if (!list) {
+      list = allRelationHints(data);
+      hintCache.set(data, list);
+    }
+    return list;
+  }, [data]);
+  const rows = hinted.flatMap(({ article, hints }) => hints.map((hint) => ({ article, hint })));
+  const shownRows = allHints ? rows : rows.slice(0, SHOWN);
   const count = pending.changes.length + pending.create.length;
-  if (!count && !pending.missing.length) return null;
+  if (!count && !pending.missing.length && !rows.length) return null;
   const missing = all ? pending.missing : pending.missing.slice(0, SHOWN);
   return (
     <section className="wf-wiki-factsall" aria-label="Steckbriefe und Welt">
@@ -222,6 +289,25 @@ export function FactsOverview() {
           {pending.missing.length > missing.length && (
             <button type="button" className="wf-wiki-more" onClick={() => setAll(true)}>
               und {pending.missing.length - missing.length} weitere
+            </button>
+          )}
+        </>
+      )}
+      {rows.length > 0 && (
+        <>
+          <p className="wf-mute">
+            Aus Sätzen gelesen – Beziehungen, die im Text stehen, aber nicht in der Welt. Der Satz
+            erscheint, wenn du mit der Maus auf der Zeile bleibst. Eingetragen wird nur, was du
+            bestätigst.
+          </p>
+          <div className="wf-wiki-facts wf-wiki-facts--list">
+            {shownRows.map(({ article, hint }) => (
+              <HintRow key={`${article.id}|${hint.key}`} article={article} hint={hint} />
+            ))}
+          </div>
+          {rows.length > shownRows.length && (
+            <button type="button" className="wf-wiki-more" onClick={() => setAllHints(true)}>
+              und {rows.length - shownRows.length} weitere
             </button>
           )}
         </>

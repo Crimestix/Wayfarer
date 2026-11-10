@@ -767,6 +767,16 @@ export const ArticleSchema = z.object({
   hidden: z.boolean().default(false),
   /** Vorlage für neue Artikel, kein Inhalt der Welt. */
   template: z.boolean().default(false),
+  /**
+   * Der Titel und die Zweitnamen werden im Text anderer Artikel von selbst als Verweis erkannt.
+   * Abschalten, wenn der Titel ein gewöhnliches Wort ist und zu oft trifft.
+   */
+  autoLink: z.boolean().default(true),
+  /**
+   * Vorschläge aus dem Text dieses Artikels, die der Spielleiter abgelehnt hat (Schlüssel aus
+   * `features/wiki/sentences.ts`). Sie werden nicht noch einmal gezeigt.
+   */
+  dismissedHints: z.array(z.string()).default([]),
   /** Alte Form: Steckbrief als Knoten. Steht seit der Umstellung auf Text oben auf der ersten Seite. */
   sidebar: articleNodes,
   docs: z.array(ArticleDocSchema).default([]),

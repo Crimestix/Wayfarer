@@ -14,9 +14,13 @@ import {
   type ReactNode,
 } from 'react';
 import { EyeOff, FilePlus2, Map as MapIcon } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import type { Article } from '../../domain/schema';
+import { dayIndexOf } from '../../domain/time/calendar';
+import { describeDate, findDates } from '../../domain/time/textDates';
+import { focusCalendarOn } from '../kalender/focus';
 import { Badge, Button, cx, toast } from '../../ui';
 import {
   ArticleNodes,
@@ -34,6 +38,7 @@ import {
   articlePath,
   backlinks,
   childArticles,
+  coMentions,
   docTitle,
   missingDocs,
   shownDocs,
@@ -180,10 +185,32 @@ export function LocalArticle({
   const [bannerBroken, setBannerBroken] = useState(false);
   const src = useMediaSrc();
   const mentionedIn = useBacklinks(data.articles, article.id);
+  const together = useMemo(
+    () => coMentions(data.articles, article.id).map((entry) => entry.article),
+    [data.articles, article.id],
+  );
   const articles = data.articles;
+  const calendar = data.campaign.calendar;
+  const now = data.state.now;
+  const [, navigate] = useLocation();
   const ctx = useMemo<ArticleContext>(
-    () => ({ onOpen, titleOf: (id) => articles[id]?.title ?? null, local: true }),
-    [onOpen, articles],
+    () => ({
+      onOpen,
+      titleOf: (id) => articles[id]?.title ?? null,
+      local: true,
+      // Daten des Kalenders im Text: anklickbar, mit Wochentag und Abstand zu heute.
+      dates: (text) =>
+        findDates(calendar, text, now).map((date) => ({
+          from: date.from,
+          to: date.to,
+          title: describeDate(calendar, now, date),
+          open: () => {
+            focusCalendarOn(dayIndexOf(date.time));
+            navigate('/kalender');
+          },
+        })),
+    }),
+    [onOpen, articles, calendar, now, navigate],
   );
   const asideRef = useRef<HTMLElement>(null);
 
@@ -374,6 +401,7 @@ export function LocalArticle({
 
       <ArticleList label="Darunter" articles={children} ctx={ctx} />
       <ArticleList label="Wird erwähnt in" articles={mentionedIn} ctx={ctx} />
+      <ArticleList label="Oft zusammen genannt mit" articles={together} ctx={ctx} />
 
       {others.length > 0 && (
         <footer className="wf-lk-foot">

@@ -33,6 +33,10 @@ export type Inline =
       label: string;
       /** Nur im eigenen Wiki: Titel des Artikels, den es noch nicht gibt (`resourceId` ist leer). */
       wanted?: string;
+      /** Nicht in Klammern gesetzt, sondern von Wayfarer am Namen erkannt. */
+      implicit?: true;
+      /** Auszeichnung des Textes, in dem ein erkannter Name steht (fett, kursiv …). */
+      style?: Omit<Extract<Inline, { type: 'text' }>, 'type' | 'text'>;
     }
   | { type: 'break' };
 

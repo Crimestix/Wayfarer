@@ -100,6 +100,11 @@ nicht übernommen.
   der Welt, der zu ihm gehört (`wiki/facts.ts`, `syncFacts`). Der Artikel gilt, wenn sich sein
   Wortlaut ändert; sonst bleibt, was von Hand geändert wurde (`entity.fromArticle`). Neue
   Bezeichnungen für Felder gehören in `VOCABULARY`, nicht in die Oberfläche.
+- Erkennen ohne Klammern: Namen anderer Artikel im Text werden beim Lesen zu Verweisen
+  (`wiki/names.ts`), Daten des Kalenders anklickbar (`domain/time/textDates.ts`), Sätze wie
+  „Schwester von X“ zu Vorschlägen für Beziehungen (`wiki/sentences.ts`). Das sind Sichten auf
+  den Text – der Text bleibt, wie er geschrieben wurde, und Vorschläge trägt nur der Spielleiter
+  ein.
 
 ## Regeln für Code
 

@@ -334,7 +334,7 @@ etwa drei Minuten.
 - Offen: kleine Vorschaubilder für Listen (jetzt werden die großen Bilder erst beim Hinsehen
   geladen), ein Bild von Hand ersetzen, Aufräumen nicht mehr gebrauchter Dateien.
 
-**In Wayfarer schreiben (10. 11. 2026) – dritte Welle, Stufen 1 bis 3 gebaut.** Entscheidung des
+**In Wayfarer schreiben (10. 11. 2026) – dritte Welle, Stufen 1 bis 4 gebaut.** Entscheidung des
 Spielleiters: Er will künftig nur noch in Wayfarer schreiben („schreiben, simpel verbinden und
 managen – anstatt 20 Jahre Datensätze zu pflegen“), mit einem Editor wie in Obsidian (schöne
 Ansicht und Quelltext). Ziel: aus Text eine simulierte Welt. Eine eingebaute KI, die Geld kostet,
@@ -391,8 +391,33 @@ ist ausgeschlossen; alles Erkennen läuft über festen Code.
     Zollhaus“ für „Das Alte Zollhaus“); die Welt zeigt noch nicht an, welche Angaben aus dem
     Steckbrief stammen; nach einer Übernahme aus LegendKeeper läuft das Auswerten nicht von
     selbst; Zweitnamen aus dem Steckbrief werden bewusst nicht übernommen.
-- **Stufe 4:** Erkennen über Code – bekannte Namen ohne Klammern, Satzmuster, Daten des
-  Kalenders.
+- **Stufe 4 – Erkennen über Code** (alles feste Regeln mit Test, nichts davon ändert den Text):
+  - **Namen ohne Klammern** (`wiki/names.ts`): Steht der Titel oder ein Zweitname eines anderen
+    Artikels im Text, wird er beim Lesen zum Verweis (`mention.implicit`, gepunktet
+    unterstrichen), zählt als Rückverweis und im Steckbrief als Verweis. Genau geschrieben, als
+    ganzes Wort oder mit angehängtem „s“; der Titel ohne „Der/Die/Das“ nur, wenn ein solches Wort
+    davorsteht. Außen vor: Namen unter drei Zeichen, klein geschriebene Titel, Allerweltswörter
+    (`COMMON`), Vorlagen und Artikel mit `autoLink: false` (Schalter unter „Schlagworte und
+    Zweitnamen“). Eingesetzt in `pageNodes`; gilt je Stand der Titel (`linkIndex().stamp`).
+    Im echten Export: rund 2 700 erkannte Namen zu 253 gesetzten Verweisen.
+  - **Daten** (`domain/time/textDates.ts`): „17. Tauwind 701 AD“, „17. Tauwind“, „Tauwind 701“,
+    „701 AD“ – Muster aus den Monatsnamen und Zeitrechnungen des Kalenders. Im Artikel
+    anklickbar; der Hinweis nennt Wochentag und Abstand zu heute, der Klick öffnet den Kalender
+    an dem Tag (`kalender/focus.ts`). Ohne Jahr gilt das laufende. Zeitrechnungen, die der
+    Kalender nicht kennt, werden nicht gelesen.
+  - **Satzmuster** (`wiki/sentences.ts`): „Schwester von X“, „dient dem Y“, „Mitglied der Z“,
+    „lebt in W“ … ergeben Vorschläge für Beziehungen – nur, wenn das Schlüsselwort unmittelbar
+    vor einem bekannten Namen steht und die Arten passen. Das Subjekt ist der Name am Satzanfang,
+    sonst der Eintrag des Artikels. Verneintes, Vergangenes und Vermutetes wird nicht gelesen.
+    Es bleibt beim Vorschlag („Eintragen“ / „Stimmt nicht“, am Artikel und gesammelt auf der
+    Startseite des Wikis); Abgelehntes merkt sich der Artikel (`dismissedHints`). Im echten
+    Export nur eine Handvoll Treffer – die Texte nutzen diese Wendungen selten.
+  - **Oft zusammen genannt** (`coMentions` in `wiki/model.ts`): unter dem Artikel, wer mindestens
+    zweimal im selben Absatz mit ihm steht.
+  - Offen: Vornamen allein („Mira“ für „Mira Tannhaus“), gebeugte Namen, Namen über
+    Auszeichnungsgrenzen hinweg; erkannte Namen im Editor zeigen und auf Wunsch in echte
+    Verweise umwandeln; Daten aus Zeitleisten-Steckbriefen in den Kalender übernehmen; mehr
+    Satzmuster nach dem Sprachgebrauch der echten Texte.
 
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.

@@ -11,6 +11,8 @@ export interface OpenTarget {
   title: string;
   /** Der Artikel fehlt noch; so soll er heißen. */
   wanted?: string;
+  /** Der Verweis steht nicht im Text, sondern wurde am Namen erkannt. */
+  implicit?: boolean;
 }
 
 export interface ArticleContext {
@@ -23,6 +25,49 @@ export interface ArticleContext {
   titleOf: (resourceId: string) => string | null | undefined;
   /** Der Artikel liegt im eigenen Wiki – Verweise führen dorthin, nicht nach LegendKeeper. */
   local?: boolean;
+  /**
+   * Findet Daten des Kalenders in einem Textstück. Jedes wird anklickbar und trägt im Hinweis,
+   * was Wayfarer darüber weiß (Wochentag, Abstand zu heute).
+   */
+  dates?: (text: string) => TextDateLink[];
+}
+
+export interface TextDateLink {
+  from: number;
+  to: number;
+  title: string;
+  open: () => void;
+}
+
+/** Ein Textstück, in dem Daten des Kalenders anklickbar sind. */
+function DatedText({ text, ctx }: { text: string; ctx: ArticleContext }) {
+  const dates = ctx.dates?.(text) ?? [];
+  if (!dates.length) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  dates.forEach((date, index) => {
+    if (date.from > at) parts.push(text.slice(at, date.from));
+    parts.push(
+      <span
+        key={index}
+        role="link"
+        tabIndex={0}
+        className="wf-lk-date"
+        title={`${date.title} – im Kalender zeigen`}
+        onClick={date.open}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          date.open();
+        }}
+      >
+        {text.slice(date.from, date.to)}
+      </span>,
+    );
+    at = date.to;
+  });
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
 }
 
 /**
@@ -41,13 +86,19 @@ export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleConte
     <span
       role="link"
       tabIndex={0}
-      className={cx('wf-lk-mention', missing && 'wf-lk-mention--missing')}
+      className={cx(
+        'wf-lk-mention',
+        missing && 'wf-lk-mention--missing',
+        target.implicit && 'wf-lk-mention--implicit',
+      )}
       title={
         missing
           ? `„${target.wanted ?? target.title}“ gibt es noch nicht – anklicken, um den Artikel anzulegen`
-          : ctx.local
-            ? `„${target.title}“ öffnen`
-            : `„${target.title}“ in LegendKeeper nachschlagen`
+          : target.implicit
+            ? `„${ctx.titleOf(target.resourceId) ?? target.title}“ öffnen – am Namen erkannt`
+            : ctx.local
+              ? `„${target.title}“ öffnen`
+              : `„${target.title}“ in LegendKeeper nachschlagen`
       }
       onClick={() => ctx.onOpen(target)}
       onKeyDown={onKeyDown}
@@ -63,7 +114,7 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
       {inlines.map((inline, index) => {
         if (inline.type === 'break') return <br key={index} />;
         if (inline.type === 'mention') {
-          return (
+          let link: ReactNode = (
             <Mention
               key={index}
               ctx={ctx}
@@ -72,11 +123,26 @@ export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleConte
                 documentId: inline.documentId,
                 title: inline.label,
                 ...(inline.wanted ? { wanted: inline.wanted } : {}),
+                ...(inline.implicit ? { implicit: true } : {}),
               }}
             />
           );
+          // Ein erkannter Name behält die Auszeichnung des Textes, in dem er steht.
+          const style = inline.style;
+          if (!style) return link;
+          if (style.strike) link = <s>{link}</s>;
+          if (style.underline) link = <u>{link}</u>;
+          if (style.italic) link = <em>{link}</em>;
+          if (style.bold) link = <strong>{link}</strong>;
+          if (style.highlight) link = <mark className="wf-lk-mark">{link}</mark>;
+          return <span key={index}>{link}</span>;
         }
-        let node: ReactNode = inline.text;
+        let node: ReactNode =
+          ctx.dates && !inline.code && !inline.href ? (
+            <DatedText text={inline.text} ctx={ctx} />
+          ) : (
+            inline.text
+          );
         if (inline.code) node = <code className="wf-lk-inline-code">{node}</code>;
         if (inline.sub) node = <sub>{node}</sub>;
         if (inline.sup) node = <sup>{node}</sup>;

@@ -318,6 +318,10 @@ button.wf-wiki-row__toggle:hover {
 .wf-wiki-facts__act:hover {
   border-bottom-color: var(--gold-bright);
 }
+.wf-wiki-facts--list {
+  max-width: 76ch;
+  margin-bottom: var(--s-3);
+}
 .wf-wiki-factsall {
   margin-top: var(--s-6);
   padding-top: var(--s-4);

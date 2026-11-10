@@ -278,6 +278,68 @@ export function backlinks(articles: Articles): Map<string, Article[]> {
   return out;
 }
 
+// ── Oft zusammen genannt ───────────────────────────────────────────────────
+
+/** Sammelt je Absatz (oder Zeile eines Steckbriefs), welche Artikel darin genannt werden. */
+function collectGroups(value: unknown, into: Set<string>[], depth = 0): void {
+  if (depth > 96 || typeof value !== 'object' || value === null) return;
+  if (Array.isArray(value)) {
+    const first = value[0] as { type?: unknown } | undefined;
+    const inline = first?.type === 'text' || first?.type === 'mention' || first?.type === 'break';
+    if (inline) {
+      const ids = new Set<string>();
+      for (const part of value as { type?: unknown; resourceId?: unknown }[])
+        if (part.type === 'mention' && typeof part.resourceId === 'string' && part.resourceId)
+          ids.add(part.resourceId);
+      if (ids.size > 1) into.push(ids);
+      return;
+    }
+    for (const part of value) collectGroups(part, into, depth + 1);
+    return;
+  }
+  for (const part of Object.values(value)) collectGroups(part, into, depth + 1);
+}
+
+const groupCache = new WeakMap<Article, { stamp: object; groups: Set<string>[] }>();
+
+function groupsOf(articles: Articles, article: Article): Set<string>[] {
+  const { stamp } = linkIndex(articles);
+  const cached = groupCache.get(article);
+  if (cached && cached.stamp === stamp) return cached.groups;
+  const groups: Set<string>[] = [];
+  collectGroups(articleNodes(articles, article), groups);
+  groupCache.set(article, { stamp, groups });
+  return groups;
+}
+
+export interface CoMention {
+  article: Article;
+  /** In wie vielen Absätzen beide zusammen stehen. */
+  count: number;
+}
+
+/**
+ * Mit wem ein Artikel oft im selben Absatz genannt wird – über das ganze Wiki. Das zeigt
+ * Verbindungen, die nirgends eigens eingetragen sind. Einmal zusammen genannt zählt noch nicht.
+ */
+export function coMentions(articles: Articles, id: string, limit = 8): CoMention[] {
+  const counts = new Map<string, number>();
+  for (const article of Object.values(articles)) {
+    if (article.template) continue;
+    for (const group of groupsOf(articles, article)) {
+      if (!group.has(id)) continue;
+      for (const other of group)
+        if (other !== id && articles[other] && !articles[other].template)
+          counts.set(other, (counts.get(other) ?? 0) + 1);
+    }
+  }
+  return [...counts]
+    .filter(([, count]) => count >= 2)
+    .map(([other, count]) => ({ article: articles[other]!, count }))
+    .sort((a, b) => b.count - a.count || a.article.title.localeCompare(b.article.title, 'de'))
+    .slice(0, limit);
+}
+
 // ── Erwähnt, aber noch nicht angelegt ──────────────────────────────────────
 
 export interface WantedArticle {

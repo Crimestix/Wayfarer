@@ -6,6 +6,7 @@
  */
 import type { Article, ArticleDoc, CampaignData } from '../../domain/schema';
 import type { ArticleNode } from '../legendkeeper/model';
+import { linkNames, nameMatcher, type NameMatcher } from './names';
 import {
   parseMarkdown,
   splitTarget,
@@ -60,7 +61,9 @@ export function linkIndex(articles: Articles): LinkIndex {
     for (const alias of article.aliases) add(byAlias, titleKey(alias), article);
   }
   const signature = sorted
-    .map((a) => [a.id, a.title, a.template ? 1 : 0, ...a.aliases].join('\u0001'))
+    .map((a) =>
+      [a.id, a.title, a.template ? 1 : 0, a.autoLink ? 1 : 0, ...a.aliases].join('\u0001'),
+    )
     .join('\u0002');
   const stamp = lastStamp?.signature === signature ? lastStamp.stamp : {};
   lastStamp = { signature, stamp };
@@ -123,19 +126,34 @@ export function pageText(articles: Articles, article: Article, doc: ArticleDoc):
   );
 }
 
+const matcherCache = new WeakMap<object, NameMatcher>();
+
+/** Der Erkenner für Namen ohne Klammern – einmal je Stand der Titel. */
+function matcherFor(articles: Articles): NameMatcher {
+  const { stamp, resolve } = linkIndex(articles);
+  let matcher = matcherCache.get(stamp);
+  if (!matcher) {
+    matcher = nameMatcher(articles, resolve);
+    matcherCache.set(stamp, matcher);
+  }
+  return matcher;
+}
+
 const nodeCache = new WeakMap<ArticleDoc, { stamp: object; nodes: ArticleNode[] }>();
 
 /** Die Knoten der Anzeige zu einer Seite, gelesen aus ihrem Text. */
 export function pageNodes(articles: Articles, article: Article, doc: ArticleDoc): ArticleNode[] {
-  const { stamp } = linkIndex(articles);
+  const { stamp, resolve } = linkIndex(articles);
   const cached = nodeCache.get(doc);
   if (cached && cached.stamp === stamp) return cached.nodes;
+  // Erst die Verweise in Klammern, dann die Namen, die ohne Klammern dastehen.
   const nodes =
     doc.kind === 'page'
-      ? parseMarkdown(pageText(articles, article, doc), {
-          resolve: linkIndex(articles).resolve,
-          headings: 0,
-        })
+      ? linkNames(
+          parseMarkdown(pageText(articles, article, doc), { resolve, headings: 0 }),
+          matcherFor(articles),
+          article.id,
+        )
       : [];
   nodeCache.set(doc, { stamp, nodes });
   return nodes;

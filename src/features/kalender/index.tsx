@@ -1,5 +1,5 @@
 /** Kalender: Monatsraster, gewählter Tag, Anstehendes, laufende Wirkungen und Monde. */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { EVENT_KINDS, type CalendarEvent, type Timer } from '../../domain/schema';
@@ -13,6 +13,7 @@ import {
 } from '../../domain/time/calendar';
 import { Button, IconButton, cx } from '../../ui';
 import { DayPanel } from './DayPanel';
+import { clearCalendarFocus, pendingCalendarFocus } from './focus';
 import { EventDialog } from './EventDialog';
 import { MonthGrid } from './MonthGrid';
 import { TimerDialog } from './TimerDialog';
@@ -31,9 +32,12 @@ export default function KalenderPage() {
   const now = data.state.now;
   const today = dayIndexOf(now);
 
-  const [selected, setSelected] = useState(today);
+  // Wurde der Kalender über ein Datum geöffnet (aus einem Artikel), zeigt er diesen Tag.
+  const [focus] = useState(pendingCalendarFocus);
+  useEffect(clearCalendarFocus, []);
+  const [selected, setSelected] = useState(focus ?? today);
   const [view, setView] = useState(() => {
-    const d = fromTime(cal, now);
+    const d = fromTime(cal, focus === null ? now : focus * MINUTES_PER_DAY);
     return { year: d.year, month: d.month };
   });
   const [dialog, setDialog] = useState<OpenDialog>(null);

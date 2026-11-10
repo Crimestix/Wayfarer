@@ -16,6 +16,7 @@ import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, planFacts, statedKind } from './facts';
+import type { RelationHint } from './sentences';
 import { articleAsText, linkIndex, relinked, titleKey } from './text';
 
 export interface AppliedLkImport {
@@ -307,7 +308,7 @@ export function removePage(db: CampaignDb, articleId: string, docId: string): ((
 export function setArticleMeta(
   db: CampaignDb,
   articleId: string,
-  change: Partial<Pick<Article, 'tags' | 'aliases' | 'icon' | 'hidden'>>,
+  change: Partial<Pick<Article, 'tags' | 'aliases' | 'icon' | 'hidden' | 'autoLink'>>,
 ): void {
   const before = db.getSnapshot().articles;
   const current = before[articleId];
@@ -459,5 +460,45 @@ export function createNamedEntity(
         sync?.undo();
         if (db.getSnapshot().entities[entity.id]) db.remove('entities', entity.id);
       }),
+  };
+}
+
+// ── Vorschläge aus Sätzen ──────────────────────────────────────────────────
+
+/** Trägt eine Beziehung ein, die Wayfarer in einem Satz gelesen hat. Gibt `undo` zurück. */
+export function acceptHint(db: CampaignDb, hint: RelationHint): () => void {
+  const data = db.getSnapshot();
+  if (hint.type === 'home') {
+    const person = data.entities[hint.from.id];
+    if (person?.kind !== 'person') return () => {};
+    const before = person.person.homeId;
+    db.put('entities', { ...person, person: { ...person.person, homeId: hint.to.id } });
+    return () => {
+      const now = db.getSnapshot().entities[person.id];
+      if (now?.kind === 'person' && now.person.homeId === hint.to.id)
+        db.put('entities', { ...now, person: { ...now.person, homeId: before } });
+    };
+  }
+  const relation = db.put(
+    'relations',
+    createRelation({ from: hint.from.id, to: hint.to.id, type: hint.type }),
+  );
+  return () => {
+    if (db.getSnapshot().relations[relation.id]) db.remove('relations', relation.id);
+  };
+}
+
+/** Merkt sich, dass ein Vorschlag aus diesem Artikel nicht stimmt – er kommt nicht wieder. */
+export function dismissHint(db: CampaignDb, articleId: string, key: string): () => void {
+  const article = db.getSnapshot().articles[articleId];
+  if (!article || article.dismissedHints.includes(key)) return () => {};
+  db.put('articles', { ...article, dismissedHints: [...article.dismissedHints, key] });
+  return () => {
+    const now = db.getSnapshot().articles[articleId];
+    if (now)
+      db.put('articles', {
+        ...now,
+        dismissedHints: now.dismissedHints.filter((entry) => entry !== key),
+      });
   };
 }

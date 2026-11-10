@@ -196,9 +196,15 @@ export function MetaDialog({ article, onClose }: { article: Article; onClose: ()
   const [tags, setTags] = useState(article.tags.join(', '));
   const [aliases, setAliases] = useState(article.aliases.join(', '));
   const [hidden, setHidden] = useState(article.hidden);
+  const [autoLink, setAutoLink] = useState(article.autoLink);
   const save = () => {
     flushEdits();
-    setArticleMeta(db, article.id, { tags: toList(tags), aliases: toList(aliases), hidden });
+    setArticleMeta(db, article.id, {
+      tags: toList(tags),
+      aliases: toList(aliases),
+      hidden,
+      autoLink,
+    });
     onClose();
   };
   return (
@@ -238,6 +244,13 @@ export function MetaDialog({ article, onClose }: { article: Article; onClose: ()
         <Checkbox checked={hidden} onChange={setHidden}>
           Vor den Spielern verborgen
         </Checkbox>
+        <Checkbox checked={autoLink} onChange={setAutoLink}>
+          Den Namen im Text anderer Artikel von selbst erkennen
+        </Checkbox>
+        <p className="wf-mute">
+          Steht der Titel oder ein Zweitname irgendwo im Text, wird er dort anklickbar – auch ohne
+          Klammern. Abschalten, wenn der Titel ein gewöhnliches Wort ist und zu oft trifft.
+        </p>
       </div>
     </Dialog>
   );
