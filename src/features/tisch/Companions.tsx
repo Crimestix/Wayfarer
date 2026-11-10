@@ -1,0 +1,129 @@
+/** Die Gefährten als schmale Leiste am unteren Rand: Zustand der Gruppe auf einen Blick. */
+import { useMemo, type CSSProperties } from 'react';
+import { Link } from 'wouter';
+import { Eye, MapPin, Swords } from 'lucide-react';
+import { useData, useDb } from '../../data/hooks';
+import { Portrait, cx, entityHref } from '../../ui';
+import { setExhaustion } from './commands';
+import {
+  MAX_EXHAUSTION,
+  companions,
+  exhaustionAfterClick,
+  exhaustionEffect,
+  type Companion,
+} from './model';
+
+const LEVELS = Array.from({ length: MAX_EXHAUSTION }, (_, i) => i + 1);
+
+function Mate({ companion }: { companion: Companion }) {
+  const db = useDb();
+  const { character, elsewhere, astray } = companion;
+  const c = character.character;
+  const apart = elsewhere !== null || astray;
+  const whereabouts = elsewhere ? elsewhere.name : 'nicht bei der Gruppe';
+  return (
+    <div className={cx('wf-tisch-mate', apart && 'wf-tisch-mate--apart')}>
+      {character.image ? (
+        <Portrait entity={character} size={40} round />
+      ) : (
+        <span className="wf-portrait wf-tisch-mate__initial" aria-hidden>
+          {character.name.trim().charAt(0).toUpperCase() || '?'}
+        </span>
+      )}
+      <div className="wf-tisch-mate__main">
+        <Link
+          href={entityHref(character)}
+          className="wf-tisch-mate__name wf-clamp-1"
+          title={[character.name, c.className && `${c.className} ${c.level}`, c.player && `gespielt von ${c.player}`]
+            .filter(Boolean)
+            .join(' · ')}
+        >
+          {character.name}
+        </Link>
+        <div className="wf-tisch-mate__stats">
+          <div
+            className="wf-tisch-pips"
+            role="group"
+            aria-label={`Erschöpfung von ${character.name}: ${c.exhaustion} von ${MAX_EXHAUSTION}`}
+            title={exhaustionEffect(c.exhaustion)}
+            data-level={c.exhaustion}
+          >
+            {LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                className="wf-tisch-pip"
+                aria-label={`Erschöpfung ${level}`}
+                aria-pressed={level <= c.exhaustion}
+                onClick={() => setExhaustion(db, character.id, exhaustionAfterClick(c.exhaustion, level))}
+              >
+                <i />
+              </button>
+            ))}
+          </div>
+          <span
+            className="wf-tisch-mate__sense wf-num"
+            title={
+              c.passivePerception === null
+                ? 'Passive Wahrnehmung ist noch nicht eingetragen.'
+                : `Passive Wahrnehmung ${c.passivePerception}`
+            }
+          >
+            <Eye aria-hidden />
+            {c.passivePerception ?? '–'}
+          </span>
+        </div>
+        {(apart || c.conditions.length > 0) && (
+          <div
+            className="wf-tisch-mate__notes wf-clamp-1"
+            title={[apart && `Abseits der Gruppe: ${whereabouts}`, c.conditions.length > 0 && `Zustände: ${c.conditions.join(', ')}`]
+              .filter(Boolean)
+              .join('\n')}
+          >
+            {apart && (
+              <span className="wf-tisch-mate__apart">
+                <MapPin aria-hidden />
+                {whereabouts}
+              </span>
+            )}
+            {c.conditions.length > 0 && (
+              <span className="wf-tisch-mate__conditions">{c.conditions.join(', ')}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function CompanionStrip() {
+  const data = useData();
+  const list = useMemo(() => companions(data), [data]);
+  return (
+    <section className="wf-tisch-party" aria-label="Gefährten">
+      <Link href="/gruppe" className="wf-tisch-party__label" title="Zur Gruppe">
+        <span>Gefährten</span>
+      </Link>
+      {list.length === 0 ? (
+        <div className="wf-tisch-party__empty">
+          <Swords aria-hidden />
+          <span>
+            Noch keine aktiven Gefährten. Hier stehen Erschöpfung, Zustände und passive Wahrnehmung der Gruppe.
+          </span>
+          <Link href="/gruppe" className="wf-btn wf-btn--sm">
+            Gefährten anlegen
+          </Link>
+        </div>
+      ) : (
+        <div
+          className="wf-tisch-party__list"
+          style={{ '--mates': list.length } as CSSProperties}
+        >
+          {list.map((companion) => (
+            <Mate key={companion.character.id} companion={companion} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-watch"
+description = "Enables the store_watch command without any pre-configured scope."
+commands.allow = ["store_watch"]
+
+[[permission]]
+identifier = "deny-store-watch"
+description = "Denies the store_watch command without any pre-configured scope."
+commands.deny = ["store_watch"]

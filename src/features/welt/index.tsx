@@ -1,18 +1,50 @@
-import { Hammer } from 'lucide-react';
+/** Welt – die Weltdatenbank: Übersicht links, Dossier des gewählten Eintrags rechts. */
+import { useEffect, useRef } from 'react';
+import { Link, Redirect, useParams } from 'wouter';
+import { Compass } from 'lucide-react';
+import { useData } from '../../data/hooks';
 import { EmptyState } from '../../ui';
+import { Dossier } from './Dossier';
+import { EntityDialogHost } from './EntityDialog';
+import { Landing } from './Landing';
+import { isWorldEntity } from './model';
+import { Sidebar } from './Sidebar';
+import './welt.css';
 
-/** Platzhalter – dieser Bereich wird gerade gebaut. */
-export default function Page() {
+export default function WeltPage() {
+  const data = useData();
+  const { id } = useParams<{ id?: string }>();
+  const entity = id ? data.entities[id] : undefined;
+  const stage = useRef<HTMLDivElement>(null);
+  // Ein anderer Eintrag beginnt wieder oben.
+  useEffect(() => {
+    stage.current?.scrollTo(0, 0);
+  }, [id]);
+  if (entity?.kind === 'character') return <Redirect to={`/gruppe/${entity.id}`} />;
+  const selected = isWorldEntity(entity) ? entity : undefined;
   return (
-    <div className="wf-page">
-      <header className="wf-page__head">
-        <h1 className="wf-page__title">Welt</h1>
-      </header>
-      <div className="wf-page__body">
-        <EmptyState icon={<Hammer />} title="In Arbeit">
-          Dieser Bereich wird gerade gebaut.
-        </EmptyState>
+    <div className="wf-welt">
+      <Sidebar selected={selected} />
+      <div className="wf-welt-stage" ref={stage}>
+        {selected ? (
+          <Dossier key={selected.id} entity={selected} />
+        ) : id ? (
+          <EmptyState
+            icon={<Compass />}
+            title="Diesen Eintrag gibt es nicht mehr"
+            action={
+              <Link href="/welt" className="wf-btn">
+                Zur Übersicht
+              </Link>
+            }
+          >
+            Er wurde gelöscht oder auf einem anderen Gerät entfernt.
+          </EmptyState>
+        ) : (
+          <Landing />
+        )}
       </div>
+      <EntityDialogHost />
     </div>
   );
 }

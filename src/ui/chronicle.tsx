@@ -18,7 +18,7 @@ export const CHRONICLE_KIND_LABEL: Record<ChronicleKind, string> = {
   change: 'Veränderung',
 };
 
-const ICONS: Record<ChronicleKind, typeof Feather> = {
+export const CHRONICLE_KIND_ICON: Record<ChronicleKind, typeof Feather> = {
   note: Feather,
   travel: Footprints,
   attitude: Waypoints,
@@ -41,7 +41,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
-  const Icon = ICONS[entry.kind];
+  const Icon = CHRONICLE_KIND_ICON[entry.kind];
   const refs = entry.refs.filter(
     (id) =>
       !hideRefs.includes(id) &&

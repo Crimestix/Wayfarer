@@ -13,6 +13,8 @@
  *   lk_status() -> { hasKey: boolean }
  *   lk_set_key({ key })   lk_clear_key()                    Schlüssel liegt im Schlüsselbund des Systems
  *   lk_get({ path, query }) -> { status: number, body: string }   nur GET auf die LegendKeeper-API
+ *
+ * Fehler kommen als deutscher Satz (string) zurück, nicht als Error-Objekt.
  */
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -69,3 +71,31 @@ export async function pickFolder(title: string): Promise<string | null> {
   const result = await open({ directory: true, multiple: false, title });
   return typeof result === 'string' ? result : null;
 }
+
+// ── LegendKeeper (nur in der installierten App) ──────────────────────────────
+
+export interface LkStatus {
+  hasKey: boolean;
+}
+
+/** Antwort der LegendKeeper-API, unverändert: auch 401 oder 404 kommen so zurück. */
+export interface LkResponse {
+  status: number;
+  body: string;
+}
+
+/** Abfrageparameter: Name → Wert (Listen werden wiederholt, null entfällt). */
+export type LkQuery = Record<string, string | number | boolean | null | Array<string | number | boolean>>;
+
+/** Ist ein LegendKeeper-Key im Schlüsselbund des Systems hinterlegt? */
+export const lkStatus = () => invoke<LkStatus>('lk_status');
+/** Legt den Key im Schlüsselbund ab. Er verlässt die Rust-Seite danach nie wieder. */
+export const lkSetKey = (key: string) => invoke<void>('lk_set_key', { key });
+export const lkClearKey = () => invoke<void>('lk_clear_key');
+/**
+ * Liest von der LegendKeeper-API. `path` ist ein Pfad innerhalb der API, z. B. „/projects“ –
+ * nie eine vollständige Adresse. Schlägt fehl, wenn kein Key hinterlegt ist oder keine
+ * Verbindung zustande kommt.
+ */
+export const lkGet = (path: string, query?: LkQuery) =>
+  invoke<LkResponse>('lk_get', { path, query: query ?? null });

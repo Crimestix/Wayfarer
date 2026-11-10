@@ -1,0 +1,37 @@
+# Prüft bei jeder Änderung, ob Wayfarer fehlerfrei ist: Typen, Tests und der Bau der Oberfläche.
+name: Prüfen
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruefen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  oberflaeche:
+    name: Typen, Tests, Bau
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Typen prüfen
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Oberfläche bauen
+        run: npm run build

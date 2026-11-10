@@ -1,0 +1,131 @@
+# Baut die Installationspakete für macOS (Apple Silicon + Intel in einem Paket) und Windows (64 Bit)
+# und hängt sie an eine Veröffentlichung auf GitHub.
+#
+# Auslöser:
+#   - ein Tag der Form v1.2.3 wird hochgeladen, oder
+#   - von Hand: Actions → „Veröffentlichen“ → „Run workflow“ → Versionsnummer eintragen.
+#
+# Die Versionsnummer der Pakete folgt immer dem Tag bzw. der Eingabe; im Code muss nichts geändert werden.
+name: Veröffentlichen
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versionsnummer der neuen Version, z. B. 0.2.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vorbereiten:
+    name: Veröffentlichung anlegen
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      release_id: ${{ steps.release.outputs.release_id }}
+    steps:
+      - name: Versionsnummer bestimmen
+        id: version
+        env:
+          EINGABE: ${{ inputs.version }}
+          TAG_NAME: ${{ github.ref_name }}
+          AUSLOESER: ${{ github.event_name }}
+        run: |
+          if [ "$AUSLOESER" = "workflow_dispatch" ]; then
+            version="${EINGABE#v}"
+          else
+            version="${TAG_NAME#v}"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Die Versionsnummer muss aus drei Zahlen bestehen, z. B. 0.2.0 (Tag: v0.2.0). Erhalten: '$version'"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Veröffentlichung anlegen (Vorabversion)
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            {
+              echo "**Installieren**"
+              echo
+              echo "- **macOS:** die Datei, die auf \`.dmg\` endet (läuft auf Apple-Silicon- und Intel-Macs)"
+              echo "- **Windows:** die Datei, die auf \`-setup.exe\` endet"
+              echo
+              echo "Beim ersten Öffnen warnen macOS und Windows, weil die App nicht signiert ist. Wie es trotzdem geht, steht in der Anleitung (README) unter „Installation“."
+            } > notizen.md
+            gh release create "$TAG" \
+              --title "Wayfarer $VERSION" \
+              --notes-file notizen.md \
+              --prerelease \
+              --target "$GITHUB_SHA"
+          fi
+          echo "release_id=$(gh release view "$TAG" --json databaseId --jq .databaseId)" >> "$GITHUB_OUTPUT"
+
+  bauen:
+    name: Paket für ${{ matrix.name }}
+    needs: vorbereiten
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles app,dmg
+          - name: Windows
+            os: windows-latest
+            rust_targets: x86_64-pc-windows-msvc
+            args: --target x86_64-pc-windows-msvc --bundles nsis
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Versionsnummer eintragen
+        shell: bash
+        env:
+          VERSION: ${{ needs.vorbereiten.outputs.version }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Bauen und an die Veröffentlichung hängen
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          releaseId: ${{ needs.vorbereiten.outputs.release_id }}
+          args: ${{ matrix.args }}
+          uploadUpdaterJson: false
+          retryAttempts: 1

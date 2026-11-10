@@ -1,0 +1,61 @@
+# Prüft die Rust-Seite der Desktop-App (Dateizugriff, Ordnerüberwachung, LegendKeeper-Abruf)
+# auf macOS, Windows und Linux. Läuft nur, wenn sich daran etwas geändert hat, oder von Hand.
+name: Desktop prüfen
+
+on:
+  push:
+    paths:
+      - 'src-tauri/**'
+      - '.github/workflows/desktop-pruefen.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - '.github/workflows/desktop-pruefen.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-pruefen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust-Tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+          - name: Windows
+            os: windows-latest
+          - name: Linux
+            os: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Systembibliotheken (nur Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Die Rust-Seite erwartet den Ordner der gebauten Oberfläche; für die Tests genügt ein Platzhalter.
+      - name: Platzhalter für die Oberfläche
+        shell: bash
+        run: |
+          mkdir -p dist
+          echo '<!doctype html><title>Wayfarer</title>' > dist/index.html
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --locked

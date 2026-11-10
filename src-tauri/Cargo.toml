@@ -30,13 +30,16 @@ keyring = "4"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "system-proxy", "charset"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 url = "2"
+# Unter Windows gewöhnliche Pfade (C:\…) statt der \\?\-Schreibweise
+dunce = "1"
 
 [dev-dependencies]
 tempfile = "3"
+# Erlaubt, die Befehle in Tests ohne Fenster aufzurufen
+tauri = { version = "2", features = ["test"] }
 
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
 strip = true

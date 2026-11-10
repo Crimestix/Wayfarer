@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-read-all"
+description = "Enables the store_read_all command without any pre-configured scope."
+commands.allow = ["store_read_all"]
+
+[[permission]]
+identifier = "deny-store-read-all"
+description = "Denies the store_read_all command without any pre-configured scope."
+commands.deny = ["store_read_all"]

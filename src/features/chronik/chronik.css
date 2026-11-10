@@ -1,0 +1,706 @@
+/* Chronik: Verlauf, Sessions und der Dialog zum Bearbeiten. */
+
+.wf-chronik-head {
+  align-items: center;
+  gap: var(--s-6);
+  padding-bottom: var(--s-3);
+}
+.wf-chronik-head .wf-tabs {
+  align-self: flex-end;
+}
+.wf-chronik-body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  padding: 0 var(--s-6) var(--s-5);
+}
+
+/* Rahmen, der die verfügbare Höhe füllt; sein Inhalt rollt. */
+.wf-chronik-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.wf-chronik-fill > .wf-panel__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-chronik-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ── Verlauf ────────────────────────────────────────────────────────────── */
+.wf-chronik-verlauf {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1120px) minmax(300px, 360px);
+  gap: var(--s-5);
+  min-width: 0;
+  min-height: 0;
+}
+.wf-chronik-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+  min-height: 0;
+}
+.wf-chronik-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+  min-height: 0;
+}
+.wf-chronik-side > .wf-panel {
+  flex: 0 1 auto;
+  min-height: 96px;
+}
+
+/* Filter */
+.wf-chronik-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-chronik-filter__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-chronik-filter__row > * {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.wf-chronik-filter__row > .wf-chronik-search {
+  flex: 2 1 200px;
+}
+.wf-chronik-filter__row > .wf-chronik-chip {
+  flex: none;
+}
+/* Gesetzte Filter tragen Messing, damit man sie auf einen Blick sieht. */
+.wf-chronik-filter [data-active] > .wf-picker > .wf-picker__value,
+.wf-chronik-filter select[data-active] {
+  border-color: var(--gold-deep);
+  background-color: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-chronik-search {
+  position: relative;
+  display: block;
+}
+.wf-chronik-search > svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  color: var(--ink-mute);
+  pointer-events: none;
+}
+.wf-chronik-search .wf-input {
+  padding-left: 32px;
+  padding-right: 30px;
+}
+.wf-chronik-search .wf-input:not(:placeholder-shown) {
+  border-color: var(--gold-deep);
+}
+.wf-chronik-search > button {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  transform: translateY(-50%);
+}
+.wf-chronik-search > button:hover {
+  color: var(--gold-bright);
+}
+.wf-chronik-search > button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.wf-chronik-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  transition:
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
+}
+.wf-chronik-chip svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.7;
+  color: var(--chip-color);
+  opacity: 0.75;
+}
+.wf-chronik-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.wf-chronik-chip[aria-pressed='true'] {
+  border-color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 13%, transparent);
+  color: var(--ink);
+}
+.wf-chronik-chip[aria-pressed='true'] svg {
+  opacity: 1;
+}
+
+/* Zeitstrahl */
+.wf-chronik-timeline {
+  padding-bottom: var(--s-4);
+}
+.wf-chronik-day {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: 7px var(--s-4) 6px;
+  border-top: 1px solid var(--line-faint);
+  border-bottom: 1px solid var(--line-faint);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 7%, transparent), transparent 60%),
+    var(--bg-1);
+}
+.wf-chronik-timeline > .wf-chronik-day:first-child {
+  border-top: 0;
+}
+.wf-chronik-timeline[data-sticky] .wf-chronik-day {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.wf-chronik-day__weekday {
+  font-family: var(--font-caps);
+  font-size: 0.68rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-chronik-day__date {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.wf-chronik-day__moons {
+  display: inline-flex;
+  gap: 4px;
+  align-self: center;
+}
+.wf-chronik-day__rel,
+.wf-chronik-day__count {
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-chronik-day[data-today] .wf-chronik-day__rel {
+  color: var(--gold-bright);
+}
+.wf-chronik-day__count {
+  min-width: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--ink-mute);
+  text-align: center;
+  letter-spacing: 0;
+}
+.wf-chronik-timeline .wf-chron-list {
+  padding: 2px 0;
+}
+
+/* Session-Grenze */
+.wf-chronik-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: 11px var(--s-4);
+  border: 0;
+  background: none;
+  font-family: var(--font-caps);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-chronik-marker::before,
+.wf-chronik-marker::after {
+  content: '';
+  flex: 1 1 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-deep));
+}
+.wf-chronik-marker::after {
+  background: linear-gradient(90deg, var(--gold-deep), transparent);
+}
+.wf-chronik-marker__detail {
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--ink-mute);
+}
+.wf-chronik-marker[data-edge='end'] {
+  color: var(--ink-mute);
+}
+.wf-chronik-marker[data-edge='end']::before {
+  background: linear-gradient(90deg, transparent, var(--line));
+}
+.wf-chronik-marker[data-edge='end']::after {
+  background: linear-gradient(90deg, var(--line), transparent);
+}
+.wf-chronik-marker:hover {
+  color: var(--gold-bright);
+}
+
+.wf-chronik-more {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: var(--s-3) 0 0;
+}
+/* Unsichtbare Schwelle: löst das Nachladen aus, kurz bevor man das Ende erreicht. */
+.wf-chronik-more__sentinel {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 900px;
+  pointer-events: none;
+}
+
+/* Offene Abmachungen */
+.wf-chronik-promises .wf-panel__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+}
+.wf-chronik-promises__overdue {
+  margin-left: 10px;
+  color: var(--blood-bright);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+.wf-chronik-promise {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: 11px var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-chronik-promise:last-child {
+  border-bottom: 0;
+}
+.wf-chronik-promise > .wf-chron__check {
+  flex: none;
+  margin-top: 3px;
+}
+.wf-chronik-promise--late {
+  box-shadow: inset 2px 0 0 var(--blood);
+  background: linear-gradient(90deg, var(--blood-wash), transparent 70%);
+}
+.wf-chronik-promise__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.wf-chronik-promise__text {
+  color: var(--ink);
+  line-height: 1.35;
+}
+.wf-chronik-promise__body:hover .wf-chronik-promise__text {
+  color: var(--gold-bright);
+}
+.wf-chronik-promise__meta {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-chronik-promise--late .wf-chronik-promise__due {
+  color: var(--blood-bright);
+}
+
+/* Häufig genannt */
+.wf-chronik-mention {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px var(--s-4);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  text-align: left;
+  color: var(--ink-soft);
+}
+.wf-chronik-mention:last-child {
+  border-bottom: 0;
+}
+.wf-chronik-mention svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--gold-deep);
+  stroke-width: 1.6;
+}
+.wf-chronik-mention:hover,
+.wf-chronik-mention[aria-pressed='true'] {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 70%);
+  color: var(--gold-bright);
+}
+.wf-chronik-mention[aria-pressed='true'] {
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.wf-chronik-mention__count {
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+
+/* ── Sessions ───────────────────────────────────────────────────────────── */
+.wf-chronik-sessions {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1120px);
+  gap: var(--s-5);
+  min-width: 0;
+  min-height: 0;
+}
+.wf-chronik-sessions--empty {
+  display: block;
+  max-width: 720px;
+}
+/* Die Liste ist so hoch wie ihr Inhalt und rollt erst, wenn sie den Platz füllt. */
+.wf-chronik-list {
+  align-self: start;
+  max-height: 100%;
+  min-height: 0;
+}
+.wf-chronik-session {
+  display: flex;
+  gap: var(--s-3);
+  width: 100%;
+  padding: 12px var(--s-4);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  text-align: left;
+  transition: background 0.12s var(--ease);
+}
+.wf-chronik-session:hover,
+.wf-chronik-session[aria-current='true'] {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 9%, transparent), transparent 70%);
+}
+.wf-chronik-session[aria-current='true'] {
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.wf-chronik-session__no {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-inset);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.wf-chronik-session--running .wf-chronik-session__no {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  box-shadow: 0 0 14px var(--gold-glow);
+}
+.wf-chronik-session__main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-chronik-session__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.wf-chronik-session__real {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.wf-chronik-session__world {
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-chronik-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-caps);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blood-bright);
+}
+
+/* Gewählte Session */
+.wf-chronik-detail__head {
+  padding: var(--s-4) var(--s-5) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-chronik-detail__top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-chronik-detail__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-chronik-detail__title {
+  display: block;
+  width: 100%;
+  margin: 2px 0 0 -8px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  transition: border-color 0.15s var(--ease);
+}
+.wf-chronik-detail__title::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+  font-weight: 400;
+}
+.wf-chronik-detail__title:hover {
+  border-color: var(--line);
+}
+.wf-chronik-detail__title:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: var(--bg-inset);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+.wf-chronik-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3) var(--s-6);
+  margin: var(--s-3) 0 0;
+}
+.wf-chronik-facts dt {
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-chronik-facts dd {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  margin: 0;
+  color: var(--ink);
+}
+.wf-chronik-facts dd {
+  gap: var(--s-2);
+}
+.wf-chronik-facts__date {
+  width: 112px;
+  min-height: 30px;
+  padding: 2px 8px;
+}
+.wf-chronik-detail__section {
+  padding: var(--s-4) var(--s-5) var(--s-2);
+}
+.wf-chronik-detail__section--flush {
+  padding-left: 0;
+  padding-right: 0;
+}
+.wf-chronik-detail__section--flush > .wf-chronik-detail__sechead {
+  padding: 0 var(--s-5);
+}
+.wf-chronik-detail__sechead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 28px;
+  margin-bottom: var(--s-2);
+}
+.wf-chronik-detail__sechead > .wf-section-title {
+  flex: 1 1 auto;
+}
+.wf-chronik-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-mute);
+}
+.wf-chronik-saved svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-chronik-saved[data-state='saved'] {
+  color: var(--moss);
+}
+.wf-chronik-saved[data-state='error'] {
+  color: var(--blood-bright);
+}
+.wf-chronik-notes {
+  min-height: 150px;
+  max-height: 46vh;
+  padding: 10px 12px;
+  resize: none;
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+.wf-chronik-summary {
+  min-height: 320px;
+  font-size: var(--text-sm);
+}
+
+/* ── Dialog ─────────────────────────────────────────────────────────────── */
+.wf-chronik-dialog {
+  gap: var(--s-3);
+}
+.wf-chronik-dialog .wf-textarea {
+  min-height: 80px;
+}
+.wf-chronik-dialog__auto {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-chronik-dialog__auto > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  color: var(--gold-deep);
+  stroke-width: 1.6;
+}
+.wf-chronik-dialog__auto .wf-mute {
+  font-size: var(--text-sm);
+}
+.wf-chronik-dialog__auto .wf-mute svg {
+  width: 11px;
+  height: 11px;
+  margin-right: 2px;
+}
+.wf-chronik-dialog__headline {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.wf-chronik-dialog__when {
+  min-height: 1.3em;
+  margin-top: 5px;
+}
+.wf-chronik-dialog__fixed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+}
+.wf-chronik-dialog__fixed svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--gold-deep);
+}
+.wf-chronik-dialog__promise {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-chronik-dialog__problem {
+  align-self: center;
+  font-size: var(--text-sm);
+  line-height: 1.25;
+  color: var(--blood-bright);
+}
+.wf-chronik-time {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 96px auto;
+  gap: var(--s-3);
+  align-items: end;
+}
+.wf-chronik-time__clock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.wf-chronik-time__clock .wf-input {
+  width: 62px;
+}
+
+@media (max-width: 1400px) {
+  .wf-chronik-verlauf {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--s-4);
+  }
+  .wf-chronik-sessions {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: var(--s-4);
+  }
+}

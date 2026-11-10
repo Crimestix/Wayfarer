@@ -1,18 +1,26 @@
-import { Hammer } from 'lucide-react';
-import { EmptyState } from '../../ui';
+/**
+ * Spieltisch: „Hier und jetzt“. Wo ist die Gruppe, wer ist hier, was hat sich verändert,
+ * was steht an, wie geht es den Gefährten – und eine Zeile, um festzuhalten, was passiert.
+ */
+import { useData } from '../../data/hooks';
+import { AgendaPanel } from './Agenda';
+import { CompanionStrip } from './Companions';
+import { JournalPanel } from './Journal';
+import { partyPlace } from './model';
+import { NoPlace, PlacePanel } from './PlacePanel';
+import './tisch.css';
 
-/** Platzhalter – dieser Bereich wird gerade gebaut. */
-export default function Page() {
+export default function TischPage() {
+  const data = useData();
+  const place = partyPlace(data);
   return (
-    <div className="wf-page">
-      <header className="wf-page__head">
-        <h1 className="wf-page__title">Spieltisch</h1>
-      </header>
-      <div className="wf-page__body">
-        <EmptyState icon={<Hammer />} title="In Arbeit">
-          Dieser Bereich wird gerade gebaut.
-        </EmptyState>
+    <div className="wf-tisch">
+      <div className="wf-tisch__place">{place ? <PlacePanel key={place.id} place={place} /> : <NoPlace />}</div>
+      <div className="wf-tisch__side">
+        <JournalPanel />
+        <AgendaPanel />
       </div>
+      <CompanionStrip />
     </div>
   );
 }

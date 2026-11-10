@@ -263,3 +263,18 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
     db.remove('entities', entityId);
   });
 }
+
+/**
+ * Löscht eine Session. Was in ihr festgehalten wurde, bleibt in der Chronik, gehört dann aber
+ * zu keiner Session mehr. Läuft die Session gerade, endet sie damit.
+ */
+export function deleteSession(db: CampaignDb, sessionId: string): void {
+  const data = db.getSnapshot();
+  if (!data.sessions[sessionId]) return;
+  db.batch(() => {
+    for (const entry of Object.values(data.chronicle))
+      if (entry.sessionId === sessionId) db.patch('chronicle', entry.id, { sessionId: null });
+    if (data.state.sessionId === sessionId) db.setState({ sessionId: null });
+    db.remove('sessions', sessionId);
+  });
+}
