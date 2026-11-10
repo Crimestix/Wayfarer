@@ -1,9 +1,10 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocation } from 'wouter';
-import { EyeOff, ImagePlus, Trash2 } from 'lucide-react';
+import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
+import { freshSeed } from '../../domain/random';
 import { PERSON_STATUS, createEntity, type PersonStatus } from '../../domain/schema';
 import {
   Button,
@@ -26,6 +27,7 @@ import {
   type EntityDialogRequest,
 } from './editor';
 import { fileToImage } from './image';
+import { suggestNpc, type NpcSuggestion } from './npc';
 import { Picker } from './parts';
 import {
   PERSON_LINKS,
@@ -99,6 +101,29 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const categoryList = useId();
   const set = (change: Partial<EntityDraft>) => setDraft((d) => ({ ...d, ...change }));
+
+  /** Was der Würfel zuletzt eingetragen hat – nur das darf er beim nächsten Wurf ersetzen. */
+  const rolled = useRef<Partial<EntityDraft>>({});
+  const [nameSource, setNameSource] = useState<NpcSuggestion['nameSource'] | null>(null);
+  const roll = () => {
+    const mine = <K extends keyof EntityDraft>(key: K) =>
+      draft[key] !== '' && draft[key] !== null && draft[key] !== rolled.current[key];
+    const suggestion = suggestNpc(
+      data,
+      { placeId: draft.placeId, speciesId: mine('speciesId') ? draft.speciesId : null },
+      freshSeed(),
+    );
+    const next: Partial<EntityDraft> = {};
+    // Was der Spielleiter selbst eingetragen hat, bleibt stehen.
+    if (!mine('name')) next.name = suggestion.name;
+    if (!mine('role')) next.role = suggestion.role;
+    if (!mine('tagline')) next.tagline = suggestion.tagline;
+    if (!mine('speciesId')) next.speciesId = suggestion.speciesId;
+    if (!mine('homeId')) next.homeId = suggestion.homeId;
+    rolled.current = { ...rolled.current, ...next };
+    setNameSource('name' in next ? suggestion.nameSource : null);
+    set(next);
+  };
 
   const entityId = existing?.id ?? null;
   const problem = draftProblem(data, draft, entityId);
@@ -275,14 +300,34 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
             {imageError && <div className="wf-welt-form__problem">{imageError}</div>}
           </div>
           <div className="wf-col wf-grow" style={{ gap: 'var(--s-4)' }}>
-            <Field label="Name">
-              <Input
-                data-autofocus
-                className="wf-welt-form__name"
-                value={draft.name}
-                onChange={(e) => set({ name: e.target.value })}
-                aria-invalid={tried && !draft.name.trim()}
-              />
+            <Field
+              label="Name"
+              hint={
+                nameSource === 'world'
+                  ? 'Vorschlag im Klang der Namen deiner Welt – ändere ihn oder würfle neu.'
+                  : nameSource === 'generic'
+                    ? 'Vorschlag aus allgemeinen Silben. Kennt deine Welt mehr Personen, lernt Wayfarer ihren Klang.'
+                    : undefined
+              }
+            >
+              <div className="wf-welt-form__namerow">
+                <Input
+                  data-autofocus
+                  className="wf-welt-form__name"
+                  value={draft.name}
+                  onChange={(e) => set({ name: e.target.value })}
+                  aria-invalid={tried && !draft.name.trim()}
+                />
+                {draft.kind === 'person' && !existing && (
+                  <Button
+                    icon={<Dices />}
+                    onClick={roll}
+                    title="Eine Nebenfigur vorschlagen: Name, Tätigkeit, Spezies und ein Satz zur Person. Was du selbst eingetragen hast, bleibt stehen."
+                  >
+                    Würfeln
+                  </Button>
+                )}
+              </div>
             </Field>
             <Field label="Kurzbeschreibung" hint="Ein Satz, der am Tisch reicht.">
               <Input

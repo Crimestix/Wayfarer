@@ -1180,6 +1180,15 @@
 .wf-welt-form__link:hover {
   color: var(--gold-bright);
 }
+.wf-welt-form__namerow {
+  display: flex;
+  align-items: stretch;
+  gap: var(--s-2);
+}
+.wf-welt-form__namerow > .wf-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .wf-welt-form__kindhint {
   margin-top: var(--s-2);
   color: var(--ink-mute);
