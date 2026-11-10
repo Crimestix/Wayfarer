@@ -33,6 +33,7 @@ import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
+import { FactsHint, FactsOverview } from './FactsHint';
 import { ArticleIcon } from './icons';
 import { LocalArticle } from './LocalArticle';
 import {
@@ -295,6 +296,7 @@ function Landing({
           </Link>
         ))}
       </div>
+      <FactsOverview />
       <Wanted articles={articles} onCreate={onCreate} />
     </div>
   );
@@ -569,14 +571,17 @@ export default function WikiPage() {
                 </>
               }
               below={
-                owners.length > 0 && (
-                  <div className="wf-wiki-owners">
-                    In der Welt:
-                    {owners.map((owner) => (
-                      <EntityLink key={owner.id} id={owner.id} />
-                    ))}
-                  </div>
-                )
+                <>
+                  {owners.length > 0 && (
+                    <div className="wf-wiki-owners">
+                      In der Welt:
+                      {owners.map((owner) => (
+                        <EntityLink key={owner.id} id={owner.id} />
+                      ))}
+                    </div>
+                  )}
+                  <FactsHint article={article} />
+                </>
               }
             />
           </div>

@@ -16,7 +16,7 @@ import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, planFacts, statedKind } from './facts';
-import { articleAsText, relinked, titleKey } from './text';
+import { articleAsText, linkIndex, relinked, titleKey } from './text';
 
 export interface AppliedLkImport {
   at: string;
@@ -422,4 +422,42 @@ export function syncFacts(
       }
     });
   return { ...out, undo };
+}
+
+/**
+ * Legt zu einem Namen aus einem Steckbrief den fehlenden Eintrag an und liest die Steckbriefe, die
+ * ihn nennen, gleich neu – damit sie auf ihn zeigen. Gibt es einen Artikel dieses Titels, der noch
+ * keinen Eintrag hat, wird er der Artikel des neuen Eintrags.
+ */
+export function createNamedEntity(
+  db: CampaignDb,
+  name: string,
+  kind: EntityKind,
+  articleIds: readonly string[],
+): { entity: Entity; undo: () => void } {
+  const clean = name.replace(/\s+/g, ' ').trim();
+  let created: Entity | null = null;
+  let sync: ReturnType<typeof syncFacts> | null = null;
+  db.batch(() => {
+    const data = db.getSnapshot();
+    const found = linkIndex(data.articles).resolve(clean);
+    const article = found ? data.articles[found.id] : undefined;
+    const free =
+      article &&
+      !article.template &&
+      !Object.values(data.entities).some((e) => e.lk?.resourceId === article.id);
+    created = free
+      ? adoptArticle(db, article, kind)
+      : db.put('entities', createEntity({ kind, name: clean }));
+    sync = syncFacts(db, free ? [...articleIds, article.id] : articleIds);
+  });
+  const entity = created!;
+  return {
+    entity,
+    undo: () =>
+      db.batch(() => {
+        sync?.undo();
+        if (db.getSnapshot().entities[entity.id]) db.remove('entities', entity.id);
+      }),
+  };
 }

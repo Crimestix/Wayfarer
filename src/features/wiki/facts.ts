@@ -442,6 +442,9 @@ export function worldIndex(data: Pick<CampaignData, 'entities' | 'articles'>): W
     const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
     for (const alias of article?.aliases ?? []) add(alias, entity);
   }
+  // Zuletzt die Namen ohne ihren Artikel: „Die Aalfischer“ findet sich auch als „Aalfischer“.
+  for (const entity of sorted)
+    if (bare(entity.name) !== entity.name) add(bare(entity.name), entity);
   const index = { entities: data.entities, byName, byArticle };
   indexCache.set(data.entities, { articles: data.articles, index });
   return index;
@@ -489,8 +492,13 @@ export function nameParts(text: string): string[] {
     .filter(Boolean);
 }
 
+/** „Der“, „die“, „das“ vor einem Namen – mit und ohne gilt als derselbe Name. */
+const ARTICLE = /^(?:der|die|das|dem|den|des)\s+/i;
+const bare = (name: string) => name.trim().replace(ARTICLE, '');
+
 function lookup(index: WorldIndex, name: string, kinds: readonly EntityKind[]): Entity | null {
-  for (const candidate of [name, name.replace(LEAD_IN, '')]) {
+  const plainName = name.replace(LEAD_IN, '');
+  for (const candidate of [name, plainName, bare(name), bare(plainName)]) {
     const found = index.byName.get(titleKey(candidate))?.find((e) => kinds.includes(e.kind));
     if (found) return found;
   }
@@ -835,15 +843,81 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
     (wish) => !exists(wish) && entity.fromArticle[relationMark(entity.id, wish)] === undefined,
   );
   const nameOf = (id: string) => data.entities[id]?.name ?? '?';
-  for (const wish of addRelations)
-    changes.push(
-      wish.type === 'member'
-        ? `${FIELD_LABEL.membership}: ${nameOf(wish.to)}`
-        : wish.type === 'owns'
-          ? `${FIELD_LABEL.owner}: ${nameOf(wish.from)}`
-          : `${FIELD_LABEL.leader}: ${nameOf(wish.from)}`,
-    );
+  const shown = (wish: RelationWish) =>
+    wish.type === 'member'
+      ? `${FIELD_LABEL.membership}: ${nameOf(wish.to)}`
+      : wish.type === 'owns'
+        ? `${FIELD_LABEL.owner}: ${nameOf(wish.from)}`
+        : `${FIELD_LABEL.leader}: ${nameOf(wish.from)}`;
+  for (const wish of addRelations) changes.push(shown(wish));
+  for (const id of removeRelations) {
+    const relation = data.relations[id];
+    if (relation) changes.push(`Entfällt – ${shown(relation)}`);
+  }
 
   if (!sameRecord(stated, next.fromArticle)) next = { ...next, fromArticle: stated };
   return { entity: next, addRelations, removeRelations, readings, changes };
+}
+
+// ── Überblick: was noch nicht in der Welt steht ────────────────────────────
+
+export interface MissingName {
+  /** Der Name, wie er im Steckbrief steht. */
+  name: string;
+  /** In welchen Feldern er steht. */
+  fields: FactField[];
+  /** Als was der Eintrag angelegt werden kann; die naheliegende Art zuerst. */
+  kinds: EntityKind[];
+  /** Artikel, in deren Steckbrief der Name steht. */
+  articleIds: string[];
+}
+
+export interface PendingFacts {
+  /** Einträge, deren Steckbrief mehr oder anderes sagt als sie selbst. */
+  changes: { article: Article; entity: Entity; changes: string[] }[];
+  /** Artikel ohne Eintrag, deren Steckbrief verrät, was sie beschreiben. */
+  create: { article: Article; kind: EntityKind }[];
+  /** Namen in Steckbriefen, zu denen es keinen Eintrag gibt – am häufigsten Genannte zuerst. */
+  missing: MissingName[];
+}
+
+/**
+ * Was die Steckbriefe sagen, ohne dass es schon in der Welt steht – für die genannten Artikel
+ * oder, ohne Angabe, für alle.
+ */
+export function pendingFacts(data: CampaignData, articleIds?: readonly string[]): PendingFacts {
+  const index = worldIndex(data);
+  const out: PendingFacts = { changes: [], create: [], missing: [] };
+  const missing = new Map<string, MissingName>();
+  const ids = articleIds ?? Object.keys(data.articles);
+  for (const id of ids) {
+    const article = data.articles[id];
+    if (!article || article.template) continue;
+    const owners = index.byArticle.get(id) ?? [];
+    if (!owners.length) {
+      const facts = articleFacts(data.articles, article);
+      const stated = facts.length ? statedKind(facts) : null;
+      if (stated) out.create.push({ article, kind: stated.kind });
+      continue;
+    }
+    for (const entity of owners) {
+      const plan = planFacts(data, article, entity);
+      if (plan.changes.length) out.changes.push({ article, entity, changes: plan.changes });
+      for (const reading of plan.readings)
+        for (const name of reading.missing) {
+          const key = titleKey(bare(name));
+          const kinds = reading.kinds.filter((kind) => kind !== 'character');
+          const entry = missing.get(key);
+          if (entry) {
+            if (!entry.articleIds.includes(id)) entry.articleIds.push(id);
+            if (!entry.fields.includes(reading.field)) entry.fields.push(reading.field);
+            for (const kind of kinds) if (!entry.kinds.includes(kind)) entry.kinds.push(kind);
+          } else missing.set(key, { name, fields: [reading.field], kinds, articleIds: [id] });
+        }
+    }
+  }
+  out.missing = [...missing.values()].sort(
+    (a, b) => b.articleIds.length - a.articleIds.length || a.name.localeCompare(b.name, 'de'),
+  );
+  return out;
 }

@@ -4,13 +4,14 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import type { CampaignData, Entity } from '../../domain/schema';
 import { lkExportFixture } from './__fixtures__/lkExport';
-import { createArticle, savePageText, syncFacts } from './actions';
+import { createArticle, createNamedEntity, savePageText, syncFacts } from './actions';
 import { planLkImport } from './apply';
 import {
   articleFacts,
   factField,
   kindFromText,
   nameParts,
+  pendingFacts,
   planFacts,
   statedKind,
   statusFromText,
@@ -212,6 +213,61 @@ describe('Steckbrief speist die Welt', () => {
       role: 'Kesselflicker',
       homeId: 'lk-hohenf01',
     });
+  });
+
+  it('zeigt, was noch nicht in der Welt steht, und legt Fehlendes auf einen Klick an', async () => {
+    const { db, data, entity, write, relations } = await setup();
+    expect(pendingFacts(data())).toEqual({ changes: [], create: [], missing: [] });
+    write(
+      'vera0001',
+      '> [!steckbrief]\n> Beruf: Hafenmeisterin\n> Zugehörigkeit: Die Lotsen\n> Aufenthaltsort: Alte Idee\n> Arbeitet bei: Lotsen',
+    );
+    write('mira0001', '> [!steckbrief]\n> Zugehörigkeit: Die Lotsen, Die Aalfischer');
+    createArticle(db, { title: 'Graufels', text: '> [!steckbrief]\n> Art: Bergdorf' });
+
+    const pending = pendingFacts(data());
+    expect(pending.changes.map((c) => [c.entity.name, c.changes])).toEqual([
+      ['Mira Tannhaus', ['Gehört zu: Die Aalfischer']],
+      ['Vera Kohl', ['Beruf oder Rolle: Hafenmeisterin']],
+    ]);
+    expect(pending.create.map((c) => [c.article.title, c.kind])).toEqual([['Graufels', 'place']]);
+    // Am häufigsten Genanntes zuerst.
+    expect(pending.missing).toEqual([
+      // Ein Name steht einmal da, auch wenn ihn zwei Felder nennen – mit oder ohne „Die“.
+      {
+        name: 'Die Lotsen',
+        fields: ['membership', 'workplace'],
+        kinds: ['faction', 'family', 'place'],
+        articleIds: ['mira0001', 'vera0001'],
+      },
+      { name: 'Alte Idee', fields: ['whereabouts'], kinds: ['place'], articleIds: ['vera0001'] },
+    ]);
+    // Nur für einen Artikel gefragt, kommt nur dessen Teil.
+    expect(pendingFacts(data(), ['vera0001']).changes.map((c) => c.entity.name)).toEqual([
+      'Vera Kohl',
+    ]);
+
+    // „Die Lotsen“ entstehen neu; beide Steckbriefe zeigen sofort darauf.
+    const lotsen = createNamedEntity(db, 'Die Lotsen', 'faction', ['mira0001', 'vera0001']);
+    expect(lotsen.entity).toMatchObject({ kind: 'faction', name: 'Die Lotsen', lk: null });
+    // Auch „Lotsen“ ohne „Die“ meint sie.
+    expect(entity('Vera Kohl', 'person').person.workplaceId).toBe(lotsen.entity.id);
+    expect(relations()).toEqual(
+      expect.arrayContaining([
+        `lk-mira0001 member ${lotsen.entity.id} (mira0001)`,
+        `lk-vera0001 member ${lotsen.entity.id} (vera0001)`,
+      ]),
+    );
+    // Zu „Alte Idee“ gibt es einen Artikel ohne Eintrag: Er wird der Artikel des neuen Ortes.
+    const idea = createNamedEntity(db, 'Alte Idee', 'place', ['vera0001']);
+    expect(idea.entity.lk).toEqual({ resourceId: 'entwurf1', title: 'Alte Idee' });
+    expect(entity('Vera Kohl', 'person').person.placeId).toBe(idea.entity.id);
+    expect(pendingFacts(data()).missing).toEqual([]);
+
+    // Zurücknehmen entfernt den Eintrag und was auf ihn zeigte.
+    idea.undo();
+    expect(data().entities[idea.entity.id]).toBeUndefined();
+    expect(entity('Vera Kohl', 'person').person.placeId).toBeNull();
   });
 
   it('lässt von Hand eingetragene Beziehungen in Ruhe', async () => {

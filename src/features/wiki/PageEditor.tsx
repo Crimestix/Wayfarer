@@ -25,6 +25,7 @@ import type { Article, ArticleDoc } from '../../domain/schema';
 import { MenuItem, Popover } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { savePageText } from './actions';
+import { applyFacts } from './FactsHint';
 import { SAVE_DELAY_MS, registerFlush } from './editing';
 import {
   MarkdownEditor,
@@ -110,6 +111,8 @@ export default function PageEditor({
   /** Der Text, den der Editor gerade zeigt. */
   const shown = useRef(stored);
   const pending = useRef(false);
+  /** In dieser Sitzung wurde getippt – beim Verlassen liest Wayfarer den Steckbrief. */
+  const touched = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [initial, setInitial] = useState(stored);
   const [revision, setRevision] = useState(0);
@@ -134,8 +137,13 @@ export default function PageEditor({
       window.removeEventListener('pagehide', flush);
       window.removeEventListener('blur', flush);
       flush();
+      // Die Seite wird verlassen: Was der Steckbrief jetzt sagt, kommt in die Welt.
+      if (touched.current) {
+        touched.current = false;
+        applyFacts(db, [article.id]);
+      }
     };
-  }, [flush]);
+  }, [flush, db, article.id]);
 
   // Der Text wurde anderswo geändert (Verweise nachgezogen, Rückgängig, Abgleich mit dem anderen
   // Rechner): Der Editor zeigt den neuen Stand – außer es wird gerade getippt.
@@ -151,6 +159,7 @@ export default function PageEditor({
       if (text === shown.current) return;
       shown.current = text;
       pending.current = true;
+      touched.current = true;
       setDirty(true);
       clearTimeout(timer.current);
       timer.current = setTimeout(flush, SAVE_DELAY_MS);

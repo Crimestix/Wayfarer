@@ -334,7 +334,7 @@ etwa drei Minuten.
 - Offen: kleine Vorschaubilder für Listen (jetzt werden die großen Bilder erst beim Hinsehen
   geladen), ein Bild von Hand ersetzen, Aufräumen nicht mehr gebrauchter Dateien.
 
-**In Wayfarer schreiben (10. 11. 2026) – dritte Welle, Stufen 1 und 2 gebaut.** Entscheidung des
+**In Wayfarer schreiben (10. 11. 2026) – dritte Welle, Stufen 1 bis 3 gebaut.** Entscheidung des
 Spielleiters: Er will künftig nur noch in Wayfarer schreiben („schreiben, simpel verbinden und
 managen – anstatt 20 Jahre Datensätze zu pflegen“), mit einem Editor wie in Obsidian (schöne
 Ansicht und Quelltext). Ziel: aus Text eine simulierte Welt. Eine eingebaute KI, die Geld kostet,
@@ -363,10 +363,34 @@ ist ausgeschlossen; alles Erkennen läuft über festen Code.
 - Offen im Editor: Tabellen nur als Quelltext, Bilder einfügen nur per Adresse, kein
   Rechtschreibprüfer, Vorlagen beim Anlegen nutzen, Steckbrief in der Schreibansicht steht über
   statt neben dem Text.
-- **Stufe 3 (als Nächstes):** Der Steckbrief speist die Welt – eine Quelle. Die Felder der echten
-  Steckbriefe sind reiner Text ohne Verweise (Name, Titel, Spezies, Herkunft, Zugehörigkeit,
-  Aufenthaltsort, Status; bei Orten Ort/Region/Art; bei Fraktionen Sitz/Führung). Wayfarer muss
-  die Werte also über Namen auflösen.
+- **Stufe 3 – der Steckbrief speist die Welt** (`wiki/facts.ts`, reine Regeln mit Test):
+  - Gelesen werden die Zeilen „Feld: Wert“ aller Steckbriefe eines Artikels. Was ein Feld
+    bedeutet, hängt von der Art des Eintrags ab (`VOCABULARY`): Person – Titel/Beruf (Rolle),
+    Spezies, Status, Aufenthaltsort, Wohnort, Herkunft, Arbeitet bei, Zugehörigkeit; Ort – Liegt
+    in/Region/Ort, Art, Herrscher, Besitzer; Fraktion und Familie – Sitz, Führung, Art;
+    Gegenstand – Besitzer. Unbekannte Felder (Haare, Stimme …) bleiben reiner Text.
+  - Die Werte der echten Steckbriefe sind Text ohne Verweise. Wayfarer findet den Eintrag über
+    einen Verweis oder den Namen (`worldIndex`: Name, Zweitnamen, Titel des Artikels, auch ohne
+    „Der/Die/Das“); bei „Region, Ort“ zählt der genauere Ort. Die Herkunft gilt als Zuhause,
+    solange kein Wohnort dasteht.
+  - Ein Artikel ohne Eintrag bekommt einen, wenn sein Steckbrief verrät, was er beschreibt:
+    „Art: Dorf“ (Wortliste `KIND_WORDS`, auch als Wortende: „Bergdorf“) oder Felder, die nur
+    Personen haben (Spezies und eines mehr). Die Art eines bestehenden Eintrags ändert sich nie.
+  - **Wer gewinnt:** Der Eintrag merkt sich je Angabe den Wortlaut, den er übernommen hat
+    (`entity.fromArticle`). Ändert sich der Wortlaut im Artikel, gilt der Artikel. Bleibt er
+    gleich, bleibt, was seither von Hand geändert wurde (ein NSC zieht am Tisch weiter).
+    Beziehungen aus dem Steckbrief tragen `relation.articleId`; nur sie fallen weg, wenn die
+    Zeile verschwindet.
+  - `syncFacts` (`wiki/actions.ts`) schreibt und liefert `undo`. Ausgelöst wird es beim
+    Verlassen des Editors (`PageEditor`), am Artikel („Übernehmen“) und für alle auf der
+    Startseite des Wikis („Alle Steckbriefe übernehmen“, `wiki/FactsHint.tsx`). Namen ohne
+    Eintrag stehen dort zum Anlegen (`createNamedEntity`).
+  - Probelauf mit dem echten Export: 39 Einträge bekamen Angaben, eine Person wurde an ihren
+    Feldern erkannt, 12 Namen blieben ohne Eintrag; der Lauf dauert unter 0,2 s.
+  - Offen: Zeitleisten-Felder (Zeitraum, Beteiligte, Zeitalter) lesen; gebeugte Namen („Altes
+    Zollhaus“ für „Das Alte Zollhaus“); die Welt zeigt noch nicht an, welche Angaben aus dem
+    Steckbrief stammen; nach einer Übernahme aus LegendKeeper läuft das Auswerten nicht von
+    selbst; Zweitnamen aus dem Steckbrief werden bewusst nicht übernommen.
 - **Stufe 4:** Erkennen über Code – bekannte Namen ohne Klammern, Satzmuster, Daten des
   Kalenders.
 

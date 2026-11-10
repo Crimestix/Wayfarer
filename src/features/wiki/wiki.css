@@ -279,6 +279,77 @@ button.wf-wiki-row__toggle:hover {
   color: var(--gold-bright);
 }
 
+/* Was der Steckbrief sagt und noch nicht in der Welt steht */
+.wf-wiki-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: var(--s-2);
+  padding: 6px var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-inset);
+  font-size: var(--text-sm);
+}
+.wf-wiki-facts__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s-2);
+  color: var(--ink-soft);
+}
+.wf-wiki-facts__label {
+  font-family: var(--font-caps);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.wf-wiki-facts__what {
+  color: var(--ink);
+}
+.wf-wiki-facts__act {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--gold-deep);
+  background: none;
+  color: var(--gold-bright);
+  font-size: var(--text-sm);
+}
+.wf-wiki-facts__act:hover {
+  border-bottom-color: var(--gold-bright);
+}
+.wf-wiki-factsall {
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-wiki-factsall > p {
+  max-width: 76ch;
+  margin: var(--s-1) 0 var(--s-3);
+}
+.wf-wiki-factsall__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2px var(--s-5);
+  margin: var(--s-3) 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-wiki-factsall__list li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-wiki-factsall__sub {
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Erwähnt, aber noch nicht angelegt */
 .wf-wiki-landing__new {
   margin-bottom: var(--s-5);
