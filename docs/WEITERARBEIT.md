@@ -475,7 +475,10 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
 - **Schritt 3 (als Nächstes):** was Wayfarer aus der Lage rechnet – Reisestrecke und -dauer
   zwischen Orten, Gelände auf dem Weg für die Hexkarten (statt erfundenem), Klima aus Breite,
   Höhe und Küstennähe (statt aus Wörtern im Namen), Tageslänge im Wetter und am Spieltisch.
-- **Schritt 4:** die drehbare Kugel als zweite Ansicht derselben Karte.
+- **Schritt 4 – die Kugel (gebaut):** Umschalter „Karte / Kugel“ im Atlas. `atlas/Globe.tsx` malt die
+  Welt einmal flach in ein Bild (4096 × 2048) und rechnet für jeden Bildpunkt der Scheibe aus,
+  welche Stelle zu sehen ist – ohne weitere Bibliothek. Ziehen dreht, das Rad vergrößert; Orte
+  setzen und wählen wie auf der Karte. Beim Drehen wird gröber gezeichnet, danach fein.
 - Offen: eine Wiki-Karte über zwei bekannte Punkte einhängen (dann haben alle ihre Kartenpunkte
   eine Lage); ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
   Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die

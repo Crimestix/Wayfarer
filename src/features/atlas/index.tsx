@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { Crosshair, Globe, MapPin, MapPinOff, Search, X } from 'lucide-react';
+import { Crosshair, Globe as GlobeIcon, MapPin, MapPinOff, Search, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind, placeAncestors, placePath } from '../../domain/derive';
 import type { LonLat } from '../../domain/geo';
@@ -24,8 +24,12 @@ import {
   reliefOf,
   terrainAt,
 } from './model';
+import { Globe } from './Globe';
 import { WorldMap, type MapPlace } from './WorldMap';
 import './atlas.css';
+
+/** Karte oder Kugel – bleibt beim Wechsel des Bereichs erhalten. */
+const memory = { shape: 'map' as 'map' | 'globe' };
 
 const fold = (value: string) =>
   value
@@ -45,6 +49,8 @@ export default function AtlasPage() {
   const [placing, setPlacing] = useState(false);
   const [hover, setHover] = useState<LonLat | null>(null);
   const [focus, setFocus] = useState<LonLat | null>(null);
+  const [shape, setShape] = useState(memory.shape);
+  const View = shape === 'globe' ? Globe : WorldMap;
 
   // Große Orte zuerst: Kontinente und Länder vor Städten, Städte vor einzelnen Räumen.
   const places = useMemo(() => {
@@ -77,7 +83,7 @@ export default function AtlasPage() {
     return (
       <div className="wf-atlas-empty">
         <EmptyState
-          icon={<Globe />}
+          icon={<GlobeIcon />}
           title="Noch kein Atlas"
           action={
             <Button variant="primary" onClick={() => navigate('/einstellungen')}>
@@ -237,7 +243,7 @@ export default function AtlasPage() {
       </aside>
 
       <div className="wf-atlas-main">
-        <WorldMap
+        <View
           planet={planet}
           grid={grid}
           places={mapPlaces}
@@ -249,6 +255,27 @@ export default function AtlasPage() {
           onSelect={select}
           onHover={setHover}
         />
+        <div className="wf-atlas-shape" role="group" aria-label="Ansicht">
+          {(
+            [
+              ['map', 'Karte', 'Die ganze Welt flach ausgebreitet'],
+              ['globe', 'Kugel', 'Der Planet als drehbare Kugel'],
+            ] as const
+          ).map(([key, label, hint]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={shape === key}
+              title={hint}
+              onClick={() => {
+                memory.shape = key;
+                setShape(key);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="wf-atlas-readout" aria-live="off">
           {placing && place ? (
             <b>Klicke dorthin, wo „{place.name}“ liegt.</b>

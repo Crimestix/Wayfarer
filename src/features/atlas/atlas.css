@@ -244,3 +244,41 @@
   font-weight: 500;
   color: var(--gold-bright);
 }
+
+/* Kugel: vor dunklem Grund statt vor Meer */
+.wf-atlas-map--globe {
+  background: radial-gradient(circle at 50% 45%, var(--bg-2), var(--bg-void) 70%);
+}
+
+/* Umschalter Karte / Kugel */
+.wf-atlas-shape {
+  position: absolute;
+  left: var(--s-3);
+  bottom: 46px;
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.wf-atlas-shape button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-right: 1px solid var(--line-faint);
+  background: none;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.wf-atlas-shape button:last-child {
+  border-right: 0;
+}
+.wf-atlas-shape button:hover {
+  color: var(--ink);
+}
+.wf-atlas-shape button[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}

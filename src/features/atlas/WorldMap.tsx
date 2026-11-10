@@ -58,7 +58,7 @@ const TOKENS = {
 type Rgb = [number, number, number];
 
 /** Liest die Farben des Designs und rechnet sie in Zahlen um, damit sich Gelände mischen lässt. */
-function readColors(): Record<keyof typeof TOKENS, { css: string; rgb: Rgb }> {
+export function readColors(): Record<keyof typeof TOKENS, { css: string; rgb: Rgb }> {
   const style = getComputedStyle(document.documentElement);
   const probe = document.createElement('canvas');
   probe.width = probe.height = 1;
@@ -82,7 +82,10 @@ const mix = (a: Rgb, b: Rgb, t: number): Rgb => [
 ];
 
 /** Das Gelände als Bild: Farbe nach Höhe, dazu Licht von Nordwesten. Einmal je Höhenraster. */
-function reliefImage(grid: HeightGrid, colors: ReturnType<typeof readColors>): HTMLCanvasElement {
+export function reliefImage(
+  grid: HeightGrid,
+  colors: ReturnType<typeof readColors>,
+): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = grid.width;
   canvas.height = grid.height;
@@ -130,7 +133,11 @@ function reliefImage(grid: HeightGrid, colors: ReturnType<typeof readColors>): H
 }
 
 /** Fügt einen Ring als geschlossene Linie in Länge und Breite an – fortlaufend abgewickelt. */
-function addRing(path: Path2D, ring: readonly number[], polar: 'north' | 'south' | null): void {
+export function addRing(
+  path: Path2D,
+  ring: readonly number[],
+  polar: 'north' | 'south' | null,
+): void {
   const count = ring.length / 2;
   if (count < 3) return;
   let lon = ring[0]!;
