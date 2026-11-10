@@ -153,8 +153,7 @@ function FolderSwitch() {
           </Button>
         }
       >
-        Öffnet eine andere Kampagne – oder nimmt diese mit in einen neuen Ordner, etwa in dein
-        Cloud-Laufwerk.
+        Öffnet eine andere Kampagne – oder nimmt diese mit in einen neuen Ordner.
       </ActionRow>
       <Dialog
         open={emptyFolder !== null}
@@ -231,10 +230,9 @@ export function CampaignSection() {
         <>
           <FolderSwitch />
           <Notice icon={<Cloud />} title="Ein Spielstand auf Mac und Windows">
-            Liegt der Ordner in einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud),
-            arbeiten alle deine Rechner mit demselben Spielstand. Öffne Wayfarer immer nur auf einem
-            Rechner zur selben Zeit und warte nach dem Schließen, bis das Laufwerk fertig
-            abgeglichen hat – sonst legt es Konfliktkopien an.
+            Der Abgleich zwischen deinen Rechnern über GitHub folgt in einer der nächsten Versionen.
+            Bis dahin: hier „Sicherung herunterladen“, am anderen Rechner „Sicherung einspielen“ –
+            und immer nur an einem Rechner zur selben Zeit weiterspielen.
           </Notice>
         </>
       ) : (
@@ -249,8 +247,7 @@ export function CampaignSection() {
         >
           Hier lässt sich Wayfarer ausprobieren – zu Beginn mit einer erfundenen Beispielwelt.
           Änderungen bleiben nur in diesem Browser. Erst die installierte App speichert die Kampagne
-          als Ordner, auf Wunsch im Cloud-Laufwerk, damit Mac und Windows denselben Spielstand
-          haben.
+          als Ordner auf deinem Rechner.
         </Notice>
       )}
 

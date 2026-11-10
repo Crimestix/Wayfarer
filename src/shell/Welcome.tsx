@@ -89,9 +89,9 @@ export function Welcome({
             {!empty ? (
               <>
                 <p className="wf-soft">
-                  Wayfarer speichert eine Kampagne als Ordner voller kleiner Dateien. Liegt der
-                  Ordner in einem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive, iCloud), teilen
-                  sich alle deine Rechner denselben Spielstand.
+                  Wayfarer speichert eine Kampagne als Ordner voller kleiner Dateien auf deinem
+                  Rechner. Wähle dafür einen eigenen, leeren Ordner – oder einen, in dem schon eine
+                  Wayfarer-Kampagne liegt.
                 </p>
                 <button type="button" className="wf-choice" onClick={choose} disabled={busy}>
                   <FolderOpen />

@@ -44,7 +44,7 @@ export interface AppConfig {
 export const getConfig = () => invoke<AppConfig>('config_get');
 export const setConfig = (config: AppConfig) => invoke<void>('config_set', { ...config });
 
-/** Kampagnenordner auf der Festplatte (oder im Cloud-Laufwerk). */
+/** Kampagnenordner auf der Festplatte. */
 export class FolderStore implements CampaignStore {
   constructor(readonly root: string) {}
   get location() {

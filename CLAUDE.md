@@ -43,8 +43,10 @@ nicht übernommen.
 ## Daten
 
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
-  Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/`. Der Ordner
-  darf in einem Cloud-Laufwerk liegen; so teilen sich Mac und Windows den Spielstand.
+  Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/`.
+- Mac und Windows teilen sich den Spielstand über ein privates GitHub-Repository (Entscheidung des
+  Spielleiters; er nutzt kein Cloud-Laufwerk). Der Abgleich ist Teil der zweiten Welle, siehe
+  `docs/WEITERARBEIT.md`. Bis dahin: Sicherung herunterladen / einspielen.
 - Weltzeit = ganze Minuten seit Beginn des absoluten Jahres 1 (bei Elaris: kosmisches Jahr, JF).
   Der Kalender ist Daten (`CalendarDef`), nie fest im Code.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.
@@ -75,6 +77,11 @@ nicht wie ein Admin-Dashboard.
 - Dichte: am Tisch muss man mit einem Blick finden, was man sucht. Lieber wenige, klar gegliederte
   Flächen als viele Kästen. Keine leeren Flächen ohne Hinweis, was hier hingehört.
 - Für Desktop gebaut: 1280 × 800 bis 1920 × 1080. Kein Mobil-Layout.
+
+## Weitere Dokumente
+
+- `docs/FUNKTIONSUMFANG.md` – was Wayfarer können soll (vom Spielleiter).
+- `docs/WEITERARBEIT.md` – Stand, Plan der zweiten Welle, offene Fragen, Aufräumliste.
 
 ## Befehle
 

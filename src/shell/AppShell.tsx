@@ -198,7 +198,7 @@ function WorldBar() {
         >
           {session ? (
             <>
-              <span className="wf-bar__mid">Session&nbsp;</span>
+              <span className="wf-bar__mid">Session</span>
               {session.number}
             </>
           ) : (

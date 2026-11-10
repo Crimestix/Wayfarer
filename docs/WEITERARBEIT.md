@@ -146,10 +146,17 @@ anders entscheidet.
 11. Eigene Zustände neben den 14 des Regelwerks (z. B. „Verflucht“)? (Nicht anlegbar.)
 12. Soll das Trennen und Zurückkehren eines Gefährten immer in der Chronik stehen? (Beim Wechsel auf der Karte ja, im Dialog nein – vereinheitlichen.)
 
+**Übernahme des alten Spielstands**
+13. Liegt eine echte Backup-Datei der alten Version vor? (Bisher nur an nachgebauten Daten geprüft – das ist der wichtigste offene Punkt.)
+14. Wie heißen die Session-Notizen in der alten Version? (Erkannt: „Session 12“, „Sitzung 12“, „Spielabend 12“, „Session #12“.)
+15. Meinungsskala alt → neu: Hass −3, Abneigung −2, Skepsis −1, Wohlwollen +1, Zuneigung +2, Liebe +3; gleiche Meinung bei allen sechs → Haltung zur Gruppe. (So umgesetzt.)
+16. Sollen die sechs Porträts aus der alten Version übernommen werden? Sie stecken im Programm (`public/character-portraits.js`), nicht im Backup.
+17. Dungeon-Notizen, Rastprotokolle, Explorationen, gespeicherte Routen: jetzt als Text sichern oder auf die eigenen Bereiche der zweiten Welle warten? (Werden derzeit im Bericht als „nicht übernommen“ genannt.)
+
 **Desktop**
-13. Welche macOS-Version? (Voraussetzung macOS 12 oder neuer.)
-14. Ist das Repository privat? (Dann kosten Mac-Bauten bei GitHub Actions Freiminuten, grob 150–250 Minuten je Version.)
-15. Sollen Warnungen beim ersten Start verschwinden? (Nur mit Apple-Entwicklerkonto, ca. 99 $/Jahr, und Windows-Zertifikat.)
+18. Welche macOS-Version? (Voraussetzung macOS 12 oder neuer.)
+19. Ist das Repository privat? (Dann kosten Mac-Bauten bei GitHub Actions Freiminuten, grob 150–250 Minuten je Version.)
+20. Sollen Warnungen beim ersten Start verschwinden? (Nur mit Apple-Entwicklerkonto, ca. 99 $/Jahr, und Windows-Zertifikat.)
 
 ## 6. Bekannte Mängel und Aufräumliste
 

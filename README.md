@@ -10,8 +10,9 @@ hängen darin zusammen:
   offene Abmachungen.
 - Die **Chronik** hält fest, was geschieht; die **Weltzeit** läuft nur, wenn du sie vorstellst.
 
-Wayfarer ist ein installiertes Programm für **macOS und Windows**. Beide Rechner arbeiten mit
-demselben Spielstand, wenn der Kampagnenordner in einem Cloud-Laufwerk liegt.
+Wayfarer ist ein installiertes Programm für **macOS und Windows**. Den Spielstand zwischen Mac und
+Windows gleicht Wayfarer künftig selbst über ein privates GitHub-Repository ab (in Arbeit); bis
+dahin geht es über „Sicherung herunterladen“ und „Sicherung einspielen“.
 
 ---
 
@@ -79,61 +80,43 @@ Spielstand bleibt unberührt, denn er liegt nicht im Programm, sondern im Kampag
 
 ---
 
-## Kampagnenordner und Cloud-Laufwerk
+## Kampagnenordner
 
-Wayfarer speichert eine Kampagne als **Ordner voller kleiner Dateien**. Beim ersten Start fragt
-Wayfarer nach diesem Ordner.
+Wayfarer speichert eine Kampagne als **Ordner voller kleiner Dateien** auf deinem Rechner. Beim
+ersten Start fragt Wayfarer nach diesem Ordner.
 
 **So richtest du es ein:**
 
-1. Lege in deinem Cloud-Laufwerk (OneDrive, Dropbox, Google Drive oder iCloud Drive) einen
-   **eigenen, leeren Ordner** an, zum Beispiel `Wayfarer-Elaris`. Nimm nicht „Dokumente“ oder das
-   ganze Laufwerk – in dem Ordner soll nur die Kampagne liegen.
+1. Lege einen **eigenen, leeren Ordner** an, zum Beispiel `Dokumente/Wayfarer-Elaris`. Nimm nicht
+   „Dokumente“ selbst – in dem Ordner soll nur die Kampagne liegen.
 2. Starte Wayfarer, klicke auf **„Kampagnenordner wählen“** und wähle diesen Ordner.
 3. Ist der Ordner leer, bietet Wayfarer an, Elaris neu zu beginnen oder den Spielstand der alten
-   Version zu übernehmen.
-4. **Am zweiten Rechner:** Wayfarer installieren, warten, bis das Cloud-Laufwerk den Ordner
-   vollständig abgeglichen hat, und in Wayfarer **denselben Ordner** wählen. Fertig – beide
-   Rechner zeigen denselben Spielstand.
+   Version zu übernehmen (Backup-Datei aus dem Menü der alten Version, „Backup herunterladen“).
 
-Wayfarer merkt sich den Ordner auf jedem Rechner einzeln und öffnet ihn beim nächsten Start von
-selbst.
+Wayfarer merkt sich den Ordner und öffnet ihn beim nächsten Start von selbst.
 
 Wayfarer **speichert von selbst**, sobald du etwas änderst; einen Speichern-Knopf gibt es nicht.
 Unten links steht „Gespeichert“, wenn alles im Ordner angekommen ist. Beim Schließen wartet
-Wayfarer, bis die letzte Änderung geschrieben ist. Gelingt das nicht – etwa weil das
-Cloud-Laufwerk gerade nicht verbunden ist –, fragt Wayfarer nach, statt die Änderungen
-stillschweigend zu verlieren.
+Wayfarer, bis die letzte Änderung geschrieben ist. Gelingt das nicht, fragt Wayfarer nach, statt
+die Änderungen stillschweigend zu verlieren; nach einem Fehler versucht Wayfarer alle paar Sekunden
+von selbst erneut zu speichern.
 
-**Damit nichts durcheinandergerät:**
+**Mac und Windows:** Der eingebaute Abgleich über GitHub ist in Arbeit. Bis dahin: am einen Rechner
+**Einstellungen → Sicherung herunterladen**, am anderen **Einstellungen → Sicherung einspielen**.
+Immer nur an einem Rechner gleichzeitig weiterspielen.
 
-- **Immer nur an einem Rechner gleichzeitig arbeiten.** Wayfarer am einen Rechner schließen, bevor
-  du es am anderen öffnest.
-- **Dem Cloud-Laufwerk Zeit geben.** Nach dem Spielen den Rechner erst zuklappen, wenn das
-  Cloud-Laufwerk „aktuell“ meldet. Vor dem Spielen am anderen Rechner kurz warten, bis dort alles
-  angekommen ist.
-- **Den Ordner auf dem Gerät behalten.** Stelle im Cloud-Laufwerk ein, dass der Kampagnenordner
-  immer auf dem Rechner liegt (bei OneDrive „Immer auf diesem Gerät beibehalten“, bei den anderen
-  ähnlich: „Offline verfügbar“). Dann funktioniert Wayfarer am Spieltisch auch ohne Internet.
-- **Die Dateien nicht von Hand ändern, umbenennen oder verschieben.**
-
-Ändert sich der Ordner, während Wayfarer offen ist – etwa weil das Cloud-Laufwerk noch Änderungen
-vom anderen Rechner nachliefert –, übernimmt Wayfarer das in der Regel von selbst. Legt das Cloud-Laufwerk
-einmal eine „Konfliktkopie“ an, rührt Wayfarer sie nicht an und überschreibt nichts.
+**Bitte die Dateien im Ordner nicht von Hand ändern, umbenennen oder verschieben.** Liegt dort eine
+Datei, die Wayfarer nicht lesen kann, rührt Wayfarer sie nicht an und zeigt sie unter
+**Einstellungen → Probleme beim Laden**.
 
 **Wenn etwas hakt:**
 
-- *„Der Kampagnenordner … ist nicht erreichbar“* beim Start: Das Cloud-Laufwerk läuft noch nicht
-  oder der Ordner wurde verschoben. Cloud-Laufwerk starten und Wayfarer neu öffnen – oder über
-  „Kampagnenordner wählen“ den Ordner neu auswählen.
-- *Unten links steht „Speichern fehlgeschlagen“:* Wayfarer erreicht den Kampagnenordner gerade
-  nicht. Wayfarer **offen lassen**, das Cloud-Laufwerk wieder verbinden und in Wayfarer irgendetwas
-  ändern (zum Beispiel eine Notiz festhalten) – dann wird alles Ausstehende nachgeholt.
-  Bleibt die Meldung unter Windows dauerhaft stehen, ist in der Windows-Sicherheit vermutlich der
-  „Überwachte Ordnerzugriff“ aktiv. Dort Wayfarer als zugelassene App eintragen oder den
-  Kampagnenordner an einen anderen Ort legen.
-- Änderungen vom anderen Rechner erscheinen nicht, obwohl das Cloud-Laufwerk fertig ist: Wayfarer
-  einmal schließen und wieder öffnen.
+- *„Der Kampagnenordner … ist nicht erreichbar“* beim Start: Der Ordner wurde verschoben oder
+  umbenannt. Über „Kampagnenordner wählen“ neu auswählen.
+- *Unten links steht „Speichern fehlgeschlagen“:* Wayfarer **offen lassen**; es versucht von selbst
+  erneut. Bleibt die Meldung unter Windows dauerhaft stehen, ist in der Windows-Sicherheit
+  vermutlich der „Überwachte Ordnerzugriff“ aktiv. Dort Wayfarer als zugelassene App eintragen oder
+  den Kampagnenordner an einen anderen Ort legen.
 
 ---
 
@@ -157,21 +140,12 @@ verknüpfen. Wayfarer **liest nur** – in LegendKeeper wird nie etwas veränder
 
 ## Sicherung
 
-Der Kampagnenordner **ist** der gesamte Spielstand. Eine Sicherung ist deshalb einfach eine Kopie
-dieses Ordners:
+Unter **Einstellungen → Sicherung herunterladen** schreibt Wayfarer die gesamte Kampagne in eine
+einzige Datei. Mit **Sicherung einspielen** holst du einen solchen Stand zurück; vorher zeigt
+Wayfarer, was darin steckt, und fragt nach.
 
-1. Wayfarer schließen.
-2. Den Kampagnenordner kopieren (oder als ZIP-Datei verpacken) und die Kopie mit Datum versehen,
-   zum Beispiel `Wayfarer-Elaris 2026-03-14`. Lege die Kopie am besten **außerhalb** des
-   Cloud-Laufwerks ab, etwa auf einem USB-Stick.
-
-Sinnvoll ist das vor jedem Spielabend und vor größeren Umbauten an der Welt.
-
-**Zurückholen:** Wayfarer schließen, den Inhalt des Kampagnenordners durch den Inhalt der Kopie
-ersetzen, Wayfarer wieder öffnen.
-
-Viele Cloud-Laufwerke bewahren zusätzlich ältere Fassungen von Dateien auf. Das ist ein gutes
-Sicherheitsnetz, ersetzt die eigene Kopie aber nicht.
+Sinnvoll ist eine Sicherung vor jedem Spielabend und vor größeren Umbauten an der Welt. Lege die
+Dateien an einem zweiten Ort ab, etwa auf einem USB-Stick.
 
 ---
 
