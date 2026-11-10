@@ -1,12 +1,13 @@
 /** Erkundung – Hexkarten zwischen zwei Orten: links die Karten, in der Mitte die Karte, rechts das Feld. */
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { Dices, Eye, EyeOff, Hexagon, Minus, Plus, Trash2 } from 'lucide-react';
+import { Dices, Eye, EyeOff, Footprints, Hexagon, Minus, Plus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { byName, entityName } from '../../domain/derive';
 import { hexCenter, hexDistance, type HexCoord } from '../../domain/hex';
 import { PACES, TERRAINS, type Area, type Terrain } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
+import { formatDuration } from '../../domain/time/calendar';
 import {
   Button,
   Checkbox,
@@ -23,10 +24,20 @@ import {
   cx,
   toast,
 } from '../../ui';
-import { patchHex, removeArea, rerollArea, setAllDiscovered } from './actions';
+import {
+  patchHex,
+  placeParty,
+  removeArea,
+  rerollArea,
+  setAllDiscovered,
+  travelTo,
+  type TravelResult,
+} from './actions';
 import { CreateDialog } from './CreateDialog';
 import { terrainShares } from './generate';
 import { HexMap } from './HexMap';
+import { STEP_PROBLEM, hexMinutes, hexOfPlace, routeTo, stepProblem } from './travel';
+import { TravelPanel } from './TravelPanel';
 import './erkundung.css';
 
 /** Feldgrößen in Bildpunkten, von „ganze Karte im Blick“ bis „jedes Feld lesbar“. */
@@ -141,6 +152,29 @@ function AreaView({ area }: { area: Area }) {
   const discovered = area.hexes.filter((h) => h.discovered).length;
   const features = area.hexes.filter((h) => h.feature).length;
 
+  // Reise: der schnellste Weg zum Ziel der Karte und der letzte Schritt (zum Zurücknehmen).
+  const goal = hexOfPlace(area, area.toId);
+  const route = useMemo(() => (goal ? routeTo(area, goal) : null), [area, goal]);
+  const [last, setLast] = useState<TravelResult | null>(null);
+  const move = (coord: HexCoord) => {
+    const result = travelTo(db, area.id, coord);
+    if (typeof result === 'string') {
+      toast({ title: 'Dorthin geht es nicht', body: STEP_PROBLEM[result] });
+      return;
+    }
+    setLast(result);
+    setSelected(null);
+  };
+  const undoLast = () => {
+    last?.undo();
+    setLast(null);
+  };
+  /** Was ein Schritt auf das gewählte Feld kostet – oder warum er nicht geht. */
+  const problem = hex ? stepProblem(area, hex) : null;
+  const stepMinutes =
+    hex && area.party && !problem ? hexMinutes(area.hexKm, hex.terrain, area.party.pace) : null;
+  const partyHere = !!hex && !!area.party && area.party.q === hex.q && area.party.r === hex.r;
+
   const reroll = async () => {
     const ok = await confirmDialog({
       title: 'Gelände neu würfeln?',
@@ -247,11 +281,19 @@ function AreaView({ area }: { area: Area }) {
           </div>
         </header>
         <div className="wf-erk-map">
-          <HexMap area={area} data={data} size={size} selected={selected} onSelect={setSelected} />
+          <HexMap
+            area={area}
+            data={data}
+            size={size}
+            selected={selected}
+            onSelect={setSelected}
+            plan={route?.steps}
+          />
         </div>
       </section>
 
       <aside className="wf-erk-detail">
+        <TravelPanel area={area} route={route} last={last} onMove={move} onUndo={undoLast} />
         {hex ? (
           <Panel
             title={hex.placeId ? entityName(data, hex.placeId) : hex.feature || 'Feld'}
@@ -262,6 +304,32 @@ function AreaView({ area }: { area: Area }) {
             }
           >
             <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
+              {partyHere ? (
+                <p className="wf-erk-travel__here">
+                  <Footprints aria-hidden /> Hier steht die Gruppe.
+                </p>
+              ) : stepMinutes !== null ? (
+                <Button variant="primary" icon={<Footprints />} onClick={() => move(hex)}>
+                  Hierher ziehen · {formatDuration(stepMinutes)}
+                </Button>
+              ) : (
+                <div className="wf-erk-travel__set">
+                  {area.party && problem && problem !== 'no-party' && (
+                    <span className="wf-erk-detail__where">{STEP_PROBLEM[problem]}</span>
+                  )}
+                  <Button
+                    size="sm"
+                    icon={<Footprints />}
+                    onClick={() => {
+                      placeParty(db, area.id, hex);
+                      setLast(null);
+                    }}
+                    title="Stellt die Gruppe auf dieses Feld, ohne dass Zeit vergeht"
+                  >
+                    {area.party ? 'Gruppe hierher setzen' : 'Gruppe hier aufstellen'}
+                  </Button>
+                </div>
+              )}
               {start && (
                 <p className="wf-erk-detail__where">
                   {hexDistance(start, hex) === 0

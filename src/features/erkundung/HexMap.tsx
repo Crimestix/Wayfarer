@@ -1,9 +1,10 @@
 /** Die gezeichnete Hexkarte: Gelände, Besonderheiten, Orte und der direkte Weg. */
 import { memo, useMemo, type ReactNode } from 'react';
-import { hexCenter, hexCorners, hexKey, type HexCoord } from '../../domain/hex';
+import { hexCenter, hexCorners, hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { areaLine } from './generate';
+import { effectivePace } from './travel';
 
 /** Zeichen im Feld, je Gelände; gezeichnet in einem Feld der Größe 1 um den Ursprung. */
 const GLYPH: Record<Terrain, ReactNode> = {
@@ -37,6 +38,8 @@ interface Props {
   size: number;
   selected: HexCoord | null;
   onSelect: (hex: HexCoord | null) => void;
+  /** Der geplante Weg der Gruppe zum Ziel, ab dem nächsten Schritt. */
+  plan?: readonly HexCoord[];
 }
 
 interface Cell {
@@ -105,7 +108,7 @@ const Cells = memo(function Cells({
   );
 });
 
-export function HexMap({ area, data, size, selected, onSelect }: Props) {
+export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
   const orientation = area.orientation;
   const layout = useMemo(() => {
     const cells: Cell[] = area.hexes.map((hex) => {
@@ -144,6 +147,23 @@ export function HexMap({ area, data, size, selected, onSelect }: Props) {
     [area, orientation, size],
   );
   const places = layout.cells.filter((c) => c.hex.placeId && data.entities[c.hex.placeId]);
+
+  // Die Gruppe auf der Karte: wo sie steht, woher sie kam, wohin sie als Nächstes kann.
+  const party = area.party;
+  const at = (hex: HexCoord) => {
+    const c = hexCenter(hex, orientation);
+    return `${(c.x * size).toFixed(1)},${(c.y * size).toFixed(1)}`;
+  };
+  const here = party ? hexCenter(party, orientation) : null;
+  const trail = party && party.trail.length ? [...party.trail, party].map(at).join(' ') : '';
+  const planned = party && plan?.length ? [party, ...plan].map(at).join(' ') : '';
+  const reach = party
+    ? hexNeighbors(party)
+        .map((coord) => layout.cells.find((c) => c.hex.q === coord.q && c.hex.r === coord.r))
+        .filter(
+          (cell): cell is Cell => !!cell && effectivePace(cell.hex.terrain, party.pace) !== null,
+        )
+    : [];
   const chosen = selected
     ? layout.cells.find((c) => c.hex.q === selected.q && c.hex.r === selected.r)
     : undefined;
@@ -180,6 +200,23 @@ export function HexMap({ area, data, size, selected, onSelect }: Props) {
           </g>
         );
       })}
+      {reach.map((cell) => (
+        <polygon key={hexKey(cell.hex)} className="wf-hexmap__reach" points={cell.points} />
+      ))}
+      {trail && <polyline className="wf-hexmap__trail" points={trail} />}
+      {planned && <polyline className="wf-hexmap__plan" points={planned} />}
+      {here && (
+        <g className="wf-hexmap__party">
+          <circle cx={here.x * size} cy={here.y * size} r={Math.max(6, size * 0.3)} />
+          <circle
+            className="wf-hexmap__party-core"
+            cx={here.x * size}
+            cy={here.y * size}
+            r={Math.max(3, size * 0.14)}
+          />
+          <title>Hier ist die Gruppe</title>
+        </g>
+      )}
       {chosen && <polygon className="wf-hexmap__chosen" points={chosen.points} />}
     </svg>
   );

@@ -665,6 +665,20 @@ export const AreaSchema = z.object({
   seed: z.number().int().nonnegative().nullable().default(null),
   /** Entfernung zwischen Start und Ziel in km, wie sie beim Erzeugen galt. */
   distanceKm: z.number().positive().nullable().default(null),
+  /** Wo die Gruppe auf dieser Karte steht; null = sie ist nicht auf dieser Karte unterwegs. */
+  party: z
+    .object({
+      q: z.number().int(),
+      r: z.number().int(),
+      pace: z.enum(PACES).default('normal'),
+      /** Welttag der letzten Reise und die Reisezeit an diesem Tag in Minuten. */
+      day: z.number().int().nonnegative().default(0),
+      minutes: z.number().int().nonnegative().default(0),
+      /** Die Felder, über die die Gruppe gekommen ist, in der Reihenfolge des Wegs. */
+      trail: z.array(z.object({ q: z.number().int(), r: z.number().int() })).default([]),
+    })
+    .nullable()
+    .default(null),
 });
 export type Area = z.infer<typeof AreaSchema>;
 

@@ -296,6 +296,25 @@ Tage Vorschau, Regelfolgen, „Heute festlegen“, „Klima festlegen“), Zeile
 - Offen: Wetter im Kalender, Wetter auf Reisen (Bereich E), Südhalbkugel, eigene Klimazonen mit
   eigenen Monatswerten bearbeiten.
 
+**Reisen auf der Hexkarte (10. 11. 2026) – Bereich E, erster Teil gebaut.** Eine Hexkarte
+kennt jetzt die Stellung der Gruppe (`area.party`: Feld, Tempo, Reisezeit des Tages, bisheriger
+Weg). `erkundung/travel.ts` (reine Funktionen): Dauer je Feld aus Feldgröße, Tempo (2/3/4 Meilen
+je Stunde) und Gelände (`TERRAIN_MAX_PACE`: Gebirge und Sumpf nur langsam, Wald/Hügel/Wüste
+höchstens normal, Wasser zu Fuß gar nicht); ein Schritt deckt das Feld und seine Nachbarn auf;
+ab der neunten Reisestunde eines Tages Gewaltmarsch (Rettungswurf SG 10 + Stunden darüber);
+`routeTo` sucht den schnellsten Weg zum Ziel um Wasser herum; `rollEncounters` würfelt
+wiederholbar auf den Tabellen des Feldes oder Gebiets. `travelTo` (actions) lässt die Reisezeit
+über `advanceTime` vergehen – Termine treten ein, Timer laufen ab – und lässt sich
+zurücknehmen. Oberfläche: Fläche „Reise“ rechts neben der Karte (Tempo, heute gereist, Wetter,
+Rest bis zum Ziel, „Weiterziehen“, Ergebnis des letzten Schritts), auf der Karte die Gruppe, ihr
+bisheriger und der geplante Weg; im Feld „Hierher ziehen“ oder „Gruppe hierher setzen“. Am Ziel
+bietet Wayfarer an, die Gruppe an den Ort zu versetzen (der Eintrag in der Chronik entsteht dort).
+- Die Reisezeit zählt je Welttag, nicht seit der letzten Rast.
+- Offen: Tabellen in der Oberfläche anlegen und einem Gebiet zuordnen (bisher nur aus der alten
+  Version übernommen), Begegnungen ohne eigene Tabelle, Wetterfolgen fürs Tempo, Reittiere und
+  Fahrzeuge, Boote über Wasser, Lager und Wachen unterwegs, Eintrag der ganzen Reise in der
+  Chronik, Teilgruppen.
+
 **Bilder auf dem Rechner (10. 11. 2026) – gebaut.** Im Spielstand bleibt bei jedem Bild die
 Adresse stehen, von der es stammt. „Bilder holen“ (Einstellungen → LegendKeeper ganz übernehmen,
 `einstellungen/MediaSection`) lädt sie in den Kampagnenordner unter `media/<letzter Teil der
