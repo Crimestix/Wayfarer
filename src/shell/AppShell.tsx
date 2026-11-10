@@ -17,6 +17,7 @@ import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
+import { LkNameSync } from '../features/import/NameSync';
 import { AREAS } from '../features/registry';
 import TischPage from '../features/tisch';
 import WeltPage from '../features/welt';
@@ -290,6 +291,7 @@ export function AppShell() {
         </Switch>
       </main>
       <ShellDialogs />
+      <LkNameSync />
       <ConfirmHost />
       <Toaster />
     </div>

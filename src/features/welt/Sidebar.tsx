@@ -14,6 +14,7 @@ import {
   cx,
   toast,
 } from '../../ui';
+import { MissingNamesHint } from '../import/NameSync';
 import { adoptFamilies } from './actions';
 import { planFamilies } from './dynasty';
 import { openEntityDialog } from './editor';
@@ -291,6 +292,7 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
         </div>
       </div>
 
+      <MissingNamesHint />
       {filter === 'family' && familyHint && (
         <button type="button" className="wf-welt-derive" onClick={deriveFamilies}>
           <Users />

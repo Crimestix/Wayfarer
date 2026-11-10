@@ -137,6 +137,12 @@
   border-style: solid;
   color: var(--gold-bright);
 }
+.wf-welt-derive--names {
+  text-decoration: none;
+  border-color: var(--ember);
+  background: var(--ember-wash);
+  color: var(--ink);
+}
 .wf-welt-derive svg {
   flex: none;
   width: 15px;
