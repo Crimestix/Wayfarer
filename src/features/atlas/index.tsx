@@ -50,6 +50,7 @@ import {
   formatKm,
   geoIndex,
   landOwners,
+  landsCenter,
   legBetween,
   mapsOfPlace,
   placeGeo,
@@ -137,6 +138,20 @@ export default function AtlasPage() {
       holes: lands.flatMap((land) => land.holes.map((s) => s.ring)),
     };
   }, [planet, area]);
+  // Die Namen der Kontinente für die Karte: jeder Ort, der selbst eine Landmasse ist.
+  const areas = useMemo(() => {
+    if (!planet) return [];
+    const owned = new Map<string, { place: Place; lands: string[] }>();
+    for (const [landId, owner] of landOwners(data).byLand) {
+      const entry = owned.get(owner.id);
+      if (entry) entry.lands.push(landId);
+      else owned.set(owner.id, { place: owner, lands: [landId] });
+    }
+    return [...owned.values()].flatMap(({ place: owner, lands }) => {
+      const at = landsCenter(planet, lands);
+      return at ? [{ id: owner.id, name: owner.name, at }] : [];
+    });
+  }, [data, planet]);
   const areaNames = useMemo(() => {
     if (!planet) return '';
     const wanted = new Set(area);
@@ -679,6 +694,7 @@ export default function AtlasPage() {
           focus={focus}
           draft={draft}
           highlight={highlight}
+          areas={areas}
           onPick={pick}
           onSelect={select}
           onHover={setHover}

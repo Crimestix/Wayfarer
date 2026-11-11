@@ -15,6 +15,7 @@ import {
   readColors,
   reliefImage,
   type AreaShape,
+  type MapArea,
   type DraftShape,
   type MapPlace,
 } from './WorldMap';
@@ -30,6 +31,8 @@ interface Props {
   /** Eine Landmasse, die gerade eingepasst wird. */
   draft?: DraftShape | null;
   highlight?: AreaShape | null;
+  /** Namen der Flächen – die Kugel zeigt sie (noch) nicht. */
+  areas?: readonly MapArea[];
   onPick: (point: LonLat) => void;
   onSelect: (placeId: string) => void;
   onHover: (point: LonLat | null) => void;

@@ -30,6 +30,13 @@ export interface AreaShape {
   holes: readonly (readonly number[])[];
 }
 
+export interface MapArea {
+  id: string;
+  name: string;
+  /** Die Mitte der Fläche. */
+  at: LonLat;
+}
+
 export interface MapView {
   lon: number;
   lat: number;
@@ -52,6 +59,8 @@ interface Props {
   draft?: DraftShape | null;
   /** Die Fläche des gewählten Ortes (ein Kontinent, eine Kontinentalwelt) – leicht hervorgehoben. */
   highlight?: AreaShape | null;
+  /** Namen der Orte, die eine Fläche sind (Kontinente) – stehen aus der Ferne auf der Karte. */
+  areas?: readonly MapArea[];
   onPick: (point: LonLat) => void;
   onSelect: (placeId: string) => void;
   onHover: (point: LonLat | null) => void;
@@ -294,6 +303,109 @@ export function landPaths(planet: Planet): LandPath[] {
 
 const NICE = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
 
+interface TerrainShapes {
+  lands: LandPath[];
+  lakes: Path2D;
+  rivers: { path: Path2D; widthKm: number }[];
+}
+
+interface TerrainFrame {
+  width: number;
+  height: number;
+  /** Bildpunkte je Grad. */
+  scale: number;
+  lon: number;
+  lat: number;
+  dpr: number;
+  /** Welche Abbilder der Welt nebeneinander zu sehen sind. */
+  copies: number[];
+}
+
+/**
+ * Malt Meer, Land mit Gelände, Seen, Flüsse und Küsten. Das ist der teure Teil der Karte: jede
+ * Landmasse wird an ihrer Küste ausgeschnitten. Er läuft deshalb einmal für das Bild der ganzen
+ * Welt (`terrain`) und sonst nur, wenn die Karte stillsteht und nah herangeholt ist.
+ */
+function paintTerrain(
+  ctx: CanvasRenderingContext2D,
+  frame: TerrainFrame,
+  shapes: TerrainShapes,
+  relief: HTMLCanvasElement | null,
+  colors: ReturnType<typeof readColors>,
+  radiusKm: number,
+): void {
+  const { width, height, scale, dpr } = frame;
+  const px = 1 / scale;
+  const geo = (copy: number) =>
+    ctx.setTransform(
+      scale * dpr,
+      0,
+      0,
+      -scale * dpr,
+      (width / 2 + (copy * 360 - frame.lon) * scale) * dpr,
+      (height / 2 + frame.lat * scale) * dpr,
+    );
+  const pixels = () => ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  pixels();
+  ctx.fillStyle = colors.sea.css;
+  ctx.fillRect(0, 0, width, height);
+
+  for (const copy of frame.copies) {
+    // Land: das Gelände, an der Küste scharf abgeschnitten.
+    for (const land of shapes.lands) {
+      if (land.once && copy !== 0) continue;
+      ctx.save();
+      geo(copy);
+      ctx.clip(land.path, 'evenodd');
+      pixels();
+      // Land ohne Höhenangabe (etwa aus einem Bild eingelesen) zeigt die Farbe des Tieflands.
+      ctx.fillStyle = colors.low.css;
+      ctx.fillRect(0, 0, width, height);
+      if (relief) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        // Land, das über die Datumsgrenze reicht, liegt zum Teil im Nachbarbild der Welt: Das
+        // Gelände wird deshalb auch links und rechts daneben gemalt (um einen Pol noch weiter).
+        const reach = land.once ? 2 : 1;
+        for (let world = copy - reach; world <= copy + reach; world++) {
+          const left = width / 2 + (world * 360 - 180 - frame.lon) * scale;
+          if (left > width || left + 360 * scale < 0) continue;
+          ctx.drawImage(
+            relief,
+            left,
+            height / 2 + (frame.lat - 90) * scale,
+            360 * scale,
+            180 * scale,
+          );
+        }
+      }
+      ctx.restore();
+    }
+
+    geo(copy);
+    ctx.fillStyle = colors.sea.css;
+    ctx.fill(shapes.lakes, 'evenodd');
+    ctx.strokeStyle = colors.sea.css;
+    ctx.lineJoin = 'round';
+    const kmPerDegree = (2 * Math.PI * radiusKm) / 360;
+    for (const river of shapes.rivers) {
+      ctx.lineWidth = Math.max(1.2 * px, river.widthKm / kmPerDegree);
+      ctx.stroke(river.path);
+    }
+    ctx.strokeStyle = colors.ink.css;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = px;
+    for (const land of shapes.lands) if (!land.once || copy === 0) ctx.stroke(land.path);
+    ctx.stroke(shapes.lakes);
+    ctx.globalAlpha = 1;
+  }
+  pixels();
+}
+
+/** Breite des Bildes der ganzen Welt in Bildpunkten – gut elf je Grad. */
+const TERRAIN_WIDTH = 4096;
+
 export function WorldMap({
   planet,
   grid,
@@ -304,6 +416,7 @@ export function WorldMap({
   focus,
   draft,
   highlight,
+  areas,
   onPick,
   onSelect,
   onHover,
@@ -346,6 +459,39 @@ export function WorldMap({
     });
     return { lands, lakes, rivers };
   }, [planet]);
+
+  // Die ganze Welt als fertiges Bild – einmal gemalt, beim Verschieben nur noch hingelegt.
+  const terrain = useMemo(() => {
+    const image = document.createElement('canvas');
+    image.width = TERRAIN_WIDTH;
+    image.height = TERRAIN_WIDTH / 2;
+    paintTerrain(
+      image.getContext('2d')!,
+      {
+        width: image.width,
+        height: image.height,
+        scale: image.width / 360,
+        lon: 0,
+        lat: 0,
+        dpr: 1,
+        copies: [0],
+      },
+      shapes,
+      relief,
+      colors,
+      planet.radiusKm,
+    );
+    return image;
+  }, [shapes, relief, colors, planet.radiusKm]);
+  // Solange die Karte bewegt wird, zählt Tempo; steht sie still, wird sie scharf nachgezeichnet.
+  const [moving, setMoving] = useState(false);
+  const settle = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    setMoving(true);
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => setMoving(false), 180);
+    return () => window.clearTimeout(settle.current);
+  }, [view]);
 
   /** Die kleinste Vergrößerung: Die Welt füllt die Fläche in der Breite oder Höhe. */
   const minScale = Math.max(size.width / 360, size.height / 180, 0.5);
@@ -404,8 +550,11 @@ export function WorldMap({
     const element = canvas.current;
     if (!element || !size.width || !view.scale) return;
     const dpr = window.devicePixelRatio || 1;
-    element.width = Math.round(size.width * dpr);
-    element.height = Math.round(size.height * dpr);
+    const [w, h] = [Math.round(size.width * dpr), Math.round(size.height * dpr)];
+    if (element.width !== w || element.height !== h) {
+      element.width = w;
+      element.height = h;
+    }
     const ctx = element.getContext('2d')!;
     const { scale } = view;
     const px = 1 / scale;
@@ -427,59 +576,40 @@ export function WorldMap({
       );
     const pixels = () => ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    pixels();
-    ctx.fillStyle = colors.sea.css;
-    ctx.fillRect(0, 0, size.width, size.height);
-
-    for (const copy of copies) {
-      // Land: das Gelände, an der Küste scharf abgeschnitten.
-      for (const land of shapes.lands) {
-        if (land.once && copy !== 0) continue;
-        ctx.save();
-        geo(copy);
-        ctx.clip(land.path, 'evenodd');
-        pixels();
-        // Land ohne Höhenangabe (etwa aus einem Bild eingelesen) zeigt die Farbe des Tieflands.
-        ctx.fillStyle = colors.low.css;
-        ctx.fillRect(0, 0, size.width, size.height);
-        if (relief) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          // Land, das über die Datumsgrenze reicht, liegt zum Teil im Nachbarbild der Welt: Das
-          // Gelände wird deshalb auch links und rechts daneben gemalt (um einen Pol noch weiter).
-          const reach = land.once ? 2 : 1;
-          for (let world = copy - reach; world <= copy + reach; world++) {
-            const left = size.width / 2 + (world * 360 - 180 - view.lon) * scale;
-            if (left > size.width || left + 360 * scale < 0) continue;
-            ctx.drawImage(
-              relief,
-              left,
-              size.height / 2 + (view.lat - 90) * scale,
-              360 * scale,
-              180 * scale,
-            );
-          }
-        }
-        ctx.restore();
-      }
-
-      geo(copy);
+    // Das Gelände: beim Verschieben und aus der Ferne das fertige Bild der Welt, sonst gestochen
+    // scharf aus den Küstenlinien.
+    const coarse = moving || scale <= (terrain.width / 360) * 1.15;
+    if (coarse) {
+      pixels();
       ctx.fillStyle = colors.sea.css;
-      ctx.fill(shapes.lakes, 'evenodd');
-      ctx.strokeStyle = colors.sea.css;
-      ctx.lineJoin = 'round';
-      const kmPerDegree = (2 * Math.PI * planet.radiusKm) / 360;
-      for (const river of shapes.rivers) {
-        ctx.lineWidth = Math.max(1.2 * px, river.widthKm / kmPerDegree);
-        ctx.stroke(river.path);
-      }
-      ctx.strokeStyle = colors.ink.css;
-      ctx.globalAlpha = 0.7;
-      ctx.lineWidth = px;
-      for (const land of shapes.lands) if (!land.once || copy === 0) ctx.stroke(land.path);
-      ctx.stroke(shapes.lakes);
-      ctx.globalAlpha = 1;
-    }
+      ctx.fillRect(0, 0, size.width, size.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = moving ? 'low' : 'high';
+      for (const copy of copies)
+        ctx.drawImage(
+          terrain,
+          size.width / 2 + (copy * 360 - 180 - view.lon) * scale,
+          size.height / 2 + (view.lat - 90) * scale,
+          360 * scale,
+          180 * scale,
+        );
+    } else
+      paintTerrain(
+        ctx,
+        {
+          width: size.width,
+          height: size.height,
+          scale,
+          lon: view.lon,
+          lat: view.lat,
+          dpr,
+          copies,
+        },
+        shapes,
+        relief,
+        colors,
+        planet.radiusKm,
+      );
 
     // Gradnetz
     pixels();
@@ -538,8 +668,32 @@ export function WorldMap({
       pixels();
     }
 
-    // Orte
+    // Namen der Kontinente: aus der Ferne groß und gesperrt, aus der Nähe treten sie zurück.
     const font = getComputedStyle(element).fontFamily;
+    if (areas?.length) {
+      const far = scale < minScale * 6;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `600 ${far ? 15 : 13}px ${font}`;
+      ctx.letterSpacing = '0.18em';
+      for (const copy of copies)
+        for (const area of areas) {
+          const { x, y } = toScreen(area.at, copy);
+          if (x < -160 || x > size.width + 160 || y < -20 || y > size.height + 20) continue;
+          const text = area.name.toLocaleUpperCase('de');
+          ctx.globalAlpha = far ? 0.9 : 0.45;
+          ctx.lineWidth = 3.5;
+          ctx.strokeStyle = colors.ink.css;
+          ctx.strokeText(text, x, y);
+          ctx.fillStyle = area.id === selectedId ? colors.gold.css : colors.text.css;
+          ctx.fillText(text, x, y);
+        }
+      ctx.globalAlpha = 1;
+      ctx.letterSpacing = '0px';
+      ctx.textAlign = 'start';
+    }
+
+    // Orte
     ctx.textBaseline = 'middle';
     const labels = scale > minScale * 2.5;
     for (const copy of copies) {
@@ -596,6 +750,9 @@ export function WorldMap({
     shapes,
     draftPath,
     highlightPath,
+    terrain,
+    moving,
+    areas,
     places,
     selectedId,
     party,

@@ -726,6 +726,14 @@ Kontinentalwelten.
 - Offen: die einzelnen Inseln einer eingelesenen Landmasse verschiedenen Orten zuordnen (eine
   aus einem Bild eingelesene Kontinentalwelt ist eine einzige Landmasse); Zuordnung in der Karte
   des Ortes wieder lösen; Namen der Flächen auf der Karte.
+- **Flüssig beim Verschieben (Rückmeldung: „immer noch sehr laggy“):** Die Weltkarte malt das
+  Gelände einmal als Bild der ganzen Welt (`paintTerrain`, 4096 Bildpunkte breit) und legt es beim
+  Verschieben und aus der Ferne nur noch hin; steht die Karte nah herangeholt still, wird sie
+  scharf aus den Küstenlinien nachgezeichnet. In der Vorschau rund 6,5 ms je Schritt statt 23.
+  **Nicht gemessen:** installierte App, MacBook.
+- **Namen der Kontinente** stehen auf der Karte (jeder Ort, der selbst eine Landmasse ist).
+  Offen für die Verständlichkeit: Seitenleiste aufräumen (Orte ohne Lage erst auf Wunsch),
+  klare Arten „Ansehen / Orte setzen / Landmassen“, Namen auch auf der Kugel.
 - **Eis an den Polen:** Die Karte färbt Land nach Höhe und Breite (`iceShare`, `snowlineM` in
   `domain/geoClimate.ts`): ab etwa 66° liegt Eis bis ans Meer, weiter zum Äquator nur noch auf
   den Gipfeln. Gilt für Karte und Kugel; Land ohne Höhen (flach gestellt) bleibt ohne Eis.
