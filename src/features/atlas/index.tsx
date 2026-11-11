@@ -32,7 +32,7 @@ import {
   entityHref,
   toast,
 } from '../../ui';
-import { addLand, isOwnLand, removeLand, setPlaceGeo } from './actions';
+import { addLand, isOwnLand, removeLand, setLandRelief, setPlaceGeo } from './actions';
 import {
   daylightAt,
   describeTerrain,
@@ -160,7 +160,7 @@ export default function AtlasPage() {
     setFit(null);
     toast({
       title: `„${fit.name}“ liegt jetzt auf dem Planeten`,
-      body: `${draft.rings.length === 1 ? 'Eine Fläche' : `${draft.rings.length} Flächen`} – ohne Höhen, als flaches Land.`,
+      body: `${draft.rings.length === 1 ? 'Eine Fläche' : `${draft.rings.length} Flächen`}. Die Höhen erzeugt Wayfarer; in der Liste „Aus Bildern eingelesen“ lässt sich das Land auch flach stellen.`,
       action: { label: 'Rückgängig', run: undo },
       duration: 10000,
     });
@@ -442,6 +442,21 @@ export default function AtlasPage() {
             {ownLands.map((land) => (
               <div key={land.id} className="wf-atlas-lands__row">
                 <span>{land.name || 'Ohne Namen'}</span>
+                <button
+                  type="button"
+                  className="wf-atlas-lands__relief"
+                  aria-pressed={land.relief !== 'flat'}
+                  title={
+                    land.relief === 'flat'
+                      ? 'Flaches Land. Anklicken: Wayfarer erzeugt Höhen – an der Küste niedrig, im Inneren Gebirgszüge.'
+                      : 'Die Höhen sind von Wayfarer erzeugt. Anklicken: flaches Land ohne Höhen.'
+                  }
+                  onClick={() =>
+                    setLandRelief(db, land.id, land.relief === 'flat' ? 'generated' : 'flat')
+                  }
+                >
+                  {land.relief === 'flat' ? 'flach' : 'Gelände erzeugt'}
+                </button>
                 <IconButton
                   label={`„${land.name}“ vom Planeten nehmen`}
                   size="sm"

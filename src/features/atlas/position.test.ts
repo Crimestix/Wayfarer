@@ -31,6 +31,7 @@ import {
 import {
   coastKm,
   describeSun,
+  describeTerrain,
   encodeHeights,
   formatMinuteOfDay,
   isDark,
@@ -38,7 +39,9 @@ import {
   placeGeo,
   placedPlaces,
   planetOf,
+  reliefOf,
   sunAt,
+  terrainAt,
 } from './model';
 
 /** 6.000 km Halbmesser: Ein Grad auf dem Äquator sind 104,72 km. */
@@ -168,6 +171,51 @@ describe('Karten in den Planeten einhängen', () => {
     ]);
     const noAtlas = { ...data, atlas: {} };
     expect(placeGeo(noAtlas, c.id)).toBeNull();
+  });
+});
+
+describe('Höhen für eingelesene Landmassen', () => {
+  /** Westlich von Nordland kennt das Raster keine Höhe; dort liegt eine Insel aus einem Bild. */
+  const withIsland = (relief: 'generated' | 'flat'): CampaignData => {
+    const data = world([]);
+    const heights = new Int16Array(36 * 18).fill(-32768);
+    return {
+      ...data,
+      atlas: {
+        planet: AtlasSchema.parse({
+          ...planetDoc(),
+          lands: [
+            ...planetDoc().lands,
+            {
+              id: 'bild-insel',
+              name: 'Aalinsel',
+              rings: [[-60, -20, -20, -20, -20, 30, -60, 30]],
+              relief,
+            },
+          ],
+        }),
+        relief: AtlasSchema.parse({ ...reliefDoc(), heights: encodeHeights(heights) }),
+      },
+    };
+  };
+
+  it('erzeugt ein Gelände und sagt dazu, dass es erzeugt ist', () => {
+    const data = withIsland('generated');
+    const here = terrainAt(planetOf(data)!, reliefOf(data), { lon: -40, lat: 5 });
+    expect(here).toMatchObject({ land: { name: 'Aalinsel' }, generated: true });
+    expect(here.heightM).toBeGreaterThan(30);
+    expect(describeTerrain(here)).toContain('Aalinsel · etwa ');
+    expect(describeTerrain(here)).toContain(' m (erzeugt)');
+    // Dasselbe Raster, solange sich nichts ändert – und kein Gelände im Meer daneben.
+    expect(reliefOf(data)).toBe(reliefOf(data));
+    expect(terrainAt(planetOf(data)!, reliefOf(data), { lon: -100, lat: 5 }).heightM).toBeNull();
+  });
+
+  it('lässt das Land flach, wenn es so gestellt ist', () => {
+    const data = withIsland('flat');
+    const here = terrainAt(planetOf(data)!, reliefOf(data), { lon: -40, lat: 5 });
+    expect(here).toMatchObject({ land: { name: 'Aalinsel' }, heightM: null, generated: false });
+    expect(describeTerrain(here)).toBe('Aalinsel');
   });
 });
 

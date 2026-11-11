@@ -843,6 +843,11 @@ export const AtlasSchema = z.object({
         name: z.string().default(''),
         rings: z.array(ring).default([]),
         holes: z.array(ring).default([]),
+        /**
+         * Nur für Landmassen aus einem Kartenbild, die keine Höhen mitbringen: Wayfarer erzeugt
+         * ein Gelände (`generated`) oder lässt das Land flach (`flat`).
+         */
+        relief: z.enum(['generated', 'flat']).default('generated'),
       }),
     )
     .default([]),

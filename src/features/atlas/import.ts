@@ -92,6 +92,7 @@ export function convertAtlasWorld(
       name: text(feature.name),
       rings: shape,
       holes: rings(feature.holes),
+      relief: 'generated',
     });
   }
   if (!lands.length) throw new Error(NOT_AN_ATLAS);

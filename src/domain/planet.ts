@@ -17,6 +17,7 @@ import {
   type Ring,
   type RingBounds,
 } from './geo';
+import { withGeneratedRelief } from './landRelief';
 import type { Atlas, CampaignData, GameMap, Place } from './schema';
 
 export const PLANET_ID = 'planet';
@@ -100,8 +101,29 @@ export function decodeHeights(text: string, cells: number): Int16Array {
 
 const gridCache = new WeakMap<Atlas, HeightGrid>();
 
-/** Das Höhenraster der Kampagne – oder null, wenn keines übernommen wurde. */
+const fullCache = new WeakMap<Atlas, { planet: Atlas; grid: HeightGrid }>();
+
+/**
+ * Das Höhenraster der Kampagne – oder null, wenn keines übernommen wurde. Landmassen aus einem
+ * Kartenbild bringen keine Höhen mit; für sie ist ein erzeugtes Gelände eingerechnet, solange
+ * es an der Landmasse nicht abgeschaltet ist.
+ */
 export function reliefOf(data: Pick<CampaignData, 'atlas'>): HeightGrid | null {
+  const base = baseRelief(data);
+  const planet = data.atlas[PLANET_ID];
+  const doc = data.atlas[RELIEF_ID];
+  if (!base || !doc || !planet || planet.kind !== 'planet') return base;
+  const lands = planet.lands.filter((land) => isOwnLand(land) && land.relief !== 'flat');
+  if (!lands.length) return base;
+  const cached = fullCache.get(doc);
+  if (cached && cached.planet === planet) return cached.grid;
+  const grid = withGeneratedRelief(base, lands, planet.radiusKm);
+  fullCache.set(doc, { planet, grid });
+  return grid;
+}
+
+/** Das Höhenraster, wie es übernommen wurde – ohne erzeugtes Gelände. */
+function baseRelief(data: Pick<CampaignData, 'atlas'>): HeightGrid | null {
   const doc = data.atlas[RELIEF_ID];
   if (!doc || doc.kind !== 'relief' || !doc.width || !doc.height || !doc.heights) return null;
   let grid = gridCache.get(doc);
@@ -125,6 +147,8 @@ export interface Terrain {
   water: 'sea' | 'lake' | null;
   /** Höhe in Metern; null ohne Angabe. */
   heightM: number | null;
+  /** Die Höhe ist erzeugt: Die Landmasse stammt aus einem Kartenbild. */
+  generated?: boolean;
 }
 
 /** Land oder Wasser, Landmasse und Höhe an einer Lage. */
@@ -142,7 +166,12 @@ export function terrainAt(planet: Planet, grid: HeightGrid | null, point: LonLat
       enclosed = true;
       continue;
     }
-    return { land: { id: land.id, name: land.name }, water: null, heightM };
+    return {
+      land: { id: land.id, name: land.name },
+      water: null,
+      heightM,
+      generated: heightM !== null && isOwnLand(land),
+    };
   }
   return enclosed
     ? { land: null, water: 'lake', heightM }

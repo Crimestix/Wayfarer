@@ -50,9 +50,28 @@ export function addLand(
   const id = `${OWN_LAND_PREFIX}${newId()}`;
   db.put('atlas', {
     ...planet,
-    lands: [...planet.lands, { id, name: land.name.trim(), rings: land.rings, holes: land.holes }],
+    lands: [
+      ...planet.lands,
+      {
+        id,
+        name: land.name.trim(),
+        rings: land.rings,
+        holes: land.holes,
+        relief: 'generated' as const,
+      },
+    ],
   });
   return removeLand.bind(null, db, id);
+}
+
+/** Legt fest, ob eine eingelesene Landmasse ein erzeugtes Gelände bekommt oder flach bleibt. */
+export function setLandRelief(db: CampaignDb, landId: string, relief: 'generated' | 'flat'): void {
+  const planet = db.getSnapshot().atlas[PLANET_ID];
+  if (!planet || !planet.lands.some((land) => land.id === landId)) return;
+  db.put('atlas', {
+    ...planet,
+    lands: planet.lands.map((land) => (land.id === landId ? { ...land, relief } : land)),
+  });
 }
 
 /** Nimmt eine Landmasse wieder vom Planeten. */

@@ -372,6 +372,19 @@
   background: var(--gold-glow);
   color: var(--gold-bright);
 }
+.wf-atlas-lands__relief {
+  margin-left: auto;
+  padding: 0 var(--s-2);
+  height: 22px;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.wf-atlas-lands__relief[aria-pressed='true'] {
+  color: var(--gold-bright);
+}
 .wf-atlas-trace__crop summary {
   cursor: pointer;
   color: var(--ink-soft);

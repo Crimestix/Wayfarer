@@ -48,8 +48,14 @@ export function formatKm(km: number): string {
 /** Was an einer Lage ist, in Worten: „Land · 340 m“, „Meer“, „See“. */
 export function describeTerrain(terrain: Terrain): string {
   if (terrain.water === 'sea') return 'Meer';
+  const meters =
+    terrain.heightM === null ? '' : Math.round(terrain.heightM).toLocaleString('de-DE');
   const height =
-    terrain.heightM === null ? '' : ` · ${Math.round(terrain.heightM).toLocaleString('de-DE')} m`;
+    terrain.heightM === null
+      ? ''
+      : terrain.generated
+        ? ` · etwa ${meters} m (erzeugt)`
+        : ` · ${meters} m`;
   if (terrain.water === 'lake') return `See${height}`;
   return `${terrain.land?.name || 'Land'}${height}`;
 }
