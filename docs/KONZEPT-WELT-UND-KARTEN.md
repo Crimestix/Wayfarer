@@ -242,6 +242,68 @@ Was sie vormacht:
 Für den Einbau in Wayfarer zu beachten: Zufall über `domain/random.ts` statt eigener Hashfunktion,
 Farben aus `tokens.css`, Rechnung in `src/domain/` mit Tests, Zeichnen in `features/`.
 
+## 4a. Leiten in einer lebendigen Sandbox
+
+Besprochen am 11. 11. 2026 (abends). Die Gruppe bewegt sich frei durch eine Welt mit mehreren
+Geschichten gleichzeitig. Sie kann eine Geschichte verfolgen, liegen lassen, den Ort wechseln
+oder die Region ganz verlassen. Es gibt keine Handlung, die vorbereitet abläuft, sondern
+**Kräfte, die sich bewegen**, und die Gruppe läuft hindurch.
+
+### Eine Geschichte ist ein Vorhaben, kein Plot
+
+Jede Geschichte hat:
+
+- **Wer sie antreibt:** eine Person oder Fraktion.
+- **Was passiert, wenn niemand eingreift:** eine Uhr (`domain/clock.ts`, mit Bedingungen nach
+  3.3). Sie läuft weiter, auch wenn die Gruppe woanders ist.
+- **Einstiege:** wo und wie die Gruppe darauf stoßen kann, an mehreren Orten.
+- **Fäden und Hinweise:** was die Gruppe darüber wissen kann und was sie schon weiß.
+
+Lässt die Gruppe eine Geschichte liegen, läuft sie weiter; die Folgen landen in „Die Welt dreht
+sich weiter“. Kehrt die Gruppe zurück, findet sie den neuen Stand vor.
+
+### Fäden und Hinweise
+
+- Ein **Faden** ist eine Frage, die die Geschichte stellt. Zustand: offen, aktiv, ruhend, gelöst,
+  verloren. Er hängt an Personen, Orten, Fraktionen und Uhren.
+- **Hinweise** am Faden: wo man sie findet und ob die Gruppe sie hat. Wayfarer warnt, wenn ein
+  wichtiger Faden nur noch an einem Hinweis hängt, den die Gruppe verpassen kann.
+
+### Ruf entscheidet über den Einstieg
+
+Haltungen zu Personen gibt es schon. Neu: **Ruf bei Fraktionen, je Gefährte und für die
+Gruppe.** Ein Einstieg kann am Ruf hängen: Bei gutem Ruf bittet man um Hilfe, bei schlechtem wird
+ein Gefährte am Tor erkannt. Der Ruf ändert nicht die Geschichte, sondern wie die Gruppe
+hineinkommt.
+
+### Situationen statt Szenen
+
+Vorbereitet werden Situationen, die an Orten und Personen hängen („Wenn die Gruppe X aufsucht,
+will Y etwas von ihr“), keine Abfolge von Szenen.
+
+### Was der Spielleiter am Tisch sieht
+
+Wo immer die Gruppe ist, zeigt Wayfarer am Ort:
+
+- welche Geschichten diesen Ort gerade berühren,
+- wie weit sie sind (Stand der Uhr),
+- welcher Einstieg passt, gefiltert nach dem Ruf der Anwesenden,
+- welche Situationen und Hinweise hier bereitliegen, und wer hier etwas weiß.
+
+Der Spielleiter bereitet Geschichten vor statt Wege; Wayfarer sagt, wo die Gruppe gerade mit
+welcher zusammenstößt.
+
+### Das Fadenbrett
+
+Das Storyboard: alle Geschichten nebeneinander, wie weit jede ist, wie nah die Gruppe dran ist
+und wo sie sich berühren (eine Geschichte, die eine andere trifft). Als Pinnwand mit Personen,
+Orten und Fäden, verbunden durch Linien.
+
+### Nach der Session
+
+Aus der Mitschrift schlägt Wayfarer vor, welche Fäden sich bewegt haben und welche Hinweise
+gefunden wurden. Der Spielleiter bestätigt.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
@@ -264,6 +326,14 @@ Farben aus `tokens.css`, Rechnung in `src/domain/` mit Tests, Zeichnen in `featu
 5. Nachrichten reisen über Träger.
 6. NSC-Stufen und Lebendigkeit je Ort.
 7. Wissensebenen und Gerüchte.
+
+**Leiten**
+
+1. Geschichten als Vorhaben (Antreiber, Uhr, Einstiege) und Fäden mit Hinweisen.
+2. Ruf bei Fraktionen, je Gefährte und Gruppe; Einstiege abhängig vom Ruf.
+3. Am Spieltisch: was den Ort gerade berührt.
+4. Das Fadenbrett.
+5. Vorschläge aus der Mitschrift.
 
 **Später** (noch nicht besprochen): Kampfmodus, Dungeoncrawl, Monster.
 
