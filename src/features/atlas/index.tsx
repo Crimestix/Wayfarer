@@ -345,19 +345,6 @@ export default function AtlasPage() {
                     onChange={(event) => place_({ widthDeg: Number(event.target.value) })}
                   />
                 </Field>
-                <Field
-                  label={`Neigung: ${Math.round(fit.placement.tiltDeg)}°`}
-                  hint="Stellt den Streifen schräg, damit er zwischen anderem Land hindurchpasst: Der Norden rückt nach Osten, der Süden nach Westen – oder umgekehrt."
-                >
-                  <input
-                    type="range"
-                    min={-90}
-                    max={90}
-                    step={1}
-                    value={fit.placement.tiltDeg}
-                    onChange={(event) => place_({ tiltDeg: Number(event.target.value) })}
-                  />
-                </Field>
                 <Checkbox
                   checked={fit.keepAspect}
                   onChange={(keepAspect) =>
@@ -617,7 +604,6 @@ export default function AtlasPage() {
                 lat: 0,
                 widthKm: Math.round((planet.radiusKm * 2 * Math.PI) / 10 / 100) * 100,
                 turnDeg: 0,
-                tiltDeg: 0,
                 heightDeg,
                 widthDeg: Math.min(360, (heightDeg * traced.width) / traced.height),
               },

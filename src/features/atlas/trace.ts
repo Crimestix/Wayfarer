@@ -295,12 +295,6 @@ export interface Placement {
   /** „grid“: Wie viele Grad das Bild in der Breite und in der Höhe überdeckt. */
   widthDeg: number;
   heightDeg: number;
-  /**
-   * „grid“: Schrägstellung des Streifens in Grad. Der Nordrand rückt um die Hälfte davon nach
-   * Osten, der Südrand ebenso weit nach Westen (negativ: umgekehrt) – damit ein Streifen von Pol
-   * zu Pol zwischen anderen Landmassen hindurchpasst.
-   */
-  tiltDeg: number;
 }
 
 export interface PlacedShape {
@@ -379,11 +373,7 @@ export function placeShape(
     const ring: number[] = [];
     for (let i = 0; i < loop.length; i += 2)
       ring.push(
-        wrapLon(
-          west +
-            loop[i]! * perX +
-            (placement.tiltDeg * (north - loop[i + 1]! * perY - placement.lat)) / 180,
-        ),
+        wrapLon(west + loop[i]! * perX),
         Math.max(-90, Math.min(90, north - loop[i + 1]! * perY)),
       );
     return simplifyRing(ring, tolerance).map(round);
