@@ -472,9 +472,31 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
   Richtung von der Gruppe, Tageslicht heute (`daylightAt`; die Sonnenwende wird am Beginn des
   wärmsten Monats angenommen).
 - Geprüft in der Vorschau mit den echten Dateien. **Nicht geprüft:** installierte App, macOS.
-- **Schritt 3 (als Nächstes):** was Wayfarer aus der Lage rechnet – Reisestrecke und -dauer
-  zwischen Orten, Gelände auf dem Weg für die Hexkarten (statt erfundenem), Klima aus Breite,
-  Höhe und Küstennähe (statt aus Wörtern im Namen), Tageslänge im Wetter und am Spieltisch.
+- **Schritt 3 – aus der Lage rechnen (gebaut, 11. 11. 2026):**
+  - *Grundlage:* Der Planet zum Fragen (`planetOf`, `reliefOf`, `terrainAt`, `placeGeo`) liegt
+    jetzt in `domain/planet.ts`, damit auch das Wetter ihn nutzen kann; `atlas/model.ts` reicht
+    alles weiter. Neu: `coastKm` – wie weit das offene Meer ist (Ringe bei 60, 150, 300, 600 km).
+  - *Klima* (`domain/geoClimate.ts`): aus Breite (unter 20° Tropen, bis 35° warm oder fern vom
+    Meer Wüste, bis 55° gemäßigt oder nahe am Meer Küste, bis 68° kalt, darüber Eisland), Höhe
+    (über 300 m je 1 000 m 6,5 °C kälter, ab 1 800 m Wind, Nebel und Niederschlag des Gebirges)
+    und Küstennähe. Auf der Südhalbkugel liegt der wärmste Monat ein halbes Jahr versetzt.
+    `weatherZone`: festgelegt → unter der Erde → Lage oder Worte, je nachdem, was näher am Ort
+    steht (auf gleicher Stufe gehen „Wüste“, „Gletscher“ … der Lage vor, „Hafen“ und „Insel“
+    nicht) → „Gemäßigt“. Die Wetteranzeige nennt, woraus gerechnet wurde.
+  - *Sonne* (`sunAt` in `atlas/model.ts`): Aufgang, Untergang, Tageslänge am Ort der Gruppe in
+    der Wetteranzeige; Tag und Nacht der Anzeige richten sich danach. Polartag und Polarnacht.
+  - *Reisen* (`erkundung/generate.ts`): `recognize` misst Entfernung und Richtung auf dem
+    Planeten, wenn beide Orte eine eigene Lage haben (sonst Karte, Weg, zuletzt grob über die Lage
+    der Orte darüber), findet Orte mit Lage am Weg und liest die Landschaft aus dem Klima auf
+    halber Strecke, wenn kein Wort auf eine deutet. `groundOf` + `groundTerrain`: Die Hexkarte
+    nimmt Meer, Seen, Küste, Hügel (ab 600 m) und Gebirge (ab 1 600 m) vom Atlas; im Tiefland
+    entscheidet die Landschaft, erfindet aber kein Gewässer und kein Gebirge dazu. Der gerade Weg
+    darf dann übers Meer führen – zu Fuß ist dort kein Durchkommen. Im Atlas steht am gewählten
+    Ort neben der Luftlinie die Reisedauer zu Fuß.
+  - Geprüft mit Tests (`atlas/position.test.ts`, erfundene Welt) und in der Vorschau mit zwei
+    probehalber gesetzten Orten (danach wieder entfernt). **Nicht geprüft:** installierte App,
+    macOS. Offen: Flüsse und Straßen auf Hexkarten, Wege um das Meer herum statt Luftlinie,
+    Dunkelheit als Reiseregel, Klima im Kalender je Ort anzeigen.
 - **Schritt 4 – die Kugel (gebaut):** Umschalter „Karte / Kugel“ im Atlas. `atlas/Globe.tsx` malt die
   Welt einmal flach in ein Bild (4096 × 2048); die Grafikkarte rechnet für jeden Bildpunkt der
   Scheibe aus, welche Stelle zu sehen ist (WebGL, ohne weitere Bibliothek). Darüber liegt eine

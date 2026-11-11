@@ -10,6 +10,16 @@
  */
 import { normalize, placeAncestors } from '../../domain/derive';
 import {
+  along as pointAlong,
+  bearingDeg,
+  destination,
+  distanceKm as surfaceKm,
+  type LonLat,
+} from '../../domain/geo';
+import { biomeOfPreset, describeSite, siteAt, sitePreset } from '../../domain/geoClimate';
+import { placeGeo, planetOf, reliefOf, terrainAt } from '../../domain/planet';
+import { PRESET } from '../../domain/weather';
+import {
   hexAt,
   hexBand,
   hexCenter,
@@ -47,6 +57,13 @@ export interface Recognition {
   biomeSource: string;
   /** Vorgeschlagene Feldgröße in km. */
   hexKm: number;
+  /**
+   * Lage des Startortes auf dem Planeten, wenn das Gelände dem Atlas folgen kann: Es gibt einen
+   * Atlas, der Start hat eine Lage und die Richtung zum Ziel ist bekannt. Sonst null.
+   */
+  origin: LonLat | null;
+  /** Entfernung und Richtung stammen vom Planeten. */
+  fromAtlas: boolean;
 }
 
 /** Stichworte (ohne Umlaute und Akzente, siehe `normalize`), an denen eine Landschaft zu erkennen ist. */
@@ -85,7 +102,7 @@ function markerOf(data: CampaignData, placeId: string) {
 export function recognizeBiome(
   data: CampaignData,
   placeIds: readonly string[],
-): { biome: Terrain; source: string } {
+): { biome: Terrain; source: string; found: boolean } {
   const scores = new Map<Terrain, { score: number; from: Set<string> }>();
   const hit = (terrain: Terrain, weight: number, from: string) => {
     const entry = scores.get(terrain) ?? { score: 0, from: new Set<string>() };
@@ -127,26 +144,65 @@ export function recognizeBiome(
   if (best === null)
     return {
       biome: 'grassland',
+      found: false,
       source:
         'Nichts in der Welt deutet auf eine besondere Landschaft – angenommen ist offenes Land.',
     };
   return {
     biome: best,
+    found: true,
     source: `Erkannt an ${[...scores.get(best)!.from].map((n) => (n.startsWith('Karte') || n.startsWith('Weg') || n === 'gespeicherter Weg' ? n : `„${n}“`)).join(', ')}.`,
   };
 }
 
 /** Was die Welt über die Strecke zwischen zwei Orten weiß. */
 export function recognize(data: CampaignData, fromId: string, toId: string): Recognition {
-  const { biome, source: biomeSource } = recognizeBiome(data, [fromId, toId]);
+  const words = recognizeBiome(data, [fromId, toId]);
+  let { biome, source: biomeSource } = words;
   let distanceKm: number | null = null;
   let distanceSource = 'Die Welt kennt die Entfernung nicht – bitte eintragen.';
   let direction: Recognition['direction'] = null;
   const between: Recognition['between'] = [];
+  let fromAtlas = false;
+
+  // Der Planet: Haben beide Orte eine Lage, sind Entfernung und Richtung gerechnet.
+  const planet = planetOf(data);
+  const geoFrom = planet ? placeGeo(data, fromId) : null;
+  const geoTo = planet ? placeGeo(data, toId) : null;
+  const atlasKm =
+    planet && geoFrom && geoTo ? surfaceKm(planet.radiusKm, geoFrom.geo, geoTo.geo) : 0;
+  const measureOnPlanet = () => {
+    if (!planet || !geoFrom || !geoTo || atlasKm < 1) return;
+    const bearing = bearingDeg(geoFrom.geo, geoTo.geo);
+    const rad = (bearing * Math.PI) / 180;
+    distanceKm = atlasKm;
+    direction = { x: Math.sin(rad), y: -Math.cos(rad) };
+    fromAtlas = true;
+    const rough = [geoFrom, geoTo]
+      .filter((entry) => !entry.own)
+      .map((entry) => `„${entry.from.name}“`);
+    distanceSource = rough.length
+      ? `Gemessen auf dem Planeten (Luftlinie) – grob: Gerechnet wird mit der Lage von ${rough.join(' und ')}.`
+      : 'Gemessen auf dem Planeten (Luftlinie).';
+    // Andere Orte mit eigener Lage, die nahe an der Linie liegen.
+    for (const entity of Object.values(data.entities)) {
+      if (entity.kind !== 'place' || !entity.place.geo) continue;
+      if (entity.id === fromId || entity.id === toId) continue;
+      if (entity.id === geoFrom.from.id || entity.id === geoTo.from.id) continue;
+      const km = surfaceKm(planet.radiusKm, geoFrom.geo, entity.place.geo);
+      const turn = ((bearingDeg(geoFrom.geo, entity.place.geo) - bearing) * Math.PI) / 180;
+      const along = (km * Math.cos(turn)) / atlasKm;
+      const offsetKm = km * Math.sin(turn);
+      if (along <= 0.02 || along >= 0.98 || Math.abs(offsetKm) > atlasKm / 2) continue;
+      between.push({ placeId: entity.id, along, offsetKm });
+    }
+    between.sort((x, y) => x.along - y.along);
+  };
+  if (geoFrom?.own && geoTo?.own) measureOnPlanet();
 
   const from = markerOf(data, fromId);
   const to = from ? from.map.markers.find((m) => m.entityId === toId) : undefined;
-  if (from && to) {
+  if (distanceKm === null && from && to) {
     const dx = to.x - from.marker.x;
     const dy = to.y - from.marker.y;
     const units = Math.hypot(dx, dy);
@@ -196,6 +252,16 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
       }
     }
   }
+  // Ohne Karte und Weg: lieber grob über die Lage der Orte darüber als gar nicht.
+  if (distanceKm === null) measureOnPlanet();
+
+  // Deutet kein Wort auf eine Landschaft, sagt das Klima auf halber Strecke etwas über sie.
+  if (!words.found && planet && geoFrom && geoTo) {
+    const site = siteAt(planet, reliefOf(data), pointAlong(geoFrom.geo, geoTo.geo, 0.5));
+    const preset = sitePreset(site);
+    biome = biomeOfPreset(preset);
+    biomeSource = `Aus der Lage gerechnet: ${PRESET[preset].name} auf halber Strecke (${describeSite(site)}).`;
+  }
   return {
     distanceKm,
     distanceSource,
@@ -204,7 +270,68 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     biome,
     biomeSource,
     hexKm: suggestHexKm(distanceKm),
+    origin: planet && geoFrom && direction ? geoFrom.geo : null,
+    fromAtlas,
   };
+}
+
+// ── Gelände vom Planeten ───────────────────────────────────────────────────
+
+/** Was der Atlas über eine Stelle sagt. */
+export interface GroundSample {
+  water: 'sea' | 'lake' | null;
+  /** Höhe in Metern; null ohne Angabe. */
+  heightM: number | null;
+}
+
+/** Fragt den Planeten: `xKm` nach Osten und `yKm` nach Süden vom Startort aus. */
+export type Ground = (xKm: number, yKm: number) => GroundSample;
+
+/**
+ * Das Gelände rund um eine Lage, wie es im Atlas steht – oder nichts, wenn es keinen Atlas gibt.
+ * Die Karte liegt flach auf der Kugel auf: Entfernung und Richtung vom Start stimmen.
+ */
+export function groundOf(data: CampaignData, origin: LonLat | null): Ground | undefined {
+  const planet = planetOf(data);
+  if (!planet || !origin) return undefined;
+  const grid = reliefOf(data);
+  return (xKm, yKm) => {
+    const km = Math.hypot(xKm, yKm);
+    const point =
+      km < 0.001
+        ? origin
+        : destination(planet.radiusKm, origin, (Math.atan2(xKm, -yKm) * 180) / Math.PI, km);
+    const { water, heightM } = terrainAt(planet, grid, point);
+    return { water, heightM };
+  };
+}
+
+/** Ab dieser Höhe ist ein Feld Hügelland, ab der zweiten Gebirge (Meter). */
+const HILLS_M = 600;
+const MOUNTAINS_M = 1600;
+
+/**
+ * Gelände eines Feldes, wenn der Atlas die Stelle kennt: Wasser, Hügel und Berge stammen von
+ * dort; im Tiefland entscheidet die Landschaft wie sonst – nur erfindet sie kein Gewässer und
+ * kein Gebirge dazu, das der Planet nicht hat.
+ */
+export function groundTerrain(
+  biome: Terrain,
+  sample: GroundSample,
+  height: number,
+  wet: number,
+): Terrain {
+  if (sample.water) return 'water';
+  if (sample.heightM !== null && sample.heightM >= MOUNTAINS_M) return 'mountains';
+  if (sample.heightM !== null && sample.heightM >= HILLS_M) return 'hills';
+  const open: Terrain =
+    biome === 'desert' || biome === 'arctic' || biome === 'forest' || biome === 'swamp'
+      ? biome
+      : 'grassland';
+  const terrain = terrainOf(open, height, wet, 0);
+  if (terrain === 'water')
+    return open === 'desert' || open === 'arctic' ? open : wet > 0.5 ? 'swamp' : 'grassland';
+  return terrain === 'mountains' ? 'hills' : terrain;
 }
 
 // ── Gelände: zusammenhängend statt gewürfelt ───────────────────────────────
@@ -414,6 +541,8 @@ export interface GenerateInput {
   /** Aus `recognize`: Richtung und Orte am Weg, soweit bekannt. */
   direction?: Recognition['direction'];
   between?: Recognition['between'];
+  /** Aus `groundOf`: Dann folgen Meer, Küste und Höhen dem Atlas statt dem Zufall. */
+  ground?: Ground;
 }
 
 /** So viele Felder hat eine Karte höchstens; breitere Streifen werden schmaler gemacht. */
@@ -465,16 +594,33 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
   // Züge der Landschaft sind einige Felder groß; bei kurzen Karten entsprechend kleiner.
   const grain = Math.max(2.5, Math.min(6, line.length / 4));
   const hexes: Hex[] = [];
+  // Unter der Erde hat die Oberfläche nichts zu sagen.
+  const ground = input.biome === 'underdark' ? undefined : input.ground;
+  const sea = new Set<string>();
   for (const cell of cells) {
     const { x, y } = hexCenter(cell);
     const height = terrainNoise(input.seed, x / grain, y / grain);
     const wet = terrainNoise(input.seed + 7919, x / grain + 31.7, y / grain - 12.3);
     // Lage quer zum Weg, von −1 (links) bis +1 (rechts).
     const side = Math.max(-1, Math.min(1, (-dir.y * x + dir.x * y) / Math.max(1, radius)));
-    let terrain = terrainOf(input.biome, height, wet, side);
     const key = hexKey(cell);
-    // Zwischen zwei Orten führt der direkte Weg nicht durch offenes Wasser – und Orte stehen an Land.
-    if (terrain === 'water' && input.biome !== 'water' && (onLine.has(key) || places.has(key)))
+    const sample = ground?.(x * input.hexKm, y * input.hexKm);
+    let terrain = sample
+      ? groundTerrain(input.biome, sample, height, wet)
+      : terrainOf(input.biome, height, wet, side);
+    if (sample) {
+      // Der Atlas gilt: Auch der direkte Weg kann übers Meer führen. Nur Orte stehen an Land.
+      if (sample.water === 'sea') sea.add(key);
+      if (terrain === 'water' && places.has(key)) {
+        terrain = 'coast';
+        sea.delete(key);
+      }
+    } else if (
+      terrain === 'water' &&
+      input.biome !== 'water' &&
+      (onLine.has(key) || places.has(key))
+    )
+      // Zwischen zwei Orten führt der direkte Weg nicht durch offenes Wasser – und Orte stehen an Land.
       terrain = input.biome === 'coast' ? 'coast' : input.biome === 'swamp' ? 'swamp' : input.biome;
     hexes.push({
       q: cell.q,
@@ -488,6 +634,16 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       tableIds: [],
     });
   }
+
+  // Am Meer liegt die Küste: flaches Land neben einem Feld offener See.
+  if (sea.size)
+    for (const hex of hexes)
+      if (
+        hex.terrain !== 'water' &&
+        hex.terrain !== 'mountains' &&
+        hexNeighbors(hex).some((n) => sea.has(hexKey(n)))
+      )
+        hex.terrain = 'coast';
 
   // Besonderheiten: verstreut, nie zwei nebeneinander, nicht auf Feldern mit einem Ort.
   const byKey = new Map(hexes.map((hex) => [hexKey(hex), hex]));

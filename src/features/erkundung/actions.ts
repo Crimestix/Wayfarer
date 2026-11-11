@@ -5,7 +5,7 @@ import { hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import { freshSeed } from '../../domain/random';
 import type { Area, Hex, Pace } from '../../domain/schema';
 import { dayIndexOf } from '../../domain/time/calendar';
-import { generateHexes, recognize, type GenerateInput } from './generate';
+import { generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { planStep, type StepProblem, type TravelStep } from './travel';
 
 /** Ändert ein Feld einer Karte; fehlt die Karte oder das Feld, geschieht nichts. */
@@ -55,6 +55,7 @@ export function rerollInput(
     seed,
     direction: known.direction,
     between: known.between,
+    ground: groundOf(db.getSnapshot(), known.origin),
   };
 }
 

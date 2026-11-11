@@ -9,7 +9,7 @@ import { freshSeed } from '../../domain/random';
 import { TERRAINS, type Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
 import { Button, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
-import { generateArea, recognize, suggestHexKm } from './generate';
+import { generateArea, groundOf, recognize, suggestHexKm } from './generate';
 
 /** Landschaften, die als Grundlage einer Karte taugen (eine Siedlung ist keine). */
 const BIOMES = TERRAINS.filter((t) => t !== 'urban');
@@ -72,6 +72,7 @@ export function CreateDialog({
           seed: freshSeed(),
           direction: known?.direction ?? null,
           between: known?.between ?? [],
+          ground: groundOf(data, known?.origin ?? null),
         },
         name,
       ),
@@ -174,11 +175,17 @@ export function CreateDialog({
             </div>
             <p className="wf-erk-form__known">
               {known.between.length > 0
-                ? `Am Weg liegen laut Karte: ${known.between.map((b) => data.entities[b.placeId]?.name).join(', ')}. Sie stehen an der richtigen Stelle.`
+                ? `Am Weg liegen laut ${known.fromAtlas ? 'Atlas' : 'Karte'}: ${known.between.map((b) => data.entities[b.placeId]?.name).join(', ')}. Sie stehen an der richtigen Stelle.`
                 : known.direction
-                  ? 'Die Richtung stammt von der Karte: Norden ist oben.'
+                  ? `Die Richtung stammt ${known.fromAtlas ? 'vom Planeten' : 'von der Karte'}: Norden ist oben.`
                   : 'Die Lage der beiden Orte zueinander kennt Wayfarer noch nicht – das Ziel liegt auf der Karte im Osten.'}
             </p>
+            {known.origin && land !== 'underdark' && (
+              <p className="wf-erk-form__known">
+                Meer, Küsten und Höhen folgen dem Atlas. Führt der gerade Weg übers Meer, braucht
+                die Gruppe ein Schiff oder einen Umweg.
+              </p>
+            )}
           </>
         ) : (
           <p className="wf-erk-form__known">

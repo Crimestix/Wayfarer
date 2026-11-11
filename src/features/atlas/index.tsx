@@ -19,6 +19,7 @@ import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind, placeAncestors, placePath } from '../../domain/derive';
 import type { LonLat } from '../../domain/geo';
 import type { Place } from '../../domain/schema';
+import { formatDays, travelDays } from '../../domain/terrain';
 import {
   Button,
   Checkbox,
@@ -447,7 +448,8 @@ export default function AtlasPage() {
                   <>
                     <dt>Von der Gruppe</dt>
                     <dd>
-                      {formatKm(leg.km)} Luftlinie nach {leg.direction}
+                      {formatKm(leg.km)} Luftlinie nach {leg.direction} · zu Fuß etwa{' '}
+                      {formatDays(travelDays(leg.km))}
                     </dd>
                   </>
                 )}
