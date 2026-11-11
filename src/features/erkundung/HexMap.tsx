@@ -75,6 +75,12 @@ const Cells = memo(function Cells({
               {GLYPH[hex.terrain]}
             </g>
           )}
+          {hex.river && hex.discovered && (
+            <path
+              className="wf-hex__river"
+              d={`M ${x - size * 0.34} ${y + size * 0.08} q ${size * 0.085} ${-size * 0.12} ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0`}
+            />
+          )}
           {hex.feature && (
             <rect
               className="wf-hex__feature"
@@ -96,6 +102,7 @@ const Cells = memo(function Cells({
           <title>
             {[
               hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'Ohne Gelände',
+              hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
               hex.feature,
               hex.discovered ? '' : 'noch nicht entdeckt',
             ]

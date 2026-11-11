@@ -4,7 +4,9 @@
  * Planet selbst (Küsten, Höhen, Lage der Orte) in `domain/planet.ts` und wird hier weitergereicht.
  */
 import { compass, bearingDeg, daylightHours, distanceKm, type LonLat } from '../../domain/geo';
+import { crossesWater, landRoute } from '../../domain/landRoute';
 import { exactGeo, geoIndex, placeGeo, planetOf, type Terrain } from '../../domain/planet';
+import { formatDays, travelDays } from '../../domain/terrain';
 import type { CampaignData, GameMap, Place } from '../../domain/schema';
 import { MINUTES_PER_DAY, daysBeforeYear, fromTime, yearLength } from '../../domain/time/calendar';
 import { warmestMonth } from '../../domain/weatherZone';
@@ -16,6 +18,10 @@ export interface Leg {
   /** Richtung beim Aufbruch: Grad und Wort („Nordosten“). */
   bearing: number;
   direction: string;
+  /** Die Luftlinie führt übers Meer. */
+  sea: boolean;
+  /** Dann: die Länge des Weges über Land, ums Meer herum – null, wenn es keinen gibt. */
+  landKm: number | null;
 }
 
 /** Luftlinie und Richtung zwischen zwei Orten – null, wenn einer keine Lage hat oder beide dieselbe. */
@@ -27,7 +33,22 @@ export function legBetween(data: CampaignData, fromId: string, toId: string): Le
   const km = distanceKm(planet.radiusKm, a.geo, b.geo);
   if (km < 0.001) return null;
   const bearing = bearingDeg(a.geo, b.geo);
-  return { km, bearing, direction: compass(bearing) };
+  const sea = crossesWater(planet, a.geo, b.geo);
+  return {
+    km,
+    bearing,
+    direction: compass(bearing),
+    sea,
+    landKm: sea ? (landRoute(planet, a.geo, b.geo)?.km ?? null) : null,
+  };
+}
+
+/** „1.240 km Luftlinie nach Nordosten · über Land etwa 1.600 km, zu Fuß etwa 42 Tage“ */
+export function describeLeg(leg: Leg): string {
+  const line = `${formatKm(leg.km)} Luftlinie nach ${leg.direction}`;
+  if (!leg.sea) return `${line} · zu Fuß etwa ${formatDays(travelDays(leg.km))}`;
+  if (leg.landKm === null) return `${line} · kein Landweg, nur übers Meer`;
+  return `${line} · über Land etwa ${formatKm(Math.round(leg.landKm / 10) * 10)} (ums Meer herum), zu Fuß etwa ${formatDays(travelDays(leg.landKm))}`;
 }
 
 // ── Worte ──────────────────────────────────────────────────────────────────

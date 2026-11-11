@@ -19,7 +19,6 @@ import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind, placeAncestors, placePath } from '../../domain/derive';
 import type { LonLat } from '../../domain/geo';
 import type { Place } from '../../domain/schema';
-import { formatDays, travelDays } from '../../domain/terrain';
 import {
   Button,
   Checkbox,
@@ -35,6 +34,7 @@ import {
 import { addLand, isOwnLand, removeLand, setLandRelief, setPlaceGeo } from './actions';
 import {
   daylightAt,
+  describeLeg,
   describeTerrain,
   formatGeo,
   formatHours,
@@ -222,7 +222,11 @@ export default function AtlasPage() {
   };
 
   const hoverTerrain = hover ? terrainAt(planet, grid, hover) : null;
-  const leg = place && data.state.placeId ? legBetween(data, data.state.placeId, place.id) : null;
+  const placeId = place?.id ?? null;
+  const leg = useMemo(
+    () => (placeId && data.state.placeId ? legBetween(data, data.state.placeId, placeId) : null),
+    [data, placeId],
+  );
   const daylight = located ? daylightAt(data, located.geo, data.state.now) : null;
 
   return (
@@ -487,10 +491,7 @@ export default function AtlasPage() {
                 {leg && (
                   <>
                     <dt>Von der Gruppe</dt>
-                    <dd>
-                      {formatKm(leg.km)} Luftlinie nach {leg.direction} · zu Fuß etwa{' '}
-                      {formatDays(travelDays(leg.km))}
-                    </dd>
+                    <dd>{describeLeg(leg)}</dd>
                   </>
                 )}
                 {daylight !== null && (

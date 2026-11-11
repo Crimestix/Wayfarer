@@ -651,6 +651,8 @@ export const HexSchema = z.object({
   prepared: z.string().default(''),
   /** Besonderheit der Landschaft, die Wayfarer erzeugt hat (z. B. „Lichtung“); frei änderbar. */
   feature: z.string().default(''),
+  /** Ein Fluss des Atlas fließt durch dieses Feld: sein Name, sonst „Fluss“. Leer = keiner. */
+  river: z.string().default(''),
   /** Abweichende Tabellen für dieses Hex. */
   tableIds: z.array(id).default([]),
 });

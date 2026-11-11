@@ -72,7 +72,8 @@ export function CreateDialog({
           seed: freshSeed(),
           direction: known?.direction ?? null,
           between: known?.between ?? [],
-          ground: groundOf(data, known?.origin ?? null),
+          ground: groundOf(data, known?.origin ?? null, size),
+          route: known?.route ?? null,
         },
         name,
       ),
@@ -182,8 +183,12 @@ export function CreateDialog({
             </p>
             {known.origin && land !== 'underdark' && (
               <p className="wf-erk-form__known">
-                Meer, Küsten und Höhen folgen dem Atlas. Führt der gerade Weg übers Meer, braucht
-                die Gruppe ein Schiff oder einen Umweg.
+                Meer, Küsten, Flüsse und Höhen folgen dem Atlas.{' '}
+                {known.route
+                  ? 'Die Luftlinie führt übers Meer – die Karte folgt dem Weg über Land, ums Meer herum.'
+                  : known.seaOnly
+                    ? 'Zwischen den beiden Orten gibt es keinen Weg über Land: Die Karte zeigt die gerade Strecke übers Meer, und die Gruppe braucht ein Schiff.'
+                    : ''}
               </p>
             )}
           </>

@@ -14,9 +14,11 @@ import {
   bearingDeg,
   destination,
   distanceKm as surfaceKm,
+  wrapLon,
   type LonLat,
 } from '../../domain/geo';
 import { biomeOfPreset, describeSite, siteAt, sitePreset } from '../../domain/geoClimate';
+import { crossesWater, landRoute } from '../../domain/landRoute';
 import { exactGeo, placeGeo, planetOf, reliefOf, terrainAt } from '../../domain/planet';
 import { PRESET } from '../../domain/weather';
 import {
@@ -64,6 +66,14 @@ export interface Recognition {
   origin: LonLat | null;
   /** Entfernung und Richtung stammen vom Planeten. */
   fromAtlas: boolean;
+  /**
+   * Die Luftlinie führt übers Meer: der Weg über Land, ums Meer herum, als Punkte in Kilometern
+   * vom Start aus (x nach Osten, y nach Süden; der letzte ist das Ziel). Null, wenn die Luftlinie
+   * an Land bleibt oder es keinen Landweg gibt.
+   */
+  route: { x: number; y: number }[] | null;
+  /** Die Luftlinie führt übers Meer, und es gibt keinen Weg über Land. */
+  seaOnly: boolean;
 }
 
 /** Stichworte (ohne Umlaute und Akzente, siehe `normalize`), an denen eine Landschaft zu erkennen ist. */
@@ -256,6 +266,22 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
   // Ohne Karte und Weg: lieber grob über die Lage der Orte darüber als gar nicht.
   if (distanceKm === null) measureOnPlanet();
 
+  // Führt die Luftlinie übers Meer, folgt die Reise dem Landweg – wenn es einen gibt.
+  let route: Recognition['route'] = null;
+  let seaOnly = false;
+  if (fromAtlas && planet && geoFrom && geoTo && crossesWater(planet, geoFrom.geo, geoTo.geo)) {
+    const found = landRoute(planet, geoFrom.geo, geoTo.geo);
+    if (found) {
+      route = found.points.slice(1).map((point) => {
+        const km = surfaceKm(planet.radiusKm, geoFrom.geo, point);
+        const rad = (bearingDeg(geoFrom.geo, point) * Math.PI) / 180;
+        return { x: km * Math.sin(rad), y: -km * Math.cos(rad) };
+      });
+      distanceSource = `Landweg auf dem Planeten, ums Meer herum – die Luftlinie wären ${Math.round(atlasKm).toLocaleString('de-DE')} km.`;
+      distanceKm = found.km;
+    } else seaOnly = true;
+  }
+
   // Deutet kein Wort auf eine Landschaft, sagt das Klima auf halber Strecke etwas über sie.
   if (!words.found && planet && geoFrom && geoTo) {
     const site = siteAt(planet, reliefOf(data), pointAlong(geoFrom.geo, geoTo.geo, 0.5));
@@ -273,6 +299,8 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     hexKm: suggestHexKm(distanceKm),
     origin: planet && geoFrom && direction ? geoFrom.geo : null,
     fromAtlas,
+    route,
+    seaOnly,
   };
 }
 
@@ -283,6 +311,8 @@ export interface GroundSample {
   water: 'sea' | 'lake' | null;
   /** Höhe in Metern; null ohne Angabe. */
   heightM: number | null;
+  /** Ein Fluss in der Nähe: sein Name, sonst „Fluss“. */
+  river?: string;
 }
 
 /** Fragt den Planeten: `xKm` nach Osten und `yKm` nach Süden vom Startort aus. */
@@ -292,10 +322,46 @@ export type Ground = (xKm: number, yKm: number) => GroundSample;
  * Das Gelände rund um eine Lage, wie es im Atlas steht – oder nichts, wenn es keinen Atlas gibt.
  * Die Karte liegt flach auf der Kugel auf: Entfernung und Richtung vom Start stimmen.
  */
-export function groundOf(data: CampaignData, origin: LonLat | null): Ground | undefined {
+export function groundOf(
+  data: CampaignData,
+  origin: LonLat | null,
+  hexKm = 10,
+): Ground | undefined {
   const planet = planetOf(data);
   if (!planet || !origin) return undefined;
   const grid = reliefOf(data);
+  const kmPerDegree = (2 * Math.PI * planet.radiusKm) / 360;
+  // Ein Fluss gehört zum Feld, wenn er näher als ein halbes Feld an dessen Mitte vorbeifließt.
+  const reach = Math.max(hexKm / 2, (planet.doc.rivers[0]?.widthKm ?? 0) / 2);
+  const rivers = planet.doc.rivers.map((river) => {
+    let south = 90;
+    let north = -90;
+    for (let i = 1; i < river.points.length; i += 2) {
+      south = Math.min(south, river.points[i]!);
+      north = Math.max(north, river.points[i]!);
+    }
+    return { name: river.name || 'Fluss', points: river.points, south, north };
+  });
+  const riverAt = (point: LonLat): string | undefined => {
+    const margin = reach / kmPerDegree;
+    const shrink = Math.cos((point.lat * Math.PI) / 180);
+    for (const river of rivers) {
+      if (point.lat < river.south - margin || point.lat > river.north + margin) continue;
+      for (let i = 0; i + 3 < river.points.length; i += 2) {
+        // Abstand zur Strecke, in Kilometern, in der Ebene um die Stelle herum.
+        const ax = wrapLon(river.points[i]! - point.lon) * kmPerDegree * shrink;
+        const ay = (river.points[i + 1]! - point.lat) * kmPerDegree;
+        const bx = wrapLon(river.points[i + 2]! - point.lon) * kmPerDegree * shrink;
+        const by = (river.points[i + 3]! - point.lat) * kmPerDegree;
+        const length = (bx - ax) ** 2 + (by - ay) ** 2;
+        const t = length
+          ? Math.max(0, Math.min(1, -(ax * (bx - ax) + ay * (by - ay)) / length))
+          : 0;
+        if (Math.hypot(ax + t * (bx - ax), ay + t * (by - ay)) <= reach) return river.name;
+      }
+    }
+    return undefined;
+  };
   return (xKm, yKm) => {
     const km = Math.hypot(xKm, yKm);
     const point =
@@ -303,7 +369,7 @@ export function groundOf(data: CampaignData, origin: LonLat | null): Ground | un
         ? origin
         : destination(planet.radiusKm, origin, (Math.atan2(xKm, -yKm) * 180) / Math.PI, km);
     const { water, heightM } = terrainAt(planet, grid, point);
-    return { water, heightM };
+    return { water, heightM, river: water ? undefined : riverAt(point) };
   };
 }
 
@@ -544,6 +610,8 @@ export interface GenerateInput {
   between?: Recognition['between'];
   /** Aus `groundOf`: Dann folgen Meer, Küste und Höhen dem Atlas statt dem Zufall. */
   ground?: Ground;
+  /** Aus `recognize`: der Landweg ums Meer herum. Dann folgt die Karte ihm statt der Luftlinie. */
+  route?: Recognition['route'];
 }
 
 /** So viele Felder hat eine Karte höchstens; breitere Streifen werden schmaler gemacht. */
@@ -569,9 +637,22 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
   const length = Math.max(1, Math.round(input.distanceKm / input.hexKm));
   const dir = input.direction ?? { x: 1, y: 0 };
   const start: HexCoord = { q: 0, r: 0 };
-  let end = hexAt(dir.x * length, dir.y * length);
+  // Mit einem Landweg führt die Karte über dessen Punkte; das Ziel liegt, wo der Planet es hat.
+  const stops = (input.route ?? []).map((point) =>
+    hexAt(point.x / input.hexKm, point.y / input.hexKm),
+  );
+  let end = stops.length ? stops[stops.length - 1]! : hexAt(dir.x * length, dir.y * length);
   if (hexDistance(start, end) === 0) end = { q: 1, r: 0 };
-  const line = hexLine(start, end);
+  let line = hexLine(start, end);
+  if (stops.length > 1) {
+    line = [start];
+    for (const stop of [...stops.slice(0, -1), end]) {
+      const last = line[line.length - 1]!;
+      if (hexDistance(last, stop) > 0) line.push(...hexLine(last, stop).slice(1));
+    }
+  }
+  // Orte am Weg liegen entlang der Luftlinie – so lang ist sie in Feldern.
+  const span = stops.length ? hexDistance(start, end) : length;
   let radius = Math.min(7, Math.max(3, Math.round(line.length / 7)));
   let cells = hexBand(line, radius);
   while (radius > 2 && cells.length > MAX_HEXES) cells = hexBand(line, --radius);
@@ -583,7 +664,7 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
   ]);
   const inside = new Set(cells.map(hexKey));
   for (const between of input.between ?? []) {
-    const along = between.along * length;
+    const along = between.along * span;
     const offset = between.offsetKm / input.hexKm;
     // Quer zum Weg: die Richtung um 90° gedreht.
     const hex = hexAt(dir.x * along - dir.y * offset, dir.y * along + dir.x * offset);
@@ -612,7 +693,8 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
     if (sample) {
       // Der Atlas gilt: Auch der direkte Weg kann übers Meer führen. Nur Orte stehen an Land.
       if (sample.water === 'sea') sea.add(key);
-      if (terrain === 'water' && places.has(key)) {
+      // Ein Landweg ums Meer bleibt an Land: Wo er die Küste streift, führt er am Ufer entlang.
+      if (terrain === 'water' && (places.has(key) || (stops.length > 0 && onLine.has(key)))) {
         terrain = 'coast';
         sea.delete(key);
       }
@@ -632,6 +714,7 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       discovered: key === hexKey(start),
       prepared: '',
       feature: '',
+      river: terrain === 'water' ? '' : (sample?.river ?? ''),
       tableIds: [],
     });
   }

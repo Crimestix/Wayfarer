@@ -55,7 +55,8 @@ export function rerollInput(
     seed,
     direction: known.direction,
     between: known.between,
-    ground: groundOf(db.getSnapshot(), known.origin),
+    ground: groundOf(db.getSnapshot(), known.origin, area.hexKm),
+    route: known.route,
   };
 }
 

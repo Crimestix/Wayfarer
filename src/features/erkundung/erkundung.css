@@ -226,6 +226,13 @@
 .wf-hex[data-hidden] .wf-hex__glyph {
   opacity: 0.7;
 }
+.wf-hex__river {
+  fill: none;
+  stroke: var(--verdigris);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
 .wf-hex__feature {
   fill: var(--gold-bright);
   stroke: var(--bg-0);

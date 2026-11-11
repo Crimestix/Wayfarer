@@ -12,6 +12,7 @@ import {
   warmestMonthAt,
 } from '../../domain/geoClimate';
 import { hexKey } from '../../domain/hex';
+import { crossesWater, landRoute } from '../../domain/landRoute';
 import {
   AtlasSchema,
   MapSchema,
@@ -30,11 +31,13 @@ import {
 } from '../erkundung/generate';
 import {
   coastKm,
+  describeLeg,
   describeSun,
   describeTerrain,
   encodeHeights,
   formatMinuteOfDay,
   isDark,
+  legBetween,
   mapsOfPlace,
   placeGeo,
   placedPlaces,
@@ -463,5 +466,121 @@ describe('Reisen nach dem Atlas', () => {
     const line = map.line.map((cell) => byKey.get(hexKey(cell))!);
     expect(line[Math.floor(line.length / 2)]!.terrain).toBe('mountains');
     expect(map.hexes.some((hex) => hex.terrain === 'water')).toBe(false);
+  });
+});
+
+describe('Der Weg ums Meer herum', () => {
+  /** Ein Land wie ein C: Von Osten schneidet eine Bucht hinein (10–40° Ost, 10–20° Nord). */
+  const bay = (entities: Entity[]): CampaignData => ({
+    ...world(entities),
+    atlas: {
+      planet: AtlasSchema.parse({
+        ...planetDoc(),
+        lands: [
+          {
+            id: 'buchtland',
+            name: 'Buchtland',
+            rings: [[0, 0, 40, 0, 40, 10, 10, 10, 10, 20, 40, 20, 40, 30, 0, 30]],
+          },
+        ],
+        rivers: [{ id: 'bach', name: 'Graubach', points: [20, 0, 20, 10], widthKm: 1 }],
+      }),
+      relief: reliefDoc(),
+    },
+  });
+  const south = place('Hohenfurt', 35, 5);
+  const north = place('Graufels', 35, 25);
+  const island = place('Aalinsel', -30, 5);
+
+  it('merkt, wenn die Luftlinie übers Wasser führt, und findet den Weg über Land', () => {
+    const data = bay([south, north, island]);
+    const planet = planetOf(data)!;
+    expect(crossesWater(planet, { lon: 35, lat: 5 }, { lon: 35, lat: 25 })).toBe(true);
+    expect(crossesWater(planet, { lon: 5, lat: 5 }, { lon: 5, lat: 25 })).toBe(false);
+    const route = landRoute(planet, { lon: 35, lat: 5 }, { lon: 35, lat: 25 })!;
+    // Luftlinie 20° (2.094 km); um die Bucht herum sind es rund 60°.
+    expect(route.km).toBeGreaterThan(5000);
+    expect(route.km).toBeLessThan(7500);
+    expect(route.points[0]).toEqual({ lon: 35, lat: 5 });
+    expect(route.points[route.points.length - 1]).toEqual({ lon: 35, lat: 25 });
+    // Der Weg führt westlich um die Bucht.
+    expect(Math.min(...route.points.map((p) => p.lon))).toBeLessThan(10.5);
+    // Zu einer Insel im Meer führt kein Landweg.
+    expect(landRoute(planet, { lon: 35, lat: 5 }, { lon: -30, lat: 5 })).toBeNull();
+  });
+
+  it('nennt im Atlas Luftlinie und Landweg', () => {
+    const data = bay([south, north, island]);
+    const leg = legBetween(data, south.id, north.id)!;
+    expect(leg).toMatchObject({ sea: true });
+    expect(leg.landKm!).toBeGreaterThan(leg.km * 2);
+    expect(describeLeg(leg)).toContain('über Land etwa');
+    expect(describeLeg(leg)).toContain('ums Meer herum');
+    expect(describeLeg(legBetween(data, south.id, island.id)!)).toContain(
+      'kein Landweg, nur übers Meer',
+    );
+    // Bleibt die Luftlinie an Land, steht nur die Reisedauer da.
+    const west = place('Reusenhof', 5, 25);
+    const plain = legBetween(bay([south, north, west]), north.id, west.id)!;
+    expect(plain).toMatchObject({ sea: false, landKm: null });
+    expect(describeLeg(plain)).toMatch(/Luftlinie nach Westen · zu Fuß etwa/);
+  });
+
+  it('lässt die Hexkarte dem Landweg folgen', () => {
+    const data = bay([south, north]);
+    const known = recognize(data, south.id, north.id);
+    expect(known.route).not.toBeNull();
+    expect(known.seaOnly).toBe(false);
+    expect(known.distanceSource).toContain('Landweg auf dem Planeten');
+    expect(known.distanceKm!).toBeGreaterThan(5000);
+    const map = generateHexes({
+      fromId: south.id,
+      toId: north.id,
+      distanceKm: known.distanceKm!,
+      biome: 'grassland',
+      hexKm: 50,
+      seed: 5,
+      direction: known.direction,
+      ground: groundOf(data, known.origin, 50),
+      route: known.route,
+    });
+    const byKey = new Map(map.hexes.map((hex) => [hexKey(hex), hex]));
+    const line = map.line.map((cell) => byKey.get(hexKey(cell))!);
+    // Der Weg ist viel länger als die Luftlinie (42 Felder) und bleibt an Land.
+    expect(line.length).toBeGreaterThan(100);
+    expect(line.filter((hex) => hex.terrain === 'water')).toEqual([]);
+    expect(line[0]).toMatchObject({ placeId: south.id });
+    expect(line[line.length - 1]).toMatchObject({ placeId: north.id });
+    // Ohne Landweg zeigt die Karte die gerade Strecke übers Meer.
+    const lost = recognize(bay([south, island]), south.id, island.id);
+    expect(lost).toMatchObject({ route: null, seaOnly: true });
+  });
+
+  it('zeichnet die Flüsse des Atlas in die Felder', () => {
+    const a = place('Hohenfurt', 15, 5);
+    const b = place('Graufels', 25, 5);
+    const data = bay([a, b]);
+    const known = recognize(data, a.id, b.id);
+    const map = generateHexes({
+      fromId: a.id,
+      toId: b.id,
+      distanceKm: known.distanceKm!,
+      biome: 'grassland',
+      hexKm: 50,
+      seed: 5,
+      direction: known.direction,
+      ground: groundOf(data, known.origin, 50),
+    });
+    const byKey = new Map(map.hexes.map((hex) => [hexKey(hex), hex]));
+    const line = map.line.map((cell) => byKey.get(hexKey(cell))!);
+    // Der Graubach fließt bei 20° Ost von Süd nach Nord: Der Weg kreuzt ihn einmal, in der Mitte.
+    const crossing = line.map((hex, i) => (hex.river ? i : -1)).filter((i) => i >= 0);
+    expect(crossing.length).toBeGreaterThanOrEqual(1);
+    expect(crossing.length).toBeLessThanOrEqual(2);
+    expect(Math.abs(crossing[0]! - line.length / 2)).toBeLessThan(3);
+    expect(line[crossing[0]!]!.river).toBe('Graubach');
+    // Am Start und am Ziel fließt er nicht.
+    expect(line[0]!.river).toBe('');
+    expect(line[line.length - 1]!.river).toBe('');
   });
 });
