@@ -439,6 +439,67 @@
 .wf-kal-strip .wf-panel__title {
   letter-spacing: 0.13em;
 }
+/* Uhren */
+.wf-kal-timer--clock .wf-kal-timer__icon {
+  color: var(--arcane);
+}
+.wf-kal-clock__label {
+  margin-bottom: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.wf-kal-clock__step {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-2);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.wf-kal-clock__step .wf-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.wf-kal-clock__step .wf-input.wf-kal-clock__days {
+  flex: 0 0 58px;
+  width: 58px;
+  text-align: center;
+}
+.wf-kal-clock__past {
+  display: flex;
+  gap: var(--s-3);
+  padding: 2px 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-kal-clock__past > span:first-child {
+  width: 84px;
+  color: var(--ink-mute);
+}
+.wf-kal-clock__past[data-state='prevented'] > span:nth-child(2) {
+  text-decoration: line-through;
+  color: var(--ink-mute);
+}
+.wf-kal-clock__now {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-kal-clock__now p {
+  margin: 0 0 var(--s-2);
+}
+.wf-kal-clock__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.wf-kal-clock__problem {
+  color: var(--blood-bright);
+  font-size: var(--text-sm);
+}
 .wf-kal-hint {
   padding: var(--s-4);
   color: var(--ink-mute);

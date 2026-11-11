@@ -601,10 +601,28 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
   braucht es den Key des Spielleiters; ob die Form der Antwort (`output_config.format`) so
   angenommen wird und wie gut Haiku liest, zeigt erst der erste echte Lauf. Installierte App und
   macOS ebenfalls nicht.
-- **Als Nächstes:** Uhren (Vorhaben von Fraktionen und Personen mit Schritten, die mit der
-  Weltzeit laufen), ein „Währenddessen“ beim Vorstellen der Zeit (das Wichtige zuerst), Fäden
-  als eigene Sicht, der Spieltisch mit „was jetzt?“. Der Leser soll dann auch Vorhaben und
-  Aufenthaltsorte vorschlagen.
+- **Als Nächstes:** Fäden als eigene Sicht, der Spieltisch mit „was jetzt?“. Der Leser soll
+  dann auch Uhren und Aufenthaltsorte vorschlagen.
+
+**Uhren und „Währenddessen“ (11. 11. 2026) – gebaut.** Die Welt bewegt sich ohne die Gruppe.
+- **Uhr** (Sammlung `clocks`, `domain/clock.ts`): ein Vorhaben der Welt – wer es betreibt, wo,
+  und die Schritte, die der Spielleiter schreibt, jeder „nach n Tagen“ auf den vorigen. Wayfarer
+  führt nur Buch: Rückt die Weltzeit über die Frist, tritt der Schritt ein und steht als
+  Veränderung in der Chronik (am Ort und bei den Beteiligten; geheim, solange die Uhr geheim
+  ist). `advanceTime` meldet die Schritte in `steps`, `undoTimeAdvance` nimmt sie zurück.
+- **Eingreifen** (`data/actions.ts`): anhalten und weiterlaufen lassen (die Standzeit schiebt
+  den nächsten Schritt hinaus), verzögern, den nächsten Schritt jetzt eintreten lassen oder
+  festhalten, dass die Gruppe ihn verhindert hat (`settleStep`) – beides steht in der Chronik.
+- **Oberfläche:** Kalender → Knopf „Uhr“ (`kalender/ClockDialog.tsx`); laufende Uhren stehen
+  unter „Läuft gerade“; der nächste Schritt jeder Uhr steht am Spieltisch unter „Anstehend“.
+- **„Währenddessen“** (`shell/meanwhile.ts`): Die Meldung nach dem Vorstellen der Zeit und nach
+  einer Rast ordnet nach Gewicht – Schritte von Uhren, einmalige Ereignisse und abgelaufene
+  Wirkungen zuerst, darunter gedämpft die Routinen am Ort der Gruppe (auch im Ort darüber oder
+  darin), alle übrigen Routinen nur gezählt. Höchstens sieben Zeilen.
+- Geprüft mit Tests und in der Vorschau (Uhr anlegen, Zeit vorstellen, Meldung, zurücknehmen,
+  anhalten, löschen). **Nicht geprüft:** installierte App, macOS.
+- Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
+  Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.

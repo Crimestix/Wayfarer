@@ -2,6 +2,7 @@
  * Fachlogik des Spieltischs – reine Funktionen: Aufenthalt am Ort, Besetzung, Anstehendes,
  * Mitschrift, Verweise mit „@“ und die Leiste der Gefährten. Die Oberfläche zeigt nur an.
  */
+import { openClocks } from '../../domain/clock';
 import {
   activeParty,
   attitudeToParty,
@@ -323,9 +324,9 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
 // ── Anstehend ──────────────────────────────────────────────────────────────
 
 export type AgendaTone = 'overdue' | 'today' | 'later';
-export type AgendaSource = 'event' | 'promise' | 'timer';
+export type AgendaSource = 'event' | 'promise' | 'timer' | 'clock';
 /** Welches Zeichen vor der Zeile steht. */
-export type AgendaMark = EventKind | 'promise' | Timer['kind'];
+export type AgendaMark = EventKind | 'promise' | Timer['kind'] | 'clock';
 
 export interface AgendaItem {
   key: string;
@@ -521,6 +522,31 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       repeats: false,
       undated: false,
     });
+
+  // Uhren: der nächste Schritt, wenn er in den kommenden Tagen eintritt.
+  const horizon = now + days * MINUTES_PER_DAY;
+  for (const view of openClocks(data.clocks, now)) {
+    if (view.paused || !view.next || view.next.at > horizon) continue;
+    const { clock } = view;
+    items.push({
+      key: `clock:${clock.id}`,
+      source: 'clock',
+      id: clock.id,
+      title: view.next.step.text,
+      label: `Uhr: ${clock.title}`,
+      mark: 'clock',
+      at: view.next.at,
+      tone: dayIndexOf(view.next.at) === dayIndexOf(now) ? 'today' : 'later',
+      when: whenLabel(now, view.next.at, false),
+      date: dateLabel(cal, view.next.at, false),
+      placeId: clock.placeId,
+      refs: [...new Set([...(clock.ownerId ? [clock.ownerId] : []), ...clock.refs])],
+      checkable: false,
+      checkLabel: '',
+      repeats: false,
+      undated: false,
+    });
+  }
 
   const rank = (item: AgendaItem) => (item.undated ? 2 : item.tone === 'overdue' ? 0 : 1);
   return items.sort(

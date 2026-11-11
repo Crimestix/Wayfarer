@@ -28,6 +28,7 @@ const MARKS: Record<AgendaMark, LucideIcon> = {
   effect: Hourglass,
   task: Hourglass,
   spell: Hourglass,
+  clock: Milestone,
 };
 
 function AgendaRow({ item }: { item: AgendaItem }) {

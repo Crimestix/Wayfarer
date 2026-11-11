@@ -1,8 +1,8 @@
 /** Kalender: Monatsraster, gewählter Tag, Anstehendes, laufende Wirkungen und Monde. */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Milestone, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { EVENT_KINDS, type CalendarEvent, type Timer } from '../../domain/schema';
+import { EVENT_KINDS, type CalendarEvent, type Clock, type Timer } from '../../domain/schema';
 import {
   MINUTES_PER_DAY,
   dayIndexOf,
@@ -12,6 +12,7 @@ import {
   type WorldTime,
 } from '../../domain/time/calendar';
 import { Button, IconButton, cx } from '../../ui';
+import { ClockDialog } from './ClockDialog';
 import { DayPanel } from './DayPanel';
 import { clearCalendarFocus, pendingCalendarFocus } from './focus';
 import { EventDialog } from './EventDialog';
@@ -24,6 +25,7 @@ import './kalender.css';
 type OpenDialog =
   | { type: 'event'; event: CalendarEvent | null; day: WorldTime }
   | { type: 'timer'; timer: Timer | null }
+  | { type: 'clock'; clock: Clock | null }
   | null;
 
 export default function KalenderPage() {
@@ -126,6 +128,13 @@ export default function KalenderPage() {
             </span>
           ))}
         </div>
+        <Button
+          icon={<Milestone />}
+          title="Ein Vorhaben der Welt, das von selbst weiterläuft"
+          onClick={() => setDialog({ type: 'clock', clock: null })}
+        >
+          Uhr
+        </Button>
         <Button variant="primary" icon={<Plus />} onClick={() => createOn(selected)}>
           Termin anlegen
         </Button>
@@ -149,6 +158,7 @@ export default function KalenderPage() {
               data={data}
               onAdd={() => setDialog({ type: 'timer', timer: null })}
               onEdit={(timer) => setDialog({ type: 'timer', timer })}
+              onClock={(clock) => setDialog({ type: 'clock', clock })}
             />
             {cal.moons.length > 0 && <MoonsPanel data={data} />}
           </div>
@@ -169,6 +179,13 @@ export default function KalenderPage() {
           day={dialog.day}
           onClose={() => setDialog(null)}
           onSaved={(at) => goToDay(dayIndexOf(at))}
+        />
+      )}
+      {dialog?.type === 'clock' && (
+        <ClockDialog
+          key={dialog.clock?.id ?? 'neu'}
+          clock={dialog.clock}
+          onClose={() => setDialog(null)}
         />
       )}
       {dialog?.type === 'timer' && (

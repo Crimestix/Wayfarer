@@ -10,6 +10,7 @@ import {
   setTime,
   undoTimeAdvance,
 } from '../data/actions';
+import type { TimeAdvanceResult } from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
 import { KIND_LABEL, entityName, findRelation, placePath, searchEntities } from '../domain/derive';
@@ -47,6 +48,7 @@ import {
 } from '../ui';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import type { RestResult } from '../features/gruppe/rest';
+import { meanwhile } from './meanwhile';
 import {
   closeShellRequest,
   useShellRequest,
@@ -54,37 +56,43 @@ import {
   type QuickLogRequest,
 } from './commands';
 
-/** „Eingetreten: Markttag (3×)“ – wiederkehrende Termine nur einmal mit Anzahl. */
-function summarizeOccurred(occurred: { event: { id: string; title: string } }[]): string[] {
-  const counts = new Map<string, { title: string; n: number }>();
-  for (const o of occurred) {
-    const c = counts.get(o.event.id);
-    if (c) c.n++;
-    else counts.set(o.event.id, { title: o.event.title, n: 1 });
-  }
-  return [...counts.values()].map((c) => `Eingetreten: ${c.title}${c.n > 1 ? ` (${c.n}×)` : ''}`);
+/** Die Zeilen der Meldung „währenddessen“: Wichtiges hell, Routinen gedämpft, der Rest gezählt. */
+function meanwhileBody(data: CampaignData, result: TimeAdvanceResult, lead?: string): ReactNode {
+  const { lines, elsewhere } = meanwhile(data, result);
+  return (
+    <>
+      {lead && <div>{lead}</div>}
+      {lines.map((line, i) => (
+        <div key={i} className={line.weight === 'side' ? 'wf-mute' : undefined}>
+          {line.text}
+        </div>
+      ))}
+      {elsewhere > 0 && (
+        <div className="wf-mute">
+          … und {elsewhere === 1 ? 'eine weitere Routine' : `${elsewhere} weitere Routinen`}{' '}
+          anderswo
+        </div>
+      )}
+    </>
+  );
 }
+
+const happened = (result: TimeAdvanceResult) =>
+  result.occurred.length + result.expired.length + result.steps.length > 0;
 
 /** Lässt Zeit vergehen und meldet, was dabei eingetreten ist – mit „Rückgängig“. */
 export function advanceAndReport(db: CampaignDb, to: WorldTime) {
   try {
     const result = advanceTime(db, to);
-    const lines = [
-      ...summarizeOccurred(result.occurred),
-      ...result.expired.map((t) => `Abgelaufen: ${t.label}`),
-    ];
     toast({
-      title: `${formatDuration(result.to - result.from)} vergangen`,
-      body: lines.length ? (
-        <>
-          {lines.map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
-        </>
-      ) : (
-        formatDateTime(db.getSnapshot().campaign.calendar, result.to)
-      ),
+      title: happened(result)
+        ? `${formatDuration(result.to - result.from)} vergangen – währenddessen`
+        : `${formatDuration(result.to - result.from)} vergangen`,
+      body: happened(result)
+        ? meanwhileBody(db.getSnapshot(), result)
+        : formatDateTime(db.getSnapshot().campaign.calendar, result.to),
       action: { label: 'Rückgängig', run: () => undoTimeAdvance(db) },
+      duration: result.steps.length ? 14000 : undefined,
     });
   } catch (error) {
     toast({ title: 'Zeit nicht geändert', body: String((error as Error).message), tone: 'danger' });
@@ -92,23 +100,12 @@ export function advanceAndReport(db: CampaignDb, to: WorldTime) {
 }
 
 /** Meldet eine Rast: was sie gebracht hat und was in der Zeit eingetreten ist. */
-function reportRest(result: RestResult) {
-  const lines = [
-    result.text,
-    ...summarizeOccurred(result.advance.occurred),
-    ...result.advance.expired.map((t) => `Abgelaufen: ${t.label}`),
-  ];
+function reportRest(data: CampaignData, result: RestResult) {
   toast({
     title: result.interrupted
       ? 'Rast unterbrochen'
       : `${formatDuration(result.advance.to - result.advance.from)} gerastet`,
-    body: (
-      <>
-        {lines.map((line, i) => (
-          <div key={i}>{line}</div>
-        ))}
-      </>
-    ),
+    body: meanwhileBody(data, result.advance, result.text),
     action: { label: 'Rückgängig', run: result.undo },
     duration: 12000,
   });
@@ -608,6 +605,7 @@ function SearchDialog() {
 
 /** Zeigt den Dialog, den eine Seite über commands.ts angefordert hat. */
 export function ShellDialogs() {
+  const db = useDb();
   const request = useShellRequest();
   if (!request) return null;
   switch (request.type) {
@@ -620,7 +618,13 @@ export function ShellDialogs() {
     case 'time':
       return <TimeDialog />;
     case 'rest':
-      return <RestDialog kind={request.kind} onClose={closeShellRequest} onDone={reportRest} />;
+      return (
+        <RestDialog
+          kind={request.kind}
+          onClose={closeShellRequest}
+          onDone={(result) => reportRest(db.getSnapshot(), result)}
+        />
+      );
     case 'search':
       return <SearchDialog />;
   }
