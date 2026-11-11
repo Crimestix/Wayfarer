@@ -18,6 +18,9 @@
   .wf-erk-detail {
     padding: var(--s-3);
   }
+  .wf-erk-side__title {
+    font-size: 1.3rem;
+  }
 }
 
 /* ── Liste der Karten ───────────────────────────────────────────────────── */
@@ -40,6 +43,12 @@
   font-family: var(--font-display);
   font-size: var(--text-xl);
   color: var(--ink);
+}
+.wf-erk-side__none {
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
 }
 .wf-erk-side__list {
   flex: 1 1 auto;
@@ -374,7 +383,7 @@
 }
 .wf-erk-travel__label {
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-mute);

@@ -5,9 +5,13 @@
   grid-template-columns: var(--rail-width) minmax(0, 1fr);
   grid-template-rows: var(--bar-height) minmax(0, 1fr);
   height: 100%;
+  /* Geschwärztes Holz unter allem: die Maserung scheint nur durch, sie trägt keine Schrift. */
   background:
-    radial-gradient(1100px 620px at 62% -8%, rgba(201, 163, 91, 0.07), transparent 60%),
-    radial-gradient(900px 700px at 0% 100%, rgba(157, 47, 42, 0.05), transparent 60%), var(--bg-0);
+    radial-gradient(1100px 620px at 62% -8%, rgba(201, 163, 91, 0.08), transparent 60%),
+    radial-gradient(900px 700px at 0% 100%, rgba(157, 47, 42, 0.05), transparent 60%),
+    linear-gradient(rgba(12, 10, 9, 0.8), rgba(12, 10, 9, 0.88)),
+    url('../ui/assets/tex-holz.webp') 0 0 / 620px,
+    var(--bg-0);
 }
 /* Feines Korn über allem, damit Flächen nicht nach Plastik aussehen. */
 .wf-app::after {
@@ -27,8 +31,13 @@
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, #110e0d, #0a0808);
-  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.6);
+  background:
+    linear-gradient(180deg, rgba(20, 16, 14, 0.62), rgba(8, 6, 6, 0.86)),
+    url('../ui/assets/tex-holz.webp') 0 0 / 620px,
+    #0a0808;
+  box-shadow:
+    1px 0 0 rgba(0, 0, 0, 0.6),
+    inset -1px 0 0 rgba(239, 212, 151, 0.03);
 }
 .wf-brand {
   display: flex;
@@ -38,12 +47,14 @@
   padding: 0 var(--s-4);
   border-bottom: 1px solid var(--line);
 }
-.wf-brand svg {
+.wf-brand__emblem {
   flex: none;
-  width: 30px;
-  height: 30px;
-  color: var(--gold);
-  filter: drop-shadow(0 0 8px rgba(201, 163, 91, 0.35));
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.7),
+    0 0 18px rgba(201, 163, 91, 0.14);
 }
 .wf-brand__name {
   font-family: var(--font-display);
@@ -59,7 +70,7 @@
 .wf-brand__campaign {
   margin-top: 5px;
   font-family: var(--font-caps);
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -75,9 +86,9 @@
   display: flex;
   align-items: center;
   gap: 13px;
-  height: 46px;
-  padding: 0 var(--s-4) 0 18px;
-  color: var(--ink-mute);
+  height: 52px;
+  padding: 0 var(--s-3) 0 18px;
+  color: var(--ink-soft);
   transition:
     color 0.15s var(--ease),
     background 0.15s var(--ease);
@@ -94,9 +105,32 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
+.wf-nav__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+/* Wozu der Bereich da ist – klein darunter, damit man nicht raten muss. */
+.wf-nav__hint {
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-faint);
+  transition: color 0.15s var(--ease);
+}
+.wf-nav__item:hover .wf-nav__hint,
+.wf-nav__item[aria-current='page'] .wf-nav__hint {
+  color: var(--ink-mute);
+}
 .wf-nav__key {
+  flex: none;
   margin-left: auto;
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   color: var(--ink-faint);
   opacity: 0;
   transition: opacity 0.15s var(--ease);
@@ -110,17 +144,28 @@
 }
 .wf-nav__item[aria-current='page'] {
   color: var(--gold-bright);
-  background: linear-gradient(90deg, rgba(201, 163, 91, 0.14), transparent 85%);
+  background: linear-gradient(
+    90deg,
+    rgba(201, 163, 91, 0.16),
+    rgba(201, 163, 91, 0.03) 70%,
+    transparent
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(239, 212, 151, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+.wf-nav__item[aria-current='page'] svg {
+  filter: drop-shadow(0 0 6px rgba(201, 163, 91, 0.45));
 }
 .wf-nav__item[aria-current='page']::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 2px;
-  background: var(--gold);
-  box-shadow: 0 0 12px var(--gold);
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+  box-shadow: 0 0 12px rgba(201, 163, 91, 0.7);
 }
 .wf-rail__foot {
   margin-top: auto;
@@ -163,15 +208,24 @@
   align-items: stretch;
   min-width: 0;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, #151110, #0e0c0b);
-  box-shadow: 0 1px 0 rgba(239, 212, 151, 0.03) inset;
+  background:
+    linear-gradient(180deg, rgba(24, 19, 17, 0.7), rgba(12, 10, 9, 0.9)),
+    url('../ui/assets/tex-holz.webp') 0 0 / 620px,
+    #0e0c0b;
+  box-shadow:
+    0 1px 0 rgba(239, 212, 151, 0.04) inset,
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 2;
 }
 .wf-bar__cell {
   display: flex;
   align-items: center;
   gap: var(--s-3);
   padding: 0 var(--s-5);
-  border-right: 1px solid var(--line-faint);
+  /* Eine gravierte Fuge statt einer Linie: dunkel, daneben ein Hauch Licht. */
+  border-right: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow: 1px 0 0 rgba(239, 212, 151, 0.05);
   min-width: 0;
 }
 .wf-bar__cell--grow {
@@ -191,6 +245,7 @@
 }
 .wf-bar__cell--end {
   border-right: 0;
+  box-shadow: none;
   padding-right: var(--s-4);
   gap: var(--s-2);
 }
@@ -204,7 +259,7 @@
 .wf-bar__sub {
   margin-top: 3px;
   font-family: var(--font-caps);
-  font-size: 0.64rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -294,11 +349,22 @@
   height: 100%;
   padding: var(--s-6);
   overflow: auto;
+  /* Der Tisch des Spielleiters bei Kerzenlicht; links bleibt es dunkel für die Auswahl. */
   background:
-    radial-gradient(900px 600px at 50% 0%, rgba(201, 163, 91, 0.1), transparent 65%), var(--bg-0);
+    linear-gradient(
+      90deg,
+      var(--bg-0) 0%,
+      rgba(12, 10, 9, 0.9) 34%,
+      rgba(12, 10, 9, 0.35) 62%,
+      transparent 100%
+    ),
+    url('../ui/assets/hero-tisch.webp') right center / cover no-repeat,
+    var(--bg-0);
 }
 .wf-welcome__card {
-  width: min(640px, 100%);
+  width: min(600px, 100%);
+  margin-right: auto;
+  margin-left: clamp(0px, 7vw, 150px);
 }
 .wf-welcome__mark {
   display: flex;
@@ -308,11 +374,13 @@
   margin-bottom: var(--s-6);
   text-align: center;
 }
-.wf-welcome__mark svg {
-  width: 64px;
-  height: 64px;
-  color: var(--gold);
-  filter: drop-shadow(0 0 18px rgba(201, 163, 91, 0.35));
+.wf-welcome__mark img {
+  width: 92px;
+  height: 92px;
+  border-radius: 20px;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.7),
+    0 0 40px rgba(201, 163, 91, 0.16);
 }
 .wf-welcome__title {
   font-size: var(--text-3xl);

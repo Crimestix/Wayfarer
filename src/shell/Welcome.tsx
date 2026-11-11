@@ -7,7 +7,7 @@ import { elarisCampaign } from '../data/seed';
 import type { CampaignData } from '../domain/schema';
 import { importV157Backup } from '../features/import/v157';
 import { Button, Panel } from '../ui';
-import { Sigil } from './Sigil';
+import emblem from '../ui/assets/emblem.webp';
 import './shell.css';
 
 export function Welcome({
@@ -80,7 +80,7 @@ export function Welcome({
     <div className="wf-welcome">
       <div className="wf-welcome__card">
         <div className="wf-welcome__mark">
-          <Sigil />
+          <img src={emblem} alt="" draggable={false} />
           <h1 className="wf-welcome__title">Wayfarer</h1>
           <p className="wf-mute wf-italic">Der Spielleiterschirm für eine lebendige Kampagne.</p>
         </div>

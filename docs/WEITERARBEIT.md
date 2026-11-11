@@ -624,6 +624,28 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
+**Oberfläche überarbeitet (11. 11. 2026).** Auftrag: nutzerfreundlich und wirklich schön.
+- **Entwurf „Schreibtisch des Spielleiters“:** Navigation und Weltleiste aus geschwärztem Holz,
+  jede Fläche eine Lederunterlage mit Messingbeschlägen an allen vier Ecken, Kopfzeile der
+  Flächen leicht abgesetzt. Knöpfe fühlen sich nach Tasten an; die eine wichtige Handlung einer
+  Ansicht ist ein Messingschild mit dunkler Schrift. Eingabefelder sind eingelassen. Leere
+  Zustände tragen ihr Symbol in einem Messingring.
+- **Lesbarkeit:** Alle Schriftgrade unter 12 Punkt angehoben (`--text-2xs` als kleinste Stufe),
+  `--text-xs` und `--text-sm` größer, gedämpfte Schriftfarben heller. Knöpfe und Felder höher.
+- **Bedienung:** Unter jedem Bereich der Navigation steht, wozu er da ist. Erkundung zeigt in
+  der leeren Liste, was dort später steht.
+- **Bildmaterial (Higgsfield, 39 von 150 freigegebenen Credits):** Holz- und Lederkachel
+  (nahtlos durch Spiegeln), Startbild (Tisch bei Kerzenlicht) und das App-Symbol (Windrose aus
+  Messing; ersetzt das gezeichnete Zeichen, auch in der Navigation). Alle Symbolgrößen der
+  installierten App sind neu erzeugt.
+- **Verworfen – nicht wieder versuchen:** ein bräunlicher Kupferstich als Bildstil („kein
+  schönes Bild“); gemalte Stillleben hinter den Überschriften der Bereiche und in leeren
+  Zuständen („stören mehr, als dass sie gut aussehen“, „nicht einfach Bilder hinklatschen“).
+  Schönheit kommt aus Werkstoff, Schrift und Abstand, nicht aus Schmuckbildern.
+- Geprüft in der Vorschau bei 1440×900 und 1280×800 (alle Bereiche, Dialog „Festhalten“,
+  Startseite). **Nicht geprüft:** installierte App, macOS, das neue Symbol im Dock und in der
+  Taskleiste.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

@@ -29,7 +29,7 @@ import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster 
 import { openMoveParty, openQuickLog, openRest, openSearch, openTimeDialog } from './commands';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ShellDialogs, advanceAndReport } from './dialogs';
-import { Sigil } from './Sigil';
+import emblem from '../ui/assets/emblem.webp';
 import './shell.css';
 
 const isActive = (location: string, path: string) =>
@@ -43,7 +43,7 @@ function NavRail() {
   return (
     <nav className="wf-rail" aria-label="Bereiche">
       <div className="wf-brand">
-        <Sigil />
+        <img className="wf-brand__emblem" src={emblem} alt="" draggable={false} />
         <div style={{ minWidth: 0 }}>
           <div className="wf-brand__name">Wayfarer</div>
           <div className="wf-brand__campaign wf-clamp-1">{data.campaign.name}</div>
@@ -59,7 +59,10 @@ function NavRail() {
             title={area.hint}
           >
             <area.icon />
-            <span className="wf-nav__label">{area.label}</span>
+            <span className="wf-nav__text">
+              <span className="wf-nav__label">{area.label}</span>
+              <span className="wf-nav__hint">{area.hint}</span>
+            </span>
             <span className="wf-nav__key">Alt {i + 1}</span>
           </Link>
         ))}
@@ -71,7 +74,9 @@ function NavRail() {
           aria-current={isActive(location, '/einstellungen') ? 'page' : undefined}
         >
           <Settings />
-          <span className="wf-nav__label">Einstellungen</span>
+          <span className="wf-nav__text">
+            <span className="wf-nav__label">Einstellungen</span>
+          </span>
         </Link>
         <div className="wf-save" data-status={status} title={error || db.store.location}>
           <i />

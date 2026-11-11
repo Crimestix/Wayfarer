@@ -82,6 +82,9 @@ export default function ErkundungPage() {
           </Button>
         </div>
         <div className="wf-erk-side__list">
+          {areas.length === 0 && (
+            <p className="wf-erk-side__none">Hier stehen später deine Hexkarten.</p>
+          )}
           {areas.map((a) => (
             <Link
               key={a.id}

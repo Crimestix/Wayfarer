@@ -227,7 +227,8 @@ In der Browser-Vorschau setzt `?reset` vor dem `#` auf den Elaris-Grundstand zur
 In einem privaten Repository verbrauchen die Abläufe Freiminuten von GitHub Actions; macOS zählt
 dabei zehnfach, Windows doppelt.
 
-**App-Symbol:** Die Vorlagen liegen als SVG in `src-tauri/icons/` (`app-icon.svg` für Windows,
-`app-icon-macos.svg` mit Rand nach Apples Raster). Nach einer Änderung als PNG mit 1024 × 1024
-Pixeln rendern und mit `npx tauri icon <datei.png> -o src-tauri/icons` die Symbolgrößen neu
-erzeugen (`icon.icns` aus der macOS-Vorlage).
+**App-Symbol:** Die Vorlage liegt als `src-tauri/icons/app-icon.png` (1024 × 1024, Windrose aus
+Messing auf geschwärztem Holz; mit Higgsfield erzeugt). Mit `npx tauri icon <datei.png> -o <ordner>`
+entstehen daraus die Symbolgrößen. Für `icon.icns` (macOS) die Kachel vorher auf 824 × 824 Pixel
+verkleinern und mittig auf eine durchsichtige Fläche von 1024 × 1024 setzen – Apples Raster lässt
+ringsum Rand.

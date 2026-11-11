@@ -44,7 +44,7 @@
 }
 .wf-atlas-side__total {
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -170,7 +170,7 @@
 }
 .wf-atlas-card__facts dt {
   font-family: var(--font-caps);
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -268,7 +268,7 @@
   background: none;
   color: var(--ink-mute);
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -348,7 +348,7 @@
 .wf-atlas-trace__label {
   margin-bottom: var(--s-1);
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -502,7 +502,7 @@ details.wf-atlas-lands[open] {
 }
 .wf-atlas-lands__title {
   font-family: var(--font-caps);
-  font-size: 0.62rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-mute);

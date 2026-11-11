@@ -215,7 +215,7 @@
 }
 .wf-chronik-day__weekday {
   font-family: var(--font-caps);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--gold);
@@ -235,7 +235,7 @@
 .wf-chronik-day__rel,
 .wf-chronik-day__count {
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -283,7 +283,7 @@
 .wf-chronik-marker__label {
   flex: none;
   font-family: var(--font-caps);
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -515,7 +515,7 @@ button.wf-chronik-marker:hover {
   align-items: center;
   gap: 6px;
   font-family: var(--font-caps);
-  font-size: 0.64rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--blood-bright);
@@ -582,7 +582,7 @@ button.wf-chronik-marker:hover {
 }
 .wf-chronik-facts dt {
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-mute);

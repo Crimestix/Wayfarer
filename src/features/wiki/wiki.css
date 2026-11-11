@@ -46,7 +46,7 @@
 }
 .wf-wiki-side__total {
   font-family: var(--font-caps);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -197,7 +197,7 @@ button.wf-wiki-row__toggle:hover {
   border: 0;
   background: none;
   font-family: var(--font-caps);
-  font-size: 0.68rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -299,7 +299,7 @@ button.wf-wiki-row__toggle:hover {
 }
 .wf-wiki-facts__label {
   font-family: var(--font-caps);
-  font-size: 0.64rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--gold-deep);
@@ -435,7 +435,7 @@ button.wf-wiki-row__toggle:hover {
   background: none;
   color: var(--ink-mute);
   font-family: var(--font-caps);
-  font-size: 0.66rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;

@@ -6,11 +6,15 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 34px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 15px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(0, 0, 0, 0.12));
+  /* Ein Stück dunkles Leder mit heller Oberkante: fühlt sich nach Taste an, nicht nach Rahmen. */
+  background: linear-gradient(180deg, #2b241e 0%, #1c1815 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 212, 151, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.45);
   color: var(--ink);
   font-size: var(--text-sm);
   letter-spacing: 0.02em;
@@ -21,12 +25,13 @@
     color 0.15s var(--ease);
 }
 .wf-btn:hover:not(:disabled) {
-  border-color: var(--gold-deep);
-  background: var(--bg-3);
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #372d25 0%, #241e1a 100%);
   color: var(--gold-bright);
 }
 .wf-btn:active:not(:disabled) {
   background: var(--bg-inset);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
 }
 .wf-btn:disabled {
   opacity: 0.4;
@@ -38,20 +43,34 @@
   height: 16px;
   stroke-width: 1.6;
 }
+/*
+ * Die eine wichtige Handlung einer Ansicht: ein Schild aus Messing mit dunkler Gravur. Es ist
+ * die hellste Fläche weit und breit – man findet sie, ohne zu suchen.
+ */
 .wf-btn--primary {
-  border-color: var(--gold);
-  background: linear-gradient(180deg, #6f5527, #46351a);
-  color: #fbeecb;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  border-color: #6f5626;
+  background: linear-gradient(180deg, #d3b272 0%, #b08b47 52%, #8f6f35 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 205, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.6);
+  color: #1b1307;
+  font-weight: 600;
+  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.3);
 }
 .wf-btn--primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #84662f, #54401f);
-  border-color: var(--gold-bright);
-  color: #fff8e6;
+  border-color: #8b6c34;
+  background: linear-gradient(180deg, #e4c684 0%, #c29b53 52%, #9d7b3c 100%);
+  color: #120c03;
+}
+.wf-btn--primary:active:not(:disabled) {
+  background: linear-gradient(180deg, #9d7b3c 0%, #b08b47 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 .wf-btn--ghost {
   border-color: transparent;
   background: none;
+  box-shadow: none;
   color: var(--ink-soft);
 }
 .wf-btn--ghost:hover:not(:disabled) {
@@ -67,16 +86,16 @@
   color: #ffb1a6;
 }
 .wf-btn--sm {
-  height: 28px;
-  padding: 0 10px;
+  height: 30px;
+  padding: 0 11px;
   font-size: var(--text-xs);
 }
 .wf-btn--icon {
-  width: 34px;
+  width: 36px;
   padding: 0;
 }
 .wf-btn--icon.wf-btn--sm {
-  width: 28px;
+  width: 30px;
 }
 .wf-btn-group {
   display: inline-flex;
@@ -96,32 +115,31 @@
   flex-direction: column;
   min-width: 0;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, #171311 0%, #110e0d 100%);
+  /* Eine Unterlage aus dunklem Leder auf dem Holz des Tisches. */
+  background:
+    linear-gradient(180deg, rgba(31, 26, 22, 0.9) 0%, rgba(19, 16, 14, 0.95) 100%),
+    url('./assets/tex-leder.webp') 0 0 / 460px,
+    #151211;
   box-shadow: var(--shadow-raised);
 }
-/* Messingecken */
-.wf-panel::before,
-.wf-panel::after {
+/* Messingbeschläge an allen vier Ecken */
+.wf-panel::before {
   content: '';
   position: absolute;
-  width: 9px;
-  height: 9px;
+  inset: -1px;
+  z-index: 1;
   pointer-events: none;
-  border-color: var(--gold-deep);
-  border-style: solid;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Cg transform='rotate(0 9 9)' fill='none' stroke='%23a8843f'%3E%3Cpath d='M.5 17V.5H17'/%3E%3Cpath d='M4.5 11V4.5H11' stroke='%238b6c34' opacity='.55'/%3E%3C/g%3E%3C/svg%3E")
+      top left no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Cg transform='rotate(90 9 9)' fill='none' stroke='%23a8843f'%3E%3Cpath d='M.5 17V.5H17'/%3E%3Cpath d='M4.5 11V4.5H11' stroke='%238b6c34' opacity='.55'/%3E%3C/g%3E%3C/svg%3E")
+      top right no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Cg transform='rotate(270 9 9)' fill='none' stroke='%23a8843f'%3E%3Cpath d='M.5 17V.5H17'/%3E%3Cpath d='M4.5 11V4.5H11' stroke='%238b6c34' opacity='.55'/%3E%3C/g%3E%3C/svg%3E")
+      bottom left no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Cg transform='rotate(180 9 9)' fill='none' stroke='%23a8843f'%3E%3Cpath d='M.5 17V.5H17'/%3E%3Cpath d='M4.5 11V4.5H11' stroke='%238b6c34' opacity='.55'/%3E%3C/g%3E%3C/svg%3E")
+      bottom right no-repeat;
 }
-.wf-panel::before {
-  top: -1px;
-  left: -1px;
-  border-width: 1px 0 0 1px;
-}
-.wf-panel::after {
-  right: -1px;
-  bottom: -1px;
-  border-width: 0 1px 1px 0;
-}
-.wf-panel--plain::before,
-.wf-panel--plain::after {
+.wf-panel--plain::before {
   display: none;
 }
 .wf-panel--inset {
@@ -132,9 +150,11 @@
   display: flex;
   align-items: center;
   gap: var(--s-3);
-  min-height: 44px;
+  min-height: 46px;
   padding: 0 var(--s-4);
   border-bottom: 1px solid var(--line-faint);
+  background: linear-gradient(180deg, rgba(239, 212, 151, 0.045), transparent);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 .wf-panel__title {
   flex: 1 1 auto;
@@ -216,7 +236,7 @@
 }
 .wf-field__label {
   font-family: var(--font-caps);
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -230,13 +250,17 @@
 .wf-textarea,
 .wf-select {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 10px;
+  min-height: 38px;
+  padding: 6px 11px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  /* Eine Vertiefung: oben dunkler, damit das Feld eingelassen wirkt. */
   background: var(--bg-inset);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
   color: var(--ink);
-  transition: border-color 0.15s var(--ease);
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
 }
 .wf-input::placeholder,
 .wf-textarea::placeholder {
@@ -253,7 +277,9 @@
 .wf-select:focus {
   outline: none;
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--gold-glow);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 0 3px var(--gold-glow);
 }
 .wf-textarea {
   min-height: 88px;
@@ -566,9 +592,14 @@ button.wf-item:hover,
 .wf-dialog {
   padding: 0;
   border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, #1a1513, #100d0c);
+  background:
+    linear-gradient(180deg, rgba(33, 27, 23, 0.92), rgba(18, 15, 13, 0.97)),
+    url('./assets/tex-leder.webp') 0 0 / 460px,
+    #14110f;
   color: var(--ink);
-  box-shadow: var(--shadow-float);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 212, 151, 0.08),
+    var(--shadow-float);
   max-width: calc(100vw - 48px);
   max-height: calc(100vh - 48px);
   overflow: visible;
@@ -703,15 +734,28 @@ button.wf-item:hover,
   color: var(--ink-mute);
 }
 .wf-empty > svg {
-  width: 30px;
-  height: 30px;
-  color: var(--gold-deep);
+  box-sizing: border-box;
+  width: 60px;
+  height: 60px;
+  padding: 16px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 163, 91, 0.12), transparent 70%);
+  box-shadow:
+    0 0 0 4px rgba(12, 10, 9, 0.6),
+    0 0 0 5px var(--line);
+  color: var(--gold);
   stroke-width: 1.2;
 }
 /* Symbole in Knöpfen eines leeren Zustands behalten die Größe und Farbe des Knopfes. */
 .wf-empty .wf-btn svg {
   width: 16px;
   height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
   color: inherit;
   stroke-width: 1.6;
 }
@@ -774,7 +818,9 @@ button.wf-item:hover,
   padding: var(--s-5) var(--s-6) var(--s-4);
 }
 .wf-page__title {
-  font-size: var(--text-2xl);
+  font-size: 2.2rem;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
 }
 .wf-page__lead {
   color: var(--ink-mute);

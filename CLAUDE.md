@@ -151,7 +151,17 @@ nicht wie ein Admin-Dashboard.
 
 - Schriften: Cormorant Garamond (Namen, Überschriften), Cinzel (kleine Versalien für Etiketten und
   Navigation), Crimson Pro (Fließtext und Bedienelemente).
-- Rahmen mit Messingecken (`Panel`), Abschnittstitel in Versalien, Zierlinie (`Divider`).
+- Werkstoffe: Das Gerüst ist Holz (`tex-holz`), jede Fläche (`Panel`, Dialog) eine Unterlage aus
+  dunklem Leder (`tex-leder`) mit Messingbeschlägen an den vier Ecken. Messing als Fläche trägt
+  nur der Knopf für die eine wichtige Handlung einer Ansicht (`variant="primary"`) – höchstens
+  einer je Ansicht, sonst verliert er seinen Sinn.
+- Abschnittstitel in Versalien, Zierlinie (`Divider`).
+- **Keine Bilder als Schmuck in Arbeitsflächen** (Entscheidung des Spielleiters, 11. 11. 2026:
+  „Die Bilder stören mehr, als dass sie gut aussehen“). Gemalt sind nur das Startbild und das
+  App-Symbol; alles Weitere kommt aus Werkstoff, Schrift und Abstand. Bildmaterial liegt in
+  `src/ui/assets`, ist mit Higgsfield erzeugt und zeigt nie etwas aus der Welt des Spielleiters.
+- Lesbarkeit: kein Schriftgrad unter `--text-2xs`; gedämpfte Schrift nur über `--ink-mute` und
+  `--ink-faint`, nie dunkler.
 - Dichte: am Tisch muss man mit einem Blick finden, was man sucht. Lieber wenige, klar gegliederte
   Flächen als viele Kästen. Keine leeren Flächen ohne Hinweis, was hier hingehört.
 - Für Desktop gebaut: 1280 × 800 bis 1920 × 1080. Kein Mobil-Layout.
