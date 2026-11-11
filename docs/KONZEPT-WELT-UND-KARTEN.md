@@ -420,6 +420,22 @@ Spielleiter; ihr Vorkommen steht im Steckbrief (z. B. „Lebensraum: Wald“, �
 werden auf Wunsch übernommen. Wayfarer zeigt Lücken („Für gemäßigten Wald gibt es noch keine
 Tiere im Lexikon“), statt sie zu füllen.
 
+## 4c. Alles ist ein Artikel
+
+Entscheidung des Spielleiters (11. 11. 2026): „Am Ende des Tages ist alles ein Artikel.“ Nichts
+soll doppelt eingetragen werden müssen.
+
+- **Ein Ding, eine Seite.** Jeder Eintrag der Weltdatenbank ist zugleich ein Artikel, und jeder
+  Artikel kann ein Eintrag sein. Artikel ohne Eintrag (Geschichte, Lore) haben nur den Text.
+- Die Seite hat **Reiter je nach Art**: Text, Überblick, Beziehungen, Chronik, Karte – bei
+  Monstern der Statblock, bei Geschichten Uhr und Fäden, bei Pflanzen und Tieren das Vorkommen.
+- **Ein Baum, eine Suche** für alles statt zwei Bereichen.
+- Was heute nur die Weltdatenbank kann (Dossier, Verwandtschaft, Galerie, Eingrenzen,
+  Beiwerk-NSC) und was nur das Wiki kann (Schreiben, Karten mit Punkten, Erkennen beim Lesen,
+  LegendKeeper-Übernahme, Einordnen), hängt danach an derselben Seite.
+- Die Brücke gibt es schon (Steckbrief → Eintrag, `wiki/facts.ts`; „In die Welt aufnehmen“).
+  Der Text bleibt die Quelle, die Felder sind Sichten darauf.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
