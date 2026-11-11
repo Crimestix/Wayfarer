@@ -215,18 +215,20 @@ export function mapAnchor(
   }
   let best: [MapAnchor['a'], MapAnchor['a']] | null = null;
   let bestUnits = 0;
+  let km = 0;
   for (let i = 0; i < known.length; i++)
     for (let j = i + 1; j < known.length; j++) {
       const units = Math.hypot(known[j]!.x - known[i]!.x, known[j]!.y - known[i]!.y);
-      if (units > bestUnits) {
-        bestUnits = units;
-        best = [known[i]!, known[j]!];
-      }
+      if (units <= bestUnits) continue;
+      // Derselbe Ort an zwei Stellen der Karte (oder zwei Orte an derselben Lage) trägt nichts.
+      const apart = distanceKm(radiusKm, known[i]!.geo, known[j]!.geo);
+      if (apart < 0.001) continue;
+      bestUnits = units;
+      km = apart;
+      best = [known[i]!, known[j]!];
     }
-  if (!best || bestUnits <= 0) return null;
+  if (!best) return null;
   const [a, b] = best;
-  const km = distanceKm(radiusKm, a.geo, b.geo);
-  if (km < 0.001) return null;
   // Richtung von a nach b auf der Karte, im Uhrzeigersinn von „oben“ aus (y wächst nach unten).
   const onMap = (Math.atan2(b.x - a.x, -(b.y - a.y)) * 180) / Math.PI;
   return { map, a, b, kmPerUnit: km / bestUnits, turnDeg: bearingDeg(a.geo, b.geo) - onMap };

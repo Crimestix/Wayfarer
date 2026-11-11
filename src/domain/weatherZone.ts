@@ -36,6 +36,9 @@ export function warmestMonth(data: CampaignData): number {
   return Math.min(count - 1, Math.round((count * 6.5) / 12));
 }
 
+/** So groß ist eine Gegend mit gemeinsamem Wetter, in Grad. */
+const WEATHER_CELL_DEG = 2;
+
 export interface WeatherZone {
   climate: Climate;
   /**
@@ -96,12 +99,15 @@ export function weatherZone(data: CampaignData, placeId: string | null): Weather
   if (planet && placed && placedGeo && !wordsWin) {
     const site = siteAt(planet, reliefOf(data), placedGeo);
     const { climate, preset } = siteClimate(site, months, warmest);
+    // Orte derselben Gegend teilen ihr Wetter: Der Ausgangswert hängt am Feld des Gradnetzes
+    // (zwei Grad, rund 250 km), nicht am einzelnen Ort.
+    const cell = `${Math.round(placedGeo.lon / WEATHER_CELL_DEG)}/${Math.round(placedGeo.lat / WEATHER_CELL_DEG)}`;
     return {
       climate,
       source: 'position',
       preset,
       from: placed,
-      seed: seedFor(climate.id, placed),
+      seed: seedOf(data.campaign.created, 'lage', cell),
       site,
     };
   }

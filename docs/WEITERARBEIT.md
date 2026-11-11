@@ -530,8 +530,40 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
     die echte setzt der Spielleiter in seiner App. **Nicht geprüft:** installierte App, macOS.
   - Offen: Höhen für eingelesene Landmassen; Stellen von Hand wegnehmen (Wolken, Schrift);
     Maßstab im Bild abgreifen statt Kilometer eintippen.
-- Offen: eine Wiki-Karte über zwei bekannte Punkte einhängen (dann haben alle ihre Kartenpunkte
-  eine Lage); ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
+- **Schritt 5 – was noch fehlte (gebaut, 11. 11. 2026):**
+  - *Karten hängen sich ein* (`domain/planet.ts`: `mapAnchor`, `geoIndex`, `exactGeo`): Haben
+    zwei Orte einer Wiki-Karte eine Lage, folgen Maßstab und Drehung der Karte – und die Lage
+    aller anderen Orte darauf. Nichts wird dafür gespeichert; es ist eine abgeleitete Sicht, die
+    sich neu rechnet, sobald sich Orte oder Karten ändern. Eine so gewonnene Lage kann weitere
+    Karten einhängen (bis zu vier Durchgänge). `placeGeo` liefert `own` (eingetragen), `exact`
+    (gehört zu diesem Ort: eingetragen oder aus Karte) und `via` (die Karte). Der Atlas zeigt
+    „über Karte“ und sagt beim Ort, was einer Karte zum Einhängen fehlt.
+  - *Höhen für eingelesene Landmassen* (`domain/landRelief.ts`): Wayfarer erzeugt ein Gelände –
+    an der Küste niedrig, im Inneren höher, Gebirgszüge aus weichem Rauschen, Ausgangswert ist
+    die Kennung der Landmasse. `reliefOf` rechnet es ins Höhenraster ein, also gilt es für Karte,
+    Kugel, Hexkarten und Klima. Als erzeugt gekennzeichnet („etwa 640 m (erzeugt)“), je Landmasse
+    abschaltbar (`lands[].relief`: `generated` / `flat`).
+  - *Landweg ums Wasser* (`domain/landRoute.ts`): Führt die Luftlinie über Meer oder See, sucht
+    Wayfarer den kürzesten Weg über Land (Raster von einem halben Grad, danach begradigt). Der
+    Atlas nennt Luftlinie und Landweg oder „kein Landweg“; die Hexkarte folgt dem Landweg
+    (`GenerateInput.route`).
+  - *Flüsse auf Hexkarten:* Die Flüsse des Atlas stehen als `hex.river` im Feld und werden
+    eingezeichnet. Straßen kennt der Atlas nicht.
+  - *Zeitleisten des Exports* (`wiki/timeline.ts`): Die Ereignisse werden Termine im Kalender.
+    LegendKeeper zählt je Kalender in Minuten; umgerechnet wird über das Datum. Welches Jahr
+    gemeint ist, sagt die Zeitrechnung: Trägt ein Kalender des Exports eine, die Wayfarers
+    Kalender kennt („AD“, „JF“), ist die Zuordnung eindeutig; sonst bleibt die Zeitleiste draußen
+    und wird genannt. Vergangenes ist abgehakt; was schon im Kalender steht, bleibt.
+  - *Welt:* Der Überblick eines Eintrags sagt, welche Angaben aus dem Steckbrief seines Artikels
+    stammen (`articleShare`).
+  - *Kleinere Mängel:* Dialoge fragen nach, bevor Escape oder ein Klick daneben Eingaben verwirft
+    (`Dialog guard`; reine Ansichten schalten es ab); im Kalender lässt sich an vergangenen
+    Tagen nachtragen; ein abgehakter Termin, der in die Zukunft verschoben wird, steht wieder aus.
+  - *Wetter:* Orte derselben Gegend (Feld von zwei Grad) teilen ihr Wetter, wenn ihr Klima aus
+    der Lage stammt – sonst hätte jedes Dorf einer eingehängten Karte sein eigenes.
+  - Gegengeprüft (neun Befunde, alle behoben), mit Tests und in der Vorschau mit den echten
+    Dateien. **Nicht geprüft:** installierte App, macOS.
+- Offen: ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
   Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die
   Zeitrechnung des alten Atlas (Jahresbeginn im Frühling) mit dem Kalender abgleichen.
 

@@ -5,6 +5,7 @@
  * Kalender des Exports eine, die Wayfarers Kalender auch kennt („AD“, „JF“), ist die Zuordnung
  * eindeutig; sonst bleibt die Zeitleiste draußen und wird genannt. Reine Funktionen.
  */
+import { normalize as fold } from '../../domain/derive';
 import {
   MINUTES_PER_DAY,
   formatDate,
@@ -102,13 +103,6 @@ export function lkDate(cal: LkCalendar, minutes: number): LkDate {
     minute: Math.floor(rest % cal.minutesInHour),
   };
 }
-
-const fold = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .trim();
 
 /**
  * Wie die Jahre eines Kalenders des Exports zu Wayfarers absoluten Jahren stehen: Trägt er eine

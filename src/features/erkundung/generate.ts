@@ -31,7 +31,7 @@ import {
   hexNeighbors,
   type HexCoord,
 } from '../../domain/hex';
-import { rngOf, seedOf } from '../../domain/random';
+import { rngOf, seedOf, smoothNoise } from '../../domain/random';
 import {
   AreaSchema,
   newId,
@@ -60,8 +60,8 @@ export interface Recognition {
   /** Vorgeschlagene Feldgröße in km. */
   hexKm: number;
   /**
-   * Lage des Startortes auf dem Planeten, wenn das Gelände dem Atlas folgen kann: Es gibt einen
-   * Atlas, der Start hat eine Lage und die Richtung zum Ziel ist bekannt. Sonst null.
+   * Lage des Startortes auf dem Planeten, wenn das Gelände dem Atlas folgen kann: Entfernung und
+   * Richtung stammen vom Planeten, und der Start hat dort selbst eine Lage. Sonst null.
    */
   origin: LonLat | null;
   /** Entfernung und Richtung stammen vom Planeten. */
@@ -297,7 +297,9 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     biome,
     biomeSource,
     hexKm: suggestHexKm(distanceKm),
-    origin: planet && geoFrom && direction ? geoFrom.geo : null,
+    // Nur wenn die Richtung vom Planeten stammt und der Start selbst dort liegt – eine Wiki-Karte
+    // muss nicht nach Norden zeigen, und die Lage des Landes ist nicht die der Stadt.
+    origin: fromAtlas && geoFrom?.exact ? geoFrom.geo : null,
     fromAtlas,
     route,
     seaOnly,
@@ -332,7 +334,6 @@ export function groundOf(
   const grid = reliefOf(data);
   const kmPerDegree = (2 * Math.PI * planet.radiusKm) / 360;
   // Ein Fluss gehört zum Feld, wenn er näher als ein halbes Feld an dessen Mitte vorbeifließt.
-  const reach = Math.max(hexKm / 2, (planet.doc.rivers[0]?.widthKm ?? 0) / 2);
   const rivers = planet.doc.rivers.map((river) => {
     let south = 90;
     let north = -90;
@@ -340,12 +341,20 @@ export function groundOf(
       south = Math.min(south, river.points[i]!);
       north = Math.max(north, river.points[i]!);
     }
-    return { name: river.name || 'Fluss', points: river.points, south, north };
+    return {
+      name: river.name || 'Fluss',
+      points: river.points,
+      south,
+      north,
+      // Ein breiter Strom reicht weiter als ein halbes Feld.
+      reach: Math.max(hexKm / 2, river.widthKm / 2),
+    };
   });
   const riverAt = (point: LonLat): string | undefined => {
-    const margin = reach / kmPerDegree;
     const shrink = Math.cos((point.lat * Math.PI) / 180);
     for (const river of rivers) {
+      const { reach } = river;
+      const margin = reach / kmPerDegree;
       if (point.lat < river.south - margin || point.lat > river.north + margin) continue;
       for (let i = 0; i + 3 < river.points.length; i += 2) {
         // Abstand zur Strecke, in Kilometern, in der Ebene um die Stelle herum.
@@ -402,26 +411,6 @@ export function groundTerrain(
 }
 
 // ── Gelände: zusammenhängend statt gewürfelt ───────────────────────────────
-
-/** Fester Zufallswert in [0, 1) für einen Gitterpunkt. */
-function lattice(seed: number, x: number, y: number): number {
-  let h = (seed ^ Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-
-/** Weiches Rauschen: benachbarte Punkte haben ähnliche Werte. */
-function smoothNoise(seed: number, x: number, y: number): number {
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const fx = x - x0;
-  const fy = y - y0;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const top = lattice(seed, x0, y0) * (1 - sx) + lattice(seed, x0 + 1, y0) * sx;
-  const bottom = lattice(seed, x0, y0 + 1) * (1 - sx) + lattice(seed, x0 + 1, y0 + 1) * sx;
-  return top * (1 - sy) + bottom * sy;
-}
 
 /** Drei Ebenen Rauschen: große Züge, darin kleinere, darin Einzelheiten. */
 export function terrainNoise(seed: number, x: number, y: number): number {

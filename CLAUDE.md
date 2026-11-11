@@ -91,8 +91,9 @@ nicht übernommen.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.
   Was mehrere Dokumente betrifft (Zeit, Ort, Haltung), gehört in `actions.ts`, nicht in die Oberfläche.
 - Ungültige oder fremde Dateien werden nie überschrieben, nur gemeldet (`db.problems`).
-- Lage: Orte tragen `place.geo` (Länge, Breite). Gefragt wird immer über `placeGeo()` – Orte
-  ohne eigene Lage erben die des Ortes darüber. Der Planet zum Fragen (`planetOf`, `terrainAt`,
+- Lage: Orte tragen `place.geo` (Länge, Breite). Gefragt wird immer über `placeGeo()` – nie
+  direkt über `place.geo`: Orte ohne eigene Lage bekommen sie aus einer Wiki-Karte, auf der
+  zwei andere Orte eine Lage haben (`geoIndex`), sonst erben sie die des Ortes darüber. Der Planet zum Fragen (`planetOf`, `terrainAt`,
   `coastKm`, `placeGeo`) steht in `domain/planet.ts`; die Oberfläche nimmt ihn aus
   `atlas/model.ts`, das alles weiterreicht. Aus der Lage folgen Klima (`domain/geoClimate.ts`),
   Sonnenstand (`sunAt`) sowie Strecke und Gelände der Hexkarten (`erkundung/generate.ts`,

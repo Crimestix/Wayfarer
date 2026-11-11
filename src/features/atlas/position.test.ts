@@ -584,3 +584,38 @@ describe('Der Weg ums Wasser herum', () => {
     expect(line[line.length - 1]!.river).toBe('');
   });
 });
+
+describe('Nach der Gegenprüfung', () => {
+  it('hängt eine Karte auch ein, wenn ein Ort zweimal darauf steht', () => {
+    const a = place('Hohenfurt', 10, 0);
+    const b = place('Graufels', 20, 0);
+    const c = place('Reusenhof', null);
+    // Hohenfurt steht an beiden Rändern der Karte – das fernste Paar trägt nichts.
+    const twice = chart('Doppelt', [
+      [a, 0, 500],
+      [a, 1000, 500],
+      [b, 600, 500],
+      [c, 350, 250],
+    ]);
+    const data = { ...world([a, b, c]), maps: { [twice.id]: twice } };
+    expect(placeGeo(data, c.id)).toMatchObject({ exact: true, via: { name: 'Doppelt' } });
+  });
+
+  it('gibt Orten derselben Gegend dasselbe Wetter, fernen ein anderes', () => {
+    const a = place('Hohenfurt', 30.2, 45.1);
+    const near = place('Reusenhof', 30.4, 45.3);
+    const far = place('Fernwacht', 50, 45);
+    const data = world([a, near, far]);
+    expect(weatherZone(data, near.id).seed).toBe(weatherZone(data, a.id).seed);
+    expect(weatherZone(data, far.id).seed).not.toBe(weatherZone(data, a.id).seed);
+  });
+
+  it('nimmt das Gelände des Atlas nur, wenn der Start selbst dort liegt', () => {
+    const land = place('Graufels', 10, 0);
+    const inn = place('Zum Aal', null, 0, land);
+    const b = place('Hohenfurt', 20, 0);
+    const known = recognize(world([land, inn, b]), inn.id, b.id);
+    expect(known.fromAtlas).toBe(true);
+    expect(known.origin).toBeNull();
+  });
+});

@@ -44,6 +44,7 @@ export function ArticleDialog({
     <Dialog
       open={articleId !== null && article !== undefined}
       onClose={onClose}
+      guard={false}
       title="Aus dem Wiki"
       width={1080}
     >
@@ -106,6 +107,7 @@ export function MapDialog({
     <Dialog
       open={open && current !== undefined}
       onClose={onClose}
+      guard={false}
       title={current ? current.map.name : 'Karte'}
       width={1180}
     >

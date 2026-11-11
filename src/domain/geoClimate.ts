@@ -18,13 +18,22 @@ export interface Site {
   coastKm: number | null;
 }
 
-/** Die Stelle zu einer Lage auf dem Planeten. */
+const siteCache = new WeakMap<Planet, Map<string, { grid: HeightGrid | null; site: Site }>>();
+
+/** Die Stelle zu einer Lage auf dem Planeten – einmal gerechnet, dann gemerkt. */
 export function siteAt(planet: Planet, grid: HeightGrid | null, point: LonLat): Site {
-  return {
+  const key = `${point.lon.toFixed(3)}/${point.lat.toFixed(3)}`;
+  let known = siteCache.get(planet);
+  if (!known) siteCache.set(planet, (known = new Map()));
+  const cached = known.get(key);
+  if (cached && cached.grid === grid) return cached.site;
+  const site = {
     lat: point.lat,
     heightM: terrainAt(planet, grid, point).heightM,
     coastKm: coastKm(planet, point),
   };
+  known.set(key, { grid, site });
+  return site;
 }
 
 /** Bis zu dieser Höhe zählt Land als Tiefland – darüber wird es kühler. */

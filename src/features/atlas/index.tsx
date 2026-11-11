@@ -512,7 +512,12 @@ export default function AtlasPage() {
                   <p key={entry.map.id} className="wf-mute">
                     Liegt auf der Karte „{entry.map.name}“. Sobald dort zwei Orte eine Lage haben,
                     ergibt sich die aller anderen von selbst –{' '}
-                    {entry.placed === 0 ? 'noch fehlen beide' : 'noch fehlt einer'}.
+                    {entry.placed === 0
+                      ? 'noch fehlen beide'
+                      : entry.placed === 1
+                        ? 'noch fehlt einer'
+                        : 'die gesetzten liegen noch an derselben Stelle'}
+                    .
                   </p>
                 ))}
             <div className="wf-atlas-card__acts">
