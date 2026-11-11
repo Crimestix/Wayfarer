@@ -155,6 +155,8 @@ describe('Schreiben', () => {
     expect(titles('gibt es nicht')).toEqual([]);
     // Vorlagen werden nie vorgeschlagen; ohne Eingabe kommen die zuletzt geänderten.
     expect(articleSuggestions(articles(), '').some((a) => a.template)).toBe(false);
+    // „Zuletzt geändert“ misst in Millisekunden: Die nächste Änderung muss spürbar später liegen.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     savePageText(db, byTitle('Odo Tannhaus').id, byTitle('Odo Tannhaus').docs[0]!.id, 'Neu.');
     expect(titles('')[0]).toBe('Odo Tannhaus');
   });
