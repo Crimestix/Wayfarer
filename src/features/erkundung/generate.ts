@@ -17,7 +17,7 @@ import {
   type LonLat,
 } from '../../domain/geo';
 import { biomeOfPreset, describeSite, siteAt, sitePreset } from '../../domain/geoClimate';
-import { placeGeo, planetOf, reliefOf, terrainAt } from '../../domain/planet';
+import { exactGeo, placeGeo, planetOf, reliefOf, terrainAt } from '../../domain/planet';
 import { PRESET } from '../../domain/weather';
 import {
   hexAt,
@@ -179,18 +179,19 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     direction = { x: Math.sin(rad), y: -Math.cos(rad) };
     fromAtlas = true;
     const rough = [geoFrom, geoTo]
-      .filter((entry) => !entry.own)
+      .filter((entry) => !entry.exact)
       .map((entry) => `„${entry.from.name}“`);
     distanceSource = rough.length
       ? `Gemessen auf dem Planeten (Luftlinie) – grob: Gerechnet wird mit der Lage von ${rough.join(' und ')}.`
       : 'Gemessen auf dem Planeten (Luftlinie).';
     // Andere Orte mit eigener Lage, die nahe an der Linie liegen.
     for (const entity of Object.values(data.entities)) {
-      if (entity.kind !== 'place' || !entity.place.geo) continue;
+      const there = entity.kind === 'place' ? exactGeo(data, entity)?.geo : null;
+      if (!there) continue;
       if (entity.id === fromId || entity.id === toId) continue;
       if (entity.id === geoFrom.from.id || entity.id === geoTo.from.id) continue;
-      const km = surfaceKm(planet.radiusKm, geoFrom.geo, entity.place.geo);
-      const turn = ((bearingDeg(geoFrom.geo, entity.place.geo) - bearing) * Math.PI) / 180;
+      const km = surfaceKm(planet.radiusKm, geoFrom.geo, there);
+      const turn = ((bearingDeg(geoFrom.geo, there) - bearing) * Math.PI) / 180;
       const along = (km * Math.cos(turn)) / atlasKm;
       const offsetKm = km * Math.sin(turn);
       if (along <= 0.02 || along >= 0.98 || Math.abs(offsetKm) > atlasKm / 2) continue;
@@ -198,7 +199,7 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     }
     between.sort((x, y) => x.along - y.along);
   };
-  if (geoFrom?.own && geoTo?.own) measureOnPlanet();
+  if (geoFrom?.exact && geoTo?.exact) measureOnPlanet();
 
   const from = markerOf(data, fromId);
   const to = from ? from.map.markers.find((m) => m.entityId === toId) : undefined;

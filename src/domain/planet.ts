@@ -6,7 +6,9 @@
 import { placeAncestors } from './derive';
 import {
   NODATA,
+  bearingDeg,
   destination,
+  distanceKm,
   heightAt,
   inRing,
   ringBounds,
@@ -15,7 +17,7 @@ import {
   type Ring,
   type RingBounds,
 } from './geo';
-import type { Atlas, CampaignData, Place } from './schema';
+import type { Atlas, CampaignData, GameMap, Place } from './schema';
 
 export const PLANET_ID = 'planet';
 export const RELIEF_ID = 'relief';
@@ -149,21 +151,163 @@ export function terrainAt(planet: Planet, grid: HeightGrid | null, point: LonLat
 
 // ── Lage von Orten ─────────────────────────────────────────────────────────
 
+/** Was zum Fragen nach einer Lage gebraucht wird: die Orte – und für Karten auch diese und der Planet. */
+type GeoData = Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'maps' | 'atlas'>>;
+
 /**
- * Die Lage eines Ortes: seine eigene oder die des nächsten übergeordneten Ortes, der eine hat.
- * `own` sagt, ob sie am Ort selbst eingetragen ist.
+ * Eine Karte, die im Planeten hängt: Zwei ihrer Punkte haben eine bekannte Lage. Daraus folgen
+ * Maßstab und Drehung – und die Lage jedes anderen Punktes der Karte.
  */
-export function placeGeo(
-  data: Pick<CampaignData, 'entities'>,
-  placeId: string | null | undefined,
-): { geo: LonLat; own: boolean; from: Place } | null {
+export interface MapAnchor {
+  map: GameMap;
+  /** Die beiden Punkte, an denen die Karte hängt: Ort, Stelle auf der Karte, Lage. */
+  a: { placeId: string; x: number; y: number; geo: LonLat };
+  b: { placeId: string; x: number; y: number; geo: LonLat };
+  /** Kilometer je Karteneinheit. */
+  kmPerUnit: number;
+  /** Um so viele Grad ist „oben“ auf der Karte gegen Norden gedreht (im Uhrzeigersinn). */
+  turnDeg: number;
+}
+
+/**
+ * Hängt eine Karte ein, wenn mindestens zwei ihrer Orte eine Lage haben – genommen werden die
+ * beiden, die auf der Karte am weitesten auseinanderliegen. Sonst null.
+ */
+export function mapAnchor(
+  map: GameMap,
+  geoOf: (placeId: string) => LonLat | null | undefined,
+  radiusKm: number,
+): MapAnchor | null {
+  const known: MapAnchor['a'][] = [];
+  for (const marker of map.markers) {
+    const geo = marker.entityId ? geoOf(marker.entityId) : null;
+    if (geo && marker.entityId)
+      known.push({ placeId: marker.entityId, x: marker.x, y: marker.y, geo });
+  }
+  let best: [MapAnchor['a'], MapAnchor['a']] | null = null;
+  let bestUnits = 0;
+  for (let i = 0; i < known.length; i++)
+    for (let j = i + 1; j < known.length; j++) {
+      const units = Math.hypot(known[j]!.x - known[i]!.x, known[j]!.y - known[i]!.y);
+      if (units > bestUnits) {
+        bestUnits = units;
+        best = [known[i]!, known[j]!];
+      }
+    }
+  if (!best || bestUnits <= 0) return null;
+  const [a, b] = best;
+  const km = distanceKm(radiusKm, a.geo, b.geo);
+  if (km < 0.001) return null;
+  // Richtung von a nach b auf der Karte, im Uhrzeigersinn von „oben“ aus (y wächst nach unten).
+  const onMap = (Math.atan2(b.x - a.x, -(b.y - a.y)) * 180) / Math.PI;
+  return { map, a, b, kmPerUnit: km / bestUnits, turnDeg: bearingDeg(a.geo, b.geo) - onMap };
+}
+
+/** Die Lage eines Punktes einer eingehängten Karte. Die Karte liegt dabei flach auf der Kugel auf. */
+export function anchoredGeo(anchor: MapAnchor, radiusKm: number, x: number, y: number): LonLat {
+  const dx = x - anchor.a.x;
+  const dy = y - anchor.a.y;
+  const units = Math.hypot(dx, dy);
+  if (units === 0) return anchor.a.geo;
+  const bearing = (Math.atan2(dx, -dy) * 180) / Math.PI + anchor.turnDeg;
+  const point = destination(radiusKm, anchor.a.geo, bearing, units * anchor.kmPerUnit);
+  const round = (value: number) => Math.round(value * 1000) / 1000;
+  return { lon: round(point.lon), lat: round(point.lat) };
+}
+
+/** Was sich aus den Karten über die Lage von Orten ergibt. */
+export interface GeoIndex {
+  /** Orte ohne eigene Lage, deren Lage aus einer eingehängten Karte folgt. */
+  derived: Map<string, { geo: LonLat; map: GameMap }>;
+  /** Eingehängte Karten nach ihrer Kennung. */
+  anchors: Map<string, MapAnchor>;
+}
+
+const NO_INDEX: GeoIndex = { derived: new Map(), anchors: new Map() };
+const indexCache = new WeakMap<
+  object,
+  { maps: object; planet: Atlas | undefined; index: GeoIndex }
+>();
+
+/**
+ * Hängt alle Karten ein, die sich einhängen lassen, und rechnet die Lage ihrer übrigen Orte aus.
+ * Eine so gewonnene Lage kann wieder eine weitere Karte einhängen – in bis zu vier Durchgängen.
+ * Karten mit eingetragenen Lagen gehen vor; sonst entscheidet die Kennung der Karte.
+ */
+export function geoIndex(data: GeoData): GeoIndex {
+  const planet = data.atlas?.[PLANET_ID];
+  const maps = data.maps;
+  if (!maps || !planet || planet.kind !== 'planet') return NO_INDEX;
+  const cached = indexCache.get(data.entities);
+  if (cached && cached.maps === maps && cached.planet === planet) return cached.index;
+  const index: GeoIndex = { derived: new Map(), anchors: new Map() };
+  const geoOf = (placeId: string) => {
+    const entity = data.entities[placeId];
+    if (entity?.kind !== 'place') return null;
+    return entity.place.geo ?? index.derived.get(placeId)?.geo ?? null;
+  };
+  const sorted = Object.values(maps).sort((x, y) => x.id.localeCompare(y.id));
+  for (let pass = 0; pass < 4; pass++) {
+    let grew = false;
+    for (const map of sorted) {
+      if (index.anchors.has(map.id)) continue;
+      const anchor = mapAnchor(map, geoOf, planet.radiusKm);
+      if (!anchor) continue;
+      index.anchors.set(map.id, anchor);
+      grew = true;
+      for (const marker of map.markers) {
+        const entity = marker.entityId ? data.entities[marker.entityId] : undefined;
+        if (entity?.kind !== 'place' || entity.place.geo || index.derived.has(entity.id)) continue;
+        index.derived.set(entity.id, {
+          geo: anchoredGeo(anchor, planet.radiusKm, marker.x, marker.y),
+          map,
+        });
+      }
+    }
+    if (!grew) break;
+  }
+  indexCache.set(data.entities, { maps, planet, index });
+  return index;
+}
+
+/** Die Lage genau dieses Ortes – eingetragen oder aus einer Karte –, ohne die Orte darüber. */
+export function exactGeo(data: GeoData, place: Place): { geo: LonLat; map: GameMap | null } | null {
+  if (place.place.geo) return { geo: place.place.geo, map: null };
+  return geoIndex(data).derived.get(place.id) ?? null;
+}
+
+export interface PlaceGeo {
+  geo: LonLat;
+  /** Die Lage ist am Ort selbst eingetragen. */
+  own: boolean;
+  /** Die Lage gehört zu diesem Ort selbst – eingetragen oder aus einer Karte –, nicht zu einem darüber. */
+  exact: boolean;
+  /** Der Ort, zu dem die Lage gehört. */
+  from: Place;
+  /** Die Karte, aus der die Lage gerechnet ist; null, wenn sie eingetragen wurde. */
+  via: GameMap | null;
+}
+
+/**
+ * Die Lage eines Ortes: seine eigene, sonst die aus einer eingehängten Karte, sonst die des
+ * nächsten übergeordneten Ortes, der eine hat.
+ */
+export function placeGeo(data: GeoData, placeId: string | null | undefined): PlaceGeo | null {
   const seen = new Set<string>();
   let current = placeId ? data.entities[placeId] : undefined;
-  let own = true;
+  let exact = true;
   while (current?.kind === 'place' && !seen.has(current.id)) {
-    if (current.place.geo) return { geo: current.place.geo, own, from: current };
+    const found = exactGeo(data, current);
+    if (found)
+      return {
+        geo: found.geo,
+        own: exact && found.map === null,
+        exact,
+        from: current,
+        via: found.map,
+      };
     seen.add(current.id);
-    own = false;
+    exact = false;
     current = current.place.parentId ? data.entities[current.place.parentId] : undefined;
   }
   return null;

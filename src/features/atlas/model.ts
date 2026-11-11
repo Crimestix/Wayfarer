@@ -4,8 +4,8 @@
  * Planet selbst (Küsten, Höhen, Lage der Orte) in `domain/planet.ts` und wird hier weitergereicht.
  */
 import { compass, bearingDeg, daylightHours, distanceKm, type LonLat } from '../../domain/geo';
-import { placeGeo, planetOf, type Terrain } from '../../domain/planet';
-import type { CampaignData, Place } from '../../domain/schema';
+import { exactGeo, geoIndex, placeGeo, planetOf, type Terrain } from '../../domain/planet';
+import type { CampaignData, GameMap, Place } from '../../domain/schema';
 import { MINUTES_PER_DAY, daysBeforeYear, fromTime, yearLength } from '../../domain/time/calendar';
 import { warmestMonth } from '../../domain/weatherZone';
 
@@ -150,15 +150,47 @@ export interface PlacedPlace {
   geo: LonLat;
   /** Kein Ort darüber hat selbst eine Lage. */
   major: boolean;
+  /** Die Karte, aus der die Lage gerechnet ist; null, wenn sie eingetragen wurde. */
+  via: GameMap | null;
 }
 
-/** Alle Orte, an denen selbst eine Lage eingetragen ist. */
-export function placedPlaces(data: Pick<CampaignData, 'entities'>): PlacedPlace[] {
+export interface PlaceOnMap {
+  map: GameMap;
+  /** So viele Orte dieser Karte haben schon eine Lage. */
+  placed: number;
+  /** Die Karte hängt im Planeten: Zwei ihrer Orte haben eine Lage. */
+  anchored: boolean;
+}
+
+/** Die Karten, auf denen ein Ort eingetragen ist – und wie weit sie vom Einhängen entfernt sind. */
+export function mapsOfPlace(
+  data: Pick<CampaignData, 'entities' | 'maps' | 'atlas'>,
+  placeId: string,
+): PlaceOnMap[] {
+  const index = geoIndex(data);
+  const out: PlaceOnMap[] = [];
+  for (const map of Object.values(data.maps)) {
+    if (!map.markers.some((marker) => marker.entityId === placeId)) continue;
+    const placed = new Set<string>();
+    for (const marker of map.markers) {
+      const entity = marker.entityId ? data.entities[marker.entityId] : undefined;
+      if (entity?.kind === 'place' && exactGeo(data, entity)) placed.add(entity.id);
+    }
+    out.push({ map, placed: placed.size, anchored: index.anchors.has(map.id) });
+  }
+  return out.sort((a, b) => a.map.name.localeCompare(b.map.name, 'de'));
+}
+
+/** Alle Orte mit einer Lage, die zu ihnen selbst gehört – eingetragen oder aus einer Karte. */
+export function placedPlaces(
+  data: Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'maps' | 'atlas'>>,
+): PlacedPlace[] {
   const out: PlacedPlace[] = [];
   for (const entity of Object.values(data.entities)) {
-    if (entity.kind !== 'place' || !entity.place.geo) continue;
+    const found = entity.kind === 'place' ? exactGeo(data, entity) : null;
+    if (entity.kind !== 'place' || !found) continue;
     const above = entity.place.parentId ? placeGeo(data, entity.place.parentId) : null;
-    out.push({ place: entity, geo: entity.place.geo, major: above === null });
+    out.push({ place: entity, geo: found.geo, major: above === null, via: found.map });
   }
   return out.sort((a, b) => a.place.name.localeCompare(b.place.name, 'de'));
 }

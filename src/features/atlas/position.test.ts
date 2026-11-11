@@ -12,7 +12,14 @@ import {
   warmestMonthAt,
 } from '../../domain/geoClimate';
 import { hexKey } from '../../domain/hex';
-import { AtlasSchema, createEntity, type CampaignData, type Entity } from '../../domain/schema';
+import {
+  AtlasSchema,
+  MapSchema,
+  createEntity,
+  type CampaignData,
+  type Entity,
+  type GameMap,
+} from '../../domain/schema';
 import { warmestMonth, weatherZone } from '../../domain/weatherZone';
 import {
   generateHexes,
@@ -27,6 +34,9 @@ import {
   encodeHeights,
   formatMinuteOfDay,
   isDark,
+  mapsOfPlace,
+  placeGeo,
+  placedPlaces,
   planetOf,
   sunAt,
 } from './model';
@@ -76,6 +86,89 @@ const world = (entities: Entity[], atlas = true): CampaignData => ({
   ...elarisCampaign(),
   entities: Object.fromEntries(entities.map((e) => [e.id, e])),
   atlas: atlas ? { planet: planetDoc(), relief: reliefDoc() } : {},
+});
+
+/** Eine Karte mit Punkten: [Ort, x, y] – x nach rechts, y nach unten. */
+const chart = (name: string, points: [Entity, number, number][]): GameMap =>
+  MapSchema.parse({
+    id: `karte-${name}`,
+    rev: 0,
+    created: '',
+    updated: '',
+    name,
+    markers: points.map(([entity, x, y], i) => ({ id: `m${i}`, x, y, entityId: entity.id })),
+  });
+
+describe('Karten in den Planeten einhängen', () => {
+  const a = place('Hohenfurt', 10, 0);
+  const b = place('Graufels', 20, 0);
+  const c = place('Reusenhof', null);
+  const d = place('Aalweiher', null);
+  const e = place('Nebelmoor', null);
+  const lone = place('Einödhof', null);
+  // Norden ist oben: Graufels liegt 500 Einheiten östlich, der Reusenhof 250 nördlich der Mitte.
+  const north = chart('Nordland', [
+    [a, 100, 500],
+    [b, 600, 500],
+    [c, 350, 250],
+  ]);
+  // Eine zweite, gedrehte Karte hängt am Reusenhof, dessen Lage erst aus der ersten folgt.
+  const turned = chart('Seenplatte', [
+    [b, 0, 0],
+    [c, 0, 100],
+    [d, 0, 50],
+  ]);
+  const single = chart('Moorkarte', [
+    [a, 10, 10],
+    [e, 50, 50],
+    [lone, 90, 90],
+  ]);
+  const withMaps = (...maps: GameMap[]): CampaignData => ({
+    ...world([a, b, c, d, e, lone]),
+    maps: Object.fromEntries(maps.map((map) => [map.id, map])),
+  });
+
+  it('rechnet aus zwei bekannten Orten die Lage aller anderen Orte der Karte', () => {
+    const data = withMaps(north);
+    const found = placeGeo(data, c.id)!;
+    expect(found).toMatchObject({ own: false, exact: true, from: { id: c.id } });
+    expect(found.via?.name).toBe('Nordland');
+    expect(found.geo.lon).toBeCloseTo(15, 1);
+    expect(found.geo.lat).toBeCloseTo(5, 1);
+    // Eingetragene Lagen bleiben, wie sie sind.
+    expect(placeGeo(data, a.id)).toMatchObject({ own: true, exact: true, via: null });
+    // Auf der Karte des Atlas erscheint der Ort mit; das Klima rechnet mit seiner Lage.
+    expect(placedPlaces(data).map((p) => p.place.name)).toEqual([
+      'Graufels',
+      'Hohenfurt',
+      'Reusenhof',
+    ]);
+    expect(weatherZone(data, c.id)).toMatchObject({ source: 'position', from: { id: c.id } });
+  });
+
+  it('hängt weitere Karten an Orten ein, deren Lage selbst aus einer Karte stammt', () => {
+    const data = withMaps(north, turned);
+    // Auf der gedrehten Karte liegt der Weiher auf halbem Weg von Graufels zum Reusenhof.
+    const pond = placeGeo(data, d.id)!;
+    expect(pond.via?.name).toBe('Seenplatte');
+    expect(pond.geo.lon).toBeCloseTo(17.5, 0);
+    expect(pond.geo.lat).toBeCloseTo(2.5, 0);
+    // Ohne die erste Karte fehlt der zweite bekannte Ort.
+    expect(placeGeo(withMaps(turned), d.id)).toBeNull();
+  });
+
+  it('sagt, was einer Karte zum Einhängen fehlt – und rechnet nicht ohne Atlas', () => {
+    const data = withMaps(north, single);
+    expect(placeGeo(data, e.id)).toBeNull();
+    expect(mapsOfPlace(data, e.id)).toMatchObject([
+      { map: { name: 'Moorkarte' }, placed: 1, anchored: false },
+    ]);
+    expect(mapsOfPlace(data, c.id)).toMatchObject([
+      { map: { name: 'Nordland' }, placed: 3, anchored: true },
+    ]);
+    const noAtlas = { ...data, atlas: {} };
+    expect(placeGeo(noAtlas, c.id)).toBeNull();
+  });
 });
 
 describe('Küstennähe', () => {

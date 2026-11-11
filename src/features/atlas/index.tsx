@@ -39,7 +39,9 @@ import {
   formatGeo,
   formatHours,
   formatKm,
+  geoIndex,
   legBetween,
+  mapsOfPlace,
   placeGeo,
   placedPlaces,
   planetOf,
@@ -101,7 +103,12 @@ export default function AtlasPage() {
   const placed = useMemo(() => placedPlaces(data), [data]);
   const selected = id ? data.entities[id] : undefined;
   const place: Place | null = selected?.kind === 'place' ? selected : null;
+  const viaMaps = useMemo(() => placed.filter((p) => p.via).length, [placed]);
   const located = place ? placeGeo(data, place.id) : null;
+  const onMaps = useMemo(
+    () => (place && !place.place.geo ? mapsOfPlace(data, place.id) : []),
+    [data, place],
+  );
   const party = placeGeo(data, data.state.placeId);
 
   const shown = useMemo(() => {
@@ -188,11 +195,19 @@ export default function AtlasPage() {
     // Beim Einpassen setzt ein Klick die Mitte der neuen Landmasse.
     if (fit) return place_({ lon: point.lon, lat: point.lat });
     if (!place || !placing) return;
+    const before = geoIndex(data).derived.size;
     const undo = setPlaceGeo(db, place.id, point);
     setPlacing(false);
+    // Hängt damit eine Karte im Planeten, haben auf einen Schlag viele Orte eine Lage.
+    const gained = geoIndex(db.getSnapshot()).derived.size - before;
     toast({
       title: `„${place.name}“ liegt jetzt hier`,
-      body: `${formatGeo(point)} · ${describeTerrain(terrainAt(planet, grid, point))}`,
+      body: `${formatGeo(point)} · ${describeTerrain(terrainAt(planet, grid, point))}${
+        gained > 0
+          ? `. Über Karten ${gained === 1 ? 'hat jetzt ein weiterer Ort' : `haben jetzt ${gained} weitere Orte`} eine Lage.`
+          : ''
+      }`,
+      duration: gained > 0 ? 10000 : undefined,
       action: { label: 'Rückgängig', run: undo },
     });
   };
@@ -216,7 +231,8 @@ export default function AtlasPage() {
         <div className="wf-atlas-side__head">
           <h1 className="wf-atlas-side__title">Atlas</h1>
           <span className="wf-atlas-side__total">
-            {placed.length} von {places.length} Orten gesetzt
+            {placed.length - viaMaps} von {places.length} Orten gesetzt
+            {viaMaps > 0 && `, ${viaMaps} über Karten`}
           </span>
           <IconButton
             label="Landmasse aus einem Kartenbild einlesen"
@@ -400,7 +416,13 @@ export default function AtlasPage() {
                   )}
                   <span className="wf-atlas-row__name">{entry.name}</span>
                   <span className="wf-atlas-row__state">
-                    {geo ? (geo.own ? '' : `wie ${geo.from.name}`) : 'ohne Lage'}
+                    {geo
+                      ? geo.own
+                        ? ''
+                        : geo.exact
+                          ? 'über Karte'
+                          : `wie ${geo.from.name}`
+                      : 'ohne Lage'}
                   </span>
                 </button>
               );
@@ -440,7 +462,10 @@ export default function AtlasPage() {
                 <dt>Lage</dt>
                 <dd>
                   {formatGeo(located.geo)}
-                  {!located.own && ` – übernommen von ${located.from.name}`}
+                  {!located.own &&
+                    (located.exact && located.via
+                      ? ` – gerechnet aus der Karte „${located.via.name}“`
+                      : ` – übernommen von ${located.from.name}`)}
                 </dd>
                 <dt>Dort</dt>
                 <dd>{describeTerrain(terrainAt(planet, grid, located.geo))}</dd>
@@ -463,6 +488,17 @@ export default function AtlasPage() {
             ) : (
               <p className="wf-mute">Dieser Ort hat noch keine Lage.</p>
             )}
+            {!located?.exact &&
+              onMaps
+                .filter((entry) => !entry.anchored)
+                .slice(0, 2)
+                .map((entry) => (
+                  <p key={entry.map.id} className="wf-mute">
+                    Liegt auf der Karte „{entry.map.name}“. Sobald dort zwei Orte eine Lage haben,
+                    ergibt sich die aller anderen von selbst –{' '}
+                    {entry.placed === 0 ? 'noch fehlen beide' : 'noch fehlt einer'}.
+                  </p>
+                ))}
             <div className="wf-atlas-card__acts">
               <Button
                 size="sm"

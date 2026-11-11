@@ -4,7 +4,7 @@
  * Funktionen über dem Spielstand.
  */
 import { siteAt, siteClimate, southern, warmestMonthAt, type Site } from './geoClimate';
-import { placeChain, planetOf, reliefOf } from './planet';
+import { exactGeo, placeChain, planetOf, reliefOf } from './planet';
 import { seedOf } from './random';
 import { weatherId, type CampaignData, type Climate, type Place } from './schema';
 import { ELARIS_WARMEST_MONTH } from './time/elaris';
@@ -84,16 +84,17 @@ export function weatherZone(data: CampaignData, placeId: string | null): Weather
   );
   // Die Lage: der nächste Ort der Kette, an dem selbst eine eingetragen ist.
   const planet = planetOf(data);
-  const placedIndex = planet ? chain.findIndex((place) => place.place.geo) : -1;
+  const placedIndex = planet ? chain.findIndex((place) => exactGeo(data, place)) : -1;
   const placed = placedIndex >= 0 ? chain[placedIndex]! : null;
+  const placedGeo = placed ? exactGeo(data, placed)!.geo : null;
   const wordsWin =
     recognized !== null &&
     (recognized.preset === 'underground' ||
       placed === null ||
       recognized.index < placedIndex ||
       (recognized.index === placedIndex && recognized.preset !== 'maritime'));
-  if (planet && placed?.place.geo && !wordsWin) {
-    const site = siteAt(planet, reliefOf(data), placed.place.geo);
+  if (planet && placed && placedGeo && !wordsWin) {
+    const site = siteAt(planet, reliefOf(data), placedGeo);
     const { climate, preset } = siteClimate(site, months, warmest);
     return {
       climate,
@@ -107,7 +108,7 @@ export function weatherZone(data: CampaignData, placeId: string | null): Weather
   if (recognized) {
     const from = chain[recognized.index] ?? null;
     // Liegt der Ort bekanntermaßen im Süden, sind die Jahreszeiten versetzt.
-    const lat = placed?.place.geo?.lat ?? 0;
+    const lat = placedGeo?.lat ?? 0;
     const north = presetClimate(recognized.preset, months, warmest);
     const climate =
       lat < 0 && recognized.preset !== 'underground'
