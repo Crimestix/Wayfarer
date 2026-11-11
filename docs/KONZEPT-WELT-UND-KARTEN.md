@@ -396,6 +396,30 @@ Quellen des Spielleiters: physische Bücher, D&D Beyond (große Teile der Büche
   Nachwachsen, Abwandern, Reviere, Begegnungen aus Revieren, Raubzüge, Erinnerung.
   Vom Spielleiter am 11. 11. 2026 so bestätigt.
 
+### Was in einem Gebiet lebt und wächst
+
+Besprochen am 11. 11. 2026. Ein Hexcrawl soll nicht leer sein: Wayfarer prüft, was in einem Feld
+vorkommen kann, statt frei zu erfinden.
+
+- **Das Feld** liefert die Bedingungen: Gelände, Klima, Höhe, Feuchte, Jahreszeit, Nähe zu
+  Wasser, Straßen und Siedlungen, ober- oder unterirdisch (aus Karte und Wetter).
+- **Jeder Eintrag** sagt, wo er vorkommt: Monster (Lebensraum, Reviergröße, Gruppengröße,
+  Abstand zu Siedlungen), Tiere, Pflanzen (dazu Blüte- und Fruchtzeit).
+- **Ergebnis:** (a) was im Gebiet lebt und wächst, als Liste; (b) Fundorte an bestimmten Stellen
+  (Kräuterlichtung, Wildwechsel); (c) Baue und Horte mit festem Platz und Abstand.
+- **Spuren** (Fährten, Knochen, Rauch) führen zu Bauen und sind Hinweise wie am Fadenbrett.
+- Erzeugt mit festem Ausgangswert (`domain/random.ts`), also stabil bei Rückkehr. Entdecktes
+  oder Festgehaltenes wird ein echter Ort der Weltdatenbank.
+- **Der Artikel hat Vorrang:** Steht im Steckbrief eines Gebiets „Bewohner: …“ oder eine
+  Besonderheit („verflucht“), gilt das zuerst; Wayfarer füllt nur den Rest.
+
+**Entscheidung des Spielleiters:** Das Lexikon (Pflanzen, Tiere, Monster) wird behandelt wie alles
+andere in der Welt. Einträge sind Artikel bzw. Einträge der Weltdatenbank, geschrieben vom
+Spielleiter; ihr Vorkommen steht im Steckbrief (z. B. „Lebensraum: Wald“, „Klima: gemäßigt“,
+„Blüte: Frühling“). Nichts wird mitgeliefert. Monster und Tiere aus dem SRD oder eigenen Quellen
+werden auf Wunsch übernommen. Wayfarer zeigt Lücken („Für gemäßigten Wald gibt es noch keine
+Tiere im Lexikon“), statt sie zu füllen.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
