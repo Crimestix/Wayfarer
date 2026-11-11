@@ -640,6 +640,12 @@ button.wf-kal-row:hover,
 .wf-kal-timer--task .wf-kal-timer__icon {
   color: var(--ember);
 }
+.wf-kal-timer--light .wf-kal-timer__icon {
+  color: var(--gold);
+}
+.wf-kal-timer--light .wf-kal-timer__bar i {
+  background: var(--gold);
+}
 .wf-kal-timer .wf-kal-row__main:hover .wf-kal-row__title {
   color: var(--gold-bright);
 }

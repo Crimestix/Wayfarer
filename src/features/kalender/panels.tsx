@@ -1,6 +1,6 @@
 /** Leiste unter dem Raster: Anstehendes und Überfälliges, laufende Wirkungen, Monde. */
 import { useRef, useState } from 'react';
-import { Hammer, Milestone, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { Flame, Hammer, Milestone, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { entityName, overdueEvents, runningTimers, upcomingOccurrences } from '../../domain/derive';
 import { openClocks } from '../../domain/clock';
@@ -213,7 +213,7 @@ export function TimersPanel({
         );
       })}
       {timers.map((timer) => {
-        const Icon = timer.kind === 'task' ? Hammer : Sparkles;
+        const Icon = timer.kind === 'task' ? Hammer : timer.kind === 'light' ? Flame : Sparkles;
         const refs = timer.refs.map((id) => entityName(data, id)).join(', ');
         return (
           <div

@@ -520,6 +520,7 @@ export const TIMER_KIND_LABEL: Record<Timer['kind'], string> = {
   effect: 'Wirkung',
   task: 'Tätigkeit',
   spell: 'Zauber',
+  light: 'Licht',
 };
 
 export function runningTimers(data: CampaignData): Timer[] {

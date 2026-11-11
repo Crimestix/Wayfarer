@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   Flag,
+  Flame,
   Handshake,
   Hourglass,
   Milestone,
@@ -28,6 +29,7 @@ const MARKS: Record<AgendaMark, LucideIcon> = {
   effect: Hourglass,
   task: Hourglass,
   spell: Hourglass,
+  light: Flame,
   clock: Milestone,
 };
 

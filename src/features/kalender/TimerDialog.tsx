@@ -12,6 +12,7 @@ const KIND_HINT: Record<Timer['kind'], string> = {
   effect: 'Hält an, bis die Zeit um ist – ein Zauber, eine Fackel, ein Gift.',
   task: 'Ist fertig, wenn die Zeit um ist – eine Reparatur, ein Ritual, eine Wache.',
   spell: 'Ein gewirkter Zauber, auf Wunsch mit Konzentration des Wirkers.',
+  light: 'Eine Lichtquelle der Gruppe – brennt, bis die Zeit um ist.',
 };
 
 const PRESETS: { label: string; days: string; hours: string; minutes: string }[] = [

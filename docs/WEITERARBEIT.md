@@ -624,6 +624,34 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
+**Unter der Erde (11. 11. 2026) – Schritt 1 von 3 gebaut.** Anlass: Die Gruppe spielt im
+Unterreich, fast alle Funktionen (Wetter, Sonne, Monde, Atlas) gelten aber der Oberwelt.
+- **Erkennen** (`domain/underground.ts`, `isUnderground`): ein Ort liegt unten, wenn sein Klima
+  „Unter der Erde“ ist – festgelegt oder aus Namen und Art gelesen (wie bisher beim Wetter).
+- **Statt des Wetters** zeigt das Feld der Weltleiste und die Zeile am Spieltisch den Stand des
+  Lichts: das zuerst erlöschende Licht mit Restzeit, sonst „Dämmriges Licht“ oder „Dunkelheit“.
+  Aufgeklappt (`features/unterreich/UndergroundPanel.tsx`): Lichter der Gruppe mit Restzeit,
+  Knöpfe zum Anzünden (Fackel und Kerze 1 Std., Laterne 6 Std., Zauber „Licht“ 1 Std., nach den
+  Regeln von 2024), wer im Dunkeln sieht (Dunkelsicht der Gefährten), die Umgebung des Ortes.
+- **Lichter** sind Wirkungen der neuen Art `light`: Sie stehen unter „Anstehend“ und „Läuft
+  gerade“, brennen mit der Weltzeit herunter, und nach einem Zeitsprung meldet „Währenddessen“
+  „Erloschen: Fackel“. Zehn Minuten vorher warnt das Feld; ebenso, wenn in Dunkelheit kein Licht
+  brennt und jemand keine Dunkelsicht hat.
+- **Umgebung** (errechnet wie das Wetter, wiederholbar): Helligkeit und Luft hängen am Ort, das
+  Geräusch zusätzlich am Tag. Wo dem Namen nach jemand wohnt, ist es dämmrig. Die Helligkeit
+  lässt sich je Ort von Hand festlegen (`place.light`, gilt auch darunter).
+- **Zeit ohne Himmel:** „seit 12 Tagen“ (aus den Ortswechseln der Chronik, `belowSince`) und
+  die Tageszeit an der Oberfläche.
+- Geprüft mit Tests und in der Vorschau (Ort unter der Erde, Fackel anzünden, Stunde vergeht,
+  Meldung, zurücknehmen). **Nicht geprüft:** installierte App, macOS.
+- Bekannt: „Dungeon“ in Name oder Art zählt als unter der Erde – auch bei einem Turm. Abhilfe:
+  am Ort ein anderes Klima festlegen.
+- **Schritt 2 (offen):** zweite Ebene im Atlas – Umschalter „Oberwelt / Unterreich“, Orte mit
+  Tiefe, Küsten nur blass zur Orientierung.
+- **Schritt 3 (offen):** Gänge statt Gelände – Orte durch Tunnel verbunden (Reisetage, Gefahr),
+  Reise entlang des Gangs, Verirren, Vorräte. Vorher klären, wie der Spielleiter unten reisen
+  lässt: feste Gänge oder Feld für Feld.
+
 **Oberfläche überarbeitet (11. 11. 2026).** Auftrag: nutzerfreundlich und wirklich schön.
 - **Entwurf „Schreibtisch des Spielleiters“:** Navigation und Weltleiste aus geschwärztem Holz,
   jede Fläche eine Lederunterlage mit Messingbeschlägen an allen vier Ecken, Kopfzeile der

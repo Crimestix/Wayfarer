@@ -150,6 +150,10 @@ const PersonDetails = z.object({
   met: z.boolean().default(false),
 });
 
+/** Wie hell es an einem Ort ist – nach den Stufen der Regeln. */
+export const PLACE_LIGHTS = ['dark', 'dim', 'bright'] as const;
+export type PlaceLight = (typeof PLACE_LIGHTS)[number];
+
 const PlaceDetails = z.object({
   /** Übergeordneter Ort. */
   parentId: id.nullable().default(null),
@@ -162,6 +166,11 @@ const PlaceDetails = z.object({
    * nächsten übergeordneten Ortes, der eine hat.
    */
   geo: z.object({ lon: z.number(), lat: z.number() }).nullable().default(null),
+  /**
+   * Helligkeit unter der Erde, von Hand festgelegt; gilt auch für die Orte darunter. null =
+   * Wayfarer errechnet sie (`domain/underground.ts`).
+   */
+  light: z.enum(PLACE_LIGHTS).nullable().default(null),
 });
 
 const FactionDetails = z.object({
@@ -428,13 +437,16 @@ export const ClockSchema = z.object({
 });
 export type Clock = z.infer<typeof ClockSchema>;
 
-export const TIMER_KINDS = ['effect', 'task', 'spell'] as const;
+export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
 
 export const TimerSchema = z.object({
   ...base,
   label: z.string(),
-  /** effect = wirkt bis zum Ende; task = Tätigkeit, die bis dahin dauert; spell = Zauber. */
+  /**
+   * effect = wirkt bis zum Ende; task = Tätigkeit, die bis dahin dauert; spell = Zauber;
+   * light = eine Lichtquelle der Gruppe, die bis dahin brennt.
+   */
   kind: z.enum(TIMER_KINDS).default('effect'),
   start: worldTime,
   end: worldTime,

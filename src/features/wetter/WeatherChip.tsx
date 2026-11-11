@@ -45,6 +45,8 @@ import {
 import { describeSite } from '../../domain/geoClimate';
 import { forecast, weatherAt, type WeatherZone } from '../../domain/weatherZone';
 import { describeSun, isDark, sunAt } from '../atlas/model';
+import { lightStatus } from '../../domain/underground';
+import { LightIcon, UndergroundPanel, useBelowLine } from '../unterreich/UndergroundPanel';
 import { Button, Checkbox, Field, Input, Popover, Select, cx, toast } from '../../ui';
 import { clearManualWeather, setManualWeather, setPlaceClimate } from './actions';
 import './wetter.css';
@@ -252,6 +254,9 @@ export function WeatherChip() {
   // Mit Atlas und Lage geht die Sonne dort auf und unter, wo der Ort liegt.
   const sun = useMemo(() => sunAt(data, placeId, now), [data, placeId, now]);
   const night = sun ? isDark(sun, now - day * MINUTES_PER_DAY) : hour < 6 || hour >= 20;
+  // Unter der Erde zählt nicht das Wetter, sondern das Licht.
+  const light = useMemo(() => lightStatus(data, placeId, now), [data, placeId, now]);
+  const belowLine = useBelowLine();
   const next = useMemo(
     () => (open ? forecast(data, weather.zone, day + 1, 4) : []),
     [data, weather.zone, day, open],
@@ -277,35 +282,58 @@ export function WeatherChip() {
       <button
         ref={anchor}
         type="button"
-        className={cx('wf-wetter-chip', effects.length > 0 && 'wf-wetter-chip--alert')}
+        className={cx(
+          'wf-wetter-chip',
+          (light ? light.warning !== null : effects.length > 0) && 'wf-wetter-chip--alert',
+        )}
         onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="dialog"
         aria-expanded={open}
         title={
-          today.sheltered
-            ? `Unter der Erde: kein Wetter, ${temperatureLabel(weather.now.temperature)}`
+          light
+            ? `${belowLine}${light.warning ? `\n${light.warning}` : ''}`
             : `${summary}, ${temperatureLabel(weather.now.temperature)}${effects.length ? ` – ${effects.map((e) => e.title).join(', ')}` : ''}`
         }
       >
-        <WeatherIcon weather={weather.now} night={night} />
-        <span className="wf-wetter-chip__temp">{temperatureLabel(weather.now.temperature)}</span>
-        <span className="wf-wetter-chip__text wf-clamp-1">{summary}</span>
+        {light ? (
+          <>
+            <LightIcon status={light} />
+            <span className="wf-wetter-chip__temp">{light.summary}</span>
+            <span className="wf-wetter-chip__text wf-clamp-1">Unter der Erde</span>
+          </>
+        ) : (
+          <>
+            <WeatherIcon weather={weather.now} night={night} />
+            <span className="wf-wetter-chip__temp">
+              {temperatureLabel(weather.now.temperature)}
+            </span>
+            <span className="wf-wetter-chip__text wf-clamp-1">{summary}</span>
+          </>
+        )}
       </button>
 
       <Popover open={open} onClose={close} anchor={anchor} align="right" width={400}>
         <div className="wf-wetter">
           <header className="wf-wetter__head">
             <span className="wf-wetter__icon">
-              <WeatherIcon weather={weather.now} night={night} />
+              {light ? (
+                <LightIcon status={light} />
+              ) : (
+                <WeatherIcon weather={weather.now} night={night} />
+              )}
             </span>
             <div className="wf-wetter__now">
               <div className="wf-wetter__summary">
-                {temperatureLabel(weather.now.temperature)} · {summary}
+                {light
+                  ? light.summary
+                  : `${temperatureLabel(weather.now.temperature)} · ${summary}`}
               </div>
               <div className="wf-wetter__sub">
-                {today.sheltered
-                  ? 'Unter der Erde – gleichbleibend kühl'
-                  : `Heute ${temperatureLabel(today.low)} bis ${temperatureLabel(today.high)}`}
+                {light
+                  ? `${belowLine} · ${temperatureLabel(weather.now.temperature)}`
+                  : today.sheltered
+                    ? 'Unter der Erde – gleichbleibend kühl'
+                    : `Heute ${temperatureLabel(today.low)} bis ${temperatureLabel(today.high)}`}
                 {today.manual && ' · von dir festgelegt'}
               </div>
               {today.note && <div className="wf-wetter__note">{today.note}</div>}
@@ -331,6 +359,8 @@ export function WeatherChip() {
             <ClimateForm zone={zone} chain={chain} onDone={() => setEditing(null)} />
           ) : (
             <>
+              {light && <UndergroundPanel status={light} />}
+
               {!today.sheltered && (
                 <div className="wf-wetter__parts" aria-label="Der Tag in Abschnitten">
                   {today.parts.map((part) => (

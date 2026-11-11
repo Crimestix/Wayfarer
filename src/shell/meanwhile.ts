@@ -59,7 +59,8 @@ export function meanwhile(
         here: isHere(data, o.event.placeId),
       });
   }
-  for (const timer of result.expired) main.push(`Abgelaufen: ${timer.label}`);
+  for (const timer of result.expired)
+    main.push(`${timer.kind === 'light' ? 'Erloschen' : 'Abgelaufen'}: ${timer.label}`);
 
   const label = (r: { title: string; count: number }) =>
     `${r.title}${r.count > 1 ? ` (${r.count}×)` : ''}`;

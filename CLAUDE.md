@@ -77,6 +77,8 @@ nicht übernommen.
   `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
   LegendKeeper-Exports),
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
+  `unterreich` (unter der Erde zeigt das Feld des Wetters Licht, Sicht und Umgebung; die
+  Rechnung steht in `domain/underground.ts`),
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
@@ -113,6 +115,10 @@ nicht übernommen.
   einem Kartenbild einliest (`addLand`, Kennung `bild-…`), liegen im selben Dokument, haben
   keine Höhen und bleiben, wenn die Weltdatei neu eingelesen wird. Land zum Zeichnen immer über
   `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
+- Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
+  Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
+  die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen
+  der Art `light`) und die Dunkelsicht der Gefährten – alles über `lightStatus()`.
 - Bilder: Im Spielstand steht die Adresse des Ursprungs; zum Anzeigen immer `useMediaSrc()` aus
   `data/media.ts` nehmen – dann kommt die Datei vom Rechner, wenn sie geholt wurde.
 - Artikel: Der Text jeder Seite (`ArticleDoc.text`) ist die Quelle; die Anzeige liest ihn mit

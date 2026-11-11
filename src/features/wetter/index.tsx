@@ -3,9 +3,11 @@ import { useMemo } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { dayIndexOf, MINUTES_PER_DAY } from '../../domain/time/calendar';
 import { describeWeather, temperatureLabel } from '../../domain/weather';
+import { lightStatus } from '../../domain/underground';
 import { warmestMonth, weatherAt } from '../../domain/weatherZone';
 import { Select, cx } from '../../ui';
 import { setWarmestMonth } from './actions';
+import { LightIcon } from '../unterreich/UndergroundPanel';
 import { WeatherIcon } from './WeatherChip';
 import './wetter.css';
 
@@ -17,7 +19,19 @@ export function WeatherLine() {
   const placeId = data.state.placeId;
   const now = data.state.now;
   const weather = useMemo(() => weatherAt(data, placeId, now), [data, placeId, now]);
+  const light = useMemo(() => lightStatus(data, placeId, now), [data, placeId, now]);
   if (!placeId) return null;
+  // Unter der Erde: das Licht statt des Wetters.
+  if (light)
+    return (
+      <span
+        className={cx('wf-wetter-line', light.warning !== null && 'wf-wetter-line--alert')}
+        title={light.warning ?? 'Licht und Umgebung unter der Erde – mehr dazu oben in der Leiste'}
+      >
+        <LightIcon status={light} />
+        Unter der Erde · {light.summary}
+      </span>
+    );
   const hour = (now - dayIndexOf(now) * MINUTES_PER_DAY) / 60;
   const alert = weather.effects.length > 0;
   return (
