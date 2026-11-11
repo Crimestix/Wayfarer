@@ -35,6 +35,7 @@ import {
 } from './model';
 import { OverviewTab, type DossierTab, type RelationIntent } from './OverviewTab';
 import { AttitudePips, Facts, attitudeVar } from './parts';
+import { FamilyTree } from './FamilyTree';
 import { RelationsTab } from './RelationsTab';
 
 export function Dossier({ entity }: { entity: WorldEntity }) {
@@ -174,6 +175,8 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           tabs={[
             { id: 'overview', label: 'Überblick' },
             { id: 'relations', label: 'Beziehungen', count: relationCount || undefined },
+            // Eine Familie zeigt, wie ihre Mitglieder miteinander verwandt sind.
+            ...(entity.kind === 'family' ? [{ id: 'tree' as const, label: 'Stammbaum' }] : []),
             { id: 'chronicle', label: 'Chronik', count: chronicle.length || undefined },
             // Liegt der Artikel im eigenen Wiki, braucht es LegendKeeper dafür nicht mehr.
             { id: 'lk', label: localArticle ? 'Artikel' : 'LegendKeeper' },
@@ -186,6 +189,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       <div className="wf-welt-body">
         {tab === 'overview' && <OverviewTab entity={entity} onShowTab={setTab} />}
         {tab === 'relations' && <RelationsTab entity={entity} startNew={intent} />}
+        {tab === 'tree' && entity.kind === 'family' && <FamilyTree family={entity} />}
         {tab === 'chronicle' && (
           <div className="wf-welt-chron">
             <div className="wf-welt-rel__bar">

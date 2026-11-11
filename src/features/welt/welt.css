@@ -1063,6 +1063,189 @@
 }
 
 /* ── Beziehungen ────────────────────────────────────────────────────────── */
+/* ── Verwandtschaft an der Person ───────────────────────────────────────── */
+.wf-welt-kin {
+  margin-bottom: var(--s-5);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-kin__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  margin: var(--s-3) 0;
+  color: var(--ink-soft);
+}
+.wf-welt-kin__who {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-welt-kin__form .wf-select {
+  width: auto;
+  min-width: 170px;
+}
+.wf-welt-kin__form .wf-picker {
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+.wf-welt-kin__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0 var(--s-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-kin__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 34px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-kin__word {
+  flex: 0 0 132px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-kin__list .wf-btn,
+.wf-welt-kin__derived {
+  margin-left: auto;
+}
+.wf-welt-kin__derived {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* ── Stammbaum ──────────────────────────────────────────────────────────── */
+.wf-welt-tree__scroll {
+  overflow: auto;
+  max-height: calc(100vh - 330px);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-welt-tree__sheet {
+  position: relative;
+  margin: 0 auto;
+}
+.wf-welt-tree__sheet svg {
+  position: absolute;
+  inset: 0;
+}
+.wf-welt-tree__descent {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.wf-welt-tree__couple {
+  stroke: var(--gold);
+  stroke-width: 3;
+}
+.wf-welt-tree__link {
+  fill: none;
+  stroke: var(--ink-mute);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 5;
+}
+.wf-welt-tree__word {
+  fill: var(--ink-soft);
+  font-family: var(--font-caps);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  paint-order: stroke;
+  stroke: var(--bg-inset);
+  stroke-width: 4px;
+}
+.wf-welt-tree__card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #2b241e 0%, #1c1815 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(239, 212, 151, 0.08),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.15s var(--ease);
+}
+.wf-welt-tree__card:hover {
+  border-color: var(--gold);
+}
+.wf-welt-tree__card img {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line-strong);
+  object-fit: cover;
+}
+.wf-welt-tree__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-welt-tree__name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-welt-tree__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+/* Eingeheiratet oder nur verwandt: gestrichelter Rand. */
+.wf-welt-tree__card--other {
+  border-style: dashed;
+  border-color: var(--line);
+  background: var(--bg-1);
+}
+.wf-welt-tree__card--dead .wf-welt-tree__name {
+  color: var(--ink-mute);
+}
+.wf-welt-tree__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-3);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-welt-tree__key {
+  width: 22px;
+  height: 0;
+  margin-left: var(--s-3);
+  border-top: 1.5px solid var(--gold-deep);
+}
+.wf-welt-tree__key:first-child {
+  margin-left: 0;
+}
+.wf-welt-tree__key--couple {
+  border-top: 3px solid var(--gold);
+}
+.wf-welt-tree__key--link {
+  border-top: 1.5px dashed var(--ink-mute);
+}
+.wf-welt-tree__key--other {
+  width: 14px;
+  height: 10px;
+  border: 1px dashed var(--line-strong);
+}
+.wf-welt-tree__loose {
+  margin-top: var(--s-2);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
 .wf-welt-rel__bar {
   display: flex;
   align-items: center;

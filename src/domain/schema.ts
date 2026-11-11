@@ -141,6 +141,11 @@ const PersonDetails = z.object({
   workplaceId: id.nullable().default(null),
   /** Beruf, Amt oder Funktion in der Geschichte. */
   role: z.string().default(''),
+  /**
+   * Geschlecht, nur für die Wörter der Verwandtschaft („Schwester“ statt „Geschwister“). Wayfarer
+   * merkt es sich aus dem ersten eingetragenen Wort; null = unbekannt.
+   */
+  gender: z.enum(['f', 'm']).nullable().default(null),
   status: z.enum(PERSON_STATUS).default('alive'),
   /** Wo sich die Person gerade aufhält. */
   placeId: id.nullable().default(null),
@@ -300,6 +305,11 @@ export const RelationSchema = z.object({
   secret: z.boolean().default(false),
   /** Beziehung besteht nicht mehr. */
   ended: z.boolean().default(false),
+  /**
+   * Verwandtschaft: was `from` für `to` ist – ein Schlüssel aus `KIN_TYPES` (`domain/kin.ts`),
+   * etwa `sibling` oder `aunt`. null = keine Verwandtschaft.
+   */
+  kin: z.string().nullable().default(null),
   /** Aus dem Steckbrief dieses Artikels gelesen; null = von Hand eingetragen. */
   articleId: id.nullable().default(null),
 });

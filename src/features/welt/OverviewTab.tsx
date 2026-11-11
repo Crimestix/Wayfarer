@@ -85,7 +85,7 @@ import {
   Picker,
 } from './parts';
 
-export type DossierTab = 'overview' | 'relations' | 'chronicle' | 'lk';
+export type DossierTab = 'overview' | 'relations' | 'tree' | 'chronicle' | 'lk';
 /** Was der Reiter „Beziehungen“ beim Öffnen gleich anbietet. */
 export type RelationIntent = 'relation' | 'member';
 

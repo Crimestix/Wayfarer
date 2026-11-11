@@ -1,5 +1,6 @@
 /** Befehle des Bereichs „Wiki“. */
 import type { CampaignDb } from '../../data/db';
+import { kinInSentence } from '../../domain/kin';
 import {
   ArticleSchema,
   createEntity,
@@ -494,7 +495,13 @@ export function acceptHint(db: CampaignDb, hint: RelationHint): () => void {
   }
   const relation = db.put(
     'relations',
-    createRelation({ from: hint.from.id, to: hint.to.id, type: hint.type }),
+    createRelation({
+      from: hint.from.id,
+      to: hint.to.id,
+      type: hint.type,
+      // „Schwester von Odo“: Das Wort sagt, welche Verwandtschaft es ist.
+      kin: hint.type === 'family' ? (kinInSentence(hint.sentence)?.kin ?? null) : null,
+    }),
   );
   return () => {
     if (db.getSnapshot().relations[relation.id]) db.remove('relations', relation.id);

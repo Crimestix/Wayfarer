@@ -33,6 +33,7 @@ import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
+import { AiOverview } from '../ki/AiOverview';
 import { AiPanel } from '../ki/AiPanel';
 import { FactsHint, FactsOverview } from './FactsHint';
 import { ArticleIcon } from './icons';
@@ -297,6 +298,7 @@ function Landing({
           </Link>
         ))}
       </div>
+      <AiOverview />
       <FactsOverview />
       <Wanted articles={articles} onCreate={onCreate} />
     </div>

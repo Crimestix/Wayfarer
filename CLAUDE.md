@@ -121,6 +121,10 @@ nicht übernommen.
   einem Kartenbild einliest (`addLand`, Kennung `bild-…`), liegen im selben Dokument, haben
   keine Höhen und bleiben, wenn die Weltdatei neu eingelesen wird. Land zum Zeichnen immer über
   `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
+- Verwandtschaft: Eine Beziehung mit `kin` sagt, was `from` für `to` ist (`sibling`, `aunt` …,
+  `domain/kin.ts`). Eingetragen wird über `setKin` (`welt/kin.ts`); alles Weitere leitet
+  Wayfarer ab: weitere Verwandte (`derivedKin`, `relativesOf`), Generationen und den Stammbaum
+  einer Familie (`domain/kinTree.ts`). Nie Zwischenpersonen erfinden, um einen Baum zu füllen.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

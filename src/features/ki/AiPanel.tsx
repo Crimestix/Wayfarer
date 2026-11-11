@@ -55,7 +55,8 @@ const DONE_TITLE: Record<AiHint['kind'], string> = {
   thread: 'Als Abmachung festgehalten',
 };
 
-function Row({ article, hint }: { article: Article; hint: AiHint }) {
+/** Ein Vorschlag mit dem Satz, aus dem er stammt – zum Eintragen oder Verwerfen. */
+export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   const db = useDb();
   const accept = () => {
     const undo = acceptAiHint(db, article.id, hint.id);
@@ -180,7 +181,7 @@ export function AiPanel({ article }: { article: Article }) {
         )}
       </div>
       {open.map((hint) => (
-        <Row key={hint.id} article={article} hint={hint} />
+        <HintRow key={hint.id} article={article} hint={hint} />
       ))}
     </div>
   );

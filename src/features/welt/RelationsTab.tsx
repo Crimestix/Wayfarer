@@ -42,6 +42,8 @@ import {
   type WorldEntity,
 } from './model';
 
+import { KinSection } from './KinSection';
+
 const TYPE_GROUPS = [...new Set(RELATION_TYPES.map((t) => t.group))];
 
 export function RelationsTab({
@@ -64,6 +66,7 @@ export function RelationsTab({
 
   return (
     <div className="wf-welt-rel">
+      {entity.kind === 'person' && <KinSection entity={entity} />}
       <div className="wf-welt-rel__bar">
         <p className="wf-welt-lead">
           Wer mit {entity.name} verbunden ist – und wie beide Seiten zueinander stehen.

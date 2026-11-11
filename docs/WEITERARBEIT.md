@@ -597,7 +597,8 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
   zeigt Schätzung vor dem Lesen und Verbrauch danach.
 - **Geprüft:** Rechnung und Befehle mit Tests (erfundene Welt, nachgestellte Antworten), die
   Rust-Seite gegen einen Gegenpart auf dem eigenen Rechner, die Oberfläche in der Vorschau mit
-  von Hand eingelegten Vorschlägen. **Nicht geprüft:** ein echter Abruf bei Claude – dafür
+  von Hand eingelegten Vorschlägen. (Nachtrag 11. 11.: Der echte Abruf läuft – siehe „Stammbaum
+  und Verwandtschaft“.) Damals **nicht geprüft:** ein echter Abruf bei Claude – dafür
   braucht es den Key des Spielleiters; ob die Form der Antwort (`output_config.format`) so
   angenommen wird und wie gut Haiku liest, zeigt erst der erste echte Lauf. Installierte App und
   macOS ebenfalls nicht.
@@ -623,6 +624,34 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
   anhalten, löschen). **Nicht geprüft:** installierte App, macOS.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
+
+**Stammbaum und Verwandtschaft (11. 11. 2026) – gebaut.** Wunsch des Spielleiters: Jede Person
+hat Verwandtschaften (Tante, Schwester, Cousin, Großcousin …), und daraus entsteht ein Stammbaum,
+den man in der Familie sieht.
+- **Eintragen:** Im Dossier einer Person, Reiter „Beziehungen“, oben: „Mira ist [Schwester] von
+  [Odo]“ (`welt/KinSection.tsx`, `setKin`). Gespeichert wird an der Beziehung (`relation.kin`);
+  das Geschlecht des Wortes merkt sich Wayfarer an der Person (`person.gender`), damit ihre
+  übrigen Verwandtschaften richtig heißen.
+- **Ableiten** (`domain/kin.ts`): aus Eltern, Paaren und Geschwistern folgen Großeltern, Tanten,
+  Cousins, Großcousins (Kinder von Cousins), Halbgeschwister, Stief- und Schwiegereltern,
+  Schwager. Geschwister ohne eingetragene Eltern teilen sich gedachte Eltern, damit ihre Kinder
+  trotzdem Cousins sind. Die Liste an der Person nennt Eingetragenes und Abgeleitetes.
+- **Stammbaum** (`domain/kinTree.ts`, `welt/FamilyTree.tsx`): Reiter „Stammbaum“ im Dossier
+  einer Familie. Zeilen sind Generationen (auch aus „Tante von“ gerechnet), Paare stehen
+  nebeneinander, Kinder unter ihren Eltern, Geschwister ohne bekannte Eltern unter einer
+  Klammer; was sonst eingetragen ist (Cousine ohne Zwischenglieder), als gestrichelte Linie mit
+  Wort. Wer nicht zur Familie gehört (eingeheiratet), ist gestrichelt umrandet.
+- Sätze im Wiki („Sie ist die Schwester von …“) tragen beim Annehmen gleich die Verwandtschaft
+  ein. **Offen:** Der KI-Leser nennt Verwandtschaften noch nicht mit Wort; Gefährten der Gruppe
+  lassen sich als Verwandte wählen, haben aber keine eigene Eingabe; Stammbaum einer Person
+  ohne Familie; Drucken.
+- **Vorschläge des KI-Lesers:** Auf der Startseite des Wikis stehen jetzt alle offenen
+  Vorschläge beieinander (`ki/AiOverview.tsx`). Anlass: Im Spielstand lagen 156 Vorschläge aus
+  191 gelesenen Artikeln, sichtbar aber nur einzeln im jeweiligen Artikel. Damit ist auch belegt,
+  dass der Abruf bei Claude mit echtem Schlüssel läuft.
+- Geprüft mit Tests (`domain/__tests__/kin.test.ts`) und in der Vorschau (Baum einer Familie,
+  Eingabe und Liste an der Person). **Nicht geprüft:** installierte App, macOS, die Übersicht
+  der Vorschläge mit echten Daten.
 
 **Wege und Pointcrawl (11. 11. 2026) – erster Teil gebaut.** Der Spielleiter: „mit das
 wichtigste Tool“ – Reisen innerhalb einer Stadt und zwischen Orten, auch als genaue Route über
