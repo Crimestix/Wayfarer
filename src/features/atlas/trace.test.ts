@@ -27,6 +27,7 @@ const GRID: Placement = {
   heightDeg: 40,
   widthKm: 0,
   turnDeg: 0,
+  tiltDeg: 0,
 };
 const LOCAL: Placement = { ...GRID, kind: 'local', widthKm: 2000 };
 
@@ -213,6 +214,28 @@ describe('Küsten aus einem Bild', () => {
     expect(inRing(far.rings[0]!, { lon: -170, lat: -19.5 })).toBe(true);
     expect(inRing(far.rings[0]!, { lon: -170, lat: 15 })).toBe(false);
   });
+  it('stellt einen Weltstreifen schräg: der Norden nach Osten, der Süden nach Westen', () => {
+    // Ein senkrechter Balken über die ganze Höhe des Bildes.
+    const rows = Array.from({ length: 40 }, () => '.........##.........');
+    const img = picture(rows);
+    const traced = traceImage(img.pixels, img.width, img.height, {
+      mode: 'land',
+      colors: [LAND],
+      tolerance: 40,
+      minArea: 1,
+    });
+    const strip = { ...GRID, heightDeg: 180, widthDeg: 40 };
+    const straight = placeShape(traced, strip, RADIUS).rings[0]!;
+    expect(inRing(straight, { lon: 0, lat: 60 })).toBe(true);
+    expect(inRing(straight, { lon: 0, lat: -60 })).toBe(true);
+    // Um 60° geneigt: bei 60° Nord liegt der Balken 20° weiter östlich, bei 60° Süd 20° westlich.
+    const tilted = placeShape(traced, { ...strip, tiltDeg: 60 }, RADIUS).rings[0]!;
+    expect(inRing(tilted, { lon: 20, lat: 60 })).toBe(true);
+    expect(inRing(tilted, { lon: -20, lat: -60 })).toBe(true);
+    expect(inRing(tilted, { lon: 0, lat: 60 })).toBe(false);
+    expect(inRing(tilted, { lon: 0, lat: 0 })).toBe(true);
+  });
+
   it('legt ein Gebiet nach Kilometern auf die Kugel – in der Form treu, wo immer es liegt', () => {
     // Ein Bild von 100 × 100 Punkten, in der Mitte ein Land von 40 × 40.
     const rows = Array.from({ length: 100 }, (_, y) =>
