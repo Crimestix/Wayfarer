@@ -17,6 +17,7 @@ import {
 import { planLkImport } from './apply';
 import {
   articleFacts,
+  articleShare,
   factField,
   kindFromText,
   nameParts,
@@ -385,5 +386,21 @@ describe('Steckbrief speist die Welt', () => {
     expect(entity('Bran Eisenhand', 'person')).toBeUndefined();
     // Vorlagen bekommen nie einen Eintrag.
     expect(Object.values(data().entities).some((e) => e.lk?.resourceId === 'vorlage1')).toBe(false);
+  });
+  it('sagt, was ein Eintrag aus dem Steckbrief hat', () => {
+    expect(
+      articleShare({
+        fromArticle: {
+          role: 'Fischerin',
+          speciesId: 'Mensch',
+          species: 'Mensch',
+          homeId: 'Hohenfurt',
+          'sibling>abc': '1',
+          'member<def': '1',
+          unbekannt: 'x',
+        },
+      }),
+    ).toEqual({ fields: ['Beruf oder Rolle', 'Spezies', 'Zuhause'], relations: 2 });
+    expect(articleShare({ fromArticle: {} })).toEqual({ fields: [], relations: 0 });
   });
 });

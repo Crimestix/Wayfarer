@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { articleShare } from '../wiki/facts';
 import {
   attitudeHistory,
   attitudeToParty,
@@ -94,7 +95,35 @@ interface Props<E> {
   onShowTab: (tab: DossierTab, intent?: RelationIntent) => void;
 }
 
-export function OverviewTab({ entity, onShowTab }: Props<WorldEntity>) {
+/** Ein Satz dazu, was dieser Eintrag aus dem Steckbrief seines Artikels hat. */
+function FromArticle({ entity }: { entity: WorldEntity }) {
+  const data = useData();
+  const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
+  const { fields, relations } = articleShare(entity);
+  if (!article || (!fields.length && !relations)) return null;
+  const parts = [...fields];
+  if (relations) parts.push(relations === 1 ? 'eine Beziehung' : `${relations} Beziehungen`);
+  const list =
+    parts.length > 1 ? `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}` : parts[0];
+  return (
+    <p className="wf-welt-fromarticle">
+      Aus dem Steckbrief des Artikels <Link href={`/wiki/${article.id}`}>„{article.title}“</Link>:{' '}
+      {list}. Ändert sich dort der Wortlaut, zieht dieser Eintrag nach; was du hier von Hand
+      änderst, bleibt bis dahin.
+    </p>
+  );
+}
+
+export function OverviewTab(props: Props<WorldEntity>) {
+  return (
+    <>
+      <FromArticle entity={props.entity} />
+      <KindOverview {...props} />
+    </>
+  );
+}
+
+function KindOverview({ entity, onShowTab }: Props<WorldEntity>) {
   switch (entity.kind) {
     case 'place':
       return <PlaceOverview entity={entity} onShowTab={onShowTab} />;

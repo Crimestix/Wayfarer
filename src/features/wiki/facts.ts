@@ -726,6 +726,41 @@ const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
 };
 
+/** Wie die Angaben heißen, die ein Eintrag aus dem Steckbrief übernimmt – nach dem Namen, unter dem er sie sich merkt. */
+const SHARE_LABEL: Record<string, string> = {
+  role: FIELD_LABEL.role,
+  status: FIELD_LABEL.status,
+  species: FIELD_LABEL.species,
+  speciesId: FIELD_LABEL.species,
+  placeId: FIELD_LABEL.whereabouts,
+  homeId: FIELD_LABEL.home,
+  workplaceId: FIELD_LABEL.workplace,
+  parentId: FIELD_LABEL.location,
+  seatId: FIELD_LABEL.seat,
+  category: FIELD_LABEL.kind,
+  holderId: FIELD_LABEL.owner,
+};
+
+/**
+ * Was ein Eintrag der Welt gerade aus dem Steckbrief seines Artikels hat: die Bezeichnungen der
+ * Angaben (in der Reihenfolge des Steckbriefs, jede einmal) und die Zahl der Beziehungen.
+ */
+export function articleShare(entity: Pick<Entity, 'fromArticle'>): {
+  fields: string[];
+  relations: number;
+} {
+  const fields: string[] = [];
+  let relations = 0;
+  for (const key of Object.keys(entity.fromArticle)) {
+    if (key.includes('>') || key.includes('<')) relations++;
+    else {
+      const label = SHARE_LABEL[key];
+      if (label && !fields.includes(label)) fields.push(label);
+    }
+  }
+  return { fields, relations };
+}
+
 /** Unter welchem Namen sich der Eintrag eine übernommene Beziehung merkt. */
 const relationMark = (entityId: string, wish: RelationWish) =>
   wish.from === entityId ? `${wish.type}>${wish.to}` : `${wish.type}<${wish.from}`;

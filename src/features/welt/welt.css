@@ -582,6 +582,20 @@
   padding-top: var(--s-5);
 }
 
+/* Was aus dem Steckbrief des Artikels stammt */
+.wf-welt-fromarticle {
+  margin: 0 0 var(--s-4);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.wf-welt-fromarticle a {
+  color: var(--gold);
+}
+
 /* Überblick: zwei Spalten */
 .wf-welt-cols {
   display: grid;
