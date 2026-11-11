@@ -139,7 +139,34 @@ export function lkExportFixture(): unknown {
     exportedAt: '2026-01-05T10:00:00.000Z',
     resourceCount: 13,
     hash: 'x',
-    calendars: [],
+    // Der Kalender der Stadt zählt in „AD“ – die Zeitrechnung kennt Wayfarers Kalender auch.
+    calendars: [
+      {
+        id: 'stadtkal',
+        name: 'Stadtkalender',
+        hasZeroYear: false,
+        hoursInDay: 24,
+        minutesInHour: 60,
+        months: [
+          ['Tauwind', 31],
+          ['Grünbruch', 28],
+          ['Blüthain', 31],
+          ['Sonnfeld', 30],
+          ['Hochbrand', 31],
+          ['Erntfall', 30],
+          ['Dämmsturm', 31],
+          ['Nebelruh', 31],
+          ['Frostfall', 30],
+          ['Eisbruch', 31],
+          ['Glutnacht', 30],
+          ['Sonnend', 31],
+        ].map(([name, length]) => ({ name, length, isIntercalary: false })),
+        leapDays: [{ id: 'schalt', month: 1, interval: '400,!100,4' }],
+        positiveEras: [
+          { id: 'ad', name: 'Stadtjahre', abbr: 'AD', startsAt: 0, resetMode: 'none' },
+        ],
+      },
+    ],
     resources: [
       resource({
         id: 'laender1',
@@ -190,7 +217,28 @@ export function lkExportFixture(): unknown {
             { type: 'ganzNeu', content: [paragraph(text('Gerettet.'))] },
           ]),
           cityMap,
-          { id: 'hf-zeit', name: 'Chronik', type: 'time', pos: 'c', content: { events: [] } },
+          {
+            id: 'hf-zeit',
+            name: 'Chronik',
+            type: 'time',
+            pos: 'c',
+            calendarId: 'stadtkal',
+            content: {
+              events: [
+                // 1. Tauwind 650 AD: 649 Jahre mit 157 Schalttagen nach Beginn des Kalenders.
+                {
+                  id: 'faehre01',
+                  name: 'Die Fähre sinkt',
+                  type: 'event',
+                  detail: 3,
+                  start: (649 * 365 + 157) * 24 * 60,
+                  uri: 'lk://resources/hohenf01',
+                },
+                // Ohne Namen: wird übergangen.
+                { id: 'leer0001', name: ' ', type: 'event', detail: 3, start: 5 },
+              ],
+            },
+          },
           { id: 'hf-brett', name: 'Skizze', type: 'board', pos: 'd', content: {} },
         ],
       }),

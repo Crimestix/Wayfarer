@@ -25,6 +25,7 @@ import {
   type Inline,
   type TableCell,
 } from '../legendkeeper/model';
+import type { LkCalendar, LkTimelineEvent } from './timeline';
 
 type Raw = Record<string, unknown>;
 const isRaw = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -457,6 +458,9 @@ export interface LkConversion {
   articles: Article[];
   maps: GameMap[];
   resources: LkResourceInfo[];
+  /** Kalender des Exports und die Ereignisse seiner Zeitleisten. */
+  calendars: LkCalendar[];
+  timeline: LkTimelineEvent[];
   stats: {
     articles: number;
     pages: number;
@@ -465,6 +469,8 @@ export interface LkConversion {
     shapes: number;
     boards: number;
     timelines: number;
+    /** Ereignisse auf den Zeitleisten. */
+    events: number;
     images: number;
     /** Artikel oder Karten, die unlesbar waren und fehlen. */
     skipped: number;
@@ -514,6 +520,7 @@ export function convertLkExport(raw: unknown): LkConversion {
     shapes: 0,
     boards: 0,
     timelines: 0,
+    events: 0,
     images: 0,
     skipped: list(raw.resources).length - resources.length,
   };
@@ -532,6 +539,31 @@ export function convertLkExport(raw: unknown): LkConversion {
     };
     nodes.forEach(visit);
   };
+
+  const calendars: LkCalendar[] = list(raw.calendars)
+    .filter(isRaw)
+    .map((c) => ({
+      id: text(c.id),
+      name: text(c.name),
+      hasZeroYear: c.hasZeroYear === true,
+      hoursInDay: num(c.hoursInDay) ?? 24,
+      minutesInHour: num(c.minutesInHour) ?? 60,
+      months: list(c.months)
+        .filter(isRaw)
+        .map((m) => ({ name: text(m.name), length: num(m.length) ?? 0 }))
+        .filter((m) => m.length > 0),
+      leapDays: list(c.leapDays)
+        .filter(isRaw)
+        .map((l) => ({ month: num(l.month) ?? -1, interval: text(l.interval) }))
+        .filter((l) => l.month >= 0 && l.interval !== ''),
+      eras: [c.negativeEra, ...list(c.positiveEras)].filter(isRaw).map((e) => ({
+        abbr: text(e.abbr),
+        startsAt: num(e.startsAt) ?? 0,
+        resets: text(e.resetMode) !== '' && text(e.resetMode) !== 'none',
+      })),
+    }))
+    .filter((c) => c.id !== '' && c.months.length > 0 && c.hoursInDay > 0 && c.minutesInHour > 0);
+  const timeline: LkTimelineEvent[] = [];
 
   const pinnedIds = new Set<string>();
   const articles: Article[] = [];
@@ -639,6 +671,22 @@ export function convertLkExport(raw: unknown): LkConversion {
       } else if (kind === 'time') {
         stats.timelines++;
         docs.push({ ...base, kind: 'time' });
+        for (const event of list(obj(d.content).events).filter(isRaw)) {
+          const start = num(event.start);
+          const eventId = safeId(text(event.id));
+          if (start === null || !eventId || !text(event.name).trim()) continue;
+          timeline.push({
+            id: eventId,
+            name: text(event.name).trim(),
+            calendarId: text(d.calendarId),
+            start,
+            end: num(event.end),
+            detail: num(event.detail) ?? 3,
+            articleId: id,
+            linkedArticleId: idOf(resourceOfUri(event.uri)) ?? idOf(event.uri),
+          });
+          stats.events++;
+        }
       }
     }
 
@@ -729,6 +777,8 @@ export function convertLkExport(raw: unknown): LkConversion {
     articles,
     maps,
     resources: infos,
+    calendars,
+    timeline,
     stats,
   };
 }

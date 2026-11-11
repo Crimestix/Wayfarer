@@ -1,5 +1,7 @@
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { toTime } from '../../domain/time/calendar';
+import { ELARIS_CALENDAR } from '../../domain/time/elaris';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -61,6 +63,7 @@ describe('LegendKeeper-Export lesen', () => {
       shapes: 2,
       boards: 1,
       timelines: 1,
+      events: 1,
       skipped: 1,
     });
     expect(articles).toHaveLength(13);
@@ -275,7 +278,23 @@ describe('Übernahme in den Spielstand', () => {
     expect(plan.personIds.sort()).toEqual([mira.id, odo.id, jost.id, vera.id].sort());
     expect(plan.sections.adopted[0]).toMatch(/^13 Artikel mit 10 Textseiten/);
     expect(plan.sections.hints.join(' ')).toMatch(/5 Bilder liegen weiterhin bei LegendKeeper/);
-    expect(plan.sections.omitted.join(' ')).toMatch(/1 Zeitleiste.*1 Zeichenfläche/);
+    expect(plan.sections.omitted.join(' ')).toMatch(/1 Zeichenfläche/);
+
+    // Das Ereignis der Zeitleiste steht als Termin im Kalender – am Ort, auf den es verweist,
+    // und abgehakt, weil es lange vor dem Jetzt der Kampagne liegt.
+    expect(plan.counts.events).toBe(1);
+    expect(plan.data.events['lk-zeit-faehre01']).toMatchObject({
+      title: 'Die Fähre sinkt',
+      at: toTime(ELARIS_CALENDAR, { year: 650 + 27387, month: 0, day: 1, hour: 0, minute: 0 }),
+      timed: false,
+      kind: 'world',
+      placeId: city.id,
+      done: true,
+      details: 'Aus der Zeitleiste von „Hohenfurt“.',
+    });
+    expect(plan.sections.adopted.join(' ')).toMatch(
+      /1 Ereignis aus den Zeitleisten steht als Termin im Kalender/,
+    );
     expect(plan.sections.skipped).toHaveLength(1);
   });
 
@@ -291,6 +310,10 @@ describe('Übernahme in den Spielstand', () => {
       Object.keys(first.data.relations).length,
     );
     expect(Object.keys(second.data.articles)).toHaveLength(13);
+    // Auch der Termin aus der Zeitleiste entsteht kein zweites Mal – und bleibt, wie er ist.
+    expect(second.counts.events).toBe(0);
+    expect(Object.keys(second.data.events)).toEqual(Object.keys(first.data.events));
+    expect(second.sections.hints.join(' ')).toMatch(/1 Ereignis aus den Zeitleisten stand schon/);
   });
 
   it('lässt stehen, was schon eingetragen ist, und verknüpft Vorhandenes', () => {

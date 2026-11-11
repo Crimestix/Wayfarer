@@ -9,6 +9,7 @@
  * - In die Welt kommt nur, was eindeutig erkannt wurde (`recognize.ts`).
  */
 import {
+  createEvent,
   EntitySchema,
   RelationSchema,
   nowIso,
@@ -25,6 +26,7 @@ import { looseName, type ImportSections } from '../import/v157';
 import type { LkConversion, LkResourceInfo } from './lkexport';
 import { isDraft, recognizeKind, type RecognizedKind } from './recognize';
 import { articleAsText } from './text';
+import { planTimeline } from './timeline';
 
 export interface LkImportOptions {
   /** Personen, Orte, Fraktionen und Gegenstände erkennen und in der Welt anlegen. */
@@ -34,6 +36,8 @@ export interface LkImportOptions {
 export interface LkImportCounts {
   articles: number;
   maps: number;
+  /** Ereignisse der Zeitleisten, die neu als Termine im Kalender stehen. */
+  events: number;
   /** Neu in der Welt angelegt, je Art. */
   created: Record<RecognizedKind, number>;
   /** Vorhandene Einträge, die ihren Artikel gefunden haben. */
@@ -98,6 +102,7 @@ export function planLkImport(
   const counts: LkImportCounts = {
     articles: conversion.articles.length,
     maps: conversion.maps.length,
+    events: 0,
     created: { person: 0, place: 0, faction: 0, item: 0 },
     linked: 0,
     named: 0,
@@ -492,10 +497,55 @@ export function planLkImport(
       `${amount(placeholders, 'Stelle', 'Stellen')}, die es so nur in LegendKeeper gibt (selbst zusammengestellte Sammlungen), ${placeholders === 1 ? 'fehlt' : 'fehlen'} im Text.`,
     );
 
+  // ── Zeitleisten: Ihre Ereignisse werden Termine im Kalender. Was schon dort steht, bleibt,
+  //    wie es ist – auch wenn es in Wayfarer geändert wurde.
+  const timelinePlan = planTimeline(
+    data.campaign.calendar,
+    conversion.calendars,
+    conversion.timeline,
+    (articleId) => articles[articleId]?.title,
+  );
+  const events = { ...data.events };
+  let eventsKept = 0;
+  for (const planned of timelinePlan.events) {
+    if (events[planned.id]) {
+      eventsKept++;
+      continue;
+    }
+    const ref = planned.linkedArticleId ? entityOfArticle.get(planned.linkedArticleId) : undefined;
+    const refEntity = ref ? entities[ref] : undefined;
+    events[planned.id] = createEvent({
+      id: planned.id,
+      title: planned.title,
+      at: planned.at,
+      timed: planned.timed,
+      kind: 'world',
+      details: planned.details,
+      durationDays: planned.durationDays,
+      placeId: refEntity?.kind === 'place' ? refEntity.id : null,
+      refs: refEntity && refEntity.kind !== 'place' ? [refEntity.id] : [],
+      // Was vor dem Jetzt der Kampagne liegt, ist längst eingetreten.
+      done: planned.at <= data.state.now,
+    });
+    counts.events++;
+  }
+  if (counts.events)
+    adopted.push(
+      `${amount(counts.events, 'Ereignis', 'Ereignisse')} aus den Zeitleisten ${counts.events === 1 ? 'steht' : 'stehen'} als ${counts.events === 1 ? 'Termin' : 'Termine'} im Kalender.`,
+    );
+  if (eventsKept)
+    hints.push(
+      `${amount(eventsKept, 'Ereignis', 'Ereignisse')} aus den Zeitleisten ${eventsKept === 1 ? 'stand' : 'standen'} schon im Kalender und ${eventsKept === 1 ? 'bleibt' : 'bleiben'}, wie ${eventsKept === 1 ? 'es ist' : 'sie sind'}.`,
+    );
+
   const omitted: string[] = [];
-  if (stats.timelines)
+  for (const entry of timelinePlan.unknown)
     omitted.push(
-      `${amount(stats.timelines, 'Zeitleiste', 'Zeitleisten')}: Die Seite ist im Wiki vermerkt, die Ereignisse darauf sind noch nicht übernommen.`,
+      `${amount(entry.events, 'Ereignis', 'Ereignisse')} aus dem Kalender „${entry.calendar}“: Seine Zeitrechnung kennt Wayfarers Kalender nicht, das Datum lässt sich nicht einordnen.`,
+    );
+  if (timelinePlan.tooEarly)
+    omitted.push(
+      `${amount(timelinePlan.tooEarly, 'Ereignis liegt', 'Ereignisse liegen')} vor dem ersten Jahr des Kalenders und ${timelinePlan.tooEarly === 1 ? 'fehlt' : 'fehlen'}.`,
     );
   if (stats.boards)
     omitted.push(
@@ -508,7 +558,7 @@ export function planLkImport(
     : [];
 
   return {
-    data: { ...data, entities, relations, maps, articles },
+    data: { ...data, entities, relations, maps, articles, events },
     sections: { adopted, hints, omitted, skipped },
     counts,
     personIds: [...personIds],
