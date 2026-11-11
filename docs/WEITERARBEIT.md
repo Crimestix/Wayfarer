@@ -476,9 +476,37 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
   zwischen Orten, Gelände auf dem Weg für die Hexkarten (statt erfundenem), Klima aus Breite,
   Höhe und Küstennähe (statt aus Wörtern im Namen), Tageslänge im Wetter und am Spieltisch.
 - **Schritt 4 – die Kugel (gebaut):** Umschalter „Karte / Kugel“ im Atlas. `atlas/Globe.tsx` malt die
-  Welt einmal flach in ein Bild (4096 × 2048) und rechnet für jeden Bildpunkt der Scheibe aus,
-  welche Stelle zu sehen ist – ohne weitere Bibliothek. Ziehen dreht, das Rad vergrößert; Orte
-  setzen und wählen wie auf der Karte. Beim Drehen wird gröber gezeichnet, danach fein.
+  Welt einmal flach in ein Bild (4096 × 2048); die Grafikkarte rechnet für jeden Bildpunkt der
+  Scheibe aus, welche Stelle zu sehen ist (WebGL, ohne weitere Bibliothek). Darüber liegt eine
+  zweite Zeichenfläche für Gradnetz, Orte, Gruppe und alle Eingaben. Ziehen dreht, das Rad
+  vergrößert; Orte setzen und wählen wie auf der Karte. Gemessen: rund 10 ms je Bewegung (die
+  erste Fassung rechnete jeden Bildpunkt im Programm und ruckelte). Kann die Grafikkarte nicht,
+  steht ein Hinweis da und die flache Karte bleibt.
+- **Landmassen aus Kartenbildern (gebaut, 11. 11. 2026):** Der alte Atlas kennt nur die sieben
+  Kontinente; zwei weitere Kontinentalwelten liegen dem Spielleiter als Bilder vor. Im Atlas, Knopf
+  „Landmasse aus einem Kartenbild einlesen“ (`atlas/TraceDialog.tsx`, Rechnung in
+  `atlas/trace.ts`, mit Test):
+  - *Lesen:* Land oder Wasser entscheidet die Ähnlichkeit zu gewählten Farben – „diese Farben
+    sind Wasser“ (alles andere Land) oder „diese Farben sind Land“. Jeder Klick ins Bild nimmt die
+    Farbe der Stelle dazu (bis zu acht), ein Klick aufs Farbfeld nimmt sie heraus. Regler:
+    Ähnlichkeit, kleinste Fläche (Schrift und Zierrat fallen weg), Weichzeichnen (für gemalte
+    Karten). Flache, einfarbige Karten gehen mit einer Farbe; eine gemalte Karte braucht mehrere
+    Wassertöne und Weichzeichnen und bleibt ungefähr (Wolken und Schrift am Land zählen mit).
+  - *Einpassen* (`placeShape`): als **Gebiet** – Mitte per Klick, Breite in Kilometern (am
+    Maßstab des Bildes abgelesen), Drehung; das Bild liegt flach auf der Kugel auf, Formen
+    bleiben auch am Pol erhalten – oder als **Weltstreifen** in Grad (für Bilder wie die
+    Weltkarte, „Von Pol zu Pol“). Übernehmen legt die Landmasse in den Planeten
+    (`addLand`, Kennung `bild-…`, ohne Höhen: flaches Land); rückgängig über die Meldung,
+    entfernen in der Liste „Aus Bildern eingelesen“. Die Weltdatei neu einzulesen lässt sie stehen.
+  - *Zeichnen:* Eingelesene Landmassen dürfen über anderem Land liegen und um einen Pol reichen.
+    Darum hat jede ihre eigene Fläche (`landPaths`), und ein Ring um den Pol bringt seine Kopien
+    selbst mit und wird einmal gezeichnet (`LandPath.once`) – sonst hebt sich überlappendes Land
+    beim Füllen gegenseitig auf.
+  - Geprüft in der Vorschau mit den beiden Bildern des Spielleiters (nur lokal): Karte und
+    Geländeabfrage stimmen überein, auch nach dem Verschieben. Die Lage dort war nur eine Probe;
+    die echte setzt der Spielleiter in seiner App. **Nicht geprüft:** installierte App, macOS.
+  - Offen: Höhen für eingelesene Landmassen; Stellen von Hand wegnehmen (Wolken, Schrift);
+    Maßstab im Bild abgreifen statt Kilometer eintippen.
 - Offen: eine Wiki-Karte über zwei bekannte Punkte einhängen (dann haben alle ihre Kartenpunkte
   eine Lage); ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
   Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die

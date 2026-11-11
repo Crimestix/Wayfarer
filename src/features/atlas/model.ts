@@ -23,6 +23,10 @@ import { warmestMonth } from '../../domain/weatherZone';
 export const PLANET_ID = 'planet';
 export const RELIEF_ID = 'relief';
 
+/** Kennung der Landmassen, die in Wayfarer aus einem Bild eingelesen wurden. */
+export const OWN_LAND_PREFIX = 'bild-';
+export const isOwnLand = (land: { id: string }): boolean => land.id.startsWith(OWN_LAND_PREFIX);
+
 interface Shape {
   ring: Ring;
   bounds: RingBounds;
@@ -130,14 +134,20 @@ export function terrainAt(planet: Planet, grid: HeightGrid | null, point: LonLat
   for (const lake of planet.lakes)
     if (inRing(lake.shape.ring, point, lake.shape.bounds))
       return { land: null, water: 'lake', heightM };
+  let enclosed = false;
   for (const land of planet.lands) {
     if (!land.rings.some((s) => inRing(s.ring, point, s.bounds))) continue;
-    // Ein Loch in der Landmasse ist ein Binnenmeer oder ein großer See.
-    if (land.holes.some((s) => inRing(s.ring, point, s.bounds)))
-      return { land: null, water: 'lake', heightM };
+    // Ein Loch in der Landmasse ist ein Binnenmeer oder ein großer See – es sei denn, eine
+    // andere Landmasse liegt dort (eingelesene Bilder dürfen sich überlappen).
+    if (land.holes.some((s) => inRing(s.ring, point, s.bounds))) {
+      enclosed = true;
+      continue;
+    }
     return { land: { id: land.id, name: land.name }, water: null, heightM };
   }
-  return { land: null, water: 'sea', heightM: null };
+  return enclosed
+    ? { land: null, water: 'lake', heightM }
+    : { land: null, water: 'sea', heightM: null };
 }
 
 // ── Lage von Orten ─────────────────────────────────────────────────────────

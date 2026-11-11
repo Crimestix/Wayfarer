@@ -5,9 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Minus, Plus, Scan } from 'lucide-react';
-import { NODATA, wrapLon, type HeightGrid, type LonLat } from '../../domain/geo';
+import { NODATA, ringBounds, wrapLon, type HeightGrid, type LonLat } from '../../domain/geo';
 import { IconButton } from '../../ui';
-import type { Planet } from './model';
+import { isOwnLand, type Planet } from './model';
 
 export interface MapPlace {
   id: string;
@@ -15,6 +15,12 @@ export interface MapPlace {
   geo: LonLat;
   /** Orte ohne übergeordneten Ort mit Lage: Sie tragen ihren Namen schon aus der Ferne. */
   major: boolean;
+}
+
+/** Eine Landmasse, die gerade eingepasst wird: Ringe flach als Länge, Breite. */
+export interface DraftShape {
+  rings: number[][];
+  holes: number[][];
 }
 
 export interface MapView {
@@ -35,6 +41,8 @@ interface Props {
   placing: boolean;
   /** Springt dorthin, wenn sich der Wert ändert. */
   focus: LonLat | null;
+  /** Eine Landmasse, die gerade eingepasst wird – hervorgehoben über der Karte. */
+  draft?: DraftShape | null;
   onPick: (point: LonLat) => void;
   onSelect: (placeId: string) => void;
   onHover: (point: LonLat | null) => void;
@@ -170,29 +178,104 @@ export function reliefImage(
   return canvas;
 }
 
-/** Fügt einen Ring als geschlossene Linie in Länge und Breite an – fortlaufend abgewickelt. */
+/** So oft wird ein Ring um den Pol hintereinander angefügt – genug für jede Ansicht der Karte. */
+const POLAR_TURNS = 4;
+
+/**
+ * Fügt einen Ring als geschlossene Linie in Länge und Breite an – fortlaufend abgewickelt und um
+ * `shift` Grad versetzt.
+ *
+ * Ein Ring um den Pol läuft einmal um die Welt und schließt sich über den Rand der Karte. Er wird
+ * mehrfach hintereinander angefügt, von zwei Welten westlich bis zwei Welten östlich: Die Küste
+ * darf dabei vor- und zurücklaufen, und die senkrechten Schlusslinien liegen außerhalb von allem,
+ * was gezeigt wird. So ein Ring bringt seine Kopien selbst mit und wird nur einmal gezeichnet.
+ */
 export function addRing(
   path: Path2D,
   ring: readonly number[],
   polar: 'north' | 'south' | null,
+  shift = 0,
 ): void {
   const count = ring.length / 2;
   if (count < 3) return;
-  let lon = ring[0]!;
+  if (!polar) {
+    let lon = ring[0]! + shift;
+    path.moveTo(lon, ring[1]!);
+    for (let i = 1; i < count; i++) {
+      lon += wrapLon(ring[i * 2]! - ring[(i - 1) * 2]!);
+      path.lineTo(lon, ring[i * 2 + 1]!);
+    }
+    path.closePath();
+    return;
+  }
+  const closing = wrapLon(ring[0]! - ring[(count - 1) * 2]!);
+  let around = closing;
+  for (let i = 1; i < count; i++) around += wrapLon(ring[i * 2]! - ring[(i - 1) * 2]!);
+  const start = ring[0]! + shift - (POLAR_TURNS / 2) * around;
+  let lon = start;
   path.moveTo(lon, ring[1]!);
-  for (let i = 1; i < count; i++) {
-    lon += wrapLon(ring[i * 2]! - ring[(i - 1) * 2]!);
-    path.lineTo(lon, ring[i * 2 + 1]!);
+  for (let turn = 0; turn < POLAR_TURNS; turn++) {
+    for (let i = 1; i < count; i++) {
+      lon += wrapLon(ring[i * 2]! - ring[(i - 1) * 2]!);
+      path.lineTo(lon, ring[i * 2 + 1]!);
+    }
+    lon += closing;
+    path.lineTo(lon, ring[1]!);
   }
-  if (polar) {
-    // Ein Ring um den Pol schließt sich über den Rand der Karte.
-    const edge = polar === 'north' ? 90 : -90;
-    const end = lon + wrapLon(ring[0]! - ring[(count - 1) * 2]!);
-    path.lineTo(end, ring[1]!);
-    path.lineTo(end, edge);
-    path.lineTo(ring[0]!, edge);
-  }
+  const edge = polar === 'north' ? 90 : -90;
+  path.lineTo(lon, edge);
+  path.lineTo(start, edge);
   path.closePath();
+}
+
+/** Eine Fläche zum Zeichnen. */
+export interface LandPath {
+  path: Path2D;
+  /**
+   * Die Fläche reicht um einen Pol und enthält schon alle Kopien der Welt: Sie wird einmal
+   * gezeichnet, nicht je Kopie.
+   */
+  once: boolean;
+}
+
+/** Küsten und Gewässer einer Landmasse als eine Fläche. */
+export function shapePath(
+  rings: readonly { ring: readonly number[]; polar: 'north' | 'south' | null }[],
+  holes: readonly (readonly number[])[],
+): LandPath {
+  const path = new Path2D();
+  const once = rings.some((entry) => entry.polar !== null);
+  // Neben einem Ring um den Pol braucht auch alles Übrige seine Kopien in derselben Fläche.
+  const shifts = once ? [-360, 0, 360] : [0];
+  for (const entry of rings)
+    if (entry.polar) addRing(path, entry.ring, entry.polar);
+    else for (const shift of shifts) addRing(path, entry.ring, null, shift);
+  for (const hole of holes) for (const shift of shifts) addRing(path, hole, null, shift);
+  return { path, once };
+}
+
+/**
+ * Das Land als Flächen zum Zeichnen. Die Landmassen der Weltdatei überlappen sich nie und
+ * teilen sich eine Fläche. Eine eigene bekommt, was um einen Pol reicht, und jede aus einem Bild
+ * eingelesene Landmasse – sie darf über anderem Land liegen, ohne dass sich beides aufhebt.
+ */
+export function landPaths(planet: Planet): LandPath[] {
+  const base = new Path2D();
+  const paths: LandPath[] = [{ path: base, once: false }];
+  for (const entry of planet.lands) {
+    if (!isOwnLand(entry) && !entry.rings.some((s) => s.bounds.polar)) {
+      for (const s of entry.rings) addRing(base, s.ring, null);
+      for (const s of entry.holes) addRing(base, s.ring, null);
+      continue;
+    }
+    paths.push(
+      shapePath(
+        entry.rings.map((s) => ({ ring: s.ring, polar: s.bounds.polar })),
+        entry.holes.map((s) => s.ring),
+      ),
+    );
+  }
+  return paths;
 }
 
 const NICE = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
@@ -205,12 +288,20 @@ export function WorldMap({
   party,
   placing,
   focus,
+  draft,
   onPick,
   onSelect,
   onHover,
 }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const draftPath = useMemo(() => {
+    if (!draft) return null;
+    return shapePath(
+      draft.rings.map((ring) => ({ ring, polar: ringBounds(ring).polar })),
+      draft.holes,
+    );
+  }, [draft]);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [view, setView] = useState<MapView>({ lon: 0, lat: 0, scale: 0 });
   const drag = useRef<{ x: number; y: number; view: MapView; moved: boolean } | null>(null);
@@ -218,11 +309,7 @@ export function WorldMap({
   const colors = useMemo(readColors, []);
   const relief = useMemo(() => (grid ? reliefImage(grid, colors) : null), [grid, colors]);
   const shapes = useMemo(() => {
-    const land = new Path2D();
-    for (const entry of planet.lands) {
-      for (const s of entry.rings) addRing(land, s.ring, s.bounds.polar);
-      for (const s of entry.holes) addRing(land, s.ring, null);
-    }
+    const lands = landPaths(planet);
     const lakes = new Path2D();
     for (const lake of planet.lakes) addRing(lakes, lake.shape.ring, null);
     const rivers = planet.doc.rivers.map((river) => {
@@ -235,7 +322,7 @@ export function WorldMap({
       }
       return { path, widthKm: river.widthKm };
     });
-    return { land, lakes, rivers };
+    return { lands, lakes, rivers };
   }, [planet]);
 
   /** Die kleinste Vergrößerung: Die Welt füllt die Fläche in der Breite oder Höhe. */
@@ -324,25 +411,28 @@ export function WorldMap({
 
     for (const copy of copies) {
       // Land: das Gelände, an der Küste scharf abgeschnitten.
-      ctx.save();
-      geo(copy);
-      ctx.clip(shapes.land, 'evenodd');
-      pixels();
-      if (relief) {
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(
-          relief,
-          size.width / 2 + (copy * 360 - 180 - view.lon) * scale,
-          size.height / 2 + (view.lat - 90) * scale,
-          360 * scale,
-          180 * scale,
-        );
-      } else {
+      for (const land of shapes.lands) {
+        if (land.once && copy !== 0) continue;
+        ctx.save();
+        geo(copy);
+        ctx.clip(land.path, 'evenodd');
+        pixels();
+        // Land ohne Höhenangabe (etwa aus einem Bild eingelesen) zeigt die Farbe des Tieflands.
         ctx.fillStyle = colors.low.css;
         ctx.fillRect(0, 0, size.width, size.height);
+        if (relief) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(
+            relief,
+            size.width / 2 + (copy * 360 - 180 - view.lon) * scale,
+            size.height / 2 + (view.lat - 90) * scale,
+            360 * scale,
+            180 * scale,
+          );
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       geo(copy);
       ctx.fillStyle = colors.sea.css;
@@ -357,7 +447,7 @@ export function WorldMap({
       ctx.strokeStyle = colors.ink.css;
       ctx.globalAlpha = 0.7;
       ctx.lineWidth = px;
-      ctx.stroke(shapes.land);
+      for (const land of shapes.lands) if (!land.once || copy === 0) ctx.stroke(land.path);
       ctx.stroke(shapes.lakes);
       ctx.globalAlpha = 1;
     }
@@ -386,6 +476,22 @@ export function WorldMap({
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+
+    // Eine Landmasse, die gerade eingepasst wird.
+    if (draftPath) {
+      for (const copy of copies) {
+        if (draftPath.once && copy !== 0) continue;
+        geo(copy);
+        ctx.fillStyle = colors.gold.css;
+        ctx.globalAlpha = 0.45;
+        ctx.fill(draftPath.path, 'evenodd');
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = colors.gold.css;
+        ctx.lineWidth = 1.5 * px;
+        ctx.stroke(draftPath.path);
+      }
+      pixels();
+    }
 
     // Orte
     const font = getComputedStyle(element).fontFamily;
@@ -437,7 +543,20 @@ export function WorldMap({
     ctx.font = `12px ${font}`;
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(`${km.toLocaleString('de-DE')} km`, 20, size.height - 20);
-  }, [view, size, colors, relief, shapes, places, selectedId, party, planet, toScreen, minScale]);
+  }, [
+    view,
+    size,
+    colors,
+    relief,
+    shapes,
+    draftPath,
+    places,
+    selectedId,
+    party,
+    planet,
+    toScreen,
+    minScale,
+  ]);
 
   // ── Bedienung ─────────────────────────────────────────────────────────────
   const zoomAt = (factor: number, x = size.width / 2, y = size.height / 2) =>

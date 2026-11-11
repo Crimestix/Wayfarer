@@ -68,8 +68,8 @@ nicht übernommen.
   `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
   LegendKeeper-Exports),
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
-  `atlas` (der Planet: Weltkarte, Lage der Orte; die Rechnung auf der Kugel steht in
-  `domain/geo.ts`),
+  `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
+  Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -94,7 +94,10 @@ nicht übernommen.
 - Lage: Orte tragen `place.geo` (Länge, Breite). Gefragt wird immer über `placeGeo()` aus
   `atlas/model.ts` – Orte ohne eigene Lage erben die des Ortes darüber. Der Planet selbst
   (Küsten, Höhen) liegt in der Sammlung `atlas` und stammt aus der Übernahme des alten Atlas;
-  seine Daten gehören zur Kampagne und nie ins Repository.
+  seine Daten gehören zur Kampagne und nie ins Repository. Landmassen, die der Spielleiter aus
+  einem Kartenbild einliest (`addLand`, Kennung `bild-…`), liegen im selben Dokument, haben
+  keine Höhen und bleiben, wenn die Weltdatei neu eingelesen wird. Land zum Zeichnen immer über
+  `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
 - Bilder: Im Spielstand steht die Adresse des Ursprungs; zum Anzeigen immer `useMediaSrc()` aus
   `data/media.ts` nehmen – dann kommt die Datei vom Rechner, wenn sie geholt wurde.
 - Artikel: Der Text jeder Seite (`ArticleDoc.text`) ist die Quelle; die Anzeige liest ihn mit

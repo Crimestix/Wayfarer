@@ -4,7 +4,7 @@ import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../data/store';
 import { entitiesOfKind } from '../../domain/derive';
 import { NODATA } from '../../domain/geo';
-import { applyAtlas, removeAtlas, setPlaceGeo } from './actions';
+import { addLand, applyAtlas, isOwnLand, removeAtlas, setPlaceGeo } from './actions';
 import { NOT_AN_ATLAS, NOT_A_HEIGHTMAP, convertAtlasWorld, convertHeights } from './import';
 import {
   daylightAt,
@@ -202,6 +202,27 @@ describe('Der Planet im Spielstand', () => {
     expect(formatGeo({ lon: -12.34, lat: 5.06 })).toBe('5,1° N, 12,3° W');
     expect(formatKm(1240.4)).toBe('1.240 km');
     expect(formatKm(3.26)).toBe('3,3 km');
+  });
+
+  it('nimmt Landmassen aus Bildern dazu – auch über anderem Land – und behält sie', async () => {
+    const { db } = await setup();
+    const at = (lon: number, lat: number) =>
+      terrainAt(planetOf(db.getSnapshot())!, reliefOf(db.getSnapshot()), { lon, lat });
+    // Eine Insel im Loch der Landmasse und im Meer daneben.
+    const undo = addLand(db, {
+      name: ' Seeinsel ',
+      rings: [[11, 11, 13, 11, 13, 13, 11, 13]],
+      holes: [],
+    });
+    expect(at(12, 12).land?.name).toBe('Seeinsel');
+    expect(isOwnLand(at(12, 12).land!)).toBe(true);
+    // Wo schon Land war, bleibt dessen Name.
+    expect(at(5, 5).land?.name).toBe('Nordland');
+    // Die Weltdatei neu eingelesen: Die eigene Landmasse bleibt.
+    applyAtlas(db, planet().planet);
+    expect(at(12, 12).land?.name).toBe('Seeinsel');
+    undo();
+    expect(at(12, 12).water).toBe('lake');
   });
 
   it('setzt die Lage von Orten; Orte darunter erben sie', async () => {

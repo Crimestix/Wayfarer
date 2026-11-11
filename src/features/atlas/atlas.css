@@ -282,3 +282,184 @@
   background: var(--gold-glow);
   color: var(--gold-bright);
 }
+
+/* Kugel: zwei Flächen übereinander – unten die Kugel, oben Gradnetz und Orte */
+.wf-atlas-map--globe .wf-atlas-map__canvas {
+  position: absolute;
+  inset: 0;
+}
+.wf-atlas-map__canvas--under {
+  pointer-events: none;
+}
+.wf-atlas-map__note {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: 44ch;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  color: var(--ink-mute);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Landmasse aus einem Bild: einlesen */
+.wf-atlas-trace__start {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-4);
+}
+.wf-atlas-trace__error {
+  margin: 0;
+  color: var(--blood-bright);
+}
+.wf-atlas-trace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: var(--s-4);
+  align-items: start;
+}
+.wf-atlas-trace__view {
+  display: grid;
+  place-items: center;
+  max-height: 62vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-atlas-trace__canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  cursor: crosshair;
+}
+.wf-atlas-trace__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  font-size: var(--text-sm);
+}
+.wf-atlas-trace__side input[type='range'],
+.wf-atlas-fit input[type='range'] {
+  width: 100%;
+  accent-color: var(--gold);
+}
+.wf-atlas-trace__label {
+  margin-bottom: var(--s-1);
+  font-family: var(--font-caps);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-atlas-trace__modes {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+.wf-atlas-trace__modes button {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+}
+.wf-atlas-trace__modes button + button {
+  border-left: 0;
+}
+.wf-atlas-trace__modes button[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-atlas-trace__colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1);
+  min-height: 28px;
+  margin-bottom: var(--s-2);
+}
+.wf-atlas-trace__swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+}
+.wf-atlas-trace__swatch:hover {
+  border-color: var(--gold-bright);
+}
+
+/* Landmasse einpassen */
+.wf-atlas-fit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0 var(--s-3) var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--gold-deep);
+  background: var(--bg-1);
+  font-size: var(--text-sm);
+}
+.wf-atlas-fit__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--gold-bright);
+}
+.wf-atlas-fit p {
+  margin: 0;
+}
+.wf-atlas-fit__kinds {
+  display: flex;
+}
+.wf-atlas-fit__kinds button {
+  flex: 1;
+  height: 28px;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+}
+.wf-atlas-fit__kinds button + button {
+  border-left: 0;
+}
+.wf-atlas-fit__kinds button[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-atlas-fit__km {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-atlas-fit__km input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+.wf-atlas-fit__km .wf-input {
+  width: 92px;
+}
+
+/* Eingelesene Landmassen */
+.wf-atlas-lands {
+  flex: none;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--line-faint);
+  font-size: var(--text-sm);
+}
+.wf-atlas-lands__title {
+  font-family: var(--font-caps);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-atlas-lands__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  color: var(--ink-soft);
+}

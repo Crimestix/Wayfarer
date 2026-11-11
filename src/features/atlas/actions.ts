@@ -1,8 +1,10 @@
 /** Befehle des Bereichs „Atlas“: den Planeten übernehmen, Orte auf ihm setzen. */
 import type { CampaignDb } from '../../data/db';
 import { wrapLon, type LonLat } from '../../domain/geo';
-import { AtlasSchema, nowIso, type Atlas } from '../../domain/schema';
-import { PLANET_ID, RELIEF_ID } from './model';
+import { AtlasSchema, newId, nowIso, type Atlas } from '../../domain/schema';
+import { OWN_LAND_PREFIX, PLANET_ID, RELIEF_ID, isOwnLand } from './model';
+
+export { isOwnLand };
 
 type AtlasInit = Omit<Atlas, 'id' | 'rev' | 'created' | 'updated'>;
 
@@ -27,9 +29,37 @@ function putPart(db: CampaignDb, id: string, init: AtlasInit): Atlas {
  */
 export function applyAtlas(db: CampaignDb, planet: AtlasInit, relief?: AtlasInit | null): void {
   db.batch(() => {
-    putPart(db, PLANET_ID, planet);
+    // Landmassen, die aus einem Bild eingelesen wurden, gehören nicht zur Weltdatei – sie bleiben.
+    const own = (db.getSnapshot().atlas[PLANET_ID]?.lands ?? []).filter(isOwnLand);
+    const fresh = planet.lands.filter((land) => !isOwnLand(land));
+    putPart(db, PLANET_ID, { ...planet, lands: [...fresh, ...own] });
     if (relief) putPart(db, RELIEF_ID, relief);
   });
+}
+
+/**
+ * Fügt dem Planeten eine Landmasse hinzu – Küsten und Gewässer als Ringe in Länge und Breite.
+ * Gibt `undo` zurück.
+ */
+export function addLand(
+  db: CampaignDb,
+  land: { name: string; rings: number[][]; holes: number[][] },
+): () => void {
+  const planet = db.getSnapshot().atlas[PLANET_ID];
+  if (!planet) return () => {};
+  const id = `${OWN_LAND_PREFIX}${newId()}`;
+  db.put('atlas', {
+    ...planet,
+    lands: [...planet.lands, { id, name: land.name.trim(), rings: land.rings, holes: land.holes }],
+  });
+  return removeLand.bind(null, db, id);
+}
+
+/** Nimmt eine Landmasse wieder vom Planeten. */
+export function removeLand(db: CampaignDb, landId: string): void {
+  const planet = db.getSnapshot().atlas[PLANET_ID];
+  if (!planet || !planet.lands.some((land) => land.id === landId)) return;
+  db.put('atlas', { ...planet, lands: planet.lands.filter((land) => land.id !== landId) });
 }
 
 /** Nimmt den Atlas aus dem Spielstand. Die Lage der Orte bleibt eingetragen. */

@@ -174,7 +174,7 @@ export function inRing(ring: Ring, point: LonLat, bounds: RingBounds = ringBound
 
 /**
  * Vereinfacht einen Ring: Punkte, die weniger als `tolerance` Grad von der Linie ihrer Nachbarn
- * abweichen, fallen weg (Douglas–Peucker). Ein Ring behält mindestens vier Punkte.
+ * abweichen, fallen weg (Douglas–Peucker). Ein Ring behält mindestens drei Punkte.
  */
 export function simplifyRing(ring: Ring, tolerance: number): number[] {
   const count = ring.length / 2;
@@ -225,7 +225,7 @@ export function simplifyRing(ring: Ring, tolerance: number): number[] {
   }
   const out: number[] = [];
   for (let i = 0; i < count; i++) if (keep[i]) out.push(ring[i * 2]!, ring[i * 2 + 1]!);
-  return out.length >= 8 ? out : [...ring];
+  return out.length >= 6 ? out : [...ring];
 }
 
 // ── Höhen ──────────────────────────────────────────────────────────────────

@@ -4,13 +4,34 @@
  */
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { Crosshair, Globe as GlobeIcon, MapPin, MapPinOff, Search, X } from 'lucide-react';
+import {
+  Check,
+  Crosshair,
+  Globe as GlobeIcon,
+  ImagePlus,
+  MapPin,
+  MapPinOff,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind, placeAncestors, placePath } from '../../domain/derive';
 import type { LonLat } from '../../domain/geo';
 import type { Place } from '../../domain/schema';
-import { Button, Checkbox, EmptyState, Input, cx, entityHref, toast } from '../../ui';
-import { setPlaceGeo } from './actions';
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  Field,
+  IconButton,
+  Input,
+  confirmDialog,
+  cx,
+  entityHref,
+  toast,
+} from '../../ui';
+import { addLand, isOwnLand, removeLand, setPlaceGeo } from './actions';
 import {
   daylightAt,
   describeTerrain,
@@ -25,6 +46,8 @@ import {
   terrainAt,
 } from './model';
 import { Globe } from './Globe';
+import { placeShape, type Placement, type TracedShape } from './trace';
+import { TraceDialog } from './TraceDialog';
 import { WorldMap, type MapPlace } from './WorldMap';
 import './atlas.css';
 
@@ -50,6 +73,19 @@ export default function AtlasPage() {
   const [hover, setHover] = useState<LonLat | null>(null);
   const [focus, setFocus] = useState<LonLat | null>(null);
   const [shape, setShape] = useState(memory.shape);
+  // Eine Landmasse aus einem Bild: erst gelesen, dann auf der Karte eingepasst.
+  const [tracing, setTracing] = useState(false);
+  const [fit, setFit] = useState<{
+    name: string;
+    shape: TracedShape;
+    placement: Placement;
+    keepAspect: boolean;
+  } | null>(null);
+  const radiusKm = planet?.radiusKm ?? 0;
+  const draft = useMemo(
+    () => (fit && radiusKm ? placeShape(fit.shape, fit.placement, radiusKm) : null),
+    [fit, radiusKm],
+  );
   const View = shape === 'globe' ? Globe : WorldMap;
 
   // Große Orte zuerst: Kontinente und Länder vor Städten, Städte vor einzelnen Räumen.
@@ -97,6 +133,49 @@ export default function AtlasPage() {
       </div>
     );
 
+  const place_ = (change: Partial<Placement>) =>
+    setFit((current) => {
+      if (!current) return current;
+      const next = { ...current.placement, ...change };
+      // Mit festem Seitenverhältnis folgt die Breite der Höhe (und umgekehrt).
+      if (current.keepAspect) {
+        const ratio = current.shape.width / current.shape.height;
+        if (change.heightDeg !== undefined) next.widthDeg = Math.min(360, next.heightDeg * ratio);
+        else if (change.widthDeg !== undefined)
+          next.heightDeg = Math.min(180, next.widthDeg / ratio);
+      }
+      return { ...current, placement: next };
+    });
+  const applyFit = () => {
+    if (!fit || !draft) return;
+    const undo = addLand(db, { name: fit.name, ...draft });
+    setFit(null);
+    toast({
+      title: `„${fit.name}“ liegt jetzt auf dem Planeten`,
+      body: `${draft.rings.length === 1 ? 'Eine Fläche' : `${draft.rings.length} Flächen`} – ohne Höhen, als flaches Land.`,
+      action: { label: 'Rückgängig', run: undo },
+      duration: 10000,
+    });
+  };
+  // Ein Gebiet reicht höchstens bis zur Gegenseite des Planeten.
+  const maxWidthKm = fit
+    ? Math.floor(
+        (Math.PI * planet.radiusKm) /
+          Math.max(1, Math.hypot(1, fit.shape.height / fit.shape.width)) /
+          50,
+      ) * 50
+    : 0;
+  const ownLands = planet ? planet.doc.lands.filter(isOwnLand) : [];
+  const dropLand = async (land: { id: string; name: string }) => {
+    const ok = await confirmDialog({
+      title: `„${land.name}“ vom Planeten nehmen?`,
+      body: 'Die Küsten dieser Landmasse werden entfernt. Orte, die dort liegen, behalten ihre Lage.',
+      confirmLabel: 'Entfernen',
+      danger: true,
+    });
+    if (ok) removeLand(db, land.id);
+  };
+
   const select = (placeId: string) => {
     const target = placeGeo(data, placeId);
     navigate(`/atlas/${placeId}`);
@@ -105,6 +184,8 @@ export default function AtlasPage() {
   };
 
   const pick = (point: LonLat) => {
+    // Beim Einpassen setzt ein Klick die Mitte der neuen Landmasse.
+    if (fit) return place_({ lon: point.lon, lat: point.lat });
     if (!place || !placing) return;
     const undo = setPlaceGeo(db, place.id, point);
     setPlacing(false);
@@ -136,7 +217,149 @@ export default function AtlasPage() {
           <span className="wf-atlas-side__total">
             {placed.length} von {places.length} Orten gesetzt
           </span>
+          <IconButton
+            label="Landmasse aus einem Kartenbild einlesen"
+            size="sm"
+            onClick={() => setTracing(true)}
+          >
+            <ImagePlus />
+          </IconButton>
         </div>
+        {fit && (
+          <div className="wf-atlas-fit">
+            <div className="wf-atlas-fit__title">„{fit.name}“ einpassen</div>
+            <div className="wf-atlas-fit__kinds" role="group" aria-label="Das Bild zeigt">
+              {(
+                [
+                  [
+                    'local',
+                    'Ein Gebiet',
+                    'Größe in Kilometern – die Formen bleiben überall erhalten, auch am Pol',
+                  ],
+                  [
+                    'grid',
+                    'Einen Weltstreifen',
+                    'Wie die Weltkarte: von Pol zu Pol oder rund um den Planeten',
+                  ],
+                ] as const
+              ).map(([kind, label, hint]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  aria-pressed={fit.placement.kind === kind}
+                  title={hint}
+                  onClick={() => place_({ kind })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {fit.placement.kind === 'local' ? (
+              <>
+                <p className="wf-mute">
+                  Klicke auf die Karte, wo die Mitte des Bildes liegen soll. Die Breite liest du am
+                  Maßstab des Bildes ab.
+                </p>
+                <Field label="Breite des Bildes in Kilometern">
+                  <div className="wf-atlas-fit__km">
+                    <input
+                      type="range"
+                      min={100}
+                      max={maxWidthKm}
+                      step={50}
+                      value={Math.min(maxWidthKm, fit.placement.widthKm)}
+                      onChange={(event) => place_({ widthKm: Number(event.target.value) })}
+                    />
+                    <Input
+                      type="number"
+                      min={100}
+                      max={maxWidthKm}
+                      step={50}
+                      value={Math.round(fit.placement.widthKm)}
+                      aria-label="Breite in Kilometern"
+                      onChange={(event) => {
+                        const km = Number(event.target.value);
+                        if (km > 0) place_({ widthKm: Math.min(maxWidthKm, km) });
+                      }}
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label={`Drehung: ${Math.round(fit.placement.turnDeg)}°`}
+                  hint="Dreht das Bild um seine Mitte – etwa bis ein Pol im Bild auf dem Pol liegt."
+                >
+                  <input
+                    type="range"
+                    min={-180}
+                    max={180}
+                    step={1}
+                    value={fit.placement.turnDeg}
+                    onChange={(event) => place_({ turnDeg: Number(event.target.value) })}
+                  />
+                </Field>
+                <p className="wf-soft">
+                  Mitte: {formatGeo(fit.placement)} · {formatKm(fit.placement.widthKm)} breit,{' '}
+                  {formatKm((fit.placement.widthKm * fit.shape.height) / fit.shape.width)} hoch
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="wf-mute">
+                  Klicke auf die Karte, wo die Mitte des Bildes liegen soll. Mit Höhe und Breite
+                  bestimmst du, wie viel vom Planeten es überdeckt.
+                </p>
+                <Field label={`Höhe: ${Math.round(fit.placement.heightDeg)}° – von Nord nach Süd`}>
+                  <input
+                    type="range"
+                    min={2}
+                    max={180}
+                    step={1}
+                    value={fit.placement.heightDeg}
+                    onChange={(event) => place_({ heightDeg: Number(event.target.value) })}
+                  />
+                </Field>
+                <Field label={`Breite: ${Math.round(fit.placement.widthDeg)}° – von West nach Ost`}>
+                  <input
+                    type="range"
+                    min={2}
+                    max={360}
+                    step={1}
+                    value={fit.placement.widthDeg}
+                    onChange={(event) => place_({ widthDeg: Number(event.target.value) })}
+                  />
+                </Field>
+                <Checkbox
+                  checked={fit.keepAspect}
+                  onChange={(keepAspect) =>
+                    setFit((current) => current && { ...current, keepAspect })
+                  }
+                >
+                  Seitenverhältnis des Bildes halten
+                </Checkbox>
+                <p className="wf-soft">
+                  Mitte: {formatGeo(fit.placement)} ·{' '}
+                  {formatKm((fit.placement.heightDeg / 360) * 2 * Math.PI * planet.radiusKm)} von
+                  Nord nach Süd
+                </p>
+              </>
+            )}
+            <div className="wf-atlas-card__acts">
+              <Button
+                size="sm"
+                onClick={() => place_({ kind: 'grid', lat: 0, heightDeg: 180 })}
+                title="Das Bild reicht vom Nordpol bis zum Südpol"
+              >
+                Von Pol zu Pol
+              </Button>
+              <Button size="sm" onClick={() => setFit(null)}>
+                Verwerfen
+              </Button>
+              <Button size="sm" variant="primary" icon={<Check />} onClick={applyFit}>
+                Übernehmen
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="wf-atlas-search">
           <Search aria-hidden />
           <Input
@@ -190,6 +413,24 @@ export default function AtlasPage() {
           )}
         </div>
 
+        {ownLands.length > 0 && !fit && (
+          <div className="wf-atlas-lands">
+            <div className="wf-atlas-lands__title">Aus Bildern eingelesen</div>
+            {ownLands.map((land) => (
+              <div key={land.id} className="wf-atlas-lands__row">
+                <span>{land.name || 'Ohne Namen'}</span>
+                <IconButton
+                  label={`„${land.name}“ vom Planeten nehmen`}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void dropLand(land)}
+                >
+                  <Trash2 />
+                </IconButton>
+              </div>
+            ))}
+          </div>
+        )}
         {place && (
           <div className="wf-atlas-card">
             <div className="wf-atlas-card__name">{place.name}</div>
@@ -249,8 +490,9 @@ export default function AtlasPage() {
           places={mapPlaces}
           selectedId={place?.id ?? null}
           party={party?.geo ?? null}
-          placing={placing && place !== null}
+          placing={fit !== null || (placing && place !== null)}
           focus={focus}
+          draft={draft}
           onPick={pick}
           onSelect={select}
           onHover={setHover}
@@ -277,7 +519,9 @@ export default function AtlasPage() {
           ))}
         </div>
         <div className="wf-atlas-readout" aria-live="off">
-          {placing && place ? (
+          {fit ? (
+            <b>Klicke dorthin, wo die Mitte von „{fit.name}“ liegt.</b>
+          ) : placing && place ? (
             <b>Klicke dorthin, wo „{place.name}“ liegt.</b>
           ) : (
             <span>{planet.doc.name || 'Der Planet'}</span>
@@ -289,6 +533,31 @@ export default function AtlasPage() {
           )}
         </div>
       </div>
+      {tracing && (
+        <TraceDialog
+          onClose={() => setTracing(false)}
+          onTraced={(name, traced) => {
+            setTracing(false);
+            // Anfangs als Gebiet, ein Zehntel des Umfangs breit. Als Weltstreifen wäre es ein
+            // Sechstel des Planeten hoch; die Breite folgt dem Bild.
+            const heightDeg = 60;
+            setFit({
+              name,
+              shape: traced,
+              keepAspect: true,
+              placement: {
+                kind: 'local',
+                lon: focus?.lon ?? 0,
+                lat: 0,
+                widthKm: Math.round((planet.radiusKm * 2 * Math.PI) / 10 / 100) * 100,
+                turnDeg: 0,
+                heightDeg,
+                widthDeg: Math.min(360, (heightDeg * traced.width) / traced.height),
+              },
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
