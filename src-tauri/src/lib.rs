@@ -3,6 +3,7 @@
 //! er steht in `src/data/platform.ts`.
 
 mod config;
+mod ai;
 mod legendkeeper;
 mod links;
 mod media;
@@ -17,6 +18,7 @@ use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WebviewWindow, WebviewWindowBuilder, WindowEvent};
 
 use config::AppConfig;
+use ai::{Ai, AiRequest, AiResponse, AiStatus};
 use legendkeeper::{LegendKeeper, LkResponse, LkStatus};
 use links::LinkTarget;
 use media::Media;
@@ -135,6 +137,36 @@ async fn lk_get<R: Runtime>(
         .await?
         .ok_or_else(|| "Es ist noch kein LegendKeeper-Key hinterlegt.".to_string())?;
     app.state::<LegendKeeper>().get(&key, &path, query.as_ref()).await
+}
+
+// ── KI-Leser ─────────────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn ai_status<R: Runtime>(app: AppHandle<R>) -> Result<AiStatus, String> {
+    blocking(move || {
+        let has_key = app.state::<Ai>().keys.get()?.is_some();
+        Ok(AiStatus { has_key })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn ai_set_key<R: Runtime>(app: AppHandle<R>, key: String) -> Result<(), String> {
+    blocking(move || app.state::<Ai>().keys.set(&key)).await
+}
+
+#[tauri::command]
+async fn ai_clear_key<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    blocking(move || app.state::<Ai>().keys.clear()).await
+}
+
+#[tauri::command]
+async fn ai_ask<R: Runtime>(app: AppHandle<R>, request: AiRequest) -> Result<AiResponse, String> {
+    let reader = app.clone();
+    let key = blocking(move || reader.state::<Ai>().keys.get())
+        .await?
+        .ok_or_else(|| "Es ist noch kein Claude-Key hinterlegt.".to_string())?;
+    app.state::<Ai>().ask(&key, &request).await
 }
 
 // ── Bilder ───────────────────────────────────────────────────────────────────
@@ -277,6 +309,7 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         .manage(Media::default())
         .manage(WatchState::default())
         .manage(LegendKeeper::default())
+        .manage(Ai::default())
         .manage(Closing::default())
         .invoke_handler(tauri::generate_handler![
             config_get,
@@ -290,6 +323,10 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             lk_set_key,
             lk_clear_key,
             lk_get,
+            ai_status,
+            ai_set_key,
+            ai_clear_key,
+            ai_ask,
             media_list,
             media_fetch,
             app_close,

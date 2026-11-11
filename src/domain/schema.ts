@@ -57,6 +57,8 @@ export const CampaignMetaSchema = z.object({
   calendar: CalendarSchema,
   /** Der wärmste Monat des Jahres (0-basiert) für das Wetter; null = aus dem Kalender abgeleitet. */
   warmestMonth: z.number().int().nonnegative().nullable().default(null),
+  /** Das Sprachmodell, das für diese Kampagne Artikel liest (`features/ki`). */
+  aiModel: z.string().default('claude-haiku-5-5'),
   /** Eigene Zustände neben den 14 des Regelwerks, z. B. „Verflucht“. */
   customConditions: z
     .array(z.object({ name: z.string().min(1), rule: z.string().default('') }))
@@ -759,6 +761,25 @@ export type ArticleDoc = z.infer<typeof ArticleDocSchema>;
  * zu einem Artikel, wenn seine LegendKeeper-Verknüpfung (`lk.resourceId`) die Kennung des
  * Artikels trägt – übernommene Artikel behalten ihre Kennung aus LegendKeeper.
  */
+/**
+ * Ein Vorschlag des KI-Lesers an einem Artikel: ein Termin, eine Beziehung oder etwas Offenes,
+ * gelesen aus dem Text. Er gilt erst, wenn der Spielleiter ihn annimmt.
+ */
+export const AiHintSchema = z.object({
+  id,
+  /** Woran derselbe Vorschlag wiedererkannt wird – er erscheint nicht zweimal. */
+  key: z.string(),
+  kind: z.enum(['event', 'relation', 'thread']),
+  /** Der Vorschlag in einem Satz. */
+  line: z.string(),
+  /** Der Satz aus dem Artikel, aus dem er gelesen wurde. */
+  quote: z.string().default(''),
+  /** Was beim Annehmen angelegt wird. */
+  payload: z.record(z.string(), z.unknown()),
+  state: z.enum(['open', 'accepted', 'dismissed']).default('open'),
+});
+export type AiHint = z.infer<typeof AiHintSchema>;
+
 export const ArticleSchema = z.object({
   ...base,
   title: z.string(),
@@ -784,6 +805,20 @@ export const ArticleSchema = z.object({
    * `features/wiki/sentences.ts`). Sie werden nicht noch einmal gezeigt.
    */
   dismissedHints: z.array(z.string()).default([]),
+  /** Vorschläge des KI-Lesers zu diesem Artikel – offene, angenommene und abgelehnte. */
+  aiHints: z.array(AiHintSchema).default([]),
+  /** Wann der KI-Leser den Artikel zuletzt gelesen hat, womit und in welchem Wortlaut. */
+  aiRead: z
+    .object({
+      at: z.string(),
+      model: z.string(),
+      /** Fingerabdruck des gelesenen Textes: Hat er sich seither geändert? */
+      mark: z.string(),
+      inputTokens: z.number().nonnegative().default(0),
+      outputTokens: z.number().nonnegative().default(0),
+    })
+    .nullable()
+    .default(null),
   /** Alte Form: Steckbrief als Knoten. Steht seit der Umstellung auf Text oben auf der ersten Seite. */
   sidebar: articleNodes,
   docs: z.array(ArticleDocSchema).default([]),

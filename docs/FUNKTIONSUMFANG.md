@@ -36,8 +36,10 @@ gilt für alles, was für die Geschichte wichtig ist – das kommt vom Spielleit
 **„Wo andere Spielleiter Zufallstabellen nutzen, nutzen wir Wayfarer.“** Eine Hexkarte zwischen
 zwei Orten soll entstehen können, ohne dass vorher eine Karte angelegt wurde: Wayfarer erkennt,
 was für ein Gebiet das ist, wie groß es ist und was dort liegt, und baut daraus eine interessante
-Karte. Dasselbe gilt für Wetter, Begegnungen unterwegs und Beiwerk-NSC. Keine KI-Funktionen,
-keine mitgelieferten Beispielwelten; Erzeugtes ist wiederholbar und von Hand übersteuerbar.
+Karte. Dasselbe gilt für Wetter, Begegnungen unterwegs und Beiwerk-NSC. Keine mitgelieferten
+Beispielwelten; Erzeugtes ist wiederholbar und von Hand übersteuerbar. Eine KI schreibt nie an
+Geschichte und Welt – sie darf aber lesen: Der KI-Leser (seit dem 11. 11. 2026, freiwillig)
+liest die Artikel und schlägt vor, was sich daraus in der Welt bewegt; angenommen wird von Hand.
 
 ## Bereiche
 

@@ -24,9 +24,15 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   Spielleiter schreibt und verbindet, Wayfarer liest daraus, was es wissen muss, statt dass
   Datensätze gepflegt werden.
 - Geschichte und Welt schreibt der Spielleiter – nie eine KI und nie Wayfarer. Wayfarer liest,
-  was geschrieben ist, rechnet, leitet ab und simuliert nach festen Regeln; eine eingebaute KI,
-  die Geld kostet, gibt es nicht. Keine mitgelieferten Beispielinhalte. In der App steht nur, was
-  der Spielleiter geschrieben, eingetragen, übernommen oder ausdrücklich angenommen hat.
+  was geschrieben ist, rechnet, leitet ab und simuliert nach festen Regeln. Keine mitgelieferten
+  Beispielinhalte. In der App steht nur, was der Spielleiter geschrieben, eingetragen, übernommen
+  oder ausdrücklich angenommen hat.
+- **KI nur als Leser** (Entscheidung des Spielleiters, 11. 11. 2026): Ein Sprachmodell darf die
+  Artikel lesen und vorschlagen, was daraus für die Welt folgt (`features/ki`). Es schreibt keine
+  Geschichte, ändert nichts von selbst und wird am Tisch nie gebraucht: Jeder Vorschlag nennt
+  den Satz, aus dem er stammt, und gilt erst, wenn der Spielleiter ihn annimmt. Zeit, Wetter,
+  Reisen und alles Erzeugte rechnen weiter nach festen Regeln, ohne Netz. Der KI-Leser ist
+  freiwillig (eigener Claude-Key, Abrechnung nach Textmenge); ohne ihn fehlt Wayfarer nichts.
 - **Was erzeugt werden darf:** „Wo andere Spielleiter Zufallstabellen nutzen, nutzen wir
   Wayfarer.“ Alles Prozedurale erzeugt Wayfarer selbst und nach festen, wiederholbaren Regeln:
   Gelände und Hexkarten zwischen zwei Orten (auch ohne vorher angelegte Karte), Wetter,
@@ -70,9 +76,10 @@ nicht übernommen.
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
+  `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
-  LegendKeeper-Abruf, Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
+  LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
 
 ## Daten
 

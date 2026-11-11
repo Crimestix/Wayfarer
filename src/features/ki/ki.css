@@ -1,0 +1,49 @@
+/* KI-Leser: Vorschläge am Artikel und der Abschnitt in den Einstellungen */
+.wf-ki__icon {
+  width: 11px;
+  height: 11px;
+  vertical-align: -1px;
+}
+.wf-ki-row + .wf-ki-row {
+  margin-top: 2px;
+}
+.wf-ki-quote {
+  margin-left: var(--s-3);
+  color: var(--ink-mute);
+  font-style: italic;
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.wf-ki-set {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  max-width: 76ch;
+}
+.wf-ki-set p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.wf-ki-set__key {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+}
+.wf-ki-set__key > :first-child {
+  flex: 1;
+}
+.wf-ki-set__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+}
+.wf-ki-set__error {
+  color: var(--blood-bright);
+}
+.wf-ki-set__note {
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-inset);
+  font-size: var(--text-sm);
+}

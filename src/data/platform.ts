@@ -13,6 +13,9 @@
  *   lk_status() -> { hasKey: boolean }
  *   lk_set_key({ key })   lk_clear_key()                    Schlüssel liegt im Schlüsselbund des Systems
  *   lk_get({ path, query }) -> { status: number, body: string }   nur GET auf die LegendKeeper-API
+ *   ai_status() -> { hasKey: boolean }
+ *   ai_set_key({ key })   ai_clear_key()                    Claude-Key, ebenfalls im Schlüsselbund
+ *   ai_ask({ request }) -> { status: number, body: string }       ein Leseauftrag an die Claude-API
  *   media_list({ root }) -> string[]                        Namen der Bilder in <root>/media
  *   media_fetch({ root, url, name }) -> number              holt ein Bild (nur https) nach <root>/media/<name>;
  *                                                           Ergebnis: Größe in Bytes
@@ -123,6 +126,38 @@ export const lkClearKey = () => invoke<void>('lk_clear_key');
  */
 export const lkGet = (path: string, query?: LkQuery) =>
   invoke<LkResponse>('lk_get', { path, query: query ?? null });
+
+// ── KI-Leser (nur in der installierten App) ──────────────────────────────────
+
+export interface AiStatus {
+  hasKey: boolean;
+}
+
+/** Was gelesen werden soll: Modell, Auftrag, Text und die Form der Antwort. */
+export interface AiAskRequest {
+  model: string;
+  system: string;
+  user: string;
+  schema: unknown;
+  maxTokens: number;
+}
+
+/** Antwort der Claude-API, unverändert: auch 401 oder 429 kommen so zurück. */
+export interface AiAskResponse {
+  status: number;
+  body: string;
+}
+
+/** Ist ein Claude-Key im Schlüsselbund des Systems hinterlegt? */
+export const aiStatus = () => invoke<AiStatus>('ai_status');
+/** Legt den Key im Schlüsselbund ab. Er verlässt die Rust-Seite danach nie wieder. */
+export const aiSetKey = (key: string) => invoke<void>('ai_set_key', { key });
+export const aiClearKey = () => invoke<void>('ai_clear_key');
+/**
+ * Schickt einen Leseauftrag an Claude. Die Adresse ist fest eingebaut. Schlägt fehl, wenn kein
+ * Key hinterlegt ist oder keine Verbindung zustande kommt.
+ */
+export const aiAsk = (request: AiAskRequest) => invoke<AiAskResponse>('ai_ask', { request });
 
 // ── Bilder (nur in der installierten App) ────────────────────────────────────
 

@@ -11,6 +11,7 @@ import { LegacySection } from './LegacySection';
 import { Boundary, Section } from './parts';
 import { explainProblems } from './model';
 import { ProblemsSection } from './ProblemsSection';
+import { AiSection } from './AiSection';
 import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import './einstellungen.css';
@@ -111,6 +112,14 @@ export default function Page() {
             >
               <LegendKeeperSettings />
             </Boundary>
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="KI-Leser"
+            lead="Claude liest deine Artikel und schlägt vor, was sich daraus in der Welt bewegt. Er liest nur – geschrieben und entschieden wird von dir."
+          >
+            <AiSection />
           </Section>
 
           <Section

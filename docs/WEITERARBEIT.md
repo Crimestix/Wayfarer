@@ -575,6 +575,37 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
   Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die
   Zeitrechnung des alten Atlas (Jahresbeginn im Frühling) mit dem Kalender abgleichen.
 
+**KI-Leser (11. 11. 2026) – erster Schritt gebaut.** Ziel des Spielleiters: Wayfarer macht
+Elaris lebendig, unabhängig von der Story – die Welt bewegt sich von selbst weiter, er sieht
+immer den nächsten Schritt, kein Faden geht verloren. Fließtext mit festen Regeln zu lesen trägt
+dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
+- **Ablauf:** Am Artikel im Wiki „Lesen lassen“ (oder in den Einstellungen alle ungelesenen auf
+  einmal). Wayfarer schickt Kalender, Titel und Text des Artikels an die Claude-API und bekommt in
+  fester Form zurück: **Termine** (einmalig oder regelmäßig – „legt jeden Feuertag ab“),
+  **Beziehungen** und **Offenes** (Versprechen, Schulden, Aufträge). Daraus werden Vorschläge am
+  Artikel, jeder mit dem Satz, aus dem er stammt. Annehmen legt einen Termin im Kalender, eine
+  Beziehung in der Welt oder eine Abmachung in der Chronik an; ablehnen merkt sich Wayfarer.
+- **Wo was steht:** `features/ki/reader.ts` (Auftrag, Form der Antwort, Prüfen, Namen und Daten
+  in der Welt wiederfinden – reine Rechnung, mit Test), `features/ki/actions.ts` (lesen,
+  annehmen, ablehnen, Kosten), `features/ki/AiPanel.tsx` (am Artikel),
+  `einstellungen/AiSection.tsx` (Key, Modell, Kosten, alle lesen), `src-tauri/src/ai.rs` (Key im
+  Schlüsselbund, POST an genau eine Adresse, keine Weiterleitungen; die Oberfläche sieht den Key
+  nie). Vorschläge und Lesestand liegen am Artikel (`aiHints`, `aiRead`), das Modell in der
+  Kampagne (`aiModel`, Vorgabe Haiku 5.5).
+- **Kosten:** nach Textmenge, über ein eigenes Konto bei Anthropic – das Claude-Abo gilt dafür
+  nicht. Geschätzt für alle rund 520 Artikel mit genug Text: etwa 0,25 $ mit Haiku 5.5. Die App
+  zeigt Schätzung vor dem Lesen und Verbrauch danach.
+- **Geprüft:** Rechnung und Befehle mit Tests (erfundene Welt, nachgestellte Antworten), die
+  Rust-Seite gegen einen Gegenpart auf dem eigenen Rechner, die Oberfläche in der Vorschau mit
+  von Hand eingelegten Vorschlägen. **Nicht geprüft:** ein echter Abruf bei Claude – dafür
+  braucht es den Key des Spielleiters; ob die Form der Antwort (`output_config.format`) so
+  angenommen wird und wie gut Haiku liest, zeigt erst der erste echte Lauf. Installierte App und
+  macOS ebenfalls nicht.
+- **Als Nächstes:** Uhren (Vorhaben von Fraktionen und Personen mit Schritten, die mit der
+  Weltzeit laufen), ein „Währenddessen“ beim Vorstellen der Zeit (das Wichtige zuerst), Fäden
+  als eigene Sicht, der Spieltisch mit „was jetzt?“. Der Leser soll dann auch Vorhaben und
+  Aufenthaltsorte vorschlagen.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

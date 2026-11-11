@@ -33,6 +33,7 @@ import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
+import { AiPanel } from '../ki/AiPanel';
 import { FactsHint, FactsOverview } from './FactsHint';
 import { ArticleIcon } from './icons';
 import { LocalArticle } from './LocalArticle';
@@ -581,6 +582,7 @@ export default function WikiPage() {
                     </div>
                   )}
                   <FactsHint article={article} />
+                  <AiPanel article={article} />
                 </>
               }
             />
