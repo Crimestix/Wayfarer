@@ -469,7 +469,7 @@ describe('Reisen nach dem Atlas', () => {
   });
 });
 
-describe('Der Weg ums Meer herum', () => {
+describe('Der Weg ums Wasser herum', () => {
   /** Ein Land wie ein C: Von Osten schneidet eine Bucht hinein (10–40° Ost, 10–20° Nord). */
   const bay = (entities: Entity[]): CampaignData => ({
     ...world(entities),
@@ -515,9 +515,9 @@ describe('Der Weg ums Meer herum', () => {
     expect(leg).toMatchObject({ sea: true });
     expect(leg.landKm!).toBeGreaterThan(leg.km * 2);
     expect(describeLeg(leg)).toContain('über Land etwa');
-    expect(describeLeg(leg)).toContain('ums Meer herum');
+    expect(describeLeg(leg)).toContain('ums Wasser herum');
     expect(describeLeg(legBetween(data, south.id, island.id)!)).toContain(
-      'kein Landweg, nur übers Meer',
+      'kein Landweg, nur übers Wasser',
     );
     // Bleibt die Luftlinie an Land, steht nur die Reisedauer da.
     const west = place('Reusenhof', 5, 25);

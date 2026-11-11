@@ -18,9 +18,9 @@ export interface Leg {
   /** Richtung beim Aufbruch: Grad und Wort („Nordosten“). */
   bearing: number;
   direction: string;
-  /** Die Luftlinie führt übers Meer. */
+  /** Die Luftlinie führt übers Wasser. */
   sea: boolean;
-  /** Dann: die Länge des Weges über Land, ums Meer herum – null, wenn es keinen gibt. */
+  /** Dann: die Länge des Weges über Land, ums Wasser herum – null, wenn es keinen gibt. */
   landKm: number | null;
 }
 
@@ -47,8 +47,8 @@ export function legBetween(data: CampaignData, fromId: string, toId: string): Le
 export function describeLeg(leg: Leg): string {
   const line = `${formatKm(leg.km)} Luftlinie nach ${leg.direction}`;
   if (!leg.sea) return `${line} · zu Fuß etwa ${formatDays(travelDays(leg.km))}`;
-  if (leg.landKm === null) return `${line} · kein Landweg, nur übers Meer`;
-  return `${line} · über Land etwa ${formatKm(Math.round(leg.landKm / 10) * 10)} (ums Meer herum), zu Fuß etwa ${formatDays(travelDays(leg.landKm))}`;
+  if (leg.landKm === null) return `${line} · kein Landweg, nur übers Wasser`;
+  return `${line} · über Land etwa ${formatKm(Math.round(leg.landKm / 10) * 10)} (ums Wasser herum), zu Fuß etwa ${formatDays(travelDays(leg.landKm))}`;
 }
 
 // ── Worte ──────────────────────────────────────────────────────────────────

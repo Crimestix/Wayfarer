@@ -67,12 +67,12 @@ export interface Recognition {
   /** Entfernung und Richtung stammen vom Planeten. */
   fromAtlas: boolean;
   /**
-   * Die Luftlinie führt übers Meer: der Weg über Land, ums Meer herum, als Punkte in Kilometern
+   * Die Luftlinie führt übers Wasser: der Weg über Land, ums Wasser herum, als Punkte in Kilometern
    * vom Start aus (x nach Osten, y nach Süden; der letzte ist das Ziel). Null, wenn die Luftlinie
    * an Land bleibt oder es keinen Landweg gibt.
    */
   route: { x: number; y: number }[] | null;
-  /** Die Luftlinie führt übers Meer, und es gibt keinen Weg über Land. */
+  /** Die Luftlinie führt übers Wasser, und es gibt keinen Weg über Land. */
   seaOnly: boolean;
 }
 
@@ -277,7 +277,7 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
         const rad = (bearingDeg(geoFrom.geo, point) * Math.PI) / 180;
         return { x: km * Math.sin(rad), y: -km * Math.cos(rad) };
       });
-      distanceSource = `Landweg auf dem Planeten, ums Meer herum – die Luftlinie wären ${Math.round(atlasKm).toLocaleString('de-DE')} km.`;
+      distanceSource = `Landweg auf dem Planeten, ums Wasser herum – die Luftlinie wären ${Math.round(atlasKm).toLocaleString('de-DE')} km.`;
       distanceKm = found.km;
     } else seaOnly = true;
   }
@@ -610,7 +610,7 @@ export interface GenerateInput {
   between?: Recognition['between'];
   /** Aus `groundOf`: Dann folgen Meer, Küste und Höhen dem Atlas statt dem Zufall. */
   ground?: Ground;
-  /** Aus `recognize`: der Landweg ums Meer herum. Dann folgt die Karte ihm statt der Luftlinie. */
+  /** Aus `recognize`: der Landweg ums Wasser herum. Dann folgt die Karte ihm statt der Luftlinie. */
   route?: Recognition['route'];
 }
 

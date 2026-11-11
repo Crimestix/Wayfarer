@@ -185,7 +185,7 @@ export function CreateDialog({
               <p className="wf-erk-form__known">
                 Meer, Küsten, Flüsse und Höhen folgen dem Atlas.{' '}
                 {known.route
-                  ? 'Die Luftlinie führt übers Meer – die Karte folgt dem Weg über Land, ums Meer herum.'
+                  ? 'Die Luftlinie führt übers Wasser – die Karte folgt dem Weg über Land, ums Wasser herum.'
                   : known.seaOnly
                     ? 'Zwischen den beiden Orten gibt es keinen Weg über Land: Die Karte zeigt die gerade Strecke übers Meer, und die Gruppe braucht ein Schiff.'
                     : ''}
