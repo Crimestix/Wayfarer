@@ -285,11 +285,44 @@ export interface DialogProps {
   /** Knöpfe unten rechts. */
   footer?: ReactNode;
   width?: number;
+  /**
+   * Nachfragen, bevor Escape oder ein Klick daneben Eingaben verwirft (Vorgabe: ja). Abschalten,
+   * wo im Dialog nur gesucht oder gefiltert wird.
+   */
+  guard?: boolean;
 }
 
-/** Modaler Dialog. Escape und Klick neben den Dialog schließen ihn. */
-export function Dialog({ open, onClose, title, children, footer, width = 580 }: DialogProps) {
+/**
+ * Modaler Dialog. Escape und Klick neben den Dialog schließen ihn – wurde darin schon etwas
+ * eingegeben, fragt er vorher nach. „Abbrechen“ und das Kreuz schließen ohne Rückfrage.
+ */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  width = 580,
+  guard = true,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  /** Im Dialog wurde etwas eingegeben, das beim Schließen verloren ginge. */
+  const dirty = useRef(false);
+  useEffect(() => {
+    dirty.current = false;
+  }, [open]);
+  /** Schließen aus Versehen (Escape, Klick daneben): mit Eingaben erst nach Rückfrage. */
+  const leave = () => {
+    if (!guard || !dirty.current) return onClose();
+    void confirmDialog({
+      title: 'Eingaben verwerfen?',
+      body: 'In diesem Fenster steht etwas, das noch nicht gespeichert ist.',
+      confirmLabel: 'Verwerfen',
+      danger: true,
+    }).then((ok) => {
+      if (ok) onClose();
+    });
+  };
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -311,8 +344,15 @@ export function Dialog({ open, onClose, title, children, footer, width = 580 }: 
       className="wf-dialog"
       style={{ width }}
       onClose={onClose}
+      onCancel={(e) => {
+        // Escape: Der Dialog bleibt offen, bis die Rückfrage beantwortet ist.
+        if (guard && dirty.current) {
+          e.preventDefault();
+          leave();
+        }
+      }}
       onMouseDown={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target === ref.current) leave();
       }}
     >
       {open && (
@@ -323,7 +363,14 @@ export function Dialog({ open, onClose, title, children, footer, width = 580 }: 
               <X />
             </IconButton>
           </header>
-          <div className="wf-dialog__body">{children}</div>
+          <div
+            className="wf-dialog__body"
+            onInput={() => {
+              dirty.current = true;
+            }}
+          >
+            {children}
+          </div>
           {footer && <footer className="wf-dialog__foot">{footer}</footer>}
         </>
       )}

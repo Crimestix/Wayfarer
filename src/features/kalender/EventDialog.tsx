@@ -32,6 +32,7 @@ import {
   TextArea,
   confirmDialog,
   cx,
+  toast,
 } from '../../ui';
 import {
   EVENT_DONE_LABEL,
@@ -110,10 +111,23 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
   const save = () => {
     setAttempted(true);
     if (!parsed.ok) return;
+    // Ein abgehakter Termin, der in die Zukunft verschoben wird, steht wieder aus.
+    const reopened =
+      event?.done === true &&
+      parsed.value.done &&
+      parsed.value.at !== event.at &&
+      parsed.value.at > db.getSnapshot().state.now;
     const saved = db.put(
       'events',
-      event ? { ...event, ...parsed.value } : createEvent(parsed.value),
+      event
+        ? { ...event, ...parsed.value, done: reopened ? false : parsed.value.done }
+        : createEvent(parsed.value),
     );
+    if (reopened)
+      toast({
+        title: 'Der Termin steht wieder aus',
+        body: 'Er war abgehakt und liegt jetzt in der Zukunft.',
+      });
     onSaved(saved.at);
     onClose();
   };

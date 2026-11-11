@@ -20,6 +20,7 @@ import { weatherZone, zoneWeather } from '../../domain/weatherZone';
 import { advanceAndReport } from '../../shell/dialogs';
 import { openQuickLog } from '../../shell/commands';
 import { Button, ChronicleList, MoonGlyph, Panel, SectionTitle, Select, cx, toast } from '../../ui';
+import { EntryDialog } from '../chronik/EntryDialog';
 import { DayWeatherBlock } from '../wetter/DayWeather';
 import {
   EVENT_DONE_LABEL,
@@ -105,6 +106,8 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
   const start = day * MINUTES_PER_DAY;
   const date = fromTime(cal, start);
   const [hour, setHour] = useState(6);
+  /** Zeitpunkt, zu dem gerade etwas nachgetragen wird. */
+  const [backfill, setBackfill] = useState<number | null>(null);
   const zone = weatherZone(data, data.state.placeId);
 
   const events = spansOnDay(spans, day);
@@ -269,9 +272,18 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
           <>
             <div className="wf-kal-side__section wf-kal-side__section--action">
               <SectionTitle>Chronik</SectionTitle>
-              {day === today && (
+              {day === today ? (
                 <Button size="sm" icon={<Feather />} onClick={() => openQuickLog()}>
                   Festhalten
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  icon={<Feather />}
+                  title="Etwas festhalten, das an diesem Tag geschehen ist"
+                  onClick={() => setBackfill(day * MINUTES_PER_DAY + 12 * MINUTES_PER_HOUR)}
+                >
+                  Nachtragen
                 </Button>
               )}
             </div>
@@ -314,6 +326,13 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
           </Button>
           <div className="wf-kal-pass__preview">{describePassage(passage)}</div>
         </footer>
+      )}
+      {backfill !== null && (
+        <EntryDialog
+          key={backfill}
+          request={{ mode: 'new', at: backfill }}
+          onClose={() => setBackfill(null)}
+        />
       )}
     </Panel>
   );
