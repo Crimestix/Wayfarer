@@ -299,6 +299,31 @@ Das Storyboard: alle Geschichten nebeneinander, wie weit jede ist, wie nah die G
 und wo sie sich berühren (eine Geschichte, die eine andere trifft). Als Pinnwand mit Personen,
 Orten und Fäden, verbunden durch Linien.
 
+### Wenn Geschichten sich berühren
+
+Verbindungen zwischen Geschichten werden nicht von Hand gezogen, sondern erkannt:
+
+- **Gemeinsame Knoten:** Hängen zwei Geschichten an derselben Person, demselben Ort oder derselben
+  Fraktion, zeigt das Fadenbrett die Berührung, mit dem Grund daran (z. B. „über den Hafen: Die
+  Rebellen waren dort gefangen“). Jede Geschichte listet ihre Verbindungen.
+- **Hinweise wandern:** Wer an einem Ort war oder etwas erlebt hat, ist eine Quelle für die Fäden
+  der anderen Geschichte. Hängt ein Faden nur an einem Hinweis, nennt Wayfarer zweite Wege über
+  verbundene Geschichten. So stolpert die Gruppe auch in eine Geschichte, wenn sie einer anderen
+  folgt.
+- **Folgen springen über:** Was in einer Geschichte geschieht, prüft Wayfarer gegen die
+  verbundenen. Betrifft es sie, kommt ein Vorschlag („Betrifft auch: … Soll das etwas ändern?“).
+  Entschieden wird von Hand, auch über Folgen für den Ruf.
+- Grundlage ist das Wissen der Personen (3.8): Was jemand miterlebt hat, steht dort.
+
+### Das Fadenbrett im Entwurf
+
+Am 11. 11. 2026 als Entwurf gezeigt und für gut befunden: Brett nach Nähe zur Gruppe geordnet
+(Hier · Erreichbar · Fern); Geschichten als Karten mit Antreiber und Uhr (Zustand läuft, ruht,
+blockiert); rote Fäden zu Personen und Orten, goldene Linien, wo Geschichten sich berühren;
+Ruf als eigene Linie; Seitenteil mit Uhr, „Wenn niemand eingreift“, Fäden mit gefundenen und
+fehlenden Hinweisen, Einstiegen und Ruf; Umschalter **Wahrheit / Was die Gruppe weiß**, der
+Geschichten zu den Fäden macht, die die Spieler kennen, und Verborgenes ausblendet.
+
 ### Nach der Session
 
 Aus der Mitschrift schlägt Wayfarer vor, welche Fäden sich bewegt haben und welche Hinweise
