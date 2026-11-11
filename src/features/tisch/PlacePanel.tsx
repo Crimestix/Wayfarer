@@ -52,6 +52,7 @@ import {
 } from './model';
 import { articleExcerpt, articleOf, placeMaps } from './wiki';
 import { WeatherLine } from '../wetter';
+import { WayRow } from './WayRow';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
 /** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. In niedrigen Fenstern weniger. */
@@ -435,6 +436,7 @@ export function PlacePanel({ place }: { place: Place }) {
       </header>
 
       {(nearby.parent || nearby.children.length > 0) && <Ways nearby={nearby} onGo={go} />}
+      <WayRow placeId={place.id} />
 
       <div className="wf-tisch-place__body">
         {changes.length > 0 && (

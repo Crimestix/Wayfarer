@@ -79,6 +79,8 @@ nicht übernommen.
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
   `unterreich` (unter der Erde zeigt das Feld des Wetters Licht, Sicht und Umgebung; die
   Rechnung steht in `domain/underground.ts`),
+  `wege` (Wege zwischen Orten anlegen und gehen – das Wegenetz, Pointcrawl; die Rechnung steht
+  in `domain/ways.ts`),
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
@@ -119,6 +121,11 @@ nicht übernommen.
   einem Kartenbild einliest (`addLand`, Kennung `bild-…`), liegen im selben Dokument, haben
   keine Höhen und bleiben, wenn die Weltdatei neu eingelesen wird. Land zum Zeichnen immer über
   `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
+- Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
+  seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
+  (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`
+  (`features/wege/actions.ts`): Erst vergeht die Zeit des Weges, dann kommt sie an – nie den Ort
+  wechseln und die Zeit getrennt stellen, wenn ein Weg bekannt ist.
 - Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
   Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
   die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen

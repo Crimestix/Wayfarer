@@ -1,7 +1,7 @@
 /** Dialoge des Gerüsts: festhalten, Haltung ändern, Ort wechseln, Zeit vergehen lassen, suchen. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, Library, Search } from 'lucide-react';
+import { ArrowRight, Footprints, Library, Search } from 'lucide-react';
 import {
   advanceTime,
   logEntry,
@@ -46,6 +46,9 @@ import {
   entityHref,
   toast,
 } from '../ui';
+import { WALK_KMH, describeVia, formatWayTime, routeBetween, suggestedKm } from '../domain/ways';
+import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
+import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import type { RestResult } from '../features/gruppe/rest';
 import { meanwhile } from './meanwhile';
@@ -96,6 +99,36 @@ export function advanceAndReport(db: CampaignDb, to: WorldTime) {
     });
   } catch (error) {
     toast({ title: 'Zeit nicht geändert', body: String((error as Error).message), tone: 'danger' });
+  }
+}
+
+/**
+ * Die Gruppe geht einen Weg: Die Zeit vergeht, sie kommt an – eine Meldung nennt beides, und
+ * „Rückgängig“ nimmt beides zurück.
+ */
+export function walkAndReport(db: CampaignDb, go: () => WalkResult) {
+  try {
+    const result = go();
+    const data = db.getSnapshot();
+    const name = entityName(data, data.state.placeId);
+    toast({
+      title:
+        result.minutes > 0
+          ? `Angekommen: ${name} – ${formatWayTime(result.minutes)} unterwegs`
+          : `Angekommen: ${name}`,
+      body:
+        result.advance && happened(result.advance)
+          ? meanwhileBody(data, result.advance, 'Währenddessen:')
+          : undefined,
+      action: { label: 'Rückgängig', run: result.undo },
+      duration: result.advance?.steps.length ? 14000 : undefined,
+    });
+  } catch (error) {
+    toast({
+      title: 'Ort nicht gewechselt',
+      body: String((error as Error).message),
+      tone: 'danger',
+    });
   }
 }
 
@@ -268,9 +301,36 @@ function MovePartyDialog({ preset }: { preset?: string }) {
   const data = useData();
   const [placeId, setPlaceId] = useState<string | null>(preset ?? null);
   const [text, setText] = useState('');
+  const here = data.state.placeId;
+  // Kennt das Wegenetz eine Route, ist ihre Dauer die Vorgabe; sonst wählt der Spielleiter.
+  const route = useMemo(
+    () => (here && placeId ? routeBetween(data, here, placeId) : null),
+    [data, here, placeId],
+  );
+  const km = here && placeId && !route ? suggestedKm(data, here, placeId) : null;
+  const suggested = km === null ? null : Math.max(1, Math.round((km / WALK_KMH.normal) * 60));
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [passTime, setPassTime] = useState(true);
+  const [remember, setRemember] = useState(true);
+  const minutes = route ? (passTime ? route.minutes : 0) : (chosen ?? suggested ?? 0);
+  const moving = placeId !== null && here !== null && placeId !== here;
   const save = () => {
-    moveParty(db, placeId, text);
     closeShellRequest();
+    if (!placeId) {
+      moveParty(db, placeId, text);
+      return;
+    }
+    const note = [
+      text.trim(),
+      route ? describeVia(data, route) : '',
+      minutes > 0 ? formatWayTime(minutes) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    walkAndReport(db, () => {
+      if (!route && remember && here && minutes > 0) rememberWay(db, here, placeId, minutes);
+      return walk(db, placeId, minutes, note);
+    });
   };
   return (
     <Dialog
@@ -309,6 +369,53 @@ function MovePartyDialog({ preset }: { preset?: string }) {
             onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
           />
         </Field>
+        {moving && route && (
+          <>
+            <div className="wf-wege-route">
+              <Footprints aria-hidden />
+              <div>
+                <div className="wf-wege-route__main">
+                  {route.minutes > 0 ? formatWayTime(route.minutes) : 'Dauer offen'}
+                  {route.unknown && route.minutes > 0 && ' und mehr'}
+                </div>
+                <div className="wf-wege-route__sub">
+                  {describeVia(data, route) ||
+                    (route.legs[0]?.path.name
+                      ? `Direkter Weg über ${route.legs[0].path.name}`
+                      : 'Direkter Weg')}
+                  {route.unknown && ' – ein Abschnitt hat noch keine Dauer'}
+                  {route.legs.some((leg) => leg.path.conditions) &&
+                    ` · ${route.legs
+                      .map((leg) => leg.path.conditions)
+                      .filter(Boolean)
+                      .join('; ')}`}
+                </div>
+              </div>
+            </div>
+            {route.minutes > 0 && (
+              <Checkbox checked={passTime} onChange={setPassTime}>
+                Die Zeit vergeht mit ({formatWayTime(route.minutes)})
+              </Checkbox>
+            )}
+          </>
+        )}
+        {moving && !route && (
+          <Field
+            label="Wie lange dauert der Weg?"
+            hint={
+              suggested !== null
+                ? `Nach der Karte etwa ${formatWayTime(suggested)} zu Fuß.`
+                : 'Die Zeit vergeht mit dem Weg: Termine treten ein, Lichter brennen herunter.'
+            }
+          >
+            <DurationField value={minutes} onChange={setChosen} />
+          </Field>
+        )}
+        {moving && !route && minutes > 0 && (
+          <Checkbox checked={remember} onChange={setRemember}>
+            Diesen Weg merken – beim nächsten Mal und auf dem Rückweg ist die Dauer schon da
+          </Checkbox>
+        )}
         <Field label="Anmerkung">
           <Input
             value={text}

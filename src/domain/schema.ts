@@ -1093,6 +1093,13 @@ export function createClock(init: Partial<Clock> & { title: string; start: numbe
   return ClockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
+export function createPath(
+  init: Partial<TravelPath> & { fromId: string; toId: string },
+): TravelPath {
+  const stamp = nowIso();
+  return PathSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
 export function createTimer(
   init: Partial<Timer> & { label: string; start: number; end: number },
 ): Timer {

@@ -259,6 +259,35 @@
   border-style: dashed;
   color: var(--ink-soft);
 }
+/* Wege: die Verbindungen des Wegenetzes, mit ihrer Dauer. */
+.wf-tisch-ways--paths {
+  border-top: 1px solid var(--line-faint);
+}
+.wf-tisch-ways__none {
+  align-self: center;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-tisch-way--path {
+  border-style: solid;
+}
+.wf-tisch-way--path > svg:first-child {
+  color: var(--gold);
+}
+.wf-tisch-way__time {
+  flex: none;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+.wf-tisch-way svg.wf-tisch-way__flag {
+  width: 13px;
+  height: 13px;
+  color: var(--ember);
+}
 .wf-tisch-way--more {
   color: var(--gold-bright);
 }

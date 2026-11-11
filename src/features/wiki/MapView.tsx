@@ -11,6 +11,7 @@ import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { placeAncestors } from '../../domain/derive';
 import type { GameMap, MapMarker } from '../../domain/schema';
+import { formatWayTime, wayLine, wayMinutes } from '../../domain/ways';
 import { openMoveParty } from '../../shell/commands';
 import { Checkbox, IconButton, KindIcon, MenuItem, Popover, cx, entityHref } from '../../ui';
 import './wiki.css';
@@ -38,6 +39,14 @@ export function MapView({
 
   // Wo die Gruppe auf dieser Karte steht: ihr Ort selbst, sonst der nächste Ort darüber, der
   // hier eingetragen ist.
+  // Die Wege des Wegenetzes, deren beide Orte auf dieser Karte liegen – als Linien.
+  const ways = useMemo(
+    () =>
+      Object.values(data.paths)
+        .map((path) => ({ path, line: wayLine(map, path), minutes: wayMinutes(data, path) }))
+        .filter((way) => way.line !== null),
+    [data, map],
+  );
   const partyPlaceId = data.state.placeId;
   const hereId = useMemo(() => {
     if (!partyPlaceId) return null;
@@ -139,7 +148,7 @@ export function MapView({
             }}
           >
             <img src={src(map.image)} alt={map.name} onError={() => setBroken(true)} />
-            {map.shapes.length > 0 && (
+            {(map.shapes.length > 0 || ways.length > 0) && (
               <svg
                 viewBox={`0 0 ${frame.width} ${frame.height}`}
                 preserveAspectRatio="none"
@@ -164,6 +173,23 @@ export function MapView({
                     </polyline>
                   ),
                 )}
+                {ways.map(({ path, line, minutes }) => (
+                  <polyline
+                    key={path.id}
+                    className={cx('wf-wiki-map__way', path.secret && 'wf-wiki-map__way--secret')}
+                    points={line!.map((p) => p.join(',')).join(' ')}
+                  >
+                    <title>
+                      {[
+                        path.name || 'Weg',
+                        minutes === null ? '' : formatWayTime(minutes),
+                        path.conditions,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </title>
+                  </polyline>
+                ))}
               </svg>
             )}
             {map.markers.map((marker) => {

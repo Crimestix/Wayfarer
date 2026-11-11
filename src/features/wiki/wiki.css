@@ -733,6 +733,20 @@ button.wf-wiki-row__toggle:hover {
   stroke-dasharray: 7 5;
   vector-effect: non-scaling-stroke;
 }
+/* Wege des Wegenetzes: durchgezogen in Messing; was die Gruppe nicht kennt, nur gestrichelt. */
+.wf-wiki-map__way {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
+  vector-effect: non-scaling-stroke;
+}
+.wf-wiki-map__way--secret {
+  stroke: var(--ink-mute);
+  stroke-dasharray: 3 5;
+}
 .wf-wiki-map__region {
   fill: var(--gold-glow);
   stroke: var(--gold);

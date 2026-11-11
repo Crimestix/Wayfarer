@@ -624,6 +624,36 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
+**Wege und Pointcrawl (11. 11. 2026) – erster Teil gebaut.** Der Spielleiter: „mit das
+wichtigste Tool“ – Reisen innerhalb einer Stadt und zwischen Orten, auch als genaue Route über
+mehrere Punkte. Das Datenmodell (`paths`) gab es schon; es fehlte die ganze Bedienung.
+- **Rechnung** (`domain/ways.ts`): Wege von einem Ort (`waysFrom`; in beide Richtungen, außer
+  „nur in dieser Richtung“), rund um einen Ort (`waysAround`: wer im Gasthaus sitzt, bricht vom
+  Viertel aus auf), schnellste Route über mehrere Punkte (`routeBetween`, Dijkstra), Dauer
+  (`wayMinutes`: feste Minuten, sonst Länge durch Tempo, schwieriges Gelände doppelt), Länge
+  aus dem Verlauf auf einer Karte mit Maßstab (`lineKm`, `suggestedKm`).
+- **Gehen** (`features/wege/actions.ts`): `walk` / `walkRoute` lassen erst die Zeit des Weges
+  vergehen (Termine, Uhren, Lichter) und versetzen dann die Gruppe; in der Chronik steht „über
+  Hafen · 25 Min.“. Eine Meldung nennt Ankunft und was währenddessen geschah; „Rückgängig“ nimmt
+  Zeit und Ortswechsel zusammen zurück (`walkAndReport` in `shell/dialogs.tsx`).
+- **Spieltisch:** Zeile „Wege“ unter „Orte hier“ (`tisch/WayRow.tsx`): je Weg ein Knopf mit
+  Ziel und Dauer – ein Klick geht ihn. Dahinter „Wege …“ zum Anlegen und Ändern
+  (`wege/WayDialog.tsx`: Von, Nach, Dauer, Name, Besonderheiten, nur eine Richtung, der Gruppe
+  unbekannt).
+- **„Die Gruppe zieht weiter“:** Kennt das Wegenetz eine Route zum Ziel, zeigt der Dialog sie
+  mit Dauer und lässt die Zeit mitlaufen. Sonst fragt er nach der Dauer (schnelle Knöpfe, mit
+  Vorschlag aus einer Karte mit Maßstab) und merkt sich den Weg auf Wunsch – so entsteht das
+  Netz beim Spielen von selbst.
+- **Karte:** Wege, deren beide Orte auf einer Karte liegen, sind dort als Linie zu sehen (ihr
+  gezeichneter Verlauf, sonst die Gerade). Der Punkt eines Ortes führt über „Gruppe hierher
+  versetzen“ in den Dialog mit Route und Dauer.
+- Geprüft mit Tests (`domain/__tests__/ways.test.ts`) und in der Vorschau (Ziel wählen, Dauer
+  angeben, Zeit läuft mit, Rückweg als Knopf, bekannte Route im Dialog, Dialog „Neuer Weg“).
+  **Nicht geprüft:** die Linien auf einer Karte (nur gerechnet), installierte App, macOS.
+- **Offen:** Wege auf der Karte selbst zeichnen (Verlauf mit Zwischenpunkten) und den Maßstab
+  einer Karte setzen; eine Route Punkt für Punkt gehen mit Halt an jedem Punkt; Verirren,
+  Vorräte und Begegnungen auf langen Wegen (Unterreich, Schritt 3); Tempo wählen; Reittiere.
+
 **Atlas: Kontinente als Fläche (11. 11. 2026) – gebaut.** Wunsch des Spielleiters: Ein
 Kontinent ist kein einzelner Ort, sondern die ganze Landmasse; darüber stehen die
 Kontinentalwelten.
