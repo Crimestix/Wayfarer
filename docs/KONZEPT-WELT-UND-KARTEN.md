@@ -435,6 +435,14 @@ soll doppelt eingetragen werden müssen.
   LegendKeeper-Übernahme, Einordnen), hängt danach an derselben Seite.
 - Die Brücke gibt es schon (Steckbrief → Eintrag, `wiki/facts.ts`; „In die Welt aufnehmen“).
   Der Text bleibt die Quelle, die Felder sind Sichten darauf.
+- **Navigation:** Der Spielleiter mag beides – die Ordnerstruktur des Wikis und das Dashboard der
+  Weltdatenbank (Zählung je Art, „Wo die Gruppe ist“, „Zuletzt bearbeitet“). Beides bleibt: der
+  Baum zum Navigieren, das Dashboard als Startseite der Welt (und je Ordner).
+- Entwurf am Handy schwer zu beurteilen; am PC besprechen (Stand 11. 11. 2026).
+- **Offen: welche Arten es gibt.** Heute: Person, Ort, Fraktion, Gefährte, Gegenstand, Thema,
+  Familie, Spezies, Sprache, Schrift, Fähigkeit (`ENTITY_KINDS`). Aus den Konzepten folgen
+  Monster, Tiere, Pflanzen, Geschichten (mit Fäden); Kandidaten siehe Gespräch: Götter und
+  Glaube, Ereignisse der Geschichte, Kulturen, Reiche, Schriftstücke, Zauber, Rohstoffe.
 
 ## 5. Vorgeschlagene Reihenfolge
 
