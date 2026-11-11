@@ -8,9 +8,11 @@ import { Button, Dialog, Field, Input } from '../../ui';
 import {
   blurPixels,
   cleanMask,
+  cropMask,
   dominantColor,
   landMask,
   traceMask,
+  type Crop,
   type Rgb,
   type TraceOptions,
   type TracedShape,
@@ -18,6 +20,13 @@ import {
 
 /** Größer wird ein Bild nicht gelesen – feiner als die Karte selbst muss die Küste nicht sein. */
 const MAX_SIDE = 1400;
+const NO_CROP: Crop = { top: 0, right: 0, bottom: 0, left: 0 };
+const SIDES: [keyof Crop, string][] = [
+  ['top', 'Oben'],
+  ['bottom', 'Unten'],
+  ['left', 'Links'],
+  ['right', 'Rechts'],
+];
 /** Mehr Farben braucht keine Karte – und jede kostet beim Lesen Zeit. */
 const MAX_COLORS = 8;
 
@@ -79,6 +88,7 @@ export function TraceDialog({
   };
 
   const smooth = options.smooth ?? 0;
+  const crop = options.crop ?? NO_CROP;
   // Das weichgezeichnete Bild hängt nur am Regler dafür – nicht an Farbe und Ähnlichkeit.
   const soft = useMemo(
     () => (picture ? blurPixels(picture.pixels, picture.width, picture.height, smooth) : null),
@@ -88,7 +98,12 @@ export function TraceDialog({
     () =>
       picture && soft
         ? cleanMask(
-            landMask(soft, picture.width, picture.height, options),
+            cropMask(
+              landMask(soft, picture.width, picture.height, options),
+              picture.width,
+              picture.height,
+              options.crop,
+            ),
             picture.width,
             picture.height,
             options.minArea,
@@ -111,15 +126,18 @@ export function TraceDialog({
     canvas.height = picture.height;
     const ctx = canvas.getContext('2d')!;
     const image = ctx.createImageData(picture.width, picture.height);
+    // Abgeschnittene Ränder erscheinen dunkler als das übrige Bild.
+    const kept = cropMask(new Uint8Array(mask.length).fill(1), picture.width, picture.height, crop);
     for (let i = 0; i < mask.length; i++) {
       const land = mask[i] === 1;
-      image.data[i * 4] = land ? 214 : picture.pixels[i * 4]! * 0.45;
-      image.data[i * 4 + 1] = land ? 178 : picture.pixels[i * 4 + 1]! * 0.45;
-      image.data[i * 4 + 2] = land ? 96 : picture.pixels[i * 4 + 2]! * 0.45;
+      const dim = kept[i] ? 0.45 : 0.15;
+      image.data[i * 4] = land ? 214 : picture.pixels[i * 4]! * dim;
+      image.data[i * 4 + 1] = land ? 178 : picture.pixels[i * 4 + 1]! * dim;
+      image.data[i * 4 + 2] = land ? 96 : picture.pixels[i * 4 + 2]! * dim;
       image.data[i * 4 + 3] = 255;
     }
     ctx.putImageData(image, 0, 0);
-  }, [picture, mask]);
+  }, [picture, mask, crop]);
 
   const pick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!picture || !soft) return;
@@ -298,6 +316,37 @@ export function TraceDialog({
                 }
               />
             </Field>
+            <details className="wf-atlas-trace__crop">
+              <summary>Bildrand abschneiden</summary>
+              <p className="wf-mute">
+                Was abgeschnitten ist, gilt als Meer – etwa Titel, Maßstab oder Land am Rand, das
+                nicht dazugehört. Das Bild behält seine Größe.
+              </p>
+              <div className="wf-atlas-trace__sides">
+                {SIDES.map(([side, label]) => (
+                  <label key={side}>
+                    <span>
+                      {label}: {Math.round(crop[side] * 100)} %
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={60}
+                      value={Math.round(crop[side] * 100)}
+                      onChange={(event) =>
+                        setOptions((current) => ({
+                          ...current,
+                          crop: {
+                            ...(current.crop ?? NO_CROP),
+                            [side]: Number(event.target.value) / 100,
+                          },
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </details>
             <p className="wf-soft">
               Golden ist, was Wayfarer als Land liest:{' '}
               <b>{count === 1 ? 'eine Fläche' : `${count} Flächen`}</b>

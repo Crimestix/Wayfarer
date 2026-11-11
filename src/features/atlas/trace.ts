@@ -26,6 +26,39 @@ export interface TraceOptions {
    * Glanzlichter; verwischt bleiben die großen Flächen und die Kleinigkeiten verschwinden.
    */
   smooth?: number;
+  /** Ränder, die nicht gelesen werden – dort gilt alles als Meer. */
+  crop?: Crop;
+}
+
+/** Wie viel vom Bild an jeder Seite wegfällt, als Anteil von 0 bis 1. */
+export interface Crop {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * Schneidet die Ränder aus der Maske: Was dort liegt, wird Wasser – Titel, Maßstab, Rahmen oder
+ * Land, das nicht dazugehören soll. Das Bild behält seine Größe. Ohne Ränder dieselbe Maske.
+ */
+export function cropMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  crop: Crop | undefined,
+): Uint8Array {
+  if (!crop) return mask;
+  const part = (value: number, size: number) => Math.round(Math.max(0, Math.min(1, value)) * size);
+  const top = part(crop.top, height);
+  const bottom = height - part(crop.bottom, height);
+  const left = part(crop.left, width);
+  const right = width - part(crop.right, width);
+  if (top === 0 && left === 0 && bottom === height && right === width) return mask;
+  const out = new Uint8Array(mask.length);
+  for (let y = top; y < bottom; y++)
+    for (let x = left; x < right; x++) out[y * width + x] = mask[y * width + x]!;
+  return out;
 }
 
 /**
@@ -238,11 +271,8 @@ export function traceImage(
   options: TraceOptions,
 ): TracedShape {
   const soft = blurPixels(pixels, width, height, options.smooth ?? 0);
-  return traceMask(
-    cleanMask(landMask(soft, width, height, options), width, height, options.minArea),
-    width,
-    height,
-  );
+  const mask = cropMask(landMask(soft, width, height, options), width, height, options.crop);
+  return traceMask(cleanMask(mask, width, height, options.minArea), width, height);
 }
 
 // ── Auf den Planeten legen ─────────────────────────────────────────────────

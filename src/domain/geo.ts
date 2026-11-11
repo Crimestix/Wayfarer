@@ -155,6 +155,9 @@ export function inRing(ring: Ring, point: LonLat, bounds: RingBounds = ringBound
   if (point.lat < bounds.south || point.lat > bounds.north) return false;
   if (Math.abs(wrapLon(point.lon - bounds.lon)) > bounds.halfWidth) return false;
   const count = ring.length / 2;
+  // Liegt die Lage genau auf dem Längengrad eines Küstenpunkts, an dem die Küste umkehrt, würde
+  // dort einmal zu viel oder zu wenig gezählt. Ein Zentimeter zur Seite, und es stimmt.
+  const lon = point.lon + 1e-7;
   let crossings = 0;
   for (let i = 0; i < count; i++) {
     const next = (i + 1) % count;
@@ -162,7 +165,7 @@ export function inRing(ring: Ring, point: LonLat, bounds: RingBounds = ringBound
     const latA = ring[i * 2 + 1]!;
     const step = wrapLon(ring[next * 2]! - lonA);
     if (step === 0) continue;
-    const rel = wrapLon(point.lon - lonA);
+    const rel = wrapLon(lon - lonA);
     const within = step > 0 ? rel >= 0 && rel < step : rel <= 0 && rel > step;
     if (!within) continue;
     const lat = latA + (rel / step) * (ring[next * 2 + 1]! - latA);

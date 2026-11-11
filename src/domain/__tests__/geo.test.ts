@@ -90,6 +90,15 @@ describe('Land oder Wasser', () => {
     expect(inRing(land, at(0, 0))).toBe(false);
   });
 
+  it('zählt richtig, wenn die Lage genau auf dem Längengrad einer Küstenspitze liegt', () => {
+    // Ein Rechteck mit einer Bucht von Westen; ihre Spitze liegt bei 20° Ost, 30° Nord.
+    const land = [10, 20, 30, 20, 30, 40, 10, 40, 10, 35, 20, 30, 10, 25];
+    expect(inRing(land, at(20, 25))).toBe(true);
+    expect(inRing(land, at(20, 36))).toBe(true);
+    expect(inRing(land, at(19, 30))).toBe(false);
+    expect(inRing(land, at(20, 45))).toBe(false);
+  });
+
   it('kennt Ringe um die Pole', () => {
     const north = [-180, 70, -90, 72, 0, 70, 90, 72];
     const south = [-180, -70, 90, -72, 0, -70, -90, -72];

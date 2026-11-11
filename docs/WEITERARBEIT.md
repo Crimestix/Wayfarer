@@ -490,7 +490,8 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
     sind Wasser“ (alles andere Land) oder „diese Farben sind Land“. Jeder Klick ins Bild nimmt die
     Farbe der Stelle dazu (bis zu acht), ein Klick aufs Farbfeld nimmt sie heraus. Regler:
     Ähnlichkeit, kleinste Fläche (Schrift und Zierrat fallen weg), Weichzeichnen (für gemalte
-    Karten). Flache, einfarbige Karten gehen mit einer Farbe; eine gemalte Karte braucht mehrere
+    Karten), „Bildrand abschneiden“ (`cropMask`: Titel, Maßstab oder Land am Rand, das nicht
+    dazugehört – etwa Eis eines Pols – gilt dann als Meer). Flache, einfarbige Karten gehen mit einer Farbe; eine gemalte Karte braucht mehrere
     Wassertöne und Weichzeichnen und bleibt ungefähr (Wolken und Schrift am Land zählen mit).
   - *Einpassen* (`placeShape`): als **Gebiet** – Mitte per Klick, Breite in Kilometern (am
     Maßstab des Bildes abgelesen), Drehung; das Bild liegt flach auf der Kugel auf, Formen

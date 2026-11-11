@@ -3,6 +3,7 @@ import { distanceKm, inRing, ringBounds } from '../../domain/geo';
 import {
   blurPixels,
   cleanMask,
+  cropMask,
   dominantColor,
   landMask,
   placeShape,
@@ -159,6 +160,26 @@ describe('Küsten aus einem Bild', () => {
     // Ohne Farbe ist nichts ähnlich: alles Land, wenn das Wasser gesucht wird.
     const none = landMask(pixels, width, height, { mode: 'water', colors: [], tolerance: 40 });
     expect(none.reduce((sum, v) => sum + v, 0)).toBe(81);
+  });
+
+  it('schneidet Ränder ab: Was dort liegt, wird Meer, das Bild behält seine Größe', () => {
+    // Oben eine Insel, unten ein Streifen Eis über die ganze Breite.
+    const img = picture(['..........', '..####....', '..####....', '..........', '**********']);
+    const options = { mode: 'water', colors: [SEA], tolerance: 40, minArea: 1 } as const;
+    expect(traceImage(img.pixels, img.width, img.height, options).rings).toHaveLength(2);
+    const cut = traceImage(img.pixels, img.width, img.height, {
+      ...options,
+      crop: { top: 0, right: 0, bottom: 0.2, left: 0 },
+    });
+    expect(cut.rings).toHaveLength(1);
+    expect([cut.width, cut.height]).toEqual([10, 5]);
+    // Ohne Ränder bleibt die Maske dieselbe.
+    const mask = Uint8Array.from([1, 0, 1, 1]);
+    expect(cropMask(mask, 2, 2, undefined)).toBe(mask);
+    expect(cropMask(mask, 2, 2, { top: 0, right: 0, bottom: 0, left: 0 })).toBe(mask);
+    expect([...cropMask(mask, 2, 2, { top: 0, right: 0.5, bottom: 0, left: 0 })]).toEqual([
+      1, 0, 1, 0,
+    ]);
   });
 
   it('hält Flächen auseinander, die sich nur über Eck berühren', () => {
