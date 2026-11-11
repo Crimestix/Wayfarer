@@ -43,8 +43,13 @@ export interface LandIndex {
 export interface Planet {
   doc: Atlas;
   radiusKm: number;
+  /** Die sichtbaren Landmassen – ausgeblendete der Weltdatei fehlen hier. */
   lands: LandIndex[];
   lakes: { id: string; name: string; shape: Shape }[];
+  /** Flüsse, ohne die auf ausgeblendeten Landmassen. */
+  rivers: Atlas['rivers'];
+  /** Ausgeblendete Landmassen der Weltdatei. */
+  hidden: { id: string; name: string }[];
 }
 
 const shape = (ring: Ring): Shape => ({ ring, bounds: ringBounds(ring) });
@@ -57,16 +62,33 @@ export function planetOf(data: Pick<CampaignData, 'atlas'>): Planet | null {
   if (!doc || doc.kind !== 'planet') return null;
   let planet = planetCache.get(doc);
   if (!planet) {
+    const hidden = new Set(doc.hiddenLands);
+    const gone = doc.lands.filter((land) => hidden.has(land.id));
+    const goneShapes = gone.flatMap((land) => land.rings.map(shape));
+    // Seen und Flüsse einer ausgeblendeten Landmasse verschwinden mit ihr.
+    const onGone = (lon: number | undefined, lat: number | undefined) =>
+      lon !== undefined &&
+      lat !== undefined &&
+      goneShapes.some((s) => inRing(s.ring, { lon, lat }, s.bounds));
     planet = {
       doc,
       radiusKm: doc.radiusKm,
-      lands: doc.lands.map((land) => ({
-        id: land.id,
-        name: land.name,
-        rings: land.rings.map(shape),
-        holes: land.holes.map(shape),
-      })),
-      lakes: doc.lakes.map((lake) => ({ id: lake.id, name: lake.name, shape: shape(lake.ring) })),
+      lands: doc.lands
+        .filter((land) => !hidden.has(land.id))
+        .map((land) => ({
+          id: land.id,
+          name: land.name,
+          rings: land.rings.map(shape),
+          holes: land.holes.map(shape),
+        })),
+      lakes: doc.lakes
+        .filter((lake) => !onGone(lake.ring[0], lake.ring[1]))
+        .map((lake) => ({ id: lake.id, name: lake.name, shape: shape(lake.ring) })),
+      rivers: doc.rivers.filter((river) => {
+        const middle = Math.floor(river.points.length / 4) * 2;
+        return !onGone(river.points[middle], river.points[middle + 1]);
+      }),
+      hidden: gone.map((land) => ({ id: land.id, name: land.name })),
     };
     planetCache.set(doc, planet);
   }
@@ -106,18 +128,21 @@ const fullCache = new WeakMap<Atlas, { planet: Atlas; grid: HeightGrid }>();
 /**
  * Das Höhenraster der Kampagne – oder null, wenn keines übernommen wurde. Landmassen aus einem
  * Kartenbild bringen keine Höhen mit; für sie ist ein erzeugtes Gelände eingerechnet, solange
- * es an der Landmasse nicht abgeschaltet ist.
+ * es an der Landmasse nicht abgeschaltet ist. Unter ausgeblendeten Landmassen der Weltdatei
+ * gelten deren Höhen nicht mehr.
  */
 export function reliefOf(data: Pick<CampaignData, 'atlas'>): HeightGrid | null {
   const base = baseRelief(data);
   const planet = data.atlas[PLANET_ID];
   const doc = data.atlas[RELIEF_ID];
   if (!base || !doc || !planet || planet.kind !== 'planet') return base;
+  const hidden = new Set(planet.hiddenLands);
   const lands = planet.lands.filter((land) => isOwnLand(land) && land.relief !== 'flat');
-  if (!lands.length) return base;
+  const cleared = planet.lands.filter((land) => hidden.has(land.id));
+  if (!lands.length && !cleared.length) return base;
   const cached = fullCache.get(doc);
   if (cached && cached.planet === planet) return cached.grid;
-  const grid = withGeneratedRelief(base, lands, planet.radiusKm);
+  const grid = withGeneratedRelief(base, lands, planet.radiusKm, cleared);
   fullCache.set(doc, { planet, grid });
   return grid;
 }

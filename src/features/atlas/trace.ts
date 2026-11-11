@@ -28,6 +28,44 @@ export interface TraceOptions {
   smooth?: number;
   /** Ränder, die nicht gelesen werden – dort gilt alles als Meer. */
   crop?: Crop;
+  /**
+   * Stellen im Bild (x, y in Bildpunkten), deren Landfläche nicht dazugehören soll – eine
+   * Nachbarinsel, eine Wolke, ein Schriftfeld. Die ganze zusammenhängende Fläche fällt weg.
+   */
+  drop?: readonly (readonly [number, number])[];
+}
+
+/**
+ * Nimmt ganze Landflächen aus der Maske: jede, in der eine der genannten Stellen liegt. Liegt
+ * eine Stelle im Wasser, geschieht nichts. Ohne Stellen dieselbe Maske.
+ */
+export function dropAreas(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  points: readonly (readonly [number, number])[] | undefined,
+): Uint8Array {
+  if (!points?.length) return mask;
+  const out = mask.slice();
+  const stack: number[] = [];
+  for (const [px, py] of points) {
+    const x = Math.round(px);
+    const y = Math.round(py);
+    if (x < 0 || y < 0 || x >= width || y >= height || !out[y * width + x]) continue;
+    stack.push(y * width + x);
+    out[y * width + x] = 0;
+    while (stack.length) {
+      const i = stack.pop()!;
+      const cx = i % width;
+      const cy = (i - cx) / width;
+      // Nachbarn über die vier Seiten – wie beim Zählen der Flächen.
+      if (cx > 0 && out[i - 1]) ((out[i - 1] = 0), stack.push(i - 1));
+      if (cx < width - 1 && out[i + 1]) ((out[i + 1] = 0), stack.push(i + 1));
+      if (cy > 0 && out[i - width]) ((out[i - width] = 0), stack.push(i - width));
+      if (cy < height - 1 && out[i + width]) ((out[i + width] = 0), stack.push(i + width));
+    }
+  }
+  return out;
 }
 
 /** Wie viel vom Bild an jeder Seite wegfällt, als Anteil von 0 bis 1. */
@@ -272,7 +310,8 @@ export function traceImage(
 ): TracedShape {
   const soft = blurPixels(pixels, width, height, options.smooth ?? 0);
   const mask = cropMask(landMask(soft, width, height, options), width, height, options.crop);
-  return traceMask(cleanMask(mask, width, height, options.minArea), width, height);
+  const clean = cleanMask(mask, width, height, options.minArea);
+  return traceMask(dropAreas(clean, width, height, options.drop), width, height);
 }
 
 // ── Auf den Planeten legen ─────────────────────────────────────────────────

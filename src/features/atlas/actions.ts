@@ -30,9 +30,14 @@ function putPart(db: CampaignDb, id: string, init: AtlasInit): Atlas {
 export function applyAtlas(db: CampaignDb, planet: AtlasInit, relief?: AtlasInit | null): void {
   db.batch(() => {
     // Landmassen, die aus einem Bild eingelesen wurden, gehören nicht zur Weltdatei – sie bleiben.
-    const own = (db.getSnapshot().atlas[PLANET_ID]?.lands ?? []).filter(isOwnLand);
+    const before = db.getSnapshot().atlas[PLANET_ID];
+    const own = (before?.lands ?? []).filter(isOwnLand);
     const fresh = planet.lands.filter((land) => !isOwnLand(land));
-    putPart(db, PLANET_ID, { ...planet, lands: [...fresh, ...own] });
+    // Was ausgeblendet war, bleibt es – sofern die Weltdatei die Landmasse noch kennt.
+    const hiddenLands = (before?.hiddenLands ?? []).filter((id) =>
+      fresh.some((land) => land.id === id),
+    );
+    putPart(db, PLANET_ID, { ...planet, lands: [...fresh, ...own], hiddenLands });
     if (relief) putPart(db, RELIEF_ID, relief);
   });
 }
@@ -72,6 +77,17 @@ export function setLandRelief(db: CampaignDb, landId: string, relief: 'generated
     ...planet,
     lands: planet.lands.map((land) => (land.id === landId ? { ...land, relief } : land)),
   });
+}
+
+/**
+ * Blendet eine Landmasse der Weltdatei aus oder wieder ein. Ausgeblendet fehlt sie auf Karte und
+ * Kugel und in allen Abfragen – samt ihren Seen, Flüssen und Höhen.
+ */
+export function setLandHidden(db: CampaignDb, landId: string, hidden: boolean): void {
+  const planet = db.getSnapshot().atlas[PLANET_ID];
+  if (!planet || !planet.lands.some((land) => land.id === landId)) return;
+  const rest = planet.hiddenLands.filter((id) => id !== landId);
+  db.put('atlas', { ...planet, hiddenLands: hidden ? [...rest, landId] : rest });
 }
 
 /** Nimmt eine Landmasse wieder vom Planeten. */

@@ -372,6 +372,17 @@
   background: var(--gold-glow);
   color: var(--gold-bright);
 }
+.wf-atlas-lands__gone {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
+details.wf-atlas-lands > summary {
+  cursor: pointer;
+}
+details.wf-atlas-lands[open] {
+  max-height: 40%;
+  overflow-y: auto;
+}
 .wf-atlas-lands__relief {
   margin-left: auto;
   padding: 0 var(--s-2);
@@ -384,6 +395,15 @@
 }
 .wf-atlas-lands__relief[aria-pressed='true'] {
   color: var(--gold-bright);
+}
+.wf-atlas-trace__undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
 }
 .wf-atlas-trace__crop summary {
   cursor: pointer;

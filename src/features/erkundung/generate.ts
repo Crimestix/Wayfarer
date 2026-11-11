@@ -334,7 +334,7 @@ export function groundOf(
   const grid = reliefOf(data);
   const kmPerDegree = (2 * Math.PI * planet.radiusKm) / 360;
   // Ein Fluss gehört zum Feld, wenn er näher als ein halbes Feld an dessen Mitte vorbeifließt.
-  const rivers = planet.doc.rivers.map((river) => {
+  const rivers = planet.rivers.map((river) => {
     let south = 90;
     let north = -90;
     for (let i = 1; i < river.points.length; i += 2) {

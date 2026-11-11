@@ -4,6 +4,7 @@ import {
   blurPixels,
   cleanMask,
   cropMask,
+  dropAreas,
   dominantColor,
   landMask,
   placeShape,
@@ -180,6 +181,22 @@ describe('Küsten aus einem Bild', () => {
     expect([...cropMask(mask, 2, 2, { top: 0, right: 0.5, bottom: 0, left: 0 })]).toEqual([
       1, 0, 1, 0,
     ]);
+  });
+
+  it('nimmt ganze Flächen weg, auf die gezeigt wird', () => {
+    // Zwei Inseln; die rechte gehört nicht dazu.
+    const img = picture(['..........', '.###..##..', '.###..##..', '..........']);
+    const options = { mode: 'water', colors: [SEA], tolerance: 40, minArea: 1 } as const;
+    expect(traceImage(img.pixels, img.width, img.height, options).rings).toHaveLength(2);
+    const one = traceImage(img.pixels, img.width, img.height, { ...options, drop: [[7, 2]] });
+    expect(one.rings).toHaveLength(1);
+    expect(Math.max(...one.rings[0]!.filter((_, i) => i % 2 === 0))).toBe(4);
+    // Ein Klick ins Wasser oder neben das Bild ändert nichts.
+    const mask = Uint8Array.from([1, 0, 0, 1]);
+    expect(dropAreas(mask, 2, 2, [[1, 0]])).toEqual(mask);
+    expect(dropAreas(mask, 2, 2, [[5, 5]])).toEqual(mask);
+    expect(dropAreas(mask, 2, 2, undefined)).toBe(mask);
+    expect([...dropAreas(mask, 2, 2, [[0, 0]])]).toEqual([0, 0, 0, 1]);
   });
 
   it('hält Flächen auseinander, die sich nur über Eck berühren', () => {

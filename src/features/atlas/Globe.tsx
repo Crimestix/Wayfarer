@@ -83,7 +83,7 @@ function worldTexture(
     ctx.fill(lakes, 'evenodd');
     ctx.strokeStyle = colors.sea.css;
     const kmPerDegree = (2 * Math.PI * planet.radiusKm) / 360;
-    for (const river of planet.doc.rivers) {
+    for (const river of planet.rivers) {
       const path = new Path2D();
       let lon = river.points[0]!;
       path.moveTo(lon, river.points[1]!);

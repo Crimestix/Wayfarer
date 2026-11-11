@@ -138,16 +138,23 @@ export function generatedHeight(seed: number, lon: number, lat: number, coastKm:
 
 /**
  * Ergänzt ein Höhenraster um erzeugte Höhen für die genannten Landmassen. Wo das Raster schon
- * eine Höhe kennt, bleibt sie. Gibt ein neues Raster zurück – oder dasselbe, wenn nichts zu tun ist.
+ * eine Höhe kennt, bleibt sie – außer unter ausgeblendeten Landmassen (`cleared`), deren Höhen
+ * vorher gelöscht werden. Gibt ein neues Raster zurück – oder dasselbe, wenn nichts zu tun ist.
  */
 export function withGeneratedRelief(
   grid: HeightGrid,
   lands: readonly ReliefLand[],
   radiusKm: number,
+  /** Landmassen, deren Höhen nicht mehr gelten (ausgeblendet): Dort wird das Raster geleert. */
+  cleared: readonly ReliefLand[] = [],
 ): HeightGrid {
-  if (!lands.length) return grid;
+  if (!lands.length && !cleared.length) return grid;
   const { width, height } = grid;
   const data = grid.data.slice();
+  for (const land of cleared) {
+    const mask = landCells(land, width, height);
+    for (let i = 0; i < mask.length; i++) if (mask[i]) data[i] = NODATA;
+  }
   const cellKm = (Math.PI * radiusKm) / height;
   for (const land of lands) {
     const mask = landCells(land, width, height);

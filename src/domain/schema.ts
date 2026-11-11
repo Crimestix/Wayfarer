@@ -853,6 +853,11 @@ export const AtlasSchema = z.object({
       }),
     )
     .default([]),
+  /**
+   * Landmassen der Weltdatei, die ausgeblendet sind – etwa weil ein eingelesenes Kartenbild sie
+   * ersetzt. Sie bleiben im Spielstand und lassen sich wieder einblenden.
+   */
+  hiddenLands: z.array(z.string()).default([]),
   lakes: z.array(z.object({ id: z.string(), name: z.string().default(''), ring })).default([]),
   /** Flüsse als Linie; die Breite gilt für den ganzen Lauf. */
   rivers: z

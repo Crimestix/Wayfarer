@@ -3,7 +3,9 @@
  * Die Welt hier ist erfunden: ein Planet mit einem einzigen großen Land.
  */
 import { describe, expect, it } from 'vitest';
+import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
+import { MemoryStore } from '../../data/store';
 import {
   describeSite,
   siteClimate,
@@ -29,6 +31,7 @@ import {
   recognize,
   type GenerateInput,
 } from '../erkundung/generate';
+import { applyAtlas, setLandHidden } from './actions';
 import {
   coastKm,
   describeLeg,
@@ -617,5 +620,62 @@ describe('Nach der Gegenprüfung', () => {
     const known = recognize(world([land, inn, b]), inn.id, b.id);
     expect(known.fromAtlas).toBe(true);
     expect(known.origin).toBeNull();
+  });
+});
+
+describe('Landmassen der Weltdatei ausblenden', () => {
+  /** Nordland mit einem See und einem Fluss; daneben, weit im Westen, „Westmark“. */
+  const twoLands = (hiddenLands: string[]): CampaignData => ({
+    ...world([]),
+    atlas: {
+      planet: AtlasSchema.parse({
+        ...planetDoc(),
+        lands: [
+          ...planetDoc().lands,
+          { id: 'westmark', name: 'Westmark', rings: [[-120, 0, -90, 0, -90, 30, -120, 30]] },
+        ],
+        lakes: [{ id: 'see', name: 'Aalweiher', ring: [20, 20, 24, 20, 24, 24, 20, 24] }],
+        rivers: [
+          { id: 'bach', name: 'Graubach', points: [30, 0, 30, 10], widthKm: 1 },
+          { id: 'west', name: 'Westbach', points: [-100, 5, -100, 15], widthKm: 1 },
+        ],
+        hiddenLands,
+      }),
+      relief: reliefDoc(),
+    },
+  });
+
+  it('nimmt die Landmasse samt Seen, Flüssen und Höhen heraus', () => {
+    const shown = twoLands([]);
+    const hidden = twoLands(['nordland']);
+    const at = (data: CampaignData, lon: number, lat: number) =>
+      terrainAt(planetOf(data)!, reliefOf(data), { lon, lat });
+    expect(describeTerrain(at(shown, 30, 5))).toBe('Nordland · 100 m');
+    expect(describeTerrain(at(hidden, 30, 5))).toBe('Meer');
+    expect(planetOf(hidden)!.lands.map((land) => land.name)).toEqual(['Westmark']);
+    expect(planetOf(hidden)!.hidden).toEqual([{ id: 'nordland', name: 'Nordland' }]);
+    // Der See und der Fluss von Nordland sind mit weg, der Fluss der Westmark bleibt.
+    expect(planetOf(shown)!.lakes).toHaveLength(1);
+    expect(planetOf(hidden)!.lakes).toEqual([]);
+    expect(planetOf(hidden)!.rivers.map((river) => river.name)).toEqual(['Westbach']);
+    // Die Höhen unter der ausgeblendeten Landmasse gelten nicht mehr, die der Westmark schon.
+    expect(reliefOf(hidden)!.data[4 * 36 + 21]).toBe(-32768);
+    expect(describeTerrain(at(hidden, -100, 10))).toBe('Westmark · 100 m');
+  });
+
+  it('lässt sich umschalten und übersteht ein neues Einlesen der Weltdatei', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const doc = twoLands([]).atlas.planet!;
+    applyAtlas(db, doc);
+    setLandHidden(db, 'nordland', true);
+    setLandHidden(db, 'gibt-es-nicht', true);
+    expect(db.getSnapshot().atlas.planet!.hiddenLands).toEqual(['nordland']);
+    applyAtlas(db, doc);
+    expect(db.getSnapshot().atlas.planet!.hiddenLands).toEqual(['nordland']);
+    setLandHidden(db, 'nordland', false);
+    expect(planetOf(db.getSnapshot())!.lands.map((land) => land.name)).toEqual([
+      'Nordland',
+      'Westmark',
+    ]);
   });
 });

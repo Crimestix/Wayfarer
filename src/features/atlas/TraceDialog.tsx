@@ -9,6 +9,7 @@ import {
   blurPixels,
   cleanMask,
   cropMask,
+  dropAreas,
   dominantColor,
   landMask,
   traceMask,
@@ -62,6 +63,8 @@ export function TraceDialog({
   const [picture, setPicture] = useState<Picture | null>(null);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  /** Ein Klick ins Bild nimmt eine Fläche weg, statt eine Farbe aufzunehmen. */
+  const [clickDrops, setClickDrops] = useState(false);
   const [options, setOptions] = useState<TraceOptions>({
     mode: 'water',
     colors: [],
@@ -97,16 +100,21 @@ export function TraceDialog({
   const mask = useMemo(
     () =>
       picture && soft
-        ? cleanMask(
-            cropMask(
-              landMask(soft, picture.width, picture.height, options),
+        ? dropAreas(
+            cleanMask(
+              cropMask(
+                landMask(soft, picture.width, picture.height, options),
+                picture.width,
+                picture.height,
+                options.crop,
+              ),
               picture.width,
               picture.height,
-              options.crop,
+              options.minArea,
             ),
             picture.width,
             picture.height,
-            options.minArea,
+            options.drop,
           )
         : null,
     [picture, soft, options],
@@ -144,6 +152,11 @@ export function TraceDialog({
     const box = event.currentTarget.getBoundingClientRect();
     const x = Math.floor(((event.clientX - box.left) / box.width) * picture.width);
     const y = Math.floor(((event.clientY - box.top) / box.height) * picture.height);
+    if (clickDrops) {
+      // Die Fläche unter dem Zeiger gehört nicht dazu.
+      setOptions((current) => ({ ...current, drop: [...(current.drop ?? []), [x, y]] }));
+      return;
+    }
     const i = (Math.max(0, Math.min(picture.height - 1, y)) * picture.width + x) * 4;
     // Aus dem weichgezeichneten Bild: der Ton der Stelle, nicht ein einzelnes Korn.
     const color: Rgb = [soft[i]!, soft[i + 1]!, soft[i + 2]!];
@@ -220,7 +233,11 @@ export function TraceDialog({
             <canvas
               ref={preview}
               className="wf-atlas-trace__canvas"
-              title="Anklicken, um die Farbe dieser Stelle dazuzunehmen"
+              title={
+                clickDrops
+                  ? 'Anklicken, um diese Fläche wegzunehmen'
+                  : 'Anklicken, um die Farbe dieser Stelle dazuzunehmen'
+              }
               onClick={pick}
             />
           </div>
@@ -316,6 +333,36 @@ export function TraceDialog({
                 }
               />
             </Field>
+            <div>
+              <div className="wf-atlas-trace__label">Ein Klick ins Bild</div>
+              <div className="wf-atlas-trace__modes" role="group">
+                <button
+                  type="button"
+                  aria-pressed={!clickDrops}
+                  onClick={() => setClickDrops(false)}
+                >
+                  nimmt die Farbe auf
+                </button>
+                <button type="button" aria-pressed={clickDrops} onClick={() => setClickDrops(true)}>
+                  nimmt die Fläche weg
+                </button>
+              </div>
+              <p className="wf-mute">
+                Flächen wegnehmen: für Land, das nicht dazugehört – eine Nachbarinsel, eine Wolke,
+                ein Schriftfeld.{' '}
+                {(options.drop?.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="wf-atlas-trace__undo"
+                    onClick={() => setOptions((current) => ({ ...current, drop: [] }))}
+                  >
+                    {options.drop!.length === 1
+                      ? 'Die weggenommene Fläche zurückholen'
+                      : `Alle ${options.drop!.length} weggenommenen Flächen zurückholen`}
+                  </button>
+                )}
+              </p>
+            </div>
             <details className="wf-atlas-trace__crop">
               <summary>Bildrand abschneiden</summary>
               <p className="wf-mute">

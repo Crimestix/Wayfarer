@@ -312,7 +312,7 @@ export function WorldMap({
     const lands = landPaths(planet);
     const lakes = new Path2D();
     for (const lake of planet.lakes) addRing(lakes, lake.shape.ring, null);
-    const rivers = planet.doc.rivers.map((river) => {
+    const rivers = planet.rivers.map((river) => {
       const path = new Path2D();
       let lon = river.points[0]!;
       path.moveTo(lon, river.points[1]!);

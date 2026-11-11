@@ -31,7 +31,14 @@ import {
   entityHref,
   toast,
 } from '../../ui';
-import { addLand, isOwnLand, removeLand, setLandRelief, setPlaceGeo } from './actions';
+import {
+  addLand,
+  isOwnLand,
+  removeLand,
+  setLandHidden,
+  setLandRelief,
+  setPlaceGeo,
+} from './actions';
 import {
   daylightAt,
   describeLeg,
@@ -174,6 +181,8 @@ export default function AtlasPage() {
       ) * 50
     : 0;
   const ownLands = planet ? planet.doc.lands.filter(isOwnLand) : [];
+  const fileLands = planet ? planet.doc.lands.filter((land) => !isOwnLand(land)) : [];
+  const hiddenIds = new Set(planet ? planet.doc.hiddenLands : []);
   const dropLand = async (land: { id: string; name: string }) => {
     const ok = await confirmDialog({
       title: `„${land.name}“ vom Planeten nehmen?`,
@@ -440,6 +449,33 @@ export default function AtlasPage() {
           )}
         </div>
 
+        {fileLands.length > 0 && !fit && (
+          <details className="wf-atlas-lands">
+            <summary className="wf-atlas-lands__title">
+              Landmassen der Weltdatei
+              {hiddenIds.size > 0 && ` – ${hiddenIds.size} ausgeblendet`}
+            </summary>
+            <p className="wf-mute">
+              Ausblenden, was ein eingelesenes Kartenbild ersetzt. Die Landmasse verschwindet samt
+              Seen, Flüssen und Höhen – und lässt sich jederzeit wieder einblenden.
+            </p>
+            {fileLands.map((land) => (
+              <div key={land.id} className="wf-atlas-lands__row">
+                <span className={cx(hiddenIds.has(land.id) && 'wf-atlas-lands__gone')}>
+                  {land.name || 'Ohne Namen'}
+                </span>
+                <button
+                  type="button"
+                  className="wf-atlas-lands__relief"
+                  aria-pressed={!hiddenIds.has(land.id)}
+                  onClick={() => setLandHidden(db, land.id, !hiddenIds.has(land.id))}
+                >
+                  {hiddenIds.has(land.id) ? 'einblenden' : 'ausblenden'}
+                </button>
+              </div>
+            ))}
+          </details>
+        )}
         {ownLands.length > 0 && !fit && (
           <div className="wf-atlas-lands">
             <div className="wf-atlas-lands__title">Aus Bildern eingelesen</div>
