@@ -338,6 +338,9 @@ export const ChronicleEntrySchema = z.object({
     .default(null),
   /** kind = event: eingetretener Termin. */
   eventId: id.nullable().default(null),
+  /** Der Eintrag stammt von einer Uhr: ihr Schritt ist eingetreten oder wurde verhindert. */
+  clockId: id.nullable().default(null),
+  stepId: id.nullable().default(null),
   /** Nur für die Spielleitung: fehlt in der Zusammenfassung für die Spieler. */
   secret: z.boolean().default(false),
 });
@@ -386,6 +389,44 @@ export const SessionSchema = z.object({
   notes: z.string().default(''),
 });
 export type Session = z.infer<typeof SessionSchema>;
+
+/** Ein Schritt einer Uhr: was eintritt und wie viele Tage nach dem vorigen Schritt. */
+export const ClockStepSchema = z.object({
+  id,
+  text: z.string(),
+  /** Tage nach dem vorigen Schritt (beim ersten: nach dem Beginn der Uhr). */
+  days: z.number().positive(),
+  /** Aufschub in Minuten – durch Anhalten oder Verzögern; negativ, wenn vorgezogen. */
+  delay: z.number().int().default(0),
+  /** Wann der Schritt eingetreten ist (oder verhindert wurde); null = steht noch aus. */
+  at: worldTime.nullable().default(null),
+  /** Die Gruppe hat ihn verhindert. */
+  skipped: z.boolean().default(false),
+});
+export type ClockStep = z.infer<typeof ClockStepSchema>;
+
+/**
+ * Eine Uhr: ein Vorhaben der Welt, das ohne die Gruppe weiterläuft. Die Schritte schreibt der
+ * Spielleiter; Wayfarer lässt sie mit der Weltzeit eintreten (`domain/clock.ts`).
+ */
+export const ClockSchema = z.object({
+  ...base,
+  title: z.string(),
+  /** Wer das Vorhaben betreibt – meist eine Fraktion oder Person. */
+  ownerId: id.nullable().default(null),
+  /** Wo es sich abspielt. */
+  placeId: id.nullable().default(null),
+  refs: z.array(id).default([]),
+  /** Nur für die Spielleitung: Die Spieler wissen (noch) nichts davon. */
+  secret: z.boolean().default(true),
+  /** Ab wann die Frist des ersten Schrittes läuft. */
+  start: worldTime,
+  steps: z.array(ClockStepSchema).default([]),
+  /** Angehalten seit – solange tritt nichts ein. */
+  pausedAt: worldTime.nullable().default(null),
+  note: z.string().default(''),
+});
+export type Clock = z.infer<typeof ClockSchema>;
 
 export const TIMER_KINDS = ['effect', 'task', 'spell'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
@@ -935,6 +976,7 @@ export const COLLECTION_SCHEMAS = {
   rests: RestSchema,
   articles: ArticleSchema,
   atlas: AtlasSchema,
+  clocks: ClockSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -953,6 +995,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'rests',
   'articles',
   'atlas',
+  'clocks',
 ];
 
 export type CollectionTypes = {
@@ -1026,6 +1069,11 @@ export function createSession(
 ): Session {
   const stamp = nowIso();
   return SessionSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createClock(init: Partial<Clock> & { title: string; start: number }): Clock {
+  const stamp = nowIso();
+  return ClockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTimer(

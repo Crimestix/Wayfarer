@@ -54,6 +54,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   rests: ['Rast', 'Rasten'],
   articles: ['Artikel', 'Artikel'],
   atlas: ['Atlas-Teil', 'Atlas-Teile'],
+  clocks: ['Uhr', 'Uhren'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

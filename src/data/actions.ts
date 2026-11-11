@@ -2,6 +2,7 @@
  * Befehle, die mehrere Dokumente zusammen ändern. Die Oberfläche ruft diese Funktionen auf,
  * statt Zeit, Ort, Beziehungen und Chronik einzeln zu verändern – so bleiben sie stimmig.
  */
+import { clockView, dueSteps, type ClockOccurrence } from '../domain/clock';
 import {
   findRelation,
   linksTo,
@@ -16,6 +17,7 @@ import {
   createSession,
   type ChronicleEntry,
   type ChronicleKind,
+  type Clock,
   type Relation,
   type Session,
   type Timer,
@@ -30,11 +32,14 @@ export interface TimeAdvanceResult {
   occurred: Occurrence[];
   /** Timer, die abgelaufen sind. */
   expired: Timer[];
+  /** Schritte von Uhren, die eingetreten sind – in der Reihenfolge ihres Eintretens. */
+  steps: ClockOccurrence[];
 }
 
 /**
  * Lässt Weltzeit vergehen. Eingetretene Termine kommen in die Chronik, abgelaufene Timer
- * werden beendet. Der Sprung lässt sich mit undoTimeAdvance zurücknehmen.
+ * werden beendet, fällige Schritte der Uhren treten ein und stehen als Veränderung in der
+ * Chronik. Der Sprung lässt sich mit undoTimeAdvance zurücknehmen.
  */
 export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
   const data = db.getSnapshot();
@@ -45,7 +50,20 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
     (o) => !(o.event.done && !o.event.repeat),
   );
   const expired = Object.values(data.timers).filter((t) => !t.done && t.end > from && t.end <= to);
+  const steps = Object.values(data.clocks)
+    .flatMap((clock) => dueSteps(clock, from, to))
+    .sort((a, b) => a.at - b.at || a.clock.title.localeCompare(b.clock.title, 'de'));
   db.batch(() => {
+    for (const clock of new Set(steps.map((s) => s.clock))) {
+      const mine = new Map(steps.filter((s) => s.clock === clock).map((s) => [s.step.id, s.at]));
+      db.patch('clocks', clock.id, {
+        steps: clock.steps.map((step) =>
+          mine.has(step.id) ? { ...step, at: mine.get(step.id)! } : step,
+        ),
+      });
+    }
+    for (const s of steps)
+      db.put('chronicle', stepEntry(s.clock, s.step.id, s.step.text, s.at, data.state.sessionId));
     for (const o of occurred) {
       // Wiederkehrende Termine (Markttag, Wachwechsel …) sind Routine: Sie stehen in der Meldung,
       // aber nicht bei jedem Eintreten in der Chronik – sonst füllt eine lange Reise sie mit Wiederholungen.
@@ -68,7 +86,7 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
     for (const timer of expired) db.patch('timers', timer.id, { done: true });
     db.setState({ now: to, previousNow: from });
   });
-  return { from, to, occurred, expired };
+  return { from, to, occurred, expired, steps };
 }
 
 /** Nimmt den letzten Zeitsprung samt seiner automatischen Folgen zurück. */
@@ -88,9 +106,125 @@ export function undoTimeAdvance(db: CampaignDb): boolean {
     for (const timer of Object.values(data.timers))
       if (timer.done && timer.end > back && timer.end <= now)
         db.patch('timers', timer.id, { done: false });
+    // Schritte der Uhren, die in dieser Zeit eingetreten sind, stehen wieder aus.
+    for (const clock of Object.values(data.clocks)) {
+      const reopened = clock.steps.map((step) =>
+        step.at !== null && !step.skipped && step.at > back && step.at <= now
+          ? { ...step, at: null }
+          : step,
+      );
+      if (reopened.some((step, index) => step !== clock.steps[index]))
+        db.patch('clocks', clock.id, { steps: reopened });
+    }
+    for (const entry of Object.values(data.chronicle))
+      if (entry.clockId && entry.kind === 'change' && entry.at > back && entry.at <= now) {
+        const step = data.clocks[entry.clockId]?.steps.find((s) => s.id === entry.stepId);
+        if (!step?.skipped) db.remove('chronicle', entry.id);
+      }
     db.setState({ now: back, previousNow: null });
   });
   return true;
+}
+
+// ── Uhren ──────────────────────────────────────────────────────────────────
+
+/** Der Chronik-Eintrag zu einem Schritt einer Uhr: eine Veränderung der Welt. */
+function stepEntry(
+  clock: Clock,
+  stepId: string,
+  text: string,
+  at: WorldTime,
+  sessionId: string | null,
+): ChronicleEntry {
+  return createChronicleEntry({
+    kind: 'change',
+    at,
+    sessionId,
+    text,
+    placeId: clock.placeId,
+    refs: [...new Set([...(clock.ownerId ? [clock.ownerId] : []), ...clock.refs])],
+    secret: clock.secret,
+    clockId: clock.id,
+    stepId,
+  });
+}
+
+/** Hält eine Uhr an: Solange tritt kein Schritt ein. */
+export function pauseClock(db: CampaignDb, clockId: string): void {
+  const data = db.getSnapshot();
+  const clock = data.clocks[clockId];
+  if (clock && clock.pausedAt === null) db.patch('clocks', clockId, { pausedAt: data.state.now });
+}
+
+/** Lässt eine angehaltene Uhr weiterlaufen; die Standzeit schiebt den nächsten Schritt hinaus. */
+export function resumeClock(db: CampaignDb, clockId: string): void {
+  const data = db.getSnapshot();
+  const clock = data.clocks[clockId];
+  if (!clock || clock.pausedAt === null) return;
+  const standing = Math.max(0, data.state.now - clock.pausedAt);
+  const next = clock.steps.findIndex((step) => step.at === null);
+  db.patch('clocks', clockId, {
+    pausedAt: null,
+    steps: clock.steps.map((step, index) =>
+      index === next ? { ...step, delay: step.delay + standing } : step,
+    ),
+  });
+}
+
+/** Schiebt den nächsten Schritt um `minutes` hinaus (negativ: zieht ihn vor). */
+export function delayClock(db: CampaignDb, clockId: string, minutes: number): void {
+  const clock = db.getSnapshot().clocks[clockId];
+  const next = clock?.steps.findIndex((step) => step.at === null) ?? -1;
+  if (!clock || next < 0 || !Number.isSafeInteger(minutes)) return;
+  db.patch('clocks', clockId, {
+    steps: clock.steps.map((step, index) =>
+      index === next ? { ...step, delay: step.delay + minutes } : step,
+    ),
+  });
+}
+
+/**
+ * Schließt den nächsten Schritt einer Uhr von Hand ab: Er tritt jetzt ein (`prevented` = false)
+ * oder die Gruppe hat ihn verhindert. Beides steht in der Chronik. Gibt `undo` zurück.
+ */
+export function settleStep(
+  db: CampaignDb,
+  clockId: string,
+  prevented: boolean,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const clock = data.clocks[clockId];
+  const next = clock ? clockView(clock, data.state.now).next : null;
+  if (!clock || !next) return null;
+  const now = data.state.now;
+  return db.batch(() => {
+    db.patch('clocks', clockId, {
+      steps: clock.steps.map((step) =>
+        step.id === next.step.id ? { ...step, at: now, skipped: prevented } : step,
+      ),
+    });
+    const entry = db.put(
+      'chronicle',
+      stepEntry(
+        clock,
+        next.step.id,
+        prevented ? `Verhindert: ${next.step.text}` : next.step.text,
+        now,
+        data.state.sessionId,
+      ),
+    );
+    return () =>
+      db.batch(() => {
+        const current = db.getSnapshot().clocks[clockId];
+        if (current)
+          db.patch('clocks', clockId, {
+            steps: current.steps.map((step) =>
+              step.id === next.step.id ? { ...step, at: null, skipped: false } : step,
+            ),
+          });
+        if (db.getSnapshot().chronicle[entry.id]) db.remove('chronicle', entry.id);
+      });
+  });
 }
 
 /** Stellt die Weltzeit direkt (Korrektur), ohne Termine auszulösen. */

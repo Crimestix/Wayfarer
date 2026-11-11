@@ -70,6 +70,7 @@ const FOLDER_LABEL: Record<string, string> = {
   rests: 'Rast',
   articles: 'Artikel',
   atlas: 'Atlas',
+  clocks: 'Uhren',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */
