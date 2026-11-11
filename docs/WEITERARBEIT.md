@@ -643,6 +643,9 @@ Kontinentalwelten.
 - Offen: die einzelnen Inseln einer eingelesenen Landmasse verschiedenen Orten zuordnen (eine
   aus einem Bild eingelesene Kontinentalwelt ist eine einzige Landmasse); Zuordnung in der Karte
   des Ortes wieder lösen; Namen der Flächen auf der Karte.
+- **Eis an den Polen:** Die Karte färbt Land nach Höhe und Breite (`iceShare`, `snowlineM` in
+  `domain/geoClimate.ts`): ab etwa 66° liegt Eis bis ans Meer, weiter zum Äquator nur noch auf
+  den Gipfeln. Gilt für Karte und Kugel; Land ohne Höhen (flach gestellt) bleibt ohne Eis.
 - **Karte im echten Spielstand (11. 11. 2026):** Auf Wunsch des Spielleiters sind die drei aus
   Bildern eingelesenen Landmassen und die vier ausgeblendeten alten Formen aus der Vorschau in
   seinen Kampagnenordner übernommen (nur `atlas/planet.json` ergänzt; Sicherung der alten

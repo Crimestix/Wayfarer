@@ -62,6 +62,29 @@ export function sitePreset(site: Site): ClimatePreset {
   return inland && lat >= 12 ? 'desert' : 'tropical';
 }
 
+/** Ab dieser Breite liegt das Eis bis ans Meer – knapp unter der Grenze zum Klima „Arktis“. */
+const ICE_LAT = 66;
+/** So hoch liegt die Schneegrenze am Äquator, in Metern. */
+const SNOWLINE_EQUATOR_M = 5000;
+/** Über so viele Höhenmeter geht Land in Eis über. */
+const ICE_FADE_M = 600;
+
+/**
+ * Die Schneegrenze einer Breite in Metern: am Äquator hoch im Gebirge, zu den Polen hin immer
+ * tiefer, ab etwa 66° auf Meereshöhe – und jenseits davon rechnerisch darunter.
+ */
+export const snowlineM = (lat: number): number =>
+  SNOWLINE_EQUATOR_M * (1 - (Math.abs(lat) / ICE_LAT) ** 1.6);
+
+/**
+ * Wie viel von einer Stelle unter Eis und Schnee liegt (0…1) – für die Farbe der Karte. Die Pole
+ * sind weiß, weiter zum Äquator nur noch die Gipfel.
+ */
+export function iceShare(lat: number, heightM: number): number {
+  const over = heightM - (snowlineM(lat) - ICE_FADE_M / 2);
+  return Math.max(0, Math.min(1, over / ICE_FADE_M));
+}
+
 /** Um wie viele Grad es an der Stelle wegen der Höhe kälter ist. */
 export function siteCooling(site: Site): number {
   return site.heightM === null

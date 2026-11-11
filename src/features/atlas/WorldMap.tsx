@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Minus, Plus, Scan } from 'lucide-react';
 import { NODATA, ringBounds, wrapLon, type HeightGrid, type LonLat } from '../../domain/geo';
+import { iceShare } from '../../domain/geoClimate';
 import { IconButton } from '../../ui';
 import { isOwnLand, type Planet } from './model';
 
@@ -64,6 +65,7 @@ const TOKENS = {
   hill: '--terrain-hills',
   rock: '--terrain-mountains',
   snow: '--terrain-arctic',
+  ice: '--terrain-ice',
   ink: '--bg-void',
   line: '--line-strong',
   gold: '--gold-bright',
@@ -99,6 +101,8 @@ const mix = (a: Rgb, b: Rgb, t: number): Rgb => [
 
 /**
  * Das Gelände als Bild: Farbe nach Höhe, dazu Licht von Nordwesten. Einmal je Höhenraster.
+ * Zu den Polen hin liegt Eis über dem Land (`iceShare`): Die Pole sind weiß, weiter zum Äquator
+ * nur noch die Gipfel.
  * `factor` vergrößert das Bild; die Höhen werden dabei zwischen den Zellen gemittelt, damit das
  * Gelände auch aus der Nähe weich bleibt statt Kästchen zu zeigen.
  */
@@ -164,6 +168,8 @@ export function reliefImage(
   }
 
   for (let y = 0; y < height; y++) {
+    // Zeile 0 liegt im Norden.
+    const lat = 90 - ((y + 0.5) / height) * 180;
     for (let x = 0; x < width; x++) {
       const value = heights[y * width + x]!;
       if (Number.isNaN(value)) continue;
@@ -174,7 +180,7 @@ export function reliefImage(
         ((Number.isNaN(west) ? 0 : value - west) + (Number.isNaN(north) ? 0 : value - north)) *
         factor;
       const light = Math.max(0.62, Math.min(1.3, 1 + slope / 2600));
-      const [r, g, b] = tint(value);
+      const [r, g, b] = mix(tint(value), colors.ice.rgb, iceShare(lat, value));
       const i = (y * width + x) * 4;
       image.data[i] = Math.min(255, r * light);
       image.data[i + 1] = Math.min(255, g * light);

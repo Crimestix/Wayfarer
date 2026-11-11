@@ -8,9 +8,11 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   describeSite,
+  iceShare,
   siteClimate,
   siteCooling,
   sitePreset,
+  snowlineM,
   warmestMonthAt,
 } from '../../domain/geoClimate';
 import { hexKey } from '../../domain/hex';
@@ -243,6 +245,26 @@ describe('Klima aus der Lage', () => {
     lat,
     heightM,
     coastKm: coast,
+  });
+
+  it('legt Eis über die Pole und weiter zum Äquator nur noch über die Gipfel', () => {
+    // An den Polen liegt das Eis bis ans Meer – im Norden wie im Süden.
+    expect(iceShare(85, 0)).toBe(1);
+    expect(iceShare(-80, 0)).toBe(1);
+    expect(iceShare(72, 0)).toBe(1);
+    // In gemäßigten Breiten ist das Tiefland frei, das Hochgebirge weiß.
+    expect(iceShare(45, 200)).toBe(0);
+    expect(iceShare(45, 3000)).toBe(1);
+    // Am Äquator trägt selbst ein hoher Berg kaum Schnee.
+    expect(iceShare(0, 4000)).toBe(0);
+    expect(iceShare(0, 6000)).toBe(1);
+    // Die Schneegrenze sinkt stetig zu den Polen, der Übergang ist fließend.
+    expect(snowlineM(0)).toBe(5000);
+    expect(snowlineM(30)).toBeGreaterThan(snowlineM(50));
+    expect(snowlineM(50)).toBeGreaterThan(snowlineM(64));
+    const edge = iceShare(64, 200);
+    expect(edge).toBeGreaterThan(0);
+    expect(edge).toBeLessThan(1);
   });
 
   it('liest die Vorgabe aus Breite und Küstennähe', () => {
