@@ -1,8 +1,10 @@
 /**
- * Welches Wetter an einem Ort herrscht: die Klimazone des Ortes finden (festgelegt, erkannt oder
- * die Vorgabe) und daraus das Wetter eines Tages rechnen. Reine Funktionen über dem Spielstand.
+ * Welches Wetter an einem Ort herrscht: die Klimazone des Ortes finden (festgelegt, aus der Lage
+ * gerechnet, erkannt oder die Vorgabe) und daraus das Wetter eines Tages rechnen. Reine
+ * Funktionen über dem Spielstand.
  */
-import { placeAncestors } from './derive';
+import { siteAt, siteClimate, southern, warmestMonthAt, type Site } from './geoClimate';
+import { placeChain, planetOf, reliefOf } from './planet';
 import { seedOf } from './random';
 import { weatherId, type CampaignData, type Climate, type Place } from './schema';
 import { ELARIS_WARMEST_MONTH } from './time/elaris';
@@ -36,8 +38,13 @@ export function warmestMonth(data: CampaignData): number {
 
 export interface WeatherZone {
   climate: Climate;
-  /** Vom Spielleiter festgelegt, aus den Worten der Orte erkannt oder die allgemeine Vorgabe. */
-  source: 'chosen' | 'recognized' | 'default';
+  /**
+   * Vom Spielleiter festgelegt, aus der Lage auf dem Planeten gerechnet, aus den Worten der Orte
+   * erkannt oder die allgemeine Vorgabe.
+   */
+  source: 'chosen' | 'position' | 'recognized' | 'default';
+  /** Bei „position“: Breite, Höhe und Küstennähe, aus denen das Klima gerechnet wurde. */
+  site?: Site;
   /** Die Vorgabe hinter der Zone, wenn es eine ist. */
   preset: ClimatePreset | null;
   /** Der Ort, an dem die Zone hängt: wo sie festgelegt oder erkannt wurde. */
@@ -48,12 +55,14 @@ export interface WeatherZone {
 
 /**
  * Die Klimazone eines Ortes. Der Ort selbst geht vor, dann die Orte darüber: Wo ein Klima
- * festgelegt ist, gilt es für alles darunter. Ohne Festlegung liest Wayfarer das Klima aus den
- * Namen, sonst gilt „Gemäßigt“. Orte derselben Zone unter demselben Ort teilen ihr Wetter.
+ * festgelegt ist, gilt es für alles darunter. Ohne Festlegung rechnet Wayfarer es aus der Lage
+ * auf dem Planeten (Breite, Höhe, Küstennähe) oder liest es aus den Namen – was näher am Ort
+ * steht, gilt; auf gleicher Stufe gehen deutliche Worte („Wüste“, „Gletscher“) der Lage vor,
+ * nur „Hafen“ und „Insel“ nicht. Unter der Erde gibt es nie Wetter. Sonst gilt „Gemäßigt“.
+ * Orte derselben Zone unter demselben Ort teilen ihr Wetter.
  */
 export function weatherZone(data: CampaignData, placeId: string | null): WeatherZone {
-  const start = placeId ? data.entities[placeId] : undefined;
-  const chain: Place[] = start?.kind === 'place' ? [start, ...placeAncestors(data, start.id)] : [];
+  const chain: Place[] = placeChain(data, placeId);
   const months = data.campaign.calendar.months.length;
   const warmest = warmestMonth(data);
   const seedFor = (climateId: string, cell: Place | null) =>
@@ -73,9 +82,40 @@ export function weatherZone(data: CampaignData, placeId: string | null): Weather
   const recognized = recognizeClimate(
     chain.map((place) => ({ name: place.name, category: place.place.category, tags: place.tags })),
   );
+  // Die Lage: der nächste Ort der Kette, an dem selbst eine eingetragen ist.
+  const planet = planetOf(data);
+  const placedIndex = planet ? chain.findIndex((place) => place.place.geo) : -1;
+  const placed = placedIndex >= 0 ? chain[placedIndex]! : null;
+  const wordsWin =
+    recognized !== null &&
+    (recognized.preset === 'underground' ||
+      placed === null ||
+      recognized.index < placedIndex ||
+      (recognized.index === placedIndex && recognized.preset !== 'maritime'));
+  if (planet && placed?.place.geo && !wordsWin) {
+    const site = siteAt(planet, reliefOf(data), placed.place.geo);
+    const { climate, preset } = siteClimate(site, months, warmest);
+    return {
+      climate,
+      source: 'position',
+      preset,
+      from: placed,
+      seed: seedFor(climate.id, placed),
+      site,
+    };
+  }
   if (recognized) {
     const from = chain[recognized.index] ?? null;
-    const climate = presetClimate(recognized.preset, months, warmest);
+    // Liegt der Ort bekanntermaßen im Süden, sind die Jahreszeiten versetzt.
+    const lat = placed?.place.geo?.lat ?? 0;
+    const north = presetClimate(recognized.preset, months, warmest);
+    const climate =
+      lat < 0 && recognized.preset !== 'underground'
+        ? southern(
+            presetClimate(recognized.preset, months, warmestMonthAt(warmest, months, lat)),
+            recognized.preset,
+          )
+        : north;
     return {
       climate,
       source: 'recognized',

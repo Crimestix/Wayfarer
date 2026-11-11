@@ -42,7 +42,9 @@ import {
   type DayWeather,
   type WeatherNow,
 } from '../../domain/weather';
+import { describeSite } from '../../domain/geoClimate';
 import { forecast, weatherAt, type WeatherZone } from '../../domain/weatherZone';
+import { describeSun, isDark, sunAt } from '../atlas/model';
 import { Button, Checkbox, Field, Input, Popover, Select, cx, toast } from '../../ui';
 import { clearManualWeather, setManualWeather, setPlaceClimate } from './actions';
 import './wetter.css';
@@ -75,6 +77,8 @@ const glanceOfDay = dayGlance;
 
 const SOURCE_TEXT: Record<WeatherZone['source'], (zone: WeatherZone) => string> = {
   chosen: (zone) => `festgelegt für „${zone.from?.name ?? 'diesen Ort'}“`,
+  position: (zone) =>
+    `von Wayfarer aus der Lage von „${zone.from?.name ?? 'diesem Ort'}“ gerechnet${zone.site ? ` (${describeSite(zone.site)})` : ''}`,
   recognized: (zone) => `von Wayfarer erkannt an „${zone.from?.name ?? 'diesem Ort'}“`,
   default: () => 'von Wayfarer angenommen, weil nichts anderes bekannt ist',
 };
@@ -245,7 +249,9 @@ export function WeatherChip() {
   const weather = useMemo(() => weatherAt(data, placeId, now), [data, placeId, now]);
   const day = dayIndexOf(now);
   const hour = (now - day * MINUTES_PER_DAY) / 60;
-  const night = hour < 6 || hour >= 20;
+  // Mit Atlas und Lage geht die Sonne dort auf und unter, wo der Ort liegt.
+  const sun = useMemo(() => sunAt(data, placeId, now), [data, placeId, now]);
+  const night = sun ? isDark(sun, now - day * MINUTES_PER_DAY) : hour < 6 || hour >= 20;
   const next = useMemo(
     () => (open ? forecast(data, weather.zone, day + 1, 4) : []),
     [data, weather.zone, day, open],
@@ -371,6 +377,11 @@ export function WeatherChip() {
               )}
 
               <footer className="wf-wetter__foot">
+                {sun && !today.sheltered && (
+                  <span className="wf-wetter__zone">
+                    Sonne: <strong>{describeSun(sun)}</strong>.
+                  </span>
+                )}
                 <span className="wf-wetter__zone">
                   Klima: <strong>{zone.climate.name}</strong> – {SOURCE_TEXT[zone.source](zone)}.
                 </span>
