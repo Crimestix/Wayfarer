@@ -376,6 +376,26 @@ Quellen des Spielleiters: physische Bücher, D&D Beyond (große Teile der Büche
 - **Erinnerung:** Wer aus einem Kampf flieht, warnt den Bau; beim nächsten Besuch ist er
   vorbereitet. Ein Überlebender kann zum Einzelnen mit Namen werden.
 
+### Was das Bestiarium können muss (erste Version) und später
+
+- **Statblock nach 2024:** Größe, Typ, Gesinnung, RK, Initiative, Trefferpunkte, Bewegungsarten,
+  Attribute mit Modifikator und Rettungswurf, Fertigkeiten, Resistenzen und Immunitäten, Sinne
+  und passive Wahrnehmung, Sprachen, HG mit EP und Übungsbonus, Merkmale, Aktionen,
+  Bonusaktionen, Reaktionen, legendäre Aktionen, Zauberwirken, Ausrüstung – dazu **Lebensraum**
+  und **Schatz** (speisen Reviere und Beute).
+- **Bauen** – Muss: Vorlage, Variante, Einzelner; Rechenbares rechnet Wayfarer; Fähigkeiten aus
+  anderen Monstern übernehmen. Später: Schablonen („als Untoter“), HG hoch- oder runterrechnen.
+- **Übernehmen** – Muss: Text einfügen, SRD 5.2. Später: Foto, Dateien anderer Tools.
+- **Finden** – Muss: Suche; Filter nach HG, Typ, Lebensraum, Quelle. Später: „Was lebt hier?“
+- **Am Tisch** – Muss: Statblock auf einen Blick, Angriffe und Schaden würfeln, mehrere Exemplare
+  mit eigenen Trefferpunkten, Begegnung zusammenstellen mit Schwierigkeit nach dem EP-Budget von
+  2024. Später: voller Kampfmodus.
+- **Wissen der Gruppe** – Später, aber im Modell vorsehen: Würfe auf Arkane Kunde, Naturkunde
+  usw. decken Teile des Statblocks auf.
+- **Lebendigkeit** – Muss: Bau oder Hort als Ort mit Bestand; Verluste zählen. Später:
+  Nachwachsen, Abwandern, Reviere, Begegnungen aus Revieren, Raubzüge, Erinnerung.
+  Vom Spielleiter am 11. 11. 2026 so bestätigt.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
