@@ -439,6 +439,21 @@ soll doppelt eingetragen werden müssen.
   Weltdatenbank (Zählung je Art, „Wo die Gruppe ist“, „Zuletzt bearbeitet“). Beides bleibt: der
   Baum zum Navigieren, das Dashboard als Startseite der Welt (und je Ordner).
 - Entwurf am Handy schwer zu beurteilen; am PC besprechen (Stand 11. 11. 2026).
+- **Lange Pfade** (vom Spielleiter als größtes Ärgernis genannt): Orte sind tief verschachtelt
+  (System › Planet › Unterreich › Oberes Unterreich › Region › Stadt …). Die Verschachtelung
+  bleibt als Wahrheit, gezeigt wird sie knapp:
+  - **Maßstab je Ort** (Kosmos, Welt, Ebene, Region, Stadt, Viertel, Gebäude, Raum). Ebenen, die
+    nur Rahmen sind (Sonnensystem, Planet), werden einmal festgelegt und danach nicht mehr
+    gezeigt.
+  - **Kurze Herkunft** statt Brotkrumen: „Menzoberranzan · in Veldrinsaran, Oberes Unterreich“ –
+    der Ort und die ein, zwei nächsten bedeutsamen Ebenen; der volle Pfad nur auf Wunsch.
+  - **Ketten zusammenfassen** im Baum: Ebenen mit nur einem Kind stehen in einer Zeile
+    („Solon-System / Velora / Unterreich“), wie zusammengefasste Ordner.
+  - **Der Baum beginnt dort, wo gearbeitet wird:** standardmäßig bei der Ebene, in der die Gruppe
+    ist; angeheftete Wurzeln („Unterreich“, „Vêloran“) zum Umschalten.
+  - **Springen statt Klicken:** Suche (Strg+K), zuletzt geöffnet, Orte in der Nähe (aus der
+    Karte), „wo die Gruppe ist“.
+  - **Einordnen ohne Durchklicken:** „Liegt in“ als Suchfeld; Neues in einem Ort erbt den Ort.
 - **Offen: welche Arten es gibt.** Heute: Person, Ort, Fraktion, Gefährte, Gegenstand, Thema,
   Familie, Spezies, Sprache, Schrift, Fähigkeit (`ENTITY_KINDS`). Aus den Konzepten folgen
   Monster, Tiere, Pflanzen, Geschichten (mit Fäden); Kandidaten siehe Gespräch: Götter und
