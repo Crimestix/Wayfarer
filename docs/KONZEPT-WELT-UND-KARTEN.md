@@ -459,6 +459,47 @@ soll doppelt eingetragen werden müssen.
   Monster, Tiere, Pflanzen, Geschichten (mit Fäden); Kandidaten siehe Gespräch: Götter und
   Glaube, Ereignisse der Geschichte, Kulturen, Reiche, Schriftstücke, Zauber, Rohstoffe.
 
+## 4d. Beute, Besitz und Homebrew-Gegenstände
+
+Besprochen am 11. 11. 2026.
+
+### Gegenstände erben wie Monster
+
+- **Grundgegenstand** (Langschwert: Werte nach 2024, Gewicht, Preis, Eigenschaften,
+  Waffenmeisterei) → **magischer Gegenstand** (passt auf eine Gruppe von Grundgegenständen und
+  erbt deren Werte) → **Einzelstück** (mit Besitzer, Fundort, Geschichte).
+- **Homebrew:** Art, Seltenheit, Einstimmung (und von wem), Ladungen und Wiederaufladen,
+  Eigenschaften, Fluch. Wayfarer zeigt Gegenstände gleicher Seltenheit zum Vergleich und einen
+  Preis als Richtwert. Ladungen mit Wiederaufladen („bei Morgengrauen“) laufen mit der Weltzeit.
+- Übernehmen wie im Bestiarium (SRD 5.2, Text, Foto).
+- **Unidentifiziertes** hat für die Gruppe nur eine Beschreibung, bis es erkannt ist
+  (Wissensebenen).
+
+### Was Wayfarer verfolgt
+
+**Entscheidung des Spielleiters:** Die Spieler führen ihr Inventar selbst. Wayfarer führt kein
+vollständiges Inventar, sondern verfolgt, **was die Gruppe bekommt** – vor allem magische
+Gegenstände und Gold –, damit nichts verloren geht, auch wenn Spieler vergessen, etwas
+einzutragen.
+
+- **Beute-Buch:** Jede Ausgabe mit Session, Ort, Herkunft und Empfänger (Gefährte oder Gruppe);
+  steht auch in der Chronik.
+- **Je Gefährte:** erhaltene magische Gegenstände (mit Einstimmung) und Gold; Weitergeben,
+  Verkaufen, Verlieren wird vermerkt, damit die Geschichte des Stücks stimmt.
+- **Gold:** Summe dessen, was ausgegeben wurde, je Gefährte und Gruppenkasse. Münzen und
+  Wechselkurse der Welt sind Daten wie der Kalender.
+- **Am Tisch schnell festhalten:** über Festhalten und die Mitschrift; Sätze wie „Tomlin bekommt
+  den Ring“ werden zum Vorschlag für einen Eintrag im Beute-Buch.
+- **Nach der Session:** „Heute erhalten“ als Liste zum Kopieren in den Gruppenchat, damit alle
+  eintragen.
+
+### Beute aus der Welt
+
+- Was in einem Bau oder Hort liegt, stammt aus der Welt (überfallene Karawane → Waren im Bau).
+- Gewöhnliche Beute erzeugt Wayfarer („wo andere Tabellen nehmen“); magische Gegenstände schlägt
+  es nur aus dem Lexikon des Spielleiters vor, passend zum Herausforderungsgrad. Was für die
+  Geschichte wichtig ist, legt der Spielleiter selbst hin.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
