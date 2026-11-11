@@ -54,7 +54,10 @@ function worldTexture(
   }
   const lakes = new Path2D();
   for (const lake of planet.lakes) addRing(lakes, lake.shape.ring, null);
-  const relief = grid ? reliefImage(grid, colors) : null;
+  // In der Größe des Weltbildes gerechnet, damit das Gelände auch vergrößert weich bleibt.
+  const relief = grid
+    ? reliefImage(grid, colors, Math.max(1, Math.round(width / grid.width)))
+    : null;
 
   ctx.fillStyle = colors.sea.css;
   ctx.fillRect(0, 0, width, height);

@@ -82,8 +82,14 @@ export function WikiImportSection() {
         body: [
           `${plan.counts.articles} Artikel und ${plan.counts.maps} Karten liegen jetzt in Wayfarer.`,
           applied && applied.facts.changed + applied.facts.created > 0
-            ? ` Aus den Steckbriefen kamen Angaben zu ${applied.facts.changed} Einträgen in die Welt${
-                applied.facts.created ? `, ${applied.facts.created} Einträge entstanden neu` : ''
+            ? ` Aus den Steckbriefen kamen Angaben zu ${
+                applied.facts.changed === 1 ? 'einem Eintrag' : `${applied.facts.changed} Einträgen`
+              } in die Welt${
+                applied.facts.created === 1
+                  ? ', ein Eintrag entstand neu'
+                  : applied.facts.created
+                    ? `, ${applied.facts.created} Einträge entstanden neu`
+                    : ''
               }.`
             : '',
         ].join(''),

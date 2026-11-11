@@ -81,16 +81,23 @@ const mix = (a: Rgb, b: Rgb, t: number): Rgb => [
   a[2] + (b[2] - a[2]) * t,
 ];
 
-/** Das Gelände als Bild: Farbe nach Höhe, dazu Licht von Nordwesten. Einmal je Höhenraster. */
+/**
+ * Das Gelände als Bild: Farbe nach Höhe, dazu Licht von Nordwesten. Einmal je Höhenraster.
+ * `factor` vergrößert das Bild; die Höhen werden dabei zwischen den Zellen gemittelt, damit das
+ * Gelände auch aus der Nähe weich bleibt statt Kästchen zu zeigen.
+ */
 export function reliefImage(
   grid: HeightGrid,
   colors: ReturnType<typeof readColors>,
+  factor = 1,
 ): HTMLCanvasElement {
+  const width = grid.width * factor;
+  const height = grid.height * factor;
   const canvas = document.createElement('canvas');
-  canvas.width = grid.width;
-  canvas.height = grid.height;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d')!;
-  const image = ctx.createImageData(grid.width, grid.height);
+  const image = ctx.createImageData(width, height);
   const stops: [number, Rgb][] = [
     [0, colors.low.rgb],
     [500, colors.wood.rgb],
@@ -98,30 +105,61 @@ export function reliefImage(
     [3200, colors.rock.rgb],
     [6000, colors.snow.rgb],
   ];
-  const tint = (height: number): Rgb => {
+  const tint = (value: number): Rgb => {
     for (let i = 1; i < stops.length; i++) {
       const [to, color] = stops[i]!;
       const [from, before] = stops[i - 1]!;
-      if (height <= to) return mix(before, color, Math.max(0, (height - from) / (to - from)));
+      if (value <= to) return mix(before, color, Math.max(0, (value - from) / (to - from)));
     }
     return stops[stops.length - 1]![1];
   };
-  const at = (x: number, y: number): number => {
+  const cell = (x: number, y: number): number => {
     const cx = ((x % grid.width) + grid.width) % grid.width;
     const cy = Math.max(0, Math.min(grid.height - 1, y));
     return grid.data[cy * grid.width + cx]!;
   };
-  for (let y = 0; y < grid.height; y++) {
-    for (let x = 0; x < grid.width; x++) {
-      const value = at(x, y);
-      const i = (y * grid.width + x) * 4;
-      if (value === NODATA) continue;
-      const west = at(x - 1, y);
-      const north = at(x, y - 1);
+
+  // Die Höhen in der Größe des Bildes; ohne Angabe: NaN.
+  const heights = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const gy = (y + 0.5) / factor - 0.5;
+    const y0 = Math.floor(gy);
+    const fy = gy - y0;
+    for (let x = 0; x < width; x++) {
+      const gx = (x + 0.5) / factor - 0.5;
+      const x0 = Math.floor(gx);
+      const fx = gx - x0;
+      let sum = 0;
+      let weight = 0;
+      const add = (value: number, w: number) => {
+        if (value === NODATA || w <= 0) return;
+        sum += value * w;
+        weight += w;
+      };
+      if (factor === 1) add(cell(x, y), 1);
+      else {
+        add(cell(x0, y0), (1 - fx) * (1 - fy));
+        add(cell(x0 + 1, y0), fx * (1 - fy));
+        add(cell(x0, y0 + 1), (1 - fx) * fy);
+        add(cell(x0 + 1, y0 + 1), fx * fy);
+      }
+      heights[y * width + x] = weight > 0 ? sum / weight : NaN;
+    }
+  }
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const value = heights[y * width + x]!;
+      if (Number.isNaN(value)) continue;
+      const west = heights[y * width + ((x - 1 + width) % width)]!;
+      const north = heights[Math.max(0, y - 1) * width + x]!;
       // Gefälle nach Südosten heißt: der Hang zeigt zum Licht.
-      const slope = (west === NODATA ? 0 : value - west) + (north === NODATA ? 0 : value - north);
+      const slope =
+        ((Number.isNaN(west) ? 0 : value - west) + (Number.isNaN(north) ? 0 : value - north)) *
+        factor;
       const light = Math.max(0.62, Math.min(1.3, 1 + slope / 2600));
       const [r, g, b] = tint(value);
+      const i = (y * width + x) * 4;
       image.data[i] = Math.min(255, r * light);
       image.data[i + 1] = Math.min(255, g * light);
       image.data[i + 2] = Math.min(255, b * light);
