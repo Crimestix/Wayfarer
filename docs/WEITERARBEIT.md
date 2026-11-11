@@ -624,6 +624,30 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
+**Atlas: Kontinente als Fläche (11. 11. 2026) – gebaut.** Wunsch des Spielleiters: Ein
+Kontinent ist kein einzelner Ort, sondern die ganze Landmasse; darüber stehen die
+Kontinentalwelten.
+- **Erkennen** (`domain/planet.ts`, `landOwners`): Trägt eine sichtbare Landmasse den Namen
+  eines Ortes (Akzente zählen nicht), ist sie dieser Ort; bei gleichen Namen der, der in der
+  Welt weiter oben steht. Von Hand zuordnen geht vor (`land.placeId`, `setLandPlace`) und
+  übersteht das erneute Einlesen der Weltdatei. Ein Ort umfasst auch die Landmassen der Orte
+  unter ihm (`placeLands`).
+- **Lage:** `placeGeo` gibt einem solchen Ort die Mitte seiner Fläche (`area`, nie `exact`);
+  Orte darunter ohne eigene Lage übernehmen sie als ungefähre Lage („in Westmark“).
+- **Atlas:** Ein Klick aufs Land wählt den Kontinent, die Fläche leuchtet golden (Karte) bzw.
+  bekommt eine goldene Küste (Kugel). Ein weiterer Klick auf dieselbe Fläche geht eine Stufe
+  hinauf: Kontinentalwelt, dann Planet, dann wieder der Kontinent. Eine Landmasse ohne Ort zeigt
+  eine Karte zum Zuordnen.
+- Geprüft mit Tests (`atlas/area.test.ts`) und in der Vorschau. **Nicht geprüft:** installierte
+  App, macOS, die Kugel.
+- Offen: die einzelnen Inseln einer eingelesenen Landmasse verschiedenen Orten zuordnen (eine
+  aus einem Bild eingelesene Kontinentalwelt ist eine einzige Landmasse); Zuordnung in der Karte
+  des Ortes wieder lösen; Namen der Flächen auf der Karte.
+- **Karte im echten Spielstand (11. 11. 2026):** Auf Wunsch des Spielleiters sind die drei aus
+  Bildern eingelesenen Landmassen und die vier ausgeblendeten alten Formen aus der Vorschau in
+  seinen Kampagnenordner übernommen (nur `atlas/planet.json` ergänzt; Sicherung der alten
+  Datei unter `Dokumente\Wayfarer-Sicherungen`).
+
 **Unter der Erde (11. 11. 2026) – Schritt 1 von 3 gebaut.** Anlass: Die Gruppe spielt im
 Unterreich, fast alle Funktionen (Wetter, Sonne, Monde, Atlas) gelten aber der Oberwelt.
 - **Erkennen** (`domain/underground.ts`, `isUnderground`): ein Ort liegt unten, wenn sein Klima

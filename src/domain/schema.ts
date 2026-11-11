@@ -934,6 +934,11 @@ export const AtlasSchema = z.object({
         rings: z.array(ring).default([]),
         holes: z.array(ring).default([]),
         /**
+         * Der Ort der Welt, der diese Landmasse ist (ein Kontinent, eine Insel) – von Hand
+         * zugeordnet. null = Wayfarer erkennt ihn am Namen (`landOwners`).
+         */
+        placeId: id.nullable().default(null),
+        /**
          * Nur für Landmassen aus einem Kartenbild, die keine Höhen mitbringen: Wayfarer erzeugt
          * ein Gelände (`generated`) oder lässt das Land flach (`flat`).
          */

@@ -90,6 +90,7 @@ export function convertAtlasWorld(
     lands.push({
       id: text(feature.id) || `land-${lands.length + 1}`,
       name: text(feature.name),
+      placeId: null,
       rings: shape,
       holes: rings(feature.holes),
       relief: 'generated',

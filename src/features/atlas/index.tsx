@@ -23,6 +23,7 @@ import {
   Button,
   Checkbox,
   EmptyState,
+  EntityPicker,
   Field,
   IconButton,
   Input,
@@ -36,6 +37,7 @@ import {
   isOwnLand,
   removeLand,
   setLandHidden,
+  setLandPlace,
   setLandRelief,
   setPlaceGeo,
 } from './actions';
@@ -47,9 +49,11 @@ import {
   formatHours,
   formatKm,
   geoIndex,
+  landOwners,
   legBetween,
   mapsOfPlace,
   placeGeo,
+  placeLands,
   placedPlaces,
   planetOf,
   reliefOf,
@@ -82,6 +86,8 @@ export default function AtlasPage() {
   const [placing, setPlacing] = useState(false);
   const [hover, setHover] = useState<LonLat | null>(null);
   const [focus, setFocus] = useState<LonLat | null>(null);
+  // Eine angeklickte Landmasse, die (noch) kein Ort der Welt ist.
+  const [landId, setLandId] = useState<string | null>(null);
   const [shape, setShape] = useState(memory.shape);
   // Eine Landmasse aus einem Bild: erst gelesen, dann auf der Karte eingepasst.
   const [tracing, setTracing] = useState(false);
@@ -117,6 +123,28 @@ export default function AtlasPage() {
     [data, place],
   );
   const party = placeGeo(data, data.state.placeId);
+  // Ein Kontinent ist kein Punkt: Der gewählte Ort umfasst Landmassen – sie leuchten auf.
+  const area = useMemo(
+    () => (place ? placeLands(data, place.id) : landId ? [landId] : []),
+    [data, place, landId],
+  );
+  const highlight = useMemo(() => {
+    if (!planet || !area.length) return null;
+    const wanted = new Set(area);
+    const lands = planet.lands.filter((land) => wanted.has(land.id));
+    return {
+      rings: lands.flatMap((land) => land.rings.map((s) => s.ring)),
+      holes: lands.flatMap((land) => land.holes.map((s) => s.ring)),
+    };
+  }, [planet, area]);
+  const areaNames = useMemo(() => {
+    if (!planet) return '';
+    const wanted = new Set(area);
+    const names = planet.lands.filter((land) => wanted.has(land.id)).map((land) => land.name);
+    return names.length <= 4
+      ? names.join(', ')
+      : `${names.slice(0, 3).join(', ')} und ${names.length - 3} weitere`;
+  }, [planet, area]);
 
   const shown = useMemo(() => {
     const q = fold(query.trim());
@@ -193,7 +221,10 @@ export default function AtlasPage() {
     if (ok) removeLand(db, land.id);
   };
 
+  const pickedLand = landId ? (planet?.lands.find((land) => land.id === landId) ?? null) : null;
+
   const select = (placeId: string) => {
+    setLandId(null);
     const target = placeGeo(data, placeId);
     navigate(`/atlas/${placeId}`);
     setPlacing(target === null);
@@ -203,7 +234,7 @@ export default function AtlasPage() {
   const pick = (point: LonLat) => {
     // Beim Einpassen setzt ein Klick die Mitte der neuen Landmasse.
     if (fit) return place_({ lon: point.lon, lat: point.lat });
-    if (!place || !placing) return;
+    if (!place || !placing) return pickLand(point);
     const before = geoIndex(data).derived.size;
     const undo = setPlaceGeo(db, place.id, point);
     setPlacing(false);
@@ -219,6 +250,28 @@ export default function AtlasPage() {
       duration: gained > 0 ? 10000 : undefined,
       action: { label: 'Rückgängig', run: undo },
     });
+  };
+
+  /**
+   * Ein Klick aufs Land wählt den Ort, der diese Landmasse ist – den Kontinent. Ein weiterer
+   * Klick auf dieselbe Fläche geht eine Stufe hinauf: zur Kontinentalwelt, dann zum Planeten.
+   */
+  const pickLand = (point: LonLat) => {
+    const land = terrainAt(planet, grid, point).land;
+    if (!land) return setLandId(null);
+    const owner = landOwners(data).byLand.get(land.id);
+    setPlacing(false);
+    if (!owner) {
+      setLandId(land.id);
+      navigate('/atlas');
+      return;
+    }
+    setLandId(null);
+    const within = place !== null && placeLands(data, place.id).includes(land.id);
+    const above = within
+      ? placeAncestors(data, place.id).find((p) => placeLands(data, p.id).length > 0)
+      : undefined;
+    navigate(`/atlas/${(above ?? owner).id}`);
   };
 
   const clear = () => {
@@ -434,7 +487,11 @@ export default function AtlasPage() {
                         ? ''
                         : geo.exact
                           ? 'über Karte'
-                          : `wie ${geo.from.name}`
+                          : geo.area
+                            ? geo.from.id === entry.id
+                              ? 'Fläche'
+                              : `in ${geo.from.name}`
+                            : `wie ${geo.from.name}`
                       : 'ohne Lage'}
                   </span>
                 </button>
@@ -509,22 +566,55 @@ export default function AtlasPage() {
             ))}
           </div>
         )}
+        {!place && pickedLand && (
+          <div className="wf-atlas-card">
+            <div className="wf-atlas-card__name">{pickedLand.name || 'Landmasse ohne Namen'}</div>
+            <p className="wf-mute">
+              Diese Landmasse ist noch kein Ort deiner Welt. Trägt ein Ort denselben Namen, erkennt
+              Wayfarer das von selbst – sonst ordne sie hier einem Ort zu.
+            </p>
+            <EntityPicker
+              value={null}
+              kinds={['place']}
+              placeholder="Ort zuordnen …"
+              onChange={(placeId) => {
+                if (!placeId) return;
+                setLandPlace(db, pickedLand.id, placeId);
+                setLandId(null);
+                navigate(`/atlas/${placeId}`);
+              }}
+            />
+          </div>
+        )}
         {place && (
           <div className="wf-atlas-card">
             <div className="wf-atlas-card__name">{place.name}</div>
             {located ? (
               <dl className="wf-atlas-card__facts">
-                <dt>Lage</dt>
-                <dd>
-                  {formatGeo(located.geo)}
-                  {!located.own &&
-                    (located.exact && located.via
-                      ? ` – gerechnet aus der Karte „${located.via.name}“`
-                      : ` – übernommen von ${located.from.name}`)}
-                </dd>
-                <dt>Dort</dt>
-                <dd>{describeTerrain(terrainAt(planet, grid, located.geo))}</dd>
-                {leg && (
+                {located.area && located.from.id === place.id ? (
+                  <>
+                    <dt>Fläche</dt>
+                    <dd>{areaNames}</dd>
+                    <dt>Mitte</dt>
+                    <dd>{formatGeo(located.geo)}</dd>
+                  </>
+                ) : (
+                  <>
+                    <dt>Lage</dt>
+                    <dd>
+                      {formatGeo(located.geo)}
+                      {!located.own &&
+                        (located.exact && located.via
+                          ? ` – gerechnet aus der Karte „${located.via.name}“`
+                          : located.area
+                            ? ` – ungefähr: die Mitte von ${located.from.name}`
+                            : ` – übernommen von ${located.from.name}`)}
+                    </dd>
+                    <dt>Dort</dt>
+                    <dd>{describeTerrain(terrainAt(planet, grid, located.geo))}</dd>
+                  </>
+                )}
+                {leg && !(located.area && located.from.id === place.id) && (
                   <>
                     <dt>Von der Gruppe</dt>
                     <dd>{describeLeg(leg)}</dd>
@@ -588,6 +678,7 @@ export default function AtlasPage() {
           placing={fit !== null || (placing && place !== null)}
           focus={focus}
           draft={draft}
+          highlight={highlight}
           onPick={pick}
           onSelect={select}
           onHover={setHover}

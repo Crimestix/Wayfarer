@@ -32,7 +32,11 @@ export function applyAtlas(db: CampaignDb, planet: AtlasInit, relief?: AtlasInit
     // Landmassen, die aus einem Bild eingelesen wurden, gehören nicht zur Weltdatei – sie bleiben.
     const before = db.getSnapshot().atlas[PLANET_ID];
     const own = (before?.lands ?? []).filter(isOwnLand);
-    const fresh = planet.lands.filter((land) => !isOwnLand(land));
+    // Was von Hand einem Ort zugeordnet war, bleibt zugeordnet.
+    const assigned = new Map((before?.lands ?? []).map((land) => [land.id, land.placeId]));
+    const fresh = planet.lands
+      .filter((land) => !isOwnLand(land))
+      .map((land) => ({ ...land, placeId: assigned.get(land.id) ?? land.placeId }));
     // Was ausgeblendet war, bleibt es – sofern die Weltdatei die Landmasse noch kennt.
     const hiddenLands = (before?.hiddenLands ?? []).filter((id) =>
       fresh.some((land) => land.id === id),
@@ -60,6 +64,7 @@ export function addLand(
       {
         id,
         name: land.name.trim(),
+        placeId: null,
         rings: land.rings,
         holes: land.holes,
         relief: 'generated' as const,
@@ -108,6 +113,18 @@ export function removeAtlas(db: CampaignDb): void {
  * Setzt die Lage eines Ortes auf dem Planeten (oder nimmt sie mit `null` wieder weg). Gibt `undo`
  * zurück, das die vorige Lage wiederherstellt.
  */
+/**
+ * Ordnet eine Landmasse einem Ort der Welt zu (ein Kontinent ist dieser Ort) – oder überlässt es
+ * mit null wieder Wayfarer, das am Namen erkennt.
+ */
+export function setLandPlace(db: CampaignDb, landId: string, placeId: string | null): void {
+  const planet = db.getSnapshot().atlas[PLANET_ID];
+  if (!planet) return;
+  db.patch('atlas', PLANET_ID, {
+    lands: planet.lands.map((land) => (land.id === landId ? { ...land, placeId } : land)),
+  });
+}
+
 export function setPlaceGeo(db: CampaignDb, placeId: string, geo: LonLat | null): () => void {
   const place = db.getSnapshot().entities[placeId];
   if (place?.kind !== 'place') return () => {};

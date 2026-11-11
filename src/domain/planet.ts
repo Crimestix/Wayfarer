@@ -18,7 +18,7 @@ import {
   type RingBounds,
 } from './geo';
 import { withGeneratedRelief } from './landRelief';
-import type { Atlas, CampaignData, GameMap, Place } from './schema';
+import type { Atlas, CampaignData, Entity, GameMap, Place } from './schema';
 
 export const PLANET_ID = 'planet';
 export const RELIEF_ID = 'relief';
@@ -332,6 +332,110 @@ export function exactGeo(data: GeoData, place: Place): { geo: LonLat; map: GameM
   return geoIndex(data).derived.get(place.id) ?? null;
 }
 
+// ── Orte, die eine Fläche sind ─────────────────────────────────────────────
+
+const foldName = (text: string): string =>
+  text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+export interface LandOwners {
+  /** Der Ort, der eine Landmasse ist – zugeordnet oder am Namen erkannt. */
+  byLand: Map<string, Place>;
+  /** Die Landmassen eines Ortes samt denen aller Orte darunter. */
+  byPlace: Map<string, string[]>;
+}
+
+const ownersCache = new WeakMap<object, { atlas: unknown; owners: LandOwners }>();
+
+/**
+ * Welche Orte Landmassen sind. Ein Kontinent ist kein Punkt: Trägt eine sichtbare Landmasse den
+ * Namen eines Ortes (Akzente zählen nicht), ist sie dieser Ort – bei gleichen Namen der, der in
+ * der Welt weiter oben steht. Eine Zuordnung von Hand (`land.placeId`) geht vor. Ein Ort umfasst
+ * auch die Landmassen der Orte unter ihm: eine Kontinentalwelt die ihrer Kontinente.
+ */
+export function landOwners(data: GeoData): LandOwners {
+  const cached = ownersCache.get(data.entities);
+  if (cached && cached.atlas === data.atlas) return cached.owners;
+  const owners: LandOwners = { byLand: new Map(), byPlace: new Map() };
+  ownersCache.set(data.entities, { atlas: data.atlas, owners });
+  const planet = data.atlas ? planetOf({ atlas: data.atlas }) : null;
+  if (!planet) return owners;
+
+  const depthOf = (place: Place): number => {
+    let depth = 0;
+    const seen = new Set<string>([place.id]);
+    let above = place.place.parentId ? data.entities[place.place.parentId] : undefined;
+    while (above?.kind === 'place' && !seen.has(above.id)) {
+      depth++;
+      seen.add(above.id);
+      above = above.place.parentId ? data.entities[above.place.parentId] : undefined;
+    }
+    return depth;
+  };
+  const byName = new Map<string, Place>();
+  for (const entity of Object.values(data.entities)) {
+    if (entity.kind !== 'place') continue;
+    const key = foldName(entity.name);
+    const known = byName.get(key);
+    if (key && (!known || depthOf(entity) < depthOf(known))) byName.set(key, entity);
+  }
+  const chosen = new Map(planet.doc.lands.map((land) => [land.id, land.placeId]));
+  for (const land of planet.lands) {
+    const explicit = chosen.get(land.id);
+    const assigned = explicit ? data.entities[explicit] : undefined;
+    const owner = assigned?.kind === 'place' ? assigned : byName.get(foldName(land.name));
+    if (!owner) continue;
+    owners.byLand.set(land.id, owner);
+    // Der Ort selbst und alle Orte darüber umfassen diese Landmasse.
+    const seen = new Set<string>();
+    let current: Place | undefined = owner;
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      const list = owners.byPlace.get(current.id);
+      if (list) list.push(land.id);
+      else owners.byPlace.set(current.id, [land.id]);
+      const above: Entity | undefined = current.place.parentId
+        ? data.entities[current.place.parentId]
+        : undefined;
+      current = above?.kind === 'place' ? above : undefined;
+    }
+  }
+  return owners;
+}
+
+/** Die Landmassen, die ein Ort umfasst – leer, wenn er keine Fläche ist. */
+export const placeLands = (data: GeoData, placeId: string | null | undefined): string[] =>
+  (placeId && landOwners(data).byPlace.get(placeId)) || [];
+
+/** Die Mitte mehrerer Landmassen: der Schwerpunkt ihrer Küstenpunkte auf der Kugel. */
+export function landsCenter(planet: Planet, landIds: readonly string[]): LonLat | null {
+  const wanted = new Set(landIds);
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  for (const land of planet.lands) {
+    if (!wanted.has(land.id)) continue;
+    for (const { ring } of land.rings)
+      for (let i = 0; i + 1 < ring.length; i += 2) {
+        const lon = (ring[i]! * Math.PI) / 180;
+        const lat = (ring[i + 1]! * Math.PI) / 180;
+        x += Math.cos(lat) * Math.cos(lon);
+        y += Math.cos(lat) * Math.sin(lon);
+        z += Math.sin(lat);
+      }
+  }
+  const length = Math.hypot(x, y, z);
+  if (length < 1e-9) return null;
+  return {
+    lon: (Math.atan2(y, x) * 180) / Math.PI,
+    lat: (Math.asin(z / length) * 180) / Math.PI,
+  };
+}
+
 export interface PlaceGeo {
   geo: LonLat;
   /** Die Lage ist am Ort selbst eingetragen. */
@@ -342,11 +446,17 @@ export interface PlaceGeo {
   from: Place;
   /** Die Karte, aus der die Lage gerechnet ist; null, wenn sie eingetragen wurde. */
   via: GameMap | null;
+  /**
+   * Der Ort (`from`) ist eine Fläche: Diese Landmassen umfasst er, und `geo` ist ihre Mitte –
+   * eine ungefähre Lage, nie `exact`.
+   */
+  area?: string[];
 }
 
 /**
- * Die Lage eines Ortes: seine eigene, sonst die aus einer eingehängten Karte, sonst die des
- * nächsten übergeordneten Ortes, der eine hat.
+ * Die Lage eines Ortes: seine eigene, sonst die aus einer eingehängten Karte, sonst die Mitte der
+ * Landmassen, die er umfasst (ein Kontinent), sonst die des nächsten übergeordneten Ortes, der
+ * eine hat.
  */
 export function placeGeo(data: GeoData, placeId: string | null | undefined): PlaceGeo | null {
   const seen = new Set<string>();
@@ -362,6 +472,12 @@ export function placeGeo(data: GeoData, placeId: string | null | undefined): Pla
         from: current,
         via: found.map,
       };
+    const area = placeLands(data, current.id);
+    if (area.length && data.atlas) {
+      const planet = planetOf({ atlas: data.atlas });
+      const center = planet ? landsCenter(planet, area) : null;
+      if (center) return { geo: center, own: false, exact: false, from: current, via: null, area };
+    }
     seen.add(current.id);
     exact = false;
     current = current.place.parentId ? data.entities[current.place.parentId] : undefined;

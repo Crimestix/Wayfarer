@@ -105,7 +105,11 @@ nicht übernommen.
 - Ungültige oder fremde Dateien werden nie überschrieben, nur gemeldet (`db.problems`).
 - Lage: Orte tragen `place.geo` (Länge, Breite). Gefragt wird immer über `placeGeo()` – nie
   direkt über `place.geo`: Orte ohne eigene Lage bekommen sie aus einer Wiki-Karte, auf der
-  zwei andere Orte eine Lage haben (`geoIndex`), sonst erben sie die des Ortes darüber. Der Planet zum Fragen (`planetOf`, `terrainAt`,
+  zwei andere Orte eine Lage haben (`geoIndex`), sonst erben sie die des Ortes darüber.
+  Ein Ort kann auch eine **Fläche** sein: Ein Kontinent ist die Landmasse gleichen Namens (oder
+  die ihm von Hand zugeordnete, `land.placeId`), eine Kontinentalwelt umfasst die Landmassen
+  ihrer Kontinente (`landOwners`, `placeLands`). Seine Lage ist dann die Mitte der Fläche –
+  ungefähr, nie `exact`. Der Planet zum Fragen (`planetOf`, `terrainAt`,
   `coastKm`, `placeGeo`) steht in `domain/planet.ts`; die Oberfläche nimmt ihn aus
   `atlas/model.ts`, das alles weiterreicht. Aus der Lage folgen Klima (`domain/geoClimate.ts`),
   Sonnenstand (`sunAt`) sowie Strecke und Gelände der Hexkarten (`erkundung/generate.ts`,

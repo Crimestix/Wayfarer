@@ -23,6 +23,12 @@ export interface DraftShape {
   holes: number[][];
 }
 
+/** Die Fläche eines Ortes: die Küsten seiner Landmassen, flach als Länge, Breite. */
+export interface AreaShape {
+  rings: readonly (readonly number[])[];
+  holes: readonly (readonly number[])[];
+}
+
 export interface MapView {
   lon: number;
   lat: number;
@@ -43,6 +49,8 @@ interface Props {
   focus: LonLat | null;
   /** Eine Landmasse, die gerade eingepasst wird – hervorgehoben über der Karte. */
   draft?: DraftShape | null;
+  /** Die Fläche des gewählten Ortes (ein Kontinent, eine Kontinentalwelt) – leicht hervorgehoben. */
+  highlight?: AreaShape | null;
   onPick: (point: LonLat) => void;
   onSelect: (placeId: string) => void;
   onHover: (point: LonLat | null) => void;
@@ -289,6 +297,7 @@ export function WorldMap({
   placing,
   focus,
   draft,
+  highlight,
   onPick,
   onSelect,
   onHover,
@@ -302,6 +311,13 @@ export function WorldMap({
       draft.holes,
     );
   }, [draft]);
+  const highlightPath = useMemo(() => {
+    if (!highlight) return null;
+    return shapePath(
+      highlight.rings.map((ring) => ({ ring, polar: ringBounds(ring).polar })),
+      highlight.holes,
+    );
+  }, [highlight]);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [view, setView] = useState<MapView>({ lon: 0, lat: 0, scale: 0 });
   const drag = useRef<{ x: number; y: number; view: MapView; moved: boolean } | null>(null);
@@ -484,6 +500,22 @@ export function WorldMap({
     }
     ctx.globalAlpha = 1;
 
+    // Die Fläche des gewählten Ortes: ein Hauch Gold und eine goldene Küste.
+    if (highlightPath) {
+      for (const copy of copies) {
+        if (highlightPath.once && copy !== 0) continue;
+        geo(copy);
+        ctx.fillStyle = colors.gold.css;
+        ctx.globalAlpha = 0.2;
+        ctx.fill(highlightPath.path, 'evenodd');
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = colors.gold.css;
+        ctx.lineWidth = 1.6 * px;
+        ctx.stroke(highlightPath.path);
+      }
+      pixels();
+    }
+
     // Eine Landmasse, die gerade eingepasst wird.
     if (draftPath) {
       for (const copy of copies) {
@@ -557,6 +589,7 @@ export function WorldMap({
     relief,
     shapes,
     draftPath,
+    highlightPath,
     places,
     selectedId,
     party,

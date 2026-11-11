@@ -14,6 +14,7 @@ import {
   landPaths,
   readColors,
   reliefImage,
+  type AreaShape,
   type DraftShape,
   type MapPlace,
 } from './WorldMap';
@@ -28,6 +29,7 @@ interface Props {
   focus: LonLat | null;
   /** Eine Landmasse, die gerade eingepasst wird. */
   draft?: DraftShape | null;
+  highlight?: AreaShape | null;
   onPick: (point: LonLat) => void;
   onSelect: (placeId: string) => void;
   onHover: (point: LonLat | null) => void;
@@ -238,6 +240,7 @@ export function Globe({
   placing,
   focus,
   draft,
+  highlight,
   onPick,
   onSelect,
   onHover,
@@ -389,6 +392,13 @@ export function Globe({
     }
     ctx.globalAlpha = 1;
 
+    // Die Fläche des gewählten Ortes: ihre Küste in Gold.
+    if (highlight) {
+      ctx.strokeStyle = colors.gold.css;
+      ctx.lineWidth = 1.8;
+      for (const ring of [...highlight.rings, ...highlight.holes]) line(ring, true);
+    }
+
     // Eine Landmasse, die gerade eingepasst wird.
     if (draft) {
       ctx.strokeStyle = colors.gold.css;
@@ -428,7 +438,21 @@ export function Globe({
       ctx.strokeStyle = colors.blood.css;
       ctx.stroke();
     }
-  }, [view, size, ready, colors, places, selectedId, party, draft, radius, cx, cy, toScreen]);
+  }, [
+    view,
+    size,
+    ready,
+    colors,
+    places,
+    selectedId,
+    party,
+    draft,
+    highlight,
+    radius,
+    cx,
+    cy,
+    toScreen,
+  ]);
 
   // ── Bedienung ─────────────────────────────────────────────────────────────
   const zoomBy = (factor: number) =>
