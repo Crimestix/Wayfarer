@@ -329,6 +329,53 @@ Geschichten zu den Fäden macht, die die Spieler kennen, und Verborgenes ausblen
 Aus der Mitschrift schlägt Wayfarer vor, welche Fäden sich bewegt haben und welche Hinweise
 gefunden wurden. Der Spielleiter bestätigt.
 
+## 4b. Bestiarium
+
+Besprochen am 11. 11. 2026. Monster nach D&D-2024-Regeln bauen, Homebrew einfach machen,
+Monster übernehmen – und Monster als lebendiger Teil der Welt.
+
+### Erben statt kopieren
+
+- **Spezies** (gibt es schon als Art `species`): Lebensweise, Sprache, Gesellschaft.
+- **Vorlage:** der Statblock (z. B. „Goblin“).
+- **Variante:** erbt die Vorlage und hält nur fest, was abweicht („Goblin-Krieger“). Ändert sich
+  die Vorlage, ziehen Varianten mit, außer wo sie bewusst abweichen.
+- **Einzelner:** ein bestimmtes Wesen mit Namen, eigenen Trefferpunkten, Zustand und Geschichte.
+
+### Homebrew
+
+Wayfarer rechnet, was sich rechnen lässt: Modifikatoren, Übungsbonus aus dem
+Herausforderungsgrad, Angriffsbonus, Rettungswurf-SG, durchschnittlicher Schaden aus den Würfeln,
+Trefferpunkte aus Trefferwürfeln und Konstitution; dazu eine Einschätzung, ob der
+Herausforderungsgrad zu den Werten passt. Darstellung im Statblock-Format von 2024.
+
+### Übernehmen
+
+Quellen des Spielleiters: physische Bücher, D&D Beyond (große Teile der Bücher), andere Tools.
+
+- **SRD 5.2** (frei lizenziert, Regeln 2024): auf Knopfdruck übernehmen.
+- **Statblock als Text einfügen:** Wayfarer erkennt die Teile, auch im Layout von D&D Beyond.
+  D&D Beyond hat keine offizielle Ausfuhr; kein automatisches Abgreifen.
+- **Foto aus dem Buch:** über den freiwilligen KI-Leser (er liest nur ab, erfindet nichts); jedes
+  Feld wird vor dem Übernehmen bestätigt.
+- **Dateien anderer Tools:** Formate noch offen.
+- Jedes Monster trägt seine Quelle. Monster aus Büchern liegen nur im Kampagnenordner, nie im
+  Repository und nie mitgeliefert.
+
+### Lebendige Monster
+
+- **Bestände an Orten statt einzelner Statblöcke:** ein Bau, Hort oder Nest ist ein Ort mit
+  Bewohnern (z. B. „rund 30, davon 6 Krieger und ein Anführer“), Vorräten, Beute und Revier.
+- **Bestände verändern sich:** Verluste im Kampf fehlen danach; mit der Zeit wächst ein Bestand
+  nach; wird der Bau zerstört, ziehen Überlebende weiter.
+- **Reviere erzeugen Begegnungen:** Was unterwegs auftaucht, kommt aus den Revieren der Gegend.
+  Raubzüge sind Abläufe (3.4) und haben Folgen (ausbleibende Händler).
+- **Große Einzelne** (ein Drache) haben Hort, großes Revier und regelmäßige Jagd; die Spuren
+  landen in „Die Welt dreht sich weiter“. Alles, was Geschichte ist (greift er eine Stadt an?),
+  bleibt Vorschlag.
+- **Erinnerung:** Wer aus einem Kampf flieht, warnt den Bau; beim nächsten Besuch ist er
+  vorbereitet. Ein Überlebender kann zum Einzelnen mit Namen werden.
+
 ## 5. Vorgeschlagene Reihenfolge
 
 **Karten**
@@ -360,7 +407,13 @@ gefunden wurden. Der Spielleiter bestätigt.
 4. Das Fadenbrett.
 5. Vorschläge aus der Mitschrift.
 
-**Später** (noch nicht besprochen): Kampfmodus, Dungeoncrawl, Monster.
+**Bestiarium**
+
+1. Statblock-Modell mit Vorlage, Variante, Einzelnem; Rechnung und Anzeige nach 2024.
+2. Übernehmen: SRD 5.2, Text einfügen, später Foto und andere Tools.
+3. Bestände, Baue und Reviere; Begegnungen aus Revieren.
+
+**Später** (noch nicht besprochen): Kampfmodus, Dungeoncrawl.
 
 ## 6. Offene Fragen
 
