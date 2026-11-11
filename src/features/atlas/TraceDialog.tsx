@@ -4,7 +4,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
-import { Button, Dialog, Field, Input } from '../../ui';
+import { Button, Checkbox, Dialog, Field, Input } from '../../ui';
 import {
   blurPixels,
   cleanMask,
@@ -111,6 +111,7 @@ export function TraceDialog({
               picture.width,
               picture.height,
               options.minArea,
+              options.fillHoles,
             ),
             picture.width,
             picture.height,
@@ -333,6 +334,12 @@ export function TraceDialog({
                 }
               />
             </Field>
+            <Checkbox
+              checked={options.fillHoles === true}
+              onChange={(fillHoles) => setOptions((current) => ({ ...current, fillHoles }))}
+            >
+              Dunkle Flecken im Land zuschütten
+            </Checkbox>
             <div>
               <div className="wf-atlas-trace__label">Ein Klick ins Bild</div>
               <div className="wf-atlas-trace__modes" role="group">
@@ -341,10 +348,10 @@ export function TraceDialog({
                   aria-pressed={!clickDrops}
                   onClick={() => setClickDrops(false)}
                 >
-                  nimmt die Farbe auf
+                  Farbe aufnehmen
                 </button>
                 <button type="button" aria-pressed={clickDrops} onClick={() => setClickDrops(true)}>
-                  nimmt die Fläche weg
+                  Fläche wegnehmen
                 </button>
               </div>
               <p className="wf-mute">

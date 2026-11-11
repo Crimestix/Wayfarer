@@ -96,6 +96,16 @@ describe('Küsten aus einem Bild', () => {
       '.####...',
       '........',
     ]);
+    // Auf Wunsch wird jedes Wasser im Land zugeschüttet, gleich wie groß – das Meer bleibt.
+    const filled = cleanMask(mask, map.width, map.height, 1, true);
+    expect(show(filled, map.width)).toEqual([
+      '........',
+      '........',
+      '.####...',
+      '.####.#.',
+      '.####...',
+      '........',
+    ]);
     // Ohne Mindestgröße bleibt alles.
     expect(show(cleanMask(mask, map.width, map.height, 1), map.width)).toEqual(
       show(mask, map.width),

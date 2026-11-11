@@ -563,6 +563,14 @@ Spielleiter hält den Globus für wichtig: Wayfarer soll wissen, wo etwas liegt.
     der Lage stammt – sonst hätte jedes Dorf einer eingehängten Karte sein eigenes.
   - Gegengeprüft (neun Befunde, alle behoben), mit Tests und in der Vorschau mit den echten
     Dateien. **Nicht geprüft:** installierte App, macOS.
+  - *Landmassen ersetzen (11. 11. 2026):* Der alte Atlas zeichnet einen Teil der Welt anders, als
+    der Spielleiter ihn heute spielt. Dafür: Landmassen der Weltdatei lassen sich **ausblenden**
+    (`hiddenLands`, `setLandHidden`; samt Seen, Flüssen und Höhen, jederzeit zurück, übersteht
+    ein neues Einlesen der Weltdatei) und durch ein eingelesenes Kartenbild ersetzen. Beim
+    Einlesen lassen sich einzelne **Flächen wegnehmen** (`dropAreas`: Klick auf eine Nachbarinsel,
+    ein Schriftfeld, eine Wolke) und **dunkle Flecken im Land zuschütten** (`fillHoles`; aus,
+    wenn die Flecken Seen sind). Die flache Karte malt das Gelände jetzt auch für Land, das über
+    die Datumsgrenze reicht.
 - Offen: ein gemaltes Oberflächenbild (z. B. aus Gaea, 2:1, Nordpol oben, Länge 0 in der
   Mitte) statt der gerechneten Färbung; feineres Höhenraster; Orte auf der Karte ziehen; die
   Zeitrechnung des alten Atlas (Jahresbeginn im Frühling) mit dem Kalender abgleichen.

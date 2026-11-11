@@ -28,6 +28,8 @@ export interface TraceOptions {
   smooth?: number;
   /** Ränder, die nicht gelesen werden – dort gilt alles als Meer. */
   crop?: Crop;
+  /** Alles Wasser im Land zuschütten – dunkle Wälder oder Schrift sind dann keine Seen. */
+  fillHoles?: boolean;
   /**
    * Stellen im Bild (x, y in Bildpunkten), deren Landfläche nicht dazugehören soll – eine
    * Nachbarinsel, eine Wolke, ein Schriftfeld. Die ganze zusammenhängende Fläche fällt weg.
@@ -193,16 +195,19 @@ export function landMask(
 
 /**
  * Nimmt kleine Flecken aus der Maske: Landflecken unter `minArea` Bildpunkten werden Wasser,
- * ebenso kleine Wasserflecken im Land werden Land. Gibt eine neue Maske zurück.
+ * ebenso kleine Wasserflecken im Land werden Land. Mit `fillHoles` wird jedes Wasser im Land
+ * zugeschüttet, gleich wie groß – für Karten, auf denen dunkle Wälder oder Schrift dem Meer
+ * ähneln. Gibt eine neue Maske zurück.
  */
 export function cleanMask(
   mask: Uint8Array,
   width: number,
   height: number,
   minArea: number,
+  fillHoles = false,
 ): Uint8Array {
   const out = mask.slice();
-  if (minArea <= 1) return out;
+  if (minArea <= 1 && !fillHoles) return out;
   const seen = new Uint8Array(out.length);
   const stack: number[] = [];
   const members: number[] = [];
@@ -229,8 +234,8 @@ export function cleanMask(
         ((seen[i + width] = 1), stack.push(i + width));
     }
     // Wasser, das den Bildrand berührt, ist das offene Meer und bleibt – so klein es sein mag.
-    if (members.length < minArea && !(value === 0 && touchesEdge))
-      for (const i of members) out[i] = value ? 0 : 1;
+    const small = members.length < minArea || (fillHoles && value === 0);
+    if (small && !(value === 0 && touchesEdge)) for (const i of members) out[i] = value ? 0 : 1;
   }
   return out;
 }
@@ -310,7 +315,7 @@ export function traceImage(
 ): TracedShape {
   const soft = blurPixels(pixels, width, height, options.smooth ?? 0);
   const mask = cropMask(landMask(soft, width, height, options), width, height, options.crop);
-  const clean = cleanMask(mask, width, height, options.minArea);
+  const clean = cleanMask(mask, width, height, options.minArea, options.fillHoles);
   return traceMask(dropAreas(clean, width, height, options.drop), width, height);
 }
 

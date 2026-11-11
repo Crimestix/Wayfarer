@@ -423,13 +423,20 @@ export function WorldMap({
         if (relief) {
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(
-            relief,
-            size.width / 2 + (copy * 360 - 180 - view.lon) * scale,
-            size.height / 2 + (view.lat - 90) * scale,
-            360 * scale,
-            180 * scale,
-          );
+          // Land, das über die Datumsgrenze reicht, liegt zum Teil im Nachbarbild der Welt: Das
+          // Gelände wird deshalb auch links und rechts daneben gemalt (um einen Pol noch weiter).
+          const reach = land.once ? 2 : 1;
+          for (let world = copy - reach; world <= copy + reach; world++) {
+            const left = size.width / 2 + (world * 360 - 180 - view.lon) * scale;
+            if (left > size.width || left + 360 * scale < 0) continue;
+            ctx.drawImage(
+              relief,
+              left,
+              size.height / 2 + (view.lat - 90) * scale,
+              360 * scale,
+              180 * scale,
+            );
+          }
         }
         ctx.restore();
       }
