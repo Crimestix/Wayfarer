@@ -1121,7 +1121,7 @@
   font-style: italic;
 }
 
-/* ── Stammbaum ──────────────────────────────────────────────────────────── */
+/* ── Stammbaum (Genogramm) ──────────────────────────────────────────────── */
 .wf-welt-tree__scroll {
   overflow: auto;
   max-height: calc(100vh - 330px);
@@ -1136,7 +1136,8 @@
   position: absolute;
   inset: 0;
 }
-.wf-welt-tree__descent {
+.wf-welt-tree__descent,
+.wf-welt-tree__couple {
   fill: none;
   stroke: var(--gold-deep);
   stroke-width: 1.5;
@@ -1144,7 +1145,7 @@
 }
 .wf-welt-tree__couple {
   stroke: var(--gold);
-  stroke-width: 3;
+  stroke-width: 2;
 }
 .wf-welt-tree__link {
   fill: none;
@@ -1161,55 +1162,95 @@
   stroke: var(--bg-inset);
   stroke-width: 4px;
 }
-.wf-welt-tree__card {
+/* Eine Person: ihr Zeichen, daneben der Name. */
+.wf-welt-tree__node {
   position: absolute;
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  padding: 0 var(--s-2);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, #2b241e 0%, #1c1815 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(239, 212, 151, 0.08),
-    0 2px 6px rgba(0, 0, 0, 0.5);
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink);
   text-align: left;
-  transition: border-color 0.15s var(--ease);
 }
-.wf-welt-tree__card:hover {
-  border-color: var(--gold);
-}
-.wf-welt-tree__card img {
+.wf-welt-tree__symbol {
+  position: relative;
   flex: none;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--line-strong);
+  overflow: hidden;
+  border: 2px solid var(--gold);
+  background: linear-gradient(180deg, #2b241e 0%, #1c1815 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition:
+    border-color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.wf-welt-tree__node:hover .wf-welt-tree__symbol {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+.wf-welt-tree__symbol--circle {
+  border-radius: 50%;
+}
+/* Unbekanntes Geschlecht: eine Raute – das Quadrat auf der Spitze. */
+.wf-welt-tree__symbol--diamond {
+  transform: rotate(45deg) scale(0.74);
+}
+.wf-welt-tree__symbol img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  opacity: 0.85;
+}
+/* Verstorben: ein Kreuz durch das Zeichen. */
+.wf-welt-tree__symbol--dead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 1px),
+      var(--ink) calc(50% - 1px),
+      var(--ink) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    ),
+    linear-gradient(
+      -45deg,
+      transparent calc(50% - 1px),
+      var(--ink) calc(50% - 1px),
+      var(--ink) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+}
+.wf-welt-tree__symbol--dead img {
+  opacity: 0.4;
+}
+/* Eingeheiratet oder nur verwandt: gestrichelter Rand. */
+.wf-welt-tree__node--other .wf-welt-tree__symbol {
+  border-style: dashed;
+  border-color: var(--line-strong);
 }
 .wf-welt-tree__text {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 1px 4px;
+  /* Linien laufen hinter dem Namen durch, ohne ihn zu durchkreuzen. */
+  background: var(--bg-inset);
 }
 .wf-welt-tree__name {
   font-family: var(--font-display);
   font-size: var(--text-md);
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
+}
+.wf-welt-tree__node:hover .wf-welt-tree__name {
+  color: var(--gold-bright);
 }
 .wf-welt-tree__sub {
   color: var(--ink-mute);
   font-size: var(--text-xs);
-}
-/* Eingeheiratet oder nur verwandt: gestrichelter Rand. */
-.wf-welt-tree__card--other {
-  border-style: dashed;
-  border-color: var(--line);
-  background: var(--bg-1);
-}
-.wf-welt-tree__card--dead .wf-welt-tree__name {
-  color: var(--ink-mute);
 }
 .wf-welt-tree__legend {
   display: flex;
@@ -1221,28 +1262,87 @@
   font-size: var(--text-xs);
 }
 .wf-welt-tree__key {
-  width: 22px;
-  height: 0;
+  width: 12px;
+  height: 12px;
   margin-left: var(--s-3);
-  border-top: 1.5px solid var(--gold-deep);
+  border: 1.5px solid var(--gold);
 }
 .wf-welt-tree__key:first-child {
   margin-left: 0;
 }
-.wf-welt-tree__key--couple {
-  border-top: 3px solid var(--gold);
+.wf-welt-tree__key--circle {
+  border-radius: 50%;
+}
+.wf-welt-tree__key--diamond {
+  transform: rotate(45deg) scale(0.8);
+}
+.wf-welt-tree__key--dead {
+  background:
+    linear-gradient(45deg, transparent 44%, var(--ink) 44%, var(--ink) 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, var(--ink) 44%, var(--ink) 56%, transparent 56%);
+}
+.wf-welt-tree__key--line,
+.wf-welt-tree__key--link {
+  width: 22px;
+  height: 0;
+  border: 0;
+  border-top: 2px solid var(--gold);
 }
 .wf-welt-tree__key--link {
   border-top: 1.5px dashed var(--ink-mute);
 }
 .wf-welt-tree__key--other {
-  width: 14px;
-  height: 10px;
-  border: 1px dashed var(--line-strong);
+  border: 1.5px dashed var(--line-strong);
 }
 .wf-welt-tree__loose {
   margin-top: var(--s-2);
   color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* ── Vorschläge zur Verwandtschaft ──────────────────────────────────────── */
+.wf-welt-kinhints {
+  margin: var(--s-3) 0;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--arcane);
+  background: var(--arcane-wash);
+}
+.wf-welt-kinhints__head {
+  padding: var(--s-2) var(--s-3) 0;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--arcane);
+}
+.wf-welt-kinhints__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-welt-kinhints__row:first-of-type {
+  border-top: 0;
+}
+.wf-welt-kinhints__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-welt-kinhints__text strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-welt-kinhints__text span {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-kin__form .wf-welt-kin__gender {
+  margin-left: auto;
+  min-width: 0;
+  color: var(--ink-mute);
   font-size: var(--text-sm);
 }
 

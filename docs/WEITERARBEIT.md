@@ -641,10 +641,34 @@ den man in der Familie sieht.
   nebeneinander, Kinder unter ihren Eltern, Geschwister ohne bekannte Eltern unter einer
   Klammer; was sonst eingetragen ist (Cousine ohne Zwischenglieder), als gestrichelte Linie mit
   Wort. Wer nicht zur Familie gehört (eingeheiratet), ist gestrichelt umrandet.
+- **Schlüsse** (`kinClosure`, Nachtrag am selben Tag: „Der Stammbaum sollte smart sein“): Auch
+  aus „Tante von“, „Cousin von“, „Großvater von“ wird sicher gefolgert. Wer von jemandem
+  abstammt, erbt dessen Verwandte nach oben (Tante von Y + Sohn der Tante = Cousin von Y); wer
+  verwandt ist, ist es auch mit den Nachkommen; volle Geschwister teilen Eltern und entfernte
+  Verwandte. Nicht geschlossen wird, was offen ist (zwei Cousinen derselben Person müssen
+  nicht verwandt sein).
+- **Vorschläge** (`kinSuggestions`, `welt/KinSuggestions.tsx`): Führt eine eingetragene
+  Verwandtschaft über Eltern, die schon bekannt sind, schlägt Wayfarer die fehlende Verbindung
+  vor („Hilda könnte Schwester von Greta sein – weil Hilda Tante von Odo ist und Greta Mutter
+  von Odo ist“). Annehmen trägt ein, Ablehnen merkt sich die Beziehung (`relation.kinSkip`).
+  Zu sehen an der Person und über dem Stammbaum.
+- **Genogramm** (Wunsch des Spielleiters): Quadrat für Männer, Kreis für Frauen, Raute für
+  unbekannt; ein Kreuz für Verstorbene; die Linie eines Paares läuft unter beiden Zeichen, die
+  Kinder gehen von ihrer Mitte ab. Das Geschlecht lässt sich an der Person auch von Hand
+  wählen. Offen: Trennung, Zwillinge, Adoption, Art der Beziehung (eng, zerstritten) als Linie.
 - Sätze im Wiki („Sie ist die Schwester von …“) tragen beim Annehmen gleich die Verwandtschaft
   ein. **Offen:** Der KI-Leser nennt Verwandtschaften noch nicht mit Wort; Gefährten der Gruppe
   lassen sich als Verwandte wählen, haben aber keine eigene Eingabe; Stammbaum einer Person
   ohne Familie; Drucken.
+- **KI-Leser nachgebessert** (Rückmeldung des Spielleiters): (1) Jeder Knopf sagt, wohin der
+  Vorschlag kommt („In den Kalender“, „Als Beziehung“, „Als Abmachung“, „Als Geheimnis“), die
+  Meldung danach, wo er zu finden ist. (2) Wissen und Geheimnisse („Mira weiß nicht, was ihr
+  Bruder fand“) sind keine Abmachung mehr: Sie kommen ohne Datum ins Feld „Geheimnis“ der
+  genannten Person. Der Leser nennt die Art selbst (`sort`); bei älteren Vorschlägen
+  entscheiden die Worte (`threadSort`). (3) Vergangenes landet nie als „ab heute“: Der Leser
+  kennzeichnet es (`past`), und ohne eigenes Datum wird es nicht vorgeschlagen. **Nicht
+  geprüft:** ob Claude die neuen Angaben verlässlich setzt – dafür müssen Artikel neu gelesen
+  werden. Offen: Abmachungen stehen weiter mit dem Tag des Eintragens in der Chronik.
 - **Vorschläge des KI-Lesers:** Auf der Startseite des Wikis stehen jetzt alle offenen
   Vorschläge beieinander (`ki/AiOverview.tsx`). Anlass: Im Spielstand lagen 156 Vorschläge aus
   191 gelesenen Artikeln, sichtbar aber nur einzeln im jeweiligen Artikel. Damit ist auch belegt,

@@ -26,6 +26,7 @@ import {
   replyProblem,
   textMark,
   type Reading,
+  threadSort,
 } from './reader';
 
 /** Eine erfundene Welt: zwei Orte, zwei Geschwister, ein Schiff. */
@@ -47,6 +48,7 @@ const READING: Reading = {
   events: [
     {
       title: 'Die Seeschwalbe legt ab',
+      past: false,
       rhythm: 'weekly',
       weekday: 'Feuertag',
       day: 0,
@@ -58,6 +60,7 @@ const READING: Reading = {
     },
     {
       title: 'Das Netzfest beginnt',
+      past: false,
       rhythm: 'yearly',
       weekday: '',
       day: 3,
@@ -70,6 +73,7 @@ const READING: Reading = {
     },
     {
       title: 'Irgendwann im Frühjahr',
+      past: false,
       rhythm: 'once',
       weekday: '',
       day: 0,
@@ -356,6 +360,96 @@ describe('KI-Leser: lesen, vorschlagen, annehmen', () => {
       'event',
     ]);
     expect(again.added).toBe(2);
+  });
+
+  it('trägt Wissen und Geheimnisse ohne Datum bei der Person ein – nicht als Abmachung', async () => {
+    const { db, mira } = await setup();
+    const reading: Reading = {
+      events: [],
+      relations: [],
+      threads: [
+        {
+          text: 'Mira weiß nicht, was Odo im Wrack der Seeschwalbe fand',
+          sort: 'secret',
+          who: ['Mira Tannhaus', 'Odo Tannhaus'],
+          place: '',
+          quote: 'Was ihr Bruder im Wrack fand, hat Mira nie erfahren.',
+        },
+        // Ältere Vorschläge nennen die Art nicht: Dann entscheiden die Worte.
+        { text: 'Odo verheimlicht seine Schulden', who: ['Odo Tannhaus'], place: '', quote: '' },
+        // Ohne jemanden, bei dem es stehen könnte, gehört es zum Eintrag des Artikels – hier
+        // gibt es keinen.
+        {
+          text: 'Niemand weiß, wer das Leuchtfeuer löschte',
+          sort: 'secret',
+          who: [],
+          place: '',
+          quote: '',
+        },
+      ],
+    };
+    const result = await readArticle(db, 'seeschwalbe', async () => ({
+      status: 200,
+      body: apiReply(reading),
+    }));
+    expect(result.added).toBe(2);
+    expect(result.skipped).toEqual([
+      '„Niemand weiß, wer das Leuchtfeuer löschte“: Dazu gibt es in der Welt niemanden, bei dem es stehen könnte.',
+    ]);
+    const [secret, hidden] = db.getSnapshot().articles.seeschwalbe!.aiHints;
+    expect(secret!.payload).toMatchObject({ sort: 'secret' });
+    expect(hidden!.payload).toMatchObject({ sort: 'secret' });
+    const entries = Object.keys(db.getSnapshot().chronicle).length;
+    const undo = acceptAiHint(db, 'seeschwalbe', secret!.id)!;
+    // Es steht im Dossier der Person, im Feld „Geheimnis“ – die Chronik bleibt, wie sie war.
+    expect(db.getSnapshot().entities[mira.id]!.secret).toBe(
+      'Mira weiß nicht, was Odo im Wrack der Seeschwalbe fand',
+    );
+    expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(entries);
+    undo();
+    expect(db.getSnapshot().entities[mira.id]!.secret).toBe('');
+    expect(db.getSnapshot().articles.seeschwalbe!.aiHints[0]!.state).toBe('open');
+    expect(threadSort('Mira schuldet Odo die Heuer')).toBe('promise');
+    expect(threadSort('Aldo ahnt nicht, wer ihn verriet')).toBe('secret');
+  });
+
+  it('trägt Vergangenes nie als „ab heute“ ein', async () => {
+    const { db } = await setup();
+    const past = { past: true, weekday: '', place: '', who: [], quote: '' };
+    const reading: Reading = {
+      events: [
+        // Früher regelmäßig, heute nicht mehr: kein Termin.
+        {
+          ...past,
+          title: 'Der Rat tagte jeden Monat',
+          rhythm: 'monthly',
+          day: 5,
+          month: '',
+          year: 0,
+        },
+        // Vergangen mit genauem Datum: steht an seinem Tag und ist schon eingetreten.
+        {
+          ...past,
+          title: 'Die Seeschwalbe sinkt',
+          rhythm: 'once',
+          day: 4,
+          month: 'Blüthain',
+          year: 650,
+        },
+      ],
+      relations: [],
+      threads: [],
+    };
+    const result = await readArticle(db, 'seeschwalbe', async () => ({
+      status: 200,
+      body: apiReply(reading),
+    }));
+    expect(result.skipped).toEqual([
+      '„Der Rat tagte jeden Monat“: Das ist schon geschehen und hat kein genaues Datum.',
+    ]);
+    const [sunk] = db.getSnapshot().articles.seeschwalbe!.aiHints;
+    expect(sunk!.payload).toMatchObject({ done: true, repeat: null });
+    expect((sunk!.payload as { at: number }).at).toBeLessThan(db.getSnapshot().state.now);
   });
 
   it('meldet Fehler als Satz und lässt den Artikel dann unberührt', async () => {

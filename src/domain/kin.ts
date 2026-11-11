@@ -316,6 +316,10 @@ function virtualParents(graph: KinGraph): Map<string, string[]> {
   return virtual;
 }
 
+/**
+ * Blutsverwandtschaft als Zahlenpaar „p/q“: `a` steht p Generationen unter dem nächsten
+ * gemeinsamen Vorfahren, `b` q Generationen. 0/1 = Elternteil, 1/1 = Geschwister, 2/2 = Cousin.
+ */
 const BLOOD: Record<string, string> = {
   '0/1': 'parent',
   '0/2': 'grandparent',
@@ -333,58 +337,198 @@ const BLOOD: Record<string, string> = {
   '2/3': 'aunt-2',
   '3/2': 'niece-2',
 };
+const PAIR_OF = new Map(Object.entries(BLOOD).map(([pair, key]) => [key, pair]));
+
+/** Weiter als so viele Generationen reicht kein Schluss. */
+const MAX_DEPTH = 4;
+
+interface Blood {
+  p: number;
+  q: number;
+  /** Geschwister mit denselben beiden Eltern – nur dann teilen sie auch alle Vorfahren. */
+  full: boolean;
+}
+
+export interface KinClosure {
+  /** a → b → was `a` für `b` ist. */
+  blood: Map<string, Map<string, Blood>>;
+  /** Kind → Eltern, eingetragen oder erschlossen. */
+  parents: Map<string, Set<string>>;
+  children: Map<string, Set<string>>;
+  /** Volle Geschwister, eingetragen oder erschlossen. */
+  siblings: Map<string, Set<string>>;
+}
+
+const closureCache = new WeakMap<object, KinClosure>();
 
 /**
- * Was `a` für `b` ist, abgeleitet aus dem Geflecht – null, wenn sich nichts ergibt. Erst das
- * Blut (gemeinsame Vorfahren), dann die Ehe (Schwager, Schwiegereltern, Stiefeltern).
+ * Alles, was sich aus den eingetragenen Verwandtschaften sicher schließen lässt. Zuerst, was aus
+ * Eltern und Geschwistern folgt (gemeinsame Vorfahren), dazu das Eingetragene selbst („Tante
+ * von“), dann Schluss um Schluss, bis nichts Neues mehr dazukommt:
+ *
+ * - Wer von jemandem abstammt, erbt dessen Verwandte nach oben: Ist X die Tante von Y und Z der
+ *   Sohn von X, dann ist Z der Cousin von Y.
+ * - Wer mit jemandem verwandt ist, ist es auch mit dessen Nachkommen: Die Tante der Mutter ist
+ *   die Großtante des Kindes.
+ * - Volle Geschwister teilen Eltern, Geschwister und alle Verwandten über die Großeltern hinaus.
+ *
+ * Nicht geschlossen wird, was offen ist: Die Cousine von Y kann über Mutter oder Vater kommen.
+ */
+export function kinClosure(data: KinData): KinClosure {
+  const cached = closureCache.get(data.relations);
+  if (cached) return cached;
+  const graph = kinGraph(data);
+  const virtual = virtualParents(graph);
+  const blood: KinClosure['blood'] = new Map();
+  const get = (a: string, b: string) => blood.get(a)?.get(b);
+  const set = (a: string, b: string, p: number, q: number, full: boolean): boolean => {
+    if (a === b || p > MAX_DEPTH || q > MAX_DEPTH || get(a, b)) return false;
+    const put = (x: string, y: string, value: Blood) => {
+      const row = blood.get(x);
+      if (row) row.set(y, value);
+      else blood.set(x, new Map([[y, value]]));
+    };
+    put(a, b, { p, q, full });
+    put(b, a, { p: q, q: p, full });
+    return true;
+  };
+  const people = [...graph.people].sort();
+
+  // 1. Aus Eltern und Geschwistern: der nächste gemeinsame Vorfahr.
+  const stated = new Set<string>();
+  for (const group of siblingGroups(graph))
+    for (const a of group) for (const b of group) if (a !== b) stated.add(`${a}|${b}`);
+  const lines = new Map(people.map((id) => [id, ancestors(graph, virtual, id)]));
+  for (let i = 0; i < people.length; i++)
+    for (let j = i + 1; j < people.length; j++) {
+      const [a, b] = [people[i]!, people[j]!];
+      let best: [number, number] | null = null;
+      for (const [ancestor, da] of lines.get(a)!) {
+        const db = lines.get(b)!.get(ancestor);
+        if (db !== undefined && (!best || da + db < best[0] + best[1])) best = [da, db];
+      }
+      if (!best) continue;
+      const pa = graph.parents.get(a);
+      const pb = graph.parents.get(b);
+      const shared = pa && pb ? [...pa].filter((parent) => pb.has(parent)).length : 0;
+      set(a, b, best[0], best[1], stated.has(`${a}|${b}`) || shared >= 2);
+    }
+
+  // 2. Was eingetragen ist: Tante, Cousin, Großvater …
+  for (const r of graph.relations) {
+    const pair = PAIR_OF.get(r.kin!);
+    if (!pair || r.kin === 'parent' || r.kin === 'child' || r.kin === 'sibling') continue;
+    const [p, q] = pair.split('/').map(Number) as [number, number];
+    set(r.from, r.to, p, q, false);
+  }
+
+  // 3. Schließen, bis nichts Neues mehr folgt.
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    for (const b of people) {
+      const row = blood.get(b);
+      if (!row) continue;
+      const around = [...row.entries()];
+      for (const [a, back] of around) {
+        // back ist „b für a“; gebraucht wird „a für b“.
+        const { p, q } = { p: back.q, q: back.p };
+        for (const [c, next] of around) {
+          if (c === a || get(a, c)) continue;
+          const { p: r, q: s } = next;
+          const siblingsAB = p === 1 && q === 1 && back.full;
+          const siblingsBC = r === 1 && s === 1 && next.full;
+          let found: [number, number, boolean] | null = null;
+          // a stammt von b ab: b's Verwandte nach oben sind auch a's.
+          if (q === 0 && r >= 1) found = [p + r, s, false];
+          // c stammt von b ab: Wer mit b verwandt ist, ist es auch mit c.
+          else if (r === 0 && (q >= 1 || p === 0)) found = [p, q + s, false];
+          else if (siblingsAB) {
+            if (r >= 2) found = [r, s, false];
+            else if (r === 1 && s === 0) found = [1, 0, false];
+            else if (siblingsBC) found = [1, 1, true];
+          } else if (siblingsBC) {
+            if (q >= 2) found = [p, q, false];
+            else if (q === 1 && p === 0) found = [0, 1, false];
+          }
+          if (found && set(a, c, found[0], found[1], found[2])) changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+
+  const closure: KinClosure = {
+    blood,
+    parents: new Map(),
+    children: new Map(),
+    siblings: new Map(),
+  };
+  for (const [a, row] of blood)
+    for (const [b, value] of row) {
+      if (value.p === 1 && value.q === 0) {
+        link(closure.parents, a, b);
+        link(closure.children, b, a);
+      }
+      if (value.p === 1 && value.q === 1 && value.full) link(closure.siblings, a, b);
+    }
+  closureCache.set(data.relations, closure);
+  return closure;
+}
+
+const pairName = (p: number, q: number): string => BLOOD[`${p}/${q}`] ?? 'relative';
+
+/**
+ * Was `a` für `b` ist, abgeleitet aus allem Eingetragenen – null, wenn sich nichts ergibt. Erst
+ * das Blut, dann die Ehe (Schwager, Schwiegereltern, Stiefeltern).
  */
 export function derivedKin(data: KinData, a: string, b: string): string | null {
   if (a === b) return null;
   const graph = kinGraph(data);
   if (graph.partners.get(a)?.has(b)) return 'spouse';
-  const virtual = virtualParents(graph);
-  const up = ancestors(graph, virtual, a);
-  const other = ancestors(graph, virtual, b);
-  let best: { da: number; db: number; half: boolean } | null = null;
-  for (const [ancestor, da] of up) {
-    const db = other.get(ancestor);
-    if (db === undefined) continue;
-    if (!best || da + db < best.da + best.db)
-      best = { da, db, half: ancestor.startsWith('~halb-') };
-  }
-  if (best) {
-    if (best.da === 1 && best.db === 1) {
-      // Zwei bekannte Elternpaare, aber nur ein gemeinsamer Elternteil: Halbgeschwister.
+  const closure = kinClosure(data);
+  const found = closure.blood.get(a)?.get(b);
+  if (found) {
+    if (found.p === 1 && found.q === 1 && !found.full) {
+      // Eingetragen als Halbgeschwister – oder zwei bekannte Elternpaare mit nur einem
+      // gemeinsamen Elternteil.
       const pa = graph.parents.get(a);
       const pb = graph.parents.get(b);
-      const shared = pa && pb ? [...pa].filter((p) => pb.has(p)).length : 0;
-      if (best.half || (pa && pb && pa.size >= 2 && pb.size >= 2 && shared === 1))
+      const shared = pa && pb ? [...pa].filter((parent) => pb.has(parent)).length : 0;
+      if (
+        graph.halfSiblings.get(a)?.has(b) ||
+        (pa && pb && pa.size >= 2 && pb.size >= 2 && shared === 1)
+      )
         return 'half-sibling';
     }
-    return BLOOD[`${best.da}/${best.db}`] ?? 'relative';
+    return pairName(found.p, found.q);
   }
   const partnersOf = (id: string) => [...(graph.partners.get(id) ?? [])];
   const isParent = (parent: string, child: string) =>
-    graph.parents.get(child)?.has(parent) ?? false;
-  const isSibling = (x: string, y: string) => derivedBlood(graph, virtual, x, y) === '1/1';
+    closure.parents.get(child)?.has(parent) ?? false;
+  const isSibling = (x: string, y: string) => {
+    const pair = closure.blood.get(x)?.get(y);
+    return pair?.p === 1 && pair.q === 1;
+  };
   // Der Partner eines Elternteils, der selbst kein Elternteil ist – und umgekehrt.
-  if (partnersOf(a).some((p) => isParent(p, b))) return 'step-parent';
-  if (partnersOf(b).some((p) => isParent(p, a))) return 'step-child';
+  if (partnersOf(a).some((partner) => isParent(partner, b))) return 'step-parent';
+  if (partnersOf(b).some((partner) => isParent(partner, a))) return 'step-child';
   // Die Eltern des Partners – und der Partner des Kindes.
-  if (partnersOf(b).some((p) => isParent(a, p))) return 'parent-in-law';
-  if (partnersOf(a).some((p) => isParent(b, p))) return 'child-in-law';
+  if (partnersOf(b).some((partner) => isParent(a, partner))) return 'parent-in-law';
+  if (partnersOf(a).some((partner) => isParent(b, partner))) return 'child-in-law';
   // Geschwister des Partners oder Partner der Geschwister.
-  if (partnersOf(a).some((p) => isSibling(p, b)) || partnersOf(b).some((p) => isSibling(p, a)))
+  if (
+    partnersOf(a).some((partner) => isSibling(partner, b)) ||
+    partnersOf(b).some((partner) => isSibling(partner, a))
+  )
     return 'sibling-in-law';
   return null;
 }
 
-function derivedBlood(
-  graph: KinGraph,
-  virtual: Map<string, string[]>,
-  a: string,
-  b: string,
-): string | null {
+/** Was sich allein aus Eltern, Paaren und Geschwistern ergibt – ohne das übrige Eingetragene. */
+export function plainKin(data: KinData, a: string, b: string): string | null {
+  const graph = kinGraph(data);
+  if (graph.partners.get(a)?.has(b)) return 'spouse';
+  const virtual = virtualParents(graph);
   const up = ancestors(graph, virtual, a);
   const other = ancestors(graph, virtual, b);
   let best: [number, number] | null = null;
@@ -392,7 +536,81 @@ function derivedBlood(
     const db = other.get(ancestor);
     if (db !== undefined && (!best || da + db < best[0] + best[1])) best = [da, db];
   }
-  return best ? `${best[0]}/${best[1]}` : null;
+  return best ? pairName(best[0], best[1]) : null;
+}
+
+// ── Vorschläge ─────────────────────────────────────────────────────────────
+
+export interface KinSuggestion {
+  /** Eindeutig – damit ein abgelehnter Vorschlag nicht wiederkommt. */
+  key: string;
+  fromId: string;
+  toId: string;
+  kin: string;
+  /** „Hilda könnte die Schwester von Greta sein“ */
+  line: string;
+  /** „weil Hilda die Tante von Odo ist und Greta dessen Mutter“ */
+  reason: string;
+  /** Die eingetragene Verwandtschaft, aus der der Vorschlag folgt. */
+  relationId: string;
+}
+
+/**
+ * Was naheliegt, aber nicht sicher ist. Eine eingetragene Verwandtschaft über mehrere
+ * Generationen („Tante von Odo“) führt über Eltern, die vielleicht schon eingetragen sind: Ist
+ * Odos Mutter bekannt, könnte die Tante deren Schwester sein – oder die des Vaters. Solche
+ * Verbindungen schlägt Wayfarer vor; der Spielleiter entscheidet.
+ */
+export function kinSuggestions(data: KinData): KinSuggestion[] {
+  const graph = kinGraph(data);
+  const closure = kinClosure(data);
+  const name = (id: string) => data.entities[id]?.name ?? '?';
+  const word = (key: string, id: string) => kinLabel(key, genderOf(data.entities[id]));
+  const related = (a: string, b: string) => closure.blood.get(a)?.get(b);
+  const is = (a: string, b: string, p: number, q: number) => {
+    const pair = related(a, b);
+    return pair?.p === p && pair.q === q;
+  };
+  const out = new Map<string, KinSuggestion>();
+  for (const r of graph.relations) {
+    const pair = PAIR_OF.get(r.kin!);
+    if (!pair) continue;
+    const [p, q] = pair.split('/').map(Number) as [number, number];
+    const [a, b] = [r.from, r.to];
+    const parentsA = p >= 2 ? [...(closure.parents.get(a) ?? [])].sort() : [];
+    const parentsB = q >= 2 ? [...(closure.parents.get(b) ?? [])].sort() : [];
+    const because = `${name(a)} ${word(r.kin!, a)} von ${name(b)} ist`;
+    const suggest = (fromId: string, toId: string, np: number, nq: number, via: string[]) => {
+      const parts = [because, ...via.map((part) => `${part} ist`)];
+      const kin = pairName(np, nq);
+      const key = `${fromId}|${toId}|${kin}`;
+      if (fromId === toId || kin === 'relative' || related(fromId, toId)) return;
+      if (r.kinSkip.includes(key) || out.has(key)) return;
+      out.set(key, {
+        key,
+        fromId,
+        toId,
+        kin,
+        line: `${name(fromId)} könnte ${word(kin, fromId)} von ${name(toId)} sein`,
+        reason: `weil ${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}`,
+        relationId: r.id,
+      });
+    };
+    const parentWord = (parent: string, child: string) =>
+      `${name(parent)} ${word('parent', parent)} von ${name(child)}`;
+    // Beide Seiten führen über bekannte Eltern: Dann sind es am ehesten die Eltern untereinander.
+    if (parentsA.length && parentsB.length) {
+      if (parentsA.some((n) => parentsB.some((m) => is(n, m, p - 1, q - 1)))) continue;
+      for (const n of parentsA)
+        for (const m of parentsB) suggest(n, m, p - 1, q - 1, [parentWord(n, a), parentWord(m, b)]);
+      continue;
+    }
+    if (parentsB.length && !parentsB.some((m) => is(a, m, p, q - 1)))
+      for (const m of parentsB) suggest(a, m, p, q - 1, [parentWord(m, b)]);
+    if (parentsA.length && !parentsA.some((n) => is(n, b, p - 1, q)))
+      for (const n of parentsA) suggest(n, b, p - 1, q, [parentWord(n, a)]);
+  }
+  return [...out.values()];
 }
 
 /** Alle, die mit einer Person über Verwandtschaften verbunden sind (sie selbst eingeschlossen). */

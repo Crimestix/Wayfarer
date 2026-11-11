@@ -54,3 +54,25 @@ export function removeKin(db: CampaignDb, relationId: string): (() => void) | nu
     if (!db.getSnapshot().relations[relationId]) db.put('relations', relation);
   };
 }
+
+/** Legt das Geschlecht einer Person fest – es bestimmt die Wörter („Schwester“) und ihr Zeichen im Stammbaum. */
+export function setGender(db: CampaignDb, personId: string, gender: Gender | null): void {
+  const person = db.getSnapshot().entities[personId];
+  if (person?.kind !== 'person' || person.person.gender === gender) return;
+  db.put('entities', { ...person, person: { ...person.person, gender } });
+}
+
+/** Lehnt einen Vorschlag ab: Er kommt für diese Verwandtschaft nicht wieder. `undo` holt ihn zurück. */
+export function skipKinSuggestion(
+  db: CampaignDb,
+  relationId: string,
+  key: string,
+): (() => void) | null {
+  const relation = db.getSnapshot().relations[relationId];
+  if (!relation || relation.kinSkip.includes(key)) return null;
+  db.patch('relations', relationId, { kinSkip: [...relation.kinSkip, key] });
+  return () => {
+    const now = db.getSnapshot().relations[relationId];
+    if (now) db.patch('relations', relationId, { kinSkip: now.kinSkip.filter((k) => k !== key) });
+  };
+}

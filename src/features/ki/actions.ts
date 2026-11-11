@@ -22,6 +22,7 @@ import {
   aiModel,
   articleText,
   buildReadRequest,
+  threadSort,
   costUsd,
   needsReading,
   parseReply,
@@ -92,6 +93,8 @@ export async function readArticle(
 const RelationPayload = z.object({ from: z.string(), to: z.string(), type: z.string() });
 const ThreadPayload = z.object({
   text: z.string(),
+  /** Abmachung oder Geheimnis; fehlt bei älteren Vorschlägen – dann entscheiden die Worte. */
+  sort: z.enum(['promise', 'secret']).optional(),
   refs: z.array(z.string()).default([]),
   placeId: z.string().nullable().default(null),
 });
@@ -151,6 +154,27 @@ export function acceptAiHint(
     } else {
       const draft = ThreadPayload.safeParse(hint.payload);
       if (!draft.success) return null;
+      if (threadSort(draft.data.text, draft.data.sort) === 'secret') {
+        // Wissen und Geheimnisse sind nichts, was heute geschah: Sie stehen ohne Datum im
+        // Dossier dessen, den sie betreffen – im Feld „Geheimnis“, das nur der Spielleiter sieht.
+        const holderId =
+          draft.data.refs.find((id) => data.entities[id]) ??
+          Object.values(data.entities).find((entity) => entity.lk?.resourceId === articleId)?.id;
+        const holder = holderId ? data.entities[holderId] : undefined;
+        if (!holder) return null;
+        const before = holder.secret;
+        db.put('entities', {
+          ...holder,
+          secret: before.trim() ? `${before.trimEnd()}\n${draft.data.text}` : draft.data.text,
+        });
+        setState(db, articleId, hintId, 'accepted');
+        return () =>
+          db.batch(() => {
+            const now = db.getSnapshot().entities[holder.id];
+            if (now) db.put('entities', { ...now, secret: before });
+            setState(db, articleId, hintId, 'open');
+          });
+      }
       const entry = logEntry(db, {
         kind: 'promise',
         text: draft.data.text,

@@ -11,7 +11,7 @@ import type { AiHint, Article } from '../../domain/schema';
 import { toast } from '../../ui';
 import { flushEdits } from '../wiki/editing';
 import { acceptAiHint, dismissAiHint, readArticle } from './actions';
-import { MIN_TEXT_CHARS, articleText, formatUsd, needsReading } from './reader';
+import { MIN_TEXT_CHARS, articleText, formatUsd, needsReading, threadSort } from './reader';
 import './ki.css';
 
 // ── Ist ein Key hinterlegt? Einmal gefragt, für alle Stellen gemerkt. ────────
@@ -46,7 +46,7 @@ export function useAiKey(): boolean | null {
 const KIND_LABEL: Record<AiHint['kind'], string> = {
   event: 'Termin',
   relation: 'Beziehung',
-  thread: 'Offen',
+  thread: 'Abmachung',
 };
 
 const DONE_TITLE: Record<AiHint['kind'], string> = {
@@ -55,23 +55,60 @@ const DONE_TITLE: Record<AiHint['kind'], string> = {
   thread: 'Als Abmachung festgehalten',
 };
 
+/** Der Knopf sagt, wohin der Vorschlag kommt. */
+const ACCEPT_LABEL: Record<AiHint['kind'], string> = {
+  event: 'In den Kalender',
+  relation: 'Als Beziehung',
+  thread: 'Als Abmachung',
+};
+
+/** Wo der Spielleiter das Eingetragene danach findet. */
+const WHERE: Record<AiHint['kind'], string> = {
+  event: 'Wird ein Termin im Kalender – er steht auch am Spieltisch unter „Anstehend“.',
+  relation: 'Wird eine Beziehung in der Welt – zu sehen im Dossier beider unter „Beziehungen“.',
+  thread:
+    'Wird eine offene Abmachung – zu sehen in der Chronik unter „Offene Abmachungen“ und am Spieltisch unter „Anstehend“.',
+};
+
+const DONE_WHERE: Record<AiHint['kind'], string> = {
+  event: 'Zu finden im Kalender und am Spieltisch unter „Anstehend“.',
+  relation: 'Zu finden im Dossier beider unter „Beziehungen“.',
+  thread: 'Zu finden in der Chronik unter „Offene Abmachungen“.',
+};
+
 /** Ein Vorschlag mit dem Satz, aus dem er stammt – zum Eintragen oder Verwerfen. */
 export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   const db = useDb();
+  // Ein offener Punkt ist entweder eine Abmachung oder Wissen, das jemand hat oder nicht hat.
+  const payload = hint.payload as { text?: unknown; sort?: unknown };
+  const secret =
+    hint.kind === 'thread' &&
+    threadSort(typeof payload.text === 'string' ? payload.text : hint.line, payload.sort) ===
+      'secret';
   const accept = () => {
     const undo = acceptAiHint(db, article.id, hint.id);
     if (!undo) {
       toast({
-        title: 'Der Vorschlag lässt sich nicht mehr eintragen',
-        body: 'Was er nennt, gibt es in der Welt nicht mehr.',
+        title: 'Der Vorschlag lässt sich nicht eintragen',
+        body: 'Was er nennt, gibt es in der Welt nicht (mehr).',
         tone: 'danger',
       });
       return;
     }
     toast({
-      title: DONE_TITLE[hint.kind],
-      body: hint.line,
+      title: secret ? 'Als Geheimnis eingetragen' : DONE_TITLE[hint.kind],
+      body: (
+        <>
+          <div>{hint.line}</div>
+          <div className="wf-mute">
+            {secret
+              ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
+              : DONE_WHERE[hint.kind]}
+          </div>
+        </>
+      ),
       action: { label: 'Rückgängig', run: undo },
+      duration: 9000,
     });
   };
   const dismiss = () => {
@@ -85,10 +122,19 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   return (
     <div className="wf-ki-row">
       <div className="wf-wiki-facts__row">
-        <span className="wf-wiki-facts__label">{KIND_LABEL[hint.kind]}</span>
+        <span className="wf-wiki-facts__label">{secret ? 'Geheimnis' : KIND_LABEL[hint.kind]}</span>
         <span className="wf-wiki-facts__what">{hint.line}</span>
-        <button type="button" className="wf-wiki-facts__act" onClick={accept}>
-          Eintragen
+        <button
+          type="button"
+          className="wf-wiki-facts__act"
+          onClick={accept}
+          title={
+            secret
+              ? 'Kommt ohne Datum ins Dossier der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
+              : WHERE[hint.kind]
+          }
+        >
+          {secret ? 'Als Geheimnis' : ACCEPT_LABEL[hint.kind]}
         </button>
         <button type="button" className="wf-wiki-facts__act" onClick={dismiss}>
           Stimmt nicht

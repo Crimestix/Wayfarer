@@ -1,15 +1,18 @@
 /**
- * Der Stammbaum einer Familie: ihre Mitglieder und deren Verwandte, Generation für Generation.
- * Die Anordnung rechnet `domain/kinTree.ts`; hier wird nur gezeichnet.
+ * Der Stammbaum einer Familie nach Art eines Genogramms: Quadrat für Männer, Kreis für Frauen,
+ * Raute für Unbekannt; ein Kreuz für Verstorbene; eine Linie unter jedem Paar, von der die Kinder
+ * abgehen. Die Anordnung rechnet `domain/kinTree.ts`; hier wird nur gezeichnet.
  */
 import { useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { GitFork } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
+import { kinSuggestions } from '../../domain/kin';
 import { TREE, familyTree } from '../../domain/kinTree';
 import type { Entity } from '../../domain/schema';
 import { EmptyState, EntityLink, cx, entityHref } from '../../ui';
+import { KinSuggestions } from './KinSuggestions';
 
 const line = (points: [number, number][]) => points.map((p) => p.join(',')).join(' ');
 
@@ -20,11 +23,17 @@ const subline = (entity: Entity): string =>
 const isDead = (entity: Entity): boolean =>
   entity.kind === 'person' && entity.person.status === 'dead';
 
+const SHAPE = { f: 'circle', m: 'square' } as const;
+
 export function FamilyTree({ family }: { family: Entity }) {
   const data = useData();
   const [, navigate] = useLocation();
   const src = useMediaSrc();
   const tree = useMemo(() => familyTree(data, family.id), [data, family.id]);
+  const suggestions = useMemo(() => {
+    const shown = new Set(tree.nodes.map((node) => node.id));
+    return kinSuggestions(data).filter((s) => shown.has(s.fromId) || shown.has(s.toId));
+  }, [data, tree]);
 
   if (!tree.nodes.length)
     return (
@@ -35,10 +44,9 @@ export function FamilyTree({ family }: { family: Entity }) {
       </EmptyState>
     );
 
-  const byId = new Map(tree.nodes.map((node) => [node.id, node]));
-  const mid = TREE.cardH / 2;
   return (
     <div className="wf-welt-tree">
+      <KinSuggestions suggestions={suggestions} />
       <div className="wf-welt-tree__scroll">
         <div className="wf-welt-tree__sheet" style={{ width: tree.width, height: tree.height }}>
           <svg width={tree.width} height={tree.height} aria-hidden>
@@ -58,19 +66,13 @@ export function FamilyTree({ family }: { family: Entity }) {
                 </g>
               );
             })}
-            {tree.couples.map(({ a, b }) => {
-              const [left, right] = [byId.get(a)!, byId.get(b)!].sort((x, y) => x.x - y.x);
-              return (
-                <line
-                  key={`${a}-${b}`}
-                  className="wf-welt-tree__couple"
-                  x1={left!.x + TREE.cardW}
-                  y1={left!.y + mid}
-                  x2={right!.x}
-                  y2={right!.y + mid}
-                />
-              );
-            })}
+            {tree.couples.map((couple) => (
+              <polyline
+                key={`${couple.a}-${couple.b}`}
+                className="wf-welt-tree__couple"
+                points={line(couple.points)}
+              />
+            ))}
             {tree.descents.map((descent, index) => (
               <polyline
                 key={`${descent.child}-${index}`}
@@ -91,29 +93,39 @@ export function FamilyTree({ family }: { family: Entity }) {
           {tree.nodes.map((node) => {
             const entity = data.entities[node.id];
             if (!entity) return null;
+            const dead = isDead(entity);
             return (
               <button
                 key={node.id}
                 type="button"
-                className={cx(
-                  'wf-welt-tree__card',
-                  !node.member && 'wf-welt-tree__card--other',
-                  isDead(entity) && 'wf-welt-tree__card--dead',
-                )}
-                style={{ left: node.x, top: node.y, width: TREE.cardW, height: TREE.cardH }}
-                title={
-                  node.member
-                    ? `${entity.name} – im Dossier öffnen`
-                    : `${entity.name} gehört nicht zu ${family.name} – im Dossier öffnen`
-                }
+                className={cx('wf-welt-tree__node', !node.member && 'wf-welt-tree__node--other')}
+                style={{ left: node.x, top: node.y, width: TREE.cardW, height: TREE.symbol }}
+                title={[
+                  entity.name,
+                  node.gender === null
+                    ? 'Geschlecht unbekannt – es ergibt sich aus dem ersten eingetragenen Wort'
+                    : '',
+                  dead ? 'verstorben' : '',
+                  node.member ? '' : `gehört nicht zu ${family.name}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
                 onClick={() => navigate(entityHref(entity))}
               >
-                {entity.image && <img src={src(entity.image)} alt="" draggable={false} />}
+                <span
+                  className={cx(
+                    'wf-welt-tree__symbol',
+                    `wf-welt-tree__symbol--${node.gender ? SHAPE[node.gender] : 'diamond'}`,
+                    dead && 'wf-welt-tree__symbol--dead',
+                  )}
+                  style={{ width: TREE.symbol, height: TREE.symbol }}
+                >
+                  {entity.image && node.gender && (
+                    <img src={src(entity.image)} alt="" draggable={false} />
+                  )}
+                </span>
                 <span className="wf-welt-tree__text">
-                  <span className="wf-welt-tree__name wf-clamp-1">
-                    {isDead(entity) && '† '}
-                    {entity.name}
-                  </span>
+                  <span className="wf-welt-tree__name wf-clamp-2">{entity.name}</span>
                   {subline(entity) && (
                     <span className="wf-welt-tree__sub wf-clamp-1">{subline(entity)}</span>
                   )}
@@ -124,10 +136,13 @@ export function FamilyTree({ family }: { family: Entity }) {
         </div>
       </div>
       <p className="wf-welt-tree__legend">
-        <span className="wf-welt-tree__key wf-welt-tree__key--couple" /> Paar
-        <span className="wf-welt-tree__key" /> Eltern und Kinder, Geschwister
-        <span className="wf-welt-tree__key wf-welt-tree__key--link" /> sonst eingetragen
-        <span className="wf-welt-tree__key wf-welt-tree__key--other" /> gehört nicht zur Familie
+        <i className="wf-welt-tree__key wf-welt-tree__key--square" /> Mann
+        <i className="wf-welt-tree__key wf-welt-tree__key--circle" /> Frau
+        <i className="wf-welt-tree__key wf-welt-tree__key--diamond" /> unbekannt
+        <i className="wf-welt-tree__key wf-welt-tree__key--dead" /> verstorben
+        <i className="wf-welt-tree__key wf-welt-tree__key--line" /> Paar und Kinder
+        <i className="wf-welt-tree__key wf-welt-tree__key--link" /> sonst eingetragen
+        <i className="wf-welt-tree__key wf-welt-tree__key--other" /> nicht aus der Familie
       </p>
       {tree.loose.length > 0 && (
         <p className="wf-welt-tree__loose">

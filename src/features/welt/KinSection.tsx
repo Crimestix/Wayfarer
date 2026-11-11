@@ -5,10 +5,11 @@
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { KIN_TYPES, kinOfWord, relativesOf } from '../../domain/kin';
+import { KIN_TYPES, genderOf, kinOfWord, kinSuggestions, relativesOf } from '../../domain/kin';
 import type { Entity } from '../../domain/schema';
 import { Button, EntityLink, EntityPicker, IconButton, Select, toast } from '../../ui';
-import { removeKin, setKin } from './kin';
+import { removeKin, setGender, setKin } from './kin';
+import { KinSuggestions } from './KinSuggestions';
 
 /** Die Wörter zur Auswahl: jede Verwandtschaft in ihrer weiblichen und männlichen Form. */
 const WORDS = KIN_TYPES.filter((type) => type.key !== 'relative').flatMap((type) => [
@@ -22,6 +23,21 @@ export function KinSection({ entity }: { entity: Entity }) {
   const [word, setWord] = useState('Schwester');
   const [otherId, setOtherId] = useState<string | null>(null);
   const relatives = useMemo(() => relativesOf(data, entity.id), [data, entity.id]);
+  // Vorschläge, die diese Person betreffen – oder aus einer ihrer Verwandtschaften folgen.
+  const suggestions = useMemo(
+    () =>
+      kinSuggestions(data).filter((s) => {
+        const source = data.relations[s.relationId];
+        return (
+          s.fromId === entity.id ||
+          s.toId === entity.id ||
+          source?.from === entity.id ||
+          source?.to === entity.id
+        );
+      }),
+    [data, entity.id],
+  );
+  const gender = genderOf(entity);
 
   const add = () => {
     const read = kinOfWord(word);
@@ -33,6 +49,7 @@ export function KinSection({ entity }: { entity: Entity }) {
   return (
     <section className="wf-welt-kin" aria-label="Verwandtschaft">
       <h4 className="wf-section-title">Verwandtschaft</h4>
+      <KinSuggestions suggestions={suggestions} />
       <div className="wf-welt-kin__form">
         <span className="wf-welt-kin__who">{entity.name} ist</span>
         <Select value={word} onChange={(e) => setWord(e.target.value)} aria-label="Verwandtschaft">
@@ -53,6 +70,19 @@ export function KinSection({ entity }: { entity: Entity }) {
         <Button variant="primary" onClick={add} disabled={!otherId}>
           Eintragen
         </Button>
+        <Select
+          className="wf-welt-kin__gender"
+          value={gender ?? ''}
+          aria-label={`Geschlecht von ${entity.name}`}
+          title="Bestimmt die Wörter (Schwester, Bruder) und das Zeichen im Stammbaum"
+          onChange={(e) =>
+            setGender(db, entity.id, e.target.value === '' ? null : (e.target.value as 'f' | 'm'))
+          }
+        >
+          <option value="">Geschlecht: unbekannt</option>
+          <option value="f">Geschlecht: weiblich</option>
+          <option value="m">Geschlecht: männlich</option>
+        </Select>
       </div>
       {relatives.length > 0 ? (
         <ul className="wf-welt-kin__list">

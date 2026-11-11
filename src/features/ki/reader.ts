@@ -130,9 +130,21 @@ export const READING_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['title', 'rhythm', 'weekday', 'day', 'month', 'year', 'place', 'who', 'quote'],
+        required: [
+          'title',
+          'past',
+          'rhythm',
+          'weekday',
+          'day',
+          'month',
+          'year',
+          'place',
+          'who',
+          'quote',
+        ],
         properties: {
           title: { type: 'string' },
+          past: { type: 'boolean' },
           rhythm: { type: 'string', enum: ['once', 'daily', 'weekly', 'monthly', 'yearly'] },
           weekday: { type: 'string' },
           day: { type: 'integer' },
@@ -163,9 +175,10 @@ export const READING_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['text', 'who', 'place', 'quote'],
+        required: ['text', 'sort', 'who', 'place', 'quote'],
         properties: {
           text: { type: 'string' },
+          sort: { type: 'string', enum: ['promise', 'secret'] },
           who: { type: 'array', items: { type: 'string' } },
           place: { type: 'string' },
           quote: { type: 'string' },
@@ -186,6 +199,7 @@ const SYSTEM = `Du liest für einen Spielleiter Artikel aus seinem selbst geschr
 
 1. events – was zu einer bestimmten Zeit oder regelmäßig geschieht, unabhängig von den Spielern: ein Schiff legt ab, ein Markt findet statt, ein Fest wird gefeiert, eine Frist läuft ab, eine Versammlung tagt.
    - title: ein kurzer Satz in der Gegenwart, so wie er später gemeldet wird, z. B. „Die Seeschwalbe legt ab“.
+   - past: true, wenn der Text es als vergangen erzählt (Vergangenheitsform, „damals“, „einst“, „vor Jahren“) – also etwas, das schon geschehen ist und nicht wieder geschieht. false, wenn es noch bevorsteht oder bis heute regelmäßig geschieht.
    - rhythm: once (einmal an einem Datum), daily, weekly, monthly oder yearly.
    - weekday: bei weekly der Wochentag, genau so geschrieben wie in der Liste unten; sonst leer.
    - day und month: bei monthly der Tag; bei yearly und once Tag und Monat (Monat genau wie in der Liste); was fehlt, ist 0 oder leer.
@@ -197,11 +211,14 @@ const SYSTEM = `Du liest für einen Spielleiter Artikel aus seinem selbst geschr
 )
   .map((type) => `${type.key} = „${type.label}“`)
   .join(', ')}.
-3. threads – was offen ist und später eingelöst werden muss: ein Versprechen, eine Schuld, ein Auftrag, eine Drohung, ein ungelöstes Rätsel. text ist ein kurzer Satz dazu.
+3. threads – was offen ist. text ist ein kurzer Satz dazu, sort sagt, was es ist:
+   - promise: etwas, das noch eingelöst werden muss – ein Versprechen, eine Schuld, ein Auftrag, eine Drohung.
+   - secret: Wissen und Nichtwissen – ein Geheimnis, etwas, das jemand weiß, nicht weiß oder verbirgt, ein ungelöstes Rätsel. Beispiel: „Mira weiß nicht, was ihr Bruder im Wrack fand“ ist secret, kein promise.
 
 Regeln:
 - Nimm nur auf, was im Text steht. Erfinde nichts, ergänze nichts, deute nichts aus.
-- Vergangenes aus der Geschichte der Welt (Legenden, alte Kriege) gehört nicht zu events, außer es trägt ein genaues Datum.
+- Vergangenes aus der Geschichte der Welt (Legenden, alte Kriege) gehört nicht zu events, außer es trägt ein genaues Datum. Dann ist past true.
+- Was früher regelmäßig geschah und heute nicht mehr („früher tagte der Rat jeden Monat“), lass weg.
 - Ist ein Zeitpunkt zu ungenau für die Felder (etwa „im Frühjahr“), lass das Ereignis weg.
 - quote ist immer der Satz aus dem Text, wörtlich, aus dem du die Angabe liest – höchstens 200 Zeichen.
 - Lieber wenige sichere Angaben als viele unsichere. Leere Listen sind eine gute Antwort.
@@ -247,6 +264,7 @@ export const ReadingSchema = z.object({
     .array(
       z.object({
         title: z.string(),
+        past: z.boolean().default(false),
         rhythm: z.enum(['once', 'daily', 'weekly', 'monthly', 'yearly']),
         weekday: words,
         day: z.number().int().default(0),
@@ -262,7 +280,15 @@ export const ReadingSchema = z.object({
     .array(z.object({ from: z.string(), to: z.string(), kind: z.string(), quote: words }))
     .default([]),
   threads: z
-    .array(z.object({ text: z.string(), who: names, place: words, quote: words }))
+    .array(
+      z.object({
+        text: z.string(),
+        sort: z.enum(['promise', 'secret']).optional(),
+        who: names,
+        place: words,
+        quote: words,
+      }),
+    )
     .default([]),
 });
 export type Reading = z.infer<typeof ReadingSchema>;
@@ -431,6 +457,21 @@ export type EventDraft = Pick<
   'title' | 'at' | 'timed' | 'kind' | 'details' | 'placeId' | 'refs' | 'repeat' | 'done'
 >;
 
+export type ThreadSort = 'promise' | 'secret';
+
+const SECRET_WORDS =
+  /weiß nicht|weiss nicht|wissen nicht|ahnt nicht|ahnen nicht|ahnt nichts|ohne zu wissen|ohne dass .* (?:weiß|wissen|ahnt)|geheim|heimlich|verbirgt|verbergen|verheimlicht|verschweigt|verschwiegen|niemand weiß|niemand ahnt|kennt .* nicht|unbekannt ist|ungeklärt|ungelöst|rätsel|was .* wirklich|in wahrheit|tatsächlich aber/i;
+
+/**
+ * Was ein offener Punkt ist: etwas, das eingelöst werden muss (Versprechen, Schuld, Auftrag) –
+ * oder Wissen und Nichtwissen (Geheimnis, Rätsel). Sagt der Leser es nicht selbst (ältere
+ * Vorschläge), entscheiden die Worte.
+ */
+export function threadSort(text: string, given?: unknown): ThreadSort {
+  if (given === 'promise' || given === 'secret') return given;
+  return SECRET_WORDS.test(text) ? 'secret' : 'promise';
+}
+
 export interface Suggestions {
   hints: AiHint[];
   /** Angaben, die sich nicht eintragen lassen – mit dem Grund. */
@@ -470,6 +511,11 @@ export function suggest(data: CampaignData, article: Article, reading: Reading):
     const time = eventTime(cal, data.state.now, event);
     if (!time) {
       skipped.push(`„${title}“: Aus dem Text ergibt sich kein Datum.`);
+      continue;
+    }
+    // Vergangenes kommt nur mit seinem eigenen Datum in den Kalender – nie als „ab heute“.
+    if (event.past && (time.repeat !== null || time.at > data.state.now)) {
+      skipped.push(`„${title}“: Das ist schon geschehen und hat kein genaues Datum.`);
       continue;
     }
     if (titles.has(normalize(title))) continue;
@@ -533,16 +579,31 @@ export function suggest(data: CampaignData, article: Article, reading: Reading):
       .filter((entry) => entry.kind === 'promise')
       .map((entry) => normalize(entry.text)),
   );
+  // Der Eintrag der Welt, den dieser Artikel beschreibt – dorthin gehört ein Geheimnis im Zweifel.
+  const owner = Object.values(data.entities).find((entity) => entity.lk?.resourceId === article.id);
   for (const thread of reading.threads) {
     const text = thread.text.trim();
     if (!text || open.has(normalize(text))) continue;
     const place = findEntity(index, thread.place, ['place']);
+    const sort = threadSort(text, thread.sort);
+    const refs = refsOf(thread.who);
+    // Ein Geheimnis braucht jemanden, bei dem es steht.
+    const holder = refs[0] ?? owner?.id ?? null;
+    if (sort === 'secret' && !holder) {
+      skipped.push(`„${text}“: Dazu gibt es in der Welt niemanden, bei dem es stehen könnte.`);
+      continue;
+    }
     add({
       key: `thread:${normalize(text).slice(0, 80)}`,
       kind: 'thread',
       line: text,
       quote: quote(thread.quote),
-      payload: { text, refs: refsOf(thread.who), placeId: place?.id ?? null },
+      payload: {
+        text,
+        sort,
+        refs: sort === 'secret' && !refs.length && holder ? [holder] : refs,
+        placeId: place?.id ?? null,
+      },
     });
   }
   return { hints, skipped };

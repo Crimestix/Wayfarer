@@ -123,8 +123,13 @@ nicht übernommen.
   `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
 - Verwandtschaft: Eine Beziehung mit `kin` sagt, was `from` für `to` ist (`sibling`, `aunt` …,
   `domain/kin.ts`). Eingetragen wird über `setKin` (`welt/kin.ts`); alles Weitere leitet
-  Wayfarer ab: weitere Verwandte (`derivedKin`, `relativesOf`), Generationen und den Stammbaum
-  einer Familie (`domain/kinTree.ts`). Nie Zwischenpersonen erfinden, um einen Baum zu füllen.
+  Wayfarer ab: was sicher folgt (`kinClosure`, `derivedKin`, `relativesOf`), Generationen und
+  den Stammbaum einer Familie als Genogramm (`domain/kinTree.ts`). Was nur naheliegt, wird
+  vorgeschlagen (`kinSuggestions`) und gilt erst, wenn der Spielleiter es annimmt. Nie
+  Zwischenpersonen erfinden, um einen Baum zu füllen.
+- KI-Leser: Ein offener Punkt ist eine Abmachung (kommt in die Chronik) oder ein Geheimnis
+  (`threadSort`) – Wissen und Nichtwissen stehen ohne Datum im Feld „Geheimnis“ des Eintrags,
+  nie als heutiger Eintrag der Chronik. Vergangenes kommt nur mit eigenem Datum in den Kalender.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

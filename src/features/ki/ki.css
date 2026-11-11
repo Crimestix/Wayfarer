@@ -15,6 +15,21 @@
   line-height: 1.35;
 }
 /* Alle offenen Vorschläge auf der Startseite des Wikis */
+.wf-ki-all__where {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--s-5);
+  max-width: 96ch;
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  list-style: none;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-ki-all__where strong {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
 .wf-ki-all__article {
   max-width: 96ch;
   margin: var(--s-3) 0;

@@ -310,6 +310,8 @@ export const RelationSchema = z.object({
    * etwa `sibling` oder `aunt`. null = keine Verwandtschaft.
    */
   kin: z.string().nullable().default(null),
+  /** Vorschläge zu dieser Verwandtschaft, die der Spielleiter abgelehnt hat (ihre Schlüssel). */
+  kinSkip: z.array(z.string()).default([]),
   /** Aus dem Steckbrief dieses Artikels gelesen; null = von Hand eingetragen. */
   articleId: id.nullable().default(null),
 });
