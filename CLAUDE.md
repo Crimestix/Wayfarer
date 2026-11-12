@@ -90,6 +90,8 @@ nicht übernommen.
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
+  `faeden` (das Fadenbrett: Geschichten und Fäden nach Nähe zur Gruppe; die Rechnung steht in
+  `domain/story.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -99,7 +101,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -136,6 +138,14 @@ nicht übernommen.
 - KI-Leser: Ein offener Punkt ist eine Abmachung (kommt in die Chronik) oder ein Geheimnis
   (`threadSort`) – Wissen und Nichtwissen stehen ohne Datum im Feld „Geheimnis“ des Eintrags,
   nie als heutiger Eintrag der Chronik. Vergangenes kommt nur mit eigenem Datum in den Kalender.
+- Kalender: Was im Kalender steht, entscheidet `eventWeight()` (`domain/weight.ts`), nie die
+  Oberfläche: Tägliches ist Alltag, Wöchentliches zählt nur am Ort der Gruppe, Einmaliges, Feste
+  und alles an einem offenen Faden immer. Alltag wird geführt, aber nur am Tag gezeigt. Neue
+  Listen von Terminen („Anstehend“, Meldungen) filtern mit `isEveryday()`.
+- Geschichten und Fäden (`stories/`, `threads/`): geschrieben vom Spielleiter (oder als
+  Vorschlag des KI-Lesers angenommen), nie erzeugt. Nähe zur Gruppe, Berührungen und Warnungen
+  leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
+  Geändert wird über `features/faeden/actions.ts`.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

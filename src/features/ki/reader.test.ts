@@ -413,6 +413,69 @@ describe('KI-Leser: lesen, vorschlagen, annehmen', () => {
     expect(threadSort('Aldo ahnt nicht, wer ihn verriet')).toBe('secret');
   });
 
+  it('trägt eine Spur oder offene Frage als Faden ein – nicht als Abmachung oder Geheimnis', async () => {
+    const { db, mira } = await setup();
+    const trail =
+      'Die Wolfsfährten führen nach Norden, tiefer in den Wald; woher das Gift stammt, ist noch unbekannt';
+    const reading: Reading = {
+      events: [],
+      relations: [],
+      threads: [
+        {
+          text: trail,
+          sort: 'lead',
+          who: ['Mira Tannhaus'],
+          place: '',
+          quote: 'Die Fährten verloren sich im Norden.',
+        },
+        {
+          text: 'Odo schuldet dem Hafenmeister eine Antwort',
+          sort: 'promise',
+          who: ['Odo Tannhaus'],
+          place: '',
+          quote: '',
+        },
+      ],
+    };
+    const result = await readArticle(db, 'seeschwalbe', async () => ({
+      status: 200,
+      body: apiReply(reading),
+    }));
+    expect(result.added).toBe(2);
+    const [lead, debt] = db.getSnapshot().articles.seeschwalbe!.aiHints;
+    const threads = () => Object.values(db.getSnapshot().threads);
+    const entries = Object.keys(db.getSnapshot().chronicle).length;
+    const undo = acceptAiHint(db, 'seeschwalbe', lead!.id)!;
+    expect(threads()).toHaveLength(1);
+    expect(threads()[0]).toMatchObject({
+      title: trail,
+      refs: [mira.id],
+      state: 'open',
+      articleId: 'seeschwalbe',
+    });
+    // Kein Eintrag in der Chronik, kein Geheimnis im Dossier.
+    expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(entries);
+    expect(db.getSnapshot().entities[mira.id]!.secret).toBe('');
+    undo();
+    expect(threads()).toHaveLength(0);
+    // Was der Leser als Abmachung sah, kann der Spielleiter trotzdem zum Faden machen.
+    acceptAiHint(db, 'seeschwalbe', debt!.id, 'lead');
+    expect(threads().map((thread) => thread.title)).toEqual([
+      'Odo schuldet dem Hafenmeister eine Antwort',
+    ]);
+    // Ein zweites Lesen schlägt den Faden nicht noch einmal vor.
+    db.patch('articles', 'seeschwalbe', { aiHints: [] });
+    const again = await readArticle(db, 'seeschwalbe', async () => ({
+      status: 200,
+      body: apiReply(reading),
+    }));
+    expect(again.added).toBe(1);
+    // Ältere Vorschläge nennen die Art nicht: Dann entscheiden die Worte.
+    expect(threadSort('Die Spuren führen nach Südwesten; die Quelle ist noch unbekannt')).toBe(
+      'lead',
+    );
+  });
+
   it('trägt Vergangenes nie als „ab heute“ ein', async () => {
     const { db } = await setup();
     const past = { past: true, weekday: '', place: '', who: [], quote: '' };

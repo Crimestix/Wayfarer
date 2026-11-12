@@ -10,6 +10,7 @@ import {
   CalendarEventSchema,
   createEvent,
   createRelation,
+  createThread,
   nowIso,
   type AiHint,
   type Article,
@@ -23,6 +24,7 @@ import {
   articleText,
   buildReadRequest,
   threadSort,
+  type ThreadSort,
   costUsd,
   needsReading,
   parseReply,
@@ -94,7 +96,7 @@ const RelationPayload = z.object({ from: z.string(), to: z.string(), type: z.str
 const ThreadPayload = z.object({
   text: z.string(),
   /** Abmachung oder Geheimnis; fehlt bei älteren Vorschlägen – dann entscheiden die Worte. */
-  sort: z.enum(['promise', 'secret']).optional(),
+  sort: z.enum(['promise', 'secret', 'lead']).optional(),
   refs: z.array(z.string()).default([]),
   placeId: z.string().nullable().default(null),
 });
@@ -120,13 +122,15 @@ function setState(db: CampaignDb, articleId: string, hintId: string, state: AiHi
 
 /**
  * Nimmt einen Vorschlag an: Der Termin kommt in den Kalender, die Beziehung in die Welt, das
- * Offene als Abmachung in die Chronik. Gibt `undo` zurück – oder null, wenn der Vorschlag nicht
- * (mehr) zu gebrauchen ist.
+ * Offene als Abmachung in die Chronik, als Geheimnis ins Dossier oder als Faden aufs Fadenbrett.
+ * `as` legt fest, was ein offener Punkt sein soll – sonst gilt, was der Leser sagt. Gibt
+ * `undo` zurück – oder null, wenn der Vorschlag nicht (mehr) zu gebrauchen ist.
  */
 export function acceptAiHint(
   db: CampaignDb,
   articleId: string,
   hintId: string,
+  as?: ThreadSort,
 ): (() => void) | null {
   const data = db.getSnapshot();
   const hint = data.articles[articleId]?.aiHints.find((entry) => entry.id === hintId);
@@ -154,7 +158,27 @@ export function acceptAiHint(
     } else {
       const draft = ThreadPayload.safeParse(hint.payload);
       if (!draft.success) return null;
-      if (threadSort(draft.data.text, draft.data.sort) === 'secret') {
+      const sort = as ?? threadSort(draft.data.text, draft.data.sort);
+      if (sort === 'lead') {
+        // Eine Spur, eine offene Frage: ein Faden der Geschichte – er hängt an den Genannten.
+        const thread = db.put(
+          'threads',
+          createThread({
+            title: draft.data.text,
+            refs: [...new Set([...draft.data.refs, draft.data.placeId])].filter(
+              (id): id is string => id !== null && exists(id),
+            ),
+            articleId,
+          }),
+        );
+        setState(db, articleId, hintId, 'accepted');
+        return () =>
+          db.batch(() => {
+            if (db.getSnapshot().threads[thread.id]) db.remove('threads', thread.id);
+            setState(db, articleId, hintId, 'open');
+          });
+      }
+      if (sort === 'secret') {
         // Wissen und Geheimnisse sind nichts, was heute geschah: Sie stehen ohne Datum im
         // Dossier dessen, den sie betreffen – im Feld „Geheimnis“, das nur der Spielleiter sieht.
         const holderId =

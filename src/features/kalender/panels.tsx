@@ -60,8 +60,16 @@ export function UpcomingPanel({
   const today = dayIndexOf(now);
   const overdue = overdueEvents(data);
   // Der Alltag steht hier nicht: Er liefe sonst jeden Tag durch die Liste.
+  // Was sich nach Tagen wiederholt (und trotzdem zählt), steht nur mit dem nächsten Mal da.
+  const daily = new Set<string>();
   const upcoming = upcomingOccurrences(data, UPCOMING_DAYS, 400)
-    .filter((o) => !isEveryday(data, o.event))
+    .filter((o) => {
+      if (isEveryday(data, o.event)) return false;
+      if (o.event.repeat?.unit !== 'day') return true;
+      if (daily.has(o.event.id)) return false;
+      daily.add(o.event.id);
+      return true;
+    })
     .slice(0, 40);
   return (
     <Panel

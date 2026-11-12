@@ -1188,6 +1188,8 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'articles',
   'atlas',
   'clocks',
+  'threads',
+  'stories',
 ];
 
 export type CollectionTypes = {

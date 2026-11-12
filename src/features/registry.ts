@@ -9,6 +9,7 @@ import {
   Library,
   Map as MapIcon,
   Swords,
+  Waypoints,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export const AREAS: Area[] = [
   { path: '/wiki', label: 'Wiki', hint: 'Artikel über die Welt', icon: Library },
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
+  { path: '/faeden', label: 'Fadenbrett', hint: 'Geschichten und Fäden', icon: Waypoints },
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },
   { path: '/erkundung', label: 'Erkundung', hint: 'Hexkarten für Reisen', icon: Hexagon },
   { path: '/atlas', label: 'Atlas', hint: 'Der ganze Planet', icon: Globe },

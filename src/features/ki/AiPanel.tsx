@@ -11,7 +11,14 @@ import type { AiHint, Article } from '../../domain/schema';
 import { toast } from '../../ui';
 import { flushEdits } from '../wiki/editing';
 import { acceptAiHint, dismissAiHint, readArticle } from './actions';
-import { MIN_TEXT_CHARS, articleText, formatUsd, needsReading, threadSort } from './reader';
+import {
+  MIN_TEXT_CHARS,
+  articleText,
+  formatUsd,
+  needsReading,
+  threadSort,
+  type ThreadSort,
+} from './reader';
 import './ki.css';
 
 // ── Ist ein Key hinterlegt? Einmal gefragt, für alle Stellen gemerkt. ────────
@@ -81,12 +88,15 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   const db = useDb();
   // Ein offener Punkt ist entweder eine Abmachung oder Wissen, das jemand hat oder nicht hat.
   const payload = hint.payload as { text?: unknown; sort?: unknown };
-  const secret =
-    hint.kind === 'thread' &&
-    threadSort(typeof payload.text === 'string' ? payload.text : hint.line, payload.sort) ===
-      'secret';
-  const accept = () => {
-    const undo = acceptAiHint(db, article.id, hint.id);
+  const sort =
+    hint.kind === 'thread'
+      ? threadSort(typeof payload.text === 'string' ? payload.text : hint.line, payload.sort)
+      : null;
+  const secret = sort === 'secret';
+  const lead = sort === 'lead';
+  const accept = (as?: ThreadSort) => {
+    const asLead = as === 'lead' || (as === undefined && lead);
+    const undo = acceptAiHint(db, article.id, hint.id, as);
     if (!undo) {
       toast({
         title: 'Der Vorschlag lässt sich nicht eintragen',
@@ -96,14 +106,20 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
       return;
     }
     toast({
-      title: secret ? 'Als Geheimnis eingetragen' : DONE_TITLE[hint.kind],
+      title: asLead
+        ? 'Als Faden eingetragen'
+        : secret
+          ? 'Als Geheimnis eingetragen'
+          : DONE_TITLE[hint.kind],
       body: (
         <>
           <div>{hint.line}</div>
           <div className="wf-mute">
-            {secret
-              ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
-              : DONE_WHERE[hint.kind]}
+            {asLead
+              ? 'Zu finden auf dem Fadenbrett.'
+              : secret
+                ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
+                : DONE_WHERE[hint.kind]}
           </div>
         </>
       ),
@@ -122,20 +138,34 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   return (
     <div className="wf-ki-row">
       <div className="wf-wiki-facts__row">
-        <span className="wf-wiki-facts__label">{secret ? 'Geheimnis' : KIND_LABEL[hint.kind]}</span>
+        <span className="wf-wiki-facts__label">
+          {lead ? 'Faden' : secret ? 'Geheimnis' : KIND_LABEL[hint.kind]}
+        </span>
         <span className="wf-wiki-facts__what">{hint.line}</span>
         <button
           type="button"
           className="wf-wiki-facts__act"
-          onClick={accept}
+          onClick={() => accept()}
           title={
-            secret
-              ? 'Kommt ohne Datum ins Dossier der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
-              : WHERE[hint.kind]
+            lead
+              ? 'Wird ein Faden der Geschichte – eine Spur, der die Gruppe folgen kann. Zu sehen auf dem Fadenbrett.'
+              : secret
+                ? 'Kommt ohne Datum ins Dossier der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
+                : WHERE[hint.kind]
           }
         >
-          {secret ? 'Als Geheimnis' : ACCEPT_LABEL[hint.kind]}
+          {lead ? 'Als Faden' : secret ? 'Als Geheimnis' : ACCEPT_LABEL[hint.kind]}
         </button>
+        {hint.kind === 'thread' && !lead && (
+          <button
+            type="button"
+            className="wf-wiki-facts__act"
+            onClick={() => accept('lead')}
+            title="Das ist eher eine Spur oder offene Frage der Geschichte: als Faden aufs Fadenbrett"
+          >
+            Als Faden
+          </button>
+        )}
         <button type="button" className="wf-wiki-facts__act" onClick={dismiss}>
           Stimmt nicht
         </button>

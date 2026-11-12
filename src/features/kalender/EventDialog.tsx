@@ -35,6 +35,7 @@ import {
   toast,
 } from '../../ui';
 import type { EventWeightChoice } from '../../domain/schema';
+import { threadLive } from '../../domain/story';
 import { weightReason } from '../../domain/weight';
 import {
   EVENT_DONE_LABEL,
@@ -117,10 +118,16 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
         ? weightReason(data, {
             ...createEvent({ title: '–', at: dated.value.at }),
             ...dated.value,
-            threadId: stored?.threadId ?? null,
           })
         : '',
-    [data, dated, stored],
+    [data, dated],
+  );
+  const threads = useMemo(
+    () =>
+      Object.values(data.threads)
+        .filter((thread) => threadLive(thread) || thread.id === form.threadId)
+        .sort((a, b) => a.title.localeCompare(b.title, 'de')),
+    [data.threads, form.threadId],
   );
 
   const save = () => {
@@ -343,6 +350,25 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
             <option value="everyday">Alltag – führen, aber nicht zeigen</option>
           </Select>
         </Field>
+        {threads.length > 0 && (
+          <Field
+            label="Gehört zum Faden"
+            hint="Was an einem offenen Faden hängt, steht immer im Kalender."
+          >
+            <Select
+              value={form.threadId ?? ''}
+              onChange={(e) => set({ threadId: e.target.value || null })}
+              aria-label="Faden"
+            >
+              <option value="">Zu keinem</option>
+              {threads.map((thread) => (
+                <option key={thread.id} value={thread.id}>
+                  {thread.title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Wiederholung">
           <span className="wf-row" style={{ gap: 'var(--s-3)' }}>
             <Select

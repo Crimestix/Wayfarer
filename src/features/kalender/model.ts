@@ -444,6 +444,8 @@ export interface EventForm {
   details: string;
   done: boolean;
   weight: EventWeightChoice;
+  /** Der Faden der Geschichte, zu dem der Termin gehört. */
+  threadId: string | null;
 }
 
 const two = (n: number) => String(n).padStart(2, '0');
@@ -472,6 +474,7 @@ export function blankEventForm(
     details: '',
     done: false,
     weight: 'auto',
+    threadId: null,
   };
 }
 
@@ -494,6 +497,7 @@ export function eventToForm(cal: CalendarDef, event: CalendarEvent): EventForm {
     details: event.details,
     done: event.done,
     weight: event.weight,
+    threadId: event.threadId,
   };
 }
 
@@ -510,6 +514,7 @@ export type EventFields = Pick<
   | 'details'
   | 'done'
   | 'weight'
+  | 'threadId'
 >;
 
 export type FormResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -567,6 +572,7 @@ export function parseEventForm(cal: CalendarDef, form: EventForm): FormResult<Ev
       // Wiederkehrende Termine lassen sich nicht als Ganzes abhaken.
       done: repeat ? false : form.done,
       weight: form.weight,
+      threadId: form.threadId,
     },
   };
 }

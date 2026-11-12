@@ -1,0 +1,578 @@
+/* Fadenbrett: Geschichten und Fäden nebeneinander, nach Nähe zur Gruppe geordnet. */
+
+.wf-faden {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-faden-head {
+  gap: var(--s-3);
+  align-items: center;
+}
+.wf-faden-head__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-faden-blank {
+  display: grid;
+  flex: 1;
+  padding: 0 var(--s-6) var(--s-6);
+  place-items: center;
+}
+.wf-faden-blank > * {
+  max-width: 560px;
+}
+
+.wf-faden-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--s-4);
+  min-height: 0;
+  padding: 0 var(--s-6) var(--s-5);
+}
+.wf-faden-scroll {
+  overflow: auto;
+  min-height: 0;
+  padding: 0 var(--s-2) var(--s-5) 0;
+}
+
+/* Das Brett: drei Stapel, dazwischen Platz für die goldenen Linien */
+.wf-faden-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 84px;
+  align-items: start;
+  padding-right: 44px;
+}
+.wf-faden-lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.wf-faden-lines path {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.4;
+  opacity: 0.55;
+}
+.wf-faden-lines path[data-active='true'] {
+  stroke: var(--gold-bright);
+  stroke-width: 2;
+  opacity: 1;
+}
+.wf-faden-touch {
+  position: absolute;
+  z-index: 2;
+  overflow: hidden;
+  max-width: 170px;
+  padding: 1px var(--s-2);
+  border: 1px solid var(--gold-bright);
+  border-radius: 999px;
+  background: var(--bg-0);
+  color: var(--gold-bright);
+  font-size: var(--text-xs);
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* Ein Knoten auf der Linie, solange keine der beiden Karten gewählt ist */
+.wf-faden-knot {
+  position: absolute;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: var(--bg-0);
+  transform: translate(-50%, -50%);
+}
+
+.wf-faden-col {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.wf-faden-col__title {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  margin: 0;
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.wf-faden-col__title span {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+.wf-faden-col__none {
+  margin: 0;
+  padding: var(--s-3) 0;
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Karte */
+.wf-faden-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-raised);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-faden-card--thread {
+  border-left: 3px solid var(--blood);
+  background: var(--bg-1);
+}
+.wf-faden-card:hover {
+  border-color: var(--gold-deep);
+}
+.wf-faden-card--thread:hover {
+  border-left-color: var(--blood-bright);
+}
+.wf-faden-card[aria-pressed='true'] {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 1px var(--gold-deep),
+    var(--shadow-float);
+}
+.wf-faden-card__top {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  justify-content: space-between;
+}
+.wf-faden-card__sort {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.wf-faden-card__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-faden-card--thread .wf-faden-card__title {
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.wf-faden-card__owner {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-card__owner svg,
+.wf-faden-thread svg,
+.wf-faden-block__warn svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--blood-bright);
+}
+.wf-faden-card__threads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-faden-card__more {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* Stand der Uhr */
+.wf-faden-pace,
+.wf-faden-state {
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-faden-pace--running {
+  border-color: var(--ember);
+  color: var(--ember);
+}
+.wf-faden-pace--done {
+  border-color: var(--blood);
+  color: var(--blood-bright);
+}
+.wf-faden-state--active {
+  border-color: var(--blood-bright);
+  color: var(--blood-bright);
+}
+.wf-faden-state--solved {
+  border-color: var(--moss);
+  color: var(--moss);
+}
+.wf-faden-clock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.wf-faden-clock__pips {
+  display: flex;
+  gap: 3px;
+}
+.wf-faden-clock__pips i {
+  flex: 1;
+  max-width: 34px;
+  height: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+}
+.wf-faden-clock__pips i[data-state='done'] {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wf-faden-clock__pips i[data-state='next'] {
+  border-color: var(--ember);
+}
+.wf-faden-clock__pips i[data-state='prevented'] {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.wf-faden-clock__next {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* Ein Faden: der rote Strich davor */
+.wf-faden-thread {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+.wf-faden-thread > i,
+.wf-faden-block__head > i {
+  flex: none;
+  width: 12px;
+  height: 2px;
+  margin-top: 0.62em;
+  border-radius: 1px;
+  background: var(--blood);
+}
+.wf-faden-thread--active > i,
+.wf-faden-thread--active .wf-faden-block__head > i {
+  background: var(--blood-bright);
+}
+.wf-faden-thread--dormant > i,
+.wf-faden-thread--dormant .wf-faden-block__head > i {
+  background: var(--ink-faint);
+}
+.wf-faden-thread--solved > i,
+.wf-faden-thread--solved .wf-faden-block__head > i {
+  background: var(--moss);
+}
+.wf-faden-thread--lost > i,
+.wf-faden-thread--lost .wf-faden-block__head > i {
+  background: var(--line-strong);
+}
+.wf-faden-thread--solved > span,
+.wf-faden-thread--lost > span {
+  color: var(--ink-mute);
+}
+
+/* Woran etwas hängt */
+.wf-faden-card__nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+.wf-faden-node {
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0 var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg-inset);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-faden-node[data-shared='true'] {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.wf-faden-node--more {
+  color: var(--ink-faint);
+}
+
+/* Abgeschlossenes */
+.wf-faden-closed {
+  margin-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+.wf-faden-closed summary {
+  padding: var(--s-3) 0;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wf-faden-closed__row,
+.wf-faden-touchrow {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--s-1) 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-faden-closed__row:hover,
+.wf-faden-touchrow:hover {
+  color: var(--ink);
+}
+.wf-faden-closed__row span,
+.wf-faden-touchrow em {
+  flex: none;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.wf-faden-touchrow em {
+  color: var(--gold);
+}
+
+/* Seitenteil */
+.wf-faden-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  overflow: auto;
+  min-height: 0;
+  padding: var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.wf-faden-side--blank {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.wf-faden-side p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.wf-faden-side section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.wf-faden-side__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wf-faden-side__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: 1.15;
+}
+.wf-faden-side__note {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-faden-side__sub {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.wf-faden-side__sub .wf-faden-pace {
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-faden-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-faden-link:hover {
+  color: var(--gold-bright);
+  text-decoration: underline;
+}
+
+.wf-faden-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.wf-faden-steps li {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: var(--s-2);
+  align-items: baseline;
+}
+.wf-faden-steps i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+}
+.wf-faden-steps li[data-state='done'] i {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wf-faden-steps li[data-state='next'] i {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 2px var(--ember-wash);
+}
+.wf-faden-steps li[data-state='done'] span,
+.wf-faden-steps li[data-state='prevented'] span {
+  color: var(--ink-mute);
+}
+.wf-faden-steps li[data-state='prevented'] span {
+  text-decoration: line-through;
+}
+.wf-faden-steps em {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+.wf-faden-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) 0;
+}
+.wf-faden-block + .wf-faden-block {
+  border-top: 1px solid var(--line-faint);
+}
+.wf-faden-block__head {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+.wf-faden-block__title {
+  flex: 1;
+  font-size: var(--text-md);
+  line-height: 1.25;
+}
+.wf-faden-block__head .wf-faden-link {
+  flex: none;
+  font-size: var(--text-xs);
+}
+.wf-faden-block__meta {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  padding-left: 20px;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-faden-block__meta .wf-select {
+  width: auto;
+  min-height: 0;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  font-size: var(--text-xs);
+}
+.wf-faden-block__truth {
+  padding-left: 20px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.wf-faden-block__warn {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  padding-left: 20px;
+  color: var(--blood-bright);
+}
+.wf-faden-hint {
+  display: flex;
+  flex-direction: column;
+  padding-left: 20px;
+  font-size: var(--text-sm);
+}
+.wf-faden-hint[data-found='true'] {
+  color: var(--ink-mute);
+}
+.wf-faden-hint__where {
+  padding-left: 26px;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.wf-faden-hint__where b {
+  color: var(--ember);
+  font-weight: 400;
+}
+
+/* Dialoge */
+.wf-faden-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+.wf-faden-formrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  align-items: center;
+  width: 100%;
+}
+.wf-faden-formrow--hint {
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+}

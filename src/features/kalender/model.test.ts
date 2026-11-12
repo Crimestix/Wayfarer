@@ -513,6 +513,7 @@ describe('Termin-Dialog', () => {
       details,
       done,
       weight: 'auto',
+      threadId: null,
     });
   });
 

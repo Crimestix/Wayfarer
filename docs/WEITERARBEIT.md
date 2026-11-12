@@ -921,6 +921,41 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
   verschieben; Zustand und Wissen als Schichten (gesperrte Straße, „kennt die Gruppe“);
   Hexkarten der Erkundung aus der gezeichneten Karte speisen (`groundShares` steht bereit).
 
+**Kalender zeigt, was zählt – Fäden – Fadenbrett (12. 11. 2026, nach Rückmeldung des
+Spielleiters: „alle täglichen Dinge im Kalender – das juckt gar nicht“; „so etwas wäre eher ein
+Faden“; „das Storyboard ist noch nicht drin“).**
+
+- **Gewicht eines Termins** (`domain/weight.ts`, `eventWeight`): Einmaliges, Vorhaben, Fristen
+  und Feste (monatlich, jährlich) stehen immer im Kalender; was sich nach Wochen wiederholt, nur
+  dort, wo die Gruppe ist (`isNear`: derselbe Ort, darüber, darin); was sich nach Tagen
+  wiederholt, ist **Alltag** – überall. Was an einem offenen Faden hängt (`event.threadId`),
+  zählt immer. Alltag wird geführt, steht aber nicht im Monatsraster (`gridSpans`), nicht unter
+  „Anstehend“ (Kalender und Spieltisch) und nicht „auf dem Weg dorthin“, sondern eingeklappt am
+  Tag (`splitDay`, „Alltag“). Knopf „Alltag zeigen (n)“; je Termin festlegbar („Im Kalender“:
+  Wayfarer entscheidet / immer / Alltag, `event.weight`) mit einem Satz, warum.
+- **Fäden und Geschichten** (Sammlungen `threads`, `stories`; `domain/story.ts`): Eine
+  Geschichte hat Antreiber, Uhr („wenn niemand eingreift“), Zugehöriges und Einstiege; ein Faden
+  ist eine Frage oder Spur mit Zustand (offen, aktiv, ruhend, gelöst, verloren), Knoten und
+  Hinweisen (wo, wer weiß es, gefunden). Abgeleitet: woran etwas hängt (`storyNodes`,
+  `threadNodes`), Nähe zur Gruppe (`nearness`: hier / erreichbar über Wegenetz oder dieselbe
+  Gegend / fern), Stand der Uhr (`storyClock`), Berührungen über gemeinsame Knoten
+  (`touches`, `touchReason`), Warnung bei einem einzigen Hinweis (`threadWarning`).
+- **KI-Leser:** dritte Sorte offener Punkte – `lead` = Faden (Spur, offene Frage). Der Leser
+  nennt sie selbst; bei älteren Vorschlägen entscheiden die Worte (`LEAD_WORDS`). Annehmen legt
+  einen Faden an; an jedem offenen Punkt gibt es außerdem „Als Faden“.
+- **Fadenbrett** (`features/faeden`, Bereich „Fadenbrett“): drei Stapel Hier · Erreichbar ·
+  Fern; Karten für Geschichten (Antreiber, Uhr als Schritte, Fäden) und lose Fäden; goldene
+  Linien, wo sich zwei berühren (Grund an der gewählten Karte, sonst ein Knoten); gemeinsame
+  Knoten golden; Seitenteil mit „Wenn niemand eingreift“, Fäden samt Hinweisen zum Abhaken
+  (`setHintFound`: erster Fund macht den Faden bekannt und aktiv), Einstiegen („die Gruppe ist
+  hier“), Berührungen; Umschalter **Wahrheit / Was die Gruppe weiß** (`boardCards(…, 'party')`).
+- **Offen:** Ruf bei Fraktionen (eigene Linie, Einstiege nach Ruf); am Spieltisch zeigen, welche
+  Geschichten den Ort berühren (`cardsAt` steht bereit); Situationen an Orten; „Hinweise
+  wandern“ und „Folgen springen über“; Vorschläge aus der Mitschrift; Uhr direkt am Brett
+  anlegen; Karten von Hand verschieben; rote Fäden als Linien zu einzelnen Personen und Orten
+  (bisher Zettel an der Karte). Der Entwurf vom 11. 11. lag nur als Beschreibung vor – das
+  Aussehen ist mit dem Spielleiter abzustimmen.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

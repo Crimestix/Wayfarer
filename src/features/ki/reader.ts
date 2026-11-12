@@ -178,7 +178,7 @@ export const READING_SCHEMA = {
         required: ['text', 'sort', 'who', 'place', 'quote'],
         properties: {
           text: { type: 'string' },
-          sort: { type: 'string', enum: ['promise', 'secret'] },
+          sort: { type: 'string', enum: ['promise', 'secret', 'lead'] },
           who: { type: 'array', items: { type: 'string' } },
           place: { type: 'string' },
           quote: { type: 'string' },
@@ -214,6 +214,7 @@ const SYSTEM = `Du liest für einen Spielleiter Artikel aus seinem selbst geschr
 3. threads – was offen ist. text ist ein kurzer Satz dazu, sort sagt, was es ist:
    - promise: etwas, das noch eingelöst werden muss – ein Versprechen, eine Schuld, ein Auftrag, eine Drohung.
    - secret: Wissen und Nichtwissen – ein Geheimnis, etwas, das jemand weiß, nicht weiß oder verbirgt, ein ungelöstes Rätsel. Beispiel: „Mira weiß nicht, was ihr Bruder im Wrack fand“ ist secret, kein promise.
+   - lead: eine Spur oder offene Frage der Geschichte, der die Gruppe nachgehen kann – wohin etwas führt, woher etwas kommt, wer oder was dahintersteckt. Niemand verbirgt es und niemand schuldet es; es ist schlicht noch nicht geklärt. Beispiel: „Die Wolfsfährten führen nach Norden in den Wald; woher das Gift stammt, ist noch unbekannt“ ist lead.
 
 Regeln:
 - Nimm nur auf, was im Text steht. Erfinde nichts, ergänze nichts, deute nichts aus.
@@ -283,7 +284,7 @@ export const ReadingSchema = z.object({
     .array(
       z.object({
         text: z.string(),
-        sort: z.enum(['promise', 'secret']).optional(),
+        sort: z.enum(['promise', 'secret', 'lead']).optional(),
         who: names,
         place: words,
         quote: words,
@@ -457,18 +458,23 @@ export type EventDraft = Pick<
   'title' | 'at' | 'timed' | 'kind' | 'details' | 'placeId' | 'refs' | 'repeat' | 'done'
 >;
 
-export type ThreadSort = 'promise' | 'secret';
+/** promise = Abmachung; secret = Geheimnis; lead = ein Faden: eine Spur, eine offene Frage. */
+export type ThreadSort = 'promise' | 'secret' | 'lead';
+
+const LEAD_WORDS =
+  /\bspur(?:en)?\b|fährte|führ(?:t|en) (?:nach|zu|zum|zur|in|tiefer|weiter)|noch (?:immer )?unbekannt|(?:quelle|ursprung|herkunft|ursache) .*(?:unbekannt|ungeklärt|unklar)|\bwoher\b|\bwohin\b|wer .* (?:dahinter ?steckt|dahinter ?steht)|offene frage|ist (?:noch )?ungeklärt|bleibt (?:offen|unklar)/i;
 
 const SECRET_WORDS =
   /weiß nicht|weiss nicht|wissen nicht|ahnt nicht|ahnen nicht|ahnt nichts|ohne zu wissen|ohne dass .* (?:weiß|wissen|ahnt)|geheim|heimlich|verbirgt|verbergen|verheimlicht|verschweigt|verschwiegen|niemand weiß|niemand ahnt|kennt .* nicht|unbekannt ist|ungeklärt|ungelöst|rätsel|was .* wirklich|in wahrheit|tatsächlich aber/i;
 
 /**
- * Was ein offener Punkt ist: etwas, das eingelöst werden muss (Versprechen, Schuld, Auftrag) –
- * oder Wissen und Nichtwissen (Geheimnis, Rätsel). Sagt der Leser es nicht selbst (ältere
- * Vorschläge), entscheiden die Worte.
+ * Was ein offener Punkt ist: etwas, das eingelöst werden muss (Versprechen, Schuld, Auftrag),
+ * Wissen und Nichtwissen (Geheimnis) – oder ein Faden: eine Spur, eine offene Frage der
+ * Geschichte. Sagt der Leser es nicht selbst (ältere Vorschläge), entscheiden die Worte.
  */
 export function threadSort(text: string, given?: unknown): ThreadSort {
-  if (given === 'promise' || given === 'secret') return given;
+  if (given === 'promise' || given === 'secret' || given === 'lead') return given;
+  if (LEAD_WORDS.test(text)) return 'lead';
   return SECRET_WORDS.test(text) ? 'secret' : 'promise';
 }
 
@@ -581,9 +587,10 @@ export function suggest(data: CampaignData, article: Article, reading: Reading):
   );
   // Der Eintrag der Welt, den dieser Artikel beschreibt – dorthin gehört ein Geheimnis im Zweifel.
   const owner = Object.values(data.entities).find((entity) => entity.lk?.resourceId === article.id);
+  const leads = new Set(Object.values(data.threads).map((entry) => normalize(entry.title)));
   for (const thread of reading.threads) {
     const text = thread.text.trim();
-    if (!text || open.has(normalize(text))) continue;
+    if (!text || open.has(normalize(text)) || leads.has(normalize(text))) continue;
     const place = findEntity(index, thread.place, ['place']);
     const sort = threadSort(text, thread.sort);
     const refs = refsOf(thread.who);
