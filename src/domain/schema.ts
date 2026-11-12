@@ -529,6 +529,12 @@ export const MAP_GROUNDS = [
   'desert',
   'snow',
   'water',
+  // Unter der Erde
+  'rock',
+  'cave',
+  'fungus',
+  'rubble',
+  'chasm',
 ] as const;
 export type MapGround = (typeof MAP_GROUNDS)[number];
 
@@ -539,6 +545,11 @@ export const MapStrokeSchema = z.object({
   /** Breite des Pinsels in Karteneinheiten. */
   width: z.number().positive(),
   points: z.array(point).default([]),
+  /**
+   * round = Pinsel mit runden Enden; butt = stumpfe Enden. Ein gerader Strich mit stumpfen Enden
+   * ist ein Rechteck – so entstehen Räume.
+   */
+  cap: z.enum(['round', 'butt']).default('round'),
 });
 export type MapStroke = z.infer<typeof MapStrokeSchema>;
 

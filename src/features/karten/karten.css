@@ -263,6 +263,26 @@
 .wf-karten-swatch--snow {
   background: var(--map-snow);
 }
+.wf-karten-swatch--rock {
+  border-color: var(--map-rock-ink);
+  background: var(--map-rock);
+}
+.wf-karten-swatch--cave {
+  border-color: var(--map-rock-ink);
+  background: var(--map-cave);
+}
+.wf-karten-swatch--fungus {
+  border-color: var(--map-rock-ink);
+  background: var(--map-fungus-cap);
+}
+.wf-karten-swatch--rubble {
+  border-color: var(--map-rock-ink);
+  background: var(--map-rubble);
+}
+.wf-karten-swatch--chasm {
+  border-color: var(--map-rock-ink);
+  background: var(--map-chasm);
+}
 .wf-karten-swatch--water {
   background: var(--map-water-line);
 }

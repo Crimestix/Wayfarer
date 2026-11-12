@@ -2,7 +2,7 @@
  * Karten – was die Seite wissen muss, ohne selbst zu rechnen: die Liste der Karten, der Ausschnitt
  * der Zeichenfläche und was eine Linie oder eine Stelle der Karte bedeutet.
  */
-import { GROUNDS, LINE_LABEL, groundAt, kmOf, walkAlong } from '../../domain/mapDraw';
+import { GROUNDS, groundAt, kmOf, lineLabel, walkAlong } from '../../domain/mapDraw';
 import type { CampaignData, GameMap, MapGround, MapLine } from '../../domain/schema';
 
 /** Pinselbreiten in Karteneinheiten (die Karte ist 1000 breit). */
@@ -96,16 +96,24 @@ export const toMap = (view: View, px: number, py: number): [number, number] => [
 
 /** Der Maßstabsbalken: eine runde Strecke, die höchstens `maxPx` breit ist. */
 export function scaleBar(kmPerPx: number, maxPx = 150): { km: number; px: number } {
-  const steps = [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  const steps = [
+    0.005, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000,
+  ];
   let km = steps[0]!;
   for (const step of steps) if (step / kmPerPx <= maxPx) km = step;
   return { km, px: km / kmPerPx };
 }
 
+/** „35 km“, „3,2 km“ – unter einem Kilometer in Metern: „250 m“. */
+export function formatLength(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000).toLocaleString('de-DE')} m`;
+  return `${km.toLocaleString('de-DE', { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
+}
+
 // ── Bedeutung ──────────────────────────────────────────────────────────────
 
 export interface LineFacts {
-  /** „Straße“, „Fluss“ … */
+  /** „Straße“, „Fluss“ … – unter der Erde ist die Straße ein „Gang“. */
   sort: string;
   km: number | null;
   /** Zu Fuß, normales Tempo – nur für Straßen und Pfade. */
@@ -114,6 +122,8 @@ export interface LineFacts {
   difficult: number;
   /** Ein Pfad führt durch Wasser. */
   wet: boolean;
+  /** Ein Pfad führt durch Fels oder über einen Abgrund. */
+  blocked: boolean;
   /** Der Weg im Wegenetz, der aus der Linie entstanden ist. */
   way: { from: string; to: string } | null;
 }
@@ -127,11 +137,12 @@ export function lineFacts(
   const walk = walkable ? walkAlong(map, line.points, line.kind === 'road') : null;
   const path = line.pathId ? data.paths[line.pathId] : undefined;
   return {
-    sort: LINE_LABEL[line.kind],
+    sort: lineLabel(line.kind, map.level),
     km: walk?.km ?? kmOf(map, line.points),
     minutes: walk?.minutes ?? null,
     difficult: walk?.difficult ?? 0,
     wet: walk?.wet ?? false,
+    blocked: walk?.blocked ?? false,
     way: path
       ? {
           from: data.entities[path.fromId]?.name ?? '?',
@@ -151,10 +162,12 @@ export function groundFacts(
   const type = GROUNDS[ground];
   return {
     ground,
-    note: type.water
-      ? 'Zu Fuß nicht begehbar. Eine Straße darüber gilt als Brücke oder Furt.'
-      : type.difficult
-        ? 'Schwieriges Gelände: Abseits von Straßen kommt man nur halb so schnell voran.'
-        : 'Leichtes Gelände: volles Tempo, auch abseits der Wege.',
+    note: type.solid
+      ? 'Kein Durchkommen. Nur ein Gang führt durch den Fels oder über einen Abgrund.'
+      : type.water
+        ? 'Zu Fuß nicht begehbar. Eine Straße oder ein Gang darüber gilt als Brücke oder Furt.'
+        : type.difficult
+          ? 'Schwieriges Gelände: Abseits von Straßen und Gängen kommt man nur halb so schnell voran.'
+          : 'Leichtes Gelände: volles Tempo, auch abseits der Wege.',
   };
 }

@@ -17,20 +17,21 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { GROUNDS, LINE_LABEL, lineDistance, markerNear, symbolSites } from '../../domain/mapDraw';
 import {
-  MAP_GROUNDS,
-  createEntity,
-  type GameMap,
-  type MapGround,
-  type MapLine,
-} from '../../domain/schema';
+  GROUNDS,
+  LEVEL_GROUNDS,
+  lineDistance,
+  lineLabel,
+  markerNear,
+  symbolSites,
+} from '../../domain/mapDraw';
+import { createEntity, type GameMap, type MapGround, type MapLine } from '../../domain/schema';
 import { formatWayTime } from '../../domain/ways';
 import { Button, Dialog, EntityPicker, Field, IconButton, Input, cx, entityHref } from '../../ui';
-import { formatKm } from '../atlas/model';
 import {
   drawLine,
   paintGround,
+  paintRect,
   placeMarker,
   removeLine,
   removeMarker,
@@ -42,6 +43,7 @@ import {
   SYMBOL_CELL,
   clampView,
   fitView,
+  formatLength,
   groundFacts,
   lineFacts,
   toMap,
@@ -108,8 +110,13 @@ export function MapEditor({
   );
 
   const [tool, setTool] = useState<Tool>('hand');
-  const [ground, setGround] = useState<MapGround>('forest');
-  const [brush, setBrush] = useState<BrushId>('medium');
+  const below = map.level === 'underground';
+  const grounds = LEVEL_GROUNDS[map.level];
+  const [picked, setGround] = useState<MapGround>(below ? 'cave' : 'forest');
+  /** Wechselt die Ebene der Karte, gilt das Gelände dieser Ebene. */
+  const ground = grounds.includes(picked) ? picked : grounds[1]!;
+  /** Ein Pinsel – oder „rect“: ein Rechteck aufziehen, etwa für einen Raum. */
+  const [brush, setBrush] = useState<BrushId | 'rect'>('medium');
   const [lineKind, setLineKind] = useState<MapLine['kind']>('road');
   const [selection, setSelection] = useState<Selection | null>(null);
   /** Die Karte mit den Angaben weicht dem Gewählten aus: liegt es links, steht sie rechts. */
@@ -118,7 +125,7 @@ export function MapEditor({
   const [pin, setPin] = useState<[number, number] | null>(null);
 
   const frame = map.frame ?? { width: 1000, height: 700 };
-  const brushWidth = BRUSHES.find((entry) => entry.id === brush)!.width;
+  const brushWidth = BRUSHES.find((entry) => entry.id === brush)?.width ?? 0;
   const sites = useMemo(
     () => symbolSites(map, SYMBOL_CELL),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +163,9 @@ export function MapEditor({
         draft: draft.current,
         selected: selectedId,
         brush:
-          tool === 'ground' && pointer.current ? { at: pointer.current, width: brushWidth } : null,
+          tool === 'ground' && brush !== 'rect' && pointer.current
+            ? { at: pointer.current, width: brushWidth }
+            : null,
       },
       palette.current.colors,
     );
@@ -298,9 +307,11 @@ export function MapEditor({
     if (!pan) {
       const at = toMap(view.current, x, y);
       draft.current =
-        tool === 'ground'
-          ? { kind: 'ground', ground, width: brushWidth, points: [at] }
-          : { kind: 'line', line: lineKind, points: [at] };
+        tool !== 'ground'
+          ? { kind: 'line', line: lineKind, points: [at] }
+          : brush === 'rect'
+            ? { kind: 'rect', ground, from: at, to: at }
+            : { kind: 'ground', ground, width: brushWidth, points: [at] };
       paint();
     }
   };
@@ -328,10 +339,16 @@ export function MapEditor({
         size.current.height,
       );
     } else if (draft.current) {
-      const points = draft.current.points;
-      const last = points[points.length - 1]!;
+      const current = draft.current;
       const at = pointer.current;
-      if (Math.hypot(at[0] - last[0], at[1] - last[1]) * view.current.zoom >= 2) points.push(at);
+      if (current.kind === 'rect') current.to = at;
+      // Mit der Umschalt-Taste wird die Linie gerade: vom Anfang bis unter den Zeiger.
+      else if (current.kind === 'line' && event.shiftKey) current.points = [current.points[0]!, at];
+      else {
+        const last = current.points[current.points.length - 1]!;
+        if (Math.hypot(at[0] - last[0], at[1] - last[1]) * view.current.zoom >= 2)
+          current.points.push(at);
+      }
     }
     paint();
   };
@@ -347,7 +364,9 @@ export function MapEditor({
     draft.current = null;
     if (drawn?.kind === 'ground')
       remember(paintGround(db, map.id, drawn.ground, drawn.width, drawn.points));
-    else if (drawn && active.moved && drawn.points.length >= 2) {
+    else if (drawn?.kind === 'rect') {
+      if (active.moved) remember(paintRect(db, map.id, drawn.ground, drawn.from, drawn.to));
+    } else if (drawn && active.moved && drawn.points.length >= 2) {
       const result = drawLine(db, map.id, drawn.line, drawn.points);
       if (result.line) {
         remember(result.undo);
@@ -360,7 +379,12 @@ export function MapEditor({
 
   const place = map.placeId ? data.entities[map.placeId] : undefined;
   const widthKm = map.scale ? map.scale.kmPerUnit * frame.width : null;
-  const hint = TOOLS.find((entry) => entry.id === tool)!.hint;
+  const hint =
+    tool !== 'line'
+      ? TOOLS.find((entry) => entry.id === tool)!.hint
+      : below
+        ? 'Ein Gang gräbt sich durch den Fels. Von Ort zu Ort gezogen, wird er zum Weg im Wegenetz. Umschalt-Taste: gerade.'
+        : 'Von Ort zu Ort gezogen, wird eine Straße oder ein Pfad zum Weg im Wegenetz. Umschalt-Taste: gerade.';
 
   return (
     <div className="wf-karten-editor">
@@ -368,7 +392,7 @@ export function MapEditor({
         <div className="wf-karten-bar__title">
           <h2>{map.name}</h2>
           <span>
-            {[place?.name, widthKm ? `${formatKm(widthKm)} breit` : null]
+            {[place?.name, widthKm ? `${formatLength(widthKm)} breit` : null]
               .filter(Boolean)
               .join(' · ')}
           </span>
@@ -413,7 +437,7 @@ export function MapEditor({
         {tool === 'ground' && (
           <>
             <div className="wf-karten-chips" role="group" aria-label="Gelände">
-              {MAP_GROUNDS.map((entry) => (
+              {grounds.map((entry) => (
                 <button
                   key={entry}
                   type="button"
@@ -438,6 +462,15 @@ export function MapEditor({
                   {entry.label}
                 </button>
               ))}
+              <button
+                type="button"
+                className="wf-karten-chip"
+                aria-pressed={brush === 'rect'}
+                title="Aufziehen ergibt ein Rechteck – etwa einen Raum"
+                onClick={() => setBrush('rect')}
+              >
+                Rechteck
+              </button>
             </div>
           </>
         )}
@@ -451,7 +484,7 @@ export function MapEditor({
                 aria-pressed={lineKind === entry}
                 onClick={() => setLineKind(entry)}
               >
-                {LINE_LABEL[entry]}
+                {lineLabel(entry, map.level)}
               </button>
             ))}
           </div>
@@ -462,7 +495,10 @@ export function MapEditor({
       <div className="wf-karten-stage" ref={stage}>
         <canvas
           ref={canvas}
-          className={cx('wf-karten-canvas', `wf-karten-canvas--${tool}`)}
+          className={cx(
+            'wf-karten-canvas',
+            `wf-karten-canvas--${tool === 'ground' && brush === 'rect' ? 'line' : tool}`,
+          )}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -602,7 +638,7 @@ function SelectionCard({
         {facts.km !== null && (
           <>
             <dt>Länge</dt>
-            <dd>{formatKm(facts.km)}</dd>
+            <dd>{formatLength(facts.km)}</dd>
           </>
         )}
         {facts.minutes !== null && (
@@ -616,7 +652,7 @@ function SelectionCard({
             <dt>Gelände</dt>
             <dd>
               {line.kind === 'road'
-                ? 'Straße – volles Tempo'
+                ? `${facts.sort} – volles Tempo`
                 : facts.difficult > 0.02
                   ? `${Math.round(facts.difficult * 100)} % schwierig`
                   : 'leicht'}
@@ -627,6 +663,11 @@ function SelectionCard({
       {facts.wet && (
         <p className="wf-karten-card__warn">
           Der Pfad führt durch Wasser. Ohne Brücke oder Furt kommt hier niemand zu Fuß hinüber.
+        </p>
+      )}
+      {facts.blocked && (
+        <p className="wf-karten-card__warn">
+          Der Pfad führt durch Fels oder über einen Abgrund. Dort kommt nur ein Gang hindurch.
         </p>
       )}
       {facts.way ? (
@@ -686,7 +727,7 @@ function PinDialog({
       <div className="wf-col">
         <Field
           label="Ort der Welt"
-          hint="Zwei Orte der Welt, mit einer Straße oder einem Pfad verbunden, ergeben einen Weg."
+          hint="Zwei Orte der Welt, mit einer Straße, einem Gang oder einem Pfad verbunden, ergeben einen Weg."
         >
           <EntityPicker
             value={entityId}

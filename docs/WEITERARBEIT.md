@@ -826,9 +826,33 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
   dazwischen (35 km → 7 Std. 20 Min., Weg im Wegenetz), Auswahl, Vergrößern, Grund Wasser,
   Unterreich, Angaben ändern, Löschen samt Weg. **Nicht geprüft:** installierte App, macOS,
   Zeichnen mit dem Trackpad, große Karten mit sehr vielen Strichen.
-- **Offen (Reihenfolge nach dem Konzept):** Flächen statt nur Pinsel (Küste nachziehen, füllen);
-  Höhlen und Gänge für das Unterreich (Fels als Grund, Räume, Türen) – der Einstieg in den
-  Dungeoncrawl; die gezeichnete Karte am Spieltisch zeigen (bisher nur Bildkarten,
+- **Höhlen und Gänge (12. 11. 2026, zweiter Schritt) – gebaut.** Anlass: Die Gruppe spielt im
+  Unterreich.
+  - **Eigenes Gelände je Ebene** (`LEVEL_GROUNDS`): unter der Erde Fels (der übliche Grund),
+    Höhle, Pilzwald, Geröll, Wasser, Abgrund. Fels und Abgrund sind `solid` – kein Durchkommen.
+    Der Dialog bietet nur das Gelände der gewählten Ebene an.
+  - **Gänge:** Die Linie „Straße“ heißt unter der Erde „Gang“ (`lineLabel`) und gräbt sich durch
+    den Fels: `groundAt` meldet im Gang (`TUNNEL_WIDTH`) begehbaren Boden, der Zeichner schneidet
+    ihn aus der Felsfläche. Ein Gang trägt auch über Abgrund und Wasser. Ein **Pfad** durch Fels
+    oder über einen Abgrund wird gemeldet (`walk.blocked`). Von Ort zu Ort wird ein Gang zum Weg.
+  - **Räume:** Pinsel „Rechteck“ – aufziehen ergibt ein Rechteck (`paintRect`). Gespeichert als
+    gerader Strich mit stumpfen Enden (`stroke.cap: 'butt'`), kein neues Formmodell.
+  - **Gerade Linien:** Umschalt-Taste beim Ziehen einer Linie.
+  - **Aussehen:** Fels, Wasser und Abgrund sind Flächen mit Randlinie und Saum (`FLOODS` in
+    `draw.ts`, dieselbe Maskentechnik wie die Küste): dunkler Fels, hellere Höhlen, violetter
+    Schimmer an den Wänden, Pilze und Steine als Zeichen. Farben `--map-cave`, `--map-fungus`,
+    `--map-fungus-cap`, `--map-rubble`, `--map-chasm`, `--map-glow`.
+  - **Kleine Maßstäbe:** Längen unter einem Kilometer stehen in Metern (`formatLength`), der
+    Maßstabsbalken reicht bis 5 m hinunter.
+  - Geprüft in der Vorschau bei 1440×900: Karte „Unterreich“ anlegen (Grund springt auf Fels),
+    Höhlen malen, drei Räume, Gänge frei und gerade, Pilzwald, See, Abgrund, Geröll, zwei Orte,
+    Gang dazwischen (1,1 km → 14 Min., Weg im Wegenetz), Pfad durch Fels mit Warnung, Löschen.
+    **Nicht geprüft:** installierte App, macOS, Trackpad.
+- **Offen (Reihenfolge nach dem Konzept):** Türen, Geheimgänge und Fallen als Zeichen an Gängen
+  und Räumen; Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
+  verbinden; Faerzress-Zonen und Herrschaftsgebiete als Flächen über dem Gelände; Licht und
+  Wissen („kennt die Gruppe“) auf der Karte; Flächen statt nur Pinsel (Küste nachziehen,
+  füllen); die gezeichnete Karte am Spieltisch zeigen (bisher nur Bildkarten,
   `tisch/wiki.ts`); Ansichten „Hex“ und „Netz“ derselben Karte; Linien nachträglich
   verschieben; Zustand und Wissen als Schichten (gesperrte Straße, „kennt die Gruppe“);
   Hexkarten der Erkundung aus der gezeichneten Karte speisen (`groundShares` steht bereit).

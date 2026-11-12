@@ -19,35 +19,63 @@ export interface GroundType {
   terrain: Terrain;
   /** Schwieriges Gelände: abseits von Straßen kommt man nur halb so schnell voran. */
   difficult: boolean;
-  /** Zu Fuß nicht begehbar. */
+  /** Wasser: zu Fuß nicht begehbar, außer über eine Straße (Brücke, Furt). */
   water: boolean;
+  /** Fels oder Abgrund: kein Durchkommen, außer auf einem Gang. */
+  solid: boolean;
   /** Welches Zeichen der Zeichner dort verstreut. */
-  symbol: 'tree' | 'hill' | 'peak' | 'reed' | 'dune' | null;
+  symbol: 'tree' | 'hill' | 'peak' | 'reed' | 'dune' | 'mushroom' | 'stone' | null;
 }
 
+const ground = (
+  label: string,
+  terrain: Terrain,
+  traits: Partial<Pick<GroundType, 'difficult' | 'water' | 'solid' | 'symbol'>> = {},
+): GroundType => ({
+  label,
+  terrain,
+  difficult: false,
+  water: false,
+  solid: false,
+  symbol: null,
+  ...traits,
+});
+
 export const GROUNDS: Record<MapGround, GroundType> = {
-  plain: { label: 'Ebene', terrain: 'grassland', difficult: false, water: false, symbol: null },
-  forest: { label: 'Wald', terrain: 'forest', difficult: true, water: false, symbol: 'tree' },
-  hills: { label: 'Hügel', terrain: 'hills', difficult: true, water: false, symbol: 'hill' },
-  mountains: {
-    label: 'Gebirge',
-    terrain: 'mountains',
-    difficult: true,
-    water: false,
-    symbol: 'peak',
-  },
-  swamp: { label: 'Sumpf', terrain: 'swamp', difficult: true, water: false, symbol: 'reed' },
-  desert: { label: 'Wüste', terrain: 'desert', difficult: true, water: false, symbol: 'dune' },
-  snow: { label: 'Schnee und Eis', terrain: 'arctic', difficult: true, water: false, symbol: null },
-  water: { label: 'Wasser', terrain: 'water', difficult: false, water: true, symbol: null },
+  plain: ground('Ebene', 'grassland'),
+  forest: ground('Wald', 'forest', { difficult: true, symbol: 'tree' }),
+  hills: ground('Hügel', 'hills', { difficult: true, symbol: 'hill' }),
+  mountains: ground('Gebirge', 'mountains', { difficult: true, symbol: 'peak' }),
+  swamp: ground('Sumpf', 'swamp', { difficult: true, symbol: 'reed' }),
+  desert: ground('Wüste', 'desert', { difficult: true, symbol: 'dune' }),
+  snow: ground('Schnee und Eis', 'arctic', { difficult: true }),
+  water: ground('Wasser', 'water', { water: true }),
+  rock: ground('Fels', 'underdark', { solid: true }),
+  cave: ground('Höhle', 'underdark'),
+  fungus: ground('Pilzwald', 'underdark', { difficult: true, symbol: 'mushroom' }),
+  rubble: ground('Geröll', 'underdark', { difficult: true, symbol: 'stone' }),
+  chasm: ground('Abgrund', 'underdark', { solid: true }),
 };
 
-export const LINE_LABEL: Record<MapLine['kind'], string> = {
+/** Welches Gelände sich auf welcher Ebene malen lässt – das erste ist der übliche Grund. */
+export const LEVEL_GROUNDS: Record<GameMap['level'], readonly MapGround[]> = {
+  surface: ['plain', 'forest', 'hills', 'mountains', 'swamp', 'desert', 'snow', 'water'],
+  underground: ['rock', 'cave', 'fungus', 'rubble', 'water', 'chasm'],
+};
+
+const LINE_LABEL: Record<MapLine['kind'], string> = {
   road: 'Straße',
   path: 'Pfad',
   river: 'Fluss',
   border: 'Grenze',
 };
+
+/** Unter der Erde ist die Straße ein Gang: Er gräbt sich durch den Fels. */
+export const lineLabel = (kind: MapLine['kind'], level: GameMap['level']): string =>
+  level === 'underground' && kind === 'road' ? 'Gang' : LINE_LABEL[kind];
+
+/** Breite eines Ganges in Karteneinheiten. */
+export const TUNNEL_WIDTH = 12;
 
 type Point = readonly [number, number];
 
@@ -94,21 +122,38 @@ function boxOf(stroke: MapStroke): readonly [number, number, number, number] {
 export function strokeCovers(stroke: MapStroke, x: number, y: number): boolean {
   const box = boxOf(stroke);
   if (x < box[0] || y < box[1] || x > box[2] || y > box[3]) return false;
-  return lineDistance(stroke.points, x, y) <= stroke.width / 2;
+  if (stroke.cap !== 'butt') return lineDistance(stroke.points, x, y) <= stroke.width / 2;
+  // Stumpfe Enden: Die Stelle muss neben einer Strecke liegen, nicht vor oder hinter ihr.
+  for (let i = 1; i < stroke.points.length; i++) {
+    const [a, b] = [stroke.points[i - 1]!, stroke.points[i]!];
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    const length = dx * dx + dy * dy;
+    if (length === 0) continue;
+    const t = ((x - a[0]) * dx + (y - a[1]) * dy) / length;
+    if (t < 0 || t > 1) continue;
+    if (Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y) <= stroke.width / 2) return true;
+  }
+  return false;
 }
+
+type Painted = Pick<GameMap, 'strokes' | 'ground'> & Partial<Pick<GameMap, 'lines' | 'level'>>;
 
 /**
  * Das Gelände an einer Stelle: der oberste Pinselstrich, der sie bedeckt – sonst der Grund der
- * Karte.
+ * Karte. Unter der Erde ist ein Gang durch den Fels begehbarer Boden.
  */
-export function groundAt(
-  map: Pick<GameMap, 'strokes' | 'ground'>,
-  x: number,
-  y: number,
-): MapGround {
+export function groundAt(map: Painted, x: number, y: number): MapGround {
+  let found = map.ground;
   for (let i = map.strokes.length - 1; i >= 0; i--)
-    if (strokeCovers(map.strokes[i]!, x, y)) return map.strokes[i]!.ground;
-  return map.ground;
+    if (strokeCovers(map.strokes[i]!, x, y)) {
+      found = map.strokes[i]!.ground;
+      break;
+    }
+  if (found === 'rock' && map.level === 'underground' && map.lines)
+    for (const line of map.lines)
+      if (line.kind === 'road' && lineDistance(line.points, x, y) <= TUNNEL_WIDTH / 2)
+        return 'cave';
+  return found;
 }
 
 /** Länge einer Linie in Karteneinheiten. */
@@ -132,6 +177,8 @@ export interface Walk {
   difficult: number;
   /** Die Strecke führt durch Wasser, ohne dass eine Straße (Brücke, Furt) sie trägt. */
   wet: boolean;
+  /** Die Strecke führt durch Fels oder über einen Abgrund, ohne dass ein Gang sie trägt. */
+  blocked: boolean;
 }
 
 /**
@@ -140,7 +187,7 @@ export interface Walk {
  * Tempo. Null ohne Maßstab.
  */
 export function walkAlong(
-  map: Pick<GameMap, 'strokes' | 'ground' | 'scale'>,
+  map: Painted & Pick<GameMap, 'scale'>,
   points: readonly Point[],
   road: boolean,
 ): Walk | null {
@@ -150,6 +197,7 @@ export function walkAlong(
   let hours = 0;
   let hard = 0;
   let wet = false;
+  let blocked = false;
   for (let i = 1; i < points.length; i++) {
     const [a, b] = [points[i - 1]!, points[i]!];
     const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -161,12 +209,19 @@ export function walkAlong(
       const part = (length / parts) * scale;
       const slow = !road && ground.difficult;
       if (ground.water && !road) wet = true;
+      if (ground.solid && !road) blocked = true;
       km += part;
       hard += slow ? part : 0;
       hours += (part / WALK_KMH) * (slow ? 2 : 1);
     }
   }
-  return { km, minutes: Math.max(1, Math.round(hours * 60)), difficult: km ? hard / km : 0, wet };
+  return {
+    km,
+    minutes: Math.max(1, Math.round(hours * 60)),
+    difficult: km ? hard / km : 0,
+    wet,
+    blocked,
+  };
 }
 
 /** Der Kartenpunkt in der Nähe einer Stelle – der nächste innerhalb von `reach`. */
@@ -230,7 +285,7 @@ export interface SymbolSite {
  * springt. `cell` ist die Weite des Rasters in Karteneinheiten.
  */
 export function symbolSites(
-  map: Pick<GameMap, 'id' | 'strokes' | 'ground' | 'frame'>,
+  map: Painted & Pick<GameMap, 'id' | 'frame'>,
   cell: number,
 ): SymbolSite[] {
   const frame = map.frame;

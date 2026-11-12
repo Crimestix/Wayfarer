@@ -11,6 +11,7 @@ import {
   type GameMap,
   type MapGround,
   type MapLine,
+  type MapStroke,
 } from '../../domain/schema';
 
 /** Breite einer neuen Karte in Karteneinheiten; die Höhe folgt dem Seitenverhältnis 10 : 7. */
@@ -95,7 +96,46 @@ export function paintGround(
   points: readonly (readonly [number, number])[],
 ): Undo {
   if (!points.length) return () => {};
-  const stroke = { id: newId(), ground, width, points: simplify(points, 1.2) };
+  const stroke: MapStroke = {
+    id: newId(),
+    ground,
+    width,
+    points: simplify(points, 1.2),
+    cap: 'round',
+  };
+  return change(
+    db,
+    mapId,
+    (map) => ({ strokes: [...map.strokes, stroke] }),
+    (map) => ({ strokes: without(map.strokes, stroke.id) }),
+  );
+}
+
+/**
+ * Malt ein Rechteck Gelände – einen Raum, ein Feld. Gespeichert wird es als gerader Strich mit
+ * stumpfen Enden: so breit wie das Rechteck hoch ist.
+ */
+export function paintRect(
+  db: CampaignDb,
+  mapId: string,
+  ground: MapGround,
+  from: readonly [number, number],
+  to: readonly [number, number],
+): Undo {
+  const [x0, x1] = [Math.min(from[0], to[0]), Math.max(from[0], to[0])];
+  const [y0, y1] = [Math.min(from[1], to[1]), Math.max(from[1], to[1])];
+  if (x1 - x0 < 1 || y1 - y0 < 1) return () => {};
+  const middle = (y0 + y1) / 2;
+  const stroke: MapStroke = {
+    id: newId(),
+    ground,
+    width: y1 - y0,
+    points: [
+      [x0, middle],
+      [x1, middle],
+    ],
+    cap: 'butt',
+  };
   return change(
     db,
     mapId,

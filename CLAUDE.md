@@ -147,7 +147,10 @@ nicht übernommen.
   Verbindet eine Straße oder ein Pfad zwei Orte der Welt, legt `drawLine`
   (`features/karten/actions.ts`) den Weg dazu an; seine Dauer bleibt offen (`minutes: null`)
   und folgt der Karte. Gezeichnet wird nur über diese Befehle, damit Wege und Rückgängig
-  mitziehen. Farben der Karte: nur `--map-*`.
+  mitziehen. Farben der Karte: nur `--map-*`. Jede Ebene hat ihr Gelände (`LEVEL_GROUNDS`):
+  unter der Erde ist Fels der Grund, die Straße heißt „Gang“ (`lineLabel`) und gräbt sich durch
+  den Fels; ein Raum ist ein Strich mit stumpfen Enden (`paintRect`). Wasser, Fels und Abgrund
+  zeichnet `draw.ts` als Flächen mit Rand (`FLOODS`) – neues Gelände dieser Art dort eintragen.
 - Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
   Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
   die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen

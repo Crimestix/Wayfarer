@@ -6,8 +6,8 @@ import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { Image as ImageIcon, Map as MapIcon, PenLine, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { GROUNDS } from '../../domain/mapDraw';
-import { MAP_GROUNDS, createEntity, type GameMap, type MapGround } from '../../domain/schema';
+import { GROUNDS, LEVEL_GROUNDS } from '../../domain/mapDraw';
+import { createEntity, type GameMap, type MapGround } from '../../domain/schema';
 import {
   Button,
   Dialog,
@@ -169,6 +169,7 @@ function MapDialog({
   );
   const [ground, setGround] = useState<MapGround>(map?.ground ?? 'plain');
   const [level, setLevel] = useState<GameMap['level']>(map?.level ?? 'surface');
+  const below = level === 'underground';
   const widthKm = number(width);
   const ready = name.trim() !== '' && widthKm > 0;
 
@@ -218,7 +219,11 @@ function MapDialog({
         <Field
           className="wf-span-2"
           label="Breite in Kilometern"
-          hint="Von West nach Ost. Daraus rechnet Wayfarer Entfernungen und Reisezeiten – eine Stadt etwa 2, ein Umland 50, ein Reich 800."
+          hint={
+            below
+              ? 'Von West nach Ost. Daraus rechnet Wayfarer Entfernungen und Wegzeiten – ein Gewölbe etwa 0,2 (das sind 200 Meter), ein Höhlensystem 5, ein Stück Unterreich 100.'
+              : 'Von West nach Ost. Daraus rechnet Wayfarer Entfernungen und Reisezeiten – eine Stadt etwa 2, ein Umland 50, ein Reich 800.'
+          }
         >
           <Input
             value={width}
@@ -227,22 +232,33 @@ function MapDialog({
             onChange={(event) => setWidth(event.target.value)}
           />
         </Field>
-        <Field label="Grund" hint="Das Gelände, wo nichts gemalt ist. Für eine Insel: Wasser.">
+        <Field label="Ebene" hint="Unter der Erde: heller Strich auf dunklem Fels.">
+          <Select
+            value={level}
+            onChange={(event) => {
+              const next = event.target.value as GameMap['level'];
+              setLevel(next);
+              if (!LEVEL_GROUNDS[next].includes(ground)) setGround(LEVEL_GROUNDS[next][0]!);
+            }}
+          >
+            <option value="surface">Oberwelt</option>
+            <option value="underground">Unterreich</option>
+          </Select>
+        </Field>
+        <Field
+          label="Grund"
+          hint={
+            below
+              ? 'Das Gelände, wo nichts gemalt ist – meist Fels, aus dem Höhlen und Gänge entstehen.'
+              : 'Das Gelände, wo nichts gemalt ist. Für eine Insel: Wasser.'
+          }
+        >
           <Select value={ground} onChange={(event) => setGround(event.target.value as MapGround)}>
-            {MAP_GROUNDS.map((entry) => (
+            {LEVEL_GROUNDS[level].map((entry) => (
               <option key={entry} value={entry}>
                 {GROUNDS[entry].label}
               </option>
             ))}
-          </Select>
-        </Field>
-        <Field label="Ebene" hint="Unter der Erde: heller Strich auf dunklem Fels.">
-          <Select
-            value={level}
-            onChange={(event) => setLevel(event.target.value as GameMap['level'])}
-          >
-            <option value="surface">Oberwelt</option>
-            <option value="underground">Unterreich</option>
           </Select>
         </Field>
       </div>

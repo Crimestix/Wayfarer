@@ -81,6 +81,12 @@
   --map-rock: #1d1a22;
   --map-rock-edge: #3a3350;
   --map-rock-ink: #cfc6e6;
+  --map-cave: #463f55;
+  --map-fungus: #55447a;
+  --map-fungus-cap: #a990e6;
+  --map-rubble: #524c56;
+  --map-chasm: #08070b;
+  --map-glow: #7a62c4;
 
   --att-n5: #e2463c;
   --att-n4: #d9584c;
