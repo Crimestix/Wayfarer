@@ -675,7 +675,7 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
         .map((a) => ({
           key: 'article:' + a.id,
           label: a.title,
-          sub: 'Wiki-Artikel',
+          sub: 'Artikel',
           href: `/wiki/${a.id}`,
           icon: <Library />,
         }))

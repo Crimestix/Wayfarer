@@ -112,7 +112,7 @@ export function AiSection() {
     setProgress(null);
     toast({
       title: found === 1 ? 'Ein Vorschlag liegt bereit' : `${found} Vorschläge liegen bereit`,
-      body: `Gelesen für ${formatUsd(usd)}. Die Vorschläge stehen im Wiki an den Artikeln.`,
+      body: `Gelesen für ${formatUsd(usd)}. Die Vorschläge stehen in der Welt an den Artikeln.`,
       duration: 10000,
     });
   };
@@ -174,7 +174,7 @@ export function AiSection() {
       <p>
         Bisher gelesen: {totals.articles} Artikel für rund {formatUsd(totals.usd)}.{' '}
         {totals.open > 0 &&
-          `${totals.open === 1 ? 'Ein Vorschlag wartet' : `${totals.open} Vorschläge warten`} im Wiki.`}
+          `${totals.open === 1 ? 'Ein Vorschlag wartet' : `${totals.open} Vorschläge warten`} in der Welt.`}
       </p>
 
       <div className="wf-ki-set__row">

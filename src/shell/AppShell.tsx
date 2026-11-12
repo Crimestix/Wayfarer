@@ -21,14 +21,13 @@ import FaedenPage from '../features/faeden';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
 import { WeatherChip } from '../features/wetter';
-import WikiPage from '../features/wiki';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
 import { AREAS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
 import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
-import WeltPage from '../features/welt';
+import WeltPage, { WikiRoute } from '../features/welt';
 import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster } from '../ui';
 import { openMoveParty, openQuickLog, openRest, openSearch, openTimeDialog } from './commands';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -322,7 +321,7 @@ export function AppShell() {
           <Switch>
             <Route path="/" component={TischPage} />
             <Route path="/welt/:id?" component={WeltPage} />
-            <Route path="/wiki/:id?" component={WikiPage} />
+            <Route path="/wiki/:id?" component={WikiRoute} />
             <Route path="/chronik" component={ZeitChronik} />
             <Route path="/kalender" component={ZeitKalender} />
             <Route path="/gruppe/:id?" component={GruppePage} />

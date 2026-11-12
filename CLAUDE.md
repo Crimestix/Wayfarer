@@ -76,6 +76,16 @@ nicht übernommen.
 - `src/shell/` – Gerüst: Navigation, Weltleiste, Dialoge. `commands.ts` enthält die Handgriffe, die
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
   `openTimeDialog`).
+- **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
+  Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender und Chronik; „Karten“ = Weltkarte (`atlas`),
+  Karten (`karten`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
+  `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
+  im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
+  `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
+  Artikel einem gehört – dort ist er der Reiter „Text“. Vor einem neuen Eintrag in der
+  Navigation prüfen, ob er als Reiter oder als Teil der Welt passt (Entscheidung des
+  Spielleiters, 12. 11. 2026: „vieles ist drin, dadurch ist einiges unübersichtlich geworden“).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
   `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
   LegendKeeper-Exports),

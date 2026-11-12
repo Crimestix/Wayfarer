@@ -549,8 +549,8 @@ export function PlacePanel({ place }: { place: Place }) {
                   </section>
                 )}
                 {excerpt && hasExcerpt && article && (
-                  <section className="wf-col wf-tisch-wiki" aria-label="Aus dem Wiki">
-                    <SectionTitle>Aus dem Wiki</SectionTitle>
+                  <section className="wf-col wf-tisch-wiki" aria-label="Aus dem Artikel">
+                    <SectionTitle>Aus dem Artikel</SectionTitle>
                     {excerpt.paragraphs.map((paragraph, index) => (
                       <p key={index} className="wf-prose wf-soft">
                         {paragraph}

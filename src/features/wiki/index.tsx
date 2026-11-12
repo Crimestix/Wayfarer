@@ -1,6 +1,9 @@
-/** Wiki – alle Artikel der Welt als Baum, mit Suche. Links der Baum, rechts der Artikel. */
+/**
+ * Wiki – die Artikel der Welt. Keine eigene Seite mehr: Baum, Suche, Übersicht und der Artikel
+ * selbst sind Bausteine der Seite „Welt“ (`features/welt`).
+ */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useLocation, useParams } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import {
   BookOpen,
   ChevronRight,
@@ -10,8 +13,6 @@ import {
   Library,
   PenLine,
   Plus,
-  Search,
-  X,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
@@ -20,8 +21,6 @@ import {
   Button,
   EmptyState,
   EntityLink,
-  IconButton,
-  Input,
   KindIcon,
   MenuItem,
   Popover,
@@ -262,155 +261,18 @@ function Wanted({
   );
 }
 
-function Landing({
-  roots,
-  total,
-  articles,
-  onCreate,
-}: {
-  roots: TreeNode[];
-  total: number;
-  articles: Record<string, Article>;
-  onCreate: (title: string, from: Article | null) => void;
-}) {
-  return (
-    <div className="wf-wiki-landing">
-      <h1 className="wf-page__title">Wiki</h1>
-      <p className="wf-page__lead">
-        {total === 1 ? 'Ein Artikel' : `${total} Artikel`} über die Welt – dein Nachschlagewerk,
-        gespeichert in Wayfarer. Links steht der Baum; die Suche findet auch Wörter mitten im Text.
-      </p>
-      <Button
-        icon={<FilePlus2 />}
-        className="wf-wiki-landing__new"
-        onClick={() => onCreate('', null)}
-      >
-        Neuer Artikel
-      </Button>
-      <div className="wf-wiki-shelf">
-        {roots.map(({ article, size }) => (
-          <Link key={article.id} href={`/wiki/${article.id}`} className="wf-wiki-book">
-            <ArticleIcon icon={article.icon} />
-            <span className="wf-wiki-book__title">{article.title}</span>
-            <span className="wf-wiki-book__count">
-              {size === 0 ? 'ein Artikel' : `${size + 1} Artikel`}
-            </span>
-          </Link>
-        ))}
-      </div>
-      <AiOverview />
-      <FactsOverview />
-      <Wanted articles={articles} onCreate={onCreate} />
-    </div>
-  );
-}
-
-export default function WikiPage() {
+/**
+ * Die Artikel als Übersicht: die obersten Ordner als Regal, darunter was der KI-Leser und die
+ * Steckbriefe vorschlagen und worauf verwiesen wird, ohne dass es einen Artikel gibt. Steht auf
+ * der Startseite der Welt.
+ */
+export function WikiStart() {
   const data = useData();
-  const { id } = useParams<{ id?: string }>();
   const [, navigate] = useLocation();
   const articles = data.articles;
   const tree = useMemo(() => articleTree(articles), [articles]);
-  const article = id ? articles[id] : undefined;
-  const [query, setQuery] = useState(memory.query);
-  const [open, setOpen] = useState(memory.open);
-  const [showTemplates, setShowTemplates] = useState(false);
   const total = Object.keys(articles).length - tree.templates.length;
-  const main = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<WikiMode>(memory.mode);
-  /** Zuletzt benutzte Schreibansicht – dorthin wechselt Strg+E. */
-  const lastEdit = useRef<WikiMode>(memory.mode === 'source' ? 'source' : 'live');
   const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
-
-  useEffect(() => {
-    memory.query = query;
-    memory.open = open;
-    memory.mode = mode;
-    if (mode !== 'read') lastEdit.current = mode;
-  }, [query, open, mode]);
-
-  // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'e')
-        return;
-      event.preventDefault();
-      setMode((current) => (current === 'read' ? lastEdit.current : 'read'));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Der gewählte Artikel soll im Baum zu sehen sein. Hängt am Platz im Baum, nicht am Inhalt:
-  // Beim Schreiben ändert sich das Wiki laufend, ohne dass die Ansicht springen darf.
-  const place = id
-    ? articlePath(articles, id)
-        .map((step) => step.id)
-        .join('/')
-    : '';
-  useEffect(() => {
-    if (!id) return;
-    const path = place ? place.split('/') : [];
-    if (path.length)
-      setOpen((current) => {
-        if (path.every((step) => current.has(step))) return current;
-        const next = new Set(current);
-        for (const step of path) next.add(step);
-        return next;
-      });
-    main.current?.scrollTo({ top: 0 });
-    // Erst nach dem Aufklappen steht die Zeile im Baum.
-    const timer = setTimeout(
-      () =>
-        document
-          .querySelector('.wf-wiki-row[data-current="true"]')
-          ?.scrollIntoView({ block: 'nearest' }),
-      30,
-    );
-    return () => clearTimeout(timer);
-  }, [id, place]);
-
-  const toggle = useCallback(
-    (nodeId: string) =>
-      setOpen((current) => {
-        const next = new Set(current);
-        if (next.has(nodeId)) next.delete(nodeId);
-        else next.add(nodeId);
-        return next;
-      }),
-    [],
-  );
-
-  const hits = useMemo(() => {
-    if (!query.trim()) return null;
-    let index = indexCache.get(articles);
-    if (!index) {
-      index = searchIndex(articles);
-      indexCache.set(articles, index);
-    }
-    return searchArticles(index, query);
-  }, [articles, query]);
-
-  const onOpen = useCallback(
-    (target: OpenTarget) => {
-      if (articles[target.resourceId]) navigate(`/wiki/${target.resourceId}`);
-      else if (!target.resourceId && (target.wanted ?? target.title))
-        // Ein Verweis auf etwas, das noch keinen Artikel hat: anbieten, ihn anzulegen.
-        setCreating({
-          parent: article && !article.template ? article : null,
-          title: target.wanted ?? target.title,
-        });
-      else
-        toast({
-          title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht`,
-          body: 'Der Verweis führt zu einem Artikel, der gelöscht wurde.',
-        });
-    },
-    [articles, article, navigate],
-  );
-
-  const newArticle = () =>
-    setCreating({ parent: article && !article.template ? article : null, title: '' });
   const dialog = creating && (
     <NewArticleDialog
       parent={creating.parent}
@@ -418,21 +280,20 @@ export default function WikiPage() {
       onClose={() => setCreating(null)}
       onCreated={(created) => {
         setCreating(null);
-        setMode((current) => (current === 'read' ? lastEdit.current : current));
+        memory.mode = memory.mode === 'read' ? 'live' : memory.mode;
         navigate(`/wiki/${created.id}`);
       }}
     />
   );
-
   if (!Object.keys(articles).length)
     return (
-      <div className="wf-wiki-empty">
+      <div className="wf-wiki-landing">
         <EmptyState
           icon={<Library />}
-          title="Das Wiki ist noch leer"
+          title="Noch keine Artikel"
           action={
             <div className="wf-row" style={{ gap: 'var(--s-3)' }}>
-              <Button variant="primary" icon={<FilePlus2 />} onClick={newArticle}>
+              <Button icon={<FilePlus2 />} onClick={() => setCreating({ parent: null, title: '' })}>
                 Ersten Artikel schreiben
               </Button>
               <Button onClick={() => navigate('/einstellungen')}>LegendKeeper übernehmen</Button>
@@ -446,214 +307,250 @@ export default function WikiPage() {
         {dialog}
       </div>
     );
-
-  const owners = article ? entitiesOfArticle(data, article.id) : [];
-
   return (
-    <div className="wf-wiki">
-      <aside className="wf-wiki-side" aria-label="Artikel">
-        <div className="wf-wiki-side__head">
-          <Link href="/wiki" className="wf-wiki-side__title">
-            Wiki
-          </Link>
-          <span className="wf-wiki-side__total">{total} Artikel</span>
-          <IconButton
-            label={
-              article && !article.template
-                ? `Neuer Artikel – auf Wunsch unter „${article.title}“`
-                : 'Neuer Artikel'
-            }
-            size="sm"
-            onClick={newArticle}
-          >
-            <FilePlus2 />
-          </IconButton>
-        </div>
-        <div className="wf-wiki-search">
-          <Search aria-hidden />
-          <Input
-            placeholder="Im Wiki suchen …"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Im Wiki suchen"
-          />
-          {query && (
-            <button type="button" aria-label="Suche leeren" onClick={() => setQuery('')}>
-              <X />
-            </button>
-          )}
-        </div>
-        <div className="wf-wiki-side__list" role={hits ? undefined : 'tree'}>
-          {hits ? (
-            hits.length ? (
-              hits.map((hit) => (
-                <Link
-                  key={hit.article.id}
-                  href={`/wiki/${hit.article.id}`}
-                  className="wf-wiki-hit"
-                  data-current={hit.article.id === id}
-                >
-                  <span className="wf-wiki-hit__title">
-                    <ArticleIcon icon={hit.article.icon} />
-                    {hit.article.title}
-                  </span>
-                  {hit.where === 'names' && (
-                    <span className="wf-wiki-hit__sub">
-                      {[...hit.article.aliases, ...hit.article.tags].join(' · ')}
-                    </span>
-                  )}
-                  {hit.snippet && <span className="wf-wiki-hit__sub">{hit.snippet}</span>}
-                </Link>
-              ))
-            ) : (
-              <p className="wf-wiki-side__none">Kein Artikel enthält „{query.trim()}“.</p>
-            )
-          ) : (
-            <>
-              <TreeRows nodes={tree.roots} depth={0} open={open} toggle={toggle} current={id} />
-              {tree.templates.length > 0 && (
-                <div className="wf-wiki-templates">
-                  <button
-                    type="button"
-                    className="wf-wiki-templates__head"
-                    aria-expanded={showTemplates}
-                    onClick={() => setShowTemplates((s) => !s)}
-                  >
-                    <ChevronRight
-                      className={cx(
-                        'wf-wiki-row__chevron',
-                        showTemplates && 'wf-wiki-row__chevron--open',
-                      )}
-                    />
-                    Vorlagen
-                    <span className="wf-wiki-row__count">{tree.templates.length}</span>
-                  </button>
-                  {showTemplates &&
-                    tree.templates.map((template) => (
-                      <div
-                        key={template.id}
-                        className="wf-wiki-row"
-                        data-current={template.id === id}
-                        style={{ paddingLeft: 22 }}
-                      >
-                        <Link href={`/wiki/${template.id}`} className="wf-wiki-row__link">
-                          <ArticleIcon icon={template.icon} />
-                          <span className="wf-wiki-row__title">{template.title}</span>
-                        </Link>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </aside>
-
-      <div className="wf-wiki-main" ref={main}>
-        {article ? (
-          <div className="wf-lk wf-wiki-article">
-            <LocalArticle
-              key={article.id}
-              article={article}
-              onOpen={onOpen}
-              mode={mode}
-              actions={
-                <>
-                  <ModeSwitch
-                    mode={mode}
-                    onChange={(next) => {
-                      flushEdits();
-                      setMode(next);
-                    }}
-                  />
-                  {!article.template && owners.length === 0 && <AdoptButton article={article} />}
-                  <ArticleMenu
-                    article={article}
-                    onNewChild={() => setCreating({ parent: article, title: '' })}
-                  />
-                </>
-              }
-              below={
-                <>
-                  {owners.length > 0 && (
-                    <div className="wf-wiki-owners">
-                      In der Welt:
-                      {owners.map((owner) => (
-                        <EntityLink key={owner.id} id={owner.id} />
-                      ))}
-                    </div>
-                  )}
-                  <FactsHint article={article} />
-                  <AiPanel article={article} />
-                </>
-              }
-            />
-          </div>
-        ) : id ? (
-          <div className="wf-wiki-empty">
-            <EmptyState
-              icon={<Library />}
-              title="Diesen Artikel gibt es nicht mehr"
-              action={<Button onClick={() => navigate('/wiki')}>Zur Übersicht</Button>}
-            >
-              Er wurde gelöscht oder stammt aus einem anderen Stand des Wikis.
-            </EmptyState>
-          </div>
-        ) : (
-          <Landing
-            roots={tree.roots}
-            total={total}
-            articles={articles}
-            onCreate={(title, from) => setCreating({ parent: from, title })}
-          />
-        )}
+    <div className="wf-wiki-landing">
+      <div className="wf-wiki-landing__head">
+        <h2 className="wf-wiki-landing__title">Artikel</h2>
+        <span className="wf-mute">
+          {total === 1 ? 'ein Artikel' : `${total} Artikel`} – die Suche links findet auch Wörter
+          mitten im Text
+        </span>
+        <span className="wf-grow" />
+        <Button icon={<FilePlus2 />} onClick={() => setCreating({ parent: null, title: '' })}>
+          Neuer Artikel
+        </Button>
       </div>
+      <div className="wf-wiki-shelf">
+        {tree.roots.map(({ article, size }) => (
+          <Link key={article.id} href={`/wiki/${article.id}`} className="wf-wiki-book">
+            <ArticleIcon icon={article.icon} />
+            <span className="wf-wiki-book__title">{article.title}</span>
+            <span className="wf-wiki-book__count">
+              {size === 0 ? 'ein Artikel' : `${size + 1} Artikel`}
+            </span>
+          </Link>
+        ))}
+      </div>
+      <AiOverview />
+      <FactsOverview />
+      <Wanted
+        articles={articles}
+        onCreate={(title, from) => setCreating({ parent: from, title })}
+      />
       {dialog}
     </div>
   );
 }
 
+/** Die Artikel, in denen die Suche etwas findet – auch mitten im Text. Null ohne Suche. */
+export function useArticleHits(query: string) {
+  const articles = useData().articles;
+  return useMemo(() => {
+    if (!query.trim()) return null;
+    let index = indexCache.get(articles);
+    if (!index) {
+      index = searchIndex(articles);
+      indexCache.set(articles, index);
+    }
+    return searchArticles(index, query);
+  }, [articles, query]);
+}
+
 /**
- * Der Artikel zu einem Eintrag der Welt, eingebettet in dessen Seite. Verweise führen zum Eintrag
- * der Welt, wenn es einen gibt, sonst ins Wiki.
+ * Der Baum aller Artikel – die Ordner des Wikis. Der gewählte Artikel wird aufgeklappt und in den
+ * Blick geholt.
  */
-export function WikiArticlePanel({ articleId }: { articleId: string }) {
+export function ArticleTree({ current }: { current: string | undefined }) {
+  const articles = useData().articles;
+  const tree = useMemo(() => articleTree(articles), [articles]);
+  const [open, setOpen] = useState(memory.open);
+  const [showTemplates, setShowTemplates] = useState(false);
+  useEffect(() => {
+    memory.open = open;
+  }, [open]);
+
+  // Hängt am Platz im Baum, nicht am Inhalt: Beim Schreiben ändert sich das Wiki laufend, ohne
+  // dass die Ansicht springen darf.
+  const place = current
+    ? articlePath(articles, current)
+        .map((step) => step.id)
+        .join('/')
+    : '';
+  useEffect(() => {
+    if (!current) return;
+    const path = place ? place.split('/') : [];
+    if (path.length)
+      setOpen((before) => {
+        if (path.every((step) => before.has(step))) return before;
+        const next = new Set(before);
+        for (const step of path) next.add(step);
+        return next;
+      });
+    // Erst nach dem Aufklappen steht die Zeile im Baum.
+    const timer = setTimeout(
+      () =>
+        document
+          .querySelector('.wf-wiki-row[data-current="true"]')
+          ?.scrollIntoView({ block: 'nearest' }),
+      30,
+    );
+    return () => clearTimeout(timer);
+  }, [current, place]);
+
+  const toggle = useCallback(
+    (nodeId: string) =>
+      setOpen((before) => {
+        const next = new Set(before);
+        if (next.has(nodeId)) next.delete(nodeId);
+        else next.add(nodeId);
+        return next;
+      }),
+    [],
+  );
+
+  return (
+    <div role="tree">
+      <TreeRows nodes={tree.roots} depth={0} open={open} toggle={toggle} current={current} />
+      {tree.templates.length > 0 && (
+        <div className="wf-wiki-templates">
+          <button
+            type="button"
+            className="wf-wiki-templates__head"
+            aria-expanded={showTemplates}
+            onClick={() => setShowTemplates((shown) => !shown)}
+          >
+            <ChevronRight
+              className={cx('wf-wiki-row__chevron', showTemplates && 'wf-wiki-row__chevron--open')}
+            />
+            Vorlagen
+            <span className="wf-wiki-row__count">{tree.templates.length}</span>
+          </button>
+          {showTemplates &&
+            tree.templates.map((template) => (
+              <div
+                key={template.id}
+                className="wf-wiki-row"
+                data-current={template.id === current}
+                style={{ paddingLeft: 22 }}
+              >
+                <Link href={`/wiki/${template.id}`} className="wf-wiki-row__link">
+                  <ArticleIcon icon={template.icon} />
+                  <span className="wf-wiki-row__title">{template.title}</span>
+                </Link>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Ein Artikel zum Lesen und Schreiben – für sich oder als Reiter „Text“ auf der Seite eines
+ * Eintrags der Welt (`embedded`). Ein Verweis führt immer nach `/wiki/…`; gehört der Artikel zu
+ * einem Eintrag, öffnet sich dort dessen Seite.
+ */
+export function ArticlePage({
+  article,
+  embedded = false,
+}: {
+  article: Article;
+  embedded?: boolean;
+}) {
   const data = useData();
   const [, navigate] = useLocation();
-  const article = data.articles[articleId];
+  const articles = data.articles;
+  const [mode, setMode] = useState<WikiMode>(memory.mode);
+  /** Zuletzt benutzte Schreibansicht – dorthin wechselt Strg+E. */
+  const lastEdit = useRef<WikiMode>(memory.mode === 'source' ? 'source' : 'live');
+  const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
+  useEffect(() => {
+    memory.mode = mode;
+    if (mode !== 'read') lastEdit.current = mode;
+  }, [mode]);
+
+  // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'e')
+        return;
+      event.preventDefault();
+      flushEdits();
+      setMode((current) => (current === 'read' ? lastEdit.current : 'read'));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const onOpen = useCallback(
     (target: OpenTarget) => {
-      const owner = entitiesOfArticle(data, target.resourceId)[0];
-      if (owner) navigate(entityHref(owner));
-      else if (data.articles[target.resourceId]) navigate(`/wiki/${target.resourceId}`);
-      else if (!target.resourceId)
-        toast({
-          title: `„${target.wanted ?? target.title}“ hat noch keinen Artikel`,
-          body: 'Im Wiki lässt er sich mit einem Klick auf den Verweis anlegen.',
+      if (articles[target.resourceId]) navigate(`/wiki/${target.resourceId}`);
+      else if (!target.resourceId && (target.wanted ?? target.title))
+        // Ein Verweis auf etwas, das noch keinen Artikel hat: anbieten, ihn anzulegen.
+        setCreating({
+          parent: article.template ? null : article,
+          title: target.wanted ?? target.title,
         });
-      else toast({ title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht` });
+      else
+        toast({
+          title: `„${target.title || 'Dieser Artikel'}“ gibt es nicht`,
+          body: 'Der Verweis führt zu einem Artikel, der gelöscht wurde.',
+        });
     },
-    [data, navigate],
+    [articles, article, navigate],
   );
-  if (!article) return null;
+  const owners = entitiesOfArticle(data, article.id);
+
   return (
-    <div className="wf-lk">
+    <div className={cx('wf-lk wf-wiki-article', embedded && 'wf-wiki-article--embedded')}>
       <LocalArticle
         key={article.id}
         article={article}
         onOpen={onOpen}
+        mode={mode}
         actions={
-          <Button
-            size="sm"
-            icon={<Library />}
-            onClick={() => navigate(`/wiki/${article.id}`)}
-            title="Diesen Artikel im Wiki öffnen"
-            aria-label="Im Wiki öffnen"
-          >
-            <span className="wf-lk-act__label">Im Wiki öffnen</span>
-          </Button>
+          <>
+            <ModeSwitch
+              mode={mode}
+              onChange={(next) => {
+                flushEdits();
+                setMode(next);
+              }}
+            />
+            {!article.template && owners.length === 0 && <AdoptButton article={article} />}
+            <ArticleMenu
+              article={article}
+              onNewChild={() => setCreating({ parent: article, title: '' })}
+            />
+          </>
+        }
+        below={
+          <>
+            {!embedded && owners.length > 0 && (
+              <div className="wf-wiki-owners">
+                In der Welt:
+                {owners.map((owner) => (
+                  <EntityLink key={owner.id} id={owner.id} />
+                ))}
+              </div>
+            )}
+            <FactsHint article={article} />
+            <AiPanel article={article} />
+          </>
         }
       />
+      {creating && (
+        <NewArticleDialog
+          parent={creating.parent}
+          initialTitle={creating.title}
+          onClose={() => setCreating(null)}
+          onCreated={(created) => {
+            setCreating(null);
+            setMode((current) => (current === 'read' ? lastEdit.current : current));
+            navigate(`/wiki/${created.id}`);
+          }}
+        />
+      )}
     </div>
   );
 }

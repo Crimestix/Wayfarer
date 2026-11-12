@@ -998,6 +998,27 @@ Abschnitt 4b.
 - **Nicht geprüft:** die Faustregel für den HG und das EP-Budget stammen aus den Regelwerken, wie
   ich sie kenne – gegen das Buch des Spielleiters gegenzulesen.
 
+**Aufräumen der Navigation (12. 11. 2026, auf Wunsch des Spielleiters) – gebaut.** Von elf auf
+sieben Einträge.
+
+- **Karten:** Atlas, Karten und Erkundung stehen unter „Karten“ als Reiter Weltkarte · Karten ·
+  Hexkarten (`MAP_TABS`, `shell/AreaTabs`). Sprünge: von einem Ort der Weltkarte zu den Karten,
+  die ihn zeigen (`mapsShowing`), und von einer Karte zurück auf die Weltkarte. Die drei haben
+  weiter getrennte Daten – das gemeinsame Kartenmodell aus dem Konzept (4.3) steht noch aus.
+- **Zeit:** Kalender und Chronik als zwei Reiter (`TIME_TABS`).
+- **Welt = Weltdatenbank + Wiki:** eine Seite (`features/welt/index.tsx`), erreichbar über
+  `/welt/…` (Eintrag) und `/wiki/…` (Artikel). Die Übersicht links hat eine Suche für beides
+  (Einträge, dazu Artikel nach Titel und Text) und zwei Ansichten: „Nach Art“ (wie bisher) und
+  „Ordner“ (der Baum der Artikel). Die Seite eines Eintrags zeigt seinen Artikel als ersten
+  Reiter „Text“ – zum Lesen und Schreiben, mit Steckbrief-Hinweis und KI-Leser; ohne Artikel
+  bietet der Reiter „Artikel schreiben“ an. Ein Artikel, der einem Eintrag gehört, hat keine
+  eigene Seite mehr (`WikiRoute` leitet um). Die Startseite zeigt das Dashboard der Welt und
+  darunter die Artikel (Regal, KI-Leser, Steckbriefe, Gesuchtes). Die Daten sind unverändert.
+- **Offen:** Einträge ohne Artikel stehen nicht im Ordnerbaum (nur unter „Nach Art“); die
+  Verschachtelung der Orte und die Ordner der Artikel sind weiter zwei Bäume; „lange Pfade“
+  (Konzept 4c) nicht angefasst; Bestiarium und Fadenbrett sind eigene Bereiche und noch keine
+  Reiter an der Seite eines Dings.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

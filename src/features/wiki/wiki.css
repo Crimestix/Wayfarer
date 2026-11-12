@@ -619,6 +619,32 @@ button.wf-wiki-row__toggle:hover {
 }
 
 /* Übersicht ohne gewählten Artikel */
+/* Der Artikel als Reiter „Text“ auf der Seite eines Eintrags: ohne eigenen Rand */
+.wf-wiki-article--embedded {
+  max-width: none;
+  padding: 0;
+}
+/* Name und Platz stehen schon im Kopf des Eintrags – nicht noch einmal. */
+.wf-wiki-article--embedded .wf-lk-path,
+.wf-wiki-article--embedded .wf-lk-title {
+  display: none;
+}
+.wf-wiki-article--embedded .wf-lk-head {
+  justify-content: flex-end;
+}
+.wf-wiki-landing__head {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  margin-bottom: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
+}
+.wf-wiki-landing__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+}
 .wf-wiki-landing {
   max-width: 1080px;
   padding: var(--s-5) var(--s-6) var(--s-7);

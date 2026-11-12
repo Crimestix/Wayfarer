@@ -6,7 +6,6 @@ import {
   Globe,
   Hexagon,
   Landmark,
-  Library,
   Skull,
   Map as MapIcon,
   Swords,
@@ -29,6 +28,8 @@ export interface Area {
   icon: LucideIcon;
   /** Mehrere Ansichten unter einem Eintrag der Navigation. */
   tabs?: readonly AreaTab[];
+  /** Weitere Pfade, die zu diesem Bereich gehören. */
+  also?: readonly string[];
 }
 
 /** Zeit: der Kalender und was geschehen ist. */
@@ -46,8 +47,13 @@ export const MAP_TABS: readonly AreaTab[] = [
 
 export const AREAS: Area[] = [
   { path: '/', label: 'Spieltisch', hint: 'Hier und jetzt', icon: Flame },
-  { path: '/welt', label: 'Welt', hint: 'Orte, Personen, Bünde', icon: Landmark },
-  { path: '/wiki', label: 'Wiki', hint: 'Artikel über die Welt', icon: Library },
+  {
+    path: '/welt',
+    label: 'Welt',
+    hint: 'Orte, Personen, Artikel',
+    icon: Landmark,
+    also: ['/wiki'],
+  },
   {
     path: '/kalender',
     label: 'Zeit',
@@ -71,4 +77,5 @@ export const AREAS: Area[] = [
 export const areaPaths = (area: Area): string[] => [
   area.path,
   ...(area.tabs ?? []).map((tab) => tab.path),
+  ...(area.also ?? []),
 ];

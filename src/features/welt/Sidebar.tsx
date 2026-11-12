@@ -1,8 +1,8 @@
 /** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
-import type { Entity } from '../../domain/schema';
+import { ChevronRight, FilePlus2, Footprints, Plus, Search, Users, X } from 'lucide-react';
+import type { Article, Entity } from '../../domain/schema';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
@@ -19,6 +19,9 @@ import {
   toast,
 } from '../../ui';
 import { MissingNamesHint } from '../import/NameSync';
+import { ArticleTree, useArticleHits } from '../wiki';
+import { NewArticleDialog } from '../wiki/ArticleTools';
+import { ArticleIcon } from '../wiki/icons';
 import { adoptFamilies } from './actions';
 import { planFamilies } from './dynasty';
 import { openEntityDialog } from './editor';
@@ -45,10 +48,14 @@ import {
   type WorldKind,
 } from './model';
 
-/** Merkt sich Suche und aufgeklappte Orte, solange die App läuft. */
-const memory: { query: string; open: Record<string, boolean> } = {
+/** Zwei Blicke auf dieselbe Welt: nach Art geordnet – oder in den Ordnern, in denen geschrieben wird. */
+type Layout = 'kinds' | 'tree';
+
+/** Merkt sich Suche, Ansicht und aufgeklappte Orte, solange die App läuft. */
+const memory: { query: string; open: Record<string, boolean>; layout: Layout } = {
   query: '',
   open: {},
+  layout: 'kinds',
 };
 
 const EMPTY_HINT: Record<WorldKind, string> = {
@@ -64,7 +71,14 @@ const EMPTY_HINT: Record<WorldKind, string> = {
   ability: 'Gaben, Flüche und besondere Fähigkeiten.',
 };
 
-export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
+export function Sidebar({
+  selected,
+  articleId,
+}: {
+  selected: WorldEntity | undefined;
+  /** Der offene Artikel, wenn er zu keinem Eintrag gehört. */
+  articleId?: string;
+}) {
   const data = useData();
   const dbRef = useDb();
   const [, navigate] = useLocation();
@@ -72,6 +86,8 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
+  const [layout, setLayout] = useState<Layout>(articleId ? 'tree' : memory.layout);
+  const [writing, setWriting] = useState<{ title: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const dataRef = useRef(data);
@@ -80,7 +96,12 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
   useEffect(() => {
     memory.query = query;
     memory.open = open;
-  }, [query, open]);
+    memory.layout = layout;
+  }, [query, open, layout]);
+  // Ein Artikel ohne Eintrag steht nur in den Ordnern.
+  useEffect(() => {
+    if (articleId) setLayout('tree');
+  }, [articleId]);
 
   // Der gewählte Eintrag soll in der Übersicht zu sehen sein.
   const selectedId = selected?.id;
@@ -125,6 +146,18 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
     [data, query, filter, searching, visible],
   );
   const tree = useMemo(() => placeTreeRows(data, open, visible), [data, open, visible]);
+  // Die Suche findet auch Wörter mitten im Text – Artikel, deren Eintrag schon oben steht, nicht doppelt.
+  const articleHits = useArticleHits(query);
+  const listed = new Set(hits.map((entity) => entity.lk?.resourceId));
+  const textHits = (articleHits ?? []).filter((hit) => !listed.has(hit.article.id)).slice(0, 40);
+  /** Der Artikel des gewählten Eintrags – für die Markierung im Ordnerbaum. */
+  const currentArticle =
+    articleId ??
+    (selected?.lk && data.articles[selected.lk.resourceId] ? selected.lk.resourceId : undefined);
+  const parentArticle: Article | null =
+    currentArticle && !data.articles[currentArticle]?.template
+      ? (data.articles[currentArticle] ?? null)
+      : null;
   // Personen, deren Nachname auf eine Familie schließen lässt, die es noch nicht gibt oder der sie
   // noch nicht angehören. Nur gerechnet, solange die Familien zu sehen sind.
   const familyPlan = useMemo(
@@ -272,16 +305,29 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
           <Link href="/welt" className="wf-welt-side__title">
             Welt
           </Link>
-          <Button variant="primary" size="sm" icon={<Plus />} onClick={() => create()}>
-            Neu
-          </Button>
+          <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
+            <IconButton
+              label={
+                parentArticle
+                  ? `Neuer Artikel – auf Wunsch unter „${parentArticle.title}“`
+                  : 'Neuer Artikel'
+              }
+              size="sm"
+              onClick={() => setWriting({ title: '' })}
+            >
+              <FilePlus2 />
+            </IconButton>
+            <Button variant="primary" size="sm" icon={<Plus />} onClick={() => create()}>
+              Neu
+            </Button>
+          </span>
         </div>
         <div className="wf-welt-search">
           <Search />
           <Input
             ref={search}
             value={query}
-            placeholder="Suchen …"
+            placeholder="Suchen – auch im Text …"
             aria-label="In der Welt suchen"
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -301,21 +347,43 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
             </IconButton>
           )}
         </div>
-        <div className="wf-welt-filter" role="tablist" aria-label="Nach Art filtern">
-          {(['all', ...WORLD_KINDS] as const).map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              role="tab"
-              aria-selected={filter === kind}
-              onClick={() => setKindFilter(kind)}
-            >
-              {kind === 'all' ? 'Alle' : KIND_LABEL_PLURAL[kind]}
-              <span>{kind === 'all' ? total : counts[kind]}</span>
-            </button>
-          ))}
+        <div className="wf-welt-layout" role="tablist" aria-label="Ansicht der Übersicht">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={layout === 'kinds'}
+            title="Orte, Personen, Fraktionen … nach Art geordnet"
+            onClick={() => setLayout('kinds')}
+          >
+            Nach Art
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={layout === 'tree'}
+            title="Alle Artikel in ihren Ordnern – so, wie sie geschrieben sind"
+            onClick={() => setLayout('tree')}
+          >
+            Ordner
+          </button>
         </div>
-        {(choices.length > 0 || narrowed) && (
+        {layout === 'kinds' && (
+          <div className="wf-welt-filter" role="tablist" aria-label="Nach Art filtern">
+            {(['all', ...WORLD_KINDS] as const).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                role="tab"
+                aria-selected={filter === kind}
+                onClick={() => setKindFilter(kind)}
+              >
+                {kind === 'all' ? 'Alle' : KIND_LABEL_PLURAL[kind]}
+                <span>{kind === 'all' ? total : counts[kind]}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {layout === 'kinds' && (choices.length > 0 || narrowed) && (
           <div className="wf-welt-scope">
             {choices.length > 0 && (
               <Select
@@ -354,13 +422,40 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
       )}
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {searching ? (
-          hits.length ? (
+          hits.length + textHits.length ? (
             <>
-              <div className="wf-welt-group">
-                {hits.length === 1 ? 'Ein Treffer' : `${hits.length} Treffer`}
-                <span className="wf-welt-group__hint">Eingabe öffnet den ersten</span>
-              </div>
+              {hits.length > 0 && (
+                <div className="wf-welt-group">
+                  {hits.length === 1 ? 'Ein Eintrag' : `${hits.length} Einträge`}
+                  <span className="wf-welt-group__hint">Eingabe öffnet den ersten</span>
+                </div>
+              )}
               {hits.map((entity) => row(entity, filter === 'all'))}
+              {textHits.length > 0 && (
+                <div className="wf-welt-group">
+                  {textHits.length === 1 ? 'Ein Artikel' : `${textHits.length} Artikel`}
+                  <span className="wf-welt-group__hint">Titel oder Text</span>
+                </div>
+              )}
+              {textHits.map((hit) => (
+                <Link
+                  key={hit.article.id}
+                  href={`/wiki/${hit.article.id}`}
+                  className="wf-wiki-hit"
+                  data-current={hit.article.id === currentArticle}
+                >
+                  <span className="wf-wiki-hit__title">
+                    <ArticleIcon icon={hit.article.icon} />
+                    {hit.article.title}
+                  </span>
+                  {hit.where === 'names' && (
+                    <span className="wf-wiki-hit__sub">
+                      {[...hit.article.aliases, ...hit.article.tags].join(' · ')}
+                    </span>
+                  )}
+                  {hit.snippet && <span className="wf-wiki-hit__sub">{hit.snippet}</span>}
+                </Link>
+              ))}
             </>
           ) : (
             <EmptyState
@@ -372,8 +467,24 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
                 </Button>
               }
             >
-              Kein Eintrag passt zu dieser Suche
+              Kein Eintrag und kein Artikel passt zu dieser Suche
               {filter === 'all' ? '' : ` unter ${KIND_LABEL_PLURAL[filter]}`}.
+            </EmptyState>
+          )
+        ) : layout === 'tree' ? (
+          Object.keys(data.articles).length ? (
+            <ArticleTree current={currentArticle} />
+          ) : (
+            <EmptyState
+              title="Noch keine Artikel"
+              action={
+                <Button size="sm" icon={<FilePlus2 />} onClick={() => setWriting({ title: '' })}>
+                  Ersten Artikel schreiben
+                </Button>
+              }
+            >
+              In den Ordnern stehen die Artikel über deine Welt – geschrieben in Wayfarer oder aus
+              LegendKeeper übernommen.
             </EmptyState>
           )
         ) : narrowed && (total === 0 || (filter !== 'all' && counts[filter] === 0)) ? (
@@ -433,6 +544,17 @@ export function Sidebar({ selected }: { selected: WorldEntity | undefined }) {
           ))
         )}
       </div>
+      {writing && (
+        <NewArticleDialog
+          parent={parentArticle}
+          initialTitle={writing.title}
+          onClose={() => setWriting(null)}
+          onCreated={(created) => {
+            setWriting(null);
+            navigate(`/wiki/${created.id}`);
+          }}
+        />
+      )}
     </aside>
   );
 }

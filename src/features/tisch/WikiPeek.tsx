@@ -36,7 +36,7 @@ export function ArticleDialog({
       if (articles[target.resourceId]) setTrail((t) => [...t, target.resourceId]);
       else if (!target.resourceId)
         toast({ title: `„${target.wanted ?? target.title}“ hat noch keinen Artikel` });
-      else toast({ title: `„${target.title || 'Dieser Artikel'}“ gibt es im Wiki nicht` });
+      else toast({ title: `„${target.title || 'Dieser Artikel'}“ gibt es nicht` });
     },
     [articles],
   );
@@ -46,7 +46,7 @@ export function ArticleDialog({
       open={articleId !== null && article !== undefined}
       onClose={onClose}
       guard={false}
-      title="Aus dem Wiki"
+      title="Aus dem Artikel"
       width={1080}
     >
       {article && (
@@ -74,10 +74,10 @@ export function ArticleDialog({
                     onClose();
                     navigate(`/wiki/${article.id}`);
                   }}
-                  title="Diesen Artikel im Wiki öffnen"
-                  aria-label="Im Wiki öffnen"
+                  title="Diesen Artikel in der Welt öffnen"
+                  aria-label="Artikel öffnen"
                 >
-                  <span className="wf-lk-act__label">Im Wiki öffnen</span>
+                  <span className="wf-lk-act__label">Artikel öffnen</span>
                 </Button>
               </>
             }

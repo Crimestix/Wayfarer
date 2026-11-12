@@ -22,7 +22,8 @@ import {
   toast,
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
-import { WikiArticlePanel } from '../wiki';
+import { ArticlePage } from '../wiki';
+import { createArticle } from '../wiki/actions';
 import { deleteEntityUndoable } from './actions';
 import { openEntityDialog } from './editor';
 import {
@@ -42,7 +43,10 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
-  const [tab, setTabState] = useState<DossierTab>('overview');
+  // Wer einen Artikel hat, beginnt mit dem Text – er ist die Quelle; sonst mit dem Überblick.
+  const [tab, setTabState] = useState<DossierTab>(() =>
+    entity.lk && data.articles[entity.lk.resourceId] ? 'lk' : 'overview',
+  );
   /** Aus dem Überblick heraus: im Reiter „Beziehungen“ gleich den Dialog öffnen. */
   const [intent, setIntent] = useState<RelationIntent | undefined>();
   const setTab = (next: DossierTab, nextIntent?: RelationIntent) => {
@@ -173,13 +177,14 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       <div className="wf-welt-tabs">
         <Tabs<DossierTab>
           tabs={[
+            ...(localArticle ? [{ id: 'lk' as const, label: 'Text' }] : []),
             { id: 'overview', label: 'Überblick' },
             { id: 'relations', label: 'Beziehungen', count: relationCount || undefined },
             // Eine Familie zeigt, wie ihre Mitglieder miteinander verwandt sind.
             ...(entity.kind === 'family' ? [{ id: 'tree' as const, label: 'Stammbaum' }] : []),
             { id: 'chronicle', label: 'Chronik', count: chronicle.length || undefined },
-            // Liegt der Artikel im eigenen Wiki, braucht es LegendKeeper dafür nicht mehr.
-            { id: 'lk', label: localArticle ? 'Artikel' : 'LegendKeeper' },
+            // Ohne eigenen Artikel steht der Text am Ende: schreiben oder mit LegendKeeper verknüpfen.
+            ...(localArticle ? [] : [{ id: 'lk' as const, label: 'Text' }]),
           ]}
           value={tab}
           onChange={setTab}
@@ -224,7 +229,30 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
             />
           </div>
         )}
-        {tab === 'lk' && localArticle && <WikiArticlePanel articleId={localArticle} />}
+        {tab === 'lk' && localArticle && (
+          <ArticlePage article={data.articles[localArticle]!} embedded />
+        )}
+        {tab === 'lk' && !localArticle && (
+          <div className="wf-welt-write">
+            <p>
+              Zu „{entity.name}“ gibt es noch keinen Artikel. Schreib ihn hier – was im Steckbrief
+              steht, liest Wayfarer in den Überblick.
+            </p>
+            <Button
+              variant="primary"
+              icon={<Feather />}
+              onClick={() => {
+                const article = createArticle(db, { title: entity.name });
+                if (article)
+                  db.patch('entities', entity.id, {
+                    lk: { resourceId: article.id, title: article.title },
+                  });
+              }}
+            >
+              Artikel schreiben
+            </Button>
+          </div>
+        )}
         {tab === 'lk' && !localArticle && (
           <LkArticlePanel
             link={entity.lk}

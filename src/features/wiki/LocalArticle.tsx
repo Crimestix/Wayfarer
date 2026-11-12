@@ -242,10 +242,10 @@ export function LocalArticle({
         <div className="wf-lk-head__main">
           <nav
             className="wf-lk-path"
-            aria-label="Platz im Wiki"
+            aria-label="Platz in den Ordnern"
             title={[...path.map((step) => step.title), article.title].join(' › ')}
           >
-            <span className="wf-lk-path__source">Wiki</span>
+            <span className="wf-lk-path__source">Artikel</span>
             {path.length > steps.length && (
               <>
                 <span className="wf-lk-path__sep" aria-hidden>

@@ -517,7 +517,7 @@ export default function AtlasPage() {
             <p className="wf-atlas-side__none">
               {places.length
                 ? 'Kein Ort passt dazu.'
-                : 'Es gibt noch keine Orte. Lege sie in der Welt an oder schreibe sie im Wiki.'}
+                : 'Es gibt noch keine Orte. Lege sie in der Welt an.'}
             </p>
           )}
         </div>

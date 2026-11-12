@@ -93,7 +93,7 @@ export function WikiImportSection() {
               }.`
             : '',
         ].join(''),
-        action: { label: 'Zum Wiki', run: () => navigate('/wiki') },
+        action: { label: 'Zu den Artikeln', run: () => navigate('/welt') },
         duration: 12000,
       });
     } catch (e) {
@@ -147,8 +147,10 @@ export function WikiImportSection() {
         count > 0 && (
           <Notice
             icon={<Library />}
-            title={count === 1 ? 'Im Wiki liegt ein Artikel' : `Im Wiki liegen ${count} Artikel`}
-            action={<Button onClick={() => navigate('/wiki')}>Wiki öffnen</Button>}
+            title={
+              count === 1 ? 'In der Welt liegt ein Artikel' : `In der Welt liegen ${count} Artikel`
+            }
+            action={<Button onClick={() => navigate('/welt')}>Welt öffnen</Button>}
           >
             Ein neuerer Export lässt sich jederzeit darüber einlesen: Artikel und Karten werden
             aufgefrischt, in der Welt wird nichts doppelt angelegt.
