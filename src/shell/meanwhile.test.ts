@@ -54,6 +54,8 @@ describe('Währenddessen', () => {
             delay: 0,
             at: null,
             skipped: false,
+            needs: '',
+            runId: null,
           },
         ],
       }),

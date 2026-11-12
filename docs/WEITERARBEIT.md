@@ -1062,10 +1062,32 @@ sieben Einträge.
   eingeklappt („Weit weg“). Schalter Überblick (14 Tage) / Alles (90 Tage, aufgeklappt).
   Quellen: Schritte der Uhren und eingetretene Ereignisse aus der Chronik, dazu Wege, die das
   Wetter verändert hat – gebündelt nach Zustand und Gegend („Zwei Wege verschlammt in Graufels“).
-- **Offen (nächste Schritte der Reihenfolge):** Vorschläge als eigene Spalte (Unsicheres zum
-  Annehmen oder Verwerfen – braucht Abläufe); Uhren mit Bedingungen („blockiert“) und „weiß es
-  noch nicht / frühestens / spätestens“; regelmäßige Abläufe mit Fahrplan, Ausbleiben als
-  Ereignis; Nachrichten über Träger; NSC-Stufen und Lebendigkeit je Ort; Wissensebenen und
+- **Regelmäßige Abläufe, Ausbleiben, Uhren mit Bedingungen, Vorschläge (12. 11., Schritte 3
+  und 4) – gebaut.**
+  - *Abläufe* (Sammlung `runs`, `domain/runs.ts`): Strecke (von – nach, über das Wegenetz),
+    Fahrplan (alle n Tage, Wochen, Monate ab einer ersten Abfahrt), Träger (Text), Betreiber.
+    `tripsBetween` nennt die Fahrten mit Abfahrt und Ankunft; das Wetter am Tag der Abfahrt
+    verzögert die Ankunft von selbst. `runProblem`: ausgesetzt oder Betreiber tot, verschollen,
+    gelöscht → es fährt niemand (das folgt eindeutig). `runStatus`: unterwegs, wartet, fährt
+    nicht.
+  - *Ausbleiben:* War ein Weg der Strecke am Tag der Abfahrt nicht passierbar, ist das ein
+    **Vorschlag** (`openTrips`), kein Urteil: „Fällt aus“ (`decideTrip … 'missed'`) oder „Fand
+    statt“. Nach 14 Tagen gilt eine fragliche Fahrt als gefahren (`RUN_WINDOW`). Eine
+    ausgefallene Fahrt steht zur fälligen Ankunft im Weltgeschehen: „… bleibt in X aus – am Ziel
+    weiß man, dass etwas fehlt, aber nicht, warum“.
+  - *Uhren mit Bedingungen:* Ein Schritt trägt eine Bedingung in Worten (`step.needs`) und
+    kann an einem Ablauf hängen (`step.runId`). Ist dessen letzte fällige Fahrt ausgefallen
+    oder fährt er nicht (`runFailure`), tritt der Schritt beim Zeitsprung nicht ein: Die Uhr
+    steht mit Grund (`clock.blocked`, `advanceTime` → `result.blocked`, auch in der Meldung
+    „Währenddessen“). Sie plant nie von selbst um. `blockClock` blockiert von Hand
+    („Bedingung ist weggefallen“); `resumeClock` lässt weiterlaufen und löst den Schritt von
+    seinem Ablauf. Fadenbrett zeigt „blockiert“.
+  - *Vorschläge:* eigene Spalte oben rechts im Weltgeschehen (`worldTurn().suggestions`):
+    fragliche Fahrten und blockierte Uhren – getrennt von dem, was sicher geschehen ist.
+- **Offen (nächste Schritte der Reihenfolge):** „weiß es noch nicht / frühestens / spätestens“
+  bei verdeckten Vorhaben; Träger als Eintrag der Welt wählen (`carrierId` steht bereit);
+  Abläufe als Träger von Nachrichten; Patrouillen und Lieferungen als Begegnung unterwegs;
+  Nachrichten über Träger; NSC-Stufen und Lebendigkeit je Ort; Wissensebenen und
   Gerüchte. Außerdem: weitere abgeleitete Folgen (Vorrat aufgebraucht, Verfall), „Seit eurem
   letzten Besuch“ mit Zuständen, NSC reisen wie die Gruppe, Zustand der Wege auf der Karte
   zeigen, die Art handgemachter Wege aus der Lage erkennen statt abfragen.

@@ -26,6 +26,8 @@ export interface ClockView {
   /** Alle Schritte sind eingetreten oder verhindert. */
   done: boolean;
   paused: boolean;
+  /** Blockiert: warum – leer, wenn sie nicht blockiert ist. */
+  blocked: string;
   /** Anteil der Schritte, die hinter der Uhr liegen (0…1). */
   progress: number;
 }
@@ -66,6 +68,7 @@ export function clockView(clock: Clock, now: WorldTime): ClockView {
     next,
     done: clock.steps.length > 0 && next === null,
     paused,
+    blocked: paused ? clock.blocked : '',
     progress: clock.steps.length ? behind / clock.steps.length : 0,
   };
 }

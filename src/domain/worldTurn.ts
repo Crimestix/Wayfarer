@@ -9,9 +9,10 @@
  */
 import { openClocks, type ClockView } from './clock';
 import { findRelation, placeAncestors } from './derive';
-import { PARTY_ID, type CampaignData, type Entity } from './schema';
+import { missedTrips, openTrips, runStatus, type RunStatus, type Trip } from './runs';
+import { PARTY_ID, type CampaignData, type Clock, type Entity } from './schema';
 import { nearness, whereOf } from './story';
-import { MINUTES_PER_DAY } from './time/calendar';
+import { MINUTES_PER_DAY, formatDayMonth } from './time/calendar';
 import { WAY_STATE_LABEL, wayCondition, type WayStateKind } from './wayState';
 import { formatWayTime, routeBetween } from './ways';
 
@@ -20,8 +21,11 @@ export type TurnWeight = 1 | 2 | 3;
 
 export interface TurnItem {
   key: string;
-  /** `change` = Schritt einer Uhr, `event` = eingetretenes Ereignis, `ways` = Zustand von Wegen. */
-  kind: 'change' | 'event' | 'ways';
+  /**
+   * `change` = Schritt einer Uhr, `event` = eingetretenes Ereignis, `ways` = Zustand von Wegen,
+   * `missing` = etwas Erwartetes ist ausgeblieben.
+   */
+  kind: 'change' | 'event' | 'ways' | 'missing';
   /** Wann es geschah; null = ein Zustand, der jetzt gilt. */
   at: number | null;
   title: string;
@@ -36,7 +40,33 @@ export interface TurnItem {
   watched: boolean;
 }
 
+/**
+ * Ein Vorschlag: etwas, das naheliegt, aber nicht sicher ist – oder eine Frage, die sich stellt.
+ * Der Spielleiter nimmt an oder verwirft; was Geschichte ist, entscheidet nie Wayfarer.
+ */
+export type Suggestion =
+  | {
+      kind: 'trip';
+      key: string;
+      /** „Salzkahn vom 12. Tauwind: bleibt wohl aus“ */
+      title: string;
+      why: string;
+      trip: Trip;
+    }
+  | {
+      kind: 'clock';
+      key: string;
+      /** „Die Aalfischer greifen nach dem Hafen“ ist blockiert */
+      title: string;
+      why: string;
+      clock: Clock;
+    };
+
 export interface WorldTurn {
+  /** Was naheliegt oder zu entscheiden ist – getrennt von dem, was sicher geschehen ist. */
+  suggestions: Suggestion[];
+  /** Die regelmäßigen Abläufe und wo sie gerade stehen. */
+  runs: RunStatus[];
   /** Die Uhren, die noch laufen – die mit dem nächsten Schritt zuerst. */
   clocks: ClockView[];
   watched: TurnItem[];
@@ -203,6 +233,42 @@ export function worldTurn(data: CampaignData, days = TURN_DAYS): WorldTurn {
       watched: isWatched(data, ids),
     });
   }
+  // Ausbleiben als Ereignis: Am Ziel weiß man zur fälligen Zeit, dass etwas fehlt – nicht, warum.
+  for (const trip of missedTrips(data, since)) {
+    const to = data.entities[trip.run.toId];
+    const ids = [trip.run.toId, ...(trip.run.operatorId ? [trip.run.operatorId] : [])];
+    items.push({
+      key: `missing:${trip.run.id}:${trip.departs}`,
+      kind: 'missing',
+      at: trip.arrives,
+      title: `${trip.run.name} bleibt${to ? ` in ${to.name}` : ''} aus`,
+      detail: ['Am Ziel weiß man, dass etwas fehlt – aber nicht, warum.'],
+      placeId: trip.run.toId,
+      refs: trip.run.operatorId ? [trip.run.operatorId] : [],
+      ...turnWeight(data, ids),
+      watched: isWatched(data, ids),
+    });
+  }
+  const cal = data.campaign.calendar;
+  const suggestions: Suggestion[] = [
+    ...Object.values(data.clocks)
+      .filter((clock) => clock.blocked && clock.pausedAt !== null)
+      .sort((a, b) => a.title.localeCompare(b.title, 'de'))
+      .map((clock) => ({
+        kind: 'clock' as const,
+        key: `clock:${clock.id}`,
+        title: `„${clock.title}“ ist blockiert`,
+        why: `${clock.blocked}. Die Uhr plant nicht von selbst um – wie geht es weiter?`,
+        clock,
+      })),
+    ...openTrips(data).map((trip) => ({
+      kind: 'trip' as const,
+      key: `trip:${trip.run.id}:${trip.departs}`,
+      title: `${trip.run.name} vom ${formatDayMonth(cal, trip.departs)}: bleibt wohl aus`,
+      why: `Am Tag der Abfahrt war der Weg ${trip.blockedBy} nicht passierbar.`,
+      trip,
+    })),
+  ];
   // Das Schwerste zuerst, darunter das Neueste; was jetzt gilt (ohne Zeit), vor dem Geschehenen.
   items.sort(
     (a, b) =>
@@ -212,6 +278,16 @@ export function worldTurn(data: CampaignData, days = TURN_DAYS): WorldTurn {
       a.key.localeCompare(b.key),
   );
   return {
+    suggestions,
+    runs: Object.values(data.runs)
+      .map((run) => runStatus(data, run))
+      .sort(
+        (a, b) =>
+          Number(a.phase !== 'stopped') - Number(b.phase !== 'stopped') ||
+          (a.current?.arrives ?? a.next?.departs ?? Infinity) -
+            (b.current?.arrives ?? b.next?.departs ?? Infinity) ||
+          a.run.name.localeCompare(b.run.name, 'de'),
+      ),
     clocks: openClocks(data.clocks, now),
     watched: items.filter((item) => item.watched),
     weighty: items.filter((item) => !item.watched && item.weight >= 2),

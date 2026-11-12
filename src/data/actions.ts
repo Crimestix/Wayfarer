@@ -22,6 +22,7 @@ import {
   type Session,
   type Timer,
 } from '../domain/schema';
+import { runFailure } from '../domain/runs';
 import type { WorldTime } from '../domain/time/calendar';
 import type { CampaignDb } from './db';
 
@@ -34,6 +35,15 @@ export interface TimeAdvanceResult {
   expired: Timer[];
   /** Schritte von Uhren, die eingetreten sind – in der Reihenfolge ihres Eintretens. */
   steps: ClockOccurrence[];
+  /** Uhren, die stehen geblieben sind, weil die Bedingung ihres nächsten Schrittes weggefallen ist. */
+  blocked: ClockBlock[];
+}
+
+export interface ClockBlock {
+  clock: Clock;
+  at: WorldTime;
+  /** „Die Lieferung trifft ein: Salzkahn ist ausgeblieben (12. Tauwind)“ */
+  reason: string;
 }
 
 /**
@@ -50,9 +60,26 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
     (o) => !(o.event.done && !o.event.repeat),
   );
   const expired = Object.values(data.timers).filter((t) => !t.done && t.end > from && t.end <= to);
-  const steps = Object.values(data.clocks)
-    .flatMap((clock) => dueSteps(clock, from, to))
-    .sort((a, b) => a.at - b.at || a.clock.title.localeCompare(b.clock.title, 'de'));
+  // Ein Schritt, der an einem Ablauf hängt, tritt nur ein, wenn der Ablauf nicht ausgeblieben
+  // ist. Sonst bleibt die Uhr dort stehen: blockiert. Sie plant nie von selbst um.
+  const steps: ClockOccurrence[] = [];
+  const blocked: ClockBlock[] = [];
+  for (const clock of Object.values(data.clocks))
+    for (const occurrence of dueSteps(clock, from, to)) {
+      const run = occurrence.step.runId ? data.runs[occurrence.step.runId] : undefined;
+      const failure = run ? runFailure(data, run, occurrence.at) : null;
+      if (failure) {
+        const needs = occurrence.step.needs.trim();
+        blocked.push({
+          clock,
+          at: occurrence.at,
+          reason: needs ? `${needs}: ${failure}` : failure,
+        });
+        break;
+      }
+      steps.push(occurrence);
+    }
+  steps.sort((a, b) => a.at - b.at || a.clock.title.localeCompare(b.clock.title, 'de'));
   db.batch(() => {
     for (const clock of new Set(steps.map((s) => s.clock))) {
       const mine = new Map(steps.filter((s) => s.clock === clock).map((s) => [s.step.id, s.at]));
@@ -62,6 +89,8 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
         ),
       });
     }
+    for (const block of blocked)
+      db.patch('clocks', block.clock.id, { pausedAt: block.at, blocked: block.reason });
     for (const s of steps)
       db.put('chronicle', stepEntry(s.clock, s.step.id, s.step.text, s.at, data.state.sessionId));
     for (const o of occurred) {
@@ -86,7 +115,7 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
     for (const timer of expired) db.patch('timers', timer.id, { done: true });
     db.setState({ now: to, previousNow: from });
   });
-  return { from, to, occurred, expired, steps };
+  return { from, to, occurred, expired, steps, blocked };
 }
 
 /** Nimmt den letzten Zeitsprung samt seiner automatischen Folgen zurück. */
@@ -115,6 +144,14 @@ export function undoTimeAdvance(db: CampaignDb): boolean {
       );
       if (reopened.some((step, index) => step !== clock.steps[index]))
         db.patch('clocks', clock.id, { steps: reopened });
+      // Was in dieser Zeit blockiert wurde, läuft wieder.
+      if (
+        clock.blocked &&
+        clock.pausedAt !== null &&
+        clock.pausedAt > back &&
+        clock.pausedAt <= now
+      )
+        db.patch('clocks', clock.id, { pausedAt: null, blocked: '' });
     }
     for (const entry of Object.values(data.chronicle))
       if (entry.clockId && entry.kind === 'change' && entry.at > back && entry.at <= now) {
@@ -156,7 +193,25 @@ export function pauseClock(db: CampaignDb, clockId: string): void {
   if (clock && clock.pausedAt === null) db.patch('clocks', clockId, { pausedAt: data.state.now });
 }
 
-/** Lässt eine angehaltene Uhr weiterlaufen; die Standzeit schiebt den nächsten Schritt hinaus. */
+/**
+ * Blockiert eine Uhr: Die Bedingung ihres nächsten Schrittes ist weggefallen. Sie steht, bis der
+ * Spielleiter entscheidet, wie es weitergeht.
+ */
+export function blockClock(db: CampaignDb, clockId: string, reason: string): void {
+  const data = db.getSnapshot();
+  const clock = data.clocks[clockId];
+  if (!clock) return;
+  db.patch('clocks', clockId, {
+    pausedAt: clock.pausedAt ?? data.state.now,
+    blocked: reason.trim() || 'Die Bedingung ist weggefallen',
+  });
+}
+
+/**
+ * Lässt eine angehaltene oder blockierte Uhr weiterlaufen; die Standzeit schiebt den nächsten
+ * Schritt hinaus. War sie blockiert, hat der Spielleiter entschieden, dass es trotzdem weitergeht:
+ * Der nächste Schritt hängt dann nicht mehr an seinem Ablauf.
+ */
 export function resumeClock(db: CampaignDb, clockId: string): void {
   const data = db.getSnapshot();
   const clock = data.clocks[clockId];
@@ -165,8 +220,11 @@ export function resumeClock(db: CampaignDb, clockId: string): void {
   const next = clock.steps.findIndex((step) => step.at === null);
   db.patch('clocks', clockId, {
     pausedAt: null,
+    blocked: '',
     steps: clock.steps.map((step, index) =>
-      index === next ? { ...step, delay: step.delay + standing } : step,
+      index === next
+        ? { ...step, delay: step.delay + standing, runId: clock.blocked ? null : step.runId }
+        : step,
     ),
   });
 }

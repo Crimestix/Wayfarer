@@ -137,11 +137,12 @@ export function nearness(data: StoryData, nodes: readonly string[]): Nearness {
 }
 
 /** läuft, ruht (angehalten), abgelaufen (alle Schritte geschehen) – oder die Geschichte hat keine Uhr. */
-export type StoryPace = 'running' | 'paused' | 'done' | 'none';
+export type StoryPace = 'running' | 'paused' | 'blocked' | 'done' | 'none';
 
 export const PACE_LABEL: Record<StoryPace, string> = {
   running: 'läuft',
   paused: 'ruht',
+  blocked: 'blockiert',
   done: 'abgelaufen',
   none: 'ohne Uhr',
 };
@@ -153,7 +154,10 @@ export function storyClock(
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
   if (!clock) return { pace: 'none', view: null };
   const view = clockView(clock, data.state.now);
-  return { pace: view.done ? 'done' : view.paused ? 'paused' : 'running', view };
+  return {
+    pace: view.done ? 'done' : view.blocked ? 'blocked' : view.paused ? 'paused' : 'running',
+    view,
+  };
 }
 
 /**

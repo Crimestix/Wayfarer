@@ -114,7 +114,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -185,7 +185,10 @@ nicht übernommen.
   alles, was Geschichte ist, bleibt Vorschlag. Was abseits der Gruppe geschieht, sammelt
   `worldTurn()` (`domain/worldTurn.ts`) für die Seite „Weltgeschehen“ – nach Gewicht
   (`turnWeight`), Beobachtetes (`state.watch`) zuerst. Neue Quellen dort eintragen, nicht in
-  der Oberfläche.
+  der Oberfläche. Regelmäßige Abläufe (`runs/`, `domain/runs.ts`) laufen nach Fahrplan von
+  selbst; ob eine fragliche Fahrt ausfällt, ist ein Vorschlag (`suggestions`) und wird nur über
+  `decideTrip` entschieden. Eine Uhr, deren Schritt an einem ausgebliebenen Ablauf hängt,
+  bleibt beim Zeitsprung blockiert stehen (`clock.blocked`) – sie plant nie von selbst um.
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

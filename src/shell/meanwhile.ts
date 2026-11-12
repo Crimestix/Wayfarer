@@ -26,11 +26,14 @@ export const MEANWHILE_LINES = 7;
 /** Was währenddessen geschah, geordnet nach Gewicht. */
 export function meanwhile(
   data: CampaignData,
-  result: Pick<TimeAdvanceResult, 'occurred' | 'expired' | 'steps'>,
+  result: Pick<TimeAdvanceResult, 'occurred' | 'expired' | 'steps'> &
+    Partial<Pick<TimeAdvanceResult, 'blocked'>>,
   limit = MEANWHILE_LINES,
 ): Meanwhile {
   const main: string[] = [];
   for (const s of result.steps) main.push(`${s.step.text} (${s.clock.title})`);
+  // Eine Uhr, die stehen bleibt, ist eine Frage an den Spielleiter.
+  for (const b of result.blocked ?? []) main.push(`Blockiert: ${b.clock.title} – ${b.reason}`);
 
   // Wiederkehrende Termine nur einmal, mit Anzahl; einmalige einzeln.
   const routines = new Map<string, { title: string; count: number; here: boolean }>();

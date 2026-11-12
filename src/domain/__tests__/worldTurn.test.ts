@@ -181,6 +181,8 @@ describe('Die Welt dreht sich weiter', () => {
       delay: 0,
       at: null,
       skipped: false,
+      needs: '',
+      runId: null,
     });
     db.put(
       'clocks',

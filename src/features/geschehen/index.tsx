@@ -4,9 +4,11 @@
  * Die Rechnung steht in `domain/worldTurn.ts`.
  */
 import { useMemo, useState } from 'react';
-import { CalendarDays, CloudRain, Eye, Milestone, X } from 'lucide-react';
+import { CalendarDays, CloudRain, Eye, Milestone, PackageX, Plus, X } from 'lucide-react';
+import { resumeClock } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
-import type { Clock } from '../../domain/schema';
+import { scheduleText } from '../../domain/runs';
+import type { Clock, Run } from '../../domain/schema';
 import { untilText } from '../../domain/story';
 import { dayIndexOf, formatDayMonth } from '../../domain/time/calendar';
 import {
@@ -16,11 +18,18 @@ import {
   worldTurn,
   type TurnItem,
 } from '../../domain/worldTurn';
-import { Button, EmptyState, EntityLink, EntityPicker, KindIcon, cx } from '../../ui';
+import { Button, EmptyState, EntityLink, EntityPicker, KindIcon, cx, toast } from '../../ui';
+import { decideTrip, setWatch } from './actions';
+import { RunDialog } from './RunDialog';
 import { ClockDialog } from '../kalender/ClockDialog';
 import './geschehen.css';
 
-const ICON = { change: Milestone, event: CalendarDays, ways: CloudRain } as const;
+const ICON = {
+  change: Milestone,
+  event: CalendarDays,
+  ways: CloudRain,
+  missing: PackageX,
+} as const;
 
 export default function GeschehenPage() {
   const db = useDb();
@@ -30,13 +39,21 @@ export default function GeschehenPage() {
   const turn = useMemo(() => worldTurn(data, all ? TURN_DAYS_ALL : TURN_DAYS), [data, all]);
   const watched = useMemo(() => watchedEntities(data), [data]);
   const now = data.state.now;
-  const setWatch = (id: string, on: boolean) =>
-    db.setState({
-      watch: on
-        ? [...new Set([...data.state.watch, id])]
-        : data.state.watch.filter((entry) => entry !== id),
-    });
+  /** Der Ablauf im Dialog – `'new'` für einen neuen. */
+  const [run, setRun] = useState<Run | 'new' | null>(null);
+  const cal = data.campaign.calendar;
   const nothing = !turn.watched.length && !turn.weighty.length && !turn.rest.length;
+  const decide = (runId: string, departs: number, verdict: 'missed' | 'ran') => {
+    const undo = decideTrip(db, runId, departs, verdict);
+    toast({
+      title: verdict === 'missed' ? 'Die Fahrt ist ausgefallen' : 'Die Fahrt fand statt',
+      body:
+        verdict === 'missed'
+          ? 'Am Ziel bleibt sie aus. Uhren, die an ihr hängen, bleiben stehen.'
+          : 'Der Vorschlag ist erledigt.',
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
 
   return (
     <div className="wf-page wf-turn">
@@ -106,6 +123,59 @@ export default function GeschehenPage() {
         </div>
 
         <aside className="wf-turn-side">
+          {turn.suggestions.length > 0 && (
+            <section className="wf-turn-section">
+              <h2 className="wf-turn-section__title wf-turn-section__title--ask">
+                Vorschläge
+                <span>{turn.suggestions.length}</span>
+              </h2>
+              {turn.suggestions.map((entry) => (
+                <div key={entry.key} className="wf-turn-ask">
+                  <div className="wf-turn-ask__title">{entry.title}</div>
+                  <p>{entry.why}</p>
+                  <div className="wf-turn-ask__acts">
+                    {entry.kind === 'trip' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          title="Am Ziel bleibt die Fahrt aus; Uhren, die an ihr hängen, bleiben stehen"
+                          onClick={() => decide(entry.trip.run.id, entry.trip.departs, 'missed')}
+                        >
+                          Fällt aus
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Sie sind trotzdem durchgekommen"
+                          onClick={() => decide(entry.trip.run.id, entry.trip.departs, 'ran')}
+                        >
+                          Fand statt
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button size="sm" onClick={() => setClock(entry.clock)}>
+                          Uhr öffnen
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Der nächste Schritt hängt dann nicht mehr an seiner Bedingung"
+                          onClick={() => resumeClock(db, entry.clock.id)}
+                        >
+                          Trotzdem weiter
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <p className="wf-turn-none">
+                Was hier steht, ist nicht sicher geschehen. Du entscheidest; eine fragliche Fahrt
+                gilt nach zwei Wochen als gefahren.
+              </p>
+            </section>
+          )}
           <section className="wf-turn-section">
             <h2 className="wf-turn-section__title">Uhren</h2>
             {turn.clocks.map((view) => (
@@ -122,10 +192,12 @@ export default function GeschehenPage() {
                     <i key={step.step.id} data-state={step.state} />
                   ))}
                 </span>
-                <span className="wf-turn-clock__next">
-                  {view.next
-                    ? `${view.paused ? 'Angehalten vor' : untilText(view.next.at - now)}: ${view.next.step.text}`
-                    : 'Alles ist geschehen.'}
+                <span className="wf-turn-clock__next" data-blocked={Boolean(view.blocked)}>
+                  {view.blocked
+                    ? `Blockiert vor: ${view.next?.step.text ?? ''}`
+                    : view.next
+                      ? `${view.paused ? 'Angehalten vor' : untilText(view.next.at - now)}: ${view.next.step.text}`
+                      : 'Alles ist geschehen.'}
                 </span>
               </button>
             ))}
@@ -133,6 +205,53 @@ export default function GeschehenPage() {
               <p className="wf-turn-none">
                 Keine Uhr läuft. Eine Uhr ist ein Vorhaben der Welt, das ohne die Gruppe weitergeht
                 – angelegt im Kalender.
+              </p>
+            )}
+          </section>
+          <section className="wf-turn-section">
+            <h2 className="wf-turn-section__title">
+              Abläufe
+              <span className="wf-grow" />
+              <Button size="sm" icon={<Plus aria-hidden />} onClick={() => setRun('new')}>
+                Ablauf
+              </Button>
+            </h2>
+            {turn.runs.map((status) => {
+              const [from, to] = [
+                data.entities[status.run.fromId]?.name ?? '?',
+                data.entities[status.run.toId]?.name ?? '?',
+              ];
+              return (
+                <button
+                  key={status.run.id}
+                  type="button"
+                  className="wf-turn-clock"
+                  onClick={() => setRun(status.run)}
+                  title="Ablauf öffnen"
+                >
+                  <span className="wf-turn-clock__title">{status.run.name}</span>
+                  <span className="wf-turn-clock__sub">
+                    {from} → {to} · {scheduleText(status.run)}
+                    {status.run.carrier && ` · ${status.run.carrier}`}
+                  </span>
+                  <span className="wf-turn-clock__next" data-blocked={status.phase === 'stopped'}>
+                    {status.phase === 'stopped'
+                      ? `Fährt nicht: ${status.problem}`
+                      : status.current
+                        ? `Unterwegs – Ankunft ${untilText(status.current.arrives - now)}${status.current.delay > 0 ? ', vom Wetter aufgehalten' : ''}`
+                        : status.next
+                          ? `Nächste Abfahrt ${untilText(status.next.departs - now)} (${formatDayMonth(cal, status.next.departs)})`
+                          : 'Keine Abfahrt in Sicht'}
+                    {status.noRoute && status.phase !== 'stopped' && ' · kein Weg im Wegenetz'}
+                  </span>
+                </button>
+              );
+            })}
+            {!turn.runs.length && (
+              <p className="wf-turn-none">
+                Noch kein Ablauf. Ein Ablauf ist eine Reise, die sich wiederholt – eine Lieferung,
+                eine Patrouille, ein Bote – mit Strecke und Fahrplan. Bleibt er aus, weiß Wayfarer,
+                wann am Ziel etwas fehlt.
               </p>
             )}
           </section>
@@ -147,7 +266,7 @@ export default function GeschehenPage() {
                 <button
                   type="button"
                   aria-label={`${entity.name} nicht mehr beobachten`}
-                  onClick={() => setWatch(entity.id, false)}
+                  onClick={() => setWatch(db, entity.id, false)}
                 >
                   <X aria-hidden />
                 </button>
@@ -155,7 +274,7 @@ export default function GeschehenPage() {
             ))}
             <EntityPicker
               value={null}
-              onChange={(id) => id && setWatch(id, true)}
+              onChange={(id) => id && setWatch(db, id, true)}
               kinds={['person', 'place', 'faction', 'family']}
               exclude={data.state.watch}
               placeholder="Person, Ort oder Fraktion beobachten …"
@@ -167,7 +286,14 @@ export default function GeschehenPage() {
         </aside>
       </div>
 
-      {nothing && turn.clocks.length === 0 && watched.length === 0 && (
+      {run && (
+        <RunDialog
+          key={run === 'new' ? 'neu' : run.id}
+          run={run === 'new' ? null : run}
+          onClose={() => setRun(null)}
+        />
+      )}
+      {nothing && turn.clocks.length === 0 && watched.length === 0 && turn.runs.length === 0 && (
         <div className="wf-turn-blank">
           <EmptyState icon={<Milestone aria-hidden />} title="Die Welt steht noch still">
             Leg im Kalender eine Uhr an – ein Vorhaben, das ohne die Gruppe weiterläuft – oder lass

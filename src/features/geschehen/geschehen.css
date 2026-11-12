@@ -57,6 +57,43 @@
   width: 14px;
   height: 14px;
 }
+.wf-turn-section__title span {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
+.wf-turn-section__title .wf-btn {
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-turn-section__title--ask {
+  color: var(--ember);
+}
+
+/* Ein Vorschlag: nicht sicher geschehen – du entscheidest */
+.wf-turn-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border: 1px dashed color-mix(in srgb, var(--ember) 55%, var(--line));
+  background: var(--ember-wash);
+}
+.wf-turn-ask__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.2;
+}
+.wf-turn-ask p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-turn-ask__acts {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}
 .wf-turn-none {
   margin: 0;
   color: var(--ink-mute);
@@ -196,6 +233,13 @@
 .wf-turn-clock__next {
   color: var(--ink-soft);
   font-size: var(--text-sm);
+}
+.wf-turn-clock__next[data-blocked='true'] {
+  color: var(--blood-bright);
+}
+.wf-turn-clock__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
 }
 
 /* Beobachtet */

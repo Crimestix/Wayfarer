@@ -464,6 +464,15 @@
   width: auto;
   min-width: 0;
 }
+/* Die Bedingung eines Schrittes: eingerückt unter ihm */
+.wf-kal-clock__needs {
+  margin-top: calc(var(--s-1) * -1);
+  padding-left: var(--s-5);
+}
+.wf-kal-clock__needs .wf-select {
+  flex: 0 0 220px;
+  width: 220px;
+}
 .wf-kal-clock__step .wf-input.wf-kal-clock__days {
   flex: 0 0 58px;
   width: 58px;

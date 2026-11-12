@@ -76,6 +76,7 @@ const FOLDER_LABEL: Record<string, string> = {
   creatures: 'Bestiarium',
   encounters: 'Begegnungen',
   stocks: 'Bestände',
+  runs: 'Abläufe',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

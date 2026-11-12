@@ -3,9 +3,9 @@
  * Uhr lässt sich hier auch eingreifen – anhalten, verzögern, den nächsten Schritt jetzt eintreten
  * lassen oder festhalten, dass die Gruppe ihn verhindert hat.
  */
-import { useState } from 'react';
-import { Check, Pause, Play, Plus, ShieldOff, Trash2, X } from 'lucide-react';
-import { delayClock, pauseClock, resumeClock, settleStep } from '../../data/actions';
+import { Fragment, useState } from 'react';
+import { Ban, Check, Link2, Pause, Play, Plus, ShieldOff, Trash2, X } from 'lucide-react';
+import { blockClock, delayClock, pauseClock, resumeClock, settleStep } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { clockView } from '../../domain/clock';
 import { createClock, newId, type Clock } from '../../domain/schema';
@@ -18,6 +18,7 @@ import {
   Field,
   IconButton,
   Input,
+  Select,
   confirmDialog,
   toast,
 } from '../../ui';
@@ -26,7 +27,13 @@ interface StepDraft {
   id: string;
   text: string;
   days: string;
+  /** Bedingung in Worten – leer, wenn der Schritt einfach eintritt. */
+  needs: string;
+  /** Der Ablauf, an dem die Bedingung hängt. */
+  runId: string | null;
 }
+
+const blankStep = (): StepDraft => ({ id: newId(), text: '', days: '3', needs: '', runId: null });
 
 const parseDays = (text: string): number | null => {
   const n = Number(text.replace(',', '.'));
@@ -52,9 +59,20 @@ export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: 
   const [steps, setSteps] = useState<StepDraft[]>(() => {
     const open = clock?.steps.filter((step) => step.at === null) ?? [];
     return open.length
-      ? open.map((step) => ({ id: step.id, text: step.text, days: String(step.days) }))
-      : [{ id: newId(), text: '', days: '3' }];
+      ? open.map((step) => ({
+          id: step.id,
+          text: step.text,
+          days: String(step.days),
+          needs: step.needs,
+          runId: step.runId,
+        }))
+      : [blankStep()];
   });
+  /** Schritte, bei denen die Zeile für die Bedingung offen ist. */
+  const [conditional, setConditional] = useState<ReadonlySet<string>>(
+    () => new Set(steps.filter((step) => step.needs || step.runId).map((step) => step.id)),
+  );
+  const runs = Object.values(data.runs).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const [attempted, setAttempted] = useState(false);
 
   const filled = steps.filter((step) => step.text.trim());
@@ -81,6 +99,8 @@ export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: 
         delay: before?.delay ?? 0,
         at: null,
         skipped: false,
+        needs: step.needs.trim(),
+        runId: step.runId && data.runs[step.runId] ? step.runId : null,
       };
     });
     const common = { title: title.trim(), ownerId, placeId, secret };
@@ -209,43 +229,91 @@ export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: 
             {behind.length ? 'Was noch kommt' : 'Die Schritte, der Reihe nach'}
           </div>
           {steps.map((step, index) => (
-            <div key={step.id} className="wf-kal-clock__step">
-              <Input
-                value={step.text}
-                aria-label={`Schritt ${index + 1}: Was tritt ein?`}
-                placeholder={
-                  index === 0
-                    ? 'Was tritt als Nächstes ein?'
-                    : 'Und danach? (leer lassen = entfällt)'
-                }
-                onChange={(event) => patchStep(step.id, { text: event.target.value })}
-              />
-              <span className="wf-mute">nach</span>
-              <Input
-                className="wf-kal-clock__days"
-                inputMode="decimal"
-                value={step.days}
-                aria-label={`Schritt ${index + 1}: nach wie vielen Tagen`}
-                onChange={(event) => patchStep(step.id, { days: event.target.value })}
-              />
-              <span className="wf-mute">
-                {parseDays(step.days) === 1 ? 'Tag' : 'Tagen'}
-                {dates[index] !== null && !view?.paused && ` · ${formatDate(cal, dates[index]!)}`}
-              </span>
-              <IconButton
-                label={`Schritt ${index + 1} entfernen`}
-                size="sm"
-                variant="ghost"
-                onClick={() => setSteps((list) => list.filter((entry) => entry.id !== step.id))}
-              >
-                <X />
-              </IconButton>
-            </div>
+            <Fragment key={step.id}>
+              <div className="wf-kal-clock__step">
+                <Input
+                  value={step.text}
+                  aria-label={`Schritt ${index + 1}: Was tritt ein?`}
+                  placeholder={
+                    index === 0
+                      ? 'Was tritt als Nächstes ein?'
+                      : 'Und danach? (leer lassen = entfällt)'
+                  }
+                  onChange={(event) => patchStep(step.id, { text: event.target.value })}
+                />
+                <span className="wf-mute">nach</span>
+                <Input
+                  className="wf-kal-clock__days"
+                  inputMode="decimal"
+                  value={step.days}
+                  aria-label={`Schritt ${index + 1}: nach wie vielen Tagen`}
+                  onChange={(event) => patchStep(step.id, { days: event.target.value })}
+                />
+                <span className="wf-mute">
+                  {parseDays(step.days) === 1 ? 'Tag' : 'Tagen'}
+                  {dates[index] !== null && !view?.paused && ` · ${formatDate(cal, dates[index]!)}`}
+                </span>
+                <IconButton
+                  label={`Schritt ${index + 1}: Bedingung – tritt nur ein, wenn …`}
+                  size="sm"
+                  variant="ghost"
+                  aria-pressed={conditional.has(step.id)}
+                  onClick={() =>
+                    setConditional((before) => {
+                      const next = new Set(before);
+                      if (next.has(step.id)) {
+                        next.delete(step.id);
+                        patchStep(step.id, { needs: '', runId: null });
+                      } else next.add(step.id);
+                      return next;
+                    })
+                  }
+                >
+                  <Link2 />
+                </IconButton>
+                <IconButton
+                  label={`Schritt ${index + 1} entfernen`}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSteps((list) => list.filter((entry) => entry.id !== step.id))}
+                >
+                  <X />
+                </IconButton>
+              </div>
+              {conditional.has(step.id) && (
+                <div className="wf-kal-clock__step wf-kal-clock__needs">
+                  <span className="wf-mute">nur wenn</span>
+                  <Input
+                    value={step.needs}
+                    aria-label={`Schritt ${index + 1}: Bedingung`}
+                    placeholder="etwa „Die letzte Lieferung trifft im Lager ein“"
+                    onChange={(event) => patchStep(step.id, { needs: event.target.value })}
+                  />
+                  {runs.length > 0 && (
+                    <Select
+                      value={step.runId ?? ''}
+                      aria-label={`Schritt ${index + 1}: hängt an einem Ablauf`}
+                      title="Bleibt dieser Ablauf aus, steht die Uhr: blockiert"
+                      onChange={(event) =>
+                        patchStep(step.id, { runId: event.target.value || null })
+                      }
+                    >
+                      <option value="">hängt an keinem Ablauf</option>
+                      {runs.map((run) => (
+                        <option key={run.id} value={run.id}>
+                          hängt an: {run.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </div>
+              )}
+            </Fragment>
           ))}
           <Button
             size="sm"
             icon={<Plus />}
-            onClick={() => setSteps((list) => [...list, { id: newId(), text: '', days: '3' }])}
+            onClick={() => setSteps((list) => [...list, blankStep()])}
           >
             Schritt hinzufügen
           </Button>
@@ -255,18 +323,32 @@ export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: 
           <div className="wf-kal-clock__now">
             <div className="wf-kal-clock__label">Eingreifen</div>
             <p className="wf-soft">
-              {view.paused
-                ? 'Die Uhr ist angehalten – solange tritt nichts ein.'
-                : `Als Nächstes, am ${formatDate(cal, view.next.at)}: ${view.next.step.text}`}
+              {view.blocked
+                ? `Die Uhr ist blockiert – ${view.blocked}. Sie plant nicht von selbst um: Wie es weitergeht, entscheidest du.`
+                : view.paused
+                  ? 'Die Uhr ist angehalten – solange tritt nichts ein.'
+                  : `Als Nächstes, am ${formatDate(cal, view.next.at)}: ${view.next.step.text}`}
             </p>
             <div className="wf-kal-clock__acts">
               {view.paused ? (
                 <Button size="sm" icon={<Play />} onClick={() => resumeClock(db, live.id)}>
-                  Weiterlaufen lassen
+                  {view.blocked ? 'Trotzdem weiterlaufen lassen' : 'Weiterlaufen lassen'}
                 </Button>
               ) : (
                 <Button size="sm" icon={<Pause />} onClick={() => pauseClock(db, live.id)}>
                   Anhalten
+                </Button>
+              )}
+              {!view.paused && view.next.step.needs && (
+                <Button
+                  size="sm"
+                  icon={<Ban />}
+                  title="Die Bedingung des nächsten Schrittes gilt nicht mehr: Die Uhr bleibt stehen"
+                  onClick={() =>
+                    blockClock(db, live.id, `${view.next!.step.needs} – gilt nicht mehr`)
+                  }
+                >
+                  Bedingung ist weggefallen
                 </Button>
               )}
               <Button size="sm" onClick={() => delayClock(db, live.id, MINUTES_PER_DAY)}>

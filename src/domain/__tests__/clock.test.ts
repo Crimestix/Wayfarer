@@ -15,7 +15,7 @@ const clock = (more: Partial<Clock> = {}): Clock =>
       { id: 'a', text: 'Die Aalfischer bestechen den Hafenmeister', days: 2 },
       { id: 'b', text: 'Der alte Hafenmeister verschwindet', days: 3 },
       { id: 'c', text: 'Der Hafen gehört den Aalfischern', days: 5 },
-    ].map((step) => ({ delay: 0, at: null, skipped: false, ...step })),
+    ].map((step) => ({ delay: 0, at: null, skipped: false, needs: '', runId: null, ...step })),
     ...more,
   });
 

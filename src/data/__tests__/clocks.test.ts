@@ -29,7 +29,7 @@ async function setup() {
       steps: [
         { id: 'a', text: 'Die Aalfischer bestechen den Hafenmeister', days: 2 },
         { id: 'b', text: 'Der alte Hafenmeister verschwindet', days: 3 },
-      ].map((step) => ({ delay: 0, at: null, skipped: false, ...step })),
+      ].map((step) => ({ delay: 0, at: null, skipped: false, needs: '', runId: null, ...step })),
     }),
   );
   const changes = () =>

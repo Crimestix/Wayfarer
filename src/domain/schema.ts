@@ -437,6 +437,10 @@ export const ClockStepSchema = z.object({
   at: worldTime.nullable().default(null),
   /** Die Gruppe hat ihn verhindert. */
   skipped: z.boolean().default(false),
+  /** Bedingung in Worten: Der Schritt tritt nur ein, wenn sie gilt („Die Lieferung trifft ein“). */
+  needs: z.string().default(''),
+  /** Der Ablauf, an dem die Bedingung hängt: Bleibt er aus, ist die Uhr blockiert. */
+  runId: id.nullable().default(null),
 });
 export type ClockStep = z.infer<typeof ClockStepSchema>;
 
@@ -459,6 +463,12 @@ export const ClockSchema = z.object({
   steps: z.array(ClockStepSchema).default([]),
   /** Angehalten seit – solange tritt nichts ein. */
   pausedAt: worldTime.nullable().default(null),
+  /**
+   * Blockiert: Die Bedingung des nächsten Schrittes ist weggefallen. Der Grund in Worten; leer =
+   * nicht blockiert. Eine blockierte Uhr steht (`pausedAt`) und plant nie von selbst um – wie
+   * es weitergeht, entscheidet der Spielleiter.
+   */
+  blocked: z.string().default(''),
   note: z.string().default(''),
 });
 export type Clock = z.infer<typeof ClockSchema>;
@@ -725,6 +735,35 @@ export const StockSchema = z.object({
   notes: z.string().default(''),
 });
 export type Stock = z.infer<typeof StockSchema>;
+
+/**
+ * Ein regelmäßiger Ablauf: eine wiederkehrende Reise mit Strecke, Fahrplan, Träger und Betreiber
+ * (`domain/runs.ts`). Geschrieben vom Spielleiter; Wayfarer lässt ihn laufen.
+ */
+export const RunSchema = z.object({
+  ...base,
+  name: z.string(),
+  fromId: id,
+  toId: id,
+  /** Die erste Abfahrt; der Fahrplan zählt von hier. */
+  start: worldTime,
+  every: RepeatSchema,
+  /** Der Träger in Worten: „Flusskahn“, „Karawane“. */
+  carrier: z.string().default(''),
+  /** Der Träger als Eintrag der Welt – fehlt er, fällt der Ablauf aus. */
+  carrierId: id.nullable().default(null),
+  /** Wer den Ablauf betreibt – meist eine Fraktion. Fehlt er, fällt der Ablauf aus. */
+  operatorId: id.nullable().default(null),
+  /** Ausgesetzt seit; null = läuft. */
+  stoppedAt: worldTime.nullable().default(null),
+  stopReason: z.string().default(''),
+  /** Abfahrten, die ausgefallen sind – vom Spielleiter so entschieden. */
+  missed: z.array(worldTime).default([]),
+  /** Abfahrten, bei denen der Spielleiter entschieden hat: Sie fand trotzdem statt. */
+  decided: z.array(worldTime).default([]),
+  note: z.string().default(''),
+});
+export type Run = z.infer<typeof RunSchema>;
 
 export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
@@ -1370,6 +1409,7 @@ export const COLLECTION_SCHEMAS = {
   creatures: CreatureSchema,
   encounters: EncounterSchema,
   stocks: StockSchema,
+  runs: RunSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1394,6 +1434,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'creatures',
   'encounters',
   'stocks',
+  'runs',
 ];
 
 export type CollectionTypes = {
@@ -1482,6 +1523,19 @@ export function createEncounter(init: Partial<Encounter> & { name: string }): En
 export function createStock(init: Partial<Stock> & { name: string }): Stock {
   const stamp = nowIso();
   return StockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createRun(
+  init: Partial<Run> & { name: string; fromId: string; toId: string; start: number },
+): Run {
+  const stamp = nowIso();
+  return RunSchema.parse({
+    id: newId(),
+    created: stamp,
+    updated: stamp,
+    every: { every: 1, unit: 'week' },
+    ...init,
+  });
 }
 
 export function createThread(init: Partial<Thread> & { title: string }): Thread {
