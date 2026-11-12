@@ -33,6 +33,8 @@ export interface Palette {
   glow: string;
   /** Hervorhebung für das Gewählte. */
   mark: string;
+  /** Wo die Gruppe steht. */
+  party: string;
   ground: Record<MapGround, string>;
   display: string;
   body: string;
@@ -87,6 +89,7 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
       snow: read('--map-snow'),
       glow: read('--map-paper-edge'),
       mark: read('--blood-bright'),
+      party: read('--ember'),
       ground: {
         plain: paper,
         water: read('--map-water'),
@@ -122,6 +125,7 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
     snow: dim(read('--map-snow'), 0.6),
     glow: read('--map-glow'),
     mark: read('--gold-bright'),
+    party: read('--ember'),
     ground: {
       rock,
       cave,
@@ -208,6 +212,8 @@ export interface Scene {
   selected: string | null;
   /** Der Pinsel unter dem Zeiger: Stelle der Karte und Breite. */
   brush: { at: Point; width: number } | null;
+  /** Kennung des Punktes, an dem die Gruppe steht. */
+  here: string | null;
 }
 
 /** Gelände, das als Fläche mit Randlinie gezeichnet wird; alles andere ist Tönung auf dem Blatt. */
@@ -594,9 +600,22 @@ export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Pal
       ctx.fill();
       ctx.globalAlpha = 1;
     }
+    if (marker.id === scene.here) {
+      // Hier ist die Gruppe: ein Hof und ein Ring in Glut.
+      ctx.beginPath();
+      ctx.arc(x, y, r + 9, 0, TURN);
+      ctx.fillStyle = palette.party;
+      ctx.globalAlpha = 0.28;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 4.5, 0, TURN);
+      ink(palette.party, 2.4);
+    }
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TURN);
-    ctx.fillStyle = marker.entityId ? palette.paper : palette.ink;
+    ctx.fillStyle =
+      marker.id === scene.here ? palette.party : marker.entityId ? palette.paper : palette.ink;
     ctx.fill();
     ink(palette.ink, 1.4);
     if (marker.entityId) {

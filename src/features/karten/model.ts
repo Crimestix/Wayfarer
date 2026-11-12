@@ -2,8 +2,17 @@
  * Karten – was die Seite wissen muss, ohne selbst zu rechnen: die Liste der Karten, der Ausschnitt
  * der Zeichenfläche und was eine Linie oder eine Stelle der Karte bedeutet.
  */
-import { GROUNDS, groundAt, kmOf, lineLabel, walkAlong } from '../../domain/mapDraw';
+import {
+  GROUNDS,
+  groundAt,
+  kmOf,
+  lineDistance,
+  lineLabel,
+  markerNear,
+  walkAlong,
+} from '../../domain/mapDraw';
 import type { CampaignData, GameMap, MapGround, MapLine } from '../../domain/schema';
+import { describeVia, formatWayTime, routeBetween } from '../../domain/ways';
 
 /** Pinselbreiten in Karteneinheiten (die Karte ist 1000 breit). */
 export const BRUSHES = [
@@ -108,6 +117,51 @@ export function formatLength(km: number): string {
 }
 
 // ── Bedeutung ──────────────────────────────────────────────────────────────
+
+/** Was ein Klick auf die Karte trifft: einen Ort, eine Linie oder das Gelände an der Stelle. */
+export type Picked =
+  | { kind: 'line'; id: string }
+  | { kind: 'marker'; id: string }
+  | { kind: 'ground'; at: [number, number] };
+
+/**
+ * Was an einer Stelle der Karte liegt – ein Ort geht vor einer Linie, eine Linie vor dem Gelände.
+ * `zoom` sind Bildschirmpunkte je Karteneinheit: Getroffen wird, was am Schirm nahe liegt.
+ */
+export function pickAt(map: GameMap, at: readonly [number, number], zoom: number): Picked | null {
+  const marker = markerNear(map.markers, at[0], at[1], 12 / zoom);
+  if (marker) return { kind: 'marker', id: marker.id };
+  let best: MapLine | null = null;
+  let distance = 8 / zoom;
+  for (const line of map.lines) {
+    const d = lineDistance(line.points, at[0], at[1]);
+    if (d <= distance) [best, distance] = [line, d];
+  }
+  if (best) return { kind: 'line', id: best.id };
+  const frame = map.frame;
+  const inside = frame && at[0] >= 0 && at[1] >= 0 && at[0] <= frame.width && at[1] <= frame.height;
+  return inside ? { kind: 'ground', at: [at[0], at[1]] } : null;
+}
+
+/**
+ * Der Weg der Gruppe zu einem Ort, in Worten: „14 Min.“, „mindestens 2 Std. über Markt“ – null,
+ * wenn kein Weg bekannt ist oder die Gruppe schon dort steht.
+ */
+export function routeText(
+  data: Pick<CampaignData, 'entities' | 'paths' | 'maps'>,
+  fromId: string | null | undefined,
+  toId: string,
+): string | null {
+  if (!fromId || fromId === toId) return null;
+  const route = routeBetween(data, fromId, toId);
+  if (!route) return null;
+  const via = describeVia(data, route);
+  const time =
+    route.unknown && route.minutes === 0
+      ? 'Dauer unbekannt'
+      : `${route.unknown ? 'mindestens ' : ''}${formatWayTime(route.minutes)}`;
+  return via ? `${time} ${via}` : time;
+}
 
 export interface LineFacts {
   /** „Straße“, „Fluss“ … – unter der Erde ist die Straße ein „Gang“. */

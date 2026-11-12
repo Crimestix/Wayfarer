@@ -3,6 +3,7 @@
  * der die Gruppe gerade steht. Reine Funktionen.
  */
 import { placeAncestors } from '../../domain/derive';
+import { markerOfPlace } from '../../domain/mapDraw';
 import type { Article, CampaignData, GameMap, MapMarker, Place } from '../../domain/schema';
 import { pageNodes } from '../wiki/text';
 
@@ -98,15 +99,21 @@ export interface PlaceMap {
   marker: MapMarker | null;
 }
 
+/** Eine Karte, die sich zeigen lässt: ein Kartenbild oder in Wayfarer gezeichnet. */
+const showable = (map: GameMap): boolean =>
+  Boolean(map.frame) && (Boolean(map.image) || map.kind === 'drawn');
+
 const mapsOf = (data: CampaignData, placeId: string): GameMap[] =>
   Object.values(data.maps)
-    .filter((map) => map.placeId === placeId && map.image && map.frame)
+    .filter((map) => map.placeId === placeId && showable(map))
     .sort((a, b) => b.markers.length - a.markers.length || a.name.localeCompare(b.name, 'de'));
 
 /**
  * Die Karten, die am Ort der Gruppe weiterhelfen, die nächste zuerst: die Karte des Ortes selbst,
  * dann die der Orte darüber. Auf einer Karte der Umgebung ist der Punkt markiert, der zum Ort der
- * Gruppe führt – oder zu dem Ort darüber, der auf dieser Karte eingetragen ist.
+ * Gruppe führt – oder zu dem Ort darüber, der auf dieser Karte eingetragen ist. Zuletzt die
+ * gezeichneten Karten, auf denen der Ort nur als Punkt steht, ohne dass sie einem Ort darüber
+ * zugeordnet sind.
  */
 export function placeMaps(data: CampaignData, place: Place): PlaceMap[] {
   const out: PlaceMap[] = [];
@@ -122,6 +129,15 @@ export function placeMaps(data: CampaignData, place: Place): PlaceMap[] {
       out.push({ map, of: ancestor, own: false, marker });
     }
     below.push(ancestor.id);
+  }
+  const listed = new Set(out.map((entry) => entry.map.id));
+  const loose = Object.values(data.maps)
+    .filter((map) => map.kind === 'drawn' && showable(map) && !listed.has(map.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  for (const map of loose) {
+    const marker = markerOfPlace(data, map, place.id);
+    const shown = marker?.entityId ? data.entities[marker.entityId] : undefined;
+    if (marker && shown?.kind === 'place') out.push({ map, of: shown, own: false, marker });
   }
   return out;
 }

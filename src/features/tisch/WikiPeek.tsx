@@ -10,6 +10,7 @@ import { Button, Dialog, cx, toast } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { LocalArticle } from '../wiki/LocalArticle';
 import { MapView } from '../wiki/MapView';
+import { MapPeek } from '../karten/MapPeek';
 import type { PlaceMap } from './wiki';
 
 /** Ein Artikel zum Lesen; Verweise darin blättern im selben Fenster weiter. */
@@ -130,7 +131,11 @@ export function MapDialog({
               ))}
             </div>
           )}
-          <MapView key={current.map.id} map={current.map} onLeave={onClose} />
+          {current.map.kind === 'drawn' ? (
+            <MapPeek key={current.map.id} map={current.map} onLeave={onClose} />
+          ) : (
+            <MapView key={current.map.id} map={current.map} onLeave={onClose} />
+          )}
         </div>
       )}
     </Dialog>

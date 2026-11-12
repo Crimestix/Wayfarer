@@ -869,11 +869,30 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
     Straße; Gewölbe mit Höhlen, Räumen, Gängen, Pilzwald, See, Abgrund). **Nicht geprüft:**
     installierte App, macOS (dort zeichnet eine andere Technik), Tempo auf dem MacBook, das
     Urteil des Spielleiters über das neue Aussehen.
+- **Karte am Spieltisch (12. 11. 2026, vierter Schritt) – gebaut.** Das neue Aussehen hat der
+  Spielleiter bestätigt („Ja, passt so“).
+  - Der Knopf „Karte“ am Ort der Gruppe zeigt jetzt auch gezeichnete Karten (`placeMaps` in
+    `tisch/wiki.ts`): die Karte des Ortes selbst, die der Orte darüber – und gezeichnete Karten
+    ohne zugeordneten Ort, auf denen der Ort als Punkt steht.
+  - **Ansicht** (`karten/MapPeek.tsx`): nur ansehen, ziehen, Mausrad. Der Punkt der Gruppe ist
+    in Glut markiert (`markerOfPlace`: der eigene Punkt, sonst der des nächsten Ortes darüber;
+    `scene.here`). Ein Klick auf einen Ort nennt den Weg von hier (`routeText`: Dauer über das
+    Wegenetz, „über …“) und bietet „Hierher ziehen …“ – das öffnet den bekannten Dialog, die
+    Zeit des Weges vergeht mit. Ein Klick auf eine Linie oder das Gelände zeigt, was es bedeutet.
+  - **Gemeinsame Bühne** (`karten/useMapStage.ts`): Zeichenfläche, Ausschnitt, Formen und
+    Farben teilen sich Zeichnen und Ansehen; `pickAt` (was ein Klick trifft) und `LineSummary`
+    ebenso.
+  - Geprüft in der Vorschau: Gruppe in der Pilzgrotte, Karte öffnen, Torhalle anklicken
+    („Zu Fuß von hier 14 Min.“), hinziehen (Zeit +14 Min.), Markierung wandert mit; danach die
+    Vorschau zurückgesetzt. **Nicht geprüft:** installierte App, macOS.
+  - **Aufgefallen, nicht gebaut:** Ein Ort, der auf einer Karte der Ebene „Unterreich“ steht,
+    gilt dadurch noch nicht als „unter der Erde“ (`isUnderground` liest nur Klima und Namen) –
+    die Torhalle bekam Wetter statt Licht. Naheliegende Ableitung für `weatherZone`.
 - **Offen (Reihenfolge nach dem Konzept):** Türen, Geheimgänge und Fallen als Zeichen an Gängen
   und Räumen; Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
   verbinden; Faerzress-Zonen und Herrschaftsgebiete als Flächen über dem Gelände; Licht und
   Wissen („kennt die Gruppe“) auf der Karte; Flächen statt nur Pinsel (Küste nachziehen,
-  füllen); die gezeichnete Karte am Spieltisch zeigen (bisher nur Bildkarten,
+  füllen); Bildkarten des Wikis, auf denen der Ort nur als Punkt steht, am Spieltisch anbieten (bisher nur Bildkarten,
   `tisch/wiki.ts`); Ansichten „Hex“ und „Netz“ derselben Karte; Linien nachträglich
   verschieben; Zustand und Wissen als Schichten (gesperrte Straße, „kennt die Gruppe“);
   Hexkarten der Erkundung aus der gezeichneten Karte speisen (`groundShares` steht bereit).

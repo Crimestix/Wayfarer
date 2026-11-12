@@ -325,6 +325,43 @@
   gap: var(--s-1);
 }
 
+/* Die Karte am Spieltisch: nur ansehen */
+.wf-karten-peek {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.wf-karten-peek__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 24px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-karten-peek__here {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ember);
+}
+.wf-karten-peek__here i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ember);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ember) 40%, transparent);
+}
+.wf-karten-peek__hint {
+  font-style: italic;
+}
+.wf-karten-peek__stage {
+  flex: none;
+  height: min(calc(100vh - 300px), 660px);
+  border: 1px solid var(--line);
+}
+
 /* Was das Gewählte bedeutet */
 .wf-karten-card {
   position: absolute;

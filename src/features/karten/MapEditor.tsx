@@ -2,7 +2,7 @@
  * Die Zeichenfläche einer gezeichneten Karte: Gelände malen, Straßen, Pfade und Flüsse ziehen,
  * Orte setzen. Was gezeichnet ist, bedeutet etwas – ein Klick zeigt, was Wayfarer daraus liest.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   Hand,
@@ -17,9 +17,8 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { GROUNDS, LEVEL_GROUNDS, lineDistance, lineLabel, markerNear } from '../../domain/mapDraw';
+import { GROUNDS, LEVEL_GROUNDS, lineLabel } from '../../domain/mapDraw';
 import { createEntity, type GameMap, type MapGround, type MapLine } from '../../domain/schema';
-import { formatWayTime } from '../../domain/ways';
 import { Button, Dialog, EntityPicker, Field, IconButton, Input, cx, entityHref } from '../../ui';
 import {
   drawLine,
@@ -30,26 +29,23 @@ import {
   removeMarker,
   renameLine,
 } from './actions';
-import { drawMap, makeTextures, paletteOf, type Draft, type Palette, type Textures } from './draw';
+import type { Draft } from './draw';
+import { LineSummary } from './Facts';
 import {
   BRUSHES,
-  clampView,
-  fitView,
   formatLength,
   groundFacts,
   lineFacts,
+  pickAt,
   toMap,
-  zoomView,
   type BrushId,
+  type Picked,
   type View,
 } from './model';
-import { shapesOf } from './shapes';
+import { useMapStage } from './useMapStage';
 
 type Tool = 'hand' | 'ground' | 'line' | 'marker';
-type Selection =
-  | { kind: 'line'; id: string }
-  | { kind: 'marker'; id: string }
-  | { kind: 'ground'; at: [number, number] };
+type Selection = Picked;
 
 const TOOLS: { id: Tool; label: string; icon: typeof Hand; hint: string }[] = [
   {
@@ -90,12 +86,6 @@ export function MapEditor({
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
-  const stage = useRef<HTMLDivElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const textures = useRef<{ level: GameMap['level']; paper: Textures } | null>(null);
-  const palette = useRef<{ level: GameMap['level']; colors: Palette } | null>(null);
-  const view = useRef<View | null>(null);
-  const size = useRef({ width: 0, height: 0, dpr: 1 });
   const draft = useRef<Draft | null>(null);
   const pointer = useRef<[number, number] | null>(null);
   const gesture = useRef<{ pan: boolean; x: number; y: number; moved: boolean; from: View } | null>(
@@ -117,105 +107,20 @@ export function MapEditor({
   const [undo, setUndo] = useState<(() => void)[]>([]);
   const [pin, setPin] = useState<[number, number] | null>(null);
 
-  const frame = map.frame ?? { width: 1000, height: 700 };
   const brushWidth = BRUSHES.find((entry) => entry.id === brush)?.width ?? 0;
-  /** Die Formen der Karte – neu gerechnet, sobald sich Gelände oder Gänge ändern. */
-  const shapes = useMemo(
-    () => shapesOf(map),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map.id, map.strokes, map.lines, map.ground, map.level, map.frame],
-  );
-  const labels = useMemo(() => {
-    const names = new Map<string, string>();
-    for (const marker of map.markers) {
-      const name = (marker.entityId && data.entities[marker.entityId]?.name) || marker.label;
-      if (name) names.set(marker.id, name);
-    }
-    return names;
-  }, [map.markers, data.entities]);
-
   const selectedId = selection && selection.kind !== 'ground' ? selection.id : null;
-
-  /** Zeichnet die Karte neu – sofort, ohne auf das nächste Bild zu warten. */
-  const paint = () => {
-    const element = canvas.current;
-    const ctx = element?.getContext('2d');
-    if (!element || !ctx || !view.current || !size.current.width) return;
-    if (palette.current?.level !== map.level)
-      palette.current = { level: map.level, colors: paletteOf(element, map.level) };
-    if (textures.current?.level !== map.level)
-      textures.current = { level: map.level, paper: makeTextures(map.level) };
-    drawMap(
-      ctx,
-      textures.current.paper,
-      {
-        map,
-        view: view.current,
-        ...size.current,
-        shapes,
-        labels,
-        draft: draft.current,
-        selected: selectedId,
-        brush:
-          tool === 'ground' && brush !== 'rect' && pointer.current
-            ? { at: pointer.current, width: brushWidth }
-            : null,
-      },
-      palette.current.colors,
-    );
-  };
-  const paintNow = useRef(paint);
-  paintNow.current = paint;
-  useLayoutEffect(() => paint());
-
-  // Größe der Zeichenfläche: folgt ihrem Platz; beim ersten Mal die ganze Karte zeigen.
-  useEffect(() => {
-    const element = stage.current;
-    if (!element) return;
-    const measure = () => {
-      const box = element.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      size.current = { width: box.width, height: box.height, dpr };
-      if (canvas.current) {
-        canvas.current.width = Math.round(box.width * dpr);
-        canvas.current.height = Math.round(box.height * dpr);
-      }
-      if (box.width && box.height)
-        view.current = view.current
-          ? clampView(view.current, frame, box.width, box.height)
-          : fitView(frame, box.width, box.height);
-      paintNow.current();
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame.width, frame.height]);
-
-  // Mausrad vergrößert um die Stelle unter dem Zeiger.
-  useEffect(() => {
-    const element = canvas.current;
-    if (!element) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      if (!view.current) return;
-      const box = element.getBoundingClientRect();
-      view.current = zoomView(
-        view.current,
-        Math.exp(-event.deltaY * 0.0015),
-        event.clientX - box.left,
-        event.clientY - box.top,
-        frame,
-        size.current.width,
-        size.current.height,
-      );
-      paintNow.current();
-    };
-    element.addEventListener('wheel', onWheel, { passive: false });
-    return () => element.removeEventListener('wheel', onWheel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame.width, frame.height]);
+  const { stage, canvas, view, size, frame, paint, local, zoomBy, fit, panFrom } = useMapStage(
+    map,
+    () => ({
+      draft: draft.current,
+      selected: selectedId,
+      brush:
+        tool === 'ground' && brush !== 'rect' && pointer.current
+          ? { at: pointer.current, width: brushWidth }
+          : null,
+      here: null,
+    }),
+  );
 
   const remember = (step: () => void) => setUndo((steps) => [...steps, step]);
   const undoLast = () => {
@@ -250,17 +155,6 @@ export function MapEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const local = (event: { clientX: number; clientY: number }): [number, number] => {
-    const box = canvas.current!.getBoundingClientRect();
-    return [event.clientX - box.left, event.clientY - box.top];
-  };
-  const zoomBy = (factor: number) => {
-    if (!view.current) return;
-    const { width, height } = size.current;
-    view.current = zoomView(view.current, factor, width / 2, height / 2, frame, width, height);
-    paint();
-  };
-
   const select = (next: Selection, at: readonly [number, number]) => {
     const current = view.current;
     if (current) setCardRight((at[0] - current.x) * current.zoom < size.current.width / 2);
@@ -275,16 +169,8 @@ export function MapEditor({
       if (inside) setPin(at);
       return;
     }
-    const marker = markerNear(map.markers, at[0], at[1], 12 / zoom);
-    if (marker) return select({ kind: 'marker', id: marker.id }, at);
-    let best: MapLine | null = null;
-    let distance = 8 / zoom;
-    for (const line of map.lines) {
-      const d = lineDistance(line.points, at[0], at[1]);
-      if (d <= distance) [best, distance] = [line, d];
-    }
-    if (best) return select({ kind: 'line', id: best.id }, at);
-    if (inside) select({ kind: 'ground', at }, at);
+    const picked = pickAt(map, at, zoom);
+    if (picked) select(picked, at);
     else setSelection(null);
   };
 
@@ -321,17 +207,7 @@ export function MapEditor({
     if (Math.hypot(x - active.x, y - active.y) > 4) active.moved = true;
     if (active.pan) {
       if (!active.moved) return;
-      const zoom = active.from.zoom;
-      view.current = clampView(
-        {
-          zoom,
-          x: active.from.x - (x - active.x) / zoom,
-          y: active.from.y - (y - active.y) / zoom,
-        },
-        frame,
-        size.current.width,
-        size.current.height,
-      );
+      panFrom(active.from, x - active.x, y - active.y);
     } else if (draft.current) {
       const current = draft.current;
       const at = pointer.current;
@@ -514,14 +390,7 @@ export function MapEditor({
           <IconButton size="sm" label="Verkleinern" onClick={() => zoomBy(1 / 1.5)}>
             <Minus aria-hidden />
           </IconButton>
-          <IconButton
-            size="sm"
-            label="Die ganze Karte zeigen"
-            onClick={() => {
-              view.current = fitView(frame, size.current.width, size.current.height);
-              paint();
-            }}
-          >
+          <IconButton size="sm" label="Die ganze Karte zeigen" onClick={fit}>
             <Maximize2 aria-hidden />
           </IconButton>
         </div>
@@ -628,42 +497,7 @@ function SelectionCard({
           if (event.key === 'Enter') event.currentTarget.blur();
         }}
       />
-      <dl className="wf-karten-card__facts">
-        {facts.km !== null && (
-          <>
-            <dt>Länge</dt>
-            <dd>{formatLength(facts.km)}</dd>
-          </>
-        )}
-        {facts.minutes !== null && (
-          <>
-            <dt>Zu Fuß</dt>
-            <dd>{formatWayTime(facts.minutes)}</dd>
-          </>
-        )}
-        {walkable && facts.km !== null && (
-          <>
-            <dt>Gelände</dt>
-            <dd>
-              {line.kind === 'road'
-                ? `${facts.sort} – volles Tempo`
-                : facts.difficult > 0.02
-                  ? `${Math.round(facts.difficult * 100)} % schwierig`
-                  : 'leicht'}
-            </dd>
-          </>
-        )}
-      </dl>
-      {facts.wet && (
-        <p className="wf-karten-card__warn">
-          Der Pfad führt durch Wasser. Ohne Brücke oder Furt kommt hier niemand zu Fuß hinüber.
-        </p>
-      )}
-      {facts.blocked && (
-        <p className="wf-karten-card__warn">
-          Der Pfad führt durch Fels oder über einen Abgrund. Dort kommt nur ein Gang hindurch.
-        </p>
-      )}
+      <LineSummary facts={facts} kind={line.kind} />
       {facts.way ? (
         <p>
           Im Wegenetz: {facts.way.from} ↔ {facts.way.to}. Die Gruppe kann diesen Weg gehen; die

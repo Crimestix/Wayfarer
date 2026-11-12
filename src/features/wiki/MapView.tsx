@@ -9,7 +9,7 @@ import { useLocation } from 'wouter';
 import { BookOpen, Footprints, ImageOff, Minus, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
-import { placeAncestors } from '../../domain/derive';
+import { markerOfPlace } from '../../domain/mapDraw';
 import type { GameMap, MapMarker } from '../../domain/schema';
 import { formatWayTime, wayLine, wayMinutes } from '../../domain/ways';
 import { openMoveParty } from '../../shell/commands';
@@ -48,15 +48,10 @@ export function MapView({
     [data, map],
   );
   const partyPlaceId = data.state.placeId;
-  const hereId = useMemo(() => {
-    if (!partyPlaceId) return null;
-    const chain = [partyPlaceId, ...placeAncestors(data, partyPlaceId).map((p) => p.id)];
-    for (const id of chain) {
-      const marker = map.markers.find((m) => m.entityId === id);
-      if (marker) return marker.id;
-    }
-    return null;
-  }, [data, map.markers, partyPlaceId]);
+  const hereId = useMemo(
+    () => markerOfPlace(data, map, partyPlaceId)?.id ?? null,
+    [data, map, partyPlaceId],
+  );
 
   if (!map.image || !frame)
     return <p className="wf-lk-blank">Zu dieser Karte liegt kein Kartenbild vor.</p>;

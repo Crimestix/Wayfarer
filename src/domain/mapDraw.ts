@@ -7,7 +7,16 @@
  * Reine Funktionen. Koordinaten sind Karteneinheiten; der Maßstab (`map.scale`) sagt, wie viele
  * Kilometer eine Einheit ist.
  */
-import type { GameMap, MapGround, MapLine, MapMarker, MapStroke, Terrain } from './schema';
+import { placeAncestors } from './derive';
+import type {
+  CampaignData,
+  GameMap,
+  MapGround,
+  MapLine,
+  MapMarker,
+  MapStroke,
+  Terrain,
+} from './schema';
 
 /** Tempo zu Fuß nach den Reiseregeln, normales Tempo: 3 Meilen je Stunde. */
 const WALK_KMH = 4.8;
@@ -221,6 +230,23 @@ export function walkAlong(
     wet,
     blocked,
   };
+}
+
+/**
+ * Der Punkt, an dem ein Ort auf einer Karte steht: sein eigener – sonst der des nächsten Ortes
+ * darüber, der auf der Karte eingetragen ist (die Schenke steht dann am Punkt ihrer Stadt).
+ */
+export function markerOfPlace(
+  data: CampaignData,
+  map: Pick<GameMap, 'markers'>,
+  placeId: string | null | undefined,
+): MapMarker | null {
+  if (!placeId) return null;
+  for (const id of [placeId, ...placeAncestors(data, placeId).map((place) => place.id)]) {
+    const marker = map.markers.find((entry) => entry.entityId === id);
+    if (marker) return marker;
+  }
+  return null;
 }
 
 /** Der Kartenpunkt in der Nähe einer Stelle – der nächste innerhalb von `reach`. */
