@@ -1,0 +1,558 @@
+<title>Varrand-Karte</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@500;600&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap">
+<style>
+/* Wayfarer-Rahmen (geschwärztes Holz, Messing) um ein Kartenblatt aus Tinte auf Pergament. Einheitlich dunkel, bewusst. */
+:root{
+  color-scheme: dark;
+  --bg:#0c0a09; --panel:#131010; --raised:#1a1614; --line:#43362a; --line-faint:#2b231d;
+  --ui-ink:#e9dfc9; --ui-soft:#c8bca3; --ui-mute:#a09278; --gold:#c9a35b; --gold-b:#efd497; --alarm:#d9584c;
+  /* Kartenblatt */
+  --paper:#e8dab8; --paper-edge:#c9b483; --sea:#bcc5b3; --sea-line:#6c7d71;
+  --ink:#3a2e22; --ink-soft:#6e5c45; --forest:#a9ab76; --canopy:#b6b47c; --canopy-shade:#8b8a57;
+  --hills:#d9c79a; --mount:#ddcba3; --swamp:#b2b78f; --river:#4b666b; --road:#7b4e2b; --blood:#9d2f2a;
+  --font-display:'Cormorant Garamond', Georgia, serif;
+  --font-caps:'Cinzel', 'Cormorant Garamond', Georgia, serif;
+  --font-body:'Crimson Pro', Georgia, serif;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ui-ink);font-family:var(--font-body);font-size:16px}
+.app{height:100%;display:flex;flex-direction:column;gap:12px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px;box-sizing:border-box}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.titles{min-width:0}
+.eyebrow{font-family:var(--font-caps);font-size:11px;letter-spacing:.22em;color:var(--gold)}
+h1{margin:0;font-family:var(--font-display);font-weight:500;font-size:30px;line-height:1.05;text-wrap:balance}
+.sub{font-style:italic;color:var(--ui-mute);font-size:15px}
+.seg{display:flex;border:1px solid var(--line);margin-left:auto}
+.seg button{background:transparent;color:var(--ui-soft);border:0;padding:0 16px;min-height:44px;font:inherit;font-size:16px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--gold);color:var(--panel)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tools .lbl{font-family:var(--font-caps);font-size:11px;letter-spacing:.2em;color:var(--ui-mute);margin-right:4px}
+.chip{background:transparent;border:1px solid var(--line);color:var(--ui-mute);padding:0 12px;min-height:36px;font:inherit;font-size:15px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--gold);color:var(--gold-b);background:rgba(201,163,91,.14)}
+.chip.rain[aria-pressed="true"]{border-color:var(--alarm);color:#f1b3aa;background:rgba(217,88,76,.14)}
+.hint{margin-left:auto;font-style:italic;color:var(--ui-mute);font-size:14px}
+.stage{position:relative;flex:1;min-height:320px;border:1px solid var(--line);background:var(--panel);overflow:hidden;touch-action:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+canvas.drag{cursor:grabbing}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:22px;color:var(--ui-soft);background:var(--panel)}
+.zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;border:1px solid var(--line);background:var(--panel)}
+.zoom button{width:44px;height:44px;background:transparent;color:var(--ui-ink);border:0;font-size:22px;cursor:pointer}
+.zoom button+button{border-top:1px solid var(--line-faint)}
+.zoom svg{display:block;margin:auto}
+.card{position:absolute;left:12px;bottom:12px;width:min(340px, calc(100% - 84px));background:var(--panel);border:1px solid var(--line);padding:14px 16px;box-shadow:0 18px 50px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:6px}
+.card .k{font-family:var(--font-caps);font-size:11px;letter-spacing:.2em;color:var(--gold)}
+.card .n{font-family:var(--font-display);font-size:26px;line-height:1.05}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:4px 0 0;font-size:15px}
+.card dt{color:var(--ui-mute)}
+.card dd{margin:0;font-variant-numeric:tabular-nums}
+.card .why{font-style:italic;color:var(--ui-soft);font-size:15px;line-height:1.35}
+.card .warn{color:#f1b3aa;font-size:15px}
+.card .x{position:absolute;right:4px;top:4px;width:36px;height:36px;background:none;border:0;color:var(--ui-mute);font-size:20px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (max-width:640px){ h1{font-size:24px} .hint{display:none} .seg{margin-left:0} .card{width:calc(100% - 84px)} }
+</style>
+
+<div class="app">
+  <header>
+    <div class="titles">
+      <div class="eyebrow">Karten · Beispielregion</div>
+      <h1>Varrand</h1>
+      <div class="sub">Gezeichnet aus Formeln und Vektoren. Jeder Strich bedeutet etwas.</div>
+    </div>
+    <div class="seg" role="group" aria-label="Ansicht">
+      <button type="button" id="v-map" aria-pressed="true">Karte</button>
+      <button type="button" id="v-hex" aria-pressed="false">Hex</button>
+      <button type="button" id="v-net" aria-pressed="false">Netz</button>
+    </div>
+  </header>
+  <div class="tools" role="group" aria-label="Schichten">
+    <span class="lbl">Schichten</span>
+    <button type="button" class="chip" id="l-sym" aria-pressed="true">Gelände</button>
+    <button type="button" class="chip" id="l-con" aria-pressed="true">Höhenlinien</button>
+    <button type="button" class="chip" id="l-road" aria-pressed="true">Wege</button>
+    <button type="button" class="chip" id="l-lab" aria-pressed="true">Namen</button>
+    <button type="button" class="chip rain" id="l-rain" aria-pressed="false">Starkregen</button>
+    <span class="hint">Hineinzoomen zeigt mehr Bäume, Gipfel, Höhenlinien und Häuser. Tippe auf Orte, Wege oder Gelände.</span>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="map" aria-label="Karte der Beispielregion Varrand" role="img"></canvas>
+    <div class="loading" id="loading">Die Welt wird berechnet …</div>
+    <div class="zoom">
+      <button type="button" id="z-in" aria-label="Hineinzoomen">+</button>
+      <button type="button" id="z-out" aria-label="Herauszoomen">&minus;</button>
+      <button type="button" id="z-fit" aria-label="Ganze Karte zeigen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"></path></svg></button>
+    </div>
+    <div class="card" id="card" hidden>
+      <button type="button" class="x" id="card-x" aria-label="Schließen">&times;</button>
+      <div class="k" id="c-k"></div>
+      <div class="n" id="c-n"></div>
+      <div class="why" id="c-why"></div>
+      <dl id="c-dl"></dl>
+      <div class="warn" id="c-warn"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+const css = getComputedStyle(document.documentElement);
+const C = {}; ['paper','paper-edge','sea','sea-line','ink','ink-soft','forest','canopy','canopy-shade','hills','mount','swamp','river','road','blood'].forEach(k => C[k] = css.getPropertyValue('--' + k).trim());
+
+/* ---------- Zufall und Rauschen (wiederholbar) ---------- */
+function hash(x, y, s){ let h = Math.imul(x|0, 374761393) ^ Math.imul(y|0, 668265263) ^ Math.imul(s|0, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function vn(x, y, s){ const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+  const a = hash(xi,yi,s), b = hash(xi+1,yi,s), c = hash(xi,yi+1,s), d = hash(xi+1,yi+1,s); return a + (b-a)*u + (c-a)*v + (a-b-c+d)*u*v; }
+function fbm(x, y, s, o){ let f = 0, a = 0.5, fr = 1, n = 0; for (let i = 0; i < o; i++){ f += a*vn(x*fr, y*fr, s + i*17); n += a; fr *= 2.03; a *= 0.5; } return f / n; }
+function segD(px, py, ax, ay, bx, by){ const dx = bx-ax, dy = by-ay; let t = ((px-ax)*dx + (py-ay)*dy) / (dx*dx + dy*dy); t = t < 0 ? 0 : t > 1 ? 1 : t; const qx = ax + t*dx - px, qy = ay + t*dy - py; return Math.sqrt(qx*qx + qy*qy); }
+function polyD(px, py, P){ let m = 1e9; for (let i = 0; i < P.length-1; i++){ const d = segD(px,py,P[i][0],P[i][1],P[i+1][0],P[i+1][1]); if (d < m) m = d; } return m; }
+
+/* ---------- Welt ---------- */
+const W = 240, H = 160, RES = 0.5, GW = 481, GH = 321, NN = GW*GH;
+const SEA=0, LAKE=1, GRASS=2, FOREST=3, HILLS=4, MOUNT=5, SWAMP=6;
+const TNAME = ['Meer','See','Grasland','Wald','Hügel','Gebirge','Sumpf'];
+const RANGE = [[150,30],[168,50],[182,74],[190,98],[196,118]];
+const HILLR = [[38,96],[62,108],[92,118],[118,122]];
+const hm = e => e <= 0 ? 0 : 2700*Math.pow(e, 1.55);
+let Wd = null;
+
+function heap(n){ const k = new Float32Array(n+1), v = new Int32Array(n+1); let s = 0;
+  return { get size(){ return s; },
+    push(i, p){ let c = ++s; k[c] = p; v[c] = i; while (c > 1 && k[c>>1] > k[c]){ const pp = c>>1; [k[c],k[pp]] = [k[pp],k[c]]; [v[c],v[pp]] = [v[pp],v[c]]; c = pp; } },
+    pop(){ const top = v[1]; k[1] = k[s]; v[1] = v[s]; s--; let c = 1; for(;;){ const l = c*2, r = l+1; let m = c; if (l <= s && k[l] < k[m]) m = l; if (r <= s && k[r] < k[m]) m = r; if (m === c) break; [k[c],k[m]] = [k[m],k[c]]; [v[c],v[m]] = [v[m],v[c]]; c = m; } return top; } };
+}
+const N8 = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+
+function contour(f, gw, gh, thr, scale){
+  const N = gw*gh*2, a0 = new Int32Array(N).fill(-1), a1 = new Int32Array(N).fill(-1);
+  const link = (p, q) => { if (a0[p] < 0) a0[p] = q; else a1[p] = q; if (a0[q] < 0) a0[q] = p; else a1[q] = p; };
+  for (let j = 0; j < gh-1; j++) for (let i = 0; i < gw-1; i++){
+    const k = j*gw+i, fa = f[k], fb = f[k+1], fc = f[k+gw+1], fd = f[k+gw];
+    const c = (fa>thr?8:0)|(fb>thr?4:0)|(fc>thr?2:0)|(fd>thr?1:0); if (c === 0 || c === 15) continue;
+    const T = k*2, B = (k+gw)*2, L = k*2+1, R = (k+1)*2+1, mid = (fa+fb+fc+fd)/4 > thr;
+    switch(c){
+      case 1: case 14: link(L,B); break; case 2: case 13: link(B,R); break; case 3: case 12: link(L,R); break;
+      case 4: case 11: link(T,R); break; case 6: case 9: link(T,B); break; case 7: case 8: link(L,T); break;
+      case 5: if (mid){ link(L,T); link(B,R); } else { link(T,R); link(L,B); } break;
+      case 10: if (mid){ link(T,R); link(L,B); } else { link(L,T); link(B,R); } break;
+    }
+  }
+  const pt = e => { const k = e>>1, i = k%gw, j = (k/gw)|0; if ((e&1) === 0){ const t = (thr-f[k])/(f[k+1]-f[k]); return [(i+t)*scale, j*scale]; } const t = (thr-f[k])/(f[k+gw]-f[k]); return [i*scale, (j+t)*scale]; };
+  const used = new Uint8Array(N), lines = [];
+  const walk = s => { const line = [pt(s)]; used[s] = 1; let prev = -1, cur = s, closed = false;
+    for(;;){ const n0 = a0[cur], n1 = a1[cur]; const nx = (n0 >= 0 && n0 !== prev) ? n0 : ((n1 >= 0 && n1 !== prev) ? n1 : -1);
+      if (nx < 0) break; if (nx === s){ closed = true; break; } if (used[nx]) break; used[nx] = 1; line.push(pt(nx)); prev = cur; cur = nx; }
+    if (line.length > 2) lines.push(finish(line, closed)); };
+  for (let e = 0; e < N; e++) if (a0[e] >= 0 && a1[e] < 0 && !used[e]) walk(e);
+  for (let e = 0; e < N; e++) if (a0[e] >= 0 && !used[e]) walk(e);
+  return lines;
+}
+function finish(p, closed){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for (const q of p){ if(q[0]<x0)x0=q[0]; if(q[0]>x1)x1=q[0]; if(q[1]<y0)y0=q[1]; if(q[1]>y1)y1=q[1]; } return { p, closed, bb:[x0,y0,x1,y1] }; }
+function chaikin(p, closed, it){ for (let n = 0; n < it; n++){ const q = []; const L = p.length; if (!closed) q.push(p[0]);
+    for (let i = 0; i < (closed ? L : L-1); i++){ const a = p[i], b = p[(i+1)%L]; q.push([a[0]*.75+b[0]*.25, a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75, a[1]*.25+b[1]*.75]); }
+    if (!closed) q.push(p[L-1]); p = q; } return p; }
+function blur(a, gw, gh, r){ const t = new Float32Array(a.length), o = new Float32Array(a.length);
+  for (let j = 0; j < gh; j++){ let s = 0; for (let i = -r; i <= r; i++) s += a[j*gw + Math.min(gw-1, Math.max(0,i))];
+    for (let i = 0; i < gw; i++){ t[j*gw+i] = s/(2*r+1); s += a[j*gw+Math.min(gw-1,i+r+1)] - a[j*gw+Math.max(0,i-r)]; } }
+  for (let i = 0; i < gw; i++){ let s = 0; for (let j = -r; j <= r; j++) s += t[Math.min(gh-1,Math.max(0,j))*gw+i];
+    for (let j = 0; j < gh; j++){ o[j*gw+i] = s/(2*r+1); s += t[Math.min(gh-1,j+r+1)*gw+i] - t[Math.max(0,j-r)*gw+i]; } }
+  return o; }
+function bfs(src){ const d = new Int16Array(NN).fill(999), q = new Int32Array(NN); let h = 0, t = 0;
+  for (let k = 0; k < NN; k++) if (src[k]){ d[k] = 0; q[t++] = k; }
+  while (h < t){ const k = q[h++], i = k%GW, j = (k/GW)|0; for (let n = 0; n < 4; n++){ const ii = i+N8[n][0], jj = j+N8[n][1]; if (ii<0||jj<0||ii>=GW||jj>=GH) continue; const m = jj*GW+ii; if (d[m] > d[k]+1){ d[m] = d[k]+1; q[t++] = m; } } }
+  return d; }
+
+function generate(){
+  const E = new Float32Array(NN), M = new Float32Array(NN);
+  for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++){
+    const x = i*RES, y = j*RES, k = j*GW+i;
+    const wx = x + 16*(fbm(x/45, y/45, 11, 3) - .5), wy = y + 16*(fbm(x/45+31, y/45+17, 12, 3) - .5);
+    const dx = (wx-118)/108, dy = (wy-80)/68;
+    let e = .42 - .62*(dx*dx+dy*dy) + (fbm(wx/36, wy/36, 1, 6) - .47)*.8;
+    const dr = polyD(x, y, RANGE); e += Math.exp(-(dr*dr)/110)*(.4 + .6*fbm(x/8, y/8, 3, 4))*.8;
+    const dh = polyD(x, y, HILLR); e += Math.exp(-(dh*dh)/220)*.2*(.6 + .8*fbm(x/14, y/14, 4, 3));
+    e -= .16*Math.exp(-((x-78)*(x-78)+(y-64)*(y-64))/90);
+    if (i < 3 || j < 3 || i > GW-4 || j > GH-4) e = Math.min(e, -.25);
+    E[k] = e; M[k] = fbm(x/55, y/55, 21, 4) + .25*(1 - x/W);
+  }
+  // Senken auffüllen: daraus entstehen Seen und Abflussrichtungen
+  const F = new Float32Array(NN), done = new Uint8Array(NN), hp = heap(NN);
+  for (let k = 0; k < NN; k++) if (E[k] <= 0){ F[k] = E[k]; done[k] = 1; hp.push(k, E[k]); }
+  while (hp.size){ const c = hp.pop(), i = c%GW, j = (c/GW)|0;
+    for (const [a,b] of N8){ const ii = i+a, jj = j+b; if (ii<0||jj<0||ii>=GW||jj>=GH) continue; const n = jj*GW+ii; if (done[n]) continue; done[n] = 1; F[n] = Math.max(E[n], F[c] + 1e-6); hp.push(n, F[n]); } }
+  // Seen: nur zusammenhängende Flächen ab etwa 10 km²
+  const pond = new Uint8Array(NN); for (let k = 0; k < NN; k++) pond[k] = E[k] > 0 && F[k]-E[k] > .004 ? 1 : 0;
+  const Lk = new Uint8Array(NN), seen = new Uint8Array(NN), lakes = [];
+  for (let k = 0; k < NN; k++){ if (!pond[k] || seen[k]) continue; const comp = [k]; seen[k] = 1;
+    for (let h = 0; h < comp.length; h++){ const c = comp[h], i = c%GW, j = (c/GW)|0; for (let n = 0; n < 4; n++){ const ii = i+N8[n][0], jj = j+N8[n][1]; if (ii<0||jj<0||ii>=GW||jj>=GH) continue; const m = jj*GW+ii; if (pond[m] && !seen[m]){ seen[m] = 1; comp.push(m); } } }
+    if (comp.length >= 40){ let sx = 0, sy = 0; for (const c of comp){ Lk[c] = 1; sx += c%GW; sy += (c/GW)|0; } lakes.push({ x: sx/comp.length*RES, y: sy/comp.length*RES, n: comp.length }); } }
+  // Abfluss
+  const land = []; for (let k = 0; k < NN; k++) if (E[k] > 0) land.push(k);
+  land.sort((a,b) => F[b]-F[a]);
+  const down = new Int32Array(NN).fill(-1), acc = new Float32Array(NN);
+  for (const k of land){ acc[k] += 1; const i = k%GW, j = (k/GW)|0; let best = -1, bv = F[k];
+    for (const [a,b] of N8){ const ii = i+a, jj = j+b; if (ii<0||jj<0||ii>=GW||jj>=GH) continue; const n = jj*GW+ii; if (F[n] < bv){ bv = F[n]; best = n; } }
+    down[k] = best; if (best >= 0) acc[best] += acc[k]; }
+  const TR = 300, Rv = new Uint8Array(NN); for (const k of land) if (acc[k] >= TR && !Lk[k]) Rv[k] = 1;
+  const upR = new Uint8Array(NN); for (const k of land) if (Rv[k] && down[k] >= 0 && Rv[down[k]]) upR[down[k]] = 1;
+  const traced = new Uint8Array(NN), rivers = [];
+  const xy = k => [(k%GW)*RES, ((k/GW)|0)*RES];
+  for (const k of land){ if (!Rv[k] || upR[k]) continue; const pts = [], ws = []; let c = k;
+    while (c >= 0){ pts.push(xy(c)); ws.push(acc[c]); if (traced[c] && pts.length > 1) break; traced[c] = 1; const d = down[c]; if (d < 0) break; if (E[d] <= 0 || Lk[d]){ pts.push(xy(d)); ws.push(acc[c]); break; } c = d; }
+    if (pts.length >= 6){ const sp = chaikin(pts, false, 2); const sw = sp.map((_, i) => ws[Math.min(ws.length-1, Math.round(i/(sp.length-1)*(ws.length-1)))]); rivers.push({ ...finish(sp, false), w: sw }); } }
+  // Höhe in Metern, Hang, Gelände
+  const HM = new Float32Array(NN), S = new Float32Array(NN);
+  for (let k = 0; k < NN; k++){ HM[k] = E[k] <= 0 ? -50 : hm(E[k]); }
+  for (let j = 1; j < GH-1; j++) for (let i = 1; i < GW-1; i++){ const k = j*GW+i; S[k] = Math.hypot(HM[k+1]-HM[k-1], HM[k+GW]-HM[k-GW]) / (2*RES*1000); }
+  const mf = [], ms = []; for (const k of land){ if (Lk[k]) continue; if (HM[k] < 620) mf.push(M[k]); if (HM[k] < 170) ms.push(M[k]); }
+  mf.sort((a,b)=>a-b); ms.sort((a,b)=>a-b);
+  const tF = mf[Math.floor(mf.length*.55)] || .6, tS = ms[Math.floor(ms.length*.78)] || .7;
+  const B = new Uint8Array(NN);
+  for (let k = 0; k < NN; k++){ if (E[k] <= 0){ B[k] = SEA; continue; } if (Lk[k]){ B[k] = LAKE; continue; } const h = HM[k];
+    B[k] = h > 1250 ? MOUNT : h > 640 ? HILLS : (h < 170 && M[k] > tS && S[k] < .02) ? SWAMP : M[k] > tF ? FOREST : GRASS; }
+  const ind = {}; [FOREST, SWAMP, HILLS, MOUNT, LAKE].forEach(b => { const a = new Float32Array(NN); for (let k = 0; k < NN; k++) a[k] = B[k] === b ? 1 : 0; ind[b] = blur(blur(a, GW, GH, 2), GW, GH, 2); });
+  const poly = {}; [FOREST, SWAMP, HILLS, MOUNT, LAKE].forEach(b => { poly[b] = contour(ind[b], GW, GH, .5, RES).map(l => ({ ...l, p: chaikin(l.p, l.closed, 1) })); });
+  const coast = contour(E, GW, GH, 0, RES).map(l => ({ ...l, p: chaikin(l.p, l.closed, 1) }));
+  const levels = [200,400,600,800,1000,1300,1600,1900,2200], contours = [];
+  for (const lv of levels) for (const l of contour(HM, GW, GH, lv, RES)) contours.push({ ...l, lv });
+  const dSea = bfs(B.map(b => b === SEA ? 1 : 0)), dLake = bfs(Lk), dRiv = bfs(Rv);
+  const nForest = bfs(B.map(b => b === FOREST ? 1 : 0));
+  Wd = { E, HM, B, M, S, Rv, Lk, acc, ind, poly, coast, contours, rivers, lakes, dSea, dLake, dRiv, nForest };
+  placeSettlements(); buildRoads(); buildHexes(); labelsInit();
+}
+
+/* ---------- Siedlungen: dort, wo es logisch ist ---------- */
+const NAMES = { city:['Halvardsund'], town:['Merrowfurt','Eschenhag','Kesselbrück'], village:['Torvik','Grauweiler','Lindmar','Odrin','Fennholt','Ascheried','Rotmoor','Weidling','Haselgrund'] };
+function placeSettlements(){
+  const { B, HM, S, dSea, dLake, dRiv, nForest, acc } = Wd, cand = [];
+  for (let j = 8; j < GH-8; j += 4) for (let i = 8; i < GW-8; i += 4){ const k = j*GW+i; const b = B[k];
+    if (b === SEA || b === LAKE || b === MOUNT || b === SWAMP || HM[k] > 560) continue;
+    const ri = Math.exp(-dRiv[k]*RES/2.5), co = Math.exp(-dSea[k]*RES/2), la = Math.exp(-dLake[k]*RES/2), fl = Math.max(0, 1 - S[k]*25);
+    const sc = 1.3*ri + .9*co + .8*la + .5*fl - HM[k]/900 + .35*hash(i, j, 99) + (ri > .5 && co > .3 ? .8 : 0);
+    cand.push({ k, x: i*RES, y: j*RES, sc, ri, co, la, fl, nf: nForest[k]*RES }); }
+  cand.sort((a,b) => b.sc - a.sc);
+  const out = [], take = (type, n, minD) => { for (const c of cand){ if (out.filter(o => o.type === type).length >= n) break; if (out.some(o => Math.hypot(o.x-c.x, o.y-c.y) < minD)) continue; out.push({ ...c, type }); } };
+  take('city', 1, 0); take('town', 3, 34); take('village', 9, 13);
+  const ix = { city:0, town:0, village:0 };
+  for (const s of out){ s.name = NAMES[s.type][ix[s.type]++]; const r = [];
+    if (s.ri > .5 && s.co > .3) r.push('an einer Flussmündung'); else if (s.co > .35) r.push('an der Küste'); else if (s.la > .35) r.push('am Seeufer'); else if (s.ri > .45) r.push('an einem Fluss');
+    if (s.fl > .7) r.push('auf ebenem Grund'); if (s.nf < 3) r.push('nah am Waldrand, mit Holz zur Hand');
+    s.why = r; }
+  Wd.towns = out;
+}
+
+/* ---------- Wege: gesucht, nicht gezeichnet ---------- */
+const G2W = 241, G2H = 161, N2 = G2W*G2H;
+function nodeB(i, j){ return Wd.B[(j*2)*GW + i*2]; }
+function riverAt(i, j){ const R = Wd.Rv; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++){ const ii = i*2+a, jj = j*2+b; if (ii>=0&&jj>=0&&ii<GW&&jj<GH && R[jj*GW+ii]) return true; } return false; }
+const roadMask = new Uint8Array(N2);
+function stepCost(i, j, mode, blocked){ const b = nodeB(i, j); if (b === SEA || b === LAKE) return Infinity; if (blocked && blocked[j*G2W+i]) return Infinity;
+  if (mode === 'detour' && b === SWAMP) return Infinity;
+  let c = [0,0,1,1.7,2.2,7,3.5][b]; if (riverAt(i, j)) c += mode === 'road' ? 4 : 2.5; if (mode === 'road' && roadMask[j*G2W+i]) c *= .45; return c; }
+function astar(s, t, mode, blocked){
+  const g = new Float32Array(N2).fill(Infinity), from = new Int32Array(N2).fill(-1), closed = new Uint8Array(N2), hp = heap(N2*4);
+  const tx = t%G2W, ty = (t/G2W)|0, hz = k => { const dx = Math.abs(k%G2W - tx), dy = Math.abs(((k/G2W)|0) - ty); return .45*(Math.max(dx,dy) + .414*Math.min(dx,dy)); };
+  g[s] = 0; hp.push(s, hz(s));
+  while (hp.size){ const c = hp.pop(); if (c === t) break; if (closed[c]) continue; closed[c] = 1; const i = c%G2W, j = (c/G2W)|0;
+    for (const [a,b] of N8){ const ii = i+a, jj = j+b; if (ii<0||jj<0||ii>=G2W||jj>=G2H) continue; const n = jj*G2W+ii; if (closed[n]) continue;
+      const sc = stepCost(ii, jj, mode, blocked); if (!isFinite(sc)) continue; const ng = g[c] + sc*(a && b ? 1.414 : 1);
+      if (ng < g[n]){ g[n] = ng; from[n] = c; hp.push(n, ng + hz(n)); } } }
+  if (from[t] < 0 && s !== t) return null; const path = []; for (let c = t; c >= 0; c = from[c]){ path.push(c); if (c === s) break; } return path.reverse();
+}
+function speedAt(b, kind){ if (kind === 'road') return b === MOUNT ? 3.2 : 4.8; if (kind === 'path') return b === GRASS ? 4.8 : 2.4; return b === GRASS ? 4.8 : 2.4; }
+function pathStats(path, kind){ let km = 0, hrs = 0, swamp = 0; const bridges = [];
+  for (let n = 1; n < path.length; n++){ const a = path[n-1], b = path[n], ax = a%G2W, ay = (a/G2W)|0, bx = b%G2W, by = (b/G2W)|0; const d = Math.hypot(bx-ax, by-ay); const bb = nodeB(bx, by);
+    km += d; hrs += d/speedAt(bb, kind); if (bb === SWAMP) swamp += d;
+    if (riverAt(bx, by) && !riverAt(ax, ay)) bridges.push({ x: bx, y: by, ang: Math.atan2(by-ay, bx-ax) }); }
+  return { km, hrs, swamp, bridges }; }
+function buildRoads(){
+  const T = Wd.towns, k2 = s => Math.round(s.y)*G2W + Math.round(s.x);
+  const inT = [0], edges = [];
+  while (inT.length < T.length){ let best = null; for (const a of inT) for (let b = 0; b < T.length; b++){ if (inT.includes(b)) continue; const d = Math.hypot(T[a].x-T[b].x, T[a].y-T[b].y); if (!best || d < best.d) best = { a, b, d }; } inT.push(best.b); edges.push(best); }
+  const big = T.map((t,i) => i).filter(i => T[i].type !== 'village'); let extra = null;
+  for (const a of big) for (const b of big){ if (a >= b || edges.some(e => (e.a===a&&e.b===b)||(e.a===b&&e.b===a))) continue; const d = Math.hypot(T[a].x-T[b].x, T[a].y-T[b].y); if (!extra || d < extra.d) extra = { a, b, d }; }
+  if (extra) edges.push(extra);
+  edges.forEach(e => e.kind = (T[e.a].type !== 'village' && T[e.b].type !== 'village') ? 'road' : 'path');
+  edges.sort((x, y) => (x.kind === 'road' ? 0 : 1) - (y.kind === 'road' ? 0 : 1));
+  const roads = [];
+  for (const e of edges){ const path = astar(k2(T[e.a]), k2(T[e.b]), 'road'); if (!path) continue; for (const c of path) roadMask[c] = 1;
+    const st = pathStats(path, e.kind); const pts = chaikin(path.map(c => [c%G2W, (c/G2W)|0]), false, 2);
+    pts[0] = [T[e.a].x, T[e.a].y]; pts[pts.length-1] = [T[e.b].x, T[e.b].y];
+    roads.push({ ...finish(pts, false), kind: e.kind, a: e.a, b: e.b, path, ...st }); }
+  // Der Weg mit dem meisten Sumpf wird zum Matschweg
+  let mud = null; for (const r of roads) if (r.kind === 'path' && (!mud || r.swamp > mud.swamp || (r.swamp === mud.swamp && r.km > mud.km))) mud = r;
+  if (mud){ mud.mud = true; const blocked = new Uint8Array(N2); for (const c of mud.path.slice(2, -2)) blocked[c] = 1;
+    const alt = astar(mud.path[0], mud.path[mud.path.length-1], 'detour', blocked);
+    if (alt){ const st = pathStats(alt, 'cross'); mud.detour = { hrs: st.hrs, km: st.km, p: chaikin(alt.map(c => [c%G2W, (c/G2W)|0]), false, 2) }; } }
+  Wd.roads = roads;
+}
+
+/* ---------- Hexfelder: 6 Meilen von Seite zu Seite ---------- */
+const HEXKM = 9.656, HS = HEXKM/Math.sqrt(3);
+function hexCenter(q, r){ return [HS*Math.sqrt(3)*(q + r/2), HS*1.5*r]; }
+function bAt(x, y){ const i = Math.round(x/RES), j = Math.round(y/RES); if (i<0||j<0||i>=GW||j>=GH) return SEA; return Wd.B[j*GW+i]; }
+function buildHexes(){ const hx = [];
+  for (let r = -1; r <= Math.ceil(H/(HS*1.5))+1; r++) for (let q = -Math.ceil(r/2)-2; q <= Math.ceil(W/(HS*Math.sqrt(3)))+2; q++){
+    const [x, y] = hexCenter(q, r); if (x < -HS || y < -HS || x > W+HS || y > H+HS) continue;
+    const cnt = [0,0,0,0,0,0,0]; cnt[bAt(x,y)] += 2; for (let a = 0; a < 6; a++){ const an = Math.PI/3*a + Math.PI/6; cnt[bAt(x + Math.cos(an)*HS*.6, y + Math.sin(an)*HS*.6)]++; }
+    let best = 0; for (let b = 1; b < 7; b++) if (cnt[b] > cnt[best]) best = b; if (cnt[SEA] >= 5) best = SEA;
+    hx.push({ q, r, x, y, b: best }); }
+  Wd.hexes = hx; }
+function hexAt(x, y){ const q = (Math.sqrt(3)/3*x - y/3)/HS, r = (2/3*y)/HS; let rx = Math.round(q), rz = Math.round(r), ry = Math.round(-q-r);
+  const dx = Math.abs(rx-q), dz = Math.abs(rz-r), dy = Math.abs(ry-(-q-r)); if (dx > dy && dx > dz) rx = -ry-rz; else if (dy <= dz) rz = -rx-ry; return Wd.hexes.find(h => h.q === rx && h.r === rz); }
+
+function labelsInit(){ const { B } = Wd; let sx = 0, sy = 0, n = 0; for (let j = 0; j < GH; j += 3) for (let i = 0; i < GW; i += 3){ const b = B[j*GW+i]; if (b !== SEA){ sx += i; sy += j; n++; } }
+  Wd.center = [sx/n*RES, sy/n*RES - 6]; let sea = [16, 40], bd = 0; for (let j = 20; j < GH-20; j += 6) for (let i = 10; i < GW/3; i += 6){ const d = Wd.dSea; const k = j*GW+i; if (B[k] === SEA){ /* Abstand zum Land */ } }
+  Wd.sea = sea; }
+
+/* ---------- Ansicht ---------- */
+const cv = document.getElementById('map'), ctx = cv.getContext('2d'), stage = document.getElementById('stage');
+const cache = document.createElement('canvas'), cctx = cache.getContext('2d');
+let cw = 0, ch = 0, dpr = 1, V = { x: 0, y: 0, s: 4 }, CV = null, mode = 'map';
+const layer = { sym: true, con: true, road: true, lab: true, rain: false };
+let grain = null;
+function makeGrain(){ const g = document.createElement('canvas'); g.width = g.height = 220; const x = g.getContext('2d'), im = x.createImageData(220, 220);
+  for (let i = 0; i < im.data.length; i += 4){ const v = 120 + hash(i, 7, 3)*120; im.data[i] = im.data[i+1] = v; im.data[i+2] = v*.9; im.data[i+3] = 22; } x.putImageData(im, 0, 0); grain = ctx.createPattern(g, 'repeat'); }
+function resize(){ const r = stage.getBoundingClientRect(); cw = r.width; ch = r.height; dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr); cache.width = cv.width; cache.height = cv.height; }
+function fitView(){ const s = Math.min(cw/W, ch/H)*.96; V = { s, x: W/2 - cw/2/s, y: H/2 - ch/2/s }; }
+const sx = x => (x - V.x)*V.s, sy = y => (y - V.y)*V.s;
+function vis(bb, pad){ const p = (pad||0)/V.s; return !(bb[2] < V.x-p || bb[0] > V.x + cw/V.s + p || bb[3] < V.y-p || bb[1] > V.y + ch/V.s + p); }
+function trace(l, close){ const p = l.p; ctx.moveTo(sx(p[0][0]), sy(p[0][1])); for (let i = 1; i < p.length; i++) ctx.lineTo(sx(p[i][0]), sy(p[i][1])); if (close && l.closed) ctx.closePath(); }
+function pathOf(list, pad){ ctx.beginPath(); for (const l of list) if (vis(l.bb, pad||0)) trace(l, true); }
+
+function drawBase(full){
+  ctx.fillStyle = C.sea; ctx.fillRect(0, 0, cw, ch);
+  const coast = Wd.coast.filter(l => l.closed);
+  // Wellenlinien vor der Küste
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (let i = 4; i >= 1; i--){ pathOf(coast, 40); ctx.strokeStyle = C['sea-line']; ctx.globalAlpha = .28 + (4-i)*.08; ctx.lineWidth = i*7; ctx.stroke(); ctx.globalAlpha = 1; ctx.strokeStyle = C.sea; ctx.lineWidth = i*7 - 1.1; ctx.stroke(); }
+  pathOf(coast, 2); ctx.fillStyle = C.paper; ctx.fill('evenodd');
+  // Gelände-Tönung
+  ctx.save(); pathOf(coast, 2); ctx.clip('evenodd');
+  pathOf(coast, 20); ctx.strokeStyle = C['paper-edge']; ctx.globalAlpha = .55; ctx.lineWidth = 14; ctx.stroke(); ctx.globalAlpha = 1;
+  const tint = [[HILLS, C.hills, .55], [MOUNT, C.mount, .7], [FOREST, C.forest, .42], [SWAMP, C.swamp, .5]];
+  for (const [b, col, a] of tint){ pathOf(Wd.poly[b], 2); ctx.fillStyle = col; ctx.globalAlpha = a; ctx.fill('evenodd'); ctx.globalAlpha = 1; }
+  ctx.restore();
+  if (full && layer.con && V.s >= 6 && mode === 'map'){ ctx.beginPath(); for (const c of Wd.contours) if (vis(c.bb, 2)) trace(c, true);
+    ctx.strokeStyle = C['ink-soft']; ctx.globalAlpha = Math.min(.42, (V.s-6)/12 + .2); ctx.lineWidth = .7; ctx.stroke(); ctx.globalAlpha = 1; }
+  // Seen
+  pathOf(Wd.poly[LAKE], 2); ctx.fillStyle = C.sea; ctx.fill('evenodd'); ctx.strokeStyle = C.river; ctx.lineWidth = 1.1; ctx.stroke();
+  // Flüsse
+  const wf = Math.pow(V.s/4, .45);
+  for (const r of Wd.rivers){ if (!vis(r.bb, 4)) continue; const p = r.p; ctx.strokeStyle = C.river;
+    for (let i = 1; i < p.length; i++){ ctx.beginPath(); ctx.moveTo(sx(p[i-1][0]), sy(p[i-1][1])); ctx.lineTo(sx(p[i][0]), sy(p[i][1])); ctx.lineWidth = Math.max(.6, (.35 + Math.sqrt(r.w[i]/300)*.55)*wf); ctx.stroke(); } }
+  pathOf(coast, 2); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+function symbols(){
+  const out = [], x0 = V.x, y0 = V.y, x1 = V.x + cw/V.s, y1 = V.y + ch/V.s, { ind, HM } = Wd;
+  const samp = (a, x, y) => { const i = Math.max(0, Math.min(GW-2, Math.floor(x/RES))), j = Math.max(0, Math.min(GH-2, Math.floor(y/RES))); return a[j*GW+i]; };
+  const kinds = [ { b: MOUNT, s0: 5, min: 15, lv: 3, thr: .55 }, { b: HILLS, s0: 4, min: 14, lv: 4, thr: .55 }, { b: FOREST, s0: 3.2, min: 9, lv: 5, thr: .5 }, { b: SWAMP, s0: 3, min: 12, lv: 4, thr: .55 } ];
+  for (const K of kinds){ for (let L = 0; L < K.lv; L++){ const s = K.s0/Math.pow(2, L); if (s*V.s < K.min) break;
+      const gi0 = Math.floor(x0/s)-1, gi1 = Math.ceil(x1/s)+1, gj0 = Math.floor(y0/s)-1, gj1 = Math.ceil(y1/s)+1;
+      for (let gj = gj0; gj <= gj1; gj++) for (let gi = gi0; gi <= gi1; gi++){ if (L > 0 && gi%2 === 0 && gj%2 === 0) continue;
+        const gx = gi*Math.pow(2, L), gy = gj*Math.pow(2, L); const x = (gi + .15 + .7*hash(gx, gy, 31+K.b))*s, y = (gj + .15 + .7*hash(gx, gy, 57+K.b))*s;
+        if (x < 0 || y < 0 || x > W || y > H) continue; const v = samp(ind[K.b], x, y); if (v < K.thr + .18*hash(gx, gy, 77)) continue;
+        out.push({ b: K.b, x, y, sz: s*V.s, h: samp(HM, x, y), r: hash(gx, gy, 5) }); } } }
+  out.sort((a, b) => a.y - b.y); return out;
+}
+function drawSymbols(){
+  const list = symbols(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const o of list){ const X = sx(o.x), Y = sy(o.y);
+    if (o.b === MOUNT){ const z = Math.min(40, Math.max(7, o.sz*.55))*(.75 + Math.min(1, o.h/2600)*.6), t = z*(1.05 + o.r*.35);
+      ctx.beginPath(); ctx.moveTo(X - z, Y); ctx.quadraticCurveTo(X - z*.4, Y - t*.55, X + (o.r-.5)*z*.15, Y - t); ctx.quadraticCurveTo(X + z*.45, Y - t*.5, X + z, Y);
+      ctx.fillStyle = C.paper; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2; ctx.stroke();
+      const ax = X + (o.r-.5)*z*.15, ay = Y - t; ctx.beginPath();
+      for (let k = 1; k <= 5; k++){ const u = k/6.2, px = ax + (X + z - ax)*u, py = ay + (Y - ay)*u; ctx.moveTo(px, py); ctx.lineTo(px - z*.22, Math.min(Y - 1, py + z*.38)); }
+      ctx.moveTo(ax, ay); ctx.quadraticCurveTo(ax + z*.05, ay + t*.4, ax - z*.12, Y - t*.2);
+      ctx.lineWidth = .75; ctx.globalAlpha = .75; ctx.stroke(); ctx.globalAlpha = 1;
+      if (o.h > 1850){ ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ax - z*.3, ay + t*.3); ctx.lineTo(ax - z*.08, ay + t*.24); ctx.lineTo(ax + z*.1, ay + t*.34); ctx.lineTo(ax + z*.25, ay + t*.26); ctx.closePath(); ctx.fillStyle = '#f6f0e1'; ctx.fill(); }
+    } else if (o.b === HILLS){ const z = Math.min(24, Math.max(5, o.sz*.42)); ctx.beginPath(); ctx.moveTo(X - z, Y); ctx.quadraticCurveTo(X, Y - z*1.05, X + z, Y);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.stroke(); ctx.beginPath(); ctx.moveTo(X + z*.35, Y - z*.38); ctx.lineTo(X + z*.2, Y - z*.08); ctx.moveTo(X + z*.62, Y - z*.22); ctx.lineTo(X + z*.5, Y - z*.02); ctx.lineWidth = .7; ctx.stroke();
+    } else if (o.b === FOREST){ const r = Math.min(15, Math.max(2.6, o.sz*.36))*(.85 + o.r*.3);
+      ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X, Y - r*.6); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(.6, r*.16); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X, Y - r*1.25, r, 0, Math.PI*2); ctx.fillStyle = C.canopy; ctx.fill();
+      ctx.beginPath(); ctx.arc(X + r*.18, Y - r*1.2, r*.78, -.6, 1.9); ctx.strokeStyle = C['canopy-shade']; ctx.lineWidth = Math.max(.8, r*.35); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X, Y - r*1.25, r, 0, Math.PI*2); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(.55, r*.13); ctx.stroke();
+    } else if (o.b === SWAMP){ const z = Math.min(9, Math.max(3.5, o.sz*.25)); ctx.beginPath(); ctx.moveTo(X - z*1.2, Y); ctx.lineTo(X + z*1.2, Y);
+      for (const d of [-.6, 0, .6]){ ctx.moveTo(X + d*z, Y - 1); ctx.lineTo(X + d*z*1.3, Y - z*(d === 0 ? 1.1 : .8)); } ctx.strokeStyle = C.river; ctx.lineWidth = .9; ctx.stroke(); } }
+}
+
+function drawRoads(){
+  const T = Wd.towns; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const r of Wd.roads){ if (!vis(r.bb, 10)) continue; ctx.beginPath(); trace(r, false);
+    if (r.kind === 'road'){ ctx.strokeStyle = C.paper; ctx.lineWidth = 4.2; ctx.setLineDash([]); ctx.stroke(); ctx.strokeStyle = C.road; ctx.lineWidth = 1.9; ctx.stroke(); }
+    else { ctx.strokeStyle = C.road; ctx.lineWidth = 1.3; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]); }
+    if (r.mud && layer.rain){ ctx.beginPath(); trace(r, false); ctx.strokeStyle = C.blood; ctx.lineWidth = 2.2; ctx.setLineDash([4, 5]); ctx.stroke(); ctx.setLineDash([]);
+      const p = r.p; for (let i = Math.floor(p.length*.25); i < p.length*.8; i += Math.max(6, Math.floor(p.length/7))){ const X = sx(p[i][0]), Y = sy(p[i][1]); ctx.beginPath(); ctx.moveTo(X-4, Y-4); ctx.lineTo(X+4, Y+4); ctx.moveTo(X+4, Y-4); ctx.lineTo(X-4, Y+4); ctx.lineWidth = 1.8; ctx.stroke(); }
+      if (r.detour){ ctx.beginPath(); trace({ p: r.detour.p }, false); ctx.strokeStyle = C.road; ctx.globalAlpha = .7; ctx.lineWidth = 1.2; ctx.setLineDash([1.5, 4]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; } }
+    if (V.s >= 3) for (const b of r.bridges){ const X = sx(b.x), Y = sy(b.y), c = Math.cos(b.ang), s = Math.sin(b.ang), z = 4.5;
+      ctx.beginPath(); ctx.moveTo(X - c*z - s*3, Y - s*z + c*3); ctx.lineTo(X + c*z - s*3, Y + s*z + c*3); ctx.moveTo(X - c*z + s*3, Y - s*z - c*3); ctx.lineTo(X + c*z + s*3, Y + s*z - c*3); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.1; ctx.stroke(); } }
+}
+function drawTowns(){
+  for (const t of Wd.towns){ const X = sx(t.x), Y = sy(t.y); if (X < -30 || Y < -30 || X > cw+30 || Y > ch+30) continue;
+    if (V.s >= 12){ const rad = { city: 1.7, town: 1, village: .55 }[t.type], n = { city: 34, town: 16, village: 7 }[t.type];
+      for (let i = 0; i < n; i++){ const a = hash(i, 3, t.k)*Math.PI*2, d = Math.sqrt(hash(i, 9, t.k))*rad, hx = sx(t.x + Math.cos(a)*d), hy = sy(t.y + Math.sin(a)*d), w = (.09 + hash(i, 4, t.k)*.07)*V.s, h = w*.62;
+        ctx.save(); ctx.translate(hx, hy); ctx.rotate(hash(i, 6, t.k)*.8 - .4); ctx.fillStyle = C['paper-edge']; ctx.fillRect(-w/2, -h/2, w, h); ctx.strokeStyle = C.ink; ctx.lineWidth = .8; ctx.strokeRect(-w/2, -h/2, w, h); ctx.restore(); } }
+    ctx.lineWidth = 1.3; ctx.strokeStyle = C.ink;
+    if (t.type === 'city'){ ctx.beginPath(); ctx.arc(X, Y, 7.5, 0, Math.PI*2); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke(); for (let a = 0; a < 8; a++){ const an = a*Math.PI/4; ctx.beginPath(); ctx.arc(X + Math.cos(an)*7.5, Y + Math.sin(an)*7.5, 1.6, 0, Math.PI*2); ctx.fillStyle = C.ink; ctx.fill(); } ctx.beginPath(); ctx.arc(X, Y, 3.4, 0, Math.PI*2); ctx.fill(); }
+    else if (t.type === 'town'){ ctx.beginPath(); ctx.arc(X, Y, 5.5, 0, Math.PI*2); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(X, Y, 2.3, 0, Math.PI*2); ctx.fillStyle = C.ink; ctx.fill(); }
+    else if (V.s >= 2.6){ ctx.beginPath(); ctx.arc(X, Y, 2.8, 0, Math.PI*2); ctx.fillStyle = C.ink; ctx.fill(); } }
+}
+
+/* ---------- Beschriftung ---------- */
+let boxes = [];
+function spaced(text, x, y, sp, halo){ const ws = [...text].map(c => ctx.measureText(c).width); const total = ws.reduce((a,b) => a+b, 0) + sp*(ws.length-1); let cx = x - total/2;
+  [...text].forEach((c, i) => { if (halo){ ctx.strokeText(c, cx, y); } else ctx.fillText(c, cx, y); cx += ws[i] + sp; }); return total; }
+function free(b){ for (const o of boxes) if (!(b[2] < o[0] || b[0] > o[2] || b[3] < o[1] || b[1] > o[3])) return false; return b[0] > 2 && b[1] > 2 && b[2] < cw-2 && b[3] < ch-2; }
+function label(text, x, y, font, color, sp, haloW, align){ ctx.font = font; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  const w = [...text].reduce((a, c) => a + ctx.measureText(c).width, 0) + sp*(text.length-1), h = parseFloat(font.match(/(\d+)px/)[1]);
+  const cxp = align === 'left' ? x + w/2 : align === 'right' ? x - w/2 : x; const b = [cxp - w/2 - 2, y - h/2 - 1, cxp + w/2 + 2, y + h/2 + 1];
+  if (!free(b)) return false; boxes.push(b);
+  ctx.strokeStyle = C.paper; ctx.lineWidth = haloW; ctx.lineJoin = 'round'; if (haloW) spaced(text, cxp, y, sp, true); ctx.fillStyle = color; spaced(text, cxp, y, sp, false); return true; }
+function drawLabels(){
+  boxes = []; const T = Wd.towns;
+  for (const t of T){ const X = sx(t.x), Y = sy(t.y); const r = t.type === 'city' ? 9 : t.type === 'town' ? 7 : 4; boxes.push([X-r, Y-r, X+r, Y+r]); }
+  if (V.s < 6.5){ const [x, y] = Wd.center; ctx.globalAlpha = .75; label('VARRAND', sx(x), sy(y), `${Math.round(Math.min(42, 20 + V.s*3))}px "IM Fell English SC", Georgia, serif`, C.ink, Math.min(16, 6 + V.s*1.6), 6, 'center'); ctx.globalAlpha = 1; }
+  label('Die Bleiche See', sx(18), sy(26), 'italic 18px "IM Fell English", Georgia, serif', C['sea-line'], 3, 0, 'left');
+  if (V.s >= 2){ const a = RANGE[1], b = RANGE[2], mx = (a[0]+b[0])/2 + 9, my = (a[1]+b[1])/2; const X = sx(mx), Y = sy(my), ang = Math.atan2(b[1]-a[1], b[0]-a[0]);
+    if (X > 40 && Y > 40 && X < cw-40 && Y < ch-40){ ctx.save(); ctx.translate(X, Y); ctx.rotate(ang); ctx.font = '15px "IM Fell English SC", Georgia, serif'; ctx.textBaseline = 'middle'; ctx.lineWidth = 3.5; ctx.strokeStyle = C.paper; spaced('GRAUKAMM', 0, 0, 7, true); ctx.fillStyle = C.ink; spaced('GRAUKAMM', 0, 0, 7, false); ctx.restore(); boxes.push([X-70, Y-60, X+70, Y+60]); } }
+  for (const l of Wd.lakes){ if (V.s >= 2.4) label('Spiegelsee', sx(l.x), sy(l.y) + 1, 'italic 13px "IM Fell English", Georgia, serif', C.river, 1.5, 3, 'center'); break; }
+  const order = ['city', 'town', 'village'];
+  for (const ty of order) for (const t of T){ if (t.type !== ty) continue; if (ty === 'village' && V.s < 3.2) continue; const X = sx(t.x), Y = sy(t.y);
+    const font = ty === 'city' ? '19px "IM Fell English SC", Georgia, serif' : ty === 'town' ? '16px "IM Fell English", Georgia, serif' : '14px "IM Fell English", Georgia, serif';
+    const off = ty === 'city' ? 13 : ty === 'town' ? 10 : 7;
+    label(t.name, X + off, Y, font, C.ink, ty === 'city' ? 1.5 : .5, 3.5, 'left') || label(t.name, X - off, Y, font, C.ink, ty === 'city' ? 1.5 : .5, 3.5, 'right') || label(t.name, X, Y - off - 6, font, C.ink, ty === 'city' ? 1.5 : .5, 3.5, 'center') || label(t.name, X, Y + off + 6, font, C.ink, ty === 'city' ? 1.5 : .5, 3.5, 'center'); }
+}
+
+/* ---------- Kartenzierrat: Windrose, Maßstab ---------- */
+function drawFurniture(){
+  // Windrose
+  const R = 30, X = cw - R - 22, Y = R + 22; ctx.save(); ctx.translate(X, Y); ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 0, R*.62, 0, Math.PI*2); ctx.globalAlpha = .6; ctx.stroke(); ctx.globalAlpha = 1;
+  for (let a = 0; a < 8; a++){ const an = a*Math.PI/4 - Math.PI/2, L = a%2 ? R*.55 : R; ctx.beginPath(); ctx.moveTo(Math.cos(an)*L, Math.sin(an)*L); ctx.lineTo(Math.cos(an+.5)*L*.2, Math.sin(an+.5)*L*.2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(Math.cos(an)*L, Math.sin(an)*L); ctx.lineTo(Math.cos(an-.5)*L*.2, Math.sin(an-.5)*L*.2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke(); ctx.fillStyle = C.ink; }
+  ctx.font = '14px "IM Fell English SC", Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('N', 0, -R - 2); ctx.restore();
+  // Maßstab
+  const steps = [.5,1,2,5,10,20,25,50,100]; let km = steps[0]; for (const s of steps) if (s*V.s <= 150) km = s;
+  const px = km*V.s, bx = cw - px - 72, by = ch - 26; ctx.save(); ctx.translate(bx, by);
+  for (let i = 0; i < 4; i++){ ctx.fillStyle = i%2 ? C.paper : C.ink; ctx.fillRect(i*px/4, 0, px/4, 5); } ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.strokeRect(0, 0, px, 5);
+  ctx.fillStyle = C.ink; ctx.font = '13px "IM Fell English", Georgia, serif'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'left'; if (px > 90) ctx.fillText('0', -3, -3); ctx.textAlign = 'right';
+  const mi = km*.621371; ctx.fillText(`${String(km).replace('.', ',')} km · ${mi < 1 ? mi.toFixed(1).replace('.', ',') : Math.round(mi)} Meilen`, px + 4, -3);
+  if (mode === 'hex'){ ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('1 Feld = 6 Meilen', 0, 9); }
+  ctx.restore();
+}
+
+function drawHex(){
+  ctx.fillStyle = C.sea; ctx.fillRect(0, 0, cw, ch);
+  const fill = [C.sea, C.sea, C.paper, C.forest, C.hills, C.mount, C.swamp];
+  const corners = (x, y) => { const p = []; for (let a = 0; a < 6; a++){ const an = Math.PI/3*a + Math.PI/6; p.push([sx(x + Math.cos(an)*HS), sy(y + Math.sin(an)*HS)]); } return p; };
+  for (const h of Wd.hexes){ const X = sx(h.x), Y = sy(h.y), rr = HS*V.s; if (X < -rr || Y < -rr || X > cw+rr || Y > ch+rr) continue; const p = corners(h.x, h.y);
+    ctx.beginPath(); p.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fillStyle = fill[h.b]; ctx.globalAlpha = h.b === GRASS ? 1 : .9; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = C['ink-soft']; ctx.globalAlpha = .35; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+    if (!layer.sym || rr < 9) continue; const z = rr*.42;
+    if (h.b === MOUNT){ ctx.beginPath(); ctx.moveTo(X - z, Y + z*.5); ctx.quadraticCurveTo(X - z*.35, Y - z*.2, X, Y - z*.85); ctx.quadraticCurveTo(X + z*.4, Y - z*.2, X + z, Y + z*.5); ctx.fillStyle = C.paper; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.1; ctx.stroke(); }
+    else if (h.b === HILLS){ for (const d of [-.45, .45]){ ctx.beginPath(); ctx.moveTo(X + d*z - z*.5, Y + z*.3); ctx.quadraticCurveTo(X + d*z, Y - z*.5, X + d*z + z*.5, Y + z*.3); ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.stroke(); } }
+    else if (h.b === FOREST){ for (const [dx, dy] of [[-.45, .2], [.45, .2], [0, -.25]]){ const r = z*.32, tx = X + dx*z, ty = Y + dy*z; ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI*2); ctx.fillStyle = C.canopy; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = .9; ctx.stroke(); } }
+    else if (h.b === SWAMP){ ctx.beginPath(); for (const d of [-.4, 0, .4]){ ctx.moveTo(X + d*z, Y + z*.3); ctx.lineTo(X + d*z*1.2, Y - z*.25); } ctx.moveTo(X - z*.7, Y + z*.3); ctx.lineTo(X + z*.7, Y + z*.3); ctx.strokeStyle = C.river; ctx.lineWidth = 1; ctx.stroke(); }
+    else if (h.b === SEA && rr > 18){ ctx.beginPath(); ctx.moveTo(X - z*.6, Y); ctx.quadraticCurveTo(X - z*.3, Y - z*.25, X, Y); ctx.quadraticCurveTo(X + z*.3, Y + z*.25, X + z*.6, Y); ctx.strokeStyle = C['sea-line']; ctx.globalAlpha = .5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; } }
+  const wf = Math.pow(V.s/4, .45); for (const r of Wd.rivers){ if (!vis(r.bb, 4)) continue; ctx.beginPath(); trace(r, false); ctx.strokeStyle = C.river; ctx.lineWidth = Math.max(.8, 1.2*wf); ctx.stroke(); }
+}
+
+function drawNet(){
+  drawBase(false); ctx.fillStyle = C.paper; ctx.globalAlpha = .55; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1;
+  const T = Wd.towns; ctx.lineCap = 'round';
+  for (const r of Wd.roads){ const a = T[r.a], b = T[r.b], A = [sx(a.x), sy(a.y)], B = [sx(b.x), sy(b.y)];
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); const blocked = r.mud && layer.rain;
+    ctx.strokeStyle = blocked ? C.blood : C.road; ctx.lineWidth = r.kind === 'road' ? 2.4 : 1.6; ctx.setLineDash(r.kind === 'road' && !blocked ? [] : [6, 4]); ctx.stroke(); ctx.setLineDash([]); }
+  for (const t of T){ const X = sx(t.x), Y = sy(t.y), rad = t.type === 'city' ? 11 : t.type === 'town' ? 8.5 : 6;
+    ctx.beginPath(); ctx.arc(X, Y, rad, 0, Math.PI*2); ctx.fillStyle = C.paper; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 1.6; ctx.stroke(); if (t.type !== 'village'){ ctx.beginPath(); ctx.arc(X, Y, rad*.42, 0, Math.PI*2); ctx.fillStyle = C.ink; ctx.fill(); } }
+  boxes = []; for (const t of T){ const X = sx(t.x), Y = sy(t.y); boxes.push([X-11, Y-11, X+11, Y+11]); }
+  for (const r of Wd.roads){ const a = T[r.a], b = T[r.b]; const mx = sx((a.x+b.x)/2), my = sy((a.y+b.y)/2); const blocked = r.mud && layer.rain;
+    const text = blocked ? 'gesperrt' : fmtH(r.hrs); ctx.font = '13px "Crimson Pro", Georgia, serif'; const w = ctx.measureText(text).width + 12, bb = [mx - w/2, my - 10, mx + w/2, my + 10];
+    if (!free(bb)) continue; boxes.push(bb); ctx.fillStyle = C.paper; ctx.fillRect(bb[0], bb[1], w, 20); ctx.strokeStyle = blocked ? C.blood : C['ink-soft']; ctx.lineWidth = 1; ctx.strokeRect(bb[0], bb[1], w, 20);
+    ctx.fillStyle = blocked ? C.blood : C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, mx, my + 1); }
+  for (const t of T){ const X = sx(t.x), Y = sy(t.y); const font = t.type === 'city' ? '19px "IM Fell English SC", Georgia, serif' : t.type === 'town' ? '16px "IM Fell English", Georgia, serif' : '14px "IM Fell English", Georgia, serif';
+    const off = t.type === 'city' ? 16 : t.type === 'town' ? 13 : 10; label(t.name, X + off, Y, font, C.ink, .5, 3.5, 'left') || label(t.name, X - off, Y, font, C.ink, .5, 3.5, 'right') || label(t.name, X, Y - off - 6, font, C.ink, .5, 3.5, 'center'); }
+}
+
+function drawRain(){ if (!layer.rain) return; ctx.save(); ctx.strokeStyle = C['sea-line']; ctx.globalAlpha = .16; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = -ch; i < cw; i += 14) for (let j = 0; j < ch; j += 22){ const o = (j*7)%14; ctx.moveTo(i + j*.35 + o, j); ctx.lineTo(i + j*.35 + o + 4, j + 9); } ctx.stroke(); ctx.restore(); }
+
+function render(){
+  if (!Wd) return; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.textAlign = 'left';
+  if (mode === 'map'){ drawBase(true); if (layer.sym) drawSymbols(); if (layer.road) drawRoads(); drawTowns(); if (layer.lab) drawLabels(); }
+  else if (mode === 'hex'){ drawHex(); if (layer.road) drawRoads(); drawTowns(); if (layer.lab) drawLabels(); }
+  else drawNet();
+  drawRain();
+  if (grain){ ctx.fillStyle = grain; ctx.fillRect(0, 0, cw, ch); }
+  const vg = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw, ch)*.35, cw/2, ch/2, Math.max(cw, ch)*.75); vg.addColorStop(0, 'rgba(58,46,34,0)'); vg.addColorStop(1, 'rgba(58,46,34,.28)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
+  drawFurniture();
+  cctx.setTransform(1, 0, 0, 1, 0, 0); cctx.clearRect(0, 0, cache.width, cache.height); cctx.drawImage(cv, 0, 0); CV = { ...V };
+}
+function quick(){ if (!CV) return render(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = C.sea; ctx.fillRect(0, 0, cw, ch); const f = V.s/CV.s;
+  ctx.drawImage(cache, (CV.x - V.x)*V.s, (CV.y - V.y)*V.s, cw*f, ch*f); }
+let timer = 0; function moved(){ quick(); clearTimeout(timer); timer = setTimeout(render, 130); }
+function zoomAt(mx, my, k){ const ns = Math.max(Math.min(cw/W, ch/H)*.6, Math.min(40, V.s*k)); const kx = V.x + mx/V.s, ky = V.y + my/V.s; V.s = ns; V.x = kx - mx/ns; V.y = ky - my/ns; clampV(); }
+function clampV(){ const vw = cw/V.s, vh = ch/V.s; V.x = Math.max(-vw*.5, Math.min(W - vw*.5, V.x)); V.y = Math.max(-vh*.5, Math.min(H - vh*.5, V.y)); }
+
+/* ---------- Bedienung ---------- */
+const ptrs = new Map(); let downAt = null, moved_ = false, pinch = null;
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.offsetX, e.offsetY]); downAt = [e.offsetX, e.offsetY]; moved_ = false; cv.classList.add('drag');
+  if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0]-b[0], a[1]-b[1]), s: V.s }; } });
+cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const prev = ptrs.get(e.pointerId), cur = [e.offsetX, e.offsetY]; ptrs.set(e.pointerId, cur);
+  if (ptrs.size === 1){ if (Math.hypot(cur[0]-downAt[0], cur[1]-downAt[1]) > 5) moved_ = true; if (!moved_) return; V.x -= (cur[0]-prev[0])/V.s; V.y -= (cur[1]-prev[1])/V.s; clampV(); moved(); }
+  else if (ptrs.size === 2 && pinch){ moved_ = true; const [a, b] = [...ptrs.values()]; const d = Math.hypot(a[0]-b[0], a[1]-b[1]), mx = (a[0]+b[0])/2, my = (a[1]+b[1])/2; zoomAt(mx, my, (pinch.s*d/pinch.d)/V.s); moved(); } });
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0){ cv.classList.remove('drag'); if (!moved_ && downAt) pick(downAt[0], downAt[1]); } };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY*.0016)); moved(); }, { passive: false });
+document.getElementById('z-in').onclick = () => { zoomAt(cw/2, ch/2, 1.6); render(); };
+document.getElementById('z-out').onclick = () => { zoomAt(cw/2, ch/2, 1/1.6); render(); };
+document.getElementById('z-fit').onclick = () => { fitView(); render(); };
+['map', 'hex', 'net'].forEach(m => { document.getElementById('v-' + m).onclick = () => { mode = m; ['map', 'hex', 'net'].forEach(n => document.getElementById('v-' + n).setAttribute('aria-pressed', String(n === m))); hideCard(); render(); }; });
+['sym', 'con', 'road', 'lab', 'rain'].forEach(l => { const b = document.getElementById('l-' + l); b.onclick = () => { layer[l] = !layer[l]; b.setAttribute('aria-pressed', String(layer[l])); render(); if (l === 'rain' && layer.rain){ const m = Wd.roads.find(r => r.mud); if (m) showRoad(m); } }; });
+
+/* ---------- Was an einer Stelle ist ---------- */
+const card = document.getElementById('card');
+function hideCard(){ card.hidden = true; }
+document.getElementById('card-x').onclick = hideCard;
+function fmtH(h){ const r = Math.round(h*2)/2; return (r >= 24 ? `${Math.floor(r/8)} Reisetage` : `${String(r).replace('.', ',')} Std.`); }
+function fmtKm(k){ return `${Math.round(k)} km · ${Math.round(k*.621371)} Meilen`; }
+function showCard(k, n, why, rows, warn){ document.getElementById('c-k').textContent = k; document.getElementById('c-n').textContent = n; document.getElementById('c-why').textContent = why || '';
+  const dl = document.getElementById('c-dl'); dl.textContent = ''; for (const [a, b] of rows){ const dt = document.createElement('dt'); dt.textContent = a; const dd = document.createElement('dd'); dd.textContent = b; dl.append(dt, dd); }
+  document.getElementById('c-warn').textContent = warn || ''; card.hidden = false; }
+function showRoad(r){ const T = Wd.towns; const blocked = r.mud && layer.rain;
+  showCard(r.kind === 'road' ? 'STRASSE' : (r.mud ? 'PFAD · UNBEFESTIGT' : 'PFAD'), `${T[r.a].name} – ${T[r.b].name}`,
+    r.mud ? 'Führt durch nassen, flachen Grund. Bei Starkregen verschlammt er.' : (r.bridges.length ? `Überquert ${r.bridges.length === 1 ? 'einen Fluss' : r.bridges.length + ' Flüsse'} auf einer Brücke.` : ''),
+    [['Länge', fmtKm(r.km)], ['Zu Fuß', blocked ? 'unpassierbar' : fmtH(r.hrs) + ' bei normalem Tempo'], ['Gelände', r.swamp > 1 ? `${Math.round(r.swamp)} km durch Sumpf` : 'überwiegend fest']],
+    blocked && r.detour ? `Starkregen: Der Pfad ist unpassierbar. Umweg querfeldein ${fmtKm(r.detour.km)}, etwa ${fmtH(r.detour.hrs)}.` : ''); }
+function pick(px, py){ const x = V.x + px/V.s, y = V.y + py/V.s, T = Wd.towns;
+  let best = null, bd = 14; for (const t of T){ const d = Math.hypot(sx(t.x)-px, sy(t.y)-py); if (d < bd){ bd = d; best = t; } }
+  if (best){ const roads = Wd.roads.filter(r => T[r.a] === best || T[r.b] === best);
+    showCard({ city: 'STADT', town: 'MARKTFLECKEN', village: 'DORF' }[best.type], best.name, best.why.length ? 'Liegt ' + best.why.join(', ') + '.' : '',
+      [['Höhe', `${Math.round(Wd.HM[best.k])} m`], ['Wege', roads.map(r => (T[r.a] === best ? T[r.b] : T[r.a]).name + ' ' + fmtH(r.hrs)).join(' · ')]]); return; }
+  if (mode !== 'hex'){ let br = null, rd = 8; for (const r of Wd.roads){ const p = r.p; if (mode === 'net'){ const a = T[r.a], b = T[r.b]; const d = segD(px, py, sx(a.x), sy(a.y), sx(b.x), sy(b.y)); if (d < rd){ rd = d; br = r; } continue; }
+      for (let i = 1; i < p.length; i++){ const d = segD(px, py, sx(p[i-1][0]), sy(p[i-1][1]), sx(p[i][0]), sy(p[i][1])); if (d < rd){ rd = d; br = r; } } }
+    if (br){ showRoad(br); return; } }
+  if (mode === 'hex'){ const h = hexAt(x, y); if (!h) return hideCard(); const slow = h.b !== GRASS;
+    showCard('HEXFELD · 6 MEILEN', TNAME[h.b], h.b === SEA ? 'Offenes Wasser.' : '', h.b === SEA || h.b === LAKE ? [['Durchquerung', 'nur per Boot']] : [['Durchquerung', fmtH(HEXKM/(slow ? 2.4 : 4.8)) + (slow ? ' (schwieriges Gelände)' : '')], ['Tempo', slow ? 'halbiert' : 'normal']]); return; }
+  const i = Math.round(x/RES), j = Math.round(y/RES); if (i<0||j<0||i>=GW||j>=GH) return hideCard(); const k = j*GW+i, b = Wd.B[k];
+  if (b === SEA){ showCard('WASSER', 'Die Bleiche See', '', [['Tiefe', 'nicht erfasst']]); return; }
+  const h = Wd.HM[k], clim = h > 1600 ? 'rau, Schnee bis ins Frühjahr' : h > 700 ? 'kühl' : y < 60 ? 'gemäßigt, kühler im Norden' : 'gemäßigt';
+  let nt = null, nd = 1e9; for (const t of T){ const d = Math.hypot(t.x-x, t.y-y); if (d < nd){ nd = d; nt = t; } }
+  const slow = b !== GRASS;
+  showCard('GELÄNDE', TNAME[b], b === LAKE ? 'Ein See, entstanden in einer Senke, die das Wasser nicht verlassen kann.' : (Wd.dRiv[k] <= 2 ? 'Ein Fluss ist ganz nah.' : ''),
+    [['Höhe', `${Math.round(h)} m`], ['Klima', clim], ['Reisetempo', slow ? 'halbiert (schwieriges Gelände)' : 'normal'], ['Nächster Ort', `${nt.name}, ${Math.round(nd)} km`]]); }
+
+/* ---------- Start ---------- */
+function start(){ resize(); fitView(); makeGrain();
+  setTimeout(() => { generate(); document.getElementById('loading').hidden = true; render();
+    if (document.fonts && document.fonts.load){ Promise.all(['16px "IM Fell English"', '16px "IM Fell English SC"', 'italic 16px "IM Fell English"'].map(f => document.fonts.load(f))).then(render, render); } }, 30); }
+new ResizeObserver(() => { const ow = cw; resize(); if (!ow) return; if (Wd) render(); }).observe(stage);
+start();
+})();
+</script>

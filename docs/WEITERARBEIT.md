@@ -625,6 +625,13 @@ dafür nicht weit; deshalb liest jetzt ein Sprachmodell, und nur das.
 - Offen: Uhren am Eintrag der Welt zeigen (beim Betreiber und am Ort), fertige Uhren nachlesen,
   Schritte mit Folgen (etwa: Ort wechselt den Besitzer), Uhren aus dem Text vorschlagen lassen.
 
+**Konzept (11. 11. 2026, abends):** Der Spielleiter hat mit Claude am Handy ein Konzept
+erarbeitet – `docs/KONZEPT-WELT-UND-KARTEN.md`. Es legt Leitsätze, Entscheidungen und eine
+Reihenfolge fest für die lebendige Welt, intelligente Karten aus Vektoren, das Fadenbrett, das
+Bestiarium, „Alles ist ein Artikel“ und Beute. Es geht den älteren Vorschlägen in dieser Datei
+vor, wo sie sich widersprechen. Übernommen aus dem Zweig `konzept/karten-und-welt`; dabei wurden
+Namen aus der echten Kampagne durch erfundene ersetzt.
+
 **Stammbaum und Verwandtschaft (11. 11. 2026) – gebaut.** Wunsch des Spielleiters: Jede Person
 hat Verwandtschaften (Tante, Schwester, Cousin, Großcousin …), und daraus entsteht ein Stammbaum,
 den man in der Familie sieht.
