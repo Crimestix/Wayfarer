@@ -81,6 +81,8 @@ const SOURCE_TEXT: Record<WeatherZone['source'], (zone: WeatherZone) => string> 
   chosen: (zone) => `festgelegt für „${zone.from?.name ?? 'diesen Ort'}“`,
   position: (zone) =>
     `von Wayfarer aus der Lage von „${zone.from?.name ?? 'diesem Ort'}“ gerechnet${zone.site ? ` (${describeSite(zone.site)})` : ''}`,
+  map: (zone) =>
+    `von Wayfarer abgelesen: „${zone.from?.name ?? 'Dieser Ort'}“ steht auf der Unterreich-Karte „${zone.onMap?.name ?? ''}“`,
   recognized: (zone) => `von Wayfarer erkannt an „${zone.from?.name ?? 'diesem Ort'}“`,
   default: () => 'von Wayfarer angenommen, weil nichts anderes bekannt ist',
 };

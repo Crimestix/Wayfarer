@@ -249,6 +249,32 @@ export function markerOfPlace(
   return null;
 }
 
+const belowCache = new WeakMap<CampaignData['maps'], ReadonlyMap<string, GameMap>>();
+
+/**
+ * Was auf einer gezeichneten Karte des Unterreichs als Punkt steht, liegt unter der Erde – je
+ * Eintrag die Karte, die das sagt. Wer zugleich auf einer gezeichneten Karte der Oberwelt steht
+ * (ein Aufgang, ein Tor), zählt nicht: Er bleibt, was er sonst ist.
+ */
+export function placesBelow(maps: CampaignData['maps']): ReadonlyMap<string, GameMap> {
+  const known = belowCache.get(maps);
+  if (known) return known;
+  const below = new Map<string, GameMap>();
+  const above = new Set<string>();
+  for (const map of Object.values(maps)) {
+    if (map.kind !== 'drawn') continue;
+    for (const marker of map.markers) {
+      if (!marker.entityId) continue;
+      if (map.level === 'underground') {
+        if (!below.has(marker.entityId)) below.set(marker.entityId, map);
+      } else above.add(marker.entityId);
+    }
+  }
+  for (const id of above) below.delete(id);
+  belowCache.set(maps, below);
+  return below;
+}
+
 /** Der Kartenpunkt in der Nähe einer Stelle – der nächste innerhalb von `reach`. */
 export function markerNear(
   markers: readonly MapMarker[],

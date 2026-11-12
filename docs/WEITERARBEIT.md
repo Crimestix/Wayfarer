@@ -885,9 +885,14 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
   - Geprüft in der Vorschau: Gruppe in der Pilzgrotte, Karte öffnen, Torhalle anklicken
     („Zu Fuß von hier 14 Min.“), hinziehen (Zeit +14 Min.), Markierung wandert mit; danach die
     Vorschau zurückgesetzt. **Nicht geprüft:** installierte App, macOS.
-  - **Aufgefallen, nicht gebaut:** Ein Ort, der auf einer Karte der Ebene „Unterreich“ steht,
-    gilt dadurch noch nicht als „unter der Erde“ (`isUnderground` liest nur Klima und Namen) –
-    die Torhalle bekam Wetter statt Licht. Naheliegende Ableitung für `weatherZone`.
+  - **Unten ist, was auf einer Unterreich-Karte steht (12. 11., fünfter Schritt) – gebaut.**
+    Ein Ort, der als Punkt auf einer gezeichneten Karte der Ebene „Unterreich“ steht, gilt als
+    unter der Erde – er und alles, was in ihm liegt (`placesBelow` in `domain/mapDraw.ts`,
+    in `weatherZone` als Quelle `map` gleich nach dem festgelegten Klima). Wer zugleich auf
+    einer gezeichneten Karte der Oberwelt steht (ein Aufgang), zählt nicht; ein von Hand
+    festgelegtes Klima geht vor. Bewusst **nicht** abgeleitet: der Ort, den eine
+    Unterreich-Karte „zeigt“ (`map.placeId`) – das wäre oft die Stadt darüber. Geprüft in der
+    Vorschau: Torhalle (Name sagt nichts) zeigt „Unter der Erde · Dämmriges Licht“.
 - **Offen (Reihenfolge nach dem Konzept):** Türen, Geheimgänge und Fallen als Zeichen an Gängen
   und Räumen; Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
   verbinden; Faerzress-Zonen und Herrschaftsgebiete als Flächen über dem Gelände; Licht und

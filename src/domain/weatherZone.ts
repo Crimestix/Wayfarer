@@ -4,9 +4,10 @@
  * Funktionen über dem Spielstand.
  */
 import { siteAt, siteClimate, southern, warmestMonthAt, type Site } from './geoClimate';
+import { placesBelow } from './mapDraw';
 import { exactGeo, placeChain, planetOf, reliefOf } from './planet';
 import { seedOf } from './random';
-import { weatherId, type CampaignData, type Climate, type Place } from './schema';
+import { weatherId, type CampaignData, type Climate, type GameMap, type Place } from './schema';
 import { ELARIS_WARMEST_MONTH } from './time/elaris';
 import { dayIndexOf, MINUTES_PER_DAY } from './time/calendar';
 import {
@@ -42,10 +43,12 @@ const WEATHER_CELL_DEG = 2;
 export interface WeatherZone {
   climate: Climate;
   /**
-   * Vom Spielleiter festgelegt, aus der Lage auf dem Planeten gerechnet, aus den Worten der Orte
-   * erkannt oder die allgemeine Vorgabe.
+   * Vom Spielleiter festgelegt, von einer Karte des Unterreichs abgelesen, aus der Lage auf dem
+   * Planeten gerechnet, aus den Worten der Orte erkannt oder die allgemeine Vorgabe.
    */
-  source: 'chosen' | 'position' | 'recognized' | 'default';
+  source: 'chosen' | 'map' | 'position' | 'recognized' | 'default';
+  /** Bei „map“: die Karte des Unterreichs, auf der der Ort steht. */
+  onMap?: GameMap;
   /** Bei „position“: Breite, Höhe und Küstennähe, aus denen das Klima gerechnet wurde. */
   site?: Site;
   /** Die Vorgabe hinter der Zone, wenn es eine ist. */
@@ -58,7 +61,8 @@ export interface WeatherZone {
 
 /**
  * Die Klimazone eines Ortes. Der Ort selbst geht vor, dann die Orte darüber: Wo ein Klima
- * festgelegt ist, gilt es für alles darunter. Ohne Festlegung rechnet Wayfarer es aus der Lage
+ * festgelegt ist, gilt es für alles darunter. Wer auf einer gezeichneten Karte des Unterreichs
+ * steht, liegt unter der Erde (`placesBelow`). Ohne das rechnet Wayfarer es aus der Lage
  * auf dem Planeten (Breite, Höhe, Küstennähe) oder liest es aus den Namen – was näher am Ort
  * steht, gilt; auf gleicher Stufe gehen deutliche Worte („Wüste“, „Gletscher“) der Lage vor,
  * nur „Hafen“ und „Insel“ nicht. Unter der Erde gibt es nie Wetter. Sonst gilt „Gemäßigt“.
@@ -82,6 +86,23 @@ export function weatherZone(data: CampaignData, placeId: string | null): Weather
         seed: seedFor(climate.id, place),
       };
   }
+  // Karten: Wer auf einer Karte des Unterreichs steht – er selbst oder ein Ort über ihm –, ist
+  // unten. Dort gibt es kein Wetter.
+  const below = placesBelow(data.maps);
+  if (below.size)
+    for (const place of chain) {
+      const onMap = below.get(place.id);
+      if (!onMap) continue;
+      const climate = presetClimate('underground', months, warmest);
+      return {
+        climate,
+        source: 'map',
+        onMap,
+        preset: 'underground',
+        from: place,
+        seed: seedFor(climate.id, place),
+      };
+    }
   const recognized = recognizeClimate(
     chain.map((place) => ({ name: place.name, category: place.place.category, tags: place.tags })),
   );

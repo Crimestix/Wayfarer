@@ -158,7 +158,8 @@ nicht übernommen.
   (`MapPeek`) teilen sich die Bühne `useMapStage`; wo die Gruppe auf einer Karte steht, sagt
   `markerOfPlace()`.
 - Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
-  Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
+  Erde“: festgelegt, von einer gezeichneten Unterreich-Karte abgelesen – `placesBelow` – oder
+  aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
   die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen
   der Art `light`) und die Dunkelsicht der Gefährten – alles über `lightStatus()`.
 - Bilder: Im Spielstand steht die Adresse des Ursprungs; zum Anzeigen immer `useMediaSrc()` aus
