@@ -5,8 +5,8 @@ Spielstand). Das ist ein Konzept, noch kein Bauplan: Es hält fest, was entschie
 schlägt eine Reihenfolge vor. Erst `CLAUDE.md` lesen, dann `docs/FUNKTIONSUMFANG.md`, dann diese
 Datei.
 
-Das Repository ist öffentlich. Beispiele hier sind darum allgemein gehalten; die echten Fälle
-aus der Kampagne kennt der Spielleiter.
+Als dieses Konzept entstand, war das Repository öffentlich; die Beispiele sind darum allgemein
+gehalten. Die echten Fälle aus der Kampagne kennt der Spielleiter.
 
 ---
 

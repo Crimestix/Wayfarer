@@ -49,8 +49,11 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   das die Welt simuliert, durch die die Gruppe läuft (Zeit, Wetter, Reisen), möglichst viel selbst
   erkennt und ableitet statt abzufragen, und beim Leiten nicht stört.
 - Geleitet wird an einem MacBook Air 13" (etwa 1440×900), vorbereitet an einem Windows-PC.
-- **Das Repository ist öffentlich.** Nie einen Spielstand, ein Backup, Schlüssel oder andere
-  private Daten einchecken – auch nicht als Testmaterial.
+- **Das Repository ist privat** (seit 12. 11. 2026, vorher öffentlich). Namen aus der Kampagne
+  dürfen in Beispielen und Unterlagen stehen. Trotzdem nie einen Spielstand, ein Backup oder
+  Schlüssel einchecken – auch nicht als Testmaterial: Der Spielstand gehört in den
+  Kampagnenordner, und was einmal im Verlauf steht, bleibt dort. Tests nutzen weiter erfundene
+  Welten. Die Prüfungen bei GitHub kosten jetzt Freiminuten (Windows doppelt, macOS zehnfach).
 
 Dies ist ein Neubau. Die alte Version (v157) ist nur Ideenquelle; Code, Aufbau und Oberfläche werden
 nicht übernommen.
