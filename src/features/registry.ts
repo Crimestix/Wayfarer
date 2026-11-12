@@ -9,6 +9,7 @@ import {
   Skull,
   Map as MapIcon,
   Swords,
+  Tent,
   Users,
   Waypoints,
   type LucideIcon,
@@ -43,6 +44,7 @@ export const TIME_TABS: readonly AreaTab[] = [
 export const BEAST_TABS: readonly AreaTab[] = [
   { path: '/bestiarium', label: 'Wesen', hint: 'Statblöcke bauen und finden', icon: Skull },
   { path: '/begegnungen', label: 'Begegnungen', hint: 'Zusammenstellen und führen', icon: Swords },
+  { path: '/bestaende', label: 'Bestände', hint: 'Baue, Horte und Nester', icon: Tent },
 ];
 
 /** Karten: der Planet, gezeichnete und Bildkarten, Hexkarten für Reisen. */
@@ -72,7 +74,7 @@ export const AREAS: Area[] = [
   {
     path: '/bestiarium',
     label: 'Bestiarium',
-    hint: 'Wesen und Begegnungen',
+    hint: 'Wesen, Begegnungen, Bestände',
     icon: Skull,
     tabs: BEAST_TABS,
   },

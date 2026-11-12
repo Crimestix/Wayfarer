@@ -5,9 +5,10 @@
  */
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { Minus, Plus, RotateCcw, Swords, Trash2, X } from 'lucide-react';
+import { BookCheck, Minus, Plus, RotateCcw, Swords, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { DIFFICULTY_LABEL, encounterView, type FoeView } from '../../domain/creature';
+import { fielded, lossPlan, stockView } from '../../domain/stock';
 import {
   Button,
   EmptyState,
@@ -17,6 +18,7 @@ import {
   Select,
   confirmDialog,
   cx,
+  toast,
 } from '../../ui';
 import {
   addFoes,
@@ -28,6 +30,7 @@ import {
   updateEncounter,
 } from './encounterActions';
 import { creatureRows } from './model';
+import { bookLosses, fieldFromStock } from './stockActions';
 import { StatBlock } from './StatBlock';
 import './bestiarium.css';
 
@@ -53,6 +56,46 @@ export default function EncountersPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const current = view?.foes.find((entry) => entry.foe.id === selected) ?? view?.foes[0] ?? null;
   const open = (id: string | null) => navigate(id ? `/begegnungen/${id}` : '/begegnungen');
+  /** Bestände, aus denen sich Bewohner in die Begegnung stellen lassen – die am Ort zuerst. */
+  const stocks = useMemo(
+    () =>
+      Object.values(data.stocks)
+        .map((stock) => stockView(data, stock))
+        .filter((entry) => entry.alive > 0)
+        .sort(
+          (a, b) =>
+            Number(b.stock.placeId === encounter?.placeId) -
+              Number(a.stock.placeId === encounter?.placeId) ||
+            a.stock.name.localeCompare(b.stock.name, 'de'),
+        ),
+    [data, encounter?.placeId],
+  );
+  const losses = encounter ? lossPlan(data, encounter).foeIds.length : 0;
+  const add = () => {
+    if (!encounter || !pick) return;
+    const [source, first, second] = pick.split(':');
+    const wanted = Number(count) || 1;
+    if (source === 'c') {
+      addFoes(db, encounter.id, first!, wanted);
+      return;
+    }
+    const taken = fieldFromStock(db, encounter.id, first!, second!, wanted);
+    if (taken < wanted)
+      toast({
+        title: taken ? `Nur ${taken} sind noch da` : 'Von ihnen ist niemand mehr da',
+        body: 'Mehr gibt der Bestand nicht her.',
+      });
+  };
+  const book = () => {
+    if (!encounter) return;
+    const booked = bookLosses(db, encounter.id);
+    if (booked)
+      toast({
+        title: booked.count === 1 ? 'Ein Verlust verbucht' : `${booked.count} Verluste verbucht`,
+        body: 'Sie fehlen jetzt in ihrem Bestand.',
+        action: { label: 'Rückgängig', run: booked.undo },
+      });
+  };
 
   const create = () => open(newEncounter(db).id);
   const remove = async () => {
@@ -146,6 +189,16 @@ export default function EncountersPage() {
                 />
               </div>
               <span className="wf-grow" />
+              {losses > 0 && (
+                <Button
+                  size="sm"
+                  icon={<BookCheck aria-hidden />}
+                  title="Wer aus einem Bestand stammt und besiegt ist, fehlt dort danach"
+                  onClick={book}
+                >
+                  {losses === 1 ? 'Verlust verbuchen' : `${losses} Verluste verbuchen`}
+                </Button>
+              )}
               <Button
                 size="sm"
                 icon={<RotateCcw aria-hidden />}
@@ -170,8 +223,34 @@ export default function EncountersPage() {
                     onChange={(event) => setPick(event.target.value)}
                   >
                     <option value="">Wesen wählen …</option>
+                    {stocks.map((entry) => (
+                      <optgroup
+                        key={entry.stock.id}
+                        label={`Aus dem Bestand „${entry.stock.name}“`}
+                      >
+                        {entry.groups
+                          .filter(
+                            (group) =>
+                              group.resolved &&
+                              group.alive >
+                                fielded(encounter, entry.stock.id, group.group.creatureId),
+                          )
+                          .map((group) => (
+                            <option
+                              key={group.group.id}
+                              value={`s:${entry.stock.id}:${group.group.creatureId}`}
+                            >
+                              {group.name} –{' '}
+                              {group.alive -
+                                fielded(encounter, entry.stock.id, group.group.creatureId)}{' '}
+                              übrig
+                            </option>
+                          ))}
+                      </optgroup>
+                    ))}
+                    {stocks.length > 0 && <option disabled>── Aus dem Bestiarium ──</option>}
                     {creatures.map((row) => (
-                      <option key={row.id} value={row.id}>
+                      <option key={row.id} value={`c:${row.id}`}>
                         {' '.repeat(row.depth)}
                         {row.name} · HG {row.cr}
                       </option>
@@ -184,11 +263,7 @@ export default function EncountersPage() {
                     title="Wie viele Exemplare"
                     onChange={(event) => setCount(event.target.value)}
                   />
-                  <Button
-                    icon={<Plus aria-hidden />}
-                    disabled={!pick}
-                    onClick={() => addFoes(db, encounter.id, pick, Number(count) || 1)}
-                  >
+                  <Button icon={<Plus aria-hidden />} disabled={!pick} onClick={add}>
                     Hinzufügen
                   </Button>
                 </div>
@@ -206,6 +281,7 @@ export default function EncountersPage() {
                       key={entry.foe.id}
                       entry={entry}
                       current={entry.foe.id === current?.foe.id}
+                      from={entry.foe.stockId ? data.stocks[entry.foe.stockId]?.name : undefined}
                       onSelect={() => setSelected(entry.foe.id)}
                       onHp={(hp) => setFoeHp(db, encounter.id, entry.foe.id, hp)}
                       onRemove={() => removeFoe(db, encounter.id, entry.foe.id)}
@@ -283,12 +359,15 @@ function Budget({ view }: { view: ReturnType<typeof encounterView> }) {
 function FoeRow({
   entry,
   current,
+  from,
   onSelect,
   onHp,
   onRemove,
 }: {
   entry: FoeView;
   current: boolean;
+  /** Der Bestand, aus dem das Exemplar stammt. */
+  from?: string;
   onSelect: () => void;
   onHp: (hp: number) => void;
   onRemove: () => void;
@@ -311,9 +390,12 @@ function FoeRow({
         <span className="wf-best-foe__sub">
           {entry.resolved
             ? entry.down
-              ? 'besiegt'
+              ? entry.foe.booked
+                ? 'besiegt · im Bestand verbucht'
+                : 'besiegt'
               : `HG ${entry.resolved.block.cr} · RK ${entry.resolved.block.ac}`
             : 'nicht mehr im Bestiarium'}
+          {from && !entry.foe.booked && ` · aus: ${from}`}
         </span>
       </button>
       {entry.resolved && (

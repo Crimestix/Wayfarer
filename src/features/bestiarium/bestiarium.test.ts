@@ -20,6 +20,16 @@ import {
   type CreatureInput,
 } from './actions';
 import { addFoes, newEncounter, removeFoe, resetEncounter, setFoeHp } from './encounterActions';
+import { fielded, lossPlan, stockSummary, stockView, stocksHere } from '../../domain/stock';
+import { createEntity } from '../../domain/schema';
+import {
+  addGroup,
+  bookLosses,
+  fieldFromStock,
+  loseFromGroup,
+  newStock,
+  updateStock,
+} from './stockActions';
 import { NO_FILTER, creatureFacets, creatureRows, rollAttack, rollDamage } from './model';
 import { parseStatblock } from './parse';
 
@@ -260,5 +270,104 @@ describe('Begegnungen', () => {
     expect(after.xp).toBe(50);
     expect(after.foes.filter((entry) => entry.resolved === null)).toHaveLength(2);
     expect(after.standing).toBe(1);
+  });
+});
+
+describe('Bestände', () => {
+  it('ein Bau mit Bewohnern: wie viele es waren und wie viele noch da sind', async () => {
+    const { db, data, base, driver, tooth } = await setup();
+    const den = newStock(db, 'Bau der Grubenschleicher');
+    addGroup(db, den.id, base.id, 20);
+    addGroup(db, den.id, driver.id, 6);
+    addGroup(db, den.id, tooth.id, 1);
+    // Dasselbe Wesen noch einmal: Es werden mehr, keine zweite Zeile.
+    addGroup(db, den.id, base.id, 3);
+    const view = () => stockView(data(), data().stocks[den.id]!);
+    expect(view()).toMatchObject({ count: 30, alive: 30 });
+    expect(stockSummary(view())).toBe(
+      '30 – 23 Grubenschleicher, 6 Grubenschleicher-Treiber, 1 Krummzahn',
+    );
+    const group = data().stocks[den.id]!.groups[0]!;
+    loseFromGroup(db, den.id, group.id, 3);
+    expect(stockSummary(view())).toBe(
+      '27 von 30 – 20 Grubenschleicher, 6 Grubenschleicher-Treiber, 1 Krummzahn',
+    );
+    // Nie mehr Verluste, als es waren – und nie weniger als keine.
+    loseFromGroup(db, den.id, group.id, 99);
+    expect(view().groups[0]!.alive).toBe(0);
+    loseFromGroup(db, den.id, group.id, -99);
+    expect(view().groups[0]!.alive).toBe(23);
+    // 23 × 50 EP, 6 × 200 EP und Krummzahn (200 EP).
+    expect(view().xp).toBe(23 * 50 + 6 * 200 + 200);
+  });
+
+  it('Bewohner treten in einer Begegnung an – nie mehr, als noch da sind', async () => {
+    const { db, data, base } = await setup();
+    const den = newStock(db, 'Bau der Grubenschleicher');
+    addGroup(db, den.id, base.id, 5);
+    const fight = newEncounter(db);
+    expect(fieldFromStock(db, fight.id, den.id, base.id, 3)).toBe(3);
+    expect(fieldFromStock(db, fight.id, den.id, base.id, 4)).toBe(2);
+    expect(fieldFromStock(db, fight.id, den.id, base.id, 1)).toBe(0);
+    const foes = () => data().encounters[fight.id]!.foes;
+    expect(foes()).toHaveLength(5);
+    expect(foes().every((foe) => foe.stockId === den.id)).toBe(true);
+    expect(fielded(data().encounters[fight.id]!, den.id, base.id)).toBe(5);
+  });
+
+  it('wer besiegt ist, fehlt danach im Bestand – einmal verbucht, nicht doppelt', async () => {
+    const { db, data, base, eel } = await setup();
+    const den = newStock(db, 'Bau der Grubenschleicher');
+    addGroup(db, den.id, base.id, 5);
+    const fight = newEncounter(db);
+    fieldFromStock(db, fight.id, den.id, base.id, 4);
+    // Ein Wesen, das nicht aus dem Bestand stammt, zählt für ihn nicht.
+    addFoes(db, fight.id, eel.id, 1);
+    const foes = () => data().encounters[fight.id]!.foes;
+    setFoeHp(db, fight.id, foes()[0]!.id, 0);
+    setFoeHp(db, fight.id, foes()[1]!.id, 0);
+    setFoeHp(db, fight.id, foes()[2]!.id, 4);
+    setFoeHp(db, fight.id, foes()[4]!.id, 0);
+    expect(lossPlan(data(), data().encounters[fight.id]!).losses).toEqual([
+      { stockId: den.id, creatureId: base.id, count: 2 },
+    ]);
+    const alive = () => stockView(data(), data().stocks[den.id]!).alive;
+    const booked = bookLosses(db, fight.id)!;
+    expect(booked.count).toBe(2);
+    expect(alive()).toBe(3);
+    expect(bookLosses(db, fight.id)).toBeNull();
+    // „Von vorn“ erweckt niemanden, dessen Verlust verbucht ist.
+    resetEncounter(db, fight.id);
+    expect(foes().map((foe) => foe.hp)).toEqual([0, 0, null, null, null]);
+    // Im Bestand sind noch drei; zwei davon stehen schon in der Begegnung.
+    expect(fieldFromStock(db, fight.id, den.id, base.id, 5)).toBe(1);
+    booked.undo();
+    expect(alive()).toBe(5);
+    expect(
+      foes()
+        .slice(0, 2)
+        .every((foe) => !foe.booked),
+    ).toBe(true);
+  });
+
+  it('am Spieltisch steht, wer am Ort der Gruppe haust', async () => {
+    const { db, data, base } = await setup();
+    const town = db.put('entities', createEntity({ kind: 'place', name: 'Graufels' }));
+    const cellar = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Alter Keller', place: { parentId: town.id } }),
+    );
+    const far = db.put('entities', createEntity({ kind: 'place', name: 'Hohenfurt' }));
+    const den = newStock(db, 'Bau der Grubenschleicher');
+    addGroup(db, den.id, base.id, 5);
+    updateStock(db, den.id, { placeId: cellar.id });
+    const elsewhere = newStock(db, 'Nest am Fluss');
+    updateStock(db, elsewhere.id, { placeId: far.id });
+    db.setState({ placeId: town.id });
+    expect(stocksHere(data()).map((view) => view.stock.name)).toEqual(['Bau der Grubenschleicher']);
+    db.setState({ placeId: far.id });
+    expect(stocksHere(data()).map((view) => view.stock.name)).toEqual(['Nest am Fluss']);
+    db.setState({ placeId: null });
+    expect(stocksHere(data())).toEqual([]);
   });
 });

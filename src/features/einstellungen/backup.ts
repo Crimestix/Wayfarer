@@ -59,6 +59,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   stories: ['Geschichte', 'Geschichten'],
   creatures: ['Kreatur', 'Kreaturen'],
   encounters: ['Begegnung', 'Begegnungen'],
+  stocks: ['Bestand', 'Bestände'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

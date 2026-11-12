@@ -755,3 +755,35 @@
 .wf-best-foe--down .wf-best-foe__hp b {
   color: var(--blood-bright);
 }
+
+/* Bestände */
+.wf-best-stock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  max-width: 820px;
+}
+.wf-best-stock__sum {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.wf-best-stock__sum b {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.wf-best-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto auto auto;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-1) var(--s-2) var(--s-1) 0;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-best-group .wf-best-foe__hp {
+  flex-direction: row;
+  gap: var(--s-1);
+  align-items: baseline;
+}

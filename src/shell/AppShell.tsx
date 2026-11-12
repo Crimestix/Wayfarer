@@ -18,6 +18,7 @@ import EinstellungenPage from '../features/einstellungen';
 import AtlasPage from '../features/atlas';
 import BestiariumPage from '../features/bestiarium';
 import EncountersPage from '../features/bestiarium/Encounters';
+import StocksPage from '../features/bestiarium/Stocks';
 import FaedenPage from '../features/faeden';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
@@ -59,6 +60,7 @@ const beastPage = (Page: ComponentType) => () => (
 );
 const BestiariumWesen = beastPage(BestiariumPage);
 const BestiariumBegegnungen = beastPage(EncountersPage);
+const BestiariumBestaende = beastPage(StocksPage);
 const ZeitKalender = timePage(KalenderPage);
 const ZeitChronik = timePage(ChronikPage);
 const KartenAtlas = mapPage(AtlasPage);
@@ -339,6 +341,7 @@ export function AppShell() {
             <Route path="/faeden" component={FaedenPage} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
+            <Route path="/bestaende/:id?" component={BestiariumBestaende} />
             <Route path="/einstellungen" component={EinstellungenPage} />
             <Route component={TischPage} />
           </Switch>

@@ -75,6 +75,7 @@ const FOLDER_LABEL: Record<string, string> = {
   stories: 'Geschichten',
   creatures: 'Bestiarium',
   encounters: 'Begegnungen',
+  stocks: 'Bestände',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

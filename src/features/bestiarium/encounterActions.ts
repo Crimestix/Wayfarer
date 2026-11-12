@@ -43,6 +43,8 @@ export function addFoes(db: CampaignDb, id: string, creatureId: string, count = 
       name: single ? creature.name : nextFoeName(foes, creature.name),
       hp: single ? creature.hpNow : null,
       note: '',
+      stockId: null,
+      booked: false,
     });
     if (single) break;
   }
@@ -71,11 +73,16 @@ export function setFoeHp(db: CampaignDb, id: string, foeId: string, hp: number):
   });
 }
 
-/** Alle wieder unverletzt – die Begegnung beginnt von vorn. */
+/**
+ * Alle wieder unverletzt – die Begegnung beginnt von vorn. Wessen Verlust schon in einem Bestand
+ * verbucht ist, bleibt besiegt: Er fehlt dort.
+ */
 export function resetEncounter(db: CampaignDb, id: string): void {
   const encounter = db.getSnapshot().encounters[id];
   if (encounter)
-    db.patch('encounters', id, { foes: encounter.foes.map((foe) => ({ ...foe, hp: null })) });
+    db.patch('encounters', id, {
+      foes: encounter.foes.map((foe) => (foe.booked ? foe : { ...foe, hp: null })),
+    });
 }
 
 export function removeEncounter(db: CampaignDb, id: string): void {

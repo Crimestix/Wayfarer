@@ -676,6 +676,10 @@ export const EncounterFoeSchema = z.object({
   /** Aktuelle Trefferpunkte; null = unverletzt. */
   hp: z.number().int().nonnegative().nullable().default(null),
   note: z.string().default(''),
+  /** Der Bestand, aus dem das Exemplar stammt (`domain/stock.ts`). */
+  stockId: id.nullable().default(null),
+  /** Sein Verlust ist im Bestand schon verbucht. */
+  booked: z.boolean().default(false),
 });
 export type EncounterFoe = z.infer<typeof EncounterFoeSchema>;
 
@@ -691,6 +695,31 @@ export const EncounterSchema = z.object({
   notes: z.string().default(''),
 });
 export type Encounter = z.infer<typeof EncounterSchema>;
+
+/** Eine Gruppe von Bewohnern eines Bestands: wie viele es waren und wie viele fehlen. */
+export const StockGroupSchema = z.object({
+  id,
+  creatureId: id,
+  count: z.number().int().nonnegative(),
+  lost: z.number().int().nonnegative().default(0),
+});
+export type StockGroup = z.infer<typeof StockGroupSchema>;
+
+/**
+ * Ein Bestand: ein Bau, Hort oder Nest an einem Ort – mit Bewohnern aus dem Bestiarium, Vorräten,
+ * Beute und Revier. Verluste im Kampf fehlen danach (`domain/stock.ts`).
+ */
+export const StockSchema = z.object({
+  ...base,
+  name: z.string(),
+  placeId: id.nullable().default(null),
+  groups: z.array(StockGroupSchema).default([]),
+  stores: z.string().default(''),
+  loot: z.string().default(''),
+  range: z.string().default(''),
+  notes: z.string().default(''),
+});
+export type Stock = z.infer<typeof StockSchema>;
 
 export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
@@ -1335,6 +1364,7 @@ export const COLLECTION_SCHEMAS = {
   stories: StorySchema,
   creatures: CreatureSchema,
   encounters: EncounterSchema,
+  stocks: StockSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1358,6 +1388,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'stories',
   'creatures',
   'encounters',
+  'stocks',
 ];
 
 export type CollectionTypes = {
@@ -1441,6 +1472,11 @@ export function createCreature(init: Partial<Creature> & { name: string }): Crea
 export function createEncounter(init: Partial<Encounter> & { name: string }): Encounter {
   const stamp = nowIso();
   return EncounterSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createStock(init: Partial<Stock> & { name: string }): Stock {
+  const stamp = nowIso();
+  return StockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createThread(init: Partial<Thread> & { title: string }): Thread {

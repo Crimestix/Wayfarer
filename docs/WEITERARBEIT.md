@@ -1000,8 +1000,19 @@ Abschnitt 4b.
   Exemplars mit den Würfeln. Ein Einzelner kommt mit seinem Namen und seinen jetzigen
   Trefferpunkten. Nicht gebaut: Initiative und Reihenfolge (voller Kampfmodus, später),
   Verluste in einen Bestand zurückschreiben, EP der Gruppe gutschreiben.
-- **Offen (Muss der ersten Version):** Bau oder Hort als Ort mit Bestand (Verluste zählen);
-  SRD 5.2 auf Knopfdruck. **Später:** Foto über den KI-Leser, Schablonen,
+- **Bestände (12. 11., dritter Schritt) – gebaut.** Sammlung `stocks`: ein Bau, Hort oder Nest
+  an einem Ort mit Gruppen von Bewohnern (`groups`: Wesen, Anzahl, Verluste), dazu Vorräte,
+  Beute, Revier als Text. `domain/stock.ts`: `stockView`, `stockSummary` („27 von 30 – 20
+  Grubenschleicher, 6 Treiber, 1 Krummzahn“), `stocksHere`, `lossPlan`. Seite „Bestände“ als
+  dritter Reiter des Bestiariums (`bestiarium/Stocks.tsx`, Befehle in `stockActions.ts`).
+  **Verluste zählen:** von Hand (ein Verlust, zurücknehmen) – oder aus einer Begegnung: Bewohner
+  treten aus dem Bestand an (`fieldFromStock`, nie mehr als noch da sind; „Begegnung daraus“
+  stellt höchstens zwölf je Art auf), und „Verluste verbuchen“ (`bookLosses`, mit Rückgängig)
+  zieht die Besiegten im Bestand ab – einmal, nicht doppelt; „Von vorn“ erweckt Verbuchte nicht.
+  Am Spieltisch: Feld „Wer hier haust“ (`tisch/StocksHere`) für Bestände am Ort der Gruppe,
+  darüber oder darin. Nicht gebaut (später laut Konzept): Nachwachsen, Abwandern, Reviere als
+  Fläche, Begegnungen aus Revieren, Raubzüge, Erinnerung.
+- **Offen (Muss der ersten Version):** SRD 5.2 auf Knopfdruck. **Später:** Foto über den KI-Leser, Schablonen,
   HG hoch- und runterrechnen, Zauberwirken als eigene Angabe, Wissen der Gruppe, Reviere und
   Begegnungen daraus, Verbindung zur Art „Spezies“ und zu „Alles ist ein Artikel“.
 - **Nicht geprüft:** die Faustregel für den HG und das EP-Budget stammen aus den Regelwerken, wie
