@@ -52,6 +52,7 @@ import {
 } from './model';
 import { articleExcerpt, articleOf, placeMaps } from './wiki';
 import { WeatherLine } from '../wetter';
+import { StoriesHere } from './StoriesHere';
 import { WayRow } from './WayRow';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
@@ -439,6 +440,7 @@ export function PlacePanel({ place }: { place: Place }) {
       <WayRow placeId={place.id} />
 
       <div className="wf-tisch-place__body">
+        <StoriesHere />
         {changes.length > 0 && (
           <section className="wf-tisch-since" aria-label="Seit eurem letzten Besuch">
             <header className="wf-tisch-since__head">

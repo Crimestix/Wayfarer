@@ -496,11 +496,19 @@ export const ThreadSchema = z.object({
 });
 export type Thread = z.infer<typeof ThreadSchema>;
 
+export const ENTRY_STANDINGS = ['any', 'good', 'bad'] as const;
+export type EntryStanding = (typeof ENTRY_STANDINGS)[number];
+
 /** Ein Einstieg: wo und wie die Gruppe auf eine Geschichte stoßen kann. */
 export const StoryEntrySchema = z.object({
   id,
   text: z.string(),
   placeId: id.nullable().default(null),
+  /**
+   * Wann der Einstieg passt: immer – oder nur bei gutem bzw. schlechtem Ruf beim Antreiber der
+   * Geschichte (`entryFit` in `domain/story.ts`).
+   */
+  standing: z.enum(ENTRY_STANDINGS).default('any'),
 });
 export type StoryEntry = z.infer<typeof StoryEntrySchema>;
 

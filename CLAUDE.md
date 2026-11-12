@@ -145,6 +145,9 @@ nicht übernommen.
 - Geschichten und Fäden (`stories/`, `threads/`): geschrieben vom Spielleiter (oder als
   Vorschlag des KI-Lesers angenommen), nie erzeugt. Nähe zur Gruppe, Berührungen und Warnungen
   leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
+  Ruf ist keine eigene Angabe: `reputeOf()` liest die Haltungen des Antreibers zur Gruppe und zu
+  Gefährten; ob ein Einstieg passt, sagt `entryFit()`, was am Ort der Gruppe bereitliegt
+  `storiesHere()`.
   Geändert wird über `features/faeden/actions.ts`.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen

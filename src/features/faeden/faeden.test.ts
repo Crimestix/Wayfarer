@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { setAttitude } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
+  PARTY_ID,
   createClock,
   createEntity,
   createEvent,
@@ -12,11 +14,15 @@ import {
 } from '../../domain/schema';
 import {
   boardCards,
+  entryFit,
   nearness,
+  reputeOf,
+  storiesHere,
   storyNodes,
   threadWarning,
   touchReason,
   touches,
+  untilText,
 } from '../../domain/story';
 import { saveWay } from '../wege/actions';
 import {
@@ -113,7 +119,9 @@ describe('Woran eine Geschichte hängt', () => {
     const tale = story('Die Aalfischer wollen den Hafen', {
       ownerId: fishers.id,
       clockId: clock.id,
-      entries: [{ id: newId(), text: 'Ein Fischer bittet um Hilfe', placeId: market.id }],
+      entries: [
+        { id: newId(), text: 'Ein Fischer bittet um Hilfe', placeId: market.id, standing: 'any' },
+      ],
     });
     thread('Wer bezahlt die Schläger?', {
       storyId: tale.id,
@@ -231,5 +239,99 @@ describe('Löschen', () => {
     removeThread(db, question.id);
     expect(data().threads[question.id]).toBeUndefined();
     expect(data().events[bell.id]!.threadId).toBeNull();
+  });
+});
+
+describe('Ruf', () => {
+  it('liest die Haltung zur Gruppe und zu einzelnen Gefährten zusammen', async () => {
+    const { db, data, fishers } = await setup();
+    const corrin = db.put('entities', createEntity({ kind: 'character', name: 'Corrin' }));
+    const nael = db.put('entities', createEntity({ kind: 'character', name: 'Naelmira' }));
+    expect(reputeOf(data(), fishers.id)).toEqual({ party: null, members: [] });
+    setAttitude(db, fishers.id, PARTY_ID, 2);
+    setAttitude(db, fishers.id, nael.id, -3);
+    expect(reputeOf(data(), fishers.id)).toEqual({
+      party: 2,
+      members: [{ id: nael.id, name: 'Naelmira', value: -3 }],
+    });
+    expect(corrin.kind).toBe('character');
+  });
+
+  it('entscheidet, welcher Einstieg passt – nicht, was geschieht', async () => {
+    const { db, data, fishers } = await setup();
+    const nael = db.put('entities', createEntity({ kind: 'character', name: 'Naelmira' }));
+    const tale = { ownerId: fishers.id };
+    const fit = (standing: 'any' | 'good' | 'bad') => entryFit(data(), tale, { standing });
+    expect(fit('any')).toEqual({ fits: true, note: '' });
+    // Solange kein Ruf festgelegt ist, passt nur, was immer passt.
+    expect(fit('good').fits).toBe(false);
+    expect(fit('good').note).toContain('noch nicht festgelegt');
+    expect(fit('bad').fits).toBe(false);
+
+    setAttitude(db, fishers.id, PARTY_ID, 2);
+    expect(fit('good').fits).toBe(true);
+    expect(fit('good').note).toBe('Haltung zur Gruppe: wohlgesonnen.');
+    expect(fit('bad').fits).toBe(false);
+    // Ein Gefährte mit schlechtem Ruf genügt: Er wird erkannt.
+    setAttitude(db, fishers.id, nael.id, -3);
+    expect(fit('bad').fits).toBe(true);
+    expect(fit('bad').note).toContain('Naelmira');
+    expect(untilText(3 * 1440)).toBe('in 3 Tagen');
+    expect(untilText(1440 + 120)).toBe('in 1 Tag 2 Std.');
+    expect(untilText(90)).toBe('in 1 Std. 30 Min.');
+    // Ohne Antreiber gibt es keinen Ruf, an dem ein Einstieg hängen könnte.
+    expect(entryFit(data(), { ownerId: null }, { standing: 'good' }).fits).toBe(false);
+  });
+});
+
+describe('Am Spieltisch', () => {
+  it('nennt, was den Ort berührt und was hier bereitliegt', async () => {
+    const { db, data, market, harbour, far, mira, fishers, story, thread, hint } = await setup();
+    const tale = story('Die Glocke am Markt', {
+      ownerId: fishers.id,
+      refs: [market.id],
+      entries: [
+        { id: newId(), text: 'Der Küster bittet um Hilfe', placeId: market.id, standing: 'good' },
+        { id: newId(), text: 'Ein Kind hat etwas gesehen', placeId: market.id, standing: 'any' },
+        { id: newId(), text: 'Am Kai wird getuschelt', placeId: harbour.id, standing: 'any' },
+      ],
+    });
+    thread('Wer läutet nachts?', {
+      storyId: tale.id,
+      hints: [
+        hint('Wachs an der Glockenschnur', market.id),
+        hint('Schon gefunden', market.id, true),
+        hint('Der Brief im Kontor', harbour.id),
+      ],
+    });
+    story('Fern: Der Graf rüstet', { refs: [far.id] });
+    thread('Vorbei', { refs: [market.id], state: 'solved' });
+
+    const here = storiesHere(data());
+    expect(here.map((entry) => entry.card.title)).toEqual(['Die Glocke am Markt']);
+    // Was immer passt, steht vor dem, was am Ruf hängt und gerade nicht passt.
+    expect(here[0]!.entries.map((entry) => [entry.entry.text, entry.fits])).toEqual([
+      ['Ein Kind hat etwas gesehen', true],
+      ['Der Küster bittet um Hilfe', false],
+    ]);
+    expect(here[0]!.hints.map((entry) => entry.hint.text)).toEqual(['Wachs an der Glockenschnur']);
+
+    // Zieht jemand, der etwas weiß, an den Ort der Gruppe, liegt auch sein Hinweis hier.
+    const who = data().entities[mira.id]!;
+    if (who.kind === 'person')
+      db.put('entities', { ...who, person: { ...who.person, placeId: market.id } });
+    const question = Object.values(data().threads).find((entry) => entry.storyId === tale.id)!;
+    db.patch('threads', question.id, {
+      hints: question.hints.map((entry) =>
+        entry.text === 'Der Brief im Kontor' ? { ...entry, sourceId: mira.id } : entry,
+      ),
+    });
+    expect(storiesHere(data())[0]!.hints.map((entry) => entry.hint.text)).toEqual([
+      'Wachs an der Glockenschnur',
+      'Der Brief im Kontor',
+    ]);
+    // Ohne Ort der Gruppe gibt es kein „hier“.
+    db.setState({ placeId: null });
+    expect(storiesHere(data())).toEqual([]);
   });
 });

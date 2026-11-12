@@ -8,26 +8,33 @@ import { useLocation } from 'wouter';
 import { Eye, EyeOff, Pencil, Plus, TriangleAlert, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
+  ENTRY_STANDING_LABEL,
   NEARNESS_LABEL,
   PACE_LABEL,
   THREAD_STATE_LABEL,
   boardCards,
+  entryFit,
+  reputeOf,
   threadLive,
   threadWarning,
   touchReason,
   touches,
+  untilText,
   type BoardCard,
   type BoardView,
   type Nearness,
   type Touch,
 } from '../../domain/story';
 import { THREAD_STATES, type Story, type Thread, type ThreadState } from '../../domain/schema';
-import { formatDayMonth, formatDuration } from '../../domain/time/calendar';
+import { formatDayMonth } from '../../domain/time/calendar';
 import { isNear } from '../../domain/weight';
-import { Button, Checkbox, EmptyState, Select, cx, entityHref } from '../../ui';
+import { openAttitude } from '../../shell/commands';
+import { AttitudeBadge, Button, Checkbox, EmptyState, Select, cx, entityHref } from '../../ui';
 import { setHintFound, setThreadState } from './actions';
 import { StoryDialog, ThreadDialog } from './Dialogs';
 import './faeden.css';
+
+const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 const COLUMNS: Nearness[] = ['here', 'reachable', 'far'];
 const COLUMN_HINT: Record<Nearness, string> = {
@@ -300,6 +307,7 @@ function Card({
   const data = useData();
   const now = data.state.now;
   const owner = card.story?.ownerId ? data.entities[card.story.ownerId] : undefined;
+  const repute = owner ? reputeOf(data, owner.id).party : null;
   const lone = card.story ? null : card.threads[0]!;
   const found = lone ? lone.hints.filter((hint) => hint.found).length : 0;
   const nodes = card.nodes.slice(0, 6);
@@ -326,7 +334,16 @@ function Card({
         )}
       </span>
       <span className="wf-faden-card__title">{card.title}</span>
-      {owner && <span className="wf-faden-card__owner">Treibt an: {owner.name}</span>}
+      {owner && (
+        <span className="wf-faden-card__owner">
+          Treibt an: {owner.name}
+          {repute !== null && (
+            <span className="wf-faden-card__repute" title={`Ruf der Gruppe bei ${owner.name}`}>
+              <AttitudeBadge value={repute} />
+            </span>
+          )}
+        </span>
+      )}
       {card.clock && (
         <span className="wf-faden-clock">
           <span className="wf-faden-clock__pips" aria-hidden>
@@ -336,7 +353,7 @@ function Card({
           </span>
           <span className="wf-faden-clock__next wf-clamp-2">
             {card.clock.next
-              ? `${card.clock.paused ? 'Angehalten vor' : `In ${formatDuration(Math.max(0, card.clock.next.at - now))}`}: ${card.clock.next.step.text}`
+              ? `${card.clock.paused ? 'Angehalten vor' : upper(untilText(card.clock.next.at - now))}: ${card.clock.next.step.text}`
               : 'Alles ist geschehen.'}
           </span>
         </span>
@@ -417,6 +434,7 @@ function Side({
 
   const story = card.story;
   const owner = story?.ownerId ? data.entities[story.ownerId] : undefined;
+  const repute = owner ? reputeOf(data, owner.id) : { party: null, members: [] };
   const link = (id: string | null | undefined) => {
     const entity = id ? data.entities[id] : undefined;
     return entity ? (
@@ -582,20 +600,55 @@ function Side({
         })}
       </section>
 
+      {truth && owner && (
+        <section>
+          <h3 className="wf-faden-side__sub">
+            Ruf · {owner.name}
+            <Button size="sm" onClick={() => openAttitude({ fromId: owner.id })}>
+              {repute.party === null ? 'Festlegen' : 'Ändern'}
+            </Button>
+          </h3>
+          <div className="wf-faden-repute">
+            <span>Die Gruppe</span>
+            {repute.party === null ? (
+              <em>noch nicht festgelegt</em>
+            ) : (
+              <AttitudeBadge value={repute.party} />
+            )}
+          </div>
+          {repute.members.map((member) => (
+            <div key={member.id} className="wf-faden-repute">
+              <span>{member.name}</span>
+              <AttitudeBadge value={member.value} />
+            </div>
+          ))}
+          <p className="wf-mute">
+            Der Ruf ändert nicht die Geschichte – nur, wie die Gruppe hineinkommt.
+          </p>
+        </section>
+      )}
+
       {truth && story && story.entries.length > 0 && (
         <section>
           <h3 className="wf-faden-side__sub">Einstiege</h3>
-          {story.entries.map((entry) => (
-            <div key={entry.id} className="wf-faden-hint">
-              <span>{entry.text}</span>
-              {entry.placeId && (
-                <span className="wf-faden-hint__where">
-                  in {link(entry.placeId)}
-                  {isNear(data, entry.placeId) && <b> – die Gruppe ist hier</b>}
+          {story.entries.map((entry) => {
+            const fit = entryFit(data, story, entry);
+            return (
+              <div key={entry.id} className="wf-faden-hint" data-found={!fit.fits}>
+                <span>{entry.text}</span>
+                <span className="wf-faden-hint__where wf-faden-hint__where--flat">
+                  {entry.placeId && <>in {link(entry.placeId)}</>}
+                  {entry.placeId && isNear(data, entry.placeId) && <b> – die Gruppe ist hier</b>}
+                  {entry.standing !== 'any' && (
+                    <>
+                      {entry.placeId && ' · '}
+                      {ENTRY_STANDING_LABEL[entry.standing]}: {fit.note}
+                    </>
+                  )}
                 </span>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </section>
       )}
 

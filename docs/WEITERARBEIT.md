@@ -949,8 +949,16 @@ Faden“; „das Storyboard ist noch nicht drin“).**
   Knoten golden; Seitenteil mit „Wenn niemand eingreift“, Fäden samt Hinweisen zum Abhaken
   (`setHintFound`: erster Fund macht den Faden bekannt und aktiv), Einstiegen („die Gruppe ist
   hier“), Berührungen; Umschalter **Wahrheit / Was die Gruppe weiß** (`boardCards(…, 'party')`).
-- **Offen:** Ruf bei Fraktionen (eigene Linie, Einstiege nach Ruf); am Spieltisch zeigen, welche
-  Geschichten den Ort berühren (`cardsAt` steht bereit); Situationen an Orten; „Hinweise
+- **Ruf und Spieltisch (12. 11., zweiter Schritt) – gebaut.** Ruf ist keine neue Angabe,
+  sondern die Haltungen, die es schon gibt, zusammen gelesen (`reputeOf`: Haltung des Antreibers
+  zur Gruppe und zu einzelnen Gefährten). Ein Einstieg kann „bei gutem Ruf“ oder „bei schlechtem
+  Ruf“ gelten (`entry.standing`, `entryFit`): gut = Gruppe oder ein Gefährte ab +1, schlecht =
+  ab −1 – der Ruf ändert nicht die Geschichte, nur den Einstieg. Am Fadenbrett: Ruf an der Karte
+  und im Seitenteil (mit „Ändern“ → Haltungsdialog), Einstiege mit dem Grund, warum sie passen.
+  Am Spieltisch: Feld „Was diesen Ort gerade berührt“ (`storiesHere`, `tisch/StoriesHere`) –
+  Geschichten und lose Fäden am Ort der Gruppe mit nächstem Schritt der Uhr, den Einstiegen
+  hier (passende zuerst) und den Hinweisen, die hier liegen oder von denen hier jemand weiß.
+- **Offen:** Ruf als eigene Linie auf dem Brett; Situationen an Orten; „Hinweise
   wandern“ und „Folgen springen über“; Vorschläge aus der Mitschrift; Uhr direkt am Brett
   anlegen; Karten von Hand verschieben; rote Fäden als Linien zu einzelnen Personen und Orten
   (bisher Zettel an der Karte). Der Entwurf vom 11. 11. lag nur als Beschreibung vor – das

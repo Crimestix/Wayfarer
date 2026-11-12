@@ -431,6 +431,7 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
+.wf-faden-side__sub .wf-btn,
 .wf-faden-side__sub .wf-faden-pace {
   font-family: var(--font-body);
   letter-spacing: 0;
@@ -554,9 +555,27 @@
   color: var(--ink-faint);
   font-size: var(--text-xs);
 }
+.wf-faden-hint__where--flat {
+  padding-left: 0;
+}
 .wf-faden-hint__where b {
   color: var(--ember);
   font-weight: 400;
+}
+
+/* Ruf */
+.wf-faden-card__repute {
+  margin-left: auto;
+}
+.wf-faden-repute {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+}
+.wf-faden-repute em {
+  color: var(--ink-faint);
 }
 
 /* Dialoge */
@@ -572,6 +591,9 @@
   gap: var(--s-2);
   align-items: center;
   width: 100%;
+}
+.wf-faden-formrow--entry {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.9fr) auto;
 }
 .wf-faden-formrow--hint {
   grid-template-columns: auto minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto;

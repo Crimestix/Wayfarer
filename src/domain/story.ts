@@ -8,8 +8,19 @@
  * Faden an einem einzigen Hinweis hängt. Reine Funktionen.
  */
 import { clockView, type ClockView } from './clock';
-import { placeAncestors } from './derive';
-import type { CampaignData, Story, Thread, ThreadState } from './schema';
+import { findRelation, placeAncestors } from './derive';
+import { attitudeLabel } from './relations';
+import { formatDuration } from './time/calendar';
+import {
+  PARTY_ID,
+  type CampaignData,
+  type EntryStanding,
+  type Story,
+  type StoryEntry,
+  type Thread,
+  type ThreadHint,
+  type ThreadState,
+} from './schema';
 import { routeBetween } from './ways';
 import { isNear } from './weight';
 
@@ -35,7 +46,7 @@ export const threadLive = (thread: Pick<Thread, 'state'>): boolean =>
 
 type StoryData = Pick<
   CampaignData,
-  'entities' | 'state' | 'threads' | 'stories' | 'clocks' | 'paths' | 'maps'
+  'entities' | 'state' | 'threads' | 'stories' | 'clocks' | 'paths' | 'maps' | 'relations'
 >;
 
 const unique = (ids: readonly (string | null | undefined)[], data: StoryData): string[] => [
@@ -277,8 +288,114 @@ export function touchReason(data: Pick<CampaignData, 'entities'>, touch: Touch):
   return `über ${names[0]}, ${names[1]} und ${names.length - 2} weitere`;
 }
 
-/** Die Geschichten und losen Fäden, die einen Ort gerade berühren – für den Spieltisch. */
-export function cardsAt(data: StoryData, placeId: string | null): BoardCard[] {
-  if (!placeId) return [];
-  return boardCards(data).filter((card) => !card.closed && card.nearness === 'here');
+/** „in 3 Tagen“, „in 5 Std.“ – wie lange es bis zu einem Schritt noch dauert. */
+export const untilText = (minutes: number): string =>
+  `in ${formatDuration(Math.max(0, minutes)).replace(/ Tage$| Tage /, (found) => found.replace('Tage', 'Tagen'))}`;
+
+// ── Ruf ────────────────────────────────────────────────────────────────────
+
+/**
+ * Der Ruf bei jemandem – meist einer Fraktion: wie er zur Gruppe steht und, wo es abweicht oder
+ * eigens festgehalten ist, zu einzelnen Gefährten. Das sind die Haltungen, die es schon gibt;
+ * hier werden sie nur zusammen gelesen.
+ */
+export interface Repute {
+  /** Haltung zur Gruppe (−5…5); null = nicht festgelegt. */
+  party: number | null;
+  /** Gefährten, zu denen eine eigene Haltung festgehalten ist. */
+  members: { id: string; name: string; value: number }[];
+}
+
+export function reputeOf(data: StoryData, entityId: string): Repute {
+  const full = data as CampaignData;
+  const members: Repute['members'] = [];
+  for (const entity of Object.values(data.entities)) {
+    if (entity.kind !== 'character' || !entity.character.active) continue;
+    const value = findRelation(full, entityId, entity.id)?.attitude ?? null;
+    if (value !== null) members.push({ id: entity.id, name: entity.name, value });
+  }
+  members.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return { party: findRelation(full, entityId, PARTY_ID)?.attitude ?? null, members };
+}
+
+export const ENTRY_STANDING_LABEL: Record<EntryStanding, string> = {
+  any: 'immer',
+  good: 'bei gutem Ruf',
+  bad: 'bei schlechtem Ruf',
+};
+
+/**
+ * Passt ein Einstieg gerade? Ein Einstieg „bei gutem Ruf“ passt, wenn der Antreiber der
+ * Geschichte der Gruppe oder einem Gefährten wohlgesinnt ist; einer „bei schlechtem Ruf“, wenn er
+ * der Gruppe oder einem Gefährten übel will – dann wird etwa ein Gefährte am Tor erkannt. Der Ruf
+ * ändert nicht die Geschichte, nur wie die Gruppe hineinkommt.
+ */
+export function entryFit(
+  data: StoryData,
+  story: Pick<Story, 'ownerId'>,
+  entry: Pick<StoryEntry, 'standing'>,
+): { fits: boolean; note: string } {
+  if (entry.standing === 'any') return { fits: true, note: '' };
+  const owner = story.ownerId ? data.entities[story.ownerId] : undefined;
+  if (!owner) return { fits: false, note: 'Die Geschichte hat niemanden, der sie antreibt.' };
+  const repute = reputeOf(data, owner.id);
+  const good = entry.standing === 'good';
+  const matches = (value: number) => (good ? value >= 1 : value <= -1);
+  if (repute.party !== null && matches(repute.party))
+    return {
+      fits: true,
+      note: `Haltung zur Gruppe: ${attitudeLabel(repute.party).toLowerCase()}.`,
+    };
+  const member = repute.members.find((entry) => matches(entry.value));
+  if (member)
+    return {
+      fits: true,
+      note: `Haltung zu ${member.name}: ${attitudeLabel(member.value).toLowerCase()}.`,
+    };
+  return {
+    fits: false,
+    note:
+      repute.party === null && !repute.members.length
+        ? `Der Ruf ist noch nicht festgelegt (${owner.name}).`
+        : `Passt gerade nicht: Der Ruf ist ${good ? 'nicht gut' : 'nicht schlecht'} genug.`,
+  };
+}
+
+// ── Am Spieltisch ──────────────────────────────────────────────────────────
+
+/** Was eine Geschichte am Ort der Gruppe bereithält. */
+export interface HereCard {
+  card: BoardCard;
+  /** Einstiege, die hier liegen – die passenden zuerst. */
+  entries: { entry: StoryEntry; fits: boolean; note: string }[];
+  /** Hinweise, die die Gruppe noch nicht hat und die hier liegen oder von denen hier jemand weiß. */
+  hints: { thread: Thread; hint: ThreadHint }[];
+}
+
+/**
+ * Die Geschichten und losen Fäden, die den Ort der Gruppe gerade berühren – mit dem, was hier
+ * bereitliegt: Einstiege, Hinweise und wer hier etwas weiß.
+ */
+export function storiesHere(data: StoryData): HereCard[] {
+  if (!data.state.placeId) return [];
+  const here = (id: string | null): boolean => {
+    const place = id ? whereOf(data, id) : null;
+    return place !== null && isNear(data, place);
+  };
+  return boardCards(data)
+    .filter((card) => !card.closed && card.nearness === 'here')
+    .map((card) => ({
+      card,
+      entries: (card.story?.entries ?? [])
+        .filter((entry) => here(entry.placeId))
+        .map((entry) => ({ entry, ...entryFit(data, card.story!, entry) }))
+        .sort((a, b) => Number(b.fits) - Number(a.fits)),
+      hints: card.threads
+        .filter(threadLive)
+        .flatMap((thread) =>
+          thread.hints
+            .filter((hint) => !hint.found && (here(hint.placeId) || here(hint.sourceId)))
+            .map((hint) => ({ thread, hint })),
+        ),
+    }));
 }

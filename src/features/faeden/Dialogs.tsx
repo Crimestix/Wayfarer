@@ -5,9 +5,11 @@
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
+import { ENTRY_STANDING_LABEL, THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
 import {
+  ENTRY_STANDINGS,
   THREAD_STATES,
+  type EntryStanding,
   createEntity,
   newId,
   type Story,
@@ -162,10 +164,13 @@ export function StoryDialog({
             placeholder="Person, Ort, Fraktion … verknüpfen"
           />
         </Field>
-        <Field label="Einstiege" hint="Wo und wie die Gruppe darauf stoßen kann.">
+        <Field
+          label="Einstiege"
+          hint="Wo und wie die Gruppe darauf stoßen kann – auf Wunsch nur bei gutem oder schlechtem Ruf beim Antreiber."
+        >
           <div className="wf-faden-rows">
             {form.entries.map((entry) => (
-              <div key={entry.id} className="wf-faden-formrow">
+              <div key={entry.id} className="wf-faden-formrow wf-faden-formrow--entry">
                 <Input
                   value={entry.text}
                   placeholder="etwa „Ein Fischer bittet um Hilfe“"
@@ -179,6 +184,20 @@ export function StoryDialog({
                   placeholder="Wo?"
                   onCreate={place}
                 />
+                <Select
+                  value={entry.standing}
+                  aria-label="Wann der Einstieg passt"
+                  title="Der Ruf beim Antreiber entscheidet, wie die Gruppe hineinkommt"
+                  onChange={(event) =>
+                    setEntry(entry.id, { standing: event.target.value as EntryStanding })
+                  }
+                >
+                  {ENTRY_STANDINGS.map((standing) => (
+                    <option key={standing} value={standing}>
+                      {ENTRY_STANDING_LABEL[standing]}
+                    </option>
+                  ))}
+                </Select>
                 <IconButton
                   size="sm"
                   label="Einstieg entfernen"
@@ -194,7 +213,12 @@ export function StoryDialog({
               size="sm"
               icon={<Plus aria-hidden />}
               onClick={() =>
-                set({ entries: [...form.entries, { id: newId(), text: '', placeId: null }] })
+                set({
+                  entries: [
+                    ...form.entries,
+                    { id: newId(), text: '', placeId: null, standing: 'any' },
+                  ],
+                })
               }
             >
               Einstieg
