@@ -8,6 +8,7 @@
  */
 import { placeAncestors } from './derive';
 import { signBars, signNote, signsAlong, walkAlong } from './mapDraw';
+import { wayCondition, type WayCondition } from './wayState';
 import type { CampaignData, GameMap, MapSign, Pace, Place, Terrain, TravelPath } from './schema';
 
 type WayData = Pick<CampaignData, 'entities' | 'paths' | 'maps'>;
@@ -66,8 +67,20 @@ export interface Way {
   minutes: number | null;
   /** Türen und Fallen der Karte auf diesem Weg – in der Reihenfolge, in der man sie erreicht. */
   signs: MapSign[];
-  /** Eine verschlossene Tür versperrt den Weg. */
+  /** Eine verschlossene Tür versperrt den Weg – oder das Wetter hat ihn verschluckt. */
   barred: boolean;
+  /** Was das Wetter aus dem Weg gemacht hat (`domain/wayState.ts`); null = unbekannt. */
+  weather: WayCondition | null;
+}
+
+/**
+ * Der Zustand eines Weges aus dem Wetter – null, wenn der Stand der Welt dafür nicht reicht
+ * (Fachlogik, die nur Orte und Wege kennt).
+ */
+export function wayWeather(data: WayData, path: TravelPath): WayCondition | null {
+  const full = data as Partial<CampaignData>;
+  if (!full.state || !full.campaign || !full.climates || !full.weather) return null;
+  return wayCondition(data as CampaignData, path);
 }
 
 /** Die Türen und Fallen, die auf einer gezeichneten Karte am Verlauf eines Weges sitzen. */
@@ -81,9 +94,15 @@ export function waySigns(data: WayData, path: TravelPath, reverse = false): MapS
 /**
  * Was auf einem Weg zu beachten ist, in Worten: verschlossene Türen, Geheimtüren, scharfe Fallen.
  */
-export function wayNotes(data: WayData, way: Pick<Way, 'path' | 'signs'>): string[] {
+export function wayNotes(
+  data: WayData,
+  way: Pick<Way, 'path' | 'signs'> & Partial<Pick<Way, 'weather'>>,
+): string[] {
   const level = (way.path.mapId && data.maps[way.path.mapId]?.level) || 'surface';
-  return way.signs.flatMap((sign) => signNote(sign, level) ?? []);
+  return [
+    ...(way.weather?.text ? [way.weather.text] : []),
+    ...way.signs.flatMap((sign) => signNote(sign, level) ?? []),
+  ];
 }
 
 const isPlace = (data: WayData, id: string): boolean => data.entities[id]?.kind === 'place';
@@ -99,14 +118,18 @@ export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'):
     const toId = forward ? path.toId : path.fromId;
     if (!isPlace(data, toId)) continue;
     const signs = waySigns(data, path, !forward);
+    const weather = wayWeather(data, path);
+    const dry = wayMinutes(data, path, pace);
     ways.push({
       path,
       fromId: placeId,
       toId,
       reverse: !forward,
-      minutes: wayMinutes(data, path, pace),
+      // Das Wetter bremst: Ein verschlammter oder verschneiter Weg dauert doppelt so lang.
+      minutes: dry === null ? null : Math.round(dry * (weather?.factor ?? 1)),
       signs,
-      barred: signs.some(signBars),
+      barred: signs.some(signBars) || weather?.state === 'lost',
+      weather,
     });
   }
   const name = (way: Way) => data.entities[way.toId]?.name ?? '';
@@ -157,7 +180,9 @@ const BARRED_WEIGHT = 52_560_000;
 /**
  * Die schnellste Route zwischen zwei Orten über die bekannten Wege (Dijkstra) – null, wenn es
  * keine Verbindung gibt. Geheime Wege zählen mit: Der Spielleiter kennt sie. Ein Weg mit einer
- * verschlossenen Tür wird nur genommen, wenn kein anderer hinführt; die Route ist dann `barred`.
+ * verschlossenen Tür – oder einer, den das Wetter verschluckt hat – wird nur genommen, wenn kein
+ * anderer hinführt; die Route ist dann `barred`. Was das Wetter bremst, zählt mit seiner
+ * längeren Dauer.
  */
 export function routeBetween(
   data: WayData,
@@ -224,7 +249,11 @@ export function routeDetour(data: WayData, route: Route): string | null {
       !route.legs.some((leg) => leg.path.id === way.path.id),
   );
   if (!direct) return null;
-  const why = wayNotes(data, { path: direct.path, signs: direct.signs.filter(signBars) });
+  const why = wayNotes(data, {
+    path: direct.path,
+    signs: direct.signs.filter(signBars),
+    weather: direct.weather?.state === 'lost' ? direct.weather : null,
+  });
   return `Der direkte Weg ist versperrt: ${why.join('; ')}`;
 }
 

@@ -3,8 +3,15 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { createEntity, type TravelPath } from '../../domain/schema';
+import {
+  WAY_SORTS,
+  WAY_SORT_HINT,
+  WAY_SORT_LABEL,
+  sortOfWay,
+  type WaySort,
+} from '../../domain/wayState';
 import { WALK_KMH, formatWayTime, suggestedKm } from '../../domain/ways';
-import { Button, Checkbox, Dialog, EntityPicker, Field, Input, toast } from '../../ui';
+import { Button, Checkbox, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
 import { removeWay, saveWay } from './actions';
 import { DurationField } from './DurationField';
 import './wege.css';
@@ -29,6 +36,7 @@ export function WayDialog({
   const [conditions, setConditions] = useState(way?.conditions ?? '');
   const [oneWay, setOneWay] = useState(way?.oneWay ?? false);
   const [secret, setSecret] = useState(way?.secret ?? false);
+  const [sort, setSort] = useState<WaySort>(way ? sortOfWay(way) : 'street');
 
   // Zeigt eine Karte mit Maßstab beide Orte, ergibt sich daraus ein Vorschlag.
   const km = from && to ? suggestedKm(data, from, to) : null;
@@ -49,6 +57,7 @@ export function WayDialog({
       conditions,
       oneWay,
       secret,
+      sort,
     });
     onClose();
   };
@@ -115,6 +124,19 @@ export function WayDialog({
           }
         >
           <DurationField value={minutes} onChange={setMinutes} allowNone={false} />
+        </Field>
+        <Field label="Was für ein Weg" hint={WAY_SORT_HINT[sort]}>
+          <Select
+            value={sort}
+            aria-label="Was für ein Weg"
+            onChange={(e) => setSort(e.target.value as WaySort)}
+          >
+            {WAY_SORTS.map((entry) => (
+              <option key={entry} value={entry}>
+                {WAY_SORT_LABEL[entry]}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Name des Weges" hint="Nur wenn er einen hat – etwa „Alte Brücke“.">
           <Input value={name} onChange={(e) => setName(e.target.value)} />

@@ -12,6 +12,7 @@ import {
 import type { CampaignDb } from '../../data/db';
 import { createPath, type ChronicleEntry, type TravelPath } from '../../domain/schema';
 import { describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
+import { WAY_SORT_VALUES, sortOfWay, type WaySort } from '../../domain/wayState';
 import { undoMove } from '../tisch/commands';
 
 export interface WayInput {
@@ -26,6 +27,8 @@ export interface WayInput {
   conditions?: string;
   oneWay?: boolean;
   secret?: boolean;
+  /** Was für ein Weg das ist; ohne Angabe bleibt ein vorhandener, wie er ist. */
+  sort?: WaySort;
 }
 
 /** Legt einen Weg an oder ändert ihn. */
@@ -41,9 +44,14 @@ export function saveWay(db: CampaignDb, input: WayInput): TravelPath {
     secret: input.secret ?? false,
   };
   const existing = input.id ? db.getSnapshot().paths[input.id] : undefined;
-  if (existing) return db.patch('paths', existing.id, values);
-  // Die Art des Weges folgt der Umgebung: In einer Stadt ist er eine Gasse, kein Feldweg.
-  return db.put('paths', createPath({ ...values, terrain: 'urban' }));
+  // Die Art nur ändern, wenn sie wirklich eine andere ist: Gelände von der Karte bleibt sonst.
+  const sort =
+    input.sort && (!existing || sortOfWay(existing) !== input.sort)
+      ? WAY_SORT_VALUES[input.sort]
+      : {};
+  if (existing) return db.patch('paths', existing.id, { ...values, ...sort });
+  // Ohne Angabe ist ein neuer Weg eine Gasse: Das Wetter ändert nichts an ihm.
+  return db.put('paths', createPath({ ...values, terrain: 'urban', ...sort }));
 }
 
 /** Entfernt einen Weg. `undo` legt ihn wieder an. */
