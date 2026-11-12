@@ -71,6 +71,8 @@ const FOLDER_LABEL: Record<string, string> = {
   articles: 'Artikel',
   atlas: 'Atlas',
   clocks: 'Uhren',
+  threads: 'Fäden',
+  stories: 'Geschichten',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

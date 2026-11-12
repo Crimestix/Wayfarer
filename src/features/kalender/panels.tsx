@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Flame, Hammer, Milestone, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { entityName, overdueEvents, runningTimers, upcomingOccurrences } from '../../domain/derive';
+import { isEveryday } from '../../domain/weight';
 import { openClocks } from '../../domain/clock';
 import type { CampaignData, Clock, Timer } from '../../domain/schema';
 import {
@@ -58,7 +59,10 @@ export function UpcomingPanel({
   const now = data.state.now;
   const today = dayIndexOf(now);
   const overdue = overdueEvents(data);
-  const upcoming = upcomingOccurrences(data, UPCOMING_DAYS, 40);
+  // Der Alltag steht hier nicht: Er liefe sonst jeden Tag durch die Liste.
+  const upcoming = upcomingOccurrences(data, UPCOMING_DAYS, 400)
+    .filter((o) => !isEveryday(data, o.event))
+    .slice(0, 40);
   return (
     <Panel
       title="Anstehend"

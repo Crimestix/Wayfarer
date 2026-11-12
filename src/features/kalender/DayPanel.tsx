@@ -5,6 +5,7 @@ import { skipOccurrence } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
+import { isEveryday, isNear } from '../../domain/weight';
 import type { CalendarEvent, CampaignData } from '../../domain/schema';
 import {
   MINUTES_PER_DAY,
@@ -34,7 +35,7 @@ import {
   previewPassage,
   relativeDay,
   spanState,
-  spansOnDay,
+  splitDay,
   type DaySpan,
 } from './model';
 
@@ -110,13 +111,15 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
   const [backfill, setBackfill] = useState<number | null>(null);
   const zone = weatherZone(data, data.state.placeId);
 
-  const events = spansOnDay(spans, day);
+  const { main: events, everyday } = splitDay(data, spans, day);
   const chronicle = day <= today ? chronicleOnDay(data, day) : [];
   const moonEvents = moonEventsBetween(cal, day, day).get(day) ?? [];
   // Monde so, wie sie jetzt stehen (heute) bzw. zur Tagesmitte.
   const moonTime = day === today ? now : start + MINUTES_PER_DAY / 2;
   const passage = day > today ? previewPassage(data, start + hour * MINUTES_PER_HOUR) : null;
-  const onTheWay = passage ? occurredBeforeDay(passage, day) : [];
+  const onTheWay = passage
+    ? occurredBeforeDay(passage, day).filter((o) => !isEveryday(data, o.event))
+    : [];
 
   return (
     <Panel className="wf-kal-side" flush>
@@ -160,8 +163,9 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
         </div>
         {events.length === 0 ? (
           <div className="wf-kal-hint">
-            Für diesen Tag ist nichts eingetragen. Ein Doppelklick auf den Tag im Raster legt einen
-            Termin an.
+            {everyday.length > 0
+              ? 'Nichts Besonderes an diesem Tag – nur der Alltag unten.'
+              : 'Für diesen Tag ist nichts eingetragen. Ein Doppelklick auf den Tag im Raster legt einen Termin an.'}
           </div>
         ) : (
           events.map((span) => {
@@ -230,6 +234,40 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
               </div>
             );
           })
+        )}
+
+        {everyday.length > 0 && (
+          <details className="wf-kal-everyday">
+            <summary>
+              Alltag
+              <span>
+                {everyday.length} {everyday.length === 1 ? 'Termin' : 'Termine'} – läuft nebenher
+              </span>
+            </summary>
+            {everyday.map((span) => (
+              <button
+                key={span.event.id + span.at}
+                type="button"
+                className="wf-kal-row"
+                onClick={() => onEdit(span.event)}
+                title="Termin bearbeiten"
+              >
+                <Repeat className="wf-kal-everyday__icon" aria-hidden />
+                <span className="wf-kal-row__main">
+                  <span className="wf-kal-row__title">{span.event.title}</span>
+                  <span className="wf-kal-row__meta">
+                    {[
+                      isNear(data, span.event.placeId) ? 'hier' : '',
+                      span.event.placeId ? entityName(data, span.event.placeId) : '',
+                      describeRepeat(span.event.repeat),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </details>
         )}
 
         {passage && onTheWay.length + passage.expired.length > 0 && (

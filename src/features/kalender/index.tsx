@@ -1,6 +1,6 @@
 /** Kalender: Monatsraster, gewählter Tag, Anstehendes, laufende Wirkungen und Monde. */
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Milestone, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Milestone, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { EVENT_KINDS, type CalendarEvent, type Clock, type Timer } from '../../domain/schema';
 import {
@@ -18,7 +18,7 @@ import { clearCalendarFocus, pendingCalendarFocus } from './focus';
 import { EventDialog } from './EventDialog';
 import { MonthGrid } from './MonthGrid';
 import { TimerDialog } from './TimerDialog';
-import { EVENT_KIND_HINT, EVENT_KIND_LABEL, monthGrid, spansBetween } from './model';
+import { EVENT_KIND_HINT, EVENT_KIND_LABEL, gridSpans, monthGrid, spansBetween } from './model';
 import { MoonsPanel, TimersPanel, UpcomingPanel } from './panels';
 import './kalender.css';
 
@@ -61,6 +61,9 @@ export default function KalenderPage() {
   const month = Math.min(view.month, cal.months.length - 1);
   const grid = useMemo(() => monthGrid(cal, view.year, month), [cal, view.year, month]);
   const spans = useMemo(() => spansBetween(data, grid.firstDay, grid.lastDay), [data, grid]);
+  /** Auch den Alltag ins Raster: was sich täglich wiederholt oder anderswo geschieht. */
+  const [everything, setEverything] = useState(false);
+  const shown = useMemo(() => gridSpans(data, spans, everything), [data, spans, everything]);
   const daySpans = useMemo(
     () =>
       selected >= grid.firstDay && selected <= grid.lastDay
@@ -128,6 +131,20 @@ export default function KalenderPage() {
             </span>
           ))}
         </div>
+        {shown.hidden > 0 && (
+          <Button
+            icon={everything ? <EyeOff /> : <Eye />}
+            aria-pressed={everything}
+            title={
+              everything
+                ? 'Nur zeigen, was zählt: Einmaliges, Feste, Fäden und was am Ort der Gruppe los ist'
+                : `${shown.hidden} ${shown.hidden === 1 ? 'Termin läuft' : 'Termine laufen'} als Alltag nebenher – täglich oder an einem anderen Ort. Sie stehen am Tag, nicht im Monat.`
+            }
+            onClick={() => setEverything(!everything)}
+          >
+            {everything ? 'Alltag ausblenden' : `Alltag zeigen (${shown.hidden})`}
+          </Button>
+        )}
         <Button
           icon={<Milestone />}
           title="Ein Vorhaben der Welt, das von selbst weiterläuft"
@@ -145,7 +162,7 @@ export default function KalenderPage() {
           <MonthGrid
             data={data}
             grid={grid}
-            spans={spans}
+            spans={shown.spans}
             selected={selected}
             onSelect={selectDay}
             onCreate={createOn}

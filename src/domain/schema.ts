@@ -371,6 +371,8 @@ export type ChronicleEntry = z.infer<typeof ChronicleEntrySchema>;
 
 export const EVENT_KINDS = ['world', 'plan', 'deadline'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
+export const EVENT_WEIGHTS = ['auto', 'important', 'everyday'] as const;
+export type EventWeightChoice = (typeof EVENT_WEIGHTS)[number];
 
 export const RepeatSchema = z.object({
   every: z.number().int().positive(),
@@ -395,6 +397,13 @@ export const CalendarEventSchema = z.object({
   skip: z.array(z.number().int().nonnegative()).default([]),
   /** Erledigt bzw. eingetreten und abgehakt. */
   done: z.boolean().default(false),
+  /**
+   * Ob der Termin im Kalender steht: auto = Wayfarer entscheidet (`domain/weight.ts`),
+   * important = immer, everyday = Alltag – wird geführt, aber nicht gezeigt.
+   */
+  weight: z.enum(EVENT_WEIGHTS).default('auto'),
+  /** Der Faden der Geschichte, zu dem der Termin gehört. */
+  threadId: id.nullable().default(null),
 });
 export type CalendarEvent = z.infer<typeof CalendarEventSchema>;
 
@@ -448,6 +457,76 @@ export const ClockSchema = z.object({
   note: z.string().default(''),
 });
 export type Clock = z.infer<typeof ClockSchema>;
+
+// ── Geschichten und Fäden ──────────────────────────────────────────────────
+
+/** offen = noch nicht aufgegriffen; aktiv = die Gruppe ist dran; ruhend = liegen gelassen. */
+export const THREAD_STATES = ['open', 'active', 'dormant', 'solved', 'lost'] as const;
+export type ThreadState = (typeof THREAD_STATES)[number];
+
+/** Ein Hinweis an einem Faden: wo man ihn findet, wer davon weiß, ob die Gruppe ihn hat. */
+export const ThreadHintSchema = z.object({
+  id,
+  text: z.string(),
+  placeId: id.nullable().default(null),
+  sourceId: id.nullable().default(null),
+  found: z.boolean().default(false),
+});
+export type ThreadHint = z.infer<typeof ThreadHintSchema>;
+
+/**
+ * Ein Faden: eine Frage, die die Geschichte stellt, oder eine Spur, der die Gruppe folgen kann.
+ * Er hängt an Personen, Orten und Fraktionen (`domain/story.ts`).
+ */
+export const ThreadSchema = z.object({
+  ...base,
+  /** Die Frage oder die Spur, in einem Satz. */
+  title: z.string(),
+  /** Was dahintersteckt – nur für die Spielleitung. */
+  truth: z.string().default(''),
+  state: z.enum(THREAD_STATES).default('open'),
+  /** Die Geschichte, zu der er gehört; null = ein loser Faden. */
+  storyId: id.nullable().default(null),
+  refs: z.array(id).default([]),
+  /** Die Gruppe kennt den Faden. */
+  known: z.boolean().default(true),
+  hints: z.array(ThreadHintSchema).default([]),
+  /** Der Artikel, aus dem er stammt. */
+  articleId: id.nullable().default(null),
+});
+export type Thread = z.infer<typeof ThreadSchema>;
+
+/** Ein Einstieg: wo und wie die Gruppe auf eine Geschichte stoßen kann. */
+export const StoryEntrySchema = z.object({
+  id,
+  text: z.string(),
+  placeId: id.nullable().default(null),
+});
+export type StoryEntry = z.infer<typeof StoryEntrySchema>;
+
+/**
+ * Eine Geschichte ist ein Vorhaben, kein Plot: Jemand treibt sie an, eine Uhr sagt, was geschieht,
+ * wenn niemand eingreift. Geschrieben vom Spielleiter; Wayfarer zeigt, wie nah die Gruppe dran
+ * ist und wo Geschichten sich berühren.
+ */
+export const StorySchema = z.object({
+  ...base,
+  title: z.string(),
+  /** Worum es geht. */
+  summary: z.string().default(''),
+  /** Wer sie antreibt: eine Person oder Fraktion. */
+  ownerId: id.nullable().default(null),
+  /** Was passiert, wenn niemand eingreift. */
+  clockId: id.nullable().default(null),
+  /** Personen, Orte und Fraktionen, die dazugehören. */
+  refs: z.array(id).default([]),
+  entries: z.array(StoryEntrySchema).default([]),
+  /** Die Gruppe weiß von dieser Geschichte. */
+  known: z.boolean().default(false),
+  /** Zu Ende erzählt. */
+  closed: z.boolean().default(false),
+});
+export type Story = z.infer<typeof StorySchema>;
 
 export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
@@ -1088,6 +1167,8 @@ export const COLLECTION_SCHEMAS = {
   articles: ArticleSchema,
   atlas: AtlasSchema,
   clocks: ClockSchema,
+  threads: ThreadSchema,
+  stories: StorySchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1180,6 +1261,16 @@ export function createSession(
 ): Session {
   const stamp = nowIso();
   return SessionSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createThread(init: Partial<Thread> & { title: string }): Thread {
+  const stamp = nowIso();
+  return ThreadSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createStory(init: Partial<Story> & { title: string }): Story {
+  const stamp = nowIso();
+  return StorySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createClock(init: Partial<Clock> & { title: string; start: number }): Clock {

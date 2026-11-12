@@ -512,6 +512,7 @@ describe('Termin-Dialog', () => {
       repeat,
       details,
       done,
+      weight: 'auto',
     });
   });
 

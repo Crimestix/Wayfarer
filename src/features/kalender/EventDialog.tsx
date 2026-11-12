@@ -34,6 +34,8 @@ import {
   cx,
   toast,
 } from '../../ui';
+import type { EventWeightChoice } from '../../domain/schema';
+import { weightReason } from '../../domain/weight';
 import {
   EVENT_DONE_LABEL,
   EVENT_KIND_HINT,
@@ -107,6 +109,19 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
     const draft = { ...createEvent({ title: '–', at: dated.value.at }), ...dated.value };
     return nextOccurrences(cal, draft, dated.value.at + 1, 3);
   }, [cal, dated]);
+
+  // Warum der Termin im Kalender steht oder nicht – so, wie er gerade eingegeben ist.
+  const weightHint = useMemo(
+    () =>
+      dated.ok
+        ? weightReason(data, {
+            ...createEvent({ title: '–', at: dated.value.at }),
+            ...dated.value,
+            threadId: stored?.threadId ?? null,
+          })
+        : '',
+    [data, dated, stored],
+  );
 
   const save = () => {
     setAttempted(true);
@@ -315,6 +330,18 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
             onChange={(refs) => set({ refs })}
             placeholder="Person, Fraktion, Gegenstand … verknüpfen"
           />
+        </Field>
+        <Field label="Im Kalender" hint={weightHint}>
+          <Select
+            value={form.weight}
+            onChange={(e) => set({ weight: e.target.value as EventWeightChoice })}
+            style={{ width: 260 }}
+            aria-label="Im Kalender"
+          >
+            <option value="auto">Wayfarer entscheidet</option>
+            <option value="important">Immer zeigen – das ist wichtig</option>
+            <option value="everyday">Alltag – führen, aber nicht zeigen</option>
+          </Select>
         </Field>
         <Field label="Wiederholung">
           <span className="wf-row" style={{ gap: 'var(--s-3)' }}>

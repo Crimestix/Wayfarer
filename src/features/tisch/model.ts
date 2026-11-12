@@ -24,6 +24,7 @@ import {
   type Occurrence,
   type PlaceStatus,
 } from '../../domain/derive';
+import { isEveryday } from '../../domain/weight';
 import { relationLabel } from '../../domain/relations';
 import type {
   CalendarEvent,
@@ -466,10 +467,13 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
 
   const listed = new Set<string>();
   for (const o of ongoingOccurrences(data)) {
+    if (isEveryday(data, o.event)) continue;
     listed.add(o.event.id);
     items.push(eventItem(cal, now, o.event, o.at, 'ongoing'));
   }
-  for (const o of upcomingOccurrences(data, days, 200)) {
+  for (const o of upcomingOccurrences(data, days, 400)) {
+    // Alltag steht nicht unter „Anstehend“ – er liefe sonst jeden Tag durch die Liste.
+    if (isEveryday(data, o.event)) continue;
     if (o.event.repeat && listed.has(o.event.id)) continue;
     listed.add(o.event.id);
     items.push(eventItem(cal, now, o.event, o.at, 'upcoming'));

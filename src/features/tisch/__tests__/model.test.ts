@@ -335,6 +335,8 @@ describe('Anstehend', () => {
         timed: true,
         kind: 'world',
         repeat: { every: 1, unit: 'day' },
+        // Tägliches ist sonst Alltag und steht nicht unter „Anstehend“.
+        weight: 'important',
       }),
     );
     db.put('events', createEvent({ title: 'Markt', at: now + 2 * DAY, kind: 'world' }));

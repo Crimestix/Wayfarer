@@ -512,6 +512,40 @@
   font-style: normal;
 }
 
+/* Alltag eines Tages: eingeklappt, bis man ihn sehen will */
+.wf-kal-everyday {
+  border-top: 1px solid var(--line);
+}
+.wf-kal-everyday summary {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wf-kal-everyday summary span {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-kal-everyday summary:hover {
+  color: var(--ink);
+}
+.wf-kal-everyday__icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  color: var(--ink-faint);
+}
+
 /* Zeilen in Listen (Anstehend, Überfällig, Wirkungen) */
 .wf-kal-row {
   display: flex;

@@ -8,9 +8,11 @@ import type {
   CampaignData,
   ChronicleEntry,
   EventKind,
+  EventWeightChoice,
   Repeat,
   Timer,
 } from '../../domain/schema';
+import { isEveryday, isNear } from '../../domain/weight';
 import {
   MINUTES_PER_DAY,
   MINUTES_PER_HOUR,
@@ -130,6 +132,46 @@ export function spansBetween(data: CampaignData, fromDay: number, toDay: number)
     .map(toSpan)
     .filter((span) => span.endDay >= fromDay)
     .sort(spanOrder);
+}
+
+/**
+ * Was im Monatsraster steht: alles außer dem Alltag (`domain/weight.ts`) – und wie viele
+ * verschiedene Termine deshalb fehlen. Mit `everything` steht alles da.
+ */
+export function gridSpans(
+  data: CampaignData,
+  spans: DaySpan[],
+  everything = false,
+): { spans: DaySpan[]; hidden: number } {
+  const weights = new Map<string, boolean>();
+  const everyday = (event: CalendarEvent): boolean => {
+    let known = weights.get(event.id);
+    if (known === undefined) weights.set(event.id, (known = isEveryday(data, event)));
+    return known;
+  };
+  const shown = spans.filter((span) => !everyday(span.event));
+  const hidden = [...weights.values()].filter(Boolean).length;
+  return { spans: everything ? spans : shown, hidden };
+}
+
+/** Die Termine eines Tages, getrennt: was zählt – und der Alltag, der nebenher läuft. */
+export function splitDay(
+  data: CampaignData,
+  spans: DaySpan[],
+  dayIndex: number,
+): { main: DaySpan[]; everyday: DaySpan[] } {
+  const all = spansOnDay(spans, dayIndex);
+  return {
+    main: all.filter((span) => !isEveryday(data, span.event)),
+    everyday: all
+      .filter((span) => isEveryday(data, span.event))
+      // Was am Ort der Gruppe geschieht, zuerst.
+      .sort(
+        (a, b) =>
+          Number(isNear(data, b.event.placeId)) - Number(isNear(data, a.event.placeId)) ||
+          a.event.title.localeCompare(b.event.title, 'de'),
+      ),
+  };
 }
 
 /** Termine eines Tages: ganztägige und laufende zuerst, dann nach Uhrzeit. */
@@ -401,6 +443,7 @@ export interface EventForm {
   repeatEvery: string;
   details: string;
   done: boolean;
+  weight: EventWeightChoice;
 }
 
 const two = (n: number) => String(n).padStart(2, '0');
@@ -428,6 +471,7 @@ export function blankEventForm(
     repeatEvery: '1',
     details: '',
     done: false,
+    weight: 'auto',
   };
 }
 
@@ -449,6 +493,7 @@ export function eventToForm(cal: CalendarDef, event: CalendarEvent): EventForm {
     repeatEvery: String(event.repeat?.every ?? 1),
     details: event.details,
     done: event.done,
+    weight: event.weight,
   };
 }
 
@@ -464,6 +509,7 @@ export type EventFields = Pick<
   | 'repeat'
   | 'details'
   | 'done'
+  | 'weight'
 >;
 
 export type FormResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -520,6 +566,7 @@ export function parseEventForm(cal: CalendarDef, form: EventForm): FormResult<Ev
       details: form.details.trim(),
       // Wiederkehrende Termine lassen sich nicht als Ganzes abhaken.
       done: repeat ? false : form.done,
+      weight: form.weight,
     },
   };
 }

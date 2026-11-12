@@ -5,8 +5,8 @@
  * übrigen Routinen werden nur gezählt. Reine Funktion.
  */
 import type { TimeAdvanceResult } from '../data/actions';
-import { placeAncestors } from '../domain/derive';
 import type { CampaignData } from '../domain/schema';
+import { isNear } from '../domain/weight';
 
 export interface MeanwhileLine {
   text: string;
@@ -22,17 +22,6 @@ export interface Meanwhile {
 
 /** So viele Zeilen zeigt die Meldung höchstens. */
 export const MEANWHILE_LINES = 7;
-
-/** Liegt ein Ort dort, wo die Gruppe ist – derselbe Ort, einer darüber oder einer darin? */
-function isHere(data: CampaignData, placeId: string | null): boolean {
-  const party = data.state.placeId;
-  if (!party || !placeId) return false;
-  if (placeId === party) return true;
-  return (
-    placeAncestors(data, party).some((place) => place.id === placeId) ||
-    placeAncestors(data, placeId).some((place) => place.id === party)
-  );
-}
 
 /** Was währenddessen geschah, geordnet nach Gewicht. */
 export function meanwhile(
@@ -56,7 +45,7 @@ export function meanwhile(
       routines.set(o.event.id, {
         title: o.event.title,
         count: 1,
-        here: isHere(data, o.event.placeId),
+        here: isNear(data, o.event.placeId),
       });
   }
   for (const timer of result.expired)
