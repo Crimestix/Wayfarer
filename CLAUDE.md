@@ -90,6 +90,8 @@ nicht übernommen.
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
+  `bestiarium` (Wesen bauen, als Text übernehmen, finden, am Tisch würfeln; die Rechnung steht
+  in `domain/creature.ts`, das Lesen von Text in `bestiarium/parse.ts`),
   `faeden` (das Fadenbrett: Geschichten und Fäden nach Nähe zur Gruppe; die Rechnung steht in
   `domain/story.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
@@ -101,7 +103,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -149,6 +151,11 @@ nicht übernommen.
   Gefährten; ob ein Einstieg passt, sagt `entryFit()`, was am Ort der Gruppe bereitliegt
   `storiesHere()`.
   Geändert wird über `features/faeden/actions.ts`.
+- Bestiarium (`creatures/`): Vorlage, Variante, Einzelner erben über `parentId`. Gelesen wird
+  ein Wesen immer über `resolveCreature()` (`domain/creature.ts`), gerechnet über `statsOf()`,
+  `attackMath()`, `saveDcOf()` – nie Werte aus `creature.block` direkt zeigen: Was fehlt, ist
+  geerbt. Nichts wird mitgeliefert; Monster aus Büchern liegen nur im Kampagnenordner, Tests
+  nutzen erfundene Wesen. Würfe am Tisch sind echter Zufall (`fairDie`), kein fester Ausgangswert.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

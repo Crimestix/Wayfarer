@@ -964,6 +964,40 @@ Faden“; „das Storyboard ist noch nicht drin“).**
   (bisher Zettel an der Karte). Der Entwurf vom 11. 11. lag nur als Beschreibung vor – das
   Aussehen ist mit dem Spielleiter abzustimmen.
 
+**Bestiarium, erster Schritt (12. 11. 2026) – gebaut.** Nach `docs/KONZEPT-WELT-UND-KARTEN.md`
+Abschnitt 4b.
+
+- **Datenmodell** (Sammlung `creatures`, `CreatureSchema`): Vorlage, Variante, Einzelner in
+  einer Kette (`parentId`). `block` hält die Werte eines Statblocks nach 2024, jedes Feld darf
+  fehlen – eine Variante hält nur fest, was abweicht. Fähigkeiten (`features`: Merkmal, Aktion,
+  Bonusaktion, Reaktion, legendäre Aktion; mit Angriff und Rettungswurf) werden vererbt; eine
+  gleichnamige ersetzt die geerbte, `dropped` streicht sie. Längen in Fuß (wie die Dunkelsicht
+  der Gefährten).
+- **Rechnung** (`domain/creature.ts`): `resolveCreature` legt die Kette übereinander;
+  `statsOf` rechnet Modifikatoren, Übungsbonus und EP aus dem HG, Trefferpunkte aus
+  Trefferwürfeln (Würfel nach Größe) und Konstitution, Initiative, Rettungswürfe, Fertigkeiten,
+  passive Wahrnehmung; `attackMath` Angriffsbonus und durchschnittlichen Schaden; `saveDcOf`
+  den SG. `crCheck` schätzt, ob der HG passt (Faustregel aus TP, RK, Schaden je Runde und
+  Angriffsbonus – Merkmale und Zauber kennt sie nicht). `xpBudget` / `difficultyOf`: EP-Budget
+  2024 je Stufe (steht bereit, noch ohne Oberfläche).
+- **Text einfügen** (`bestiarium/parse.ts`, `parseStatblock`): deutsch und englisch, Satz von
+  2014 und 2024, auch so, wie D&D Beyond kopiert (Bezeichnung und Wert auf getrennten Zeilen).
+  Meter werden zu Fuß; das Attribut hinter einem Angriff wird gesucht, damit Wayfarer weiter
+  rechnen kann; was sich nicht zuordnen lässt, steht unter `unread` und wird vor dem Übernehmen
+  gezeigt.
+- **Oberfläche** (`features/bestiarium`, Bereich „Bestiarium“): Liste mit Suche und Filtern
+  (HG, Typ, Lebensraum, Quelle), Erben eingerückt; Statblock im Aufbau von 2024 mit Würfeln
+  (Angriff, Schaden, kritisch – echter Zufall, `fairDie`); Einzelner mit eigenen
+  Trefferpunkten (`setCreatureHp`); Dialog zum Bauen (leere Felder erben, Wayfarer rechnet
+  mit, Fähigkeiten anderer Wesen übernehmen). Löschen schreibt Erben ihre Werte fest ein.
+- **Offen (Muss der ersten Version):** Begegnung zusammenstellen mit Schwierigkeit nach dem
+  EP-Budget und mehreren Exemplaren mit eigenen Trefferpunkten; Bau oder Hort als Ort mit Bestand
+  (Verluste zählen); SRD 5.2 auf Knopfdruck. **Später:** Foto über den KI-Leser, Schablonen,
+  HG hoch- und runterrechnen, Zauberwirken als eigene Angabe, Wissen der Gruppe, Reviere und
+  Begegnungen daraus, Verbindung zur Art „Spezies“ und zu „Alles ist ein Artikel“.
+- **Nicht geprüft:** die Faustregel für den HG und das EP-Budget stammen aus den Regelwerken, wie
+  ich sie kenne – gegen das Buch des Spielleiters gegenzulesen.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

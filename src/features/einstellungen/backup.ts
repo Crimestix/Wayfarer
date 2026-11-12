@@ -57,6 +57,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   clocks: ['Uhr', 'Uhren'],
   threads: ['Faden', 'Fäden'],
   stories: ['Geschichte', 'Geschichten'],
+  creatures: ['Kreatur', 'Kreaturen'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

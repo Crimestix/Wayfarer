@@ -536,6 +536,137 @@ export const StorySchema = z.object({
 });
 export type Story = z.infer<typeof StorySchema>;
 
+// ── Bestiarium ─────────────────────────────────────────────────────────────
+
+export const CREATURE_SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] as const;
+export type CreatureSize = (typeof CREATURE_SIZES)[number];
+export const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+export type AbilityKey = (typeof ABILITY_KEYS)[number];
+export const FEATURE_SECTIONS = ['trait', 'action', 'bonus', 'reaction', 'legendary'] as const;
+export type FeatureSection = (typeof FEATURE_SECTIONS)[number];
+
+const abilityScores = z.object({
+  str: z.number().int().min(1).max(30),
+  dex: z.number().int().min(1).max(30),
+  con: z.number().int().min(1).max(30),
+  int: z.number().int().min(1).max(30),
+  wis: z.number().int().min(1).max(30),
+  cha: z.number().int().min(1).max(30),
+});
+const feet = z.number().int().nonnegative();
+
+/** Ein Angriff: Wayfarer rechnet Bonus und Schaden aus Attribut, Übungsbonus und Würfeln. */
+export const CreatureAttackSchema = z.object({
+  ranged: z.boolean().default(false),
+  ability: z.enum(ABILITY_KEYS).default('str'),
+  /** Fester Angriffsbonus – nur, wenn er nicht aus Attribut und Übungsbonus folgt. */
+  bonus: z.number().int().nullable().default(null),
+  /** „5 Fuß“, „80/320 Fuß“ */
+  reach: z.string().default(''),
+  /** Schadenswürfel, etwa „1W6“ oder „2W8“. */
+  dice: z.string().default(''),
+  /** Der Modifikator des Attributs zählt zum Schaden. */
+  addMod: z.boolean().default(true),
+  damageType: z.string().default(''),
+});
+export type CreatureAttack = z.infer<typeof CreatureAttackSchema>;
+
+/** Ein Merkmal, eine Aktion, Bonusaktion, Reaktion oder legendäre Aktion. */
+export const CreatureFeatureSchema = z.object({
+  id,
+  section: z.enum(FEATURE_SECTIONS).default('trait'),
+  name: z.string(),
+  text: z.string().default(''),
+  attack: CreatureAttackSchema.nullable().default(null),
+  /** Rettungswurf gegen diese Fähigkeit: SG = 8 + Übungsbonus + Modifikator dieses Attributs. */
+  saveAbility: z.enum(ABILITY_KEYS).nullable().default(null),
+  /** Fester SG – nur, wenn er nicht aus dem Attribut folgt. */
+  saveDc: z.number().int().nullable().default(null),
+});
+export type CreatureFeature = z.infer<typeof CreatureFeatureSchema>;
+
+/**
+ * Die Werte eines Statblocks nach den Regeln von 2024. Jedes Feld darf fehlen: Eine Variante hält
+ * nur fest, was von ihrer Vorlage abweicht (`resolveCreature` in `domain/creature.ts`).
+ * Längen stehen in Fuß.
+ */
+export const CreatureBlockSchema = z
+  .object({
+    size: z.enum(CREATURE_SIZES),
+    /** „Humanoider“, „Untoter“ … */
+    type: z.string(),
+    /** Zusatz in Klammern, etwa „Goblinoide“. */
+    tags: z.string(),
+    alignment: z.string(),
+    ac: z.number().int().min(0).max(40),
+    acNote: z.string(),
+    /** Anzahl der Trefferwürfel; ihre Größe folgt aus der Größe des Wesens. */
+    hitDice: z.number().int().min(1).max(100),
+    /** Feste Trefferpunkte, wenn sie nicht aus Trefferwürfeln und Konstitution folgen. */
+    hp: z.number().int().positive().nullable(),
+    /** Übung in Initiative: 0 keine, 1 geübt, 2 Expertise. */
+    initiative: z.number().int().min(0).max(2),
+    speed: z.object({ walk: feet, fly: feet, swim: feet, climb: feet, burrow: feet }),
+    hover: z.boolean(),
+    abilities: abilityScores,
+    /** Attribute mit Übung im Rettungswurf. */
+    saves: z.array(z.enum(ABILITY_KEYS)),
+    /** Fertigkeit → 1 geübt, 2 Expertise. */
+    skills: z.record(z.string(), z.number().int().min(1).max(2)),
+    vulnerable: z.string(),
+    resistant: z.string(),
+    immune: z.string(),
+    conditionImmune: z.string(),
+    senses: z.object({
+      darkvision: feet,
+      blindsight: feet,
+      tremorsense: feet,
+      truesight: feet,
+    }),
+    languages: z.string(),
+    /** Herausforderungsgrad: „0“, „1/8“, „1/4“, „1/2“, „1“ … „30“. */
+    cr: z.string(),
+    /** Wie viele Angriffe das Wesen je Runde macht – für die Einschätzung des HG. */
+    attacksPerRound: z.number().int().min(1).max(10),
+    gear: z.string(),
+    /** Lebensräume, mit Komma getrennt: „Wald, Hügel“. */
+    habitat: z.string(),
+    treasure: z.string(),
+  })
+  .partial();
+export type CreatureBlock = z.infer<typeof CreatureBlockSchema>;
+
+export const CREATURE_KINDS = ['template', 'variant', 'individual'] as const;
+export type CreatureKind = (typeof CREATURE_KINDS)[number];
+
+/**
+ * Ein Eintrag des Bestiariums: eine Vorlage (der Statblock), eine Variante (erbt und hält nur
+ * fest, was abweicht) oder ein Einzelner (ein bestimmtes Wesen mit Namen und eigenen
+ * Trefferpunkten). Monster aus Büchern liegen nur im Kampagnenordner.
+ */
+export const CreatureSchema = z.object({
+  ...base,
+  name: z.string(),
+  kind: z.enum(CREATURE_KINDS).default('template'),
+  /** Wovon geerbt wird: bei einer Variante die Vorlage, bei einem Einzelnen Vorlage oder Variante. */
+  parentId: id.nullable().default(null),
+  block: CreatureBlockSchema.default({}),
+  /** Eigene Fähigkeiten. Trägt eine den Namen einer geerbten, ersetzt sie diese. */
+  features: z.array(CreatureFeatureSchema).default([]),
+  /** Namen geerbter Fähigkeiten, die dieses Wesen nicht hat. */
+  dropped: z.array(z.string()).default([]),
+  /** Woher der Statblock stammt: „Eigenbau“, ein Buch mit Seite … */
+  source: z.string().default(''),
+  notes: z.string().default(''),
+  /** Die Spezies der Weltdatenbank, zu der das Wesen gehört. */
+  speciesId: id.nullable().default(null),
+  /** Einzelner: aktuelle Trefferpunkte; null = unverletzt. */
+  hpNow: z.number().int().nonnegative().nullable().default(null),
+  /** Einzelner: wo er sich aufhält. */
+  placeId: id.nullable().default(null),
+});
+export type Creature = z.infer<typeof CreatureSchema>;
+
 export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
 
@@ -1177,6 +1308,7 @@ export const COLLECTION_SCHEMAS = {
   clocks: ClockSchema,
   threads: ThreadSchema,
   stories: StorySchema,
+  creatures: CreatureSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1198,6 +1330,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'clocks',
   'threads',
   'stories',
+  'creatures',
 ];
 
 export type CollectionTypes = {
@@ -1271,6 +1404,11 @@ export function createSession(
 ): Session {
   const stamp = nowIso();
   return SessionSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createCreature(init: Partial<Creature> & { name: string }): Creature {
+  const stamp = nowIso();
+  return CreatureSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createThread(init: Partial<Thread> & { title: string }): Thread {

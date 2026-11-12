@@ -16,6 +16,7 @@ import {
 import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import AtlasPage from '../features/atlas';
+import BestiariumPage from '../features/bestiarium';
 import FaedenPage from '../features/faeden';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
@@ -309,6 +310,7 @@ export function AppShell() {
             <Route path="/atlas/:id?" component={AtlasPage} />
             <Route path="/karten/:id?" component={KartenPage} />
             <Route path="/faeden" component={FaedenPage} />
+            <Route path="/bestiarium/:id?" component={BestiariumPage} />
             <Route path="/einstellungen" component={EinstellungenPage} />
             <Route component={TischPage} />
           </Switch>
