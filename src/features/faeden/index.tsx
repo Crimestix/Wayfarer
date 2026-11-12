@@ -5,6 +5,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
+import { useFocus } from '../../shell/focus';
 import { Eye, EyeOff, Pencil, Plus, TriangleAlert, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
@@ -62,6 +63,8 @@ export default function FaedenPage() {
   const [view, setView] = useState<BoardView>('truth');
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
+  useFocus(['card'], (focus) => setSelected(focus.key));
 
   const cards = useMemo(() => boardCards(data, view), [data, view]);
   const links = useMemo(() => touches(cards), [cards]);

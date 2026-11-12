@@ -141,22 +141,45 @@ export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'):
   );
 }
 
+export interface WaysAround {
+  /** Der Ort, von dem die Wege abgehen: der Ort selbst oder der nächste darüber, der welche hat. */
+  origin: Place;
+  ways: Way[];
+  /**
+   * Die Wege des nächsten Ortes darüber, der eigene hat – wer am Markt steht, kann auch die Stadt
+   * verlassen. Ohne die Ziele, die schon unter `ways` stehen oder die Gruppe umschließen.
+   */
+  above: { origin: Place; ways: Way[] } | null;
+}
+
 /**
  * Die Wege rund um einen Ort: seine eigenen – oder, wenn von ihm keiner abgeht, die des nächsten
- * Ortes darüber (wer im Gasthaus sitzt, bricht vom Viertel aus auf).
+ * Ortes darüber (wer im Gasthaus sitzt, bricht vom Viertel aus auf). Dazu die Wege, die aus dem
+ * Ort darüber hinausführen (`above`).
  */
 export function waysAround(
   data: WayData,
   placeId: string | null,
   pace: Pace = 'normal',
-): { origin: Place; ways: Way[] } | null {
+): WaysAround | null {
   const start = placeId ? data.entities[placeId] : undefined;
   if (start?.kind !== 'place') return null;
-  for (const place of [start, ...placeAncestors(data as CampaignData, start.id)]) {
+  const chain = [start, ...placeAncestors(data as CampaignData, start.id)];
+  const inside = new Set(chain.map((place) => place.id));
+  let found: WaysAround | null = null;
+  for (const place of chain) {
     const ways = waysFrom(data, place.id, pace);
-    if (ways.length) return { origin: place, ways };
+    if (!ways.length) continue;
+    if (!found) {
+      found = { origin: place, ways, above: null };
+      continue;
+    }
+    const known = new Set(found.ways.map((way) => way.toId));
+    const beyond = ways.filter((way) => !known.has(way.toId) && !inside.has(way.toId));
+    if (beyond.length) found.above = { origin: place, ways: beyond };
+    break;
   }
-  return null;
+  return found;
 }
 
 /** Eine Route durchs Wegenetz: Abschnitt für Abschnitt von Punkt zu Punkt. */
@@ -170,6 +193,11 @@ export interface Route {
   via: string[];
   /** Ein Abschnitt ist versperrt (verschlossene Tür) – und kein anderer Weg führt hin. */
   barred: boolean;
+  /**
+   * Das gefragte Ziel. Der letzte Abschnitt kann bei dem Ort darüber enden (die Stadt, in der das
+   * Viertel liegt) – angekommen ist die Gruppe trotzdem hier.
+   */
+  toId: string;
 }
 
 /** So viel zählt ein Abschnitt unbekannter Dauer bei der Suche: wie eine halbe Stunde. */
@@ -178,19 +206,10 @@ const UNKNOWN_WEIGHT = 30;
 const BARRED_WEIGHT = 52_560_000;
 
 /**
- * Die schnellste Route zwischen zwei Orten über die bekannten Wege (Dijkstra) – null, wenn es
- * keine Verbindung gibt. Geheime Wege zählen mit: Der Spielleiter kennt sie. Ein Weg mit einer
- * verschlossenen Tür – oder einer, den das Wetter verschluckt hat – wird nur genommen, wenn kein
- * anderer hinführt; die Route ist dann `barred`. Was das Wetter bremst, zählt mit seiner
- * längeren Dauer.
+ * Dijkstra von einem Ort aus: über welchen Weg jeder erreichte Ort am schnellsten erreicht wird.
+ * Hört auf, sobald `toId` feststeht; sonst ist danach alles Erreichbare bekannt.
  */
-export function routeBetween(
-  data: WayData,
-  fromId: string,
-  toId: string,
-  pace: Pace = 'normal',
-): Route | null {
-  if (fromId === toId || !isPlace(data, fromId) || !isPlace(data, toId)) return null;
+function reach(data: WayData, fromId: string, toId: string, pace: Pace): Map<string, Way> {
   const best = new Map<string, number>([[fromId, 0]]);
   const came = new Map<string, Way>();
   const open = new Set<string>([fromId]);
@@ -218,16 +237,54 @@ export function routeBetween(
       }
     }
   }
-  if (!came.has(toId)) return null;
-  const legs: Way[] = [];
-  for (let at = toId; at !== fromId; at = came.get(at)!.fromId) legs.unshift(came.get(at)!);
-  return {
-    legs,
-    minutes: legs.reduce((sum, leg) => sum + (leg.minutes ?? 0), 0),
-    unknown: legs.some((leg) => leg.minutes === null),
-    via: legs.slice(0, -1).map((leg) => leg.toId),
-    barred: legs.some((leg) => leg.barred),
-  };
+  return came;
+}
+
+/**
+ * Die schnellste Route zwischen zwei Orten über die bekannten Wege (Dijkstra) – null, wenn es
+ * keine Verbindung gibt. Geheime Wege zählen mit: Der Spielleiter kennt sie. Ein Weg mit einer
+ * verschlossenen Tür – oder einer, den das Wetter verschluckt hat – wird nur genommen, wenn kein
+ * anderer hinführt; die Route ist dann `barred`. Was das Wetter bremst, zählt mit seiner
+ * längeren Dauer.
+ *
+ * Wer in einem Viertel steht, steht auch in der Stadt: Führt vom Ort selbst kein Weg zum Ziel,
+ * zählen die Wege der Orte darüber – und am Ziel genügt es, den Ort zu erreichen, in dem es
+ * liegt. Was Start und Ziel gemeinsam umschließt (dieselbe Stadt, dieselbe Gegend), ist dabei
+ * kein Punkt auf dem Weg. Ein eingetragener Weg geht immer vor.
+ */
+export function routeBetween(
+  data: WayData,
+  fromId: string,
+  toId: string,
+  pace: Pace = 'normal',
+): Route | null {
+  if (fromId === toId || !isPlace(data, fromId) || !isPlace(data, toId)) return null;
+  const up = (id: string) => [
+    id,
+    ...placeAncestors(data as CampaignData, id).map((place) => place.id),
+  ];
+  const [starts, ends] = [up(fromId), up(toId)];
+  const shared = new Set(starts.filter((id) => ends.includes(id)));
+  const linked = new Set(Object.values(data.paths).flatMap((path) => [path.fromId, path.toId]));
+  for (const start of starts) {
+    if (start !== fromId && (shared.has(start) || !linked.has(start))) continue;
+    const came = reach(data, start, toId, pace);
+    for (const end of ends) {
+      if (end !== toId && shared.has(end)) continue;
+      if (!came.has(end)) continue;
+      const legs: Way[] = [];
+      for (let at = end; at !== start; at = came.get(at)!.fromId) legs.unshift(came.get(at)!);
+      return {
+        legs,
+        minutes: legs.reduce((sum, leg) => sum + (leg.minutes ?? 0), 0),
+        unknown: legs.some((leg) => leg.minutes === null),
+        via: legs.slice(0, -1).map((leg) => leg.toId),
+        barred: legs.some((leg) => leg.barred),
+        toId,
+      };
+    }
+  }
+  return null;
 }
 
 /** Was auf einer Route zu beachten ist – Abschnitt für Abschnitt, in Worten. */

@@ -152,10 +152,22 @@ describe('Wer hier ist', () => {
     const kloster = byName(data, 'Kloster Sankt Vael');
     let view = castView(data, kloster.id);
     expect(view.present).toEqual([]);
-    expect(view.away).toHaveLength(1);
-    expect(view.away[0]).toMatchObject({ fate: 'Verschollen', where: null, unmet: true });
+    // Verschollene und Tote stehen für sich – weder anwesend noch bloß fort.
+    expect(view.away).toEqual([]);
+    expect(view.lost).toHaveLength(1);
+    expect(view.lost[0]).toMatchObject({ fate: 'Verschollen', where: null, unmet: true });
+    // Auch wenn als letzter Aufenthalt noch der Ort eingetragen ist: Ein Toter ist nicht anwesend.
+    const missing = view.lost[0]!.entity;
+    if (missing.kind !== 'person') throw new Error('Person erwartet');
+    db.put('entities', {
+      ...missing,
+      person: { ...missing.person, status: 'dead', placeId: kloster.id },
+    });
+    view = castView(db.getSnapshot(), kloster.id);
+    expect(view.present).toEqual([]);
+    expect(view.lost[0]).toMatchObject({ fate: 'Tot' });
     // Wer lebt und nur gerade woanders ist, steht mit seinem jetzigen Ort da – oder als unbekannt.
-    const teoric = view.away[0]!.entity;
+    const teoric = { ...missing, person: { ...missing.person, placeId: null } };
     if (teoric.kind !== 'person') throw new Error('Person erwartet');
     db.put('entities', { ...teoric, person: { ...teoric.person, status: 'alive' } });
     expect(castView(db.getSnapshot(), kloster.id).away[0]).toMatchObject({

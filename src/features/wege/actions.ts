@@ -106,7 +106,7 @@ export function walkRoute(db: CampaignDb, route: Route): WalkResult {
   ]
     .filter(Boolean)
     .join(' · ');
-  return walk(db, last.toId, route.minutes, note);
+  return walk(db, route.toId, route.minutes, note);
 }
 
 /**

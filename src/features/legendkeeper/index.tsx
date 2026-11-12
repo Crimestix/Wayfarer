@@ -69,11 +69,7 @@ function Unavailable({
   const [, navigate] = useLocation();
   const view = describeError(error, context);
   const toSettings = (
-    <Button
-      variant={view.action === 'settings' ? 'primary' : 'default'}
-      icon={<Settings />}
-      onClick={() => navigate(SETTINGS_PATH)}
-    >
+    <Button icon={<Settings />} onClick={() => navigate(SETTINGS_PATH)}>
       Zu den Einstellungen
     </Button>
   );
@@ -100,7 +96,7 @@ function Unavailable({
             {view.action === 'settings' && toSettings}
             {view.action === 'retry' && error.kind !== 'not-found' && retry}
             {error.kind === 'not-found' && onUnlink && (
-              <Button variant="primary" icon={<Unlink />} onClick={onUnlink}>
+              <Button icon={<Unlink />} onClick={onUnlink}>
                 Verknüpfung lösen und neu wählen
               </Button>
             )}
@@ -248,7 +244,6 @@ export function LkArticlePanel({
           {seen?.id === peek.resourceId && (
             <Button
               size="sm"
-              variant="primary"
               icon={<Link2 />}
               onClick={() => linkTo({ resourceId: peek.resourceId, title: seen.title })}
             >

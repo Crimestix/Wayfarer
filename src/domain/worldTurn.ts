@@ -8,7 +8,7 @@
  * gebündelt: „Drei Wege verschlammt“ statt drei Einträgen). Nichts wird erfunden. Reine Funktionen.
  */
 import { openClocks, type ClockView } from './clock';
-import { findRelation, placeAncestors } from './derive';
+import { currentSession, findRelation, placeAncestors } from './derive';
 import { missedTrips, openTrips, runStatus, type RunStatus, type Trip } from './runs';
 import { PARTY_ID, type CampaignData, type Clock, type Entity } from './schema';
 import { nearness, whereOf } from './story';
@@ -82,6 +82,23 @@ export const DAY_MARCH = 8 * 60;
 export const TURN_DAYS = 14;
 /** So weit zurück reicht „Alles“. */
 export const TURN_DAYS_ALL = 90;
+
+/**
+ * Wie weit der Überblick zurückreicht, in Tagen: zwei Wochen – und mindestens bis vor den letzten
+ * Zeitsprung und bis zum Beginn der laufenden Session. Wer die Zeit um einen Monat vorstellt,
+ * sieht im Überblick, was in diesem Monat geschah – nicht nur dessen letzte zwei Wochen.
+ */
+export function turnDays(data: Pick<CampaignData, 'state' | 'sessions'>): number {
+  const now = data.state.now;
+  const session = currentSession(data as CampaignData);
+  const span = Math.max(
+    0,
+    ...[data.state.previousNow, session?.startAt]
+      .filter((time): time is number => typeof time === 'number' && time <= now)
+      .map((time) => now - time),
+  );
+  return Math.max(TURN_DAYS, Math.ceil(span / MINUTES_PER_DAY));
+}
 
 /** Ist etwas beobachtet – selbst oder über einen Ort, in dem es liegt? */
 function isWatched(data: CampaignData, ids: readonly string[]): boolean {

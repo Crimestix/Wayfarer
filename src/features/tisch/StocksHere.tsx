@@ -20,9 +20,14 @@ export function StocksHere() {
         <h2 className="wf-tisch-stories__title">Wer hier haust</h2>
       </header>
       {stocks.map((view) => (
-        <div key={view.stock.id} className="wf-tisch-story">
+        <div
+          key={view.stock.id}
+          className="wf-tisch-story"
+          title={view.stock.range ? `Revier: ${view.stock.range}` : undefined}
+        >
           <div className="wf-tisch-story__title">
-            <b>{view.stock.name}</b>
+            <b className="wf-clamp-1">{view.stock.name}</b>
+            <span className="wf-tisch-story__brief">{stockSummary(view)}</span>
             <button
               type="button"
               className="wf-tisch-stories__link"
@@ -31,12 +36,6 @@ export function StocksHere() {
               Zum Bestand
             </button>
           </div>
-          <div className="wf-tisch-story__line">{stockSummary(view)}</div>
-          {view.stock.range && (
-            <div className="wf-tisch-story__line">
-              <em>Revier</em> {view.stock.range}
-            </div>
-          )}
         </div>
       ))}
     </section>

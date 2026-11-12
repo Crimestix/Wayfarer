@@ -138,6 +138,8 @@ export interface CastRow {
 export interface CastView {
   present: CastRow[];
   away: CastRow[];
+  /** Tote und Verschollene von hier – ihr Schicksal steht in `fate`. */
+  lost: CastRow[];
   factions: CastRow[];
   /** Gegenstände, die hier (oder bei jemandem von hier) liegen. */
   items: CastRow[];
@@ -204,6 +206,8 @@ export function castView(data: CampaignData, placeId: string): CastView {
       elsewhere ? p.person.placeId : null,
     );
   });
+
+  const lost = cast.lost.map((p) => personRow(data, p, null, null));
 
   const factions = cast.factions.map((f): CastRow => {
     const exact = f.faction.seatId === placeId;
@@ -272,10 +276,12 @@ export function castView(data: CampaignData, placeId: string): CastView {
   return {
     present,
     away,
+    lost,
     factions,
     items,
     linked,
-    total: present.length + away.length + factions.length + items.length + linked.length,
+    total:
+      present.length + away.length + lost.length + factions.length + items.length + linked.length,
   };
 }
 

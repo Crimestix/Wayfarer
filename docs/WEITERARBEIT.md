@@ -1139,6 +1139,37 @@ LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
 
 ## 6. Bekannte Mängel und Aufräumliste
 
+### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)
+
+Der Spielleiter fragte, ob Wayfarer auch als Ganzes geprüft wird. Ergebnis war eine Liste mit 19
+Punkten; behoben sind die sechs Fehler und die Punkte 7 bis 9 (sowie 15 und 17 nebenbei):
+
+- **Artikel und Eintrag gleichen Namens** gehören zusammen: `twins()` (`wiki/facts.ts`) findet
+  sie, `linkTwins()` verbindet sie – beim Anlegen eines Artikels, vor dem Lesen der Steckbriefe
+  und laufend über `TwinSync` im Gerüst. Nur was eindeutig ist (genau ein Artikel, genau ein
+  Eintrag, keine andere Art im Steckbrief).
+- **Wege aus einem Viertel heraus:** `routeBetween` nimmt auch die Wege der Orte darüber und
+  lässt am Ziel den Ort gelten, in dem es liegt (`route.toId` ist das gefragte Ziel). Am
+  Spieltisch stehen hinter den Wegen des Viertels die aus der Stadt hinaus (`waysAround().above`).
+- **Suche** findet alles Angelegte (`shell/search.ts`, `searchWorld`) und springt hin
+  (`shell/focus.ts`); sie fragt beim Schließen nicht mehr nach.
+- **Tote und Verschollene** sind nie anwesend: `placeCast().lost`, eigene Gruppe am Spieltisch
+  und auf der Seite des Ortes.
+- **Weltgeschehen:** Der Überblick reicht bis vor den letzten Zeitsprung und zum Beginn der
+  laufenden Session zurück (`turnDays`).
+- **Kalender:** Der Kopf passt auf 1440 Breite (die Legende zeigt dann nur die Farben).
+- **Spieltisch:** „Was diesen Ort gerade berührt“ und „Wer hier haust“ sind je eine Zeile zum
+  Aufklappen; die Mitschrift bekommt mehr Höhe als „Anstehend“.
+- **Messing:** „Festhalten“ in der Weltleiste ist nur am Spieltisch aus Messing; die Seite eines
+  Eintrags, der Kalender und die Hexkarten haben je einen.
+
+**Noch offen aus dem Rundgang** (erst Probe zeigen, es geht um Geschmack): 10 Personenseite
+zeigt vieles doppelt · 11 Kalender: Titel brechen mitten im Wort, untere Kästen sehr niedrig ·
+12 Fadenbrett: Linien werden zum Knäuel · 13 Schritte geheimer Uhren stehen in der Mitschrift
+des Abends · 14 Welt-Übersicht mit Kacheln „0“ · 16 Kasten zu LegendKeeper im Reiter „Text“ ·
+18 Einstellungen sehr lang · 19 viel kleine Schrift am Spieltisch. Nicht geprüft wurden Karten
+mit Inhalt, der Editor, der KI-Leser und die installierte App.
+
 - Doppelte Hilfen zusammenführen: Bild verkleinern (`welt/image.ts`, `gruppe/image.ts`),
   Charakterbogen-Link (`tisch/model.ts` `sheetLink`, `gruppe/model.ts` `sheetHref`), mehrtägige
   laufende Termine (`tisch/model.ts`, `kalender` `spansBetween`), Chronik-Einträge ändern/löschen

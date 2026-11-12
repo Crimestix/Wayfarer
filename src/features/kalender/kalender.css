@@ -57,6 +57,25 @@
   align-items: center;
   gap: 7px;
 }
+/* Wird der Kopf eng (MacBook am Tisch), bleiben von der Legende die Farben – die Wörter stehen
+   im Hinweis an der Maus. So bleibt „Termin anlegen“ immer im Bild. */
+.wf-kal-head {
+  container-type: inline-size;
+}
+@container (max-width: 1320px) {
+  .wf-kal-legend {
+    gap: var(--s-2);
+  }
+  .wf-kal-legend > span {
+    gap: 0;
+    font-size: 0;
+  }
+}
+@container (max-width: 1080px) {
+  .wf-kal-title__era {
+    display: none;
+  }
+}
 
 /* ── Aufbau ─────────────────────────────────────────────────────────────── */
 .wf-kal-body {

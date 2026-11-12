@@ -1,7 +1,20 @@
 /** Dialoge des Gerüsts: festhalten, Haltung ändern, Ort wechseln, Zeit vergehen lassen, suchen. */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, Footprints, Library, Search } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarDays,
+  Footprints,
+  Hourglass,
+  Library,
+  Map as MapIcon,
+  Repeat,
+  Search,
+  Skull,
+  Swords,
+  Tent,
+  Waypoints,
+} from 'lucide-react';
 import {
   advanceTime,
   logEntry,
@@ -13,7 +26,7 @@ import {
 import type { TimeAdvanceResult } from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
-import { KIND_LABEL, entityName, findRelation, placePath, searchEntities } from '../domain/derive';
+import { entityName, findRelation, placePath } from '../domain/derive';
 import { attitudeLabel } from '../domain/relations';
 import { PARTY_ID, createEntity, type CampaignData } from '../domain/schema';
 import {
@@ -59,7 +72,9 @@ import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import type { RestResult } from '../features/gruppe/rest';
+import { focusOn, type Focus } from './focus';
 import { meanwhile } from './meanwhile';
+import { searchWorld, type SearchSort } from './search';
 import {
   closeShellRequest,
   useShellRequest,
@@ -391,6 +406,9 @@ function MovePartyDialog({ preset }: { preset?: string }) {
                     (route.legs[0]?.path.name
                       ? `Direkter Weg über ${route.legs[0].path.name}`
                       : 'Direkter Weg')}
+                  {route.legs[0] && route.legs[0].fromId !== here && (
+                    <> ab {entityName(data, route.legs[0].fromId)}</>
+                  )}
                   {route.unknown && ' – ein Abschnitt hat noch keine Dauer'}
                   {route.legs.some((leg) => leg.path.conditions) &&
                     ` · ${route.legs
@@ -400,8 +418,8 @@ function MovePartyDialog({ preset }: { preset?: string }) {
                 </div>
                 {route.barred && (
                   <div className="wf-wege-route__warn">
-                    Der Weg ist gerade nicht passierbar – eine verschlossene Tür oder das
-                    Wetter. Die Gruppe kann trotzdem weiterziehen; wie, entscheidest du.
+                    Der Weg ist gerade nicht passierbar – eine verschlossene Tür oder das Wetter.
+                    Die Gruppe kann trotzdem weiterziehen; wie, entscheidest du.
                   </div>
                 )}
                 {routeDetour(data, route) && (
@@ -628,7 +646,22 @@ interface SearchHit {
   sub: string;
   href: string;
   icon: ReactNode;
+  /** Was die Seite gleich zeigen soll: die Karte, die Uhr, den Tag. */
+  focus?: Focus;
 }
+
+const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
+  article: <Library />,
+  story: <Waypoints />,
+  thread: <Waypoints />,
+  clock: <Hourglass />,
+  run: <Repeat />,
+  event: <CalendarDays />,
+  creature: <Skull />,
+  encounter: <Swords />,
+  stock: <Tent />,
+  map: <MapIcon />,
+};
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {
   const q = query.trim().toLowerCase();
@@ -646,41 +679,16 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
       href: a.path,
       icon: <a.icon />,
     }));
-  const entities: SearchHit[] = q
-    ? searchEntities(data, query, { limit: 30 }).map((e) => ({
-        key: e.id,
-        label: e.name,
-        sub: [KIND_LABEL[e.kind], e.tagline].filter(Boolean).join(' · '),
-        href: entityHref(e),
-        icon: <KindIcon kind={e.kind} />,
-      }))
-    : [];
-  // Artikel des Wikis, die keinen Eintrag in der Welt haben – die anderen stehen schon oben.
-  const owned = new Set(
-    Object.values(data.entities)
-      .map((e) => e.lk?.resourceId)
-      .filter(Boolean),
-  );
-  const articles: SearchHit[] = q
-    ? Object.values(data.articles)
-        .filter(
-          (a) =>
-            !a.template &&
-            !owned.has(a.id) &&
-            (a.title.toLowerCase().includes(q) ||
-              a.aliases.some((alias) => alias.toLowerCase().includes(q))),
-        )
-        .sort((a, b) => a.title.localeCompare(b.title, 'de'))
-        .slice(0, 20)
-        .map((a) => ({
-          key: 'article:' + a.id,
-          label: a.title,
-          sub: 'Artikel',
-          href: `/wiki/${a.id}`,
-          icon: <Library />,
-        }))
-    : [];
-  return q ? [...entities, ...articles, ...areas] : areas;
+  // Alles, was der Spielleiter angelegt hat (`search.ts`): Welt, Artikel, Geschichten, Wesen …
+  const found: SearchHit[] = searchWorld(data, query).map((hit) => ({
+    key: hit.key,
+    label: hit.label,
+    sub: hit.sub,
+    href: hit.entity ? entityHref(hit.entity) : hit.href,
+    icon: hit.entity ? <KindIcon kind={hit.entity.kind} /> : SORT_ICON[hit.sort as 'article'],
+    focus: hit.focus,
+  }));
+  return q ? [...found, ...areas] : areas;
 }
 
 function SearchDialog() {
@@ -692,6 +700,7 @@ function SearchDialog() {
   useEffect(() => setIndex(0), [query]);
   const go = (hit: SearchHit | undefined) => {
     if (!hit) return;
+    focusOn(hit.focus ?? null);
     navigate(hit.href);
     closeShellRequest();
   };
@@ -705,12 +714,14 @@ function SearchDialog() {
         </span>
       }
       width={640}
+      // Ein Suchwort ist keine Eingabe, die verloren gehen könnte.
+      guard={false}
     >
       <div style={{ margin: 'calc(var(--s-5) * -1)' }}>
         <Input
           className="wf-search__input"
           autoFocus
-          placeholder="Person, Ort, Fraktion oder Bereich …"
+          placeholder="Person, Ort, Geschichte, Wesen, Termin …"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {

@@ -213,6 +213,8 @@ export interface PlaceCast {
   present: Person[];
   /** Personen, die hier zu Hause sind, aber gerade woanders. */
   away: Person[];
+  /** Tote und Verschollene, die zuletzt hier waren oder hier zu Hause sind – anwesend ist keiner. */
+  lost: Person[];
   /** Fraktionen mit Sitz hier. */
   factions: Faction[];
   /** Alles Weitere, das über eine Beziehung mit dem Ort verbunden ist. */
@@ -225,15 +227,22 @@ export interface PlaceCast {
 export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   const ids = placeSubtreeIds(data, placeId);
   const persons = entitiesOfKind(data, 'person');
-  const present = persons.filter((p) => p.person.placeId && ids.has(p.person.placeId));
+  const here = (id: string | null) => id !== null && ids.has(id);
+  // Wer tot oder verschollen ist, hält sich nirgends auf – auch wenn sein letzter Ort noch dasteht.
+  // Ein ungewisses Schicksal ist noch keins: Der steht weiter da, mit seinem Vermerk.
+  const gone = (p: Person) => p.person.status === 'dead' || p.person.status === 'missing';
+  const alive = persons.filter((p) => !gone(p));
+  const present = alive.filter((p) => here(p.person.placeId));
   const presentIds = new Set(present.map((p) => p.id));
-  const away = persons.filter(
-    (p) => !presentIds.has(p.id) && p.person.homeId && ids.has(p.person.homeId),
-  );
+  const away = alive.filter((p) => !presentIds.has(p.id) && here(p.person.homeId));
+  const lost = persons.filter((p) => gone(p) && (here(p.person.placeId) || here(p.person.homeId)));
   const factions = entitiesOfKind(data, 'faction').filter(
     (f) => f.faction.seatId && ids.has(f.faction.seatId),
   );
-  const known = new Set([...presentIds, ...away.map((p) => p.id), ...factions.map((f) => f.id)]);
+  const known = new Set([
+    ...presentIds,
+    ...[...away, ...lost, ...factions].map((entity) => entity.id),
+  ]);
   const linked: PlaceCast['linked'] = [];
   for (const relation of Object.values(data.relations)) {
     if (relation.ended) continue;
@@ -248,7 +257,7 @@ export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   const characters = entitiesOfKind(data, 'character').filter(
     (c) => c.character.placeId && ids.has(c.character.placeId),
   );
-  return { present, away, factions, linked, characters };
+  return { present, away, lost, factions, linked, characters };
 }
 
 // ── Chronik ────────────────────────────────────────────────────────────────
@@ -335,6 +344,7 @@ export function placeStatus(data: CampaignData, placeId: string): PlaceStatus {
       ...placeSubtreeIds(data, placeId),
       ...cast.present.map((p) => p.id),
       ...cast.away.map((p) => p.id),
+      ...cast.lost.map((p) => p.id),
       ...cast.factions.map((f) => f.id),
     ]);
     changesSince = chronicleSorted(data).filter(

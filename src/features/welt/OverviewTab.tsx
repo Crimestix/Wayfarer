@@ -161,7 +161,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
   const cast = placeCast(data, place.id);
   const attitudes = partyAttitudes(data);
   const attitude = (id: string) => attitudes.get(id) ?? null;
-  const shown = new Set([...cast.present, ...cast.away].map((p) => p.id));
+  const shown = new Set([...cast.present, ...cast.away, ...cast.lost].map((p) => p.id));
   // Wer hier arbeitet, aber weder hier ist noch hier wohnt.
   const workers = workersAt(data, place.id).filter((p) => !shown.has(p.id));
   const workerIds = new Set(workers.map((p) => p.id));
@@ -169,6 +169,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
   const castCount =
     cast.present.length +
     cast.away.length +
+    cast.lost.length +
     workers.length +
     cast.factions.length +
     linked.length +
@@ -238,6 +239,18 @@ function PlaceOverview({ entity: place }: Props<Place>) {
                         key={p.id}
                         entity={p}
                         sub={castSubline(data, p, place.id, true)}
+                        attitude={attitude(p.id)}
+                      />
+                    ))}
+                  </CastGroup>
+                )}
+                {cast.lost.length > 0 && (
+                  <CastGroup label="Tot oder verschollen" count={cast.lost.length}>
+                    {cast.lost.map((p) => (
+                      <EntryRow
+                        key={p.id}
+                        entity={p}
+                        sub={castSubline(data, p, place.id)}
                         attitude={attitude(p.id)}
                       />
                     ))}

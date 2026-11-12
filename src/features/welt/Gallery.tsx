@@ -163,7 +163,7 @@ export function Gallery() {
                   Filter zurücksetzen
                 </Button>
               )}
-              <Button size="sm" variant="primary" icon={<Plus />} onClick={create}>
+              <Button size="sm" icon={<Plus />} onClick={create}>
                 {filter.query.trim() ? `„${filter.query.trim()}“ anlegen` : 'Person anlegen'}
               </Button>
             </div>

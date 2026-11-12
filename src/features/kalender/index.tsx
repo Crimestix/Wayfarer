@@ -14,6 +14,7 @@ import {
 import { Button, IconButton, cx } from '../../ui';
 import { ClockDialog } from './ClockDialog';
 import { DayPanel } from './DayPanel';
+import { useFocus } from '../../shell/focus';
 import { clearCalendarFocus, pendingCalendarFocus } from './focus';
 import { EventDialog } from './EventDialog';
 import { MonthGrid } from './MonthGrid';
@@ -43,6 +44,12 @@ export default function KalenderPage() {
     return { year: d.year, month: d.month };
   });
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  // Aus der Suche geöffnet: Der Kalender zeigt den Tag des gesuchten Termins.
+  useFocus(['day'], (found) => {
+    const d = fromTime(cal, found.day * MINUTES_PER_DAY);
+    setSelected(found.day);
+    setView({ year: d.year, month: d.month });
+  });
 
   // Vergeht die Zeit über Mitternacht, wandert die Auswahl mit – sofern sie auf „heute“ stand.
   const [seenToday, setSeenToday] = useState(today);

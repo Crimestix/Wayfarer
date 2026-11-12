@@ -294,7 +294,10 @@ export function touchReason(data: Pick<CampaignData, 'entities'>, touch: Touch):
 
 /** „in 3 Tagen“, „in 5 Std.“ – wie lange es bis zu einem Schritt noch dauert. */
 export const untilText = (minutes: number): string =>
-  `in ${formatDuration(Math.max(0, minutes)).replace(/ Tage$| Tage /, (found) => found.replace('Tage', 'Tagen'))}`;
+  // Was fällig ist, ist „jetzt“ fällig – nicht „in 0 Min.“.
+  minutes <= 0
+    ? 'jetzt'
+    : `in ${formatDuration(minutes).replace(/ Tage$| Tage /, (found) => found.replace('Tage', 'Tagen'))}`;
 
 // ── Ruf ────────────────────────────────────────────────────────────────────
 

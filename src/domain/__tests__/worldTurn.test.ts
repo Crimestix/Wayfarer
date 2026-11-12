@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { advanceTime } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -15,7 +16,14 @@ import {
 } from '../schema';
 import { MINUTES_PER_DAY, dayIndexOf } from '../time/calendar';
 import { weatherZone } from '../weatherZone';
-import { TURN_DAYS_ALL, turnWeight, watchedEntities, worldTurn } from '../worldTurn';
+import {
+  TURN_DAYS,
+  TURN_DAYS_ALL,
+  turnDays,
+  turnWeight,
+  watchedEntities,
+  worldTurn,
+} from '../worldTurn';
 
 /**
  * Erfundene Welt: Die Gruppe steht am Markt von Graufels. Der Hafen liegt in derselben Stadt,
@@ -124,6 +132,35 @@ describe('Die Welt dreht sich weiter', () => {
     happen('Der alte Brunnen versiegt', market.id, { daysAgo: 40 });
     expect(worldTurn(data()).weighty).toEqual([]);
     expect(titles(worldTurn(data(), TURN_DAYS_ALL).weighty)).toEqual(['Der alte Brunnen versiegt']);
+  });
+
+  it('der Überblick reicht bis vor den letzten Zeitsprung zurück', async () => {
+    const { db, data, market, happen } = await setup();
+    expect(turnDays(data())).toBe(TURN_DAYS);
+    // Ein Sprung über 30 Tage: Was am Anfang dieses Monats geschah, gehört in den Überblick.
+    const from = data().state.now;
+    advanceTime(db, from + 30 * MINUTES_PER_DAY);
+    db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'change',
+        at: from + 2 * MINUTES_PER_DAY,
+        text: 'Die Aalfischer besetzen den Zoll',
+        placeId: market.id,
+      }),
+    );
+    happen('Der alte Brunnen versiegt', market.id, { daysAgo: 40 });
+    expect(turnDays(data())).toBe(30);
+    expect(titles(worldTurn(data(), turnDays(data())).weighty)).toEqual([
+      'Die Aalfischer besetzen den Zoll',
+    ]);
+    // Die Session läuft noch: Auch nach einem kleinen Schritt bleibt der Monat im Überblick.
+    expect(data().state.sessionId).not.toBeNull();
+    advanceTime(db, data().state.now + 10);
+    expect(turnDays(data())).toBe(31);
+    // Ohne laufende Session zählt nur der letzte Sprung – dann sind es wieder zwei Wochen.
+    db.setState({ sessionId: null });
+    expect(turnDays(data())).toBe(TURN_DAYS);
   });
 
   it('was der Spielleiter beobachtet, steht oben – auch Orte darin', async () => {

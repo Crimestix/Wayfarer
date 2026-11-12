@@ -371,7 +371,7 @@
   color: var(--gold-bright);
 }
 .wf-tisch-story {
-  padding: var(--s-2) var(--s-4);
+  padding: var(--s-1) var(--s-4);
 }
 .wf-tisch-story + .wf-tisch-story {
   border-top: 1px solid var(--line-faint);
@@ -380,6 +380,48 @@
   display: flex;
   gap: var(--s-3);
   align-items: baseline;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.wf-tisch-story__title:enabled {
+  cursor: pointer;
+}
+button.wf-tisch-story__title:enabled:hover b {
+  color: var(--gold-bright);
+}
+.wf-tisch-story__title > svg {
+  flex: none;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin: 0 calc(var(--s-1) * -1) 0 calc(var(--s-1) * -1);
+  color: var(--ink-mute);
+}
+.wf-tisch-story__title > b {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.wf-tisch-story__title > span {
+  flex: none;
+}
+/* Was hier bereitliegt, kurz: füllt den Rest der Zeile und läuft aus, wenn es nicht passt. */
+.wf-tisch-story__title > .wf-tisch-story__brief {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-style: normal;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-tisch-story__title > .wf-tisch-stories__link {
+  flex: none;
 }
 .wf-tisch-story__title b {
   font-family: var(--font-display);
@@ -849,7 +891,8 @@
 /* ── Anstehend ──────────────────────────────────────────────────────────── */
 .wf-tisch-agenda {
   flex: 0 1 auto;
-  max-height: 45%;
+  /* Die Mitschrift ist das Werkzeug des Abends: Sie bekommt den größeren Teil der Spalte. */
+  max-height: 38%;
   min-height: 0;
 }
 .wf-tisch-agenda__overdue {
@@ -1256,6 +1299,6 @@
     padding-bottom: 6px;
   }
   .wf-tisch-agenda {
-    max-height: 42%;
+    max-height: 36%;
   }
 }

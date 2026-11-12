@@ -16,7 +16,7 @@ import {
 import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
-import { articleFacts, planFacts, statedKind } from './facts';
+import { articleFacts, planFacts, statedKind, twins } from './facts';
 import type { RelationHint } from './sentences';
 import { articleAsText, linkIndex, relinked, titleKey } from './text';
 
@@ -51,6 +51,8 @@ export function applyLkImport(
   db.replaceAll(plan.data);
   // Bei so vielen neuen Personen entsteht eine Familie erst ab zwei Trägern des Nachnamens.
   const families = plan.personIds.length ? adoptFamilies(db, undefined, 2) : null;
+  // Wer schon in der Welt stand und jetzt einen Artikel gleichen Namens bekommt, gehört zu ihm.
+  linkTwins(db);
   // Die Steckbriefe gleich auswerten: Beruf, Aufenthaltsort, Zugehörigkeit … stehen dann schon
   // in der Welt, ohne dass jemand einen Knopf drücken muss.
   const sync = options.facts ? syncFacts(db) : null;
@@ -75,6 +77,21 @@ export function undoLkImport(db: CampaignDb): boolean {
   db.replaceAll(last.before);
   last = null;
   return true;
+}
+
+/**
+ * Verbindet Artikel und Einträge gleichen Namens, die noch nichts voneinander wissen (`twins`):
+ * Der Eintrag bekommt den Artikel als seinen Text. Das folgt eindeutig und geschieht deshalb
+ * still. Gibt die verbundenen Einträge zurück, wie sie vorher waren.
+ */
+export function linkTwins(db: CampaignDb): Entity[] {
+  const found = twins(db.getSnapshot());
+  if (!found.length) return [];
+  db.batch(() => {
+    for (const { article, entity } of found)
+      db.put('entities', { ...entity, lk: { resourceId: article.id, title: article.title } });
+  });
+  return found.map((twin) => twin.entity);
 }
 
 /** Nimmt einen Artikel von Hand als Eintrag in die Welt auf. */
@@ -175,6 +192,8 @@ export function createArticle(
       }),
     );
     putRelinked(db, before);
+    // Steht ein Eintrag dieses Namens schon in der Welt, ist das sein Artikel.
+    linkTwins(db);
     return article;
   });
 }
@@ -373,6 +392,8 @@ export function syncFacts(
   const removedRelations = new Set<string>();
 
   db.batch(() => {
+    // Was es unter diesem Namen schon gibt, wird verbunden – nie ein zweites Mal angelegt.
+    for (const entity of linkTwins(db)) touchedEntities.add(entity.id);
     // Erst fehlende Einträge anlegen, damit sich die Steckbriefe gegenseitig finden.
     for (const id of ids) {
       const article = db.getSnapshot().articles[id];

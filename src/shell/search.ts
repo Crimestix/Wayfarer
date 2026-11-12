@@ -1,0 +1,193 @@
+/**
+ * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
+ * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände und Karten. Reine Funktion –
+ * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
+ */
+import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
+import { scheduleText } from '../domain/runs';
+import type { CampaignData, Entity } from '../domain/schema';
+import { THREAD_STATE_LABEL } from '../domain/story';
+import { MINUTES_PER_DAY, dayIndexOf, formatDayMonth, startOfDay } from '../domain/time/calendar';
+import type { Focus } from './focus';
+
+export type SearchSort =
+  | 'entity'
+  | 'article'
+  | 'story'
+  | 'thread'
+  | 'clock'
+  | 'run'
+  | 'event'
+  | 'creature'
+  | 'encounter'
+  | 'stock'
+  | 'map';
+
+export interface SearchHit {
+  key: string;
+  sort: SearchSort;
+  label: string;
+  /** Was es ist und das Wichtigste dazu: „Geschichte · Die Aalfischer“. */
+  sub: string;
+  /** Der Eintrag der Welt, wenn es einer ist – die Oberfläche weiß, wo er zu Hause ist. */
+  entity?: Entity;
+  /** Die Seite, auf der der Treffer steht. */
+  href: string;
+  /** Was diese Seite gleich zeigen soll. */
+  focus?: Focus;
+}
+
+/** 0 = genau der Name, 1 = beginnt so, 2 = kommt im Namen vor, 3 = nur im Beiwerk; 9 = kein Treffer. */
+function score(q: string, name: string, ...more: string[]): number {
+  const n = normalize(name);
+  if (n === q) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.includes(q)) return 2;
+  return more.some((text) => normalize(text).includes(q)) ? 3 : 9;
+}
+
+const ENTITY_LIMIT = 30;
+const OTHER_LIMIT = 30;
+/** So weit voraus sucht die Suche nach dem nächsten Mal eines Termins. */
+const AHEAD_DAYS = 400;
+
+/** Treffer zu einem Suchwort: erst die Einträge der Welt, dann alles Übrige nach Güte. */
+export function searchWorld(data: CampaignData, query: string): SearchHit[] {
+  const q = normalize(query.trim());
+  if (!q) return [];
+  const name = (id: string | null) => (id ? data.entities[id]?.name : undefined);
+  const sub = (...parts: (string | undefined | false)[]) => parts.filter(Boolean).join(' · ');
+
+  const entities: SearchHit[] = searchEntities(data, query, { limit: ENTITY_LIMIT }).map(
+    (entity) => ({
+      key: entity.id,
+      sort: 'entity',
+      label: entity.name,
+      sub: sub(KIND_LABEL[entity.kind], entity.tagline),
+      entity,
+      href: '',
+    }),
+  );
+
+  const rest: { hit: SearchHit; score: number }[] = [];
+  const add = (points: number, hit: SearchHit) => {
+    if (points < 9) rest.push({ hit, score: points });
+  };
+
+  // Artikel, die keinen Eintrag in der Welt haben – die anderen stehen schon oben.
+  const owned = new Set(Object.values(data.entities).map((entity) => entity.lk?.resourceId));
+  for (const article of Object.values(data.articles)) {
+    if (article.template || owned.has(article.id)) continue;
+    add(score(q, article.title, ...article.aliases), {
+      key: `article:${article.id}`,
+      sort: 'article',
+      label: article.title,
+      sub: 'Artikel',
+      href: `/wiki/${article.id}`,
+    });
+  }
+  for (const story of Object.values(data.stories))
+    add(score(q, story.title, story.summary), {
+      key: `story:${story.id}`,
+      sort: 'story',
+      label: story.title,
+      sub: sub('Geschichte', name(story.ownerId), story.closed && 'zu Ende erzählt'),
+      href: '/faeden',
+      focus: { type: 'card', key: `story:${story.id}` },
+    });
+  for (const thread of Object.values(data.threads)) {
+    const story = thread.storyId ? data.stories[thread.storyId] : undefined;
+    add(score(q, thread.title, thread.truth), {
+      key: `thread:${thread.id}`,
+      sort: 'thread',
+      label: thread.title,
+      sub: sub('Faden', THREAD_STATE_LABEL[thread.state], story?.title),
+      href: '/faeden',
+      // Ein Faden einer Geschichte liegt auf deren Karte.
+      focus: { type: 'card', key: story ? `story:${story.id}` : `thread:${thread.id}` },
+    });
+  }
+  for (const clock of Object.values(data.clocks))
+    add(score(q, clock.title, ...clock.steps.map((step) => step.text)), {
+      key: `clock:${clock.id}`,
+      sort: 'clock',
+      label: clock.title,
+      sub: sub('Uhr', name(clock.ownerId), name(clock.placeId)),
+      href: '/geschehen',
+      focus: { type: 'clock', id: clock.id },
+    });
+  for (const run of Object.values(data.runs))
+    add(score(q, run.name, run.carrier), {
+      key: `run:${run.id}`,
+      sort: 'run',
+      label: run.name,
+      sub: sub(
+        'Ablauf',
+        `${name(run.fromId) ?? '?'} → ${name(run.toId) ?? '?'}`,
+        scheduleText(run),
+      ),
+      href: '/geschehen',
+      focus: { type: 'run', id: run.id },
+    });
+  const cal = data.campaign.calendar;
+  const today = startOfDay(data.state.now);
+  for (const event of Object.values(data.events)) {
+    const points = score(q, event.title, event.details);
+    if (points === 9) continue;
+    // Das nächste Mal – sonst der Tag, an dem der Termin steht.
+    const next = occurrencesOf(cal, event, today, today + AHEAD_DAYS * MINUTES_PER_DAY)[0];
+    const at = next?.at ?? event.at;
+    add(points, {
+      key: `event:${event.id}`,
+      sort: 'event',
+      label: event.title,
+      sub: sub('Termin', formatDayMonth(cal, at), name(event.placeId)),
+      href: '/kalender',
+      focus: { type: 'day', day: dayIndexOf(at) },
+    });
+  }
+  for (const creature of Object.values(data.creatures))
+    add(score(q, creature.name), {
+      key: `creature:${creature.id}`,
+      sort: 'creature',
+      label: creature.name,
+      sub: 'Wesen',
+      href: `/bestiarium/${creature.id}`,
+    });
+  for (const encounter of Object.values(data.encounters))
+    add(score(q, encounter.name), {
+      key: `encounter:${encounter.id}`,
+      sort: 'encounter',
+      label: encounter.name,
+      sub: sub('Begegnung', name(encounter.placeId)),
+      href: `/begegnungen/${encounter.id}`,
+    });
+  for (const stock of Object.values(data.stocks))
+    add(score(q, stock.name), {
+      key: `stock:${stock.id}`,
+      sort: 'stock',
+      label: stock.name,
+      sub: sub('Bestand', name(stock.placeId)),
+      href: `/bestaende/${stock.id}`,
+    });
+  for (const map of Object.values(data.maps))
+    add(score(q, map.name), {
+      key: `map:${map.id}`,
+      sort: 'map',
+      label: map.name,
+      sub: sub('Karte', name(map.placeId)),
+      href: `/karten/${map.id}`,
+    });
+
+  rest.sort((a, b) => a.score - b.score || a.hit.label.localeCompare(b.hit.label, 'de'));
+  // Was genau so heißt wie gesucht, steht ganz oben – auch vor den Einträgen der Welt.
+  const exact = rest.filter((entry) => entry.score === 0).map((entry) => entry.hit);
+  const others = rest.filter((entry) => entry.score > 0).map((entry) => entry.hit);
+  const exactEntities = entities.filter((hit) => normalize(hit.label) === q);
+  return [
+    ...exactEntities,
+    ...exact,
+    ...entities.filter((hit) => !exactEntities.includes(hit)),
+    ...others,
+  ].slice(0, ENTITY_LIMIT + OTHER_LIMIT);
+}

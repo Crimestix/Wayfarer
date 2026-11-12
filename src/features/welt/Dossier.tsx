@@ -203,9 +203,6 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
                   ? 'Alles, was hier und in den Orten darunter geschah – das Neueste zuerst.'
                   : `Alles, was mit ${entity.name} geschah – das Neueste zuerst.`}
               </p>
-              <Button icon={<Feather />} onClick={log}>
-                Festhalten
-              </Button>
             </div>
             <ChronicleList
               entries={chronicle}
@@ -217,7 +214,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
                   icon={<BookOpen />}
                   title="Noch nichts festgehalten"
                   action={
-                    <Button variant="primary" icon={<Feather />} onClick={log}>
+                    <Button icon={<Feather />} onClick={log}>
                       Festhalten
                     </Button>
                   }
@@ -239,7 +236,6 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
               steht, liest Wayfarer in den Überblick.
             </p>
             <Button
-              variant="primary"
               icon={<Feather />}
               onClick={() => {
                 const article = createArticle(db, { title: entity.name });

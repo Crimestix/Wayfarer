@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import type { Article, CampaignData } from '../../domain/schema';
+import { createEntity, type Article, type CampaignData } from '../../domain/schema';
 import { lkExportFixture } from './__fixtures__/lkExport';
 import {
   addPage,
   createArticle,
   deleteArticle,
+  linkTwins,
   isWithin,
   moveArticle,
   removePage,
@@ -15,7 +16,9 @@ import {
   renamePage,
   savePageText,
   setArticleMeta,
+  syncFacts,
 } from './actions';
+import { twins } from './facts';
 import { planLkImport } from './apply';
 import { convertLkExport } from './lkexport';
 import { articleSuggestions, backlinks, splitPage, wantedArticles } from './model';
@@ -354,6 +357,41 @@ describe('Schreiben', () => {
     expect(byTitle('Hohenfurt').docs[2]).toMatchObject({ id: pageId, title: 'Gerede' });
     expect(addPage(db, 'gibtsnicht')).toBeNull();
     expect(removePage(db, city.id, 'gibtsnicht')).toBeNull();
+  });
+
+  it('ein Artikel und ein Eintrag gleichen Namens gehören zusammen – nichts entsteht doppelt', async () => {
+    const { db } = await setup();
+    const named = (name: string) =>
+      Object.values(db.getSnapshot().entities).filter((e) => e.name === name);
+    // Erst der Eintrag, dann der Artikel: Der Artikel wird sein Text.
+    const ferryman = db.put('entities', createEntity({ kind: 'person', name: 'Lando Furtner' }));
+    const article = createArticle(db, {
+      title: 'Lando Furtner',
+      text: '> [!steckbrief]\n> Spezies: Mensch\n> Beruf: Fährmann',
+    })!;
+    expect(db.getSnapshot().entities[ferryman.id]!.lk?.resourceId).toBe(article.id);
+    const sync = syncFacts(db, [article.id]);
+    expect(sync.created).toEqual([]);
+    expect(named('Lando Furtner')).toHaveLength(1);
+
+    // Erst der Artikel, dann der Eintrag: Verbunden wird, sobald beide da sind.
+    const mill = createArticle(db, { title: 'Alte Mühle' })!;
+    const place = db.put('entities', createEntity({ kind: 'place', name: 'alte mühle' }));
+    expect(twins(db.getSnapshot()).map((twin) => twin.entity.id)).toEqual([place.id]);
+    linkTwins(db);
+    expect(db.getSnapshot().entities[place.id]!.lk?.resourceId).toBe(mill.id);
+    expect(twins(db.getSnapshot())).toEqual([]);
+
+    // Zwei Einträge gleichen Namens: Wayfarer rät nicht, wer gemeint ist.
+    db.put('entities', createEntity({ kind: 'place', name: 'Nordtor' }));
+    db.put('entities', createEntity({ kind: 'place', name: 'Nordtor' }));
+    createArticle(db, { title: 'Nordtor' });
+    expect(named('Nordtor').every((e) => e.lk === null)).toBe(true);
+
+    // Der Steckbrief nennt eine andere Art als der Eintrag: Das sind zwei Dinge.
+    const eel = db.put('entities', createEntity({ kind: 'person', name: 'Krummzahn' }));
+    createArticle(db, { title: 'Krummzahn', text: '> [!steckbrief]\n> Art: Dorf' });
+    expect(db.getSnapshot().entities[eel.id]!.lk).toBeNull();
   });
 
   it('zieht Verweise nur dort nach, wo sich etwas ändert', async () => {

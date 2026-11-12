@@ -75,7 +75,10 @@ nicht übernommen.
   `entity.tsx`, `chronicle.tsx`, `moon.tsx`. Alles über `import { … } from '../../ui'`.
 - `src/shell/` – Gerüst: Navigation, Weltleiste, Dialoge. `commands.ts` enthält die Handgriffe, die
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
-  `openTimeDialog`).
+  `openTimeDialog`). Die Suche (`search.ts`, `searchWorld`) findet alles, was der Spielleiter
+  angelegt hat – eine neue Sammlung, die man finden soll, dort eintragen. Soll ein Treffer auf
+  einer Seite ohne eigene Adresse etwas öffnen (Karte des Fadenbretts, Uhr, Tag), geht das über
+  `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
   Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Bestiarium“ = Wesen,
@@ -180,7 +183,11 @@ nicht übernommen.
   Das Wetter wirkt auf Wege (`domain/wayState.ts`): verschlammt, verschneit, nicht passierbar –
   nie gespeichert, immer aus dem Wetter der letzten Tage gerechnet (`wayCondition`). Wer eine
   Dauer zeigt oder eine Route sucht, nimmt `waysFrom` / `routeBetween`; `wayMinutes` ist die
-  Dauer bei trockenem Wetter.
+  Dauer bei trockenem Wetter. Wer im Viertel steht, steht auch in der Stadt: `routeBetween`
+  nimmt die Wege der Orte darüber, wenn vom Ort selbst keiner zum Ziel führt, und lässt am Ziel
+  den Ort gelten, in dem es liegt – angekommen ist die Gruppe bei `route.toId`.
+- Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
+  anwesend, sie stehen für sich in `lost`.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);
   alles, was Geschichte ist, bleibt Vorschlag. Was abseits der Gruppe geschieht, sammelt
   `worldTurn()` (`domain/worldTurn.ts`) für die Seite „Weltgeschehen“ – nach Gewicht
@@ -222,6 +229,9 @@ nicht übernommen.
   `wiki/markdown.ts`. Verweise gehen über den Titel (`linkIndex`); Umbenennen, Anlegen und
   Löschen laufen über `wiki/actions.ts`, damit Verweise mitziehen. Vor solchen Handgriffen
   `flushEdits()` aus `wiki/editing.ts` aufrufen – ein offener Editor speichert dann zuerst.
+  Ein Artikel und ein Eintrag gleichen Namens sind dasselbe Ding: `linkTwins()` verbindet sie
+  von selbst (nur wenn eindeutig) – nie einen zweiten Eintrag für einen Namen anlegen, den es
+  schon gibt.
 - Steckbrief und Welt: Die Zeilen „Feld: Wert“ im Steckbrief eines Artikels speisen den Eintrag
   der Welt, der zu ihm gehört (`wiki/facts.ts`, `syncFacts`). Der Artikel gilt, wenn sich sein
   Wortlaut ändert; sonst bleibt, was von Hand geändert wurde (`entity.fromArticle`). Neue
@@ -256,7 +266,9 @@ nicht wie ein Admin-Dashboard.
 - Werkstoffe: Das Gerüst ist Holz (`tex-holz`), jede Fläche (`Panel`, Dialog) eine Unterlage aus
   dunklem Leder (`tex-leder`) mit Messingbeschlägen an den vier Ecken. Messing als Fläche trägt
   nur der Knopf für die eine wichtige Handlung einer Ansicht (`variant="primary"`) – höchstens
-  einer je Ansicht, sonst verliert er seinen Sinn.
+  einer je Ansicht, sonst verliert er seinen Sinn. „Festhalten“ in der Weltleiste ist deshalb
+  nur am Spieltisch aus Messing; Knöpfe in Leerzuständen, Listen und Reitern sind gewöhnliche,
+  wenn die Seite schon einen hat. Ein Dialog ist eine eigene Ansicht.
 - Abschnittstitel in Versalien, Zierlinie (`Divider`).
 - **Keine Bilder als Schmuck in Arbeitsflächen** (Entscheidung des Spielleiters, 11. 11. 2026:
   „Die Bilder stören mehr, als dass sie gut aussehen“). Gemalt sind nur das Startbild und das

@@ -104,7 +104,7 @@ export function RelationsTab({
           icon={<Waypoints />}
           title="Noch keine Beziehungen"
           action={
-            <Button variant="primary" icon={<Plus />} onClick={() => edit('')}>
+            <Button icon={<Plus />} onClick={() => edit('')}>
               Beziehung anlegen
             </Button>
           }

@@ -76,9 +76,9 @@ export default function ErkundungPage() {
     <div className="wf-erk">
       <aside className="wf-erk-side" aria-label="Hexkarten">
         <div className="wf-erk-side__head">
-          <span className="wf-erk-side__title">Erkundung</span>
-          <Button variant="primary" size="sm" icon={<Plus />} onClick={() => setCreating(true)}>
-            Hexkarte
+          <span className="wf-erk-side__title">Hexkarten</span>
+          <Button size="sm" icon={<Plus />} onClick={() => setCreating(true)}>
+            Neu
           </Button>
         </div>
         <div className="wf-erk-side__list">

@@ -337,7 +337,8 @@ export function PlacePanel({ place }: { place: Place }) {
   const go = (target: Place) => openMoveParty({ placeId: target.id });
 
   // Wer hier wohnt und von dem nichts anderes bekannt ist, ist vermutlich da – nur wer
-  // nachweislich woanders ist (oder tot, verschollen), gilt als fort.
+  // nachweislich woanders ist (oder wessen Schicksal ungewiss ist), gilt als fort. Tote und
+  // Verschollene stehen für sich (`cast.lost`).
   const atHome = cast.away.filter((row) => row.whereId === null && !row.fate);
   const gone = cast.away.filter((row) => row.whereId !== null || row.fate);
 
@@ -527,6 +528,7 @@ export function PlacePanel({ place }: { place: Place }) {
                   />
                   <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
                   <CastGroup title="Hier zu Hause, aber fort" rows={gone} away />
+                  <CastGroup title="Tot oder verschollen" rows={cast.lost} away />
                   <CastGroup title="Gegenstände hier" rows={cast.items} />
                   <CastGroup title="Mit dem Ort verbunden" rows={cast.linked} />
                 </>

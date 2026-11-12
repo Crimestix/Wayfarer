@@ -89,6 +89,40 @@ describe('Wege', () => {
     expect(routeBetween(data(), market.id, market.id)).toBeNull();
   });
 
+  it('wer im Viertel steht, nimmt auch die Wege der Stadt – und kommt auf dem Rückweg wieder an', async () => {
+    const { db, data, names, town, market, harbour, inn } = await setup();
+    const place = (name: string, parentId: string | null = null) =>
+      db.put('entities', createEntity({ kind: 'place', name, place: { parentId } }));
+    const isle = place('Aalinsel');
+    const hut = place('Fischerhütte', isle.id);
+    saveWay(db, { fromId: town.id, toId: isle.id, minutes: 180 });
+    // Vom Markt geht kein Weg zur Insel, aber von der Stadt, in der er liegt.
+    const out = routeBetween(data(), market.id, isle.id)!;
+    expect(out).toMatchObject({ minutes: 180, via: [], unknown: false, toId: isle.id });
+    expect(out.legs[0]!.fromId).toBe(town.id);
+    // Zurück endet der Weg in der Stadt – angekommen ist die Gruppe am Markt.
+    const back = routeBetween(data(), isle.id, market.id)!;
+    expect(back).toMatchObject({ minutes: 180, toId: market.id });
+    expect(back.legs[0]!.toId).toBe(town.id);
+    db.setState({ placeId: isle.id });
+    walkRoute(db, back);
+    expect(data().state.placeId).toBe(market.id);
+    // Aus dem Gasthaus im Hafen bis zur Hütte auf der Insel: derselbe Weg.
+    expect(routeBetween(data(), inn.id, hut.id)?.minutes).toBe(180);
+    // Die Stadt, in der die Gruppe steht, ist kein Punkt auf dem Weg.
+    expect(routeBetween(data(), market.id, town.id)).toBeNull();
+    // Ein eingetragener Weg geht vor: Vom Hafen fährt ein Boot.
+    saveWay(db, { fromId: harbour.id, toId: isle.id, minutes: 90, name: 'Fähre' });
+    expect(routeBetween(data(), harbour.id, isle.id)?.minutes).toBe(90);
+    expect(routeBetween(data(), market.id, isle.id)).toMatchObject({ minutes: 100, toId: isle.id });
+
+    // Am Tisch: erst die Wege des Viertels, dann die aus der Stadt hinaus.
+    const around = waysAround(data(), market.id)!;
+    expect(around.origin.id).toBe(market.id);
+    expect(around.above?.origin.id).toBe(town.id);
+    expect(names(around.above!.ways.map((way) => way.toId))).toEqual(['Aalinsel']);
+  });
+
   it('rechnet die Dauer aus der Länge, wenn keine feste eingetragen ist', async () => {
     const { db, data, market, upper, stairs } = await setup();
     // 2,4 km bei 4,8 km/h: eine halbe Stunde.

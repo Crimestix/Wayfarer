@@ -34,8 +34,10 @@ export function WayRow({ placeId }: { placeId: string }) {
   const more = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TravelPath | 'new' | null>(null);
-  const ways = around?.ways ?? [];
   const origin = around?.origin ?? null;
+  /** Von wo ein Weg abgeht, wenn nicht vom Ort der Wege selbst: „ab Hohenfurt“. */
+  const startOf = new Map((around?.above?.ways ?? []).map((way) => [way, around!.above!.origin]));
+  const ways = [...(around?.ways ?? []), ...startOf.keys()];
   const elsewhere = origin !== null && origin.id !== placeId;
 
   const go = (way: Way) => {
@@ -51,7 +53,9 @@ export function WayRow({ placeId }: { placeId: string }) {
   const label = (way: Way) => data.entities[way.toId]?.name ?? 'Unbekannter Ort';
   const hint = (way: Way) =>
     [
-      `${label(way)}${way.path.name ? ` – über ${way.path.name}` : ''}`,
+      `${label(way)}${way.path.name ? ` – über ${way.path.name}` : ''}${
+        startOf.has(way) ? ` (ab ${startOf.get(way)!.name})` : ''
+      }`,
       way.barred
         ? 'Der Weg ist gerade nicht passierbar.'
         : way.minutes === null

@@ -355,11 +355,7 @@ export function DayPanel({ data, day, spans, onEdit, onCreate, onSelect }: DayPa
               ))}
             </Select>
           </div>
-          <Button
-            variant="primary"
-            icon={<Hourglass />}
-            onClick={() => advanceAndReport(db, passage.to)}
-          >
+          <Button icon={<Hourglass />} onClick={() => advanceAndReport(db, passage.to)}>
             Zeit bis zu diesem Tag vergehen lassen
           </Button>
           <div className="wf-kal-pass__preview">{describePassage(passage)}</div>

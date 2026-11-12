@@ -27,6 +27,7 @@ import { WeatherChip } from '../features/wetter';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
+import { TwinSync } from '../features/wiki/TwinSync';
 import { AREAS, BEAST_TABS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
 import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
@@ -128,6 +129,11 @@ function NavRail() {
 function WorldBar() {
   const db = useDb();
   const data = useData();
+  const [location] = useLocation();
+  /** Am Spieltisch ist „Festhalten“ die eine wichtige Handlung; anderswo hat jede Seite ihre eigene. */
+  const atTable =
+    !AREAS.some((area) => area.path !== '/' && inArea(location, area)) &&
+    !isActive(location, '/einstellungen');
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const date = fromTime(cal, now);
@@ -285,7 +291,7 @@ function WorldBar() {
           <span className="wf-bar__wide">Suchen</span>
         </Button>
         <Button
-          variant="primary"
+          variant={atTable ? 'primary' : 'default'}
           icon={<Feather />}
           onClick={() => openQuickLog()}
           title="Festhalten (Strg+E)"
@@ -352,6 +358,7 @@ export function AppShell() {
       </main>
       <ShellDialogs />
       <LkNameSync />
+      <TwinSync />
       <ConfirmHost />
       <Toaster />
     </div>

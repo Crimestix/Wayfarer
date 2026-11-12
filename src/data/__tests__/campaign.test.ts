@@ -90,7 +90,9 @@ describe('Ort, Personen, Besuche', () => {
     ]);
     expect(cast.factions.map((f) => f.name)).toEqual(['Bruderschaft der Lotsen', 'Haus Duskryn']);
     const kloster = placeCast(data, place(db, 'Kloster Sankt Vael').id);
-    expect(kloster.away.map((p) => p.name)).toEqual(['Bruder Teoric']);
+    // Wer verschollen ist, hält sich nirgends auf und ist auch nicht bloß „fort“.
+    expect(kloster.away).toEqual([]);
+    expect(kloster.lost.map((p) => p.name)).toEqual(['Bruder Teoric']);
     expect(placePath(data, place(db, 'Zum Salzigen Raben').id)).toBe(
       'Nebelküste › Dornhafen › Zum Salzigen Raben',
     );

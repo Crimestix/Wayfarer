@@ -317,7 +317,7 @@ export function Sidebar({
             >
               <FilePlus2 />
             </IconButton>
-            <Button variant="primary" size="sm" icon={<Plus />} onClick={() => create()}>
+            <Button size="sm" icon={<Plus />} onClick={() => create()}>
               Neu
             </Button>
           </span>
@@ -507,7 +507,6 @@ export function Sidebar({
             action={
               <Button
                 size="sm"
-                variant="primary"
                 icon={<Plus />}
                 onClick={() => openEntityDialog({ mode: 'create', kind: 'place' })}
               >

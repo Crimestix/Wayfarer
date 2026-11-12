@@ -14,6 +14,7 @@ import { dayIndexOf, formatDayMonth } from '../../domain/time/calendar';
 import {
   TURN_DAYS,
   TURN_DAYS_ALL,
+  turnDays,
   watchedEntities,
   worldTurn,
   type TurnItem,
@@ -21,6 +22,7 @@ import {
 import { Button, EmptyState, EntityLink, EntityPicker, KindIcon, cx, toast } from '../../ui';
 import { decideTrip, setWatch } from './actions';
 import { RunDialog } from './RunDialog';
+import { useFocus } from '../../shell/focus';
 import { ClockDialog } from '../kalender/ClockDialog';
 import './geschehen.css';
 
@@ -36,12 +38,22 @@ export default function GeschehenPage() {
   const data = useData();
   const [all, setAll] = useState(false);
   const [clock, setClock] = useState<Clock | null>(null);
-  const turn = useMemo(() => worldTurn(data, all ? TURN_DAYS_ALL : TURN_DAYS), [data, all]);
+  // Der Überblick reicht bis vor den letzten Zeitsprung zurück – nichts davon fällt heraus.
+  const days = turnDays(data);
+  const turn = useMemo(
+    () => worldTurn(data, all ? Math.max(TURN_DAYS_ALL, days) : days),
+    [data, all, days],
+  );
   const watched = useMemo(() => watchedEntities(data), [data]);
   const now = data.state.now;
   /** Der Ablauf im Dialog – `'new'` für einen neuen. */
   const [run, setRun] = useState<Run | 'new' | null>(null);
   const cal = data.campaign.calendar;
+  // Aus der Suche geöffnet: Die gesuchte Uhr oder der Ablauf geht gleich auf.
+  useFocus(['clock', 'run'], (focus) => {
+    if (focus.type === 'clock') setClock(data.clocks[focus.id] ?? null);
+    else setRun(data.runs[focus.id] ?? null);
+  });
   const nothing = !turn.watched.length && !turn.weighty.length && !turn.rest.length;
   const decide = (runId: string, departs: number, verdict: 'missed' | 'ran') => {
     const undo = decideTrip(db, runId, departs, verdict);
@@ -69,14 +81,18 @@ export default function GeschehenPage() {
         <div className="wf-btn-group" role="group" aria-label="Umfang">
           <Button
             aria-pressed={!all}
-            title={`Die letzten ${TURN_DAYS} Tage; Entferntes eingeklappt`}
+            title={
+              days > TURN_DAYS
+                ? `Die letzten ${days} Tage – seit dem letzten Zeitsprung oder dem Beginn der Session; Entferntes eingeklappt`
+                : `Die letzten ${days} Tage; Entferntes eingeklappt`
+            }
             onClick={() => setAll(false)}
           >
             Überblick
           </Button>
           <Button
             aria-pressed={all}
-            title={`Die letzten ${TURN_DAYS_ALL} Tage, alles aufgeklappt`}
+            title={`Die letzten ${Math.max(TURN_DAYS_ALL, days)} Tage, alles aufgeklappt`}
             onClick={() => setAll(true)}
           >
             Alles

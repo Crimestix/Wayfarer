@@ -683,6 +683,60 @@ export function statedKind(facts: Fact[]): { kind: EntityKind; category: string 
   return null;
 }
 
+// ── Zwillinge: Artikel und Eintrag gleichen Namens ─────────────────────────
+
+export interface Twin {
+  article: Article;
+  entity: Entity;
+}
+
+const twinCache = new WeakMap<object, { articles: Articles; twins: Twin[] }>();
+
+/**
+ * Artikel ohne Eintrag und Einträge ohne Artikel, die denselben Namen tragen – sie meinen dasselbe
+ * Ding. Nur was eindeutig ist: genau ein solcher Artikel und genau ein solcher Eintrag. Nennt der
+ * Steckbrief eine andere Art, als der Eintrag hat, gehören die beiden nicht zusammen.
+ */
+export function twins(data: Pick<CampaignData, 'entities' | 'articles'>): Twin[] {
+  const cached = twinCache.get(data.entities);
+  if (cached && cached.articles === data.articles) return cached.twins;
+  const owned = new Set<string>();
+  const free = new Map<string, Entity[]>();
+  for (const entity of Object.values(data.entities)) {
+    if (entity.lk) {
+      owned.add(entity.lk.resourceId);
+      continue;
+    }
+    const key = titleKey(entity.name);
+    if (!key) continue;
+    const list = free.get(key);
+    if (list) list.push(entity);
+    else free.set(key, [entity]);
+  }
+  const waiting = new Map<string, Article[]>();
+  for (const article of Object.values(data.articles)) {
+    if (article.template || owned.has(article.id)) continue;
+    const key = titleKey(article.title);
+    if (!free.has(key)) continue;
+    const list = waiting.get(key);
+    if (list) list.push(article);
+    else waiting.set(key, [article]);
+  }
+  const out: Twin[] = [];
+  for (const [key, articles] of waiting) {
+    const entities = free.get(key)!;
+    if (articles.length !== 1 || entities.length !== 1) continue;
+    const [article, entity] = [articles[0]!, entities[0]!];
+    const stated = statedKind(articleFacts(data.articles, article))?.kind;
+    // Ein Gefährte ist auch eine Person.
+    const kind = entity.kind === 'character' ? 'person' : entity.kind;
+    if (stated && stated !== kind) continue;
+    out.push({ article, entity });
+  }
+  twinCache.set(data.entities, { articles: data.articles, twins: out });
+  return out;
+}
+
 // ── Plan: was am Eintrag zu setzen ist ─────────────────────────────────────
 
 export interface RelationWish {
