@@ -60,6 +60,28 @@
   --terrain-urban: #6e503a;
   --terrain-ink: rgba(233, 223, 201, 0.5);
 
+  /* Gezeichnete Karten: Tinte auf Pergament. Nur für die Zeichenfläche einer Karte. */
+  --map-paper: #e8dab8;
+  --map-paper-edge: #c9b483;
+  --map-ink: #3a2e22;
+  --map-ink-soft: #6e5c45;
+  --map-forest: #c9c698;
+  --map-canopy: #b6b47c;
+  --map-canopy-shade: #8b8a57;
+  --map-hills: #d9c79a;
+  --map-mountains: #ddcba3;
+  --map-swamp: #c6c9a2;
+  --map-desert: #e6cf94;
+  --map-snow: #f3efe4;
+  --map-water: #bcc5b3;
+  --map-water-line: #6c7d71;
+  --map-river: #4b666b;
+  --map-road: #7b4e2b;
+  /* Unterreich: dunkler Fels mit violettem Schimmer. */
+  --map-rock: #1d1a22;
+  --map-rock-edge: #3a3350;
+  --map-rock-ink: #cfc6e6;
+
   --att-n5: #e2463c;
   --att-n4: #d9584c;
   --att-n3: #d06a4c;

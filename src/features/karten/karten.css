@@ -1,0 +1,362 @@
+/* Karten: links die Liste, rechts die Zeichenfläche. */
+.wf-karten {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+/* Liste */
+.wf-karten-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg-void) 30%, transparent);
+}
+.wf-karten-side__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-4) var(--s-2);
+}
+.wf-karten-side__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+}
+.wf-karten-side__total {
+  color: var(--ink-faint);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+}
+.wf-karten-side__new {
+  display: grid;
+  padding: var(--s-2) var(--s-4) var(--s-3);
+}
+.wf-karten-side__search {
+  padding: 0 var(--s-4) var(--s-3);
+}
+.wf-karten-side__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-karten-side__none {
+  margin: 0;
+  padding: var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-karten-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: 7px var(--s-4);
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-karten-row:hover {
+  background: var(--gold-glow);
+}
+.wf-karten-row[data-current='true'] {
+  border-left-color: var(--gold);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-karten-row svg {
+  width: 15px;
+  height: 15px;
+  color: var(--gold-deep);
+}
+.wf-karten-row__text {
+  display: grid;
+  min-width: 0;
+}
+.wf-karten-row__name,
+.wf-karten-row__line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-karten-row__line {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+/* Rechte Seite */
+.wf-karten-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.wf-karten-blank {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--s-6);
+}
+.wf-karten-blank .wf-empty {
+  max-width: 540px;
+}
+.wf-karten-image {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+}
+.wf-karten-image__title {
+  margin: 0 0 var(--s-3);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+}
+
+/* Zeichenfläche */
+.wf-karten-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-karten-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4) var(--s-2);
+}
+.wf-karten-bar__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.wf-karten-bar__title h2 {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-karten-bar__title span {
+  min-height: 1.2em;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-karten-bar__acts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+.wf-karten-tools {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-karten-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 36px;
+  padding: 0 var(--s-3);
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wf-karten-tool + .wf-karten-tool {
+  border-left: 1px solid var(--line-faint);
+}
+.wf-karten-tool svg {
+  width: 15px;
+  height: 15px;
+}
+.wf-karten-tool:hover {
+  color: var(--ink);
+}
+.wf-karten-tool[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+.wf-karten-options {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 40px;
+  padding: 0 var(--s-4) var(--s-2);
+}
+.wf-karten-options__hint {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-karten-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+.wf-karten-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-karten-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.wf-karten-chip[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-karten-swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--map-ink);
+  border-radius: 50%;
+  background: var(--map-paper);
+}
+.wf-karten-swatch--forest {
+  background: var(--map-canopy);
+}
+.wf-karten-swatch--hills {
+  background: var(--map-hills);
+}
+.wf-karten-swatch--mountains {
+  background: var(--map-mountains);
+}
+.wf-karten-swatch--swamp {
+  background: var(--map-swamp);
+}
+.wf-karten-swatch--desert {
+  background: var(--map-desert);
+}
+.wf-karten-swatch--snow {
+  background: var(--map-snow);
+}
+.wf-karten-swatch--water {
+  background: var(--map-water-line);
+}
+
+.wf-karten-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-karten-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.wf-karten-canvas:active {
+  cursor: grabbing;
+}
+.wf-karten-canvas--ground {
+  cursor: none;
+}
+.wf-karten-canvas--line,
+.wf-karten-canvas--marker,
+.wf-karten-canvas--line:active,
+.wf-karten-canvas--marker:active {
+  cursor: crosshair;
+}
+.wf-karten-zoom {
+  position: absolute;
+  right: var(--s-3);
+  bottom: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+/* Was das Gewählte bedeutet */
+.wf-karten-card {
+  position: absolute;
+  bottom: var(--s-3);
+  left: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  width: min(340px, calc(100% - 84px));
+  padding: var(--s-3) var(--s-4) var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-float);
+}
+.wf-karten-card--right {
+  right: 56px;
+  left: auto;
+}
+.wf-karten-card p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.wf-karten-card__sort {
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.wf-karten-card__name {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: 1.1;
+}
+.wf-karten-card__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--s-3);
+  margin: 0;
+}
+.wf-karten-card__facts dt {
+  color: var(--ink-mute);
+}
+.wf-karten-card__facts dd {
+  margin: 0;
+}
+.wf-karten-card__warn {
+  color: var(--blood-bright);
+}
+.wf-karten-card__acts {
+  display: flex;
+  gap: var(--s-2);
+  justify-content: flex-end;
+}

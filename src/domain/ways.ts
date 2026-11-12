@@ -7,6 +7,7 @@
  * zwischen zwei Orten die schnellste ist.
  */
 import { placeAncestors } from './derive';
+import { walkAlong } from './mapDraw';
 import type { CampaignData, GameMap, Pace, Place, Terrain, TravelPath } from './schema';
 
 type WayData = Pick<CampaignData, 'entities' | 'paths' | 'maps'>;
@@ -42,6 +43,12 @@ export function wayKm(data: WayData, path: TravelPath): number | null {
  */
 export function wayMinutes(data: WayData, path: TravelPath, pace: Pace = 'normal'): number | null {
   if (path.minutes !== null) return path.minutes;
+  // Auf einer gezeichneten Karte: Stück für Stück nach dem Gelände, über das der Weg führt.
+  const map = path.mapId ? data.maps[path.mapId] : undefined;
+  if (map?.kind === 'drawn' && path.points.length >= 2 && path.distanceKm === null) {
+    const walk = walkAlong(map, path.points, path.road === 'road');
+    if (walk) return Math.max(1, Math.round(walk.minutes * (WALK_KMH.normal / WALK_KMH[pace])));
+  }
   const km = wayKm(data, path);
   if (km === null) return null;
   const hours = (km / WALK_KMH[pace]) * (DIFFICULT.has(path.terrain) ? 2 : 1);

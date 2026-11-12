@@ -84,6 +84,8 @@ nicht übernommen.
   Rechnung steht in `domain/underground.ts`),
   `wege` (Wege zwischen Orten anlegen und gehen – das Wegenetz, Pointcrawl; die Rechnung steht
   in `domain/ways.ts`),
+  `karten` (Karten zeichnen und ansehen: Zeichenfläche `MapEditor`, Zeichner `draw.ts`; was
+  eine Stelle oder Linie bedeutet, steht in `domain/mapDraw.ts`),
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
@@ -138,6 +140,14 @@ nicht übernommen.
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`
   (`features/wege/actions.ts`): Erst vergeht die Zeit des Weges, dann kommt sie an – nie den Ort
   wechseln und die Zeit getrennt stellen, wenn ein Weg bekannt ist.
+- Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
+  Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
+  Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,
+  wie lange eine Linie zu Fuß dauert über `walkAlong()` – nie selbst über die Striche rechnen.
+  Verbindet eine Straße oder ein Pfad zwei Orte der Welt, legt `drawLine`
+  (`features/karten/actions.ts`) den Weg dazu an; seine Dauer bleibt offen (`minutes: null`)
+  und folgt der Karte. Gezeichnet wird nur über diese Befehle, damit Wege und Rückgängig
+  mitziehen. Farben der Karte: nur `--map-*`.
 - Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
   Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
   die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen

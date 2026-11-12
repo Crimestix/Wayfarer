@@ -799,6 +799,40 @@ Unterreich, fast alle Funktionen (Wetter, Sonne, Monde, Atlas) gelten aber der O
   Startseite). **Nicht geprüft:** installierte App, macOS, das neue Symbol im Dock und in der
   Taskleiste.
 
+**Karten zeichnen (12. 11. 2026) – erster Schritt gebaut.** Aus dem Konzept
+(`docs/KONZEPT-WELT-UND-KARTEN.md`, „Jeder Strich bedeutet etwas“): Karten entstehen in
+Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
+- **Bereich „Karten“** (`features/karten`, neunter Punkt der Navigation): links alle Karten
+  (gezeichnete zuerst, dann die Bildkarten des Wikis – die öffnen ihre bisherige Ansicht),
+  rechts die Zeichenfläche. „Neue Karte“ fragt Namen, Ort, Breite in Kilometern (daraus der
+  Maßstab), Grund (das Gelände, wo nichts gemalt ist – Wasser für eine Insel) und Ebene.
+- **Werkzeuge:** Ansehen (ziehen, Mausrad, Klick zeigt, was dort ist), Gelände (acht Arten, drei
+  Pinselbreiten; der spätere Strich liegt oben – „Ebene“ über Wald radiert), Linie (Straße,
+  Pfad, Fluss, Grenze), Ort (Eintrag der Welt oder nur eine Beschriftung). Rückgängig je
+  Strich (Strg + Z), Entfernen des Gewählten mit Entf.
+- **Bedeutung** (`domain/mapDraw.ts`): `groundAt` sagt, was an einer Stelle ist; `walkAlong`
+  rechnet eine Linie Stück für Stück nach dem Gelände darunter (schwieriges Gelände halbiert
+  abseits von Straßen das Tempo; ein Pfad durchs Wasser wird gemeldet, eine Straße gilt als
+  Brücke). Beginnt und endet eine Straße oder ein Pfad an zwei Orten der Welt, entsteht ein
+  **Weg im Wegenetz** (`drawLine`); seine Dauer rechnet `wayMinutes` jedes Mal neu aus der
+  Karte – wird das Gelände umgemalt, ändert sie sich mit.
+- **Aussehen** (`karten/draw.ts`, Farben `--map-*`): wie die abgesegnete Probe
+  (`docs/proben/varrand-karte.html`) – Tinte auf Pergament, Bäume, Hügel, Gipfel, Schilf und
+  Dünen auf festem Raster (`symbolSites`, immer dieselben Stellen), Wasser mit Küstenlinie und
+  getöntem Saum, Windrose, Maßstab. Ebene „Unterreich“: heller Strich auf dunklem Fels.
+- **Datenmodell:** `MapSchema` hat `kind` (image | drawn), `level`, `ground`, `strokes`
+  (Pinselstriche mit Breite) und `lines` (mit `pathId` zum Weg). Keine neue Sammlung.
+- Geprüft in der Vorschau bei 1440×900: Karte anlegen, Gelände malen, Fluss, zwei Orte, Straße
+  dazwischen (35 km → 7 Std. 20 Min., Weg im Wegenetz), Auswahl, Vergrößern, Grund Wasser,
+  Unterreich, Angaben ändern, Löschen samt Weg. **Nicht geprüft:** installierte App, macOS,
+  Zeichnen mit dem Trackpad, große Karten mit sehr vielen Strichen.
+- **Offen (Reihenfolge nach dem Konzept):** Flächen statt nur Pinsel (Küste nachziehen, füllen);
+  Höhlen und Gänge für das Unterreich (Fels als Grund, Räume, Türen) – der Einstieg in den
+  Dungeoncrawl; die gezeichnete Karte am Spieltisch zeigen (bisher nur Bildkarten,
+  `tisch/wiki.ts`); Ansichten „Hex“ und „Netz“ derselben Karte; Linien nachträglich
+  verschieben; Zustand und Wissen als Schichten (gesperrte Straße, „kennt die Gruppe“);
+  Hexkarten der Erkundung aus der gezeichneten Karte speisen (`groundShares` steht bereit).
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

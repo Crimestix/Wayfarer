@@ -7,6 +7,7 @@ import {
   Hexagon,
   Landmark,
   Library,
+  Map as MapIcon,
   Swords,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,4 +28,5 @@ export const AREAS: Area[] = [
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },
   { path: '/erkundung', label: 'Erkundung', hint: 'Hexkarten für Reisen', icon: Hexagon },
   { path: '/atlas', label: 'Atlas', hint: 'Der ganze Planet', icon: Globe },
+  { path: '/karten', label: 'Karten', hint: 'Zeichnen und ansehen', icon: MapIcon },
 ];

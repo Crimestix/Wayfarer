@@ -519,9 +519,56 @@ export const MapScaleSchema = z.object({
 });
 export type MapScale = z.infer<typeof MapScaleSchema>;
 
+/** Gelände, das sich auf eine Karte malen lässt (`domain/mapDraw.ts`). */
+export const MAP_GROUNDS = [
+  'plain',
+  'forest',
+  'hills',
+  'mountains',
+  'swamp',
+  'desert',
+  'snow',
+  'water',
+] as const;
+export type MapGround = (typeof MAP_GROUNDS)[number];
+
+/** Ein Pinselstrich Gelände: eine Linie mit Breite. Spätere Striche liegen über früheren. */
+export const MapStrokeSchema = z.object({
+  id,
+  ground: z.enum(MAP_GROUNDS),
+  /** Breite des Pinsels in Karteneinheiten. */
+  width: z.number().positive(),
+  points: z.array(point).default([]),
+});
+export type MapStroke = z.infer<typeof MapStrokeSchema>;
+
+/** Eine gezeichnete Linie mit Bedeutung: Straße, Pfad, Fluss oder Grenze. */
+export const MapLineSchema = z.object({
+  id,
+  kind: z.enum(['road', 'path', 'river', 'border']).default('path'),
+  name: z.string().default(''),
+  points: z.array(point).default([]),
+  /** Der Weg des Wegenetzes, der aus dieser Linie entstanden ist. */
+  pathId: id.nullable().default(null),
+});
+export type MapLine = z.infer<typeof MapLineSchema>;
+
 export const MapSchema = z.object({
   ...base,
   name: z.string(),
+  /**
+   * image = ein Kartenbild mit Punkten darauf; drawn = in Wayfarer gezeichnet: Jeder Strich
+   * bedeutet etwas (Gelände, Wege, Flüsse).
+   */
+  kind: z.enum(['image', 'drawn']).default('image'),
+  /** Oberwelt oder Unterreich – bestimmt, wie die Karte gezeichnet wird. */
+  level: z.enum(['surface', 'underground']).default('surface'),
+  /** Gezeichnete Karte: das Gelände, wo nichts gemalt ist. */
+  ground: z.enum(MAP_GROUNDS).default('plain'),
+  /** Gezeichnete Karte: das gemalte Gelände, Strich für Strich. */
+  strokes: z.array(MapStrokeSchema).default([]),
+  /** Gezeichnete Karte: Straßen, Pfade, Flüsse, Grenzen. */
+  lines: z.array(MapLineSchema).default([]),
   /** Bild und Pins kommen aus LegendKeeper; Maßstab und Verknüpfungen sind Wayfarer-Daten. */
   lk: LkMapSchema.nullable().default(null),
   /** Welcher Ort auf der Karte zu sehen ist. */
@@ -1103,6 +1150,11 @@ export function createSession(
 export function createClock(init: Partial<Clock> & { title: string; start: number }): Clock {
   const stamp = nowIso();
   return ClockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createMap(init: Partial<GameMap> & { name: string }): GameMap {
+  const stamp = nowIso();
+  return MapSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createPath(
