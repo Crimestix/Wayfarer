@@ -78,7 +78,7 @@ nicht übernommen.
   `openTimeDialog`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender und Chronik; „Bestiarium“ = Wesen,
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
@@ -177,6 +177,15 @@ nicht übernommen.
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`
   (`features/wege/actions.ts`): Erst vergeht die Zeit des Weges, dann kommt sie an – nie den Ort
   wechseln und die Zeit getrennt stellen, wenn ein Weg bekannt ist.
+  Das Wetter wirkt auf Wege (`domain/wayState.ts`): verschlammt, verschneit, nicht passierbar –
+  nie gespeichert, immer aus dem Wetter der letzten Tage gerechnet (`wayCondition`). Wer eine
+  Dauer zeigt oder eine Route sucht, nimmt `waysFrom` / `routeBetween`; `wayMinutes` ist die
+  Dauer bei trockenem Wetter.
+- Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);
+  alles, was Geschichte ist, bleibt Vorschlag. Was abseits der Gruppe geschieht, sammelt
+  `worldTurn()` (`domain/worldTurn.ts`) für die Seite „Weltgeschehen“ – nach Gewicht
+  (`turnWeight`), Beobachtetes (`state.watch`) zuerst. Neue Quellen dort eintragen, nicht in
+  der Oberfläche.
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

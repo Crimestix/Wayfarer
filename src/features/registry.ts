@@ -8,6 +8,7 @@ import {
   Landmark,
   Skull,
   Map as MapIcon,
+  Orbit,
   Swords,
   Tent,
   Users,
@@ -38,6 +39,12 @@ export interface Area {
 export const TIME_TABS: readonly AreaTab[] = [
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
+  {
+    path: '/geschehen',
+    label: 'Weltgeschehen',
+    hint: 'Die Welt dreht sich weiter – abseits der Gruppe',
+    icon: Orbit,
+  },
 ];
 
 /** Bestiarium: die Wesen – und die Begegnungen, die aus ihnen entstehen. */
@@ -66,7 +73,7 @@ export const AREAS: Area[] = [
   {
     path: '/kalender',
     label: 'Zeit',
-    hint: 'Kalender und Chronik',
+    hint: 'Kalender, Chronik, Weltgeschehen',
     icon: CalendarDays,
     tabs: TIME_TABS,
   },

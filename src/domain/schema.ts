@@ -79,6 +79,11 @@ export const PlayStateSchema = z.object({
   placeId: id.nullable().default(null),
   /** Laufende Session. */
   sessionId: id.nullable().default(null),
+  /**
+   * Was der Spielleiter beobachtet (Personen, Orte, Fraktionen): Alles zu ihnen steht in „Die
+   * Welt dreht sich weiter“ ganz oben, egal wie weit weg.
+   */
+  watch: z.array(id).default([]),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

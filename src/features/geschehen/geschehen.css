@@ -1,0 +1,228 @@
+/* Die Welt dreht sich weiter: Geschehen nach Gewicht, daneben Uhren und Beobachtetes. */
+
+.wf-turn-head {
+  align-items: flex-end;
+}
+.wf-turn-head .wf-page__lead {
+  max-width: 70ch;
+  margin: var(--s-1) 0 0;
+}
+.wf-turn-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 28vw, 400px);
+  gap: var(--s-5);
+  min-height: 0;
+  padding: 0 var(--s-6) var(--s-5);
+}
+.wf-turn-main,
+.wf-turn-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  overflow: auto;
+  min-height: 0;
+}
+.wf-turn-blank {
+  position: absolute;
+  inset: 40% 0 auto;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.wf-turn {
+  position: relative;
+}
+
+.wf-turn-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-turn-section__title {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin: 0;
+  padding-bottom: var(--s-1);
+  border-bottom: 1px solid var(--line);
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.wf-turn-section__title svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-turn-none {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Ein Eintrag */
+.wf-turn-row {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--line-strong);
+  background: var(--bg-1);
+}
+.wf-turn-row--w3 {
+  border-left-color: var(--ember);
+  background: var(--bg-2);
+}
+.wf-turn-row--w2 {
+  border-left-color: var(--gold);
+}
+.wf-turn-row > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  color: var(--ink-mute);
+  stroke-width: 1.5;
+}
+.wf-turn-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.wf-turn-row__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.2;
+}
+.wf-turn-row__detail {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-turn-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-2);
+  align-items: baseline;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-turn-row__meta b {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+/* Der Rest, eingeklappt */
+.wf-turn-rest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-turn-rest[open] summary {
+  margin-bottom: var(--s-2);
+}
+.wf-turn-rest summary {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wf-turn-rest summary span {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-turn-rest .wf-turn-row + .wf-turn-row {
+  margin-top: var(--s-2);
+}
+
+/* Uhren */
+.wf-turn-clock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-turn-clock:hover {
+  border-color: var(--gold-deep);
+}
+.wf-turn-clock__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.15;
+}
+.wf-turn-clock__pips {
+  display: flex;
+  gap: 3px;
+}
+.wf-turn-clock__pips i {
+  flex: 1;
+  max-width: 34px;
+  height: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+}
+.wf-turn-clock__pips i[data-state='done'] {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wf-turn-clock__pips i[data-state='next'] {
+  border-color: var(--ember);
+}
+.wf-turn-clock__pips i[data-state='prevented'] {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.wf-turn-clock__next {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* Beobachtet */
+.wf-turn-watch {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-turn-watch > svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--ink-mute);
+}
+.wf-turn-watch button {
+  display: inline-flex;
+  margin-left: auto;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-turn-watch button:hover {
+  color: var(--blood-bright);
+}
+.wf-turn-watch button svg {
+  width: 14px;
+  height: 14px;
+}

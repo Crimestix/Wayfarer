@@ -1039,6 +1039,37 @@ sieben Einträge.
   (Konzept 4c) nicht angefasst; Bestiarium und Fadenbrett sind eigene Bereiche und noch keine
   Reiter an der Seite eines Dings.
 
+**Lebendige Welt, Schritte 1 und 2 (12. 11. 2026) – gebaut.** Nach
+`docs/KONZEPT-WELT-UND-KARTEN.md`, Abschnitt 3 und Reihenfolge in 5.
+
+- **Zustände an Wegen, die von selbst entstehen** (`domain/wayState.ts`): Das Wetter wirkt auf
+  den Weg – nichts wird gespeichert, der Zustand folgt aus dem Wetter von heute, gestern und
+  vorgestern an beiden Enden (`wayCondition`). Boden (`soilOf`): befestigt (Straße, Gasse),
+  fest, nass (Sumpf – auch von einer gezeichneten Karte abgelesen), unter der Erde. Regeln:
+  Starkregen heute/gestern → fester Boden verschlammt (halbes Tempo), nasser Grund nicht
+  passierbar; Starkregen vorgestern oder Regen seit zwei Tagen → nasser Grund verschlammt;
+  starker Schnee heute/gestern → jeder Weg im Freien außerhalb der Stadt verschneit (halbes
+  Tempo). `waysFrom` rechnet die längere Dauer ein (`way.weather`), ein verschluckter Weg gilt
+  wie versperrt: `routeBetween` nimmt den Umweg. Am Spieltisch stehen Dauer, Zeichen und Grund
+  am Weg. Beim Anlegen sagt der Spielleiter, was für ein Weg es ist („Was für ein Weg“ im
+  Dialog, `WAY_SORTS`); ohne Angabe ist ein Weg eine Gasse – wie bisher, das Wetter ändert
+  nichts an ihm. Wege von gezeichneten Karten bringen Straße oder Pfad schon mit.
+- **„Die Welt dreht sich weiter“** (`domain/worldTurn.ts`, Seite `features/geschehen`, dritter
+  Reiter unter „Zeit“: „Weltgeschehen“): rechts die Uhren und was der Spielleiter beobachtet
+  (`state.watch`: Personen, Orte, Fraktionen – alles zu ihnen steht oben, auch Orte darin);
+  links das Geschehen nach Gewicht (`turnWeight`: am Ort der Gruppe, in derselben Gegend,
+  höchstens einen Tagesmarsch entfernt – `DAY_MARCH` –, oder es betrifft Bekannte), der Rest
+  eingeklappt („Weit weg“). Schalter Überblick (14 Tage) / Alles (90 Tage, aufgeklappt).
+  Quellen: Schritte der Uhren und eingetretene Ereignisse aus der Chronik, dazu Wege, die das
+  Wetter verändert hat – gebündelt nach Zustand und Gegend („Zwei Wege verschlammt in Graufels“).
+- **Offen (nächste Schritte der Reihenfolge):** Vorschläge als eigene Spalte (Unsicheres zum
+  Annehmen oder Verwerfen – braucht Abläufe); Uhren mit Bedingungen („blockiert“) und „weiß es
+  noch nicht / frühestens / spätestens“; regelmäßige Abläufe mit Fahrplan, Ausbleiben als
+  Ereignis; Nachrichten über Träger; NSC-Stufen und Lebendigkeit je Ort; Wissensebenen und
+  Gerüchte. Außerdem: weitere abgeleitete Folgen (Vorrat aufgebraucht, Verfall), „Seit eurem
+  letzten Besuch“ mit Zuständen, NSC reisen wie die Gruppe, Zustand der Wege auf der Karte
+  zeigen, die Art handgemachter Wege aus der Lage erkennen statt abfragen.
+
 **Noch offen, in dieser Reihenfolge:**
 1. Zeitleisten (8) und Kalender des Exports – Ereignisse in den Kalender übernehmen.
 2. Die Zeichenfläche („Board“, 1) bleibt außen vor.

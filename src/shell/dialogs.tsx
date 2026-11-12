@@ -400,8 +400,8 @@ function MovePartyDialog({ preset }: { preset?: string }) {
                 </div>
                 {route.barred && (
                   <div className="wf-wege-route__warn">
-                    Der Weg ist versperrt. Öffne die Tür auf der Karte – oder die Gruppe zieht
-                    trotzdem weiter.
+                    Der Weg ist gerade nicht passierbar – eine verschlossene Tür oder das
+                    Wetter. Die Gruppe kann trotzdem weiterziehen; wie, entscheidest du.
                   </div>
                 )}
                 {routeDetour(data, route) && (

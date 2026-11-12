@@ -20,6 +20,7 @@ import BestiariumPage from '../features/bestiarium';
 import EncountersPage from '../features/bestiarium/Encounters';
 import StocksPage from '../features/bestiarium/Stocks';
 import FaedenPage from '../features/faeden';
+import GeschehenPage from '../features/geschehen';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
 import { WeatherChip } from '../features/wetter';
@@ -63,6 +64,7 @@ const BestiariumBegegnungen = beastPage(EncountersPage);
 const BestiariumBestaende = beastPage(StocksPage);
 const ZeitKalender = timePage(KalenderPage);
 const ZeitChronik = timePage(ChronikPage);
+const ZeitGeschehen = timePage(GeschehenPage);
 const KartenAtlas = mapPage(AtlasPage);
 const KartenKarten = mapPage(KartenPage);
 const KartenHex = mapPage(ErkundungPage);
@@ -333,6 +335,7 @@ export function AppShell() {
             <Route path="/welt/:id?" component={WeltPage} />
             <Route path="/wiki/:id?" component={WikiRoute} />
             <Route path="/chronik" component={ZeitChronik} />
+            <Route path="/geschehen" component={ZeitGeschehen} />
             <Route path="/kalender" component={ZeitKalender} />
             <Route path="/gruppe/:id?" component={GruppePage} />
             <Route path="/erkundung/:id?" component={KartenHex} />

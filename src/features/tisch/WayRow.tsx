@@ -4,7 +4,17 @@
  * `domain/ways.ts`.
  */
 import { useMemo, useRef, useState } from 'react';
-import { ChevronDown, EyeOff, Footprints, Lock, Pencil, Plus, TriangleAlert } from 'lucide-react';
+import {
+  ChevronDown,
+  CloudRain,
+  EyeOff,
+  Footprints,
+  Lock,
+  Pencil,
+  Plus,
+  Snowflake,
+  TriangleAlert,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import type { TravelPath } from '../../domain/schema';
 import { formatWayTime, wayNotes, waysAround, type Way } from '../../domain/ways';
@@ -43,7 +53,7 @@ export function WayRow({ placeId }: { placeId: string }) {
     [
       `${label(way)}${way.path.name ? ` – über ${way.path.name}` : ''}`,
       way.barred
-        ? 'Der Weg ist versperrt.'
+        ? 'Der Weg ist gerade nicht passierbar.'
         : way.minutes === null
           ? 'Dauer unbekannt: Die Zeit bleibt stehen.'
           : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
@@ -74,7 +84,15 @@ export function WayRow({ placeId }: { placeId: string }) {
               <span className="wf-tisch-way__time">
                 {way.minutes === null ? '?' : formatWayTime(way.minutes)}
               </span>
-              {way.barred && <Lock className="wf-tisch-way__flag" aria-hidden />}
+              {way.barred && way.weather?.state !== 'lost' && (
+                <Lock className="wf-tisch-way__flag" aria-hidden />
+              )}
+              {way.weather?.state === 'snowed' && (
+                <Snowflake className="wf-tisch-way__flag" aria-hidden />
+              )}
+              {(way.weather?.state === 'muddy' || way.weather?.state === 'lost') && (
+                <CloudRain className="wf-tisch-way__flag" aria-hidden />
+              )}
               {(way.path.conditions ||
                 way.signs.some((sign) => sign.kind === 'trap' && sign.armed)) && (
                 <TriangleAlert className="wf-tisch-way__flag" aria-hidden />
