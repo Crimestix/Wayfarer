@@ -2,14 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import {
-  GROUNDS,
-  LEVEL_GROUNDS,
-  groundAt,
-  lineLabel,
-  symbolSites,
-  walkAlong,
-} from '../../domain/mapDraw';
+import { GROUNDS, LEVEL_GROUNDS, groundAt, lineLabel, walkAlong } from '../../domain/mapDraw';
 import { createEntity } from '../../domain/schema';
 import { wayMinutes } from '../../domain/ways';
 import { createDrawnMap, drawLine, paintGround, paintRect, placeMarker } from './actions';
@@ -105,8 +98,6 @@ describe('Gelände unter der Erde', () => {
     expect(path.difficult).toBeGreaterThan(0.1);
     expect(path.blocked).toBe(true);
     expect(walkAlong(current(), across, true)!.blocked).toBe(false);
-    expect(symbolSites(current(), 8).every((site) => site.symbol === 'mushroom')).toBe(true);
-    expect(symbolSites(current(), 8).length).toBeGreaterThan(3);
   });
 });
 

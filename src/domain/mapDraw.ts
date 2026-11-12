@@ -7,7 +7,6 @@
  * Reine Funktionen. Koordinaten sind Karteneinheiten; der Maßstab (`map.scale`) sagt, wie viele
  * Kilometer eine Einheit ist.
  */
-import { rngOf, seedOf } from './random';
 import type { GameMap, MapGround, MapLine, MapMarker, MapStroke, Terrain } from './schema';
 
 /** Tempo zu Fuß nach den Reiseregeln, normales Tempo: 3 Meilen je Stunde. */
@@ -269,42 +268,6 @@ export function simplify(points: readonly Point[], tolerance: number): [number, 
     }
   }
   return points.filter((_, i) => keep[i]).map((p) => [p[0], p[1]]);
-}
-
-export interface SymbolSite {
-  x: number;
-  y: number;
-  symbol: NonNullable<GroundType['symbol']>;
-  /** 0…1 – für kleine Unterschiede in Größe und Form, immer gleich für dieselbe Stelle. */
-  roll: number;
-}
-
-/**
- * Wo der Zeichner Bäume, Hügel und Gipfel hinsetzt: auf einem festen Raster, in jedem Feld leicht
- * versetzt – und immer gleich für dieselbe Karte, damit beim Zoomen und Wiederkommen nichts
- * springt. `cell` ist die Weite des Rasters in Karteneinheiten.
- */
-export function symbolSites(
-  map: Painted & Pick<GameMap, 'id' | 'frame'>,
-  cell: number,
-): SymbolSite[] {
-  const frame = map.frame;
-  if (!frame || cell <= 0) return [];
-  const sites: SymbolSite[] = [];
-  const columns = Math.ceil(frame.width / cell);
-  const rows = Math.ceil(frame.height / cell);
-  for (let row = 0; row < rows; row++)
-    for (let column = 0; column < columns; column++) {
-      const rng = rngOf(seedOf(map.id, 'zeichen', column, row));
-      const x = (column + 0.15 + 0.7 * rng.next()) * cell;
-      const y = (row + 0.15 + 0.7 * rng.next()) * cell;
-      const roll = rng.next();
-      if (x > frame.width || y > frame.height) continue;
-      const symbol = GROUNDS[groundAt(map, x, y)].symbol;
-      if (symbol) sites.push({ x, y, symbol, roll });
-    }
-  // Von oben nach unten: Was weiter vorn steht, verdeckt, was dahinter liegt.
-  return sites.sort((a, b) => a.y - b.y);
 }
 
 /** Wie viel der Karte welches Gelände bedeckt – grob gezählt, für die Übersicht. */

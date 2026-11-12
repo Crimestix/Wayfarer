@@ -818,7 +818,7 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
   Karte – wird das Gelände umgemalt, ändert sie sich mit.
 - **Aussehen** (`karten/draw.ts`, Farben `--map-*`): wie die abgesegnete Probe
   (`docs/proben/varrand-karte.html`) – Tinte auf Pergament, Bäume, Hügel, Gipfel, Schilf und
-  Dünen auf festem Raster (`symbolSites`, immer dieselben Stellen), Wasser mit Küstenlinie und
+  Dünen auf festem Raster (`sitesOf` in `karten/shapes.ts`, immer dieselben Stellen), Wasser mit Küstenlinie und
   getöntem Saum, Windrose, Maßstab. Ebene „Unterreich“: heller Strich auf dunklem Fels.
 - **Datenmodell:** `MapSchema` hat `kind` (image | drawn), `level`, `ground`, `strokes`
   (Pinselstriche mit Breite) und `lines` (mit `pathId` zum Weg). Keine neue Sammlung.
@@ -838,9 +838,9 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
   - **Räume:** Pinsel „Rechteck“ – aufziehen ergibt ein Rechteck (`paintRect`). Gespeichert als
     gerader Strich mit stumpfen Enden (`stroke.cap: 'butt'`), kein neues Formmodell.
   - **Gerade Linien:** Umschalt-Taste beim Ziehen einer Linie.
-  - **Aussehen:** Fels, Wasser und Abgrund sind Flächen mit Randlinie und Saum (`FLOODS` in
-    `draw.ts`, dieselbe Maskentechnik wie die Küste): dunkler Fels, hellere Höhlen, violetter
-    Schimmer an den Wänden, Pilze und Steine als Zeichen. Farben `--map-cave`, `--map-fungus`,
+  - **Aussehen:** Fels, Wasser und Abgrund sind Flächen mit Randlinie (`SOLID` in `draw.ts`;
+    seit dem dritten Schritt aus Umrissen, siehe unten): dunkler Fels, hellere Höhlen, Pilze
+    und Steine als Zeichen. Farben `--map-cave`, `--map-fungus`,
     `--map-fungus-cap`, `--map-rubble`, `--map-chasm`, `--map-glow`.
   - **Kleine Maßstäbe:** Längen unter einem Kilometer stehen in Metern (`formatLength`), der
     Maßstabsbalken reicht bis 5 m hinunter.
@@ -848,6 +848,27 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
     Höhlen malen, drei Räume, Gänge frei und gerade, Pilzwald, See, Abgrund, Geröll, zwei Orte,
     Gang dazwischen (1,1 km → 14 Min., Weg im Wegenetz), Pfad durch Fels mit Warnung, Löschen.
     **Nicht geprüft:** installierte App, macOS, Trackpad.
+- **Zeichner neu (12. 11. 2026, dritter Schritt).** Urteil des Spielleiters über die ersten
+  beiden Schritte: „Das Kartenmodul ist echt hässlich. Also die Karten.“ Ursache: Gezeichnet
+  wurden die Pinselstriche selbst – runde Kleckse mit harter Kante, flache Farbe, Leuchtrand
+  im Unterreich. **Nicht wieder so:** Striche nie unmittelbar als Bild zeigen.
+  - **Formen statt Striche** (`karten/shapes.ts`): Die Karte wird gerastert (`rasterize`, 2,5
+    Einheiten), der Rand gemalter Striche dabei leicht bewegt (festes Rauschen je Karte –
+    Rechtecke und Gänge bleiben gerade), und aus dem Raster werden geschlossene Umrisse gelesen
+    (`contour`, `smooth`, `outlinesOf`) – das Verfahren der Probe `varrand-karte.html`. Auch
+    die Stellen der Zeichen kommen von dort (`sitesOf`, je Zeichen ein eigener Abstand). Das
+    ist nur Ansicht: Was gilt, sagt weiter `groundAt()`; die gezeichnete Kante weicht höchstens
+    um einen Federstrich ab. Etwa 50–70 ms je Änderung.
+  - **Oberwelt** (`karten/draw.ts`): Pergament mit Flecken und Körnung (`makeTextures`),
+    Tönung mit weichem Saum, Ufersaum, Wellenlinien vor der Küste, Küstenlinie in Tinte;
+    Flüsse verschwinden im See.
+  - **Unterreich:** dunkler Fels mit Schraffur an den Wänden und verhaltenem Schimmer statt
+    Leuchtrand, Schatten am Fuß der Wände, Abgrund mit Strichen in die Tiefe.
+  - Die Hilfsflächen mit Masken (`Layers`, `FLOODS`) und `symbolSites` gibt es nicht mehr.
+  - Geprüft in der Vorschau bei 1440×900 (Insel mit Wald, Gebirge, Hügeln, Sumpf, Seen, Fluss,
+    Straße; Gewölbe mit Höhlen, Räumen, Gängen, Pilzwald, See, Abgrund). **Nicht geprüft:**
+    installierte App, macOS (dort zeichnet eine andere Technik), Tempo auf dem MacBook, das
+    Urteil des Spielleiters über das neue Aussehen.
 - **Offen (Reihenfolge nach dem Konzept):** Türen, Geheimgänge und Fallen als Zeichen an Gängen
   und Räumen; Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
   verbinden; Faerzress-Zonen und Herrschaftsgebiete als Flächen über dem Gelände; Licht und

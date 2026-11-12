@@ -1,11 +1,13 @@
 /**
  * Der Zeichner: bringt eine gezeichnete Karte auf die Zeichenfläche – Tinte auf Pergament, unter
- * der Erde heller Strich auf dunklem Fels. Er rechnet nichts über die Welt; was eine Stelle
- * bedeutet, sagt `domain/mapDraw.ts`.
+ * der Erde heller Strich auf dunklem Fels. Er zeichnet Formen (`shapes.ts`), keine Pinselstriche,
+ * und rechnet nichts über die Welt; was eine Stelle bedeutet, sagt `domain/mapDraw.ts`.
  */
-import { TUNNEL_WIDTH, type SymbolSite } from '../../domain/mapDraw';
+import { TUNNEL_WIDTH } from '../../domain/mapDraw';
+import { rngOf, seedOf, smoothNoise } from '../../domain/random';
 import type { GameMap, MapGround, MapLine, MapStroke } from '../../domain/schema';
 import { formatLength, scaleBar, type View } from './model';
+import type { Outline, Shapes } from './shapes';
 
 type Point = readonly [number, number];
 type Ctx = CanvasRenderingContext2D;
@@ -27,7 +29,7 @@ export interface Palette {
   river: string;
   road: string;
   snow: string;
-  /** Schimmer am Rand von Fels und Abgrund. */
+  /** Schimmer im Fels um die Höhlen. */
   glow: string;
   /** Hervorhebung für das Gewählte. */
   mark: string;
@@ -103,7 +105,7 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
   const cave = read('--map-cave');
   const ink = read('--map-rock-ink');
   const dim = (color: string, share = 0.3) => mix(cave, color, share);
-  const water = mix(rock, read('--map-river'), 0.6);
+  const water = mix(rock, read('--map-river'), 0.62);
   return {
     paper: rock,
     floor: cave,
@@ -114,8 +116,8 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
     canopyShade: dim(read('--map-canopy-shade'), 0.5),
     cap: read('--map-fungus-cap'),
     water,
-    waterLine: mix(rock, ink, 0.5),
-    river: mix(water, ink, 0.45),
+    waterLine: mix(water, ink, 0.45),
+    river: mix(water, ink, 0.5),
     road: read('--gold'),
     snow: dim(read('--map-snow'), 0.6),
     glow: read('--map-glow'),
@@ -140,17 +142,49 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
   };
 }
 
-/** Hilfsflächen für Wasser, Fels und Abgrund: Maske, Arbeitsfläche, Füllung. */
-export interface Layers {
-  mask: HTMLCanvasElement;
-  work: HTMLCanvasElement;
-  fill: HTMLCanvasElement;
+/** Papier: feine Körnung und große, weiche Flecken – einmal erzeugt, immer gleich. */
+export interface Textures {
+  grain: HTMLCanvasElement;
+  stains: HTMLCanvasElement;
 }
-export const makeLayers = (): Layers => ({
-  mask: document.createElement('canvas'),
-  work: document.createElement('canvas'),
-  fill: document.createElement('canvas'),
-});
+
+export function makeTextures(level: GameMap['level']): Textures {
+  const grain = document.createElement('canvas');
+  grain.width = grain.height = 240;
+  const g = grain.getContext('2d')!;
+  const speck = g.createImageData(240, 240);
+  const rng = rngOf(seedOf('karte', 'korn'));
+  for (let i = 0; i < speck.data.length; i += 4) {
+    const light = rng.next() > 0.5;
+    const value = light ? 255 : 30;
+    speck.data[i] = value;
+    speck.data[i + 1] = light ? 246 : 20;
+    speck.data[i + 2] = light ? 225 : 10;
+    speck.data[i + 3] = Math.round(rng.next() * (light ? 20 : 26));
+  }
+  g.putImageData(speck, 0, 0);
+
+  const stains = document.createElement('canvas');
+  [stains.width, stains.height] = [160, 112];
+  const s = stains.getContext('2d')!;
+  const blot = s.createImageData(160, 112);
+  const seed = seedOf('karte', 'flecken');
+  const tone = level === 'surface' ? [112, 78, 34] : [6, 4, 12];
+  for (let j = 0; j < 112; j++)
+    for (let i = 0; i < 160; i++) {
+      const cloud =
+        smoothNoise(seed, i / 26, j / 26) * 0.6 +
+        smoothNoise(seed + 3, i / 9, j / 9) * 0.3 +
+        smoothNoise(seed + 5, i / 3, j / 3) * 0.1;
+      const k = (j * 160 + i) * 4;
+      blot.data[k] = tone[0]!;
+      blot.data[k + 1] = tone[1]!;
+      blot.data[k + 2] = tone[2]!;
+      blot.data[k + 3] = Math.round(Math.max(0, cloud - 0.42) * (level === 'surface' ? 150 : 230));
+    }
+  s.putImageData(blot, 0, 0);
+  return { grain, stains };
+}
 
 export type Draft =
   | { kind: 'ground'; ground: MapGround; width: number; points: Point[] }
@@ -164,9 +198,8 @@ export interface Scene {
   width: number;
   height: number;
   dpr: number;
-  sites: readonly SymbolSite[];
-  /** Weite des Rasters der Zeichen in Karteneinheiten. */
-  cell: number;
+  /** Umrisse des Geländes und Stellen der Zeichen. */
+  shapes: Shapes;
   /** Beschriftung je Kartenpunkt. */
   labels: ReadonlyMap<string, string>;
   /** Was gerade gezogen wird. */
@@ -177,23 +210,15 @@ export interface Scene {
   brush: { at: Point; width: number } | null;
 }
 
-/**
- * Gelände, das als geschlossene Fläche mit Rand gezeichnet wird – in dieser Reihenfolge. Alles
- * andere ist Tönung auf dem Blatt.
- */
-const FLOODS: { ground: MapGround; reaches: number[]; alpha: number; line: number }[] = [
-  { ground: 'water', reaches: [12, 7, 3], alpha: 0.085, line: 1.2 },
-  { ground: 'chasm', reaches: [9, 4], alpha: 0.07, line: 1.2 },
-  { ground: 'rock', reaches: [16, 9, 4], alpha: 0.075, line: 1.5 },
-];
-const isFlood = (ground: MapGround) => FLOODS.some((flood) => flood.ground === ground);
+/** Gelände, das als Fläche mit Randlinie gezeichnet wird; alles andere ist Tönung auf dem Blatt. */
+const SOLID: readonly MapGround[] = ['water', 'chasm', 'rock'];
 
 const TURN = Math.PI * 2;
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 
 /** Zeichnet die Karte. */
-export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette): void {
-  const { map, view, width, height, dpr } = scene;
+export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Palette): void {
+  const { map, view, width, height, dpr, shapes } = scene;
   const frame = map.frame;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
@@ -203,79 +228,86 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
   const sy = (y: number) => (y - view.y) * view.zoom;
   const sheet = [sx(0), sy(0), frame.width * view.zoom, frame.height * view.zoom] as const;
 
-  /** Ein Pinselstrich: eine dicke Linie – mit runden Enden oder stumpf (dann ein Rechteck). */
+  /** Legt die Umrisse eines Geländes als Pfad an – nur, was im Bild liegt. */
+  const trace = (outlines: readonly Outline[] | undefined, pad = 0): boolean => {
+    ctx.beginPath();
+    let any = false;
+    for (const outline of outlines ?? []) {
+      const box = outline.box;
+      if (
+        sx(box[2]) < -pad ||
+        sy(box[3]) < -pad ||
+        sx(box[0]) > width + pad ||
+        sy(box[1]) > height + pad
+      )
+        continue;
+      const points = outline.points;
+      ctx.moveTo(sx(points[0]![0]), sy(points[0]![1]));
+      for (let i = 1; i < points.length; i++) ctx.lineTo(sx(points[i]![0]), sy(points[i]![1]));
+      ctx.closePath();
+      any = true;
+    }
+    return any;
+  };
+  /** Zieht den angelegten Pfad nach. */
+  const ink = (color: string, lineWidth: number, alpha = 1, dash: number[] = []) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.globalAlpha = alpha;
+    ctx.setLineDash(dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  };
+  /** Ein Pinselstrich, solange er gezogen wird. */
   const paint = (
-    target: Ctx,
     stroke: { points: readonly Point[]; width: number; cap: MapStroke['cap'] },
     color: string,
   ) => {
     const points = stroke.points;
     const widthPx = stroke.width * view.zoom;
     if (!points.length) return;
-    target.fillStyle = target.strokeStyle = color;
-    target.beginPath();
+    ctx.fillStyle = ctx.strokeStyle = color;
+    ctx.beginPath();
     if (points.length === 1) {
-      if (stroke.cap === 'butt') return;
-      target.arc(sx(points[0]![0]), sy(points[0]![1]), widthPx / 2, 0, TURN);
-      target.fill();
+      ctx.arc(sx(points[0]![0]), sy(points[0]![1]), widthPx / 2, 0, TURN);
+      ctx.fill();
       return;
     }
-    target.moveTo(sx(points[0]![0]), sy(points[0]![1]));
-    for (let i = 1; i < points.length; i++) target.lineTo(sx(points[i]![0]), sy(points[i]![1]));
-    target.lineWidth = widthPx;
-    target.lineCap = stroke.cap === 'butt' ? 'butt' : 'round';
-    target.lineJoin = stroke.cap === 'butt' ? 'miter' : 'round';
-    target.stroke();
-    target.lineCap = target.lineJoin = 'round';
+    ctx.moveTo(sx(points[0]![0]), sy(points[0]![1]));
+    for (let i = 1; i < points.length; i++) ctx.lineTo(sx(points[i]![0]), sy(points[i]![1]));
+    ctx.lineWidth = widthPx;
+    ctx.stroke();
   };
   /** Eine Linie, weich durch ihre Punkte gezogen. */
-  const curve = (target: Ctx, points: readonly Point[]) => {
-    target.beginPath();
+  const curve = (points: readonly Point[]) => {
+    ctx.beginPath();
     if (points.length < 2) return;
-    target.moveTo(sx(points[0]![0]), sy(points[0]![1]));
+    ctx.moveTo(sx(points[0]![0]), sy(points[0]![1]));
     for (let i = 1; i < points.length - 1; i++) {
       const [a, b] = [points[i]!, points[i + 1]!];
-      target.quadraticCurveTo(sx(a[0]), sy(a[1]), sx((a[0] + b[0]) / 2), sy((a[1] + b[1]) / 2));
+      ctx.quadraticCurveTo(sx(a[0]), sy(a[1]), sx((a[0] + b[0]) / 2), sy((a[1] + b[1]) / 2));
     }
     const last = points[points.length - 1]!;
-    target.lineTo(sx(last[0]), sy(last[1]));
+    ctx.lineTo(sx(last[0]), sy(last[1]));
   };
   /** Breite eines Ganges auf dem Schirm. */
   const tunnel = Math.max(4, TUNNEL_WIDTH * view.zoom);
   const strokeLine = (kind: MapLine['kind'], points: readonly Point[]) => {
-    curve(ctx, points);
-    ctx.setLineDash([]);
+    curve(points);
     if (kind === 'road' && below) {
       // Der Gang selbst ist aus dem Fels geschnitten; die Punktlinie zeigt seinen Verlauf.
-      ctx.strokeStyle = palette.road;
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = 1.3;
-      ctx.setLineDash([1, 5]);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      ink(palette.road, 1.3, 0.8, [1, 5]);
     } else if (kind === 'road') {
-      ctx.strokeStyle = palette.paper;
-      ctx.lineWidth = 4.6;
-      ctx.stroke();
-      ctx.strokeStyle = palette.road;
-      ctx.lineWidth = 2.1;
-      ctx.stroke();
+      ink(palette.paper, 4.6);
+      ink(palette.road, 2.1);
     } else if (kind === 'path') {
-      ctx.strokeStyle = palette.road;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke();
+      ink(palette.road, 1.5, 1, [5, 4]);
     } else if (kind === 'river') {
-      ctx.strokeStyle = palette.river;
-      ctx.lineWidth = clamp(2.2 * view.zoom ** 0.45, 1.4, 6);
-      ctx.stroke();
+      ink(palette.river, clamp(2.2 * view.zoom ** 0.45, 1.4, 6));
     } else {
-      ctx.strokeStyle = palette.inkSoft;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([10, 5, 2, 5]);
-      ctx.stroke();
+      ink(palette.inkSoft, 1.5, 1, [10, 5, 2, 5]);
     }
-    ctx.setLineDash([]);
   };
 
   // Das Blatt mit seinem Schatten.
@@ -293,127 +325,124 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
   ctx.clip();
   ctx.lineCap = ctx.lineJoin = 'round';
 
-  // Gelände: der Grund, darüber Strich für Strich. Wasser, Fels und Abgrund folgen als Flächen.
-  ctx.fillStyle = isFlood(map.ground) ? palette.floor : palette.ground[map.ground];
+  // Der Grund – und die Tönung des Geländes, das keine eigene Fläche ist.
+  const flat = !SOLID.includes(map.ground);
+  ctx.fillStyle = flat ? palette.ground[map.ground] : palette.floor;
   ctx.fillRect(...sheet);
-  const present = new Set<MapGround>([map.ground]);
-  for (const stroke of map.strokes) {
-    present.add(stroke.ground);
-    if (!isFlood(stroke.ground)) paint(ctx, stroke, palette.ground[stroke.ground]);
+  for (const [ground, outlines] of Object.entries(shapes.areas) as [MapGround, Outline[]][]) {
+    if (SOLID.includes(ground) || (flat && ground === map.ground)) continue;
+    if (!trace(outlines, 8)) continue;
+    ctx.fillStyle = palette.ground[ground];
+    ctx.fill('evenodd');
+    // Ein weicher Saum statt einer harten Kante.
+    ink(palette.ground[ground], 7, 0.45);
   }
-  // Der nachgedunkelte Rand des Blattes.
-  ctx.strokeStyle = palette.edge;
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 20;
-  ctx.strokeRect(...sheet);
-  ctx.globalAlpha = 1;
 
-  const floods = FLOODS.filter((flood) => present.has(flood.ground));
-  if (floods.length) {
-    const [w, h] = [ctx.canvas.width, ctx.canvas.height];
-    for (const layer of [layers.mask, layers.work, layers.fill])
-      if (layer.width !== w || layer.height !== h) {
-        layer.width = w;
-        layer.height = h;
-      }
-    const mask = layers.mask.getContext('2d')!;
-    const work = layers.work.getContext('2d')!;
-    const fill = layers.fill.getContext('2d')!;
-    const wipe = (target: Ctx) => {
-      target.setTransform(1, 0, 0, 1, 0, 0);
-      target.globalCompositeOperation = 'source-over';
-      target.globalAlpha = 1;
-      target.clearRect(0, 0, w, h);
-    };
-    const around = (target: Ctx, source: HTMLCanvasElement, reach: number) => {
-      for (let step = 0; step < 8; step++) {
-        const angle = (step * TURN) / 8;
-        target.drawImage(source, Math.cos(angle) * reach * dpr, Math.sin(angle) * reach * dpr);
-      }
-    };
-
-    for (const flood of floods) {
-      // Die Fläche ist, wo der oberste Strich dieses Gelände ist: Es malt in die Maske, alles
-      // andere radiert.
-      wipe(mask);
-      mask.setTransform(dpr, 0, 0, dpr, 0, 0);
-      mask.lineCap = mask.lineJoin = 'round';
-      mask.fillStyle = '#000';
-      if (map.ground === flood.ground) mask.fillRect(...sheet);
-      for (const stroke of map.strokes) {
-        mask.globalCompositeOperation =
-          stroke.ground === flood.ground ? 'source-over' : 'destination-out';
-        paint(mask, stroke, '#000');
-      }
-      // Unter der Erde gräbt sich jeder Gang durch den Fels.
-      if (flood.ground === 'rock' && below) {
-        mask.globalCompositeOperation = 'destination-out';
-        mask.lineWidth = tunnel;
-        for (const line of map.lines)
-          if (line.kind === 'road') {
-            curve(mask, line.points);
-            mask.stroke();
-          }
-      }
-      mask.globalCompositeOperation = 'destination-in';
-      mask.fillRect(...sheet);
-
-      // Was daneben liegt, als Fläche – sein Saum tönt den Rand: Wasser vor der Küste, Schimmer
-      // im Fels um die Höhlen.
-      wipe(work);
-      work.setTransform(dpr, 0, 0, dpr, 0, 0);
-      work.fillStyle = flood.ground === 'water' ? palette.waterLine : palette.glow;
-      work.fillRect(...sheet);
-      work.setTransform(1, 0, 0, 1, 0, 0);
-      work.globalCompositeOperation = 'destination-out';
-      work.drawImage(layers.mask, 0, 0);
-
-      wipe(fill);
-      fill.drawImage(layers.mask, 0, 0);
-      fill.globalCompositeOperation = 'source-in';
-      fill.fillStyle = palette.ground[flood.ground];
-      fill.fillRect(0, 0, w, h);
-      fill.globalCompositeOperation = 'source-atop';
-      fill.globalAlpha = flood.alpha;
-      for (const reach of flood.reaches) around(fill, layers.work, reach);
-
-      // Die Randlinie: die Fläche, um einen Strich geweitet, in Tinte.
-      wipe(work);
-      around(work, layers.mask, flood.line);
-      work.globalCompositeOperation = 'source-in';
-      work.fillStyle = palette.ink;
-      work.fillRect(0, 0, w, h);
-
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(layers.work, 0, 0);
-      ctx.drawImage(layers.fill, 0, 0);
-      ctx.restore();
+  // Papier: große, weiche Flecken über das ganze Blatt, darüber die Körnung.
+  const texture = () => {
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(textures.stains, ...sheet);
+    const grain = ctx.createPattern(textures.grain, 'repeat');
+    if (grain) {
+      ctx.translate(sheet[0], sheet[1]);
+      ctx.fillStyle = grain;
+      ctx.fillRect(0, 0, sheet[2], sheet[3]);
     }
-  }
+    ctx.restore();
+  };
 
   const halo = (line: MapLine) => {
-    curve(ctx, line.points);
-    ctx.strokeStyle = palette.mark;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = line.kind === 'road' && below ? tunnel + 6 : 11;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+    curve(line.points);
+    ink(palette.mark, line.kind === 'road' && below ? tunnel + 6 : 11, 0.5);
   };
+  // Flüsse zuerst: Wo sie in einen See oder ins Meer münden, verschwinden sie im Wasser.
   for (const line of map.lines)
-    if (line.kind === 'river' || line.kind === 'border') {
+    if (line.kind === 'river') {
+      if (line.id === scene.selected) halo(line);
+      strokeLine(line.kind, line.points);
+    }
+
+  const sea = shapes.areas.water;
+  if (!below) {
+    // Der nachgedunkelte Rand des Blattes.
+    ctx.beginPath();
+    ctx.rect(...sheet);
+    ink(palette.edge, 26, 0.45);
+    if (trace(sea, 60)) {
+      // Der Ufersaum auf dem Land, dann das Wasser mit seinen Wellenlinien vor der Küste.
+      ink(palette.edge, 13, 0.6);
+      ctx.fillStyle = palette.water;
+      ctx.fill('evenodd');
+      ctx.save();
+      ctx.clip('evenodd');
+      for (let ring = 4; ring >= 1; ring--) {
+        ink(palette.waterLine, ring * 7, 0.24 + (4 - ring) * 0.09);
+        ink(palette.water, ring * 7 - 1.1);
+      }
+      ctx.restore();
+    }
+    texture();
+    if (trace(sea, 4)) ink(palette.ink, 1.4);
+  } else {
+    if (trace(sea, 30)) {
+      ctx.fillStyle = palette.water;
+      ctx.fill('evenodd');
+      ctx.save();
+      ctx.clip('evenodd');
+      for (let ring = 2; ring >= 1; ring--) {
+        ink(palette.waterLine, ring * 8, 0.3 + (2 - ring) * 0.15);
+        ink(palette.water, ring * 8 - 1.1);
+      }
+      ctx.restore();
+      ink(palette.inkSoft, 1.1);
+    }
+    const chasm = shapes.areas.chasm;
+    if (trace(chasm, 20)) {
+      ctx.fillStyle = palette.ground.chasm;
+      ctx.fill('evenodd');
+      // Kurze Striche von der Kante in die Tiefe.
+      ctx.save();
+      ctx.clip('evenodd');
+      ctx.lineCap = 'butt';
+      ink(palette.ink, 12, 0.5, [1, 3.1]);
+      ctx.restore();
+      ink(palette.ink, 1.2);
+    }
+    const rock = shapes.areas.rock;
+    if (trace(rock, 30)) {
+      // Schatten am Fuß der Wände, dann der Fels mit Schimmer und Schraffur.
+      ink(palette.paper, 7, 0.5);
+      ctx.fillStyle = palette.ground.rock;
+      ctx.fill('evenodd');
+      ctx.save();
+      ctx.clip('evenodd');
+      ink(palette.glow, 34, 0.07);
+      ink(palette.glow, 16, 0.1);
+      ctx.lineCap = 'butt';
+      ink(palette.ink, 13, 0.42, [1.1, 3.3]);
+      ink(palette.ink, 24, 0.22, [1.1, 7.7]);
+      ctx.restore();
+    }
+    texture();
+    if (trace(rock, 4)) ink(palette.ink, 1.6);
+  }
+  ctx.lineCap = ctx.lineJoin = 'round';
+
+  for (const line of map.lines)
+    if (line.kind === 'border') {
       if (line.id === scene.selected) halo(line);
       strokeLine(line.kind, line.points);
     }
 
   // Zeichen: Bäume, Hügel, Gipfel, Schilf, Dünen, Pilze, Steine – von hinten nach vorn.
-  const size = scene.cell * view.zoom;
-  for (const site of scene.sites) {
+  for (const site of shapes.sites) {
+    const size = site.spread * view.zoom;
     const [x, y] = [sx(site.x), sy(site.y)];
     if (x < -size * 2 || y < -size * 2 || x > width + size * 2 || y > height + size * 3) continue;
     const roll = site.roll;
     if (site.symbol === 'peak') {
-      const z = clamp(size * 0.66, 5, 90) * (0.8 + roll * 0.4);
+      const z = clamp(size * 0.5, 5, 90) * (0.65 + roll * 0.75);
       const t = z * (1.05 + roll * 0.35);
       const [ax, ay] = [x + (roll - 0.5) * z * 0.15, y - t];
       ctx.beginPath();
@@ -422,9 +451,7 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
       ctx.quadraticCurveTo(x + z * 0.45, y - t * 0.5, x + z, y);
       ctx.fillStyle = palette.paper;
       ctx.fill();
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
+      ink(palette.ink, 1.2);
       // Schraffur auf der Schattenseite.
       ctx.beginPath();
       for (let k = 1; k <= 5; k++) {
@@ -435,11 +462,8 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
       }
       ctx.moveTo(ax, ay);
       ctx.quadraticCurveTo(ax + z * 0.05, ay + t * 0.4, ax - z * 0.12, y - t * 0.2);
-      ctx.lineWidth = 0.75;
-      ctx.globalAlpha = 0.75;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      if (roll > 0.6) {
+      ink(palette.ink, 0.75, 0.75);
+      if (roll > 0.62) {
         ctx.beginPath();
         ctx.moveTo(ax, ay);
         ctx.lineTo(ax - z * 0.3, ay + t * 0.3);
@@ -451,44 +475,35 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
         ctx.fill();
       }
     } else if (site.symbol === 'hill') {
-      const z = clamp(size * 0.46, 4, 60);
+      const z = clamp(size * 0.36, 4, 60) * (0.8 + roll * 0.4);
       ctx.beginPath();
       ctx.moveTo(x - z, y);
       ctx.quadraticCurveTo(x, y - z * 1.05, x + z, y);
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ink(palette.ink, 1);
       ctx.beginPath();
       ctx.moveTo(x + z * 0.35, y - z * 0.38);
       ctx.lineTo(x + z * 0.2, y - z * 0.08);
       ctx.moveTo(x + z * 0.62, y - z * 0.22);
       ctx.lineTo(x + z * 0.5, y - z * 0.02);
-      ctx.lineWidth = 0.7;
-      ctx.stroke();
+      ink(palette.ink, 0.7);
     } else if (site.symbol === 'tree') {
-      const r = clamp(size * 0.34, 2.4, 44) * (0.85 + roll * 0.3);
+      const r = clamp(size * 0.36, 2.2, 44) * (0.75 + roll * 0.5);
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, y - r * 0.6);
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = Math.max(0.6, r * 0.16);
-      ctx.stroke();
+      ink(palette.ink, Math.max(0.6, r * 0.16));
       ctx.beginPath();
       ctx.arc(x, y - r * 1.25, r, 0, TURN);
       ctx.fillStyle = palette.canopy;
       ctx.fill();
       ctx.beginPath();
       ctx.arc(x + r * 0.18, y - r * 1.2, r * 0.78, -0.6, 1.9);
-      ctx.strokeStyle = palette.canopyShade;
-      ctx.lineWidth = Math.max(0.8, r * 0.35);
-      ctx.stroke();
+      ink(palette.canopyShade, Math.max(0.8, r * 0.35));
       ctx.beginPath();
       ctx.arc(x, y - r * 1.25, r, 0, TURN);
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = Math.max(0.55, r * 0.13);
-      ctx.stroke();
+      ink(palette.ink, Math.max(0.55, r * 0.13));
     } else if (site.symbol === 'reed') {
-      const z = clamp(size * 0.3, 3.5, 30);
+      const z = clamp(size * 0.27, 3.5, 30);
       ctx.beginPath();
       ctx.moveTo(x - z * 1.2, y);
       ctx.lineTo(x + z * 1.2, y);
@@ -496,30 +511,22 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
         ctx.moveTo(x + d * z, y - 1);
         ctx.lineTo(x + d * z * 1.3, y - z * (d === 0 ? 1.1 : 0.8));
       }
-      ctx.strokeStyle = palette.river;
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
+      ink(palette.river, 0.9);
     } else if (site.symbol === 'mushroom') {
-      const r = clamp(size * 0.3, 2.4, 40) * (0.75 + roll * 0.5);
+      const r = clamp(size * 0.36, 2.4, 40) * (0.7 + roll * 0.6);
       const top = y - r * (0.8 + roll * 0.5);
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, top);
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = Math.max(0.7, r * 0.2);
-      ctx.stroke();
+      ink(palette.ink, Math.max(0.7, r * 0.2));
       ctx.beginPath();
       ctx.ellipse(x, top, r, r * 0.62, 0, Math.PI, TURN);
       ctx.closePath();
       ctx.fillStyle = palette.cap;
       ctx.fill();
-      ctx.strokeStyle = palette.ink;
-      ctx.lineWidth = Math.max(0.55, r * 0.12);
-      ctx.stroke();
+      ink(palette.ink, Math.max(0.55, r * 0.12));
     } else if (site.symbol === 'stone') {
-      const z = clamp(size * 0.24, 2.2, 26);
-      ctx.strokeStyle = palette.inkSoft;
-      ctx.lineWidth = 0.9;
+      const z = clamp(size * 0.23, 2.2, 26);
       for (const [dx, dy, scale] of [
         [-0.9, 0, 1],
         [0.75, -0.25, 0.7],
@@ -527,17 +534,15 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
       ] as const) {
         ctx.beginPath();
         ctx.ellipse(x + dx * z, y + dy * z, z * scale * 0.8, z * scale * 0.55, roll * 3, 0, TURN);
-        ctx.stroke();
+        ink(palette.inkSoft, 0.9);
       }
     } else {
-      const z = clamp(size * 0.42, 4, 50);
+      const z = clamp(size * 0.32, 4, 50);
       ctx.beginPath();
       ctx.moveTo(x - z, y);
       ctx.quadraticCurveTo(x - z * 0.3, y - z * 0.55, x + z * 0.25, y - z * 0.12);
       ctx.quadraticCurveTo(x + z * 0.6, y + z * 0.08, x + z, y - z * 0.05);
-      ctx.strokeStyle = palette.inkSoft;
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
+      ink(palette.inkSoft, 0.9);
     }
   }
 
@@ -547,42 +552,30 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
       strokeLine(line.kind, line.points);
     }
 
-  // Was gerade gezogen wird.
+  // Was gerade gezogen wird – noch als Pinselstrich; beim Loslassen wird daraus die Form.
   const draft = scene.draft;
   if (draft?.kind === 'ground') {
-    ctx.globalAlpha = 0.8;
-    paint(
-      ctx,
-      { points: draft.points, width: draft.width, cap: 'round' },
-      palette.ground[draft.ground],
-    );
+    ctx.globalAlpha = 0.75;
+    paint({ points: draft.points, width: draft.width, cap: 'round' }, palette.ground[draft.ground]);
     ctx.globalAlpha = 1;
   } else if (draft?.kind === 'rect') {
-    ctx.globalAlpha = 0.8;
-    ctx.fillStyle = palette.ground[draft.ground];
-    ctx.fillRect(
+    const box = [
       sx(Math.min(draft.from[0], draft.to[0])),
       sy(Math.min(draft.from[1], draft.to[1])),
       Math.abs(draft.to[0] - draft.from[0]) * view.zoom,
       Math.abs(draft.to[1] - draft.from[1]) * view.zoom,
-    );
+    ] as const;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = palette.ground[draft.ground];
+    ctx.fillRect(...box);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = palette.ink;
     ctx.lineWidth = 1;
-    ctx.strokeRect(
-      sx(Math.min(draft.from[0], draft.to[0])),
-      sy(Math.min(draft.from[1], draft.to[1])),
-      Math.abs(draft.to[0] - draft.from[0]) * view.zoom,
-      Math.abs(draft.to[1] - draft.from[1]) * view.zoom,
-    );
+    ctx.strokeRect(...box);
   } else if (draft) {
     if (draft.line === 'road' && below) {
-      curve(ctx, draft.points);
-      ctx.strokeStyle = palette.floor;
-      ctx.globalAlpha = 0.85;
-      ctx.lineWidth = tunnel;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      curve(draft.points);
+      ink(palette.floor, tunnel, 0.85);
     }
     strokeLine(draft.line, draft.points);
   }
@@ -605,9 +598,7 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
     ctx.arc(x, y, r, 0, TURN);
     ctx.fillStyle = marker.entityId ? palette.paper : palette.ink;
     ctx.fill();
-    ctx.strokeStyle = palette.ink;
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
+    ink(palette.ink, 1.4);
     if (marker.entityId) {
       ctx.beginPath();
       ctx.arc(x, y, 2.3, 0, TURN);
@@ -658,9 +649,11 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
   ctx.strokeStyle = palette.ink;
   ctx.lineWidth = 1.5;
   ctx.strokeRect(...sheet);
-  ctx.strokeStyle = palette.edge;
+  ctx.strokeStyle = below ? palette.inkSoft : palette.ink;
+  ctx.globalAlpha = 0.5;
   ctx.lineWidth = 1;
   ctx.strokeRect(sheet[0] + 5, sheet[1] + 5, sheet[2] - 10, sheet[3] - 10);
+  ctx.globalAlpha = 1;
 
   // Windrose in der oberen rechten Ecke des Blattes.
   if (sheet[2] > 520) {
@@ -706,13 +699,7 @@ export function drawMap(ctx: Ctx, layers: Layers, scene: Scene, palette: Palette
       0,
       TURN,
     );
-    ctx.strokeStyle = palette.ink;
-    ctx.globalAlpha = 0.7;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.globalAlpha = 1;
+    ink(palette.ink, 1, 0.7, [4, 3]);
   }
 
   // Maßstab unten links in der Ecke des Blattes.

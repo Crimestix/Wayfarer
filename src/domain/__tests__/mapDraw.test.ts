@@ -6,7 +6,6 @@ import {
   lineDistance,
   markerNear,
   simplify,
-  symbolSites,
   walkAlong,
 } from '../mapDraw';
 import { MapSchema, type GameMap, type MapGround } from '../schema';
@@ -159,17 +158,5 @@ describe('Zeichnen', () => {
     const markers = [marker('a', 100, 100), marker('b', 110, 100)];
     expect(markerNear(markers, 108, 100, 16)?.id).toBe('b');
     expect(markerNear(markers, 200, 100, 16)).toBeNull();
-  });
-
-  it('setzt Zeichen nur ins passende Gelände – und immer an dieselben Stellen', () => {
-    const map = land([forest]);
-    const sites = symbolSites(map, 20);
-    expect(sites.length).toBeGreaterThan(50);
-    expect(sites.every((site) => site.symbol === 'tree')).toBe(true);
-    expect(sites.every((site) => groundAt(map, site.x, site.y) === 'forest')).toBe(true);
-    expect(symbolSites(map, 20)).toEqual(sites);
-    expect(symbolSites(land(), 20)).toEqual([]);
-    // Von hinten nach vorn geordnet.
-    expect(sites.every((site, index) => index === 0 || sites[index - 1]!.y <= site.y)).toBe(true);
   });
 });

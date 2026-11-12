@@ -13,9 +13,6 @@ export const BRUSHES = [
 ] as const;
 export type BrushId = (typeof BRUSHES)[number]['id'];
 
-/** Weite des Rasters, auf dem Bäume, Hügel und Gipfel stehen. */
-export const SYMBOL_CELL = 21;
-
 // ── Liste ──────────────────────────────────────────────────────────────────
 
 export interface MapRow {

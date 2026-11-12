@@ -84,7 +84,8 @@ nicht übernommen.
   Rechnung steht in `domain/underground.ts`),
   `wege` (Wege zwischen Orten anlegen und gehen – das Wegenetz, Pointcrawl; die Rechnung steht
   in `domain/ways.ts`),
-  `karten` (Karten zeichnen und ansehen: Zeichenfläche `MapEditor`, Zeichner `draw.ts`; was
+  `karten` (Karten zeichnen und ansehen: Zeichenfläche `MapEditor`, Formen `shapes.ts`,
+  Zeichner `draw.ts`; was
   eine Stelle oder Linie bedeutet, steht in `domain/mapDraw.ts`),
   `atlas` (der Planet: Weltkarte, Kugel, Lage der Orte, Landmassen aus Kartenbildern; die
   Rechnung auf der Kugel steht in `domain/geo.ts`, das Lesen von Bildern in `atlas/trace.ts`),
@@ -150,7 +151,10 @@ nicht übernommen.
   mitziehen. Farben der Karte: nur `--map-*`. Jede Ebene hat ihr Gelände (`LEVEL_GROUNDS`):
   unter der Erde ist Fels der Grund, die Straße heißt „Gang“ (`lineLabel`) und gräbt sich durch
   den Fels; ein Raum ist ein Strich mit stumpfen Enden (`paintRect`). Wasser, Fels und Abgrund
-  zeichnet `draw.ts` als Flächen mit Rand (`FLOODS`) – neues Gelände dieser Art dort eintragen.
+  zeichnet `draw.ts` als Flächen mit Rand (`SOLID`) – neues Gelände dieser Art dort eintragen.
+  Gezeichnet werden nie die Striche selbst, sondern die Formen daraus (`karten/shapes.ts`:
+  Raster, bewegter Rand, Umrisse, Stellen der Zeichen) – runde Pinselkleckse hat der
+  Spielleiter als hässlich verworfen.
 - Unter der Erde: Ob ein Ort unten liegt, fragt man über `isUnderground()` (Klima „Unter der
   Erde“, festgelegt oder aus den Namen gelesen). Dort gibt es keinen Himmel: statt Wetter zählen
   die Helligkeit des Ortes (`place.light`, sonst errechnet), die Lichter der Gruppe (Wirkungen

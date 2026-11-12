@@ -17,14 +17,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import {
-  GROUNDS,
-  LEVEL_GROUNDS,
-  lineDistance,
-  lineLabel,
-  markerNear,
-  symbolSites,
-} from '../../domain/mapDraw';
+import { GROUNDS, LEVEL_GROUNDS, lineDistance, lineLabel, markerNear } from '../../domain/mapDraw';
 import { createEntity, type GameMap, type MapGround, type MapLine } from '../../domain/schema';
 import { formatWayTime } from '../../domain/ways';
 import { Button, Dialog, EntityPicker, Field, IconButton, Input, cx, entityHref } from '../../ui';
@@ -37,10 +30,9 @@ import {
   removeMarker,
   renameLine,
 } from './actions';
-import { drawMap, makeLayers, paletteOf, type Draft, type Layers, type Palette } from './draw';
+import { drawMap, makeTextures, paletteOf, type Draft, type Palette, type Textures } from './draw';
 import {
   BRUSHES,
-  SYMBOL_CELL,
   clampView,
   fitView,
   formatLength,
@@ -51,6 +43,7 @@ import {
   type BrushId,
   type View,
 } from './model';
+import { shapesOf } from './shapes';
 
 type Tool = 'hand' | 'ground' | 'line' | 'marker';
 type Selection =
@@ -99,7 +92,7 @@ export function MapEditor({
   const [, navigate] = useLocation();
   const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const layers = useRef<Layers | null>(null);
+  const textures = useRef<{ level: GameMap['level']; paper: Textures } | null>(null);
   const palette = useRef<{ level: GameMap['level']; colors: Palette } | null>(null);
   const view = useRef<View | null>(null);
   const size = useRef({ width: 0, height: 0, dpr: 1 });
@@ -126,10 +119,11 @@ export function MapEditor({
 
   const frame = map.frame ?? { width: 1000, height: 700 };
   const brushWidth = BRUSHES.find((entry) => entry.id === brush)?.width ?? 0;
-  const sites = useMemo(
-    () => symbolSites(map, SYMBOL_CELL),
+  /** Die Formen der Karte – neu gerechnet, sobald sich Gelände oder Gänge ändern. */
+  const shapes = useMemo(
+    () => shapesOf(map),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [map.id, map.strokes, map.ground, map.frame],
+    [map.id, map.strokes, map.lines, map.ground, map.level, map.frame],
   );
   const labels = useMemo(() => {
     const names = new Map<string, string>();
@@ -149,16 +143,16 @@ export function MapEditor({
     if (!element || !ctx || !view.current || !size.current.width) return;
     if (palette.current?.level !== map.level)
       palette.current = { level: map.level, colors: paletteOf(element, map.level) };
-    layers.current ??= makeLayers();
+    if (textures.current?.level !== map.level)
+      textures.current = { level: map.level, paper: makeTextures(map.level) };
     drawMap(
       ctx,
-      layers.current,
+      textures.current.paper,
       {
         map,
         view: view.current,
         ...size.current,
-        sites,
-        cell: SYMBOL_CELL,
+        shapes,
         labels,
         draft: draft.current,
         selected: selectedId,
