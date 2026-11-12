@@ -3,7 +3,7 @@
  * der Erde heller Strich auf dunklem Fels. Er zeichnet Formen (`shapes.ts`), keine Pinselstriche,
  * und rechnet nichts über die Welt; was eine Stelle bedeutet, sagt `domain/mapDraw.ts`.
  */
-import { TUNNEL_WIDTH } from '../../domain/mapDraw';
+import { TUNNEL_WIDTH, lineOfSign } from '../../domain/mapDraw';
 import { rngOf, seedOf, smoothNoise } from '../../domain/random';
 import type { GameMap, MapGround, MapLine, MapStroke } from '../../domain/schema';
 import { formatLength, scaleBar, type View } from './model';
@@ -35,6 +35,8 @@ export interface Palette {
   mark: string;
   /** Wo die Gruppe steht. */
   party: string;
+  /** Was aufhält oder verletzt: eine verschlossene Tür, eine scharfe Falle. */
+  danger: string;
   ground: Record<MapGround, string>;
   display: string;
   body: string;
@@ -90,6 +92,7 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
       glow: read('--map-paper-edge'),
       mark: read('--blood-bright'),
       party: read('--ember'),
+      danger: read('--blood-bright'),
       ground: {
         plain: paper,
         water: read('--map-water'),
@@ -126,6 +129,7 @@ export function paletteOf(element: Element, level: GameMap['level']): Palette {
     glow: read('--map-glow'),
     mark: read('--gold-bright'),
     party: read('--ember'),
+    danger: read('--blood-bright'),
     ground: {
       rock,
       cave,
@@ -193,7 +197,7 @@ export function makeTextures(level: GameMap['level']): Textures {
 export type Draft =
   | { kind: 'ground'; ground: MapGround; width: number; points: Point[] }
   | { kind: 'rect'; ground: MapGround; from: Point; to: Point }
-  | { kind: 'line'; line: MapLine['kind']; points: Point[] };
+  | { kind: 'line'; line: MapLine['kind']; points: Point[]; secret: boolean };
 
 export interface Scene {
   map: GameMap;
@@ -208,7 +212,7 @@ export interface Scene {
   labels: ReadonlyMap<string, string>;
   /** Was gerade gezogen wird. */
   draft: Draft | null;
-  /** Kennung der gewählten Linie oder des gewählten Punktes. */
+  /** Kennung der gewählten Linie, des gewählten Punktes oder Zeichens. */
   selected: string | null;
   /** Der Pinsel unter dem Zeiger: Stelle der Karte und Breite. */
   brush: { at: Point; width: number } | null;
@@ -299,9 +303,18 @@ export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Pal
   };
   /** Breite eines Ganges auf dem Schirm. */
   const tunnel = Math.max(4, TUNNEL_WIDTH * view.zoom);
-  const strokeLine = (kind: MapLine['kind'], points: readonly Point[]) => {
+  const strokeLine = (kind: MapLine['kind'], points: readonly Point[], secret = false) => {
     curve(points);
-    if (kind === 'road' && below) {
+    if (secret && kind === 'road' && below) {
+      // Ein Geheimgang: nicht aus dem Fels geschnitten, nur als gestrichelter Gang angedeutet.
+      ctx.lineCap = 'butt';
+      ink(palette.floor, tunnel, 0.6, [7, 6]);
+      ctx.lineCap = 'round';
+      ink(palette.road, 1.3, 0.8, [1, 5]);
+    } else if (secret) {
+      // Ein verborgener Pfad auf der Oberwelt: dünn und gepunktet.
+      ink(palette.road, kind === 'road' ? 2.1 : 1.5, 0.75, [1, 6]);
+    } else if (kind === 'road' && below) {
       // Der Gang selbst ist aus dem Fels geschnitten; die Punktlinie zeigt seinen Verlauf.
       ink(palette.road, 1.3, 0.8, [1, 5]);
     } else if (kind === 'road') {
@@ -555,8 +568,70 @@ export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Pal
   for (const line of map.lines)
     if (line.kind === 'road' || line.kind === 'path') {
       if (line.id === scene.selected) halo(line);
-      strokeLine(line.kind, line.points);
+      strokeLine(line.kind, line.points, line.secret);
     }
+
+  // Türen und Fallen: Die Tür steht quer im Gang, die Falle ist eine Raute.
+  for (const sign of map.signs) {
+    const [x, y] = [sx(sign.x), sy(sign.y)];
+    if (x < -30 || y < -30 || x > width + 30 || y > height + 30) continue;
+    if (sign.id === scene.selected) {
+      ctx.beginPath();
+      ctx.arc(x, y, 13, 0, TURN);
+      ctx.fillStyle = palette.mark;
+      ctx.globalAlpha = 0.5;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    const dash = sign.hidden ? [2.2, 2.2] : [];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    if (sign.kind === 'trap') {
+      const r = clamp(4 * view.zoom ** 0.5, 5.5, 9);
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r, 0);
+      ctx.lineTo(0, r);
+      ctx.lineTo(-r, 0);
+      ctx.closePath();
+      ctx.fillStyle = sign.armed ? palette.danger : palette.floor;
+      ctx.fill();
+      ink(palette.ink, 1.3, 1, dash);
+      if (sign.armed) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.22, 0, TURN);
+        ctx.fillStyle = palette.ink;
+        ctx.fill();
+      }
+    } else {
+      const found = lineOfSign(map, sign);
+      ctx.rotate(found?.angle ?? 0);
+      // Quer zur Linie: so breit wie der Gang, auf der Oberwelt wie ein Tor über der Straße.
+      const half = below && found?.line.kind === 'road' ? tunnel / 2 + 1.5 : 7.5;
+      const thick = clamp(half * 0.42, 3.4, 6.5);
+      if (sign.door === 'open') {
+        // Offen: die beiden Pfosten, das Blatt steht in den Gang hinein.
+        ctx.fillStyle = palette.ink;
+        ctx.fillRect(-thick / 2, -half, thick, thick * 0.8);
+        ctx.fillRect(-thick / 2, half - thick * 0.8, thick, thick * 0.8);
+        ctx.beginPath();
+        ctx.moveTo(0, -half + thick * 0.4);
+        ctx.lineTo(half * 1.25, -half + thick * 0.4 + half * 0.55);
+        ink(palette.ink, 1.5, 1, dash);
+      } else {
+        ctx.beginPath();
+        ctx.rect(-thick / 2, -half, thick, half * 2);
+        ctx.fillStyle =
+          sign.door === 'locked' ? palette.danger : sign.hidden ? palette.road : palette.paper;
+        ctx.fill();
+        ink(palette.ink, 1.3, 1, dash);
+      }
+    }
+    ctx.restore();
+  }
+  ctx.lineCap = ctx.lineJoin = 'round';
 
   // Was gerade gezogen wird – noch als Pinselstrich; beim Loslassen wird daraus die Form.
   const draft = scene.draft;
@@ -579,11 +654,11 @@ export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Pal
     ctx.lineWidth = 1;
     ctx.strokeRect(...box);
   } else if (draft) {
-    if (draft.line === 'road' && below) {
+    if (draft.line === 'road' && below && !draft.secret) {
       curve(draft.points);
       ink(palette.floor, tunnel, 0.85);
     }
-    strokeLine(draft.line, draft.points);
+    strokeLine(draft.line, draft.points, draft.secret);
   }
 
   // Orte und ihre Namen.
@@ -662,6 +737,10 @@ export function drawMap(ctx: Ctx, textures: Textures, scene: Scene, palette: Pal
     ctx.fillStyle = line.kind === 'river' ? palette.river : palette.ink;
     write(line.name, sx(middle[0]), sy(middle[1]) - 11, 'center');
   }
+  ctx.font = `italic 13px ${palette.body}`;
+  ctx.fillStyle = palette.ink;
+  for (const sign of map.signs)
+    if (sign.name) write(sign.name, sx(sign.x), sy(sign.y) - 17, 'center');
   ctx.restore();
 
   // Rahmen des Blattes.

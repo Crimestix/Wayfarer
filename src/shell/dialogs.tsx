@@ -46,7 +46,15 @@ import {
   entityHref,
   toast,
 } from '../ui';
-import { WALK_KMH, describeVia, formatWayTime, routeBetween, suggestedKm } from '../domain/ways';
+import {
+  WALK_KMH,
+  describeVia,
+  formatWayTime,
+  routeBetween,
+  routeDetour,
+  routeNotes,
+  suggestedKm,
+} from '../domain/ways';
 import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
@@ -390,6 +398,20 @@ function MovePartyDialog({ preset }: { preset?: string }) {
                       .filter(Boolean)
                       .join('; ')}`}
                 </div>
+                {route.barred && (
+                  <div className="wf-wege-route__warn">
+                    Der Weg ist versperrt. Öffne die Tür auf der Karte – oder die Gruppe zieht
+                    trotzdem weiter.
+                  </div>
+                )}
+                {routeDetour(data, route) && (
+                  <div className="wf-wege-route__sub">{routeDetour(data, route)}.</div>
+                )}
+                {routeNotes(data, route).map((note) => (
+                  <div key={note} className="wf-wege-route__sub">
+                    Unterwegs: {note}.
+                  </div>
+                ))}
               </div>
             </div>
             {route.minutes > 0 && (

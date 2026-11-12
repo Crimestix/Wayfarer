@@ -893,8 +893,27 @@ Wayfarer, als Formen statt als Bild, und Wayfarer liest aus ihnen.
     festgelegtes Klima geht vor. Bewusst **nicht** abgeleitet: der Ort, den eine
     Unterreich-Karte „zeigt“ (`map.placeId`) – das wäre oft die Stadt darüber. Geprüft in der
     Vorschau: Torhalle (Name sagt nichts) zeigt „Unter der Erde · Dämmriges Licht“.
-- **Offen (Reihenfolge nach dem Konzept):** Türen, Geheimgänge und Fallen als Zeichen an Gängen
-  und Räumen; Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
+  - **Türen, Geheimgänge und Fallen (12. 11., sechster Schritt) – gebaut.** Neues Werkzeug
+    „Zeichen“: Tür (auf der Oberwelt „Tor“), Geheimtür, Falle – ein Klick setzt es; nahe an
+    Gang, Straße oder Pfad rastet es auf der Linie ein (`placeSign`, `SIGN_SNAP`). Zeichen
+    liegen in `map.signs` (`MapSignSchema`: Tür offen / geschlossen / verschlossen, Falle
+    scharf oder nicht, `hidden` = die Gruppe weiß nichts davon). Was sie bedeuten, steht in
+    `domain/mapDraw.ts` (`lineOfSign`, `signsAlong`, `signBars`, `signNote`) und gilt
+    für den Weg, der über die Linie führt (`domain/ways.ts`: `Way.signs`, `Way.barred`,
+    `wayNotes`, `routeNotes`, `routeDetour`): Eine **verschlossene Tür versperrt den Weg** –
+    `routeBetween` nimmt dann jeden freien Umweg und nur ohne einen solchen den versperrten Weg
+    (`route.barred`). Am Spieltisch: Schloss an der Wegzeile (ein Klick geht nicht still
+    hindurch, sondern öffnet „Die Gruppe zieht weiter“ mit der Warnung), Hinweise im Dialog und
+    an der Karte („Der direkte Weg ist versperrt: …“, „Unterwegs: Falle …“); ein Klick auf Tür
+    oder Falle der Karte ändert ihren Zustand (`SignCard`, `updateSign`) – aufgeschlossen ist
+    der Weg sofort frei. **Geheimgang:** Linie mit `secret` (Knopf beim Zeichnen, Haken an der
+    Linie, `setLineSecret`); der Weg dazu trägt `path.secret`, unter der Erde wird der Gang
+    nicht aus dem Fels geschnitten, sondern gestrichelt angedeutet, bis die Gruppe ihn entdeckt.
+    Gezeichnet: verschlossen = Blutrot, Geheimtür = Messing mit gestricheltem Rand, offene Tür =
+    zwei Pfosten mit Blatt, Falle = Raute (scharf gefüllt). Bewusst nicht gebaut: Eintrag in der
+    Chronik, wenn eine Tür aufgeht (stört am Tisch); Türen, die sich nach der Wand statt nach
+    dem Gang richten; Fallen mit Werten (Rettungswurf, Schaden).
+- **Offen (Reihenfolge nach dem Konzept):** Raster für Gewölbe (Grundlage des Kampfmodus); Schächte und Abstiege, die Ebenen
   verbinden; Faerzress-Zonen und Herrschaftsgebiete als Flächen über dem Gelände; Licht und
   Wissen („kennt die Gruppe“) auf der Karte; Flächen statt nur Pinsel (Küste nachziehen,
   füllen); Bildkarten des Wikis, auf denen der Ort nur als Punkt steht, am Spieltisch anbieten (bisher nur Bildkarten,

@@ -66,6 +66,9 @@
   font-weight: 600;
   line-height: 1.2;
 }
+.wf-wege-route__warn {
+  color: var(--blood-bright);
+}
 .wf-wege-route__sub {
   margin-top: 2px;
   color: var(--ink-mute);

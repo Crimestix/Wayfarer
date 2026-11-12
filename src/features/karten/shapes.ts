@@ -54,7 +54,8 @@ export interface Raster {
 const index = (ground: MapGround): number => MAP_GROUNDS.indexOf(ground);
 
 /**
- * Rastert die Karte: der Grund, darüber Strich für Strich, zuletzt die Gänge durch den Fels.
+ * Rastert die Karte: der Grund, darüber Strich für Strich, zuletzt die Gänge durch den Fels –
+ * außer den Geheimgängen: Die bleiben im Fels verborgen, der Zeichner deutet sie nur an.
  * Gemalte Striche bekommen einen bewegten Rand, Rechtecke bleiben gerade.
  */
 export function rasterize(map: GameMap, step = STEP): Raster {
@@ -128,7 +129,7 @@ export function rasterize(map: GameMap, step = STEP): Raster {
     const [rock, cave] = [index('rock'), index('cave')];
     const half = TUNNEL_WIDTH / 2;
     for (const line of map.lines) {
-      if (line.kind !== 'road') continue;
+      if (line.kind !== 'road' || line.secret) continue;
       for (let k = 1; k < line.points.length; k++)
         sweep(
           line.points[k - 1]!,

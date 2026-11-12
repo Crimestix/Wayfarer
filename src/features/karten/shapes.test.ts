@@ -91,6 +91,7 @@ describe('Raster', () => {
         kind: 'road' as const,
         name: '',
         pathId: null,
+        secret: false,
         points: [
           [200, 300],
           [700, 300],
@@ -101,6 +102,10 @@ describe('Raster', () => {
     expect(rasterAt(below, 450, 300)).toBe('cave');
     expect(rasterAt(below, 450, 312.5)).toBe('rock');
     expect(rasterAt(rasterize(sheet('rock', [room], { lines })), 450, 300)).toBe('rock');
+    // Ein Geheimgang bleibt im Fels verborgen: Der Zeichner deutet ihn nur an.
+    const hidden = lines.map((line) => ({ ...line, secret: true }));
+    const secret = rasterize(sheet('rock', [room], { level: 'underground', lines: hidden }));
+    expect(rasterAt(secret, 450, 300)).toBe('rock');
   });
 });
 

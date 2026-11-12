@@ -561,8 +561,30 @@ export const MapLineSchema = z.object({
   points: z.array(point).default([]),
   /** Der Weg des Wegenetzes, der aus dieser Linie entstanden ist. */
   pathId: id.nullable().default(null),
+  /** Geheimgang, verborgener Pfad: Die Gruppe kennt ihn noch nicht. */
+  secret: z.boolean().default(false),
 });
 export type MapLine = z.infer<typeof MapLineSchema>;
+
+/**
+ * Ein Zeichen an einem Gang, einer Straße oder in einem Raum: eine Tür oder eine Falle. Liegt es
+ * auf einer Linie, gilt es für den Weg, der über sie führt (`domain/mapDraw.ts`).
+ */
+export const MapSignSchema = z.object({
+  id,
+  kind: z.enum(['door', 'trap']),
+  x: z.number(),
+  y: z.number(),
+  name: z.string().default(''),
+  /** Tür: offen, geschlossen oder verschlossen. Eine verschlossene Tür versperrt den Weg. */
+  door: z.enum(['open', 'closed', 'locked']).default('closed'),
+  /** Falle: scharf – oder ausgelöst und entschärft. */
+  armed: z.boolean().default(true),
+  /** Die Gruppe weiß nichts davon: eine Geheimtür, eine unentdeckte Falle. */
+  hidden: z.boolean().default(false),
+  note: z.string().default(''),
+});
+export type MapSign = z.infer<typeof MapSignSchema>;
 
 export const MapSchema = z.object({
   ...base,
@@ -580,6 +602,8 @@ export const MapSchema = z.object({
   strokes: z.array(MapStrokeSchema).default([]),
   /** Gezeichnete Karte: Straßen, Pfade, Flüsse, Grenzen. */
   lines: z.array(MapLineSchema).default([]),
+  /** Gezeichnete Karte: Türen und Fallen. */
+  signs: z.array(MapSignSchema).default([]),
   /** Bild und Pins kommen aus LegendKeeper; Maßstab und Verknüpfungen sind Wayfarer-Daten. */
   lk: LkMapSchema.nullable().default(null),
   /** Welcher Ort auf der Karte zu sehen ist. */

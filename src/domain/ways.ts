@@ -7,8 +7,8 @@
  * zwischen zwei Orten die schnellste ist.
  */
 import { placeAncestors } from './derive';
-import { walkAlong } from './mapDraw';
-import type { CampaignData, GameMap, Pace, Place, Terrain, TravelPath } from './schema';
+import { signBars, signNote, signsAlong, walkAlong } from './mapDraw';
+import type { CampaignData, GameMap, MapSign, Pace, Place, Terrain, TravelPath } from './schema';
 
 type WayData = Pick<CampaignData, 'entities' | 'paths' | 'maps'>;
 
@@ -64,6 +64,26 @@ export interface Way {
   reverse: boolean;
   /** Dauer in Minuten; null = unbekannt. */
   minutes: number | null;
+  /** Türen und Fallen der Karte auf diesem Weg – in der Reihenfolge, in der man sie erreicht. */
+  signs: MapSign[];
+  /** Eine verschlossene Tür versperrt den Weg. */
+  barred: boolean;
+}
+
+/** Die Türen und Fallen, die auf einer gezeichneten Karte am Verlauf eines Weges sitzen. */
+export function waySigns(data: WayData, path: TravelPath, reverse = false): MapSign[] {
+  const map = path.mapId ? data.maps[path.mapId] : undefined;
+  if (map?.kind !== 'drawn' || !map.signs.length || path.points.length < 2) return [];
+  const signs = signsAlong(map, path.points);
+  return reverse ? signs.reverse() : signs;
+}
+
+/**
+ * Was auf einem Weg zu beachten ist, in Worten: verschlossene Türen, Geheimtüren, scharfe Fallen.
+ */
+export function wayNotes(data: WayData, way: Pick<Way, 'path' | 'signs'>): string[] {
+  const level = (way.path.mapId && data.maps[way.path.mapId]?.level) || 'surface';
+  return way.signs.flatMap((sign) => signNote(sign, level) ?? []);
 }
 
 const isPlace = (data: WayData, id: string): boolean => data.entities[id]?.kind === 'place';
@@ -78,12 +98,15 @@ export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'):
     if (!forward && !back) continue;
     const toId = forward ? path.toId : path.fromId;
     if (!isPlace(data, toId)) continue;
+    const signs = waySigns(data, path, !forward);
     ways.push({
       path,
       fromId: placeId,
       toId,
       reverse: !forward,
       minutes: wayMinutes(data, path, pace),
+      signs,
+      barred: signs.some(signBars),
     });
   }
   const name = (way: Way) => data.entities[way.toId]?.name ?? '';
@@ -122,14 +145,19 @@ export interface Route {
   unknown: boolean;
   /** Die Orte, über die es geht (ohne Start und Ziel). */
   via: string[];
+  /** Ein Abschnitt ist versperrt (verschlossene Tür) – und kein anderer Weg führt hin. */
+  barred: boolean;
 }
 
 /** So viel zählt ein Abschnitt unbekannter Dauer bei der Suche: wie eine halbe Stunde. */
 const UNKNOWN_WEIGHT = 30;
+/** Ein versperrter Abschnitt zählt so viel, dass jeder freie Weg vorgeht – wie hundert Jahre. */
+const BARRED_WEIGHT = 52_560_000;
 
 /**
  * Die schnellste Route zwischen zwei Orten über die bekannten Wege (Dijkstra) – null, wenn es
- * keine Verbindung gibt. Geheime Wege zählen mit: Der Spielleiter kennt sie.
+ * keine Verbindung gibt. Geheime Wege zählen mit: Der Spielleiter kennt sie. Ein Weg mit einer
+ * verschlossenen Tür wird nur genommen, wenn kein anderer hinführt; die Route ist dann `barred`.
  */
 export function routeBetween(
   data: WayData,
@@ -156,7 +184,8 @@ export function routeBetween(
     done.add(current);
     for (const way of waysFrom(data, current, pace)) {
       if (done.has(way.toId)) continue;
-      const cost = best.get(current)! + (way.minutes ?? UNKNOWN_WEIGHT);
+      const cost =
+        best.get(current)! + (way.minutes ?? UNKNOWN_WEIGHT) + (way.barred ? BARRED_WEIGHT : 0);
       if (cost < (best.get(way.toId) ?? Infinity)) {
         best.set(way.toId, cost);
         came.set(way.toId, way);
@@ -172,7 +201,31 @@ export function routeBetween(
     minutes: legs.reduce((sum, leg) => sum + (leg.minutes ?? 0), 0),
     unknown: legs.some((leg) => leg.minutes === null),
     via: legs.slice(0, -1).map((leg) => leg.toId),
+    barred: legs.some((leg) => leg.barred),
   };
+}
+
+/** Was auf einer Route zu beachten ist – Abschnitt für Abschnitt, in Worten. */
+export function routeNotes(data: WayData, route: Route): string[] {
+  return route.legs.flatMap((leg) => wayNotes(data, leg));
+}
+
+/**
+ * Warum eine Route einen Umweg nimmt: Der direkte Weg ist versperrt. In Worten – null, wenn es
+ * keinen versperrten direkten Weg gibt oder die Route ihn trotzdem geht.
+ */
+export function routeDetour(data: WayData, route: Route): string | null {
+  const [first, last] = [route.legs[0], route.legs[route.legs.length - 1]];
+  if (!first || !last) return null;
+  const direct = waysFrom(data, first.fromId).find(
+    (way) =>
+      way.toId === last.toId &&
+      way.barred &&
+      !route.legs.some((leg) => leg.path.id === way.path.id),
+  );
+  if (!direct) return null;
+  const why = wayNotes(data, { path: direct.path, signs: direct.signs.filter(signBars) });
+  return `Der direkte Weg ist versperrt: ${why.join('; ')}`;
 }
 
 /** Der direkte Weg zwischen zwei Orten, falls es einen gibt – der schnellste. */

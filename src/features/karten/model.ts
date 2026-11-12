@@ -7,12 +7,24 @@ import {
   groundAt,
   kmOf,
   lineDistance,
+  DOOR_STATES,
   lineLabel,
+  lineOfSign,
   markerNear,
+  signLabel,
+  signNear,
+  signNote,
+  signsAlong,
   walkAlong,
 } from '../../domain/mapDraw';
-import type { CampaignData, GameMap, MapGround, MapLine } from '../../domain/schema';
-import { describeVia, formatWayTime, routeBetween } from '../../domain/ways';
+import type { CampaignData, GameMap, MapGround, MapLine, MapSign } from '../../domain/schema';
+import {
+  describeVia,
+  formatWayTime,
+  routeBetween,
+  routeDetour,
+  routeNotes,
+} from '../../domain/ways';
 
 /** Pinselbreiten in Karteneinheiten (die Karte ist 1000 breit). */
 export const BRUSHES = [
@@ -118,19 +130,23 @@ export function formatLength(km: number): string {
 
 // ── Bedeutung ──────────────────────────────────────────────────────────────
 
-/** Was ein Klick auf die Karte trifft: einen Ort, eine Linie oder das Gelände an der Stelle. */
+/** Was ein Klick auf die Karte trifft: einen Ort, ein Zeichen, eine Linie oder das Gelände. */
 export type Picked =
   | { kind: 'line'; id: string }
   | { kind: 'marker'; id: string }
+  | { kind: 'sign'; id: string }
   | { kind: 'ground'; at: [number, number] };
 
 /**
- * Was an einer Stelle der Karte liegt – ein Ort geht vor einer Linie, eine Linie vor dem Gelände.
+ * Was an einer Stelle der Karte liegt – ein Ort geht vor einem Zeichen (Tür, Falle), das vor
+ * einer Linie, eine Linie vor dem Gelände.
  * `zoom` sind Bildschirmpunkte je Karteneinheit: Getroffen wird, was am Schirm nahe liegt.
  */
 export function pickAt(map: GameMap, at: readonly [number, number], zoom: number): Picked | null {
   const marker = markerNear(map.markers, at[0], at[1], 12 / zoom);
   if (marker) return { kind: 'marker', id: marker.id };
+  const sign = signNear(map.signs, at[0], at[1], 11 / zoom);
+  if (sign) return { kind: 'sign', id: sign.id };
   let best: MapLine | null = null;
   let distance = 8 / zoom;
   for (const line of map.lines) {
@@ -163,6 +179,82 @@ export function routeText(
   return via ? `${time} ${via}` : time;
 }
 
+/**
+ * Was die Gruppe auf dem Weg zu einem Ort aufhält oder erwartet: verschlossene Türen, Geheimtüren,
+ * scharfe Fallen. `barred`: Der einzige Weg ist versperrt. `detour`: warum es einen Umweg geht.
+ */
+export function routeWarnings(
+  data: Pick<CampaignData, 'entities' | 'paths' | 'maps'>,
+  fromId: string | null | undefined,
+  toId: string,
+): { notes: string[]; barred: boolean; detour: string | null } {
+  const route = fromId && fromId !== toId ? routeBetween(data, fromId, toId) : null;
+  return route
+    ? { notes: routeNotes(data, route), barred: route.barred, detour: routeDetour(data, route) }
+    : { notes: [], barred: false, detour: null };
+}
+
+export interface SignFacts {
+  /** „Tür“, „Geheimtür“, „Falle“ … */
+  sort: string;
+  /** „verschlossen“, „scharf“ … */
+  state: string;
+  /** Der Gang, die Straße oder der Pfad, an dem das Zeichen sitzt – null, wenn es frei steht. */
+  on: { sort: string; name: string; way: { from: string; to: string } | null } | null;
+  /** Was das für die Gruppe bedeutet, in einem Satz. */
+  meaning: string;
+}
+
+export function signFacts(
+  data: Pick<CampaignData, 'paths' | 'entities'>,
+  map: GameMap,
+  sign: MapSign,
+): SignFacts {
+  const sort = signLabel(sign, map.level);
+  const found = lineOfSign(map, sign);
+  const path = found?.line.pathId ? data.paths[found.line.pathId] : undefined;
+  const way = path
+    ? {
+        from: data.entities[path.fromId]?.name ?? '?',
+        to: data.entities[path.toId]?.name ?? '?',
+      }
+    : null;
+  const on = found
+    ? { sort: lineLabel(found.line.kind, map.level), name: found.line.name, way }
+    : null;
+  const between = way ? ` zwischen ${way.from} und ${way.to}` : '';
+  let meaning: string;
+  if (sign.kind === 'trap')
+    meaning = !sign.armed
+      ? 'Ausgelöst oder entschärft – hier droht nichts mehr.'
+      : way
+        ? `Wer den Weg${between} geht, kommt an ihr vorbei. Wayfarer erinnert vor dem Aufbruch daran.`
+        : on
+          ? 'Sie liegt auf der Linie. Führt die von Ort zu Ort, erinnert Wayfarer vor dem Aufbruch daran.'
+          : 'Sie liegt an keinem Gang und keiner Straße – sie gilt für keinen Weg.';
+  else if (!on) meaning = 'Sie steht an keinem Gang und keiner Straße – sie versperrt keinen Weg.';
+  else if (sign.door === 'locked')
+    meaning = way
+      ? `Der Weg${between} ist versperrt, bis sie offen ist.`
+      : 'Verschlossen. Führt die Linie von Ort zu Ort, ist dieser Weg versperrt.';
+  else if (sign.hidden)
+    meaning = way
+      ? `Der Weg${between} führt durch sie – die Gruppe kennt sie noch nicht.`
+      : 'Die Gruppe kennt sie noch nicht.';
+  else meaning = sign.door === 'open' ? 'Sie steht offen.' : 'Sie ist zu, aber nicht verschlossen.';
+  return {
+    sort,
+    state:
+      sign.kind === 'trap'
+        ? sign.armed
+          ? 'scharf'
+          : 'ausgelöst oder entschärft'
+        : DOOR_STATES[sign.door],
+    on,
+    meaning,
+  };
+}
+
 export interface LineFacts {
   /** „Straße“, „Fluss“ … – unter der Erde ist die Straße ein „Gang“. */
   sort: string;
@@ -177,6 +269,8 @@ export interface LineFacts {
   blocked: boolean;
   /** Der Weg im Wegenetz, der aus der Linie entstanden ist. */
   way: { from: string; to: string } | null;
+  /** Was an der Linie zu beachten ist: verschlossene Türen, Geheimtüren, scharfe Fallen. */
+  notes: string[];
 }
 
 export function lineFacts(
@@ -200,6 +294,9 @@ export function lineFacts(
           to: data.entities[path.toId]?.name ?? '?',
         }
       : null,
+    notes: walkable
+      ? signsAlong(map, line.points).flatMap((sign) => signNote(sign, map.level) ?? [])
+      : [],
   };
 }
 

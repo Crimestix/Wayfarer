@@ -207,7 +207,12 @@
   padding: 0 var(--s-4) var(--s-2);
 }
 .wf-karten-options__hint {
+  flex: 1 1 0;
+  overflow: hidden;
+  min-width: 0;
   color: var(--ink-mute);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-sm);
   font-style: italic;
 }
@@ -411,6 +416,11 @@
 }
 .wf-karten-card__warn {
   color: var(--blood-bright);
+}
+.wf-karten-card__states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
 }
 .wf-karten-card__acts {
   display: flex;

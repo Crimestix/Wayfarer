@@ -36,6 +36,11 @@ export function LineSummary({ facts, kind }: { facts: LineFacts; kind: MapLine['
           </>
         )}
       </dl>
+      {facts.notes.map((note) => (
+        <p key={note} className="wf-karten-card__warn">
+          {note}.
+        </p>
+      ))}
       {facts.wet && (
         <p className="wf-karten-card__warn">
           Der Pfad führt durch Wasser. Ohne Brücke oder Furt kommt hier niemand zu Fuß hinüber.

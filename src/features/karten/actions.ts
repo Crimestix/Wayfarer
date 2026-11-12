@@ -3,7 +3,7 @@
  * Jeder Befehl gibt zurück, wie er sich zurücknehmen lässt.
  */
 import type { CampaignDb } from '../../data/db';
-import { markerNear, simplify } from '../../domain/mapDraw';
+import { lineOfSign, markerNear, simplify } from '../../domain/mapDraw';
 import {
   createMap,
   createPath,
@@ -11,6 +11,7 @@ import {
   type GameMap,
   type MapGround,
   type MapLine,
+  type MapSign,
   type MapStroke,
 } from '../../domain/schema';
 
@@ -18,6 +19,8 @@ import {
 export const SHEET = { width: 1000, height: 700 } as const;
 /** So nah muss das Ende einer Linie an einem Ort liegen, um an ihm anzudocken. */
 export const SNAP = 16;
+/** So nah muss ein Zeichen an einem Gang oder einer Straße gesetzt werden, um darauf einzurasten. */
+export const SIGN_SNAP = 16;
 
 type Undo = () => void;
 
@@ -147,13 +150,14 @@ export function paintRect(
 /**
  * Zieht eine Linie. Enden nahe einem Ort docken an ihm an. Verbindet eine Straße oder ein Pfad
  * zwei Orte der Welt, entsteht daraus ein Weg im Wegenetz – seine Dauer rechnet Wayfarer aus dem
- * Gelände, über das er führt.
+ * Gelände, über das er führt. `secret`: ein Geheimgang – die Gruppe kennt ihn noch nicht.
  */
 export function drawLine(
   db: CampaignDb,
   mapId: string,
   kind: MapLine['kind'],
   raw: readonly (readonly [number, number])[],
+  secret = false,
 ): { undo: Undo; line: MapLine | null } {
   const data = db.getSnapshot();
   const map = data.maps[mapId];
@@ -168,15 +172,23 @@ export function drawLine(
     id && data.entities[id]?.kind === 'place' ? id : null;
   const [fromId, toId] = [placeOf(start?.entityId), placeOf(end?.entityId)];
   const walkable = kind === 'road' || kind === 'path';
+  const hidden = secret && walkable;
   return db.batch(() => {
     const pathId =
       walkable && fromId && toId && fromId !== toId
         ? db.put(
             'paths',
-            createPath({ fromId, toId, mapId, points, road: kind === 'road' ? 'road' : 'trail' }),
+            createPath({
+              fromId,
+              toId,
+              mapId,
+              points,
+              road: kind === 'road' ? 'road' : 'trail',
+              secret: hidden,
+            }),
           ).id
         : null;
-    const line: MapLine = { id: newId(), kind, name: '', points, pathId };
+    const line: MapLine = { id: newId(), kind, name: '', points, pathId, secret: hidden };
     const undoMap = change(
       db,
       mapId,
@@ -258,6 +270,96 @@ export function renameLine(db: CampaignDb, mapId: string, lineId: string, name: 
     lines: map.lines.map((line) => (line.id === lineId ? { ...line, name: text } : line)),
   });
   return change(db, mapId, named(name), named(before));
+}
+
+/**
+ * Macht aus einem Gang einen Geheimgang – oder die Gruppe hat ihn entdeckt. Der Weg im Wegenetz
+ * zieht mit.
+ */
+export function setLineSecret(
+  db: CampaignDb,
+  mapId: string,
+  lineId: string,
+  secret: boolean,
+): Undo {
+  const line = db.getSnapshot().maps[mapId]?.lines.find((entry) => entry.id === lineId);
+  if (!line || line.secret === secret) return () => {};
+  const set = (value: boolean) => {
+    db.batch(() => {
+      const map = db.getSnapshot().maps[mapId];
+      if (!map) return;
+      db.patch('maps', mapId, {
+        lines: map.lines.map((entry) =>
+          entry.id === lineId ? { ...entry, secret: value } : entry,
+        ),
+      });
+      if (line.pathId && db.getSnapshot().paths[line.pathId])
+        db.patch('paths', line.pathId, { secret: value });
+    });
+  };
+  set(secret);
+  return () => set(line.secret);
+}
+
+/**
+ * Setzt eine Tür oder eine Falle. Nahe an einer Straße, einem Gang oder einem Pfad rastet das
+ * Zeichen auf der Linie ein – dann gilt es für den Weg, der über sie führt.
+ */
+export function placeSign(
+  db: CampaignDb,
+  mapId: string,
+  init: Pick<MapSign, 'kind' | 'hidden'>,
+  at: readonly [number, number],
+): { undo: Undo; sign: MapSign | null } {
+  const map = db.getSnapshot().maps[mapId];
+  if (!map) return { undo: () => {}, sign: null };
+  const on = lineOfSign(map, { x: at[0], y: at[1] }, SIGN_SNAP);
+  const sign: MapSign = {
+    id: newId(),
+    kind: init.kind,
+    x: on?.at[0] ?? at[0],
+    y: on?.at[1] ?? at[1],
+    name: '',
+    door: 'closed',
+    armed: true,
+    hidden: init.hidden,
+    note: '',
+  };
+  const undo = change(
+    db,
+    mapId,
+    (current) => ({ signs: [...current.signs, sign] }),
+    (current) => ({ signs: without(current.signs, sign.id) }),
+  );
+  return { undo, sign };
+}
+
+/** Ändert ein Zeichen: Name, Zustand der Tür, scharf oder nicht, der Gruppe bekannt, Notiz. */
+export function updateSign(
+  db: CampaignDb,
+  mapId: string,
+  signId: string,
+  patch: Partial<Pick<MapSign, 'name' | 'door' | 'armed' | 'hidden' | 'note'>>,
+): Undo {
+  const before = db.getSnapshot().maps[mapId]?.signs.find((sign) => sign.id === signId);
+  if (!before) return () => {};
+  const keys = Object.keys(patch) as (keyof typeof patch)[];
+  const old = Object.fromEntries(keys.map((key) => [key, before[key]])) as typeof patch;
+  const set = (values: typeof patch) => (map: GameMap) => ({
+    signs: map.signs.map((sign) => (sign.id === signId ? { ...sign, ...values } : sign)),
+  });
+  return change(db, mapId, set(patch), set(old));
+}
+
+export function removeSign(db: CampaignDb, mapId: string, signId: string): Undo {
+  const sign = db.getSnapshot().maps[mapId]?.signs.find((entry) => entry.id === signId);
+  if (!sign) return () => {};
+  return change(
+    db,
+    mapId,
+    (map) => ({ signs: without(map.signs, signId) }),
+    (map) => ({ signs: [...without(map.signs, signId), sign] }),
+  );
 }
 
 /** Löscht eine gezeichnete Karte samt den Wegen, die aus ihren Linien entstanden sind. */

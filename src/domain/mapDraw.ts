@@ -14,6 +14,7 @@ import type {
   MapGround,
   MapLine,
   MapMarker,
+  MapSign,
   MapStroke,
   Terrain,
 } from './schema';
@@ -104,6 +105,118 @@ export function lineDistance(points: readonly Point[], x: number, y: number): nu
   let best = Infinity;
   for (let i = 1; i < points.length; i++)
     best = Math.min(best, segmentDistance(x, y, points[i - 1]!, points[i]!));
+  return best;
+}
+
+// ── Zeichen: Türen und Fallen ──────────────────────────────────────────────
+
+/** So nah muss ein Zeichen an einer Linie liegen, um zu ihr zu gehören. */
+export const SIGN_REACH = 9;
+
+export const DOOR_STATES: Record<MapSign['door'], string> = {
+  open: 'offen',
+  closed: 'geschlossen',
+  locked: 'verschlossen',
+};
+
+/** „Tür“, „Tor“ (auf der Oberwelt), „Geheimtür“, „Falle“. */
+export function signLabel(sign: Pick<MapSign, 'kind' | 'hidden'>, level: GameMap['level']): string {
+  if (sign.kind === 'trap') return 'Falle';
+  if (sign.hidden) return 'Geheimtür';
+  return level === 'underground' ? 'Tür' : 'Tor';
+}
+
+/** Die nächste Stelle einer Linie zu einem Punkt: wo, wie weit weg, wie weit vom Anfang, wohin sie dort läuft. */
+export function nearestOnLine(
+  points: readonly Point[],
+  x: number,
+  y: number,
+): { at: [number, number]; distance: number; along: number; angle: number } | null {
+  if (points.length < 2) return null;
+  let best: { at: [number, number]; distance: number; along: number; angle: number } | null = null;
+  let walked = 0;
+  for (let i = 1; i < points.length; i++) {
+    const [a, b] = [points[i - 1]!, points[i]!];
+    const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+    const length = Math.hypot(dx, dy);
+    if (length === 0) continue;
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (length * length)));
+    const at: [number, number] = [a[0] + t * dx, a[1] + t * dy];
+    const distance = Math.hypot(at[0] - x, at[1] - y);
+    if (!best || distance < best.distance)
+      best = { at, distance, along: walked + t * length, angle: Math.atan2(dy, dx) };
+    walked += length;
+  }
+  return best;
+}
+
+const walkable = (line: MapLine): boolean => line.kind === 'road' || line.kind === 'path';
+
+/**
+ * Die Straße, der Gang oder der Pfad, an dem ein Zeichen sitzt – mit der Richtung der Linie an
+ * dieser Stelle. Null, wenn es frei steht: Dann gilt es für keinen Weg.
+ */
+export function lineOfSign(
+  map: Pick<GameMap, 'lines'>,
+  sign: Pick<MapSign, 'x' | 'y'>,
+  reach = SIGN_REACH,
+): { line: MapLine; at: [number, number]; angle: number } | null {
+  let best: { line: MapLine; at: [number, number]; angle: number } | null = null;
+  let distance = reach;
+  for (const line of map.lines) {
+    if (!walkable(line)) continue;
+    const near = nearestOnLine(line.points, sign.x, sign.y);
+    if (near && near.distance <= distance) {
+      best = { line, at: near.at, angle: near.angle };
+      distance = near.distance;
+    }
+  }
+  return best;
+}
+
+/** Die Zeichen entlang einer Linie – in der Reihenfolge, in der man an ihnen vorbeikommt. */
+export function signsAlong(map: Pick<GameMap, 'signs'>, points: readonly Point[]): MapSign[] {
+  if (!map.signs.length) return [];
+  const found: { sign: MapSign; along: number }[] = [];
+  for (const sign of map.signs) {
+    const near = nearestOnLine(points, sign.x, sign.y);
+    if (near && near.distance <= SIGN_REACH) found.push({ sign, along: near.along });
+  }
+  return found.sort((a, b) => a.along - b.along).map((entry) => entry.sign);
+}
+
+/** Eine verschlossene Tür versperrt den Weg. */
+export const signBars = (sign: MapSign): boolean => sign.kind === 'door' && sign.door === 'locked';
+
+/**
+ * Was ein Zeichen für den bedeutet, der an ihm vorbei will, in Worten – null, wenn nichts zu
+ * beachten ist (eine offene Tür, eine entschärfte Falle).
+ */
+export function signNote(sign: MapSign, level: GameMap['level']): string | null {
+  const name = sign.name ? ` „${sign.name}“` : '';
+  if (sign.kind === 'trap')
+    return sign.armed
+      ? `Falle${name} – ${sign.hidden ? 'die Gruppe ahnt nichts' : 'die Gruppe weiß davon'}`
+      : null;
+  const label = signLabel(sign, level);
+  if (sign.door === 'locked')
+    return `${label}${name} ist verschlossen${sign.hidden ? ' – und die Gruppe kennt sie nicht' : ''}`;
+  return sign.hidden ? `${label}${name} – die Gruppe kennt sie noch nicht` : null;
+}
+
+/** Das Zeichen in der Nähe einer Stelle – das nächste innerhalb von `reach`. */
+export function signNear(
+  signs: readonly MapSign[],
+  x: number,
+  y: number,
+  reach: number,
+): MapSign | null {
+  let best: MapSign | null = null;
+  let distance = reach;
+  for (const sign of signs) {
+    const d = Math.hypot(sign.x - x, sign.y - y);
+    if (d <= distance) [best, distance] = [sign, d];
+  }
   return best;
 }
 

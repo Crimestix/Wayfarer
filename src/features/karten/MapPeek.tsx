@@ -4,14 +4,24 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { BookOpen, Footprints, Maximize2, Minus, Plus } from 'lucide-react';
-import { useData } from '../../data/hooks';
+import { BookOpen, Eye, Footprints, Maximize2, Minus, Plus } from 'lucide-react';
+import { useData, useDb } from '../../data/hooks';
 import { GROUNDS, markerOfPlace } from '../../domain/mapDraw';
 import type { GameMap } from '../../domain/schema';
 import { openMoveParty } from '../../shell/commands';
 import { Button, IconButton, cx, entityHref } from '../../ui';
+import { setLineSecret } from './actions';
 import { LineSummary } from './Facts';
-import { groundFacts, lineFacts, pickAt, routeText, type Picked, type View } from './model';
+import {
+  groundFacts,
+  lineFacts,
+  pickAt,
+  routeText,
+  routeWarnings,
+  type Picked,
+  type View,
+} from './model';
+import { SignCard } from './SignCard';
 import { useMapStage } from './useMapStage';
 import './karten.css';
 
@@ -147,8 +157,14 @@ function PeekCard({
   onOpen: (href: string) => void;
   onMove: (placeId: string) => void;
 }) {
+  const db = useDb();
   const data = useData();
   const box = cx('wf-karten-card', right && 'wf-karten-card--right');
+
+  if (selection.kind === 'sign') {
+    const sign = map.signs.find((entry) => entry.id === selection.id);
+    return sign ? <SignCard map={map} sign={sign} right={right} /> : null;
+  }
 
   if (selection.kind === 'ground') {
     const facts = groundFacts(map, selection.at[0], selection.at[1]);
@@ -175,6 +191,20 @@ function PeekCard({
             Weg zwischen {facts.way.from} und {facts.way.to}.
           </p>
         )}
+        {line.secret && (
+          <>
+            <p className="wf-mute">Geheim: Die Gruppe kennt ihn noch nicht.</p>
+            <div className="wf-karten-card__acts">
+              <Button
+                size="sm"
+                icon={<Eye aria-hidden />}
+                onClick={() => setLineSecret(db, map.id, line.id, false)}
+              >
+                Die Gruppe hat ihn entdeckt
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -185,6 +215,10 @@ function PeekCard({
   const isHere = marker.id === hereId;
   const route =
     entity?.kind === 'place' && !isHere ? routeText(data, data.state.placeId, entity.id) : null;
+  const warnings =
+    entity?.kind === 'place' && !isHere
+      ? routeWarnings(data, data.state.placeId, entity.id)
+      : { notes: [], barred: false, detour: null };
   return (
     <div className={box}>
       <div className="wf-karten-card__sort">
@@ -205,6 +239,15 @@ function PeekCard({
               : 'Der Aufenthaltsort der Gruppe ist offen.'}
           </p>
         ))}
+      {warnings.detour && <p className="wf-mute">{warnings.detour}.</p>}
+      {warnings.barred && (
+        <p className="wf-karten-card__warn">Der Weg ist versperrt – ein anderer führt nicht hin.</p>
+      )}
+      {warnings.notes.map((note) => (
+        <p key={note} className={cx(!warnings.barred && 'wf-mute')}>
+          Unterwegs: {note}.
+        </p>
+      ))}
       {entity && (
         <div className="wf-karten-card__acts">
           <Button

@@ -152,6 +152,11 @@ nicht übernommen.
   unter der Erde ist Fels der Grund, die Straße heißt „Gang“ (`lineLabel`) und gräbt sich durch
   den Fels; ein Raum ist ein Strich mit stumpfen Enden (`paintRect`). Wasser, Fels und Abgrund
   zeichnet `draw.ts` als Flächen mit Rand (`SOLID`) – neues Gelände dieser Art dort eintragen.
+  Türen und Fallen sind Zeichen (`map.signs`): Sitzen sie auf einer Straße, einem Gang oder
+  einem Pfad, gelten sie für den Weg darüber – eine verschlossene Tür versperrt ihn
+  (`way.barred`; `routeBetween` weicht aus), Fallen und Geheimtüren meldet `routeNotes()`.
+  Ein Geheimgang ist eine Linie mit `secret`; geändert wird über `setLineSecret`, damit der
+  Weg mitzieht.
   Gezeichnet werden nie die Striche selbst, sondern die Formen daraus (`karten/shapes.ts`:
   Raster, bewegter Rand, Umrisse, Stellen der Zeichen) – runde Pinselkleckse hat der
   Spielleiter als hässlich verworfen. Zeichenfläche (`MapEditor`) und Ansicht am Spieltisch

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
+  DoorClosed,
   Hand,
   MapPin,
   Maximize2,
@@ -17,17 +18,36 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { GROUNDS, LEVEL_GROUNDS, lineLabel } from '../../domain/mapDraw';
-import { createEntity, type GameMap, type MapGround, type MapLine } from '../../domain/schema';
-import { Button, Dialog, EntityPicker, Field, IconButton, Input, cx, entityHref } from '../../ui';
+import { GROUNDS, LEVEL_GROUNDS, lineLabel, signLabel } from '../../domain/mapDraw';
+import {
+  createEntity,
+  type GameMap,
+  type MapGround,
+  type MapLine,
+  type MapSign,
+} from '../../domain/schema';
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  EntityPicker,
+  Field,
+  IconButton,
+  Input,
+  cx,
+  entityHref,
+} from '../../ui';
 import {
   drawLine,
   paintGround,
   paintRect,
   placeMarker,
+  placeSign,
   removeLine,
   removeMarker,
+  removeSign,
   renameLine,
+  setLineSecret,
 } from './actions';
 import type { Draft } from './draw';
 import { LineSummary } from './Facts';
@@ -42,9 +62,10 @@ import {
   type Picked,
   type View,
 } from './model';
+import { SignCard } from './SignCard';
 import { useMapStage } from './useMapStage';
 
-type Tool = 'hand' | 'ground' | 'line' | 'marker';
+type Tool = 'hand' | 'ground' | 'line' | 'sign' | 'marker';
 type Selection = Picked;
 
 const TOOLS: { id: Tool; label: string; icon: typeof Hand; hint: string }[] = [
@@ -62,6 +83,12 @@ const TOOLS: { id: Tool; label: string; icon: typeof Hand; hint: string }[] = [
     hint: 'Von Ort zu Ort gezogen, wird eine Straße oder ein Pfad zum Weg im Wegenetz.',
   },
   {
+    id: 'sign',
+    label: 'Zeichen',
+    icon: DoorClosed,
+    hint: 'Ein Klick setzt das Zeichen. Nahe an einem Gang oder Pfad rastet es ein und gilt für diesen Weg.',
+  },
+  {
     id: 'marker',
     label: 'Ort',
     icon: MapPin,
@@ -69,6 +96,12 @@ const TOOLS: { id: Tool; label: string; icon: typeof Hand; hint: string }[] = [
   },
 ];
 const LINE_KINDS: MapLine['kind'][] = ['road', 'path', 'river', 'border'];
+/** Was sich als Zeichen setzen lässt: Tür, Geheimtür, Falle. */
+const SIGNS: Pick<MapSign, 'kind' | 'hidden'>[] = [
+  { kind: 'door', hidden: false },
+  { kind: 'door', hidden: true },
+  { kind: 'trap', hidden: true },
+];
 
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -101,6 +134,10 @@ export function MapEditor({
   /** Ein Pinsel – oder „rect“: ein Rechteck aufziehen, etwa für einen Raum. */
   const [brush, setBrush] = useState<BrushId | 'rect'>('medium');
   const [lineKind, setLineKind] = useState<MapLine['kind']>('road');
+  /** Die nächste Linie wird ein Geheimgang (nur Straße, Gang und Pfad). */
+  const [secretLine, setSecretLine] = useState(false);
+  const secret = secretLine && (lineKind === 'road' || lineKind === 'path');
+  const [signKind, setSignKind] = useState(0);
   const [selection, setSelection] = useState<Selection | null>(null);
   /** Die Karte mit den Angaben weicht dem Gewählten aus: liegt es links, steht sie rechts. */
   const [cardRight, setCardRight] = useState(false);
@@ -135,7 +172,9 @@ export function MapEditor({
     remember(
       selection.kind === 'line'
         ? removeLine(db, map.id, selection.id)
-        : removeMarker(db, map.id, selection.id),
+        : selection.kind === 'sign'
+          ? removeSign(db, map.id, selection.id)
+          : removeMarker(db, map.id, selection.id),
     );
     setSelection(null);
   };
@@ -169,6 +208,15 @@ export function MapEditor({
       if (inside) setPin(at);
       return;
     }
+    if (tool === 'sign') {
+      if (!inside) return;
+      const result = placeSign(db, map.id, SIGNS[signKind]!, at);
+      if (result.sign) {
+        remember(result.undo);
+        select({ kind: 'sign', id: result.sign.id }, [result.sign.x, result.sign.y]);
+      }
+      return;
+    }
     const picked = pickAt(map, at, zoom);
     if (picked) select(picked, at);
     else setSelection(null);
@@ -182,13 +230,13 @@ export function MapEditor({
     } catch {
       // Ohne Zeigerfang geht es auch – dann endet das Ziehen am Rand der Zeichenfläche.
     }
-    const pan = event.button !== 0 || tool === 'hand' || tool === 'marker';
+    const pan = event.button !== 0 || tool === 'hand' || tool === 'marker' || tool === 'sign';
     gesture.current = { pan, x, y, moved: false, from: view.current };
     if (!pan) {
       const at = toMap(view.current, x, y);
       draft.current =
         tool !== 'ground'
-          ? { kind: 'line', line: lineKind, points: [at] }
+          ? { kind: 'line', line: lineKind, points: [at], secret }
           : brush === 'rect'
             ? { kind: 'rect', ground, from: at, to: at }
             : { kind: 'ground', ground, width: brushWidth, points: [at] };
@@ -237,7 +285,7 @@ export function MapEditor({
     else if (drawn?.kind === 'rect') {
       if (active.moved) remember(paintRect(db, map.id, drawn.ground, drawn.from, drawn.to));
     } else if (drawn && active.moved && drawn.points.length >= 2) {
-      const result = drawLine(db, map.id, drawn.line, drawn.points);
+      const result = drawLine(db, map.id, drawn.line, drawn.points, drawn.secret);
       if (result.line) {
         remember(result.undo);
         const points = result.line.points;
@@ -253,8 +301,8 @@ export function MapEditor({
     tool !== 'line'
       ? TOOLS.find((entry) => entry.id === tool)!.hint
       : below
-        ? 'Ein Gang gräbt sich durch den Fels. Von Ort zu Ort gezogen, wird er zum Weg im Wegenetz. Umschalt-Taste: gerade.'
-        : 'Von Ort zu Ort gezogen, wird eine Straße oder ein Pfad zum Weg im Wegenetz. Umschalt-Taste: gerade.';
+        ? 'Ein Gang gräbt sich durch den Fels. Von Ort zu Ort gezogen, wird er zum Weg. Umschalt-Taste: gerade.'
+        : 'Von Ort zu Ort gezogen, wird eine Straße oder ein Pfad zum Weg. Umschalt-Taste: gerade.';
 
   return (
     <div className="wf-karten-editor">
@@ -276,7 +324,7 @@ export function MapEditor({
               aria-pressed={tool === entry.id}
               onClick={() => {
                 setTool(entry.id);
-                if (entry.id !== 'hand') setSelection(null);
+                if (entry.id !== 'hand' && entry.id !== 'sign') setSelection(null);
               }}
             >
               <entry.icon aria-hidden />
@@ -357,9 +405,39 @@ export function MapEditor({
                 {lineLabel(entry, map.level)}
               </button>
             ))}
+            {(lineKind === 'road' || lineKind === 'path') && (
+              <button
+                type="button"
+                className="wf-karten-chip"
+                aria-pressed={secretLine}
+                title="Die Gruppe kennt ihn noch nicht – im Fels bleibt er verborgen"
+                onClick={() => setSecretLine(!secretLine)}
+              >
+                {below && lineKind === 'road' ? 'Geheimgang' : 'Geheim'}
+              </button>
+            )}
           </div>
         )}
-        {hint && <span className="wf-karten-options__hint">{hint}</span>}
+        {tool === 'sign' && (
+          <div className="wf-karten-chips" role="group" aria-label="Art des Zeichens">
+            {SIGNS.map((entry, index) => (
+              <button
+                key={index}
+                type="button"
+                className="wf-karten-chip"
+                aria-pressed={signKind === index}
+                onClick={() => setSignKind(index)}
+              >
+                {signLabel(entry, map.level)}
+              </button>
+            ))}
+          </div>
+        )}
+        {hint && (
+          <span className="wf-karten-options__hint" title={hint}>
+            {hint}
+          </span>
+        )}
       </div>
 
       <div className="wf-karten-stage" ref={stage}>
@@ -402,6 +480,7 @@ export function MapEditor({
             right={cardRight}
             onRemove={removeSelected}
             onOpen={(href) => navigate(href)}
+            onChange={remember}
           />
         )}
       </div>
@@ -426,12 +505,15 @@ function SelectionCard({
   right,
   onRemove,
   onOpen,
+  onChange,
 }: {
   map: GameMap;
   selection: Selection;
   right: boolean;
   onRemove: () => void;
   onOpen: (href: string) => void;
+  /** Bekommt, wie sich eine Änderung am Gewählten zurücknehmen lässt. */
+  onChange: (undo: () => void) => void;
 }) {
   const db = useDb();
   const data = useData();
@@ -449,6 +531,13 @@ function SelectionCard({
         <p>{facts.note}</p>
       </div>
     );
+  }
+
+  if (selection.kind === 'sign') {
+    const sign = map.signs.find((entry) => entry.id === selection.id);
+    return sign ? (
+      <SignCard map={map} sign={sign} right={right} onRemove={onRemove} onChange={onChange} />
+    ) : null;
   }
 
   if (selection.kind === 'marker') {
@@ -498,6 +587,15 @@ function SelectionCard({
         }}
       />
       <LineSummary facts={facts} kind={line.kind} />
+      {walkable && (
+        <Checkbox
+          checked={line.secret}
+          onChange={(value) => onChange(setLineSecret(db, map.id, line.id, value))}
+        >
+          {map.level === 'underground' && line.kind === 'road' ? 'Geheimgang' : 'Geheim'} – die
+          Gruppe kennt ihn noch nicht
+        </Checkbox>
+      )}
       {facts.way ? (
         <p>
           Im Wegenetz: {facts.way.from} ↔ {facts.way.to}. Die Gruppe kann diesen Weg gehen; die
