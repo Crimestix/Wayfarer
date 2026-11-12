@@ -74,6 +74,7 @@ const FOLDER_LABEL: Record<string, string> = {
   threads: 'Fäden',
   stories: 'Geschichten',
   creatures: 'Bestiarium',
+  encounters: 'Begegnungen',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

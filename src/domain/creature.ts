@@ -9,6 +9,9 @@
  */
 import {
   ABILITY_KEYS,
+  type CampaignData,
+  type Encounter,
+  type EncounterFoe,
   type AbilityKey,
   type Creature,
   type CreatureAttack,
@@ -574,4 +577,75 @@ export function difficultyOf(xp: number, budget: XpBudget): Difficulty {
   if (xp > budget.moderate) return 'high';
   if (xp > budget.low) return 'moderate';
   return xp > budget.low / 2 ? 'low' : 'trivial';
+}
+
+/** Die Stufen der Gefährten, die zur Gruppe gehören – daraus folgt das EP-Budget. */
+export function partyLevels(data: Pick<CampaignData, 'entities'>): number[] {
+  return Object.values(data.entities)
+    .flatMap((entity) =>
+      entity.kind === 'character' && entity.character.active ? [entity.character.level] : [],
+    )
+    .sort((a, b) => a - b);
+}
+
+export interface FoeView {
+  foe: EncounterFoe;
+  /** Das Wesen dahinter – null, wenn es aus dem Bestiarium gelöscht wurde. */
+  resolved: Resolved | null;
+  max: number;
+  hp: number;
+  /** Bei 0 Trefferpunkten: besiegt. */
+  down: boolean;
+  xp: number;
+}
+
+export interface EncounterView {
+  foes: FoeView[];
+  /** EP aller Exemplare – so war die Begegnung angelegt. */
+  xp: number;
+  /** Wie viele noch stehen. */
+  standing: number;
+  levels: number[];
+  budget: XpBudget;
+  difficulty: Difficulty;
+}
+
+/** Eine Begegnung zum Ansehen: jedes Exemplar mit seinen Trefferpunkten, dazu EP und Schwierigkeit. */
+export function encounterView(
+  data: Pick<CampaignData, 'creatures' | 'entities'>,
+  encounter: Encounter,
+): EncounterView {
+  const foes = encounter.foes.map((foe): FoeView => {
+    const resolved = resolveCreature(data.creatures, foe.creatureId);
+    const max = resolved ? statsOf(resolved.block).hp : 0;
+    const hp = Math.min(max, foe.hp ?? max);
+    return {
+      foe,
+      resolved,
+      max,
+      hp,
+      down: resolved !== null && hp <= 0,
+      xp: resolved ? xpOf(resolved.block.cr) : 0,
+    };
+  });
+  const xp = foes.reduce((sum, entry) => sum + entry.xp, 0);
+  const levels = partyLevels(data);
+  const budget = xpBudget(levels);
+  return {
+    foes,
+    xp,
+    standing: foes.filter((entry) => entry.resolved && !entry.down).length,
+    levels,
+    budget,
+    difficulty: levels.length ? difficultyOf(xp, budget) : xp > 0 ? 'low' : 'none',
+  };
+}
+
+/** Der Name des nächsten Exemplars: „Grubenschleicher 3“ – die kleinste Nummer, die frei ist. */
+export function nextFoeName(foes: readonly Pick<EncounterFoe, 'name'>[], base: string): string {
+  const taken = new Set(foes.map((foe) => foe.name.trim().toLocaleLowerCase('de')));
+  for (let number = 1; ; number++) {
+    const name = `${base} ${number}`;
+    if (!taken.has(name.toLocaleLowerCase('de'))) return name;
+  }
 }

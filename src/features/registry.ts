@@ -9,6 +9,7 @@ import {
   Skull,
   Map as MapIcon,
   Swords,
+  Users,
   Waypoints,
   type LucideIcon,
 } from 'lucide-react';
@@ -38,6 +39,12 @@ export const TIME_TABS: readonly AreaTab[] = [
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
 ];
 
+/** Bestiarium: die Wesen – und die Begegnungen, die aus ihnen entstehen. */
+export const BEAST_TABS: readonly AreaTab[] = [
+  { path: '/bestiarium', label: 'Wesen', hint: 'Statblöcke bauen und finden', icon: Skull },
+  { path: '/begegnungen', label: 'Begegnungen', hint: 'Zusammenstellen und führen', icon: Swords },
+];
+
 /** Karten: der Planet, gezeichnete und Bildkarten, Hexkarten für Reisen. */
 export const MAP_TABS: readonly AreaTab[] = [
   { path: '/atlas', label: 'Weltkarte', hint: 'Der ganze Planet und wo alles liegt', icon: Globe },
@@ -62,8 +69,14 @@ export const AREAS: Area[] = [
     tabs: TIME_TABS,
   },
   { path: '/faeden', label: 'Fadenbrett', hint: 'Geschichten und Fäden', icon: Waypoints },
-  { path: '/bestiarium', label: 'Bestiarium', hint: 'Wesen und Statblöcke', icon: Skull },
-  { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Swords },
+  {
+    path: '/bestiarium',
+    label: 'Bestiarium',
+    hint: 'Wesen und Begegnungen',
+    icon: Skull,
+    tabs: BEAST_TABS,
+  },
+  { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Users },
   {
     path: '/karten',
     label: 'Karten',

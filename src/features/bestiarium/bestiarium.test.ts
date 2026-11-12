@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { resolveCreature, statsOf } from '../../domain/creature';
+import {
+  difficultyOf,
+  encounterView,
+  partyLevels,
+  resolveCreature,
+  statsOf,
+  xpBudget,
+} from '../../domain/creature';
 import {
   importStatblock,
   makeIndividual,
@@ -12,6 +19,7 @@ import {
   setCreatureHp,
   type CreatureInput,
 } from './actions';
+import { addFoes, newEncounter, removeFoe, resetEncounter, setFoeHp } from './encounterActions';
 import { NO_FILTER, creatureFacets, creatureRows, rollAttack, rollDamage } from './model';
 import { parseStatblock } from './parse';
 
@@ -193,5 +201,64 @@ describe('Würfeln am Tisch', () => {
     });
     // Fester Schaden ohne Würfel.
     expect(rollDamage('Stachel', { count: 0, sides: 0, bonus: 1 }, '').total).toBe(1);
+  });
+});
+
+describe('Begegnungen', () => {
+  it('jedes Exemplar bekommt einen Namen und eigene Trefferpunkte', async () => {
+    const { db, data, base, tooth } = await setup();
+    const fight = newEncounter(db, 'Hinterhalt am Kai');
+    addFoes(db, fight.id, base.id, 3);
+    const names = () => data().encounters[fight.id]!.foes.map((foe) => foe.name);
+    expect(names()).toEqual(['Grubenschleicher 1', 'Grubenschleicher 2', 'Grubenschleicher 3']);
+    // Die kleinste freie Nummer wird wieder vergeben.
+    removeFoe(db, fight.id, data().encounters[fight.id]!.foes[1]!.id);
+    addFoes(db, fight.id, base.id);
+    expect(names()).toEqual(['Grubenschleicher 1', 'Grubenschleicher 3', 'Grubenschleicher 2']);
+    // Ein Einzelner kommt mit seinem Namen und seinen jetzigen Trefferpunkten – und nur einmal.
+    setCreatureHp(db, tooth.id, 11);
+    addFoes(db, fight.id, tooth.id, 4);
+    const last = data().encounters[fight.id]!.foes.at(-1)!;
+    expect(last).toMatchObject({ name: 'Krummzahn', hp: 11 });
+    expect(data().encounters[fight.id]!.foes).toHaveLength(4);
+  });
+
+  it('führt Schaden je Exemplar und zählt, wer noch steht', async () => {
+    const { db, data, base } = await setup();
+    const fight = newEncounter(db);
+    addFoes(db, fight.id, base.id, 2);
+    const [first, second] = data().encounters[fight.id]!.foes;
+    setFoeHp(db, fight.id, first!.id, 4);
+    setFoeHp(db, fight.id, second!.id, -3);
+    let view = encounterView(data(), data().encounters[fight.id]!);
+    expect(view.foes.map((entry) => [entry.hp, entry.max, entry.down])).toEqual([
+      [4, 9, false],
+      [0, 9, true],
+    ]);
+    expect(view.standing).toBe(1);
+    // Die EP zählen so, wie die Begegnung angelegt ist – auch für Besiegte.
+    expect(view.xp).toBe(100);
+    resetEncounter(db, fight.id);
+    view = encounterView(data(), data().encounters[fight.id]!);
+    expect(view.foes.every((entry) => entry.hp === 9 && !entry.down)).toBe(true);
+  });
+
+  it('ordnet die Begegnung nach dem EP-Budget der Gruppe ein', async () => {
+    const { db, data, base, eel } = await setup();
+    const fight = newEncounter(db);
+    addFoes(db, fight.id, eel.id, 2);
+    addFoes(db, fight.id, base.id, 1);
+    const view = encounterView(data(), data().encounters[fight.id]!);
+    expect(view.xp).toBe(950);
+    expect(view.levels).toEqual(partyLevels(data()));
+    expect(view.levels.length).toBeGreaterThan(0);
+    expect(view.budget).toEqual(xpBudget(view.levels));
+    expect(view.difficulty).toBe(difficultyOf(950, view.budget));
+    // Ein gelöschtes Wesen zählt nicht mehr mit – das Exemplar bleibt als Erinnerung stehen.
+    removeCreature(db, eel.id);
+    const after = encounterView(data(), data().encounters[fight.id]!);
+    expect(after.xp).toBe(50);
+    expect(after.foes.filter((entry) => entry.resolved === null)).toHaveLength(2);
+    expect(after.standing).toBe(1);
   });
 });

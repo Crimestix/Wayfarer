@@ -562,3 +562,196 @@
   gap: var(--s-2);
   align-items: start;
 }
+
+/* Begegnungen */
+.wf-best-enc__bar {
+  gap: var(--s-3);
+}
+.wf-best-enc__name {
+  width: 300px;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+.wf-best-enc__place {
+  width: 220px;
+}
+.wf-best--enc {
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+.wf-best-enc {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  min-height: 0;
+}
+.wf-best-enc__left,
+.wf-best-enc__right {
+  overflow: auto;
+  min-height: 0;
+  padding: var(--s-4) var(--s-5);
+}
+.wf-best-enc__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  border-right: 1px solid var(--line);
+}
+.wf-best-enc__right .wf-best-block {
+  padding: var(--s-4) var(--s-5);
+}
+.wf-best-enc__right .wf-best-block__name {
+  font-size: var(--text-2xl);
+}
+.wf-best-enc__add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px auto;
+  gap: var(--s-2);
+}
+.wf-best-enc__add .wf-input {
+  text-align: center;
+}
+
+/* EP gegen das Budget der Gruppe */
+.wf-best-budget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.wf-best-budget__head {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+}
+.wf-best-budget__head b {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1;
+}
+.wf-best-budget__word {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.wf-best-budget__word--moderate {
+  color: var(--gold-bright);
+}
+.wf-best-budget__word--high {
+  color: var(--ember);
+}
+.wf-best-budget__word--beyond {
+  color: var(--blood-bright);
+}
+.wf-best-budget__bar {
+  position: relative;
+  height: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-inset);
+}
+.wf-best-budget__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--gold);
+}
+.wf-best-budget__mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--ink-mute);
+}
+.wf-best-budget__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-4);
+  justify-content: space-between;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+
+/* Exemplare */
+.wf-best-foes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.wf-best-foe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px 58px auto auto auto;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-1) var(--s-2) var(--s-1) 0;
+  border: 1px solid var(--line);
+  border-left: 2px solid transparent;
+  background: var(--bg-1);
+}
+.wf-best-foe[data-current='true'] {
+  border-left-color: var(--gold);
+  background: var(--bg-2);
+}
+.wf-best-foe__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2px var(--s-3);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-best-foe__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.15;
+}
+.wf-best-foe__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-best-foe__hp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-best-foe__hp b {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+.wf-best-foe__hp > i {
+  display: block;
+  height: 3px;
+  background: var(--bg-inset);
+}
+.wf-best-foe__hp > i > i {
+  display: block;
+  height: 100%;
+  background: var(--moss);
+}
+.wf-best-foe[data-low='true'] .wf-best-foe__hp > i > i {
+  background: var(--ember);
+}
+.wf-best-foe[data-low='true'] .wf-best-foe__hp b {
+  color: var(--ember);
+}
+.wf-best-foe .wf-input {
+  text-align: center;
+}
+.wf-best-foe--down {
+  opacity: 0.6;
+}
+.wf-best-foe--down .wf-best-foe__name {
+  text-decoration: line-through;
+}
+.wf-best-foe--down .wf-best-foe__hp b {
+  color: var(--blood-bright);
+}

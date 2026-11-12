@@ -17,6 +17,7 @@ import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import AtlasPage from '../features/atlas';
 import BestiariumPage from '../features/bestiarium';
+import EncountersPage from '../features/bestiarium/Encounters';
 import FaedenPage from '../features/faeden';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
@@ -24,7 +25,7 @@ import { WeatherChip } from '../features/wetter';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
-import { AREAS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
+import { AREAS, BEAST_TABS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
 import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
 import WeltPage, { WikiRoute } from '../features/welt';
@@ -51,6 +52,13 @@ const mapPage = (Page: ComponentType) => () => (
     <Page />
   </AreaTabs>
 );
+const beastPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={BEAST_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const BestiariumWesen = beastPage(BestiariumPage);
+const BestiariumBegegnungen = beastPage(EncountersPage);
 const ZeitKalender = timePage(KalenderPage);
 const ZeitChronik = timePage(ChronikPage);
 const KartenAtlas = mapPage(AtlasPage);
@@ -329,7 +337,8 @@ export function AppShell() {
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />
             <Route path="/faeden" component={FaedenPage} />
-            <Route path="/bestiarium/:id?" component={BestiariumPage} />
+            <Route path="/bestiarium/:id?" component={BestiariumWesen} />
+            <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/einstellungen" component={EinstellungenPage} />
             <Route component={TischPage} />
           </Switch>

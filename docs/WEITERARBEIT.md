@@ -990,9 +990,18 @@ Abschnitt 4b.
   (Angriff, Schaden, kritisch – echter Zufall, `fairDie`); Einzelner mit eigenen
   Trefferpunkten (`setCreatureHp`); Dialog zum Bauen (leere Felder erben, Wayfarer rechnet
   mit, Fähigkeiten anderer Wesen übernehmen). Löschen schreibt Erben ihre Werte fest ein.
-- **Offen (Muss der ersten Version):** Begegnung zusammenstellen mit Schwierigkeit nach dem
-  EP-Budget und mehreren Exemplaren mit eigenen Trefferpunkten; Bau oder Hort als Ort mit Bestand
-  (Verluste zählen); SRD 5.2 auf Knopfdruck. **Später:** Foto über den KI-Leser, Schablonen,
+- **Begegnungen (12. 11., zweiter Schritt) – gebaut.** Sammlung `encounters`: eine Begegnung
+  ist eine Liste von Exemplaren (`foes`), jedes mit Namen („Grubenschleicher 2“, die kleinste
+  freie Nummer – `nextFoeName`) und eigenen Trefferpunkten. `encounterView` rechnet EP,
+  Budget der Gruppe (`partyLevels`: Stufen der aktiven Gefährten) und Schwierigkeit; besiegt ist,
+  wer bei 0 steht. Seite „Begegnungen“ als zweiter Reiter des Bestiariums
+  (`bestiarium/Encounters.tsx`, Befehle in `encounterActions.ts`): Wesen und Anzahl
+  hinzufügen, Schaden und Heilung je Exemplar, „Von vorn“, rechts der Statblock des gewählten
+  Exemplars mit den Würfeln. Ein Einzelner kommt mit seinem Namen und seinen jetzigen
+  Trefferpunkten. Nicht gebaut: Initiative und Reihenfolge (voller Kampfmodus, später),
+  Verluste in einen Bestand zurückschreiben, EP der Gruppe gutschreiben.
+- **Offen (Muss der ersten Version):** Bau oder Hort als Ort mit Bestand (Verluste zählen);
+  SRD 5.2 auf Knopfdruck. **Später:** Foto über den KI-Leser, Schablonen,
   HG hoch- und runterrechnen, Zauberwirken als eigene Angabe, Wissen der Gruppe, Reviere und
   Begegnungen daraus, Verbindung zur Art „Spezies“ und zu „Alles ist ein Artikel“.
 - **Nicht geprüft:** die Faustregel für den HG und das EP-Budget stammen aus den Regelwerken, wie

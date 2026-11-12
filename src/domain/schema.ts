@@ -667,6 +667,31 @@ export const CreatureSchema = z.object({
 });
 export type Creature = z.infer<typeof CreatureSchema>;
 
+/** Ein Exemplar in einer Begegnung: ein Wesen des Bestiariums mit eigenen Trefferpunkten. */
+export const EncounterFoeSchema = z.object({
+  id,
+  creatureId: id,
+  /** „Grubenschleicher 2“ */
+  name: z.string(),
+  /** Aktuelle Trefferpunkte; null = unverletzt. */
+  hp: z.number().int().nonnegative().nullable().default(null),
+  note: z.string().default(''),
+});
+export type EncounterFoe = z.infer<typeof EncounterFoeSchema>;
+
+/**
+ * Eine Begegnung: Wesen des Bestiariums, zusammengestellt vom Spielleiter. Wie schwer sie für die
+ * Gruppe ist, rechnet Wayfarer aus dem EP-Budget (`domain/creature.ts`).
+ */
+export const EncounterSchema = z.object({
+  ...base,
+  name: z.string(),
+  placeId: id.nullable().default(null),
+  foes: z.array(EncounterFoeSchema).default([]),
+  notes: z.string().default(''),
+});
+export type Encounter = z.infer<typeof EncounterSchema>;
+
 export const TIMER_KINDS = ['effect', 'task', 'spell', 'light'] as const;
 export type TimerKind = (typeof TIMER_KINDS)[number];
 
@@ -1309,6 +1334,7 @@ export const COLLECTION_SCHEMAS = {
   threads: ThreadSchema,
   stories: StorySchema,
   creatures: CreatureSchema,
+  encounters: EncounterSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1331,6 +1357,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'threads',
   'stories',
   'creatures',
+  'encounters',
 ];
 
 export type CollectionTypes = {
@@ -1409,6 +1436,11 @@ export function createSession(
 export function createCreature(init: Partial<Creature> & { name: string }): Creature {
   const stamp = nowIso();
   return CreatureSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createEncounter(init: Partial<Encounter> & { name: string }): Encounter {
+  const stamp = nowIso();
+  return EncounterSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createThread(init: Partial<Thread> & { title: string }): Thread {

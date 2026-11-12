@@ -78,7 +78,8 @@ nicht übernommen.
   `openTimeDialog`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender und Chronik; „Karten“ = Weltkarte (`atlas`),
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender und Chronik; „Bestiarium“ = Wesen und
+  Begegnungen; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
   im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
@@ -113,7 +114,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -166,6 +167,8 @@ nicht übernommen.
   `attackMath()`, `saveDcOf()` – nie Werte aus `creature.block` direkt zeigen: Was fehlt, ist
   geerbt. Nichts wird mitgeliefert; Monster aus Büchern liegen nur im Kampagnenordner, Tests
   nutzen erfundene Wesen. Würfe am Tisch sind echter Zufall (`fairDie`), kein fester Ausgangswert.
+  Begegnungen (`encounters/`) sind Listen von Exemplaren mit eigenen Trefferpunkten; gelesen
+  über `encounterView()`, die Schwierigkeit folgt dem EP-Budget der aktiven Gefährten.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`
