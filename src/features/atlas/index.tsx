@@ -62,6 +62,7 @@ import {
 } from './model';
 import { Globe } from './Globe';
 import { placeShape, type Placement, type TracedShape } from './trace';
+import { mapsShowing } from '../karten/model';
 import { TraceDialog } from './TraceDialog';
 import { WorldMap, type MapPlace } from './WorldMap';
 import './atlas.css';
@@ -678,6 +679,16 @@ export default function AtlasPage() {
               <Button size="sm" onClick={() => navigate(entityHref(place))}>
                 In der Welt öffnen
               </Button>
+              {mapsShowing(data, place.id).map((map) => (
+                <Button
+                  key={map.id}
+                  size="sm"
+                  title="Diese Karte zeigt den Ort"
+                  onClick={() => navigate(`/karten/${map.id}`)}
+                >
+                  Karte: {map.name || 'ohne Namen'}
+                </Button>
+              ))}
             </div>
           </div>
         )}

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
   DoorClosed,
+  Globe,
   Hand,
   MapPin,
   Maximize2,
@@ -342,6 +343,15 @@ export function MapEditor({
           >
             Rückgängig
           </Button>
+          {place && (
+            <IconButton
+              size="sm"
+              label={`${place.name} auf der Weltkarte zeigen`}
+              onClick={() => navigate(`/atlas/${place.id}`)}
+            >
+              <Globe aria-hidden />
+            </IconButton>
+          )}
           <IconButton size="sm" label="Name, Maßstab und Grund der Karte" onClick={onEdit}>
             <Settings2 aria-hidden />
           </IconButton>

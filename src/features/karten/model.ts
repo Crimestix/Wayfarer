@@ -65,6 +65,20 @@ export function mapRows(data: Pick<CampaignData, 'maps' | 'entities'>, query = '
     .sort((a, b) => Number(b.drawn) - Number(a.drawn) || a.name.localeCompare(b.name, 'de'));
 }
 
+/** Die Karten, die einen Ort zeigen: ihm zugeordnet oder mit ihm als Punkt darauf. */
+export function mapsShowing(data: Pick<CampaignData, 'maps'>, placeId: string): GameMap[] {
+  return Object.values(data.maps)
+    .filter(
+      (map) => map.placeId === placeId || map.markers.some((marker) => marker.entityId === placeId),
+    )
+    .sort(
+      (a, b) =>
+        Number(b.placeId === placeId) - Number(a.placeId === placeId) ||
+        a.name.localeCompare(b.name, 'de'),
+    )
+    .slice(0, 3);
+}
+
 // ── Ausschnitt ─────────────────────────────────────────────────────────────
 
 /** Ausschnitt der Zeichenfläche: `x`/`y` ist die Stelle der Karte oben links, `zoom` Pixel je Einheit. */

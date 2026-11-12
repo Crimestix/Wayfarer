@@ -632,15 +632,20 @@ interface SearchHit {
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {
   const q = query.trim().toLowerCase();
-  const areas: SearchHit[] = AREAS.filter((a) => !q || a.label.toLowerCase().includes(q)).map(
-    (a) => ({
-      key: 'area:' + a.path,
+  // Bereiche und ihre Ansichten: „Chronik“ findet man auch, obwohl sie unter „Zeit“ steht.
+  const places = AREAS.flatMap((area) => [
+    area,
+    ...(area.tabs ?? []).filter((tab) => tab.label !== area.label),
+  ]);
+  const areas: SearchHit[] = places
+    .filter((a) => !q || a.label.toLowerCase().includes(q))
+    .map((a) => ({
+      key: 'area:' + a.path + a.label,
       label: a.label,
       sub: a.hint,
       href: a.path,
       icon: <a.icon />,
-    }),
-  );
+    }));
   const entities: SearchHit[] = q
     ? searchEntities(data, query, { limit: 30 }).map((e) => ({
         key: e.id,

@@ -1,5 +1,5 @@
 /** Gerüst der App: Navigation, Weltleiste und die Arbeitsfläche mit den Bereichen. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { ChevronDown, Feather, Hourglass, MapPin, Search, Settings, Undo2 } from 'lucide-react';
 import { endSession, startSession, undoTimeAdvance } from '../data/actions';
@@ -25,7 +25,8 @@ import WikiPage from '../features/wiki';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
-import { AREAS } from '../features/registry';
+import { AREAS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
+import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
 import WeltPage from '../features/welt';
 import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster } from '../ui';
@@ -37,6 +38,25 @@ import './shell.css';
 
 const isActive = (location: string, path: string) =>
   path === '/' ? location === '/' : location === path || location.startsWith(path + '/');
+/** Ein Bereich ist gewählt, wenn eine seiner Ansichten offen ist. */
+const inArea = (location: string, area: Area) =>
+  areaPaths(area).some((path) => isActive(location, path));
+
+const timePage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={TIME_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const mapPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={MAP_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const ZeitKalender = timePage(KalenderPage);
+const ZeitChronik = timePage(ChronikPage);
+const KartenAtlas = mapPage(AtlasPage);
+const KartenKarten = mapPage(KartenPage);
+const KartenHex = mapPage(ErkundungPage);
 
 function NavRail() {
   const data = useData();
@@ -58,7 +78,7 @@ function NavRail() {
             key={area.path}
             href={area.path}
             className="wf-nav__item"
-            aria-current={isActive(location, area.path) ? 'page' : undefined}
+            aria-current={inArea(location, area) ? 'page' : undefined}
             title={area.hint}
           >
             <area.icon />
@@ -303,12 +323,12 @@ export function AppShell() {
             <Route path="/" component={TischPage} />
             <Route path="/welt/:id?" component={WeltPage} />
             <Route path="/wiki/:id?" component={WikiPage} />
-            <Route path="/chronik" component={ChronikPage} />
-            <Route path="/kalender" component={KalenderPage} />
+            <Route path="/chronik" component={ZeitChronik} />
+            <Route path="/kalender" component={ZeitKalender} />
             <Route path="/gruppe/:id?" component={GruppePage} />
-            <Route path="/erkundung/:id?" component={ErkundungPage} />
-            <Route path="/atlas/:id?" component={AtlasPage} />
-            <Route path="/karten/:id?" component={KartenPage} />
+            <Route path="/erkundung/:id?" component={KartenHex} />
+            <Route path="/atlas/:id?" component={KartenAtlas} />
+            <Route path="/karten/:id?" component={KartenKarten} />
             <Route path="/faeden" component={FaedenPage} />
             <Route path="/bestiarium/:id?" component={BestiariumPage} />
             <Route path="/einstellungen" component={EinstellungenPage} />
