@@ -10,7 +10,7 @@ import { CalendarDays, Handshake, Milestone, ShieldOff, Sparkles } from 'lucide-
 import { useData } from '../../data/hooks';
 import type { DeedKind } from '../../domain/schemes';
 import { formatDayMonth, formatRelative } from '../../domain/time/calendar';
-import { factionTurn, lastEvening, type FactionTurnGroup } from '../../domain/worldTurn';
+import { factionTurn, factionWindow, type FactionTurnGroup } from '../../domain/worldTurn';
 import { AttitudeBadge, EntityLink } from '../../ui';
 
 const DEED_ICON: Record<DeedKind, typeof Milestone> = {
@@ -38,16 +38,18 @@ const SHOWN = 5;
 export function ByFaction({ since: overview, wide }: { since: number; wide: boolean }) {
   const data = useData();
   const cal = data.campaign.calendar;
-  const evening = useMemo(() => lastEvening(data), [data]);
-  const since = wide || !evening ? overview : evening.at;
+  const range = useMemo(() => factionWindow(data, overview, wide), [data, overview, wide]);
+  const since = range.at;
   const turn = useMemo(() => factionTurn(data, since), [data, since]);
-  const sinceText = wide
-    ? `Seit dem ${formatDayMonth(cal, since)}`
-    : evening
-      ? evening.running
-        ? `Seit Beginn von Session ${evening.session.number} (${formatDayMonth(cal, evening.at)})`
-        : `Seit dem Ende von Session ${evening.session.number} (${formatDayMonth(cal, evening.at)})`
-      : `Seit dem ${formatDayMonth(cal, since)} – noch ist kein Abend festgehalten`;
+  const date = formatDayMonth(cal, since);
+  const sinceText =
+    range.kind === 'evening'
+      ? `Seit dem Ende von Session ${range.session!.number} (${date})`
+      : range.kind === 'first'
+        ? `Seit dem ${date} – vor Session ${range.session!.number} ist noch kein Abend festgehalten`
+        : range.kind === 'none'
+          ? `Seit dem ${date} – noch ist kein Abend festgehalten`
+          : `Seit dem ${date}`;
 
   return (
     <>

@@ -348,6 +348,35 @@ export function lastEvening(
   return running ? { at: running.startAt, session: running, running: true } : null;
 }
 
+/**
+ * Ab wann „nach Fraktion“ zählt: `wide` = der ganze Überblick; `evening` = seit dem Ende des
+ * letzten Abends; `first` = während der ersten Session – es gibt keinen früheren Abend, also gilt
+ * der Überblick (samt allem, was in dieser Session schon geschah); `none` = noch kein Abend.
+ */
+export interface FactionWindow {
+  at: number;
+  kind: 'wide' | 'evening' | 'first' | 'none';
+  session: Session | null;
+}
+
+/**
+ * Die Zeitspanne der Sicht „nach Fraktion“. Seit dem letzten Abend – gibt es vor der laufenden
+ * Session keinen, wäre die Spanne leer, obwohl die Welt sich gedreht hat; dann gilt der Überblick
+ * (`overview`, der Beginn des Weltgeschehens).
+ */
+export function factionWindow(
+  data: Pick<CampaignData, 'sessions' | 'state'>,
+  overview: number,
+  wide: boolean,
+): FactionWindow {
+  if (wide) return { at: overview, kind: 'wide', session: null };
+  const evening = lastEvening(data);
+  if (!evening) return { at: overview, kind: 'none', session: null };
+  if (evening.running)
+    return { at: Math.min(overview, evening.at), kind: 'first', session: evening.session };
+  return { at: evening.at, kind: 'evening', session: evening.session };
+}
+
 export interface FactionTurnGroup {
   entity: Entity;
   /** Was sie in der Zeitspanne getan hat – das Neueste zuerst. */

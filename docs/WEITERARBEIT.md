@@ -1560,6 +1560,11 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Wappen, Kompassrose, Fäden nach Haltung, verschiebbar, Lage in `state.netBoard`. Geprüft in der
   Vorschau bei 1440×900 mit 13 Fraktionen und Familien und über 40 Personen. Offen: Personen ohne Fraktion,
   aber mit Haltung zur Gruppe, stehen nicht im Netz.
+- **Gegengelesen: Fraktionen.** „Nach Fraktion“ war in der ersten Session immer leer (Spanne ab
+  ihrem Beginn) – jetzt gilt dann der Überblick (`factionWindow`, mit Test). „Alles zeigen“ im
+  Netz zeigte bei vielen Fraktionen nur einen Ausschnitt; jetzt passt alles ins Bild, und Namen
+  und Unterzeilen fallen nie unter `--text-2xs`. Die Reiter „Nach Art | Ordner | Netz“ brechen
+  bei 1280×800 nicht mehr um.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

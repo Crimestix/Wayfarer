@@ -437,14 +437,16 @@ nicht übernommen.
   Gelesen über `schemesOf()` und `deedsOf()` (`domain/schemes.ts`), angelegt über `newScheme`
   (`faeden/actions.ts`), gezeigt im Abschnitt „Vorhaben“ (`welt/Schemes.tsx`). Das
   Weltgeschehen „nach Fraktion“ (`factionTurn`, seit dem letzten Abend: `lastEvening`) sagt, was
-  jede getan hat; mit „Alles“ der weite Zeitraum.
+  jede getan hat; mit „Alles“ der weite Zeitraum. Die Spanne gibt einzig `factionWindow()` –
+  in der ersten Session gilt der Überblick, nie eine leere Spanne ab „jetzt“.
 - Fraktionsnetz (Ansicht „Netz“ in Welt, `welt/FactionNet.tsx`): Fraktionen als Siegel, Familien
   als Wappen, Personen um ihre Fraktion, die Gruppe als Kompassrose; Fäden nach Art und Haltung
   (`relationTone`, `attitudeTone`). Gerechnet in `domain/factionNet.ts` (`factionNet`,
   `filterNet`, `netIndex`) – nur aus eingetragenen Beziehungen, Verwandtschaft zeigt der
   Stammbaum. Die Anordnung ist ein festes Kräfte-Verfahren mit `rngOf(seedOf(…))`; was der
   Spielleiter hinlegt, steht in `state.netBoard` (`welt/netActions.ts`: `placeInNet`, `tidyNet`).
-  Welche Übersicht gilt, sagt `useWorldLayout()` (`welt/overview.ts`).
+  Welche Übersicht gilt, sagt `useWorldLayout()` (`welt/overview.ts`). „Alles zeigen“ zeigt
+  wirklich alles; die Schrift bleibt dabei auf dem Schirm gleich groß (`LABELS_FLOOR`).
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

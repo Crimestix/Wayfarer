@@ -18,7 +18,7 @@ import {
   type ClockStep,
 } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
-import { factionTurn, lastEvening, worldTurn } from '../worldTurn';
+import { factionTurn, factionWindow, lastEvening, worldTurn } from '../worldTurn';
 
 const DAY = MINUTES_PER_DAY;
 
@@ -207,6 +207,31 @@ describe('Was eine Fraktion getan hat', () => {
     expect(lastEvening(data())).toBeNull();
     startSession(db, { number: 1 });
     expect(lastEvening(data())).toMatchObject({ at: now, running: true });
+  });
+
+  it('die Spanne nach Fraktion: in der ersten Session nie leer, danach seit dem letzten Abend', async () => {
+    const { db, data, now } = await setup();
+    const overview = now - 5 * DAY;
+    expect(factionWindow(data(), overview, false)).toMatchObject({ at: overview, kind: 'none' });
+    startSession(db, { number: 1 });
+    // Kein früherer Abend: Die Spanne begänne erst jetzt und bliebe leer – es gilt der Überblick.
+    expect(factionWindow(data(), overview, false)).toMatchObject({
+      at: overview,
+      kind: 'first',
+      session: { number: 1 },
+    });
+    // Reicht der Überblick nicht bis zum Beginn der Session zurück, zählt die ganze Session.
+    expect(factionWindow(data(), now + 10, false).at).toBe(now);
+    advanceTime(db, now + 60);
+    endSession(db);
+    advanceTime(db, now + 2 * DAY);
+    startSession(db, { number: 2 });
+    expect(factionWindow(data(), overview, false)).toMatchObject({
+      at: now + 60,
+      kind: 'evening',
+      session: { number: 1 },
+    });
+    expect(factionWindow(data(), overview, true)).toMatchObject({ at: overview, kind: 'wide' });
   });
 });
 

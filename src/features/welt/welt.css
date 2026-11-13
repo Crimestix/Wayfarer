@@ -361,21 +361,22 @@
   color: var(--ink-soft);
 }
 
-/* Zwei Blicke auf die Welt: nach Art oder in Ordnern */
+/* Drei Blicke auf die Welt: nach Art, in Ordnern oder als Netz */
 .wf-welt-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: auto auto auto;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
 }
 .wf-welt-layout button {
-  padding: 4px var(--s-2);
+  padding: 4px var(--s-1);
   border: 0;
   background: none;
   color: var(--ink-mute);
   font-family: var(--font-caps);
   font-size: var(--text-2xs);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
   text-transform: uppercase;
   cursor: pointer;
 }

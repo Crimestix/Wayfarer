@@ -35,6 +35,12 @@ const MODES: NetMode[] = ['factions', 'people', 'feuds'];
 /** Ab dieser Vergrößerung stehen die Namen der Personen da – vorher nur beim Darüberfahren. */
 const PERSON_LABELS_FROM = 0.6;
 
+/**
+ * Bis zu dieser Verkleinerung bleibt die Schrift gleich groß auf dem Schirm – nie unter
+ * `--text-2xs`, auch wenn „Alles zeigen“ ein großes Netz klein macht.
+ */
+const LABELS_FLOOR = 0.3;
+
 type Moving = { id: string; dx: number; dy: number };
 
 export function FactionNetView() {
@@ -56,7 +62,7 @@ export function FactionNetView() {
   const [hoverNode, setHoverNode] = useState<string | null>(null);
   const [hoverEdge, setHoverEdge] = useState<string | null>(null);
 
-  const showAll = (least = 0.5) => board.fit(netBounds(full), 70, least);
+  const showAll = () => board.fit(netBounds(full), 70);
   // Beim Öffnen liegt das ganze Netz im Bild.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => showAll(), []);
@@ -80,7 +86,7 @@ export function FactionNetView() {
   const lit = (id: string) => (near ? near.has(id) : found.size ? found.has(id) : true);
   const k = board.view.k;
   // Schrift wächst beim Verkleinern mit, damit Namen lesbar bleiben.
-  const grow = 1 / Math.min(1, Math.max(0.55, k));
+  const grow = 1 / Math.min(1, Math.max(LABELS_FLOOR, k));
 
   const grab = (node: NetNode) => (event: PointerEvent) => {
     event.stopPropagation();
@@ -372,8 +378,8 @@ function Seal({
   ]
     .filter(Boolean)
     .join(' · ');
-  const nameSize = (node.kind === 'person' ? 12.5 : node.kind === 'party' ? 17 : 17) * grow;
-  const subSize = 9.5 * grow;
+  const nameSize = (node.kind === 'person' ? 13.5 : 17) * grow;
+  const subSize = 12.5 * grow;
   const label = netLabel(node);
   const labelY = label.y;
   return (
