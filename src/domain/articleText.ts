@@ -19,44 +19,53 @@ export const CALLOUT = /^\[!([A-Za-zÄÖÜäöüß-]+)\][+-]?[ \t]*(.*)$/;
 
 const FENCE = /^(`{3,})/;
 
-/** Ein Stück Text: gewöhnliche Zeilen oder ein Zitat bzw. Kasten (alle Zeilen beginnen mit „>“). */
+/**
+ * Ein Stück Text: gewöhnliche Zeilen oder ein Zitat bzw. Kasten (alle Zeilen beginnen mit „>“,
+ * gleich weit eingerückt – in einer Liste steht ein Kasten eingerückt unter dem Punkt).
+ */
 interface Chunk {
-  quote: boolean;
+  /** null = gewöhnliche Zeilen; sonst die Einrückung vor dem „>“. */
+  indent: string | null;
   lines: string[];
 }
+
+/** Eine Zeile eines Zitats: Einrückung (Leerzeichen, Tabulator) und „>“. */
+const QUOTE = /^([ \t]*)>/;
 
 /** Teilt Zeilen in gewöhnlichen Text und Zitate – Code zwischen ``` bleibt gewöhnlicher Text. */
 function chunks(lines: readonly string[]): Chunk[] {
   const out: Chunk[] = [];
-  const push = (quote: boolean, line: string) => {
+  const push = (indent: string | null, line: string) => {
     const last = out[out.length - 1];
-    if (last && last.quote === quote) last.lines.push(line);
-    else out.push({ quote, lines: [line] });
+    if (last && last.indent === indent) last.lines.push(line);
+    else out.push({ indent, lines: [line] });
   };
   let fence: string | null = null;
   for (const line of lines) {
     if (fence !== null) {
-      push(false, line);
+      push(null, line);
       if (line.startsWith(fence)) fence = null;
       continue;
     }
     const open = FENCE.exec(line);
     if (open) {
       fence = open[1]!;
-      push(false, line);
+      push(null, line);
       continue;
     }
-    push(line.startsWith('>'), line);
+    push(QUOTE.exec(line)?.[1] ?? null, line);
   }
   return out;
 }
 
-/** Die Zeilen eines Zitats ohne das „>“ davor. */
-const inner = (lines: readonly string[]) => lines.map((line) => line.replace(/^> ?/, ''));
+/** Die Zeilen eines Zitats ohne Einrückung und „>“ davor. */
+const inner = (chunk: Chunk) =>
+  chunk.lines.map((line) => line.slice(chunk.indent?.length ?? 0).replace(/^> ?/, ''));
 
 /** Der Name des Kastens, mit dem ein Zitat beginnt (klein geschrieben); null = kein Kasten. */
-function calloutOf(lines: readonly string[]): string | null {
-  const match = CALLOUT.exec(inner(lines.slice(0, 1))[0] ?? '');
+function calloutOf(chunk: Chunk): string | null {
+  if (chunk.indent === null) return null;
+  const match = CALLOUT.exec(inner(chunk)[0] ?? '');
   return match ? match[1]!.toLowerCase() : null;
 }
 
@@ -65,7 +74,7 @@ const tidy = (text: string) => text.replace(/\n{3,}/g, '\n\n').trim();
 
 /**
  * Der Text ohne die Kästen für die Spielleitung – auch ohne solche, die in einem anderen Kasten
- * stehen. Alles andere bleibt Wort für Wort.
+ * oder eingerückt unter einem Listenpunkt stehen. Alles andere bleibt Wort für Wort.
  */
 export function withoutSecrets(text: string): string {
   return tidy(stripSecrets(split(text)).join('\n'));
@@ -74,18 +83,18 @@ export function withoutSecrets(text: string): string {
 function stripSecrets(lines: readonly string[]): string[] {
   const out: string[] = [];
   for (const chunk of chunks(lines)) {
-    if (!chunk.quote) {
+    if (chunk.indent === null) {
       out.push(...chunk.lines);
       continue;
     }
-    const name = calloutOf(chunk.lines);
+    const name = calloutOf(chunk);
     if (name && SECRET_CALLOUTS.has(name)) continue;
-    const body = inner(chunk.lines);
+    const body = inner(chunk);
     const kept = stripSecrets(body);
     // Unverändert bleibt das Zitat, wie es geschrieben wurde.
     if (kept.length === body.length && kept.every((line, i) => line === body[i]))
       out.push(...chunk.lines);
-    else out.push(...kept.map((line) => (line ? `> ${line}` : '>')));
+    else out.push(...kept.map((line) => (line ? `${chunk.indent}> ${line}` : `${chunk.indent}>`)));
   }
   return out;
 }
@@ -121,12 +130,13 @@ export function articleParts(text: string): ArticleParts {
   const box: string[] = [];
   const body: string[] = [];
   for (const chunk of chunks(split(text))) {
-    const name = chunk.quote ? calloutOf(chunk.lines) : null;
+    // Nur ein Steckbrief am Rand des Textes steht neben ihm; eingerückt gehört er zum Text.
+    const name = chunk.indent === '' ? calloutOf(chunk) : null;
     if (!name || !INFOBOX_CALLOUTS.has(name)) {
       body.push(...chunk.lines);
       continue;
     }
-    for (const raw of inner(chunk.lines).slice(1)) {
+    for (const raw of inner(chunk).slice(1)) {
       const line = raw.trim();
       if (!line || IMAGE.test(line) || BOLD_TITLE.test(line)) {
         if (!line && box.length && box[box.length - 1] !== '') box.push('');

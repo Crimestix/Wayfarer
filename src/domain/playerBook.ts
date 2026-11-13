@@ -7,7 +7,7 @@
  * Bücher, die die Gruppe hat (`domain/book.ts`), zählen in ihrer eigenen Fassung – mit den
  * Irrtümern des Verfassers. Reine Funktionen.
  */
-import { bookEntries, booksAbout, groupBooks, type BookKnowledge } from './book';
+import { booksAbout, groupBooks, readablePages, type BookKnowledge } from './book';
 import {
   byName,
   chronicleFor,
@@ -280,7 +280,9 @@ export function playerBook(data: CampaignData): PlayerBook {
     id: book.id,
     name: book.name,
     author: data.entities[book.item.book.authorId ?? '']?.name ?? book.item.book.authorText.trim(),
-    entries: bookEntries(data, book).map((entry) => ({ id: entry.id, name: entry.name })),
+    entries: readablePages(data, book)
+      .map((page) => ({ id: page.entityId, name: page.title }))
+      .sort(byName),
   }));
   if (books.length)
     sections.push({ sort: 'books', id: 'books', label: 'Bücher der Gruppe', books });

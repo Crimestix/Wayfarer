@@ -17,20 +17,23 @@ export function bookLinks(book: Book | null): { field: string; id: string }[] {
 
 /**
  * Das Buch ohne Verweise auf einen gelöschten Eintrag. Der Verfasser bleibt mit seinem Namen
- * stehen; eine überschriebene Seite zu dem Eintrag fällt weg.
+ * stehen; eine überschriebene Seite zu dem Eintrag fällt weg. War die gelöschte Gegend die
+ * einzige, bleibt sie als „gelöscht“ stehen – sonst stünde plötzlich alles einer Art aus der
+ * ganzen Welt im Buch (eine Gegend, die es nicht gibt, lässt nichts übrig: `bookEntries`).
  */
 export function bookWithout(book: Book, entityId: string, name = ''): Book {
   const { selection } = book;
   const drop = (ids: string[]) => ids.filter((id) => id !== entityId);
   const pages = { ...book.pages };
   delete pages[entityId];
+  const regionIds = drop(selection.regionIds);
   return {
     ...book,
     authorId: book.authorId === entityId ? null : book.authorId,
     authorText: book.authorId === entityId ? name.trim() || book.authorText : book.authorText,
     selection: {
       ...selection,
-      regionIds: drop(selection.regionIds),
+      regionIds: regionIds.length ? regionIds : selection.regionIds,
       include: drop(selection.include),
       exclude: drop(selection.exclude),
     },

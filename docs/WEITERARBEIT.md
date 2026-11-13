@@ -1529,6 +1529,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   das Buch, zählt es im Spielerbuch in seiner Fassung. `scopeMembers` liegt jetzt in
   `domain/scope.ts`, `entityCategory` in `domain/derive.ts`. Offen: Das bisherige „Lexikon“ unter
   „Nach Art“ heißt noch so, obwohl „Lexikon“ jetzt ein Buch in der Welt meint.
+- **Gegengelesen: Bücher in der Welt.** Ein `> [!geheim]` unter einem Listenpunkt (eingerückt)
+  kam ins Buch, in Handouts und ins Spielerbuch – `withoutSecrets` kennt jetzt eingerückte Kästen.
+  Einträge mit verborgenem Artikel stehen nicht mehr im Buch, im Inhaltsverzeichnis, im Spielerbuch
+  oder in „Weiß die Gruppe“ (`isReadable`; die Spielleitung sieht sie weiter in ihrer Liste). Wird
+  die einzige Gegend eines Buches gelöscht, bleibt sie als gelöscht stehen, statt das Buch auf die
+  ganze Welt zu öffnen. „Von ein Mönch“: Zusammenfassung jetzt „Verfasser: …“.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

@@ -60,6 +60,31 @@ describe('Lesehilfe für Artikel', () => {
     expect(open).toContain('Feuerkraut wächst an **warmen** Felsen.');
   });
 
+  it('nimmt auch Kästen für die Spielleitung unter einem Listenpunkt heraus', () => {
+    const list = [
+      '- Wächst an Felsen',
+      '  > [!geheim]',
+      '  > Odo Tannhaus handelt damit.',
+      '- Blüht im Herbst',
+      '',
+      '1. Trocknen',
+      '   > [!sl] Nur für dich',
+      '   > > Zitat darin',
+      '   > Lando Furtner lügt.',
+      '2. Mahlen',
+      '\t> [!spielleitung]',
+      '\t> Krummzahn weiß es.',
+    ].join('\n');
+    const open = withoutSecrets(list);
+    for (const hidden of ['Odo Tannhaus', 'Lando Furtner', 'Krummzahn', 'Zitat darin'])
+      expect(open).not.toContain(hidden);
+    expect(open).toBe('- Wächst an Felsen\n- Blüht im Herbst\n\n1. Trocknen\n2. Mahlen');
+    // Ein gewöhnliches Zitat unter einem Punkt bleibt, ein Geheimnis darin fällt heraus.
+    expect(withoutSecrets('- Punkt\n  > Zitat\n  > > [!geheim]\n  > > Weg damit')).toBe(
+      '- Punkt\n  > Zitat',
+    );
+  });
+
   it('lässt einen Text ohne Geheimes Wort für Wort stehen', () => {
     const plain = 'Erste Zeile\n\n> Zitat\n> zweite Zeile\n\nEnde';
     expect(withoutSecrets(plain)).toBe(plain);
@@ -289,6 +314,24 @@ describe('Die Seiten des Buches', () => {
     expect(page.text).toBe('');
   });
 
+  it('nennt einen Eintrag mit verborgenem Artikel nicht im Buch – bis seine Seite überschrieben ist', async () => {
+    const w = await setup();
+    w.db.patch('articles', w.fire.id, { hidden: true });
+    let view = bookView(w.data(), w.bookNow())!;
+    expect(view.groups.flatMap((g) => g.pages).map((p) => p.title)).toEqual(['Moosling']);
+    expect(view.pageCount).toBe(1);
+    expect(view.withheldCount).toBe(1);
+    // Die Spielleitung sieht in ihrer Liste weiter alle Einträge.
+    expect(view.allGroups.flatMap((g) => g.pages).map((p) => p.title)).toEqual([
+      'Feuerkraut',
+      'Moosling',
+    ]);
+    w.setBook({ pages: { [w.firePlant.id]: { text: 'Ein seltenes Kraut.', base: '' } } });
+    view = bookView(w.data(), w.bookNow())!;
+    expect(view.pageCount).toBe(2);
+    expect(view.withheldCount).toBe(0);
+  });
+
   it('ordnet nach Buchstaben, Gegend oder Einordnung', async () => {
     const w = await setup();
     w.setBook({
@@ -330,8 +373,22 @@ describe('Die Seiten des Buches', () => {
     const cleaned = replaceLink(book, w.ilka.id, null, 'Ilka Sturmfels') as Item;
     expect(cleaned.item.book!.authorId).toBeNull();
     expect(cleaned.item.book!.authorText).toBe('Ilka Sturmfels');
+    // Die einzige Gegend bleibt als gelöscht stehen: Das Buch wird leer statt weltweit.
     const noTown = replaceLink(book, w.town.id, null) as Item;
-    expect(noTown.item.book!.selection.regionIds).toEqual([]);
+    expect(noTown.item.book!.selection.regionIds).toEqual([w.town.id]);
+    w.db.remove('entities', w.town.id);
+    w.db.put('entities', noTown);
+    expect(bookEntries(w.data(), w.bookNow())).toEqual([]);
+    // Von mehreren Gegenden fällt die gelöschte heraus.
+    w.setBook({
+      selection: {
+        ...emptyBook().selection,
+        kinds: ['plant'],
+        regionIds: [w.grotto.id, w.castle.id],
+      },
+    });
+    const noCastle = replaceLink(w.bookNow(), w.castle.id, null) as Item;
+    expect(noCastle.item.book!.selection.regionIds).toEqual([w.grotto.id]);
   });
 });
 
@@ -363,6 +420,18 @@ describe('Bücher im Spielerbuch', () => {
     expect(JSON.stringify(k.books)).not.toContain('Gift für Zwerge');
     // Was nicht im Buch steht, weiß die Gruppe daraus nicht.
     expect(knowledgeOf(w.data(), w.thistle.id).books).toEqual([]);
+  });
+
+  it('verrät nichts aus einem verborgenen Artikel – weder Wissen noch Namen', async () => {
+    const w = await setup();
+    w.db.patch('articles', w.fire.id, { hidden: true });
+    give(w.data, w.db, w.book.id, PARTY_ID);
+    const k = knowledgeOf(w.data(), w.firePlant.id);
+    expect(k.books).toEqual([]);
+    expect(k.inBook).toBe(false);
+    const section = playerBook(w.data()).sections.find((s) => s.sort === 'books');
+    expect(JSON.stringify(section)).not.toContain('Feuerkraut');
+    expect(JSON.stringify(section)).toContain('Moosling');
   });
 
   it('zählt auch, wenn ein Gefährte das Buch trägt – und steht im Spielerbuch', async () => {

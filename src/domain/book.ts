@@ -248,6 +248,21 @@ export function bookPages(data: CampaignData, item: Entity): BookPageView[] {
   return bookGroups(data, item).flatMap((group) => group.pages);
 }
 
+/**
+ * Steht die Seite für die Leser im Buch? Nicht, wenn ihr Artikel vor den Spielern verborgen ist –
+ * sonst verriete schon der Name im Inhaltsverzeichnis etwas. Hat der Spielleiter die Seite in den
+ * Worten des Verfassers geschrieben, steht sie darin.
+ */
+export const isReadable = (page: Pick<BookPageView, 'withheld' | 'own'>) =>
+  page.own || !page.withheld;
+
+/** Die Abteilungen ohne die Seiten, die nicht für die Leser im Buch stehen. */
+function readableGroups(groups: BookGroup[]): BookGroup[] {
+  return groups
+    .map((group) => ({ ...group, pages: group.pages.filter(isReadable) }))
+    .filter((group) => group.pages.length > 0);
+}
+
 /** Die Seiten nach Abteilungen: Buchstaben, Gegenden („Ohne Ort“ am Ende) oder Einordnungen. */
 export function bookGroups(data: CampaignData, item: Entity): BookGroup[] {
   if (!isBook(item)) return [];
@@ -282,10 +297,15 @@ export interface BookView {
   /** Wann es geschrieben wurde (sonst: wann der Gegenstand entstand); '' = nicht angegeben. */
   written: string;
   intro: string;
+  /** Die Seiten für die Leser – ohne die, deren Artikel verborgen ist (`isReadable`). */
   groups: BookGroup[];
   pageCount: number;
+  /** Alle Einträge der Auswahl, auch die verborgenen – für die Spielleitung. */
+  allGroups: BookGroup[];
   /** So viele Seiten stehen in den Worten des Verfassers. */
   ownCount: number;
+  /** So viele Einträge fehlen im Buch, weil ihr Artikel vor den Spielern verborgen ist. */
+  withheldCount: number;
 }
 
 /** Ein Buch zum Lesen und Drucken: Titelseite, Vorwort, Inhaltsverzeichnis, Seiten. */
@@ -294,7 +314,9 @@ export function bookView(data: CampaignData, item: Entity): BookView | null {
   const { book } = item.item;
   const author = data.entities[book.authorId ?? '']?.name ?? book.authorText.trim();
   const when = book.written ?? item.born;
-  const groups = bookGroups(data, item);
+  const allGroups = bookGroups(data, item);
+  const groups = readableGroups(allGroups);
+  const all = allGroups.flatMap((group) => group.pages);
   const pages = groups.flatMap((group) => group.pages);
   return {
     itemId: item.id,
@@ -305,8 +327,15 @@ export function bookView(data: CampaignData, item: Entity): BookView | null {
     intro: book.intro.trim(),
     groups,
     pageCount: pages.length,
+    allGroups,
     ownCount: pages.filter((page) => page.own).length,
+    withheldCount: all.length - pages.length,
   };
+}
+
+/** Die Seiten, die für die Leser im Buch stehen, in der Ordnung des Buches. */
+export function readablePages(data: CampaignData, item: Entity): BookPageView[] {
+  return bookPages(data, item).filter(isReadable);
 }
 
 /** Eine Seite als reiner Text: Felder des Steckbriefs, Kurztexte, Text. */
@@ -355,14 +384,18 @@ export interface BookKnowledge {
   page: BookPageView;
 }
 
-/** Die Seiten aus Büchern der Gruppe zu einem Eintrag – in der Fassung des Buches. */
+/**
+ * Die Seiten aus Büchern der Gruppe zu einem Eintrag – in der Fassung des Buches. Eine Seite,
+ * deren Artikel verborgen ist, steht nicht im Buch (`isReadable`).
+ */
 export function booksAbout(data: CampaignData, entityId: string): BookKnowledge[] {
   const entity = data.entities[entityId];
   if (!entity) return [];
   const out: BookKnowledge[] = [];
   for (const book of groupBooks(data)) {
     if (!bookEntries(data, book).some((entry) => entry.id === entityId)) continue;
-    out.push({ bookId: book.id, bookName: book.name, page: bookPage(data, book, entity) });
+    const page = bookPage(data, book, entity);
+    if (isReadable(page)) out.push({ bookId: book.id, bookName: book.name, page });
   }
   return out;
 }

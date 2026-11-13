@@ -12,6 +12,7 @@ import {
   BOOK_ORDER_LABEL,
   bookCategoryChoices,
   bookView,
+  isReadable,
   type BookPageView,
   type BookView,
 } from '../../domain/book';
@@ -107,14 +108,15 @@ export function BookSection({ item }: { item: Item }) {
       });
   };
   let left = showAll ? Infinity : PAGES_SHOWN;
-  const groups = view.groups
+  const groups = view.allGroups
     .map((group) => {
       const pages = group.pages.slice(0, Math.max(0, left));
       left -= pages.length;
       return { ...group, pages };
     })
     .filter((group) => group.pages.length > 0);
-  const hidden = view.pageCount - groups.reduce((sum, group) => sum + group.pages.length, 0);
+  const total = view.pageCount + view.withheldCount;
+  const hidden = total - groups.reduce((sum, group) => sum + group.pages.length, 0);
 
   return (
     <Section
@@ -154,7 +156,7 @@ export function BookSection({ item }: { item: Item }) {
               <Written
                 label="Verfasser in Worten"
                 value={book.authorText}
-                placeholder="oder in Worten: „ein Mönch aus Graufels“"
+                placeholder="oder in Worten: „Bruder Anselm aus Graufels“"
                 onSave={(authorText) => patchBook(db, item.id, { authorText: authorText.trim() })}
               />
             )}
@@ -186,7 +188,7 @@ export function BookSection({ item }: { item: Item }) {
 
         <Field
           label="Was darin steht"
-          hint="Ohne Wahl schränkt nichts ein; was du nicht wählst, gilt für alle."
+          hint="Arten, Gegenden und Einordnungen gelten zusammen; was du offen lässt, schränkt nicht ein."
         >
           <div className="wf-welt-booksec__chips" aria-label="Arten">
             {ENTITY_KINDS.map((kind) => (
@@ -256,7 +258,7 @@ export function BookSection({ item }: { item: Item }) {
           />
         </Field>
 
-        {view.pageCount === 0 ? (
+        {total === 0 ? (
           <Hint>
             Noch steht keine Seite darin – wähle oben Arten, Gegenden oder Einordnungen, oder nimm
             einzelne Einträge dazu.
@@ -306,12 +308,22 @@ export function BookSection({ item }: { item: Item }) {
   );
 }
 
-/** „Von Ilka Sturmfels, 667. 12 Seiten, 2 in den Worten des Verfassers.“ */
+/** „Verfasser: Ilka Sturmfels. Entstanden 667. 12 Seiten, 2 in den Worten des Verfassers.“ */
 function summary(view: BookView): string {
-  const by = [view.author && `Von ${view.author}`, view.written].filter(Boolean).join(', ');
+  const by = [
+    view.author && `Verfasser: ${view.author}.`,
+    view.written && `Entstanden ${view.written}.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const pages = view.pageCount === 1 ? '1 Seite' : `${view.pageCount} Seiten`;
   const own = view.ownCount ? `, ${view.ownCount} in den Worten des Verfassers` : '';
-  return `${by ? `${by}. ` : ''}${pages}${own}.`;
+  const withheld = !view.withheldCount
+    ? ''
+    : view.withheldCount === 1
+      ? ' 1 Eintrag fehlt, weil sein Artikel verborgen ist.'
+      : ` ${view.withheldCount} Einträge fehlen, weil ihr Artikel verborgen ist.`;
+  return `${by ? `${by} ` : ''}${pages}${own}.${withheld}`;
 }
 
 function PageRow({ item, view, page }: { item: Item; view: BookView; page: BookPageView }) {
@@ -351,7 +363,7 @@ function PageRow({ item, view, page }: { item: Item; view: BookView; page: BookP
       ? 'In den Worten des Verfassers · der Artikel hat sich seither geändert'
       : 'In den Worten des Verfassers'
     : page.withheld
-      ? 'Der Artikel ist vor den Spielern verborgen – nichts daraus steht im Buch'
+      ? 'Der Artikel ist vor den Spielern verborgen – die Seite fehlt im Buch, bis du sie überschreibst'
       : !page.articleId
         ? 'Kein Artikel – die Seite bleibt leer, bis du sie überschreibst'
         : '';
@@ -380,9 +392,11 @@ function PageRow({ item, view, page }: { item: Item; view: BookView; page: BookP
             <RotateCcw />
           </IconButton>
         )}
-        <IconButton label="Als Handout übernehmen" size="sm" variant="ghost" onClick={toHandout}>
-          <ScrollText />
-        </IconButton>
+        {isReadable(page) && (
+          <IconButton label="Als Handout übernehmen" size="sm" variant="ghost" onClick={toHandout}>
+            <ScrollText />
+          </IconButton>
+        )}
         <IconButton
           label="Aus dem Buch nehmen"
           size="sm"

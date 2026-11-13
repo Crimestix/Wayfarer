@@ -290,7 +290,9 @@ nicht übernommen.
   `bookEntries()`). Eine Seite ist Steckbrief und Wortlaut des Artikels ohne Geheimes
   (`withoutSecrets`, `articleParts` in `domain/articleText.ts` – nie selbst Kästen zerlegen);
   überschrieben steht sie in den Worten des Verfassers (`book.pages`) und wächst nicht mehr mit.
-  Wayfarer formuliert nie. Hat die Gruppe oder ein Gefährte das Buch, zählt es im Spielerbuch in
+  Wayfarer formuliert nie. Ein Eintrag mit verborgenem Artikel steht für die Leser nicht darin
+  (`isReadable`, `readablePages`; `bookView().groups` für Lesen und Druck, `allGroups` für die
+  Spielleitung). Hat die Gruppe oder ein Gefährte das Buch, zählt es im Spielerbuch in
   seiner Fassung (`booksAbout`, `knowledgeOf().books`). Geändert über `welt/book.ts`, gelesen
   und gedruckt über `BookPaper`.
 - Lebenslauf eines Gegenstands (`item.history`, „Lebenslauf führen“, aus als Vorgabe): gelesen
