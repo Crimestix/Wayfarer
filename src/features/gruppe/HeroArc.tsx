@@ -5,17 +5,17 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Plus } from 'lucide-react';
+import { EyeOff, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import {
   SPOTLIGHT_SESSIONS,
   heroArc,
   lastEveningsText,
   spotlight,
-  spotlightHint,
+  spotlightHintOf,
 } from '../../domain/heroArc';
 import type { Character, ChronicleEntry } from '../../domain/schema';
-import { Button, EntityLink, Panel, cx } from '../../ui';
+import { Badge, Button, EntityLink, Panel, cx } from '../../ui';
 import { milestoneLine } from '../chronik/model';
 import { TrackCard } from '../fortschritt/TrackCard';
 import { TrackDialog } from '../fortschritt/TrackDialog';
@@ -55,6 +55,14 @@ export function HeroArcPanel({ character }: { character: Character }) {
             <span key={tie.relation.id} className={cx(tie.ended && 'wf-mute')}>
               <EntityLink id={tie.otherId} icon={false} />
               {tie.ended && ' · früher'}
+              {tie.secret && (
+                <>
+                  {' '}
+                  <Badge tone="arcane" icon={<EyeOff />} title="Die Gruppe weiß nichts davon">
+                    geheim
+                  </Badge>
+                </>
+              )}
             </span>
           ))}
         </dd>
@@ -162,7 +170,7 @@ export function HeroArcPanel({ character }: { character: Character }) {
 export function SpotlightPanel() {
   const data = useData();
   const view = useMemo(() => spotlight(data, { sessions: SPOTLIGHT_SESSIONS }), [data]);
-  const hint = useMemo(() => spotlightHint(data, { sessions: SPOTLIGHT_SESSIONS }), [data]);
+  const hint = useMemo(() => spotlightHintOf(view), [view]);
   if (view.rows.length === 0 || view.sessions.length === 0) return null;
   const when = lastEveningsText(view.sessions.length);
   return (

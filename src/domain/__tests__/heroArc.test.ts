@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { emptyCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { heroArc, lastEveningsText, mentorsOf, spotlight, spotlightHint } from '../heroArc';
+import {
+  heroArc,
+  lastEveningsText,
+  mentorsOf,
+  spotlight,
+  spotlightHint,
+  spotlightHintOf,
+} from '../heroArc';
 import { prepAdvice, prepView } from '../prep';
 import {
   createChronicleEntry,
@@ -106,6 +113,29 @@ describe('Heldenbogen', () => {
     ]);
     expect(heroArc(data(), odo.id)).toBeNull();
   });
+
+  it('kennzeichnet geheime Lehrer und nimmt Wandlungen aus der Chronik', async () => {
+    const { db, mira, odo, add, data } = await setup();
+    db.put(
+      'relations',
+      createRelation({ from: odo.id, to: mira.id, type: 'mentor', secret: true, ended: true }),
+    );
+    const older = add({
+      kind: 'transformation',
+      at: NOW - 500,
+      text: 'Salzaugen',
+      transformation: { characterId: mira.id },
+    });
+    const newer = add({
+      kind: 'transformation',
+      text: 'Salzhaut',
+      transformation: { characterId: mira.id },
+    });
+    const arc = heroArc(data(), mira.id)!;
+    expect(arc.mentors).toMatchObject([{ otherId: odo.id, secret: true, ended: true }]);
+    expect(arc.transformations.map((entry) => entry.id)).toEqual([newer.id, older.id]);
+    expect(arc.wishes).toEqual([]);
+  });
 });
 
 describe('Rampenlicht', () => {
@@ -186,6 +216,30 @@ describe('Rampenlicht', () => {
     );
   });
 
+  it('zählt einen Abend nur, wenn ein Eintrag einen Gefährten nennt', async () => {
+    const { mira, odo, add, data, sessions } = await evenings();
+    const [, , s3, s4] = sessions.map((session) => session.id);
+    // An Abend 3 steht nur etwas über Odo – das sagt über das Rampenlicht nichts.
+    add({ sessionId: s3!, refs: [odo.id], text: 'Odo verschwindet im Nebel' });
+    add({ sessionId: s4!, refs: [mira.id] });
+    const view = spotlight(data());
+    expect(view.sessionsWithEntries).toBe(1);
+    // Ein einziger Eintrag über Mira reicht nicht für einen Satz über die anderen.
+    expect(spotlightHint(data())).toBeNull();
+    expect(spotlightHintOf(view)).toBeNull();
+  });
+
+  it('bleibt ohne Gefährten und ohne Abende leer', async () => {
+    const empty = await CampaignDb.create(
+      new MemoryStore(),
+      emptyCampaign('Leer', ELARIS_CALENDAR, NOW),
+    );
+    const view = spotlight(empty.getSnapshot());
+    expect(view).toMatchObject({ rows: [], sessions: [], total: 0, average: 0 });
+    expect(spotlightHint(empty.getSnapshot())).toBeNull();
+    expect(spotlight(empty.getSnapshot(), { sessions: 0 }).sessions).toEqual([]);
+  });
+
   it('erscheint als Rat beim Vorbereiten des Abends', async () => {
     const { mira, lando, add, data, sessions } = await evenings();
     const [, , s3, s4] = sessions.map((session) => session.id);
@@ -204,6 +258,7 @@ describe('Rampenlicht', () => {
   });
 
   it('spricht die Zahl der Abende aus', () => {
+    expect(lastEveningsText(0)).toBe('am letzten Abend');
     expect(lastEveningsText(1)).toBe('am letzten Abend');
     expect(lastEveningsText(2)).toBe('an den letzten beiden Abenden');
     expect(lastEveningsText(3)).toBe('an den letzten drei Abenden');

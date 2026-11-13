@@ -1441,6 +1441,9 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „Geschichten“ und „Fortschritt“ und nimmt Meilensteine und Wandlungen aus „Am Tisch“ mit; dazu
   Wünsche und Lehrer. Auf der Übersicht „Rampenlicht“ mit Balken der letzten drei Abende; der
   Hinweis steht auch als Rat unter „Abend vorbereiten“. Gezählt wird nach `entry.sessionId`.
+  Gegengelesen: Ein Abend zählt für den Hinweis nur, wenn ein Eintrag dort einen Gefährten nennt
+  (sonst reichte ein einziger Eintrag für einen Satz über alle anderen); geheime Lehrer tragen im
+  Heldenbogen „geheim“; Wandlungen kommen aus `transformationsOf`, die Anzeige zählt nur einmal.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

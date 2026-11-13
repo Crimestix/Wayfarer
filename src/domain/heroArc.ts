@@ -5,7 +5,12 @@
  * vorkam. Wayfarer zählt und sammelt nur; es bewertet nichts und erfindet nichts. Reine Funktionen.
  */
 import { activeParty, byTime, chronicleSorted, sessionsSorted } from './derive';
-import { activeConditions, entryEntityIds, type ActiveCondition } from './history';
+import {
+  activeConditions,
+  entryEntityIds,
+  transformationsOf,
+  type ActiveCondition,
+} from './history';
 import { looseReason } from './looseEnds';
 import { relationType } from './relations';
 import type { CampaignData, Character, ChronicleEntry, Relation, Session, Track } from './schema';
@@ -25,6 +30,8 @@ export interface MentorTie {
   label: string;
   /** Die Beziehung besteht nicht mehr – sie gehört trotzdem zu seiner Geschichte. */
   ended: boolean;
+  /** Die Gruppe weiß nichts davon. */
+  secret: boolean;
 }
 
 export interface HeroArc {
@@ -66,6 +73,7 @@ export function mentorsOf(
             role: 'teacher',
             label: type.inverse,
             ended: relation.ended,
+            secret: relation.secret,
           },
         ];
       if (relation.from === entityId && data.entities[relation.to])
@@ -76,6 +84,7 @@ export function mentorsOf(
             role: 'student',
             label: type.label,
             ended: relation.ended,
+            secret: relation.secret,
           },
         ];
       return [];
@@ -111,18 +120,12 @@ export function openWishes(data: CampaignData, characterId: string): ChronicleEn
 export function heroArc(data: CampaignData, characterId: string): HeroArc | null {
   const character = data.entities[characterId];
   if (character?.kind !== 'character') return null;
-  const sorted = chronicleSorted(data);
   return {
     character,
     goal: character.character.goal.trim(),
     wishes: openWishes(data, characterId),
-    transformations: sorted
-      .filter(
-        (entry) =>
-          entry.kind === 'transformation' && entry.transformation?.characterId === characterId,
-      )
-      .reverse(),
-    milestones: sorted
+    transformations: transformationsOf(data, characterId),
+    milestones: chronicleSorted(data)
       .filter((entry) => entry.kind === 'milestone' && entry.milestone?.characterId === characterId)
       .reverse(),
     mentors: mentorsOf(data, characterId),
@@ -168,7 +171,10 @@ export interface SpotlightRow {
 export interface Spotlight {
   /** Die gezählten Abende, der früheste zuerst. */
   sessions: Session[];
-  /** Davon die Abende, an denen überhaupt etwas festgehalten wurde. */
+  /**
+   * Davon die Abende, an denen ein gezählter Eintrag einen aktiven Gefährten nennt – Notizen nur
+   * über Orte oder Leute der Welt sagen über das Rampenlicht nichts.
+   */
   sessionsWithEntries: number;
   /** Je aktivem Gefährten, der häufigste zuerst. */
   rows: SpotlightRow[];
@@ -201,9 +207,11 @@ export function spotlight(
   const withEntries = new Set<string>();
   for (const entry of Object.values(data.chronicle)) {
     if (!entry.sessionId || !ids.has(entry.sessionId) || !countsAtTable(entry)) continue;
-    withEntries.add(entry.sessionId);
-    for (const id of new Set(entryEntityIds(entry)))
-      if (counts.has(id)) counts.set(id, counts.get(id)! + 1);
+    for (const id of new Set(entryEntityIds(entry))) {
+      if (!counts.has(id)) continue;
+      counts.set(id, counts.get(id)! + 1);
+      withEntries.add(entry.sessionId);
+    }
   }
   const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
   const ordered = [...party].sort(
@@ -233,7 +241,7 @@ const WORDS = ['', 'einen', 'beiden', 'drei', 'vier', 'fünf', 'sechs', 'sieben'
 
 /** „an den letzten drei Abenden“, „an den letzten beiden Abenden“. */
 export function lastEveningsText(count: number): string {
-  if (count === 1) return 'am letzten Abend';
+  if (count <= 1) return 'am letzten Abend';
   return `an den letzten ${WORDS[count] ?? count} Abenden`;
 }
 
@@ -246,7 +254,11 @@ export function spotlightHint(
   data: CampaignData,
   options: { sessions?: number } = {},
 ): string | null {
-  const view = spotlight(data, options);
+  return spotlightHintOf(spotlight(data, options));
+}
+
+/** Der Satz aus einem schon gezählten Rampenlicht – damit die Anzeige nicht zweimal zählt. */
+export function spotlightHintOf(view: Spotlight): string | null {
   if (view.rows.length < 2 || view.sessionsWithEntries < 2 || view.average <= 0) return null;
   const fewest = Math.min(...view.rows.map((row) => row.count));
   if (fewest >= view.average * SPOTLIGHT_LOW) return null;
