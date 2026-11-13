@@ -364,7 +364,7 @@
 /* Zwei Blicke auf die Welt: nach Art oder in Ordnern */
 .wf-welt-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
 }
@@ -2354,4 +2354,437 @@
   display: block;
   color: var(--ink-mute);
   font-size: var(--text-sm);
+}
+
+/* ── Vorhaben ───────────────────────────────────────────────────────────── */
+.wf-welt-schemes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-scheme {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-scheme:last-child {
+  border-bottom: 0;
+}
+.wf-welt-scheme__title {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-scheme__title:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-scheme__pace {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-welt-scheme__pace[data-pace='running'] {
+  color: var(--gold);
+}
+.wf-welt-scheme__pips {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 3px;
+}
+.wf-welt-scheme__pips i {
+  flex: 1;
+  max-width: 34px;
+  height: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 1px;
+}
+.wf-welt-scheme__pips i[data-state='done'] {
+  border-color: var(--gold);
+  background: var(--gold);
+}
+.wf-welt-scheme__pips i[data-state='next'] {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+}
+.wf-welt-scheme__pips i[data-state='prevented'] {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.wf-welt-scheme__line {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s-3);
+  color: var(--ink-soft);
+}
+.wf-welt-scheme__line b {
+  flex: none;
+  width: 116px;
+  white-space: nowrap;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-welt-scheme__line span {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.wf-welt-scheme__line i {
+  flex: none;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-scheme__line--past b {
+  color: var(--ink-mute);
+}
+.wf-welt-scheme__quiet {
+  grid-column: 1 / -1;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-welt-scheme-add {
+  margin-top: calc(-1 * var(--s-3));
+}
+
+/* ── Fraktionsnetz ──────────────────────────────────────────────────────── */
+.wf-welt-net {
+  position: relative;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, var(--bg-2) 0%, transparent 70%),
+    radial-gradient(circle, var(--line-faint) 1px, transparent 1.5px) 0 0 / 28px 28px,
+    var(--bg-inset);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.wf-welt-net:active {
+  cursor: grabbing;
+}
+.wf-welt-net--empty {
+  display: grid;
+  place-items: center;
+  cursor: default;
+}
+.wf-welt-net__layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.wf-welt-net__svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+}
+
+/* Astrolabium um die Gruppe */
+.wf-welt-net__astrolabe circle[data-ring],
+.wf-welt-net__astrolabe line {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+.wf-welt-net__astrolabe circle[data-ring='1'] {
+  stroke-dasharray: 2 7;
+}
+.wf-welt-net__astrolabe line {
+  stroke: var(--line-faint);
+}
+
+/* Fäden */
+.wf-welt-net__edge {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  transition: opacity 160ms var(--ease);
+}
+.wf-welt-net__edge[data-tone='friend'] {
+  stroke: var(--gold);
+  stroke-width: 2.2;
+  opacity: 0.85;
+}
+.wf-welt-net__edge[data-tone='foe'] {
+  stroke: var(--blood);
+  stroke-width: 2.2;
+  opacity: 0.9;
+}
+.wf-welt-net__edge[data-tone='tense'] {
+  stroke: var(--ink-faint);
+  stroke-width: 1.5;
+  stroke-dasharray: 7 5;
+}
+.wf-welt-net__edge[data-tone='bond'] {
+  stroke: var(--gold-deep);
+  stroke-width: 1.2;
+  opacity: 0.7;
+}
+.wf-welt-net__edge[data-tone='plain'] {
+  stroke: var(--ink-faint);
+  opacity: 0.55;
+}
+.wf-welt-net__edge[data-member='true'] {
+  stroke-width: 1.1;
+}
+.wf-welt-net__edge[data-party='true'] {
+  stroke-width: 2.6;
+}
+.wf-welt-net__edge[data-secret='true'] {
+  stroke-dasharray: 1 5;
+}
+.wf-welt-net__edge[data-active='true'] {
+  opacity: 1;
+  stroke-width: 3;
+}
+.wf-welt-net__edge[data-dim='true'] {
+  opacity: 0.08;
+}
+.wf-welt-net__hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: help;
+}
+
+/* Siegel */
+.wf-welt-net__node {
+  cursor: pointer;
+  transition: opacity 160ms var(--ease);
+}
+.wf-welt-net__node[data-dim='true'] {
+  opacity: 0.16;
+}
+.wf-welt-net__disc {
+  fill: url(#wf-net-leather);
+  stroke: var(--gold-deep);
+  stroke-width: 2;
+}
+.wf-welt-net__rim {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 0.8;
+  opacity: 0.8;
+}
+.wf-welt-net__milled {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 4;
+  stroke-dasharray: 1.4 3.6;
+}
+.wf-welt-net__mono {
+  fill: var(--gold);
+  font-family: var(--font-caps);
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0.04em;
+}
+.wf-welt-net__node--family .wf-welt-net__disc {
+  stroke: var(--gold-deep);
+}
+.wf-welt-net__node--person .wf-welt-net__disc {
+  fill: var(--bg-2);
+  stroke: var(--ink-faint);
+  stroke-width: 1.2;
+}
+.wf-welt-net__node--person .wf-welt-net__mono {
+  fill: var(--ink-soft);
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+.wf-welt-net__node--person[data-leader='true'] .wf-welt-net__disc {
+  stroke: var(--gold);
+  stroke-width: 1.8;
+}
+.wf-welt-net__node--person[data-leader='true'] .wf-welt-net__mono {
+  fill: var(--gold);
+}
+.wf-welt-net__node--party .wf-welt-net__disc {
+  stroke: var(--gold);
+  stroke-width: 2.4;
+}
+.wf-welt-net__rose {
+  fill: var(--gold-glow);
+  stroke: var(--gold);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.wf-welt-net__hub {
+  fill: var(--gold-bright);
+}
+.wf-welt-net__halo {
+  fill: none;
+  stroke: var(--gold-bright);
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+.wf-welt-net__node[data-hovered='true'] .wf-welt-net__disc {
+  stroke: var(--gold-bright);
+}
+.wf-welt-net__pip {
+  stroke: var(--bg-0);
+  stroke-width: 1.5;
+}
+.wf-welt-net__name {
+  fill: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--bg-inset);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.wf-welt-net__node--person .wf-welt-net__name {
+  fill: var(--ink-soft);
+  font-weight: 500;
+}
+.wf-welt-net__node--party .wf-welt-net__name {
+  fill: var(--gold-bright);
+  font-family: var(--font-caps);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+.wf-welt-net__sub {
+  fill: var(--ink-mute);
+  font-family: var(--font-caps);
+  text-anchor: middle;
+  dominant-baseline: hanging;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: var(--bg-inset);
+  stroke-width: 3px;
+}
+
+/* Beschriftung eines Fadens beim Darüberfahren */
+.wf-welt-net__label {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--shadow-raised);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  white-space: nowrap;
+  text-align: center;
+}
+.wf-welt-net__label[data-tone='friend'] {
+  border-color: var(--gold-deep);
+}
+.wf-welt-net__label[data-tone='foe'] {
+  border-color: var(--blood);
+}
+.wf-welt-net__label em {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+
+/* Bedienung auf der Bühne */
+.wf-welt-net__modes {
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  cursor: default;
+}
+.wf-welt-net__tools {
+  position: absolute;
+  right: var(--s-3);
+  bottom: var(--s-3);
+  display: flex;
+  gap: 4px;
+  cursor: default;
+}
+.wf-welt-net__note {
+  position: absolute;
+  top: 56px;
+  left: var(--s-3);
+  max-width: 420px;
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Die Liste neben dem Netz */
+.wf-welt-netindex {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-welt-netindex__back {
+  align-self: flex-start;
+  margin: var(--s-2) var(--s-3);
+}
+.wf-welt-netindex__seal {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-deep);
+  border-radius: 50%;
+  background: var(--bg-2);
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+}
+.wf-welt-netindex__seal[data-kind='family'] {
+  border-radius: 2px 2px 50% 50%;
+}
+.wf-welt-netindex__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: var(--s-3) var(--s-3) 0;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-welt-netindex__legend div {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-welt-netindex__legend dt {
+  display: flex;
+}
+.wf-welt-netindex__legend dd {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-netindex__hint {
+  margin: var(--s-2) var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
 }

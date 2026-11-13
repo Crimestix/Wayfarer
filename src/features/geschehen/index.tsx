@@ -23,10 +23,14 @@ import {
 import { Button, EmptyState, EntityLink, EntityPicker, KindIcon, cx, toast } from '../../ui';
 import { decideTrip, setWatch } from './actions';
 import { RunDialog } from './RunDialog';
+import { ByFaction } from './ByFaction';
 import { storyFromClock } from '../faeden/actions';
 import { useFocus } from '../../shell/focus';
 import { ClockDialog } from '../kalender/ClockDialog';
 import './geschehen.css';
+
+/** Die gewählte Ordnung bleibt, solange die App läuft. */
+const memory: { by: 'weight' | 'faction' } = { by: 'weight' };
 
 const ICON = {
   change: Milestone,
@@ -39,6 +43,12 @@ export default function GeschehenPage() {
   const db = useDb();
   const data = useData();
   const [all, setAll] = useState(false);
+  /** Geordnet nach Gewicht – oder nach Fraktion: wer seit dem letzten Abend was getan hat. */
+  const [by, setBy] = useState<'weight' | 'faction'>(memory.by);
+  const order = (next: 'weight' | 'faction') => {
+    memory.by = next;
+    setBy(next);
+  };
   const [clock, setClock] = useState<Clock | null>(null);
   // Der Überblick reicht bis vor den letzten Zeitsprung zurück – nichts davon fällt heraus.
   const days = turnDays(data);
@@ -81,6 +91,22 @@ export default function GeschehenPage() {
           </p>
         </div>
         <span className="wf-grow" />
+        <div className="wf-btn-group" role="group" aria-label="Ordnung">
+          <Button
+            aria-pressed={by === 'weight'}
+            title="Was nah an der Gruppe ist oder Bekannte betrifft, steht oben"
+            onClick={() => order('weight')}
+          >
+            Nach Gewicht
+          </Button>
+          <Button
+            aria-pressed={by === 'faction'}
+            title="Was jede Fraktion seit dem letzten Abend getan hat und was als Nächstes ansteht"
+            onClick={() => order('faction')}
+          >
+            Nach Fraktion
+          </Button>
+        </div>
         <div className="wf-btn-group" role="group" aria-label="Umfang">
           <Button
             aria-pressed={!all}
@@ -105,39 +131,45 @@ export default function GeschehenPage() {
 
       <div className="wf-turn-body">
         <div className="wf-turn-main">
-          {turn.watched.length > 0 && (
-            <section className="wf-turn-section">
-              <h2 className="wf-turn-section__title">Beobachtet</h2>
-              {turn.watched.map((item) => (
-                <Row key={item.key} item={item} />
-              ))}
-            </section>
-          )}
-          <section className="wf-turn-section">
-            <h2 className="wf-turn-section__title">Nah an der Gruppe</h2>
-            {turn.weighty.map((item) => (
-              <Row key={item.key} item={item} />
-            ))}
-            {!turn.weighty.length && (
-              <p className="wf-turn-none">
-                {nothing
-                  ? 'Noch ist nichts geschehen. Hier steht, was die Uhren bewegen, welche Ereignisse eintreten und was das Wetter aus den Wegen macht – sobald die Zeit vergeht.'
-                  : 'Nichts davon berührt gerade die Gruppe.'}
-              </p>
-            )}
-          </section>
-          {turn.rest.length > 0 && (
-            <details className="wf-turn-rest" open={all}>
-              <summary>
-                Weit weg
-                <span>
-                  {turn.rest.length === 1 ? 'ein Eintrag' : `${turn.rest.length} Einträge`}
-                </span>
-              </summary>
-              {turn.rest.map((item) => (
-                <Row key={item.key} item={item} />
-              ))}
-            </details>
+          {by === 'faction' ? (
+            <ByFaction since={turn.since} wide={all} />
+          ) : (
+            <>
+              {turn.watched.length > 0 && (
+                <section className="wf-turn-section">
+                  <h2 className="wf-turn-section__title">Beobachtet</h2>
+                  {turn.watched.map((item) => (
+                    <Row key={item.key} item={item} />
+                  ))}
+                </section>
+              )}
+              <section className="wf-turn-section">
+                <h2 className="wf-turn-section__title">Nah an der Gruppe</h2>
+                {turn.weighty.map((item) => (
+                  <Row key={item.key} item={item} />
+                ))}
+                {!turn.weighty.length && (
+                  <p className="wf-turn-none">
+                    {nothing
+                      ? 'Noch ist nichts geschehen. Hier steht, was die Uhren bewegen, welche Ereignisse eintreten und was das Wetter aus den Wegen macht – sobald die Zeit vergeht.'
+                      : 'Nichts davon berührt gerade die Gruppe.'}
+                  </p>
+                )}
+              </section>
+              {turn.rest.length > 0 && (
+                <details className="wf-turn-rest" open={all}>
+                  <summary>
+                    Weit weg
+                    <span>
+                      {turn.rest.length === 1 ? 'ein Eintrag' : `${turn.rest.length} Einträge`}
+                    </span>
+                  </summary>
+                  {turn.rest.map((item) => (
+                    <Row key={item.key} item={item} />
+                  ))}
+                </details>
+              )}
+            </>
           )}
         </div>
 
@@ -323,14 +355,18 @@ export default function GeschehenPage() {
           onClose={() => setRun(null)}
         />
       )}
-      {nothing && turn.clocks.length === 0 && watched.length === 0 && turn.runs.length === 0 && (
-        <div className="wf-turn-blank">
-          <EmptyState icon={<Milestone aria-hidden />} title="Die Welt steht noch still">
-            Leg im Kalender eine Uhr an – ein Vorhaben, das ohne die Gruppe weiterläuft – oder lass
-            Zeit vergehen. Was dann geschieht, sammelt sich hier.
-          </EmptyState>
-        </div>
-      )}
+      {by === 'weight' &&
+        nothing &&
+        turn.clocks.length === 0 &&
+        watched.length === 0 &&
+        turn.runs.length === 0 && (
+          <div className="wf-turn-blank">
+            <EmptyState icon={<Milestone aria-hidden />} title="Die Welt steht noch still">
+              Schreib eine Geschichte mit Schritten – ein Vorhaben, das ohne die Gruppe weiterläuft
+              – oder lass Zeit vergehen. Was dann geschieht, sammelt sich hier.
+            </EmptyState>
+          </div>
+        )}
       {clock && (
         <ClockDialog
           key={clock.id}

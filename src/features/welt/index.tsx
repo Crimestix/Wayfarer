@@ -19,7 +19,8 @@ import { Landing } from './Landing';
 import { isLexiconKind } from './lexicon';
 import { Lexicon } from './LexiconView';
 import { isWorldEntity } from './model';
-import { useKindFilter } from './overview';
+import { useKindFilter, useWorldLayout } from './overview';
+import { FactionNetView } from './FactionNet';
 import { Sidebar } from './Sidebar';
 import './welt.css';
 
@@ -47,6 +48,7 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
   const entity = entityId ? data.entities[entityId] : undefined;
   const article = articleId ? data.articles[articleId] : undefined;
   const filter = useKindFilter();
+  const layout = useWorldLayout();
   const stage = useRef<HTMLDivElement>(null);
   // Ein anderes Ding beginnt wieder oben.
   useEffect(() => {
@@ -76,6 +78,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           >
             Er wurde gelöscht oder auf einem anderen Gerät entfernt.
           </EmptyState>
+        ) : layout === 'net' ? (
+          <FactionNetView />
         ) : filter === 'person' ? (
           <Gallery />
         ) : filter !== 'all' && isLexiconKind(filter) ? (

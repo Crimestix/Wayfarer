@@ -1551,6 +1551,15 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   als Pflanze, Gestein, Tier oder Gegenstand, bestätigt in der Vorschau (`newKindOf`). Abbrechen
   beim Anlegen nimmt den leeren Laden wieder weg; der fahrende Laden eines toten Händlers steht
   nirgends mehr. Geprüft in der Vorschau bei 1440×900 und 1280×800.
+- **Fraktionen: Vorhaben und Netz.** Ein Vorhaben ist eine Geschichte mit der Fraktion als
+  Antreiber (`domain/schemes.ts`) – Abschnitt „Vorhaben“ auf Seiten von Fraktionen, Familien und
+  Personen (nächster Schritt mit Datum, zuletzt Eingetretenes, Stillstand ruhig), „Vorhaben
+  anlegen“ öffnet das Blatt. Weltgeschehen „Nach Fraktion“ seit dem letzten Abend. Der ganze Weg
+  des Zeitvorstellens ist geprüft: keine Rückfrage, keine Blockade; eine stehende Uhr steht in der
+  Meldung und als Vorschlag (Tests in `schemes.test.ts`). Neue Ansicht „Netz“ in Welt: Siegel,
+  Wappen, Kompassrose, Fäden nach Haltung, verschiebbar, Lage in `state.netBoard`. Geprüft in der
+  Vorschau bei 1440×900 mit 13 Fraktionen und Familien und über 40 Personen. Offen: Personen ohne Fraktion,
+  aber mit Haltung zur Gruppe, stehen nicht im Netz.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

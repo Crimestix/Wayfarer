@@ -3,6 +3,7 @@
  * Einstieg rechts sie umstellen kann („6 Orte“ anklicken zeigt die Orte). Gilt, solange die App läuft.
  */
 import { useSyncExternalStore } from 'react';
+import type { NetMode } from '../../domain/factionNet';
 import type { KindFilter } from './model';
 import type { WorldView } from './scope';
 
@@ -42,5 +43,57 @@ export function useKindFilter(): KindFilter {
       return () => listeners.delete(l);
     },
     () => current,
+  );
+}
+
+/**
+ * Die Ansicht der Übersicht: nach Art, in den Ordnern – oder als Fraktionsnetz. Liegt hier, weil
+ * auch die Bühne rechts sie braucht (das Netz zeigt sich dort). Gilt, solange die App läuft.
+ */
+export type WorldLayout = 'kinds' | 'tree' | 'net';
+
+let layout: WorldLayout = 'kinds';
+
+export function setWorldLayout(next: WorldLayout) {
+  if (next === layout) return;
+  layout = next;
+  listeners.forEach((l) => l());
+}
+
+export function useWorldLayout(): WorldLayout {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => layout,
+  );
+}
+
+/** Das Fraktionsnetz: welche Sicht, was hervorgehoben ist (aus der Liste links) und die Suche. */
+export interface NetView {
+  mode: NetMode;
+  /** Der Knoten, über dem die Maus in der Liste links steht. */
+  hover: string | null;
+  query: string;
+}
+
+let netView: NetView = { mode: 'people', hover: null, query: '' };
+
+export function setNetView(change: Partial<NetView>) {
+  const next = { ...netView, ...change };
+  if (next.mode === netView.mode && next.hover === netView.hover && next.query === netView.query)
+    return;
+  netView = next;
+  listeners.forEach((l) => l());
+}
+
+export function useNetView(): NetView {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => netView,
   );
 }

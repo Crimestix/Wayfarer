@@ -12,6 +12,8 @@ import {
   monogramOf,
   netBounds,
   netCurve,
+  netIndex,
+  netLabel,
   netMatches,
   netNeighbors,
   relationTone,
@@ -229,5 +231,46 @@ describe('Sichten', () => {
     const curved = netCurve({ key: 'y', member: false }, a, b);
     expect(curved.d).toMatch(/^M 10 0 Q 45 -?14 80 0$/);
     expect(netCurve({ key: 'y', member: false }, a, b)).toEqual(curved);
+  });
+});
+
+describe('Die Liste neben dem Netz', () => {
+  it('Fraktionen und Familien mit Personen, Verbündeten und Feinden – auch über ihre Leute gefunden', async () => {
+    const w = await setup();
+    const net = factionNet(w.data());
+    const rows = netIndex(net);
+    expect(rows.map((row) => row.node.kind).every((kind) => kind !== 'person')).toBe(true);
+    const watch = rows.find((row) => row.node.id === w.watch.id)!;
+    // Brann; verbündet mit den Salzsiedern und der Gruppe; verfeindet mit der Bande.
+    expect(watch).toMatchObject({ people: 1, friends: 2, foes: 1 });
+    expect(netIndex(net, 'brann').map((row) => row.node.id)).toEqual([w.watch.id]);
+  });
+});
+
+describe('Namen am Siegel', () => {
+  it('unter dem Siegel – oder bei Personen auf dem Ring nach außen', () => {
+    expect(netLabel({ r: 40, angle: null, kind: 'faction' })).toEqual({
+      x: 0,
+      y: 46,
+      anchor: 'middle',
+      baseline: 'hanging',
+    });
+    expect(netLabel({ r: 17, angle: 0, kind: 'person' })).toMatchObject({
+      x: 22,
+      anchor: 'start',
+      baseline: 'central',
+    });
+    expect(netLabel({ r: 17, angle: Math.PI, kind: 'person' }).anchor).toBe('end');
+    expect(netLabel({ r: 17, angle: -Math.PI / 2, kind: 'person' })).toMatchObject({
+      anchor: 'middle',
+      baseline: 'auto',
+    });
+  });
+
+  it('Personen auf dem Ring tragen ihre Richtung', async () => {
+    const w = await setup();
+    const net = factionNet(w.data());
+    expect(net.nodes.find((node) => node.id === w.brann.id)!.angle).not.toBeNull();
+    expect(net.nodes.find((node) => node.id === w.watch.id)!.angle).toBeNull();
   });
 });

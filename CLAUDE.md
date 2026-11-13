@@ -85,8 +85,8 @@ nicht übernommen.
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
-  `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
-  im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
+  `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“ und „Netz“, eine
+  Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
   Artikel einem gehört – dort ist er der Reiter „Text“. Vor einem neuen Eintrag in der
   Navigation prüfen, ob er als Reiter oder als Teil der Welt passt (Entscheidung des
@@ -430,6 +430,21 @@ nicht übernommen.
   selbst; ob eine fragliche Fahrt ausfällt, ist ein Vorschlag (`suggestions`) und wird nur über
   `decideTrip` entschieden. Eine Uhr, deren Schritt an einem ausgebliebenen Ablauf hängt,
   bleibt beim Zeitsprung blockiert stehen (`clock.blocked`) – sie plant nie von selbst um.
+  Zeit vorstellen fragt nie nach und bleibt nie hängen: Eine stehende Uhr wird nur leise
+  gemeldet (`hasNews` in `shell/meanwhile.ts`), entschieden wird danach im Weltgeschehen.
+- Vorhaben von Fraktionen: Ein Vorhaben ist eine Geschichte mit der Fraktion (Familie, Person)
+  als Antreiber (`story.ownerId`, sonst der der Uhr: `driverOf`) – kein zweites Uhrenwerk.
+  Gelesen über `schemesOf()` und `deedsOf()` (`domain/schemes.ts`), angelegt über `newScheme`
+  (`faeden/actions.ts`), gezeigt im Abschnitt „Vorhaben“ (`welt/Schemes.tsx`). Das
+  Weltgeschehen „nach Fraktion“ (`factionTurn`, seit dem letzten Abend: `lastEvening`) sagt, was
+  jede getan hat; mit „Alles“ der weite Zeitraum.
+- Fraktionsnetz (Ansicht „Netz“ in Welt, `welt/FactionNet.tsx`): Fraktionen als Siegel, Familien
+  als Wappen, Personen um ihre Fraktion, die Gruppe als Kompassrose; Fäden nach Art und Haltung
+  (`relationTone`, `attitudeTone`). Gerechnet in `domain/factionNet.ts` (`factionNet`,
+  `filterNet`, `netIndex`) – nur aus eingetragenen Beziehungen, Verwandtschaft zeigt der
+  Stammbaum. Die Anordnung ist ein festes Kräfte-Verfahren mit `rngOf(seedOf(…))`; was der
+  Spielleiter hinlegt, steht in `state.netBoard` (`welt/netActions.ts`: `placeInNet`, `tidyNet`).
+  Welche Übersicht gilt, sagt `useWorldLayout()` (`welt/overview.ts`).
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

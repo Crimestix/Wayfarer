@@ -64,6 +64,11 @@ export interface NetNode {
   placed: boolean;
   /** Bei Fraktionen: Personen, die dazugehören, aber nur am Rand – nicht gezeichnet. */
   more: number;
+  /**
+   * Bei Personen auf einem Ring: die Richtung von ihrer Fraktion aus (Bogenmaß) – der Name steht
+   * nach außen. null = Name unter dem Siegel.
+   */
+  angle: number | null;
 }
 
 export interface NetEdge {
@@ -94,13 +99,13 @@ export const NET = {
   person: 17,
   leader: 21,
   /** Abstand des ersten Rings der Personen vom Rand des Siegels. */
-  ring: 52,
+  ring: 36,
   /** Abstand zwischen zwei Ringen. */
-  ringStep: 50,
+  ringStep: 44,
   /** Bogen, den eine Person auf ihrem Ring braucht. */
-  arc: 60,
+  arc: 50,
   /** Platz für die Beschriftung unter einem Siegel. */
-  label: 30,
+  label: 18,
 } as const;
 
 /** So viele Personen kreisen höchstens um eine Fraktion; die übrigen werden nur gezählt. */
@@ -241,6 +246,7 @@ function netGraph(data: NetData): { nodes: Map<string, NetNode>; edges: NetEdge[
     weight: 0,
     placed: false,
     more: 0,
+    angle: null,
   });
   for (const entity of Object.values(entities)) {
     if (!isGroup(entity)) continue;
@@ -398,6 +404,7 @@ function netGraph(data: NetData): { nodes: Map<string, NetNode>; edges: NetEdge[
       weight: 100,
       placed: false,
       more: 0,
+      angle: null,
     });
 
   // Fäden: je Paar einer, mit allen Sätzen; der stärkste Ton gilt.
@@ -458,12 +465,20 @@ function orbitOrder(a: NetNode, b: NetNode): number {
 // ── Anordnung ──────────────────────────────────────────────────────────────
 
 /** Die Ringe um eine Fraktion: wie viele Personen auf welchem Halbmesser. */
+/**
+ * Unter dem Siegel steht sein Name – dort kreist niemand. Der freie Bogen beginnt rechts unten
+ * und läuft über oben bis links unten.
+ */
+const LABEL_GAP = 2.6;
+const FREE_ARC = 2 * Math.PI - LABEL_GAP;
+const FREE_FROM = Math.PI / 2 + LABEL_GAP / 2;
+
 function rings(r: number, count: number): { radius: number; count: number }[] {
   const out: { radius: number; count: number }[] = [];
   let left = count;
   for (let i = 0; left > 0; i++) {
     const radius = r + NET.ring + i * NET.ringStep;
-    const fits = Math.max(5, Math.floor((2 * Math.PI * radius) / NET.arc));
+    const fits = Math.max(4, Math.floor((FREE_ARC * radius) / NET.arc) + 1);
     const here = Math.min(fits, left);
     out.push({ radius, count: here });
     left -= here;
@@ -472,11 +487,11 @@ function rings(r: number, count: number): { radius: number; count: number }[] {
 }
 
 const SPRING_GAP: Record<NetTone, number> = {
-  friend: 50,
-  bond: 90,
-  plain: 120,
-  tense: 170,
-  foe: 230,
+  friend: 30,
+  bond: 60,
+  plain: 80,
+  tense: 110,
+  foe: 150,
 };
 
 const ITERATIONS = 320;
@@ -555,6 +570,9 @@ export function factionNet(data: NetData): FactionNet {
     }
   }
   const springList = [...springs.values()];
+  // Was nicht mit dem Kern verbunden ist (der Gruppe, sonst dem größten Geflecht), wird stärker
+  // zur Mitte gezogen – sonst triebe es davon.
+  const tied = mainComponent(bodies, springList);
 
   for (let step = 0; step < ITERATIONS; step++) {
     const heat = 1 - step / ITERATIONS;
@@ -566,9 +584,9 @@ export function factionNet(data: NetData): FactionNet {
         let dy = b.y - a.y;
         let d = Math.hypot(dx, dy);
         if (d < 0.01) [dx, dy, d] = [1, 0, 1];
-        const near = a.r + b.r + 40;
+        const near = a.r + b.r + 24;
         // Abstoßen auf Abstand, Drängen bei Überlappung.
-        const push = (9000 * (a.r + b.r)) / (d * d) + (d < near ? (near - d) * 0.5 : 0);
+        const push = (5000 * (a.r + b.r)) / (d * d) + (d < near ? (near - d) * 0.5 : 0);
         const [ux, uy] = [dx / d, dy / d];
         move.get(a)!.x -= ux * push;
         move.get(a)!.y -= uy * push;
@@ -580,7 +598,9 @@ export function factionNet(data: NetData): FactionNet {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.max(0.01, Math.hypot(dx, dy));
-      const rest = a.r + b.r + SPRING_GAP[spring.tone];
+      // Um die Gruppe bleibt Platz – wie Ringe um eine Sonne: Freunde näher, Feinde weiter weg.
+      const party = a.id === PARTY_ID || b.id === PARTY_ID ? 110 : 0;
+      const rest = a.r + b.r + SPRING_GAP[spring.tone] + party;
       const pull = (d - rest) * 0.06 * Math.min(2, 0.7 + 0.3 * spring.count);
       const [ux, uy] = [dx / d, dy / d];
       move.get(a)!.x += ux * pull;
@@ -593,8 +613,9 @@ export function factionNet(data: NetData): FactionNet {
       if (body.fixed) continue;
       const m = move.get(body)!;
       // Sanft zur Mitte, damit Unverbundenes nicht davontreibt.
-      m.x -= body.x * 0.012;
-      m.y -= body.y * 0.012;
+      const gravity = tied.has(body) ? 0.008 : 0.05;
+      m.x -= body.x * gravity;
+      m.y -= body.y * gravity;
       const length = Math.hypot(m.x, m.y);
       const scale = length > limit ? limit / length : 1;
       body.x += m.x * scale;
@@ -643,20 +664,50 @@ export function factionNet(data: NetData): FactionNet {
       Math.hypot(group.x - center.x, group.y - center.y) < 1
         ? -Math.PI / 2
         : Math.atan2(group.y - center.y, group.x - center.x);
+    // Die Richtung nach außen im freien Bogen (0 … FREE_ARC); liegt sie unten, gilt der nächste Rand.
+    const turn = (((away - FREE_FROM) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const aim = turn <= FREE_ARC ? turn : turn - FREE_ARC < LABEL_GAP / 2 ? FREE_ARC : 0;
     let index = 0;
     for (const ring of rings(group.r, list.length)) {
-      const step = Math.min((2 * Math.PI) / ring.count, NET.arc / ring.radius);
-      const start = away - (step * (ring.count - 1)) / 2;
+      const step =
+        ring.count > 1 ? Math.min(FREE_ARC / (ring.count - 1), NET.arc / ring.radius) : 0;
+      const span = step * (ring.count - 1);
+      const first = Math.min(Math.max(0, aim - span / 2), FREE_ARC - span);
       for (let k = 0; k < ring.count; k++) {
         const person = list[index++]!;
         const spot = placed[person.id];
+        const angle = FREE_FROM + first + k * step;
         person.placed = !!spot;
-        person.x = spot ? spot.x : Math.round(group.x + Math.cos(start + k * step) * ring.radius);
-        person.y = spot ? spot.y : Math.round(group.y + Math.sin(start + k * step) * ring.radius);
+        person.x = spot ? spot.x : Math.round(group.x + Math.cos(angle) * ring.radius);
+        person.y = spot ? spot.y : Math.round(group.y + Math.sin(angle) * ring.radius);
+        person.angle = Math.round(Math.atan2(person.y - group.y, person.x - group.x) * 1000) / 1000;
       }
     }
   }
   return { nodes: [...nodes.values()].sort(nodeOrder), edges };
+}
+
+/** Die Körper des Kerns: das Geflecht um die Gruppe – oder, ohne Gruppe, das größte. */
+function mainComponent(bodies: Body[], springs: { a: Body; b: Body }[]): Set<Body> {
+  const links = new Map<Body, Body[]>(bodies.map((body) => [body, []]));
+  for (const { a, b } of springs) {
+    links.get(a)!.push(b);
+    links.get(b)!.push(a);
+  }
+  const seen = new Set<Body>();
+  let best = new Set<Body>();
+  for (const start of bodies) {
+    if (seen.has(start)) continue;
+    const part = new Set<Body>([start]);
+    const queue = [start];
+    while (queue.length)
+      for (const next of links.get(queue.pop()!)!)
+        if (!part.has(next)) (part.add(next), queue.push(next));
+    part.forEach((body) => seen.add(body));
+    if (start.id === PARTY_ID || [...part].some((body) => body.id === PARTY_ID)) return part;
+    if (part.size > best.size) best = part;
+  }
+  return best;
 }
 
 /** Gezeichnet wird von hinten nach vorn: Personen, dann Familien und Fraktionen, die Gruppe oben. */
@@ -760,4 +811,71 @@ export function netBounds(net: FactionNet): { x: number; y: number }[] {
     { x: node.x - node.r, y: node.y - node.r },
     { x: node.x + node.r, y: node.y + node.r + NET.label },
   ]);
+}
+
+export interface NetIndexRow {
+  node: NetNode;
+  /** Personen, die um sie kreisen (gezeichnet und nur gezählt). */
+  people: number;
+  friends: number;
+  foes: number;
+}
+
+/**
+ * Die Fraktionen und Familien des Netzes als Liste: die Gewichtigsten zuerst, mit Zahl der
+ * Personen, Verbündeten und Feinde. `query` grenzt nach dem Namen ein – auch nach dem einer
+ * Person, die zu ihr gehört.
+ */
+export function netIndex(net: FactionNet, query = ''): NetIndexRow[] {
+  const wanted = query.trim().toLocaleLowerCase('de');
+  const rows: NetIndexRow[] = [];
+  for (const node of net.nodes) {
+    if (node.kind !== 'faction' && node.kind !== 'family') continue;
+    const around = net.nodes.filter((other) => other.orbit === node.id);
+    if (
+      wanted &&
+      ![node, ...around].some((entry) => entry.name.toLocaleLowerCase('de').includes(wanted))
+    )
+      continue;
+    let friends = 0;
+    let foes = 0;
+    for (const edge of net.edges) {
+      if (edge.member || (edge.a !== node.id && edge.b !== node.id)) continue;
+      if (edge.tone === 'friend') friends++;
+      if (edge.tone === 'foe') foes++;
+    }
+    rows.push({ node, people: around.length + node.more, friends, foes });
+  }
+  return rows.sort(
+    (a, b) => b.node.weight - a.node.weight || a.node.name.localeCompare(b.node.name, 'de'),
+  );
+}
+
+export interface NetLabel {
+  x: number;
+  y: number;
+  anchor: 'start' | 'middle' | 'end';
+  baseline: 'hanging' | 'central' | 'auto';
+}
+
+/**
+ * Wo der Name eines Knotens steht: bei Personen auf einem Ring nach außen, von der Fraktion weg
+ * (rechts beginnend, links endend, oben darüber) – sonst unter dem Siegel.
+ */
+export function netLabel(node: Pick<NetNode, 'r' | 'angle' | 'kind'>): NetLabel {
+  if (node.angle === null)
+    return {
+      x: 0,
+      y: node.r + (node.kind === 'party' ? 10 : 6),
+      anchor: 'middle',
+      baseline: 'hanging',
+    };
+  const [cos, sin] = [Math.cos(node.angle), Math.sin(node.angle)];
+  const reach = node.r + 5;
+  return {
+    x: Math.round(cos * reach * 10) / 10,
+    y: Math.round(sin * reach * 10) / 10,
+    anchor: cos > 0.35 ? 'start' : cos < -0.35 ? 'end' : 'middle',
+    baseline: sin > 0.35 ? 'hanging' : sin < -0.35 ? 'auto' : 'central',
+  };
 }

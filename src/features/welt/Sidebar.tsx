@@ -28,10 +28,13 @@ import { openEntityDialog } from './editor';
 import {
   getKindFilter,
   setKindFilter,
+  setWorldLayout,
   setWorldView,
   useKindFilter,
+  useWorldLayout,
   useWorldView,
 } from './overview';
+import { NetIndex } from './NetIndex';
 import { scopeChoices, visibleIds } from './scope';
 import {
   WORLD_KINDS,
@@ -48,14 +51,10 @@ import {
   type WorldKind,
 } from './model';
 
-/** Zwei Blicke auf dieselbe Welt: nach Art geordnet – oder in den Ordnern, in denen geschrieben wird. */
-type Layout = 'kinds' | 'tree';
-
-/** Merkt sich Suche, Ansicht und aufgeklappte Orte, solange die App läuft. */
-const memory: { query: string; open: Record<string, boolean>; layout: Layout } = {
+/** Merkt sich Suche und aufgeklappte Orte, solange die App läuft. */
+const memory: { query: string; open: Record<string, boolean> } = {
   query: '',
   open: {},
-  layout: 'kinds',
 };
 
 const EMPTY_HINT: Record<WorldKind, string> = {
@@ -90,7 +89,10 @@ export function Sidebar({
   const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
-  const [layout, setLayout] = useState<Layout>(articleId ? 'tree' : memory.layout);
+  // Drei Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird – oder als
+  // Netz der Fraktionen (das Bild steht rechts auf der Bühne).
+  const layout = useWorldLayout();
+  const setLayout = setWorldLayout;
   const [writing, setWriting] = useState<{ title: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -100,8 +102,7 @@ export function Sidebar({
   useEffect(() => {
     memory.query = query;
     memory.open = open;
-    memory.layout = layout;
-  }, [query, open, layout]);
+  }, [query, open]);
   // Ein Artikel ohne Eintrag steht nur in den Ordnern.
   useEffect(() => {
     if (articleId) setLayout('tree');
@@ -370,6 +371,18 @@ export function Sidebar({
           >
             Ordner
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={layout === 'net'}
+            title="Fraktionen, Familien und ihre Leute als Netz – wer mit wem verbündet oder verfeindet ist"
+            onClick={() => {
+              setLayout('net');
+              if (selected || articleId) navigate('/welt');
+            }}
+          >
+            Netz
+          </button>
         </div>
         {layout === 'kinds' && (
           <div className="wf-welt-filter" role="tablist" aria-label="Nach Art filtern">
@@ -418,14 +431,16 @@ export function Sidebar({
       </div>
 
       <MissingNamesHint />
-      {filter === 'family' && familyHint && (
+      {layout !== 'net' && filter === 'family' && familyHint && (
         <button type="button" className="wf-welt-derive" onClick={deriveFamilies}>
           <Users />
           <span>{familyHint}</span>
         </button>
       )}
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
-        {searching ? (
+        {layout === 'net' ? (
+          <NetIndex query={query} selectedId={selectedId} />
+        ) : searching ? (
           hits.length + textHits.length ? (
             <>
               {hits.length > 0 && (

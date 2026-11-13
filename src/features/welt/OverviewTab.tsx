@@ -1,5 +1,6 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
+import { Schemes } from './Schemes';
 import { ShopSection } from '../laden/ShopSection';
 import { GroupKnows } from './GroupKnows';
 import { BookSection, BookSwitch } from './BookSection';
@@ -846,6 +847,7 @@ function PersonOverview({ entity: person, onShowTab }: Props<Person>) {
       side={
         <>
           <Whereabouts person={person} />
+          <Schemes entity={person} quiet />
           <Connections entity={person} onShowTab={onShowTab} />
           <Belongings entity={person} title="Trägt bei sich" />
           <Upcoming entity={person} />
@@ -951,6 +953,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
             onShowTab={onShowTab}
             empty="Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, erscheint hier."
           />
+          <Schemes entity={faction} />
           <Promises entity={faction} />
           <Tracks entity={faction} />
           <ShopSection entity={faction} />
@@ -1048,6 +1051,7 @@ function FamilyOverview({ entity: family, onShowTab }: Props<Family>) {
             onShowTab={onShowTab}
             empty="Noch niemand. Wer bei einer Person als Mitglied dieser Familie eingetragen ist, sie führt oder hier arbeitet, erscheint hier."
           />
+          <Schemes entity={family} quiet />
           <Promises entity={family} />
           <Tracks entity={family} />
           <NotesSection entity={family} />
