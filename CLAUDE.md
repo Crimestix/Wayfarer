@@ -124,7 +124,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -296,6 +296,13 @@ nicht übernommen.
   Stufen, eine Zahl bis zu einem Ziel oder Abschnitte; sie gehören einem Eintrag oder der Gruppe.
   Geändert über `features/fortschritt/actions.ts` (`moveTrack` hält jeden Schritt als Veränderung
   beim Besitzer fest). Bastion-Reparaturen und Studien sollen diese Leisten nutzen.
+- Spielerbuch (`domain/playerBook.ts`, Reiter „Spielerbuch“ unter Gefährten): was die Gruppe
+  weiß und vermutet – nie gespeichert, abgeleitet (`playerBook`, für eine Seite `knowledgeOf`:
+  weiß, vermutet, nur du). Was die Spieler sehen dürfen, entscheidet einzig `isKnownLine` /
+  `isForPlayers` – nie `secret`, `notes`, geheime Zeilen, Termine oder Schritte von Uhren, Stand
+  von Gerüchten. Vermutungen (`guesses/`) legen nur `features/spielerbuch/actions.ts` an
+  (`saveGuess`, `setGuessTruth`, `removeGuess`); ihr Stand gilt nur „Für dich“. Im Festhalten
+  ist „Vermutung“ ein zweiter Eingang wie „Beute“ (`isOwnDialogChoice`), keine Art der Chronik.
 - Noch offen (`domain/looseEnds.ts`, Reiter „Noch offen“ neben Fadenbrett, Abend und Handouts):
   was die Gruppe angestoßen und nie beendet hat – nie gespeichert, aus der Chronik abgeleitet
   (`looseEnds`): offene Abmachungen, ungeprüfte Gerüchte, Wünsche der Spieler, entdeckte Orte ohne

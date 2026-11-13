@@ -1959,3 +1959,41 @@
   width: 13px;
   height: 13px;
 }
+
+/* Was die Gruppe weiß: drei Schichten (Spielerbuch) */
+.wf-welt-knows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-welt-knows__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-1);
+}
+.wf-welt-knows__head svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-mute);
+}
+.wf-welt-knows__more {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+.wf-welt-knows__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  list-style: none;
+}
+.wf-welt-knows__layer--secret {
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-inset);
+}

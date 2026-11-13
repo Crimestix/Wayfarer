@@ -11,6 +11,7 @@ import {
   Gauge,
   Hourglass,
   Library,
+  Lightbulb,
   Map as MapIcon,
   Repeat,
   Route as RouteIcon,
@@ -24,7 +25,13 @@ import { advanceTime, moveParty, setAttitude, setTime, undoTimeAdvance } from '.
 import type { TimeAdvanceResult } from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
-import { CHOICE_HINT, KIND_HINT, RECORD_GROUPS, type RecordChoice } from '../domain/chronicleKinds';
+import {
+  CHOICE_HINT,
+  KIND_HINT,
+  RECORD_GROUPS,
+  isOwnDialogChoice,
+  type RecordChoice,
+} from '../domain/chronicleKinds';
 import { entityName, findRelation, placePath, sessionsSorted } from '../domain/derive';
 import { placeForEntry, sessionForEntry } from '../domain/history';
 import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
@@ -83,6 +90,7 @@ import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import { LootDialog } from '../features/beute/LootDialog';
+import { GuessDialog } from '../features/spielerbuch/GuessDialog';
 import { RecordFields } from '../features/chronik/RecordFields';
 import { WorldTimeFields } from '../features/chronik/WorldTimeFields';
 import {
@@ -367,6 +375,8 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   /** undefined = Ort der Gruppe zu dieser Zeit. */
   const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(undefined);
   const [loot, setLoot] = useState(false);
+  /** „Vermutung“ gewählt: Text und „Betrifft“ gehen ins Spielerbuch, nicht in die Chronik. */
+  const [guessing, setGuessing] = useState(false);
   /** Bestellung oder Lieferung „in 3 Tagen“ zusätzlich als Termin eintragen. */
   const [asEvent, setAsEvent] = useState(false);
   const recognized = useRecognized(data, text, refs);
@@ -398,6 +408,10 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const toggle = (choice: RecordChoice) => {
     if (choice === 'loot') {
       setLoot(true);
+      return;
+    }
+    if (choice === 'guess') {
+      setGuessing(true);
       return;
     }
     // Eine neu gewählte Art übernimmt „Wer“ aus „Betrifft“, wenn dort genau einer passt.
@@ -473,6 +487,13 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   };
 
   if (loot) return <LootDialog give onClose={closeShellRequest} />;
+  if (guessing)
+    return (
+      <GuessDialog
+        preset={{ text, refs, at: earlier && at !== null ? at : undefined }}
+        onClose={closeShellRequest}
+      />
+    );
 
   // Vorschläge, die übernommen sind, aber nicht mehr im Text stehen, bleiben sichtbar.
   const keys = new Set(recognized.map(recognizedKey));
@@ -582,9 +603,12 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
                   key={choice}
                   type="button"
                   className="wf-shell-kind"
-                  aria-pressed={choice === 'loot' ? undefined : pressed(choice)}
+                  aria-pressed={isOwnDialogChoice(choice) ? undefined : pressed(choice)}
                   title={
-                    choice === 'loot' || choice === 'repute' || choice === 'job'
+                    choice === 'loot' ||
+                    choice === 'repute' ||
+                    choice === 'job' ||
+                    choice === 'guess'
                       ? CHOICE_HINT[choice]
                       : KIND_HINT[choice]
                   }
@@ -1095,6 +1119,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   handout: <FileText />,
   bastion: <Castle />,
   loot: <Coins />,
+  guess: <Lightbulb />,
 };
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {

@@ -1,5 +1,6 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
+import { GroupKnows } from './GroupKnows';
 import { tracksOf } from '../../domain/track';
 import { TrackCard } from '../fortschritt/TrackCard';
 import { Children, useState, type ReactNode } from 'react';
@@ -331,6 +332,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
           )}
           <NotesSection entity={place} />
           <SecretSection entity={place} />
+          <GroupKnows entity={place} />
         </>
       }
       side={
@@ -815,6 +817,7 @@ function PersonOverview({ entity: person, onShowTab }: Props<Person>) {
           <Tracks entity={person} />
           <NotesSection entity={person} />
           <SecretSection entity={person} />
+          <GroupKnows entity={person} />
           <AttitudeTrail entity={person} />
           <RecentChronicle entity={person} onShowTab={onShowTab} />
         </>
@@ -931,6 +934,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
           <Tracks entity={faction} />
           <NotesSection entity={faction} />
           <SecretSection entity={faction} />
+          <GroupKnows entity={faction} />
           <AttitudeTrail entity={faction} />
           <RecentChronicle entity={faction} onShowTab={onShowTab} />
         </>
@@ -971,6 +975,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
           <RecentChronicle entity={item} onShowTab={onShowTab} />
           <NotesSection entity={item} />
           <SecretSection entity={item} />
+          <GroupKnows entity={item} />
         </>
       }
       side={
@@ -1014,6 +1019,7 @@ function FamilyOverview({ entity: family, onShowTab }: Props<Family>) {
           <Tracks entity={family} />
           <NotesSection entity={family} />
           <SecretSection entity={family} />
+          <GroupKnows entity={family} />
           <RecentChronicle entity={family} onShowTab={onShowTab} />
         </>
       }
@@ -1168,6 +1174,7 @@ function KnowledgeOverview({ entity, onShowTab }: Props<KnowledgeEntity>) {
           </Section>
           <NotesSection entity={entity} />
           <SecretSection entity={entity} />
+          <GroupKnows entity={entity} />
           <RecentChronicle entity={entity} onShowTab={onShowTab} />
         </>
       }
@@ -1213,6 +1220,7 @@ function TopicOverview({ entity: topic, onShowTab }: Props<Topic>) {
           <RecentChronicle entity={topic} onShowTab={onShowTab} />
           <NotesSection entity={topic} />
           <SecretSection entity={topic} />
+          <GroupKnows entity={topic} />
         </>
       }
       side={

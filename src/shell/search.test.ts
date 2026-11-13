@@ -10,6 +10,7 @@ import {
   createEvent,
   createBastion,
   createHandout,
+  createGuess,
   createLoot,
   createStock,
   createStory,
@@ -189,6 +190,10 @@ describe('Die Suche', () => {
       }),
     );
     const loot = db.put('loot', createLoot({ text: 'Silberner Aalhaken', source: 'aus dem Nest' }));
+    const guess = db.put(
+      'guesses',
+      createGuess({ text: 'Der Aalkönig lebt noch', truth: 'half', note: 'Nur halb' }),
+    );
     const hits = searchWorld(world.data(), 'aal');
     const hit = (key: string) => hits.find((h) => h.key === key)!;
     expect(hit(`track:${track.id}`)).toMatchObject({
@@ -207,6 +212,10 @@ describe('Die Suche', () => {
     expect(hit(`loot:${loot.id}`)).toMatchObject({
       href: '/beute',
       sub: 'Beute · liegt bereit · aus dem Nest',
+    });
+    expect(hit(`guess:${guess.id}`)).toMatchObject({
+      href: '/spielerbuch',
+      sub: 'Vermutung · halb',
     });
     expect(searchWorld(world.data(), 'graufels')[0]).toMatchObject({
       key: `bastion:${keep.id}`,

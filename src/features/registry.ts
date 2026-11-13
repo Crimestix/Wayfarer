@@ -1,6 +1,7 @@
 /** Die Arbeitsbereiche von Wayfarer in der Reihenfolge der Navigation. */
 import {
   BookOpen,
+  BookUser,
   CalendarDays,
   Castle,
   Coins,
@@ -101,6 +102,12 @@ export const GROUP_TABS: readonly AreaTab[] = [
     icon: Gauge,
   },
   { path: '/bastion', label: 'Bastion', hint: 'Einrichtungen und Bastionszüge', icon: Castle },
+  {
+    path: '/spielerbuch',
+    label: 'Spielerbuch',
+    hint: 'Was die Gruppe weiß und vermutet',
+    icon: BookUser,
+  },
 ];
 
 /** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */

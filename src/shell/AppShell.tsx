@@ -32,6 +32,7 @@ import { WeatherChip } from '../features/wetter';
 import BeutePage from '../features/beute';
 import FortschrittPage from '../features/fortschritt';
 import BastionPage from '../features/bastion';
+import SpielerbuchPage from '../features/spielerbuch';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import NachtragenPage from '../features/nachtragen';
@@ -92,6 +93,7 @@ const GruppeGefaehrten = groupPage(GruppePage);
 const GruppeBeute = groupPage(BeutePage);
 const GruppeFortschritt = groupPage(FortschrittPage);
 const GruppeBastion = groupPage(BastionPage);
+const GruppeSpielerbuch = groupPage(SpielerbuchPage);
 const GeschichtenBrett = storyPage(FaedenPage);
 const GeschichtenBlatt = storyPage(StoryPage);
 const GeschichtenAbend = storyPage(AbendPage);
@@ -387,6 +389,7 @@ export function AppShell() {
             <Route path="/beute" component={GruppeBeute} />
             <Route path="/fortschritt" component={GruppeFortschritt} />
             <Route path="/bastion" component={GruppeBastion} />
+            <Route path="/spielerbuch" component={GruppeSpielerbuch} />
             <Route path="/erkundung/:id?" component={KartenHex} />
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />

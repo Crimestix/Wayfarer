@@ -67,6 +67,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   tracks: ['Fortschrittsleiste', 'Fortschrittsleisten'],
   handouts: ['Handout', 'Handouts'],
   bastions: ['Bastion', 'Bastionen'],
+  guesses: ['Vermutung', 'Vermutungen'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

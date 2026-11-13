@@ -1,12 +1,13 @@
 /**
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
  * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
- * Handouts, Bastionen (mit ihren Einrichtungen) und Beute. Reine Funktion –
+ * Handouts, Bastionen (mit ihren Einrichtungen), Beute und Vermutungen der Spieler. Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
 import { HANDOUT_KIND_LABEL } from '../domain/handout';
 import { formatGold } from '../domain/loot';
+import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
 import { scheduleText } from '../domain/runs';
 import type { CampaignData, Entity } from '../domain/schema';
 import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
@@ -29,7 +30,8 @@ export type SearchSort =
   | 'track'
   | 'handout'
   | 'bastion'
-  | 'loot';
+  | 'loot'
+  | 'guess';
 
 export interface SearchHit {
   key: string;
@@ -256,6 +258,16 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
         loot.source,
       ),
       href: '/beute',
+    });
+  }
+  for (const guess of Object.values(data.guesses)) {
+    const about = guess.refs.map((id) => name(id) ?? data.stories[id]?.title).filter(Boolean);
+    add(score(q, guess.text, guess.note), {
+      key: `guess:${guess.id}`,
+      sort: 'guess',
+      label: guess.text,
+      sub: sub('Vermutung', GUESS_TRUTH_LABEL[guess.truth], about.join(', ')),
+      href: '/spielerbuch',
     });
   }
 

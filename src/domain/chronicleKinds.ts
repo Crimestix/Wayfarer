@@ -161,13 +161,19 @@ export const CHOICE_HINT = {
   job: 'Ein Auftrag an die Gruppe – von wem, was. Bleibt offen, bis du ihn abhakst.',
   repute: 'Wie eine Fraktion zur Gruppe steht',
   loot: 'Öffnet die Ausgabe des Beute-Buchs',
+  guess: 'Was die Spieler vermuten – fürs Spielerbuch. Ob es stimmt, weißt nur du.',
 } as const;
 
 /**
  * Was man im Festhalten wählen kann: eine Art oder einer der zweiten Eingänge – „Beute“ (das
- * Beute-Buch), „Ruf“ (Haltung einer Fraktion) und „Auftrag“ (eine Abmachung der Sorte `job`).
+ * Beute-Buch), „Ruf“ (Haltung einer Fraktion), „Auftrag“ (eine Abmachung der Sorte `job`) und
+ * „Vermutung“ (eine Vermutung der Spieler fürs Spielerbuch, keine Zeile der Chronik).
  */
-export type RecordChoice = RecordKind | 'loot' | 'repute' | 'job';
+export type RecordChoice = RecordKind | 'loot' | 'repute' | 'job' | 'guess';
+
+/** Wahlen, die keine Art der Chronik sind, sondern einen eigenen Dialog öffnen. */
+export const isOwnDialogChoice = (c: RecordChoice): c is 'loot' | 'guess' =>
+  c === 'loot' || c === 'guess';
 
 export interface RecordChoiceInfo {
   choice: RecordChoice;
@@ -182,7 +188,8 @@ export interface RecordGroup {
 
 const choice = (c: RecordChoice, label?: string): RecordChoiceInfo => ({
   choice: c,
-  label: label ?? (c === 'loot' || c === 'repute' || c === 'job' ? '' : KIND_LABEL[c]),
+  label:
+    label ?? (c === 'loot' || c === 'repute' || c === 'job' || c === 'guess' ? '' : KIND_LABEL[c]),
 });
 
 /**
@@ -242,16 +249,22 @@ export const RECORD_GROUPS: RecordGroup[] = [
   {
     id: 'secrets',
     label: 'Geheimnisse',
-    choices: [choice('clue'), choice('reveal'), choice('knowledge'), choice('writing')],
+    choices: [
+      choice('clue'),
+      choice('reveal'),
+      choice('knowledge'),
+      choice('writing'),
+      choice('guess', 'Vermutung'),
+    ],
   },
 ];
 
 /**
- * Die Art hinter einer Wahl: „Ruf“ ist eine Haltung, „Auftrag“ eine Abmachung, „Beute“ keine
- * Art (null).
+ * Die Art hinter einer Wahl: „Ruf“ ist eine Haltung, „Auftrag“ eine Abmachung, „Beute“ und
+ * „Vermutung“ sind keine Art (null).
  */
 export function kindOfChoice(c: RecordChoice): RecordKind | null {
-  if (c === 'loot') return null;
+  if (c === 'loot' || c === 'guess') return null;
   if (c === 'repute') return 'attitude';
   if (c === 'job') return 'promise';
   return c;

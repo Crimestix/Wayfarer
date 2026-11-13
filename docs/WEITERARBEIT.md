@@ -1416,6 +1416,14 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
 - **Nicht geprüft:** installierte App, echter Spielstand (dort werden viele nachgetragene Gerüchte
   ungeprüft stehen – das ist gewollt, sie lassen sich mit „stimmt“/„falsch“ oder „Erledigt“ klären).
 
+### Großer Block 13. 11. 2026 abends
+
+- **Spielerbuch:** Reiter unter Gefährten. „Für dich“ zeigt, was die Gruppe weiß (getroffen,
+  besucht, erwähnt, bekommen; Abmachungen, Gerüchte, Hinweise, Aufgedecktes, Schriftstücke,
+  Handouts) samt Vermutungen zum Abhaken (stimmt / halb / stimmt nicht); „Für die Spieler“ ohne
+  alles Geheime, auch als Text zum Kopieren. Auf jeder Seite der Welt „Was die Gruppe weiß“ in
+  drei Schichten; „Vermutung“ auch im Festhalten. Nicht geprüft: installierte App, echter Spielstand.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

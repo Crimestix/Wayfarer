@@ -12,6 +12,7 @@ import {
   KIND_HINT,
   PRECISION_LABEL,
   RECORD_GROUPS,
+  isOwnDialogChoice,
   type RecordKind,
 } from '../../domain/chronicleKinds';
 import { entityName, sessionsSorted } from '../../domain/derive';
@@ -107,11 +108,14 @@ const PRECISION_CHOICE: Record<ChroniclePrecision, string> = {
   order: 'Nur die Reihenfolge',
 };
 
-/** Die Arten zum Wählen, in den Gruppen des Festhaltens („Beute“ geht über das Beute-Buch). */
+/**
+ * Die Arten zum Wählen, in den Gruppen des Festhaltens („Beute“ geht über das Beute-Buch,
+ * „Vermutung“ über das Spielerbuch).
+ */
 const CHOICE_GROUPS = RECORD_GROUPS.map((group) => ({
   label: group.label,
   choices: group.choices.flatMap((c) =>
-    c.choice === 'loot'
+    isOwnDialogChoice(c.choice)
       ? []
       : [
           {

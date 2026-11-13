@@ -2068,6 +2068,32 @@ export const HandoutSchema = z.object({
 });
 export type Handout = z.infer<typeof HandoutSchema>;
 
+// ── Vermutungen ────────────────────────────────────────────────────────────
+
+/** Ob eine Vermutung der Spieler stimmt – das weiß nur die Spielleitung. */
+export const GUESS_TRUTHS = ['open', 'true', 'half', 'false'] as const;
+export type GuessTruth = (typeof GUESS_TRUTHS)[number];
+
+/**
+ * Eine Vermutung der Spieler (`domain/playerBook.ts`): was die Gruppe glaubt, mit den Dingen, um
+ * die es geht. Ob sie stimmt, steht nur in der Fassung für die Spielleitung – für die Spieler
+ * bleibt sie offen.
+ */
+export const GuessSchema = z.object({
+  ...base,
+  /** Die Vermutung in den Worten der Spieler. */
+  text: z.string().default(''),
+  /** Die Einträge der Welt (oder Geschichten), um die es geht. */
+  refs: z.array(id).default([]),
+  /** Wann die Gruppe das vermutet hat. */
+  at: worldTime.default(0),
+  sessionId: id.nullable().default(null),
+  truth: z.enum(GUESS_TRUTHS).default('open'),
+  /** Bemerkung der Spielleitung – nie für die Spieler. */
+  note: z.string().default(''),
+});
+export type Guess = z.infer<typeof GuessSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -2099,6 +2125,7 @@ export const COLLECTION_SCHEMAS = {
   tracks: TrackSchema,
   handouts: HandoutSchema,
   bastions: BastionSchema,
+  guesses: GuessSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2130,6 +2157,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'tracks',
   'handouts',
   'bastions',
+  'guesses',
 ];
 
 export type CollectionTypes = {
@@ -2241,6 +2269,11 @@ export function createBastion(init: Partial<Bastion> & { name: string }): Bastio
 export function createHandout(init: Partial<Handout> = {}): Handout {
   const stamp = nowIso();
   return HandoutSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createGuess(init: Partial<Guess> = {}): Guess {
+  const stamp = nowIso();
+  return GuessSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTrack(init: Partial<Track> & { name: string }): Track {

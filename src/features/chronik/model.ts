@@ -29,6 +29,7 @@ import {
   sessionSpans,
   type SessionSpan,
 } from '../../domain/history';
+import { isForPlayers } from '../../domain/playerBook';
 import { attitudeLabel } from '../../domain/relations';
 import {
   PARTY_ID,
@@ -904,23 +905,8 @@ export function entryPlainText(
 /** Für wen eine Zusammenfassung gedacht ist. */
 export type SummaryAudience = 'gm' | 'players';
 
-/**
- * Darf ein Eintrag in die Zusammenfassung für die Spieler? Nicht, wenn er als „nur für die
- * Spielleitung“ markiert ist, eine Haltung offenlegt oder jemanden nennt, den die Gruppe noch
- * nicht kennt.
- */
-export function isForPlayers(data: CampaignData, entry: ChronicleEntry): boolean {
-  if (entry.secret || entry.kind === 'attitude') return false;
-  // Was jemand anderes als ein Gefährte erfahren hat, weiß nur die Spielleitung.
-  if (entry.kind === 'knowledge') {
-    const knower = entry.refs[0] ? data.entities[entry.refs[0]] : undefined;
-    if (knower?.kind !== 'character') return false;
-  }
-  return !entry.refs.some((id) => {
-    const entity = data.entities[id];
-    return entity?.kind === 'person' && !entity.person.met;
-  });
-}
+// Ob ein Eintrag für die Spieler bestimmt ist, steht in `domain/playerBook.ts`.
+export { isForPlayers };
 
 /** Vorschlag für eine nachgetragene Session: die Nummer vor der frühesten, sonst 1. */
 export function suggestPastSession(data: CampaignData): { number: number; startAt: WorldTime } {

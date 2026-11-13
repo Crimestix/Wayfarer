@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useData } from '../../data/hooks';
-import { RECORD_GROUPS, PRECISION_LABEL } from '../../domain/chronicleKinds';
+import { RECORD_GROUPS, PRECISION_LABEL, isOwnDialogChoice } from '../../domain/chronicleKinds';
 import {
   CHRONICLE_PRECISIONS,
   type ChroniclePrecision,
@@ -42,7 +42,7 @@ import { proposalKindLabel } from './readSession';
 const CHOICES = RECORD_GROUPS.map((group) => ({
   ...group,
   choices: group.choices.filter(
-    (c): c is { choice: RecordFieldsKind; label: string } => c.choice !== 'loot',
+    (c): c is { choice: RecordFieldsKind; label: string } => !isOwnDialogChoice(c.choice),
   ),
 }));
 
