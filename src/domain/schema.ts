@@ -228,6 +228,11 @@ const CharacterDetails = z.object({
   sheetUrl: z.string().default(''),
   /** Was der Gefährte will – was ihn in den nächsten Abend zieht. */
   goal: z.string().default(''),
+  /**
+   * Schicksal wie bei Personen: Ein toter Gefährte bleibt in der Gruppe sichtbar, aber als tot
+   * gekennzeichnet. Gesetzt über Einträge der Art „Schicksal“ (`data/record.ts`).
+   */
+  status: z.enum(PERSON_STATUS).default('alive'),
 });
 
 const ItemDetails = z.object({
@@ -366,6 +371,11 @@ export const CHRONICLE_KINDS = [
   'clue',
   'reveal',
   'knowledge',
+  // Seit Schritt 1b
+  'writing',
+  'downtime',
+  'transformation',
+  'companion',
 ] as const;
 export type ChronicleKind = (typeof CHRONICLE_KINDS)[number];
 
@@ -384,6 +394,13 @@ export type FightOutcome = (typeof FIGHT_OUTCOMES)[number];
 /** Stimmt ein Gerücht? Nie als Tatsache behandeln, solange es nicht geprüft ist. */
 export const RUMOR_TRUTHS = ['unchecked', 'true', 'false'] as const;
 export type RumorTruth = (typeof RUMOR_TRUTHS)[number];
+
+/**
+ * Was eine Abmachung ist: ein Versprechen, eine Schuld … (`promise`) oder ein Auftrag an die
+ * Gruppe (`job`). Beide haben Frist und Stand; der Auftrag heißt nur anders.
+ */
+export const PROMISE_SORTS = ['promise', 'job'] as const;
+export type PromiseSort = (typeof PROMISE_SORTS)[number];
 
 /** Wie eine Beziehung vor einem Eintrag der Art `bond` stand – zum Zurücknehmen. */
 export const BOND_BEFORE = ['none', 'active', 'ended'] as const;
@@ -422,6 +439,8 @@ export const ChronicleEntrySchema = z.object({
       due: worldTime.nullable().default(null),
       done: z.boolean().default(false),
       failed: z.boolean().default(false),
+      /** Versprechen oder Auftrag (Auftraggeber ist dann refs[0]); fehlt = Versprechen. */
+      sort: z.enum(PROMISE_SORTS).optional(),
     })
     .nullable()
     .default(null),
@@ -459,7 +478,7 @@ export const ChronicleEntrySchema = z.object({
     .object({ long: z.boolean().default(false) })
     .nullable()
     .default(null),
-  /** kind = fate: Eine Person ist nun tot, verschollen … `before` = Zustand davor. */
+  /** kind = fate: Eine Person oder ein Gefährte ist nun tot, verschollen … `before` = Zustand davor. */
   fate: z
     .object({
       entityId: id,
@@ -545,11 +564,58 @@ export const ChronicleEntrySchema = z.object({
     })
     .nullable()
     .default(null),
-  /** kind = reveal: das Geheimnis vom Abend-Blatt; `applied` = der Eintrag hat es aufgedeckt. */
+  /**
+   * kind = reveal: das Geheimnis vom Abend-Blatt; `applied` = der Eintrag hat es aufgedeckt.
+   * `alias`: ein enthüllter wahrer Name (oder Deckname), der als zweiter Name zum Eintrag kam;
+   * `added` = der Eintrag hat ihn hinzugefügt (Löschen nimmt ihn dann wieder weg).
+   */
   reveal: z
     .object({
       prepSecretId: id.nullable().default(null),
       applied: z.boolean().default(false),
+      alias: z
+        .object({ entityId: id, name: z.string(), added: z.boolean().default(false) })
+        .nullable()
+        .default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = writing: ein Schriftstück – Brief, Botschaft, Aushang –, wörtlich im Text. `articleId`
+   * = der Artikel im Wiki, als den der Spielleiter es abgelegt hat.
+   */
+  writing: z
+    .object({
+      title: z.string().default(''),
+      articleId: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = downtime: Zwischenzeit – so viele Tage vergehen mit Tätigkeiten der Gefährten. Der
+   * Eintrag steht am Beginn; er stellt nie die Weltzeit vor.
+   */
+  downtime: z
+    .object({
+      days: z.number().int().nonnegative().default(0),
+      activities: z.array(z.object({ characterId: id, text: z.string().default('') })).default([]),
+    })
+    .nullable()
+    .default(null),
+  /** kind = transformation: Wandlung eines Gefährten (neue Kräfte, Gestalt …) – der Text sagt, welche. */
+  transformation: z.object({ characterId: id }).nullable().default(null),
+  /**
+   * kind = companion: Ein Tier oder Wesen (Eintrag der Art „person“) kommt zur Gruppe oder geht.
+   * `ownerId` = der Gefährte, zu dem es gehört (null = die ganze Gruppe). Die Wirkung ist eine
+   * Beziehung der Art „companion“; `before` sagt wie bei `bond`, wie sie vorher stand.
+   */
+  companion: z
+    .object({
+      entityId: id,
+      joined: z.boolean().default(true),
+      ownerId: id.nullable().default(null),
+      relationId: id.nullable().default(null),
+      before: z.enum(BOND_BEFORE).nullable().default(null),
     })
     .nullable()
     .default(null),
@@ -596,6 +662,139 @@ export const CalendarEventSchema = z.object({
 });
 export type CalendarEvent = z.infer<typeof CalendarEventSchema>;
 
+/** Woher die Notizen einer nachgetragenen Session stammen – und die Notizen selbst. */
+export const SessionSourceSchema = z.object({
+  /** Dateiname, wie er gewählt wurde. */
+  file: z.string(),
+  /** Die Notizen, unverändert. */
+  text: z.string(),
+  /** Zeile der Grenze in der Datei (1-basiert), 0 = unbekannt. */
+  line: z.number().int().nonnegative().default(0),
+  /** Wie genau die Weltzeit der Session beim Übernehmen bekannt war. */
+  precision: z.enum(CHRONICLE_PRECISIONS).default('exact'),
+});
+export type SessionSource = z.infer<typeof SessionSourceSchema>;
+
+/** Was aus einem Vorschlag beim Lesen der Notizen werden kann: eine Art der Chronik, ein Faden oder Beute. */
+export const READ_PROPOSAL_KINDS = [...CHRONICLE_KINDS, 'thread', 'loot'] as const;
+export type ReadProposalKind = (typeof READ_PROPOSAL_KINDS)[number];
+export const READ_PROPOSAL_STATES = ['open', 'accepted', 'dismissed'] as const;
+export type ReadProposalState = (typeof READ_PROPOSAL_STATES)[number];
+
+/**
+ * Ein Vorschlag aus den Notizen einer Session (`features/nachtragen/readSession.ts`). Er gilt erst,
+ * wenn der Spielleiter ihn annimmt; `key` (aus Satz und Art) hält die Entscheidung über erneutes
+ * Lesen hinweg.
+ */
+export const ReadProposalSchema = z.object({
+  id,
+  key: z.string(),
+  kind: z.enum(READ_PROPOSAL_KINDS),
+  /** Der Vorschlag in Worten: „Schicksal: Krummzahn → tot“. */
+  label: z.string().default(''),
+  /** Der Satz (bzw. die Zeilen) der Notizen, aus dem er stammt – wörtlich. */
+  quote: z.string().default(''),
+  /** Text des Eintrags – meist das Zitat; beim Schriftstück der ganze Wortlaut. */
+  text: z.string().default(''),
+  /** Zeile in den Notizen (1-basiert) und Stelle im Text (`session.source.text`). */
+  line: z.number().int().nonnegative().default(0),
+  from: z.number().int().nonnegative().default(0),
+  to: z.number().int().nonnegative().default(0),
+  /** Geschätzte Weltzeit und wie genau sie ist. */
+  at: worldTime,
+  precision: z.enum(CHRONICLE_PRECISIONS).default('order'),
+  secret: z.boolean().default(false),
+  refs: z.array(id).default([]),
+  /** Angaben der Art (wie beim Erkennen: offene Dinge sind null); Faden: `title`; Beute: `text`, `gold`, `toId`, `source`. */
+  payload: z.record(z.string(), z.unknown()).default({}),
+  /** Hinweise zum Prüfen, etwa ein Widerspruch zu einer späteren Session. */
+  hints: z.array(z.string()).default([]),
+  /** Unbekannte Namen im Satz (Schlüssel der Fragen). */
+  names: z.array(z.string()).default([]),
+  state: z.enum(READ_PROPOSAL_STATES).default('open'),
+  /** Was das Annehmen angelegt hat (zum Zurücknehmen). */
+  created: z.array(z.object({ collection: z.string(), id })).default([]),
+  /**
+   * Was das Annehmen an Vorhandenem geändert hat, zum Zurücknehmen: eine Zeile im Steckbrief
+   * (`fact`, `before` = die Zeile davor), eine Zeile unter „Was geschah“ (`happened`) – beide im
+   * Artikel `targetId` – oder ein zweiter Name am Eintrag `targetId` (`alias`). `made` = der
+   * Steckbrief bzw. Abschnitt entstand dabei erst.
+   */
+  edits: z
+    .array(
+      z.object({
+        kind: z.enum(['fact', 'happened', 'alias']),
+        targetId: id,
+        line: z.string(),
+        before: z.string().nullable().default(null),
+        made: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  /** Stand beim letzten Lesen nicht mehr in den Notizen – bleibt, weil schon entschieden. */
+  stale: z.boolean().default(false),
+});
+export type ReadProposal = z.infer<typeof ReadProposalSchema>;
+
+/** Eine Frage zu einem Namen, den Wayfarer in der Welt nicht findet: „Wer oder was ist X?“ */
+export const ReadQuestionSchema = z.object({
+  /** Der Name, vereinheitlicht – woran die Antwort beim erneuten Lesen hängt. */
+  key: z.string(),
+  /** Wie er in den Notizen steht. */
+  name: z.string(),
+  count: z.number().int().nonnegative().default(0),
+  /** Zeilen (1-basiert), in denen er steht. */
+  lines: z.array(z.number().int().nonnegative()).default([]),
+  /** offen; `linked` = ein vorhandener Eintrag (der Name wurde sein zweiter Name); `created` = neu angelegt; `none` = niemand Bestimmtes. */
+  state: z.enum(['open', 'linked', 'created', 'none']).default('open'),
+  entityId: id.nullable().default(null),
+});
+export type ReadQuestion = z.infer<typeof ReadQuestionSchema>;
+
+/** Abschnitte der Notizen, wie sie gelesen wurden (Rückblick, Fäden, Beute, Regelnotizen …). */
+export const READ_SECTION_KINDS = [
+  'recap',
+  'heading',
+  'text',
+  'hooks',
+  'loot',
+  'purchases',
+  'order',
+  'writing',
+  'quote',
+  'rules',
+  'list',
+] as const;
+export type ReadSectionKind = (typeof READ_SECTION_KINDS)[number];
+
+/**
+ * Stand des Lesens einer nachgetragenen Session (Schritt 3, `features/nachtragen/readSession.ts`):
+ * Vorschläge mit ihrem Zustand, Fragen zu unbekannten Namen und die erkannten Abschnitte.
+ * Weitere Angaben bleiben beim Laden erhalten.
+ */
+export const SessionReadingSchema = z.looseObject({
+  /** Wann zuletzt gelesen wurde (ISO-Zeit des Rechners). */
+  readAt: z.string().default(''),
+  /** Fingerabdruck der gelesenen Notizen: Haben sie sich seither geändert? */
+  mark: z.string().default(''),
+  /** Vorlesetext und Rückblick, wie sie gelesen wurden (wörtlich) – daraus kommen keine Vorschläge. */
+  recap: z.string().default(''),
+  proposals: z.array(ReadProposalSchema).default([]),
+  questions: z.array(ReadQuestionSchema).default([]),
+  sections: z
+    .array(
+      z.object({
+        kind: z.enum(READ_SECTION_KINDS),
+        /** Zeilen (1-basiert, einschließlich). */
+        from: z.number().int().nonnegative(),
+        to: z.number().int().nonnegative(),
+        title: z.string().default(''),
+      }),
+    )
+    .default([]),
+});
+export type SessionReading = z.infer<typeof SessionReadingSchema>;
+
 export const SessionSchema = z.object({
   ...base,
   number: z.number().int().nonnegative(),
@@ -606,6 +805,15 @@ export const SessionSchema = z.object({
   endAt: worldTime.nullable().default(null),
   /** Vorbereitung und Mitschrift. */
   notes: z.string().default(''),
+  /**
+   * Die Notizen des Spielleiters, aus denen die Session nachgetragen wurde – wörtlich, wie sie in
+   * der Datei standen (ohne die Zeile der Grenze). `null` = nicht aus Notizen nachgetragen.
+   */
+  source: SessionSourceSchema.nullable().default(null),
+  /** Vorlesetext und Rückblick für die Spieler, aus den Notizen herausgelöst (Schritt 3). */
+  recap: z.string().default(''),
+  /** Stand des Lesens der Notizen (Schritt 3); `null` = noch nicht gelesen. */
+  reading: SessionReadingSchema.nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

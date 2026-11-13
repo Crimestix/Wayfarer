@@ -6,9 +6,9 @@
  * `RecordFields.tsx`.
  */
 import { recordProblem } from '../../data/record';
-import { KIND_LABEL, type RecordInput, type RecordKind } from '../../domain/chronicleKinds';
+import { KIND_LABEL, isJob, type RecordInput, type RecordKind } from '../../domain/chronicleKinds';
 import { promiseOutcome, type PromiseOutcome } from '../../domain/derive';
-import type { Recognized } from '../../domain/recognize';
+import type { DeliveryOffer, Recognized } from '../../domain/recognize';
 import {
   PARTY_ID,
   type CampaignData,
@@ -19,12 +19,27 @@ import {
   type PersonStatus,
   type RumorTruth,
 } from '../../domain/schema';
-import type { WorldTime } from '../../domain/time/calendar';
+import { MINUTES_PER_DAY, startOfDay, type WorldTime } from '../../domain/time/calendar';
 
 // ── Entwurf einer Art ──────────────────────────────────────────────────────
 
-/** Eine Art, wie man sie wählt: jede Art außer dem Termin, dazu „Ruf“ (Haltung einer Fraktion). */
-export type RecordFieldsKind = RecordKind | 'repute';
+/**
+ * Eine Art, wie man sie wählt: jede Art außer dem Termin, dazu „Ruf“ (Haltung einer Fraktion) und
+ * „Auftrag“ (eine Abmachung der Sorte `job`).
+ */
+export type RecordFieldsKind = RecordKind | 'repute' | 'job';
+
+/** Die Art hinter einer Wahl. */
+export const kindOfFields = (choice: RecordFieldsKind): RecordKind =>
+  choice === 'repute' ? 'attitude' : choice === 'job' ? 'promise' : choice;
+
+/** Wie eine Wahl heißt – „Ruf“ und „Auftrag“ haben eigene Namen. */
+export const fieldsLabel = (choice: RecordFieldsKind): string =>
+  choice === 'repute' ? 'Ruf' : choice === 'job' ? 'Auftrag' : KIND_LABEL[choice];
+
+/** Die Wahl, zu der ein vorhandener Eintrag gehört (ein Auftrag ist „Auftrag“). */
+export const choiceOfEntry = (entry: ChronicleEntry): RecordFieldsKind =>
+  isJob(entry) ? 'job' : entry.kind === 'event' ? 'note' : entry.kind;
 
 /**
  * Die Angaben einer Art, so wie sie im Dialog stehen. Jede Art nutzt nur einen Teil davon;
@@ -73,6 +88,15 @@ export interface RecordDraft {
   /** Abmachung: Frist in Tagen ab dem Zeitpunkt des Eintrags, wie getippt; leer = ohne Frist. */
   dueDays: string;
   promiseOutcome: PromiseOutcome;
+  /** Schriftstück: Titel und ob es als Artikel abgelegt wird; `articleId` = schon abgelegt. */
+  title: string;
+  createArticle: boolean;
+  articleId: string | null;
+  /** Zwischenzeit: Tage, wie getippt, und die Tätigkeiten je Gefährte. */
+  days: string;
+  activities: { characterId: string; text: string }[];
+  /** Aufgedeckt: ein zweiter Name für den Eintrag in „Wer“ (wahrer Name, Deckname). */
+  aliasName: string;
 }
 
 export const emptyRecordDraft = (): RecordDraft => ({
@@ -96,6 +120,12 @@ export const emptyRecordDraft = (): RecordDraft => ({
   prepSecretId: null,
   dueDays: '',
   promiseOutcome: 'open',
+  title: '',
+  createArticle: false,
+  articleId: null,
+  days: '',
+  activities: [],
+  aliasName: '',
 });
 
 const PEOPLE: EntityKind[] = ['person', 'character', 'faction', 'family'];
@@ -109,11 +139,15 @@ export const WHO_KINDS: Partial<Record<RecordFieldsKind, EntityKind[]>> = {
   quote: PEOPLE,
   rumor: PEOPLE,
   knowledge: PEOPLE,
-  fate: ['person'],
+  fate: LIVING,
   whereabouts: LIVING,
   condition: LIVING,
   milestone: ['character'],
   wish: ['character'],
+  job: PEOPLE,
+  writing: PEOPLE,
+  transformation: ['character'],
+  companion: ['person'],
 };
 
 /**
@@ -161,6 +195,12 @@ const unique = (ids: (string | null | undefined)[]) => [
   ...new Set(ids.filter((id): id is string => !!id)),
 ];
 
+/** Tage aus dem Feld; null, wenn leer oder keine ganze Zahl ab 0. */
+const daysOf = (text: string): number | null => {
+  const value = Number(text.trim());
+  return text.trim() && Number.isInteger(value) && value >= 0 ? value : null;
+};
+
 /** Die Stufe aus dem Feld; null, wenn leer oder keine ganze Zahl. */
 const levelOf = (text: string): number | null => {
   const value = Number(text.trim());
@@ -177,7 +217,7 @@ export function recordInputOf(
   common: RecordCommon,
   now: WorldTime,
 ): RecordInput {
-  const kind: RecordKind = choice === 'repute' ? 'attitude' : choice;
+  const kind = kindOfFields(choice);
   const input: RecordInput = {
     kind,
     text: common.text,
@@ -204,9 +244,33 @@ export function recordInputOf(
       input.promise = {
         due: d.dueDays.trim() && days >= 0 ? from + Math.round(days * 1440) : null,
         outcome: d.promiseOutcome,
+        ...(choice === 'job' ? { sort: 'job' as const } : {}),
       };
+      // Beim Auftrag steht der Auftraggeber vorn.
+      if (choice === 'job') input.refs = unique([d.whoId, ...common.refs]);
       break;
     }
+    case 'writing':
+      input.writing = {
+        title: d.title,
+        articleId: d.articleId,
+        createArticle: d.createArticle && !d.articleId,
+      };
+      // Absender oder Fundort steht vorn.
+      input.refs = unique([d.whoId, ...common.refs]);
+      break;
+    case 'downtime':
+      input.downtime = {
+        days: daysOf(d.days) ?? 0,
+        activities: d.activities.filter((a) => a.text.trim()),
+      };
+      break;
+    case 'transformation':
+      if (d.whoId) input.transformation = { characterId: d.whoId };
+      break;
+    case 'companion':
+      if (d.whoId) input.companion = { entityId: d.whoId, joined: !d.ended, ownerId: d.towardId };
+      break;
     case 'fight':
       input.fight = { outcome: d.fightOutcome, encounterId: d.encounterId };
       input.refs = unique([...d.withIds, ...common.refs]);
@@ -251,7 +315,11 @@ export function recordInputOf(
       input.clue = { threadId: d.threadId, hintId: d.threadId ? d.hintId : null };
       break;
     case 'reveal':
-      input.reveal = { prepSecretId: d.prepSecretId };
+      input.reveal = {
+        prepSecretId: d.prepSecretId,
+        alias:
+          d.whoId && d.aliasName.trim() ? { entityId: d.whoId, name: d.aliasName.trim() } : null,
+      };
       break;
     case 'quote':
     case 'knowledge':
@@ -295,9 +363,24 @@ export function draftProblem(choice: RecordFieldsKind, draft: RecordDraft): stri
     case 'knowledge':
       return draft.whoId ? '' : 'Wer hat es erfahren?';
     case 'promise':
+    case 'job':
       return draft.dueDays.trim() && !(Number(draft.dueDays) >= 0)
         ? 'Die Frist ist keine Zahl von Tagen.'
         : '';
+    case 'writing':
+      return draft.createArticle && !draft.articleId && !draft.title.trim()
+        ? 'Wie soll der Artikel heißen? Das Schriftstück braucht einen Titel.'
+        : '';
+    case 'downtime':
+      return draft.days.trim() && daysOf(draft.days) === null
+        ? 'Die Zwischenzeit ist keine Zahl von Tagen.'
+        : '';
+    case 'transformation':
+      return draft.whoId ? '' : 'Welcher Gefährte?';
+    case 'companion':
+      return draft.whoId ? '' : 'Welches Tier oder Wesen?';
+    case 'reveal':
+      return draft.aliasName.trim() && !draft.whoId ? 'Wessen Name ist das?' : '';
     default:
       return '';
   }
@@ -320,6 +403,25 @@ export function draftOfEntry(entry: ChronicleEntry): RecordDraft {
       draft.promiseOutcome = entry.promise ? promiseOutcome(entry.promise) : 'open';
       if (entry.promise?.due != null)
         draft.dueDays = String(Math.max(0, Math.round((entry.promise.due - entry.at) / 1440)));
+      if (isJob(entry)) draft.whoId = others[0] ?? null;
+      break;
+    case 'writing':
+      draft.title = entry.writing?.title ?? '';
+      draft.articleId = entry.writing?.articleId ?? null;
+      draft.createArticle = !!draft.articleId;
+      draft.whoId = others[0] ?? null;
+      break;
+    case 'downtime':
+      draft.days = entry.downtime ? String(entry.downtime.days) : '';
+      draft.activities = (entry.downtime?.activities ?? []).map((a) => ({ ...a }));
+      break;
+    case 'transformation':
+      draft.whoId = entry.transformation?.characterId ?? null;
+      break;
+    case 'companion':
+      draft.whoId = entry.companion?.entityId ?? null;
+      draft.towardId = entry.companion?.ownerId ?? null;
+      draft.ended = !(entry.companion?.joined ?? true);
       break;
     case 'fight':
       draft.fightOutcome = entry.fight?.outcome ?? 'open';
@@ -372,6 +474,8 @@ export function draftOfEntry(entry: ChronicleEntry): RecordDraft {
       break;
     case 'reveal':
       draft.prepSecretId = entry.reveal?.prepSecretId ?? null;
+      draft.whoId = entry.reveal?.alias?.entityId ?? null;
+      draft.aliasName = entry.reveal?.alias?.name ?? '';
       break;
     case 'quote':
     case 'knowledge':
@@ -453,14 +557,38 @@ export function draftFromRecognized(item: Recognized): { draft: RecordDraft; ref
       break;
     case 'quote':
     case 'knowledge':
+    case 'writing':
       draft.whoId = item.refs[0] ?? null;
       used = [draft.whoId];
+      break;
+    case 'promise':
+      if (p.promise?.sort === 'job') {
+        draft.whoId = item.refs[0] ?? null;
+        used = [draft.whoId];
+      }
+      break;
+    case 'downtime':
+      draft.days = p.downtime?.days != null ? String(p.downtime.days) : '';
+      break;
+    case 'transformation':
+      draft.whoId = p.transformation?.characterId ?? null;
+      used = [draft.whoId];
+      break;
+    case 'companion':
+      draft.whoId = p.companion?.entityId ?? null;
+      draft.towardId = p.companion?.ownerId ?? null;
+      draft.ended = !(p.companion?.joined ?? true);
+      used = [draft.whoId, draft.towardId];
       break;
     default:
       break;
   }
   return { draft, refs: item.refs.filter((id) => !used.includes(id)) };
 }
+
+/** Die Wahl im Raster, die ein Vorschlag trifft – ein erkannter Auftrag ist „Auftrag“. */
+export const choiceOfRecognized = (item: Recognized): RecordFieldsKind =>
+  item.kind === 'promise' && item.payload.promise?.sort === 'job' ? 'job' : item.kind;
 
 // ── Mehrere Arten in einem Zug ─────────────────────────────────────────────
 
@@ -515,9 +643,10 @@ export function toggleRecognized(
     return { parts: rest.length ? rest : [partOf('note')], refs: [] };
   }
   const { draft, refs } = draftFromRecognized(item);
-  const part: RecordPart = { key, choice: item.kind, draft, source: key, sourceLabel: item.label };
+  const choice = choiceOfRecognized(item);
+  const part: RecordPart = { key, choice, draft, source: key, sourceLabel: item.label };
   const kept = parts.filter(
-    (p) => p.choice !== 'note' && !(p.source === null && p.choice === item.kind),
+    (p) => p.choice !== 'note' && !(p.source === null && p.choice === choice),
   );
   return { parts: [...kept, part], refs };
 }
@@ -541,7 +670,7 @@ export function recordCheck(
   common: RecordCommon,
 ): { problem: string; onlyText: boolean } {
   const many = parts.length > 1;
-  const label = (part: RecordPart) => (part.choice === 'repute' ? 'Ruf' : KIND_LABEL[part.choice]);
+  const label = (part: RecordPart) => fieldsLabel(part.choice);
   for (const part of parts) {
     const missing = draftProblem(part.choice, part.draft);
     if (missing) return { problem: many ? `${label(part)}: ${missing}` : missing, onlyText: false };
@@ -563,6 +692,30 @@ export function recordCheck(
     }
   }
   return { problem: '', onlyText: false };
+}
+
+// ── Lieferung als Termin ───────────────────────────────────────────────────
+
+/** Längste Bezeichnung eines Termins aus einem Satz. */
+const TITLE_MAX = 120;
+
+/**
+ * Der Termin, den „Festhalten“ für eine Bestellung oder Lieferung anbietet („in 3 Tagen da“):
+ * an dem Tag, der so viele Tage nach dem Zeitpunkt des Eintrags liegt, ohne Uhrzeit; die
+ * Bezeichnung ist der Satz des Spielleiters. null, wenn der Tag nicht nach jetzt liegt – was
+ * schon vorbei ist, tritt nicht mehr ein.
+ */
+export function deliveryEvent(
+  offer: DeliveryOffer,
+  at: WorldTime,
+  now: WorldTime,
+): { title: string; at: WorldTime } | null {
+  const day = startOfDay(at) + offer.days * MINUTES_PER_DAY;
+  if (day <= now) return null;
+  const sentence = offer.sentence.replace(/\s+/g, ' ').trim();
+  const title =
+    sentence.length > TITLE_MAX ? `${sentence.slice(0, TITLE_MAX - 1).trimEnd()}…` : sentence;
+  return { title, at: day };
 }
 
 // ── Auswahllisten ──────────────────────────────────────────────────────────

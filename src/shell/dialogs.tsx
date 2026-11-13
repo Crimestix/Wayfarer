@@ -20,15 +20,15 @@ import { advanceTime, moveParty, setAttitude, setTime, undoTimeAdvance } from '.
 import type { TimeAdvanceResult } from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
-import { recordEntries, recordEntry } from '../data/record';
-import { KIND_HINT, KIND_LABEL, RECORD_GROUPS, type RecordChoice } from '../domain/chronicleKinds';
+import { CHOICE_HINT, KIND_HINT, RECORD_GROUPS, type RecordChoice } from '../domain/chronicleKinds';
 import { entityName, findRelation, placePath, sessionsSorted } from '../domain/derive';
 import { placeForEntry, sessionForEntry } from '../domain/history';
-import { recognizeEntry, type Recognized } from '../domain/recognize';
+import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
 import {
   PARTY_ID,
   createEntity,
+  createEvent,
   type CampaignData,
   type ChronicleEntry,
   type Entity,
@@ -88,9 +88,13 @@ import {
   timeDraftOf,
   timeOfDraft,
 } from '../features/chronik/model';
+import { recordFiled } from '../features/chronik/actions';
 import {
+  deliveryEvent,
   emptyRecordDraft,
+  fieldsLabel,
   hasRecordFields,
+  kindOfFields,
   isAccepted,
   partOf,
   prefillFromRefs,
@@ -359,7 +363,10 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   /** undefined = Ort der Gruppe zu dieser Zeit. */
   const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(undefined);
   const [loot, setLoot] = useState(false);
+  /** Bestellung oder Lieferung „in 3 Tagen“ zusätzlich als Termin eintragen. */
+  const [asEvent, setAsEvent] = useState(false);
   const recognized = useRecognized(data, text, refs);
+  const delivery = useMemo(() => recognizeDelivery(text), [text]);
 
   const at = earlier ? timeOfDraft(cal, time) : now;
   const when = at ?? now;
@@ -382,6 +389,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const sessions = useMemo(() => sessionsSorted(data).reverse(), [data]);
   const autoSession = sessionForEntry(data, when);
   const autoPlace = placeForEntry(data, when);
+  const planned = delivery ? deliveryEvent(delivery, when, now) : null;
 
   const toggle = (choice: RecordChoice) => {
     if (choice === 'loot') {
@@ -413,12 +421,32 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const save = () => {
     if (check.problem) return;
     const inputs = recordInputs(parts, common, now);
-    const result = inputs.length === 1 ? recordEntry(db, inputs[0]!) : recordEntries(db, inputs);
+    const result = recordFiled(db, inputs);
     if ('problem' in result) {
       toast({ title: 'Nicht festgehalten', body: result.problem, tone: 'danger' });
       return;
     }
-    const entries = 'entries' in result ? result.entries : [result.entry];
+    const { entries } = result;
+    // Die Lieferung als Termin: ein Vorhaben am Tag, an dem es so weit ist.
+    const event =
+      asEvent && planned
+        ? db.put(
+            'events',
+            createEvent({
+              title: planned.title,
+              at: planned.at,
+              kind: 'plan',
+              placeId: placeChoice === undefined ? autoPlace : placeChoice,
+              refs,
+            }),
+          )
+        : null;
+    const undo = () =>
+      db.batch(() => {
+        if (event && db.getSnapshot().events[event.id]?.rev === event.rev)
+          db.remove('events', event.id);
+        result.undo();
+      });
     closeShellRequest();
     const after = db.getSnapshot();
     toast({
@@ -428,10 +456,15 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
           {entries.map((entry) => (
             <div key={entry.id}>{toastLine(after, entry)}</div>
           ))}
+          {event && (
+            <div>
+              Termin: {event.title} – {formatDate(cal, event.at)}
+            </div>
+          )}
           {when < now && <div className="wf-mute">Nachgetragen: {formatDateTime(cal, when)}</div>}
         </>
       ),
-      action: { label: 'Rückgängig', run: result.undo },
+      action: { label: 'Rückgängig', run: undo },
     });
   };
 
@@ -482,7 +515,9 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
           />
           <div className="wf-field__hint">
             {single
-              ? KIND_HINT[single === 'repute' ? 'attitude' : single]
+              ? single === 'job'
+                ? CHOICE_HINT.job
+                : KIND_HINT[kindOfFields(single)]
               : `${parts.length} Einträge aus einem Text – je Art mit eigenen Angaben.`}
           </div>
         </div>
@@ -513,9 +548,16 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
               title="Wieder wegnehmen"
               onClick={() => removePart(part.key)}
             >
-              {part.sourceLabel ?? KIND_LABEL[part.choice === 'repute' ? 'attitude' : part.choice]}
+              {part.sourceLabel ?? fieldsLabel(part.choice)}
             </button>
           ))}
+          {planned && delivery && (
+            <Checkbox checked={asEvent} onChange={setAsEvent}>
+              Als Termin eintragen: in{' '}
+              {delivery.days === 1 ? 'einem Tag' : `${delivery.days} Tagen`} (
+              {formatDate(cal, planned.at)})
+            </Checkbox>
+          )}
           <span className="wf-mute">
             {recognized.length + orphans.length === 0
               ? text.trim()
@@ -538,11 +580,9 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
                   className="wf-shell-kind"
                   aria-pressed={choice === 'loot' ? undefined : pressed(choice)}
                   title={
-                    choice === 'loot'
-                      ? 'Öffnet die Ausgabe des Beute-Buchs'
-                      : choice === 'repute'
-                        ? 'Wie eine Fraktion zur Gruppe steht'
-                        : KIND_HINT[choice]
+                    choice === 'loot' || choice === 'repute' || choice === 'job'
+                      ? CHOICE_HINT[choice]
+                      : KIND_HINT[choice]
                   }
                   onClick={() => toggle(choice)}
                 >
@@ -603,9 +643,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
           .filter((part) => hasRecordFields(part.choice))
           .map((part) => (
             <section key={part.key} className="wf-shell-log__part">
-              <div className="wf-caps">
-                {part.choice === 'repute' ? 'Ruf' : KIND_LABEL[part.choice]}
-              </div>
+              <div className="wf-caps">{fieldsLabel(part.choice)}</div>
               <RecordFields
                 kind={part.choice}
                 draft={part.draft}

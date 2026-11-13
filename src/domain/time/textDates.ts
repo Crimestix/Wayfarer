@@ -1,6 +1,6 @@
 /**
  * Daten des Kalenders im Fließtext erkennen: „17. Tauwind 701 AD“, „17. Tauwind“, „Tauwind 701“,
- * „701 AD“. Feste Muster aus den Monatsnamen und Zeitrechnungen des Kalenders – der Kalender ist
+ * „701 AD“, „1. Tauwind, Jahr 701“, „Jahr 701“. Feste Muster aus den Monatsnamen und Zeitrechnungen des Kalenders – der Kalender ist
  * Daten, also sind es auch die Muster. Ohne Jahr gilt das laufende Jahr der Kampagne.
  */
 import {
@@ -47,13 +47,17 @@ function patternOf(cal: CalendarDef): RegExp | null {
   if (months) {
     const era = eras ? `(?:\\s?(?<ERA>${eras}))?` : '';
     const year = `(?<YEAR>\\d{1,6})${era}`;
+    // „17. Tauwind 701“, auch „17. Tauwind, Jahr 701“ und „Tauwind im Jahr 701“.
+    const before = `(?:,?\\s+(?:im\\s+)?Jahre?\\s+|\\s+)`;
     const parts = [
       // 17. Tauwind [701 [AD]]
-      `(?<day>\\d{1,2})\\.\\s?(?<month>${months})(?:\\s+${year.replace('YEAR', 'y1').replace('ERA', 'e1')})?`,
+      `(?<day>\\d{1,2})\\.\\s?(?<month>${months})(?:${before}${year.replace('YEAR', 'y1').replace('ERA', 'e1')})?`,
       // Tauwind 701 [AD]
-      `(?<month2>${months})\\s+${year.replace('YEAR', 'y2').replace('ERA', 'e2')}`,
+      `(?<month2>${months})${before}${year.replace('YEAR', 'y2').replace('ERA', 'e2')}`,
       // 701 AD
       ...(eras ? [`(?<y3>\\d{1,6})\\s?(?<e3>${eras})`] : []),
+      // Jahr 701 [AD]
+      `Jahre?\\s+${year.replace('YEAR', 'y4').replace('ERA', 'e4')}(?!\\.\\d)`,
     ];
     pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${parts.join('|')})(?![\\p{L}\\p{N}])`, 'gu');
   }
@@ -92,8 +96,8 @@ export function findDates(cal: CalendarDef, text: string, now: WorldTime): TextD
       if (year === null) continue;
       parts = { year, month: monthOf(g.month2), day: 1 };
       precision = 'month';
-    } else if (g.y3 !== undefined) {
-      const year = yearOf(g.y3, g.e3);
+    } else if (g.y3 !== undefined || g.y4 !== undefined) {
+      const year = g.y3 !== undefined ? yearOf(g.y3, g.e3) : yearOf(g.y4, g.e4);
       if (year === null) continue;
       parts = { year, month: 0, day: 1 };
       precision = 'year';

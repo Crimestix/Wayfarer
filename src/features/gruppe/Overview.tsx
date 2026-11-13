@@ -4,7 +4,8 @@ import { Pencil, Swords, Tent, UserPlus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind } from '../../domain/derive';
 import type { Character } from '../../domain/schema';
-import { Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, cx } from '../../ui';
+import { FATE_LABEL } from '../../domain/chronicleKinds';
+import { Badge, Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, cx } from '../../ui';
 import { openRest } from '../../shell/commands';
 import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
@@ -203,6 +204,11 @@ function CharacterCard({
             {character.name}
           </Link>
           <div className="wf-gruppe-card__class wf-clamp-1" title={classLine(d)}>
+            {d.status !== 'alive' && (
+              <>
+                <Badge tone="blood">{FATE_LABEL[d.status]}</Badge>{' '}
+              </>
+            )}
             {classLine(d)}
           </div>
           <div className="wf-gruppe-card__player wf-clamp-1">

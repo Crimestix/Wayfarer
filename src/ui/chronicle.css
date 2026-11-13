@@ -119,6 +119,21 @@
   color: var(--ink-soft);
   font-style: italic;
 }
+.wf-chron--writing .wf-chron__text {
+  white-space: pre-wrap;
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--line);
+  font-style: italic;
+}
+.wf-chron__activities {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
 .wf-chron__refs {
   display: flex;
   flex-wrap: wrap;

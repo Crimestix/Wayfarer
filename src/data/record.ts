@@ -16,6 +16,7 @@ import {
   neighboursOfSort,
   placeForEntry,
   sessionForEntry,
+  statusOf,
 } from '../domain/history';
 import { RELATION_TYPES } from '../domain/relations';
 import {
@@ -23,6 +24,7 @@ import {
   FIGHT_OUTCOMES,
   PARTY_ID,
   PERSON_STATUS,
+  PROMISE_SORTS,
   RUMOR_TRUTHS,
   createChronicleEntry,
   createRelation,
@@ -31,6 +33,7 @@ import {
   type ChronicleEntry,
   type CollectionName,
   type CollectionTypes,
+  type PersonStatus,
   type PlayState,
   type RumorTruth,
 } from '../domain/schema';
@@ -54,7 +57,17 @@ const NEEDS_TEXT: readonly RecordKind[] = [
   'rumor',
   'knowledge',
   'wish',
+  'writing',
+  'transformation',
 ];
+
+/** Wie viele Tage eine Zwischenzeit höchstens dauert (zehn Jahre reichen für jede Pause). */
+const MAX_DOWNTIME_DAYS = 3650;
+
+/** Gleich geschrieben – ohne Rücksicht auf Groß- und Kleinschreibung und Leerzeichen. */
+const sameName = (a: string, b: string) =>
+  a.replace(/\s+/g, ' ').trim().toLocaleLowerCase('de') ===
+  b.replace(/\s+/g, ' ').trim().toLocaleLowerCase('de');
 
 // Zeitstempel, die streng wachsen: Einträge derselben Weltzeit behalten so die Reihenfolge, in
 // der sie festgehalten wurden – auch innerhalb derselben Millisekunde und auch nach Einträgen,
@@ -177,7 +190,9 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
         due: input.promise?.due ?? null,
         done: outcome !== 'open',
         failed: outcome === 'failed',
+        sort: input.promise?.sort ?? 'promise',
       };
+      if (!PROMISE_SORTS.includes(promise.sort)) return { problem: 'Unbekannte Sorte.' };
       return { entry: probe({ placeId, refs, promise, ...rest() }) };
     }
     case 'fight': {
@@ -203,19 +218,12 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
     case 'fate': {
       const f = input.fate;
       if (!f) return { problem: 'Wessen Schicksal?' };
-      if (!isKind(data, f.entityId, 'person'))
-        return {
-          problem: 'Ein Schicksal gibt es nur für Personen – für Gefährten gibt es den Zustand.',
-        };
+      if (!isKind(data, f.entityId, 'person', 'character'))
+        return { problem: 'Ein Schicksal gibt es nur für Personen und Gefährten.' };
       if (!PERSON_STATUS.includes(f.status)) return { problem: 'Unbekanntes Schicksal.' };
       const fate = { entityId: f.entityId, status: f.status, before: null };
       const { previous, next } = neighboursOfSort(data, probe({ fate }));
-      const person = data.entities[f.entityId]!;
-      const before = next
-        ? (previous?.fate?.status ?? null)
-        : person.kind === 'person'
-          ? person.person.status
-          : null;
+      const before = next ? (previous?.fate?.status ?? null) : statusOf(data, f.entityId);
       refs = [...new Set([f.entityId, ...refs])];
       return { entry: probe({ placeId, refs, fate: { ...fate, before }, ...rest() }) };
     }
@@ -366,15 +374,107 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       const secret = prepSecretId ? findPrepSecret(data, prepSecretId)?.secret : undefined;
       if (prepSecretId && !secret) return { problem: 'Dieses Geheimnis gibt es nicht mehr.' };
       if (storyId === undefined) storyId = secret?.storyId ?? null;
+      let alias: { entityId: string; name: string; added: boolean } | null = null;
+      if (input.reveal?.alias) {
+        const { entityId } = input.reveal.alias;
+        const name = input.reveal.alias.name.replace(/\s+/g, ' ').trim();
+        const entity = data.entities[entityId];
+        if (!entity) return { problem: 'Wessen Name? Den Eintrag gibt es nicht.' };
+        if (!name) return { problem: 'Welcher Name? Er fehlt.' };
+        const known = [entity.name, ...entity.aliases].some((n) => sameName(n, name));
+        alias = { entityId, name, added: !known };
+        refs = [...new Set([entityId, ...refs])];
+      }
       return {
         entry: probe({
           text: text || secret?.text || '',
           placeId,
           refs,
-          reveal: { prepSecretId, applied: !!secret && !secret.revealed },
+          reveal: { prepSecretId, applied: !!secret && !secret.revealed, alias },
           ...rest(),
         }),
       };
+    }
+    case 'writing': {
+      const title = (input.writing?.title ?? '').replace(/\s+/g, ' ').trim();
+      const articleId = input.writing?.articleId ?? null;
+      if (articleId && !data.articles[articleId])
+        return { problem: 'Diesen Artikel gibt es nicht mehr.' };
+      if (input.writing?.createArticle && !articleId && !title)
+        return { problem: 'Wie soll der Artikel heißen? Das Schriftstück braucht einen Titel.' };
+      return { entry: probe({ placeId, refs, writing: { title, articleId }, ...rest() }) };
+    }
+    case 'downtime': {
+      const d = input.downtime;
+      const days = d?.days ?? 0;
+      if (!Number.isInteger(days) || days < 0 || days > MAX_DOWNTIME_DAYS)
+        return { problem: 'Die Zwischenzeit ist keine Zahl von Tagen.' };
+      const activities: { characterId: string; text: string }[] = [];
+      for (const activity of d?.activities ?? []) {
+        const words = activity.text.trim();
+        if (!words) continue;
+        if (!isKind(data, activity.characterId, 'character'))
+          return { problem: 'Eine Tätigkeit gehört zu einem Gefährten.' };
+        activities.push({ characterId: activity.characterId, text: words });
+      }
+      if (!days && !text && !activities.length)
+        return { problem: 'Wie lange dauert die Zwischenzeit?' };
+      refs = [...new Set([...refs, ...activities.map((a) => a.characterId)])];
+      return { entry: probe({ placeId, refs, downtime: { days, activities }, ...rest() }) };
+    }
+    case 'transformation': {
+      const characterId = input.transformation?.characterId;
+      if (!characterId || !isKind(data, characterId, 'character'))
+        return { problem: 'Eine Wandlung gehört zu einem Gefährten.' };
+      refs = [...new Set([characterId, ...refs])];
+      return { entry: probe({ placeId, refs, transformation: { characterId }, ...rest() }) };
+    }
+    case 'companion': {
+      const c = input.companion;
+      if (!c || !isKind(data, c.entityId, 'person'))
+        return { problem: 'Welches Tier oder Wesen? Es braucht einen Eintrag der Welt.' };
+      const ownerId = c.ownerId ?? null;
+      if (ownerId && !isKind(data, ownerId, 'character'))
+        return { problem: 'Ein Begleiter gehört zu einem Gefährten oder zur ganzen Gruppe.' };
+      const joined = c.joined ?? true;
+      const to = ownerId ?? PARTY_ID;
+      const own = Object.values(data.relations).filter(
+        (r) => r.from === c.entityId && r.type === 'companion',
+      );
+      const relation = joined
+        ? own.find((r) => r.to === to)
+        : (own.find((r) => r.to === to && !r.ended) ?? own.find((r) => !r.ended));
+      const companion = {
+        entityId: c.entityId,
+        joined,
+        ownerId: joined
+          ? ownerId
+          : relation
+            ? relation.to === PARTY_ID
+              ? null
+              : relation.to
+            : ownerId,
+        relationId: relation?.id ?? null,
+        before: null as BondBefore | null,
+      };
+      const newest = !neighboursOfSort(data, probe({ companion })).next;
+      if (newest) {
+        const state: BondBefore = !relation ? 'none' : relation.ended ? 'ended' : 'active';
+        companion.before = joined
+          ? state === 'active'
+            ? null
+            : state
+          : state === 'active'
+            ? state
+            : null;
+      }
+      refs = [
+        ...new Set([
+          ...[c.entityId, companion.ownerId].filter((id): id is string => !!id),
+          ...refs,
+        ]),
+      ];
+      return { entry: probe({ placeId, refs, companion, ...rest() }) };
     }
     case 'knowledge':
       if (!refs.length) return { problem: 'Wer hat es erfahren?' };
@@ -441,7 +541,7 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
     case 'fate': {
       const f = entry.fate;
       if (!f) return;
-      if (newest) patchPerson(db, f.entityId, { status: f.status });
+      if (newest) setStatus(db, f.entityId, f.status);
       else if (next?.fate)
         db.patch('chronicle', next.id, { fate: { ...next.fate, before: f.status } });
       return;
@@ -500,6 +600,12 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
     }
     case 'reveal': {
       const r = entry.reveal;
+      const alias = r?.alias;
+      if (alias?.added) {
+        const entity = data.entities[alias.entityId];
+        if (entity && !entity.aliases.some((n) => sameName(n, alias.name)))
+          db.patch('entities', entity.id, { aliases: [...entity.aliases, alias.name] });
+      }
       if (!r?.applied || !r.prepSecretId) return;
       const found = findPrepSecret(data, r.prepSecretId);
       if (!found) return;
@@ -510,6 +616,19 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
             : secret,
         ),
       });
+      return;
+    }
+    case 'companion': {
+      const c = entry.companion;
+      if (!c || c.before === null) return;
+      if (c.before === 'none') {
+        const relation = db.put(
+          'relations',
+          createRelation({ from: c.entityId, to: c.ownerId ?? PARTY_ID, type: 'companion' }),
+        );
+        db.patch('chronicle', entry.id, { companion: { ...c, relationId: relation.id } });
+      } else if (c.relationId && data.relations[c.relationId])
+        db.patch('relations', c.relationId, { ended: !c.joined });
       return;
     }
     default:
@@ -530,6 +649,26 @@ function patchCharacter(db: CampaignDb, id: string, change: Partial<CharacterDet
   const entity = db.getSnapshot().entities[id];
   if (entity?.kind === 'character')
     db.put('entities', { ...entity, character: { ...entity.character, ...change } });
+}
+
+function setStatus(db: CampaignDb, id: string, status: PersonStatus): void {
+  const entity = db.getSnapshot().entities[id];
+  if (entity?.kind === 'person') patchPerson(db, id, { status });
+  else if (entity?.kind === 'character') patchCharacter(db, id, { status });
+}
+
+/** Steht der zweite Name noch so am Eintrag, wie ihn ein Aufgedeckt hinzugefügt hat? */
+function aliasHolds(data: CampaignData, entry: ChronicleEntry): boolean {
+  const alias = entry.reveal?.alias;
+  if (!alias?.added) return false;
+  return !!data.entities[alias.entityId]?.aliases.some((n) => sameName(n, alias.name));
+}
+
+/** Ist das Geheimnis vom Abend-Blatt noch so aufgedeckt, wie es dieser Eintrag tat? */
+function secretHolds(data: CampaignData, entry: ChronicleEntry): boolean {
+  const r = entry.reveal;
+  const found = r?.applied && r.prepSecretId ? findPrepSecret(data, r.prepSecretId) : null;
+  return !!found && found.secret.revealed && found.secret.revealedAt === entry.at;
 }
 
 function setWhereabouts(db: CampaignDb, id: string, placeId: string | null): void {
@@ -652,14 +791,12 @@ export function effectHolds(data: CampaignData, entry: ChronicleEntry): boolean 
         !!relation && isNewestOfSort(data, entry) && relation.attitude === entry.attitude!.after
       );
     }
-    case 'fate': {
-      const person = entry.fate ? data.entities[entry.fate.entityId] : undefined;
+    case 'fate':
       return (
-        person?.kind === 'person' &&
+        !!entry.fate &&
         isNewestOfSort(data, entry) &&
-        person.person.status === entry.fate!.status
+        statusOf(data, entry.fate.entityId) === entry.fate.status
       );
-    }
     case 'whereabouts': {
       const entity = entry.whereabouts ? data.entities[entry.whereabouts.entityId] : undefined;
       const current =
@@ -711,10 +848,13 @@ export function effectHolds(data: CampaignData, entry: ChronicleEntry): boolean 
       const thread = c?.threadId ? data.threads[c.threadId] : undefined;
       return !!c?.before && !!thread?.hints.find((h) => h.id === c.hintId)?.found;
     }
-    case 'reveal': {
-      const r = entry.reveal;
-      const found = r?.applied && r.prepSecretId ? findPrepSecret(data, r.prepSecretId) : null;
-      return !!found && found.secret.revealed && found.secret.revealedAt === entry.at;
+    case 'reveal':
+      return secretHolds(data, entry) || aliasHolds(data, entry);
+    case 'companion': {
+      const c = entry.companion;
+      if (!c || c.before === null || !c.relationId) return false;
+      const relation = data.relations[c.relationId];
+      return !!relation && relation.ended === !c.joined;
     }
     default:
       return false;
@@ -835,11 +975,11 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
       case 'fate': {
         const f = entry.fate!;
         const entity = data.entities[f.entityId];
+        const status = f.before ?? previous?.fate?.status ?? 'alive';
         if (holds && entity?.kind === 'person')
-          changes.put('entities', {
-            ...entity,
-            person: { ...entity.person, status: f.before ?? previous?.fate?.status ?? 'alive' },
-          });
+          changes.put('entities', { ...entity, person: { ...entity.person, status } });
+        if (holds && entity?.kind === 'character')
+          changes.put('entities', { ...entity, character: { ...entity.character, status } });
         if (next?.fate)
           changes.patch('chronicle', next.id, { fate: { ...next.fate, before: f.before } });
         break;
@@ -923,10 +1063,16 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
         break;
       }
       case 'reveal': {
+        const alias = entry.reveal?.alias;
+        const entity = alias ? data.entities[alias.entityId] : undefined;
+        if (alias && entity && aliasHolds(data, entry))
+          changes.patch('entities', entity.id, {
+            aliases: entity.aliases.filter((n) => !sameName(n, alias.name)),
+          });
         const found = entry.reveal?.prepSecretId
           ? findPrepSecret(data, entry.reveal.prepSecretId)
           : null;
-        if (!holds || !found) break;
+        if (!secretHolds(data, entry) || !found) break;
         changes.patch('preps', found.prep.id, {
           secrets: found.prep.secrets.map((secret) =>
             secret.id === found.secret.id
@@ -934,6 +1080,13 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
               : secret,
           ),
         });
+        break;
+      }
+      case 'companion': {
+        const c = entry.companion!;
+        if (!holds || !c.relationId) break;
+        if (c.before === 'none') changes.remove('relations', c.relationId);
+        else changes.patch('relations', c.relationId, { ended: c.before === 'ended' });
         break;
       }
       default:

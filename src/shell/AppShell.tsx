@@ -30,6 +30,7 @@ import { WeatherChip } from '../features/wetter';
 import BeutePage from '../features/beute';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
+import NachtragenPage from '../features/nachtragen';
 import { LkNameSync } from '../features/import/NameSync';
 import { TwinSync } from '../features/wiki/TwinSync';
 import {
@@ -94,6 +95,7 @@ const BestiariumBestaende = beastPage(StocksPage);
 const ZeitKalender = timePage(KalenderPage);
 const ZeitChronik = timePage(ChronikPage);
 const ZeitGeschehen = timePage(GeschehenPage);
+const ZeitNachtragen = timePage(NachtragenPage);
 const KartenAtlas = mapPage(AtlasPage);
 const KartenKarten = mapPage(KartenPage);
 const KartenHex = mapPage(ErkundungPage);
@@ -370,6 +372,7 @@ export function AppShell() {
             <Route path="/welt/:id?" component={WeltPage} />
             <Route path="/wiki/:id?" component={WikiRoute} />
             <Route path="/chronik" component={ZeitChronik} />
+            <Route path="/nachtragen/:id?" component={ZeitNachtragen} />
             <Route path="/geschehen" component={ZeitGeschehen} />
             <Route path="/kalender" component={ZeitKalender} />
             <Route path="/gruppe/:id?" component={GruppeGefaehrten} />

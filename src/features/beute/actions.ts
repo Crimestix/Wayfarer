@@ -5,8 +5,16 @@
  */
 import { logEntry } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { recordEntry } from '../../data/record';
 import { lootLine, lootRecipient } from '../../domain/loot';
-import { createLoot, type CampaignData, type ChronicleEntry, type Loot } from '../../domain/schema';
+import {
+  createLoot,
+  type CampaignData,
+  type ChronicleEntry,
+  type ChroniclePrecision,
+  type Loot,
+} from '../../domain/schema';
+import type { WorldTime } from '../../domain/time/calendar';
 
 export type LootInput = Pick<Loot, 'text' | 'gold' | 'itemId' | 'toId' | 'source' | 'storyId'>;
 
@@ -97,6 +105,62 @@ export function giveLoot(db: CampaignDb, id: string): (() => void) | null {
     });
   });
   return () => takeBackLoot(db, id);
+}
+
+/** Wann, an welchem Abend und wo eine nachgetragene Ausgabe geschah. */
+export interface LootWhen {
+  at: WorldTime;
+  sessionId: string | null;
+  placeId: string | null;
+  /** Wie genau die Zeit bekannt ist (Vorgabe: genau). */
+  precision?: ChroniclePrecision;
+  /** Die Zeile der Chronik nur für die Spielleitung. */
+  secret?: boolean;
+}
+
+/**
+ * Gibt Beute zu einer früheren Zeit aus – beim Nachtragen alter Sessions: Der Eintrag entsteht
+ * gleich als ausgegeben, mit Abend, Ort und Zeit von damals, und seine Zeile steht nachgetragen
+ * in der Chronik. Nichts davon hängt an „jetzt“. Ein Gegenstand der Welt gehört danach dem
+ * Empfänger. `undo` löscht den Eintrag samt Zeile (wie `removeLoot`).
+ */
+export function giveLootAt(
+  db: CampaignDb,
+  input: LootInput,
+  when: LootWhen,
+): { loot: Loot; undo: () => void } | { problem: string } {
+  const values = clean(db, input);
+  if (!values.text && !values.gold && !values.itemId)
+    return { problem: 'Die Beute braucht einen Inhalt.' };
+  return db.batch(() => {
+    const data = db.getSnapshot();
+    const draft = createLoot(values);
+    const line = lineOf(data, draft);
+    const recorded = recordEntry(db, {
+      kind: 'note',
+      text: line.text,
+      refs: line.refs,
+      storyId: line.storyId,
+      at: when.at,
+      sessionId: when.sessionId,
+      placeId: when.placeId,
+      secret: when.secret ?? false,
+      backfilled: when.at < data.state.now,
+      precision: when.precision ?? 'exact',
+    });
+    if ('problem' in recorded) return recorded;
+    const holderBefore = claimItem(db, draft);
+    const loot = db.put('loot', {
+      ...draft,
+      given: true,
+      at: when.at,
+      sessionId: when.sessionId,
+      placeId: when.placeId,
+      chronicleId: recorded.entry.id,
+      holderBefore,
+    });
+    return { loot, undo: () => void removeLoot(db, loot.id) };
+  });
 }
 
 /**

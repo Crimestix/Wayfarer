@@ -145,7 +145,12 @@ export function searchEntities(
     }
     const name = normalize(entity.name);
     let score = name === q ? 0 : name.startsWith(q) ? 1 : name.includes(q) ? 2 : 9;
-    if (score === 9 && entity.aliases.some((a) => normalize(a).includes(q))) score = 3;
+    // Zweite Namen (Decknamen, wahre Namen): genau getroffen zählt fast wie der Name selbst.
+    for (const alias of entity.aliases) {
+      const a = normalize(alias);
+      const points = a === q ? 1 : a.startsWith(q) ? 2 : a.includes(q) ? 3 : 9;
+      score = Math.min(score, points);
+    }
     if (score === 9 && entity.tags.some((t) => normalize(t).includes(q))) score = 4;
     if (score === 9 && normalize(entity.tagline).includes(q)) score = 5;
     if (score < 9) scored.push({ entity, score });
@@ -341,6 +346,8 @@ export const PARTY_KINDS: readonly ChronicleEntry['kind'][] = [
   'decision',
   'milestone',
   'wish',
+  'downtime',
+  'transformation',
 ];
 
 export interface PlaceStatus {

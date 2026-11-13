@@ -40,6 +40,13 @@ export interface RecognizedPayload {
   clue?: { threadId: null };
   /** Bei einer Entdeckung: der entdeckte Ort. */
   placeId?: string | null;
+  /** Eine Abmachung der Sorte „Auftrag“. */
+  promise?: { sort: 'job' };
+  /** Zwischenzeit: Tage, wenn sie im Text stehen (null = wählen). */
+  downtime?: { days: number | null };
+  transformation?: { characterId: string | null };
+  /** Ein Tier oder Wesen kommt (`joined`) oder geht; `ownerId` = der Gefährte, null = die Gruppe. */
+  companion?: { entityId: string | null; joined: boolean; ownerId: string | null };
 }
 
 export interface Recognized {
@@ -343,9 +350,11 @@ function cues(text: string, pattern: RegExp): Cue[] {
 
 /** Steht kurz vor der Stelle ein „nicht“, „kein“, „fast“ …? Dann gilt das Wort nicht. */
 function negated(text: string, at: number): boolean {
-  const before = text.slice(Math.max(0, at - 24), at);
+  // Im selben Teilsatz: „nicht tot, er lebt“ verneint „lebt“ nicht.
+  const [clause] = clauseAround(text, at);
+  const before = text.slice(Math.max(0, at - 24, clause), at);
   return words('nicht|nie|niemals|kein|keine|keiner|fast|beinahe|halb|nahezu').test(
-    before.split(/\s+/).slice(-3).join(' '),
+    before.trim().split(/\s+/).slice(-3).join(' '),
   );
 }
 
@@ -597,8 +606,8 @@ function fateRules(ctx: Context, out: Draft[]) {
         continue;
       const ids = targets.length ? targets.map((hit) => hit.id) : [null];
       for (const id of ids) {
-        // Gefährten haben kein Schicksal – für sie gibt es den Zustand.
-        if (id && kindOf(ctx.data, id) !== 'person') continue;
+        // Personen und Gefährten haben ein Schicksal (ein toter Gefährte bleibt in der Gruppe).
+        if (id && !living.includes(kindOf(ctx.data, id)!)) continue;
         out.push({
           kind: 'fate',
           label: id
@@ -618,13 +627,21 @@ const MOTION = words(
 );
 /** Unmittelbar vor dem Ort: wohin es geht. */
 const TOWARD =
-  /(?:^|[\s,])(?:nach|in die|in den|ins|zur|zum|Richtung)\s+(?:(?:die|der|das|den|dem)\s+)?$/i;
+  /(?:^|[\s,])(?:nach|in die|in den|ins|zur|zum|zu|Richtung)\s+(?:(?:die|der|das|den|dem)\s+)?$/i;
 /** Unmittelbar vor dem Ort: angekommen. */
 const ARRIVED_BEFORE =
   /(?:^|[\s,])(?:Ankunft in|angekommen in|ankommen in|kommt in|kommen in|kamen in|kam in|zurück in|wieder in|eingetroffen in|erreicht|erreichen|erreichte|erreichten)\s+(?:(?:wir|die Gruppe)\s+)?(?:(?:die|der|das|den|dem)\s+)?$/i;
 /** „in Hohenfurt angekommen“, „Hohenfurt erreicht“. */
-const IN_BEFORE = /(?:^|\s)in\s+(?:(?:der|dem|den)\s+)?$/i;
+const IN_BEFORE = /(?:^|\s)(?:in|im|am)\s+(?:(?:der|dem|den)\s+)?$/i;
 const ARRIVED_AFTER = /^\s*(?:angekommen|eingetroffen|gelandet)(?![\p{L}\p{N}])/iu;
+/** „kamen am Mühlteich an“, „kommen in Hohenfurt an“. */
+const CAME_BEFORE =
+  /(?:^|\s)(?:kam|kamen|kommt|kommen)\s+(?:(?:wir|die Gruppe|sie)\s+)?(?:am|im|in|an der|an den|bei)\s+(?:(?:der|dem|den)\s+)?$/i;
+const CAME_AFTER = /^\s*an(?![\p{L}\p{N}])/iu;
+/** „Hohenfurt verlassen“, „verließen Hohenfurt“: Aufbruch aus dem Ort. */
+const LEFT_AFTER = /^\s*(?:verlassen|verließen|verließ|verlässt|verlassen haben)(?![\p{L}\p{N}])/iu;
+const LEFT_BEFORE =
+  /(?:^|\s)(?:verließen|verließ|verlässt|verlassen)\s+(?:wir\s+|die Gruppe\s+)?(?:(?:die|der|das|den|dem)\s+)?$/i;
 const REACHED_AFTER = /^\s*(?:erreicht|erreichen|erreichte|erreichten)(?![\p{L}\p{N}])/iu;
 /** Wo jemand jetzt ist: „ist jetzt in“, „lebt nun in“ – für Personen und die Gruppe. */
 const NOW_IN =
@@ -646,7 +663,27 @@ function moveRules(ctx: Context, out: Draft[]) {
     const arrived =
       ARRIVED_BEFORE.test(before) ||
       (IN_BEFORE.test(before) && ARRIVED_AFTER.test(after)) ||
+      (CAME_BEFORE.test(before) && CAME_AFTER.test(after)) ||
       REACHED_AFTER.test(after);
+    const left = LEFT_AFTER.test(after) || LEFT_BEFORE.test(before);
+    if (left && !arrived) {
+      // Aufbruch der Gruppe: nur, wenn niemand Bestimmtes davor allein geht.
+      if (negated(text, place.from) || hypothetical(text, place.from)) continue;
+      // „Die Gruppe hat mit Lando Hohenfurt verlassen“: steht die Gruppe im Teilsatz, geht sie.
+      const groupGoes = /(?:^|\s)(?:die\s+)?(?:Gruppe|Spieler|wir)(?![\p{L}\p{N}])/iu.test(
+        text.slice(start, place.from),
+      );
+      const leaver = subjectBefore(ctx, place.from, { kinds: ['person', 'character'] });
+      if (!groupGoes && leaver && !leaver.party && leaver.kind !== 'character') continue;
+      out.push({
+        kind: 'travel',
+        label: `Ortswechsel: Aufbruch aus ${entityName(ctx.data, place.id)}`,
+        payload: { travel: { toId: null } },
+        refs: [place.id],
+        at: { from: place.from, to: place.to, word: text.slice(place.from, place.to) },
+      });
+      continue;
+    }
     const nowIn = NOW_IN.test(before);
     const toward = TOWARD.test(before) && MOTION.test(clause);
     const staysIn = STAYS_IN.test(before);
@@ -655,6 +692,12 @@ function moveRules(ctx: Context, out: Draft[]) {
       continue;
     const placeId = place.id;
     const actor = subjectBefore(ctx, place.from, { kinds: ['person', 'character'] });
+    // „auf der Reise nach Hohenfurt plante er …“: unterwegs, noch nicht dort.
+    const onTheWay =
+      /(?:auf der Reise|auf dem Weg|unterwegs)\s+(?:nach|zur|zum|in die|in den|ins)\s+(?:(?:die|der|das|den|dem)\s+)?$/i.test(
+        before,
+      );
+    if (onTheWay && actor && !actor.party) continue;
     if (actor && !actor.party) {
       if (!actor.id) continue; // ein mehrdeutiger Name: nicht raten
       out.push({
@@ -687,7 +730,7 @@ function moveRules(ctx: Context, out: Draft[]) {
 }
 
 const MEETING = words(
-  'getroffen|trifft|treffen auf|trafen|traf|kennengelernt|kennen gelernt|lernen .{0,40}kennen|lernten .{0,40}kennen|begegnet|begegnen|begegneten|begegnete',
+  'getroffen|trifft|treffen auf|trafen|traf|kennengelernt|kennen gelernt|lernen .{0,40}kennen|lernten .{0,40}kennen|lernte .{0,40}kennen|lernt .{0,40}kennen|begegnet|begegnen|begegneten|begegnete|begrüßt|begrüßte|begrüßten|(?:hat|haben) sich (?:uns |ihnen |der Gruppe )?vorgestellt|(?:stellte|stellten) sich (?:uns |ihnen |der Gruppe )?vor',
 );
 
 /** „vom Pfeil getroffen“, „der Hieb trifft Brann“: getroffen, nicht begegnet. */
@@ -771,7 +814,13 @@ function fightRules(ctx: Context, out: Draft[]) {
   else if (words('uns besiegt|die Gruppe besiegt|unterlegen|verloren|verlieren').test(text))
     outcome = 'lost';
   else if (partyDoes(FLED)) outcome = 'fled';
-  else if (partyDoes('besiegt|besiegen|besiegten|gewonnen|erschlagen|siegreich')) outcome = 'won';
+  else if (
+    partyDoes(
+      'besiegt|besiegen|besiegten|gewonnen|erschlagen|siegreich|getötet|töten|tötete|töteten|erschlug|erschlugen',
+    ) ||
+    (words('erfolgreich|siegreich').test(text) && !words('erfolglos|nicht erfolgreich').test(text))
+  )
+    outcome = 'won';
   const except = actor && !actor.party && actor.id && actorIsParty ? [actor.id] : [];
   const refs = namedIds(ctx, OPPONENTS, except);
   const against = refs.map((id) => entityName(ctx.data, id)).join(', ');
@@ -811,11 +860,35 @@ function restRules(ctx: Context, out: Draft[]) {
 }
 
 const PROMISE = words(
-  'versprach|versprachen|verspricht|versprechen|versprochen|schuldet|schulden|schuldig|vereinbart|abgemacht|Abmachung|schwört|schwor|geschworen|Auftrag|beauftragt',
+  'versprach|versprachen|verspricht|versprechen|versprochen|schuldet|schulden|schuldig|vereinbart|abgemacht|Abmachung|schwört|schwor|geschworen|einigte sich|einigten sich|einigt sich|einigen sich|geeinigt',
+);
+const JOB = words(
+  'Auftrag|Aufträge|Auftraggeber|Auftraggeberin|beauftragt|beauftragte|beauftragten|beauftragen|(?:heuert|heuerte|heuerten|heuern) .{0,40}an|angeheuert',
 );
 
 function promiseRules(ctx: Context, out: Draft[]) {
-  const cue = cues(ctx.sentence.text, PROMISE)[0];
+  const text = ctx.sentence.text;
+  // „im Auftrag von X“ heißt „für X“ – kein Auftrag an die Gruppe.
+  const job = cues(text, JOB).find(
+    (c) =>
+      !denied(text, c) &&
+      !hypothetical(text, c.from) &&
+      !/(?:^|\s)im\s+$/iu.test(text.slice(0, c.from)),
+  );
+  if (job) {
+    // Der Auftraggeber: wer „beauftragt“, sonst wer „von“ davor steht – nie ein Gefährte.
+    const actor = actorBefore(ctx, job.from, { kinds: ['person', 'faction', 'family'] });
+    const named = namedIds(ctx, ['person', 'faction', 'family']);
+    const client = actor && !actor.party && actor.id ? actor.id : (named[0] ?? null);
+    out.push({
+      kind: 'promise',
+      label: client ? `Auftrag: ${entityName(ctx.data, client)}` : 'Auftrag',
+      payload: { promise: { sort: 'job' } },
+      refs: client ? [client, ...named.filter((id) => id !== client)] : named,
+      at: job,
+    });
+  }
+  const cue = cues(text, PROMISE)[0];
   if (!cue) return;
   const refs = namedIds(ctx, PEOPLE);
   out.push({
@@ -982,7 +1055,7 @@ function wishRules(ctx: Context, out: Draft[]) {
 }
 
 const DECISION = words(
-  'entscheide[nt]? (?:sich|uns)|entschied(?:en)? (?:sich|uns)|(?:hat|haben) (?:sich|uns) entschieden|beschließt|beschließen|beschloss|beschlossen|die Gruppe will|wir wollen|(?:treffen|trafen|trifft|traf) eine Entscheidung|Entscheidung getroffen|Entscheidung gefallen',
+  'entscheide[nt]? (?:sich|uns)|entschied(?:en)? (?:sich|uns)|(?:hat|haben) (?:sich|uns) entschieden|entschloss(?:en)? (?:sich|uns)|(?:hat|haben) (?:sich|uns) entschlossen|beschließt|beschließen|beschloss|beschlossen|die Gruppe will|wir wollen|(?:treffen|trafen|trifft|traf) eine Entscheidung|Entscheidung getroffen|Entscheidung gefallen',
 );
 
 function decisionRules(ctx: Context, out: Draft[]) {
@@ -1120,8 +1193,190 @@ function quoteRules(ctx: Context, out: Draft[]) {
   });
 }
 
+/** Schriftstücke: „ein Brief von Mira“, „Auf dem Zettel stand: …“, „die Nachricht lautet“. */
+const WRITING_NOUN =
+  'Brief|Briefe|Botschaft|Nachricht|Schreiben|Schriftstück|Aushang|Handout|Schriftrolle|Zettel|Urkunde|Steckbrief|Notizbuch|Tagebuch|Erlass|Gesetz|Inschrift';
+const WRITING = words(
+  `(?:${WRITING_NOUN})(?=[^.!?]{0,60}(?:stand|steht|lautet|lautete|heißt es|hieß es|:))|(?:finden|fanden|findet|fand|erhalten|erhielten|erhält|erhielt|bekommen|bekamen|bekommt|bekam|lesen|lasen|liest|las|gefunden|erhalten)[^.!?]{0,40}(?:${WRITING_NOUN})|(?:${WRITING_NOUN})[^.!?]{0,40}(?:gefunden|erhalten|bekommen|gelesen|überbracht|zugesteckt)|Dort stand`,
+);
+
+function writingRules(ctx: Context, out: Draft[]) {
+  const text = ctx.sentence.text;
+  const cue = cues(text, WRITING).find((c) => !negated(text, c.from));
+  if (!cue) return;
+  // Absender: „von Mira“, „Miras Brief“ – sonst bleibt er offen.
+  const from = ctx.names.find(
+    (hit) =>
+      hit.id &&
+      PEOPLE.includes(kindOf(ctx.data, hit.id)!) &&
+      (hit.genitive || /(?:^|\s)(?:von|vom)\s+$/i.test(text.slice(0, hit.from))),
+  );
+  const sender = from?.id ?? null;
+  out.push({
+    kind: 'writing',
+    label: sender ? `Schriftstück: von ${entityName(ctx.data, sender)}` : 'Schriftstück',
+    payload: {},
+    refs: sender ? [sender] : [],
+    at: cue,
+  });
+}
+
+/** Zahlwörter bis zwölf – für „sechs Wochen“. */
+const NUMBER_WORDS: Record<string, number> = {
+  ein: 1,
+  eine: 1,
+  einen: 1,
+  einem: 1,
+  einer: 1,
+  zwei: 2,
+  drei: 3,
+  vier: 4,
+  fünf: 5,
+  sechs: 6,
+  sieben: 7,
+  acht: 8,
+  neun: 9,
+  zehn: 10,
+  elf: 11,
+  zwölf: 12,
+};
+const AMOUNT = `\\d{1,3}(?:[.,]\\d)?|${Object.keys(NUMBER_WORDS).join('|')}`;
+
+/** „3“, „drei“, „1,5“ als Zahl; null, wenn es keine ist. */
+function amountOf(word: string): number | null {
+  const lower = word.toLocaleLowerCase('de');
+  if (lower in NUMBER_WORDS) return NUMBER_WORDS[lower]!;
+  const value = Number(lower.replace(',', '.'));
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Wie viele Tage „sechs Wochen“, „3 Tage“, „eine Woche“ sind; null bei Monaten und Jahren. */
+function spanDays(amount: string, unit: string): number | null {
+  const n = amountOf(amount);
+  if (n === null) return null;
+  const u = unit.toLocaleLowerCase('de');
+  if (u.startsWith('tag')) return Math.round(n);
+  if (u.startsWith('woche')) return Math.round(n * 7);
+  return null;
+}
+
+const SPAN = new RegExp(
+  `(?<![\\p{L}\\p{N}])(${AMOUNT})\\s+(Tage|Tagen|Tag|Wochen|Woche|Monate|Monaten|Monat|Jahre|Jahren|Jahr)(?![\\p{L}\\p{N}])`,
+  'giu',
+);
+const DOWNTIME_WORD = words('Zwischenzeit|Downtime|Auszeit|Ruhezeit|Ruhepause');
+const PASSING = words(
+  'vergehen|vergeht|verging|vergingen|vergangen|später|danach|Pause|Ruhe|verbringen|verbrachten|verbringt|verbrachte',
+);
+
+function downtimeRules(ctx: Context, out: Draft[]) {
+  const text = ctx.sentence.text;
+  const word = cues(text, DOWNTIME_WORD)[0];
+  let span: { from: number; to: number; days: number | null } | null = null;
+  SPAN.lastIndex = 0;
+  for (let m = SPAN.exec(text); m; m = SPAN.exec(text)) {
+    // „in 3 Tagen“ ist eine Frist oder Lieferung, keine vergangene Zeit.
+    if (/(?:^|\s)(?:in|binnen|innerhalb|seit|vor)\s+$/i.test(text.slice(0, m.index))) continue;
+    span = { from: m.index, to: m.index + m[0].length, days: spanDays(m[1]!, m[2]!) };
+    break;
+  }
+  if (!word && !(span && PASSING.test(text))) return;
+  if (hypothetical(text, (word ?? span)!.from)) return;
+  const days = span?.days ?? null;
+  const at = word ?? { from: span!.from, to: span!.to, word: text.slice(span!.from, span!.to) };
+  out.push({
+    kind: 'downtime',
+    label:
+      days !== null ? `Zwischenzeit: ${days === 1 ? '1 Tag' : `${days} Tage`}` : 'Zwischenzeit',
+    payload: { downtime: { days } },
+    refs: [],
+    at,
+  });
+}
+
+const TRANSFORM = words(
+  'verwandelt sich|verwandelte sich|verwandelt|verwandelte|wird zum|wird zur|wurde zum|wurde zur|neue Gestalt|nimmt die Gestalt|nahm die Gestalt|verliert (?:seinen|ihren|sein|ihr|seine|ihre|den|das|die) (?:linken |rechten )?(?:Arm|Bein|Auge|Hand|Fuß|Finger|Ohr|Stimme|Schatten)|verlor (?:seinen|ihren|sein|ihr|seine|ihre|den|das|die) (?:linken |rechten )?(?:Arm|Bein|Auge|Hand|Fuß|Finger|Ohr|Stimme|Schatten)|(?:erhält|erhielt|bekommt|bekam|erlangt|erlangte) (?:die|eine|neue) (?:Kraft|Kräfte|Gabe|Macht|Flügel)|wechselt die Klasse|wechselte die Klasse|erwacht als|erwachte als',
+);
+
+function transformationRules(ctx: Context, out: Draft[]) {
+  const text = ctx.sentence.text;
+  const cue = cues(text, TRANSFORM).find((c) => !denied(text, c) && !hypothetical(text, c.from));
+  if (!cue) return;
+  const actor = subjectBefore(ctx, cue.from, { kinds: ['character'], party: false });
+  const characterId =
+    actor && !actor.party ? actor.id : (nameAfter(ctx, cue.to, ['character'])?.id ?? null);
+  // Nur Gefährten wandeln sich hier – eine Person der Welt ist eine Veränderung.
+  if (!characterId || kindOf(ctx.data, characterId) !== 'character') return;
+  out.push({
+    kind: 'transformation',
+    label: `Wandlung: ${entityName(ctx.data, characterId)}`,
+    payload: { transformation: { characterId } },
+    refs: [characterId],
+    at: cue,
+  });
+}
+
+const JOINS = words(
+  'schließt sich (?:uns|der Gruppe|ihm|ihr|den Helden) an|schloss sich (?:uns|der Gruppe|ihm|ihr|den Helden) an|schlossen sich (?:uns|der Gruppe|ihm|ihr) an|begleitet uns|begleitet die Gruppe|begleitete uns|begleitete die Gruppe|begleitet (?:ihn|sie) jetzt|zähmt|zähmte|gezähmt|adoptiert|adoptierte|kauft (?:ein|einen|eine)|kaufte (?:ein|einen|eine)|folgt uns|folgte uns|ist jetzt unser|wird unser',
+);
+const LEAVES = words(
+  'verlässt uns|verlässt die Gruppe|verließ uns|verließ die Gruppe|läuft davon|lief davon|fliegt davon|flog davon|trennt sich von uns|trennte sich von uns|geht seiner Wege|ging seiner Wege|geht ihrer Wege|ging ihrer Wege',
+);
+const BEAST = words(
+  'Hund|Wolf|Katze|Kater|Pferd|Pony|Esel|Maultier|Rabe|Krähe|Falke|Eule|Fuchs|Bär|Ratte|Schlange|Echse|Drache|Drachenjunges|Vertrauter|Begleiter|Tier|Reittier|Golem|Geist',
+);
+
+function companionRules(ctx: Context, out: Draft[]) {
+  const text = ctx.sentence.text;
+  const join = cues(text, JOINS).find((c) => !denied(text, c) && !hypothetical(text, c.from));
+  const leave = join
+    ? undefined
+    : cues(text, LEAVES).find((c) => !denied(text, c) && !hypothetical(text, c.from));
+  const cue = join ?? leave;
+  if (!cue) return;
+  const persons = ctx.names.filter((hit) => !hit.genitive && kindOf(ctx.data, hit.id) === 'person');
+  // Nur ein Tier oder Wesen ist ein Begleiter: eine Person mit der Rolle „Begleiter“, ein Name
+  // gleich nach „Wolf“, „Rabe“ … oder wer das tut, wenn ein solches Wort im Satz steht. Sonst ist
+  // es eine Begegnung oder ein Aufenthalt.
+  const beasts = cues(text, BEAST);
+  const byRole = persons.find((hit) => {
+    const entity = ctx.data.entities[hit.id!];
+    return entity?.kind === 'person' && /begleiter|tier|vertraut/i.test(entity.person.role);
+  });
+  const appositive = persons.find((hit) =>
+    beasts.some((b) => b.to <= hit.from && /^\s*(?:namens\s+)?$/i.test(text.slice(b.to, hit.from))),
+  );
+  const subject = beasts.length
+    ? actorBefore(ctx, cue.from, { kinds: ['person'], party: false })
+    : null;
+  const being =
+    byRole?.id ??
+    appositive?.id ??
+    (subject && !subject.party && subject.kind === 'person' ? subject.id : null);
+  if (!being && !beasts.length) return;
+  const owner = ctx.names.find(
+    (hit) => !hit.genitive && hit.id && kindOf(ctx.data, hit.id) === 'character',
+  );
+  const toParty = words('uns|der Gruppe|die Gruppe|den Helden').test(cue.word);
+  const ownerId = toParty ? null : (owner?.id ?? null);
+  const entityId = being;
+  const joined = !!join;
+  const who = entityId ? `: ${entityName(ctx.data, entityId)}` : '';
+  out.push({
+    kind: 'companion',
+    label: `Begleiter${who} ${joined ? 'kommt' : 'geht'}${ownerId ? ` (${entityName(ctx.data, ownerId)})` : ''}`,
+    payload: { companion: { entityId, joined, ownerId } },
+    refs: [entityId, ownerId].filter((id): id is string => !!id),
+    at: cue,
+  });
+}
+
 const RULES = [
   quoteRules,
+  writingRules,
+  downtimeRules,
+  transformationRules,
+  companionRules,
   fateRules,
   conditionRules,
   moveRules,
@@ -1198,7 +1453,10 @@ export function recognizedInput(item: Recognized): Omit<RecordInput, 'text'> | n
           }
         : null;
     case 'travel':
-      return p.travel?.toId ? { kind: 'travel', refs, travel: { toId: p.travel.toId } } : null;
+      // toId null = Aufbruch („Hohenfurt verlassen“); fehlt die Angabe ganz, ist nichts erkannt.
+      return p.travel && p.travel.toId !== undefined
+        ? { kind: 'travel', refs, travel: { toId: p.travel.toId } }
+        : null;
     case 'attitude':
       return p.attitude?.fromId && p.attitude.toId
         ? {
@@ -1242,7 +1500,77 @@ export function recognizedInput(item: Recognized): Omit<RecordInput, 'text'> | n
         : { kind: 'discovery', refs };
     case 'clue':
       return { kind: 'clue', refs, clue: { threadId: null } };
+    case 'promise':
+      return p.promise?.sort === 'job'
+        ? { kind: 'promise', refs, promise: { sort: 'job' } }
+        : { kind: 'promise', refs };
+    case 'downtime':
+      return { kind: 'downtime', refs, downtime: { days: p.downtime?.days ?? 0 } };
+    case 'transformation':
+      return p.transformation?.characterId
+        ? {
+            kind: 'transformation',
+            refs,
+            transformation: { characterId: p.transformation.characterId },
+          }
+        : null;
+    case 'companion':
+      return p.companion?.entityId
+        ? {
+            kind: 'companion',
+            refs,
+            companion: {
+              entityId: p.companion.entityId,
+              joined: p.companion.joined,
+              ownerId: p.companion.ownerId,
+            },
+          }
+        : null;
+    case 'writing':
+      return { kind: 'writing', refs, writing: {} };
     default:
       return { kind: item.kind, refs };
   }
+}
+
+// ── Lieferungen ────────────────────────────────────────────────────────────
+
+export interface DeliveryOffer {
+  /** In wie vielen Tagen es so weit ist. */
+  days: number;
+  /** Der Satz, in dem es steht – wörtlich, als Bezeichnung des Termins. */
+  sentence: string;
+  from: number;
+  to: number;
+}
+
+const DELIVERY = words(
+  'Lieferung|liefern|liefert|geliefert|geliefert werden|bestellt|bestellen|Bestellung|fertig|abholen|abholbereit|bereit|ist da|sind da|da sein|kommt an|kommen an|angefertigt|geschmiedet|repariert|gebraut|zugestellt',
+);
+const IN_DAYS = new RegExp(
+  `(?<![\\p{L}\\p{N}])(?:in|nach|binnen)\\s+(${AMOUNT})\\s+(Tagen|Tag|Wochen|Woche)(?![\\p{L}\\p{N}])|(?<![\\p{L}\\p{N}])(übermorgen|morgen)(?![\\p{L}\\p{N}])`,
+  'iu',
+);
+
+/**
+ * Eine Bestellung oder Lieferung mit Frist im Text – „Das Schwert ist in 3 Tagen fertig“, „die
+ * Lieferung kommt übermorgen“. Dann bietet „Festhalten“ an, sie als Termin einzutragen. null,
+ * wenn kein Satz beides nennt: eine Frist in Tagen und ein Wort des Lieferns.
+ */
+export function recognizeDelivery(text: string): DeliveryOffer | null {
+  for (const sentence of sentences(text)) {
+    if (sentence.question) continue;
+    const match = IN_DAYS.exec(sentence.text);
+    if (!match || !DELIVERY.test(sentence.text)) continue;
+    const relative = match[3]?.toLocaleLowerCase('de');
+    const days = relative ? (relative === 'morgen' ? 1 : 2) : spanDays(match[1]!, match[2]!);
+    if (days === null || days < 1) continue;
+    return {
+      days,
+      sentence: sentence.text.trim(),
+      from: sentence.from + match.index,
+      to: sentence.from + match.index + match[0].length,
+    };
+  }
+  return null;
 }

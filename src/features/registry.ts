@@ -12,6 +12,7 @@ import {
   NotebookPen,
   Orbit,
   Route,
+  ScrollText,
   Swords,
   Tent,
   Users,
@@ -38,10 +39,16 @@ export interface Area {
   also?: readonly string[];
 }
 
-/** Zeit: der Kalender und was geschehen ist. */
+/** Zeit: der Kalender, was geschehen ist – auch aus alten Notizen nachgetragen. */
 export const TIME_TABS: readonly AreaTab[] = [
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
+  {
+    path: '/nachtragen',
+    label: 'Nachtragen',
+    hint: 'Alte Sessions aus deinen Notizen',
+    icon: ScrollText,
+  },
   {
     path: '/geschehen',
     label: 'Weltgeschehen',
@@ -99,7 +106,7 @@ export const AREAS: Area[] = [
   {
     path: '/kalender',
     label: 'Zeit',
-    hint: 'Kalender, Chronik, Weltgeschehen',
+    hint: 'Kalender, Chronik, Nachtragen, Weltgeschehen',
     icon: CalendarDays,
     tabs: TIME_TABS,
   },

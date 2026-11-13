@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { ExternalLink, Eye, MapPin, Swords } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
+import { FATE_LABEL } from '../../domain/chronicleKinds';
 import { cx, entityHref } from '../../ui';
 import { setExhaustion } from './commands';
 import {
@@ -22,6 +23,8 @@ function Mate({ companion }: { companion: Companion }) {
   const c = character.character;
   const apart = elsewhere !== null || astray;
   const whereabouts = elsewhere ? elsewhere.name : 'nicht bei der Gruppe';
+  /** Tot, verschollen …: Der Gefährte bleibt in der Leiste, aber gekennzeichnet. */
+  const fate = c.status === 'alive' ? null : FATE_LABEL[c.status];
   // Die sechs Marken sind zusammen ein Halt für die Tabulatortaste; Pfeiltasten ändern die Stufe.
   const focusLevel = Math.max(1, c.exhaustion);
   const onPipKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -49,7 +52,13 @@ function Mate({ companion }: { companion: Companion }) {
     </span>
   );
   return (
-    <div className={cx('wf-tisch-mate', apart && 'wf-tisch-mate--apart')}>
+    <div
+      className={cx(
+        'wf-tisch-mate',
+        apart && 'wf-tisch-mate--apart',
+        fate && 'wf-tisch-mate--fallen',
+      )}
+    >
       {sheet ? (
         <a
           className="wf-tisch-mate__sheet"
@@ -116,16 +125,18 @@ function Mate({ companion }: { companion: Companion }) {
             {c.passivePerception ?? '–'}
           </span>
         </div>
-        {(apart || c.conditions.length > 0) && (
+        {(fate || apart || c.conditions.length > 0) && (
           <div
             className="wf-tisch-mate__notes wf-clamp-1"
             title={[
+              fate && `Schicksal: ${fate}`,
               apart && `Abseits der Gruppe: ${whereabouts}`,
               c.conditions.length > 0 && `Zustände: ${c.conditions.join(', ')}`,
             ]
               .filter(Boolean)
               .join('\n')}
           >
+            {fate && <span className="wf-tisch-mate__fate">{fate}</span>}
             {apart && (
               <span className="wf-tisch-mate__apart">
                 <MapPin aria-hidden />

@@ -13,7 +13,14 @@ import {
 } from '../../domain/derive';
 import { effectHolds } from '../../data/record';
 import { draftOfEntry } from './recordDraft';
-import { FATE_LABEL, KIND_LABEL, isApproximate, recordHeadline } from '../../domain/chronicleKinds';
+import {
+  FATE_LABEL,
+  KIND_LABEL,
+  entryKindLabel,
+  isApproximate,
+  isJob,
+  recordHeadline,
+} from '../../domain/chronicleKinds';
 import {
   conditionEnding,
   entryEntityIds,
@@ -84,6 +91,10 @@ export const KIND_NAME: Record<ChronicleKind, string> = {
   clue: 'Gefundenen Hinweis',
   reveal: 'Aufgedecktes Geheimnis',
   knowledge: 'Wer was weiß',
+  writing: 'Schriftstück',
+  downtime: 'Zwischenzeit',
+  transformation: 'Wandlung',
+  companion: 'Begleiter',
 };
 
 /** Arten, die der Spielleiter selbst schreibt. Alle anderen entstehen automatisch. */
@@ -188,7 +199,7 @@ export const involvedIds = (entry: ChronicleEntry): string[] => entryEntityIds(e
 export function buildSearchIndex(data: CampaignData): Map<string, string> {
   const index = new Map<string, string>();
   for (const entry of Object.values(data.chronicle)) {
-    const parts = [entry.text, KIND_SHORT[entry.kind]];
+    const parts = [entry.text, entryKindLabel(entry)];
     for (const id of involvedIds(entry)) parts.push(entityName(data, id));
     if (entry.attitude)
       parts.push(attitudeLabel(entry.attitude.before), attitudeLabel(entry.attitude.after));
@@ -527,6 +538,11 @@ export function lockedRefs(entry: ChronicleEntry): string[] {
   add(entry.bond?.toId);
   add(entry.condition?.entityId);
   add(entry.milestone?.characterId);
+  add(entry.transformation?.characterId);
+  add(entry.companion?.entityId);
+  add(entry.companion?.ownerId);
+  add(entry.reveal?.alias?.entityId);
+  for (const activity of entry.downtime?.activities ?? []) add(activity.characterId);
   if (entry.kind === 'wish') add(entry.refs[0]);
   return ids;
 }
@@ -581,7 +597,14 @@ export function entryChange(entry: ChronicleEntry, draft: EntryDraft): Partial<C
     placeId: entry.kind === 'travel' ? entry.placeId : draft.placeId,
     refs,
     sessionId: draft.sessionId,
-    promise: kind === 'promise' ? promiseOfDraft(draft) : null,
+    // Ein Auftrag bleibt ein Auftrag.
+    promise:
+      kind === 'promise'
+        ? {
+            ...promiseOfDraft(draft),
+            ...(entry.promise?.sort ? { sort: entry.promise.sort } : {}),
+          }
+        : null,
     secret: draft.secret,
   };
 }
@@ -720,7 +743,9 @@ export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): st
     const who = entityName(data, entry.fate.entityId);
     if (!holds) return `${GONE} Der heutige Stand von ${who} bleibt, wie er ist.`;
     const back = entry.fate.before ?? previous?.fate?.status ?? 'alive';
-    return `${GONE} ${who} gilt danach wieder als „${FATE_LABEL[back]}“, auch im Eintrag der Person.`;
+    const own =
+      data.entities[entry.fate.entityId]?.kind === 'character' ? 'des Gefährten' : 'der Person';
+    return `${GONE} ${who} gilt danach wieder als „${FATE_LABEL[back]}“, auch im Eintrag ${own}.`;
   }
   if (entry.kind === 'whereabouts' && entry.whereabouts) {
     const who = entityName(data, entry.whereabouts.entityId);
@@ -757,6 +782,23 @@ export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): st
     const who = entityName(data, entry.refs[0] ?? null);
     const back = entry.wish.before?.trim();
     return `${GONE} Das Ziel von ${who} ist danach wieder ${back ? `„${back}“` : 'leer'}.`;
+  }
+  if (entry.kind === 'companion' && entry.companion) {
+    const who = entityName(data, entry.companion.entityId);
+    if (!holds) return `${GONE} Ob ${who} heute bei der Gruppe ist, bleibt, wie es ist.`;
+    return entry.companion.joined
+      ? `${GONE} ${who} gilt danach nicht mehr als Begleiter.`
+      : `${GONE} ${who} gilt danach wieder als Begleiter.`;
+  }
+  if (
+    entry.kind === 'writing' &&
+    entry.writing?.articleId &&
+    data.articles[entry.writing.articleId]
+  )
+    return `${GONE} Der Artikel „${data.articles[entry.writing.articleId]!.title}“ bleibt im Wiki.`;
+  if (entry.kind === 'reveal' && entry.reveal?.alias?.added && holds) {
+    const alias = entry.reveal.alias;
+    return `${GONE} Der zweite Name „${alias.name}“ wird bei ${entityName(data, alias.entityId)} wieder entfernt, wenn er noch dort steht.`;
   }
   if (entry.kind === 'clue' && holds)
     return `${GONE} Der Hinweis gilt am Faden wieder als nicht gefunden.`;
@@ -808,7 +850,20 @@ export function entryPlainText(
       : entry.promise?.due != null
         ? `offen, Frist: ${formatDate(cal, entry.promise.due)}`
         : 'offen';
-    line = `Abmachung: ${text} (${state})`;
+    const head = isJob(entry) ? entryHeadline(data, entry) : 'Abmachung';
+    line = `${head}: ${text} (${state})`;
+  } else if (entry.kind === 'writing') {
+    // Ein Schriftstück steht wörtlich da – mit seinen Zeilen.
+    const title = entry.writing?.title.trim();
+    line = `${title ? `Schriftstück „${title}“` : entryHeadline(data, entry) || 'Schriftstück'}\n${text}`;
+  } else if (entry.kind === 'downtime') {
+    const activities = (entry.downtime?.activities ?? []).map(
+      (a) => `- ${entityName(data, a.characterId)}: ${a.text}`,
+    );
+    line = [
+      text ? `${entryHeadline(data, entry)}. ${text}` : entryHeadline(data, entry),
+      ...activities,
+    ].join('\n');
   } else if (entry.kind === 'change') {
     line = `Veränderung: ${text}`;
   } else if (entry.kind === 'quote') {
@@ -839,7 +894,11 @@ export function entryPlainText(
   };
   if (entry.placeId && entry.kind !== 'travel' && data.entities[entry.placeId]) add(entry.placeId);
   for (const id of entry.refs) if (!fixed.includes(id) && data.entities[id]) add(id);
-  return context.length ? `${line} [${context.join(', ')}]` : line;
+  if (!context.length) return line;
+  // Bei mehreren Zeilen (Schriftstück, Zwischenzeit) gehört der Zusatz an die erste – der
+  // Wortlaut darunter bleibt, wie er ist.
+  const [first, ...rest] = line.split('\n');
+  return [`${first} [${context.join(', ')}]`, ...rest].join('\n');
 }
 
 /** Für wen eine Zusammenfassung gedacht ist. */
@@ -990,4 +1049,6 @@ export const TEXT_KINDS: readonly ChronicleKind[] = [
   'knowledge',
   'wish',
   'condition',
+  'writing',
+  'transformation',
 ];

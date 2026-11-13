@@ -81,7 +81,7 @@ nicht übernommen.
   `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Gefährten“ =
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Nachtragen und Weltgeschehen; „Gefährten“ =
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
@@ -113,6 +113,8 @@ nicht übernommen.
   `faeden` (das Fadenbrett: eine Pinnwand aus Geschichten, losen Fäden und den Namen, an denen
   sie hängen; die Rechnung steht in `domain/story.ts`),
   `abend` (den nächsten Abend vorbereiten; die Rechnung steht in `domain/prep.ts`),
+  `nachtragen` (alte Sessions aus Notizdateien: lesen, trennen, in die Weltzeit legen,
+  übernehmen),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -203,6 +205,18 @@ nicht übernommen.
   Dauer bei trockenem Wetter. Wer im Viertel steht, steht auch in der Stadt: `routeBetween`
   nimmt die Wege der Orte darüber, wenn vom Ort selbst keiner zum Ziel führt, und lässt am Ziel
   den Ort gelten, in dem es liegt – angekommen ist die Gruppe bei `route.toId`.
+- Nachtragen (`features/nachtragen`, Reiter unter Zeit): Notizdateien werden in Sessions
+  getrennt (`splitSessions`) und eingeordnet (`placeSessions` – nie nach „jetzt“, nie nach der
+  ersten vorhandenen Session; Zwischenzeiten aus `gaps.ts`). Übernommen wird nur über
+  `takeOverSessions`: Die Notizen stehen dann wörtlich in `session.source`, unverändert;
+  `session.notes` bleibt die Mitschrift des Spielleiters. Nachgetragenes stellt nie Zeit vor.
+  Gelesen wird nur über `readSession` / `storeReading` (der Rückblick nie als Geschehen,
+  Entscheidungen hängen an Art + Satz). Angenommen wird nur über
+  `nachtragen/reviewActions.ts` (`acceptProposals`, Beute über `giveLootAt`, Fäden über `saveThread`); was
+  ein Vorschlag angelegt oder geändert hat, steht an ihm (`created`, `edits`), damit
+  `undoAccepted` es auch nach einem Neustart zurücknimmt. In Artikel schreibt Wayfarer dabei nur
+  die Zeile im Steckbrief und einen Punkt unter „## Was geschah“ (`wiki/factLines.ts`), nie in
+  den Fließtext.
 - Abmachungen (Chronik, `kind: 'promise'`): offen, erledigt oder gescheitert – gelesen über
   `promiseOutcome()`, gesetzt über `setPromiseOutcome()`. `promise.done` heißt nur „nicht mehr
   offen“; ob sie eingelöst wurde oder gescheitert ist, sagt `promise.failed`.

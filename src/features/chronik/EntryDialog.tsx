@@ -6,9 +6,9 @@
  */
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
-import { recordEntry } from '../../data/record';
 import { useData, useDb } from '../../data/hooks';
 import {
+  CHOICE_HINT,
   KIND_HINT,
   PRECISION_LABEL,
   RECORD_GROUPS,
@@ -40,6 +40,7 @@ import {
   deleteRecorded,
   isFixedKind,
   isLootLine,
+  recordFiled,
   reviseRecorded,
   revisionNeedsEffect,
   revisionPatch,
@@ -60,6 +61,8 @@ import {
 } from './model';
 import { RecordFields } from './RecordFields';
 import {
+  choiceOfEntry,
+  kindOfFields,
   draftOfEntry,
   emptyRecordDraft,
   partOf,
@@ -90,6 +93,10 @@ const TEXT_LABEL: Partial<Record<RecordKind, string>> = {
   reveal: 'Was die Gruppe erfahren hat',
   travel: 'Anmerkung',
   attitude: 'Grund',
+  writing: 'Wortlaut',
+  downtime: 'Was in der Zeit geschah',
+  transformation: 'Was sich wandelt',
+  companion: 'Anmerkung',
 };
 
 /** Wie genau der Zeitpunkt bekannt ist – als Wahl im Dialog. */
@@ -115,8 +122,7 @@ const CHOICE_GROUPS = RECORD_GROUPS.map((group) => ({
   ),
 }));
 
-const kindOf = (choice: RecordFieldsKind): RecordKind =>
-  choice === 'repute' ? 'attitude' : choice;
+const kindOf = (choice: RecordFieldsKind): RecordKind => kindOfFields(choice);
 
 export function EntryDialog({
   request,
@@ -145,9 +151,7 @@ export function EntryDialog({
     [],
   );
 
-  const [choice, setChoice] = useState<RecordFieldsKind>(
-    entry && entry.kind !== 'event' ? entry.kind : 'note',
-  );
+  const [choice, setChoice] = useState<RecordFieldsKind>(entry ? choiceOfEntry(entry) : 'note');
   const [draft, setDraft] = useState<RecordDraft>(opened.draft);
   const [text, setText] = useState(entry?.text ?? '');
   const [time, setTime] = useState(() => timeDraftOf(cal, opened.at));
@@ -245,15 +249,16 @@ export function EntryDialog({
         onClose();
         return;
       }
-      const result = recordEntry(db, input);
+      const result = recordFiled(db, [input]);
       if ('problem' in result) {
         toast({ title: 'Nicht festgehalten', body: result.problem, tone: 'danger' });
         return;
       }
+      const made = result.entries[0]!;
       onClose();
       toast({
         title: at < now ? 'Nachgetragen' : 'Festgehalten',
-        body: entryHeadline(db.getSnapshot(), result.entry) || result.entry.text.slice(0, 120),
+        body: entryHeadline(db.getSnapshot(), made) || made.text.slice(0, 120),
         action: { label: 'Rückgängig', run: result.undo },
       });
     } catch (error) {
@@ -362,7 +367,9 @@ export function EntryDialog({
                 ? 'Die Zeile einer Ausgabe im Beute-Buch behält ihre Art.'
                 : needsEffect
                   ? 'Beim Speichern gilt die Wirkung neu – die alte wird zurückgenommen.'
-                  : KIND_HINT[kind]
+                  : choice === 'job'
+                    ? CHOICE_HINT.job
+                    : KIND_HINT[kind]
             }
           >
             <Select

@@ -38,6 +38,24 @@ describe('Daten im Text erkennen', () => {
     ]);
   });
 
+  it('liest das Jahr auch hinter dem Wort „Jahr“', () => {
+    expect(read('Am 1. Tauwind, Jahr 699 kamen sie an.')).toEqual([
+      ['1. Tauwind, Jahr 699', 'day', '1. Tauwind 699 AD'],
+    ]);
+    expect(read('Der 3. Blüthain im Jahr 700 AD und der 4. Blüthain Jahr 698')).toEqual([
+      ['3. Blüthain im Jahr 700 AD', 'day', '3. Blüthain 700 AD'],
+      ['4. Blüthain Jahr 698', 'day', '4. Blüthain 698 AD'],
+    ]);
+    expect(read('Im Hochbrand, Jahr 650 begann es; im Jahr 652 endete es.')).toEqual([
+      ['Hochbrand, Jahr 650', 'month', '1. Hochbrand 650 AD'],
+      ['Jahr 652', 'year', '1. Tauwind 652 AD'],
+    ]);
+    // Ein Komma ohne „Jahr“ trennt Tag und Zahl; „Jahr 3.5“ ist kein Jahr.
+    expect(read('Am 20. Tauwind, 700 Mann. Jahr 3.5 der Regel.')).toEqual([
+      ['20. Tauwind', 'day', '20. Tauwind 701 AD', 'ohne Jahr'],
+    ]);
+  });
+
   it('lässt in Ruhe, was kein Datum ist', () => {
     // Ein Monat hat keinen 31., eine bloße Zahl ist kein Jahr, ein Monatsname allein kein Datum.
     expect(read('Der 31. Sonnfeld, 700 Mann, im Tauwind, Kapitel 3. Tauwindig, 12ADX')).toEqual([]);

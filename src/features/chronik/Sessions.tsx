@@ -1,6 +1,17 @@
 /** Ansicht „Sessions“: Liste der Spielabende und die gewählte Session mit Notizen und ihrem Verlauf. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Check, CircleStop, Copy, Feather, History, Play, Trash2, Users } from 'lucide-react';
+import { Link } from 'wouter';
+import {
+  Check,
+  CircleStop,
+  Copy,
+  Feather,
+  History,
+  Play,
+  ScrollText,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import {
   addPastSession,
   deleteSession,
@@ -332,6 +343,21 @@ function SessionDetail({
               <dt>Festgehalten</dt>
               <dd>{entryCount(span.entryCount)}</dd>
             </div>
+            {session.source && (
+              <div>
+                <dt>Nachgetragen</dt>
+                <dd>
+                  <Link
+                    href={`/nachtragen/${session.id}`}
+                    className="wf-chronik-source"
+                    title="Die Notizen, aus denen diese Session nachgetragen wurde"
+                  >
+                    <ScrollText aria-hidden />
+                    aus deinen Notizen („{session.source.file}“)
+                  </Link>
+                </dd>
+              </div>
+            )}
           </dl>
         </header>
 
@@ -618,6 +644,12 @@ export function Sessions({
               <span className="wf-chronik-session__no wf-num">{session.number}</span>
               <span className="wf-chronik-session__main">
                 <span className="wf-chronik-session__title wf-clamp-1">
+                  {session.source && (
+                    <ScrollText
+                      className="wf-chronik-session__sourced"
+                      aria-label="Aus deinen Notizen nachgetragen"
+                    />
+                  )}
                   {title || real || <span className="wf-mute wf-italic">Ohne Titel</span>}
                 </span>
                 {(title || !real || span.running) && (

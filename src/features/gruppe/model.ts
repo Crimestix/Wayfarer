@@ -3,7 +3,7 @@
  * Gruppe, Lange Rast, Eingaben des Bearbeiten-Dialogs. Reine Funktionen ohne React.
  */
 import { byName, relationPairs } from '../../domain/derive';
-import type { CampaignData, Character, Entity, Relation } from '../../domain/schema';
+import type { CampaignData, Character, Entity, PersonStatus, Relation } from '../../domain/schema';
 
 type Details = Character['character'];
 
@@ -547,6 +547,8 @@ export interface CharacterDraft {
   sheetUrl: string;
   /** Was der Gefährte will. */
   goal: string;
+  /** Schicksal; wird im Dialog nicht geändert (das geht über „Festhalten“), bleibt aber erhalten. */
+  status?: PersonStatus;
 }
 
 const text = (n: number | null) => (n === null ? '' : String(n));
@@ -607,6 +609,7 @@ export function draftFromCharacter(c: Character): CharacterDraft {
     active: d.active,
     sheetUrl: d.sheetUrl,
     goal: d.goal,
+    status: d.status,
   };
 }
 
@@ -811,6 +814,7 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
         active: draft.active,
         sheetUrl: sheetUrl ? (sheetHref(sheetUrl) ?? sheetUrl) : '',
         goal: draft.goal.trim(),
+        status: draft.status ?? 'alive',
       },
     },
   };

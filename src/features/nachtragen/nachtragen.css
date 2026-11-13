@@ -1,0 +1,604 @@
+/* Zeit › Nachtragen: Notizen einlesen, Sessions richten und übernehmen. */
+
+.wf-nachtragen {
+  position: relative;
+}
+.wf-nachtragen--drag::after {
+  content: '';
+  position: absolute;
+  inset: var(--s-3);
+  border: 1px dashed var(--gold);
+  background: var(--gold-glow);
+  pointer-events: none;
+}
+.wf-nachtragen-head {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.wf-nachtragen-head .wf-page__lead {
+  max-width: 82ch;
+  margin: var(--s-1) 0 0;
+}
+.wf-nachtragen-head__meta {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.wf-nachtragen-caps {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.wf-nachtragen-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: var(--s-4);
+  min-height: 0;
+  padding: 0 var(--s-6) var(--s-5);
+}
+.wf-nachtragen-body--single {
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: var(--s-5);
+}
+.wf-nachtragen-list,
+.wf-nachtragen-side {
+  min-height: 0;
+}
+.wf-nachtragen-list__hint {
+  font-size: var(--text-sm);
+}
+
+/* ── Liste der Sessions ── */
+.wf-nachtragen-problems {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid var(--ember);
+  background: var(--ember-wash);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-nachtragen-problems svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ember);
+  transform: translateY(2px);
+}
+.wf-nachtragen-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) minmax(120px, auto);
+  gap: var(--s-3);
+  align-items: baseline;
+  width: 100%;
+  padding: 9px var(--s-4);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid transparent;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-nachtragen-row:hover {
+  background: var(--bg-3);
+}
+.wf-nachtragen-row[aria-current='true'] {
+  border-left-color: var(--gold);
+  background: linear-gradient(90deg, var(--gold-glow), transparent 75%);
+}
+.wf-nachtragen-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.wf-nachtragen-row--vorspann .wf-nachtragen-row__title {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-nachtragen-row__no {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  white-space: nowrap;
+}
+.wf-nachtragen-row__no--guess {
+  color: var(--ink-faint);
+}
+.wf-nachtragen-row__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-nachtragen-row__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-nachtragen-row__sub {
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-nachtragen-row__state {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 220px;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  text-align: right;
+}
+.wf-nachtragen-row__file {
+  color: var(--ink-faint);
+}
+.wf-nachtragen-tone--ok {
+  color: var(--moss);
+}
+.wf-nachtragen-tone--warn {
+  color: var(--ember);
+}
+.wf-nachtragen-tone--mute {
+  color: var(--ink-mute);
+}
+
+/* ── Notizen einlesen ── */
+.wf-nachtragen-drop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-5);
+  border: 1px dashed var(--line-strong);
+  background: var(--bg-inset);
+  cursor: pointer;
+}
+.wf-nachtragen-drop:hover,
+.wf-nachtragen-drop:focus-visible {
+  border-color: var(--gold-deep);
+  outline: none;
+}
+.wf-nachtragen-file {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 4px var(--s-2) 4px var(--s-3);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  cursor: default;
+}
+.wf-nachtragen-file > svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--ink-mute);
+}
+.wf-nachtragen-file .wf-mute {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.wf-nachtragen-errors {
+  margin: var(--s-3) 0 0;
+  padding: var(--s-2) var(--s-3) var(--s-2) calc(var(--s-3) + 1.1em);
+  border-left: 2px solid var(--blood);
+  background: var(--blood-wash);
+  color: var(--ink-soft);
+}
+.wf-nachtragen-note {
+  margin: var(--s-3) 0 0;
+  font-size: var(--text-sm);
+}
+.wf-nachtragen-rules {
+  margin: var(--s-4) 0 0;
+  padding-left: 1.1em;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.wf-nachtragen-rules li {
+  margin-bottom: var(--s-1);
+}
+.wf-nachtragen-rules b {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ── Eine Session von nahem ── */
+.wf-nachtragen-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-nachtragen-fields {
+  display: grid;
+  grid-template-columns: 96px 140px minmax(0, 1fr);
+  gap: var(--s-3);
+}
+.wf-nachtragen-when {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-faint);
+  background: var(--bg-2);
+}
+.wf-nachtragen-time {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--gold-deep);
+  background: var(--bg-inset);
+}
+.wf-nachtragen-hints {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.wf-nachtragen-detail__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-nachtragen-heading {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--gold-bright);
+}
+.wf-nachtragen-text {
+  display: flex;
+  flex-direction: column;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+.wf-nachtragen-line {
+  position: relative;
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  padding-right: 88px;
+}
+.wf-nachtragen-line__text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wf-nachtragen-line--boundary .wf-nachtragen-line__text {
+  color: var(--gold-bright);
+}
+.wf-nachtragen-line__cut {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+  font-family: var(--font-caps);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0;
+  cursor: pointer;
+}
+.wf-nachtragen-line__cut svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-nachtragen-line:hover {
+  background: var(--bg-3);
+}
+.wf-nachtragen-line:hover .wf-nachtragen-line__cut,
+.wf-nachtragen-line--boundary .wf-nachtragen-line__cut,
+.wf-nachtragen-line__cut:focus-visible {
+  opacity: 1;
+}
+.wf-nachtragen-line__cut:hover,
+.wf-nachtragen-line__cut:focus-visible {
+  border-color: var(--gold-deep);
+  color: var(--gold-bright);
+  outline: none;
+}
+
+/* ── Übernommene Session ── */
+.wf-nachtragen-source {
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.wf-nachtragen-own {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-5);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+
+/* ── Eine Session prüfen ── */
+.wf-nachtragen-body--review {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+.wf-nachtragen-review > .wf-panel__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-nachtragen-review .wf-panel__head .wf-row {
+  margin-left: auto;
+}
+.wf-nachtragen-props {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Die Notizen mit Markierungen */
+.wf-nachtragen-notes {
+  display: flex;
+  flex-direction: column;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.wf-nachtragen-notes__line {
+  min-height: 1.6em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wf-nachtragen-notes__line--quiet {
+  color: var(--ink-mute);
+}
+.wf-nachtragen-notes__section {
+  margin: var(--s-3) 0 var(--s-1);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line-faint);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-nachtragen-notes__block:first-child .wf-nachtragen-notes__section {
+  margin-top: 0;
+}
+.wf-nachtragen-mark--name {
+  color: var(--gold-bright);
+  border-bottom: 1px dotted var(--gold-deep);
+}
+.wf-nachtragen-mark--question {
+  color: var(--ember);
+  border-bottom: 1px dotted var(--ember);
+}
+.wf-nachtragen-mark--date {
+  color: var(--verdigris);
+}
+.wf-nachtragen-mark--said {
+  cursor: pointer;
+}
+.wf-nachtragen-mark--said:hover {
+  background: var(--bg-3);
+}
+.wf-nachtragen-mark--on,
+.wf-nachtragen-mark--on:hover {
+  background: var(--gold-glow);
+  box-shadow: 0 0 0 1px var(--gold-deep);
+}
+
+/* Weltzeit der Session */
+.wf-nachtragen-timebar {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+  background: var(--bg-2);
+  font-size: var(--text-sm);
+}
+.wf-nachtragen-tone--approx {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
+/* Fragen zu Namen */
+.wf-nachtragen-questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-nachtragen-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--gold-deep);
+  background: var(--bg-inset);
+  font-size: var(--text-sm);
+}
+.wf-nachtragen-question__icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--ember);
+}
+.wf-nachtragen-question__pick {
+  min-width: 180px;
+  flex: 1 1 180px;
+  max-width: 280px;
+}
+.wf-nachtragen-question__kind {
+  width: auto;
+  min-width: 120px;
+}
+
+/* Ein Vorschlag */
+.wf-nachtragen-prop {
+  display: grid;
+  /* Breit genug für „Schriftstück“ oder „Zwischenzeit“; „Hinweis gefunden“ bricht um. */
+  grid-template-columns: 128px minmax(0, 1fr) auto;
+  gap: 3px var(--s-3);
+  align-items: start;
+  padding: 10px var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.wf-nachtragen-prop:hover {
+  background: var(--bg-3);
+}
+.wf-nachtragen-prop--on,
+.wf-nachtragen-prop--on:hover {
+  border-left-color: var(--gold);
+  background: linear-gradient(90deg, var(--gold-glow), transparent 70%);
+}
+/* Erledigt: gedämpft über die Schriftfarben, nie dunkler als --ink-faint. */
+.wf-nachtragen-prop--done .wf-nachtragen-prop__what {
+  color: var(--ink-mute);
+}
+.wf-nachtragen-prop--done .wf-nachtragen-prop__when,
+.wf-nachtragen-prop--done .wf-nachtragen-prop__quote {
+  color: var(--ink-faint);
+}
+.wf-nachtragen-kind {
+  display: inline-block;
+  justify-self: start;
+  max-width: 100%;
+  padding: 1px 6px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+}
+.wf-nachtragen-kind--blood {
+  border-color: var(--blood);
+  color: var(--blood-bright);
+}
+.wf-nachtragen-kind--gold {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}
+.wf-nachtragen-kind--arcane {
+  border-color: var(--arcane);
+  color: var(--arcane);
+}
+.wf-nachtragen-kind--moss {
+  border-color: var(--moss);
+  color: var(--moss);
+}
+.wf-nachtragen-prop__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.wf-nachtragen-prop__what {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.wf-nachtragen-prop__when {
+  font-size: var(--text-sm);
+  color: var(--verdigris);
+}
+.wf-nachtragen-prop__quote {
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-mute);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.wf-nachtragen-prop__then {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 3px;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  cursor: default;
+}
+.wf-nachtragen-prop__hint {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  margin-top: 3px;
+  padding: 6px var(--s-3);
+  border-left: 2px solid var(--ember);
+  background: var(--ember-wash);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.wf-nachtragen-prop__hint svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--ember);
+  transform: translateY(2px);
+}
+.wf-nachtragen-prop__names {
+  font-size: var(--text-sm);
+  color: var(--ember);
+}
+.wf-nachtragen-prop__acts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  cursor: default;
+}
+.wf-nachtragen-prop__state {
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* „Ändern“ */
+.wf-nachtragen-dialog__quote {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+  font-style: italic;
+  white-space: pre-wrap;
+  max-height: 7.5em;
+  overflow: auto;
+}
+.wf-nachtragen-dialog__checks {
+  gap: var(--s-2);
+  padding-top: 22px;
+  font-size: var(--text-sm);
+}
+
+/* Fortschritt in der Liste */
+.wf-nachtragen-row__bar {
+  height: 4px;
+  margin-top: 4px;
+  background: var(--bg-3);
+}
+.wf-nachtragen-row__bar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}

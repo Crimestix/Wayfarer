@@ -20,7 +20,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { FATE_LABEL, FIGHT_OUTCOME_LABEL, RUMOR_TRUTH_LABEL } from '../../domain/chronicleKinds';
-import { PROMISE_OUTCOME_LABEL } from '../../domain/derive';
+import { PROMISE_OUTCOME_LABEL, activeParty } from '../../domain/derive';
 import { activeConditions } from '../../domain/history';
 import { RELATION_TYPES } from '../../domain/relations';
 import {
@@ -95,16 +95,19 @@ export function RecordFields({
   );
 
   /** Das Feld „Wer“; welche Einträge passen, sagt `WHO_KINDS`. */
-  const who = (label: string, placeholder = 'Wählen …') => (
+  const who = (label: string, placeholder = 'Wählen …', onCreate?: (name: string) => string) => (
     <Field label={label}>
       <EntityPicker
         value={draft.whoId}
         onChange={(whoId) => set({ whoId, endsId: null })}
         kinds={WHO_KINDS[kind]}
         placeholder={placeholder}
+        onCreate={onCreate}
       />
     </Field>
   );
+  const party = useMemo(() => (kind === 'downtime' ? activeParty(data) : []), [kind, data]);
+  const article = draft.articleId ? data.articles[draft.articleId] : undefined;
 
   let fields: ReactNode = null;
   switch (kind) {
@@ -146,8 +149,10 @@ export function RecordFields({
       );
       break;
     case 'promise':
+    case 'job':
       fields = (
         <>
+          {kind === 'job' && who('Auftraggeber', 'Niemand Bestimmtes')}
           <Field label="Frist in Tagen" hint="Leer lassen, wenn es keine Frist gibt.">
             <Input
               type="number"
@@ -249,8 +254,11 @@ export function RecordFields({
     case 'fate':
       fields = (
         <>
-          {who('Wer', 'Person wählen …')}
-          <Field label="Neues Schicksal" hint="Gilt auch für den Eintrag der Person.">
+          {who('Wer', 'Person oder Gefährte …')}
+          <Field
+            label="Neues Schicksal"
+            hint="Gilt auch für den Eintrag. Ein toter Gefährte bleibt in der Gruppe, als tot gekennzeichnet."
+          >
             <Select
               value={draft.status}
               onChange={(e) => set({ status: e.target.value as RecordDraft['status'] })}
@@ -465,32 +473,164 @@ export function RecordFields({
     }
     case 'reveal':
       fields = (
-        <Field
-          label="Geheimnis vom Abend-Blatt"
-          className="wf-span-2"
-          hint={
-            secrets.length
-              ? 'Ohne Text oben gilt der Wortlaut des Geheimnisses.'
-              : 'Auf den Abend-Blättern steht kein offenes Geheimnis.'
-          }
-        >
-          <Select
-            value={draft.prepSecretId ?? ''}
-            disabled={!secrets.length}
-            onChange={(e) => set({ prepSecretId: e.target.value || null })}
+        <>
+          <Field
+            label="Geheimnis vom Abend-Blatt"
+            className="wf-span-2"
+            hint={
+              secrets.length
+                ? 'Ohne Text oben gilt der Wortlaut des Geheimnisses.'
+                : 'Auf den Abend-Blättern steht kein offenes Geheimnis.'
+            }
           >
-            <option value="">Keines vom Blatt</option>
-            {secrets.map((secret) => (
-              <option key={secret.id} value={secret.id}>
-                {secret.text}
-              </option>
-            ))}
-          </Select>
-        </Field>
+            <Select
+              value={draft.prepSecretId ?? ''}
+              disabled={!secrets.length}
+              onChange={(e) => set({ prepSecretId: e.target.value || null })}
+            >
+              <option value="">Keines vom Blatt</option>
+              {secrets.map((secret) => (
+                <option key={secret.id} value={secret.id}>
+                  {secret.text}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Wahrer Name von">
+            <EntityPicker
+              value={draft.whoId}
+              onChange={(whoId) => set({ whoId })}
+              placeholder="Niemandem"
+            />
+          </Field>
+          <Field
+            label="Name"
+            hint="Ein enthüllter wahrer Name oder Deckname – kommt zu den zweiten Namen des Eintrags."
+          >
+            <Input
+              value={draft.aliasName}
+              disabled={!draft.whoId}
+              onChange={(e) => set({ aliasName: e.target.value })}
+            />
+          </Field>
+        </>
       );
       break;
     case 'knowledge':
       fields = who('Wer erfährt es');
+      break;
+    case 'writing':
+      fields = (
+        <>
+          {who('Von wem oder woher', 'Niemand Bestimmtes')}
+          <Field label="Titel" hint="Etwa „Brief an Mira“ oder „Aushang am Tor“.">
+            <Input value={draft.title} onChange={(e) => set({ title: e.target.value })} />
+          </Field>
+          <Field
+            label="Im Wiki"
+            className="wf-span-2"
+            hint={
+              article
+                ? undefined
+                : 'Legt einen Artikel mit Titel und Wortlaut an – im Ordner „Schriftstücke“.'
+            }
+          >
+            {article ? (
+              <span>Abgelegt als Artikel „{article.title}“</span>
+            ) : (
+              <Checkbox
+                checked={draft.createArticle}
+                onChange={(createArticle) => set({ createArticle })}
+              >
+                Als Artikel ablegen
+              </Checkbox>
+            )}
+          </Field>
+        </>
+      );
+      break;
+    case 'downtime':
+      fields = (
+        <>
+          <Field label="Dauer in Tagen" hint="Nur der Eintrag – die Weltzeit bleibt stehen.">
+            <Input
+              type="number"
+              min={0}
+              value={draft.days}
+              onChange={(e) => set({ days: e.target.value })}
+            />
+          </Field>
+          <span />
+          {party.length > 0 && (
+            <Field label="Was die Gefährten tun" className="wf-span-2">
+              <div className="wf-form-grid">
+                {party.map((character) => {
+                  const current =
+                    draft.activities.find((a) => a.characterId === character.id)?.text ?? '';
+                  return (
+                    <Input
+                      key={character.id}
+                      aria-label={`Was ${character.name} tut`}
+                      placeholder={character.name}
+                      value={current}
+                      onChange={(e) =>
+                        set({
+                          activities: [
+                            ...draft.activities.filter((a) => a.characterId !== character.id),
+                            { characterId: character.id, text: e.target.value },
+                          ],
+                        })
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </Field>
+          )}
+        </>
+      );
+      break;
+    case 'transformation':
+      fields = (
+        <>
+          {who('Gefährte', 'Gefährten wählen …')}
+          <span className="wf-field__hint">
+            Der Text oben sagt, was sich wandelt – neue Kräfte, Gestalt, ein verlorenes Glied.
+          </span>
+        </>
+      );
+      break;
+    case 'companion':
+      fields = (
+        <>
+          {who(
+            'Tier oder Wesen',
+            'Wählen oder neu anlegen …',
+            (name) =>
+              db.put(
+                'entities',
+                createEntity({ kind: 'person', name, person: { role: 'Begleiter' } }),
+              ).id,
+          )}
+          <Field label="Kommt oder geht">
+            <Select
+              value={draft.ended ? 'left' : 'joined'}
+              onChange={(e) => set({ ended: e.target.value === 'left' })}
+            >
+              <option value="joined">Kommt zur Gruppe</option>
+              <option value="left">Geht</option>
+            </Select>
+          </Field>
+          <Field label="Gehört zu">
+            <EntityPicker
+              value={draft.towardId}
+              onChange={(towardId) => set({ towardId })}
+              kinds={['character']}
+              placeholder="Die ganze Gruppe"
+            />
+          </Field>
+        </>
+      );
       break;
     default:
       fields = null;

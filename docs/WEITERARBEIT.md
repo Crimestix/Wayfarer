@@ -1331,9 +1331,59 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
 - **Schritt 2, Teil 1:** Text-, Markdown-, Word- und RTF-Dateien lesen und in Sessions trennen
   (`features/nachtragen`: `readNotesFile`, `splitSessions`, `placeSessions`). Mit den echten
   Notizen des Spielleiters lokal geprüft: alle 12 Sessions richtig getrennt.
+- **Entscheidung des Spielleiters (13. 11. 2026):** Wayfarer ist sein einziges Werkzeug; Übernahmen
+  (LegendKeeper, alte Notizen) sind einmalig und werden nicht weiter poliert. Schritt 4 (KI-Leser
+  für Notizen) entfällt. Neues wird so gebaut, dass man es direkt in Wayfarer schreibt.
 - **Als Nächstes:** Schritt 1b (Schriftstück, Zwischenzeit, Wandlung, Begleiter und Aufträge, Tod
   und Rückkehr von Gefährten, zweite Gestalt eines Gefährten), dann die Seite „Nachtragen“.
 - **Nicht geprüft:** installierte App, echter Spielstand.
+
+### Vergangenes nachtragen – Schritt 2: die Seite „Nachtragen“ (13. 11. 2026) – gebaut
+
+- **Reiter „Nachtragen“** unter Zeit (`/nachtragen`, `features/nachtragen`): Dateien wählen oder
+  hineinziehen, Liste der Sessions mit Nummer, Titel, Spielabend, Weltzeit („ungefähr“, „nur
+  Reihenfolge“) und Stand. Eine Session wählen: Nummer, Titel, Spielabend ändern, Weltzeit von
+  Hand setzen (`placeSessions(…, overrides)`), mit der nächsten zusammenlegen, an einer Zeile
+  trennen. Alles lebt bis zum Übernehmen nur in der Seite.
+- **Übernehmen** (`takeOverPlan` in `model.ts`, `takeOverSessions` in `actions.ts`): legt neue
+  Sessions an (`addPastSession`) oder gibt der vorhandenen mit gleicher Nummer die Notizen;
+  Rückgängig im Toast. Die Notizen stehen wörtlich in `session.source` (`file`, `text`, `line`,
+  `precision` der Weltzeit); dazu `session.recap` und `session.reading` für Schritt 3 (der Inhalt
+  von `reading` ist dort festzulegen). Die Chronik zeigt an der Session „Nachgetragen – aus deinen
+  Notizen“ mit Verweis auf `/nachtragen/<id>` (dort bisher nur die Notizen und ein Platzhalter).
+- **Weltzeit:** „1. Tauwind, Jahr 701“ und „Jahr 701“ (`textDates.ts`); Zwischenzeit am Anfang
+  einer Session („sechs Wochen später“, „Downtime: 3 Tage“, „Am nächsten Morgen“) hält Abstand zur
+  vorigen, „Nächster Tag“/„Insgesamt 5 Tage“ verlängern sie (`gaps.ts`). Passt das nicht vor den
+  nächsten festen Punkt, wird nur hintereinander gereiht und gemeldet.
+- **Nicht geprüft:** im Browser und in der installierten App; mit dem echten Spielstand.
+
+### Vergangenes nachtragen – Schritt 3: eine Session prüfen (13. 11. 2026) – gebaut
+
+- **`/nachtragen/<id>`** (`SessionReview.tsx`, Probe Bild 2): links die Notizen wörtlich, Namen
+  der Welt, unbekannte Namen und Zeitangaben markiert, Rückblick und Regelnotizen gedämpft mit
+  eigener Überschrift (`noteView` in `review.ts`); der Satz des gewählten Vorschlags leuchtet,
+  ein Klick auf einen Satz wählt seinen Vorschlag. Rechts die Weltzeit der Session („Weltzeit
+  setzen“ → `setSessionTime`, offene Vorschläge werden neu eingeordnet), die Fragen zu
+  unbekannten Namen (vorhandenen Eintrag wählen → zweiter Name, neu anlegen, „niemand
+  Bestimmtes“ – `answerQuestion`) und die Vorschläge als Zeitleiste mit Häkchen für Steckbrief,
+  „Was geschah“ und Schriftstück-Artikel, Widersprüchen, Annehmen / Ändern / Stimmt nicht und
+  Rückgängig je Vorschlag. Ungelesene Sessions werden beim Öffnen gelesen.
+- **Annehmen** (`reviewActions.ts`): `acceptProposals` hält alle Einträge in einem Zug über
+  `recordFiled` fest (nachgetragen, Zeit und Genauigkeit des Vorschlags; Ortswechsel-Folgen
+  passen so zwischen vorhandene), sonst einzeln mit Grund. Beute über `giveLootAt`
+  (`features/beute/actions.ts`, mit Zeit, Abend und Ort von damals), Fäden über `saveThread`,
+  „Meilenstein: alle“ als ein Eintrag je aktivem Gefährten, Decknamen einer Notiz als zweite
+  Namen. `created` und `edits` am Vorschlag machen `undoAccepted` dauerhaft.
+- **Artikel** (`wiki/factLines.ts`): `setFactLine` setzt „Zustand: tot“ / „Aufenthaltsort: X“ im
+  Steckbrief (legt ihn an, wenn keiner da ist) – nur, wenn der Eintrag heute gilt
+  (`effectHolds`); `addHappenedLine` hängt „- <Tag> (Session N): <Satz>“ unter „## Was geschah“
+  an (bei ungefährer Zeit „ungefähr <Tag>“). Zurücknehmen nur, solange die Zeile so dasteht.
+- **Liste:** Stand je Session („gelesen · 14 Vorschläge“, „3 von 14 geprüft“, „2 Widersprüche“,
+  „geprüft · 9 Einträge“) mit Balken; Kopf „N geprüft“ und „Session N prüfen“.
+- **Offen:** Eine Zeile im Steckbrief schreiben nur Schicksal („Zustand“) und Aufenthalt
+  („Aufenthaltsort“); die übrigen Arten nur „Was geschah“. Steckbriefe von Gefährten liest
+  `syncFacts` nicht (kein Wortschatz für `character` in `VOCABULARY`). Nicht geprüft im Browser
+  und in der installierten App.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

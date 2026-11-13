@@ -7,7 +7,13 @@
  * der jüngste seiner Sorte für dasselbe Ding ist (`isNewestOfSort`).
  */
 import { byTime, chronicleSorted, normalize, sessionsSorted } from './derive';
-import { type CampaignData, type ChronicleEntry, type PersonStatus, type Session } from './schema';
+import {
+  PARTY_ID,
+  type CampaignData,
+  type ChronicleEntry,
+  type PersonStatus,
+  type Session,
+} from './schema';
 import type { WorldTime } from './time/calendar';
 
 // ── Sessions ───────────────────────────────────────────────────────────────
@@ -115,6 +121,8 @@ export function sortKeyOf(entry: ChronicleEntry): string | null {
     case 'wish':
       // Nur ein Wunsch, der Ziel des Gefährten wurde, bestimmt einen Stand: sein heutiges Ziel.
       return entry.wish?.setGoal && entry.refs[0] ? `wish:${entry.refs[0]}` : null;
+    case 'companion':
+      return entry.companion ? `companion:${entry.companion.entityId}` : null;
     default:
       return null;
   }
@@ -222,20 +230,29 @@ export function activeConditions(
 
 // ── Seit wann ──────────────────────────────────────────────────────────────
 
+/** Das heutige Schicksal einer Person oder eines Gefährten; null bei anderen Einträgen. */
+export function statusOf(data: CampaignData, entityId: string): PersonStatus | null {
+  const entity = data.entities[entityId];
+  if (entity?.kind === 'person') return entity.person.status;
+  if (entity?.kind === 'character') return entity.character.status;
+  return null;
+}
+
 /**
- * Seit wann eine Person in ihrem heutigen Zustand ist (tot, verschollen …): der jüngste Eintrag
- * der Art „Schicksal“, der genau diesen Zustand gesetzt hat. null, wenn keiner dazu passt.
+ * Seit wann eine Person oder ein Gefährte in ihrem heutigen Zustand ist (tot, verschollen …):
+ * der jüngste Eintrag der Art „Schicksal“, der genau diesen Zustand gesetzt hat. null, wenn
+ * keiner dazu passt.
  */
 export function fateSince(
   data: CampaignData,
   personId: string,
 ): { status: PersonStatus; since: WorldTime; entry: ChronicleEntry } | null {
-  const person = data.entities[personId];
-  if (person?.kind !== 'person') return null;
+  const status = statusOf(data, personId);
+  if (status === null) return null;
   const entry = chronicleSorted(data)
     .filter((e) => e.kind === 'fate' && e.fate?.entityId === personId)
     .at(-1);
-  if (!entry || entry.fate!.status !== person.person.status) return null;
+  if (!entry || entry.fate!.status !== status) return null;
   return { status: entry.fate!.status, since: entry.at, entry };
 }
 
@@ -286,5 +303,72 @@ export function entryEntityIds(entry: ChronicleEntry): string[] {
   add(entry.bond?.toId);
   add(entry.condition?.entityId);
   add(entry.milestone?.characterId);
+  add(entry.transformation?.characterId);
+  add(entry.companion?.entityId);
+  add(entry.companion?.ownerId);
+  add(entry.reveal?.alias?.entityId);
+  for (const activity of entry.downtime?.activities ?? []) add(activity.characterId);
   return [...ids];
+}
+
+// ── Gefährten ──────────────────────────────────────────────────────────────
+
+/** Die Wandlungen eines Gefährten (neue Kräfte, Gestalt …), die jüngste zuerst – für seine Seite. */
+export function transformationsOf(data: CampaignData, characterId: string): ChronicleEntry[] {
+  return chronicleSorted(data)
+    .filter(
+      (entry) =>
+        entry.kind === 'transformation' && entry.transformation?.characterId === characterId,
+    )
+    .reverse();
+}
+
+export interface PartyCompanion {
+  /** Das Tier oder Wesen (Eintrag der Art „person“). */
+  entityId: string;
+  /** Der Gefährte, zu dem es gehört; null = die ganze Gruppe. */
+  ownerId: string | null;
+  relationId: string;
+}
+
+/**
+ * Begleiter der Gruppe: Tiere und Wesen, die gerade mit ihr ziehen – aus den Beziehungen der Art
+ * „companion“ (gesetzt über Einträge der Art „Begleiter“). Mit `ownerId` nur die eines Gefährten.
+ */
+export function partyCompanions(data: CampaignData, ownerId?: string): PartyCompanion[] {
+  return Object.values(data.relations)
+    .filter((relation) => {
+      if (relation.type !== 'companion' || relation.ended) return false;
+      if (!data.entities[relation.from]) return false;
+      const owner = relation.to === PARTY_ID ? null : relation.to;
+      if (owner !== null && data.entities[owner]?.kind !== 'character') return false;
+      return ownerId === undefined || owner === ownerId;
+    })
+    .map((relation) => ({
+      entityId: relation.from,
+      ownerId: relation.to === PARTY_ID ? null : relation.to,
+      relationId: relation.id,
+    }))
+    .sort((a, b) =>
+      (data.entities[a.entityId]?.name ?? '').localeCompare(
+        data.entities[b.entityId]?.name ?? '',
+        'de',
+      ),
+    );
+}
+
+/**
+ * Zweite Gestalten eines Gefährten oder einer Person: eigene Einträge, verbunden über eine
+ * Beziehung der Art „persona“ (die zweite Gestalt → der Gefährte).
+ */
+export function personasOf(data: CampaignData, entityId: string): string[] {
+  return Object.values(data.relations)
+    .filter(
+      (relation) =>
+        relation.type === 'persona' &&
+        !relation.ended &&
+        relation.to === entityId &&
+        !!data.entities[relation.from],
+    )
+    .map((relation) => relation.from);
 }

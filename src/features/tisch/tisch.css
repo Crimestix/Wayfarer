@@ -1494,6 +1494,19 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-mate__conditions {
   color: var(--ember);
 }
+/* Ein toter oder verschollener Gefährte bleibt in der Leiste, gedämpft und gekennzeichnet. */
+.wf-tisch-mate--fallen .wf-portrait {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+.wf-tisch-mate--fallen .wf-tisch-mate__name {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+  text-decoration-color: var(--blood-bright);
+}
+.wf-tisch-mate__fate {
+  color: var(--blood-bright);
+}
 
 /* Erschöpfung: sechs Marken zum Anklicken */
 .wf-tisch-pips {

@@ -776,3 +776,26 @@ textarea.wf-chronik-summary {
   color: inherit;
   stroke-width: 1.6;
 }
+
+/* Aus Notizen nachgetragen (Zeit › Nachtragen): Zeichen in der Liste, Verweis in der Session. */
+.wf-chronik-session__sourced {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  color: var(--gold-deep);
+  vertical-align: -1px;
+}
+.wf-chronik-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gold);
+  border-bottom: 1px dotted var(--gold-deep);
+}
+.wf-chronik-source:hover {
+  color: var(--gold-bright);
+}
+.wf-chronik-source svg {
+  width: 14px;
+  height: 14px;
+}

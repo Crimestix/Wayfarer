@@ -14,6 +14,7 @@ import {
   type ChroniclePrecision,
   type FightOutcome,
   type PersonStatus,
+  type PromiseSort,
   type RumorTruth,
 } from './schema';
 import { formatDate, formatDayMonth, fromTime, type WorldTime } from './time/calendar';
@@ -49,9 +50,11 @@ export interface RecordInput {
 
   travel?: { toId: string | null };
   attitude?: { fromId: string; toId: string; value: number | null };
-  promise?: { due?: WorldTime | null; outcome?: PromiseOutcome };
+  /** `sort: 'job'` = ein Auftrag an die Gruppe (Auftraggeber ist refs[0]). */
+  promise?: { due?: WorldTime | null; outcome?: PromiseOutcome; sort?: PromiseSort };
   fight?: { outcome?: FightOutcome; encounterId?: string | null };
   rest?: { long: boolean };
+  /** Für Personen und Gefährten. */
   fate?: { entityId: string; status: PersonStatus };
   whereabouts?: { entityId: string; placeId: string | null };
   rumor?: { sourceId?: string | null; truth?: RumorTruth };
@@ -69,7 +72,23 @@ export interface RecordInput {
   milestone?: { characterId: string; level?: number | null };
   wish?: { characterId: string; setGoal?: boolean };
   clue?: { threadId: string | null; hintId?: string | null };
-  reveal?: { prepSecretId: string | null };
+  /**
+   * `alias`: ein enthüllter wahrer Name oder Deckname, der als zweiter Name zum Eintrag kommt
+   * (Wirkung: `entity.aliases`).
+   */
+  reveal?: { prepSecretId: string | null; alias?: { entityId: string; name: string } | null };
+  /**
+   * Schriftstück, wörtlich im Text. `articleId`: schon abgelegt als dieser Artikel.
+   * `createArticle`: als Artikel im Ordner „Schriftstücke“ ablegen – das übernimmt
+   * `recordFiled` in `features/chronik/actions.ts` (Artikel entstehen über `wiki/actions`).
+   */
+  writing?: { title?: string; articleId?: string | null; createArticle?: boolean };
+  /** Zwischenzeit von `days` Tagen ab `at`; stellt nie die Weltzeit vor. */
+  downtime?: { days: number; activities?: { characterId: string; text: string }[] };
+  /** Wandlung eines Gefährten; der Text sagt, welche. */
+  transformation?: { characterId: string };
+  /** Ein Tier oder Wesen (Person) kommt zur Gruppe (`joined`) oder geht; `ownerId` = Gefährte. */
+  companion?: { entityId: string; joined?: boolean; ownerId?: string | null };
 }
 
 // ── Arten ──────────────────────────────────────────────────────────────────
@@ -99,6 +118,10 @@ export const KIND_LABEL: Record<ChronicleKind, string> = {
   clue: 'Hinweis gefunden',
   reveal: 'Aufgedeckt',
   knowledge: 'Wer was weiß',
+  writing: 'Schriftstück',
+  downtime: 'Zwischenzeit',
+  transformation: 'Wandlung',
+  companion: 'Begleiter',
 };
 
 /** Ein Satz je Art: was hierher gehört und was der Eintrag bewirkt. */
@@ -126,10 +149,25 @@ export const KIND_HINT: Record<RecordKind, string> = {
   clue: 'Die Gruppe hat einen Hinweis zu einem Faden gefunden.',
   reveal: 'Die Gruppe hat ein Geheimnis erfahren.',
   knowledge: 'Wer etwas erfahren hat – und was.',
+  writing: 'Ein Brief, eine Botschaft, ein Aushang – wörtlich. Auf Wunsch auch als Artikel.',
+  downtime:
+    'Zeit vergeht mit Tätigkeiten der Gefährten. Nur der Eintrag – die Weltzeit bleibt stehen.',
+  transformation: 'Ein Gefährte wandelt sich: neue Kräfte, neue Gestalt, ein verlorenes Glied …',
+  companion: 'Ein Tier oder Wesen kommt zur Gruppe oder geht.',
 };
 
-/** Was man im Festhalten wählen kann: eine Art oder einer der beiden zweiten Eingänge. */
-export type RecordChoice = RecordKind | 'loot' | 'repute';
+/** Ein Satz zu den zweiten Eingängen des Festhaltens. */
+export const CHOICE_HINT = {
+  job: 'Ein Auftrag an die Gruppe – von wem, was. Bleibt offen, bis du ihn abhakst.',
+  repute: 'Wie eine Fraktion zur Gruppe steht',
+  loot: 'Öffnet die Ausgabe des Beute-Buchs',
+} as const;
+
+/**
+ * Was man im Festhalten wählen kann: eine Art oder einer der zweiten Eingänge – „Beute“ (das
+ * Beute-Buch), „Ruf“ (Haltung einer Fraktion) und „Auftrag“ (eine Abmachung der Sorte `job`).
+ */
+export type RecordChoice = RecordKind | 'loot' | 'repute' | 'job';
 
 export interface RecordChoiceInfo {
   choice: RecordChoice;
@@ -144,7 +182,7 @@ export interface RecordGroup {
 
 const choice = (c: RecordChoice, label?: string): RecordChoiceInfo => ({
   choice: c,
-  label: label ?? (c === 'loot' || c === 'repute' ? '' : KIND_LABEL[c]),
+  label: label ?? (c === 'loot' || c === 'repute' || c === 'job' ? '' : KIND_LABEL[c]),
 });
 
 /**
@@ -161,6 +199,7 @@ export const RECORD_GROUPS: RecordGroup[] = [
       choice('decision'),
       choice('fight'),
       choice('rest'),
+      choice('downtime'),
       choice('quote'),
     ],
   },
@@ -179,7 +218,13 @@ export const RECORD_GROUPS: RecordGroup[] = [
   {
     id: 'people',
     label: 'Zwischen Leuten',
-    choices: [choice('promise'), choice('attitude'), choice('bond'), choice('repute', 'Ruf')],
+    choices: [
+      choice('promise'),
+      choice('job', 'Auftrag'),
+      choice('attitude'),
+      choice('bond'),
+      choice('repute', 'Ruf'),
+    ],
   },
   {
     id: 'party',
@@ -190,20 +235,41 @@ export const RECORD_GROUPS: RecordGroup[] = [
       choice('condition'),
       choice('milestone'),
       choice('wish'),
+      choice('transformation'),
+      choice('companion'),
     ],
   },
   {
     id: 'secrets',
     label: 'Geheimnisse',
-    choices: [choice('clue'), choice('reveal'), choice('knowledge')],
+    choices: [choice('clue'), choice('reveal'), choice('knowledge'), choice('writing')],
   },
 ];
 
-/** Die Art hinter einer Wahl: „Ruf“ ist eine Haltung, „Beute“ keine Art (null). */
+/**
+ * Die Art hinter einer Wahl: „Ruf“ ist eine Haltung, „Auftrag“ eine Abmachung, „Beute“ keine
+ * Art (null).
+ */
 export function kindOfChoice(c: RecordChoice): RecordKind | null {
   if (c === 'loot') return null;
   if (c === 'repute') return 'attitude';
+  if (c === 'job') return 'promise';
   return c;
+}
+
+/** Ist der Eintrag ein Auftrag (eine Abmachung der Sorte `job`)? */
+export const isJob = (entry: Pick<ChronicleEntry, 'kind' | 'promise'>): boolean =>
+  entry.kind === 'promise' && entry.promise?.sort === 'job';
+
+/** Name der Art eines Eintrags – „Auftrag“ statt „Abmachung“ bei einem Auftrag. */
+export const entryKindLabel = (entry: Pick<ChronicleEntry, 'kind' | 'promise'>): string =>
+  isJob(entry) ? 'Auftrag' : KIND_LABEL[entry.kind];
+
+/** Tage in Worten: „1 Tag“, „6 Wochen“, „10 Tage“. */
+export function daysLabel(days: number): string {
+  if (days === 1) return '1 Tag';
+  if (days >= 7 && days % 7 === 0) return days === 7 ? '1 Woche' : `${days / 7} Wochen`;
+  return `${days} Tage`;
 }
 
 /** Alle Arten in der Reihenfolge der Gruppen, der automatische Termin zuletzt – für Filter. */
@@ -235,6 +301,9 @@ export const WORLD_CHRONICLE_KINDS: readonly ChronicleKind[] = [
   'fate',
   'whereabouts',
 ];
+
+/** Arten, deren Text wörtlich gilt und als Ganzes stehen bleibt (Zitat, Schriftstück). */
+export const VERBATIM_KINDS: readonly ChronicleKind[] = ['quote', 'writing'];
 
 // ── Angaben ────────────────────────────────────────────────────────────────
 
@@ -361,17 +430,47 @@ export function recordHeadline(data: CampaignData, entry: ChronicleEntry): strin
       return thread ? `Hinweis gefunden zu: ${thread.title}` : '';
     }
     case 'reveal': {
+      const alias = entry.reveal?.alias;
+      const named = alias ? `${entityName(data, alias.entityId)} heißt auch „${alias.name}“` : '';
       const id = entry.reveal?.prepSecretId;
-      if (!id) return '';
+      if (!id) return named;
       for (const prep of Object.values(data.preps)) {
         const secret = prep.secrets.find((s) => s.id === id);
-        if (secret) return `Aufgedeckt: ${secret.text}`;
+        if (secret)
+          return named ? `Aufgedeckt: ${secret.text} · ${named}` : `Aufgedeckt: ${secret.text}`;
       }
-      return '';
+      return named;
     }
     case 'knowledge': {
       const who = names(data, others(entry).slice(0, 1));
       return who ? `${who} erfährt` : '';
+    }
+    case 'promise': {
+      if (!isJob(entry)) return '';
+      const client = names(data, others(entry).slice(0, 1));
+      return client ? `Auftrag von ${client}` : 'Auftrag';
+    }
+    case 'writing': {
+      const title = entry.writing?.title.trim() ?? '';
+      if (title) return `Schriftstück: ${title}`;
+      const from = names(data, others(entry).slice(0, 1));
+      return from ? `Schriftstück von ${from}` : '';
+    }
+    case 'downtime': {
+      const days = entry.downtime?.days ?? 0;
+      return days > 0 ? `Zwischenzeit: ${daysLabel(days)}` : 'Zwischenzeit';
+    }
+    case 'transformation':
+      return entry.transformation
+        ? `Wandlung: ${entityName(data, entry.transformation.characterId)}`
+        : '';
+    case 'companion': {
+      if (!entry.companion) return '';
+      const { entityId, ownerId, joined } = entry.companion;
+      const owner = ownerId ? entityName(data, ownerId) : 'die Gruppe';
+      return joined
+        ? `${entityName(data, entityId)} begleitet ${owner}`
+        : `${entityName(data, entityId)} verlässt ${owner}`;
     }
     default:
       return '';
@@ -387,8 +486,8 @@ function shortDate(data: CampaignData, at: WorldTime): string {
 }
 
 /**
- * Das Schicksal einer Person mit Datum: „Tot seit 8. Saatmond“. null, wenn sie lebt oder kein
- * Eintrag der Chronik sagt, seit wann.
+ * Das Schicksal einer Person oder eines Gefährten mit Datum: „Tot seit 8. Saatmond“. null, wenn
+ * sie lebt oder kein Eintrag der Chronik sagt, seit wann.
  */
 export function fateSinceLabel(data: CampaignData, personId: string): string | null {
   const fate = fateSince(data, personId);

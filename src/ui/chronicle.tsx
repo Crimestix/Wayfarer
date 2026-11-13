@@ -1,10 +1,16 @@
 /** Darstellung von Chronik-Einträgen – überall gleich: am Spieltisch, in der Chronik, im Dossier. */
 import type { ReactNode } from 'react';
+import { Link as RouteLink } from 'wouter';
 import {
   ArrowRight,
   Bandage,
   BookOpen,
   Brain,
+  Briefcase,
+  CalendarRange,
+  PawPrint,
+  ScrollText,
+  Wand2,
   Check,
   Compass,
   Ear,
@@ -36,7 +42,10 @@ import {
   FIGHT_OUTCOME_LABEL,
   KIND_LABEL,
   RUMOR_TRUTH_LABEL,
+  daysLabel,
+  entryKindLabel,
   isApproximate,
+  isJob,
   recordHeadline,
 } from '../domain/chronicleKinds';
 import { PROMISE_OUTCOME_LABEL, promiseOutcome } from '../domain/derive';
@@ -90,7 +99,19 @@ export const CHRONICLE_KIND_ICON: Record<ChronicleKind, typeof Feather> = {
   clue: SearchCheck,
   reveal: Eye,
   knowledge: Brain,
+  writing: ScrollText,
+  downtime: CalendarRange,
+  transformation: Wand2,
+  companion: PawPrint,
 };
+
+/** Das Zeichen eines Eintrags – ein Auftrag hat ein eigenes. */
+export const chronicleEntryIcon = (entry: ChronicleEntry): typeof Feather =>
+  isJob(entry) ? Briefcase : CHRONICLE_KIND_ICON[entry.kind];
+
+/** Name der Art an einem Eintrag: „Auftrag“ bei einem Auftrag, „Termin eingetreten“ beim Termin. */
+export const chronicleEntryLabel = (entry: ChronicleEntry): string =>
+  entry.kind === 'event' ? CHRONICLE_KIND_LABEL.event : entryKindLabel(entry);
 
 /**
  * Farbe der Marke je Art, nach Bedeutung: Wege und Orte grünspanfarben, Leute und Geheimnisse
@@ -119,6 +140,10 @@ export const CHRONICLE_KIND_TONE: Record<ChronicleKind, string> = {
   clue: 'var(--arcane)',
   reveal: 'var(--arcane)',
   knowledge: 'var(--arcane)',
+  writing: 'var(--gold)',
+  downtime: 'var(--gold)',
+  transformation: 'var(--arcane)',
+  companion: 'var(--verdigris)',
   event: 'var(--ember)',
 };
 
@@ -305,6 +330,57 @@ function headlineOf(
         ids: [entityId],
       };
     }
+    case 'promise': {
+      if (!isJob(entry)) break;
+      const client = named(data, entry)[0];
+      return {
+        node: client ? <>Auftrag von {link(client)}</> : 'Auftrag',
+        ids: client ? [client] : [],
+      };
+    }
+    case 'writing': {
+      const title = entry.writing?.title.trim();
+      const article = entry.writing?.articleId ? data.articles[entry.writing.articleId] : undefined;
+      if (!title && !article) break;
+      return {
+        node: article ? (
+          <>
+            Schriftstück:{' '}
+            <RouteLink href={`/wiki/${article.id}`} title="Als Artikel im Wiki abgelegt">
+              {title || article.title}
+            </RouteLink>
+          </>
+        ) : (
+          <>Schriftstück: {title}</>
+        ),
+        ids: [],
+      };
+    }
+    case 'downtime':
+      return {
+        node: entry.downtime?.days
+          ? `Zwischenzeit: ${daysLabel(entry.downtime.days)}`
+          : 'Zwischenzeit',
+        ids: (entry.downtime?.activities ?? []).map((a) => a.characterId),
+      };
+    case 'transformation': {
+      if (!entry.transformation) break;
+      const id = entry.transformation.characterId;
+      return { node: <>Wandlung: {link(id)}</>, ids: [id] };
+    }
+    case 'companion': {
+      if (!entry.companion) break;
+      const { entityId, ownerId, joined } = entry.companion;
+      return {
+        node: (
+          <>
+            {link(entityId)} <span className="wf-mute">{joined ? 'begleitet' : 'verlässt'}</span>{' '}
+            {ownerId ? link(ownerId) : 'die Gruppe'}
+          </>
+        ),
+        ids: [entityId, ownerId],
+      };
+    }
     case 'milestone': {
       if (!entry.milestone) break;
       const { characterId, level } = entry.milestone;
@@ -390,7 +466,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
-  const Icon = CHRONICLE_KIND_ICON[entry.kind];
+  const Icon = chronicleEntryIcon(entry);
   const { node: headline, ids: headlineIds } = headlineOf(data, entry);
   const refs = entry.refs.filter(
     (id) => !hideRefs.includes(id) && id !== entry.placeId && !headlineIds.includes(id),
@@ -417,14 +493,14 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
         entry.kind === 'rumor' && entry.rumor?.truth === 'false' && 'wf-chron--disproved',
       )}
     >
-      <div className="wf-chron__mark" title={CHRONICLE_KIND_LABEL[entry.kind]}>
+      <div className="wf-chron__mark" title={chronicleEntryLabel(entry)}>
         <Icon />
       </div>
       <div className="wf-chron__body">
         <div className="wf-chron__meta">
           {showDate && <span>{formatDate(cal, entry.at)}</span>}
           <span className="wf-num">{formatClock(entry.at)}</span>
-          {entry.kind !== 'note' && <span>{CHRONICLE_KIND_LABEL[entry.kind]}</span>}
+          {entry.kind !== 'note' && <span>{chronicleEntryLabel(entry)}</span>}
           {isApproximate(entry) && (
             <span title="Der Zeitpunkt ist nur ungefähr bekannt">ungefähr</span>
           )}
@@ -444,6 +520,17 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           <div className="wf-chron__text wf-prose">
             {entry.kind === 'quote' ? `„${entry.text}“` : entry.text}
           </div>
+        )}
+        {entry.kind === 'downtime' && !!entry.downtime?.activities.length && (
+          <ul className="wf-chron__activities" aria-label="Tätigkeiten">
+            {entry.downtime.activities.map((activity, i) => (
+              <li key={i}>
+                <EntityLink id={activity.characterId} icon={false} />
+                <span className="wf-mute">: </span>
+                {activity.text}
+              </li>
+            ))}
+          </ul>
         )}
         {entry.kind === 'rumor' && <RumorTruthSwitch entry={entry} />}
         {conditionStart && <ConditionState entry={entry} />}

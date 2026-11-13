@@ -12,6 +12,7 @@ import {
   type CalendarDef,
   type WorldTime,
 } from '../../domain/time/calendar';
+import { daysWithin, gapAtStart, type DraftGap } from './gaps';
 import type { SessionDraft } from './split';
 
 /** Was `placeSessions` von einer vorhandenen Session braucht (passt auf `Session`). */
@@ -34,9 +35,12 @@ export interface PlaceData {
 
 /**
  * day: aus Tagen des Kalenders im Text; existing: Zeit der Session, die es schon gibt;
- * order: nur hintereinander gereiht – ungefähr.
+ * order: nur hintereinander gereiht – ungefähr; set: vom Spielleiter gesetzt.
  */
-export type PlacePrecision = 'day' | 'existing' | 'order';
+export type PlacePrecision = 'day' | 'existing' | 'order' | 'set';
+
+/** Von Hand gesetzte Weltzeiten, nach `SessionDraft.key`. */
+export type PlaceOverrides = Readonly<Record<string, { startAt: WorldTime; endAt: WorldTime }>>;
 
 export interface ExistingMatch {
   id: string;
@@ -60,6 +64,10 @@ export interface PlacedSession {
   squeezed: boolean;
   /** Die Session gibt es schon im Spielstand. */
   existing: ExistingMatch | null;
+  /** Zwischenzeit vor der Session laut ihrem Anfang („sechs Wochen später“). */
+  gap: DraftGap | null;
+  /** Tage, die die Session nach ihren Worten umfasst („Nächster Tag“ …), mindestens 1. */
+  days: number;
   notes: string[];
 }
 
@@ -151,12 +159,20 @@ type Item = { kind: 'draft'; index: number } | { kind: 'fixed'; span: Span; labe
 /**
  * Schlägt für jeden Entwurf eine Spanne der Weltzeit vor (Reihenfolge wie `drafts`) und findet
  * Sessions, die es schon gibt (gleiche Nummer, ohne Nummer gleiches echtes Datum).
+ * Zwischenzeiten am Anfang („sechs Wochen später“) halten Abstand zur vorigen Session, Tage im
+ * Text („Nächster Tag“) verlängern eine Session. `overrides`: von Hand gesetzte Weltzeiten –
+ * sie gelten wie Tage im Text, nur genauer; die übrigen reihen sich um sie herum.
  */
-export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData): PlacedSession[] {
+export function placeSessions(
+  drafts: readonly SessionDraft[],
+  data: PlaceData,
+  overrides: PlaceOverrides = {},
+): PlacedSession[] {
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const sessions = Object.values(data.sessions);
   const fmt = (time: WorldTime) => formatDate(cal, time);
+  const year = fromTime(cal, now).year;
 
   const placed: PlacedSession[] = drafts.map((draft) => {
     const notes: string[] = [];
@@ -182,6 +198,25 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
             : `Gibt es schon: ${name}.`,
       );
     }
+    const gap = draft.vorspann ? null : gapAtStart(cal, draft.text, year);
+    const within = daysWithin(cal, draft.text, year, gap);
+    if (gap) {
+      const words = `„${draft.text.slice(gap.from, gap.to)}“`;
+      notes.push(
+        gap.days === null
+          ? `Zwischenzeit am Anfang (${words}) – ohne Dauer; setze die Tage, wenn du sie weißt.`
+          : gap.days === 0
+            ? `Schließt an den Abend davor an (${words}).`
+            : `Zwischenzeit am Anfang (${words}) – ${gap.days === 1 ? 'ein Tag' : `${gap.days} Tage`} Abstand zur Session davor.`,
+      );
+    }
+    if (within.days > 1) {
+      const shown = [...new Set(within.marks)]
+        .slice(0, 3)
+        .map((m) => `„${m}“`)
+        .join(', ');
+      notes.push(`Umfasst nach den Notizen etwa ${within.days} Tage (${shown}).`);
+    }
     return {
       draft,
       startAt: 0,
@@ -189,6 +224,8 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
       precision: 'order',
       squeezed: false,
       existing,
+      gap,
+      days: within.days,
       notes,
     };
   });
@@ -196,6 +233,12 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
   // Bekannte Zeiten: die Session, die es schon gibt, sonst die Tage im Text.
   const known: (Span | null)[] = placed.map((p) => {
     if (p.draft.vorspann) return null;
+    const set = overrides[p.draft.key];
+    if (set && !p.existing) {
+      p.precision = 'set';
+      p.notes.push('Weltzeit von dir gesetzt.');
+      return { start: set.startAt, end: Math.max(set.endAt, set.startAt) };
+    }
     const fromText = spanFromText(p.draft, cal, now, p.notes);
     if (p.existing) {
       const span = {
@@ -210,8 +253,11 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
       p.precision = 'existing';
       return span;
     }
-    if (fromText) p.precision = 'day';
-    return fromText;
+    if (!fromText) return null;
+    p.precision = 'day';
+    // „Nächster Tag“ … verlängert die Session über die genannten Tage hinaus – nie über heute.
+    const longer = Math.min(fromText.start + p.days * DAY, Math.max(fromText.end, startOfDay(now)));
+    return { start: fromText.start, end: Math.max(fromText.end, longer) };
   });
 
   // Sessions des Spielstands ohne Entwurf sind feste Punkte: nach Nummer einsortiert.
@@ -247,31 +293,64 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
   let previous = null as { end: WorldTime; label: string } | null;
   let run: number[] = [];
 
-  const placeRun = (next: { start: WorldTime; label: string }) => {
+  /** Tage Abstand vor einer Session: ihre Zwischenzeit, sonst ein Tag. */
+  const gapDays = (index: number) => placed[index]!.gap?.days ?? 1;
+
+  /**
+   * Die Sessions ohne eigene Zeit vor den nächsten festen Punkt legen. `next.gap`: Zwischenzeit
+   * am Anfang der Session dort (Tage), wenn ihre Notizen eine nennen.
+   */
+  const placeRun = (next: { start: WorldTime; label: string; gap: number | null }) => {
     const k = run.length;
     if (!k) return;
-    const step = 2 * DAY;
     if (previous === null) {
-      // Rückwärts vor den nächsten festen Punkt, je ein Tag mit einem Tag Abstand.
-      run.forEach((index, j) => {
+      // Rückwärts vor den nächsten festen Punkt: mit den Zwischenzeiten, sonst je ein Tag Abstand.
+      let cursor = startOfDay(next.start) - (next.gap ?? 1) * DAY;
+      for (let j = k - 1; j >= 0; j--) {
+        const index = run[j]!;
         const p = placed[index]!;
-        p.startAt = startOfDay(next.start) - (k - j) * step;
-        p.endAt = p.startAt + DAY;
+        p.endAt = Math.max(0, cursor);
+        p.startAt = Math.max(0, cursor - p.days * DAY);
+        cursor = p.startAt - gapDays(index) * DAY;
         const after = run[j + 1];
         const before = after === undefined ? next.label : labelOf(placed[after]!.draft);
         p.notes.push(`Weltzeit unbekannt – vor ${before} eingereiht.`);
-      });
+      }
     } else {
-      const first = Math.ceil(previous.end / DAY) * DAY + DAY;
-      const lastEnd = first + (k - 1) * step + DAY;
-      if (lastEnd <= next.start) {
+      const base = Math.ceil(previous.end / DAY) * DAY;
+      /** Hintereinander ab `base`; `words`: mit Zwischenzeiten und Tagen aus den Notizen. */
+      const layout = (words: boolean) => {
+        const spans: Span[] = [];
+        let cursor = base + (words ? gapDays(run[0]!) : 1) * DAY;
+        run.forEach((index, j) => {
+          const start = cursor;
+          const end = start + (words ? placed[index]!.days : 1) * DAY;
+          spans.push({ start, end });
+          const after = run[j + 1];
+          if (after !== undefined) cursor = end + (words ? gapDays(after) : 1) * DAY;
+        });
+        return spans;
+      };
+      const withWords = layout(true);
+      const plain = layout(false);
+      const fits = (spans: Span[], gap: number) =>
+        spans[spans.length - 1]!.end + gap * DAY <= next.start;
+      const spans = fits(withWords, next.gap ?? 0) ? withWords : fits(plain, 0) ? plain : null;
+      const dropped =
+        spans === plain &&
+        withWords.some((span, j) => span.start !== plain[j]!.start || span.end !== plain[j]!.end);
+      if (spans) {
         run.forEach((index, j) => {
           const p = placed[index]!;
-          p.startAt = first + j * step;
-          p.endAt = p.startAt + DAY;
+          p.startAt = spans[j]!.start;
+          p.endAt = spans[j]!.end;
           p.notes.push(
             `Weltzeit unbekannt – nach ${j === 0 ? previous!.label : labelOf(placed[run[j - 1]!]!.draft)} eingereiht.`,
           );
+          if (dropped)
+            p.notes.push(
+              `Zwischenzeiten und Tage aus den Notizen passen nicht vor ${next.label} – nur hintereinander gereiht.`,
+            );
         });
       } else {
         const room = Math.max(0, next.start - previous.end);
@@ -301,7 +380,7 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
         run.push(item.index);
         continue;
       }
-      placeRun({ start: span.start, label: labelOf(p.draft) });
+      placeRun({ start: span.start, label: labelOf(p.draft), gap: p.gap?.days ?? null });
       p.startAt = span.start;
       p.endAt = span.end;
       if (previous && span.start < previous.end) {
@@ -315,7 +394,7 @@ export function placeSessions(drafts: readonly SessionDraft[], data: PlaceData):
         label: labelOf(p.draft),
       };
     } else {
-      placeRun({ start: item.span.start, label: item.label });
+      placeRun({ start: item.span.start, label: item.label, gap: null });
       if (item.label !== 'dem heutigen Stand der Welt') {
         previous = {
           end: Math.max(previous?.end ?? item.span.end, item.span.end),

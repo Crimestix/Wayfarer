@@ -47,6 +47,15 @@ export const RELATION_TYPES: RelationType[] = [
     inverse: 'ist eine Fähigkeit von',
     group: 'Wissen und Können',
   },
+  /** Ein Tier oder Wesen, das mit der Gruppe oder einem Gefährten zieht (Art „Begleiter“). */
+  { key: 'companion', label: 'begleitet', inverse: 'wird begleitet von', group: 'Bindung' },
+  /** Eine zweite Gestalt eines Gefährten oder einer Person: ein eigener Eintrag mit eigenem Namen. */
+  {
+    key: 'persona',
+    label: 'ist die zweite Gestalt von',
+    inverse: 'hat als zweite Gestalt',
+    group: 'Sonstiges',
+  },
   { key: 'custom', label: 'eigene Bezeichnung', inverse: 'eigene Bezeichnung', group: 'Sonstiges' },
 ];
 

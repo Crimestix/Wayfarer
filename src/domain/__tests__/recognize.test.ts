@@ -121,9 +121,11 @@ describe('Erkennen: Schicksal', () => {
     ).toBe(kessel.id);
   });
 
-  it('schlägt für Gefährten kein Schicksal vor', () => {
+  it('schlägt auch für Gefährten ein Schicksal vor (ein toter Gefährte bleibt in der Gruppe)', () => {
     const w = world();
-    expect(only(recognizeEntry(w.data, 'Brann Eichwald ist tot.'), 'fate')).toEqual([]);
+    expect(
+      only(recognizeEntry(w.data, 'Brann Eichwald ist tot.'), 'fate')[0]?.payload.fate,
+    ).toEqual({ entityId: w.brann.id, status: 'dead' });
   });
 
   it('bleibt im eigenen Satz', () => {
@@ -168,6 +170,42 @@ describe('Erkennen: Orte und Wege', () => {
       payload: { travel: { toId: w.hohenfurt.id } },
     });
     expect(kinds(recognizeEntry(w.data, 'Ankunft in Hohenfurt.'))).toEqual(['travel']);
+  });
+
+  it('kennt Ankunft mit „an“, „im … angekommen“, „zu … gegangen“ und den Aufbruch', () => {
+    const w = world();
+    const travel = (text: string) =>
+      only(recognizeEntry(w.data, text), 'travel').map((t) => [t.label, t.payload.travel?.toId]);
+    expect(travel('Die Gruppe kam am Hohenfurt an.')).toEqual([
+      ['Ortswechsel: → Hohenfurt', w.hohenfurt.id],
+    ]);
+    expect(travel('Im Hohenfurt angekommen, war es dunkel.')).toEqual([
+      ['Ortswechsel: → Hohenfurt', w.hohenfurt.id],
+    ]);
+    expect(travel('Sind zu Hohenfurt gegangen.')).toEqual([
+      ['Ortswechsel: → Hohenfurt', w.hohenfurt.id],
+    ]);
+    expect(travel('Gruppe hat mit Lando Furtner Hohenfurt verlassen.')).toEqual([
+      ['Ortswechsel: Aufbruch aus Hohenfurt', null],
+    ]);
+    const [left] = only(
+      recognizeEntry(w.data, 'Wir verließen Hohenfurt im Morgengrauen.'),
+      'travel',
+    );
+    expect(recognizedInput(left!)).toMatchObject({ kind: 'travel', travel: { toId: null } });
+    // Eine Person allein bricht auf: kein Ortswechsel der Gruppe.
+    expect(travel('Mira Tannhaus hat Hohenfurt verlassen.')).toEqual([]);
+    // „Zu Hause“ ist kein Ort.
+    expect(travel('Lando ging zu Hause schlafen.')).toEqual([]);
+    // Unterwegs ist noch nicht dort.
+    expect(
+      kinds(
+        recognizeEntry(
+          w.data,
+          'Lando Furtner nahm sich auf der Reise nach Hohenfurt vor, zu lesen.',
+        ),
+      ),
+    ).not.toContain('whereabouts');
   });
 
   it('eine Person zieht weiter: Aufenthalt', () => {

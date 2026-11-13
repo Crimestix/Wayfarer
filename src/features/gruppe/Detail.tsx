@@ -12,7 +12,9 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { FATE_LABEL, fateSinceLabel } from '../../domain/chronicleKinds';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
+import { partyCompanions, personasOf, transformationsOf } from '../../domain/history';
 import { formatGold, lootLine, receivedBy } from '../../domain/loot';
 import { relationLabel } from '../../domain/relations';
 import { storiesOfHero } from '../../domain/story';
@@ -315,6 +317,17 @@ export function Detail({
   const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
   const milestones = milestonesOf(data, character.id);
+  /** Neue Kräfte, Gestalt, verlorene Glieder – aus Einträgen der Art „Wandlung“. */
+  const changes = transformationsOf(data, character.id);
+  /** Tiere und Wesen, die mit diesem Gefährten ziehen. */
+  const beasts = partyCompanions(data, character.id);
+  /** Zweite Gestalten: eigene Einträge, verbunden über „ist die zweite Gestalt von“. */
+  const personas = personasOf(data, character.id);
+  const fate =
+    d.status === 'alive'
+      ? null
+      : (fateSinceLabel(data, character.id) ??
+        `${FATE_LABEL[d.status].charAt(0).toUpperCase()}${FATE_LABEL[d.status].slice(1)}`);
   const log = (kind?: 'promise') => openQuickLog({ kind, refs: [character.id] });
 
   return (
@@ -327,7 +340,20 @@ export function Detail({
             <div className="wf-caps">
               {d.active ? 'Gefährte' : 'Gefährte · im Augenblick nicht dabei'}
             </div>
-            <h1 className="wf-gruppe-hero__name">{character.name}</h1>
+            <h1 className="wf-gruppe-hero__name">
+              {character.name}
+              {fate && (
+                <>
+                  {' '}
+                  <Badge tone="blood" title="Schicksal aus der Chronik">
+                    {fate}
+                  </Badge>
+                </>
+              )}
+            </h1>
+            {character.aliases.length > 0 && (
+              <div className="wf-mute">Auch: {character.aliases.join(', ')}</div>
+            )}
             <div className="wf-gruppe-hero__class">
               {classLine(d)}
               {d.player && <span className="wf-mute"> · gespielt von {d.player}</span>}
@@ -385,6 +411,43 @@ export function Detail({
                             {formatShortDate(data.campaign.calendar, data.state.now, entry.at)}
                           </span>
                         </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
+                {changes.length > 0 && (
+                  <>
+                    <dt>Wandlungen</dt>
+                    <dd className="wf-gruppe-stack">
+                      {changes.map((entry) => (
+                        <span key={entry.id} className="wf-gruppe-milestone">
+                          <span className="wf-clamp-1" title={entry.text}>
+                            {entry.text}
+                          </span>
+                          <span className="wf-mute">
+                            {formatShortDate(data.campaign.calendar, data.state.now, entry.at)}
+                          </span>
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
+                {personas.length > 0 && (
+                  <>
+                    <dt>Zweite Gestalt</dt>
+                    <dd className="wf-gruppe-stack">
+                      {personas.map((id) => (
+                        <EntityLink key={id} id={id} />
+                      ))}
+                    </dd>
+                  </>
+                )}
+                {beasts.length > 0 && (
+                  <>
+                    <dt>Begleiter</dt>
+                    <dd className="wf-gruppe-stack">
+                      {beasts.map((beast) => (
+                        <EntityLink key={beast.relationId} id={beast.entityId} />
                       ))}
                     </dd>
                   </>
