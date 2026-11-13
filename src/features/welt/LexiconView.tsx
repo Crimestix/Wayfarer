@@ -22,6 +22,7 @@ import {
 } from './lexicon';
 import { setWorldView, useWorldView } from './overview';
 import { Picker } from './parts';
+import { ProfessionSuggestions } from './ProfessionSuggestions';
 import { visibleIds } from './scope';
 
 /** Merkt sich die Filter je Art, solange die App läuft. */
@@ -144,11 +145,13 @@ export function Lexicon({ kind }: { kind: LexiconKind }) {
         </Button>
       </div>
 
+      {!nature && <ProfessionSuggestions />}
+
       {total === 0 ? (
         <EmptyState icon={<KindIcon kind={kind} />} title={`Noch keine ${KIND_LABEL_PLURAL[kind]}`}>
           {nature
             ? 'Lege an, was in deiner Welt vorkommt – mit Lebensraum, Gegend und Jahreszeit. Am Spieltisch steht dann, was dort wächst und lebt.'
-            : 'Lege die Berufe deiner Welt an. Wer einen ausübt, trägst du bei der Person unter „Berufe“ ein.'}
+            : 'Lege die Berufe deiner Welt an oder übernimm sie aus den Vorschlägen. Wer einen ausübt, trägst du bei der Person unter „Berufe“ ein.'}
         </EmptyState>
       ) : inView === 0 ? (
         <p className="wf-welt-lex__none">

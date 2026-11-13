@@ -9,6 +9,8 @@ import {
   daysWithHelpers,
   emptyRecipe,
   madeBy,
+  planLine,
+  readDays,
   recipeView,
   usedIn,
 } from '../crafting';
@@ -59,6 +61,16 @@ describe('Herstellen nach den Regeln', () => {
       daysFrom: 'missing',
       costFrom: 'missing',
     });
+  });
+
+  it('schreibt Dauer und Kosten in eine Zeile und liest Arbeitstage', () => {
+    expect(planLine(craftPlan(recipe({ price: 40 })))).toBe('4 Arbeitstage · Rohstoffe 20 GM');
+    expect(planLine({ days: 1, cost: null })).toBe('1 Arbeitstag');
+    expect(planLine({ days: null, cost: null })).toBe('');
+    expect(readDays('')).toBeNull();
+    expect(readDays('12 Tage')).toBe(12);
+    expect(readDays('2,5')).toBe(2.5);
+    expect(readDays('bald')).toBeUndefined();
   });
 
   it('teilt die Arbeitstage unter Helfern', () => {

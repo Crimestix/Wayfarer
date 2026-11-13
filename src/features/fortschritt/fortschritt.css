@@ -57,6 +57,11 @@
 .wf-fortschritt-card__owner:hover {
   color: var(--gold-bright);
 }
+/* Ein Vorhaben der freien Zeit: was getan wird und woran */
+.wf-fortschritt-card__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
 
 /* Stufen und Abschnitte als Kästchen, Zahlen als Balken */
 .wf-fortschritt-pips {

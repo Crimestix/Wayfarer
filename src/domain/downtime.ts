@@ -201,3 +201,129 @@ export function itemsToHand(
     return [{ itemId: item.id, holderId: owner.id }];
   });
 }
+
+// ── Die Wahl im Dialog ─────────────────────────────────────────────────────
+
+/**
+ * Was ein Gefährte in der freien Zeit tut, wie der Dialog es sich merkt. `value`: '' = nichts
+ * Besonderes, „t:<Leiste>“ = ein Vorhaben fortsetzen oder dabei helfen, „j:<neu:…>“ = bei einem
+ * neuen Vorhaben eines anderen helfen, „n:<Tätigkeit>“ = ein neues Vorhaben.
+ */
+export interface DowntimeChoice {
+  value: string;
+  /** Beim neuen Herstellen: der Gegenstand. */
+  itemId: string | null;
+  /** Bei anderen neuen Vorhaben: was getan wird. */
+  subject: string;
+  /** Ziel in Tagen, wie eingegeben; '' = nach dem Rezept oder ohne Ziel. */
+  target: string;
+}
+
+export const NO_CHOICE: DowntimeChoice = { value: '', itemId: null, subject: '', target: '' };
+
+export const newProjectKey = (characterId: string) => `neu:${characterId}`;
+
+const readTarget = (text: string): number | null => {
+  const value = Number(text.trim().replace(',', '.'));
+  return text.trim() && Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+};
+
+/** Das neue Vorhaben eines Gefährten aus seiner Wahl; null = er setzt fort oder tut nichts. */
+export function newProjectOf(
+  data: Pick<CampaignData, 'entities'>,
+  characterId: string,
+  choice: DowntimeChoice,
+): NewProject | null {
+  if (!choice.value.startsWith('n:')) return null;
+  const activity = choice.value.slice(2) as DowntimeActivity;
+  if (!(activity in DOWNTIME_LABEL)) return null;
+  const found = activity === 'craft' && choice.itemId ? data.entities[choice.itemId] : undefined;
+  const item = found?.kind === 'item' ? found : null;
+  if (activity === 'craft' && !item) return null;
+  return {
+    key: newProjectKey(characterId),
+    ownerId: characterId,
+    activity,
+    subject: activity === 'craft' ? '' : choice.subject,
+    itemId: item?.id ?? null,
+    target: readTarget(choice.target) ?? (activity === 'craft' ? craftDays(item) : null),
+  };
+}
+
+/** Aus den Wahlen im Dialog das, was `planDowntime` und `spendDowntime` brauchen. */
+export function downtimeInput(
+  data: Pick<CampaignData, 'entities'>,
+  days: number,
+  choices: Readonly<Record<string, DowntimeChoice>>,
+  keep: Readonly<Record<string, boolean>> = {},
+): DowntimeInput {
+  const projects: NewProject[] = [];
+  const work: { characterId: string; projectKey: string }[] = [];
+  for (const [characterId, choice] of Object.entries(choices)) {
+    const project = newProjectOf(data, characterId, choice);
+    if (project) {
+      projects.push(project);
+      work.push({ characterId, projectKey: project.key });
+    } else if (choice.value.startsWith('t:') || choice.value.startsWith('j:'))
+      work.push({ characterId, projectKey: choice.value.slice(2) });
+  }
+  return { days, projects, work, keep };
+}
+
+export interface DowntimeOption {
+  value: string;
+  label: string;
+  group: 'continue' | 'help' | 'new';
+}
+
+/**
+ * Was ein Gefährte wählen kann: eigene offene Vorhaben fortsetzen, bei denen anderer helfen
+ * (auch bei einem, das gerade im Dialog entsteht), oder ein neues beginnen.
+ */
+export function downtimeOptions(
+  data: Pick<CampaignData, 'entities' | 'tracks'>,
+  characterId: string,
+  choices: Readonly<Record<string, DowntimeChoice>>,
+): DowntimeOption[] {
+  const nameOf = (id: string | null) => (id ? (data.entities[id]?.name ?? '') : '');
+  const open = downtimeTracks(data).filter((track) => !track.done);
+  const own = open.filter((track) => track.ownerId === characterId);
+  const others = open.filter((track) => track.ownerId !== characterId);
+  const progress = (track: Track) => {
+    const max = trackMax(track);
+    return max > 0 ? ` (${number(track.value)} von ${number(max)})` : '';
+  };
+  const helping: DowntimeOption[] = [
+    ...others.map((track) => ({
+      value: `t:${track.id}`,
+      label: `${track.name}${progress(track)}${track.ownerId ? ` – mit ${nameOf(track.ownerId)}` : ''}`,
+      group: 'help' as const,
+    })),
+    ...Object.entries(choices).flatMap(([otherId, choice]) => {
+      if (otherId === characterId) return [];
+      const project = newProjectOf(data, otherId, choice);
+      if (!project) return [];
+      const item = project.itemId ? data.entities[project.itemId] : undefined;
+      return [
+        {
+          value: `j:${project.key}`,
+          label: `${projectName(project.activity, project.subject, item?.kind === 'item' ? item : null)} – mit ${nameOf(otherId)} (neu)`,
+          group: 'help' as const,
+        },
+      ];
+    }),
+  ];
+  return [
+    ...own.map((track) => ({
+      value: `t:${track.id}`,
+      label: `${track.name}${progress(track)}`,
+      group: 'continue' as const,
+    })),
+    ...helping,
+    ...(Object.keys(DOWNTIME_LABEL) as DowntimeActivity[]).map((activity) => ({
+      value: `n:${activity}`,
+      label: DOWNTIME_LABEL[activity],
+      group: 'new' as const,
+    })),
+  ];
+}

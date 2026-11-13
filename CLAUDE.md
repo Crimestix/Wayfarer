@@ -322,6 +322,18 @@ nicht übernommen.
   Unter „Nach Art“ zeigen sie ein Lexikon (`welt/lexicon.ts`, `LexiconView.tsx`). Ein Tier
   verweist auf seine Kampfwerte (`animal.creatureId`, `linkAnimalCreature`); wer einen Beruf
   ausübt, steht in Beziehungen der Art `practises`.
+- Handwerk und freie Zeit: Berufe schlägt Wayfarer vor, angelegt wird nur Angenommenes
+  (`domain/professions.ts`: Liste mittelalterlicher Berufe mit Einordnung und Werkzeug,
+  `professionSuggestions` liest Rolle, Steckbrief-Zeile „Beruf“ und feste Wendungen wie „Brann,
+  der Schmied“; Kasten „Vorschläge“ im Lexikon der Berufe, `welt/professions.ts`). Was hergestellt
+  wird, ist ein Gegenstand mit Rezept (`item.recipe`: Beruf, Werkzeug, Zutaten aus Pflanzen,
+  Gesteinen, Tieren, Gegenständen, Preis, Seltenheit, Verbrauchsgut). Dauer und Kosten nach den
+  Regeln von 2024 rechnet `craftPlan()` (`domain/crafting.ts`, Regelwerte in `CRAFTING_RULES`),
+  ein Rezept kann sie übersteuern; gelesen über `recipeView`, `madeBy`, `usedIn`. Freie Zeit
+  (`domain/downtime.ts`, Dialog über `openDowntime`): ein Vorhaben ist eine Fortschrittsleiste mit
+  `track.downtime` (zählt Arbeitstage, je Helfer einer pro Tag); verbracht wird nur über
+  `spendDowntime` (`gruppe/downtime.ts`): Zeit über `advanceTime`, Leisten, ein Eintrag der
+  Chronik nur aus den gewählten Tätigkeiten, Fertiges gehört auf Wunsch dem Gefährten, Rückgängig.
 - Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt

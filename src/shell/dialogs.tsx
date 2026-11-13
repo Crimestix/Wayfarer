@@ -90,6 +90,7 @@ import {
 import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
+import { DowntimeDialog } from '../features/gruppe/DowntimeDialog';
 import { LootDialog } from '../features/beute/LootDialog';
 import { GuessDialog } from '../features/spielerbuch/GuessDialog';
 import { RecordFields } from '../features/chronik/RecordFields';
@@ -122,6 +123,7 @@ import {
 } from '../features/chronik/recordDraft';
 import { activeMention, insertMention, mentionSuggestions } from '../features/tisch/model';
 import type { RestResult } from '../features/gruppe/rest';
+import type { DowntimeResult } from '../features/gruppe/downtime';
 import { focusOn, type Focus } from './focus';
 import { meanwhile } from './meanwhile';
 import { searchWorld, type SearchSort } from './search';
@@ -214,6 +216,24 @@ function reportRest(data: CampaignData, result: RestResult) {
     body: meanwhileBody(data, result.advance, result.text),
     action: { label: 'Rückgängig', run: result.undo },
     duration: 12000,
+  });
+}
+
+/** Meldet freie Zeit: was fertig wurde, wem es jetzt gehört, und was in der Zeit eingetreten ist. */
+function reportDowntime(data: CampaignData, result: DowntimeResult) {
+  const finished = result.finished.map((p) => p.name);
+  const lead = [
+    result.text,
+    finished.length ? `Fertig: ${finished.join(', ')}.` : '',
+    ...result.handed.map((h) => `${h.item} gehört jetzt ${h.holder}.`),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  toast({
+    title: `${formatDuration(result.advance.to - result.advance.from)} freie Zeit`,
+    body: meanwhileBody(data, result.advance, lead),
+    action: { label: 'Rückgängig', run: result.undo },
+    duration: 14000,
   });
 }
 
@@ -1229,6 +1249,13 @@ export function ShellDialogs() {
           kind={request.kind}
           onClose={closeShellRequest}
           onDone={(result) => reportRest(db.getSnapshot(), result)}
+        />
+      );
+    case 'downtime':
+      return (
+        <DowntimeDialog
+          onClose={closeShellRequest}
+          onDone={(result) => reportDowntime(db.getSnapshot(), result)}
         />
       );
     case 'search':

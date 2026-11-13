@@ -24,6 +24,7 @@ export type ShellRequest =
   | { type: 'search' }
   | { type: 'time' }
   | { type: 'rest'; kind: 'short' | 'long' }
+  | { type: 'downtime' }
   | null;
 
 let current: ShellRequest = null;
@@ -50,6 +51,8 @@ export const openSearch = () => set({ type: 'search' });
 export const openTimeDialog = () => set({ type: 'time' });
 /** Öffnet die Rast: Kurze oder Lange Rast mit Wachplan. */
 export const openRest = (kind: 'short' | 'long' = 'long') => set({ type: 'rest', kind });
+/** Öffnet „Freie Zeit“: Tage vergehen, die Gefährten gehen ihren Vorhaben nach. */
+export const openDowntime = () => set({ type: 'downtime' });
 export const closeShellRequest = () => set(null);
 
 export function useShellRequest(): ShellRequest {

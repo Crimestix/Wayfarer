@@ -1,12 +1,12 @@
 /** Übersicht der Gruppe: Kennzahlen, je Gefährte eine Karte, darunter wer gerade nicht dabei ist. */
 import { Link } from 'wouter';
-import { Pencil, Swords, Tent, UserPlus } from 'lucide-react';
+import { Hourglass, Pencil, Swords, Tent, UserPlus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind } from '../../domain/derive';
 import type { Character } from '../../domain/schema';
 import { FATE_LABEL } from '../../domain/chronicleKinds';
 import { Badge, Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, cx } from '../../ui';
-import { openRest } from '../../shell/commands';
+import { openDowntime, openRest } from '../../shell/commands';
 import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
 import { SpotlightPanel } from './HeroArc';
@@ -304,6 +304,14 @@ export function Overview({
           title="Kurze oder Lange Rast: Die Zeit vergeht, die Gruppe erholt sich"
         >
           Rast …
+        </Button>
+        <Button
+          icon={<Hourglass />}
+          onClick={openDowntime}
+          disabled={!active.length}
+          title="Tage vergehen lassen, in denen die Gefährten herstellen, lernen, forschen oder arbeiten"
+        >
+          Freie Zeit …
         </Button>
         <Button icon={<UserPlus />} onClick={onCreate}>
           Gefährte anlegen

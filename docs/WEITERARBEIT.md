@@ -1506,6 +1506,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Ausschnitt „Hier: Ort“ nimmt auch auf, was dort nach Lebensraum vorkommt (wie am Spieltisch). Ein Tier
   ist im Festhalten ein Gegner; Gift, Salbe, Elixier, Tinktur, Buch sind Gegenstände am Wort.
   Der Abschnitt „Was hier wächst und lebt“ merkt sich das Aufklappen je Ort auch beim Weiterziehen.
+- **Handwerk, Berufe und freie Zeit.** Über 100 mittelalterliche Berufe mit Werkzeug als Vorschlag
+  (Kasten „Vorschläge“ im Lexikon der Berufe, mit Personen aus Rolle, Steckbrief und Wendungen);
+  Rezepte am Gegenstand („Herstellung“), Dauer und Kosten nach den Regeln von 2024
+  (`domain/crafting.ts`), „Was man damit herstellt“ am Beruf, „Wofür man es braucht“ an den Zutaten.
+  „Freie Zeit …“ auf der Gefährten-Seite: Tage vergehen, Vorhaben laufen als Fortschrittsleisten,
+  ein Eintrag in der Chronik. Offen: abgelehnte Berufs-Vorschläge merken; Werkzeug der Gefährten
+  (wer welches beherrscht) gibt es noch nicht – geteilt wird die Arbeit nach Wahl des Spielleiters.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

@@ -5,8 +5,12 @@ import { MemoryStore } from '../../data/store';
 import { spendDowntime } from '../../features/gruppe/downtime';
 import { emptyRecipe } from '../crafting';
 import {
+  NO_CHOICE,
   craftDays,
+  downtimeInput,
+  downtimeOptions,
   downtimeTracks,
+  newProjectKey,
   itemsToHand,
   planDowntime,
   projectName,
@@ -170,5 +174,65 @@ describe('Freie Zeit verbringen', () => {
   it('tut ohne ganze Tage nichts', async () => {
     const { db } = await setup();
     expect(spendDowntime(db, { days: 0, projects: [], work: [] })).toBeNull();
+  });
+});
+
+describe('Die Wahl im Dialog', () => {
+  it('macht aus den Wahlen neue Vorhaben, Fortsetzen und Mithelfen', async () => {
+    const { db, data, corrin, mira, odo, sword } = await setup();
+    const track = db.put(
+      'tracks',
+      createTrack({
+        name: 'Nachforschen: Salzgrotte',
+        ownerId: odo.id,
+        kind: 'count',
+        target: 10,
+        value: 2,
+        downtime: { activity: 'research', itemId: null },
+      }),
+    );
+    const choices = {
+      [corrin.id]: { ...NO_CHOICE, value: 'n:craft', itemId: sword.id },
+      [mira.id]: { ...NO_CHOICE, value: `j:${newProjectKey(corrin.id)}` },
+      [odo.id]: { ...NO_CHOICE, value: `t:${track.id}` },
+    };
+    const input = downtimeInput(data(), 2, choices);
+    expect(input.projects).toEqual([
+      {
+        key: newProjectKey(corrin.id),
+        ownerId: corrin.id,
+        activity: 'craft',
+        subject: '',
+        itemId: sword.id,
+        target: 8,
+      },
+    ]);
+    expect(input.work).toEqual([
+      { characterId: corrin.id, projectKey: newProjectKey(corrin.id) },
+      { characterId: mira.id, projectKey: newProjectKey(corrin.id) },
+      { characterId: odo.id, projectKey: track.id },
+    ]);
+    // Mira kann bei Odos Vorhaben und bei Corrins neuem helfen.
+    const options = downtimeOptions(data(), mira.id, choices);
+    expect(options.filter((o) => o.group === 'help').map((o) => o.label)).toEqual([
+      'Nachforschen: Salzgrotte (2 von 10) – mit Odo Tannhaus',
+      'Langschwert herstellen – mit Corrin (neu)',
+    ]);
+    expect(options.filter((o) => o.group === 'new').map((o) => o.label)).toContain('Herstellen');
+    expect(downtimeOptions(data(), odo.id, choices)[0]).toMatchObject({
+      value: `t:${track.id}`,
+      group: 'continue',
+    });
+  });
+
+  it('nimmt ein eigenes Ziel und lässt Herstellen ohne Gegenstand weg', async () => {
+    const { data, corrin, mira } = await setup();
+    const input = downtimeInput(data(), 3, {
+      [corrin.id]: { ...NO_CHOICE, value: 'n:craft' },
+      [mira.id]: { ...NO_CHOICE, value: 'n:train', subject: 'Elfisch', target: '20' },
+    });
+    expect(input.projects.map((p) => [p.activity, p.subject, p.target])).toEqual([
+      ['train', 'Elfisch', 20],
+    ]);
   });
 });

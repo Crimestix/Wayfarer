@@ -2,6 +2,7 @@
 import { RoomsSection } from './RoomsSection';
 import { GroupKnows } from './GroupKnows';
 import { ItemLife } from './ItemLife';
+import { MadeBy, RecipeSection, UsedIn } from './RecipeSection';
 import { tracksOf } from '../../domain/track';
 import { TrackCard } from '../fortschritt/TrackCard';
 import { Children, useState, type ReactNode } from 'react';
@@ -996,6 +997,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
             <RecentChronicle entity={item} onShowTab={onShowTab} />
           )}
           <NotesSection entity={item} />
+          <RecipeSection item={item} />
           <SecretSection entity={item} />
           <GroupKnows entity={item} />
           {!life && <ItemLife item={item} />}
@@ -1016,6 +1018,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
               />
             </Field>
           </Section>
+          <UsedIn entity={item} />
           <Connections entity={item} onShowTab={onShowTab} />
           <Upcoming entity={item} />
         </>
@@ -1200,6 +1203,7 @@ function KnowledgeOverview({ entity, onShowTab }: Props<KnowledgeEntity>) {
               <Hint>{spec.empty}</Hint>
             )}
           </Section>
+          {entity.kind === 'profession' && <MadeBy professionId={entity.id} />}
           <NotesSection entity={entity} />
           <SecretSection entity={entity} />
           <GroupKnows entity={entity} />
@@ -1257,6 +1261,7 @@ function NatureOverview({ entity, onShowTab }: Props<NatureEntity>) {
       side={
         <>
           {entity.kind === 'animal' && <CombatStats animal={entity} />}
+          <UsedIn entity={entity} />
           <Connections entity={entity} onShowTab={onShowTab} title="Zusammenhänge" />
         </>
       }

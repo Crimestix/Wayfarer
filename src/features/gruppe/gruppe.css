@@ -1520,3 +1520,57 @@
   font-size: var(--text-sm);
   text-align: right;
 }
+
+/* ── Freie Zeit ─────────────────────────────────────────────────────────── */
+.wf-gruppe-downtime__days {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: end;
+}
+.wf-gruppe-downtime__days p {
+  margin: 0 0 6px;
+}
+.wf-gruppe-downtime__list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-gruppe-downtime__row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: start;
+  padding: var(--s-2) 2px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-gruppe-downtime__name {
+  padding-top: 6px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-gruppe-downtime__what {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.wf-gruppe-downtime__more {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--s-2);
+}
+.wf-gruppe-downtime__hint {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-gruppe-downtime__entry {
+  margin: var(--s-3) 0 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}

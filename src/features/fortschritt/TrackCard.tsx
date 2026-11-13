@@ -5,7 +5,8 @@ import { Check, ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { PARTY_ID, type Track } from '../../domain/schema';
 import { trackView, tracksOf } from '../../domain/track';
-import { Button, IconButton, Panel, cx, entityHref, toast } from '../../ui';
+import { DOWNTIME_LABEL } from '../../domain/downtime';
+import { Button, EntityLink, IconButton, Panel, cx, entityHref, toast } from '../../ui';
 import { moveTrack, setTrackDone } from './actions';
 import { TrackDialog } from './TrackDialog';
 import './fortschritt.css';
@@ -42,6 +43,17 @@ export function TrackCard({ track, showOwner }: { track: Track; showOwner?: bool
           <Pencil />
         </IconButton>
       </div>
+      {track.downtime && (
+        <div className="wf-fortschritt-card__sub">
+          Freie Zeit · {DOWNTIME_LABEL[track.downtime.activity]}
+          {track.downtime.itemId && data.entities[track.downtime.itemId] && (
+            <>
+              {' · '}
+              <EntityLink id={track.downtime.itemId} icon={false} />
+            </>
+          )}
+        </div>
+      )}
       {view.pips.length > 0 ? (
         <div
           className={cx(

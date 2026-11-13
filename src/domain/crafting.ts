@@ -199,3 +199,25 @@ export function recipeLinks(recipe: Recipe | null): { field: string; id: string 
     ),
   ];
 }
+
+const dayWord = (n: number) =>
+  n === 1 ? '1 Arbeitstag' : `${n.toLocaleString('de-DE')} Arbeitstage`;
+const goldWord = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString('de-DE')} GM`;
+
+/** Dauer und Kosten in einer Zeile: „4 Arbeitstage · Rohstoffe 20 GM“; '' = nichts bekannt. */
+export function planLine(plan: Pick<CraftPlan, 'days' | 'cost'>): string {
+  return [
+    plan.days !== null ? dayWord(plan.days) : '',
+    plan.cost !== null ? `Rohstoffe ${goldWord(plan.cost)}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Arbeitstage aus einem Feld: leer = nach den Regeln (null), Unlesbares = undefined. */
+export function readDays(text: string): number | null | undefined {
+  const value = text.trim().replace(',', '.');
+  if (!value) return null;
+  const days = Number(value.replace(/\s*(?:arbeits)?tage?$/i, ''));
+  return Number.isFinite(days) && days > 0 ? days : undefined;
+}
