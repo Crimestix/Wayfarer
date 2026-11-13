@@ -97,6 +97,11 @@ export const PlayStateSchema = z.object({
    * Schlüssel aus `continuityIssues` (`domain/continuity.ts`).
    */
   continuityOk: z.array(z.string()).default([]),
+  /**
+   * Gedächtnis beim Tippen: Unter Mitschrift und Festhalten steht leise das Wichtigste zu den
+   * genannten Namen (`domain/memory.ts`). false = ausgeblendet.
+   */
+  nameMemory: z.boolean().default(true),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

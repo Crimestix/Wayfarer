@@ -277,6 +277,19 @@ function findNames(data: CampaignData, text: string, refs: readonly string[]): N
   return hits;
 }
 
+/**
+ * Die Namen der Welt im Text, von links nach rechts – dieselben Regeln wie beim Erkennen (ganze
+ * Wörter, „Miras“, Vor- und Nachnamen von Personen). `id` ist null, wenn ein Name mehrdeutig ist.
+ */
+export function namesIn(
+  data: CampaignData,
+  text: string,
+  refs: readonly string[] = [],
+): { from: number; to: number; id: string | null }[] {
+  if (!text.trim()) return [];
+  return findNames(data, text, refs).map(({ from, to, id }) => ({ from, to, id }));
+}
+
 // ── Sätze und Wörter ───────────────────────────────────────────────────────
 
 interface Sentence {

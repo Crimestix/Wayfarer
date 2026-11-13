@@ -16,6 +16,7 @@ import {
   IconButton,
   KindIcon,
   MenuItem,
+  NameMemory,
   Panel,
   Popover,
   TextArea,
@@ -71,6 +72,7 @@ export function MentionInput({
   const open = suggestions.length > 0;
   const active = Math.min(picked, Math.max(0, suggestions.length - 1));
   const kept = keptMentions(text, mentions);
+  const keptIds = kept.map((m) => m.id);
 
   // Höhe folgt dem Text; die Schreibmarke springt nach dem Einsetzen eines Namens dahinter.
   useLayoutEffect(() => {
@@ -164,6 +166,7 @@ export function MentionInput({
           <CornerDownLeft />
         </IconButton>
       </div>
+      <NameMemory text={text} refs={keptIds} />
       {kept.length > 0 && (
         <div className="wf-tisch-composer__refs">
           <span className="wf-tisch-composer__hint">Verknüpft mit</span>

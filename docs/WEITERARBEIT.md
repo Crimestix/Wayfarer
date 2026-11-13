@@ -1453,6 +1453,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Gegengelesen: Beute an einen inzwischen gelöschten Gefährten zählte als Beute der Gruppe
   (behoben); „Bisherige Besitzer“ nennt Zeiten nur so genau, wie sie bekannt sind
   (`Holding.fromPrecision` / `toPrecision` – eine Entstehung „667“ wird kein erfundener Tag).
+- **Gedächtnis beim Tippen:** `domain/memory.ts` (`memoryOf`, `namesInText`, `nameMemory`,
+  `agoText`), Baustein `NameMemory` (`ui/memory.tsx`) unter dem Feld der Mitschrift und im
+  Festhalten: „Lando Furtner · wohlgesonnen · jetzt in Salzgrotte“. „Zuletzt“ zählt jeden Eintrag,
+  der den Namen nennt, außer Termin, Veränderung, Aufenthalt und Weltwissen (Gerücht nur für die
+  Quelle) – auch eine Haltung, die in der Vorbereitung gesetzt wurde. Ausblenden über das Auge an
+  der ersten Zeile (`state.nameMemory`); eine Einstellung für Vorlieben gibt es noch nicht.
+  Geprüft in der Vorschau bei 1440×900; nicht in der installierten App.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

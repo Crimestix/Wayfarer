@@ -844,3 +844,71 @@ button.wf-item:hover,
 .wf-picker__value svg {
   flex: none;
 }
+
+/* Gedächtnis beim Tippen: zwei ruhige Zeilen unter einem Schreibfeld, Höhe immer gleich. */
+.wf-memory {
+  --memory-line: 1.4em;
+  height: calc(2 * var(--memory-line));
+  margin-top: var(--s-1);
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: var(--memory-line);
+  color: var(--ink-mute);
+}
+.wf-memory__line {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  white-space: nowrap;
+}
+.wf-memory__name {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-mute);
+  border-bottom: 1px dotted var(--line-strong);
+}
+.wf-memory__name:hover {
+  color: var(--ink);
+  border-bottom-color: var(--gold-deep);
+}
+.wf-memory__facts {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wf-memory__dot {
+  color: var(--ink-faint);
+}
+.wf-memory__hide,
+.wf-memory__show {
+  flex: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-memory__hide {
+  display: inline-flex;
+  align-self: center;
+  padding: 0 0 0 var(--s-2);
+}
+.wf-memory__hide svg {
+  width: 12px;
+  height: 12px;
+}
+.wf-memory__show {
+  padding: 0;
+}
+.wf-memory__hide:hover,
+.wf-memory__hide:focus-visible,
+.wf-memory__show:hover,
+.wf-memory__show:focus-visible {
+  color: var(--ink-mute);
+}
+.wf-memory__show:hover {
+  text-decoration: underline;
+}

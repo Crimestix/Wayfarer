@@ -229,6 +229,12 @@ nicht übernommen.
   und welche Session zu einer Zeit war, sagen `partyPlaceAt` und `sessionAt`; offene Zustände
   `activeConditions`. Was ein Satz sein dürfte, schlägt `recognizeEntry` (`domain/recognize.ts`)
   vor – nur Art und Dinge, nie Text, und nie geraten.
+- Gedächtnis beim Tippen (`domain/memory.ts`, Baustein `NameMemory` in `ui/memory.tsx`): Unter
+  Mitschrift und Festhalten steht leise das Wichtigste zu den genannten Namen – höchstens zwei
+  Namen, je drei Angaben (`memoryOf`: Schicksal, Haltung, wo, zuletzt, offene Abmachungen, sonst
+  `tagline`). Namen findet `namesInText` mit den Regeln des Erkennens (`namesIn` in
+  `recognize.ts`), nie mit eigenem Muster. Kein Fenster, kein Fokuswechsel, gleichbleibende
+  Höhe; ausgeblendet über `state.nameMemory`.
 - Wegenetze (`nets/`, `domain/net.ts`): Ein Netz merkt sich nur, welche Orte seine Punkte
   sind und wo sie auf dem Blatt liegen. Die Wege sind die der Welt (`paths`): Zum Netz gehört
   jeder Weg, dessen beide Orte Punkte sind – nie Wege im Netz selbst speichern. Gelesen wird

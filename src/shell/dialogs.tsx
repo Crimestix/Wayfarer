@@ -70,6 +70,7 @@ import {
   Input,
   KindIcon,
   MenuItem,
+  NameMemory,
   Popover,
   Select,
   Tabs,
@@ -538,6 +539,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
               setRefs((current) => (current.includes(id) ? current : [...current, id]))
             }
           />
+          <NameMemory text={text} refs={refs} />
           <div className="wf-field__hint">
             {single
               ? single === 'job'
