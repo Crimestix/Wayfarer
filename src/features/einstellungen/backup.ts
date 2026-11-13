@@ -66,6 +66,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   loot: ['Eintrag im Beute-Buch', 'Einträge im Beute-Buch'],
   tracks: ['Fortschrittsleiste', 'Fortschrittsleisten'],
   handouts: ['Handout', 'Handouts'],
+  bastions: ['Bastion', 'Bastionen'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

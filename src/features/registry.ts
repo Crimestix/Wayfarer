@@ -2,6 +2,7 @@
 import {
   BookOpen,
   CalendarDays,
+  Castle,
   Coins,
   Flame,
   Gauge,
@@ -92,6 +93,7 @@ export const GROUP_TABS: readonly AreaTab[] = [
     hint: 'Ausbildungswege, Ruf, Schulden, Studien',
     icon: Gauge,
   },
+  { path: '/bastion', label: 'Bastion', hint: 'Einrichtungen und Bastionszüge', icon: Castle },
 ];
 
 /** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */

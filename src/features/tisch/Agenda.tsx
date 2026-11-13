@@ -15,6 +15,7 @@ import {
   Repeat,
   X,
   type LucideIcon,
+  Castle,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { playClaims, playView } from '../../domain/play';
@@ -36,6 +37,7 @@ const MARKS: Record<AgendaMark, LucideIcon> = {
   spell: Hourglass,
   light: Flame,
   clock: Milestone,
+  bastion: Castle,
 };
 
 function AgendaRow({ item }: { item: AgendaItem }) {

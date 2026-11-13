@@ -1,0 +1,171 @@
+/* Bastion: Zug-Leiste, Einrichtungen nach Besitzer, Ereignisse, letzte Züge, Zug-Dialog. */
+
+.wf-bastion-head {
+  gap: var(--s-3);
+  align-items: baseline;
+}
+.wf-bastion-place {
+  color: var(--gold);
+  text-decoration: none;
+}
+.wf-bastion-blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-6);
+}
+.wf-bastion-blank > * {
+  max-width: 560px;
+}
+.wf-bastion-new {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: 100%;
+  max-width: 420px;
+}
+.wf-bastion-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  overflow: auto;
+}
+.wf-bastion-turnbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-bastion-turnbar--due {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+}
+.wf-bastion-turnbar__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.wf-bastion-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+.wf-bastion-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.wf-bastion-none {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-bastion-owner {
+  padding: var(--s-2) var(--s-4) 0;
+}
+.wf-bastion-facility {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-bastion-facility__main {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.wf-bastion-facility__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-bastion-facility__side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+.wf-bastion-facility__order {
+  color: var(--gold);
+  font-size: var(--text-sm);
+}
+.wf-bastion-past {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+  font-size: var(--text-sm);
+}
+.wf-bastion-past__when {
+  color: var(--ink-mute);
+}
+.wf-bastion-past__text {
+  color: var(--ink-soft);
+}
+.wf-bastion-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+}
+
+/* Zug-Dialog */
+.wf-bastion-turn {
+  display: flex;
+  flex-direction: column;
+}
+.wf-bastion-turn__row {
+  display: grid;
+  grid-template-columns: 170px 150px minmax(0, 1fr) 92px auto;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-bastion-turn__name {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-bastion-turn__name small {
+  color: var(--ink-mute);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+.wf-bastion-turn__left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-bastion-event {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: center;
+  margin-top: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-bastion-event__roll {
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}

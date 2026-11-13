@@ -124,7 +124,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -277,6 +277,12 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+- Bastion (`bastions/`, `domain/bastion.ts`, Reiter „Bastion“ unter Gefährten; Regeln von 2024):
+  Einrichtungen (`facilities`) mit Besitzer, Befehlen, Gefolgsleuten und Stand (bereit, beschädigt,
+  wird repariert – Reparatur als Fortschrittsleiste über `startRepair`). Alle `turnDays` Tage ist
+  ein Zug fällig (`turnsDue`); er steht am Spieltisch unter „Sonst noch“, ausgeführt wird er nur
+  über `runTurn` (`features/bastion/actions.ts`) – nie von selbst. Ereignisse würfelt `fairDie`
+  auf der Tabelle des Spielleiters (`bastion.events`, Zeilen „1–50: …“). Keine Buchinhalte.
 - Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt

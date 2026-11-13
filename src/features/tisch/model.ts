@@ -2,6 +2,7 @@
  * Fachlogik des Spieltischs – reine Funktionen: Aufenthalt am Ort, Besetzung, Anstehendes,
  * Mitschrift, Verweise mit „@“ und die Leiste der Gefährten. Die Oberfläche zeigt nur an.
  */
+import { bastionsDue, nextTurnAt, turnsDue } from '../../domain/bastion';
 import { openClocks } from '../../domain/clock';
 import {
   activeParty,
@@ -331,9 +332,9 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
 // ── Anstehend ──────────────────────────────────────────────────────────────
 
 export type AgendaTone = 'overdue' | 'today' | 'later';
-export type AgendaSource = 'event' | 'promise' | 'timer' | 'clock';
+export type AgendaSource = 'event' | 'promise' | 'timer' | 'clock' | 'bastion';
 /** Welches Zeichen vor der Zeile steht. */
-export type AgendaMark = EventKind | 'promise' | Timer['kind'] | 'clock';
+export type AgendaMark = EventKind | 'promise' | Timer['kind'] | 'clock' | 'bastion';
 
 export interface AgendaItem {
   key: string;
@@ -551,6 +552,33 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       date: dateLabel(cal, view.next.at, false),
       placeId: clock.placeId,
       refs: [...new Set([...(clock.ownerId ? [clock.ownerId] : []), ...clock.refs])],
+      checkable: false,
+      checkLabel: '',
+      repeats: false,
+      undated: false,
+    });
+  }
+
+  // Bastionen: ein fälliger Zug steht hier, bis er ausgeführt ist (unter Gefährten → Bastion).
+  for (const bastion of bastionsDue(data)) {
+    const due = turnsDue(bastion, now);
+    const at = nextTurnAt(bastion) ?? now;
+    items.push({
+      key: `bastion:${bastion.id}`,
+      source: 'bastion',
+      id: bastion.id,
+      title:
+        due > 1
+          ? `${due} Bastionszüge fällig: ${bastion.name}`
+          : `Bastionszug fällig: ${bastion.name}`,
+      label: 'Bastion',
+      mark: 'bastion',
+      at,
+      tone: 'overdue',
+      when: dayIndexOf(at) === dayIndexOf(now) ? 'heute' : overdueLabel(now, at),
+      date: formatDayMonth(cal, at),
+      placeId: bastion.placeId,
+      refs: [],
       checkable: false,
       checkLabel: '',
       repeats: false,

@@ -1970,6 +1970,69 @@ export const TrackSchema = z.object({
 });
 export type Track = z.infer<typeof TrackSchema>;
 
+// ── Bastion (Regeln von 2024) ──────────────────────────────────────────────
+
+/** Befehle einer besonderen Einrichtung. Wayfarer bringt nur die Wörter mit, keine Buchinhalte. */
+export const BASTION_ORDERS = [
+  'craft',
+  'empower',
+  'harvest',
+  'maintain',
+  'recruit',
+  'research',
+  'trade',
+] as const;
+export type BastionOrder = (typeof BASTION_ORDERS)[number];
+export const FACILITY_STATES = ['ready', 'damaged', 'repairing'] as const;
+export type FacilityState = (typeof FACILITY_STATES)[number];
+
+export const BastionFacilitySchema = z.object({
+  id,
+  name: z.string(),
+  /** Der Raum der Bastion, in dem sie liegt (\`place.room\`). */
+  roomId: id.nullable().default(null),
+  /** basic = einfache Einrichtung (ohne Befehle), special = besondere. */
+  kind: z.enum(['basic', 'special']).default('special'),
+  /** Der Gefährte, dem sie gehört; null = der Gruppe. */
+  ownerId: id.nullable().default(null),
+  orders: z.array(z.enum(BASTION_ORDERS)).default([]),
+  /** Gefolgsleute in Worten: „Hagen, Ute“. */
+  hirelings: z.string().default(''),
+  state: z.enum(FACILITY_STATES).default('ready'),
+  /** Die Fortschrittsleiste der Reparatur. */
+  trackId: id.nullable().default(null),
+  /** Der laufende Befehl: was daraus wird und wie viele Züge er noch braucht. */
+  order: z
+    .object({
+      name: z.enum(BASTION_ORDERS),
+      text: z.string().default(''),
+      turnsLeft: z.number().int().nonnegative().default(0),
+    })
+    .nullable()
+    .default(null),
+  notes: z.string().default(''),
+});
+export type BastionFacility = z.infer<typeof BastionFacilitySchema>;
+
+/**
+ * Eine Bastion (`domain/bastion.ts`): ein Ort mit Einrichtungen. Alle `turnDays` Tage ist ein
+ * Bastionszug fällig – Wayfarer schlägt ihn vor, ausgeführt wird er nur vom Spielleiter.
+ */
+export const BastionSchema = z.object({
+  ...base,
+  name: z.string(),
+  placeId: id.nullable().default(null),
+  /** Wann der letzte Zug war; daraus folgt der nächste. */
+  lastTurnAt: worldTime.nullable().default(null),
+  turnDays: z.number().int().min(1).default(7),
+  defenders: z.number().int().nonnegative().default(0),
+  /** Die Ereignistabelle des Spielleiters: je Zeile „1–50: Alles ruhig“. */
+  events: z.string().default(''),
+  eventDie: z.number().int().min(2).default(100),
+  facilities: z.array(BastionFacilitySchema).default([]),
+});
+export type Bastion = z.infer<typeof BastionSchema>;
+
 // ── Handouts ───────────────────────────────────────────────────────────────
 
 /** letter = Brief, note = Notiz/Zettel, decree = Erlass/Aushang, card = Hinweiskarte. */
@@ -2030,6 +2093,7 @@ export const COLLECTION_SCHEMAS = {
   loot: LootSchema,
   tracks: TrackSchema,
   handouts: HandoutSchema,
+  bastions: BastionSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2060,6 +2124,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'loot',
   'tracks',
   'handouts',
+  'bastions',
 ];
 
 export type CollectionTypes = {
@@ -2161,6 +2226,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createBastion(init: Partial<Bastion> & { name: string }): Bastion {
+  const stamp = nowIso();
+  return BastionSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createHandout(init: Partial<Handout> = {}): Handout {
