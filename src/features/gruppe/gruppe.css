@@ -902,6 +902,40 @@
 .wf-gruppe-hint--pad {
   padding: var(--s-4);
 }
+/* Eine Geschichte, die den Gefährten persönlich betrifft */
+.wf-gruppe-tie {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--line-faint);
+  color: inherit;
+  text-decoration: none;
+}
+.wf-gruppe-tie:hover {
+  background: var(--bg-2);
+}
+.wf-gruppe-tie__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-gruppe-tie__title em {
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-gruppe-tie__why {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
 .wf-gruppe-textlink {
   padding: 0;
   border: 0;

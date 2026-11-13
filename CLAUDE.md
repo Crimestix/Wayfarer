@@ -220,7 +220,10 @@ nicht übernommen.
   aufgedeckt wurde, wandert über `carryOver()` auf das nächste Blatt – nie von Hand kopieren.
   Gelesen wird über `prepView()`, geschrieben über `features/abend/actions.ts` (`patchPrep`
   legt das Blatt mit dem ersten Wort an). Was fehlt, sagt `prepAdvice()` als Rat. Was ein
-  Gefährte will, steht bei ihm (`character.goal`).
+  Gefährte will, steht bei ihm (`character.goal`). Welche Geschichte einen Gefährten persönlich
+  betrifft, steht an der Geschichte (`story.heroes`, mit seinem Grund; gesetzt über `tieHero` /
+  `untieHero`) – gelesen über `heroesOf()` und `storiesOfHero()`. Solche Gefährten zählen zu
+  den Knoten der Geschichte (`storyNodes`): Auf dem Brett verbindet sie ein Faden.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

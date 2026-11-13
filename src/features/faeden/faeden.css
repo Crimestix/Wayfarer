@@ -643,6 +643,37 @@
 .wf-sheet-list__row--entry {
   grid-template-columns: minmax(0, 1fr) 190px 170px 30px;
 }
+.wf-sheet-list__row--hero {
+  grid-template-columns: 170px minmax(0, 1fr) 30px;
+  align-items: start;
+}
+.wf-faden-held {
+  padding-top: 7px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wf-faden-held:hover {
+  color: var(--gold-bright);
+}
+.wf-faden-held__why {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.wf-faden-held__goal {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-faden-held__add {
+  align-self: flex-start;
+  width: auto;
+  max-width: 100%;
+}
 .wf-sheet-list__row--scene {
   grid-template-columns: minmax(0, 1fr) 130px 200px 30px 30px;
 }

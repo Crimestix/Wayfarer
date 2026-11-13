@@ -8,6 +8,7 @@ import {
   createClock,
   createStory,
   createThread,
+  newId,
   type Story,
   type Thread,
   type ThreadState,
@@ -68,6 +69,7 @@ export type StoryChange = Partial<
     | 'ownerId'
     | 'stakes'
     | 'refs'
+    | 'heroes'
     | 'entries'
     | 'scenes'
     | 'ending'
@@ -88,6 +90,16 @@ export function patchStory(db: CampaignDb, id: string, change: StoryChange): voi
   if (change.title !== undefined) clean.title = change.title.trim() || 'Geschichte ohne Namen';
   if (change.refs) clean.refs = [...new Set(change.refs)];
   if (change.entries) clean.entries = change.entries.filter((entry) => entry.text.trim());
+  if (change.heroes) {
+    // Jeder Gefährte einmal – und nur, wen es gibt.
+    const seen = new Set<string>();
+    clean.heroes = change.heroes.filter((hero) => {
+      if (seen.has(hero.characterId) || data.entities[hero.characterId]?.kind !== 'character')
+        return false;
+      seen.add(hero.characterId);
+      return true;
+    });
+  }
   if (change.scenes)
     clean.scenes = change.scenes
       .filter((scene) => scene.text.trim() || scene.encounterId)
@@ -104,6 +116,32 @@ export function patchStory(db: CampaignDb, id: string, change: StoryChange): voi
       db.patch('clocks', clock.id, { title: clean.title });
     if (clock && change.ownerId !== undefined && clock.ownerId === story.ownerId)
       db.patch('clocks', clock.id, { ownerId: change.ownerId });
+  });
+}
+
+/**
+ * Heftet einen Gefährten an eine Geschichte: Sie betrifft ihn persönlich. Hängt er schon an ihr,
+ * ändert sich nur der Grund (wenn einer genannt ist).
+ */
+export function tieHero(db: CampaignDb, storyId: string, characterId: string, why = ''): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story) return;
+  const known = story.heroes.find((hero) => hero.characterId === characterId);
+  patchStory(db, storyId, {
+    heroes: known
+      ? story.heroes.map((hero) =>
+          hero === known ? { ...hero, why: why.trim() || hero.why } : hero,
+        )
+      : [...story.heroes, { id: newId(), characterId, why: why.trim() }],
+  });
+}
+
+/** Löst einen Gefährten von einer Geschichte. */
+export function untieHero(db: CampaignDb, storyId: string, characterId: string): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story) return;
+  patchStory(db, storyId, {
+    heroes: story.heroes.filter((hero) => hero.characterId !== characterId),
   });
 }
 

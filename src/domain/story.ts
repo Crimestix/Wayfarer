@@ -14,6 +14,7 @@ import { formatDuration } from './time/calendar';
 import {
   PARTY_ID,
   type CampaignData,
+  type Character,
   type Clock,
   type EntryStanding,
   type Story,
@@ -85,6 +86,8 @@ export function storyNodes(data: StoryData, story: Story): string[] {
     [
       story.ownerId,
       ...story.refs,
+      // Gefährten, die sie persönlich betrifft, hängen an ihr wie ihre Leute.
+      ...story.heroes.map((hero) => hero.characterId),
       clock?.ownerId,
       clock?.placeId,
       ...(clock?.refs ?? []),
@@ -285,6 +288,41 @@ export function touches(cards: readonly BoardCard[]): Touch[] {
   return found;
 }
 
+export interface HeroTie {
+  story: Story;
+  /** Der eigene Grund des Gefährten. */
+  why: string;
+}
+
+/** Die Gefährten, die eine Geschichte persönlich betrifft – ohne gelöschte. */
+export function heroesOf(
+  data: Pick<CampaignData, 'entities'>,
+  story: Story,
+): { hero: Story['heroes'][number]; character: Character }[] {
+  return story.heroes.flatMap((hero) => {
+    const character = data.entities[hero.characterId];
+    return character?.kind === 'character' ? [{ hero, character }] : [];
+  });
+}
+
+/**
+ * Die Geschichten, die einen Gefährten persönlich betreffen – die im Spiel zuerst. Zu Ende
+ * Erzähltes zählt nicht mehr.
+ */
+export function storiesOfHero(data: Pick<CampaignData, 'stories'>, characterId: string): HeroTie[] {
+  return Object.values(data.stories)
+    .filter((story) => !story.closed)
+    .flatMap((story) => {
+      const hero = story.heroes.find((entry) => entry.characterId === characterId);
+      return hero ? [{ story, why: hero.why }] : [];
+    })
+    .sort(
+      (a, b) =>
+        Number(b.story.inPlay) - Number(a.story.inPlay) ||
+        a.story.title.localeCompare(b.story.title, 'de'),
+    );
+}
+
 /** Die Geschichte, zu der eine Uhr gehört – null, wenn sie (noch) für sich steht. */
 export function storyOfClock(data: Pick<CampaignData, 'stories'>, clockId: string): Story | null {
   return Object.values(data.stories).find((story) => story.clockId === clockId) ?? null;
@@ -378,6 +416,12 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
       done: threads.length > 0,
       text: 'Eine Frage, der die Gruppe folgen kann',
       why: 'Ein Faden: was die Gruppe herausfinden soll – und was dahintersteckt.',
+    },
+    {
+      key: 'hero',
+      done: heroesOf(data, story).length > 0,
+      text: 'Ein Gefährte hat einen eigenen Grund',
+      why: 'Wen betrifft sie persönlich – und warum? Dann ist es nicht nur ein Auftrag.',
     },
   ];
   if (threads.length > 0 && thin.length === 0)

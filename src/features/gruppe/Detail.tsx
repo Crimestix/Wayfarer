@@ -14,6 +14,7 @@ import {
 import { useData, useDb } from '../../data/hooks';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
 import { relationLabel } from '../../domain/relations';
+import { storiesOfHero } from '../../domain/story';
 import type { Character } from '../../domain/schema';
 import { openAttitude, openQuickLog } from '../../shell/commands';
 import {
@@ -299,6 +300,8 @@ export function Detail({
   const bonds = characterBonds(data, character.id);
   const promises = openPromises(data, character.id);
   const chronicle = chronicleFor(data, character.id);
+  /** Die Geschichten, die diesen Gefährten persönlich betreffen. */
+  const ties = storiesOfHero(data, character.id);
   const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
   const log = (kind?: 'promise') => openQuickLog({ kind, refs: [character.id] });
@@ -450,6 +453,34 @@ export function Detail({
                   >
                     Beziehung anlegen
                   </button>
+                </p>
+              )}
+            </Panel>
+
+            <Panel title="Geschichten" count={ties.length || undefined} flush>
+              <p className="wf-gruppe-hint wf-gruppe-hint--pad">
+                {character.character.goal.trim()
+                  ? `Ziel: ${character.character.goal.trim()}`
+                  : `Was ${character.name} will, steht noch nirgends – trag es beim Bearbeiten oder unter „Abend vorbereiten“ ein.`}
+              </p>
+              {ties.map((tie) => (
+                <Link
+                  key={tie.story.id}
+                  href={`/geschichte/${tie.story.id}`}
+                  className="wf-gruppe-tie"
+                  title="Das Blatt der Geschichte öffnen"
+                >
+                  <span className="wf-gruppe-tie__title">
+                    {tie.story.title}
+                    {tie.story.inPlay && <em>im Spiel</em>}
+                  </span>
+                  {tie.why && <span className="wf-gruppe-tie__why">{tie.why}</span>}
+                </Link>
+              ))}
+              {ties.length === 0 && (
+                <p className="wf-gruppe-hint wf-gruppe-hint--pad">
+                  Noch betrifft keine Geschichte {character.name} persönlich. Auf dem Blatt einer
+                  Geschichte heftest du Gefährten an – mit ihrem eigenen Grund.
                 </p>
               )}
             </Panel>

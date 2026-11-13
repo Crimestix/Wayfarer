@@ -8,6 +8,7 @@
  * leer ist. Reine Funktionen.
  */
 import { activeParty, currentSession, sessionsSorted } from './derive';
+import { storiesOfHero } from './story';
 import type {
   CampaignData,
   Character,
@@ -128,6 +129,12 @@ export interface PrepAdvice {
 export const withoutGoal = (data: CampaignData): Character[] =>
   activeParty(data).filter((character) => !character.character.goal.trim());
 
+/** Gefährten, die keine Geschichte im Spiel persönlich betrifft. */
+export const withoutHook = (data: CampaignData): Character[] =>
+  activeParty(data).filter(
+    (character) => !storiesOfHero(data, character.id).some((tie) => tie.story.inPlay),
+  );
+
 /**
  * Was ein Abend braucht – als Rat, nie als Pflicht: was die Gefährten wollen, ein Einstieg,
  * Geschichten im Spiel, ein paar mögliche Szenen, ein Vorrat an Geheimnissen, eine Begegnung,
@@ -137,6 +144,7 @@ export function prepAdvice(data: CampaignData, content: PrepContent): PrepAdvice
   const party = activeParty(data);
   const aimless = withoutGoal(data);
   const inPlay = Object.values(data.stories).filter((story) => story.inPlay && !story.closed);
+  const unhooked = withoutHook(data);
   const scenes = openScenes(content).length;
   const secrets = openSecrets(content).length;
   return [
@@ -150,6 +158,17 @@ export function prepAdvice(data: CampaignData, content: PrepContent): PrepAdvice
           : aimless.length
             ? `Fehlt bei ${aimless.map((character) => character.name).join(', ')}.`
             : 'Bei jedem steht, was ihn in den Abend zieht.',
+    },
+    {
+      key: 'hooks',
+      done: party.length > 0 && unhooked.length === 0,
+      text: 'Für jeden Gefährten ist etwas dabei',
+      why:
+        party.length === 0
+          ? 'Noch kein Gefährte eingetragen.'
+          : unhooked.length
+            ? `Keine Geschichte im Spiel betrifft ${unhooked.map((character) => character.name).join(', ')}.`
+            : 'Jeden betrifft eine Geschichte im Spiel persönlich.',
     },
     {
       key: 'start',

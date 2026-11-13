@@ -19,10 +19,12 @@ import {
   boardCards,
   boardLayout,
   entryFit,
+  heroesOf,
   looseClocks,
   nearness,
   reputeOf,
   storiesHere,
+  storiesOfHero,
   storyAdvice,
   storyNodes,
   storyOfClock,
@@ -32,6 +34,7 @@ import {
   untilText,
 } from '../../domain/story';
 import { playClaims, playView } from '../../domain/play';
+import { withoutHook } from '../../domain/prep';
 import { saveWay } from '../wege/actions';
 import {
   newStory,
@@ -48,6 +51,8 @@ import {
   setStoryMemo,
   setStorySteps,
   storyFromClock,
+  tieHero,
+  untieHero,
   tidyBoard,
   unpinFromCard,
   type StoryInput,
@@ -306,6 +311,7 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       'entry',
       'place',
       'threads',
+      'hero',
       'ending',
       'reward',
     ]);
@@ -327,7 +333,7 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
     expect(story().refs).toEqual([harbour.id]);
     // Einstiege ohne Text fallen weg.
     expect(story().entries).toHaveLength(1);
-    expect(open()).toEqual(['clock', 'threads']);
+    expect(open()).toEqual(['clock', 'threads', 'hero']);
 
     // Eine Frage mit zu wenigen Hinweisen wird genannt – mit dreien ist es gut.
     const who = saveThread(db, {
@@ -339,7 +345,7 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       known: false,
       hints: [hint('Ein Beutel mit fremden Münzen', market.id)],
     });
-    expect(open()).toEqual(['clock', `hints:${who.id}`]);
+    expect(open()).toEqual(['clock', 'hero', `hints:${who.id}`]);
     expect(
       storyAdvice(data(), story()).find((entry) => entry.key === `hints:${who.id}`)!.why,
     ).toContain('Erst einer');
@@ -352,7 +358,7 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       ],
     });
     expect(data().threads[who.id]!.hints).toHaveLength(3);
-    expect(open()).toEqual(['clock']);
+    expect(open()).toEqual(['clock', 'hero']);
     expect(storyAdvice(data(), story()).some((entry) => entry.key === 'hints' && entry.done)).toBe(
       true,
     );
@@ -389,6 +395,46 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       'Die Zöllner werden bestochen',
       'Der Zoll wird verdreifacht',
     ]);
+  });
+
+  it('betrifft Gefährten persönlich – jeden einmal, mit seinem Grund', async () => {
+    const { db, data, mira } = await setup();
+    const mate = (name: string) => db.put('entities', createEntity({ kind: 'character', name })).id;
+    const [corrin, nex] = [mate('Corrin'), mate('Nex')];
+    const toll = newStory(db, { title: 'Der Griff nach dem Zoll', inPlay: true });
+    const crows = newStory(db, { title: 'Die Krähen kommen' });
+    tieHero(db, toll.id, corrin, ' Schuldet den Aalfischern Geld. ');
+    tieHero(db, toll.id, corrin);
+    // Eine Person der Welt ist kein Gefährte.
+    tieHero(db, toll.id, mira.id, 'Gehört nicht hierher');
+    tieHero(db, crows.id, corrin, 'Sein Bruder ist bei der Bande.');
+    const story = () => data().stories[toll.id]!;
+    expect(story().heroes.map((hero) => [hero.characterId, hero.why])).toEqual([
+      [corrin, 'Schuldet den Aalfischern Geld.'],
+    ]);
+    expect(storyAdvice(data(), story()).find((entry) => entry.key === 'hero')!.done).toBe(true);
+    // Der Gefährte hängt an der Geschichte wie ihre Leute – auf dem Brett verbindet ihn ein Faden.
+    expect(storyNodes(data(), story())).toContain(corrin);
+    // Bei ihm stehen seine Geschichten, die im Spiel zuerst.
+    expect(storiesOfHero(data(), corrin).map((tie) => [tie.story.title, tie.why])).toEqual([
+      ['Der Griff nach dem Zoll', 'Schuldet den Aalfischern Geld.'],
+      ['Die Krähen kommen', 'Sein Bruder ist bei der Bande.'],
+    ]);
+    expect(playView(data()).cards[0]!.heroes.map((entry) => entry.character.name)).toEqual([
+      'Corrin',
+    ]);
+    // Für Nex ist an diesem Abend nichts dabei.
+    expect(withoutHook(data()).map((character) => character.id)).toContain(nex);
+    expect(withoutHook(data()).map((character) => character.id)).not.toContain(corrin);
+    untieHero(db, toll.id, corrin);
+    expect(story().heroes).toEqual([]);
+    // Zu Ende Erzähltes zählt nicht mehr.
+    patchStory(db, crows.id, { closed: true });
+    expect(storiesOfHero(data(), corrin)).toEqual([]);
+    // Ein gelöschter Gefährte verschwindet aus der Geschichte, ohne dass sie kaputtgeht.
+    tieHero(db, toll.id, nex);
+    db.remove('entities', nex);
+    expect(heroesOf(data(), story())).toEqual([]);
   });
 
   it('hält Szenen bereit – mit oder ohne Begegnung', async () => {

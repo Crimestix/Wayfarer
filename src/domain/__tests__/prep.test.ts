@@ -9,7 +9,7 @@ import {
   setSceneDone,
   setSecretRevealed,
 } from '../../features/abend/actions';
-import { newStory } from '../../features/faeden/actions';
+import { newStory, tieHero } from '../../features/faeden/actions';
 import {
   SECRETS_WANTED,
   currentPrep,
@@ -149,6 +149,7 @@ describe('Das Blatt eines Abends', () => {
         .map((entry) => entry.key);
     expect(open()).toEqual([
       'goals',
+      'hooks',
       'start',
       'stories',
       'scenes',
@@ -166,7 +167,13 @@ describe('Das Blatt eines Abends', () => {
         ...mate,
         character: { ...mate.character, goal: 'Will seine Schwester finden.' },
       });
-    newStory(db, { inPlay: true });
+    const story = newStory(db, { inPlay: true });
+    expect(prepAdvice(data(), prepView(data()).content)[1]).toMatchObject({
+      key: 'hooks',
+      done: false,
+      why: 'Keine Geschichte im Spiel betrifft Corrin.',
+    });
+    tieHero(db, story.id, mate.id, 'Seine Schwester ist verschwunden.');
     const ambush = db.put('encounters', createEncounter({ name: 'Hinterhalt am Steg' }));
     patchPrep(db, {
       start: 'Ein leeres Boot treibt aus dem Nebel.',

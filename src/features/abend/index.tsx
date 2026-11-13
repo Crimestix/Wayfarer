@@ -18,7 +18,7 @@ import {
   type PrepView,
 } from '../../domain/prep';
 import { newId, type PrepScene, type PrepSecret } from '../../domain/schema';
-import { storyClock, untilText } from '../../domain/story';
+import { storiesOfHero, storyClock, untilText } from '../../domain/story';
 import {
   Button,
   Checkbox,
@@ -34,7 +34,7 @@ import {
   useDraftList,
 } from '../../ui';
 import { newEncounter } from '../bestiarium/encounterActions';
-import { newStory, setInPlay } from '../faeden/actions';
+import { newStory, setInPlay, tieHero } from '../faeden/actions';
 import { patchCharacter } from '../gruppe/actions';
 import { patchPrep } from './actions';
 import './abend.css';
@@ -144,29 +144,70 @@ function Companions() {
   const db = useDb();
   const data = useData();
   const party = activeParty(data);
+  const stories = Object.values(data.stories)
+    .filter((story) => !story.closed)
+    .sort((a, b) => a.title.localeCompare(b.title, 'de'));
   return (
     <SheetSection
       title="Die Gefährten"
-      hint="Was will jeder – was zieht ihn in den Abend? Das bleibt bei dem Gefährten stehen."
+      hint="Was will jeder – und welche Geschichte betrifft ihn persönlich? Beides bleibt bei dem Gefährten stehen."
     >
       {party.length === 0 && (
         <p className="wf-sheet__none">
           Noch kein Gefährte. <Link href="/gruppe">Zu den Gefährten</Link>
         </p>
       )}
-      {party.map((character) => (
-        <div key={character.id} className="wf-abend-row wf-abend-row--goal">
-          <Link href={entityHref(character)} className="wf-abend-name wf-clamp-1">
-            {character.name}
-          </Link>
-          <Written
-            label={`Was ${character.name} will`}
-            value={character.character.goal}
-            placeholder="Ein Ziel, eine offene Rechnung, eine Sehnsucht …"
-            onSave={(goal) => patchCharacter(db, character.id, { goal })}
-          />
-        </div>
-      ))}
+      {party.map((character) => {
+        const ties = storiesOfHero(data, character.id);
+        const free = stories.filter((story) => !ties.some((tie) => tie.story.id === story.id));
+        return (
+          <div key={character.id} className="wf-abend-row wf-abend-row--goal">
+            <Link href={entityHref(character)} className="wf-abend-name wf-clamp-1">
+              {character.name}
+            </Link>
+            <div className="wf-abend-goal">
+              <Written
+                label={`Was ${character.name} will`}
+                value={character.character.goal}
+                placeholder="Ein Ziel, eine offene Rechnung, eine Sehnsucht …"
+                onSave={(goal) => patchCharacter(db, character.id, { goal })}
+              />
+              <div className="wf-abend-ties">
+                {ties.length === 0 && <span>Noch an keiner Geschichte.</span>}
+                {ties.map((tie) => (
+                  <Link
+                    key={tie.story.id}
+                    href={`/geschichte/${tie.story.id}`}
+                    className={cx('wf-abend-tie', !tie.story.inPlay && 'wf-abend-tie--idle')}
+                    title={[tie.why, !tie.story.inPlay && 'Diese Geschichte ist nicht im Spiel.']
+                      .filter(Boolean)
+                      .join('\n')}
+                  >
+                    {tie.story.title}
+                    {!tie.story.inPlay && ' (nicht im Spiel)'}
+                  </Link>
+                ))}
+                {free.length > 0 && (
+                  <Select
+                    value=""
+                    aria-label={`${character.name} an eine Geschichte heften`}
+                    onChange={(event) => {
+                      if (event.target.value) tieHero(db, event.target.value, character.id);
+                    }}
+                  >
+                    <option value="">an Geschichte heften …</option>
+                    {free.map((story) => (
+                      <option key={story.id} value={story.id}>
+                        {story.title}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </SheetSection>
   );
 }

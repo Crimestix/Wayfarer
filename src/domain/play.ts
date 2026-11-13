@@ -9,6 +9,7 @@ import { occurrencesOf, openPromises, type Occurrence } from './derive';
 import { SCENE_ODDS } from './schema';
 import type {
   CampaignData,
+  Character,
   ChronicleEntry,
   Entity,
   StoryEntry,
@@ -16,7 +17,15 @@ import type {
   Thread,
   ThreadHint,
 } from './schema';
-import { boardCards, entryFit, threadLive, threadWarning, whereOf, type BoardCard } from './story';
+import {
+  boardCards,
+  entryFit,
+  heroesOf,
+  threadLive,
+  threadWarning,
+  whereOf,
+  type BoardCard,
+} from './story';
 import { MINUTES_PER_DAY, startOfDay } from './time/calendar';
 import { formatWayTime, routeBetween } from './ways';
 import { isEveryday, isNear } from './weight';
@@ -46,6 +55,8 @@ export interface PlayCard {
   promises: ChronicleEntry[];
   /** Kommende Termine, die an ihren Fäden oder ihren Leuten hängen – je Termin das nächste Mal. */
   events: Occurrence[];
+  /** Gefährten, die sie persönlich betrifft – mit ihrem Grund. */
+  heroes: { character: Character; why: string }[];
   /** Szenen und Begegnungen, die bereitliegen – die sicheren zuerst. */
   scenes: StoryScene[];
   /** Was zuletzt zu ihr notiert wurde, das Neueste zuerst. */
@@ -149,6 +160,9 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
         entry.refs.some((id) => people.includes(id) && nodes.has(id)),
     ),
     events: events.slice(0, EVENTS_SHOWN),
+    heroes: story
+      ? heroesOf(data, story).map(({ hero, character }) => ({ character, why: hero.why }))
+      : [],
     scenes: [...(story?.scenes ?? [])].sort(
       (a, b) => SCENE_ODDS.indexOf(a.odds) - SCENE_ODDS.indexOf(b.odds),
     ),

@@ -1253,6 +1253,26 @@ Plan 2 aus der Liste nach dem Nachlesen (acht Schritte der „faulen“ Vorberei
   Geheimnis steht nicht von selbst in der Mitschrift; Gefährten an Geschichten heften (Plan 3);
   Beute als eigene Sache statt als Text (Plan 4).
 
+### Gefährten an Geschichten (13. 11. 2026) – gebaut
+
+Plan 3: Bei jedem Gefährten steht, was er will, und er lässt sich an eine Geschichte heften.
+
+- **An der Geschichte** (`story.heroes`): Abschnitt „Wen es persönlich betrifft“ auf dem Blatt
+  – Gefährte, sein eigener Grund, darunter sein Ziel. Rat: „Ein Gefährte hat einen eigenen
+  Grund“.
+- **Unter „Abend vorbereiten“:** bei jedem Gefährten sein Ziel und seine Geschichten (die nicht
+  im Spiel sind, gedämpft), dazu „an Geschichte heften“. Rat: „Für jeden Gefährten ist etwas
+  dabei“ – nennt, wen keine Geschichte im Spiel betrifft (`withoutHook`).
+- **Seite des Gefährten:** Kasten „Geschichten“ mit Ziel und den Geschichten samt Grund.
+- **Spieltisch:** Zeile „Betrifft“ bei einer Geschichte im Spiel.
+- **Fadenbrett:** Ein angehefteter Gefährte ist ein Name auf dem Brett; hängt er an zwei
+  Geschichten, ist er golden.
+- **Nebenbei:** Ein Feld auf einem Blatt (`Written`) übernimmt jetzt, was woanders geändert
+  wurde.
+- **Nicht geprüft:** installierte App, echte Daten.
+- **Offen:** Plan 4 (Beute und Belohnungen als eigene Sache); lose Fäden lassen sich nicht an
+  Gefährten heften.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

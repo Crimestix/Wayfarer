@@ -303,6 +303,19 @@ function PlayStory({
               </span>
             </Row>
           )}
+          {play.heroes.length > 0 && (
+            <Row label="Betrifft">
+              <span>
+                {play.heroes.map(({ character, why }, index) => (
+                  <span key={character.id}>
+                    {index > 0 && ' · '}
+                    <EntityLink id={character.id} icon={false} />
+                    {why && <em> – {why}</em>}
+                  </span>
+                ))}
+              </span>
+            </Row>
+          )}
           {play.threads.map(({ thread, found: have, warning }) => (
             <Row key={thread.id} label="Faden">
               <span title={warning ?? undefined}>

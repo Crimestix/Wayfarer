@@ -606,6 +606,15 @@ export const StorySceneSchema = z.object({
 });
 export type StoryScene = z.infer<typeof StorySceneSchema>;
 
+/** Ein Gefährte, den eine Geschichte persönlich betrifft – und warum. */
+export const StoryHeroSchema = z.object({
+  id,
+  characterId: id,
+  /** Sein eigener Grund, sich einzumischen. */
+  why: z.string().default(''),
+});
+export type StoryHero = z.infer<typeof StoryHeroSchema>;
+
 /**
  * Eine Geschichte ist ein Vorhaben, kein Plot: Jemand treibt sie an, eine Uhr sagt, was geschieht,
  * wenn niemand eingreift. Geschrieben vom Spielleiter; Wayfarer zeigt, wie nah die Gruppe dran
@@ -622,6 +631,8 @@ export const StorySchema = z.object({
   stakes: z.string().default(''),
   /** Was passiert, wenn niemand eingreift. */
   clockId: id.nullable().default(null),
+  /** Gefährten, die sie persönlich betrifft. */
+  heroes: z.array(StoryHeroSchema).default([]),
   /** Szenen und Begegnungen, die bereitliegen. */
   scenes: z.array(StorySceneSchema).default([]),
   /** Wie es enden kann: Höhepunkt und Folgen – ohne den Weg dorthin festzulegen. */

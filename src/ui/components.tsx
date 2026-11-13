@@ -260,6 +260,8 @@ export function Written({
   className?: string;
 }) {
   const [text, setText] = useState(value);
+  // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
+  useEffect(() => setText(value), [value]);
   const commit = () => {
     if (text !== value) onSave(text);
   };

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { clockView } from '../../domain/clock';
+import { entitiesOfKind } from '../../domain/derive';
 import {
   ENTRY_STANDINGS,
   SCENE_ODDS,
@@ -41,6 +42,7 @@ import {
   THREAD_STATE_HINT,
   THREAD_STATE_LABEL,
   boardCards,
+  heroesOf,
   storyAdvice,
   threadsOf,
   touchReason,
@@ -63,6 +65,7 @@ import {
   Written,
   confirmDialog,
   cx,
+  entityHref,
   toast,
   useDraftList,
 } from '../../ui';
@@ -75,6 +78,8 @@ import {
   removeThread,
   saveThread,
   setStorySteps,
+  tieHero,
+  untieHero,
   type StepInput,
 } from './actions';
 import './faeden.css';
@@ -212,6 +217,8 @@ function StorySheet({ story }: { story: Story }) {
           />
         </SheetSection>
 
+        <Heroes story={story} />
+
         <SheetSection
           title="Wie es enden kann"
           hint="Der Höhepunkt und was danach anders ist – nicht der Weg dorthin."
@@ -314,6 +321,78 @@ function StorySheet({ story }: { story: Story }) {
         )}
       </aside>
     </div>
+  );
+}
+
+// ── Wen es persönlich betrifft ─────────────────────────────────────────────
+
+function Heroes({ story }: { story: Story }) {
+  const db = useDb();
+  const data = useData();
+  const rows = heroesOf(data, story);
+  const others = entitiesOfKind(data, 'character')
+    .filter((character) => !rows.some((row) => row.character.id === character.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return (
+    <SheetSection
+      title="Wen es persönlich betrifft"
+      hint="Welcher Gefährte hat einen eigenen Grund, sich einzumischen – und welchen? Dann ist es mehr als ein Auftrag."
+    >
+      {rows.length === 0 && (
+        <p className="wf-sheet__none">Noch kein Gefährte hängt an dieser Geschichte.</p>
+      )}
+      {rows.map(({ hero, character }) => (
+        <div key={hero.id} className="wf-sheet-list__row wf-sheet-list__row--hero">
+          <Link href={entityHref(character)} className="wf-faden-held wf-clamp-1">
+            {character.name}
+          </Link>
+          <div className="wf-faden-held__why">
+            <Written
+              label={`Warum es ${character.name} betrifft`}
+              value={hero.why}
+              placeholder="Sein eigener Grund"
+              onSave={(why) =>
+                patchStory(db, story.id, {
+                  heroes: story.heroes.map((entry) =>
+                    entry.id === hero.id ? { ...entry, why: why.trim() } : entry,
+                  ),
+                })
+              }
+            />
+            {character.character.goal.trim() && (
+              <span className="wf-faden-held__goal">
+                Sein Ziel: {character.character.goal.trim()}
+              </span>
+            )}
+          </div>
+          <IconButton
+            label={`${character.name} von der Geschichte lösen`}
+            size="sm"
+            variant="ghost"
+            onClick={() => untieHero(db, story.id, character.id)}
+          >
+            <X />
+          </IconButton>
+        </div>
+      ))}
+      {others.length > 0 && (
+        <Select
+          className="wf-faden-held__add"
+          value=""
+          aria-label="Gefährten an die Geschichte heften"
+          onChange={(event) => {
+            if (event.target.value) tieHero(db, story.id, event.target.value);
+          }}
+        >
+          <option value="">Gefährten hinzufügen …</option>
+          {others.map((character) => (
+            <option key={character.id} value={character.id}>
+              {character.name}
+            </option>
+          ))}
+        </Select>
+      )}
+    </SheetSection>
   );
 }
 
