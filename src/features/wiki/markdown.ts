@@ -14,6 +14,7 @@
  * (`ArticleNode`), `toMarkdown` aus Knoten wieder Text. Die zweite braucht es für die Übernahme
  * aus LegendKeeper und überall, wo Wayfarer Text für den Spielleiter schreibt.
  */
+import { CALLOUT, INFOBOX_CALLOUTS, SECRET_CALLOUTS } from '../../domain/articleText';
 import {
   safeHref,
   safeImageUrl,
@@ -297,7 +298,6 @@ const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const LIST = /^( {0,3})([-+*]|\d{1,9}[.)])[ \t]+(.*)$/;
 const LIST_EMPTY = /^( {0,3})([-+*]|\d{1,9}[.)])[ \t]*$/;
 const IMAGE = /^!\[((?:\\.|[^\]\\])*)\]\(([^)\s]+)(?:[ \t]+"([^"]*)")?\)[ \t]*$/;
-const CALLOUT = /^\[!([A-Za-zÄÖÜäöüß-]+)\][+-]?[ \t]*(.*)$/;
 const TABLE_RULE = /^\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
 const FACT = /^((?:\\.|[^:\\\n[\]*`]){1,60}):[ \t]+(\S.*)$/;
 const METER = /^(.+?):[ \t]*(\d+)[ \t]*\/[ \t]*(\d+)[ \t]*$/;
@@ -319,8 +319,8 @@ const CALLOUT_TONE: Record<string, CalloutTone> = {
   gefahr: 'error',
   fehler: 'error',
 };
-const SECRET_NAMES = new Set(['geheim', 'secret', 'sl', 'spielleitung']);
-const INFOBOX_NAMES = new Set(['steckbrief', 'infobox']);
+const SECRET_NAMES = SECRET_CALLOUTS;
+const INFOBOX_NAMES = INFOBOX_CALLOUTS;
 const EXPAND_NAMES = new Set(['aufklappen', 'details', 'spoiler']);
 const METER_NAMES = new Set(['stand', 'zähler', 'meter']);
 

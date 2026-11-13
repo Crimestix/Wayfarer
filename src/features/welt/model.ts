@@ -7,6 +7,7 @@ import {
   byName,
   chronicleFor,
   entitiesOfKind,
+  entityCategory,
   entityName,
   placeAncestors,
   placeSubtreeIds,
@@ -155,12 +156,8 @@ export function habitatChoices(data: CampaignData): string[] {
   return [...[...used.values()].sort((a, b) => a.localeCompare(b, 'de')), ...rest];
 }
 
-/** Das freie Feld „Art“ eines Eintrags; Personen und Gefährten haben keines. */
-export function entityCategory(entity: Entity): string {
-  if (entity.kind === 'person' || entity.kind === 'character') return '';
-  const details = (entity as unknown as Record<string, { category?: string }>)[entity.kind];
-  return details?.category ?? '';
-}
+/** Das freie Feld „Art“ eines Eintrags (`entityCategory` in `domain/derive.ts`). */
+export { entityCategory };
 
 // ── Übersicht ──────────────────────────────────────────────────────────────
 

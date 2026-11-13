@@ -3,7 +3,12 @@
  * `playerBook()` in `domain/playerBook.ts`; hier wird es nur in Worte gefasst – für die Spieler
  * ohne den Stand von Gerüchten und Vermutungen.
  */
-import { GUESS_TRUTH_LABEL, playerBook, type PlayerBook } from '../../domain/playerBook';
+import {
+  GUESS_TRUTH_LABEL,
+  playerBook,
+  type GroupBook,
+  type PlayerBook,
+} from '../../domain/playerBook';
 import type { CampaignData, ChronicleEntry, Guess, Handout } from '../../domain/schema';
 import { formatDate } from '../../domain/time/calendar';
 import { entryPlainText, type SummaryAudience } from '../chronik/model';
@@ -28,6 +33,13 @@ export function handoutBody(handout: Handout): string {
   const text = handout.text.trim();
   const signature = handout.signature.trim();
   return [text, signature && `– ${signature}`].filter(Boolean).join('\n');
+}
+
+/** Ein Buch der Gruppe in einer Zeile: Titel, Verfasser und worüber es etwas sagt. */
+export function groupBookLine(book: GroupBook): string {
+  const head = book.author ? `${book.name} (von ${book.author})` : book.name;
+  if (!book.entries.length) return head;
+  return `${head}: ${book.entries.map((entry) => entry.name).join(', ')}`;
 }
 
 /** Ein Text, der mehrere Zeilen haben kann, als Punkt einer Liste. */
@@ -70,6 +82,9 @@ export function playerBookText(
         break;
       case 'guesses':
         for (const guess of section.guesses) block.push(bullet(guessLine(guess, audience)));
+        break;
+      case 'books':
+        for (const book of section.books) block.push(bullet(groupBookLine(book)));
         break;
     }
     out.push(block.join('\n'));

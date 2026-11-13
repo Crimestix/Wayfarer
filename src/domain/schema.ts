@@ -310,6 +310,54 @@ export const RecipeSchema = z.object({
 });
 export type Recipe = z.infer<typeof RecipeSchema>;
 
+/** Wie die Seiten eines Buches geordnet sind: nach Namen, nach Gegend oder nach Einordnung. */
+export const BOOK_ORDERS = ['alpha', 'region', 'category'] as const;
+export type BookOrder = (typeof BOOK_ORDERS)[number];
+
+/** Welche Einträge der Welt in einem Buch stehen. Leere Listen schränken nicht ein. */
+export const BookSelectionSchema = z.object({
+  kinds: z.array(z.enum(ENTITY_KINDS)).default([]),
+  /** Orte und Gegenden – mit allem, was darunter liegt und dazugehört. */
+  regionIds: z.array(id).default([]),
+  /** Einordnungen („Kraut“, „Erz“), ohne Groß- und Kleinschreibung verglichen. */
+  categories: z.array(z.string()).default([]),
+  /** Einzelne Einträge dazu – auch, wenn sie sonst nicht passen. */
+  include: z.array(id).default([]),
+  /** Einzelne Einträge weg – auch, wenn sie passen. */
+  exclude: z.array(id).default([]),
+});
+export type BookSelection = z.infer<typeof BookSelectionSchema>;
+
+/** Eine Seite in den Worten des Verfassers – sie gilt statt des Artikels. */
+export const BookPageSchema = z.object({
+  /** Der Wortlaut des Verfassers (Markdown wie im Wiki). */
+  text: z.string().default(''),
+  /** Der Wortlaut des Artikels, als die Seite überschrieben wurde – zeigt, ob er sich seither änderte. */
+  base: z.string().default(''),
+});
+export type BookPage = z.infer<typeof BookPageSchema>;
+
+/**
+ * Ein Buch in der Welt: ein Gegenstand mit Verfasser, dessen Seiten Wayfarer aus den Artikeln des
+ * Spielleiters zusammenstellt (`domain/book.ts`). Wayfarer formuliert nichts – überschriebene
+ * Seiten schreibt der Spielleiter in den Worten des Verfassers.
+ */
+export const BookSchema = z.object({
+  /** Wer es geschrieben hat – ein Eintrag der Welt … */
+  authorId: id.nullable().default(null),
+  /** … oder in Worten, wenn es keinen Eintrag gibt. */
+  authorText: z.string().default(''),
+  /** Wann es geschrieben wurde; null = nicht angegeben. */
+  written: DatePointSchema.nullable().default(null),
+  selection: BookSelectionSchema.prefault({}),
+  order: z.enum(BOOK_ORDERS).default('alpha'),
+  /** Überschriebene Seiten je Eintrag. */
+  pages: z.record(id, BookPageSchema).default({}),
+  /** Das Vorwort, vom Spielleiter. */
+  intro: z.string().default(''),
+});
+export type Book = z.infer<typeof BookSchema>;
+
 const ItemDetails = z.object({
   /** Wo oder bei wem der Gegenstand ist. */
   holderId: id.nullable().default(null),
@@ -322,6 +370,8 @@ const ItemDetails = z.object({
   history: z.boolean().default(false),
   /** Wie er hergestellt wird; null = kein Rezept. */
   recipe: RecipeSchema.nullable().default(null),
+  /** Ein Buch in der Welt (`domain/book.ts`); null = kein Buch. */
+  book: BookSchema.nullable().default(null),
 });
 
 const TopicDetails = z.object({

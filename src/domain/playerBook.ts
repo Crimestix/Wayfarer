@@ -4,8 +4,10 @@
  * die Gruppe getroffen und wo sie war, was sie bekommen hat – und die Vermutungen der Spieler.
  * Nie darin: Geheimnisse eines Eintrags, Notizen der Spielleitung, geheime Zeilen, der Stand von
  * Gerüchten und Vermutungen (in der Fassung für die Spieler) und Geheimnisse des Abend-Blatts.
- * Reine Funktionen.
+ * Bücher, die die Gruppe hat (`domain/book.ts`), zählen in ihrer eigenen Fassung – mit den
+ * Irrtümern des Verfassers. Reine Funktionen.
  */
+import { bookEntries, booksAbout, groupBooks, type BookKnowledge } from './book';
 import {
   byName,
   chronicleFor,
@@ -99,10 +101,21 @@ export interface BookThing {
 export type ThingSectionId = 'people' | 'places' | 'factions' | 'items' | 'stories';
 export type LineSectionId = 'promises' | 'rumors' | 'clues' | 'reveals' | 'writings';
 
+/** Ein Buch, das die Gruppe hat, und was darin steht. */
+export interface GroupBook {
+  id: string;
+  name: string;
+  /** Der Verfasser; '' = unbekannt. */
+  author: string;
+  /** Die Einträge, über die es etwas sagt – nach Namen. */
+  entries: { id: string; name: string }[];
+}
+
 export type BookSection =
   | { sort: 'things'; id: ThingSectionId; label: string; things: BookThing[] }
   | { sort: 'lines'; id: LineSectionId; label: string; entries: ChronicleEntry[] }
   | { sort: 'handouts'; id: 'handouts'; label: string; handouts: Handout[] }
+  | { sort: 'books'; id: 'books'; label: string; books: GroupBook[] }
   | { sort: 'guesses'; id: 'guesses'; label: string; guesses: Guess[] };
 
 export interface PlayerBook {
@@ -263,6 +276,15 @@ export function playerBook(data: CampaignData): PlayerBook {
   if (handouts.length)
     sections.push({ sort: 'handouts', id: 'handouts', label: 'Handouts', handouts });
 
+  const books = groupBooks(data).map((book) => ({
+    id: book.id,
+    name: book.name,
+    author: data.entities[book.item.book.authorId ?? '']?.name ?? book.item.book.authorText.trim(),
+    entries: bookEntries(data, book).map((entry) => ({ id: entry.id, name: entry.name })),
+  }));
+  if (books.length)
+    sections.push({ sort: 'books', id: 'books', label: 'Bücher der Gruppe', books });
+
   const loose = guesses.filter((guess) => !guess.refs.some((id) => shown.has(id)));
   if (loose.length)
     sections.push({
@@ -291,6 +313,11 @@ export interface Knowledge {
   /** Weiß die Gruppe: die letzten Zeilen für die Spieler, älteste zuerst. */
   known: ChronicleEntry[];
   knownCount: number;
+  /**
+   * Weiß die Gruppe aus einem Buch, das sie hat: die Seite zu diesem Eintrag in der Fassung des
+   * Buches – nichts Geheimes, aber vielleicht mit den Irrtümern des Verfassers.
+   */
+  books: BookKnowledge[];
   /** Vermutet die Gruppe – mit Stand, für die Spielleitung. */
   guesses: Guess[];
   /** Nur du: das Geheimnis des Eintrags … */
@@ -314,16 +341,19 @@ export function knowledgeOf(
   const secret = lines.filter((entry) => entry.secret);
   const guesses = guessesAbout(data, entityId);
   const secretText = entity?.secret.trim() ?? '';
+  const books = booksAbout(data, entityId);
   return {
     inBook:
       bookIds(data).has(entityId) ||
-      (entity?.kind === 'place' && knownPlaceIds(data).has(entityId)),
+      (entity?.kind === 'place' && knownPlaceIds(data).has(entityId)) ||
+      books.length > 0,
     known: known.slice(-limit),
     knownCount: known.length,
+    books,
     guesses,
     secret: secretText,
     secretLines: secret.slice(-limit),
     secretCount: secret.length,
-    empty: !known.length && !guesses.length && !secret.length && !secretText,
+    empty: !known.length && !books.length && !guesses.length && !secret.length && !secretText,
   };
 }

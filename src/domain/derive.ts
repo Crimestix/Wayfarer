@@ -27,6 +27,7 @@ import {
   type Relation,
   type Timer,
 } from './schema';
+import { bookLinks, bookWithout } from './bookLinks';
 import { recipeLinks, recipeWithout } from './crafting';
 
 // ── Einträge ───────────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ export function detailLinks(entity: Entity): { field: string; id: string }[] {
   if (!hasLinks(entity.kind)) return [];
   // Das Rezept eines Gegenstands zeigt auf seinen Beruf und seine Zutaten.
   const recipe = entity.kind === 'item' ? recipeLinks(entity.item.recipe) : [];
+  // Ein Buch zeigt auf seinen Verfasser, seine Gegenden und einzeln gewählte Einträge.
+  const book = entity.kind === 'item' ? bookLinks(entity.item.book) : [];
   const details = (entity as unknown as Record<string, Record<string, DetailValue>>)[entity.kind]!;
   const links: { field: string; id: string }[] = [];
   for (const field of DETAIL_LINKS[entity.kind]) {
@@ -102,7 +105,7 @@ export function detailLinks(entity: Entity): { field: string; id: string }[] {
     if (Array.isArray(value)) for (const id of value as string[]) links.push({ field, id });
     else if (typeof value === 'string' && value) links.push({ field, id: value });
   }
-  return [...links, ...recipe];
+  return [...links, ...recipe, ...book];
 }
 
 /** Verweist eine Einzelangabe dieses Eintrags auf `targetId`? */
@@ -138,12 +141,21 @@ export function replaceLink(
   // Im Rezept fällt der Verweis weg; eine Zutat bleibt mit ihrem Namen stehen.
   if (entity.kind === 'item' && entity.item.recipe)
     details.recipe = recipeWithout(entity.item.recipe, targetId, targetName);
+  if (entity.kind === 'item' && entity.item.book)
+    details.book = bookWithout(entity.item.book, targetId, targetName);
   return { ...entity, [kind]: details } as Entity;
 }
 
 const collator = new Intl.Collator('de', { sensitivity: 'base', numeric: true });
 export const byName = (a: { name: string }, b: { name: string }) =>
   collator.compare(a.name, b.name);
+
+/** Das freie Feld „Art“ eines Eintrags; Personen und Gefährten haben keines. */
+export function entityCategory(entity: Entity): string {
+  if (entity.kind === 'person' || entity.kind === 'character') return '';
+  const details = (entity as unknown as Record<string, { category?: string }>)[entity.kind];
+  return details?.category ?? '';
+}
 
 export function entitiesOfKind<K extends EntityKind>(data: CampaignData, kind: K): EntityOf<K>[] {
   return (Object.values(data.entities).filter((e) => e.kind === kind) as EntityOf<K>[]).sort(

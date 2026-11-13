@@ -127,6 +127,8 @@ const count = (section: BookSection): number => {
       return section.handouts.length;
     case 'guesses':
       return section.guesses.length;
+    case 'books':
+      return section.books.length;
   }
 };
 
@@ -168,6 +170,23 @@ function Section({ section, ...view }: ViewProps & { section: BookSection }) {
               {handoutBody(handout) && (
                 <div className="wf-prose wf-spielerbuch-handout__text">{handoutBody(handout)}</div>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {section.sort === 'books' && (
+        <ul className="wf-spielerbuch-lines">
+          {section.books.map((book) => (
+            <li key={book.id}>
+              <Link href={`/welt/${book.id}`} className="wf-spielerbuch-handout__title">
+                {book.name}
+              </Link>
+              {book.author && <span className="wf-mute"> · von {book.author}</span>}
+              <div className="wf-prose wf-spielerbuch-handout__text">
+                {book.entries.length
+                  ? `Darin: ${book.entries.map((entry) => entry.name).join(', ')}`
+                  : 'Noch stehen keine Seiten darin.'}
+              </div>
             </li>
           ))}
         </ul>
