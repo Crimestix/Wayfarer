@@ -107,6 +107,11 @@ export const PlayStateSchema = z.object({
    * genannten Namen (`domain/memory.ts`). false = ausgeblendet.
    */
   nameMemory: z.boolean().default(true),
+  /**
+   * Die Bahnen der Zeitleiste in ihrer Reihenfolge: `party`, `events`, `story:<id>` und
+   * `entity:<id>` (`domain/timeline.ts`). null = Wayfarer wählt (`defaultLaneKeys`).
+   */
+  timelineLanes: z.array(z.string()).nullable().default(null),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;
