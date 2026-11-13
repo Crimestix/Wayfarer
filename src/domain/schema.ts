@@ -111,6 +111,13 @@ export const ENTITY_KINDS = [
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
+/** Ein Tag, Monat oder Jahr der Welt – für Lebensdaten, bei denen oft nur das Jahr bekannt ist. */
+export const DatePointSchema = z.object({
+  at: worldTime,
+  precision: z.enum(['day', 'month', 'year']).default('day'),
+});
+export type DatePoint = z.infer<typeof DatePointSchema>;
+
 const LkLinkSchema = z.object({
   resourceId: z.string(),
   title: z.string().default(''),
@@ -128,6 +135,10 @@ const entityBase = {
   /** Geheimnisse, die die Gruppe (noch) nicht kennt. */
   secret: z.string().default(''),
   tags: z.array(z.string()).default([]),
+  /** Geboren, gegründet, geschaffen (`domain/lifespan.ts`). */
+  born: DatePointSchema.nullable().default(null),
+  /** Gestorben, aufgelöst, zerstört – bei Personen sonst aus der Chronik (Schicksal). */
+  ended: DatePointSchema.nullable().default(null),
   /** Bild als Data-URL. */
   image: z.string().nullable().default(null),
   /** Verknüpfter Artikel im Wiki (der Name des Feldes stammt aus der Zeit vor dem eigenen Wiki). */

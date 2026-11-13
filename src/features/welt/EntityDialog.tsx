@@ -1,4 +1,5 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
+import { lifeWords } from '../../domain/lifespan';
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocation } from 'wouter';
 import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
@@ -150,7 +151,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     setTried(true);
     if (problem) return;
     const saved = db.batch(() => {
-      const entity = db.put('entities', entityFromDraft(draft, existing));
+      const entity = db.put('entities', entityFromDraft(draft, existing, data));
       if (entity.kind === 'person')
         for (const { field, type, kinds } of PERSON_LINKS)
           syncLinkedRelations(db, entity.id, type, kinds, draft[field]);
@@ -524,6 +525,26 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               </datalist>
             </Field>
           )}
+          <Field
+            label={lifeWords(draft.kind).start}
+            hint={
+              draft.kind === 'person'
+                ? 'Ein Tag, ein Jahr oder ein Alter („Alter 34“) – das Alter rechnet Wayfarer.'
+                : 'Ein Tag, ein Jahr oder „vor 300 Jahren“.'
+            }
+          >
+            <Input value={draft.born} onChange={(e) => set({ born: e.target.value })} />
+          </Field>
+          <Field
+            label={lifeWords(draft.kind).end}
+            hint={
+              draft.kind === 'person'
+                ? 'Leer lassen, solange die Person lebt. Ein Tod aus der Chronik zählt von selbst.'
+                : 'Leer lassen, solange es besteht.'
+            }
+          >
+            <Input value={draft.ended} onChange={(e) => set({ ended: e.target.value })} />
+          </Field>
           <Field label="Beinamen" hint="Andere Namen, mit Komma getrennt – die Suche findet sie.">
             <Input value={draft.aliases} onChange={(e) => set({ aliases: e.target.value })} />
           </Field>

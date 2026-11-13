@@ -5,6 +5,7 @@
  * was am Eintrag des Artikels zu setzen ist. Was sich nicht zuordnen lässt, bleibt unberührt und
  * wird genannt.
  */
+import { lifeWords, readDatePoint } from '../../domain/lifespan';
 import {
   PERSON_STATUS,
   type Article,
@@ -102,7 +103,9 @@ export type FactField =
   | 'location'
   | 'seat'
   | 'leader'
-  | 'owner';
+  | 'owner'
+  | 'born'
+  | 'died';
 
 export const FIELD_LABEL: Record<FactField, string> = {
   kind: 'Art',
@@ -118,7 +121,41 @@ export const FIELD_LABEL: Record<FactField, string> = {
   seat: 'Sitz',
   leader: 'Führung',
   owner: 'Besitzer',
+  born: 'Geboren',
+  died: 'Gestorben',
 };
+
+/** Lebensdaten im Steckbrief – für alle Arten; was sie bei welcher Art heißen, steht in `lifeWords`. */
+const BORN = [
+  'Geboren',
+  'Geburt',
+  'Geburtstag',
+  'Geburtsdatum',
+  'Geburtsjahr',
+  'Jahrgang',
+  'Alter',
+  'Gegründet',
+  'Gründung',
+  'Gründungsjahr',
+  'Erbaut',
+  'Errichtet',
+  'Entstanden',
+  'Geschaffen',
+  'Geschmiedet',
+  'Hergestellt',
+];
+const DIED = [
+  'Gestorben',
+  'Verstorben',
+  'Tod',
+  'Todestag',
+  'Todesjahr',
+  'Aufgelöst',
+  'Untergegangen',
+  'Untergang',
+  'Zerstört',
+  'Gefallen',
+];
 
 const KIND = ['Art', 'Typ', 'Kategorie', 'Klassifikation'];
 const LEADER = [
@@ -221,6 +258,9 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
   ability: { kind: KIND },
   topic: { kind: KIND },
 };
+
+for (const kind of ['person', 'place', 'faction', 'family', 'item', 'species', 'topic'] as const)
+  VOCABULARY[kind] = { ...VOCABULARY[kind], born: BORN, died: DIED };
 
 const meaningCache = new Map<EntityKind, Map<string, FactField>>();
 
@@ -920,6 +960,23 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
           for (const other of others(reading))
             wishes.push({ from: other.id, to: entity.id, type: 'owns' });
         break;
+      case 'born':
+      case 'died': {
+        // Lebensdaten: „Geboren: 3. Tauwind 667“, „Alter: 34“, „Gegründet: vor 300 Jahren“.
+        const key = reading.field === 'born' ? 'born' : 'ended';
+        const age =
+          reading.field === 'born' && (entity.kind === 'person' || norm(reading.label) === 'alter');
+        const point = readDatePoint(data.campaign.calendar, reading.text, data.state.now, { age });
+        if (!point) break;
+        stated[key] = reading.text;
+        if (entity.fromArticle[key] === reading.text) break;
+        const current = next[key];
+        if (current && current.at === point.at && current.precision === point.precision) break;
+        next = { ...next, [key]: point };
+        const words = lifeWords(entity.kind);
+        changes.push(`${reading.field === 'born' ? words.start : words.end}: ${reading.text}`);
+        break;
+      }
     }
   }
 

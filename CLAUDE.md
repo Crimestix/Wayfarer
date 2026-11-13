@@ -277,6 +277,10 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+- Lebensdaten: `entity.born` / `entity.ended` (Tag, Monat oder Jahr, `DatePoint`). Alter, Gründung
+  und „vor N Jahren“ rechnet `lifeFacts()` (`domain/lifespan.ts`) – nie ein Alter speichern. Gelesen
+  wird über `readDatePoint` („3. Tauwind 667“, „667“, „vor 300 Jahren“, „Alter 34“), auch aus dem
+  Steckbrief (Geboren, Alter, Gegründet, Gestorben …). Ein Tod aus der Chronik zählt ohne Tag.
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
   anwesend, sie stehen für sich in `lost`.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);

@@ -19,10 +19,12 @@ import {
   type PlaceCast,
   type Stay,
 } from '../../domain/derive';
+import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
 import { relationLabel, relationType } from '../../domain/relations';
 import {
   PARTY_ID,
   createEntity,
+  type DatePoint,
   type CampaignData,
   type Character,
   type ChronicleEntry,
@@ -317,6 +319,13 @@ export interface Fact {
 
 /** Die wichtigsten Fakten eines Eintrags für die Zeile unter dem Namen. */
 export function entityFacts(data: CampaignData, entity: Entity): Fact[] {
+  const facts = kindFacts(data, entity);
+  // Alter, Gründung, Tod – von selbst gerechnet (`domain/lifespan.ts`).
+  for (const fact of lifeFacts(data, entity)) facts.push(fact);
+  return facts;
+}
+
+function kindFacts(data: CampaignData, entity: Entity): Fact[] {
   const facts: Fact[] = [];
   const text = (label: string, value: string, tone?: Fact['tone']) => {
     if (value.trim()) facts.push({ label, text: value.trim(), tone });
@@ -919,6 +928,9 @@ export interface EntityDraft {
   holderId: string | null;
   // Sprache
   scriptId: string | null;
+  /** Lebensdaten als Worte: „3. Tauwind 667“, „667“, „vor 300 Jahren“, bei Lebewesen auch „Alter 34“. */
+  born: string;
+  ended: string;
 }
 
 /** Beziehungen, die der Dialog bei einer Person als Auswahl führt: Feld, Art und Ziel. */
@@ -958,6 +970,8 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     seatId: null,
     holderId: null,
     scriptId: null,
+    born: '',
+    ended: '',
     ...preset,
   };
 }
@@ -972,6 +986,8 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
     secret: entity.secret,
     tags: entity.tags.join(', '),
     image: entity.image,
+    born: data ? datePointText(data.campaign.calendar, entity.born) : '',
+    ended: data ? datePointText(data.campaign.calendar, entity.ended) : '',
   });
   if (entity.kind === 'person') {
     const links = Object.fromEntries(
@@ -1003,6 +1019,13 @@ export function draftProblem(
   entityId: string | null,
 ): string | null {
   if (!draft.name.trim()) return 'Der Eintrag braucht einen Namen.';
+  const words = lifeWords(draft.kind);
+  for (const [text, word, age] of [
+    [draft.born, words.start, draft.kind === 'person'],
+    [draft.ended, words.end, false],
+  ] as const)
+    if (text.trim() && !readDatePoint(data.campaign.calendar, text, data.state.now, { age }))
+      return `„${word}“ verstehe ich nicht – zum Beispiel „3. Tauwind 667“, „667“ oder „vor 300 Jahren“${age ? ' oder „Alter 34“' : ''}.`;
   if (draft.kind === 'place' && draft.parentId) {
     const parent = data.entities[draft.parentId];
     if (!parent || parent.kind !== 'place') return 'Der übergeordnete Ort existiert nicht mehr.';
@@ -1021,8 +1044,20 @@ export function forbiddenParents(data: CampaignData, placeId: string | null): st
  * Baut aus dem Entwurf den Eintrag zum Speichern. Bei einem vorhandenen Eintrag bleiben ID,
  * LegendKeeper-Verknüpfung und alle Felder erhalten, die der Dialog nicht kennt.
  */
-export function entityFromDraft(draft: EntityDraft, existing?: WorldEntity): WorldEntity {
+export function entityFromDraft(
+  draft: EntityDraft,
+  existing?: WorldEntity,
+  data?: Pick<CampaignData, 'campaign' | 'state'>,
+): WorldEntity {
+  // Lebensdaten: nur mit Kalender lesbar; unverändert bleibt der genaue gespeicherte Wert.
+  const life = (text: string, kept: DatePoint | null, age: boolean): DatePoint | null => {
+    if (!data) return kept;
+    if (text.trim() === datePointText(data.campaign.calendar, kept)) return kept;
+    return readDatePoint(data.campaign.calendar, text, data.state.now, { age });
+  };
   const common = {
+    born: life(draft.born, existing?.born ?? null, draft.kind === 'person'),
+    ended: life(draft.ended, existing?.ended ?? null, false),
     name: draft.name.trim(),
     aliases: splitList(draft.aliases),
     tagline: draft.tagline.trim(),

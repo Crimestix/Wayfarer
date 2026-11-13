@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { fromTime } from '../../domain/time/calendar';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -175,6 +176,21 @@ describe('Steckbrief speist die Welt', () => {
       aliases: before.aliases,
       fromArticle: {},
     });
+  });
+
+  it('liest Lebensdaten: Geboren, Alter, Gestorben', async () => {
+    const { db, data, entity, write } = await setup();
+    write(
+      'vera0001',
+      ['> [!steckbrief]', '> Alter: 34', '> Gestorben: 12. Tauwind 701'].join('\n'),
+    );
+    syncFacts(db, ['vera0001']);
+    const vera = entity('Vera Kohl', 'person');
+    const cal = data().campaign.calendar;
+    expect(vera.born?.precision).toBe('year');
+    expect(fromTime(cal, data().state.now).year - fromTime(cal, vera.born!.at).year).toBe(34);
+    expect(vera.ended).toMatchObject({ precision: 'day' });
+    expect(vera.fromArticle).toMatchObject({ born: '34', ended: '12. Tauwind 701' });
   });
 
   it('lässt stehen, was von Hand geändert wurde, bis der Artikel etwas anderes sagt', async () => {
