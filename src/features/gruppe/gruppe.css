@@ -1331,3 +1331,19 @@
   height: 28px;
   font-size: var(--text-sm);
 }
+/* Mehrere Zeilen in einer Angabe: Zustände mit geschriebenen Zuständen, Meilensteine */
+.wf-gruppe-rows dd.wf-gruppe-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.wf-gruppe-milestone {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  justify-content: space-between;
+}
+.wf-gruppe-milestone .wf-mute {
+  flex: none;
+  font-size: var(--text-xs);
+}

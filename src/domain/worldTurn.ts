@@ -7,6 +7,7 @@
  * Chronik, dazu die Zustände, die von selbst entstanden sind (Wege, die das Wetter verändert hat –
  * gebündelt: „Drei Wege verschlammt“ statt drei Einträgen). Nichts wird erfunden. Reine Funktionen.
  */
+import { WORLD_CHRONICLE_KINDS, recordHeadline } from './chronicleKinds';
 import { openClocks, type ClockView } from './clock';
 import { currentSession, findRelation, placeAncestors } from './derive';
 import { missedTrips, openTrips, runStatus, type RunStatus, type Trip } from './runs';
@@ -235,15 +236,17 @@ export function worldTurn(data: CampaignData, days = TURN_DAYS): WorldTurn {
   const since = Math.max(0, now - days * MINUTES_PER_DAY);
   const items: TurnItem[] = wayItems(data);
   for (const entry of Object.values(data.chronicle)) {
-    if ((entry.kind !== 'change' && entry.kind !== 'event') || entry.at < since || entry.at > now)
-      continue;
+    if (!WORLD_CHRONICLE_KINDS.includes(entry.kind) || entry.at < since || entry.at > now) continue;
     const ids = [...(entry.placeId ? [entry.placeId] : []), ...entry.refs];
+    // Schicksal und Aufenthalt sind Veränderungen der Welt; ihre Kopfzeile sagt, was geschah.
+    const headline =
+      entry.kind === 'change' || entry.kind === 'event' ? '' : recordHeadline(data, entry);
     items.push({
       key: `chronicle:${entry.id}`,
-      kind: entry.kind,
+      kind: entry.kind === 'event' ? 'event' : 'change',
       at: entry.at,
-      title: entry.text || (entry.kind === 'change' ? 'Veränderung' : 'Ereignis'),
-      detail: [],
+      title: headline || entry.text || (entry.kind === 'event' ? 'Ereignis' : 'Veränderung'),
+      detail: headline && entry.text ? [entry.text] : [],
       placeId: entry.placeId,
       refs: entry.refs,
       ...turnWeight(data, ids),

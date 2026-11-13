@@ -1,5 +1,5 @@
 /** Dialoge des Gerüsts: festhalten, Haltung ändern, Ort wechseln, Zeit vergehen lassen, suchen. */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'wouter';
 import {
   ArrowRight,
@@ -16,22 +16,26 @@ import {
   Tent,
   Waypoints,
 } from 'lucide-react';
-import {
-  advanceTime,
-  logEntry,
-  moveParty,
-  setAttitude,
-  setTime,
-  undoTimeAdvance,
-} from '../data/actions';
+import { advanceTime, moveParty, setAttitude, setTime, undoTimeAdvance } from '../data/actions';
 import type { TimeAdvanceResult } from '../data/actions';
 import type { CampaignDb } from '../data/db';
 import { useData, useDb } from '../data/hooks';
-import { entityName, findRelation, placePath } from '../domain/derive';
+import { recordEntries, recordEntry } from '../data/record';
+import { KIND_HINT, KIND_LABEL, RECORD_GROUPS, type RecordChoice } from '../domain/chronicleKinds';
+import { entityName, findRelation, placePath, sessionsSorted } from '../domain/derive';
+import { placeForEntry, sessionForEntry } from '../domain/history';
+import { recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
-import { PARTY_ID, createEntity, type CampaignData } from '../domain/schema';
+import {
+  PARTY_ID,
+  createEntity,
+  type CampaignData,
+  type ChronicleEntry,
+  type Entity,
+} from '../domain/schema';
 import {
   absoluteYear,
+  dayIndexOf,
   displayYear,
   formatDate,
   formatDateTime,
@@ -40,6 +44,7 @@ import {
   isValidDate,
   primaryEra,
   toTime,
+  weekdayName,
   type WorldTime,
 } from '../domain/time/calendar';
 import { AREAS } from '../features/registry';
@@ -54,6 +59,7 @@ import {
   Input,
   KindIcon,
   MenuItem,
+  Popover,
   Select,
   Tabs,
   TextArea,
@@ -72,6 +78,32 @@ import {
 import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { RestDialog } from '../features/gruppe/RestDialog';
+import { LootDialog } from '../features/beute/LootDialog';
+import { RecordFields } from '../features/chronik/RecordFields';
+import { WorldTimeFields } from '../features/chronik/WorldTimeFields';
+import {
+  entryHeadline,
+  relativeDay,
+  sessionLabel,
+  timeDraftOf,
+  timeOfDraft,
+} from '../features/chronik/model';
+import {
+  emptyRecordDraft,
+  hasRecordFields,
+  isAccepted,
+  partOf,
+  prefillFromRefs,
+  recordCheck,
+  recordInputs,
+  recognizedKey,
+  toggleChoice,
+  toggleRecognized,
+  type RecordCommon,
+  type RecordDraft,
+  type RecordPart,
+} from '../features/chronik/recordDraft';
+import { activeMention, insertMention, mentionSuggestions } from '../features/tisch/model';
 import type { RestResult } from '../features/gruppe/rest';
 import { focusOn, type Focus } from './focus';
 import { meanwhile } from './meanwhile';
@@ -170,93 +202,447 @@ function reportRest(data: CampaignData, result: RestResult) {
 
 // ── Festhalten ─────────────────────────────────────────────────────────────
 
-const LOG_KINDS = [
-  { id: 'note', label: 'Notiz' },
-  { id: 'change', label: 'Veränderung' },
-  { id: 'promise', label: 'Abmachung' },
-] as const;
+/** Wie lange nach dem letzten Tastendruck Wayfarer den Text liest. */
+const RECOGNIZE_DELAY = 250;
 
+/** Vorschläge aus dem Text – erst, wenn eine Weile nicht getippt wurde. */
+function useRecognized(data: CampaignData, text: string, refs: string[]): Recognized[] {
+  const [found, setFound] = useState<Recognized[]>(() => recognizeEntry(data, text, { refs }));
+  useEffect(() => {
+    const timer = setTimeout(() => setFound(recognizeEntry(data, text, { refs })), RECOGNIZE_DELAY);
+    return () => clearTimeout(timer);
+  }, [data, text, refs]);
+  return found;
+}
+
+/**
+ * Das Textfeld des Festhaltens: wächst mit dem Text, „@“ schlägt Einträge der Welt vor wie in der
+ * Mitschrift. Ein gewählter Name bleibt im Text stehen und kommt zu „Betrifft“.
+ */
+function MentionArea({
+  value,
+  onChange,
+  onMention,
+}: {
+  value: string;
+  onChange: (text: string) => void;
+  onMention: (id: string) => void;
+}) {
+  const data = useData();
+  const box = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+  const pendingCaret = useRef<number | null>(null);
+  const [caret, setCaret] = useState(value.length);
+  /** Position des „@“, dessen Vorschläge weggeklickt wurden. */
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const [picked, setPicked] = useState(0);
+  const range = useMemo(() => activeMention(value, caret), [value, caret]);
+  const suggestions = useMemo(
+    () => (range && range.start !== dismissed ? mentionSuggestions(data, range.query) : []),
+    [data, range, dismissed],
+  );
+  const open = suggestions.length > 0;
+  const active = Math.min(picked, Math.max(0, suggestions.length - 1));
+
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+    if (pendingCaret.current !== null) {
+      el.setSelectionRange(pendingCaret.current, pendingCaret.current);
+      pendingCaret.current = null;
+    }
+  }, [value]);
+
+  const pick = (entity: Entity) => {
+    if (!range) return;
+    const next = insertMention(value, range, entity.name);
+    pendingCaret.current = next.caret;
+    setCaret(next.caret);
+    setPicked(0);
+    onChange(next.text);
+    onMention(entity.id);
+    field.current?.focus();
+  };
+
+  return (
+    <div ref={box}>
+      <TextArea
+        ref={field}
+        data-autofocus
+        className="wf-shell-log__text"
+        aria-label="Was ist geschehen?"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        placeholder="Was ist geschehen? Mit @ verknüpfst du Namen der Welt."
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setCaret(e.target.selectionStart);
+          setPicked(0);
+          setDismissed((at) => (at !== null && e.target.value[at] === '@' ? at : null));
+        }}
+        onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+        onKeyDown={(e) => {
+          if (!open || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey) return;
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const step = e.key === 'ArrowDown' ? 1 : -1;
+            setPicked((active + step + suggestions.length) % suggestions.length);
+          } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            pick(suggestions[active]!);
+          } else if (e.key === 'Escape') {
+            // Nur die Vorschläge schließen, nicht den Dialog.
+            e.preventDefault();
+            e.stopPropagation();
+            setDismissed(range?.start ?? null);
+          }
+        }}
+      />
+      <Popover
+        open={open}
+        onClose={() => setDismissed(range?.start ?? null)}
+        anchor={box}
+        className="wf-shell-suggest"
+      >
+        {/* Die Schreibmarke bleibt im Feld, auch wenn man einen Vorschlag anklickt. */}
+        <div role="listbox" aria-label="Vorschläge" onMouseDown={(e) => e.preventDefault()}>
+          <div className="wf-shell-suggest__head">
+            {range?.query ? 'Verknüpfen mit' : 'Hier am Ort · weitertippen sucht überall'}
+          </div>
+          {suggestions.map((entity, i) => (
+            <MenuItem
+              key={entity.id}
+              icon={<KindIcon kind={entity.kind} />}
+              active={i === active}
+              onClick={() => pick(entity)}
+            >
+              {entity.name}
+            </MenuItem>
+          ))}
+        </div>
+      </Popover>
+    </div>
+  );
+}
+
+/** Ein Eintrag in einer Zeile für die Meldung danach. */
+const toastLine = (data: CampaignData, entry: ChronicleEntry) => {
+  const line = entryHeadline(data, entry) || entry.text;
+  return line.length > 120 ? `${line.slice(0, 119)}…` : line;
+};
+
+/**
+ * „Festhalten“: Text zuerst, darunter erkannte Vorschläge, die Arten in fünf Gruppen und je Art
+ * ihre Felder. Jetzt oder zu einer früheren Weltzeit – alles geht über `recordEntry` bzw.
+ * `recordEntries` (mehrere Arten aus einem Satz).
+ */
 function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const db = useDb();
   const data = useData();
-  const [kind, setKind] = useState<(typeof LOG_KINDS)[number]['id']>(request.kind ?? 'note');
+  const cal = data.campaign.calendar;
+  const now = data.state.now;
   const [text, setText] = useState(request.text ?? '');
   const [refs, setRefs] = useState<string[]>(request.refs ?? []);
-  const [dueDays, setDueDays] = useState('');
+  const [parts, setParts] = useState<RecordPart[]>(() => {
+    const choice = request.kind ?? 'note';
+    return [partOf(choice, prefillFromRefs(data, choice, emptyRecordDraft(), request.refs ?? []))];
+  });
   const [secret, setSecret] = useState(false);
-  const save = () => {
-    if (!text.trim()) return;
-    const days = Number(dueDays);
-    logEntry(db, {
-      kind,
-      text,
-      refs,
-      secret,
-      due:
-        kind === 'promise' && dueDays && days >= 0
-          ? data.state.now + Math.round(days * 1440)
-          : null,
-    });
-    closeShellRequest();
+  const [earlier, setEarlier] = useState(false);
+  const [time, setTimeDraft] = useState(() => timeDraftOf(cal, now));
+  const [approx, setApprox] = useState(false);
+  /** 'auto' = nach der Zeit, '' = keine Session, sonst die gewählte. */
+  const [sessionChoice, setSessionChoice] = useState('auto');
+  /** undefined = Ort der Gruppe zu dieser Zeit. */
+  const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(undefined);
+  const [loot, setLoot] = useState(false);
+  const recognized = useRecognized(data, text, refs);
+
+  const at = earlier ? timeOfDraft(cal, time) : now;
+  const when = at ?? now;
+  const showPlace = parts.some((part) => part.choice !== 'travel' && part.choice !== 'discovery');
+  const common: RecordCommon = {
+    text,
+    at: earlier && at !== null ? at : undefined,
+    sessionId: sessionChoice === 'auto' ? undefined : sessionChoice || null,
+    // Ist „Wo“ ausgeblendet, gilt eine frühere Wahl dort nicht still als entdeckter Ort.
+    placeId: showPlace ? placeChoice : undefined,
+    refs,
+    secret,
+    precision: earlier && approx ? 'approx' : undefined,
   };
-  const hint =
-    kind === 'note'
-      ? 'Was gerade am Tisch passiert ist.'
-      : kind === 'change'
-        ? 'Etwas in der Welt hat sich verändert – erscheint bei den verknüpften Orten und Personen.'
-        : 'Ein Versprechen, eine Schuld oder ein Auftrag. Bleibt offen, bis du es abhakst.';
+  const check =
+    at === null
+      ? { problem: 'Dieses Datum gibt es im Kalender nicht.', onlyText: false }
+      : recordCheck(data, parts, common);
+  const problem = check.onlyText && !text.trim() ? '' : check.problem;
+  const sessions = useMemo(() => sessionsSorted(data).reverse(), [data]);
+  const autoSession = sessionForEntry(data, when);
+  const autoPlace = placeForEntry(data, when);
+
+  const toggle = (choice: RecordChoice) => {
+    if (choice === 'loot') {
+      setLoot(true);
+      return;
+    }
+    // Eine neu gewählte Art übernimmt „Wer“ aus „Betrifft“, wenn dort genau einer passt.
+    setParts((current) =>
+      toggleChoice(current, choice).map((part) =>
+        part.source === null && !current.includes(part)
+          ? { ...part, draft: prefillFromRefs(data, part.choice, part.draft, refs) }
+          : part,
+      ),
+    );
+  };
+  const accept = (item: Recognized) => {
+    const next = toggleRecognized(parts, item);
+    setParts(next.parts);
+    if (next.refs.length) setRefs((current) => [...new Set([...current, ...next.refs])]);
+  };
+  const removePart = (key: string) =>
+    setParts((current) => {
+      const rest = current.filter((part) => part.key !== key);
+      return rest.length ? rest : [partOf('note')];
+    });
+  const setDraft = (key: string, draft: RecordDraft) =>
+    setParts((current) => current.map((part) => (part.key === key ? { ...part, draft } : part)));
+
+  const save = () => {
+    if (check.problem) return;
+    const inputs = recordInputs(parts, common, now);
+    const result = inputs.length === 1 ? recordEntry(db, inputs[0]!) : recordEntries(db, inputs);
+    if ('problem' in result) {
+      toast({ title: 'Nicht festgehalten', body: result.problem, tone: 'danger' });
+      return;
+    }
+    const entries = 'entries' in result ? result.entries : [result.entry];
+    closeShellRequest();
+    const after = db.getSnapshot();
+    toast({
+      title: entries.length > 1 ? `${entries.length} Einträge festgehalten` : 'Festgehalten',
+      body: (
+        <>
+          {entries.map((entry) => (
+            <div key={entry.id}>{toastLine(after, entry)}</div>
+          ))}
+          {when < now && <div className="wf-mute">Nachgetragen: {formatDateTime(cal, when)}</div>}
+        </>
+      ),
+      action: { label: 'Rückgängig', run: result.undo },
+    });
+  };
+
+  if (loot) return <LootDialog give onClose={closeShellRequest} />;
+
+  // Vorschläge, die übernommen sind, aber nicht mehr im Text stehen, bleiben sichtbar.
+  const keys = new Set(recognized.map(recognizedKey));
+  const orphans = parts.filter((part) => part.source && !keys.has(part.source));
+  const single = parts.length === 1 ? parts[0]!.choice : null;
+  const pressed = (choice: RecordChoice) => parts.some((part) => part.choice === choice);
+
   return (
     <Dialog
       open
       onClose={closeShellRequest}
       title="Festhalten"
+      width={760}
       footer={
         <>
-          <span className="wf-grow wf-mute" style={{ fontSize: 'var(--text-sm)' }}>
-            {formatDateTime(data.campaign.calendar, data.state.now)}
-            {data.state.placeId && ` · ${entityName(data, data.state.placeId)}`}
+          <Checkbox checked={secret} onChange={setSecret}>
+            Nur für die Spielleitung
+          </Checkbox>
+          <span className="wf-grow wf-shell-log__problem" role="alert">
+            {problem}
           </span>
           <Button onClick={closeShellRequest}>Abbrechen</Button>
-          <Button variant="primary" onClick={save} disabled={!text.trim()}>
+          <Button variant="primary" onClick={save} disabled={!!check.problem} title="Strg+Eingabe">
             Festhalten
           </Button>
         </>
       }
     >
-      <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
-        <Tabs tabs={[...LOG_KINDS]} value={kind} onChange={setKind} />
-        <Field label="Was ist geschehen?" hint={hint}>
-          <TextArea
-            autoFocus
+      <div
+        className="wf-shell-log"
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || e.defaultPrevented || !(e.ctrlKey || e.metaKey)) return;
+          e.preventDefault();
+          save();
+        }}
+      >
+        <div>
+          <MentionArea
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
-            }}
-            placeholder="Strg+Eingabe speichert"
+            onChange={setText}
+            onMention={(id) =>
+              setRefs((current) => (current.includes(id) ? current : [...current, id]))
+            }
           />
-        </Field>
-        <Field label="Betrifft">
-          <EntityRefsEditor
-            value={refs}
-            onChange={setRefs}
-            placeholder="Person, Ort, Fraktion … verknüpfen"
-          />
-        </Field>
-        <Checkbox checked={secret} onChange={setSecret}>
-          Nur für die Spielleitung
-        </Checkbox>
-        {kind === 'promise' && (
-          <Field label="Frist in Tagen" hint="Leer lassen, wenn es keine Frist gibt.">
-            <Input
-              type="number"
-              min={0}
-              value={dueDays}
-              onChange={(e) => setDueDays(e.target.value)}
-              style={{ width: 140 }}
+          <div className="wf-field__hint">
+            {single
+              ? KIND_HINT[single === 'repute' ? 'attitude' : single]
+              : `${parts.length} Einträge aus einem Text – je Art mit eigenen Angaben.`}
+          </div>
+        </div>
+
+        <div className="wf-shell-log__seen" aria-live="polite">
+          <span className="wf-caps">Erkannt</span>
+          {recognized.map((item) => {
+            const on = isAccepted(parts, item);
+            return (
+              <button
+                key={recognizedKey(item)}
+                type="button"
+                className="wf-shell-chip"
+                aria-pressed={on}
+                title={on ? 'Wieder wegnehmen' : 'Art und Angaben übernehmen'}
+                onClick={() => accept(item)}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+          {orphans.map((part) => (
+            <button
+              key={part.key}
+              type="button"
+              className="wf-shell-chip"
+              aria-pressed
+              title="Wieder wegnehmen"
+              onClick={() => removePart(part.key)}
+            >
+              {part.sourceLabel ?? KIND_LABEL[part.choice === 'repute' ? 'attitude' : part.choice]}
+            </button>
+          ))}
+          <span className="wf-mute">
+            {recognized.length + orphans.length === 0
+              ? text.trim()
+                ? '– nichts Bestimmtes. Wähle die Art selbst.'
+                : '– beim Schreiben schlägt Wayfarer hier Arten vor.'
+              : parts.some((part) => part.source)
+                ? '– ein Klick auf einen übernommenen nimmt ihn wieder weg'
+                : '– ein Klick übernimmt Art und Angaben'}
+          </span>
+        </div>
+
+        <div className="wf-shell-kinds" role="group" aria-label="Art">
+          {RECORD_GROUPS.map((group) => (
+            <div key={group.id} className="wf-shell-kinds__group">
+              <div className="wf-caps">{group.label}</div>
+              {group.choices.map(({ choice, label }) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className="wf-shell-kind"
+                  aria-pressed={choice === 'loot' ? undefined : pressed(choice)}
+                  title={
+                    choice === 'loot'
+                      ? 'Öffnet die Ausgabe des Beute-Buchs'
+                      : choice === 'repute'
+                        ? 'Wie eine Fraktion zur Gruppe steht'
+                        : KIND_HINT[choice]
+                  }
+                  onClick={() => toggle(choice)}
+                >
+                  {label}
+                  {choice === 'repute' && <span className="wf-shell-kind__aside"> (Fraktion)</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="wf-form-grid">
+          <Field label="Wann">
+            <Select
+              value={earlier ? 'earlier' : 'now'}
+              onChange={(e) => setEarlier(e.target.value === 'earlier')}
+            >
+              <option value="now">Jetzt – {formatDateTime(cal, now)}</option>
+              <option value="earlier">Früher …</option>
+            </Select>
+          </Field>
+          {showPlace ? (
+            <Field
+              label="Wo"
+              hint={placeChoice === undefined ? 'Wo die Gruppe zu dieser Zeit war.' : undefined}
+            >
+              <EntityPicker
+                value={placeChoice === undefined ? autoPlace : placeChoice}
+                onChange={setPlaceChoice}
+                kinds={['place']}
+                placeholder="Kein Ort"
+                onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
+              />
+            </Field>
+          ) : (
+            <span />
+          )}
+          {earlier && (
+            <div className="wf-span-2">
+              <WorldTimeFields cal={cal} value={time} onChange={setTimeDraft} />
+              <div className="wf-spread wf-shell-log__when">
+                <span className="wf-field__hint">
+                  {at === null
+                    ? 'Dieses Datum gibt es im Kalender nicht.'
+                    : at > now
+                      ? 'Das liegt in der Zukunft.'
+                      : `${weekdayName(cal, at)} · ${relativeDay(dayIndexOf(now), dayIndexOf(at))} · nachgetragen, ohne dass Zeit vergeht`}
+                </span>
+                <Checkbox checked={approx} onChange={setApprox}>
+                  Nur ungefähr bekannt
+                </Checkbox>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {parts
+          .filter((part) => hasRecordFields(part.choice))
+          .map((part) => (
+            <section key={part.key} className="wf-shell-log__part">
+              <div className="wf-caps">
+                {part.choice === 'repute' ? 'Ruf' : KIND_LABEL[part.choice]}
+              </div>
+              <RecordFields
+                kind={part.choice}
+                draft={part.draft}
+                onChange={(draft) => setDraft(part.key, draft)}
+                at={when}
+              />
+            </section>
+          ))}
+
+        <div className="wf-form-grid wf-shell-log__part">
+          <Field
+            label="Session"
+            hint={sessionChoice === 'auto' ? 'Richtet sich nach dem Zeitpunkt.' : undefined}
+          >
+            <Select value={sessionChoice} onChange={(e) => setSessionChoice(e.target.value)}>
+              <option value="auto">
+                Nach der Zeit:{' '}
+                {autoSession && data.sessions[autoSession]
+                  ? sessionLabel(data.sessions[autoSession])
+                  : 'keine Session'}
+              </option>
+              <option value="">Keine Session</option>
+              {sessions.map((session) => (
+                <option key={session.id} value={session.id}>
+                  {sessionLabel(session)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Betrifft">
+            <EntityRefsEditor
+              value={refs}
+              onChange={setRefs}
+              placeholder="Person, Ort, Fraktion … verknüpfen"
             />
           </Field>
-        )}
+        </div>
       </div>
     </Dialog>
   );

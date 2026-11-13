@@ -7,6 +7,7 @@
  * Geschrieben wird alles vom Spielleiter – Wayfarer trägt nur weiter, zählt und sagt, was noch
  * leer ist. Reine Funktionen.
  */
+import { recordHeadline } from './chronicleKinds';
 import { activeParty, currentSession, sessionsSorted } from './derive';
 import { readyLoot } from './loot';
 import { storiesOfHero } from './story';
@@ -118,7 +119,7 @@ function worthTelling(data: CampaignData, entry: ChronicleEntry): boolean {
     const event = entry.eventId ? data.events[entry.eventId] : undefined;
     if (event && isEveryday(data, event)) return false;
   }
-  return entry.text.trim() !== '';
+  return entry.text.trim() !== '' || recordHeadline(data, entry) !== '';
 }
 
 /**

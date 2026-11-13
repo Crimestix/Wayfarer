@@ -21,11 +21,13 @@ import {
 import { setPromiseOutcome } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { chronicleSorted, openPromises } from '../../domain/derive';
-import { CHRONICLE_KINDS, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
+import { KIND_ORDER } from '../../domain/chronicleKinds';
+import type { ChronicleEntry, ChronicleKind } from '../../domain/schema';
 import { openQuickLog } from '../../shell/commands';
 import {
   Button,
   CHRONICLE_KIND_ICON,
+  CHRONICLE_KIND_TONE,
   EmptyState,
   EntityPicker,
   IconButton,
@@ -55,17 +57,11 @@ import {
   type ChronicleFilter,
 } from './model';
 
-/** Reihenfolge der Marken: erst was man selbst schreibt, dann was automatisch entsteht. */
-const KIND_ORDER: ChronicleKind[] = ['note', 'change', 'promise', 'travel', 'attitude', 'event'];
+/** Arten, deren Marke immer im Filter steht. */
+const ALWAYS_SHOWN: ChronicleKind[] = ['note', 'change', 'promise', 'travel', 'attitude', 'event'];
 
-const KIND_COLOR: Record<ChronicleKind, string> = {
-  note: 'var(--gold)',
-  change: 'var(--blood-bright)',
-  promise: 'var(--gold-bright)',
-  travel: 'var(--verdigris)',
-  attitude: 'var(--arcane)',
-  event: 'var(--ember)',
-};
+/** Farbe der Marke je Art – dieselbe wie am Eintrag. */
+const KIND_COLOR = CHRONICLE_KIND_TONE;
 
 function FilterBar({
   filter,
@@ -77,6 +73,13 @@ function FilterBar({
   const data = useData();
   const spans = useMemo(() => sessionSpans(data).reverse(), [data]);
   const set = (change: Partial<ChronicleFilter>) => onChange({ ...filter, ...change });
+  // Die ersten sechs Arten stehen immer da; die übrigen, sobald es einen Eintrag dieser Art gibt.
+  const shownKinds = useMemo(() => {
+    const kinds = new Set<ChronicleKind>(ALWAYS_SHOWN);
+    for (const entry of Object.values(data.chronicle)) kinds.add(entry.kind);
+    for (const kind of filter.kinds) kinds.add(kind);
+    return kinds;
+  }, [data.chronicle, filter.kinds]);
   const toggleKind = (kind: ChronicleKind) =>
     set({
       kinds: filter.kinds.includes(kind)
@@ -163,7 +166,7 @@ function FilterBar({
         </div>
       </div>
       <div className="wf-chronik-filter__row" role="group" aria-label="Art der Einträge">
-        {KIND_ORDER.filter((kind) => CHRONICLE_KINDS.includes(kind)).map((kind) => {
+        {KIND_ORDER.filter((kind) => shownKinds.has(kind)).map((kind) => {
           const Icon = CHRONICLE_KIND_ICON[kind];
           return (
             <button

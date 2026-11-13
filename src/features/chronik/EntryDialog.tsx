@@ -1,23 +1,28 @@
-/** Dialog zum Bearbeiten eines Chronik-Eintrags und zum Nachtragen von Vergangenem. */
+/**
+ * Dialog zum Bearbeiten eines Chronik-Eintrags und zum Nachtragen von Vergangenem – für jede Art,
+ * die man festhält, auch Ortswechsel und Haltung zu einer früheren Zeit. Die Felder je Art teilt
+ * er mit „Festhalten“ (`RecordFields`); gespeichert wird über `recordEntry` bzw.
+ * `reviseRecorded`, gelöscht über `deleteRecorded` – so zieht die Wirkung eines Eintrags mit.
+ */
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
+import { recordEntry } from '../../data/record';
 import { useData, useDb } from '../../data/hooks';
-import { dropLootLine } from '../beute/actions';
 import {
-  PROMISE_OUTCOME_LABEL,
-  entityName,
-  promiseOutcome,
-  sessionsSorted,
-  type PromiseOutcome,
-} from '../../domain/derive';
-import { createEntity, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
+  KIND_HINT,
+  PRECISION_LABEL,
+  RECORD_GROUPS,
+  type RecordKind,
+} from '../../domain/chronicleKinds';
+import { entityName, sessionsSorted } from '../../domain/derive';
+import { placeForEntry, sessionForEntry } from '../../domain/history';
 import {
-  dayIndexOf,
-  primaryEra,
-  weekdayName,
-  type CalendarDef,
-  type WorldTime,
-} from '../../domain/time/calendar';
+  CHRONICLE_PRECISIONS,
+  createEntity,
+  type ChronicleEntry,
+  type ChroniclePrecision,
+} from '../../domain/schema';
+import { dayIndexOf, weekdayName, type WorldTime } from '../../domain/time/calendar';
 import {
   Button,
   CHRONICLE_KIND_ICON,
@@ -26,131 +31,92 @@ import {
   EntityPicker,
   EntityRefsEditor,
   Field,
-  Input,
   Select,
-  Tabs,
   TextArea,
   confirmDialog,
   toast,
 } from '../../ui';
 import {
-  defaultDue,
+  deleteRecorded,
+  isFixedKind,
+  isLootLine,
+  reviseRecorded,
+  revisionNeedsEffect,
+  revisionPatch,
+  withoutEntry,
+} from './actions';
+import {
+  KIND_NAME,
   deleteConsequence,
   draftOf,
   entryChange,
-  entryFromDraft,
   entryHeadline,
   entryTimeProblem,
-  isManualKind,
+  freeRefsOf,
   relativeDay,
-  sessionAt,
   sessionLabel,
   timeDraftOf,
   timeOfDraft,
-  type EntryDraft,
-  type ManualKind,
-  type TimeDraft,
 } from './model';
+import { RecordFields } from './RecordFields';
+import {
+  draftOfEntry,
+  emptyRecordDraft,
+  partOf,
+  recordCheck,
+  recordInputOf,
+  type RecordCommon,
+  type RecordDraft,
+  type RecordFieldsKind,
+} from './recordDraft';
+import { WorldTimeFields } from './WorldTimeFields';
+
+/** Weiter hier zu haben, damit bestehende Importe gelten. */
+export { WorldTimeFields };
 
 export type EntryDialogRequest =
   | { mode: 'edit'; entry: ChronicleEntry }
   | { mode: 'new'; sessionId?: string | null; at?: WorldTime };
 
-/** Wie der Eintrag in Überschriften heißt. */
-const KIND_NAME: Record<ChronicleKind, string> = {
-  note: 'Notiz',
-  change: 'Veränderung',
-  promise: 'Abmachung',
-  travel: 'Ortswechsel',
-  attitude: 'Haltungsänderung',
-  event: 'Eingetretenen Termin',
+/** Wie das Textfeld je Art heißt – der Text ist bei manchen Arten das Eigentliche. */
+const TEXT_LABEL: Partial<Record<RecordKind, string>> = {
+  quote: 'Wortlaut',
+  rumor: 'Was man sich erzählt',
+  lore: 'Was festgelegt wurde',
+  condition: 'Zustand',
+  wish: 'Was der Spieler will',
+  knowledge: 'Was erfahren wurde',
+  decision: 'Was entschieden wurde',
+  reveal: 'Was die Gruppe erfahren hat',
+  travel: 'Anmerkung',
+  attitude: 'Grund',
 };
 
-const KIND_TABS: { id: ManualKind; label: string }[] = [
-  { id: 'note', label: 'Notiz' },
-  { id: 'change', label: 'Veränderung' },
-  { id: 'promise', label: 'Abmachung' },
-];
-
-const KIND_HINT: Record<ManualKind, string> = {
-  note: 'Was am Tisch passiert ist.',
-  change:
-    'Etwas in der Welt hat sich verändert – erscheint bei den verknüpften Orten und Personen.',
-  promise: 'Ein Versprechen, eine Schuld oder ein Auftrag. Bleibt offen, bis du es abhakst.',
+/** Wie genau der Zeitpunkt bekannt ist – als Wahl im Dialog. */
+const PRECISION_CHOICE: Record<ChroniclePrecision, string> = {
+  exact: 'Genau',
+  day: 'Nur der Tag',
+  approx: 'Ungefähr',
+  order: 'Nur die Reihenfolge',
 };
 
-/** Tag, Monat, Jahr und Uhrzeit im Weltkalender. */
-export function WorldTimeFields({
-  cal,
-  value,
-  onChange,
-  disabled,
-}: {
-  cal: CalendarDef;
-  value: TimeDraft;
-  onChange: (value: TimeDraft) => void;
-  disabled?: boolean;
-}) {
-  const set = (change: Partial<TimeDraft>) => onChange({ ...value, ...change });
-  return (
-    <div className="wf-chronik-time">
-      <Field label="Tag">
-        <Input
-          type="number"
-          min={1}
-          max={31}
-          value={value.day}
-          disabled={disabled}
-          onChange={(e) => set({ day: e.target.value })}
-        />
-      </Field>
-      <Field label="Monat">
-        <Select
-          value={value.month}
-          disabled={disabled}
-          onChange={(e) => set({ month: Number(e.target.value) })}
-        >
-          {cal.months.map((month, i) => (
-            <option key={month.name} value={i}>
-              {month.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label={`Jahr ${primaryEra(cal).label}`.trim()}>
-        <Input
-          type="number"
-          value={value.year}
-          disabled={disabled}
-          onChange={(e) => set({ year: e.target.value })}
-        />
-      </Field>
-      <Field label="Uhrzeit">
-        <span className="wf-chronik-time__clock">
-          <Input
-            type="number"
-            min={0}
-            max={23}
-            aria-label="Stunde"
-            value={value.hour}
-            disabled={disabled}
-            onChange={(e) => set({ hour: e.target.value })}
-          />
-          <span className="wf-mute">:</span>
-          <Input
-            type="number"
-            min={0}
-            max={59}
-            aria-label="Minute"
-            value={value.minute}
-            disabled={disabled}
-            onChange={(e) => set({ minute: e.target.value })}
-          />
-        </span>
-      </Field>
-    </div>
-  );
-}
+/** Die Arten zum Wählen, in den Gruppen des Festhaltens („Beute“ geht über das Beute-Buch). */
+const CHOICE_GROUPS = RECORD_GROUPS.map((group) => ({
+  label: group.label,
+  choices: group.choices.flatMap((c) =>
+    c.choice === 'loot'
+      ? []
+      : [
+          {
+            choice: c.choice as RecordFieldsKind,
+            label: c.choice === 'repute' ? 'Ruf (Haltung einer Fraktion)' : c.label,
+          },
+        ],
+  ),
+}));
+
+const kindOf = (choice: RecordFieldsKind): RecordKind =>
+  choice === 'repute' ? 'attitude' : choice;
 
 export function EntryDialog({
   request,
@@ -164,82 +130,132 @@ export function EntryDialog({
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const entry = request.mode === 'edit' ? request.entry : null;
-  const initial: EntryDraft = useMemo(
-    () =>
-      entry
-        ? draftOf(entry)
-        : {
-            kind: 'note',
-            text: '',
-            at: request.mode === 'new' && request.at !== undefined ? request.at : now,
-            placeId: null,
-            refs: [],
-            sessionId: null,
-            due: null,
-            done: false,
-            failed: false,
-            secret: false,
-          },
-    // Der Dialog arbeitet mit dem Stand beim Öffnen.
-    [],
-  );
-  const manual = isManualKind(initial.kind);
+  /** Ortswechsel, Haltung und Termin behalten beim Bearbeiten ihre Bedeutung. */
+  const fixed = !!entry && isFixedKind(entry.kind);
   const timeLocked = entry?.kind === 'event';
 
-  const [kind, setKind] = useState<ManualKind>(isManualKind(initial.kind) ? initial.kind : 'note');
-  const [text, setText] = useState(initial.text);
-  const [time, setTime] = useState(() => timeDraftOf(cal, initial.at));
-  const [placeId, setPlaceId] = useState(initial.placeId);
-  const [refs, setRefs] = useState(initial.refs);
-  /** 'auto' = die Session, in deren Weltzeit der Zeitpunkt fällt (nur beim Nachtragen). */
+  // Der Dialog arbeitet mit dem Stand beim Öffnen.
+  const opened = useMemo(
+    () => ({
+      draft: entry ? draftOfEntry(entry) : emptyRecordDraft(),
+      /** Die Zeile einer Ausgabe im Beute-Buch behält ihre Art. */
+      lootLine: !!entry && isLootLine(data, entry.id),
+      at: entry ? entry.at : request.mode === 'new' && request.at !== undefined ? request.at : now,
+    }),
+    [],
+  );
+
+  const [choice, setChoice] = useState<RecordFieldsKind>(
+    entry && entry.kind !== 'event' ? entry.kind : 'note',
+  );
+  const [draft, setDraft] = useState<RecordDraft>(opened.draft);
+  const [text, setText] = useState(entry?.text ?? '');
+  const [time, setTime] = useState(() => timeDraftOf(cal, opened.at));
+  /** undefined = der Ort der Gruppe zu dieser Zeit (nur beim Nachtragen). */
+  const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(
+    entry ? entry.placeId : undefined,
+  );
+  const [refs, setRefs] = useState<string[]>(() =>
+    entry ? (fixed ? draftOf(entry).refs : freeRefsOf(entry)) : [],
+  );
+  /** 'auto' = die Session, in deren Weltzeit der Zeitpunkt fällt. */
   const [sessionChoice, setSessionChoice] = useState<string | null>(
     entry
-      ? initial.sessionId
+      ? entry.sessionId
       : request.mode === 'new' && request.sessionId !== undefined
         ? request.sessionId
         : 'auto',
   );
-  const [hasDue, setHasDue] = useState(initial.due !== null);
-  const [due, setDue] = useState(() => timeDraftOf(cal, initial.due ?? defaultDue(now)));
-  const [outcome, setOutcome] = useState<PromiseOutcome>(
-    promiseOutcome({ done: initial.done, failed: initial.failed }),
-  );
-  const [secret, setSecret] = useState(initial.secret);
+  const [precision, setPrecision] = useState<ChroniclePrecision>(entry?.precision ?? 'exact');
+  const [secret, setSecret] = useState(entry?.secret ?? false);
 
-  const at = timeLocked ? initial.at : timeOfDraft(cal, time);
-  const dueAt = hasDue ? timeOfDraft(cal, due) : null;
+  const kind = kindOf(choice);
+  const at = timeLocked ? opened.at : timeOfDraft(cal, time);
   const sessions = useMemo(() => sessionsSorted(data).reverse(), [data]);
   const sessionId =
-    sessionChoice === 'auto'
-      ? at !== null
-        ? (sessionAt(data, at)?.id ?? null)
-        : null
-      : sessionChoice;
-  const isPromise = manual && kind === 'promise';
-  const needsText = manual || entry?.kind === 'event';
-  const problem =
-    entryTimeProblem(data, entry, at) ||
-    (isPromise && hasDue && dueAt === null ? 'Die Frist ist kein gültiges Datum.' : '');
-  const ready = !problem && (!needsText || text.trim() !== '');
+    sessionChoice === 'auto' ? (at !== null ? sessionForEntry(data, at) : null) : sessionChoice;
+  const autoPlace = at !== null ? placeForEntry(data, at) : null;
+  /** Bei Ortswechsel und Entdeckung ist der Ort das Ziel – er steht dann in den Angaben. */
+  const placeInFields = !fixed && (kind === 'travel' || kind === 'discovery');
+
+  const common: RecordCommon = {
+    text,
+    at: at ?? undefined,
+    sessionId,
+    // Ist „Ort“ ausgeblendet, gilt eine frühere Wahl dort nicht still als entdeckter Ort.
+    placeId: placeInFields ? undefined : placeChoice,
+    refs,
+    secret,
+    precision,
+    storyId: entry ? entry.storyId : undefined,
+  };
+  const needsEffect = !!entry && !fixed && revisionNeedsEffect(entry, choice, draft, text);
+  // Eine Änderung mit Wirkung wird geprüft, als gäbe es den alten Eintrag nicht mehr.
+  const check = fixed
+    ? null
+    : recordCheck(
+        entry && needsEffect ? withoutEntry(data, entry.id) : data,
+        [partOf(choice, draft)],
+        common,
+      );
+  const orderProblem =
+    at === null
+      ? 'Dieses Datum gibt es im Kalender nicht.'
+      : entry && !needsEffect
+        ? entryTimeProblem(data, entry, at)
+        : '';
+  const problem = orderProblem || (check?.problem ?? '');
+  const ready = !problem && (entry?.kind !== 'event' || text.trim() !== '');
+  // Fehlt nur der Text und ist noch nichts geschrieben, muss das nicht laut gesagt werden.
+  const shownProblem = !orderProblem && check?.onlyText && !text.trim() ? '' : problem;
 
   const save = () => {
     if (!ready || at === null) return;
-    const draft: EntryDraft = {
-      kind: manual ? kind : initial.kind,
-      text,
-      at,
-      placeId,
-      refs,
-      sessionId,
-      due: isPromise ? dueAt : null,
-      done: isPromise && outcome !== 'open',
-      failed: isPromise && outcome === 'failed',
-      secret,
-    };
     try {
-      if (entry) db.patch('chronicle', entry.id, entryChange(entry, draft));
-      else db.put('chronicle', entryFromDraft(draft));
+      if (entry && fixed) {
+        db.patch('chronicle', entry.id, {
+          ...entryChange(entry, {
+            ...draftOf(entry),
+            text,
+            at,
+            placeId: placeChoice ?? null,
+            refs,
+            sessionId,
+            secret,
+          }),
+          precision,
+        });
+        onClose();
+        return;
+      }
+      const input = recordInputOf(choice, draft, common, now);
+      if (entry) {
+        if (needsEffect) {
+          const failed = reviseRecorded(db, entry.id, input);
+          if (failed) {
+            toast({ title: 'Nicht gespeichert', body: failed, tone: 'danger' });
+            return;
+          }
+        } else
+          db.patch(
+            'chronicle',
+            entry.id,
+            revisionPatch(entry, input, { keepDue: draft.dueDays === opened.draft.dueDays }),
+          );
+        onClose();
+        return;
+      }
+      const result = recordEntry(db, input);
+      if ('problem' in result) {
+        toast({ title: 'Nicht festgehalten', body: result.problem, tone: 'danger' });
+        return;
+      }
       onClose();
+      toast({
+        title: at < now ? 'Nachgetragen' : 'Festgehalten',
+        body: entryHeadline(db.getSnapshot(), result.entry) || result.entry.text.slice(0, 120),
+        action: { label: 'Rückgängig', run: result.undo },
+      });
     } catch (error) {
       toast({ title: 'Nicht gespeichert', body: (error as Error).message, tone: 'danger' });
     }
@@ -247,23 +263,23 @@ export function EntryDialog({
 
   const remove = async () => {
     if (!entry) return;
+    const current = db.getSnapshot().chronicle[entry.id];
+    if (!current) return onClose();
     const ok = await confirmDialog({
       title: `${KIND_NAME[entry.kind]} löschen?`,
-      body: deleteConsequence(data, entry),
+      body: deleteConsequence(db.getSnapshot(), current),
       confirmLabel: 'Eintrag löschen',
       danger: true,
     });
     if (!ok) return;
-    const current = db.getSnapshot().chronicle[entry.id];
-    // Die Zeile einer Ausgabe: Die Beute liegt danach wieder bereit.
-    const undoLoot = dropLootLine(db, entry.id);
-    if (!undoLoot) db.remove('chronicle', entry.id);
+    const headline = entryHeadline(db.getSnapshot(), current);
+    const undo = deleteRecorded(db, entry.id);
     onClose();
-    if (current)
+    if (undo)
       toast({
         title: 'Eintrag gelöscht',
-        body: entryHeadline(data, current) || current.text.slice(0, 120),
-        action: { label: 'Rückgängig', run: undoLoot ?? (() => db.put('chronicle', current)) },
+        body: headline || current.text.slice(0, 120),
+        action: { label: 'Rückgängig', run: undo },
       });
   };
 
@@ -287,16 +303,24 @@ export function EntryDialog({
   }, [text]);
 
   const KindIcon = entry ? CHRONICLE_KIND_ICON[entry.kind] : null;
-  const headline =
-    entry && !manual ? (entry.kind === 'event' ? '' : entryHeadline(data, entry)) : '';
+  const headline = entry && fixed && entry.kind !== 'event' ? entryHeadline(data, entry) : '';
   const today = dayIndexOf(now);
+  const earlier = at !== null && at < now;
+  const textLabel =
+    entry?.kind === 'event' ? 'Bezeichnung' : (TEXT_LABEL[kind] ?? 'Was ist geschehen?');
 
   return (
     <Dialog
       open
       onClose={onClose}
-      title={entry ? `${KIND_NAME[entry.kind]} bearbeiten` : 'Eintrag nachtragen'}
-      width={660}
+      title={
+        entry
+          ? `${KIND_NAME[entry.kind]} bearbeiten`
+          : earlier
+            ? 'Eintrag nachtragen'
+            : 'Eintrag festhalten'
+      }
+      width={680}
       footer={
         <>
           {entry && (
@@ -305,56 +329,73 @@ export function EntryDialog({
             </Button>
           )}
           <span className="wf-grow wf-chronik-dialog__problem" role="alert">
-            {problem}
+            {shownProblem}
           </span>
           <Button onClick={onClose}>Abbrechen</Button>
           <Button variant="primary" onClick={save} disabled={!ready} title="Strg+Eingabe">
-            {entry ? 'Speichern' : 'Nachtragen'}
+            {entry ? 'Speichern' : earlier ? 'Nachtragen' : 'Festhalten'}
           </Button>
         </>
       }
     >
       <div className="wf-col wf-chronik-dialog" onKeyDown={onKeyDown}>
-        {manual ? (
-          <Tabs tabs={KIND_TABS} value={kind} onChange={setKind} />
-        ) : (
+        {fixed ? (
           <div className="wf-chronik-dialog__auto">
             {KindIcon && <KindIcon />}
             <div>
               {headline && <div className="wf-chronik-dialog__headline">{headline}</div>}
               <div className="wf-mute">
-                <Lock /> Automatisch entstanden.{' '}
+                <Lock /> Steht fest.{' '}
                 {entry?.kind === 'travel'
-                  ? 'Weg und Ziel stehen fest; Anmerkung, Zeitpunkt und Verweise kannst du ergänzen.'
+                  ? 'Weg und Ziel bleiben; Anmerkung, Zeitpunkt und Verweise kannst du ergänzen.'
                   : entry?.kind === 'attitude'
-                    ? 'Der Schritt steht fest; Grund, Zeitpunkt, Ort und Verweise kannst du ergänzen.'
-                    : 'Der Zeitpunkt steht fest; Bezeichnung, Ort und Verweise kannst du ergänzen.'}
+                    ? 'Der Schritt bleibt; Grund, Zeitpunkt, Ort und Verweise kannst du ergänzen.'
+                    : 'Der Zeitpunkt bleibt; Bezeichnung, Ort und Verweise kannst du ergänzen.'}
               </div>
             </div>
           </div>
+        ) : (
+          <Field
+            label="Art"
+            hint={
+              opened.lootLine
+                ? 'Die Zeile einer Ausgabe im Beute-Buch behält ihre Art.'
+                : needsEffect
+                  ? 'Beim Speichern gilt die Wirkung neu – die alte wird zurückgenommen.'
+                  : KIND_HINT[kind]
+            }
+          >
+            <Select
+              value={choice}
+              disabled={opened.lootLine}
+              aria-label="Art des Eintrags"
+              onChange={(e) => setChoice(e.target.value as RecordFieldsKind)}
+            >
+              {CHOICE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.choices.map((c) => (
+                    <option key={c.choice} value={c.choice}>
+                      {c.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+          </Field>
         )}
 
-        <Field
-          label={
-            manual
-              ? 'Was ist geschehen?'
-              : entry?.kind === 'travel'
-                ? 'Anmerkung'
-                : entry?.kind === 'attitude'
-                  ? 'Grund'
-                  : 'Bezeichnung'
-          }
-          hint={manual ? KIND_HINT[kind] : undefined}
-        >
+        <Field label={textLabel}>
           <TextArea
             ref={textRef}
             data-autofocus
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={manual ? 'Strg+Eingabe speichert' : ''}
-            style={manual ? undefined : { minHeight: 64 }}
+            placeholder={fixed ? '' : 'Strg+Eingabe speichert'}
+            style={fixed ? { minHeight: 64 } : undefined}
           />
         </Field>
+
+        {!fixed && <RecordFields kind={choice} draft={draft} onChange={setDraft} at={at ?? now} />}
 
         <div>
           <WorldTimeFields cal={cal} value={time} onChange={setTime} disabled={timeLocked} />
@@ -376,20 +417,29 @@ export function EntryDialog({
               >
                 <MapPin />
                 <span className="wf-clamp-1">
-                  {entityName(data, placeId) || 'Unterwegs, ohne festen Ort'}
+                  {entityName(data, entry.placeId) || 'Unterwegs, ohne festen Ort'}
                 </span>
               </div>
             </Field>
           ) : (
-            <Field label="Ort">
-              <EntityPicker
-                value={placeId}
-                onChange={setPlaceId}
-                kinds={['place']}
-                placeholder="Kein Ort"
-                onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
-              />
-            </Field>
+            !placeInFields && (
+              <Field
+                label="Ort"
+                hint={
+                  placeChoice === undefined
+                    ? 'Wo die Gruppe zu dieser Zeit war, solange du nichts wählst.'
+                    : undefined
+                }
+              >
+                <EntityPicker
+                  value={placeChoice === undefined ? autoPlace : placeChoice}
+                  onChange={setPlaceChoice}
+                  kinds={['place']}
+                  placeholder="Kein Ort"
+                  onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
+                />
+              </Field>
+            )
           )}
           <Field
             label="Session"
@@ -411,6 +461,26 @@ export function EntryDialog({
               ))}
             </Select>
           </Field>
+          <Field
+            label="Zeitpunkt bekannt"
+            hint={
+              precision === 'exact' || precision === 'day'
+                ? undefined
+                : `In der Chronik steht „${PRECISION_LABEL.approx}“.`
+            }
+          >
+            <Select
+              value={precision}
+              disabled={timeLocked}
+              onChange={(e) => setPrecision(e.target.value as ChroniclePrecision)}
+            >
+              {CHRONICLE_PRECISIONS.map((value) => (
+                <option key={value} value={value}>
+                  {PRECISION_CHOICE[value]}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
         <Field label="Betrifft">
@@ -424,31 +494,6 @@ export function EntryDialog({
         <Checkbox checked={secret} onChange={setSecret}>
           Nur für die Spielleitung – fehlt in der Zusammenfassung für die Spieler
         </Checkbox>
-
-        {isPromise && (
-          <div className="wf-chronik-dialog__promise">
-            <div className="wf-spread">
-              <Checkbox checked={hasDue} onChange={setHasDue}>
-                Mit Frist
-              </Checkbox>
-              <label className="wf-row" style={{ gap: 'var(--s-2)' }}>
-                <span className="wf-mute">Stand</span>
-                <Select
-                  value={outcome}
-                  aria-label="Stand der Abmachung"
-                  onChange={(event) => setOutcome(event.target.value as PromiseOutcome)}
-                >
-                  {(['open', 'kept', 'failed'] as const).map((value) => (
-                    <option key={value} value={value}>
-                      {PROMISE_OUTCOME_LABEL[value]}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            </div>
-            {hasDue && <WorldTimeFields cal={cal} value={due} onChange={setDue} />}
-          </div>
-        )}
       </div>
     </Dialog>
   );

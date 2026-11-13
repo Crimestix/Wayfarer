@@ -27,7 +27,7 @@ import {
   cx,
   toast,
 } from '../../ui';
-import { WorldTimeFields } from './EntryDialog';
+import { WorldTimeFields } from './WorldTimeFields';
 import { Caps } from './parts';
 import { Timeline } from './Timeline';
 import {

@@ -332,6 +332,11 @@ export type Relation = z.infer<typeof RelationSchema>;
 
 // ── Chronik: was am Tisch passiert ist ─────────────────────────────────────
 
+/**
+ * Arten eines Eintrags. Die ersten sechs gibt es seit der ersten Welle; die übrigen hält der
+ * Spielleiter beim Festhalten fest (Bezeichnungen und Gruppen in `domain/chronicleKinds.ts`).
+ * `event` entsteht nur automatisch.
+ */
 export const CHRONICLE_KINDS = [
   'note',
   'travel',
@@ -339,8 +344,50 @@ export const CHRONICLE_KINDS = [
   'event',
   'promise',
   'change',
+  // Am Tisch
+  'meeting',
+  'decision',
+  'fight',
+  'rest',
+  'quote',
+  // Die Welt
+  'fate',
+  'whereabouts',
+  'discovery',
+  'rumor',
+  'lore',
+  // Zwischen Leuten
+  'bond',
+  // Die Gruppe
+  'condition',
+  'milestone',
+  'wish',
+  // Geheimnisse
+  'clue',
+  'reveal',
+  'knowledge',
 ] as const;
 export type ChronicleKind = (typeof CHRONICLE_KINDS)[number];
+
+/** Faden (`threads/`): offen = noch nicht aufgegriffen; aktiv = die Gruppe ist dran; ruhend = liegen gelassen. */
+export const THREAD_STATES = ['open', 'active', 'dormant', 'solved', 'lost'] as const;
+export type ThreadState = (typeof THREAD_STATES)[number];
+
+/** Wie genau der Zeitpunkt eines Eintrags bekannt ist; `order` = nur die Reihenfolge. */
+export const CHRONICLE_PRECISIONS = ['exact', 'day', 'approx', 'order'] as const;
+export type ChroniclePrecision = (typeof CHRONICLE_PRECISIONS)[number];
+
+/** Wie ein Kampf ausging. */
+export const FIGHT_OUTCOMES = ['won', 'lost', 'fled', 'truce', 'open'] as const;
+export type FightOutcome = (typeof FIGHT_OUTCOMES)[number];
+
+/** Stimmt ein Gerücht? Nie als Tatsache behandeln, solange es nicht geprüft ist. */
+export const RUMOR_TRUTHS = ['unchecked', 'true', 'false'] as const;
+export type RumorTruth = (typeof RUMOR_TRUTHS)[number];
+
+/** Wie eine Beziehung vor einem Eintrag der Art `bond` stand – zum Zurücknehmen. */
+export const BOND_BEFORE = ['none', 'active', 'ended'] as const;
+export type BondBefore = (typeof BOND_BEFORE)[number];
 
 export const ChronicleEntrySchema = z.object({
   ...base,
@@ -387,6 +434,125 @@ export const ChronicleEntrySchema = z.object({
   stepId: id.nullable().default(null),
   /** Nur für die Spielleitung: fehlt in der Zusammenfassung für die Spieler. */
   secret: z.boolean().default(false),
+  /** Nachgetragen: später festgehalten, als es geschah. */
+  backfilled: z.boolean().default(false),
+  /** Wie genau `at` bekannt ist. */
+  precision: z.enum(CHRONICLE_PRECISIONS).default('exact'),
+
+  // Angaben der Arten, die beim Festhalten dazukamen. Was ein Eintrag am heutigen Stand geändert
+  // hat, merkt er sich (`before`, `firstMet` …), damit Löschen es zurücknehmen kann.
+  /** kind = meeting: wen die Gruppe dabei zum ersten Mal getroffen hat (met war vorher false). */
+  meeting: z
+    .object({ firstMet: z.array(id).default([]) })
+    .nullable()
+    .default(null),
+  /** kind = fight: Ausgang und die Begegnung des Bestiariums, falls es eine gab. */
+  fight: z
+    .object({
+      outcome: z.enum(FIGHT_OUTCOMES).default('open'),
+      encounterId: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = rest: lange oder kurze Rast. */
+  rest: z
+    .object({ long: z.boolean().default(false) })
+    .nullable()
+    .default(null),
+  /** kind = fate: Eine Person ist nun tot, verschollen … `before` = Zustand davor. */
+  fate: z
+    .object({
+      entityId: id,
+      status: z.enum(PERSON_STATUS),
+      before: z.enum(PERSON_STATUS).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = whereabouts: Eine Person oder ein Gefährte ist nun an einem Ort (null = unbekannt bzw. bei der Gruppe). */
+  whereabouts: z
+    .object({
+      entityId: id,
+      placeId: id.nullable().default(null),
+      before: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = rumor: von wem es stammt und ob es stimmt. */
+  rumor: z
+    .object({
+      sourceId: id.nullable().default(null),
+      truth: z.enum(RUMOR_TRUTHS).default('unchecked'),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = bond: Eine Beziehung beginnt (`ended` = false) oder endet. `before` sagt, wie die
+   * Beziehung vor dem Eintrag stand; null = der Eintrag hat nichts geändert.
+   */
+  bond: z
+    .object({
+      relationId: id.nullable().default(null),
+      fromId: id,
+      toId: id,
+      type: z.string().default('knows'),
+      label: z.string().default(''),
+      ended: z.boolean().default(false),
+      before: z.enum(BOND_BEFORE).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = condition: ein Zustand („Pfeil im Bein“) – der Text ist der Zustand. Ein späterer
+   * Eintrag mit `ended` hebt ihn auf; `endsId` nennt den Eintrag, den er aufhebt.
+   */
+  condition: z
+    .object({
+      entityId: id,
+      ended: z.boolean().default(false),
+      endsId: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = milestone: neue Stufe eines Gefährten (null = ohne Stufe); `before` = Stufe davor. */
+  milestone: z
+    .object({
+      characterId: id,
+      level: z.number().int().min(1).max(20).nullable().default(null),
+      before: z.number().int().min(1).max(20).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = wish: Der Gefährte ist refs[0]. `setGoal` = der Text wurde sein Ziel; `before` = sein
+   * Ziel davor.
+   */
+  wish: z
+    .object({
+      setGoal: z.boolean().default(false),
+      before: z.string().nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = clue: der gefundene Hinweis; `before` = Stand des Fadens, falls der Eintrag ihn gefunden hat. */
+  clue: z
+    .object({
+      threadId: id.nullable().default(null),
+      hintId: id.nullable().default(null),
+      before: z
+        .object({ known: z.boolean(), state: z.enum(THREAD_STATES) })
+        .nullable()
+        .default(null),
+    })
+    .nullable()
+    .default(null),
+  /** kind = reveal: das Geheimnis vom Abend-Blatt; `applied` = der Eintrag hat es aufgedeckt. */
+  reveal: z
+    .object({
+      prepSecretId: id.nullable().default(null),
+      applied: z.boolean().default(false),
+    })
+    .nullable()
+    .default(null),
 });
 export type ChronicleEntry = z.infer<typeof ChronicleEntrySchema>;
 
@@ -492,10 +658,6 @@ export const ClockSchema = z.object({
 export type Clock = z.infer<typeof ClockSchema>;
 
 // ── Geschichten und Fäden ──────────────────────────────────────────────────
-
-/** offen = noch nicht aufgegriffen; aktiv = die Gruppe ist dran; ruhend = liegen gelassen. */
-export const THREAD_STATES = ['open', 'active', 'dormant', 'solved', 'lost'] as const;
-export type ThreadState = (typeof THREAD_STATES)[number];
 
 /** Ein Hinweis an einem Faden: wo man ihn findet, wer davon weiß, ob die Gruppe ihn hat. */
 export const ThreadHintSchema = z.object({

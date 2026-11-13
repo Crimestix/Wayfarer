@@ -724,7 +724,11 @@ describe('Einträge bearbeiten', () => {
     expect(travel).toContain('Der aktuelle Aufenthaltsort der Gruppe bleibt');
     const attitude = deleteConsequence(data, find(db, 'attitude'));
     expect(attitude).toContain('Hauptmann Voss gegenüber der Gruppe');
-    expect(attitude).toContain('Die aktuelle Haltung bleibt, wie sie ist (Ablehnend)');
+    // Gelöscht wird samt Wirkung (removeRecorded): Der jüngste Schritt nimmt die Haltung mit.
+    expect(attitude).toContain('Die Haltung ist danach wieder, wie sie vorher war (Neutral)');
+    setAttitude(db, byName(db, 'Hauptmann Voss').id, PARTY_ID, -3, 'Noch ein Zwischenfall');
+    const older = deleteConsequence(db.getSnapshot(), find(db, 'attitude'));
+    expect(older).toContain('Die aktuelle Haltung bleibt, wie sie ist (Feindselig)');
     expect(deleteConsequence(data, find(db, 'note'))).toContain('verschwindet aus der Chronik');
   });
 

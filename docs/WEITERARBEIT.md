@@ -1310,6 +1310,31 @@ Wayfarer merkt sich, was die Gruppe bekommt.
 - **Offen:** Hortaktionen haben keinen eigenen Abschnitt (stehen bei den legendären Aktionen);
   Zauberlisten werden zu einem Absatz; eine Frist aus dem Satz wird nicht als Fälligkeit gesetzt.
 
+### Vergangenes nachtragen – Schritt 1: mehr Arten festhalten (13. 11. 2026) – gebaut
+
+Plan in vier Schritten (Probe: `docs/proben/nachtragen.html`): 1 mehr Arten festhalten, 2 Notizen
+einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-Leser für Notizen.
+
+- **Arten:** zu Notiz, Veränderung, Abmachung, Ortswechsel, Haltung kommen Begegnung,
+  Entscheidung, Kampf, Rast, Zitat, Schicksal, Aufenthalt, Entdeckung, Gerücht, Weltwissen,
+  Beziehung, Zustand, Meilenstein, Spielerwunsch, Hinweis gefunden, Aufgedeckt, Wer was weiß
+  (`domain/chronicleKinds.ts`). Jede wirkt dort, wo sie hingehört (Zustand der Person,
+  Aufenthalt, „kennt die Gruppe“, Beziehung, Stufe …).
+- **Zu früherer Zeit:** `recordEntry` (`data/record.ts`) hält jede Art auch rückwirkend fest –
+  ein älterer Eintrag ändert den heutigen Zustand nur, wenn er der jüngste seiner Sorte ist;
+  Löschen nimmt die Wirkung zurück. Nichts davon stellt Zeit vor oder löst Termine aus.
+- **Erkennen ohne Netz:** `recognizeEntry` (`domain/recognize.ts`) schlägt aus dem Satz Art und
+  Beteiligte vor; rät nie bei unklaren Namen oder „ihn/sie“.
+- **Festhalten:** Text zuerst, darunter „Erkannt“, die Arten in fünf Gruppen, je Art ihre Felder,
+  „Wann“ jetzt oder früher. Chronik, Personenseite (z. B. „Tot seit …“), Gefährte (offene Zustände),
+  Mitschrift zeigen die neuen Arten.
+- **Schritt 2, Teil 1:** Text-, Markdown-, Word- und RTF-Dateien lesen und in Sessions trennen
+  (`features/nachtragen`: `readNotesFile`, `splitSessions`, `placeSessions`). Mit den echten
+  Notizen des Spielleiters lokal geprüft: alle 12 Sessions richtig getrennt.
+- **Als Nächstes:** Schritt 1b (Schriftstück, Zwischenzeit, Wandlung, Begleiter und Aufträge, Tod
+  und Rückkehr von Gefährten, zweite Gestalt eines Gefährten), dann die Seite „Nachtragen“.
+- **Nicht geprüft:** installierte App, echter Spielstand.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

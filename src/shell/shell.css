@@ -393,6 +393,125 @@
   padding: 10px var(--s-5) 4px;
 }
 
+/* ── Festhalten ─────────────────────────────────────────────────────────── */
+.wf-shell-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.wf-shell-log__text {
+  min-height: 74px;
+  resize: none;
+  overflow: hidden;
+  border-color: var(--gold-deep);
+  line-height: 1.45;
+}
+.wf-shell-log__seen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px var(--s-3);
+  min-height: 26px;
+  font-size: var(--text-sm);
+}
+.wf-shell-chip {
+  padding: 2px 9px;
+  border: 1px dashed var(--gold-deep);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-shell-chip:hover {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+.wf-shell-chip[aria-pressed='true'] {
+  border-style: solid;
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-shell-chip:focus-visible,
+.wf-shell-kind:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 1px;
+}
+.wf-shell-kinds {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+.wf-shell-kinds__group > .wf-caps {
+  margin-bottom: 4px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line-faint);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  /* „Zwischen Leuten“ ist breiter als eine Spalte: lieber umbrechen als abschneiden. */
+  line-height: 1.3;
+}
+.wf-shell-kind {
+  display: block;
+  width: 100%;
+  padding: 2px 6px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-shell-kind:hover {
+  background: var(--bg-2);
+  color: var(--ink);
+}
+.wf-shell-kind[aria-pressed='true'] {
+  border-left-color: var(--gold);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-shell-kind__aside {
+  color: var(--ink-faint);
+}
+.wf-shell-log__when {
+  margin-top: 6px;
+}
+.wf-shell-log__part {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-shell-log__part > .wf-caps {
+  margin-bottom: var(--s-2);
+  color: var(--gold);
+}
+.wf-shell-log__problem {
+  align-self: center;
+  font-size: var(--text-sm);
+  line-height: 1.25;
+  color: var(--ember);
+  text-align: right;
+}
+.wf-shell-suggest__head {
+  padding: 7px 12px 5px;
+  border-bottom: 1px solid var(--line-faint);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+/* Niedrige Fenster wie 1280 × 800: enger setzen, der Dialog rollt innen. */
+@media (max-height: 860px) {
+  .wf-shell-log {
+    gap: var(--s-3);
+  }
+  .wf-shell-log__text {
+    min-height: 60px;
+  }
+}
+
 /* ── Start ──────────────────────────────────────────────────────────────── */
 .wf-welcome {
   display: grid;

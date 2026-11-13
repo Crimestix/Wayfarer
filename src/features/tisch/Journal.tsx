@@ -8,7 +8,6 @@ import { KIND_LABEL, placePath } from '../../domain/derive';
 import type { ChronicleEntry, Entity } from '../../domain/schema';
 import {
   Button,
-  CHRONICLE_KIND_LABEL,
   ChronicleList,
   Dialog,
   EmptyState,
@@ -22,7 +21,9 @@ import {
   TextArea,
   toast,
 } from '../../ui';
-import { canDeleteEntry, removeEntry, reviseEntry } from './commands';
+import { deleteRecorded, isFixedKind } from '../chronik/actions';
+import { KIND_NAME, TEXT_KINDS, entryHeadline, freeRefsOf, meaningRefsOf } from '../chronik/model';
+import { reviseEntry } from './commands';
 import {
   activeMention,
   groupByDay,
@@ -217,32 +218,36 @@ export function MentionInput({
 
 function EntryDialog({ entry, onClose }: { entry: ChronicleEntry; onClose: () => void }) {
   const db = useDb();
+  const data = useData();
   const [text, setText] = useState(entry.text);
-  const [refs, setRefs] = useState(entry.refs);
-  const free = canDeleteEntry(entry);
+  // Verweise, die zur Bedeutung gehören (wer gestorben ist, wer getroffen wurde …), bleiben.
+  const [refs, setRefs] = useState(() => freeRefsOf(entry));
+  /** Ortswechsel, Haltungen und Termine gehören zum Lauf der Welt: nur die Anmerkung ist frei. */
+  const free = !isFixedKind(entry.kind);
+  /** Arten, die ohne Text nichts sagen. */
+  const needsText = free && TEXT_KINDS.includes(entry.kind);
   const save = () => {
-    if (free && !text.trim()) return;
-    reviseEntry(db, entry.id, free ? { text, refs } : { text });
+    if (needsText && !text.trim()) return;
+    reviseEntry(db, entry.id, free ? { text, refs: [...meaningRefsOf(entry), ...refs] } : { text });
     onClose();
   };
+  // Gelöscht wird samt Wirkung (ein Schicksal, ein Zustand …); „Rückgängig“ holt beides zurück.
   const remove = () => {
-    const removed = removeEntry(db, entry.id);
+    const headline = entryHeadline(data, entry);
+    const undo = deleteRecorded(db, entry.id);
     onClose();
-    if (removed)
+    if (undo)
       toast({
         title: 'Eintrag gelöscht',
-        body:
-          removed.entry.text.length > 90
-            ? removed.entry.text.slice(0, 90) + ' …'
-            : removed.entry.text,
-        action: { label: 'Rückgängig', run: removed.undo },
+        body: headline || (entry.text.length > 90 ? entry.text.slice(0, 90) + ' …' : entry.text),
+        action: { label: 'Rückgängig', run: undo },
       });
   };
   return (
     <Dialog
       open
       onClose={onClose}
-      title={free ? `${CHRONICLE_KIND_LABEL[entry.kind]} bearbeiten` : 'Anmerkung bearbeiten'}
+      title={free ? `${KIND_NAME[entry.kind]} bearbeiten` : 'Anmerkung bearbeiten'}
       footer={
         <>
           {free && (
@@ -252,7 +257,7 @@ function EntryDialog({ entry, onClose }: { entry: ChronicleEntry; onClose: () =>
           )}
           <span className="wf-grow" />
           <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="primary" onClick={save} disabled={free && !text.trim()}>
+          <Button variant="primary" onClick={save} disabled={needsText && !text.trim()}>
             Speichern
           </Button>
         </>

@@ -330,6 +330,19 @@ export function visitsTo(data: CampaignData, placeId: string): Stay[] {
   return visits;
 }
 
+/**
+ * Arten der Chronik, die nur die Gruppe selbst betreffen: Sie sind kein Geschehen in der Welt und
+ * zählen nicht zu dem, was sich an einem Ort verändert hat, während die Gruppe fort war.
+ */
+export const PARTY_KINDS: readonly ChronicleEntry['kind'][] = [
+  'travel',
+  'rest',
+  'quote',
+  'decision',
+  'milestone',
+  'wish',
+];
+
 export interface PlaceStatus {
   visits: Stay[];
   /** Ist die Gruppe gerade hier? */
@@ -366,7 +379,7 @@ export function placeStatus(data: CampaignData, placeId: string): PlaceStatus {
       (entry) =>
         entry.at > lastLeft &&
         entry.at < until &&
-        entry.kind !== 'travel' &&
+        !PARTY_KINDS.includes(entry.kind) &&
         ((entry.placeId !== null && related.has(entry.placeId)) ||
           entry.refs.some((ref) => related.has(ref))),
     );

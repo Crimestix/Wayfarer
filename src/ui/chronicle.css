@@ -41,11 +41,19 @@
   height: 13px;
   stroke-width: 1.6;
 }
-.wf-chron--travel .wf-chron__mark {
+.wf-chron--travel .wf-chron__mark,
+.wf-chron--whereabouts .wf-chron__mark,
+.wf-chron--discovery .wf-chron__mark {
   color: var(--verdigris);
   border-color: #2f5651;
 }
-.wf-chron--attitude .wf-chron__mark {
+.wf-chron--attitude .wf-chron__mark,
+.wf-chron--meeting .wf-chron__mark,
+.wf-chron--rumor .wf-chron__mark,
+.wf-chron--bond .wf-chron__mark,
+.wf-chron--clue .wf-chron__mark,
+.wf-chron--reveal .wf-chron__mark,
+.wf-chron--knowledge .wf-chron__mark {
   color: var(--arcane);
   border-color: #4a4477;
 }
@@ -53,7 +61,9 @@
   color: var(--ember);
   border-color: #6e4a22;
 }
-.wf-chron--change .wf-chron__mark {
+.wf-chron--change .wf-chron__mark,
+.wf-chron--fate .wf-chron__mark,
+.wf-chron--fight .wf-chron__mark {
   color: var(--blood-bright);
   border-color: #6d2a26;
 }
@@ -103,7 +113,9 @@
   color: var(--ink);
 }
 .wf-chron--attitude .wf-chron__text,
-.wf-chron--travel .wf-chron__text {
+.wf-chron--travel .wf-chron__text,
+.wf-chron--quote .wf-chron__text,
+.wf-chron--rumor .wf-chron__text {
   color: var(--ink-soft);
   font-style: italic;
 }
@@ -174,5 +186,91 @@
 }
 .wf-chron:hover .wf-chron__edit,
 .wf-chron__edit:focus-visible {
+  opacity: 1;
+}
+/* Stand in der Kopfzeile: Schicksal, Ausgang eines Kampfes */
+.wf-chron__state--dead,
+.wf-chron__state--lost {
+  color: var(--blood-bright);
+}
+.wf-chron__state--missing,
+.wf-chron__state--unknown,
+.wf-chron__state--fled,
+.wf-chron__state--truce {
+  color: var(--ember);
+}
+.wf-chron__state--alive,
+.wf-chron__state--won {
+  color: var(--moss);
+}
+/* Stand eines Gerüchts: drei Antworten auf dieselbe Frage, die geltende hervorgehoben */
+.wf-chron__truth {
+  display: inline-flex;
+  margin-top: 5px;
+  border: 1px solid var(--line);
+}
+.wf-chron__truth-btn {
+  padding: 1px 9px;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-chron__truth-btn + .wf-chron__truth-btn {
+  border-left: 1px solid var(--line-faint);
+}
+.wf-chron__truth-btn:hover {
+  color: var(--ink-soft);
+}
+.wf-chron__truth-btn[aria-pressed='true'] {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+}
+.wf-chron__truth-btn--true[aria-pressed='true'] {
+  background: var(--moss-wash);
+  color: var(--moss);
+}
+.wf-chron__truth-btn--false[aria-pressed='true'] {
+  background: var(--ember-wash);
+  color: var(--ember);
+}
+/* Ein Gerücht, das sich als falsch erwiesen hat */
+.wf-chron--disproved .wf-chron__text {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-faint);
+}
+/* Offene Zustände auf der Seite einer Person oder eines Gefährten */
+.wf-chron-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-chron-conditions li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 28px;
+}
+.wf-chron-conditions svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--gold-deep);
+}
+.wf-chron-conditions__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink);
+}
+.wf-chron-conditions .wf-btn {
+  opacity: 0.75;
+}
+.wf-chron-conditions li:hover .wf-btn {
   opacity: 1;
 }

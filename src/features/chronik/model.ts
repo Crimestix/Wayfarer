@@ -11,6 +11,17 @@ import {
   placeSubtreeIds,
   sessionsSorted,
 } from '../../domain/derive';
+import { effectHolds } from '../../data/record';
+import { draftOfEntry } from './recordDraft';
+import { FATE_LABEL, KIND_LABEL, isApproximate, recordHeadline } from '../../domain/chronicleKinds';
+import {
+  conditionEnding,
+  entryEntityIds,
+  neighboursOfSort,
+  sameSort,
+  sessionSpans,
+  type SessionSpan,
+} from '../../domain/history';
 import { attitudeLabel } from '../../domain/relations';
 import {
   PARTY_ID,
@@ -20,6 +31,9 @@ import {
   type ChronicleKind,
   type Session,
 } from '../../domain/schema';
+
+// Weltzeit der Sessions steht in `domain/history.ts`; hier weitergereicht für bisherige Aufrufer.
+export { sessionAt, sessionSpans, type SessionSpan } from '../../domain/history';
 import {
   MINUTES_PER_DAY,
   absoluteYear,
@@ -42,14 +56,34 @@ import {
 
 // ── Arten ──────────────────────────────────────────────────────────────────
 
-/** Kurze Bezeichnungen für Filter und Zusammenfassung. */
-export const KIND_SHORT: Record<ChronicleKind, string> = {
+/** Kurze Bezeichnungen für Filter und Zusammenfassung (`KIND_LABEL` in `domain/chronicleKinds.ts`). */
+export const KIND_SHORT: Record<ChronicleKind, string> = KIND_LABEL;
+
+/** Wie der Eintrag in Überschriften heißt: „Schicksal bearbeiten“, „Gefundenen Hinweis löschen?“. */
+export const KIND_NAME: Record<ChronicleKind, string> = {
   note: 'Notiz',
-  travel: 'Ortswechsel',
-  attitude: 'Haltung',
-  event: 'Termin',
-  promise: 'Abmachung',
   change: 'Veränderung',
+  promise: 'Abmachung',
+  travel: 'Ortswechsel',
+  attitude: 'Haltungsänderung',
+  event: 'Eingetretenen Termin',
+  meeting: 'Begegnung',
+  decision: 'Entscheidung',
+  fight: 'Kampf',
+  rest: 'Rast',
+  quote: 'Zitat',
+  fate: 'Schicksal',
+  whereabouts: 'Aufenthalt',
+  discovery: 'Entdeckung',
+  rumor: 'Gerücht',
+  lore: 'Weltwissen',
+  bond: 'Beziehung',
+  condition: 'Zustand',
+  milestone: 'Meilenstein',
+  wish: 'Spielerwunsch',
+  clue: 'Gefundenen Hinweis',
+  reveal: 'Aufgedecktes Geheimnis',
+  knowledge: 'Wer was weiß',
 };
 
 /** Arten, die der Spielleiter selbst schreibt. Alle anderen entstehen automatisch. */
@@ -141,18 +175,11 @@ export function sanitizeFilter(data: CampaignData, filter: ChronicleFilter): Chr
   return { ...filter, session, entityId, placeId };
 }
 
-/** Alle Einträge der Weltdatenbank, die ein Chronik-Eintrag nennt – auch Ort, Reiseziel, Haltung. */
-export function involvedIds(entry: ChronicleEntry): string[] {
-  const ids = new Set(entry.refs);
-  if (entry.placeId) ids.add(entry.placeId);
-  if (entry.travel?.fromId) ids.add(entry.travel.fromId);
-  if (entry.travel?.toId) ids.add(entry.travel.toId);
-  if (entry.attitude) {
-    ids.add(entry.attitude.fromId);
-    ids.add(entry.attitude.toId);
-  }
-  return [...ids];
-}
+/**
+ * Alle Einträge der Weltdatenbank, die ein Chronik-Eintrag nennt – auch Ort, Reiseziel, Haltung
+ * und die Dinge aus den Angaben der übrigen Arten (`entryEntityIds`).
+ */
+export const involvedIds = (entry: ChronicleEntry): string[] => entryEntityIds(entry);
 
 /**
  * Suchtext je Eintrag: eigener Text, Art und die Namen von allem, was er nennt.
@@ -165,6 +192,8 @@ export function buildSearchIndex(data: CampaignData): Map<string, string> {
     for (const id of involvedIds(entry)) parts.push(entityName(data, id));
     if (entry.attitude)
       parts.push(attitudeLabel(entry.attitude.before), attitudeLabel(entry.attitude.after));
+    parts.push(recordHeadline(data, entry));
+    if (isApproximate(entry)) parts.push('ungefähr');
     index.set(entry.id, normalize(parts.join(' ')));
   }
   return index;
@@ -224,53 +253,9 @@ export function mentionCounts(
 
 // ── Sessions ───────────────────────────────────────────────────────────────
 
-export interface SessionSpan {
-  session: Session;
-  /** Beginn in Weltzeit: Session-Beginn oder ihr frühester Eintrag. */
-  from: WorldTime;
-  /** Ende in Weltzeit; null = die Session läuft noch. */
-  to: WorldTime | null;
-  running: boolean;
-  entryCount: number;
-}
-
-/** Weltzeit und Umfang jeder Session, nach Nummer sortiert. */
-export function sessionSpans(data: CampaignData): SessionSpan[] {
-  const stats = new Map<string, { min: number; max: number; count: number }>();
-  for (const entry of Object.values(data.chronicle)) {
-    if (!entry.sessionId) continue;
-    const s = stats.get(entry.sessionId);
-    if (s) {
-      s.min = Math.min(s.min, entry.at);
-      s.max = Math.max(s.max, entry.at);
-      s.count++;
-    } else stats.set(entry.sessionId, { min: entry.at, max: entry.at, count: 1 });
-  }
-  return sessionsSorted(data).map((session) => {
-    const s = stats.get(session.id);
-    const running = data.state.sessionId === session.id;
-    const end = running ? null : (session.endAt ?? session.startAt);
-    return {
-      session,
-      from: s ? Math.min(session.startAt, s.min) : session.startAt,
-      to: end === null ? null : s ? Math.max(end, s.max) : end,
-      running,
-      entryCount: s?.count ?? 0,
-    };
-  });
-}
-
 /** Weltzeit, die eine Session bisher umfasst (bei der laufenden: bis jetzt). */
 export function spanDuration(span: SessionSpan, now: WorldTime): number {
   return Math.max(0, (span.to ?? Math.max(now, span.from)) - span.from);
-}
-
-/** Die Session, in deren Weltzeit ein Zeitpunkt fällt – bei Überschneidung die spätere. */
-export function sessionAt(data: CampaignData, at: WorldTime): Session | null {
-  const hit = sessionSpans(data)
-    .filter((span) => span.from <= at && at <= (span.to ?? Math.max(data.state.now, span.from)))
-    .sort((a, b) => b.from - a.from || b.session.number - a.session.number)[0];
-  return hit?.session ?? null;
 }
 
 /**
@@ -519,16 +504,30 @@ export function timeOfDraft(cal: CalendarDef, draft: TimeDraft): WorldTime | nul
 
 // ── Einträge bearbeiten ────────────────────────────────────────────────────
 
-/** Verweise, die zur Bedeutung eines automatischen Eintrags gehören und nicht entfernt werden. */
+/**
+ * Verweise, die zur Bedeutung eines Eintrags gehören und nicht entfernt werden: Reiseweg,
+ * Haltung und die Dinge aus den Angaben der übrigen Arten (Schicksal, Aufenthalt, Beziehung …).
+ */
 export function lockedRefs(entry: ChronicleEntry): string[] {
   const ids: string[] = [];
   if (entry.travel) {
     if (entry.travel.toId) ids.push(entry.travel.toId);
     if (entry.travel.fromId) ids.push(entry.travel.fromId);
   }
-  if (entry.attitude)
-    for (const id of [entry.attitude.fromId, entry.attitude.toId])
-      if (id !== PARTY_ID) ids.push(id);
+  const add = (id: string | null | undefined) => {
+    if (id && id !== PARTY_ID && !ids.includes(id)) ids.push(id);
+  };
+  add(entry.attitude?.fromId);
+  add(entry.attitude?.toId);
+  add(entry.fate?.entityId);
+  add(entry.whereabouts?.entityId);
+  add(entry.whereabouts?.placeId);
+  add(entry.rumor?.sourceId);
+  add(entry.bond?.fromId);
+  add(entry.bond?.toId);
+  add(entry.condition?.entityId);
+  add(entry.milestone?.characterId);
+  if (entry.kind === 'wish') add(entry.refs[0]);
   return ids;
 }
 
@@ -608,17 +607,14 @@ export function entryFromDraft(draft: EntryDraft): ChronicleEntry {
   });
 }
 
-/** Einträge, deren Reihenfolge untereinander etwas bedeutet: alle Ortswechsel bzw. ein Haltungsverlauf. */
+/**
+ * Einträge, deren Reihenfolge untereinander etwas bedeutet: alle Ortswechsel, ein Haltungsverlauf,
+ * die Schicksale einer Person, ihre Aufenthalte, die Stufen eines Gefährten, eine Beziehung – die
+ * Sorten aus `domain/history.ts`, bei denen der jüngste Eintrag den heutigen Stand bestimmt.
+ */
 function orderedGroup(data: CampaignData, entry: ChronicleEntry): ChronicleEntry[] {
-  if (entry.kind === 'travel')
-    return Object.values(data.chronicle).filter((e) => e.kind === 'travel');
-  if (entry.kind === 'attitude' && entry.attitude) {
-    const { fromId, toId } = entry.attitude;
-    return Object.values(data.chronicle).filter(
-      (e) => e.kind === 'attitude' && e.attitude?.fromId === fromId && e.attitude.toId === toId,
-    );
-  }
-  return [];
+  const group = sameSort(data, entry);
+  return group.some((e) => e.id === entry.id) ? group : [];
 }
 
 export interface TimeBounds {
@@ -673,35 +669,100 @@ export function entryTimeProblem(
   ]
     .filter(Boolean)
     .join(' und ');
-  return entry.kind === 'travel'
-    ? `Die Reihenfolge der Ortswechsel muss bleiben: Dieser liegt ${range}.`
-    : `Die Reihenfolge der Haltungsänderungen muss bleiben: Diese liegt ${range}.`;
+  if (entry.kind === 'travel')
+    return `Die Reihenfolge der Ortswechsel muss bleiben: Dieser liegt ${range}.`;
+  if (entry.kind === 'attitude')
+    return `Die Reihenfolge der Haltungsänderungen muss bleiben: Diese liegt ${range}.`;
+  return `Die Reihenfolge der Einträge „${KIND_LABEL[entry.kind]}“ muss bleiben: Dieser liegt ${range}.`;
 }
 
 const partyName = (data: CampaignData, id: string) =>
   id === PARTY_ID ? 'der Gruppe' : entityName(data, id);
 
-/** Was das Löschen eines Eintrags bedeutet – für die Rückfrage. */
+const GONE =
+  'Der Eintrag verschwindet aus der Chronik und von den Seiten der verknüpften Orte und Personen.';
+
+/**
+ * Was das Löschen eines Eintrags bedeutet – für die Rückfrage. Gelöscht wird über
+ * `removeRecorded` (data/record.ts): Gilt die Wirkung noch (`effectHolds`), wird sie
+ * zurückgenommen; sonst bleibt der heutige Stand, wie er ist.
+ */
 export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): string {
+  if (Object.values(data.loot).some((loot) => loot.given && loot.chronicleId === entry.id))
+    return 'Die Ausgabe gilt dann als nicht geschehen: Die Beute liegt im Beute-Buch wieder bereit, und ein Gegenstand ist wieder dort, wo er vorher war.';
+  const holds = effectHolds(data, entry);
+  const { previous } = neighboursOfSort(data, entry);
   if (entry.kind === 'travel' && entry.travel) {
     const { toId, fromId } = entry.travel;
     const what = toId
       ? `gilt der Aufenthalt in ${entityName(data, toId)} ab diesem Zeitpunkt als nie begonnen`
       : `gilt der Aufbruch aus ${entityName(data, fromId)} als nie geschehen`;
-    return `Aus den Ortswechseln ergibt sich, wann die Gruppe wo war. Ohne diesen Eintrag ${what}; die Besuche der betroffenen Orte werden neu berechnet. Der aktuelle Aufenthaltsort der Gruppe bleibt, wie er ist.`;
+    const now = holds
+      ? fromId && data.entities[fromId]
+        ? `Die Gruppe steht danach wieder in ${entityName(data, fromId)}.`
+        : 'Die Gruppe ist danach an keinem festen Ort.'
+      : 'Der aktuelle Aufenthaltsort der Gruppe bleibt, wie er ist.';
+    return `Aus den Ortswechseln ergibt sich, wann die Gruppe wo war. Ohne diesen Eintrag ${what}; die Besuche der betroffenen Orte werden neu berechnet. ${now}`;
   }
   if (entry.kind === 'attitude' && entry.attitude) {
-    const { fromId, toId } = entry.attitude;
+    const { fromId, toId, before } = entry.attitude;
     const current = findRelation(data, fromId, toId)?.attitude ?? null;
-    return `Der Schritt verschwindet aus dem Verlauf der Haltung von ${entityName(data, fromId)} gegenüber ${partyName(data, toId)}. Die aktuelle Haltung bleibt, wie sie ist (${attitudeLabel(current)}).`;
+    const now = holds
+      ? `Die Haltung ist danach wieder, wie sie vorher war (${attitudeLabel(before ?? previous?.attitude?.after ?? null)}).`
+      : `Die aktuelle Haltung bleibt, wie sie ist (${attitudeLabel(current)}).`;
+    return `Der Schritt verschwindet aus dem Verlauf der Haltung von ${entityName(data, fromId)} gegenüber ${partyName(data, toId)}. ${now}`;
   }
   if (entry.kind === 'event')
     return 'Der Termin selbst bleibt im Kalender. Es verschwindet nur der Vermerk, dass er eingetreten ist.';
   if (entry.kind === 'promise')
     return 'Die Abmachung verschwindet aus der Chronik und von den Seiten aller Beteiligten.';
-  if (Object.values(data.loot).some((loot) => loot.given && loot.chronicleId === entry.id))
-    return 'Die Ausgabe gilt dann als nicht geschehen: Die Beute liegt im Beute-Buch wieder bereit, und ein Gegenstand ist wieder dort, wo er vorher war.';
-  return 'Der Eintrag verschwindet aus der Chronik und von den Seiten der verknüpften Orte und Personen.';
+  if (entry.kind === 'fate' && entry.fate) {
+    const who = entityName(data, entry.fate.entityId);
+    if (!holds) return `${GONE} Der heutige Stand von ${who} bleibt, wie er ist.`;
+    const back = entry.fate.before ?? previous?.fate?.status ?? 'alive';
+    return `${GONE} ${who} gilt danach wieder als „${FATE_LABEL[back]}“, auch im Eintrag der Person.`;
+  }
+  if (entry.kind === 'whereabouts' && entry.whereabouts) {
+    const who = entityName(data, entry.whereabouts.entityId);
+    if (!holds) return `${GONE} Wo sich ${who} heute aufhält, bleibt, wie es ist.`;
+    const back = entry.whereabouts.before;
+    return `${GONE} ${who} ist danach wieder dort, wo er oder sie vorher war (${back ? entityName(data, back) : 'ohne festen Ort'}).`;
+  }
+  if (entry.kind === 'milestone' && entry.milestone) {
+    const who = entityName(data, entry.milestone.characterId);
+    const back = entry.milestone.before ?? previous?.milestone?.level ?? null;
+    if (!holds || back === null) return `${GONE} Die Stufe von ${who} bleibt, wie sie ist.`;
+    return `${GONE} ${who} hat danach wieder Stufe ${back}.`;
+  }
+  if (entry.kind === 'meeting') {
+    const met = (entry.meeting?.firstMet ?? []).filter((id) => data.entities[id]);
+    if (!holds || !met.length) return GONE;
+    return `${GONE} Wer erst mit dieser Begegnung bekannt wurde (${met.map((id) => entityName(data, id)).join(', ')}), gilt wieder als unbekannt – es sei denn, eine andere Begegnung nennt ihn.`;
+  }
+  if (entry.kind === 'bond' && entry.bond) {
+    if (!holds) return `${GONE} Die Beziehung selbst bleibt, wie sie ist.`;
+    if (entry.bond.before === 'none')
+      return `${GONE} Die Beziehung, die mit ihm entstanden ist, wird wieder entfernt.`;
+    return entry.bond.ended
+      ? `${GONE} Die Beziehung besteht danach wieder.`
+      : `${GONE} Die Beziehung gilt danach wieder als beendet.`;
+  }
+  if (entry.kind === 'condition' && entry.condition) {
+    if (entry.condition.ended) return `${GONE} Der Zustand gilt danach wieder als bestehend.`;
+    return conditionEnding(data, entry.id)
+      ? `${GONE} Der Eintrag, der den Zustand aufgehoben hat, bleibt in der Chronik.`
+      : `${GONE} Der Zustand ist danach nicht mehr offen.`;
+  }
+  if (entry.kind === 'wish' && entry.wish?.setGoal && holds) {
+    const who = entityName(data, entry.refs[0] ?? null);
+    const back = entry.wish.before?.trim();
+    return `${GONE} Das Ziel von ${who} ist danach wieder ${back ? `„${back}“` : 'leer'}.`;
+  }
+  if (entry.kind === 'clue' && holds)
+    return `${GONE} Der Hinweis gilt am Faden wieder als nicht gefunden.`;
+  if (entry.kind === 'reveal' && holds)
+    return `${GONE} Das Geheimnis gilt auf dem Abend-Blatt wieder als nicht aufgedeckt.`;
+  return GONE;
 }
 
 // ── Reiner Text ────────────────────────────────────────────────────────────
@@ -719,11 +780,18 @@ export function entryHeadline(data: CampaignData, entry: ChronicleEntry): string
     return `${entityName(data, fromId)} gegenüber ${partyName(data, toId)}: ${attitudeLabel(before)} → ${attitudeLabel(after)}`;
   }
   if (entry.kind === 'event') return `Termin eingetreten: ${entry.text}`;
-  return '';
+  return recordHeadline(data, entry);
 }
 
-/** Ein Eintrag als eine Zeile reiner Text, für die Zusammenfassung. */
-export function entryPlainText(data: CampaignData, entry: ChronicleEntry): string {
+/**
+ * Ein Eintrag als eine Zeile reiner Text, für die Zusammenfassung. Für die Spieler steht ein
+ * Gerücht als Gerücht da, aber ohne den Stand – ob es stimmt, weiß nur die Spielleitung.
+ */
+export function entryPlainText(
+  data: CampaignData,
+  entry: ChronicleEntry,
+  audience: SummaryAudience = 'gm',
+): string {
   const cal = data.campaign.calendar;
   const text = entry.text.trim();
   let line: string;
@@ -743,7 +811,23 @@ export function entryPlainText(data: CampaignData, entry: ChronicleEntry): strin
     line = `Abmachung: ${text} (${state})`;
   } else if (entry.kind === 'change') {
     line = `Veränderung: ${text}`;
-  } else line = text;
+  } else if (entry.kind === 'quote') {
+    const who = entryHeadline(data, entry).replace(/ sagte$/, '');
+    line = who ? `„${text}“ – ${who}` : `„${text}“`;
+  } else if (entry.kind === 'rumor') {
+    const source = entry.rumor?.sourceId ? entityName(data, entry.rumor.sourceId) : '';
+    const head =
+      audience === 'players'
+        ? source
+          ? `Gerücht von ${source}`
+          : 'Gerücht'
+        : entryHeadline(data, entry);
+    line = text ? `${head}: ${text}` : head;
+  } else {
+    const head = entryHeadline(data, entry);
+    line = head && text ? `${head}. ${text}` : head || text;
+  }
+  if (isApproximate(entry)) line = `(ungefähr) ${line}`;
 
   // Ort und Beteiligte nur nennen, wenn sie nicht ohnehin im Text stehen.
   const mentioned = normalize(line);
@@ -758,7 +842,6 @@ export function entryPlainText(data: CampaignData, entry: ChronicleEntry): strin
   return context.length ? `${line} [${context.join(', ')}]` : line;
 }
 
-/** Die Chronik einer Session als reiner Text für die Zwischenablage. */
 /** Für wen eine Zusammenfassung gedacht ist. */
 export type SummaryAudience = 'gm' | 'players';
 
@@ -769,6 +852,11 @@ export type SummaryAudience = 'gm' | 'players';
  */
 export function isForPlayers(data: CampaignData, entry: ChronicleEntry): boolean {
   if (entry.secret || entry.kind === 'attitude') return false;
+  // Was jemand anderes als ein Gefährte erfahren hat, weiß nur die Spielleitung.
+  if (entry.kind === 'knowledge') {
+    const knower = entry.refs[0] ? data.entities[entry.refs[0]] : undefined;
+    if (knower?.kind !== 'character') return false;
+  }
   return !entry.refs.some((id) => {
     const entity = data.entities[id];
     return entity?.kind === 'person' && !entity.person.met;
@@ -804,6 +892,7 @@ export function pastSessionProblem(
   return '';
 }
 
+/** Die Chronik einer Session als reiner Text für die Zwischenablage. */
 export function sessionSummaryText(
   data: CampaignData,
   sessionId: string,
@@ -834,7 +923,7 @@ export function sessionSummaryText(
       lines.push('', `${weekdayName(cal, entry.at)}, ${formatDate(cal, entry.at)}`);
       day = d;
     }
-    const [first = '', ...rest] = entryPlainText(data, entry).split('\n');
+    const [first = '', ...rest] = entryPlainText(data, entry, audience).split('\n');
     lines.push(`${formatClock(entry.at)}  ${first}`, ...rest.map((l) => `       ${l}`));
   }
   if (!entries.length) lines.push('', 'In dieser Session wurde nichts festgehalten.');
@@ -853,3 +942,52 @@ export function sessionSummaryText(
   if (audience === 'gm' && session.notes.trim()) lines.push('', 'Notizen', session.notes.trim());
   return lines.join('\n') + '\n';
 }
+
+// ── Gefährten ──────────────────────────────────────────────────────────────
+
+/** Die Meilensteine eines Gefährten, der jüngste zuerst – für seine Seite. */
+export function milestonesOf(data: CampaignData, characterId: string): ChronicleEntry[] {
+  return chronicleSorted(data)
+    .filter((entry) => entry.kind === 'milestone' && entry.milestone?.characterId === characterId)
+    .reverse();
+}
+
+/** Ein Meilenstein in einer Zeile: „Stufe 5 · Den Turm gehalten“, sonst nur der Text. */
+export function milestoneLine(entry: ChronicleEntry): string {
+  const level = entry.milestone?.level ?? null;
+  const text = entry.text.trim();
+  if (level === null) return text || 'Meilenstein';
+  return text ? `Stufe ${level} · ${text}` : `Stufe ${level}`;
+}
+
+/**
+ * Die frei gewählten Verweise eines Eintrags – ohne die, die zu seiner Bedeutung gehören
+ * (`lockedRefs`) oder in den Angaben seiner Art stehen (wer getroffen wurde, wer es sagte …).
+ * Das steht beim Bearbeiten unter „Betrifft“.
+ */
+export function freeRefsOf(entry: ChronicleEntry): string[] {
+  const draft = draftOfEntry(entry);
+  const taken = new Set<string>(lockedRefs(entry));
+  for (const id of [...draft.withIds, draft.whoId, draft.towardId]) if (id) taken.add(id);
+  return entry.refs.filter((id) => !taken.has(id));
+}
+
+/** Die Verweise eines Eintrags, die zu seiner Bedeutung gehören – alles außer `freeRefsOf`. */
+export function meaningRefsOf(entry: ChronicleEntry): string[] {
+  const free = new Set(freeRefsOf(entry));
+  return entry.refs.filter((id) => !free.has(id));
+}
+
+/** Arten, die ohne Text nichts sagen – beim Bearbeiten darf ihr Text nicht leer werden. */
+export const TEXT_KINDS: readonly ChronicleKind[] = [
+  'note',
+  'change',
+  'promise',
+  'decision',
+  'quote',
+  'lore',
+  'rumor',
+  'knowledge',
+  'wish',
+  'condition',
+];

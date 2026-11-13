@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { articleShare } from '../wiki/facts';
+import { fateSinceLabel } from '../../domain/chronicleKinds';
+import { whereaboutsSince } from '../../domain/history';
 import {
   attitudeHistory,
   attitudeToParty,
@@ -51,6 +53,7 @@ import {
   Checkbox,
   ChronicleList,
   Field,
+  OpenConditions,
   Select,
   toast,
 } from '../../ui';
@@ -810,12 +813,18 @@ function Whereabouts({ person }: { person: Person }) {
   const data = useData();
   const { placeId, homeId, status, met } = person.person;
   const partyPlaceId = data.state.placeId;
+  // Seit wann – aus den Einträgen der Chronik (Schicksal, Aufenthalt).
+  const fateLabel = fateSinceLabel(data, person.id);
+  const stay = whereaboutsSince(data, person.id);
+  const staySince = stay
+    ? `Seit ${formatShortDate(data.campaign.calendar, data.state.now, stay.since)}`
+    : undefined;
   const createPlace = (name: string) =>
     db.put('entities', createEntity({ kind: 'place', name })).id;
   return (
     <Section title="Aufenthalt">
       <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
-        <Field label="Hält sich auf in">
+        <Field label="Hält sich auf in" hint={staySince}>
           <Picker
             value={placeId}
             onChange={(next) => patchDetails(db, person, { placeId: next })}
@@ -859,7 +868,7 @@ function Whereabouts({ person }: { person: Person }) {
             onCreate={createPlace}
           />
         </Field>
-        <Field label="Zustand">
+        <Field label="Zustand" hint={fateLabel ?? undefined}>
           <Select
             value={status}
             onChange={(e) => patchDetails(db, person, { status: e.target.value as PersonStatus })}
@@ -871,6 +880,7 @@ function Whereabouts({ person }: { person: Person }) {
             ))}
           </Select>
         </Field>
+        <OpenConditions entityId={person.id} />
         <Checkbox checked={met} onChange={(next) => patchDetails(db, person, { met: next })}>
           Die Gruppe kennt diese Person
         </Checkbox>

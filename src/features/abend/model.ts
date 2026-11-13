@@ -13,12 +13,11 @@ import { KIND_SHORT, entryHeadline, sessionLabel } from '../chronik/model';
  */
 export function startLineOf(data: CampaignData, entry: ChronicleEntry): string {
   const text = entry.text.trim();
-  if (entry.kind === 'travel' || entry.kind === 'attitude') {
-    const headline = entryHeadline(data, entry);
-    return text ? `${headline}. ${text}` : headline;
-  }
   if (entry.kind === 'event') return text || entryHeadline(data, entry);
-  return text;
+  // Ortswechsel, Haltung und die übrigen Arten mit Angaben: die Kurzfassung der Chronik.
+  const headline = entryHeadline(data, entry);
+  if (!headline) return text;
+  return text ? `${headline}. ${text}` : headline;
 }
 
 export interface LastLine {

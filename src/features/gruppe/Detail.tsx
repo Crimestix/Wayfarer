@@ -24,6 +24,7 @@ import {
   Button,
   ChronicleList,
   EmptyState,
+  OpenConditions,
   EntityLink,
   IconButton,
   Panel,
@@ -31,6 +32,8 @@ import {
   TextArea,
   cx,
 } from '../../ui';
+import { milestoneLine, milestonesOf } from '../chronik/model';
+import { formatShortDate } from '../welt/model';
 import { patchCharacter, toggleCharacterCondition } from './actions';
 import { BondDialog } from './BondDialog';
 import type { EditFocus } from './EditDialog';
@@ -254,6 +257,7 @@ function BondRow({
 
 /** So viele Einträge des Beute-Buchs stehen beim Gefährten; der Rest steht im Buch. */
 const RECEIVED_SHOWN = 6;
+const MILESTONES_SHOWN = 3;
 
 export function Detail({
   id,
@@ -310,6 +314,7 @@ export function Detail({
   const received = receivedBy(data, character.id);
   const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
+  const milestones = milestonesOf(data, character.id);
   const log = (kind?: 'promise') => openQuickLog({ kind, refs: [character.id] });
 
   return (
@@ -361,13 +366,29 @@ export function Detail({
                   <ExhaustionControl character={character} size="lg" />
                 </dd>
                 <dt>Zustände</dt>
-                <dd>
+                <dd className="wf-gruppe-stack">
                   <ConditionToggles
                     value={active}
                     rules="active"
                     onToggle={(name) => toggleCharacterCondition(db, character.id, name)}
                   />
+                  <OpenConditions entityId={character.id} />
                 </dd>
+                {milestones.length > 0 && (
+                  <>
+                    <dt>Meilensteine</dt>
+                    <dd className="wf-gruppe-stack">
+                      {milestones.slice(0, MILESTONES_SHOWN).map((entry) => (
+                        <span key={entry.id} className="wf-gruppe-milestone">
+                          <span className="wf-clamp-1">{milestoneLine(entry)}</span>
+                          <span className="wf-mute">
+                            {formatShortDate(data.campaign.calendar, data.state.now, entry.at)}
+                          </span>
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
                 <dt>Sprachen</dt>
                 <dd>
                   {d.languages.length ? (

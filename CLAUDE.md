@@ -206,6 +206,15 @@ nicht übernommen.
 - Abmachungen (Chronik, `kind: 'promise'`): offen, erledigt oder gescheitert – gelesen über
   `promiseOutcome()`, gesetzt über `setPromiseOutcome()`. `promise.done` heißt nur „nicht mehr
   offen“; ob sie eingelöst wurde oder gescheitert ist, sagt `promise.failed`.
+- Festhalten (alle Arten der Chronik außer `event`, Namen und fünf Gruppen in
+  `domain/chronicleKinds.ts`): immer über `recordEntry` (`data/record.ts`), auch für früher.
+  Ein Eintrag ist Geschichte – seine Wirkung (Schicksal, Aufenthalt, Haltung, Ortswechsel,
+  Stufe, Beziehung …) gilt nur, wenn er der jüngste seiner Sorte ist (`isNewestOfSort`,
+  `domain/history.ts`); sonst steht er nur in der Geschichte. Gelöscht wird über
+  `removeRecorded`, das die Wirkung zurücknimmt. Festhalten stellt nie Zeit vor. Wo die Gruppe
+  und welche Session zu einer Zeit war, sagen `partyPlaceAt` und `sessionAt`; offene Zustände
+  `activeConditions`. Was ein Satz sein dürfte, schlägt `recognizeEntry` (`domain/recognize.ts`)
+  vor – nur Art und Dinge, nie Text, und nie geraten.
 - Wegenetze (`nets/`, `domain/net.ts`): Ein Netz merkt sich nur, welche Orte seine Punkte
   sind und wo sie auf dem Blatt liegen. Die Wege sind die der Welt (`paths`): Zum Netz gehört
   jeder Weg, dessen beide Orte Punkte sind – nie Wege im Netz selbst speichern. Gelesen wird
