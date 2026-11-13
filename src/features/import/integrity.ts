@@ -83,8 +83,21 @@ export function repairReferences(input: CampaignData): RepairResult {
         entities[entity.id] = { ...entity, character: { ...entity.character, placeId } };
     } else if (entity.kind === 'item') {
       const holderId = keep(entity.item.holderId);
-      if (holderId !== entity.item.holderId)
-        entities[entity.id] = { ...entity, item: { ...entity.item, holderId } };
+      // Rezept: Der Beruf muss ein Beruf sein; eine fehlende Zutat bleibt mit ihrem Namen stehen.
+      let recipe = entity.item.recipe;
+      if (recipe) {
+        const professionId = keep(recipe.professionId, isKind('profession'));
+        const ingredients = recipe.ingredients.map((i) =>
+          i.entityId && !has(i.entityId) ? (repaired++, { ...i, entityId: null }) : i,
+        );
+        if (
+          professionId !== recipe.professionId ||
+          ingredients.some((i, n) => i !== recipe!.ingredients[n])
+        )
+          recipe = { ...recipe, professionId, ingredients };
+      }
+      if (holderId !== entity.item.holderId || recipe !== entity.item.recipe)
+        entities[entity.id] = { ...entity, item: { ...entity.item, holderId, recipe } };
     } else if (entity.kind === 'plant' || entity.kind === 'mineral') {
       const details = entity.kind === 'plant' ? entity.plant : entity.mineral;
       const regionIds = keepPlaces(details.regionIds);
@@ -203,6 +216,14 @@ export function repairReferences(input: CampaignData): RepairResult {
       return [id, repaired === before ? r : { ...r, participants, placeId, watches }];
     }),
   );
+  // Vorhaben der freien Zeit: Der Gegenstand muss es geben; das Vorhaben bleibt mit seinem Namen.
+  const tracks = Object.fromEntries(
+    Object.entries(input.tracks).map(([id, t]) => {
+      if (!t.downtime) return [id, t];
+      const itemId = keep(t.downtime.itemId, isKind('item'));
+      return [id, itemId === t.downtime.itemId ? t : { ...t, downtime: { ...t.downtime, itemId } }];
+    }),
+  );
 
   const chronicle: Record<string, ChronicleEntry> = {};
   for (const [id, entry] of Object.entries(input.chronicle)) {
@@ -248,6 +269,7 @@ export function repairReferences(input: CampaignData): RepairResult {
       journeys,
       areas,
       rests,
+      tracks,
     },
     repaired,
   };

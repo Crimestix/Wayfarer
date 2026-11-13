@@ -512,6 +512,10 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
       if (loot.toId === entityId && !loot.given) db.patch('loot', loot.id, { toId: null });
       if (loot.holderBefore === entityId) db.patch('loot', loot.id, { holderBefore: null });
     }
+    // Ein Vorhaben der freien Zeit bleibt mit seinem Namen; nur der Verweis auf den Gegenstand fällt.
+    for (const track of Object.values(data.tracks))
+      if (track.downtime?.itemId === entityId)
+        db.patch('tracks', track.id, { downtime: { ...track.downtime, itemId: null } });
     if (data.state.placeId === entityId) db.setState({ placeId: null });
     db.remove('entities', entityId);
   });

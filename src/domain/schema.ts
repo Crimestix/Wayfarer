@@ -269,6 +269,47 @@ const CharacterDetails = z.object({
   status: z.enum(PERSON_STATUS).default('alive'),
 });
 
+/**
+ * Wie selten etwas in der Natur ist – die Stufen der Regeln für Gegenstände, auf Pflanzen, Tiere
+ * und Gesteine übertragen. '' = nicht angegeben.
+ */
+export const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary'] as const;
+export type Rarity = (typeof RARITIES)[number];
+
+/** Eine Zutat eines Rezepts: eine Pflanze, ein Gestein, ein Tier, ein Gegenstand – oder nur ein Wort. */
+export const IngredientSchema = z.object({
+  /** Der Eintrag der Welt; null = nur in Worten. */
+  entityId: id.nullable().default(null),
+  /** Der Name in Worten; bei einem Eintrag sein Name zur Zeit der Wahl (bleibt, wenn er gelöscht wird). */
+  text: z.string().default(''),
+  /** Menge in Worten: „3“, „eine Handvoll“, „2 Pfund“. */
+  qty: z.string().default(''),
+});
+export type Ingredient = z.infer<typeof IngredientSchema>;
+
+/**
+ * Wie ein Gegenstand hergestellt wird (`domain/crafting.ts`). Dauer und Kosten folgen den Regeln
+ * von 2024, solange hier nichts Eigenes steht.
+ */
+export const RecipeSchema = z.object({
+  /** Der Beruf, der ihn herstellt (Art „Beruf“). */
+  professionId: id.nullable().default(null),
+  /** Werkzeug in Worten; leer = das Werkzeug des Berufs. */
+  toolText: z.string().default(''),
+  ingredients: z.array(IngredientSchema).default([]),
+  /** Preis des fertigen Gegenstands in Gold – Grundlage der Regeln für gewöhnliche Dinge. */
+  price: z.number().nonnegative().nullable().default(null),
+  /** Arbeitstage; null = nach den Regeln. */
+  days: z.number().positive().nullable().default(null),
+  /** Kosten der Rohstoffe in Gold; null = nach den Regeln. */
+  cost: z.number().nonnegative().nullable().default(null),
+  /** Magisch: die Seltenheit; '' = ein gewöhnlicher Gegenstand. */
+  rarity: z.enum(['', ...RARITIES]).default(''),
+  /** Verbrauchsgut (Trank, Schriftrolle …): halbe Zeit und halbe Kosten. */
+  consumable: z.boolean().default(false),
+});
+export type Recipe = z.infer<typeof RecipeSchema>;
+
 const ItemDetails = z.object({
   /** Wo oder bei wem der Gegenstand ist. */
   holderId: id.nullable().default(null),
@@ -279,6 +320,8 @@ const ItemDetails = z.object({
    * in der Chronik fest. Aus = alles wie ohne.
    */
   history: z.boolean().default(false),
+  /** Wie er hergestellt wird; null = kein Rezept. */
+  recipe: RecipeSchema.nullable().default(null),
 });
 
 const TopicDetails = z.object({
@@ -312,13 +355,6 @@ const ScriptDetails = z.object({
 const AbilityDetails = z.object({
   category: z.string().default(''),
 });
-
-/**
- * Wie selten etwas in der Natur ist – die Stufen der Regeln für Gegenstände, auf Pflanzen, Tiere
- * und Gesteine übertragen. '' = nicht angegeben.
- */
-export const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary'] as const;
-export type Rarity = (typeof RARITIES)[number];
 
 /**
  * Was Pflanzen, Tiere und Gesteine gemeinsam haben: wo und wann sie vorkommen, wie selten sie
@@ -2044,6 +2080,17 @@ export type Atlas = z.infer<typeof AtlasSchema>;
 export const TRACK_KINDS = ['stages', 'count', 'steps'] as const;
 export type TrackKind = (typeof TRACK_KINDS)[number];
 
+/** Was ein Gefährte in freier Zeit tun kann (`domain/downtime.ts`). */
+export const DOWNTIME_ACTIVITIES = [
+  'craft',
+  'train',
+  'research',
+  'work',
+  'recover',
+  'custom',
+] as const;
+export type DowntimeActivity = (typeof DOWNTIME_ACTIVITIES)[number];
+
 /**
  * Eine Fortschrittsleiste (`domain/track.ts`): ein Ausbildungsweg, Ruf, eine Schuld, eine Studie, eine
  * Reparatur. Sie gehört einem Eintrag der Welt oder der Gruppe; jeder Schritt steht in der Chronik.
@@ -2069,6 +2116,17 @@ export const TrackSchema = z.object({
   storyId: id.nullable().default(null),
   /** Abgeschlossen – bleibt sichtbar, steht aber unten. */
   done: z.boolean().default(false),
+  /**
+   * Ein Vorhaben der freien Zeit (`domain/downtime.ts`): was getan wird und – beim Herstellen –
+   * welcher Gegenstand dabei entsteht. Die Leiste zählt dann Arbeitstage; null = keins.
+   */
+  downtime: z
+    .object({
+      activity: z.enum(DOWNTIME_ACTIVITIES).default('custom'),
+      itemId: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
 });
 export type Track = z.infer<typeof TrackSchema>;
 

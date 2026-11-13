@@ -27,6 +27,7 @@ import {
   type Relation,
   type Timer,
 } from './schema';
+import { recipeLinks, recipeWithout } from './crafting';
 
 // ── Einträge ───────────────────────────────────────────────────────────────
 
@@ -92,6 +93,8 @@ type DetailValue = string | null | readonly string[] | undefined;
 /** Die Einzelangaben eines Eintrags als Liste von Feld und Ziel; leere Angaben fehlen. */
 export function detailLinks(entity: Entity): { field: string; id: string }[] {
   if (!hasLinks(entity.kind)) return [];
+  // Das Rezept eines Gegenstands zeigt auf seinen Beruf und seine Zutaten.
+  const recipe = entity.kind === 'item' ? recipeLinks(entity.item.recipe) : [];
   const details = (entity as unknown as Record<string, Record<string, DetailValue>>)[entity.kind]!;
   const links: { field: string; id: string }[] = [];
   for (const field of DETAIL_LINKS[entity.kind]) {
@@ -99,7 +102,7 @@ export function detailLinks(entity: Entity): { field: string; id: string }[] {
     if (Array.isArray(value)) for (const id of value as string[]) links.push({ field, id });
     else if (typeof value === 'string' && value) links.push({ field, id: value });
   }
-  return links;
+  return [...links, ...recipe];
 }
 
 /** Verweist eine Einzelangabe dieses Eintrags auf `targetId`? */
@@ -126,6 +129,9 @@ export function replaceLink(entity: Entity, targetId: string, replacement: strin
       ];
     else if (value === targetId) details[field] = replacement;
   }
+  // Im Rezept fällt der Verweis weg; eine Zutat bleibt mit ihrem Namen stehen.
+  if (entity.kind === 'item' && entity.item.recipe)
+    details.recipe = recipeWithout(entity.item.recipe, targetId);
   return { ...entity, [kind]: details } as Entity;
 }
 
