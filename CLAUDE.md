@@ -83,7 +83,7 @@ nicht übernommen.
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
   Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
-  Karten (`karten`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
+  Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
   im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
@@ -106,8 +106,11 @@ nicht übernommen.
   `ki` (der KI-Leser: Auftrag, Antwort prüfen, Vorschläge am Artikel),
   `bestiarium` (Wesen bauen, als Text übernehmen, finden, am Tisch würfeln; die Rechnung steht
   in `domain/creature.ts`, das Lesen von Text in `bestiarium/parse.ts`),
-  `faeden` (das Fadenbrett: Geschichten und Fäden nach Nähe zur Gruppe; die Rechnung steht in
-  `domain/story.ts`),
+  `wegenetz` (Strecken und Gegenden vorbereiten: Punkte auf einem Blatt, Wege dazwischen, was
+  dort wartet – im Gespräch „Point Crawl“, in der App nie so genannt; die Rechnung steht in
+  `domain/net.ts`),
+  `faeden` (das Fadenbrett: eine Pinnwand aus Geschichten, losen Fäden und den Namen, an denen
+  sie hängen; die Rechnung steht in `domain/story.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -117,7 +120,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -189,6 +192,18 @@ nicht übernommen.
 - Abmachungen (Chronik, `kind: 'promise'`): offen, erledigt oder gescheitert – gelesen über
   `promiseOutcome()`, gesetzt über `setPromiseOutcome()`. `promise.done` heißt nur „nicht mehr
   offen“; ob sie eingelöst wurde oder gescheitert ist, sagt `promise.failed`.
+- Wegenetze (`nets/`, `domain/net.ts`): Ein Netz merkt sich nur, welche Orte seine Punkte
+  sind und wo sie auf dem Blatt liegen. Die Wege sind die der Welt (`paths`): Zum Netz gehört
+  jeder Weg, dessen beide Orte Punkte sind – nie Wege im Netz selbst speichern. Gelesen wird
+  über `netView()`, geändert über `features/wegenetz/actions.ts`. Eine Strecke lässt sich
+  schreiben („A -> B (4 Std.) -> C“, `parseRoutes`); Orte, die es gibt, werden genommen
+  (`placeNamed`), nie doppelt angelegt. Was unterwegs wartet, steht am Weg (`path.onTheWay`,
+  `path.encounterId`) und gehört zu `wayNotes()`. Was an einem Punkt hängt, sagt `hangingAt()`.
+- Blätter zum freien Auslegen (Wegenetz, Fadenbrett) nutzen `useBoard` aus `ui/board.ts`:
+  verschieben, vergrößern, Stücke ziehen. Wo etwas auf dem Fadenbrett liegt, steht in
+  `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
+  werden nie gespeichert – sie folgen aus dem, woran eine Geschichte hängt (`pinToCard` heftet
+  einen Namen an).
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
   anwesend, sie stehen für sich in `lost`.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);

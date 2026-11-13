@@ -84,6 +84,12 @@ export const PlayStateSchema = z.object({
    * Welt dreht sich weiter“ ganz oben, egal wie weit weg.
    */
   watch: z.array(id).default([]),
+  /**
+   * Das Fadenbrett: wo der Spielleiter Karten und Namen hingelegt hat. Schlüssel sind
+   * `story:<id>`, `thread:<id>` und `node:<id>`; was hier fehlt, legt Wayfarer selbst aus
+   * (`boardLayout` in `domain/story.ts`).
+   */
+  board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

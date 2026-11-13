@@ -13,7 +13,10 @@ import {
   type Place,
 } from '../../domain/schema';
 import {
+  BOARD_CARD,
+  BOARD_PIN,
   boardCards,
+  boardLayout,
   entryFit,
   nearness,
   reputeOf,
@@ -26,11 +29,15 @@ import {
 } from '../../domain/story';
 import { saveWay } from '../wege/actions';
 import {
+  pinToCard,
+  placeOnBoard,
   removeStory,
   removeThread,
   saveStory,
   saveThread,
   setHintFound,
+  tidyBoard,
+  unpinFromCard,
   type StoryInput,
   type ThreadInput,
 } from './actions';
@@ -195,6 +202,79 @@ describe('Das Fadenbrett', () => {
     expect(party[1]!.threads.map((entry) => entry.title)).toEqual(['Wer läutet nachts?']);
     // Die Wahrheit zeigt alles.
     expect(boardCards(data()).flatMap((card) => card.threads)).toHaveLength(4);
+  });
+});
+
+describe('Die Pinnwand', () => {
+  it('legt Karten und Namen aus, ohne dass etwas aufeinanderliegt – und lässt liegen, was hingelegt wurde', async () => {
+    const { db, data, story, thread, market, harbour, mira, fishers } = await setup();
+    const toll = story('Der Zoll wird verdoppelt', { ownerId: fishers.id, refs: [harbour.id] });
+    const bell = story('Die stumme Glocke', { refs: [market.id, harbour.id] });
+    thread('Wer bezahlt den Aalwächter?', { refs: [mira.id] });
+    let layout = boardLayout(boardCards(data()), data().state.board);
+    expect(Object.keys(layout.cards).sort()).toEqual(
+      boardCards(data())
+        .map((card) => card.key)
+        .sort(),
+    );
+    // Der Hafen hängt an beiden Geschichten: ein Name, zwei Fäden.
+    const shared = layout.pins.find((pin) => pin.id === harbour.id)!;
+    expect(shared.cards.sort()).toEqual([`story:${bell.id}`, `story:${toll.id}`].sort());
+    expect(layout.pins.find((pin) => pin.id === mira.id)!.cards).toHaveLength(1);
+    // Nichts liegt aufeinander.
+    const boxes = [
+      ...Object.values(layout.cards).map((at) => ({
+        x: at.x,
+        y: at.y + BOARD_CARD.height / 2,
+        w: BOARD_CARD.width,
+        h: BOARD_CARD.height,
+      })),
+      ...layout.pins.map((pin) => ({
+        x: pin.x,
+        y: pin.y,
+        w: BOARD_PIN.width,
+        h: BOARD_PIN.height,
+      })),
+    ];
+    for (let i = 0; i < boxes.length; i++)
+      for (let k = i + 1; k < boxes.length; k++) {
+        const [a, b] = [boxes[i]!, boxes[k]!];
+        const apart =
+          Math.abs(a.x - b.x) >= (a.w + b.w) / 2 || Math.abs(a.y - b.y) >= (a.h + b.h) / 2;
+        expect(apart).toBe(true);
+      }
+
+    // Was der Spielleiter hinlegt, bleibt dort; die eigenen Namen einer Karte ziehen mit ihr um.
+    const before = layout.pins.find((pin) => pin.id === fishers.id)!;
+    placeOnBoard(db, `story:${toll.id}`, 2000.4, 900);
+    placeOnBoard(db, `node:${harbour.id}`, -300, -200);
+    layout = boardLayout(boardCards(data()), data().state.board);
+    expect(layout.cards[`story:${toll.id}`]).toEqual({ x: 2000, y: 900 });
+    expect(layout.pins.find((pin) => pin.id === harbour.id)).toMatchObject({ x: -300, y: -200 });
+    const after = layout.pins.find((pin) => pin.id === fishers.id)!;
+    expect(after.x - before.x).toBeGreaterThan(500);
+
+    // Aufräumen legt alles neu aus – und lässt sich zurücknehmen.
+    const undo = tidyBoard(db);
+    expect(data().state.board).toEqual({});
+    undo();
+    expect(Object.keys(data().state.board)).toHaveLength(2);
+  });
+
+  it('heftet Namen an eine Karte und löst sie wieder', async () => {
+    const { db, data, story, thread, mira, odo } = await setup();
+    const toll = story('Der Zoll wird verdoppelt');
+    const loose = thread('Das Licht auf der Aalinsel');
+    pinToCard(db, `story:${toll.id}`, mira.id);
+    pinToCard(db, `story:${toll.id}`, mira.id);
+    pinToCard(db, `thread:${loose.id}`, odo.id);
+    pinToCard(db, `story:${toll.id}`, 'gibtsnicht');
+    expect(data().stories[toll.id]!.refs).toEqual([mira.id]);
+    expect(data().threads[loose.id]!.refs).toEqual([odo.id]);
+    const layout = boardLayout(boardCards(data()));
+    expect(layout.pins.map((pin) => pin.id).sort()).toEqual([mira.id, odo.id].sort());
+    unpinFromCard(db, `story:${toll.id}`, mira.id);
+    expect(data().stories[toll.id]!.refs).toEqual([]);
   });
 });
 

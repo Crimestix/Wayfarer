@@ -41,6 +41,43 @@ export function removeStory(db: CampaignDb, id: string): void {
   });
 }
 
+/** Legt eine Karte oder einen Namen an eine Stelle des Bretts. */
+export function placeOnBoard(db: CampaignDb, key: string, x: number, y: number): void {
+  const board = db.getSnapshot().state.board;
+  db.setState({ board: { ...board, [key]: { x: Math.round(x), y: Math.round(y) } } });
+}
+
+/** Räumt das Brett auf: Wayfarer legt alles neu aus. `undo` legt es zurück, wie es war. */
+export function tidyBoard(db: CampaignDb): () => void {
+  const before = db.getSnapshot().state.board;
+  db.setState({ board: {} });
+  return () => db.setState({ board: before });
+}
+
+/**
+ * Heftet eine Person, einen Ort oder eine Fraktion an eine Karte: Sie gehört dann zur Geschichte
+ * (oder zum losen Faden) – auf dem Brett verbindet ein Faden beide.
+ */
+export function pinToCard(db: CampaignDb, cardKey: string, entityId: string): void {
+  const data = db.getSnapshot();
+  if (!data.entities[entityId]) return;
+  const [sort, id] = cardKey.split(':') as [string, string];
+  const doc = sort === 'story' ? data.stories[id] : data.threads[id];
+  if (!doc || doc.refs.includes(entityId)) return;
+  db.patch(sort === 'story' ? 'stories' : 'threads', id, { refs: [...doc.refs, entityId] });
+}
+
+/** Löst einen Namen von einer Karte – soweit er nur angeheftet war. */
+export function unpinFromCard(db: CampaignDb, cardKey: string, entityId: string): void {
+  const data = db.getSnapshot();
+  const [sort, id] = cardKey.split(':') as [string, string];
+  const doc = sort === 'story' ? data.stories[id] : data.threads[id];
+  if (!doc || !doc.refs.includes(entityId)) return;
+  db.patch(sort === 'story' ? 'stories' : 'threads', id, {
+    refs: doc.refs.filter((ref) => ref !== entityId),
+  });
+}
+
 export type ThreadInput = Pick<
   Thread,
   'title' | 'truth' | 'state' | 'storyId' | 'refs' | 'known' | 'hints'

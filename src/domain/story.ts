@@ -284,6 +284,118 @@ export function touches(cards: readonly BoardCard[]): Touch[] {
   return found;
 }
 
+// ── Das Brett als Pinnwand ─────────────────────────────────────────────────
+
+export interface Spot {
+  x: number;
+  y: number;
+}
+
+/** Ein Name auf dem Brett: eine Person, ein Ort, eine Fraktion, an der Karten hängen. */
+export interface BoardPin {
+  /** `node:<id>` – unter diesem Schlüssel merkt sich das Brett seine Stelle. */
+  key: string;
+  id: string;
+  x: number;
+  y: number;
+  /** Die Karten, die an ihm hängen. Mehr als eine: Dort berühren sich Geschichten. */
+  cards: string[];
+}
+
+export interface BoardLayout {
+  /** Je Karte die Stelle: Mitte ihrer Oberkante. */
+  cards: Record<string, Spot>;
+  pins: BoardPin[];
+}
+
+/** Breite und ungefähre Höhe einer Karte auf dem Brett. */
+export const BOARD_CARD = { width: 250, height: 170 } as const;
+/** Platz, den ein Name auf dem Brett braucht. */
+export const BOARD_PIN = { width: 150, height: 34 } as const;
+const CELL = { width: 440, height: 380 } as const;
+const PER_ROW = 3;
+const PINS_PER_ROW = 2;
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+const overlaps = (a: Box, b: Box) =>
+  Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
+
+/**
+ * Wo alles auf dem Brett liegt: Was der Spielleiter hingelegt hat (`placed`), bleibt dort; alles
+ * andere legt Wayfarer aus – die Karten in Reihen (das Nahe zuerst), die Namen einer Karte
+ * darunter, und ein Name, an dem mehrere Karten hängen, zwischen sie. Nichts liegt aufeinander.
+ * Abgeschlossenes liegt nicht auf dem Brett.
+ */
+export function boardLayout(
+  cards: readonly BoardCard[],
+  placed: Readonly<Record<string, Spot>> = {},
+): BoardLayout {
+  const open = cards.filter((card) => !card.closed);
+  const spots: Record<string, Spot> = {};
+  open.forEach((card, index) => {
+    spots[card.key] = placed[card.key] ?? {
+      x: (index % PER_ROW) * CELL.width,
+      y: Math.floor(index / PER_ROW) * CELL.height,
+    };
+  });
+  // Die Karten sind Hindernisse – ihre Mitte liegt eine halbe Höhe unter der Oberkante.
+  const taken: Box[] = open.map((card) => ({
+    x: spots[card.key]!.x,
+    y: spots[card.key]!.y + BOARD_CARD.height / 2,
+    w: BOARD_CARD.width + 20,
+    h: BOARD_CARD.height + 20,
+  }));
+  const pinBox = (spot: Spot): Box => ({ ...spot, w: BOARD_PIN.width, h: BOARD_PIN.height });
+  /** Rückt eine Stelle so lange nach unten, bis dort nichts liegt. */
+  const settle = (spot: Spot): Spot => {
+    const free = { ...spot };
+    for (let tries = 0; tries < 60 && taken.some((box) => overlaps(pinBox(free), box)); tries++)
+      free.y += BOARD_PIN.height + 6;
+    return free;
+  };
+
+  const owners = new Map<string, string[]>();
+  for (const card of open)
+    for (const id of card.nodes) owners.set(id, [...(owners.get(id) ?? []), card.key]);
+  const pins: BoardPin[] = [];
+  const own = new Map<string, number>();
+  const add = (id: string, keys: string[], wish: Spot) => {
+    const key = `node:${id}`;
+    const spot = placed[key] ?? settle(wish);
+    taken.push(pinBox(spot));
+    pins.push({ key, id, ...spot, cards: keys });
+  };
+  // Erst die Namen, die der Spielleiter hingelegt hat: Sie sind Hindernisse für die übrigen.
+  for (const [id, keys] of owners) if (placed[`node:${id}`]) add(id, keys, placed[`node:${id}`]!);
+  // Dann, was mehrere Karten verbindet – in ihre Mitte.
+  for (const [id, keys] of owners) {
+    if (placed[`node:${id}`] || keys.length < 2) continue;
+    const at = keys.map((key) => spots[key]!);
+    add(id, keys, {
+      x: at.reduce((sum, spot) => sum + spot.x, 0) / at.length,
+      y: at.reduce((sum, spot) => sum + spot.y, 0) / at.length + BOARD_CARD.height / 2,
+    });
+  }
+  // Zuletzt die eigenen Namen jeder Karte: in Reihen unter ihr.
+  for (const [id, keys] of owners) {
+    if (placed[`node:${id}`] || keys.length !== 1) continue;
+    const card = spots[keys[0]!]!;
+    const index = own.get(keys[0]!) ?? 0;
+    own.set(keys[0]!, index + 1);
+    add(id, keys, {
+      x: card.x + ((index % PINS_PER_ROW) - (PINS_PER_ROW - 1) / 2) * (BOARD_PIN.width + 6),
+      y:
+        card.y + BOARD_CARD.height + 46 + Math.floor(index / PINS_PER_ROW) * (BOARD_PIN.height + 6),
+    });
+  }
+  return { cards: spots, pins };
+}
+
 /** „über den Hafen“, „über Mira und den Hafen“ – der Grund einer Berührung in Worten. */
 export function touchReason(data: Pick<CampaignData, 'entities'>, touch: Touch): string {
   const names = touch.via.map((id) => data.entities[id]?.name ?? '?');

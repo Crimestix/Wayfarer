@@ -104,9 +104,12 @@ export function useBoard(ref: RefObject<HTMLElement | null>, start?: BoardView) 
     [drag],
   );
 
-  /** Zeigt alles: rückt und verkleinert so, dass die genannten Stellen ins Bild passen. */
+  /**
+   * Zeigt alles: rückt und verkleinert so, dass die genannten Stellen ins Bild passen. Mit
+   * `least` wird nie kleiner gezeigt als das – passt dann nicht alles, beginnt das Bild oben links.
+   */
   const fit = useCallback(
-    (spots: readonly { x: number; y: number }[], pad = 120) => {
+    (spots: readonly { x: number; y: number }[], pad = 120, least = MIN_ZOOM) => {
       const rect = ref.current?.getBoundingClientRect();
       if (!rect || !spots.length) return setView({ x: pad, y: pad, k: 1 });
       const xs = spots.map((spot) => spot.x);
@@ -117,17 +120,17 @@ export function useBoard(ref: RefObject<HTMLElement | null>, start?: BoardView) 
         Math.min(...ys),
         Math.max(...ys),
       ];
-      const k = clampZoom(
-        Math.min(
-          1,
-          (rect.width - 2 * pad) / Math.max(1, maxX - minX),
-          (rect.height - 2 * pad) / Math.max(1, maxY - minY),
-        ),
+      const wanted = Math.min(
+        1,
+        (rect.width - 2 * pad) / Math.max(1, maxX - minX),
+        (rect.height - 2 * pad) / Math.max(1, maxY - minY),
       );
+      const k = clampZoom(Math.max(wanted, least));
+      const fits = wanted >= least;
       setView({
         k,
-        x: rect.width / 2 - ((minX + maxX) / 2) * k,
-        y: rect.height / 2 - ((minY + maxY) / 2) * k,
+        x: fits ? rect.width / 2 - ((minX + maxX) / 2) * k : pad - minX * k,
+        y: fits ? rect.height / 2 - ((minY + maxY) / 2) * k : pad / 2 - minY * k,
       });
     },
     [ref],

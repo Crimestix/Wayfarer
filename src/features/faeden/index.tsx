@@ -1,19 +1,31 @@
 /**
- * Das Fadenbrett: alle Geschichten nebeneinander – geordnet danach, wie nah die Gruppe ihnen ist
- * (Hier · Erreichbar · Fern), mit dem Stand ihrer Uhr, ihren Fäden und goldenen Linien, wo zwei
- * sich berühren. Die Rechnung steht in `domain/story.ts`.
+ * Das Fadenbrett: eine Pinnwand. Geschichten und lose Fäden liegen als Karten darauf, daneben die
+ * Personen, Orte und Fraktionen, an denen sie hängen – verbunden durch Fäden. Wo zwei Karten am
+ * selben Namen hängen, berühren sich ihre Geschichten. Alles lässt sich frei legen; was der
+ * Spielleiter nicht hingelegt hat, legt Wayfarer aus. Die Rechnung steht in `domain/story.ts`.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLocation } from 'wouter';
-import { useFocus } from '../../shell/focus';
-import { Eye, EyeOff, Pencil, Plus, TriangleAlert, Waypoints } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  LayoutGrid,
+  Maximize,
+  Minus,
+  Pencil,
+  Plus,
+  TriangleAlert,
+  Waypoints,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
+  BOARD_CARD,
   ENTRY_STANDING_LABEL,
   NEARNESS_LABEL,
   PACE_LABEL,
   THREAD_STATE_LABEL,
   boardCards,
+  boardLayout,
   entryFit,
   reputeOf,
   threadLive,
@@ -22,45 +34,55 @@ import {
   touches,
   untilText,
   type BoardCard,
+  type BoardPin,
   type BoardView,
-  type Nearness,
+  type Spot,
   type Touch,
 } from '../../domain/story';
-import { THREAD_STATES, type Story, type Thread, type ThreadState } from '../../domain/schema';
+import {
+  THREAD_STATES,
+  type Clock,
+  type Story,
+  type Thread,
+  type ThreadState,
+} from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
 import { isNear } from '../../domain/weight';
 import { openAttitude } from '../../shell/commands';
-import { AttitudeBadge, Button, Checkbox, EmptyState, Select, cx, entityHref } from '../../ui';
-import { setHintFound, setThreadState } from './actions';
+import { useFocus } from '../../shell/focus';
+import {
+  AttitudeBadge,
+  Button,
+  Checkbox,
+  EmptyState,
+  EntityPicker,
+  IconButton,
+  KindIcon,
+  Select,
+  cx,
+  entityHref,
+  toast,
+} from '../../ui';
+import { useBoard } from '../../ui/board';
+import { ClockDialog } from '../kalender/ClockDialog';
+import { pinToCard, placeOnBoard, setHintFound, setThreadState, tidyBoard } from './actions';
 import { StoryDialog, ThreadDialog } from './Dialogs';
 import './faeden.css';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-const COLUMNS: Nearness[] = ['here', 'reachable', 'far'];
-const COLUMN_HINT: Record<Nearness, string> = {
-  here: 'Hängt an dem Ort, an dem die Gruppe gerade ist.',
-  reachable: 'Ein bekannter Weg führt hin, oder es liegt in derselben Gegend.',
-  far: 'Weit weg – oder noch an keinem Ort festgemacht.',
-};
-
 type OpenDialog =
   | { type: 'story'; story: Story | null }
   | { type: 'thread'; thread: Thread | null; storyId: string | null }
+  /** Die Uhr einer Geschichte – `before`: welche Uhren es beim Öffnen schon gab. */
+  | { type: 'clock'; clock: Clock | null; storyId: string; before: ReadonlySet<string> }
   | null;
 
-interface Line {
-  key: string;
-  d: string;
-  x: number;
-  y: number;
-  label: string;
-  active: boolean;
-}
-
 export default function FaedenPage() {
+  const db = useDb();
   const data = useData();
   const [view, setView] = useState<BoardView>('truth');
+  /** Die gewählte Karte (`story:…`, `thread:…`) oder der gewählte Name (`node:…`). */
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
@@ -71,63 +93,94 @@ export default function FaedenPage() {
   const open = cards.filter((card) => !card.closed);
   const closed = cards.filter((card) => card.closed);
   const current = cards.find((card) => card.key === selected) ?? null;
-  /** Knoten, über die sich zwei Karten berühren. */
-  const shared = useMemo(() => new Set(links.flatMap((link) => link.via)), [links]);
 
-  // Die goldenen Linien: von Karte zu Karte, gemessen an dem, was wirklich auf dem Brett liegt.
-  const board = useRef<HTMLDivElement>(null);
-  const elements = useRef(new Map<string, HTMLElement>());
-  const [lines, setLines] = useState<Line[]>([]);
-  const [measure, setMeasure] = useState(0);
-  useEffect(() => {
-    const element = board.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() => setMeasure((count) => count + 1));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  useLayoutEffect(() => {
-    const element = board.current;
-    if (!element) return;
-    const frame = element.getBoundingClientRect();
-    // Mehrere Linien an einer Karte setzen untereinander an, nicht alle an derselben Stelle.
-    const used = new Map<string, number>();
-    const box = (key: string) => {
-      const rect = elements.current.get(key)?.getBoundingClientRect();
-      if (!rect) return null;
-      const count = used.get(key) ?? 0;
-      used.set(key, count + 1);
-      return {
-        left: rect.left - frame.left,
-        right: rect.right - frame.left,
-        mid: rect.top - frame.top + Math.min(rect.height - 14, 30 + count * 26),
-      };
-    };
-    const next: Line[] = [];
-    for (const link of links) {
-      const [a, b] = [box(link.a), box(link.b)];
-      if (!a || !b) continue;
-      const [first, second] = a.left <= b.left ? [a, b] : [b, a];
-      const same = Math.abs(a.left - b.left) < 4;
-      // Im selben Stapel läuft die Linie rechts außen herum, sonst von Rand zu Rand.
-      const [x1, x2] = same ? [first.right, second.right] : [first.right, second.left];
-      const bend = same ? 34 : Math.max(24, (x2 - x1) / 2);
-      const d = same
-        ? `M ${x1} ${first.mid} C ${x1 + bend} ${first.mid}, ${x2 + bend} ${second.mid}, ${x2} ${second.mid}`
-        : `M ${x1} ${first.mid} C ${x1 + bend} ${first.mid}, ${x2 - bend} ${second.mid}, ${x2} ${second.mid}`;
-      next.push({
-        key: `${link.a}|${link.b}`,
-        d,
-        x: same ? x1 + bend * 0.75 : (x1 + x2) / 2,
-        y: (first.mid + second.mid) / 2,
-        label: touchReason(data, link),
-        active: selected === link.a || selected === link.b,
-      });
+  // Die Pinnwand: frei verschieben, vergrößern, Karten und Namen ziehen.
+  const frame = useRef<HTMLDivElement>(null);
+  const wall = useBoard(frame);
+  /** Was gerade gezogen wird – seine Stelle, bis es losgelassen wird. */
+  const [moving, setMoving] = useState<{ key: string; x: number; y: number } | null>(null);
+  /** Wohin die Geschichte kommt, die gerade per Doppelklick aufs Brett entsteht. */
+  const [spot, setSpot] = useState<Spot | null>(null);
+  const placed = data.state.board;
+  const layout = useMemo(
+    () =>
+      boardLayout(
+        cards,
+        moving ? { ...placed, [moving.key]: { x: moving.x, y: moving.y } } : placed,
+      ),
+    [cards, placed, moving],
+  );
+  const pin = layout.pins.find((entry) => entry.key === selected) ?? null;
+  const showAll = (least?: number) =>
+    wall.fit(
+      [
+        ...Object.values(layout.cards).flatMap((at) => [
+          at,
+          { x: at.x, y: at.y + BOARD_CARD.height },
+        ]),
+        ...layout.pins,
+      ],
+      // Die Karten sind breit: Platz für eine halbe Karte am Rand.
+      140,
+      least,
+    );
+  // Beim Öffnen liegt das Brett im Bild – aber nie so klein, dass man nichts mehr lesen kann.
+  useLayoutEffect(() => showAll(0.62), []);
+
+  /** Was zum Gewählten gehört – alles andere tritt zurück. */
+  const related = useMemo(() => {
+    if (!selected) return null;
+    const keys = new Set([selected]);
+    for (const entry of layout.pins) {
+      if (entry.key === selected) entry.cards.forEach((key) => keys.add(key));
+      else if (entry.cards.includes(selected)) {
+        keys.add(entry.key);
+        // Karten, die über diesen Namen berührt werden, bleiben sichtbar.
+        entry.cards.forEach((key) => keys.add(key));
+      }
     }
-    setLines(next);
-  }, [links, data, selected, measure, view]);
+    return keys;
+  }, [selected, layout.pins]);
 
-  const column = (near: Nearness) => open.filter((card) => card.nearness === near);
+  const strings = layout.pins.flatMap((entry) =>
+    entry.cards.flatMap((key) => {
+      const card = layout.cards[key];
+      if (!card) return [];
+      const from = { x: card.x, y: card.y + 56 };
+      // Ein Faden hängt leicht durch.
+      const [mx, my] = [(from.x + entry.x) / 2, (from.y + entry.y) / 2 + 28];
+      return [
+        {
+          key: `${key}|${entry.key}`,
+          d: `M ${from.x} ${from.y} Q ${mx} ${my} ${entry.x} ${entry.y}`,
+          shared: entry.cards.length > 1,
+          active: selected === key || selected === entry.key,
+        },
+      ];
+    }),
+  );
+
+  /** Ziehen legt hin, ein Klick wählt. */
+  const grab = (key: string, at: Spot) => (event: PointerEvent) => {
+    event.stopPropagation();
+    wall.drag(event, {
+      onMove: (dx, dy) => setMoving({ key, x: at.x + dx, y: at.y + dy }),
+      onEnd: (moved, dx, dy) => {
+        setMoving(null);
+        if (moved) placeOnBoard(db, key, at.x + dx, at.y + dy);
+        else setSelected(key === selected ? null : key);
+      },
+    });
+  };
+  const tidy = () => {
+    const undo = tidyBoard(db);
+    requestAnimationFrame(() => showAll());
+    toast({
+      title: 'Brett aufgeräumt',
+      body: 'Wayfarer hat alles neu ausgelegt.',
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
   const isEmpty = cards.length === 0;
 
   return (
@@ -182,64 +235,94 @@ export default function FaedenPage() {
           >
             {view === 'party'
               ? 'Sobald die Gruppe einen Faden kennt oder einen Hinweis findet, steht er hier.'
-              : 'Eine Geschichte ist ein Vorhaben: Jemand will etwas, und eine Uhr sagt, was geschieht, wenn niemand eingreift. Ein Faden ist eine Frage oder Spur, der die Gruppe folgen kann. Du schreibst beides – Wayfarer zeigt, wie nah die Gruppe dran ist und wo sich Geschichten berühren.'}
+              : 'Eine Geschichte ist ein Vorhaben: Jemand will etwas, und eine Uhr sagt, was geschieht, wenn niemand eingreift. Ein Faden ist eine Frage oder Spur, der die Gruppe folgen kann. Du schreibst beides – auf dem Brett verbinden Fäden jede Geschichte mit den Personen und Orten, an denen sie hängt.'}
           </EmptyState>
         </div>
       ) : (
         <div className="wf-faden-body">
-          <div className="wf-faden-scroll">
-            <div
-              className="wf-faden-board"
-              ref={board}
-              style={{
-                // Ein leerer Stapel braucht wenig Platz.
-                gridTemplateColumns: COLUMNS.map((near) =>
-                  column(near).length ? 'minmax(0, 1fr)' : 'minmax(0, 0.42fr)',
-                ).join(' '),
-              }}
-            >
-              <svg className="wf-faden-lines" aria-hidden>
-                {lines.map((line) => (
-                  <path key={line.key} d={line.d} data-active={line.active} />
+          <div
+            ref={frame}
+            className="wf-faden-wall"
+            onPointerDown={(event) => wall.pan(event, () => setSelected(null))}
+            onDoubleClick={(event) => {
+              if (view !== 'truth') return;
+              setSpot(wall.toBoard(event.clientX, event.clientY));
+              setDialog({ type: 'story', story: null });
+            }}
+          >
+            <div className="wf-faden-layer" style={{ transform: wall.transform }}>
+              <svg className="wf-faden-strings" aria-hidden>
+                {strings.map((line) => (
+                  <path
+                    key={line.key}
+                    d={line.d}
+                    data-shared={line.shared}
+                    data-active={line.active}
+                    data-dim={selected !== null && !line.active}
+                  />
                 ))}
               </svg>
-              {COLUMNS.map((near) => (
-                <section key={near} className="wf-faden-col" aria-label={NEARNESS_LABEL[near]}>
-                  <h2 className="wf-faden-col__title" title={COLUMN_HINT[near]}>
-                    {NEARNESS_LABEL[near]}
-                    <span>{column(near).length}</span>
-                  </h2>
-                  {column(near).map((card) => (
-                    <Card
-                      key={card.key}
-                      card={card}
-                      selected={card.key === selected}
-                      shared={shared}
-                      onSelect={() => setSelected(card.key === selected ? null : card.key)}
-                      register={(element) => {
-                        if (element) elements.current.set(card.key, element);
-                        else elements.current.delete(card.key);
-                      }}
-                    />
-                  ))}
-                  {column(near).length === 0 && (
-                    <p className="wf-faden-col__none">{COLUMN_HINT[near]}</p>
-                  )}
-                </section>
-              ))}
-              {lines.map((line) => (
-                <span
-                  key={line.key}
-                  className={line.active ? 'wf-faden-touch' : 'wf-faden-knot'}
-                  title={line.label}
-                  style={{ left: line.x, top: line.y }}
-                >
-                  {line.active ? line.label : ''}
-                </span>
+              {layout.pins.map((entry) => {
+                const entity = data.entities[entry.id];
+                if (!entity) return null;
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    className="wf-faden-pin"
+                    style={{ left: entry.x, top: entry.y }}
+                    data-shared={entry.cards.length > 1}
+                    data-dim={related !== null && !related.has(entry.key)}
+                    aria-pressed={entry.key === selected}
+                    title={
+                      entry.cards.length > 1
+                        ? `${entity.name} – hier berühren sich ${entry.cards.length} Karten`
+                        : entity.name
+                    }
+                    onPointerDown={grab(entry.key, entry)}
+                    onDoubleClick={(event) => event.stopPropagation()}
+                  >
+                    <KindIcon kind={entity.kind} />
+                    <span className="wf-clamp-1">{entity.name}</span>
+                  </button>
+                );
+              })}
+              {open.map((card) => (
+                <Card
+                  key={card.key}
+                  card={card}
+                  at={layout.cards[card.key]!}
+                  selected={card.key === selected}
+                  dim={related !== null && !related.has(card.key)}
+                  onGrab={grab(card.key, layout.cards[card.key]!)}
+                />
               ))}
             </div>
+            <div className="wf-faden-tools" onPointerDown={(event) => event.stopPropagation()}>
+              <IconButton label="Größer" size="sm" onClick={() => wall.zoom(1.25)}>
+                <Plus />
+              </IconButton>
+              <IconButton label="Kleiner" size="sm" onClick={() => wall.zoom(0.8)}>
+                <Minus />
+              </IconButton>
+              <IconButton label="Alles zeigen" size="sm" onClick={() => showAll()}>
+                <Maximize />
+              </IconButton>
+              <IconButton
+                label="Aufräumen – Wayfarer legt alles neu aus"
+                size="sm"
+                disabled={Object.keys(placed).length === 0}
+                onClick={tidy}
+              >
+                <LayoutGrid />
+              </IconButton>
+            </div>
             {closed.length > 0 && (
-              <details className="wf-faden-closed">
+              <details
+                className="wf-faden-closed"
+                onPointerDown={(event) => event.stopPropagation()}
+                onDoubleClick={(event) => event.stopPropagation()}
+              >
                 <summary>Abgeschlossen · {closed.length}</summary>
                 {closed.map((card) => (
                   <button
@@ -257,22 +340,32 @@ export default function FaedenPage() {
               </details>
             )}
           </div>
-          <Side
-            card={current}
-            view={view}
-            links={links}
-            cards={cards}
-            onSelect={setSelected}
-            onEdit={setDialog}
-          />
+          {pin ? (
+            <PinSide pin={pin} cards={cards} onSelect={setSelected} />
+          ) : (
+            <Side
+              card={current}
+              view={view}
+              links={links}
+              cards={cards}
+              onSelect={setSelected}
+              onEdit={setDialog}
+            />
+          )}
         </div>
       )}
 
       {dialog?.type === 'story' && (
         <StoryDialog
           story={dialog.story}
-          onClose={() => setDialog(null)}
+          onClose={() => {
+            setDialog(null);
+            setSpot(null);
+          }}
           onSaved={(story) => {
+            // Per Doppelklick aufs Brett angelegt: Die Karte liegt dort, wo geklickt wurde.
+            if (spot) placeOnBoard(db, `story:${story.id}`, spot.x, spot.y);
+            setSpot(null);
             setDialog(null);
             setSelected(`story:${story.id}`);
           }}
@@ -289,41 +382,61 @@ export default function FaedenPage() {
           }}
         />
       )}
+      {dialog?.type === 'clock' && (
+        <ClockDialog
+          key={dialog.clock?.id ?? 'neu'}
+          clock={dialog.clock}
+          onClose={() => {
+            // Eine Uhr, die in diesem Fenster entstanden ist, gehört zur Geschichte.
+            const now = db.getSnapshot();
+            const fresh = Object.keys(now.clocks).filter((id) => !dialog.before.has(id));
+            if (fresh.length === 1 && now.stories[dialog.storyId])
+              db.patch('stories', dialog.storyId, { clockId: fresh[0]! });
+            setDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-/** Eine Karte auf dem Brett: eine Geschichte mit Antreiber, Uhr und Fäden – oder ein loser Faden. */
+/** Eine Karte auf dem Brett: das Wichtigste auf einen Blick – alles Weitere steht im Seitenteil. */
 function Card({
   card,
+  at,
   selected,
-  shared,
-  onSelect,
-  register,
+  dim,
+  onGrab,
 }: {
   card: BoardCard;
+  at: Spot;
   selected: boolean;
-  shared: ReadonlySet<string>;
-  onSelect: () => void;
-  register: (element: HTMLElement | null) => void;
+  dim: boolean;
+  onGrab: (event: PointerEvent) => void;
 }) {
   const data = useData();
   const now = data.state.now;
   const owner = card.story?.ownerId ? data.entities[card.story.ownerId] : undefined;
   const repute = owner ? reputeOf(data, owner.id).party : null;
   const lone = card.story ? null : card.threads[0]!;
+  const live = card.threads.filter(threadLive);
+  const warnings = card.threads.filter((thread) => threadWarning(thread)).length;
   const found = lone ? lone.hints.filter((hint) => hint.found).length : 0;
-  const nodes = card.nodes.slice(0, 6);
   return (
     <button
-      ref={register}
       type="button"
       className={cx('wf-faden-card', !card.story && 'wf-faden-card--thread')}
+      style={{ left: at.x, top: at.y }}
+      data-near={card.nearness}
+      data-dim={dim}
       aria-pressed={selected}
-      onClick={onSelect}
+      onPointerDown={onGrab}
+      onDoubleClick={(event) => event.stopPropagation()}
     >
       <span className="wf-faden-card__top">
-        <span className="wf-faden-card__sort">{card.story ? 'Geschichte' : 'Loser Faden'}</span>
+        <span className="wf-faden-card__sort">
+          {card.story ? 'Geschichte' : 'Loser Faden'} · {NEARNESS_LABEL[card.nearness]}
+        </span>
         {card.story ? (
           card.pace !== 'none' && (
             <span className={`wf-faden-pace wf-faden-pace--${card.pace}`}>
@@ -336,10 +449,10 @@ function Card({
           </span>
         )}
       </span>
-      <span className="wf-faden-card__title">{card.title}</span>
+      <span className="wf-faden-card__title wf-clamp-2">{card.title}</span>
       {owner && (
         <span className="wf-faden-card__owner">
-          Treibt an: {owner.name}
+          <span className="wf-clamp-1">Treibt an: {owner.name}</span>
           {repute !== null && (
             <span className="wf-faden-card__repute" title={`Ruf der Gruppe bei ${owner.name}`}>
               <AttitudeBadge value={repute} />
@@ -361,17 +474,14 @@ function Card({
           </span>
         </span>
       )}
-      {card.story && card.threads.length > 0 && (
-        <span className="wf-faden-card__threads">
-          {card.threads.slice(0, 4).map((thread) => (
-            <span key={thread.id} className={`wf-faden-thread wf-faden-thread--${thread.state}`}>
-              <i aria-hidden />
-              <span className="wf-clamp-2">{thread.title}</span>
-              {threadWarning(thread) && <TriangleAlert aria-label="Warnung" />}
-            </span>
-          ))}
-          {card.threads.length > 4 && (
-            <span className="wf-faden-card__more">und {card.threads.length - 4} weitere Fäden</span>
+      {card.story && live.length > 0 && (
+        <span className="wf-faden-card__owner">
+          {live.length === 1 ? '1 Faden' : `${live.length} Fäden`}
+          {warnings > 0 && (
+            <>
+              <TriangleAlert aria-hidden />
+              {warnings === 1 ? '1 Warnung' : `${warnings} Warnungen`}
+            </>
           )}
         </span>
       )}
@@ -381,21 +491,58 @@ function Card({
           {threadWarning(lone) && <TriangleAlert aria-label="Warnung" />}
         </span>
       )}
-      {nodes.length > 0 && (
-        <span className="wf-faden-card__nodes">
-          {nodes.map((id) => (
-            <span key={id} className="wf-faden-node" data-shared={shared.has(id)}>
-              {data.entities[id]?.name}
-            </span>
-          ))}
-          {card.nodes.length > nodes.length && (
-            <span className="wf-faden-node wf-faden-node--more">
-              +{card.nodes.length - nodes.length}
-            </span>
-          )}
-        </span>
-      )}
     </button>
+  );
+}
+
+/** Der Seitenteil zu einem Namen auf dem Brett: wer das ist und welche Karten an ihm hängen. */
+function PinSide({
+  pin,
+  cards,
+  onSelect,
+}: {
+  pin: BoardPin;
+  cards: BoardCard[];
+  onSelect: (key: string) => void;
+}) {
+  const data = useData();
+  const [, navigate] = useLocation();
+  const entity = data.entities[pin.id];
+  if (!entity) return null;
+  const hanging = pin.cards
+    .map((key) => cards.find((card) => card.key === key))
+    .filter((card): card is BoardCard => !!card);
+  return (
+    <aside className="wf-faden-side">
+      <div className="wf-faden-side__head">
+        <span className="wf-faden-card__sort">
+          {hanging.length > 1 ? 'Hier berühren sich Geschichten' : 'Hängt an einer Karte'}
+        </span>
+        <Button size="sm" onClick={() => navigate(entityHref(entity))}>
+          Seite öffnen
+        </Button>
+      </div>
+      <h2 className="wf-faden-side__title">{entity.name}</h2>
+      {entity.tagline && <p className="wf-prose">{entity.tagline}</p>}
+      <section>
+        <h3 className="wf-faden-side__sub">Karten an diesem Namen</h3>
+        {hanging.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            className="wf-faden-touchrow"
+            onClick={() => onSelect(card.key)}
+          >
+            <span>{card.title}</span>
+            <em>{card.story ? 'Geschichte' : 'Loser Faden'}</em>
+          </button>
+        ))}
+      </section>
+      <p className="wf-mute">
+        Du kannst den Namen frei legen – er bleibt dort. „Aufräumen“ unten rechts legt alles neu
+        aus.
+      </p>
+    </aside>
   );
 }
 
@@ -429,8 +576,13 @@ function Side({
           und was sie berührt.
         </p>
         <p className="wf-mute">
-          Goldene Linien verbinden Geschichten, die an derselben Person, demselben Ort oder
-          derselben Fraktion hängen.
+          Fäden verbinden jede Karte mit den Personen, Orten und Fraktionen, an denen sie hängt.
+          Hängen zwei Karten am selben Namen, berühren sich ihre Geschichten – der Name ist dann
+          golden.
+        </p>
+        <p className="wf-mute">
+          Karten und Namen legst du frei: einfach ziehen. Das Brett selbst ziehst du am leeren
+          Grund, das Mausrad vergrößert, ein Doppelklick legt eine neue Geschichte an.
         </p>
       </aside>
     );
@@ -479,6 +631,30 @@ function Side({
         </p>
       )}
 
+      {truth && story && !card.clock && (
+        <section>
+          <h3 className="wf-faden-side__sub">
+            Wenn niemand eingreift
+            <Button
+              size="sm"
+              icon={<Plus />}
+              onClick={() =>
+                onEdit({
+                  type: 'clock',
+                  clock: null,
+                  storyId: story.id,
+                  before: new Set(Object.keys(data.clocks)),
+                })
+              }
+            >
+              Uhr
+            </Button>
+          </h3>
+          <p className="wf-mute">
+            Noch keine Uhr. Sie sagt Schritt für Schritt, was geschieht, wenn die Gruppe nichts tut.
+          </p>
+        </section>
+      )}
       {card.clock && (
         <section>
           <h3 className="wf-faden-side__sub">
@@ -486,6 +662,22 @@ function Side({
             <span className={`wf-faden-pace wf-faden-pace--${card.pace}`}>
               {PACE_LABEL[card.pace]}
             </span>
+            {truth && story && (
+              <Button
+                size="sm"
+                icon={<Pencil />}
+                onClick={() =>
+                  onEdit({
+                    type: 'clock',
+                    clock: card.clock!.clock,
+                    storyId: story.id,
+                    before: new Set(Object.keys(data.clocks)),
+                  })
+                }
+              >
+                Uhr
+              </Button>
+            )}
           </h3>
           <ol className="wf-faden-steps">
             {card.clock.steps.map((step) => (
@@ -672,7 +864,7 @@ function Side({
         </section>
       )}
 
-      {card.nodes.length > 0 && (
+      {(card.nodes.length > 0 || truth) && (
         <section>
           <h3 className="wf-faden-side__sub">Hängt an</h3>
           <div className="wf-faden-card__nodes">
@@ -682,6 +874,17 @@ function Side({
               </span>
             ))}
           </div>
+          {truth && (
+            <EntityPicker
+              value={null}
+              onChange={(id) => {
+                if (id) pinToCard(db, card.key, id);
+              }}
+              kinds={['person', 'place', 'faction', 'family', 'item']}
+              exclude={card.nodes}
+              placeholder="Person, Ort oder Fraktion anheften …"
+            />
+          )}
         </section>
       )}
     </aside>

@@ -1137,6 +1137,36 @@ LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
     Der Abgleich des Spielstands (Bereich I) braucht ein **eigenes, privates** Repository.
 20. Warnungen beim ersten Start sind in Ordnung – keine Signierung nötig.
 
+### Wegenetze und Fadenbrett als Pinnwand (13. 11. 2026) – gebaut
+
+Der Spielleiter: Als Nächstes kommen mehrere „Point Crawls“ (der Weg von der Bucht bis in die
+Stadt in der Tiefe, der Weg aus der Drow-Stadt hinaus) – die müssen sich vorbereiten lassen, ohne
+in der App so zu heißen. Und: Das Fadenbrett sei unübersichtlich, habe keine Linien mehr und
+solle „wie eine Art Whiteboard“ funktionieren.
+
+- **Wegenetze** (Sammlung `nets`, `domain/net.ts`, `features/wegenetz`, Reiter unter „Karten“):
+  ein Blatt mit Punkten (Orten der Welt) und den Wegen dazwischen. Punkte ziehen, Weg zu einem
+  Punkt ziehen, „Nächster Punkt“ (Name + Dauer, Enter), Doppelklick legt einen Ort an. Rechts:
+  am Punkt „Was hier ist“ / „Nur für dich“ (Notizen und Spielleiterwissen des Ortes), was dort
+  hängt (Geschichten, Fäden, Uhren, Bestände, Begegnungen), Wege von hier; am Weg Dauer (als
+  Text: „2 Tage“), Art, Name, Besonderheiten, **Unterwegs** (Text) und **Begegnung unterwegs**,
+  nur eine Richtung, der Gruppe unbekannt. „Strecke schreiben“ übernimmt Ketten mit Pfeilen und
+  zeigt vorher, welche Orte neu entstehen. Am Spieltisch: Knopf „Wegenetz“; ein Weg, auf dem
+  etwas wartet, zeigt es vor dem Aufbruch.
+- **Fadenbrett als Pinnwand:** Karten (Geschichten, lose Fäden) und Namen (Personen, Orte,
+  Fraktionen) liegen frei auf einem Blatt, Fäden verbinden sie; ein Name, an dem mehrere Karten
+  hängen, ist golden – dort berühren sich Geschichten. Ziehen legt hin (`state.board`), der
+  Rest wird ausgelegt (`boardLayout`), „Aufräumen“ legt alles neu aus. Karten sind knapper;
+  das Seitenteil trägt die Einzelheiten. Neu im Seitenteil: Uhr anlegen und ändern, Namen
+  anheften. Doppelklick aufs Brett legt eine Geschichte an.
+- **Nicht geprüft:** installierte App, echte Daten, sehr große Netze (30+ Punkte), Bretter mit
+  vielen Geschichten.
+- **Offen:** Verirren und Abkürzungen abseits der Wege; Punkt für Punkt gehen mit Halt (heute:
+  Nachbarpunkt wählen → „Hierher gehen“); Licht und Vorräte auf langen Wegen unter der Erde;
+  ein Netz in einem Punkt (Stadt in der Strecke) ist heute einfach ein zweites Netz; Geschichte
+  auf einem Blatt schreiben (Vorhaben, Uhr, Fäden, Hinweise zusammen) – der Spielleiter nennt
+  das Vorbereiten von Geschichten „noch sehr schwer“.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)
