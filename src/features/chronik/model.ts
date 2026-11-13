@@ -96,6 +96,7 @@ export const KIND_NAME: Record<ChronicleKind, string> = {
   downtime: 'Zwischenzeit',
   transformation: 'Wandlung',
   companion: 'Begleiter',
+  trade: 'Handel',
 };
 
 /** Arten, die der Spielleiter selbst schreibt. Alle anderen entstehen automatisch. */
@@ -544,6 +545,8 @@ export function lockedRefs(entry: ChronicleEntry): string[] {
   add(entry.companion?.ownerId);
   add(entry.reveal?.alias?.entityId);
   for (const activity of entry.downtime?.activities ?? []) add(activity.characterId);
+  add(entry.trade?.toId);
+  for (const line of entry.trade?.lines ?? []) add(line.entityId);
   if (entry.kind === 'wish') add(entry.refs[0]);
   return ids;
 }
@@ -714,6 +717,8 @@ const GONE =
 export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): string {
   if (Object.values(data.loot).some((loot) => loot.given && loot.chronicleId === entry.id))
     return 'Die Ausgabe gilt dann als nicht geschehen: Die Beute liegt im Beute-Buch wieder bereit, und ein Gegenstand ist wieder dort, wo er vorher war.';
+  if (entry.kind === 'trade')
+    return 'Der Handel gilt dann als nicht geschehen: Der Bestand des Ladens ist wieder, wie er war, und ein einzelnes Stück ist wieder bei dem, der es vorher hatte.';
   const holds = effectHolds(data, entry);
   const { previous } = neighboursOfSort(data, entry);
   if (entry.kind === 'travel' && entry.travel) {

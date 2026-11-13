@@ -9,6 +9,7 @@ import { KIND_LABEL } from './chronicleKinds';
 import { entityName } from './derive';
 import { formatDatePoint, lifeWords } from './lifespan';
 import { lootLine } from './loot';
+import { holderAfter, tradeHeadline } from './shop';
 import type { CampaignData, ChronicleEntry, ChroniclePrecision, DatePoint, Loot } from './schema';
 import {
   formatDate,
@@ -93,6 +94,12 @@ const givenLoot = (data: Pick<CampaignData, 'loot'>, itemId: string): Loot[] =>
 const isHolderEntry = (entry: ChronicleEntry, itemId: string) =>
   entry.kind === 'change' && entry.holder?.itemId === itemId;
 
+/** Die Zeile eines Handels, in der dieser Gegenstand als einzelnes Stück den Besitzer wechselte. */
+const tradedLine = (entry: ChronicleEntry, itemId: string) =>
+  entry.kind === 'trade'
+    ? entry.trade?.lines.find((line) => line.claimed && line.entityId === itemId)
+    : undefined;
+
 /**
  * Was dem Gegenstand geschah, das Älteste zuerst. Leer, wenn es ihn nicht gibt. Beute, die nur
  * bereitliegt, steht nicht darin (`readyFor`); zurückgenommene Ausgaben gelten als nicht
@@ -151,6 +158,29 @@ export function itemHistory(data: CampaignData, itemId: string): ItemEvent[] {
   const fromLoot = lootLines(data);
   for (const entry of Object.values(data.chronicle)) {
     if (fromLoot.has(entry.id)) continue;
+    const traded = tradedLine(entry, itemId);
+    if (traded && entry.trade) {
+      // Gekauft oder verkauft: ein Wechsel des Besitzers wie eine Ausgabe – kein Beute.
+      const to = holderAfter(data, entry.trade);
+      const party = entry.trade.direction === 'buy' && !entry.trade.toId;
+      events.push({
+        ...blank,
+        key: `entry:${entry.id}`,
+        sort: 'holder',
+        at: entry.at,
+        precision: entry.precision,
+        label: entry.trade.direction === 'buy' ? 'Gekauft' : 'Verkauft',
+        text: [tradeHeadline(data, entry), entry.text.trim()].filter(Boolean).join('. '),
+        whoIds: to && !party ? [to] : [],
+        party,
+        placeId: entry.placeId,
+        sessionId: entry.sessionId,
+        secret: entry.secret,
+        entryId: entry.id,
+        created: entry.created,
+      });
+      continue;
+    }
     const holder = isHolderEntry(entry, itemId);
     if (!holder && !entry.refs.includes(itemId)) continue;
     events.push({
@@ -230,7 +260,9 @@ export function holdersOf(data: CampaignData, itemId: string): Holding[] {
     const before = first.lootId
       ? (data.loot[first.lootId]?.holderBefore ?? null)
       : first.entryId
-        ? (data.chronicle[first.entryId]?.holder?.before ?? null)
+        ? (data.chronicle[first.entryId]?.holder?.before ??
+          tradedLine(data.chronicle[first.entryId]!, itemId)?.holderBefore ??
+          null)
         : null;
     if (before)
       steps.push({

@@ -372,6 +372,8 @@ const ItemDetails = z.object({
   recipe: RecipeSchema.nullable().default(null),
   /** Ein Buch in der Welt (`domain/book.ts`); null = kein Buch. */
   book: BookSchema.nullable().default(null),
+  /** Listenpreis in Goldmünzen – was er gewöhnlich kostet (`domain/shop.ts`); null = nicht angegeben. */
+  price: z.number().nonnegative().nullable().default(null),
 });
 
 const TopicDetails = z.object({
@@ -562,6 +564,8 @@ export const CHRONICLE_KINDS = [
   'downtime',
   'transformation',
   'companion',
+  // Läden und Preise
+  'trade',
 ] as const;
 export type ChronicleKind = (typeof CHRONICLE_KINDS)[number];
 
@@ -591,6 +595,29 @@ export type PromiseSort = (typeof PROMISE_SORTS)[number];
 /** Wie eine Beziehung vor einem Eintrag der Art `bond` stand – zum Zurücknehmen. */
 export const BOND_BEFORE = ['none', 'active', 'ended'] as const;
 export type BondBefore = (typeof BOND_BEFORE)[number];
+
+/** Kaufen oder verkaufen (aus Sicht der Gruppe). */
+export const TRADE_DIRECTIONS = ['buy', 'sell'] as const;
+export type TradeDirection = (typeof TRADE_DIRECTIONS)[number];
+
+/** Eine Zeile eines Handels: was, wie viele, zu welchem Stückpreis. */
+export const TradeLineSchema = z.object({
+  /** Ein Eintrag der Welt (Gegenstand, Pflanze, Tier, Gestein); null = nur in Worten. */
+  entityId: id.nullable().default(null),
+  /** Der Name in Worten, wie er zur Zeit des Handels hieß. */
+  text: z.string().default(''),
+  qty: z.number().int().positive().default(1),
+  /** Stückpreis in Goldmünzen. */
+  price: z.number().nonnegative().default(0),
+  /** Die Zeile des Ladenbestands, aus der es kam bzw. in die es ging; null = keine. */
+  stockId: id.nullable().default(null),
+  /** Beim Verkauf: Die Zeile des Bestands entstand erst durch diesen Handel. */
+  stockAdded: z.boolean().default(false),
+  /** Ein einzelnes Stück wechselte den Besitzer; `holderBefore` = bei wem es vorher war. */
+  claimed: z.boolean().default(false),
+  holderBefore: id.nullable().default(null),
+});
+export type TradeLine = z.infer<typeof TradeLineSchema>;
 
 export const ChronicleEntrySchema = z.object({
   ...base,
@@ -820,6 +847,23 @@ export const ChronicleEntrySchema = z.object({
       itemId: id,
       holderId: id.nullable().default(null),
       before: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = trade: Die Gruppe hat gekauft (`buy`) oder verkauft (`sell`) – in einem Laden
+   * (`shopId`) oder ohne. `toId` = der Gefährte, der kauft bzw. verkauft; null = die Gruppe.
+   * Je Zeile Stückpreis und Menge; `total` = die Summe. Was der Eintrag geändert hat, merkt er
+   * sich, damit Löschen es zurücknimmt: Bestand (`stockId`, `stockAdded`) und Besitzer eines
+   * einzelnen Stücks (`holderBefore`, `claimed`).
+   */
+  trade: z
+    .object({
+      shopId: id.nullable().default(null),
+      direction: z.enum(TRADE_DIRECTIONS).default('buy'),
+      toId: id.nullable().default(null),
+      lines: z.array(TradeLineSchema).default([]),
+      total: z.number().nonnegative().default(0),
     })
     .nullable()
     .default(null),
@@ -2299,6 +2343,47 @@ export const GuessSchema = z.object({
 });
 export type Guess = z.infer<typeof GuessSchema>;
 
+// ── Läden ──────────────────────────────────────────────────────────────────
+
+/** Eine Zeile im Bestand eines Ladens. */
+export const ShopStockSchema = z.object({
+  id,
+  /** Ein Eintrag der Welt (Gegenstand, Pflanze, Tier, Gestein); null = nur in Worten. */
+  entityId: id.nullable().default(null),
+  /** Der Name in Worten; bei einem Eintrag sein Name zur Zeit der Wahl (bleibt, wenn er gelöscht wird). */
+  text: z.string().default(''),
+  /** Eigener Preis in diesem Laden; null = Listenpreis des Eintrags mal Preisfaktor. */
+  price: z.number().nonnegative().nullable().default(null),
+  /** Wie viele da sind; null = so viele man will. */
+  qty: z.number().int().nonnegative().nullable().default(null),
+});
+export type ShopStock = z.infer<typeof ShopStockSchema>;
+
+/**
+ * Ein Laden (`domain/shop.ts`): ein Ort, der etwas verkauft – mit Händler, Bestand und Preisen.
+ * Was er verkauft und angekauft hat, steht nur in der Chronik (Einträge der Art „Handel“).
+ */
+export const ShopSchema = z.object({
+  ...base,
+  /** Wie er heißt: „Zum Rostigen Anker“; leer = Art und Händler. */
+  title: z.string().default(''),
+  /** Frei: Schmiede, Krämer, Kräuterhändler … */
+  kind: z.string().default(''),
+  /** Wo er steht; null = dort, wo der Händler ist (fahrender Händler). */
+  placeId: id.nullable().default(null),
+  /** Wer verkauft (Person oder Fraktion). */
+  keeperId: id.nullable().default(null),
+  /** Preise im Verhältnis zum Listenpreis: 1 = Listenpreis, 0,8 = billig, 1,5 = Wucher. */
+  priceFactor: z.number().positive().default(1),
+  /** Was er beim Ankauf zahlt, im Verhältnis zum Listenpreis. */
+  buyFactor: z.number().nonnegative().default(0.5),
+  /** Einordnungen, die er ankauft („Kraut“, „Waffe“, „Pflanze“); leer = alles. */
+  buys: z.array(z.string()).default([]),
+  stock: z.array(ShopStockSchema).default([]),
+  notes: z.string().default(''),
+});
+export type Shop = z.infer<typeof ShopSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -2331,6 +2416,7 @@ export const COLLECTION_SCHEMAS = {
   handouts: HandoutSchema,
   bastions: BastionSchema,
   guesses: GuessSchema,
+  shops: ShopSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2363,6 +2449,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'handouts',
   'bastions',
   'guesses',
+  'shops',
 ];
 
 export type CollectionTypes = {
@@ -2479,6 +2566,11 @@ export function createHandout(init: Partial<Handout> = {}): Handout {
 export function createGuess(init: Partial<Guess> = {}): Guess {
   const stamp = nowIso();
   return GuessSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createShop(init: Partial<Shop> = {}): Shop {
+  const stamp = nowIso();
+  return ShopSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTrack(init: Partial<Track> & { name: string }): Track {

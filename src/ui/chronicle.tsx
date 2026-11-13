@@ -9,6 +9,7 @@ import {
   Briefcase,
   CalendarRange,
   PawPrint,
+  Coins,
   ScrollText,
   Wand2,
   Check,
@@ -105,6 +106,7 @@ export const CHRONICLE_KIND_ICON: Record<ChronicleKind, typeof Feather> = {
   downtime: CalendarRange,
   transformation: Wand2,
   companion: PawPrint,
+  trade: Coins,
 };
 
 /** Das Zeichen eines Eintrags – ein Auftrag hat ein eigenes. */
@@ -146,6 +148,7 @@ export const CHRONICLE_KIND_TONE: Record<ChronicleKind, string> = {
   downtime: 'var(--gold)',
   transformation: 'var(--arcane)',
   companion: 'var(--verdigris)',
+  trade: 'var(--gold)',
   event: 'var(--ember)',
 };
 

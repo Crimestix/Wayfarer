@@ -61,8 +61,12 @@ const byName = (a: { name: string }, b: { name: string }) => collator.compare(a.
 const wholeDays = (days: number) => Math.max(1, Math.ceil(days - 1e-9));
 const gold = (value: number) => Math.round(value * 100) / 100;
 
-/** Dauer und Kosten eines Rezepts: was im Rezept steht, sonst nach den Regeln. */
-export function craftPlan(recipe: Recipe): CraftPlan {
+/**
+ * Dauer und Kosten eines Rezepts: was im Rezept steht, sonst nach den Regeln. Ohne eigenen Preis
+ * im Rezept gilt der Listenpreis des Gegenstands (`listPrice`).
+ */
+export function craftPlan(recipe: Recipe, listPrice: number | null = null): CraftPlan {
+  if (recipe.price === null && listPrice !== null) recipe = { ...recipe, price: listPrice };
   const share = recipe.consumable ? CRAFTING_RULES.consumableShare : 1;
   let ruleDays: number | null = null;
   let ruleCost: number | null = null;
@@ -133,7 +137,7 @@ export function recipeView(data: Pick<CampaignData, 'entities'>, item: Item): Re
       const entity = (ingredient.entityId && data.entities[ingredient.entityId]) || null;
       return { ingredient, entity, name: entity?.name ?? ingredient.text.trim() };
     }),
-    plan: craftPlan(recipe),
+    plan: craftPlan(recipe, item.item.price),
   };
 }
 

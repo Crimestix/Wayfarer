@@ -123,6 +123,11 @@ export function RecipeSection({ item }: { item: Item }) {
               <NumberField
                 label="Preis in Gold"
                 value={priceText(recipe.price)}
+                placeholder={
+                  item.item.price !== null
+                    ? `${priceText(item.item.price)} wie der Listenpreis`
+                    : undefined
+                }
                 read={readPrice}
                 onSave={(price) => save({ price })}
               />

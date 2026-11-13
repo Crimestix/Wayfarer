@@ -12,6 +12,7 @@ import {
   createHandout,
   createGuess,
   createLoot,
+  createShop,
   createStock,
   createStory,
   createThread,
@@ -222,5 +223,27 @@ describe('Die Suche', () => {
       key: `bastion:${keep.id}`,
       sub: 'Bastion · Aalinsel',
     });
+  });
+
+  it('findet Läden – nach Namen, Art und Waren', async () => {
+    const world = await setup();
+    const shop = world.db.put(
+      'shops',
+      createShop({
+        title: 'Zum Rostigen Aal',
+        kind: 'Krämer',
+        placeId: world.isle.id,
+        stock: [{ id: 's1', entityId: null, text: 'Räucheraal', price: 0.5, qty: null }],
+      }),
+    );
+    const hit = searchWorld(world.data(), 'rostigen')[0];
+    expect(hit).toMatchObject({
+      key: `shop:${shop.id}`,
+      sort: 'shop',
+      sub: 'Laden · Krämer · Aalinsel',
+      href: `/welt/${world.isle.id}`,
+      focus: { type: 'shop', id: shop.id },
+    });
+    expect(searchWorld(world.data(), 'räucheraal').map((h) => h.key)).toContain(`shop:${shop.id}`);
   });
 });

@@ -187,7 +187,14 @@ describe('Lebenslauf eines Gegenstands', () => {
     expect(holdingName(data(), holders.at(-1)!)).toBe('die Gruppe');
     // Von Hand umgesetzt, ohne dass ein Wechsel festgehalten wurde (etwa aus dem Steckbrief).
     db.patch('entities', compass.id, {
-      item: { holderId: odo.id, category: '', history: false, recipe: null, book: null },
+      item: {
+        holderId: odo.id,
+        category: '',
+        history: false,
+        recipe: null,
+        book: null,
+        price: null,
+      },
     });
     expect(holdersOf(data(), compass.id).at(-1)).toMatchObject({
       holderId: odo.id,

@@ -98,6 +98,7 @@ const TEXT_LABEL: Partial<Record<RecordKind, string>> = {
   downtime: 'Was in der Zeit geschah',
   transformation: 'Was sich wandelt',
   companion: 'Anmerkung',
+  trade: 'Anmerkung',
 };
 
 /** Wie genau der Zeitpunkt bekannt ist – als Wahl im Dialog. */
@@ -359,7 +360,9 @@ export function EntryDialog({
                   ? 'Weg und Ziel bleiben; Anmerkung, Zeitpunkt und Verweise kannst du ergänzen.'
                   : entry?.kind === 'attitude'
                     ? 'Der Schritt bleibt; Grund, Zeitpunkt, Ort und Verweise kannst du ergänzen.'
-                    : 'Der Zeitpunkt bleibt; Bezeichnung, Ort und Verweise kannst du ergänzen.'}
+                    : entry?.kind === 'trade'
+                      ? 'Waren und Preise bleiben; Anmerkung, Zeitpunkt, Ort und Verweise kannst du ergänzen.'
+                      : 'Der Zeitpunkt bleibt; Bezeichnung, Ort und Verweise kannst du ergänzen.'}
               </div>
             </div>
           </div>

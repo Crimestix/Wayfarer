@@ -19,6 +19,7 @@ import {
   statusOf,
 } from '../domain/history';
 import { RELATION_TYPES } from '../domain/relations';
+import { holderAfter, planTrade, stockAfter } from '../domain/shop';
 import {
   CHRONICLE_PRECISIONS,
   FIGHT_OUTCOMES,
@@ -495,6 +496,15 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       refs = [...new Set([...[h.itemId, h.holderId].filter((id): id is string => !!id), ...refs])];
       return { entry: probe({ placeId, refs, holder, ...rest() }) };
     }
+    case 'trade': {
+      if (!input.trade) return { problem: 'Was wurde gekauft oder verkauft?' };
+      const plan = planTrade(data, input.trade);
+      if ('problem' in plan) return plan;
+      // Gehandelt wird im Laden – steht er an einem Ort, geschah es dort.
+      if (input.placeId === undefined && plan.placeId) placeId = plan.placeId;
+      refs = [...new Set([...plan.refs, ...refs])];
+      return { entry: probe({ placeId, refs, trade: plan.trade, ...rest() }) };
+    }
     case 'discovery':
     case 'decision':
     case 'quote':
@@ -644,6 +654,20 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
         db.patch('chronicle', entry.id, { companion: { ...c, relationId: relation.id } });
       } else if (c.relationId && data.relations[c.relationId])
         db.patch('relations', c.relationId, { ended: !c.joined });
+      return;
+    }
+    case 'trade': {
+      const t = entry.trade;
+      if (!t) return;
+      // Der Bestand des Ladens zieht mit; ein einzelnes Stück wechselt den Besitzer.
+      const shop = t.shopId ? data.shops[t.shopId] : undefined;
+      if (shop) db.patch('shops', shop.id, { stock: stockAfter(shop.stock, t) });
+      const holderId = holderAfter(data, t);
+      for (const line of t.lines) {
+        const item = line.claimed && line.entityId ? data.entities[line.entityId] : undefined;
+        if (item?.kind === 'item' && item.item.holderId !== holderId)
+          db.put('entities', { ...item, item: { ...item.item, holderId } });
+      }
       return;
     }
     default:
@@ -870,6 +894,19 @@ export function effectHolds(data: CampaignData, entry: ChronicleEntry): boolean 
       if (!c || c.before === null || !c.relationId) return false;
       const relation = data.relations[c.relationId];
       return !!relation && relation.ended === !c.joined;
+    }
+    case 'trade': {
+      const t = entry.trade;
+      if (!t) return false;
+      const holderId = holderAfter(data, t);
+      const stocked = !!t.shopId && !!data.shops[t.shopId] && t.lines.some((l) => l.stockId);
+      return (
+        stocked ||
+        t.lines.some((line) => {
+          const item = line.claimed && line.entityId ? data.entities[line.entityId] : undefined;
+          return item?.kind === 'item' && item.item.holderId === holderId;
+        })
+      );
     }
     default:
       return false;
@@ -1102,6 +1139,24 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
         if (!holds || !c.relationId) break;
         if (c.before === 'none') changes.remove('relations', c.relationId);
         else changes.patch('relations', c.relationId, { ended: c.before === 'ended' });
+        break;
+      }
+      case 'trade': {
+        const t = entry.trade;
+        if (!t) break;
+        // Der Bestand geht zurück; ein einzelnes Stück kehrt zurück, wenn es noch dort ist,
+        // wohin der Handel es brachte.
+        const shop = t.shopId ? data.shops[t.shopId] : undefined;
+        if (shop) changes.patch('shops', shop.id, { stock: stockAfter(shop.stock, t, true) });
+        const holderId = holderAfter(data, t);
+        for (const line of t.lines) {
+          const item = line.claimed && line.entityId ? data.entities[line.entityId] : undefined;
+          if (item?.kind === 'item' && item.item.holderId === holderId)
+            changes.put('entities', {
+              ...item,
+              item: { ...item.item, holderId: line.holderBefore },
+            });
+        }
         break;
       }
       default:

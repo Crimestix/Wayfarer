@@ -17,6 +17,7 @@ import {
   Route as RouteIcon,
   Search,
   Skull,
+  Store,
   Swords,
   Tent,
   Waypoints,
@@ -1142,6 +1143,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   bastion: <Castle />,
   loot: <Coins />,
   guess: <Lightbulb />,
+  shop: <Store />,
 };
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {

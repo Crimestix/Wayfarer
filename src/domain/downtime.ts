@@ -51,7 +51,7 @@ export function projectName(
 
 /** Arbeitstage, die ein neues Herstellen nach dem Rezept braucht; null = lässt sich nicht rechnen. */
 export function craftDays(item: Item | null | undefined): number | null {
-  return item?.item.recipe ? craftPlan(item.item.recipe).days : null;
+  return item?.item.recipe ? craftPlan(item.item.recipe, item.item.price).days : null;
 }
 
 /** Ein Vorhaben, das erst mit der freien Zeit entsteht. */

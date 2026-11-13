@@ -561,6 +561,18 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               />
             </Field>
           )}
+          {draft.kind === 'item' && (
+            <Field
+              label="Wert"
+              hint="Listenpreis in Gold – „2,5“, „12 GM“ oder „5 Silber“. Läden rechnen damit."
+            >
+              <Input
+                value={draft.price}
+                onChange={(e) => set({ price: e.target.value })}
+                aria-invalid={tried && problem?.startsWith('„Wert“')}
+              />
+            </Field>
+          )}
           {draft.kind !== 'person' && (
             <Field label="Art">
               <Input

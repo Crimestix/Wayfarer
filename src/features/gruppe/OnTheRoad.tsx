@@ -11,6 +11,9 @@ import { formatDuration } from '../../domain/time/calendar';
 import { IconButton, Panel } from '../../ui';
 import { marchIds, moveInMarch, onTheRoad, rowLabel } from './march';
 
+/** Gold mit Vorzeichen, wenn beim Handel mehr ausgegeben als eingenommen wurde: „−12 GM“. */
+const formatSigned = (gold: number) => (gold < 0 ? `−${formatGold(-gold)}` : formatGold(gold));
+
 export function OnTheRoad() {
   const db = useDb();
   const data = useData();
@@ -87,10 +90,16 @@ export function OnTheRoad() {
           )}
         </dd>
         <dt>Gold der Gruppe</dt>
-        <dd>
-          {road.groupGold > 0 ? formatGold(road.groupGold) : '–'}
-          {road.totalGold > road.groupGold && (
-            <span className="wf-mute"> · alles zusammen {formatGold(road.totalGold)}</span>
+        <dd
+          title={
+            road.totalTrade !== 0
+              ? `Beute ${formatSigned(road.totalGold - road.totalTrade)}, Handel ${formatSigned(road.totalTrade)}`
+              : undefined
+          }
+        >
+          {road.groupGold !== 0 ? formatSigned(road.groupGold) : '–'}
+          {road.totalGold !== road.groupGold && (
+            <span className="wf-mute"> · alles zusammen {formatSigned(road.totalGold)}</span>
           )}{' '}
           <Link href="/beute" className="wf-gruppe-textlink">
             Beute-Buch

@@ -4,6 +4,8 @@
  */
 import { activeParty } from '../../domain/derive';
 import { lootBook } from '../../domain/loot';
+import { roundGold } from '../../domain/priceList';
+import { tradeTotals } from '../../domain/shop';
 import type { CampaignData, Character, Timer } from '../../domain/schema';
 import { burningLights } from '../../domain/underground';
 
@@ -74,9 +76,15 @@ export interface OnTheRoad {
   lightOf: Map<string, Timer>;
   /** Lichter, die niemandem zugeordnet sind. */
   looseLights: Timer[];
-  /** Gold, das die Gruppe als Ganzes bekommen hat, und alles zusammen. */
+  /**
+   * Gold der Gruppe als Ganzes und aller zusammen: was sie als Beute bekommen hat, abzüglich
+   * dessen, was sie beim Handel ausgegeben, und zuzüglich dessen, was sie eingenommen hat.
+   */
   groupGold: number;
   totalGold: number;
+  /** Davon aus dem Handel (Einnahmen minus Ausgaben): der Gruppe und aller zusammen. */
+  groupTrade: number;
+  totalTrade: number;
 }
 
 export function onTheRoad(data: CampaignData): OnTheRoad {
@@ -90,11 +98,16 @@ export function onTheRoad(data: CampaignData): OnTheRoad {
     else if (!owner) looseLights.push(light);
   }
   const book = lootBook(data);
+  const trade = tradeTotals(data);
+  const groupTrade = trade.net.get(null) ?? 0;
+  const totalTrade = roundGold(trade.earned - trade.spent);
   return {
     rows,
     lightOf,
     looseLights,
-    groupGold: book.shares.find((share) => !share.character)?.gold ?? 0,
-    totalGold: book.gold,
+    groupGold: roundGold((book.shares.find((share) => !share.character)?.gold ?? 0) + groupTrade),
+    totalGold: roundGold(book.gold + totalTrade),
+    groupTrade,
+    totalTrade,
   };
 }

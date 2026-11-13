@@ -84,6 +84,7 @@ const FOLDER_LABEL: Record<string, string> = {
   handouts: 'Handouts',
   bastions: 'Bastionen',
   guesses: 'Vermutungen der Spieler',
+  shops: 'Läden',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

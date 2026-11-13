@@ -6,6 +6,7 @@
 import { entityName, type PromiseOutcome } from './derive';
 import { conditionEnding, fateSince } from './history';
 import { relationLabel } from './relations';
+import { tradeHeadline, type TradeInput } from './shop';
 import {
   PARTY_ID,
   type CampaignData,
@@ -94,6 +95,11 @@ export interface RecordInput {
    * `before` (Vorgabe: sein heutiger Besitzer). Hält nur fest, setzt nichts.
    */
   holder?: { itemId: string; holderId: string | null; before?: string | null };
+  /**
+   * Ein Handel: gekauft oder verkauft, mit Laden, Zeilen und wer (`domain/shop.ts`). Bestand und
+   * Besitzer einzelner Stücke ziehen mit; Löschen nimmt beides zurück.
+   */
+  trade?: TradeInput;
 }
 
 // ── Arten ──────────────────────────────────────────────────────────────────
@@ -127,6 +133,7 @@ export const KIND_LABEL: Record<ChronicleKind, string> = {
   downtime: 'Zwischenzeit',
   transformation: 'Wandlung',
   companion: 'Begleiter',
+  trade: 'Handel',
 };
 
 /** Ein Satz je Art: was hierher gehört und was der Eintrag bewirkt. */
@@ -159,6 +166,7 @@ export const KIND_HINT: Record<RecordKind, string> = {
     'Zeit vergeht mit Tätigkeiten der Gefährten. Nur der Eintrag – die Weltzeit bleibt stehen.',
   transformation: 'Ein Gefährte wandelt sich: neue Kräfte, neue Gestalt, ein verlorenes Glied …',
   companion: 'Ein Tier oder Wesen kommt zur Gruppe oder geht.',
+  trade: 'Die Gruppe kauft oder verkauft – in einem Laden oder ohne. Öffnet den Handel.',
 };
 
 /** Ein Satz zu den zweiten Eingängen des Festhaltens. */
@@ -176,9 +184,12 @@ export const CHOICE_HINT = {
  */
 export type RecordChoice = RecordKind | 'loot' | 'repute' | 'job' | 'guess';
 
-/** Wahlen, die keine Art der Chronik sind, sondern einen eigenen Dialog öffnen. */
-export const isOwnDialogChoice = (c: RecordChoice): c is 'loot' | 'guess' =>
-  c === 'loot' || c === 'guess';
+/**
+ * Wahlen, die einen eigenen Dialog öffnen: Beute und Vermutung sind keine Art der Chronik; der
+ * Handel ist eine, wird aber im Laden zusammengestellt (`features/laden`).
+ */
+export const isOwnDialogChoice = (c: RecordChoice): c is 'loot' | 'guess' | 'trade' =>
+  c === 'loot' || c === 'guess' || c === 'trade';
 
 export interface RecordChoiceInfo {
   choice: RecordChoice;
@@ -244,6 +255,7 @@ export const RECORD_GROUPS: RecordGroup[] = [
     choices: [
       choice('travel'),
       choice('loot', 'Beute'),
+      choice('trade'),
       choice('condition'),
       choice('milestone'),
       choice('wish'),
@@ -490,6 +502,8 @@ export function recordHeadline(data: CampaignData, entry: ChronicleEntry): strin
         ? `${entityName(data, entityId)} begleitet ${owner}`
         : `${entityName(data, entityId)} verlässt ${owner}`;
     }
+    case 'trade':
+      return tradeHeadline(data, entry);
     default:
       return '';
   }

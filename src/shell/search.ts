@@ -1,7 +1,8 @@
 /**
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
  * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
- * Handouts, Bastionen (mit ihren Einrichtungen), Beute und Vermutungen der Spieler. Reine Funktion –
+ * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler und Läden (auch
+ * nach ihren Waren). Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
@@ -9,6 +10,7 @@ import { HANDOUT_KIND_LABEL } from '../domain/handout';
 import { formatGold } from '../domain/loot';
 import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
 import { scheduleText } from '../domain/runs';
+import { shopPlaceId, shopTitle } from '../domain/shop';
 import type { CampaignData, Entity } from '../domain/schema';
 import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
 import { MINUTES_PER_DAY, dayIndexOf, formatDayMonth, startOfDay } from '../domain/time/calendar';
@@ -31,7 +33,8 @@ export type SearchSort =
   | 'handout'
   | 'bastion'
   | 'loot'
-  | 'guess';
+  | 'guess'
+  | 'shop';
 
 export interface SearchHit {
   key: string;
@@ -269,6 +272,21 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       sub: sub('Vermutung', GUESS_TRUTH_LABEL[guess.truth], about.join(', ')),
       href: '/spielerbuch',
       focus: { type: 'guess', id: guess.id },
+    });
+  }
+
+  for (const shop of Object.values(data.shops)) {
+    const title = shopTitle(data, shop);
+    const placeId = shopPlaceId(data, shop);
+    const home = shop.placeId && data.entities[shop.placeId] ? shop.placeId : shop.keeperId;
+    const goods = shop.stock.map((line) => line.text || name(line.entityId) || '');
+    add(score(q, title, shop.kind, shop.notes, ...goods), {
+      key: `shop:${shop.id}`,
+      sort: 'shop',
+      label: title,
+      sub: sub('Laden', shop.kind !== title && shop.kind, name(placeId)),
+      href: home && data.entities[home] ? `/welt/${home}` : '/welt',
+      focus: { type: 'shop', id: shop.id },
     });
   }
 

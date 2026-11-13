@@ -397,6 +397,7 @@ export const PARTY_KINDS: readonly ChronicleEntry['kind'][] = [
   'wish',
   'downtime',
   'transformation',
+  'trade',
 ];
 
 export interface PlaceStatus {

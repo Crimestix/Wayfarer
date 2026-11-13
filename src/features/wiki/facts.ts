@@ -279,6 +279,7 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
   item: {
     kind: KIND,
     owner: [...OWNER, 'Träger', 'Trägerin', 'Aufbewahrungsort', 'Ort'],
+    price: ['Preis', 'Wert', 'Marktwert', 'Kosten', 'Listenpreis'],
   },
   species: { kind: KIND },
   language: { kind: KIND },

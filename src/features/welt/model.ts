@@ -446,6 +446,7 @@ function kindFacts(data: CampaignData, entity: Entity): Fact[] {
         facts.push({ label: 'Befindet sich bei', ids: [entity.item.holderId] });
       else facts.push({ label: 'Verbleib', text: 'unbekannt' });
       text('Art', entity.item.category);
+      if (entity.item.price !== null) text('Wert', formatGold(entity.item.price));
       break;
     case 'topic':
       text('Art', entity.topic.category);
@@ -1091,6 +1092,10 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
     const { price, ...details } = natureOf(entity);
     return { ...draft, ...details, price: priceText(price) };
   }
+  if (entity.kind === 'item') {
+    const { price, holderId, category } = entity.item;
+    return { ...draft, holderId, category, price: priceText(price) };
+  }
   const details = (entity as unknown as Record<string, Partial<EntityDraft>>)[entity.kind];
   return { ...draft, ...details };
 }
@@ -1119,7 +1124,7 @@ export function draftProblem(
   ] as const)
     if (text.trim() && !readDatePoint(data.campaign.calendar, text, data.state.now, { age }))
       return `„${word}“ verstehe ich nicht – zum Beispiel „3. Tauwind 667“, „667“ oder „vor 300 Jahren“${age ? ' oder „Alter 34“' : ''}.`;
-  if (isNatureKind(draft.kind) && readPrice(draft.price) === undefined)
+  if ((isNatureKind(draft.kind) || draft.kind === 'item') && readPrice(draft.price) === undefined)
     return '„Wert“ verstehe ich nicht – zum Beispiel „12“, „2,5 GM“ oder „5 Silber“.';
   if (draft.kind === 'place' && draft.parentId) {
     const parent = data.entities[draft.parentId];
@@ -1193,7 +1198,7 @@ export function entityFromDraft(
         : createEntity({ kind: 'faction', ...common, faction });
     }
     case 'item': {
-      const item = { holderId: draft.holderId, category };
+      const item = { holderId: draft.holderId, category, price: readPrice(draft.price) ?? null };
       return base?.kind === 'item'
         ? { ...base, ...common, item: { ...base.item, ...item } }
         : createEntity({ kind: 'item', ...common, item });

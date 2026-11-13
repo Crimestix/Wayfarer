@@ -308,6 +308,8 @@ export function entryEntityIds(entry: ChronicleEntry): string[] {
   add(entry.companion?.ownerId);
   add(entry.reveal?.alias?.entityId);
   for (const activity of entry.downtime?.activities ?? []) add(activity.characterId);
+  add(entry.trade?.toId);
+  for (const line of entry.trade?.lines ?? []) add(line.entityId);
   return [...ids];
 }
 

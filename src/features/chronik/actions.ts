@@ -15,7 +15,7 @@ import { lockedRefs } from './model';
 import { draftOfEntry, kindOfFields, type RecordDraft, type RecordFieldsKind } from './recordDraft';
 
 /** Arten, deren Bedeutung fest ist: Sie werden nur in Anmerkung, Zeit, Ort und Verweisen geändert. */
-export const FIXED_KINDS = ['travel', 'attitude', 'event'] as const;
+export const FIXED_KINDS = ['travel', 'attitude', 'event', 'trade'] as const;
 
 export const isFixedKind = (kind: ChronicleEntry['kind']): boolean =>
   (FIXED_KINDS as readonly string[]).includes(kind);
