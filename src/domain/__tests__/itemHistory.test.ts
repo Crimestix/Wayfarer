@@ -14,8 +14,15 @@ import {
   itemHistory,
   readyFor,
 } from '../itemHistory';
-import { createEntity, type Item } from '../schema';
-import { MINUTES_PER_DAY } from '../time/calendar';
+import { deleteEntity } from '../../data/actions';
+import {
+  ChronicleEntrySchema,
+  createChronicleEntry,
+  createEntity,
+  EntitySchema,
+  type Item,
+} from '../schema';
+import { formatYear, fromTime, MINUTES_PER_DAY } from '../time/calendar';
 
 /** Eine Welt mit Hohenfurt, zwei erfundenen Gefährten und einem Kompass, der bei Lando liegt. */
 async function setup(history = true) {
@@ -197,6 +204,37 @@ describe('Lebenslauf eines Gegenstands', () => {
     expect(itemHistory(data(), compass.id)).toEqual([]);
     expect(readyFor(data(), compass.id).map((l) => l.id)).toEqual([given.id]);
     expect(holdersOf(data(), compass.id)).toMatchObject([{ holderId: lando.id, current: true }]);
+  });
+
+  it('macht aus einem gelöschten Empfänger nicht die Gruppe', async () => {
+    const { db, data, compass, mira, loot } = await setup();
+    giveLoot(db, loot({ itemId: compass.id, toId: mira.id }).id);
+    deleteEntity(db, mira.id);
+    const [given] = itemHistory(data(), compass.id);
+    expect(given).toMatchObject({ sort: 'given', party: false, whoIds: [mira.id] });
+    expect(itemEventWho(data(), given!)).toBe('an');
+    expect(holdersOf(data(), compass.id).some((h) => h.party)).toBe(false);
+  });
+
+  it('nennt „seit“ nur so genau, wie die Entstehung bekannt ist', async () => {
+    const { db, data, compass, mira, later, loot } = await setup();
+    const cal = data().campaign.calendar;
+    const made = data().state.now - 300 * 365 * MINUTES_PER_DAY;
+    db.patch('entities', compass.id, { born: { at: made, precision: 'year' } });
+    later(1);
+    giveLoot(db, loot({ itemId: compass.id, toId: mira.id }).id);
+    const [first] = holdersOf(data(), compass.id);
+    expect(first).toMatchObject({ from: made, fromPrecision: 'year' });
+    const span = holdingSpan(cal, data().state.now, first!);
+    expect(span.startsWith(`${formatYear(cal, fromTime(cal, made).year)} bis `)).toBe(true);
+  });
+
+  it('liest alte Stände ohne die neuen Felder', () => {
+    const { holder: _holder, ...entry } = createChronicleEntry({ at: 0, kind: 'change' });
+    expect(ChronicleEntrySchema.parse(entry).holder).toBeNull();
+    const { history: _history, ...details } = createEntity({ kind: 'item', name: 'Becher' }).item;
+    const old = { ...createEntity({ kind: 'item', name: 'Becher' }), item: details };
+    expect(EntitySchema.parse(old)).toMatchObject({ item: { history: false } });
   });
 
   it('nennt Zeiten so genau, wie sie bekannt sind', async () => {

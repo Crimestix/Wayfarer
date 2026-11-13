@@ -53,8 +53,12 @@ export interface Holding {
   party: boolean;
   /** Seit wann; null = nicht bekannt. */
   from: WorldTime | null;
+  /** Wie genau „seit“ bekannt ist (die Entstehung oft nur aufs Jahr). Vorgabe: genau. */
+  fromPrecision?: ItemEvent['precision'];
   /** Bis wann; null = bis heute (`current`) oder nicht bekannt. */
   to: WorldTime | null;
+  /** Wie genau „bis“ bekannt ist. Vorgabe: genau. */
+  toPrecision?: ItemEvent['precision'];
   /** Hat ihn heute noch. */
   current: boolean;
   /** Der Wechsel zu ihm steht nur für die Spielleitung fest. */
@@ -131,8 +135,9 @@ export function itemHistory(data: CampaignData, itemId: string): ItemEvent[] {
       precision: entry?.precision ?? 'exact',
       label: 'Beute',
       text: lootLine(data, loot),
-      whoIds: loot.toId && data.entities[loot.toId] ? [loot.toId] : [],
-      party: !loot.toId || !data.entities[loot.toId],
+      // Ohne Empfänger ging sie an die Gruppe; ein inzwischen gelöschter Empfänger bleibt einer.
+      whoIds: loot.toId ? [loot.toId] : [],
+      party: !loot.toId,
       placeId: loot.placeId,
       sessionId: loot.sessionId,
       source: loot.source,
@@ -206,7 +211,7 @@ export function readyFor(data: Pick<CampaignData, 'loot'>, itemId: string): Loot
 export function holdersOf(data: CampaignData, itemId: string): Holding[] {
   const item = data.entities[itemId];
   if (item?.kind !== 'item') return [];
-  const ended = item.ended && item.ended.at <= data.state.now ? item.ended.at : null;
+  const ended = item.ended && item.ended.at <= data.state.now ? item.ended : null;
   const changes = itemHistory(data, itemId).filter(
     (event) => event.sort === 'given' || event.sort === 'holder',
   );
@@ -217,7 +222,8 @@ export function holdersOf(data: CampaignData, itemId: string): Holding[] {
     party ? { holderId: null, party: true } : holderId ? { holderId, party: false } : null;
   const same = (a: Who, b: Who) => !!a && !!b && a.party === b.party && a.holderId === b.holderId;
 
-  const steps: { who: Who; at: WorldTime | null; secret: boolean }[] = [];
+  type Precision = ItemEvent['precision'];
+  const steps: { who: Who; at: WorldTime | null; precision: Precision; secret: boolean }[] = [];
   const first = changes[0];
   if (first) {
     // Wer ihn vor dem ersten bekannten Wechsel hatte – seit seiner Entstehung, wenn sie bekannt ist.
@@ -226,19 +232,27 @@ export function holdersOf(data: CampaignData, itemId: string): Holding[] {
       : first.entryId
         ? (data.chronicle[first.entryId]?.holder?.before ?? null)
         : null;
-    if (before) steps.push({ who: whoOf(before, false), at: item.born?.at ?? null, secret: false });
+    if (before)
+      steps.push({
+        who: whoOf(before, false),
+        at: item.born?.at ?? null,
+        precision: item.born?.precision ?? 'exact',
+        secret: false,
+      });
   }
   for (const change of changes)
     steps.push({
       who: whoOf(change.whoIds[0] ?? null, change.party),
       at: change.at,
+      precision: change.precision,
       secret: change.secret,
     });
   // Was heute gilt, auch wenn der letzte Wechsel nirgends festgehalten ist. Nach einer Ausgabe an
   // die Gruppe hat der Gegenstand keinen bestimmten Besitzer – dann bleibt die Gruppe.
   const last = steps[steps.length - 1]?.who ?? null;
   const now = item.item.holderId ? whoOf(item.item.holderId, false) : last?.party ? last : null;
-  if (!same(last, now) && (now || last)) steps.push({ who: now, at: null, secret: false });
+  if (!same(last, now) && (now || last))
+    steps.push({ who: now, at: null, precision: 'exact', secret: false });
 
   const out: Holding[] = [];
   for (let i = 0; i < steps.length; i++) {
@@ -249,13 +263,16 @@ export function holdersOf(data: CampaignData, itemId: string): Holding[] {
     // Derselbe Besitzer zweimal hintereinander ist ein Besitz.
     if (previous && same(previous, step.who) && (steps[i - 1]?.who ?? null) !== null) {
       previous.to = next ? next.at : null;
+      previous.toPrecision = next?.precision ?? 'exact';
       continue;
     }
     out.push({
       holderId: step.who.holderId,
       party: step.who.party,
       from: step.at,
+      fromPrecision: step.precision,
       to: next ? next.at : null,
+      toPrecision: next?.precision ?? 'exact',
       current: false,
       secret: step.secret,
     });
@@ -263,8 +280,10 @@ export function holdersOf(data: CampaignData, itemId: string): Holding[] {
   const lastHolding = out[out.length - 1];
   const lastStep = steps[steps.length - 1];
   if (lastHolding && lastStep?.who && same(lastHolding, lastStep.who)) {
-    if (ended !== null) lastHolding.to = ended;
-    else lastHolding.current = true;
+    if (ended) {
+      lastHolding.to = ended.at;
+      lastHolding.toPrecision = ended.precision;
+    } else lastHolding.current = true;
   }
   return out;
 }
@@ -281,14 +300,24 @@ function shortDay(cal: CalendarDef, now: WorldTime, at: WorldTime): string {
  * „etwa 3. Tauwind“.
  */
 export function itemEventWhen(cal: CalendarDef, now: WorldTime, event: ItemEvent): string {
-  switch (event.precision) {
+  return pointText(cal, now, event.at, event.precision);
+}
+
+/** Ein Zeitpunkt so genau, wie er bekannt ist – nie genauer. */
+function pointText(
+  cal: CalendarDef,
+  now: WorldTime,
+  at: WorldTime,
+  precision: ItemEvent['precision'] = 'exact',
+): string {
+  switch (precision) {
     case 'year':
     case 'month':
-      return formatDatePoint(cal, { at: event.at, precision: event.precision });
+      return formatDatePoint(cal, { at, precision });
     case 'approx':
-      return `etwa ${shortDay(cal, now, event.at)}`;
+      return `etwa ${shortDay(cal, now, at)}`;
     default:
-      return shortDay(cal, now, event.at);
+      return shortDay(cal, now, at);
   }
 }
 
@@ -300,8 +329,9 @@ export function holdingName(data: CampaignData, holding: Holding): string {
 
 /** Von wann bis wann: „seit 3. Tauwind“, „bis 9. Tauwind“, „3. – 9. Tauwind“, „bis heute“. */
 export function holdingSpan(cal: CalendarDef, now: WorldTime, holding: Holding): string {
-  const from = holding.from === null ? null : shortDay(cal, now, holding.from);
-  const to = holding.to === null ? null : shortDay(cal, now, holding.to);
+  const from =
+    holding.from === null ? null : pointText(cal, now, holding.from, holding.fromPrecision);
+  const to = holding.to === null ? null : pointText(cal, now, holding.to, holding.toPrecision);
   if (from && to) return from === to ? from : `${from} bis ${to}`;
   if (from) return holding.current ? `seit ${from}` : `ab ${from}`;
   if (to) return `bis ${to}`;

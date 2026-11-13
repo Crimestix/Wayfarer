@@ -271,7 +271,8 @@ nicht übernommen.
   und Chronik, nie gespeichert; eingeschaltet gilt alles schon Vorhandene. Setzt der Spielleiter
   den Besitzer von Hand, hält `noteHolderChange` (`welt/actions.ts`) das als geheime Veränderung
   mit `entry.holder` fest – wer den Besitzer anderswo setzt, ruft es mit auf; `giveLoot` hat
-  schon seine Zeile und braucht es nicht.
+  schon seine Zeile und braucht es nicht. Zeiten nie genauer zeigen, als sie bekannt sind
+  (`itemEventWhen`, `holdingSpan` mit `fromPrecision` / `toPrecision`).
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

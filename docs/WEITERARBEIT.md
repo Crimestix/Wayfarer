@@ -1450,6 +1450,9 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Besitzer (Überblick oder Dialog) wird über `noteHolderChange` zur geheimen Veränderung mit
   `entry.holder`. Nicht darin: zurückgenommene Ausgaben (gelten als nicht geschehen) und ein
   Besitzer aus dem Steckbrief. Offen: ob ein Wechsel standardmäßig geheim sein soll.
+  Gegengelesen: Beute an einen inzwischen gelöschten Gefährten zählte als Beute der Gruppe
+  (behoben); „Bisherige Besitzer“ nennt Zeiten nur so genau, wie sie bekannt sind
+  (`Holding.fromPrecision` / `toPrecision` – eine Entstehung „667“ wird kein erfundener Tag).
 
 ## 6. Bekannte Mängel und Aufräumliste
 
