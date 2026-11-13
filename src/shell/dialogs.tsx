@@ -127,7 +127,7 @@ import { activeMention, insertMention, mentionSuggestions } from '../features/ti
 import type { RestResult } from '../features/gruppe/rest';
 import type { DowntimeResult } from '../features/gruppe/downtime';
 import { focusOn, type Focus } from './focus';
-import { meanwhile } from './meanwhile';
+import { hasNews, meanwhile } from './meanwhile';
 import { searchWorld, type SearchSort } from './search';
 import {
   closeShellRequest,
@@ -157,8 +157,7 @@ function meanwhileBody(data: CampaignData, result: TimeAdvanceResult, lead?: str
   );
 }
 
-const happened = (result: TimeAdvanceResult) =>
-  result.occurred.length + result.expired.length + result.steps.length > 0;
+const happened = hasNews;
 
 /** Lässt Zeit vergehen und meldet, was dabei eingetreten ist – mit „Rückgängig“. */
 export function advanceAndReport(db: CampaignDb, to: WorldTime) {

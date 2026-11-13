@@ -40,6 +40,16 @@ export function newStory(db: CampaignDb, init: Partial<Story> = {}): Story {
 }
 
 /**
+ * Legt ein Vorhaben an: eine leere Geschichte, die `ownerId` antreibt – eine Fraktion, Familie
+ * oder Person. Ihre Uhr entsteht mit dem ersten Schritt auf dem Blatt. Uhren gehören zu
+ * Geschichten; ein eigenes Uhrenwerk für Fraktionen gibt es nicht.
+ */
+export function newScheme(db: CampaignDb, ownerId: string): Story | null {
+  if (!db.getSnapshot().entities[ownerId]) return null;
+  return newStory(db, { title: 'Neues Vorhaben', ownerId });
+}
+
+/**
  * Macht aus einer Uhr, die für sich steht, eine Geschichte: Sie heißt wie die Uhr, wird von
  * deren Betreiber angetrieben und hängt an deren Ort. Gehört die Uhr schon zu einer, bleibt es
  * bei der.

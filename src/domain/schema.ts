@@ -90,6 +90,11 @@ export const PlayStateSchema = z.object({
    * (`boardLayout` in `domain/story.ts`).
    */
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
+  /**
+   * Das Fraktionsnetz in „Welt“: wo der Spielleiter Fraktionen, Familien, Personen und die Gruppe
+   * (`party`) hingelegt hat – je Kennung die Stelle. Was fehlt, legt `factionNet()` aus.
+   */
+  netBoard: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
   /** Marschordnung: Reihen von vorn nach hinten, je Reihe die Gefährten (`gruppe/march.ts`). */
   march: z.array(z.array(id)).default([]),
   /**

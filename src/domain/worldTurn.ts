@@ -11,7 +11,8 @@ import { WORLD_CHRONICLE_KINDS, recordHeadline } from './chronicleKinds';
 import { openClocks, type ClockView } from './clock';
 import { currentSession, findRelation, placeAncestors } from './derive';
 import { missedTrips, openTrips, runStatus, type RunStatus, type Trip } from './runs';
-import { PARTY_ID, type CampaignData, type Clock, type Entity } from './schema';
+import { PARTY_ID, type CampaignData, type Clock, type Entity, type Session } from './schema';
+import { deedsOf, schemeDrivers, schemesOf, type Deed, type Scheme } from './schemes';
 import { nearness, whereOf } from './story';
 import { MINUTES_PER_DAY, formatDayMonth } from './time/calendar';
 import { WAY_STATE_LABEL, wayCondition, type WayStateKind } from './wayState';
@@ -322,4 +323,86 @@ export function watchedEntities(data: Pick<CampaignData, 'entities' | 'state'>):
     .map((id) => data.entities[id])
     .filter((entity): entity is Entity => entity !== undefined)
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+// ── Nach Fraktion ──────────────────────────────────────────────────────────
+
+/**
+ * Der letzte Abend: die jüngste begonnene Session außer der laufenden – ab ihrem Ende (ohne Ende
+ * ab ihrem Beginn). Gibt es keine frühere, gilt die laufende ab ihrem Beginn; null, wenn noch
+ * kein Abend war.
+ */
+export function lastEvening(
+  data: Pick<CampaignData, 'sessions' | 'state'>,
+): { at: number; session: Session; running: boolean } | null {
+  const now = data.state.now;
+  const started = Object.values(data.sessions)
+    .filter((session) => session.startAt <= now)
+    .sort((a, b) => b.startAt - a.startAt || b.number - a.number);
+  const past = started.find((session) => session.id !== data.state.sessionId);
+  if (past) {
+    const end = past.endAt !== null && past.endAt <= now ? past.endAt : past.startAt;
+    return { at: end, session: past, running: false };
+  }
+  const running = started.find((session) => session.id === data.state.sessionId);
+  return running ? { at: running.startAt, session: running, running: true } : null;
+}
+
+export interface FactionTurnGroup {
+  entity: Entity;
+  /** Was sie in der Zeitspanne getan hat – das Neueste zuerst. */
+  deeds: Deed[];
+  /** Vorhaben mit Uhr, die noch nicht abgelaufen sind. */
+  schemes: Scheme[];
+  /** Haltung zur Gruppe; null = nicht festgelegt. */
+  attitude: number | null;
+  watched: boolean;
+}
+
+export interface FactionTurn {
+  since: number;
+  /** Wer etwas getan hat – Beobachtetes zuerst, dann das zuletzt Tätige. */
+  active: FactionTurnGroup[];
+  /** Wer ein laufendes Vorhaben hat, aber in der Zeitspanne nichts tat. */
+  quiet: FactionTurnGroup[];
+}
+
+/**
+ * Was jede Fraktion seit `since` getan hat: eingetretene Schritte ihrer Vorhaben und
+ * Veränderungen, die sie nennen. Dazu gehören auch Familien und Personen, die ein Vorhaben
+ * antreiben. Nur gelesen – was zu entscheiden ist, steht unter den Vorschlägen.
+ */
+export function factionTurn(data: CampaignData, since: number): FactionTurn {
+  const drivers = schemeDrivers(data);
+  const watch = new Set(data.state.watch);
+  const groups: FactionTurnGroup[] = [];
+  for (const entity of Object.values(data.entities)) {
+    const group = entity.kind === 'faction' || entity.kind === 'family';
+    if (!group && !(entity.kind === 'person' && drivers.has(entity.id))) continue;
+    const deeds = deedsOf(data, entity.id, since);
+    const schemes = schemesOf(data, entity.id).filter(
+      (scheme) => scheme.clock !== null && scheme.pace !== 'done',
+    );
+    if (!deeds.length && !schemes.length) continue;
+    groups.push({
+      entity,
+      deeds,
+      schemes,
+      attitude: findRelation(data, entity.id, PARTY_ID)?.attitude ?? null,
+      watched: watch.has(entity.id),
+    });
+  }
+  const rank = (entity: Entity) => (entity.kind === 'person' ? 1 : 0);
+  groups.sort(
+    (a, b) =>
+      Number(b.watched) - Number(a.watched) ||
+      (b.deeds[0]?.at ?? -Infinity) - (a.deeds[0]?.at ?? -Infinity) ||
+      rank(a.entity) - rank(b.entity) ||
+      a.entity.name.localeCompare(b.entity.name, 'de'),
+  );
+  return {
+    since,
+    active: groups.filter((group) => group.deeds.length > 0),
+    quiet: groups.filter((group) => group.deeds.length === 0),
+  };
 }

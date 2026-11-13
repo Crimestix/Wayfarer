@@ -20,6 +20,20 @@ export interface Meanwhile {
   elsewhere: number;
 }
 
+/**
+ * Gibt es etwas zu melden? Auch eine Uhr, die stehen geblieben ist, gehört in die Meldung – leise,
+ * ohne Rückfrage: Was zu entscheiden ist, steht danach als Vorschlag im Weltgeschehen.
+ */
+export const hasNews = (
+  result: Pick<TimeAdvanceResult, 'occurred' | 'expired' | 'steps'> &
+    Partial<Pick<TimeAdvanceResult, 'blocked'>>,
+): boolean =>
+  result.occurred.length +
+    result.expired.length +
+    result.steps.length +
+    (result.blocked?.length ?? 0) >
+  0;
+
 /** So viele Zeilen zeigt die Meldung höchstens. */
 export const MEANWHILE_LINES = 7;
 
@@ -32,8 +46,9 @@ export function meanwhile(
 ): Meanwhile {
   const main: string[] = [];
   for (const s of result.steps) main.push(`${s.step.text} (${s.clock.title})`);
-  // Eine Uhr, die stehen bleibt, ist eine Frage an den Spielleiter.
-  for (const b of result.blocked ?? []) main.push(`Blockiert: ${b.clock.title} – ${b.reason}`);
+  // Eine Uhr, die stehen bleibt, wird nur gemeldet – entschieden wird im Weltgeschehen.
+  for (const b of result.blocked ?? [])
+    main.push(`Steht still: ${b.clock.title} – ${b.reason} (siehe Weltgeschehen)`);
 
   // Wiederkehrende Termine nur einmal, mit Anzahl; einmalige einzeln.
   const routines = new Map<string, { title: string; count: number; here: boolean }>();
