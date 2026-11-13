@@ -20,6 +20,7 @@ import {
   type Stay,
 } from '../../domain/derive';
 import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
+import { isRoom } from '../../domain/rooms';
 import { relationLabel, relationType } from '../../domain/relations';
 import {
   PARTY_ID,
@@ -133,11 +134,7 @@ export function worldCounts(
     number
   >;
   for (const entity of Object.values(data.entities))
-    if (
-      isWorldKind(entity.kind) &&
-      !(entity.kind === 'place' && entity.place.room) &&
-      (!visible || visible.has(entity.id))
-    )
+    if (isWorldKind(entity.kind) && !isRoom(data, entity) && (!visible || visible.has(entity.id)))
       counts[entity.kind]++;
   return counts;
 }
@@ -181,7 +178,7 @@ export function placeTreeRows(
 ): PlaceRow[] {
   // Räume stehen auf der Seite ihres Ortes, nicht im Baum.
   const places = entitiesOfKind(data, 'place').filter(
-    (p) => !p.place.room && (!visible || visible.has(p.id)),
+    (p) => !isRoom(data, p) && (!visible || visible.has(p.id)),
   );
   const byId = new Map(places.map((p) => [p.id, p]));
   const children = new Map<string | null, Place[]>();

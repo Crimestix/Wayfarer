@@ -121,7 +121,9 @@ export function TurnDialog({ bastion, onClose }: { bastion: Bastion; onClose: ()
                   value={String(choice.turnsLeft)}
                   aria-label="Weitere Züge"
                   onChange={(e) =>
-                    set(choice.facilityId, { turnsLeft: Math.max(0, Number(e.target.value) || 0) })
+                    set(choice.facilityId, {
+                      turnsLeft: Math.max(0, Math.floor(Number(e.target.value)) || 0),
+                    })
                   }
                 />
               </label>

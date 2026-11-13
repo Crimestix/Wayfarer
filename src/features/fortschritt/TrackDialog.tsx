@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { TRACK_KINDS, type Track, type TrackKind } from '../../domain/schema';
-import { parseStages } from '../../domain/track';
+import { amountText, parseStages, readAmount, stageIndex } from '../../domain/track';
 import { Button, Dialog, EntityPicker, Field, Input, Select, TextArea, toast } from '../../ui';
 import { removeTrack, saveTrack } from './actions';
 
@@ -16,11 +16,6 @@ const KIND_HINT: Record<TrackKind, string> = {
   stages: 'Ein Ausbildungsweg, ein Rang: Schwarz → Dunkelgrün → … → Gold.',
   count: 'Schulden, Ruf, gesammelte Stücke: 12.000 von 50.000 Gold.',
   steps: 'Eine Studie, eine Reparatur, ein Ritual: 3 von 6 Abschnitten.',
-};
-
-const num = (text: string) => {
-  const value = Number(text.replace(/\./g, '').replace(',', '.'));
-  return Number.isFinite(value) ? value : 0;
 };
 
 export function TrackDialog({
@@ -38,11 +33,11 @@ export function TrackDialog({
   const [owner, setOwner] = useState<string | null>(track?.ownerId ?? ownerId ?? null);
   const [kind, setKind] = useState<TrackKind>(track?.kind ?? 'stages');
   const [stages, setStages] = useState((track?.stages ?? []).join('\n'));
-  const [target, setTarget] = useState(String(track?.target ?? ''));
-  const [step, setStep] = useState(String(track?.step ?? 1));
+  const [target, setTarget] = useState(track ? amountText(track.target) : '');
+  const [step, setStep] = useState(amountText(track?.step ?? 1));
   const [unit, setUnit] = useState(track?.unit ?? '');
   const [segments, setSegments] = useState(String(track?.segments ?? 4));
-  const [value, setValue] = useState(String(track?.value ?? 0));
+  const [value, setValue] = useState(amountText(track?.value ?? 0));
   const [note, setNote] = useState(track?.note ?? '');
   const stageList = parseStages(stages);
 
@@ -54,11 +49,11 @@ export function TrackDialog({
         ownerId: owner,
         kind,
         stages: stageList,
-        target: num(target),
-        step: num(step) || 1,
+        target: readAmount(target),
+        step: readAmount(step) || 1,
         unit,
-        segments: Math.round(num(segments)) || 4,
-        value: kind === 'stages' ? Math.max(0, stageList.indexOf(value)) : num(value),
+        segments: Math.round(readAmount(segments)) || 4,
+        value: kind === 'stages' ? stageIndex(stageList, value) : readAmount(value),
         note,
       },
       track?.id,
@@ -141,11 +136,7 @@ export function TrackDialog({
             </Field>
             <Field label="Erreicht">
               <Select
-                value={
-                  stageList.includes(value)
-                    ? value
-                    : (stageList[Number(value)] ?? stageList[0] ?? '')
-                }
+                value={stageList[stageIndex(stageList, value)] ?? ''}
                 aria-label="Erreichte Stufe"
                 onChange={(event) => setValue(event.target.value)}
               >

@@ -3,7 +3,10 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { addRooms, setRoomState, setRooms } from '../../features/welt/rooms';
-import { parseRoomLines, roomCandidates, roomsOf } from '../rooms';
+import { deleteEntity } from '../../data/actions';
+import { placeTreeRows } from '../../features/welt/model';
+import { createArticle } from '../../features/wiki/actions';
+import { isRoom, parseRoomLines, roomCandidates, roomText, roomsOf } from '../rooms';
 import { createEntity, type Place } from '../schema';
 
 const placeUnder = (name: string, parentId: string, category: string): Place => {
@@ -44,5 +47,39 @@ describe('Räume', () => {
     expect(roomCandidates(db.getSnapshot(), keep.id)).toEqual([]);
     undo();
     expect(roomsOf(db.getSnapshot(), keep.id)).toEqual([]);
+  });
+
+  it('verliert keinen Raum, wenn der Ort darüber gelöscht wird', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const keep = db.put('entities', createEntity({ kind: 'place', name: 'Burg Graufels' }));
+    const [gate] = addRooms(db, keep.id, '1 Torhaus');
+    const tree = () => placeTreeRows(db.getSnapshot()).map((row) => row.place.name);
+    expect(isRoom(db.getSnapshot(), gate)).toBe(true);
+    expect(tree()).toEqual(['Burg Graufels']);
+    // Ohne Ort darüber steht der Raum wieder für sich im Baum der Welt.
+    deleteEntity(db, keep.id);
+    const orphan = db.getSnapshot().entities[gate!.id];
+    expect(isRoom(db.getSnapshot(), orphan)).toBe(false);
+    expect(tree()).toEqual(['1 Torhaus']);
+  });
+});
+
+describe('Text eines Raums', () => {
+  it('nimmt die Notizen, sonst den Artikel ohne Kästen', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const keep = db.put('entities', createEntity({ kind: 'place', name: 'Burg Graufels' }));
+    const [gate] = addRooms(db, keep.id, '1 Torhaus');
+    expect(roomText(db.getSnapshot(), gate!)).toBe('');
+    const article = createArticle(db, {
+      title: '1 Torhaus',
+      text: '> [!steckbrief]\n> Art: Dungeonraum\n\nEin Fallgitter, zwei Wachen.',
+    });
+    db.put('entities', { ...gate!, lk: { resourceId: article!.id, title: '1 Torhaus' } });
+    const room = db.getSnapshot().entities[gate!.id] as Place;
+    expect(roomText(db.getSnapshot(), room)).toBe('Ein Fallgitter, zwei Wachen.');
+    db.put('entities', { ...room, notes: 'Eigene Notiz.' });
+    expect(roomText(db.getSnapshot(), db.getSnapshot().entities[gate!.id] as Place)).toBe(
+      'Eigene Notiz.',
+    );
   });
 });

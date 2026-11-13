@@ -9,7 +9,7 @@ import {
   type TrackInput,
 } from '../../features/fortschritt/actions';
 import { PARTY_ID, createEntity } from '../schema';
-import { parseStages, trackGroups, trackView } from '../track';
+import { amountText, parseStages, readAmount, stageIndex, trackGroups, trackView } from '../track';
 
 const input = (more: Partial<TrackInput>): TrackInput => ({
   name: 'Leiste',
@@ -113,5 +113,19 @@ describe('Fortschrittsleisten', () => {
       'Die Gruppe',
       'Brann Eichwald',
     ]);
+  });
+
+  it('behält beim Ändern Stufe und Nachkommastellen', () => {
+    // Der Dialog beginnt mit dem gespeicherten Index; ungeändert bleibt die Stufe.
+    const stages = ['Schwarz', 'Dunkelgrün', 'Blau'];
+    expect(stageIndex(stages, '2')).toBe(2);
+    expect(stageIndex(stages, 'Dunkelgrün')).toBe(1);
+    expect(stageIndex(stages, '7')).toBe(0);
+    expect(stageIndex(stages, '')).toBe(0);
+    // Zahlen gehen in deutscher Schreibweise hin und zurück.
+    for (const n of [0, 1.5, 0.25, 12000, 12000.5]) expect(readAmount(amountText(n))).toBe(n);
+    expect(readAmount('12.000')).toBe(12000);
+    expect(readAmount('1,5')).toBe(1.5);
+    expect(readAmount('viel')).toBe(0);
   });
 });

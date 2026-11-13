@@ -37,6 +37,24 @@ describe('Lebensdaten', () => {
     expect(fromTime(cal, readDatePoint(cal, '34 Jahre', now, { age: true })!.at).year).toBe(
       year - 34,
     );
+    // „Geboren: 650“ bei einer Person ist ein Jahr, kein Alter von 650.
+    expect(fromTime(cal, readDatePoint(cal, '650', now, { age: true })!.at).year).toBe(
+      fromTime(cal, yearOnly.at).year,
+    );
+    // Heißt das Feld „Alter“, ist die Zahl allein ein Alter.
+    expect(fromTime(cal, readDatePoint(cal, '34', now, { bareAge: true })!.at).year).toBe(
+      year - 34,
+    );
+  });
+
+  it('zählt ein Ende, das erst noch kommt, noch nicht', () => {
+    const y = nowParts.year;
+    const guild = createEntity({ kind: 'faction', name: 'Gilde der Sieben Lampen' });
+    guild.born = { at: day(y - 40, 0, 1), precision: 'year' };
+    guild.ended = { at: day(y + 10, 0, 1), precision: 'year' };
+    expect(lifeFacts(world(guild), guild)).toEqual([
+      { label: 'Besteht seit', text: expect.stringMatching(/^etwa 40 Jahre \(gegründet /) },
+    ]);
   });
 
   it('rechnet volle Jahre nach Tag und Monat', () => {

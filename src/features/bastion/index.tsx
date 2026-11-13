@@ -28,6 +28,7 @@ import {
   cx,
   entityHref,
 } from '../../ui';
+import { moveTrack } from '../fortschritt/actions';
 import { addBastion, patchBastion, setFacilityState, startRepair } from './actions';
 import { FacilityDialog } from './FacilityDialog';
 import { TurnDialog } from './TurnDialog';
@@ -39,7 +40,8 @@ export default function BastionPage() {
   const [chosen, setChosen] = useState<string | null>(null);
   const bastion = bastions.find((b) => b.id === chosen) ?? bastions[0];
   return bastion ? (
-    <BastionView bastion={bastion} others={bastions} onChoose={setChosen} />
+    // Je Bastion eine eigene Ansicht: Die Felder mit `defaultValue` gehören sonst der vorigen.
+    <BastionView key={bastion.id} bastion={bastion} others={bastions} onChoose={setChosen} />
   ) : (
     <NewBastion />
   );
@@ -228,6 +230,16 @@ function BastionView({
                                 Reparatur beginnen
                               </Button>
                             )}
+                            {facility.state === 'repairing' && track && !view?.reached && (
+                              <Button
+                                size="sm"
+                                icon={<Hammer />}
+                                onClick={() => moveTrack(db, track.id, 1)}
+                                title="Die Reparatur einen Schritt voranbringen – steht in der Chronik"
+                              >
+                                Weiter
+                              </Button>
+                            )}
                             {facility.state === 'repairing' && view?.reached && (
                               <Button
                                 size="sm"
@@ -277,7 +289,7 @@ function BastionView({
                       defaultValue={String(bastion.eventDie)}
                       onBlur={(e) =>
                         patchBastion(db, bastion.id, {
-                          eventDie: Math.max(2, Number(e.target.value) || 100),
+                          eventDie: Math.max(2, Math.floor(Number(e.target.value)) || 100),
                         })
                       }
                     />
@@ -288,7 +300,7 @@ function BastionView({
                       defaultValue={String(bastion.defenders)}
                       onBlur={(e) =>
                         patchBastion(db, bastion.id, {
-                          defenders: Math.max(0, Number(e.target.value) || 0),
+                          defenders: Math.max(0, Math.floor(Number(e.target.value)) || 0),
                         })
                       }
                     />

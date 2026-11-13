@@ -4,8 +4,36 @@
  */
 import type { CampaignData, Entity, Place } from './schema';
 
-export const isRoom = (entity: Entity | undefined): entity is Place =>
-  entity?.kind === 'place' && entity.place.room;
+/** So viel Text zeigt ein aufgeklappter Raum; der Rest steht auf seiner Seite. */
+export const ROOM_TEXT_MAX = 700;
+
+/**
+ * Was zu einem Raum geschrieben steht: die Notizen – sonst der Text seines Artikels (Räume aus
+ * LegendKeeper), ohne Kästen wie den Steckbrief, gekürzt.
+ */
+export function roomText(data: Pick<CampaignData, 'articles'>, room: Place): string {
+  if (room.notes.trim()) return room.notes.trim();
+  const article = room.lk?.resourceId ? data.articles[room.lk.resourceId] : undefined;
+  if (!article) return '';
+  const text = article.docs
+    .map((doc) => doc.text)
+    .join('\n\n')
+    .split('\n')
+    .filter((line) => !line.trimStart().startsWith('>'))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text.length > ROOM_TEXT_MAX ? `${text.slice(0, ROOM_TEXT_MAX).trimEnd()} …` : text;
+}
+
+/**
+ * Ein Raum, der auf der Seite seines Ortes steht. Gibt es den Ort darüber nicht (mehr) – gelöscht,
+ * ganz oben, von Hand gelöst –, steht er für sich, damit er nirgends verloren geht.
+ */
+export function isRoom(data: Pick<CampaignData, 'entities'>, entity: Entity | undefined): boolean {
+  if (entity?.kind !== 'place' || !entity.place.room || !entity.place.parentId) return false;
+  return data.entities[entity.place.parentId]?.kind === 'place';
+}
 
 const natural = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 
@@ -23,7 +51,7 @@ export function roomsOf(data: Pick<CampaignData, 'entities'>, placeId: string): 
 export function roomArticleIds(data: Pick<CampaignData, 'entities'>): Set<string> {
   const out = new Set<string>();
   for (const entity of Object.values(data.entities))
-    if (isRoom(entity) && entity.lk?.resourceId) out.add(entity.lk.resourceId);
+    if (isRoom(data, entity) && entity.lk?.resourceId) out.add(entity.lk.resourceId);
   return out;
 }
 

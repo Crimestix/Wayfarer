@@ -77,14 +77,15 @@ export function formatDatePoint(cal: CalendarDef, point: DatePoint): string {
 
 /**
  * Liest einen Tag aus Worten: „3. Tauwind 667“, „Tauwind 667“, „667“, „Jahr 667“, „vor 300
- * Jahren“ – und bei Lebewesen auch ein Alter: „34“, „34 Jahre“, „Alter 34“ (dann ist das
- * Geburtsjahr gemeint). Gibt null, wenn nichts zu lesen ist.
+ * Jahren“ – und bei Lebewesen auch ein Alter: „34 Jahre“, „Alter 34“ (dann ist das Geburtsjahr
+ * gemeint). Eine Zahl allein ist ein Jahr – ein Alter nur mit `bareAge` (das Feld heißt „Alter“).
+ * Gibt null, wenn nichts zu lesen ist.
  */
 export function readDatePoint(
   cal: CalendarDef,
   text: string,
   now: WorldTime,
-  options: { age?: boolean } = {},
+  options: { age?: boolean; bareAge?: boolean } = {},
 ): DatePoint | null {
   const raw = text.trim();
   if (!raw) return null;
@@ -94,10 +95,17 @@ export function readDatePoint(
   // „vor 300 Jahren“
   const ago = /^(?:etwa\s+|ungefähr\s+|ca\.?\s+)?vor\s+(\d{1,5})\s+Jahr(?:en)?$/i.exec(raw);
   if (ago) return { at: yearStart(thisYear - Number(ago[1])), precision: 'year' };
-  // Ein Alter: „34“, „34 Jahre“, „34 Jahre alt“, „Alter 34“ – nur, wo ein Alter gemeint sein kann.
-  const age = /^(?:Alter\s*:?\s*)?(\d{1,4})(?:\s+Jahre?(?:\s+alt)?)?$/i.exec(raw);
-  if (options.age && age && Number(age[1]) < 2000)
-    return { at: yearStart(thisYear - Number(age[1])), precision: 'year' };
+  // Ein Alter: „34 Jahre“, „34 Jahre alt“, „Alter 34“ – nur, wo ein Alter gemeint sein kann. Eine
+  // Zahl allein („Geboren: 650“) ist ein Jahr, außer das Feld selbst heißt „Alter“.
+  const age = /^(Alter\s*:?\s*)?(\d{1,4})(\s+Jahre?(?:\s+alt)?)?$/i.exec(raw);
+  const marked = !!age && (!!age[1] || !!age[3]);
+  if (
+    (options.age || options.bareAge) &&
+    age &&
+    (marked || options.bareAge) &&
+    Number(age[2]) < 2000
+  )
+    return { at: yearStart(thisYear - Number(age[2])), precision: 'year' };
   const found = findDates(cal, raw, now)[0];
   if (found && !found.assumedYear) return { at: found.time, precision: found.precision };
   // Eine Jahreszahl allein, mit oder ohne Zeitrechnung: „667“, „Jahr 667“, „667 AD“.
@@ -141,7 +149,8 @@ export function lifeFacts(data: CampaignData, entity: Entity): LifeFact[] {
   const out: LifeFact[] = [];
   const about = (point: DatePoint) => (point.precision === 'year' ? 'etwa ' : '');
   if (born && born.at <= now) {
-    if (ended && ended.at >= born.at) {
+    // Ein Ende, das erst noch kommt, zählt noch nicht.
+    if (ended && ended.at <= now && ended.at >= born.at) {
       const reached = yearsBetween(cal, born, ended.at, ended.precision);
       out.push({
         label: words.age,

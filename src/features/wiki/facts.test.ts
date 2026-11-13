@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readDatePoint } from '../../domain/lifespan';
 import { fromTime } from '../../domain/time/calendar';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
@@ -191,6 +192,17 @@ describe('Steckbrief speist die Welt', () => {
     expect(fromTime(cal, data().state.now).year - fromTime(cal, vera.born!.at).year).toBe(34);
     expect(vera.ended).toMatchObject({ precision: 'day' });
     expect(vera.fromArticle).toMatchObject({ born: '34', ended: '12. Tauwind 701' });
+  });
+
+  it('liest „Geboren: 650“ bei einer Person als Jahr, nicht als Alter', async () => {
+    const { db, data, entity, write } = await setup();
+    write('vera0001', ['> [!steckbrief]', '> Geboren: 650'].join('\n'));
+    syncFacts(db, ['vera0001']);
+    const vera = entity('Vera Kohl', 'person');
+    const cal = data().campaign.calendar;
+    // Das Jahr 650 der Zeitrechnung – nicht 650 Jahre vor heute.
+    expect(vera.born).toEqual(readDatePoint(cal, '650', data().state.now));
+    expect(fromTime(cal, data().state.now).year - fromTime(cal, vera.born!.at).year).not.toBe(650);
   });
 
   it('lässt stehen, was von Hand geändert wurde, bis der Artikel etwas anderes sagt', async () => {

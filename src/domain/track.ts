@@ -126,6 +126,26 @@ export function trackGroups(data: Pick<CampaignData, 'tracks' | 'entities'>): Tr
   );
 }
 
+/** Eine Zahl, wie sie ins Eingabefeld kommt: „12.000“, „1,5“ – `readAmount` liest sie zurück. */
+export const amountText = (n: number) => number(n);
+
+/** Liest eine Zahl in deutscher Schreibweise: Punkt trennt Tausender, Komma die Nachkommastellen. */
+export function readAmount(text: string): number {
+  const value = Number(text.trim().replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Die gewählte Stufe: ihr Name oder – solange noch keine gewählt ist – der gespeicherte Index
+ * („2“); sonst die erste.
+ */
+export function stageIndex(stages: readonly string[], chosen: string): number {
+  const named = stages.indexOf(chosen);
+  if (named >= 0) return named;
+  const index = Number(chosen);
+  return Number.isInteger(index) && index >= 0 && index < stages.length ? index : 0;
+}
+
 /** Stufen aus Text: je Zeile oder durch „–“, „-“, „→“, „,“ getrennt. */
 export function parseStages(text: string): string[] {
   return text

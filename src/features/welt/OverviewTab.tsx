@@ -337,6 +337,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
         <>
           <PartyAtPlace place={place} />
           <RoomsSection place={place} />
+          <Tracks entity={place} />
           <PlacesBelow place={place} />
           <Upcoming entity={place} empty="In den nächsten Monaten steht hier kein Termin an." />
         </>

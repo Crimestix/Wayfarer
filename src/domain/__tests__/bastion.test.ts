@@ -51,6 +51,19 @@ describe('Bastion', () => {
     expect(turnsDue(data().bastions[bastion.id]!, now())).toBe(2);
   });
 
+  it('ist am siebten Tag fällig, gleich zu welcher Stunde', async () => {
+    const { db, bastion, data } = await setup();
+    // Der letzte Zug war am Nachmittag; am Morgen des siebten Tages ist der nächste fällig.
+    const day = Math.floor(data().state.now / MINUTES_PER_DAY);
+    db.patch('bastions', bastion.id, { lastTurnAt: day * MINUTES_PER_DAY + 15 * 60 });
+    const morning = (day + 7) * MINUTES_PER_DAY + 8 * 60;
+    const b = data().bastions[bastion.id]!;
+    expect(turnsDue(b, morning)).toBe(1);
+    expect(daysToNextTurn(b, morning)).toBe(0);
+    expect(daysToNextTurn(b, morning - MINUTES_PER_DAY)).toBe(1);
+    expect(turnsDue(b, morning - MINUTES_PER_DAY)).toBe(0);
+  });
+
   it('schlägt die Befehle vor, führt den Zug aus und nimmt ihn zurück', async () => {
     const { db, brann, bastion, data } = await setup();
     saveFacility(db, bastion.id, facility({ ownerId: brann.id }));

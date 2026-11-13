@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Link } from 'wouter';
 import { ChevronDown, ChevronRight, DoorOpen, Footprints, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { roomCandidates, roomsOf } from '../../domain/rooms';
+import { roomCandidates, roomText, roomsOf } from '../../domain/rooms';
 import type { Place } from '../../domain/schema';
 import { Badge, Button, Input, TextArea, cx, entityHref, toast } from '../../ui';
 import { addRooms, setRoomState, setRooms } from './rooms';
@@ -135,8 +135,8 @@ export function RoomsSection({ place }: { place: Place }) {
               </button>
               {shown && (
                 <div className="wf-welt-room__body">
-                  {room.notes.trim() ? (
-                    <p className="wf-welt-room__notes">{room.notes.trim()}</p>
+                  {roomText(data, room) ? (
+                    <p className="wf-welt-room__notes">{roomText(data, room)}</p>
                   ) : (
                     <p className="wf-welt-room__notes wf-mute">
                       Noch keine Notizen zu diesem Raum.

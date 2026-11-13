@@ -11,7 +11,7 @@ import type {
   Character,
   FacilityState,
 } from './schema';
-import { MINUTES_PER_DAY, type WorldTime } from './time/calendar';
+import { MINUTES_PER_DAY, dayIndexOf, type WorldTime } from './time/calendar';
 
 export const ORDER_LABEL: Record<BastionOrder, string> = {
   craft: 'Herstellen',
@@ -36,17 +36,21 @@ export function nextTurnAt(bastion: Bastion): WorldTime | null {
   return bastion.lastTurnAt === null ? null : bastion.lastTurnAt + turnLength(bastion);
 }
 
-/** Wie viele Züge seit dem letzten fällig sind (bei einer Zwischenzeit auch mehrere). */
+/**
+ * Wie viele Züge seit dem letzten fällig sind (bei einer Zwischenzeit auch mehrere). Gezählt wird
+ * nach Tagen: Am Tag des nächsten Zugs ist er fällig, gleich zu welcher Stunde.
+ */
 export function turnsDue(bastion: Bastion, now: WorldTime): number {
   if (bastion.lastTurnAt === null) return 0;
-  return Math.max(0, Math.floor((now - bastion.lastTurnAt) / turnLength(bastion)));
+  const days = dayIndexOf(now) - dayIndexOf(bastion.lastTurnAt);
+  return Math.max(0, Math.floor(days / bastion.turnDays));
 }
 
 /** Tage bis zum nächsten Zug (0 = heute fällig oder überfällig). */
 export function daysToNextTurn(bastion: Bastion, now: WorldTime): number | null {
   const next = nextTurnAt(bastion);
   if (next === null) return null;
-  return Math.max(0, Math.ceil((next - now) / MINUTES_PER_DAY));
+  return Math.max(0, dayIndexOf(next) - dayIndexOf(now));
 }
 
 /** Die Bastionen, deren Zug fällig ist – für den Spieltisch. */

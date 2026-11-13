@@ -964,9 +964,13 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
       case 'died': {
         // Lebensdaten: „Geboren: 3. Tauwind 667“, „Alter: 34“, „Gegründet: vor 300 Jahren“.
         const key = reading.field === 'born' ? 'born' : 'ended';
-        const age =
-          reading.field === 'born' && (entity.kind === 'person' || norm(reading.label) === 'alter');
-        const point = readDatePoint(data.campaign.calendar, reading.text, data.state.now, { age });
+        // „Alter: 34“ ist ein Alter; „Geboren: 650“ ein Jahr, „Geboren: 34 Jahre“ wieder ein Alter.
+        const bareAge = reading.field === 'born' && norm(reading.label) === 'alter';
+        const age = reading.field === 'born' && (entity.kind === 'person' || bareAge);
+        const point = readDatePoint(data.campaign.calendar, reading.text, data.state.now, {
+          age,
+          bareAge,
+        });
         if (!point) break;
         stated[key] = reading.text;
         if (entity.fromArticle[key] === reading.text) break;

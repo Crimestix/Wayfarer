@@ -1385,6 +1385,26 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   `syncFacts` nicht (kein Wortschatz für `character` in `VOCABULARY`). Nicht geprüft im Browser
   und in der installierten App.
 
+### Nachmittag 13. 11. 2026 – sechs Teile aus der Wunschliste – gebaut
+
+- **Szene an einen Ort heften:** jede Szene (Abend-Blatt, Geschichte) kann einen Ort haben; am
+  Spieltisch steht sie unter „Was hier passieren kann“, sobald die Gruppe dort ist.
+- **Alter von selbst:** `born`/`ended` an jedem Eintrag (Tag, Monat oder Jahr), im Dialog und im
+  Steckbrief („Geboren“, „Alter: 34“, „Gegründet: vor 300 Jahren“); Tod aus der Chronik zählt.
+- **Marschordnung und Unterwegs:** Reihen von vorn nach hinten, Dunkelsicht, Lichter, Gold.
+- **Fortschrittsleisten:** Stufen, Zahl, Abschnitte; Reiter „Fortschritt“ unter Gefährten, Kasten
+  beim Gefährten, bei Personen und Fraktionen; jeder Schritt in der Chronik.
+- **Handouts:** Brief, Notiz, Erlass, Hinweiskarte; Pergament-Vorschau, Drucken, Hinweiskarten aus
+  den Geheimnissen des Abend-Blatts, Wortlaut aus Schriftstücken, „Übergeben“ in der Mitschrift.
+- **Räume:** `place.room` – auf der Seite des Ortes statt in Welt-Liste und Wiki-Baum; Orte der Art
+  „Dungeonraum“ lassen sich einmal umwandeln.
+- **Bastion:** Einrichtungen mit Besitzer, Befehlen, Gefolgsleuten, Stand (beschädigt → Reparatur als
+  Fortschrittsleiste); Bastionszug alle 7 Tage als Vorschlag (auch am Spieltisch), Ereignis aus der
+  eigenen Tabelle des Spielleiters, Fertiges als Beute.
+- **Nicht geprüft:** installierte App (vor allem das Drucken in WebView2), echter Spielstand.
+- **Offen:** Würfeltabellen für alles (dann ersetzt eine allgemeine Tabelle die Ereigniszeilen der
+  Bastion), Bastion-Einrichtungen aus Räumen vorschlagen, Drucken auf dem Mac (WKWebView) prüfen.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

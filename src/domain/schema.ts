@@ -1989,7 +1989,7 @@ export type FacilityState = (typeof FACILITY_STATES)[number];
 export const BastionFacilitySchema = z.object({
   id,
   name: z.string(),
-  /** Der Raum der Bastion, in dem sie liegt (\`place.room\`). */
+  /** Der Raum der Bastion, in dem sie liegt (`place.room`). */
   roomId: id.nullable().default(null),
   /** basic = einfache Einrichtung (ohne Befehle), special = besondere. */
   kind: z.enum(['basic', 'special']).default('special'),
