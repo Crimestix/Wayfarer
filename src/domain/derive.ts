@@ -262,6 +262,21 @@ export function placeCast(data: CampaignData, placeId: string): PlaceCast {
 
 // ── Chronik ────────────────────────────────────────────────────────────────
 
+/** Wie eine Abmachung steht: offen, eingelöst oder gescheitert. */
+export type PromiseOutcome = 'open' | 'kept' | 'failed';
+
+export const PROMISE_OUTCOME_LABEL: Record<PromiseOutcome, string> = {
+  open: 'Offen',
+  kept: 'Erledigt',
+  failed: 'Gescheitert',
+};
+
+export function promiseOutcome(
+  promise: { done: boolean; failed?: boolean } | null | undefined,
+): PromiseOutcome {
+  return !promise?.done ? 'open' : promise.failed ? 'failed' : 'kept';
+}
+
 /** Älteste zuerst; bei gleicher Weltzeit in der Reihenfolge des Anlegens. */
 export const byTime = (a: ChronicleEntry, b: ChronicleEntry) =>
   a.at - b.at || a.created.localeCompare(b.created) || a.id.localeCompare(b.id);

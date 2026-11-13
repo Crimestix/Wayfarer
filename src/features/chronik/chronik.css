@@ -344,6 +344,9 @@ button.wf-chronik-marker:hover {
   flex: none;
   margin-top: 3px;
 }
+.wf-chronik-promise > .wf-chron__check--fail {
+  margin-left: calc(var(--s-2) * -1);
+}
 .wf-chronik-promise--late {
   box-shadow: inset 2px 0 0 var(--blood);
   background: linear-gradient(90deg, var(--blood-wash), transparent 70%);

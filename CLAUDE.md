@@ -186,6 +186,9 @@ nicht übernommen.
   Dauer bei trockenem Wetter. Wer im Viertel steht, steht auch in der Stadt: `routeBetween`
   nimmt die Wege der Orte darüber, wenn vom Ort selbst keiner zum Ziel führt, und lässt am Ziel
   den Ort gelten, in dem es liegt – angekommen ist die Gruppe bei `route.toId`.
+- Abmachungen (Chronik, `kind: 'promise'`): offen, erledigt oder gescheitert – gelesen über
+  `promiseOutcome()`, gesetzt über `setPromiseOutcome()`. `promise.done` heißt nur „nicht mehr
+  offen“; ob sie eingelöst wurde oder gescheitert ist, sagt `promise.failed`.
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
   anwesend, sie stehen für sich in `lost`.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);

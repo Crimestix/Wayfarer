@@ -357,9 +357,17 @@ export const ChronicleEntrySchema = z.object({
     })
     .nullable()
     .default(null),
-  /** kind = promise: Abmachung oder Verpflichtung. */
+  /**
+   * kind = promise: Abmachung oder Verpflichtung. `done` = sie ist nicht mehr offen; `failed`
+   * sagt, wie sie ausging: eingelöst oder gescheitert (gebrochen, geplatzt, Frist verstrichen).
+   * Gescheitert ist immer auch `done`.
+   */
   promise: z
-    .object({ due: worldTime.nullable().default(null), done: z.boolean().default(false) })
+    .object({
+      due: worldTime.nullable().default(null),
+      done: z.boolean().default(false),
+      failed: z.boolean().default(false),
+    })
     .nullable()
     .default(null),
   /** kind = event: eingetretener Termin. */

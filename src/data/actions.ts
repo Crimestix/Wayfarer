@@ -9,6 +9,7 @@ import {
   occurrencesBetween,
   replaceLink,
   type Occurrence,
+  type PromiseOutcome,
 } from '../domain/derive';
 import {
   PARTY_ID,
@@ -342,7 +343,7 @@ export function logEntry(db: CampaignDb, input: LogInput): ChronicleEntry {
       text: input.text.trim(),
       placeId: input.placeId === undefined ? data.state.placeId : input.placeId,
       refs: [...new Set(input.refs ?? [])],
-      promise: kind === 'promise' ? { due: input.due ?? null, done: false } : null,
+      promise: kind === 'promise' ? { due: input.due ?? null, done: false, failed: false } : null,
       secret: input.secret ?? false,
     }),
   );
@@ -384,11 +385,18 @@ export function setAttitude(
   });
 }
 
-/** Hakt eine Abmachung ab oder öffnet sie wieder. */
+/** Hakt eine Abmachung als eingelöst ab oder öffnet sie wieder. */
 export function setPromiseDone(db: CampaignDb, entryId: string, done: boolean): void {
+  setPromiseOutcome(db, entryId, done ? 'kept' : 'open');
+}
+
+/** Setzt, wie eine Abmachung steht: offen, eingelöst oder gescheitert. */
+export function setPromiseOutcome(db: CampaignDb, entryId: string, outcome: PromiseOutcome): void {
   const entry = db.getSnapshot().chronicle[entryId];
   if (!entry?.promise) return;
-  db.patch('chronicle', entryId, { promise: { ...entry.promise, done } });
+  db.patch('chronicle', entryId, {
+    promise: { ...entry.promise, done: outcome !== 'open', failed: outcome === 'failed' },
+  });
 }
 
 /** Beginnt eine Session; eine laufende wird vorher beendet. */

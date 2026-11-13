@@ -1030,6 +1030,13 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-due__check:focus-visible svg {
   opacity: 0.8;
 }
+/* Das Kreuz für „gescheitert“ ist immer zu sehen – sonst stünden zwei leere Kästchen da. */
+.wf-tisch-due__check.wf-chron__check--fail {
+  margin-left: calc(var(--s-2) * -1);
+}
+.wf-tisch-due__check.wf-chron__check--fail svg {
+  opacity: 0.7;
+}
 
 /* ── Gefährten ──────────────────────────────────────────────────────────── */
 .wf-tisch-party {

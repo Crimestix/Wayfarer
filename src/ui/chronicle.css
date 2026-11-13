@@ -139,8 +139,25 @@
   height: 12px;
   stroke-width: 2.4;
 }
+/* Gescheitert: das Kreuz neben dem Haken – blass, bis es gilt. */
+.wf-chron__check--fail {
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+}
+.wf-chron__check--fail:hover,
+.wf-chron__check--fail[aria-pressed='true'] {
+  border-color: var(--ember);
+  color: var(--ember);
+}
+/* Haken und Kreuz stehen dicht beieinander – zwei Antworten auf dieselbe Frage. */
+.wf-chron__check + .wf-chron__check--fail {
+  margin-left: -3px;
+}
 .wf-chron__overdue {
   color: var(--blood-bright);
+}
+.wf-chron__failed {
+  color: var(--ember);
 }
 .wf-chron--done .wf-chron__text {
   color: var(--ink-mute);

@@ -2,7 +2,7 @@
  * Handgriffe des Spieltischs, die den Spielstand ändern. Die Oberfläche ruft nur diese Funktionen
  * und die Befehle aus data/actions auf.
  */
-import { setPromiseDone } from '../../data/actions';
+import { setPromiseOutcome } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import type { ChronicleEntry } from '../../domain/schema';
 import { MAX_EXHAUSTION, type AgendaItem } from './model';
@@ -40,14 +40,19 @@ export function setExhaustion(db: CampaignDb, characterId: string, level: number
   db.put('entities', { ...entity, character: { ...entity.character, exhaustion } });
 }
 
-/** Hakt etwas Anstehendes ab (oder nimmt den Haken zurück): Vorhaben, Frist, Abmachung, Timer. */
+/**
+ * Hakt etwas Anstehendes ab (oder nimmt den Haken zurück): Vorhaben, Frist, Abmachung, Timer.
+ * Eine Abmachung kann dabei auch gescheitert sein (`failed`).
+ */
 export function settleAgendaItem(
   db: CampaignDb,
   item: Pick<AgendaItem, 'source' | 'id'>,
   done = true,
+  failed = false,
 ): void {
   const data = db.getSnapshot();
-  if (item.source === 'promise') setPromiseDone(db, item.id, done);
+  if (item.source === 'promise')
+    setPromiseOutcome(db, item.id, !done ? 'open' : failed ? 'failed' : 'kept');
   else if (item.source === 'event' && data.events[item.id]) db.patch('events', item.id, { done });
   else if (item.source === 'timer' && data.timers[item.id]) db.patch('timers', item.id, { done });
 }

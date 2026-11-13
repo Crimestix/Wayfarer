@@ -225,7 +225,7 @@ export function demoCampaign(): CampaignData {
       at: now - 8 * day + 300,
       placeId: hafen.id,
       refs: [brann.id],
-      promise: { due: now + 2 * day, done: false },
+      promise: { due: now + 2 * day, done: false, failed: false },
       text: 'Brann besorgt die Ladeliste des Grauen Fangs – bis das Schiff ablegt.',
     }),
     createChronicleEntry({

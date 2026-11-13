@@ -18,7 +18,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import { setPromiseDone } from '../../data/actions';
+import { setPromiseOutcome } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { chronicleSorted, openPromises } from '../../domain/derive';
 import { CHRONICLE_KINDS, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
@@ -214,12 +214,12 @@ function OpenPromises({
   const now = data.state.now;
   const open = useMemo(() => openPromises(data), [data]);
   // Die Abmachung verschwindet beim Abhaken aus dieser Liste – ein Fehlgriff muss sich zurücknehmen lassen.
-  const done = (entry: ChronicleEntry) => {
-    setPromiseDone(db, entry.id, true);
+  const settle = (entry: ChronicleEntry, outcome: 'kept' | 'failed') => {
+    setPromiseOutcome(db, entry.id, outcome);
     toast({
-      title: 'Abmachung erledigt',
+      title: outcome === 'kept' ? 'Abmachung erledigt' : 'Abmachung gescheitert',
       body: entry.text.slice(0, 120),
-      action: { label: 'Rückgängig', run: () => setPromiseDone(db, entry.id, false) },
+      action: { label: 'Rückgängig', run: () => setPromiseOutcome(db, entry.id, 'open') },
     });
   };
   return (
@@ -253,7 +253,8 @@ function OpenPromises({
             </Button>
           }
         >
-          Versprechen, Schulden und Aufträge bleiben hier stehen, bis du sie abhakst.
+          Versprechen, Schulden und Aufträge bleiben hier stehen, bis du sie abhakst – als erledigt
+          oder als gescheitert.
         </EmptyState>
       ) : (
         open.map((entry) => {
@@ -270,8 +271,18 @@ function OpenPromises({
                 aria-label="Als erledigt abhaken"
                 title="Als erledigt abhaken"
                 aria-pressed={false}
-                onClick={() => done(entry)}
+                onClick={() => settle(entry, 'kept')}
               />
+              <button
+                type="button"
+                className="wf-chron__check wf-chron__check--fail"
+                aria-label="Als gescheitert abhaken"
+                title="Gescheitert – gebrochen, geplatzt oder nicht mehr einzulösen"
+                aria-pressed={false}
+                onClick={() => settle(entry, 'failed')}
+              >
+                <X />
+              </button>
               <button
                 type="button"
                 className="wf-chronik-promise__body"

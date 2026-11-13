@@ -10,8 +10,10 @@ import {
   Pencil,
   Sparkles,
   Waypoints,
+  X,
 } from 'lucide-react';
-import { setPromiseDone } from '../data/actions';
+import { setPromiseOutcome } from '../data/actions';
+import { PROMISE_OUTCOME_LABEL, promiseOutcome } from '../domain/derive';
 import { useData, useDb } from '../data/hooks';
 import type { ChronicleEntry, ChronicleKind } from '../domain/schema';
 import { formatClock, formatDate, formatDayMonth, formatRelative } from '../domain/time/calendar';
@@ -94,11 +96,17 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   }
 
   const promise = entry.kind === 'promise' ? entry.promise : null;
+  const outcome = promiseOutcome(promise);
   const overdue = promise && !promise.done && promise.due !== null && promise.due < data.state.now;
 
   return (
     <article
-      className={cx('wf-chron', `wf-chron--${entry.kind}`, promise?.done && 'wf-chron--done')}
+      className={cx(
+        'wf-chron',
+        `wf-chron--${entry.kind}`,
+        promise?.done && 'wf-chron--done',
+        outcome === 'failed' && 'wf-chron--failed',
+      )}
     >
       <div className="wf-chron__mark" title={CHRONICLE_KIND_LABEL[entry.kind]}>
         <Icon />
@@ -120,17 +128,51 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
         )}
         {promise && (
           <div className="wf-chron__promise">
-            <button
-              type="button"
-              className="wf-chron__check"
-              aria-pressed={promise.done}
-              onClick={() => setPromiseDone(db, entry.id, !promise.done)}
+            {outcome !== 'failed' && (
+              <button
+                type="button"
+                className="wf-chron__check"
+                aria-pressed={outcome === 'kept'}
+                title={
+                  outcome === 'kept' ? 'Wieder öffnen' : 'Erledigt – die Abmachung wurde eingelöst'
+                }
+                aria-label={outcome === 'kept' ? 'Wieder öffnen' : 'Als erledigt abhaken'}
+                onClick={() =>
+                  setPromiseOutcome(db, entry.id, outcome === 'kept' ? 'open' : 'kept')
+                }
+              >
+                {outcome === 'kept' && <Check />}
+              </button>
+            )}
+            {outcome !== 'kept' && (
+              <button
+                type="button"
+                className="wf-chron__check wf-chron__check--fail"
+                aria-pressed={outcome === 'failed'}
+                title={
+                  outcome === 'failed'
+                    ? 'Wieder öffnen'
+                    : 'Gescheitert – gebrochen, geplatzt oder nicht mehr einzulösen'
+                }
+                aria-label={outcome === 'failed' ? 'Wieder öffnen' : 'Als gescheitert abhaken'}
+                onClick={() =>
+                  setPromiseOutcome(db, entry.id, outcome === 'failed' ? 'open' : 'failed')
+                }
+              >
+                <X />
+              </button>
+            )}
+            <span
+              className={
+                overdue
+                  ? 'wf-chron__overdue'
+                  : outcome === 'failed'
+                    ? 'wf-chron__failed'
+                    : 'wf-mute'
+              }
             >
-              {promise.done && <Check />}
-            </button>
-            <span className={overdue ? 'wf-chron__overdue' : 'wf-mute'}>
               {promise.done
-                ? 'Erledigt'
+                ? PROMISE_OUTCOME_LABEL[outcome]
                 : promise.due === null
                   ? 'Offen, ohne Frist'
                   : `Frist: ${formatDayMonth(cal, promise.due)} (${formatRelative(data.state.now, promise.due)})`}

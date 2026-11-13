@@ -8,12 +8,19 @@ import {
   resumeSession,
   setAttitude,
   setPromiseDone,
+  setPromiseOutcome,
   startSession,
 } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { demoCampaign } from '../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../data/store';
-import { chronicleSorted, entitiesOfKind, partyStays } from '../../domain/derive';
+import {
+  chronicleSorted,
+  entitiesOfKind,
+  openPromises,
+  partyStays,
+  promiseOutcome,
+} from '../../domain/derive';
 import { PARTY_ID, type ChronicleEntry } from '../../domain/schema';
 import { onChroniclePreset, remembered, showInChronicle, showSessionInChronicle } from './link';
 import { MINUTES_PER_DAY, dayIndexOf, formatDate, toTime } from '../../domain/time/calendar';
@@ -136,7 +143,7 @@ describe('Filter', () => {
     const db = await demoDb();
     const open = filtered(db, { openPromisesOnly: true });
     expect(open).toHaveLength(1);
-    db.patch('chronicle', open[0]!.id, { promise: { due: null, done: true } });
+    db.patch('chronicle', open[0]!.id, { promise: { due: null, done: true, failed: false } });
     expect(filtered(db, { openPromisesOnly: true })).toHaveLength(0);
   });
 
@@ -558,7 +565,7 @@ describe('Einträge bearbeiten', () => {
     expect(saved.text).toBe('Neu');
     expect(saved.at).toBe(note.at + 60);
     expect(saved.refs).toEqual([brann.id]);
-    expect(saved.promise).toEqual({ due: note.at + day, done: false });
+    expect(saved.promise).toEqual({ due: note.at + day, done: false, failed: false });
     const back = db.patch(
       'chronicle',
       note.id,
@@ -633,6 +640,7 @@ describe('Einträge bearbeiten', () => {
         secret: false,
         due: ELARIS_START,
         done: false,
+        failed: false,
       }),
     );
     expect(entry.kind).toBe('change');
@@ -646,7 +654,29 @@ describe('Einträge bearbeiten', () => {
       due: ELARIS_START,
       done: false,
     });
-    expect(promise.promise).toEqual({ due: ELARIS_START, done: false });
+    expect(promise.promise).toEqual({ due: ELARIS_START, done: false, failed: false });
+    // Eine Abmachung kann auch scheitern – gescheitert ist sie nur, wenn sie nicht mehr offen ist.
+    const broken = db.put(
+      'chronicle',
+      entryFromDraft({ ...draftOf(promise), done: true, failed: true }),
+    );
+    expect(broken.promise).toEqual({ due: ELARIS_START, done: true, failed: true });
+    expect(promiseOutcome(broken.promise)).toBe('failed');
+    expect(openPromises(db.getSnapshot()).map((e) => e.id)).not.toContain(broken.id);
+    setPromiseOutcome(db, broken.id, 'open');
+    expect(db.getSnapshot().chronicle[broken.id]!.promise).toMatchObject({
+      done: false,
+      failed: false,
+    });
+    setPromiseOutcome(db, broken.id, 'failed');
+    expect(promiseOutcome(db.getSnapshot().chronicle[broken.id]!.promise)).toBe('failed');
+    setPromiseDone(db, broken.id, true);
+    expect(promiseOutcome(db.getSnapshot().chronicle[broken.id]!.promise)).toBe('kept');
+    expect(entryFromDraft({ ...draftOf(promise), done: false, failed: true }).promise).toEqual({
+      due: ELARIS_START,
+      done: false,
+      failed: false,
+    });
     expect(entryFromDraft({ ...draftOf(entry), kind: 'travel' }).kind).toBe('note');
   });
 
@@ -733,7 +763,11 @@ describe('Einträge bearbeiten', () => {
       'Seit 5 Tagen überfällig · 19. Tauwind',
     );
     expect(
-      promiseDueLabel(cal, { ...promise, promise: { due: null, done: false } }, ELARIS_START),
+      promiseDueLabel(
+        cal,
+        { ...promise, promise: { due: null, done: false, failed: false } },
+        ELARIS_START,
+      ),
     ).toBe('Ohne Frist');
     // Der Ort des Geschehens und Gelöschtes zählen nicht zu den Beteiligten.
     expect(promiseParties(db.getSnapshot(), promise)).toEqual(['Brann Eisenhaken']);
@@ -753,12 +787,15 @@ describe('Einträge bearbeiten', () => {
     expect(isOverdue(promise, ELARIS_START + 3 * day)).toBe(true);
     expect(
       isOverdue(
-        { ...promise, promise: { due: promise.promise!.due, done: true } },
+        { ...promise, promise: { due: promise.promise!.due, done: true, failed: false } },
         ELARIS_START + 3 * day,
       ),
     ).toBe(false);
     expect(
-      isOverdue({ ...promise, promise: { due: null, done: false } }, ELARIS_START + 3 * day),
+      isOverdue(
+        { ...promise, promise: { due: null, done: false, failed: false } },
+        ELARIS_START + 3 * day,
+      ),
     ).toBe(false);
     expect(isOverdue(find(db, 'note'), ELARIS_START)).toBe(false);
   });

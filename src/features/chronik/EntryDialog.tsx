@@ -2,7 +2,13 @@
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { entityName, sessionsSorted } from '../../domain/derive';
+import {
+  PROMISE_OUTCOME_LABEL,
+  entityName,
+  promiseOutcome,
+  sessionsSorted,
+  type PromiseOutcome,
+} from '../../domain/derive';
 import { createEntity, type ChronicleEntry, type ChronicleKind } from '../../domain/schema';
 import {
   dayIndexOf,
@@ -170,6 +176,7 @@ export function EntryDialog({
             sessionId: null,
             due: null,
             done: false,
+            failed: false,
             secret: false,
           },
     // Der Dialog arbeitet mit dem Stand beim Öffnen.
@@ -193,7 +200,9 @@ export function EntryDialog({
   );
   const [hasDue, setHasDue] = useState(initial.due !== null);
   const [due, setDue] = useState(() => timeDraftOf(cal, initial.due ?? defaultDue(now)));
-  const [done, setDone] = useState(initial.done);
+  const [outcome, setOutcome] = useState<PromiseOutcome>(
+    promiseOutcome({ done: initial.done, failed: initial.failed }),
+  );
   const [secret, setSecret] = useState(initial.secret);
 
   const at = timeLocked ? initial.at : timeOfDraft(cal, time);
@@ -222,7 +231,8 @@ export function EntryDialog({
       refs,
       sessionId,
       due: isPromise ? dueAt : null,
-      done: isPromise && done,
+      done: isPromise && outcome !== 'open',
+      failed: isPromise && outcome === 'failed',
       secret,
     };
     try {
@@ -418,9 +428,20 @@ export function EntryDialog({
               <Checkbox checked={hasDue} onChange={setHasDue}>
                 Mit Frist
               </Checkbox>
-              <Checkbox checked={done} onChange={setDone}>
-                Erledigt
-              </Checkbox>
+              <label className="wf-row" style={{ gap: 'var(--s-2)' }}>
+                <span className="wf-mute">Stand</span>
+                <Select
+                  value={outcome}
+                  aria-label="Stand der Abmachung"
+                  onChange={(event) => setOutcome(event.target.value as PromiseOutcome)}
+                >
+                  {(['open', 'kept', 'failed'] as const).map((value) => (
+                    <option key={value} value={value}>
+                      {PROMISE_OUTCOME_LABEL[value]}
+                    </option>
+                  ))}
+                </Select>
+              </label>
             </div>
             {hasDue && <WorldTimeFields cal={cal} value={due} onChange={setDue} />}
           </div>

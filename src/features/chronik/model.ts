@@ -544,6 +544,8 @@ export interface EntryDraft {
   /** Nur bei Abmachungen. */
   due: WorldTime | null;
   done: boolean;
+  /** Die Abmachung ist gescheitert – gilt nur zusammen mit `done`. */
+  failed: boolean;
   /** Nur für die Spielleitung. */
   secret: boolean;
 }
@@ -559,6 +561,7 @@ export function draftOf(entry: ChronicleEntry): EntryDraft {
     sessionId: entry.sessionId,
     due: entry.promise?.due ?? null,
     done: entry.promise?.done ?? false,
+    failed: entry.promise?.failed ?? false,
     secret: entry.secret,
   };
 }
@@ -579,10 +582,16 @@ export function entryChange(entry: ChronicleEntry, draft: EntryDraft): Partial<C
     placeId: entry.kind === 'travel' ? entry.placeId : draft.placeId,
     refs,
     sessionId: draft.sessionId,
-    promise: kind === 'promise' ? { due: draft.due, done: draft.done } : null,
+    promise: kind === 'promise' ? promiseOfDraft(draft) : null,
     secret: draft.secret,
   };
 }
+
+const promiseOfDraft = (draft: EntryDraft) => ({
+  due: draft.due,
+  done: draft.done,
+  failed: draft.done && draft.failed,
+});
 
 /** Ein nachgetragener Eintrag (Notiz, Veränderung oder Abmachung). */
 export function entryFromDraft(draft: EntryDraft): ChronicleEntry {
@@ -594,7 +603,7 @@ export function entryFromDraft(draft: EntryDraft): ChronicleEntry {
     text: draft.text.trim(),
     placeId: draft.placeId,
     refs: [...new Set(draft.refs)],
-    promise: kind === 'promise' ? { due: draft.due, done: draft.done } : null,
+    promise: kind === 'promise' ? promiseOfDraft(draft) : null,
     secret: draft.secret,
   });
 }
@@ -723,7 +732,9 @@ export function entryPlainText(data: CampaignData, entry: ChronicleEntry): strin
     line = entryHeadline(data, entry);
   } else if (entry.kind === 'promise') {
     const state = entry.promise?.done
-      ? 'erledigt'
+      ? entry.promise.failed
+        ? 'gescheitert'
+        : 'erledigt'
       : entry.promise?.due != null
         ? `offen, Frist: ${formatDate(cal, entry.promise.due)}`
         : 'offen';

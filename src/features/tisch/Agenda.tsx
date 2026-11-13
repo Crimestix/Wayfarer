@@ -10,6 +10,7 @@ import {
   Hourglass,
   Milestone,
   Repeat,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -38,10 +39,14 @@ function AgendaRow({ item }: { item: AgendaItem }) {
   const links = [...new Set([item.placeId, ...item.refs])]
     .filter((id): id is string => !!id)
     .slice(0, 3);
-  const settle = () => {
-    settleAgendaItem(db, item);
+  const settle = (failed = false) => {
+    settleAgendaItem(db, item, true, failed);
     toast({
-      title: item.source === 'timer' ? 'Beendet' : item.checkLabel,
+      title: failed
+        ? 'Abmachung gescheitert'
+        : item.source === 'timer'
+          ? 'Beendet'
+          : item.checkLabel,
       body: item.title,
       action: { label: 'Rückgängig', run: () => settleAgendaItem(db, item, false) },
     });
@@ -79,9 +84,20 @@ function AgendaRow({ item }: { item: AgendaItem }) {
           className="wf-chron__check wf-tisch-due__check"
           title={item.checkLabel}
           aria-label={`${item.checkLabel}: ${item.title}`}
-          onClick={settle}
+          onClick={() => settle()}
         >
           <Check />
+        </button>
+      )}
+      {item.checkable && item.source === 'promise' && (
+        <button
+          type="button"
+          className="wf-chron__check wf-chron__check--fail wf-tisch-due__check"
+          title="Gescheitert – gebrochen, geplatzt oder nicht mehr einzulösen"
+          aria-label={`Gescheitert: ${item.title}`}
+          onClick={() => settle(true)}
+        >
+          <X />
         </button>
       )}
     </div>
