@@ -20,6 +20,16 @@ import {
   type Stay,
 } from '../../domain/derive';
 import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
+import { formatGold } from '../../domain/loot';
+import {
+  HABITAT_SUGGESTIONS,
+  RARITY_LABEL,
+  isNature,
+  isNatureKind,
+  natureOf,
+  priceText,
+  readPrice,
+} from '../../domain/nature';
 import { isRoom } from '../../domain/rooms';
 import { relationLabel, relationType } from '../../domain/relations';
 import {
@@ -34,6 +44,7 @@ import {
   type Person,
   type PersonStatus,
   type Place,
+  type Rarity,
   type Relation,
 } from '../../domain/schema';
 import {
@@ -61,6 +72,10 @@ export const WORLD_KINDS = [
   'language',
   'script',
   'ability',
+  'plant',
+  'animal',
+  'mineral',
+  'profession',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 export type KindFilter = 'all' | WorldKind;
@@ -101,6 +116,19 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
   script: ['Alphabet', 'Runen', 'Bilderschrift', 'Geheimschrift'],
   ability: ['Gabe', 'Talent', 'Segen', 'Fluch', 'Magie'],
+  plant: ['Kraut', 'Baum', 'Strauch', 'Blume', 'Pilz', 'Moos', 'Gras', 'Alge'],
+  animal: ['Wild', 'Nutztier', 'Reittier', 'Raubtier', 'Vogel', 'Fisch', 'Insekt', 'Kriechtier'],
+  mineral: ['Erz', 'Edelstein', 'Halbedelstein', 'Gestein', 'Salz', 'Kristall', 'Metall'],
+  profession: [
+    'Handwerk',
+    'Handel',
+    'Gelehrsamkeit',
+    'Heilkunde',
+    'Dienst',
+    'Land und Wasser',
+    'Kunst',
+    'Glaube',
+  ],
 };
 
 /** Vorschläge für „Art“: bereits verwendete Werte zuerst, dann die üblichen. */
@@ -114,6 +142,17 @@ export function categoryOptions(data: CampaignData, kind: Exclude<WorldKind, 'pe
   const collator = new Intl.Collator('de');
   const rest = CATEGORY_SUGGESTIONS[kind].filter((c) => !used.has(c));
   return [...[...used].sort(collator.compare), ...rest];
+}
+
+/** Vorschläge für Lebensräume: was in der Welt schon steht, dann die üblichen Wörter. */
+export function habitatChoices(data: CampaignData): string[] {
+  const used = new Map<string, string>();
+  for (const entity of Object.values(data.entities))
+    if (isNature(entity))
+      for (const word of natureOf(entity).habitat)
+        if (!used.has(word.toLocaleLowerCase('de'))) used.set(word.toLocaleLowerCase('de'), word);
+  const rest = HABITAT_SUGGESTIONS.filter((word) => !used.has(word.toLocaleLowerCase('de')));
+  return [...[...used.values()].sort((a, b) => a.localeCompare(b, 'de')), ...rest];
 }
 
 /** Das freie Feld „Art“ eines Eintrags; Personen und Gefährten haben keines. */
@@ -288,6 +327,13 @@ export function entitySubline(data: CampaignData, entity: Entity): string {
     case 'character':
       parts.push(entity.character.className, entity.character.player);
       break;
+    case 'plant':
+    case 'animal':
+    case 'mineral': {
+      const details = natureOf(entity);
+      parts.push(details.category, details.rarity ? RARITY_LABEL[details.rarity] : '');
+      break;
+    }
     default:
       parts.push(entityCategory(entity));
   }
@@ -352,6 +398,7 @@ function kindFacts(data: CampaignData, entity: Entity): Fact[] {
       list('Familie', families(data, entity.id));
       list('Sprachen', linkedIds(data, entity.id, 'speaks', ['language']));
       list('Fähigkeiten', linkedIds(data, entity.id, 'has-ability', ['ability']));
+      list('Berufe', linkedIds(data, entity.id, 'practises', ['profession']));
       break;
     }
     case 'family':
@@ -367,6 +414,25 @@ function kindFacts(data: CampaignData, entity: Entity): Fact[] {
     case 'script':
     case 'ability':
       text('Art', entityCategory(entity));
+      break;
+    case 'plant':
+    case 'animal':
+    case 'mineral': {
+      const details = natureOf(entity);
+      text('Art', details.category);
+      if (details.rarity) text('Seltenheit', RARITY_LABEL[details.rarity]);
+      text('Lebensraum', details.habitat.join(', '));
+      list(
+        'Vorkommen',
+        details.regionIds.filter((id) => data.entities[id]),
+      );
+      text('Zeit', details.seasons.join(', '));
+      if (details.price !== null) text('Wert', formatGold(details.price));
+      break;
+    }
+    case 'profession':
+      text('Art', entity.profession.category);
+      text('Werkzeug', entity.profession.tool);
       break;
     case 'place': {
       const above = placeAncestors(data, entity.id).reverse();
@@ -933,6 +999,18 @@ export interface EntityDraft {
   holderId: string | null;
   // Sprache
   scriptId: string | null;
+  /** Pflanze, Tier, Gestein: Lebensräume, Gegenden, Jahreszeiten, Seltenheit, Preis als Text. */
+  habitat: string[];
+  regionIds: string[];
+  seasons: string[];
+  rarity: Rarity | '';
+  price: string;
+  /** Tier: Kampfwerte im Bestiarium. */
+  creatureId: string | null;
+  /** Beruf: Werkzeug. */
+  tool: string;
+  /** Person: Berufe („übt aus“). */
+  professionIds: string[];
   /** Lebensdaten als Worte: „3. Tauwind 667“, „667“, „vor 300 Jahren“, bei Lebewesen auch „Alter 34“. */
   born: string;
   ended: string;
@@ -943,6 +1021,7 @@ export const PERSON_LINKS = [
   { field: 'familyIds', type: 'member', kinds: ['family'] },
   { field: 'languageIds', type: 'speaks', kinds: ['language'] },
   { field: 'abilityIds', type: 'has-ability', kinds: ['ability'] },
+  { field: 'professionIds', type: 'practises', kinds: ['profession'] },
 ] as const satisfies readonly {
   field: keyof EntityDraft;
   type: string;
@@ -975,6 +1054,14 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     seatId: null,
     holderId: null,
     scriptId: null,
+    habitat: [],
+    regionIds: [],
+    seasons: [],
+    rarity: '',
+    price: '',
+    creatureId: null,
+    tool: '',
+    professionIds: [],
     born: '',
     ended: '',
     ...preset,
@@ -1002,6 +1089,10 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
       ]),
     );
     return { ...draft, ...entity.person, ...links };
+  }
+  if (isNature(entity)) {
+    const { price, ...details } = natureOf(entity);
+    return { ...draft, ...details, price: priceText(price) };
   }
   const details = (entity as unknown as Record<string, Partial<EntityDraft>>)[entity.kind];
   return { ...draft, ...details };
@@ -1031,6 +1122,8 @@ export function draftProblem(
   ] as const)
     if (text.trim() && !readDatePoint(data.campaign.calendar, text, data.state.now, { age }))
       return `„${word}“ verstehe ich nicht – zum Beispiel „3. Tauwind 667“, „667“ oder „vor 300 Jahren“${age ? ' oder „Alter 34“' : ''}.`;
+  if (isNatureKind(draft.kind) && readPrice(draft.price) === undefined)
+    return '„Wert“ verstehe ich nicht – zum Beispiel „12“, „2,5 GM“ oder „5 Silber“.';
   if (draft.kind === 'place' && draft.parentId) {
     const parent = data.entities[draft.parentId];
     if (!parent || parent.kind !== 'place') return 'Der übergeordnete Ort existiert nicht mehr.';
@@ -1120,6 +1213,36 @@ export function entityFromDraft(
         ? { ...base, ...common, language: { ...base.language, ...language } }
         : createEntity({ kind: 'language', ...common, language });
     }
+    case 'plant':
+    case 'animal':
+    case 'mineral': {
+      const nature = {
+        category,
+        habitat: cleanWords(draft.habitat),
+        regionIds: [...new Set(draft.regionIds)],
+        seasons: cleanWords(draft.seasons),
+        rarity: draft.rarity,
+        price: readPrice(draft.price) ?? null,
+      };
+      if (draft.kind === 'animal') {
+        const animal = { ...nature, creatureId: draft.creatureId };
+        return base?.kind === 'animal'
+          ? { ...base, ...common, animal: { ...base.animal, ...animal } }
+          : createEntity({ kind: 'animal', ...common, animal });
+      }
+      const kind = draft.kind;
+      if (base) {
+        const details = (base as unknown as Record<string, object>)[kind];
+        return { ...base, ...common, [kind]: { ...details, ...nature } } as WorldEntity;
+      }
+      return createEntity({ kind, ...common, [kind]: nature }) as WorldEntity;
+    }
+    case 'profession': {
+      const profession = { category, tool: draft.tool.trim() };
+      return base?.kind === 'profession'
+        ? { ...base, ...common, profession: { ...base.profession, ...profession } }
+        : createEntity({ kind: 'profession', ...common, profession });
+    }
     case 'topic':
     case 'species':
     case 'script':
@@ -1132,6 +1255,20 @@ export function entityFromDraft(
       return createEntity({ kind, ...common, [kind]: { category } }) as WorldEntity;
     }
   }
+}
+
+/** Wörter einer Liste ohne Leere und ohne Doppelte (gleich geschrieben, groß oder klein). */
+function cleanWords(words: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const word of words) {
+    const clean = word.replace(/\s+/g, ' ').trim();
+    const key = clean.toLocaleLowerCase('de');
+    if (!clean || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
 }
 
 /** Gibt es schon einen Eintrag dieser Art mit demselben Namen? (Hinweis, kein Verbot.) */

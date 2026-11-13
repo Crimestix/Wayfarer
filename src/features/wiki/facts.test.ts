@@ -4,7 +4,7 @@ import { fromTime } from '../../domain/time/calendar';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import type { CampaignData, Entity } from '../../domain/schema';
+import { createEntity, type CampaignData, type Entity } from '../../domain/schema';
 import { lkExportFixture } from './__fixtures__/lkExport';
 import {
   applyLkImport,
@@ -21,6 +21,7 @@ import {
   articleFacts,
   articleShare,
   factField,
+  kindFromFolder,
   kindFromText,
   nameParts,
   pendingFacts,
@@ -430,5 +431,85 @@ describe('Steckbrief speist die Welt', () => {
       }),
     ).toEqual({ fields: ['Beruf oder Rolle', 'Spezies', 'Zuhause'], relations: 2 });
     expect(articleShare({ fromArticle: {} })).toEqual({ fields: [], relations: 0 });
+  });
+});
+
+describe('Steckbrief: Pflanzen, Tiere, Gesteine und Berufe', () => {
+  it('erkennt die neuen Arten am Wort', () => {
+    expect(kindFromText('Heilkraut')).toBe('plant');
+    expect(kindFromText('Pilz')).toBe('plant');
+    expect(kindFromText('Reittier')).toBe('animal');
+    expect(kindFromText('Tier')).toBe('animal');
+    // „Quartier“ endet zwar auf „tier“, ist aber kein Tier.
+    expect(kindFromText('Quartier')).toBeNull();
+    expect(kindFromText('Edelstein')).toBe('mineral');
+    expect(kindFromText('Eisenerz')).toBe('mineral');
+    expect(kindFromText('Steinsalz')).toBe('mineral');
+    expect(kindFromText('Handwerk')).toBe('profession');
+    // Ein Trank ist ein Gegenstand, auch wenn er aus einem Kraut gemacht ist.
+    expect(kindFromText('Trank')).toBe('item');
+    expect(factField('plant', 'Blütezeit')).toBe('season');
+    expect(factField('animal', 'Verbreitung')).toBe('region');
+    expect(factField('mineral', 'Preis')).toBe('price');
+    expect(factField('profession', 'Werkzeug')).toBe('tool');
+    expect(factField('person', 'Beruf')).toBe('profession');
+  });
+
+  it('speist Lebensraum, Vorkommen, Zeit, Seltenheit und Wert', async () => {
+    const { db, data, entity } = await setup();
+    const region = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Krummzahn-Sumpf' } as never),
+    );
+    const article = createArticle(db, {
+      title: 'Mondkraut',
+      text: '> [!steckbrief]\n> Art: Heilkraut\n> Lebensraum: Wald, Sümpfe\n> Vorkommen: Krummzahn-Sumpf\n> Blütezeit: Frühling\n> Seltenheit: selten\n> Preis: 5 Silber',
+    })!;
+    syncFacts(db, [article.id]);
+    const herb = entity('Mondkraut', 'plant');
+    expect(herb.plant).toMatchObject({
+      category: 'Heilkraut',
+      habitat: ['Wald', 'Sümpfe'],
+      regionIds: [region.id],
+      seasons: ['Frühling'],
+      rarity: 'rare',
+      price: 0.5,
+    });
+    expect(articleShare(herb).fields).toEqual([
+      'Art',
+      'Lebensraum',
+      'Vorkommen',
+      'Jahreszeit',
+      'Seltenheit',
+      'Wert',
+    ]);
+    // Ein zweiter Lauf ändert nichts.
+    expect(planFacts(data(), data().articles[article.id]!, herb).changes).toEqual([]);
+  });
+
+  it('schlägt die Art nach dem Ordner vor', async () => {
+    const { db, data } = await setup();
+    const flora = createArticle(db, { title: 'Flora' })!;
+    const herbs = createArticle(db, { title: 'Kräuter', parentId: flora.id })!;
+    const herb = createArticle(db, { title: 'Mondkraut', parentId: herbs.id })!;
+    const loose = createArticle(db, { title: 'Allerlei' })!;
+    expect(kindFromFolder(data().articles, herb)).toEqual({ kind: 'plant', folder: 'Kräuter' });
+    expect(kindFromFolder(data().articles, herbs)).toEqual({ kind: 'plant', folder: 'Flora' });
+    expect(kindFromFolder(data().articles, loose)).toBeNull();
+  });
+
+  it('verbindet eine Person mit ihrem Beruf und behält ihn als Rolle', async () => {
+    const { db, data, entity, write, relations } = await setup();
+    const smith = db.put(
+      'entities',
+      createEntity({ kind: 'profession', name: 'Schmied' } as never),
+    );
+    write('vera0001', '> [!steckbrief]\n> Beruf: Schmied, Hafenmeisterin');
+    syncFacts(db, ['vera0001']);
+    const vera = entity('Vera Kohl', 'person');
+    expect(vera.person.role).toBe('Schmied, Hafenmeisterin');
+    expect(relations()).toContain(`${vera.id} practises ${smith.id} (vera0001)`);
+    // Ein Beruf ohne Eintrag ist kein fehlender Eintrag.
+    expect(pendingFacts(data()).missing).toEqual([]);
   });
 });

@@ -1529,7 +1529,7 @@
   border-color: var(--blood-bright);
 }
 .wf-welt-filter--kinds {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 .wf-welt-form__link {
   padding: 0;
@@ -2117,4 +2117,42 @@
 .wf-welt-life__switch {
   margin-top: var(--s-3);
   font-size: var(--text-sm);
+}
+
+/* Wörter als Chips: Lebensräume, Jahreszeiten */
+.wf-welt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-welt-chip {
+  display: inline-flex;
+  gap: var(--s-1);
+  align-items: center;
+  padding: 1px var(--s-1) 1px var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.wf-welt-chip button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+}
+.wf-welt-chip button:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-chip svg {
+  width: 12px;
+  height: 12px;
+}
+.wf-welt-chips__input {
+  flex: 1 1 140px;
+  min-width: 0;
 }

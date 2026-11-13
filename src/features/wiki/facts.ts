@@ -6,6 +6,7 @@
  * wird genannt.
  */
 import { lifeWords, readDatePoint } from '../../domain/lifespan';
+import { rarityFromText, readPrice } from '../../domain/nature';
 import {
   PERSON_STATUS,
   type Article,
@@ -105,7 +106,14 @@ export type FactField =
   | 'leader'
   | 'owner'
   | 'born'
-  | 'died';
+  | 'died'
+  | 'habitat'
+  | 'region'
+  | 'season'
+  | 'rarity'
+  | 'price'
+  | 'tool'
+  | 'profession';
 
 export const FIELD_LABEL: Record<FactField, string> = {
   kind: 'Art',
@@ -123,6 +131,13 @@ export const FIELD_LABEL: Record<FactField, string> = {
   owner: 'Besitzer',
   born: 'Geboren',
   died: 'Gestorben',
+  habitat: 'Lebensraum',
+  region: 'Vorkommen',
+  season: 'Jahreszeit',
+  rarity: 'Seltenheit',
+  price: 'Wert',
+  tool: 'Werkzeug',
+  profession: 'Beruf',
 };
 
 /** Lebensdaten im Steckbrief – für alle Arten; was sie bei welcher Art heißen, steht in `lifeWords`. */
@@ -172,21 +187,34 @@ const LEADER = [
 ];
 const OWNER = ['Besitzer', 'Besitzerin', 'Aktueller Besitzer', 'Eigentümer', 'Eigentümerin'];
 
+/** Pflanze, Tier, Gestein: wo, wann, wie selten, was es wert ist (`domain/nature.ts`). */
+const NATURE: Partial<Record<FactField, string[]>> = {
+  kind: KIND,
+  habitat: ['Lebensraum', 'Lebensräume', 'Habitat', 'Standort', 'Fundort', 'Fundorte'],
+  region: ['Vorkommen', 'Gegend', 'Gegenden', 'Verbreitung', 'Region', 'Heimat'],
+  season: [
+    'Jahreszeit',
+    'Jahreszeiten',
+    'Zeit',
+    'Blütezeit',
+    'Erntezeit',
+    'Sammelzeit',
+    'Brunft',
+    'Brunftzeit',
+    'Brutzeit',
+    'Jagdzeit',
+    'Saison',
+  ],
+  rarity: ['Seltenheit', 'Häufigkeit'],
+  price: ['Preis', 'Wert', 'Marktwert', 'Kosten'],
+};
+
 /** Welche Bezeichnung bei welcher Art von Eintrag was bedeutet. */
 const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>>>> = {
   person: {
-    role: [
-      'Titel',
-      'Beruf',
-      'Rolle',
-      'Amt',
-      'Funktion',
-      'Tätigkeit',
-      'Position',
-      'Stellung',
-      'Rang',
-    ],
+    role: ['Titel', 'Rolle', 'Amt', 'Funktion', 'Tätigkeit', 'Position', 'Stellung', 'Rang'],
     species: ['Spezies', 'Volk', 'Rasse'],
+    profession: ['Beruf', 'Berufe', 'Handwerk', 'Gewerbe'],
     status: ['Status', 'Zustand'],
     whereabouts: ['Aufenthaltsort', 'Aufenthalt', 'Befindet sich in', 'Zuletzt gesehen', 'Ort'],
     home: ['Wohnort', 'Wohnsitz', 'Zuhause', 'Heimat', 'Lebt in', 'Wohnt in'],
@@ -257,6 +285,10 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
   script: { kind: KIND },
   ability: { kind: KIND },
   topic: { kind: KIND },
+  plant: NATURE,
+  animal: NATURE,
+  mineral: NATURE,
+  profession: { kind: KIND, tool: ['Werkzeug', 'Werkzeuge', 'Handwerkszeug'] },
 };
 
 for (const kind of ['person', 'place', 'faction', 'family', 'item', 'species', 'topic'] as const)
@@ -400,6 +432,63 @@ const KIND_WORDS: [EntityKind, string[]][] = [
   ['language', ['Sprache', 'Dialekt']],
   ['script', ['Schrift', 'Alphabet']],
   ['ability', ['Fähigkeit', '=Gabe', 'Fluch']],
+  [
+    'plant',
+    [
+      'Pflanze',
+      'Kraut',
+      'Heilkraut',
+      'Baum',
+      'Strauch',
+      'Busch',
+      'Blume',
+      'Pilz',
+      'Moos',
+      'Flechte',
+      'Farn',
+      'Alge',
+      'Gewächs',
+      'Flora',
+    ],
+  ],
+  [
+    'animal',
+    [
+      '=Tier',
+      'Tierart',
+      'Haustier',
+      'Nutztier',
+      'Reittier',
+      'Lasttier',
+      'Zugtier',
+      'Raubtier',
+      'Wildtier',
+      'Säugetier',
+      '=Wild',
+      'Rotwild',
+      'Vogel',
+      'Fisch',
+      'Insekt',
+      'Reptil',
+      'Fauna',
+    ],
+  ],
+  [
+    'mineral',
+    [
+      'Gestein',
+      'Mineral',
+      'Erz',
+      'Eisenerz',
+      'Kupfererz',
+      'Silbererz',
+      'Golderz',
+      'Edelstein',
+      'Kristall',
+      'Salz',
+    ],
+  ],
+  ['profession', ['Beruf', 'Handwerk', 'Gewerbe']],
   ['topic', ['Thema', 'Ereignis', 'Begriff', 'Legende', 'Mythos']],
 ];
 
@@ -440,6 +529,48 @@ export function kindFromText(text: string): EntityKind | null {
   for (const word of order) {
     const kind = kindOfWord(word);
     if (kind) return kind;
+  }
+  return null;
+}
+
+/** Ordner, deren Name verrät, was darin liegt: „Kräuter“ enthält Pflanzen. Ganz, in der Mehrzahl. */
+const FOLDER_WORDS: [EntityKind, string[]][] = [
+  ['plant', ['Pflanzen', 'Flora', 'Kräuter', 'Herbarium', 'Pilze', 'Bäume', 'Gewächse']],
+  ['animal', ['Tiere', 'Fauna', 'Tierwelt', 'Wildtiere', 'Haustiere', 'Reittiere']],
+  ['mineral', ['Mineralien', 'Gesteine', 'Erze', 'Edelsteine', 'Steine', 'Rohstoffe']],
+  ['profession', ['Berufe', 'Handwerke', 'Gewerbe']],
+  ['person', ['Personen', 'NSC', 'Figuren', 'Leute']],
+  ['place', ['Orte', 'Städte', 'Siedlungen']],
+  ['faction', ['Fraktionen', 'Gilden', 'Orden']],
+  ['family', ['Familien', 'Adelshäuser', 'Dynastien']],
+  ['item', ['Gegenstände', 'Artefakte', 'Tränke', 'Gifte', 'Bücher']],
+  ['species', ['Spezies', 'Völker', 'Rassen']],
+  ['language', ['Sprachen']],
+  ['script', ['Schriften']],
+  ['ability', ['Fähigkeiten']],
+];
+const FOLDER_KIND = new Map(
+  FOLDER_WORDS.flatMap(([kind, words]) => words.map((word) => [norm(word), kind] as const)),
+);
+
+/**
+ * Was ein Artikel wohl ist, nach dem Ordner, in dem er liegt: der nächste Ordner, dessen Name es
+ * verrät („Flora › Kräuter › Mondkraut“ ist eine Pflanze). Nur ein Vorschlag für „In die Welt
+ * aufnehmen“ – angelegt wird erst, wenn der Spielleiter wählt.
+ */
+export function kindFromFolder(
+  articles: Articles,
+  article: Pick<Article, 'parentId'>,
+): { kind: EntityKind; folder: string } | null {
+  const seen = new Set<string>();
+  let parentId = article.parentId;
+  while (parentId && !seen.has(parentId)) {
+    seen.add(parentId);
+    const folder = articles[parentId];
+    if (!folder) break;
+    const kind = FOLDER_KIND.get(norm(folder.title));
+    if (kind) return { kind, folder: folder.title };
+    parentId = folder.parentId;
   }
   return null;
 }
@@ -661,6 +792,8 @@ const TARGET_KINDS: Partial<Record<FactField, readonly EntityKind[]>> = {
   seat: ['place'],
   leader: ['person', 'character', 'faction', 'family'],
   owner: ['person', 'character', 'faction', 'family', 'place'],
+  region: ['place'],
+  profession: ['profession'],
 };
 
 /** Liest die Zeilen eines Steckbriefs für einen Eintrag dieser Art. Jedes Feld zählt einmal. */
@@ -683,6 +816,9 @@ export function readFacts(index: WorldIndex, facts: Fact[], kind: EntityKind): R
     if (field === 'status') {
       const status = statusFromText(fact.text);
       if (status) out.push({ ...base, value: status });
+    } else if (field === 'rarity') {
+      const rarity = rarityFromText(fact.text);
+      if (rarity) out.push({ ...base, value: rarity });
     } else if (field === 'kind') {
       const read = kindFromText(fact.text);
       out.push({ ...base, ...(read ? { value: read } : {}) });
@@ -693,10 +829,17 @@ export function readFacts(index: WorldIndex, facts: Fact[], kind: EntityKind): R
       out.push({ ...base, text: name, entities: found.slice(0, 1), kinds: kinds! });
     } else if (kinds) {
       const { found, missing } = resolveEntities(index, fact, kinds);
-      const many = field === 'membership' || field === 'leader' || field === 'owner';
+      const many =
+        field === 'membership' ||
+        field === 'leader' ||
+        field === 'owner' ||
+        field === 'region' ||
+        field === 'profession';
       const pick = many ? found : [deepest(index, found)].filter((e): e is Entity => !!e);
       // Bei einem einzelnen Ort ist der Rest des Wertes nur die nähere Angabe („Villa – Zimmer 3“).
-      out.push({ ...base, entities: pick, missing: many || !pick.length ? missing : [], kinds });
+      // Ein Beruf ohne Eintrag ist nur die Rolle in Worten – kein fehlender Eintrag.
+      const unmatched = field === 'profession' ? [] : missing;
+      out.push({ ...base, entities: pick, missing: many || !pick.length ? unmatched : [], kinds });
     } else out.push(base);
   }
   return out;
@@ -815,6 +958,14 @@ function isUnder(index: WorldIndex, placeId: string, ancestorId: string): boolea
   return false;
 }
 
+const sameValue = (a: unknown, b: unknown) =>
+  Array.isArray(a) && Array.isArray(b)
+    ? a.length === b.length && a.every((value, i) => value === b[i])
+    : a === b;
+
+/** Wörter eines Wertes: „Wald, Sumpf und Moor“ sind drei. */
+const valueWords = (text: string) => nameParts(text).map((part) => part.slice(0, 60));
+
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
@@ -833,6 +984,12 @@ const SHARE_LABEL: Record<string, string> = {
   seatId: FIELD_LABEL.seat,
   category: FIELD_LABEL.kind,
   holderId: FIELD_LABEL.owner,
+  habitat: FIELD_LABEL.habitat,
+  regionIds: FIELD_LABEL.region,
+  seasons: FIELD_LABEL.season,
+  rarity: FIELD_LABEL.rarity,
+  price: FIELD_LABEL.price,
+  tool: FIELD_LABEL.tool,
 };
 
 /**
@@ -889,7 +1046,7 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
     if (entity.fromArticle[key] === reading.text) return;
     const group = next.kind;
     const details = (next as unknown as Record<string, Record<string, unknown>>)[group]!;
-    if (details[key] === value) return;
+    if (sameValue(details[key], value)) return;
     next = { ...next, [group]: { ...details, [key]: value } } as Entity;
     changes.push(`${FIELD_LABEL[as]}: ${shown}`);
   };
@@ -944,6 +1101,47 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
       case 'membership':
         for (const other of others(reading))
           wishes.push({ from: entity.id, to: other.id, type: 'member' });
+        break;
+      case 'profession':
+        for (const other of others(reading))
+          wishes.push({ from: entity.id, to: other.id, type: 'practises' });
+        // „Beruf: Schmied“ ist auch die Rolle, solange der Steckbrief keine eigene nennt.
+        if (!readings.some((r) => r.field === 'role'))
+          set(
+            reading,
+            'role',
+            reading.text.slice(0, ROLE_MAX),
+            reading.text.slice(0, ROLE_MAX),
+            'role',
+          );
+        break;
+      case 'habitat':
+        set(reading, 'habitat', valueWords(reading.text), reading.text);
+        break;
+      case 'season':
+        set(reading, 'seasons', valueWords(reading.text), reading.text);
+        break;
+      case 'region': {
+        const found = others(reading);
+        if (found.length)
+          set(
+            reading,
+            'regionIds',
+            found.map((e) => e.id),
+            found.map((e) => e.name).join(', '),
+          );
+        break;
+      }
+      case 'rarity':
+        if (reading.value) set(reading, 'rarity', reading.value, reading.text);
+        break;
+      case 'price': {
+        const price = readPrice(reading.text);
+        if (typeof price === 'number') set(reading, 'price', price, reading.text);
+        break;
+      }
+      case 'tool':
+        set(reading, 'tool', reading.text.slice(0, ROLE_MAX), reading.text.slice(0, ROLE_MAX));
         break;
       case 'leader':
         for (const other of others(reading))
@@ -1007,9 +1205,11 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
   const shown = (wish: RelationWish) =>
     wish.type === 'member'
       ? `${FIELD_LABEL.membership}: ${nameOf(wish.to)}`
-      : wish.type === 'owns'
-        ? `${FIELD_LABEL.owner}: ${nameOf(wish.from)}`
-        : `${FIELD_LABEL.leader}: ${nameOf(wish.from)}`;
+      : wish.type === 'practises'
+        ? `${FIELD_LABEL.profession}: ${nameOf(wish.to)}`
+        : wish.type === 'owns'
+          ? `${FIELD_LABEL.owner}: ${nameOf(wish.from)}`
+          : `${FIELD_LABEL.leader}: ${nameOf(wish.from)}`;
   for (const wish of addRelations) changes.push(shown(wish));
   for (const id of removeRelations) {
     const relation = data.relations[id];

@@ -31,6 +31,7 @@ import {
 } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
+import { articleFacts, kindFromFolder, statedKind } from './facts';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
 import { AiOverview } from '../ki/AiOverview';
@@ -61,6 +62,10 @@ const ADOPT_KINDS: EntityKind[] = [
   'species',
   'language',
   'topic',
+  'plant',
+  'animal',
+  'mineral',
+  'profession',
 ];
 
 /** Was aufgeklappt ist und wonach gesucht wurde, bleibt beim Wechsel des Bereichs erhalten. */
@@ -165,6 +170,7 @@ function TreeRows({
 
 function AdoptButton({ article }: { article: Article }) {
   const db = useDb();
+  const data = useData();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
@@ -177,6 +183,13 @@ function AdoptButton({ article }: { article: Article }) {
       action: { label: 'Öffnen', run: () => navigate(entityHref(entity)) },
     });
   };
+  // Der Ordner oder der Steckbrief schlägt die Art vor; sie steht dann oben.
+  const folder = kindFromFolder(data.articles, article);
+  const stated = folder ? null : statedKind(articleFacts(data.articles, article));
+  const suggested = folder?.kind ?? stated?.kind ?? null;
+  const kinds = suggested
+    ? [suggested, ...ADOPT_KINDS.filter((kind) => kind !== suggested)]
+    : ADOPT_KINDS;
   return (
     <>
       <Button
@@ -190,9 +203,19 @@ function AdoptButton({ article }: { article: Article }) {
         <span className="wf-lk-act__label">In die Welt aufnehmen</span>
       </Button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} align="right" width={230}>
-        {ADOPT_KINDS.map((kind) => (
-          <MenuItem key={kind} icon={<KindIcon kind={kind} />} onClick={() => adopt(kind)}>
+        {kinds.map((kind) => (
+          <MenuItem
+            key={kind}
+            icon={<KindIcon kind={kind} />}
+            active={kind === suggested}
+            onClick={() => adopt(kind)}
+          >
             als {KIND_LABEL[kind]}
+            {kind === suggested && (
+              <span className="wf-mute">
+                {folder ? ` – liegt in „${folder.folder}“` : ' – laut Steckbrief'}
+              </span>
+            )}
           </MenuItem>
         ))}
       </Popover>

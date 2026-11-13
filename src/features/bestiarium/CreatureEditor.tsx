@@ -62,9 +62,10 @@ import {
   confirmDialog,
   cx,
 } from '../../ui';
-import { addToWorld, saveCreature } from './actions';
+import { addToWorld, linkAnimalCreature, saveCreature } from './actions';
 import {
   EMPTY_HISTORY,
+  animalPreset,
   clampNumber,
   draftInherits,
   draftOf,
@@ -136,12 +137,22 @@ export default function CreatureEditorPage() {
         </EmptyState>
       </div>
     );
-  // „/bestiarium/neu/variante/<id>“ und „/bestiarium/neu/einzelner/<id>“ erben von <id>.
+  // „/bestiarium/neu/variante/<id>“ und „/bestiarium/neu/einzelner/<id>“ erben von <id>;
+  // „/bestiarium/neu/tier/<id>“ legt die Kampfwerte eines Tieres der Welt an.
+  const forAnimal = params.art === 'tier';
   const kind = params.art ? (ART_KIND[params.art] ?? null) : null;
-  const parentId = params.erbt ?? null;
-  const key = stored ? stored.id : `neu/${params.art ?? ''}/${parentId ?? ''}`;
+  const parentId = forAnimal ? null : (params.erbt ?? null);
+  const animal = forAnimal && params.erbt ? data.entities[params.erbt] : undefined;
+  const key = stored ? stored.id : `neu/${params.art ?? ''}/${params.erbt ?? ''}`;
   return (
-    <Editor key={key} parkKey={key} storedId={stored?.id ?? null} kind={kind} parentId={parentId} />
+    <Editor
+      key={key}
+      parkKey={key}
+      storedId={stored?.id ?? null}
+      kind={kind}
+      parentId={parentId}
+      animalId={animal?.kind === 'animal' ? animal.id : null}
+    />
   );
 }
 
@@ -150,18 +161,24 @@ function Editor({
   storedId,
   kind,
   parentId,
+  animalId,
 }: {
   parkKey: string;
   storedId: string | null;
   kind: CreatureKind | null;
   parentId: string | null;
+  /** Das Tier der Welt, dessen Kampfwerte hier entstehen. */
+  animalId: string | null;
 }) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
   const stored = storedId ? (data.creatures[storedId] ?? null) : null;
   const [baseline] = useState<CreatureDraft>(() =>
-    draftOf(stored, presetFor(data.creatures, kind, parentId)),
+    draftOf(stored, {
+      ...presetFor(data.creatures, kind, parentId),
+      ...animalPreset(data.entities[animalId ?? '']),
+    }),
   );
   const [restored, setRestored] = useState(() => parkedDraft(parkKey) !== null);
   const [draft, setDraft] = useState<CreatureDraft>(() => parkedDraft(parkKey) ?? baseline);
@@ -232,6 +249,8 @@ function Editor({
     if (problem) return;
     const saved = db.batch(() => {
       const creature = saveCreature(db, draft, storedId ?? undefined);
+      // Kampfwerte eines Tieres: Das Tier zeigt danach auf sie.
+      if (animalId) linkAnimalCreature(db, animalId, creature.id);
       // Eine Spezies, die hier angelegt und dann doch nicht gewählt wurde, bleibt nicht liegen.
       discardUnusedDrafts(
         db,

@@ -4,7 +4,8 @@
  */
 import { useState } from 'react';
 import { Dices, Minus, Plus } from 'lucide-react';
-import { useDb } from '../../data/hooks';
+import { useData, useDb } from '../../data/hooks';
+import { animalsOfCreature } from '../../domain/nature';
 import {
   ABILITY_SHORT,
   KIND_LABEL,
@@ -22,7 +23,7 @@ import {
 } from '../../domain/creature';
 import { fillPlaceholders } from '../../domain/creatureParts';
 import { ABILITY_KEYS, FEATURE_SECTIONS, type CreatureBlock } from '../../domain/schema';
-import { Button, EntityLink, IconButton, Input, cx } from '../../ui';
+import { Button, EntityLink, EntityLinks, IconButton, Input, cx } from '../../ui';
 import { setCreatureHp } from './actions';
 import { rollAttack, rollDamage, type Roll } from './model';
 
@@ -65,7 +66,9 @@ export function StatBlock({
   preview?: boolean;
 }) {
   const db = useDb();
+  const data = useData();
   const { creature, block, features, chain } = resolved;
+  const animals = preview ? [] : animalsOfCreature(data, creature.id);
   const stats = statsOf(block);
   const check = crCheck(resolved);
   const [rolls, setRolls] = useState<Roll[]>([]);
@@ -253,6 +256,11 @@ export function StatBlock({
         {creature.speciesId && (
           <div className="wf-best-line">
             <b>Spezies</b> <EntityLink id={creature.speciesId} />
+          </div>
+        )}
+        {animals.length > 0 && (
+          <div className="wf-best-line">
+            <b>Tier</b> <EntityLinks ids={animals.map((animal) => animal.id)} />
           </div>
         )}
         {line('Lebensraum', block.habitat)}

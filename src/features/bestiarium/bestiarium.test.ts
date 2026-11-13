@@ -12,6 +12,7 @@ import {
 } from '../../domain/creature';
 import {
   importStatblock,
+  linkAnimalCreature,
   makeIndividual,
   makeVariant,
   removeCreature,
@@ -22,6 +23,8 @@ import {
 import { addFoes, newEncounter, removeFoe, resetEncounter, setFoeHp } from './encounterActions';
 import { fielded, lossPlan, stockSummary, stockView, stocksHere } from '../../domain/stock';
 import { createEntity } from '../../domain/schema';
+import { animalsOfCreature, creatureOfAnimal } from '../../domain/nature';
+import { animalPreset } from './draft';
 import {
   addGroup,
   bookLosses,
@@ -370,5 +373,34 @@ describe('Bestände', () => {
     expect(stocksHere(data()).map((view) => view.stock.name)).toEqual(['Nest am Fluss']);
     db.setState({ placeId: null });
     expect(stocksHere(data())).toEqual([]);
+  });
+});
+
+describe('Kampfwerte eines Tieres', () => {
+  it('verbindet Tier und Wesen in beide Richtungen und löst die Verbindung beim Löschen', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const wolf = db.put(
+      'entities',
+      createEntity({ kind: 'animal', name: 'Grauwolf', animal: { habitat: ['Wald'] } } as never),
+    );
+    expect(animalPreset(wolf)).toEqual({ name: 'Grauwolf', block: { habitat: 'Wald' } });
+    const creature = saveCreature(db, {
+      name: 'Grauwolf',
+      kind: 'template',
+      parentId: null,
+      block: {},
+      features: [],
+      dropped: [],
+      source: '',
+      notes: '',
+    });
+    linkAnimalCreature(db, wolf.id, creature.id);
+    const data = () => db.getSnapshot();
+    expect(animalsOfCreature(data(), creature.id).map((a) => a.name)).toEqual(['Grauwolf']);
+    const linked = data().entities[wolf.id]!;
+    expect(linked.kind === 'animal' && creatureOfAnimal(data(), linked)?.id).toBe(creature.id);
+    removeCreature(db, creature.id);
+    const after = data().entities[wolf.id]!;
+    expect(after.kind === 'animal' && after.animal.creatureId).toBeNull();
   });
 });

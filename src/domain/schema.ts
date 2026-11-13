@@ -120,6 +120,10 @@ export const ENTITY_KINDS = [
   'language',
   'script',
   'ability',
+  'plant',
+  'animal',
+  'mineral',
+  'profession',
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
@@ -309,6 +313,52 @@ const AbilityDetails = z.object({
   category: z.string().default(''),
 });
 
+/**
+ * Wie selten etwas in der Natur ist – die Stufen der Regeln für Gegenstände, auf Pflanzen, Tiere
+ * und Gesteine übertragen. '' = nicht angegeben.
+ */
+export const RARITIES = ['common', 'uncommon', 'rare', 'very-rare', 'legendary'] as const;
+export type Rarity = (typeof RARITIES)[number];
+
+/**
+ * Was Pflanzen, Tiere und Gesteine gemeinsam haben: wo und wann sie vorkommen, wie selten sie
+ * sind und was sie wert sind. Aussehen, Wirkung und Nutzen stehen als Text im Artikel.
+ */
+const natureDetails = {
+  /** Freie Einordnung: Kraut, Baum, Pilz; Wild, Reittier, Vogel; Erz, Edelstein … */
+  category: z.string().default(''),
+  /** Lebensräume als Wörter: Wald, Sumpf, Küste, Höhle, Unter der Erde … (`domain/nature.ts`). */
+  habitat: z.array(z.string()).default([]),
+  /** Orte und Gegenden, in denen es vorkommt – mit allem, was darunter liegt. */
+  regionIds: z.array(id).default([]),
+  /** Wann: Jahreszeiten oder Monatsnamen des Kalenders („Blüthain bis Erntfall“); leer = immer. */
+  seasons: z.array(z.string()).default([]),
+  rarity: z.enum(['', ...RARITIES]).default(''),
+  /** Wert in Goldmünzen; null = nicht angegeben. */
+  price: z.number().nonnegative().nullable().default(null),
+};
+
+/** Pflanze: alles, was wächst – auch Pilze, Moose und Algen. */
+const PlantDetails = z.object(natureDetails);
+
+/** Tier: alles, was lebt und kein Einzelner mit Namen und eigener Geschichte ist. */
+const AnimalDetails = z.object({
+  ...natureDetails,
+  /** Die Kampfwerte im Bestiarium; null = keine. */
+  creatureId: id.nullable().default(null),
+});
+
+/** Gestein: was aus dem Boden kommt – Erze, Edelsteine, Gesteine, Salze. */
+const MineralDetails = z.object(natureDetails);
+
+/** Beruf: ein Handwerk, Gewerbe oder Amt. Wer ihn ausübt, steht in Beziehungen der Art „practises“. */
+const ProfessionDetails = z.object({
+  /** Handwerk, Handel, Gelehrsamkeit, Heilkunde, Dienst, Land und Wasser … */
+  category: z.string().default(''),
+  /** Werkzeug nach den Regeln, frei geschrieben: „Schmiedewerkzeug“. */
+  tool: z.string().default(''),
+});
+
 export const EntitySchema = z.discriminatedUnion('kind', [
   z.object({ ...entityBase, kind: z.literal('person'), person: PersonDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('place'), place: PlaceDetails.prefault({}) }),
@@ -325,6 +375,14 @@ export const EntitySchema = z.discriminatedUnion('kind', [
   z.object({ ...entityBase, kind: z.literal('language'), language: LanguageDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('script'), script: ScriptDetails.prefault({}) }),
   z.object({ ...entityBase, kind: z.literal('ability'), ability: AbilityDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('plant'), plant: PlantDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('animal'), animal: AnimalDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('mineral'), mineral: MineralDetails.prefault({}) }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('profession'),
+    profession: ProfessionDetails.prefault({}),
+  }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -339,6 +397,12 @@ export type Species = EntityOf<'species'>;
 export type Language = EntityOf<'language'>;
 export type Script = EntityOf<'script'>;
 export type Ability = EntityOf<'ability'>;
+export type Plant = EntityOf<'plant'>;
+export type Animal = EntityOf<'animal'>;
+export type Mineral = EntityOf<'mineral'>;
+export type Profession = EntityOf<'profession'>;
+/** Was in der Natur vorkommt: Pflanzen, Tiere, Gesteine. */
+export type NatureEntity = Plant | Animal | Mineral;
 
 // ── Beziehungen ────────────────────────────────────────────────────────────
 

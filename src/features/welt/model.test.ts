@@ -76,6 +76,10 @@ describe('Übersicht', () => {
       language: 0,
       script: 0,
       ability: 0,
+      plant: 0,
+      animal: 0,
+      mineral: 0,
+      profession: 0,
     });
   });
 

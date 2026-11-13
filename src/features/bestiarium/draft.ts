@@ -10,6 +10,7 @@ import {
   type CreatureBlock,
   type CreatureFeature,
   type CreatureKind,
+  type Entity,
   type FeatureSection,
 } from '../../domain/schema';
 import type { CreatureInput } from './actions';
@@ -58,6 +59,13 @@ export function presetFor(
   if (kind === 'individual')
     return { kind: 'individual', parentId, name: parent.name, speciesId: parent.speciesId };
   return {};
+}
+
+/** Kampfwerte für ein Tier der Welt: sein Name und seine Lebensräume stehen schon da. */
+export function animalPreset(animal: Entity | undefined): Partial<CreatureDraft> {
+  if (animal?.kind !== 'animal') return {};
+  const habitat = animal.animal.habitat.join(', ');
+  return { name: animal.name, block: habitat ? { habitat } : {} };
 }
 
 /** Ein Wert als Text mit geordneten Schlüsseln – die Reihenfolge der Eingabe zählt nicht. */

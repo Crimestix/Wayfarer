@@ -42,6 +42,10 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   language: 'Sprache',
   script: 'Schrift',
   ability: 'Fähigkeit',
+  plant: 'Pflanze',
+  animal: 'Tier',
+  mineral: 'Gestein',
+  profession: 'Beruf',
 };
 
 export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
@@ -56,12 +60,17 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   language: 'Sprachen',
   script: 'Schriften',
   ability: 'Fähigkeiten',
+  plant: 'Pflanzen',
+  animal: 'Tiere',
+  mineral: 'Gesteine',
+  profession: 'Berufe',
 };
 
 /**
  * Einzelangaben, die auf einen anderen Eintrag verweisen – je Art. Grundlage für Löschen,
  * Aufräumen und „wird noch verwendet“. Der Elternort eines Ortes steht mit drin; beim Löschen
- * rückt ein Ort aber eine Ebene nach oben, statt den Verweis zu verlieren.
+ * rückt ein Ort aber eine Ebene nach oben, statt den Verweis zu verlieren. Eine Angabe kann auch
+ * eine Liste sein (die Gegenden einer Pflanze): Dann zählt jeder Verweis darin.
  */
 export const DETAIL_LINKS = {
   person: ['placeId', 'homeId', 'speciesId', 'workplaceId'],
@@ -71,21 +80,24 @@ export const DETAIL_LINKS = {
   item: ['holderId'],
   family: ['seatId'],
   language: ['scriptId'],
+  plant: ['regionIds'],
+  animal: ['regionIds'],
+  mineral: ['regionIds'],
 } as const satisfies Partial<Record<EntityKind, readonly string[]>>;
 
 type LinkKind = keyof typeof DETAIL_LINKS;
 const hasLinks = (kind: EntityKind): kind is LinkKind => kind in DETAIL_LINKS;
+type DetailValue = string | null | readonly string[] | undefined;
 
 /** Die Einzelangaben eines Eintrags als Liste von Feld und Ziel; leere Angaben fehlen. */
 export function detailLinks(entity: Entity): { field: string; id: string }[] {
   if (!hasLinks(entity.kind)) return [];
-  const details = (entity as unknown as Record<string, Record<string, string | null>>)[
-    entity.kind
-  ]!;
+  const details = (entity as unknown as Record<string, Record<string, DetailValue>>)[entity.kind]!;
   const links: { field: string; id: string }[] = [];
   for (const field of DETAIL_LINKS[entity.kind]) {
-    const id = details[field];
-    if (id) links.push({ field, id });
+    const value = details[field];
+    if (Array.isArray(value)) for (const id of value as string[]) links.push({ field, id });
+    else if (typeof value === 'string' && value) links.push({ field, id: value });
   }
   return links;
 }
@@ -94,13 +106,26 @@ export function detailLinks(entity: Entity): { field: string; id: string }[] {
 export const linksTo = (entity: Entity, targetId: string): boolean =>
   detailLinks(entity).some((link) => link.id === targetId);
 
-/** Der Eintrag mit allen Einzelangaben, die auf `targetId` zeigen, ersetzt durch `replacement`. */
+/**
+ * Der Eintrag mit allen Einzelangaben, die auf `targetId` zeigen, ersetzt durch `replacement`. In
+ * einer Liste fällt der Verweis ohne Ersatz heraus.
+ */
 export function replaceLink(entity: Entity, targetId: string, replacement: string | null): Entity {
   if (!linksTo(entity, targetId)) return entity;
   const kind = entity.kind as LinkKind;
   const details = { ...(entity as unknown as Record<string, Record<string, unknown>>)[kind] };
-  for (const field of DETAIL_LINKS[kind])
-    if (details[field] === targetId) details[field] = replacement;
+  for (const field of DETAIL_LINKS[kind]) {
+    const value = details[field];
+    if (Array.isArray(value))
+      details[field] = [
+        ...new Set(
+          (value as string[]).flatMap((id) =>
+            id !== targetId ? [id] : replacement ? [replacement] : [],
+          ),
+        ),
+      ];
+    else if (value === targetId) details[field] = replacement;
+  }
   return { ...entity, [kind]: details } as Entity;
 }
 

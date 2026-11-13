@@ -47,6 +47,8 @@ export const RELATION_TYPES: RelationType[] = [
     inverse: 'ist eine Fähigkeit von',
     group: 'Wissen und Können',
   },
+  /** Ein Beruf, den eine Person ausübt (Art „Beruf“) – eine Person kann mehrere haben. */
+  { key: 'practises', label: 'übt aus', inverse: 'wird ausgeübt von', group: 'Wissen und Können' },
   /** Ein Tier oder Wesen, das mit der Gruppe oder einem Gefährten zieht (Art „Begleiter“). */
   { key: 'companion', label: 'begleitet', inverse: 'wird begleitet von', group: 'Bindung' },
   /** Eine zweite Gestalt eines Gefährten oder einer Person: ein eigener Eintrag mit eigenem Namen. */

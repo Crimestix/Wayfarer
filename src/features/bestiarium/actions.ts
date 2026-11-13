@@ -3,6 +3,7 @@
  * Einzelne ableiten; Trefferpunkte eines Einzelnen führen.
  */
 import type { CampaignDb } from '../../data/db';
+import { animalsOfCreature } from '../../domain/nature';
 import { resolveCreature, statsOf } from '../../domain/creature';
 import { namedEntry } from '../../domain/creatureParts';
 import { createCreature, createEntity, type Creature, type Entity } from '../../domain/schema';
@@ -103,6 +104,9 @@ export function removeCreature(db: CampaignDb, id: string): void {
         source: resolved.source,
       });
     }
+    // Ein Tier, dessen Kampfwerte das waren, hat danach keine mehr.
+    for (const animal of animalsOfCreature(db.getSnapshot(), id))
+      db.put('entities', { ...animal, animal: { ...animal.animal, creatureId: null } });
     db.remove('creatures', id);
   });
 }
@@ -149,4 +153,11 @@ export function addToWorld(
     }),
   );
   return { entity, created: true };
+}
+
+/** Verbindet ein Tier der Welt mit seinen Kampfwerten im Bestiarium. */
+export function linkAnimalCreature(db: CampaignDb, animalId: string, creatureId: string): void {
+  const animal = db.getSnapshot().entities[animalId];
+  if (animal?.kind !== 'animal' || animal.animal.creatureId === creatureId) return;
+  db.put('entities', { ...animal, animal: { ...animal.animal, creatureId } });
 }

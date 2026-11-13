@@ -5,8 +5,20 @@ import { useLocation } from 'wouter';
 import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
+import {
+  RARITY_LABEL,
+  SEASON_LABEL,
+  SEASONS,
+  isNatureKind,
+} from '../../domain/nature';
 import { freshSeed } from '../../domain/random';
-import { PERSON_STATUS, createEntity, type PersonStatus } from '../../domain/schema';
+import {
+  PERSON_STATUS,
+  RARITIES,
+  createEntity,
+  type PersonStatus,
+  type Rarity,
+} from '../../domain/schema';
 import {
   Button,
   Checkbox,
@@ -34,7 +46,7 @@ import {
 } from './editor';
 import { fileToImage } from './image';
 import { suggestNpc, type NpcSuggestion } from './npc';
-import { Picker } from './parts';
+import { Picker, WordChips } from './parts';
 import {
   PERSON_LINKS,
   PERSON_STATUS_LABEL,
@@ -46,23 +58,35 @@ import {
   emptyDraft,
   entityFromDraft,
   forbiddenParents,
+  habitatChoices,
   isWorldEntity,
   nameTwin,
   type EntityDraft,
   type WorldKind,
 } from './model';
 
+/**
+ * Je Art ein Satz, der keinen Zweifel lässt. Faustregel: gewachsen = Pflanze, lebt = Tier, aus dem
+ * Boden = Gestein, von Hand gemacht = Gegenstand, Tätigkeit = Beruf.
+ */
 const KIND_HINT: Record<WorldKind, string> = {
-  place: 'Region, Stadt, Gebäude oder Wildnis – alles, wo man sein kann.',
-  person: 'Jede Figur, die nicht von einem Spieler geführt wird.',
-  faction: 'Häuser, Gilden, Orden, Kulte – Gruppen mit eigenen Zielen.',
-  item: 'Dinge von Bedeutung: Artefakte, Schriftstücke, Schlüssel.',
-  topic: 'Gerüchte, Glaube, Handlungsfäden – was sonst kein Zuhause hat.',
-  family: 'Häuser, Sippen und Dynastien. Mitglieder trägst du bei den Personen ein.',
-  species: 'Völker und Wesen. Personen wählen ihre Spezies aus dieser Liste.',
-  language: 'Gesprochene Sprachen. Wer sie spricht, steht bei der Person.',
-  script: 'Schriften und Alphabete, in denen Sprachen geschrieben werden.',
-  ability: 'Gaben, Flüche und Besonderheiten, die Personen haben können.',
+  place: 'Ort – alles, wo man sein kann: Region, Stadt, Gebäude oder Wildnis.',
+  person:
+    'Person – jede Figur, die kein Spieler führt, auch ein Tier mit eigenem Namen und eigener Geschichte.',
+  family: 'Familie – Häuser, Sippen und Dynastien; die Mitglieder trägst du bei den Personen ein.',
+  faction: 'Fraktion – Gruppen mit eigenen Zielen: Häuser, Gilden, Orden und Kulte.',
+  item: 'Gegenstand – was von Hand gemacht ist: Waffen, Artefakte, Schriftstücke, auch Tränke, Gifte und Bücher.',
+  topic: 'Thema – Gerüchte, Glaube und Handlungsfäden, was sonst kein Zuhause hat.',
+  species: 'Spezies – Völker und Wesen, aus denen Personen stammen.',
+  language: 'Sprache – was gesprochen wird; wer sie spricht, steht bei der Person.',
+  script: 'Schrift – Alphabete und Zeichen, in denen Sprachen geschrieben werden.',
+  ability: 'Fähigkeit – Gaben, Flüche und Besonderheiten, die Personen haben können.',
+  plant:
+    'Pflanze – alles, was wächst, auch Pilze, Moose und Algen; ein Trank daraus ist ein Gegenstand.',
+  animal:
+    'Tier – alles, was lebt, als Art: der Wolf, nicht ein Wolf mit eigenem Namen (der ist eine Person).',
+  mineral: 'Gestein – alles, was aus dem Boden kommt: Erze, Edelsteine, Gesteine und Salze.',
+  profession: 'Beruf – eine Tätigkeit, die man ausübt: ein Handwerk, ein Gewerbe oder ein Amt.',
 };
 
 const TAGLINE_HINT: Record<WorldKind, string> = {
@@ -76,6 +100,10 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   language: 'Ein Satz, wie sie klingt und wo man sie hört.',
   script: 'Ein Satz, wie sie aussieht.',
   ability: 'Ein Satz, was sie bewirkt.',
+  plant: 'z. B. Bitteres Kraut, das Fieber senkt.',
+  animal: 'z. B. Scheues Rotwild, das in Rudeln zieht.',
+  mineral: 'z. B. Blaues Erz, das im Dunkeln schimmert.',
+  profession: 'z. B. Fertigt Waffen und beschlägt Pferde.',
 };
 
 export function EntityDialogHost() {
@@ -139,9 +167,21 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     [data, draft.kind],
   );
   const noParents = useMemo(() => forbiddenParents(data, entityId), [data, entityId]);
+  const habitats = useMemo(() => habitatChoices(data), [data]);
+  const seasons = useMemo(
+    () => [
+      ...SEASONS.map((s) => SEASON_LABEL[s]),
+      ...data.campaign.calendar.months.map((m) => m.name),
+    ],
+    [data.campaign.calendar],
+  );
+  const creatures = useMemo(
+    () => Object.values(data.creatures).sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    [data.creatures],
+  );
   /** Legt aus dem Dialog heraus einen Eintrag an; wird er am Ende nicht verwendet, verschwindet er wieder. */
   const createDraftEntity = (
-    kind: 'place' | 'species' | 'family' | 'language' | 'script' | 'ability',
+    kind: 'place' | 'species' | 'family' | 'language' | 'script' | 'ability' | 'profession',
     name: string,
   ) => {
     const id = db.put('entities', createEntity({ kind, name: name.trim() })).id;
@@ -453,6 +493,15 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   onCreate={(name) => createDraftEntity('ability', name)}
                 />
               </Field>
+              <Field label="Berufe" hint="Was die Person ausübt – auch mehrere.">
+                <EntityRefsEditor
+                  value={draft.professionIds}
+                  onChange={(professionIds) => set({ professionIds })}
+                  kinds={['profession']}
+                  placeholder="Beruf hinzufügen …"
+                  onCreate={(name) => createDraftEntity('profession', name)}
+                />
+              </Field>
             </>
           )}
           {draft.kind === 'family' && (
@@ -515,6 +564,95 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 exclude={entityId ? [entityId] : undefined}
                 placeholder="Ort oder Besitzer wählen …"
               />
+            </Field>
+          )}
+          {isNatureKind(draft.kind) && (
+            <>
+              <Field
+                label="Lebensraum"
+                className="wf-span-2"
+                hint="Wörter wie Wald, Sumpf, Höhle – daran erkennt Wayfarer, wo es vorkommt."
+              >
+                <WordChips
+                  value={draft.habitat}
+                  onChange={(habitat) => set({ habitat })}
+                  suggestions={habitats}
+                  placeholder="Wald, Sumpf, Höhle …"
+                  label="Lebensraum hinzufügen"
+                />
+              </Field>
+              <Field
+                label="Vorkommen"
+                className="wf-span-2"
+                hint="Orte und Gegenden, mit allem darunter. Dann nur dort – leer: überall, wo der Lebensraum passt."
+              >
+                <EntityRefsEditor
+                  value={draft.regionIds}
+                  onChange={(regionIds) => set({ regionIds })}
+                  kinds={['place']}
+                  placeholder="Gegend hinzufügen …"
+                  onCreate={createPlace}
+                />
+              </Field>
+              <Field
+                label="Wann"
+                hint="Jahreszeiten oder Monate, auch „Blüthain bis Erntfall“. Leer: das ganze Jahr."
+              >
+                <WordChips
+                  value={draft.seasons}
+                  onChange={(seasons) => set({ seasons })}
+                  suggestions={seasons}
+                  placeholder="Frühling, Herbst …"
+                  label="Jahreszeit oder Monat hinzufügen"
+                />
+              </Field>
+              <Field label="Seltenheit">
+                <Select
+                  value={draft.rarity}
+                  onChange={(e) => set({ rarity: e.target.value as Rarity | '' })}
+                >
+                  <option value="">nicht angegeben</option>
+                  {RARITIES.map((rarity) => (
+                    <option key={rarity} value={rarity}>
+                      {RARITY_LABEL[rarity]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Wert" hint="In Gold – „2,5“, „12 GM“ oder „5 Silber“.">
+                <Input
+                  value={draft.price}
+                  onChange={(e) => set({ price: e.target.value })}
+                  aria-invalid={tried && problem?.startsWith('„Wert“')}
+                />
+              </Field>
+            </>
+          )}
+          {draft.kind === 'animal' && (
+            <Field
+              label="Kampfwerte"
+              hint={
+                creatures.length
+                  ? 'Ein Wesen aus dem Bestiarium. Neue Kampfwerte legst du auf der Seite des Tieres an.'
+                  : 'Noch keine Wesen im Bestiarium. Kampfwerte legst du auf der Seite des Tieres an.'
+              }
+            >
+              <Select
+                value={draft.creatureId ?? ''}
+                onChange={(e) => set({ creatureId: e.target.value || null })}
+              >
+                <option value="">keine</option>
+                {creatures.map((creature) => (
+                  <option key={creature.id} value={creature.id}>
+                    {creature.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {draft.kind === 'profession' && (
+            <Field label="Werkzeug" hint="Nach den Regeln, z. B. „Schmiedewerkzeug“.">
+              <Input value={draft.tool} onChange={(e) => set({ tool: e.target.value })} />
             </Field>
           )}
           {draft.kind !== 'person' && (

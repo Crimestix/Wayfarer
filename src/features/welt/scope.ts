@@ -3,12 +3,14 @@
  * auf das, was die Gruppe schon kennt. Reine Funktionen.
  */
 import { placeAncestors, placeSubtreeIds, partyStays } from '../../domain/derive';
+import { isNature, natureOf } from '../../domain/nature';
 import type { CampaignData, Entity, Place } from '../../domain/schema';
 
 /**
  * Was zu einem Ort gehört: der Ort mit allen Orten darunter; Personen, die sich dort aufhalten,
- * dort wohnen oder arbeiten; Fraktionen und Familien mit Sitz dort; deren Mitglieder; und
- * Gegenstände, die dort oder bei jemandem von dort liegen.
+ * dort wohnen oder arbeiten; Fraktionen und Familien mit Sitz dort; deren Mitglieder;
+ * Gegenstände, die dort oder bei jemandem von dort liegen; und Pflanzen, Tiere und Gesteine, die
+ * in einer Gegend darunter oder darüber vorkommen.
  */
 export function scopeMembers(data: CampaignData, placeId: string): Set<string> {
   const places = placeSubtreeIds(data, placeId);
@@ -44,6 +46,11 @@ export function scopeMembers(data: CampaignData, placeId: string): Set<string> {
   }
   for (const entity of entities)
     if (entity.kind === 'item' && entity.item.holderId && members.has(entity.item.holderId))
+      members.add(entity.id);
+  // Pflanzen, Tiere und Gesteine, die hier vorkommen: in einer Gegend darunter oder darüber.
+  const around = new Set([...places, ...placeAncestors(data, placeId).map((p) => p.id)]);
+  for (const entity of entities)
+    if (isNature(entity) && natureOf(entity).regionIds.some((id) => around.has(id)))
       members.add(entity.id);
   return members;
 }

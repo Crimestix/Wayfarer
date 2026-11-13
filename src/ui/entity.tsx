@@ -7,8 +7,12 @@ import {
   Feather,
   Flame,
   Gem,
+  Hammer,
   Languages,
+  Leaf,
   MapPin,
+  PawPrint,
+  Pickaxe,
   Plus,
   ScrollText,
   Shield,
@@ -36,6 +40,10 @@ const KIND_ICONS: Record<EntityKind, typeof User> = {
   language: Languages,
   script: Feather,
   ability: Flame,
+  plant: Leaf,
+  animal: PawPrint,
+  mineral: Pickaxe,
+  profession: Hammer,
 };
 
 export function KindIcon({ kind, size }: { kind: EntityKind; size?: number }) {

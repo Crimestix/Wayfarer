@@ -32,6 +32,13 @@ export function repairReferences(input: CampaignData): RepairResult {
     return out;
   };
 
+  /** Gegenden: nur Orte, die es gibt. */
+  const keepPlaces = (ids: readonly string[]): string[] => {
+    const out = ids.filter((id) => isPlace(id));
+    repaired += ids.length - out.length;
+    return out;
+  };
+
   const isKind =
     (...kinds: Entity['kind'][]) =>
     (id: string | null): boolean =>
@@ -78,6 +85,19 @@ export function repairReferences(input: CampaignData): RepairResult {
       const holderId = keep(entity.item.holderId);
       if (holderId !== entity.item.holderId)
         entities[entity.id] = { ...entity, item: { ...entity.item, holderId } };
+    } else if (entity.kind === 'plant' || entity.kind === 'mineral') {
+      const details = entity.kind === 'plant' ? entity.plant : entity.mineral;
+      const regionIds = keepPlaces(details.regionIds);
+      if (regionIds.length !== details.regionIds.length)
+        entities[entity.id] = { ...entity, [entity.kind]: { ...details, regionIds } } as Entity;
+    } else if (entity.kind === 'animal') {
+      const regionIds = keepPlaces(entity.animal.regionIds);
+      const creatureId = keep(entity.animal.creatureId, (id) => !!id && id in input.creatures);
+      if (
+        regionIds.length !== entity.animal.regionIds.length ||
+        creatureId !== entity.animal.creatureId
+      )
+        entities[entity.id] = { ...entity, animal: { ...entity.animal, regionIds, creatureId } };
     }
   }
   // Orte: Elternort muss ein Ort sein, und die Gliederung darf keinen Kreis bilden.

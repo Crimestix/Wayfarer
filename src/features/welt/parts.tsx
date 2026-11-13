@@ -1,7 +1,7 @@
 /** Kleine Bausteine, die mehrere Teile des Dossiers verwenden. */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'wouter';
-import { Eye, Pencil } from 'lucide-react';
+import { Eye, Pencil, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import type { Occurrence } from '../../domain/derive';
 import { ATTITUDES } from '../../domain/relations';
@@ -14,6 +14,7 @@ import {
   EntityLink,
   EntityPicker,
   IconButton,
+  Input,
   Portrait,
   SectionTitle,
   TextArea,
@@ -152,6 +153,84 @@ export function Picker({
   );
 }
 
+/**
+ * Wörter als Chips: Lebensräume, Jahreszeiten. Eingabe oder Komma nimmt das Wort auf, die Liste
+ * schlägt übliche Wörter vor; ein Klick auf das Kreuz nimmt es wieder heraus.
+ */
+export function WordChips({
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+  label,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+  suggestions: readonly string[];
+  placeholder: string;
+  /** Für Vorleser: „Lebensraum hinzufügen“. */
+  label: string;
+}) {
+  const list = useId();
+  const [typed, setTyped] = useState('');
+  const has = (word: string) =>
+    value.some((w) => w.toLocaleLowerCase('de') === word.toLocaleLowerCase('de'));
+  const add = (text: string) => {
+    const words = text
+      .split(',')
+      .map((w) => w.replace(/\s+/g, ' ').trim())
+      .filter((w) => w && !has(w));
+    if (words.length) onChange([...value, ...words]);
+    setTyped('');
+  };
+  return (
+    <div className="wf-welt-chips">
+      {value.map((word) => (
+        <span key={word} className="wf-welt-chip">
+          {word}
+          <button
+            type="button"
+            title={`„${word}“ entfernen`}
+            aria-label={`„${word}“ entfernen`}
+            onClick={() => onChange(value.filter((w) => w !== word))}
+          >
+            <X aria-hidden />
+          </button>
+        </span>
+      ))}
+      <Input
+        className="wf-welt-chips__input"
+        value={typed}
+        list={list}
+        placeholder={value.length ? 'Weiteres …' : placeholder}
+        aria-label={label}
+        onChange={(event) => {
+          const next = event.target.value;
+          // Aus der Vorschlagsliste gewählt: gleich übernehmen.
+          const picked =
+            (event.nativeEvent as InputEvent).inputType === 'insertReplacementText' ||
+            (event.nativeEvent as InputEvent).inputType === undefined;
+          if (next.endsWith(',') || (picked && suggestions.includes(next))) add(next);
+          else setTyped(next);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || !typed.trim()) return;
+          event.preventDefault();
+          add(typed);
+        }}
+        onBlur={() => typed.trim() && add(typed)}
+      />
+      <datalist id={list}>
+        {suggestions
+          .filter((word) => !has(word))
+          .map((word) => (
+            <option key={word} value={word} />
+          ))}
+      </datalist>
+    </div>
+  );
+}
+
 /** Zeile mit Bild, Name, Unterzeile und rechts einem Zusatz; führt zum Eintrag. */
 export function EntryRow({
   entity,
@@ -278,6 +357,10 @@ const NOTES_HINT: Record<WorldEntity['kind'], string> = {
   language: 'Klang, Verbreitung und Eigenheiten',
   script: 'Aussehen, Herkunft und Verbreitung',
   ability: 'Wirkung, Herkunft und Grenzen',
+  plant: 'Aussehen, Wirkung und Nutzen',
+  animal: 'Aussehen, Verhalten und Nutzen',
+  mineral: 'Aussehen, Eigenschaften und Nutzen',
+  profession: 'was man dafür können muss, Ansehen und Lohn',
 };
 
 export function NotesSection({ entity }: { entity: WorldEntity }) {

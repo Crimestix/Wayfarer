@@ -69,6 +69,10 @@ const EMPTY_HINT: Record<WorldKind, string> = {
   language: 'Was in der Welt gesprochen wird.',
   script: 'Wie in der Welt geschrieben wird.',
   ability: 'Gaben, Flüche und besondere Fähigkeiten.',
+  plant: 'Alles, was wächst – Kräuter, Bäume, Pilze und Moose.',
+  animal: 'Alles, was lebt und keinen eigenen Namen trägt.',
+  mineral: 'Was aus dem Boden kommt – Erze, Edelsteine, Gesteine, Salze.',
+  profession: 'Handwerke, Gewerbe und Ämter, die man ausübt.',
 };
 
 export function Sidebar({
