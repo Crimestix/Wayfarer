@@ -1,0 +1,283 @@
+/* Bücher in der Welt: der Abschnitt „Buch“ am Gegenstand und das Buch auf Pergament. */
+
+/* ── Abschnitt am Gegenstand ── */
+.wf-welt-booksec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.wf-welt-booksec__sum {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-booksec__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--s-3) var(--s-4);
+}
+.wf-welt-booksec__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-welt-booksec__label {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-welt-booksec__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+.wf-welt-booksec__chip {
+  padding: 2px var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-welt-booksec__chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.wf-welt-booksec__chip[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+  color: var(--ink);
+}
+.wf-welt-booksec__pages {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-booksec__group {
+  padding: var(--s-2) 0 var(--s-1);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-welt-booksec__page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-booksec__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-welt-booksec__note {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-welt-booksec__note--warn {
+  color: var(--ember);
+}
+
+/* ── Das Buch auf Pergament – Farben der Karten-Tokens ── */
+.wf-welt-book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+.wf-welt-book__sheet {
+  /* Die Bausteine der Artikel lesen diese Farben – auf Pergament dunkle Tinte. */
+  --ink: var(--map-ink);
+  --ink-soft: var(--map-ink-soft);
+  --ink-mute: var(--map-ink-soft);
+  --ink-faint: var(--map-ink-soft);
+  --gold: var(--map-ink);
+  --gold-deep: var(--map-ink-soft);
+  --gold-bright: var(--map-ink);
+  --gold-glow: transparent;
+  --line: var(--map-paper-edge);
+  --line-faint: var(--map-paper-edge);
+  --line-strong: var(--map-ink-soft);
+  --bg-2: var(--map-paper-edge);
+  --bg-inset: var(--map-paper-edge);
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 48px 36px;
+  border: 1px solid var(--map-paper-edge);
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(ellipse at 80% 90%, var(--map-paper-edge), transparent 70%), var(--map-paper);
+  color: var(--map-ink);
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.wf-welt-book__cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 360px;
+  text-align: center;
+}
+.wf-welt-book__title {
+  margin: 0 0 var(--s-4);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.wf-welt-book__author {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-style: italic;
+}
+.wf-welt-book__year {
+  margin: var(--s-2) 0 0;
+  color: var(--map-ink-soft);
+}
+.wf-welt-book__part {
+  margin: 0 0 var(--s-3);
+  font-family: var(--font-caps);
+  font-size: var(--text-md);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.wf-welt-book__group > .wf-welt-book__part {
+  color: var(--map-paper);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+}
+.wf-welt-book__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.wf-welt-book__intro p {
+  margin: 0 0 0.8em;
+  font-style: italic;
+  white-space: pre-wrap;
+}
+.wf-welt-book__toc,
+.wf-welt-book__toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-book__toc > li + li {
+  margin-top: var(--s-3);
+}
+.wf-welt-book__toc-group {
+  font-family: var(--font-caps);
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+}
+.wf-welt-book__toc ol {
+  columns: 2;
+  column-gap: var(--s-5);
+}
+.wf-welt-book__toc button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-book__toc button:hover {
+  text-decoration: underline;
+}
+.wf-welt-book__page {
+  scroll-margin-top: var(--s-4);
+}
+.wf-welt-book__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-3);
+  padding-bottom: var(--s-1);
+  border-bottom: 1px solid var(--map-ink-soft);
+  color: var(--map-ink-soft);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.wf-welt-book__entry {
+  margin: 0 0 var(--s-3);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-welt-book__facts {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--map-paper-edge);
+}
+.wf-welt-book__facts > div {
+  display: flex;
+  gap: var(--s-2);
+}
+.wf-welt-book__facts dt {
+  flex: none;
+  font-style: italic;
+}
+.wf-welt-book__facts dt::after {
+  content: ':';
+}
+.wf-welt-book__facts dd {
+  margin: 0;
+}
+.wf-welt-book__text .wf-lk-p {
+  font-size: inherit;
+}
+.wf-welt-book__blank {
+  margin: 0;
+  color: var(--map-ink-soft);
+  font-style: italic;
+}
+
+/* ── Drucken: jede Seite für sich, ohne Schatten ── */
+@media print {
+  .wf-print-layer .wf-welt-book {
+    gap: 0;
+  }
+  .wf-print-layer .wf-welt-book__sheet {
+    max-width: none;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .wf-print-layer .wf-welt-book__cover,
+  .wf-print-layer .wf-welt-book__sheet:not(.wf-welt-book__page) {
+    break-after: page;
+  }
+  .wf-print-layer .wf-welt-book__page {
+    break-inside: avoid;
+    margin-bottom: 6mm;
+  }
+  .wf-print-layer .wf-welt-book__group > .wf-welt-book__part {
+    color: var(--map-ink);
+    text-shadow: none;
+  }
+  .wf-print-layer .wf-welt-book__blank {
+    display: none;
+  }
+}

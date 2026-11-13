@@ -284,6 +284,15 @@ nicht übernommen.
   bereitliegende Beute bei ihrer Geschichte im Spiel (`playView`), sonst unter „Dieser Abend“
   (`eveningLoot`). Was ein Gefährte bekommen hat, sagt `receivedBy()`, das ganze Buch
   `lootBook()`, den Text für die Spieler `receivedText()`.
+- Bücher in der Welt (`item.book`, `domain/book.ts`, Abschnitt „Buch“ am Gegenstand): Ein Buch
+  ist ein Gegenstand mit Verfasser; seine Seiten stellt `bookPages()` aus den Artikeln zusammen
+  (Auswahl nach Art, Gegend über `scopeMembers`, Einordnung, einzeln dazu und weg –
+  `bookEntries()`). Eine Seite ist Steckbrief und Wortlaut des Artikels ohne Geheimes
+  (`withoutSecrets`, `articleParts` in `domain/articleText.ts` – nie selbst Kästen zerlegen);
+  überschrieben steht sie in den Worten des Verfassers (`book.pages`) und wächst nicht mehr mit.
+  Wayfarer formuliert nie. Hat die Gruppe oder ein Gefährte das Buch, zählt es im Spielerbuch in
+  seiner Fassung (`booksAbout`, `knowledgeOf().books`). Geändert über `welt/book.ts`, gelesen
+  und gedruckt über `BookPaper`.
 - Lebenslauf eines Gegenstands (`item.history`, „Lebenslauf führen“, aus als Vorgabe): gelesen
   über `itemHistory()` und `holdersOf()` (`domain/itemHistory.ts`) – aus Lebensdaten, Beute-Buch
   und Chronik, nie gespeichert; eingeschaltet gilt alles schon Vorhandene. Setzt der Spielleiter

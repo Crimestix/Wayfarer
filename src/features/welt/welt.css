@@ -1992,6 +1992,15 @@
   font-size: var(--text-sm);
   list-style: none;
 }
+.wf-welt-knows__book {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+}
 .wf-welt-knows__layer--secret {
   padding: var(--s-2) var(--s-3);
   border-left: 2px solid var(--gold-deep);

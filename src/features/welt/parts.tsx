@@ -291,7 +291,7 @@ export function UpcomingList({ occurrences }: { occurrences: Occurrence[] }) {
  * Text, der an Ort und Stelle bearbeitet werden kann: Strg+Eingabe speichert, Escape verwirft.
  * Wer mitten im Schreiben woandershin klickt, verliert nichts – dann ruft der Baustein `onLeave`.
  */
-function useInlineText(
+export function useInlineText(
   value: string,
   onSave: (text: string) => void,
   onLeave: (text: string) => void,

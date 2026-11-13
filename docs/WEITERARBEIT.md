@@ -1520,6 +1520,15 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Zöllner, Vogt …) in der Liste. Rezept: „Magie – Nicht magisch“ statt „Art – Gewöhnlicher
   Gegenstand“ (verwechselbar mit „magisch, gewöhnlich“); eine gelöschte Zutat behält ihren
   heutigen Namen.
+- **Bücher in der Welt.** Ein Gegenstand kann ein Buch sein (`item.book`, Schalter „Ist ein Buch“
+  neben dem Verbleib): Verfasser, Entstehung, Auswahl nach Art, Gegend, Einordnung und einzeln,
+  Ordnung, Vorwort. `domain/book.ts` stellt die Seiten aus den Artikeln zusammen – Steckbrief und
+  Wortlaut ohne `> [!geheim]` (Lesehilfe `domain/articleText.ts`, die Namen der Kästen liest jetzt
+  auch `wiki/markdown.ts` von dort); überschriebene Seiten stehen in den Worten des Verfassers.
+  Lesen und Drucken auf Pergament (`welt/BookPaper.tsx`), eine Seite als Handout. Hat die Gruppe
+  das Buch, zählt es im Spielerbuch in seiner Fassung. `scopeMembers` liegt jetzt in
+  `domain/scope.ts`, `entityCategory` in `domain/derive.ts`. Offen: Das bisherige „Lexikon“ unter
+  „Nach Art“ heißt noch so, obwohl „Lexikon“ jetzt ein Buch in der Welt meint.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

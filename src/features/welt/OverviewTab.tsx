@@ -1,6 +1,7 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
 import { GroupKnows } from './GroupKnows';
+import { BookSection, BookSwitch } from './BookSection';
 import { ItemLife } from './ItemLife';
 import { MadeBy, RecipeSection, UsedIn } from './RecipeSection';
 import { tracksOf } from '../../domain/track';
@@ -997,6 +998,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
             <RecentChronicle entity={item} onShowTab={onShowTab} />
           )}
           <NotesSection entity={item} />
+          <BookSection item={item} />
           <RecipeSection item={item} />
           <SecretSection entity={item} />
           <GroupKnows entity={item} />
@@ -1018,6 +1020,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
               />
             </Field>
           </Section>
+          <BookSwitch item={item} />
           <UsedIn entity={item} />
           <Connections entity={item} onShowTab={onShowTab} />
           <Upcoming entity={item} />
