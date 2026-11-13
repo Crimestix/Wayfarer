@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Probe: Spieltisch mit den Geschichten im Spiel</title>
+<!--
+  Probe vom 13. 11. 2026 – kein Teil der App. Zeigt, wie der Spieltisch aussehen könnte, wenn die
+  Geschichten, die gerade im Spiel sind, in der Mitte stehen, mit allem, was an ihnen hängt.
+  Alle Namen sind erfunden. Ansehen: `npm run dev`, dann /docs/proben/spieltisch.html.
+-->
+<script type="module">
+  import '/src/ui/base.css';
+  import '/src/ui/ui.css';
+  import '/src/ui/chronicle.css';
+</script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: var(--text-md); }
+  .caps { font-family: var(--font-caps); font-size: var(--text-2xs); letter-spacing: .15em; text-transform: uppercase; color: var(--ink-mute); }
+  .gold { color: var(--gold); }
+  .mute { color: var(--ink-mute); }
+  .soft { color: var(--ink-soft); }
+  .display { font-family: var(--font-display); font-weight: 600; }
+
+  /* Weltleiste, nur angedeutet */
+  .bar { display: flex; align-items: center; gap: var(--s-5); height: 58px; padding: 0 var(--s-5); border-bottom: 1px solid var(--line); background: var(--bg-1); flex: none; }
+  .bar .date { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; }
+  .bar .clock { font-family: var(--font-display); font-size: var(--text-2xl); color: var(--gold-bright); }
+  .bar .grow { flex: 1; }
+
+  .tisch { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, .78fr); grid-template-rows: minmax(0, 1fr) auto; gap: var(--s-3); padding: var(--s-3) var(--s-4); }
+  .tisch > .wf-panel { min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
+  .wf-panel__body { display: flex; flex-direction: column; gap: var(--s-4); overflow: hidden; }
+
+  /* Ort */
+  .ort-kopf h1 { margin: 3px 0 2px; font-family: var(--font-display); font-size: 2.1rem; font-weight: 600; line-height: 1.05; }
+  .ort-kopf .acts { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
+  .sec > .caps { display: flex; align-items: baseline; gap: var(--s-2); margin-bottom: 5px; padding-bottom: 4px; border-bottom: 1px solid var(--line-faint); }
+  .sec > .caps b { color: var(--gold); font-weight: 400; }
+  .wege { display: flex; flex-wrap: wrap; gap: 6px; }
+  .weg { display: inline-flex; align-items: baseline; gap: 8px; padding: 3px 10px; border: 1px solid var(--line-strong); background: var(--bg-2); }
+  .weg i { font-style: normal; color: var(--ink-mute); font-size: var(--text-sm); }
+  .weg .warn { color: var(--ember); }
+  .wer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--s-3); align-items: baseline; }
+  .wer .n { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; }
+  .wer .n small { margin-left: 8px; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; color: var(--ink-mute); }
+  .prose { margin: 0; line-height: 1.45; color: var(--ink-soft); }
+  .geheim { padding: 6px var(--s-3); border-left: 2px solid var(--arcane); background: var(--arcane-wash); }
+
+  /* Im Spiel */
+  .spiel .wf-panel__body { gap: 0; padding: 0; overflow: auto; }
+  .gesch { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line-faint); }
+  .gesch--offen { background: linear-gradient(90deg, var(--gold-glow), transparent 70%); border-left: 2px solid var(--gold); }
+  .gesch__kopf { display: flex; align-items: baseline; gap: var(--s-3); }
+  .gesch__kopf .display { font-size: var(--text-xl); line-height: 1.15; }
+  .gesch__kopf .right { margin-left: auto; white-space: nowrap; font-size: var(--text-sm); color: var(--ink-mute); }
+  .uhr { display: flex; align-items: center; gap: var(--s-3); margin-top: 4px; color: var(--ink-soft); }
+  .pips { display: inline-flex; gap: 4px; }
+  .pips i { width: 9px; height: 9px; transform: rotate(45deg); border: 1px solid var(--gold-deep); }
+  .pips i.on { background: var(--gold); }
+  .dazu { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 5px var(--s-3); margin-top: var(--s-3); align-items: baseline; }
+  .dazu .caps { padding-top: 2px; }
+  .dazu .caps.hier { color: var(--gold-bright); }
+  .dazu .zeile { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .dazu .zeile .wf-chron__check { flex: none; align-self: center; }
+  .dazu .zeile em { color: var(--ink-mute); font-size: var(--text-sm); font-style: italic; }
+  .zettel { margin: 0; padding: 6px var(--s-3); border: 1px dashed var(--line-strong); background: var(--bg-inset); color: var(--ink-soft); line-height: 1.4; }
+  .notiz { margin-top: 6px; padding: 5px var(--s-3); border: 1px solid var(--line); background: var(--bg-inset); color: var(--ink-faint); font-style: italic; }
+  .gesch--zu .gesch__kopf .display { font-size: var(--text-lg); }
+  .gesch--zu .kurz { margin-top: 2px; color: var(--ink-mute); font-size: var(--text-sm); }
+  .rest { padding: var(--s-3) var(--s-4); color: var(--ink-mute); font-size: var(--text-sm); }
+  .rest b { color: var(--ink-soft); font-weight: 400; }
+  .rest .link { margin-left: 6px; color: var(--gold); border-bottom: 1px dotted var(--gold-deep); }
+
+  /* Mitschrift und Anstehend */
+  .schreiben { padding: 7px var(--s-3); border: 1px solid var(--gold-deep); background: var(--bg-inset); color: var(--ink-faint); font-style: italic; }
+  .eintrag { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 2px var(--s-2); }
+  .eintrag .zeit { color: var(--ink-mute); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+  .eintrag .zu { color: var(--gold); font-size: var(--text-sm); }
+  .faellig { display: flex; align-items: baseline; gap: var(--s-3); }
+  .faellig .wann { flex: none; width: 78px; color: var(--gold-bright); font-size: var(--text-sm); }
+
+  /* Gefährten */
+  .gruppe { grid-column: 1 / -1; display: flex; gap: var(--s-3); padding: 7px var(--s-4); border: 1px solid var(--line); background: var(--bg-1); }
+  .held { flex: 1; display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
+  .held .display { font-size: var(--text-lg); }
+  .held span { color: var(--ink-mute); font-size: var(--text-sm); }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div><div class="date">17. Tauwind 701 AD</div><div class="caps">Leuchtabend</div></div>
+  <div class="clock">16:00</div>
+  <div class="wf-btn-group"><span class="wf-btn">+10 Min.</span><span class="wf-btn">+1 Std.</span><span class="wf-btn">Zeit ▾</span></div>
+  <div class="grow"></div>
+  <span class="mute">Session 12</span>
+  <span class="wf-btn">Suchen</span>
+  <span class="wf-btn wf-btn--primary">Festhalten</span>
+</div>
+
+<div class="tisch">
+  <!-- ── Der Ort ─────────────────────────────────────────────── -->
+  <section class="wf-panel">
+    <div class="wf-panel__body">
+      <div class="ort-kopf">
+        <div class="caps"><span class="gold">Anleger</span> &nbsp;◆&nbsp; Der Weg zum Schwarzen See</div>
+        <h1>Alter Anleger</h1>
+        <div class="mute">Zweiter Besuch · seit 2 Std. hier · unter der Erde, schwaches Licht</div>
+        <div class="acts">
+          <span class="wf-btn wf-btn--sm">Wegenetz</span>
+          <span class="wf-btn wf-btn--sm">Seite</span>
+          <span class="wf-btn wf-btn--sm">Weiterziehen</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="caps">Wege von hier</div>
+        <div class="wege">
+          <span class="weg">Tiefe Pforte <i>4 Std.</i></span>
+          <span class="weg">Lager der Grubenschleicher <i>1 Tag</i> <span class="warn">⚠</span></span>
+          <span class="weg">Krummzahns Bau <i>6 Std.</i></span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="caps">Wer hier ist <b>3</b></div>
+        <div class="wer">
+          <div class="n">Lando Furtner <small>Fährmann · 1 Abmachung offen</small></div><span class="wf-badge wf-badge--moss">Freundlich</span>
+          <div class="n">Mira Tannhaus <small>Wirtin</small></div><span class="wf-badge">Unbekannt</span>
+          <div class="n">Krähenbande <small>Fraktion mit Sitz hier</small></div><span class="wf-badge wf-badge--blood">Feindselig</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="caps">Was hier ist</div>
+        <p class="prose">Ein morscher Steg, drei Boote. Der Fährmann nimmt nur Salz als Bezahlung.</p>
+      </div>
+      <div class="sec">
+        <div class="caps">Nur für dich</div>
+        <p class="prose geheim">Unter dem Steg liegt das Boot der Krähen, mit Teer abgedeckt.</p>
+      </div>
+      <div class="mute">▸ Seit eurem letzten Besuch · 2 Veränderungen</div>
+    </div>
+  </section>
+
+  <!-- ── Im Spiel ────────────────────────────────────────────── -->
+  <section class="wf-panel spiel">
+    <header class="wf-panel__head">
+      <h3 class="wf-panel__title">Im Spiel <span class="wf-panel__count">3</span></h3>
+      <span class="wf-btn wf-btn--sm">+ Geschichte</span>
+      <span class="wf-btn wf-btn--sm wf-btn--ghost">Fadenbrett</span>
+    </header>
+    <div class="wf-panel__body">
+      <div class="gesch gesch--offen">
+        <div class="gesch__kopf">
+          <span class="display">▾ Die Krähen kommen</span>
+          <span class="right">hängt an diesem Ort · läuft</span>
+        </div>
+        <div class="uhr"><span class="pips"><i class="on"></i><i></i><i></i></span> In 2 Tagen: Die ersten Boote verschwinden</div>
+        <div class="dazu">
+          <span class="caps hier">Liegt hier</span>
+          <div class="zeile"><span class="wf-chron__check"></span><span>Hinweis: Ein Beutel mit fremden Münzen <em>– zu „Wer bezahlt den Krähenschützen?“</em></span></div>
+          <span class="caps hier">Hier</span>
+          <div class="zeile"><span>Lando Furtner, Mira Tannhaus <em>– gehören zu dieser Geschichte</em></span></div>
+          <span class="caps">Faden</span>
+          <div class="zeile"><span>Wer bezahlt den Krähenschützen? <em>– offen, noch kein Hinweis gefunden</em></span></div>
+          <span class="caps">Abmachung</span>
+          <div class="zeile"><span class="wf-chron__check"></span><span class="wf-chron__check wf-chron__check--fail">×</span><span>Lando bringt die Gruppe über den See – gegen Salz <em>– Frist in 3 Tagen</em></span></div>
+          <span class="caps">Termin</span>
+          <div class="zeile"><span>Zollabrechnung der Aalfischer <em>– in 6 Tagen, hier</em></span></div>
+          <span class="caps">Merkzettel</span>
+          <div>
+            <p class="zettel">Lando weiß mehr, als er sagt – erst nach dem zweiten Krug.<br>Findet die Gruppe das Boot: „Hinterhalt im Gang“.</p>
+            <div class="notiz">Notiz zu dieser Geschichte …</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="gesch gesch--zu">
+        <div class="gesch__kopf">
+          <span class="display">▸ Die Aalfischer graben</span>
+          <span class="right">1 Tag entfernt · läuft</span>
+        </div>
+        <div class="kurz">In 3 Tagen: Der erste Stollen bricht durch · 1 Faden · 1 Abmachung · Odo Tannhaus</div>
+      </div>
+      <div class="gesch gesch--zu">
+        <div class="gesch__kopf">
+          <span class="display">▸ Das Licht am Schwarzen See</span>
+          <span class="right">6 Tage entfernt · ohne Uhr</span>
+        </div>
+        <div class="kurz">1 Faden, zu dem noch kein Hinweis führt</div>
+      </div>
+      <div class="rest">Berührt diesen Ort, ist aber nicht im Spiel: <b>Der Zoll wird verdoppelt</b><span class="link">ins Spiel nehmen</span></div>
+    </div>
+  </section>
+
+  <!-- ── Mitschrift und Anstehend ────────────────────────────── -->
+  <div class="col">
+    <section class="wf-panel" style="flex: 1 1 0">
+      <header class="wf-panel__head"><h3 class="wf-panel__title">Mitschrift <span class="wf-panel__count">Session 12</span></h3></header>
+      <div class="wf-panel__body">
+        <div class="schreiben">Was passiert gerade? (@ verknüpft)</div>
+        <div class="eintrag"><span class="zeit">15:40</span><span>Lando verlangt zwei Säcke Salz für die Überfahrt.<br><span class="zu">Die Krähen kommen</span></span></div>
+        <div class="eintrag"><span class="zeit">14:00</span><span>Ankunft: Alter Anleger <span class="mute">· 4 Std. unterwegs</span></span></div>
+        <div class="eintrag"><span class="zeit">10:00</span><span>Aufbruch an der Tiefen Pforte.</span></div>
+      </div>
+    </section>
+    <section class="wf-panel" style="flex: 0 0 auto">
+      <header class="wf-panel__head"><h3 class="wf-panel__title">Sonst noch <span class="wf-panel__count">3</span></h3></header>
+      <div class="wf-panel__body" style="gap: 6px">
+        <div class="faellig"><span class="wann">in 40 Min.</span><span>Fackel von Neil brennt herunter</span></div>
+        <div class="faellig"><span class="wann">in 2 Tagen</span><span>Wochenmarkt in Hohenfurt</span></div>
+        <div class="faellig"><span class="wann">in 5 Tagen</span><span>Salzkahn legt ab</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="gruppe">
+    <div class="held"><span class="display">Corrin</span><span>31 / 38</span></div>
+    <div class="held"><span class="display">Naelmira</span><span>24 / 24</span></div>
+    <div class="held"><span class="display">Neil</span><span>12 / 29 · Fackel</span></div>
+    <div class="held"><span class="display">Nex</span><span>33 / 33</span></div>
+    <div class="held"><span class="display">Tomlin</span><span>40 / 41</span></div>
+    <div class="held"><span class="display">Veres</span><span>19 / 27 · erschöpft 1</span></div>
+  </div>
+</div>
+</body>
+</html>
