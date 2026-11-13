@@ -266,6 +266,12 @@ nicht übernommen.
   bereitliegende Beute bei ihrer Geschichte im Spiel (`playView`), sonst unter „Dieser Abend“
   (`eveningLoot`). Was ein Gefährte bekommen hat, sagt `receivedBy()`, das ganze Buch
   `lootBook()`, den Text für die Spieler `receivedText()`.
+- Lebenslauf eines Gegenstands (`item.history`, „Lebenslauf führen“, aus als Vorgabe): gelesen
+  über `itemHistory()` und `holdersOf()` (`domain/itemHistory.ts`) – aus Lebensdaten, Beute-Buch
+  und Chronik, nie gespeichert; eingeschaltet gilt alles schon Vorhandene. Setzt der Spielleiter
+  den Besitzer von Hand, hält `noteHolderChange` (`welt/actions.ts`) das als geheime Veränderung
+  mit `entry.holder` fest – wer den Besitzer anderswo setzt, ruft es mit auf; `giveLoot` hat
+  schon seine Zeile und braucht es nicht.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

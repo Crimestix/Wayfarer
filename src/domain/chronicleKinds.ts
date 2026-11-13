@@ -89,6 +89,11 @@ export interface RecordInput {
   transformation?: { characterId: string };
   /** Ein Tier oder Wesen (Person) kommt zur Gruppe (`joined`) oder geht; `ownerId` = Gefährte. */
   companion?: { entityId: string; joined?: boolean; ownerId?: string | null };
+  /**
+   * Nur bei `change`: Ein Gegenstand ist jetzt bei `holderId` (null = unbekannt), vorher bei
+   * `before` (Vorgabe: sein heutiger Besitzer). Hält nur fest, setzt nichts.
+   */
+  holder?: { itemId: string; holderId: string | null; before?: string | null };
 }
 
 // ── Arten ──────────────────────────────────────────────────────────────────

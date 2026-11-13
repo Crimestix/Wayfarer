@@ -264,6 +264,12 @@ const ItemDetails = z.object({
   /** Wo oder bei wem der Gegenstand ist. */
   holderId: id.nullable().default(null),
   category: z.string().default(''),
+  /**
+   * „Lebenslauf führen“: Wayfarer sammelt, was dem Gegenstand geschah (`domain/itemHistory.ts`),
+   * und hält jeden Wechsel des Besitzers, der in Wayfarer von Hand gesetzt wird, als Veränderung
+   * in der Chronik fest. Aus = alles wie ohne.
+   */
+  history: z.boolean().default(false),
 });
 
 const TopicDetails = z.object({
@@ -646,6 +652,19 @@ export const ChronicleEntrySchema = z.object({
       ownerId: id.nullable().default(null),
       relationId: id.nullable().default(null),
       before: z.enum(BOND_BEFORE).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * kind = change: Ein Gegenstand mit Lebenslauf ist jetzt bei `holderId` (null = unbekannt);
+   * `before` = bei wem er vorher war. Nur festgehalten – den Besitzer hat der Spielleiter selbst
+   * gesetzt; Löschen des Eintrags ändert ihn nicht.
+   */
+  holder: z
+    .object({
+      itemId: id,
+      holderId: id.nullable().default(null),
+      before: id.nullable().default(null),
     })
     .nullable()
     .default(null),

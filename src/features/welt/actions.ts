@@ -1,7 +1,9 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
 import { deleteEntity, moveParty } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
-import { linksTo } from '../../domain/derive';
+import { recordEntry } from '../../data/record';
+import { entityName, linksTo } from '../../domain/derive';
+import { holderWord } from '../../domain/itemHistory';
 import { DERIVED_FAMILY_TAG, describePlan, planFamilies } from './dynasty';
 import {
   COLLECTION_NAMES,
@@ -235,10 +237,42 @@ export function patchDetails<E extends Entity>(
   const current = db.getSnapshot().entities[entity.id];
   if (!current || current.kind !== entity.kind) return;
   const key = current.kind as keyof Entity;
-  db.put('entities', {
-    ...current,
-    [key]: { ...(current[key] as object), ...change },
-  } as Entity);
+  db.batch(() => {
+    const saved = db.put('entities', {
+      ...current,
+      [key]: { ...(current[key] as object), ...change },
+    } as Entity);
+    noteHolderChange(db, current, saved);
+  });
+}
+
+/**
+ * Führt ein Gegenstand seinen Lebenslauf und hat der Spielleiter eben seinen Besitzer geändert,
+ * steht das jetzt als Veränderung in der Chronik: „Kompass ist jetzt bei Mira“ – mit dem
+ * Gegenstand und dem neuen Besitzer, am Ort der Gruppe. Ohne Lebenslauf geschieht nichts.
+ * Aufrufen, nachdem der neue Stand gespeichert ist (`before` = der Stand davor).
+ */
+export function noteHolderChange(
+  db: CampaignDb,
+  before: Entity | undefined,
+  after: Entity,
+): ChronicleEntry | null {
+  if (after.kind !== 'item' || !after.item.history) return null;
+  if (before?.kind !== 'item') return null;
+  const from = before.item.holderId;
+  const to = after.item.holderId;
+  if (from === to) return null;
+  const data = db.getSnapshot();
+  const result = recordEntry(db, {
+    kind: 'change',
+    text: to
+      ? `${after.name} ist jetzt ${holderWord(data, to)} ${entityName(data, to)}`
+      : `Verbleib von ${after.name} ist jetzt unbekannt`,
+    holder: { itemId: after.id, holderId: to, before: from },
+    // Ob die Gruppe davon weiß, sagt nur der Spielleiter: sonst stünde es im Spielerbuch.
+    secret: true,
+  });
+  return 'entry' in result ? result.entry : null;
 }
 
 type DetailsOf<E extends Entity> = E extends { kind: infer K }

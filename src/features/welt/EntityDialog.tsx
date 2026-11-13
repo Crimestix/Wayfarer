@@ -19,7 +19,12 @@ import {
   TextArea,
   toast,
 } from '../../ui';
-import { adoptFamilies, discardUnusedDrafts, syncLinkedRelations } from './actions';
+import {
+  adoptFamilies,
+  discardUnusedDrafts,
+  noteHolderChange,
+  syncLinkedRelations,
+} from './actions';
 import { surnameOf } from './dynasty';
 import {
   closeEntityDialog,
@@ -152,6 +157,8 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
     if (problem) return;
     const saved = db.batch(() => {
       const entity = db.put('entities', entityFromDraft(draft, existing, data));
+      // Führt der Gegenstand seinen Lebenslauf, steht ein neuer Besitzer in der Chronik.
+      noteHolderChange(db, existing, entity);
       if (entity.kind === 'person')
         for (const { field, type, kinds } of PERSON_LINKS)
           syncLinkedRelations(db, entity.id, type, kinds, draft[field]);

@@ -479,12 +479,27 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
     case 'knowledge':
       if (!refs.length) return { problem: 'Wer hat es erfahren?' };
       return { entry: probe({ placeId, refs, ...rest() }) };
+    case 'change': {
+      const h = input.holder;
+      if (!h) return { entry: probe({ placeId, refs, ...rest() }) };
+      const item = data.entities[h.itemId];
+      if (item?.kind !== 'item')
+        return { problem: 'Welcher Gegenstand? Den Eintrag gibt es nicht.' };
+      if (h.holderId !== null && !data.entities[h.holderId])
+        return { problem: 'Bei wem? Den Eintrag gibt es nicht.' };
+      const holder = {
+        itemId: h.itemId,
+        holderId: h.holderId,
+        before: h.before === undefined ? item.item.holderId : h.before,
+      };
+      refs = [...new Set([...[h.itemId, h.holderId].filter((id): id is string => !!id), ...refs])];
+      return { entry: probe({ placeId, refs, holder, ...rest() }) };
+    }
     case 'discovery':
     case 'decision':
     case 'quote':
     case 'lore':
     case 'note':
-    case 'change':
       return { entry: probe({ placeId, refs, ...rest() }) };
   }
 

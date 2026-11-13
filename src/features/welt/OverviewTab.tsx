@@ -1,6 +1,7 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
 import { GroupKnows } from './GroupKnows';
+import { ItemLife } from './ItemLife';
 import { tracksOf } from '../../domain/track';
 import { TrackCard } from '../fortschritt/TrackCard';
 import { Children, useState, type ReactNode } from 'react';
@@ -968,14 +969,21 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
 
 function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
   const db = useDb();
+  // Mit Lebenslauf steht alles aus der Chronik dort – dann nicht noch einmal „Zuletzt“.
+  const life = item.item.history;
   return (
     <Columns
       main={
         <>
-          <RecentChronicle entity={item} onShowTab={onShowTab} />
+          {life ? (
+            <ItemLife item={item} />
+          ) : (
+            <RecentChronicle entity={item} onShowTab={onShowTab} />
+          )}
           <NotesSection entity={item} />
           <SecretSection entity={item} />
           <GroupKnows entity={item} />
+          {!life && <ItemLife item={item} />}
         </>
       }
       side={

@@ -1444,6 +1444,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Gegengelesen: Ein Abend zählt für den Hinweis nur, wenn ein Eintrag dort einen Gefährten nennt
   (sonst reichte ein einziger Eintrag für einen Satz über alle anderen); geheime Lehrer tragen im
   Heldenbogen „geheim“; Wandlungen kommen aus `transformationsOf`, die Anzeige zählt nur einmal.
+- **Lebenslauf je Gegenstand:** `item.history` („Lebenslauf führen“, aus als Vorgabe);
+  `domain/itemHistory.ts` (`itemHistory`, `holdersOf`, `readyFor`). Abschnitt „Lebenslauf“ auf
+  der Seite eines Gegenstands (ersetzt dann „Zuletzt in der Chronik“). Ein von Hand gesetzter
+  Besitzer (Überblick oder Dialog) wird über `noteHolderChange` zur geheimen Veränderung mit
+  `entry.holder`. Nicht darin: zurückgenommene Ausgaben (gelten als nicht geschehen) und ein
+  Besitzer aus dem Steckbrief. Offen: ob ein Wechsel standardmäßig geheim sein soll.
 
 ## 6. Bekannte Mängel und Aufräumliste
 
