@@ -99,7 +99,16 @@ function FactorSelect({
   );
 }
 
-export function ShopDialog({ shop, onClose }: { shop: Shop; onClose: () => void }) {
+export function ShopDialog({
+  shop,
+  fresh = false,
+  onClose,
+}: {
+  shop: Shop;
+  /** Eben angelegt: Abbrechen nimmt den Laden wieder weg. */
+  fresh?: boolean;
+  onClose: () => void;
+}) {
   const db = useDb();
   const data = useData();
   const [draft, setDraft] = useState(shop);
@@ -124,6 +133,10 @@ export function ShopDialog({ shop, onClose }: { shop: Shop; onClose: () => void 
     });
     onClose();
   };
+  const cancel = () => {
+    if (fresh) removeShop(db, shop.id);
+    onClose();
+  };
   const remove = async () => {
     const ok = await confirmDialog({
       title: 'Laden löschen?',
@@ -140,7 +153,7 @@ export function ShopDialog({ shop, onClose }: { shop: Shop; onClose: () => void 
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={cancel}
       title="Laden"
       width={620}
       footer={
@@ -153,7 +166,7 @@ export function ShopDialog({ shop, onClose }: { shop: Shop; onClose: () => void 
           >
             Löschen
           </Button>
-          <Button onClick={onClose}>Abbrechen</Button>
+          <Button onClick={cancel}>Abbrechen</Button>
           <Button variant="primary" onClick={save}>
             Speichern
           </Button>

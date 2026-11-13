@@ -9,6 +9,7 @@ import {
   basketProblem,
   basketTotal,
   inBasket,
+  newKindOf,
   sellerOf,
   setPrice,
   setQty,
@@ -88,5 +89,23 @@ describe('Der Korb', () => {
       toId: 'lando',
       lines: [{ entityId: sword.id, stockId: null, text: 'Graufelser Klinge', qty: 1, price: 10 }],
     });
+  });
+});
+
+describe('Neue Namen einer Preisliste', () => {
+  it('legt sie nach fester Regel als Pflanze, Gestein, Tier oder Gegenstand an', () => {
+    const kind = (name: string, category = '') => newKindOf({ name, category });
+    // Was der Name sagt: gewachsen, aus dem Boden, von Hand gemacht.
+    expect(kind('Mondkraut')).toBe('plant');
+    expect(kind('Fliegenpilz')).toBe('plant');
+    expect(kind('Eisenerz')).toBe('mineral');
+    expect(kind('Heiltrank', 'Kräuter')).toBe('item');
+    // Sonst die Überschrift darüber.
+    expect(kind('Salbei', 'Kräuter')).toBe('plant');
+    expect(kind('Maultier', 'Reittiere')).toBe('animal');
+    expect(kind('Bergkristall (klein)', 'Edelsteine')).toBe('mineral');
+    // Ware aus Tieren ist kein Tier; ohne Hinweis ein Gegenstand.
+    expect(kind('Räucherfisch')).toBe('item');
+    expect(kind('Seil (15 m)', 'Ausrüstung')).toBe('item');
   });
 });

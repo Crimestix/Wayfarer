@@ -54,6 +54,8 @@ export function ShopSection({ entity }: { entity: Entity }) {
   const data = useData();
   const shops = useMemo(() => shopsOf(data, entity.id), [data, entity.id]);
   const [editing, setEditing] = useState<string | null>(null);
+  /** Der eben angelegte Laden: Bricht der Spielleiter ab, verschwindet er wieder. */
+  const [fresh, setFresh] = useState<string | null>(null);
   // Ein Treffer der Suche öffnet den Laden zum Handeln.
   useFocus(['shop'], (focus) => {
     if (shops.some((shop) => shop.id === focus.id)) openShop(focus.id);
@@ -72,13 +74,21 @@ export function ShopSection({ entity }: { entity: Entity }) {
           },
     );
     setEditing(shop.id);
+    setFresh(shop.id);
   };
 
   // Personen ohne Laden: nur, wenn Rolle oder Beruf nach Handel aussehen; Fraktionen nie leer.
   if (!shops.length && entity.kind !== 'place' && !looksLikeTrader(data, entity)) return null;
 
   const dialog = editing && data.shops[editing] && (
-    <ShopDialog shop={data.shops[editing]} onClose={() => setEditing(null)} />
+    <ShopDialog
+      shop={data.shops[editing]}
+      fresh={fresh === editing}
+      onClose={() => {
+        setEditing(null);
+        setFresh(null);
+      }}
+    />
   );
 
   if (!shops.length)
@@ -110,7 +120,15 @@ export function ShopSection({ entity }: { entity: Entity }) {
       }
     >
       {shops.map((shop) => (
-        <ShopCard key={shop.id} shop={shop} owner={entity} onEdit={() => setEditing(shop.id)} />
+        <ShopCard
+          key={shop.id}
+          shop={shop}
+          owner={entity}
+          onEdit={() => {
+            setEditing(shop.id);
+            setFresh(null);
+          }}
+        />
       ))}
       {dialog}
     </Section>

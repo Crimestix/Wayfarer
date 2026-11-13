@@ -224,6 +224,46 @@ describe('Handel', () => {
     expect(data().shops[shop.id]!.stock.find((s) => s.id === 'kompass')!.qty).toBe(1);
   });
 
+  it('verkauft ein einzelnes Stück nur einmal, auch wenn der Bestand keine Menge zählt', async () => {
+    const { db, data, shop, mira, compass } = await setup();
+    db.patch('shops', shop.id, {
+      stock: data().shops[shop.id]!.stock.map((s) =>
+        s.id === 'kompass' ? { ...s, qty: null } : s,
+      ),
+    });
+    const row = () =>
+      stockRows(data(), data().shops[shop.id]!).find((r) => r.line.id === 'kompass')!;
+    expect(row()).toMatchObject({ qty: 1, soldOut: false });
+    const result = tradeAt(db, {
+      shopId: shop.id,
+      direction: 'buy',
+      lines: [{ entityId: compass.id, price: 100, stockId: 'kompass' }],
+    });
+    if ('problem' in result) throw new Error(result.problem);
+    expect(groupItems(data()).has(compass.id)).toBe(true);
+    expect(row()).toMatchObject({ qty: 0, soldOut: true });
+    expect(
+      tradeAt(db, {
+        shopId: shop.id,
+        direction: 'buy',
+        toId: mira.id,
+        lines: [{ entityId: compass.id, price: 100, stockId: 'kompass' }],
+      }),
+    ).toEqual({ problem: 'Kompass der Tiefe gehört schon der Gruppe.' });
+    result.undo();
+    expect(row()).toMatchObject({ qty: 1, soldOut: false });
+  });
+
+  it('kennt keinen Ort für den fahrenden Laden eines toten Händlers', async () => {
+    const { db, data, shop, odo, market } = await setup();
+    db.patch('shops', shop.id, { placeId: null });
+    expect(shopsHere(data()).map((s) => s.id)).toEqual([shop.id]);
+    db.put('entities', { ...odo, person: { ...odo.person, status: 'dead' } });
+    expect(shopsHere(data())).toEqual([]);
+    expect(shopsOf(data(), odo.id).map((s) => s.id)).toEqual([shop.id]);
+    expect(market.id).toBeTruthy();
+  });
+
   it('verkauft Gegenstände der Gruppe an den Laden', async () => {
     const { db, data, shop, mira, lando, odo } = await setup();
     const sword = db.put(
@@ -330,6 +370,36 @@ describe('Bestand pflegen', () => {
       data().entities[herb.id]!.kind === 'plant' &&
         (data().entities[herb.id] as typeof herb).plant.price,
     ).toBeNull();
+  });
+
+  it('legt einen neuen Namen nur einmal an, auch wenn er zweimal in der Liste steht', async () => {
+    const { db, data } = await setup();
+    const shop = newShop(db, { kind: 'Krämer' });
+    const plan = planPriceLines(
+      data(),
+      parsePriceLines('Wolfsfell: 3 GM\nWolfsfell: 4 GM (2)').lines,
+    );
+    const result = takePriceList(
+      db,
+      shop.id,
+      plan.map((p) => ({ plan: p, entityId: p.entityId })),
+    );
+    expect(result).toMatchObject({ created: 1, stocked: 1 });
+    expect(Object.values(data().entities).filter((e) => e.name === 'Wolfsfell')).toHaveLength(1);
+    expect(stockRows(data(), data().shops[shop.id]!).map((r) => [r.name, r.price, r.qty])).toEqual([
+      ['Wolfsfell', 4, 2],
+    ]);
+    result.undo();
+    expect(Object.values(data().entities).some((e) => e.name === 'Wolfsfell')).toBe(false);
+  });
+
+  it('legt neue Namen als die Art an, die der Spielleiter bestätigt', async () => {
+    const { db, data } = await setup();
+    const shop = newShop(db, { kind: 'Kräuterhändler' });
+    const [line] = planPriceLines(data(), parsePriceLines('## Kräuter\nSalbei: 2 SM').lines);
+    takePriceList(db, shop.id, [{ plan: line!, entityId: null, kind: 'plant' }]);
+    const sage = Object.values(data().entities).find((e) => e.name === 'Salbei');
+    expect(sage).toMatchObject({ kind: 'plant', plant: { price: 0.2, category: 'Kräuter' } });
   });
 
   it('schlägt Einträge des Spielleiters vor, die zum Laden passen – nur auf Annahme', async () => {

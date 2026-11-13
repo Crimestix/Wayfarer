@@ -12,6 +12,7 @@ import { isNature, natureHere, natureOf, type NatureKind } from './nature';
 import { isTradeKind, roundGold } from './priceList';
 import {
   newId,
+  PARTY_ID,
   type CampaignData,
   type ChronicleEntry,
   type Entity,
@@ -83,11 +84,17 @@ export function readFactor(text: string): number | null {
 
 // ── Läden ──────────────────────────────────────────────────────────────────
 
-/** Wo ein Laden steht: sein Ort – sonst dort, wo der Händler gerade ist (fahrender Händler). */
+/**
+ * Wo ein Laden steht: sein Ort – sonst dort, wo der Händler gerade ist (fahrender Händler). Ein
+ * toter oder verschollener Händler ist nirgends, sein fahrender Laden also auch nicht.
+ */
 export function shopPlaceId(data: Pick<CampaignData, 'entities'>, shop: Shop): string | null {
   if (shop.placeId && data.entities[shop.placeId]?.kind === 'place') return shop.placeId;
   const keeper = shop.keeperId ? data.entities[shop.keeperId] : undefined;
-  if (keeper?.kind === 'person') return keeper.person.placeId ?? keeper.person.homeId;
+  if (keeper?.kind === 'person') {
+    if (keeper.person.status === 'dead' || keeper.person.status === 'missing') return null;
+    return keeper.person.placeId ?? keeper.person.homeId;
+  }
   if (keeper?.kind === 'faction') return keeper.faction.seatId;
   return null;
 }
@@ -142,6 +149,19 @@ export function isSingleItem(data: CampaignData, entity: Entity | undefined | nu
   return entity.item.history || entity.item.holderId !== null || groupItems(data).has(entity.id);
 }
 
+/**
+ * Wer aus der Gruppe ein einzelnes Stück schon hat: der Gefährte, `PARTY_ID` für die Gruppe als
+ * Ganzes – null, wenn es niemand aus der Gruppe hat. Ein Laden kann es dann nicht verkaufen, auch
+ * wenn sein Bestand die Menge nicht zählt.
+ */
+export function partyHolder(data: CampaignData, entity: Entity | undefined | null): string | null {
+  if (entity?.kind !== 'item') return null;
+  const holder = entity.item.holderId;
+  if (holder === PARTY_ID) return PARTY_ID;
+  if (holder) return data.entities[holder]?.kind === 'character' ? holder : null;
+  return groupItems(data).has(entity.id) ? PARTY_ID : null;
+}
+
 export interface StockRow {
   line: ShopStock;
   entity: Entity | null;
@@ -185,6 +205,8 @@ export function stockRows(data: CampaignData, shop: Shop): StockRow[] {
     const found = line.entityId ? data.entities[line.entityId] : undefined;
     const entity = found ?? null;
     const single = isSingleItem(data, entity);
+    // Ein einzelnes Stück, das die Gruppe schon hat, liegt nicht mehr im Laden.
+    const gone = single && partyHolder(data, entity) !== null;
     return {
       line,
       entity,
@@ -192,8 +214,8 @@ export function stockRows(data: CampaignData, shop: Shop): StockRow[] {
       price: stockPrice(data, shop, line),
       own: line.price !== null,
       listPrice: listPrice(entity),
-      qty: single && line.qty === null ? 1 : line.qty,
-      soldOut: line.qty === 0,
+      qty: gone ? 0 : single && line.qty === null ? 1 : line.qty,
+      soldOut: line.qty === 0 || gone,
       single,
       category: tradeCategory(entity),
     };
@@ -297,8 +319,10 @@ export function sellables(data: CampaignData, shop: Shop | null): Sellable[] {
   const out: Sellable[] = [];
   for (const entity of Object.values(data.entities)) {
     if (entity.kind !== 'item') continue;
-    const holder = entity.item.holderId;
-    const owned = holder ? party.has(holder) : group.has(entity.id);
+    const holder = entity.item.holderId === PARTY_ID ? null : entity.item.holderId;
+    const owned = holder
+      ? party.has(holder)
+      : entity.item.holderId === PARTY_ID || group.has(entity.id);
     if (!owned) continue;
     out.push({
       entity,
@@ -403,8 +427,11 @@ export function planTrade(
     if (entity && isSingleItem(data, entity)) {
       if (qty > 1) return { problem: `${text} ist ein einzelnes Stück.` };
       const holder = entity.kind === 'item' ? entity.item.holderId : null;
-      if (buying && toId && holder === toId)
-        return { problem: `${text} gehört schon ${entityName(data, toId)}.` };
+      const has = partyHolder(data, entity);
+      if (buying && has)
+        return {
+          problem: `${text} gehört schon ${has === PARTY_ID ? 'der Gruppe' : entityName(data, has)}.`,
+        };
       line.claimed = true;
       line.holderBefore = holder;
       // Ein einzelnes Stück, das der Laden noch nicht führt, liegt danach in seinem Bestand.

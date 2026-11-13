@@ -298,7 +298,11 @@ nicht übernommen.
   „Unterwegs“ ist Beute plus Handel (`tradeTotals`). Was ein Laden verkauft hat, steht nur in der
   Chronik (`shopTrades`). Preislisten liest `parsePriceLines`, `planPriceLines` sucht Einträge nach
   Namen (nie einen Namen doppelt; ein Name einer Person bleibt Wort), übernommen wird nur
-  Bestätigtes (`takePriceList`, danach `linkTwins`). Vorschläge für den Bestand (`shopSuggestions`:
+  Bestätigtes (`takePriceList`, danach `linkTwins`); ein neuer Name wird nach fester Regel als
+  Pflanze, Gestein, Tier oder Gegenstand angelegt (`newKindOf`: erst der Name, dann die
+  Überschrift, ein Tier nur nach der Überschrift) – der Spielleiter bestätigt die Art in der
+  Vorschau. Ein einzelnes Stück, das die Gruppe schon hat (`partyHolder`), ist im Laden
+  ausverkauft, auch wenn der Bestand keine Menge zählt. Vorschläge für den Bestand (`shopSuggestions`:
   Natur am Ort nach Art des Ladens, Einordnungen) gelten erst nach Annahme. Am Spieltisch „Läden
   hier“ (`shopsHere`, Ort der Gruppe und Orte darin), überall `openShop`; im Festhalten öffnet
   „Handel“ den Laden.

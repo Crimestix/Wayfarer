@@ -4,7 +4,14 @@
  */
 import type { CampaignData, Entity, TradeDirection } from '../../domain/schema';
 import { activeParty } from '../../domain/derive';
-import { roundGold } from '../../domain/priceList';
+import {
+  baseName,
+  isTradeKind,
+  roundGold,
+  type PricePlan,
+  type TradeKind,
+} from '../../domain/priceList';
+import { kindFromFolderTitle, kindFromText } from '../wiki/facts';
 import {
   listPrice,
   sellPrice,
@@ -170,6 +177,22 @@ export function tradeInputOf(
       price: b.price ?? 0,
     })),
   };
+}
+
+/**
+ * Als was ein neuer Name der Preisliste angelegt wird – nach fester Regel: Was der Name selbst
+ * sagt („Mondkraut“ → Pflanze, „Eisenerz“ → Gestein, „Heiltrank“ → Gegenstand), sonst was die
+ * Überschrift darüber sagt („## Kräuter“ → Pflanze, „## Reittiere“ → Tier), sonst ein Gegenstand.
+ * Ein Tier nur nach der Überschrift: „Räucherfisch“ ist Ware, kein Tier. Der Spielleiter kann es
+ * in der Vorschau ändern.
+ */
+export function newKindOf(plan: Pick<PricePlan, 'name' | 'category'>): TradeKind {
+  const named = kindFromText(baseName(plan.name));
+  if (named && isTradeKind(named) && named !== 'animal') return named;
+  const heading = plan.category
+    ? (kindFromFolderTitle(plan.category) ?? kindFromText(plan.category))
+    : null;
+  return heading && isTradeKind(heading) ? heading : 'item';
 }
 
 /** Wer kaufen oder verkaufen kann: die Gruppe und die aktiven Gefährten. */

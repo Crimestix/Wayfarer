@@ -6,11 +6,18 @@
 import { useMemo, useState } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, entityName } from '../../domain/derive';
-import { parsePriceLines, planPriceLines } from '../../domain/priceList';
+import {
+  TRADE_KINDS,
+  nameKey,
+  parsePriceLines,
+  planPriceLines,
+  type TradeKind,
+} from '../../domain/priceList';
 import { formatPrice, listPrice } from '../../domain/shop';
 import type { Shop } from '../../domain/schema';
 import { Button, Checkbox, Dialog, Field, Select, TextArea, cx, toast } from '../../ui';
 import { takePriceList } from './actions';
+import { newKindOf } from './model';
 
 export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => void }) {
   const db = useDb();
@@ -23,17 +30,22 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
   const [toggled, setToggled] = useState<Record<number, boolean>>({});
   /** Bei mehreren passenden Einträgen: die Wahl je Zeile. */
   const [choice, setChoice] = useState<Record<number, string>>({});
+  /** Als was ein neuer Name angelegt wird, wenn der Spielleiter es ändert (sonst `newKindOf`). */
+  const [kinds, setKinds] = useState<Record<number, TradeKind>>({});
+  const kindOf = (p: (typeof plan)[number]) => kinds[p.line] ?? newKindOf(p);
   const reading = useMemo(() => parsePriceLines(text), [text]);
   const plan = useMemo(() => planPriceLines(data, reading.lines), [data, reading]);
   const takes = (p: (typeof plan)[number]) => toggled[p.line] ?? !p.takenBy;
   const taken = plan.filter(takes);
-  const creating = taken.filter((p) => p.create && !p.entityId).length;
+  // Ein Name, der zweimal dasteht, wird nur einmal angelegt.
+  const creating = new Set(taken.filter((p) => p.create && !p.entityId).map((p) => nameKey(p.name)))
+    .size;
 
   const save = () => {
     const result = takePriceList(
       db,
       shop.id,
-      taken.map((p) => ({ plan: p, entityId: choice[p.line] ?? p.entityId })),
+      taken.map((p) => ({ plan: p, entityId: choice[p.line] ?? p.entityId, kind: kindOf(p) })),
     );
     onClose();
     toast({
@@ -41,8 +53,8 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
       body: [
         result.created > 0 &&
           (result.created === 1
-            ? '1 Gegenstand neu angelegt.'
-            : `${result.created} Gegenstände neu angelegt.`),
+            ? '1 Eintrag neu angelegt.'
+            : `${result.created} Einträge neu angelegt.`),
         result.priced > 0 &&
           (result.priced === 1
             ? '1 Eintrag hat jetzt einen Listenpreis.'
@@ -65,8 +77,8 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
           <span className="wf-grow wf-mute">
             {creating > 0 &&
               (creating === 1
-                ? '1 Gegenstand wird neu angelegt.'
-                : `${creating} Gegenstände werden neu angelegt.`)}
+                ? '1 Eintrag wird neu angelegt.'
+                : `${creating} Einträge werden neu angelegt.`)}
           </span>
           <Button onClick={onClose}>Abbrechen</Button>
           <Button variant="primary" disabled={!taken.length} onClick={save}>
@@ -130,12 +142,28 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
                         </option>
                       ))}
                     </Select>
+                  ) : p.create ? (
+                    <Select
+                      value={kindOf(p)}
+                      aria-label={`„${p.name}“ neu anlegen als`}
+                      onChange={(event) =>
+                        setKinds((current) => ({
+                          ...current,
+                          [p.line]: event.target.value as TradeKind,
+                        }))
+                      }
+                    >
+                      {TRADE_KINDS.map((kind) => (
+                        <option key={kind} value={kind}>
+                          neu: {KIND_LABEL[kind]}
+                        </option>
+                      ))}
+                    </Select>
                   ) : (
                     <span
                       className={cx(
                         'wf-laden-plan__match',
-                        p.create && 'wf-laden-plan__match--new',
-                        !p.create && !entity && 'wf-laden-plan__match--word',
+                        !entity && 'wf-laden-plan__match--word',
                       )}
                     >
                       {entity
@@ -146,9 +174,7 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
                                 ? ` – eigener Preis hier (Liste ${formatPrice(list!)})`
                                 : ''
                           }`
-                        : p.create
-                          ? 'neuer Gegenstand'
-                          : `nur in Worten – der Name gehört schon: ${p.takenBy}`}
+                        : `nur in Worten – der Name gehört schon: ${p.takenBy}`}
                     </span>
                   )}
                 </div>

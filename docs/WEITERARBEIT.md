@@ -1544,6 +1544,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   die Gruppe mit Gold, das nie im Beute-Buch stand, wird „Gold der Gruppe“ negativ; einen
   Geldbeutel zum Setzen gibt es nicht. Handel aus Notizen (Abschnitt „Einkäufe“ beim Nachtragen)
   wird noch nicht vorgeschlagen. Geprüft in der Vorschau bei 1440×900.
+- **Gegengelesen: Läden und Preise.** Ein einzelnes Stück aus einem Bestand ohne Mengenangabe
+  blieb nach dem Kauf im Laden und ließ sich ein zweites Mal kaufen – jetzt ausverkauft, solange
+  die Gruppe es hat (`partyHolder`). Ein neuer Name, der zweimal in einer Preisliste stand, wurde
+  doppelt angelegt; „Mondkraut“ unter „## Kräuter“ wurde ein Gegenstand – jetzt nach fester Regel
+  als Pflanze, Gestein, Tier oder Gegenstand, bestätigt in der Vorschau (`newKindOf`). Abbrechen
+  beim Anlegen nimmt den leeren Laden wieder weg; der fahrende Laden eines toten Händlers steht
+  nirgends mehr. Geprüft in der Vorschau bei 1440×900 und 1280×800.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

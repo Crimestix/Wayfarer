@@ -6,7 +6,7 @@
  */
 import type { CampaignDb } from '../../data/db';
 import { recordEntry, type RecordResult } from '../../data/record';
-import type { PricePlan } from '../../domain/priceList';
+import { nameKey, type PricePlan, type TradeKind } from '../../domain/priceList';
 import { listPrice, stockLine, withListPrice, type TradeInput } from '../../domain/shop';
 import {
   createEntity,
@@ -122,10 +122,12 @@ export interface PriceListPick {
   plan: PricePlan;
   /** Der gewählte Eintrag (bei mehreren, die passen); null = keiner. */
   entityId: string | null;
+  /** Als was ein neuer Name angelegt wird (`newKindOf`); ohne Angabe ein Gegenstand. */
+  kind?: TradeKind;
 }
 
 export interface PriceListResult {
-  /** Neu angelegte Gegenstände. */
+  /** Neu angelegte Einträge. */
   created: number;
   /** Einträge, die ihren Listenpreis bekamen. */
   priced: number;
@@ -135,8 +137,9 @@ export interface PriceListResult {
 }
 
 /**
- * Übernimmt bestätigte Zeilen einer Preisliste: Fehlende Gegenstände werden angelegt (mit Preis
- * und der Überschrift als Einordnung), Einträge ohne Listenpreis bekommen den Preis der Zeile.
+ * Übernimmt bestätigte Zeilen einer Preisliste: Fehlende Einträge werden angelegt – als
+ * Gegenstand, Pflanze, Gestein oder Tier, wie der Spielleiter bestätigt hat (mit Preis und der
+ * Überschrift als Einordnung), Einträge ohne Listenpreis bekommen den Preis der Zeile.
  * Mit `shopId` kommen die Zeilen in den Bestand: Weicht der Preis vom Listenpreis ab, ist er der
  * eigene Preis des Ladens. Angelegte Gegenstände finden danach ihren Artikel gleichen Namens.
  */
@@ -148,22 +151,21 @@ export function takePriceList(
   const createdIds: string[] = [];
   const priced: { id: string; price: number }[] = [];
   const shopBefore = shopId ? db.getSnapshot().shops[shopId] : undefined;
-  let stocked = 0;
+  // Zeilen des Bestands, die neu sind oder geändert wurden – eine zweimal genannte zählt einmal.
+  const stocked = new Set<string>();
+  // Steht ein neuer Name zweimal in der Liste, wird er nur einmal angelegt.
+  const made = new Map<string, Entity>();
   db.batch(() => {
     const lines: ShopStock[] = shopBefore ? [...shopBefore.stock] : [];
-    for (const { plan, entityId } of picks) {
+    for (const { plan, entityId, kind } of picks) {
       const data = db.getSnapshot();
       let entity: Entity | undefined = entityId ? data.entities[entityId] : undefined;
-      if (!entity && !entityId && plan.create) {
-        entity = db.put(
-          'entities',
-          createEntity({
-            kind: 'item',
-            name: plan.name,
-            item: { price: plan.price, category: plan.category },
-          }),
-        );
+      if (!entity && !entityId && plan.create && made.has(nameKey(plan.name)))
+        entity = made.get(nameKey(plan.name));
+      else if (!entity && !entityId && plan.create) {
+        entity = db.put('entities', newTradeEntity(kind ?? 'item', plan));
         createdIds.push(entity.id);
+        made.set(nameKey(plan.name), entity);
       } else if (entity && plan.price !== null && listPrice(entity) === null) {
         entity = db.put('entities', withListPrice(entity, plan.price));
         priced.push({ id: entity.id, price: plan.price });
@@ -173,21 +175,22 @@ export function takePriceList(
       const own = plan.price !== null && plan.price !== list ? plan.price : null;
       const existing = entity ? lines.findIndex((s) => s.entityId === entity!.id) : -1;
       if (existing >= 0) {
+        stocked.add(lines[existing]!.id);
         lines[existing] = {
           ...lines[existing]!,
           price: own,
           qty: plan.qty ?? lines[existing]!.qty,
         };
-      } else
-        lines.push(
-          stockLine({
-            entityId: entity?.id ?? null,
-            text: entity ? entity.name : plan.name,
-            price: entity ? own : plan.price,
-            qty: plan.qty,
-          }),
-        );
-      stocked++;
+      } else {
+        const line = stockLine({
+          entityId: entity?.id ?? null,
+          text: entity ? entity.name : plan.name,
+          price: entity ? own : plan.price,
+          qty: plan.qty,
+        });
+        lines.push(line);
+        stocked.add(line.id);
+      }
     }
     if (shopBefore) db.patch('shops', shopBefore.id, { stock: lines });
     if (createdIds.length) linkTwins(db);
@@ -196,7 +199,7 @@ export function takePriceList(
   return {
     created: createdIds.length,
     priced: priced.length,
-    stocked,
+    stocked: stocked.size,
     undo: () =>
       db.batch(() => {
         restore();
@@ -208,6 +211,21 @@ export function takePriceList(
         for (const id of createdIds) if (db.getSnapshot().entities[id]) db.remove('entities', id);
       }),
   };
+}
+
+/** Ein neuer Eintrag aus einer Zeile der Preisliste: Listenpreis und Überschrift als Einordnung. */
+function newTradeEntity(kind: TradeKind, plan: PricePlan): Entity {
+  const details = { price: plan.price, category: plan.category };
+  switch (kind) {
+    case 'plant':
+      return createEntity({ kind, name: plan.name, plant: details });
+    case 'animal':
+      return createEntity({ kind, name: plan.name, animal: details });
+    case 'mineral':
+      return createEntity({ kind, name: plan.name, mineral: details });
+    default:
+      return createEntity({ kind: 'item', name: plan.name, item: details });
+  }
 }
 
 /** Wann und mit welcher Anmerkung ein Handel festgehalten wird. */

@@ -98,13 +98,16 @@ export function TradeDialog({
   const addFirst = () => {
     if (tab === 'buy') {
       const first = shown.find((row) => !row.soldOut);
-      if (first) setBuy(addRow(buy, first));
-    } else if (shownOffers[0]) setSell(addSellable(sell, shownOffers[0]));
+      if (first) setBuy((b) => addRow(b, first));
+    } else {
+      const offer = shownOffers[0];
+      if (offer) setSell((b) => addSellable(b, offer));
+    }
   };
   const addWritten = () => {
     const price = parseCoins(freePrice);
     if (!freeText.trim() || price === undefined) return;
-    setBasket(addFree(basket, freeText, price));
+    setBasket((b) => addFree(b, freeText, price));
     setFreeText('');
     setFreePrice('');
   };
@@ -239,7 +242,7 @@ export function TradeDialog({
                       role="listitem"
                       className={cx('wf-laden-ware', out && 'wf-laden-ware--out')}
                       disabled={out}
-                      onClick={() => setBuy(addRow(buy, row))}
+                      onClick={() => setBuy((b) => addRow(b, row))}
                       title={
                         row.own
                           ? 'Eigener Preis dieses Ladens'
@@ -290,7 +293,7 @@ export function TradeDialog({
                       inBasket(sell, `item:${offer.entity.id}`) > 0 && 'wf-laden-ware--out',
                     )}
                     disabled={inBasket(sell, `item:${offer.entity.id}`) > 0}
-                    onClick={() => setSell(addSellable(sell, offer))}
+                    onClick={() => setSell((b) => addSellable(b, offer))}
                   >
                     <span className="wf-laden-ware__name">
                       <b className="wf-clamp-1">{offer.entity.name}</b>
@@ -317,7 +320,7 @@ export function TradeDialog({
                 value={null}
                 onChange={(id) => {
                   const entity = id ? data.entities[id] : undefined;
-                  if (entity) setBasket(addEntity(basket, entity, shop, tab));
+                  if (entity) setBasket((b) => addEntity(b, entity, shop, tab));
                 }}
                 kinds={[...TRADE_KINDS]}
                 placeholder="Aus der Welt …"
@@ -378,7 +381,7 @@ export function TradeDialog({
                     label={`Eins weniger: ${line.text}`}
                     size="sm"
                     variant="ghost"
-                    onClick={() => setBasket(setQty(basket, line.key, line.qty - 1))}
+                    onClick={() => setBasket((b) => setQty(b, line.key, line.qty - 1))}
                   >
                     <Minus />
                   </IconButton>
@@ -388,7 +391,7 @@ export function TradeDialog({
                     size="sm"
                     variant="ghost"
                     disabled={line.max !== null && line.qty >= line.max}
-                    onClick={() => setBasket(setQty(basket, line.key, line.qty + 1))}
+                    onClick={() => setBasket((b) => setQty(b, line.key, line.qty + 1))}
                   >
                     <Plus />
                   </IconButton>
@@ -396,13 +399,13 @@ export function TradeDialog({
                 <PriceInput
                   label={`Stückpreis: ${line.text}`}
                   value={line.price}
-                  onChange={(price) => setBasket(setPrice(basket, line.key, price))}
+                  onChange={(price) => setBasket((b) => setPrice(b, line.key, price))}
                 />
                 <IconButton
                   label={`Aus dem Korb: ${line.text}`}
                   size="sm"
                   variant="ghost"
-                  onClick={() => setBasket(setQty(basket, line.key, 0))}
+                  onClick={() => setBasket((b) => setQty(b, line.key, 0))}
                 >
                   <X />
                 </IconButton>

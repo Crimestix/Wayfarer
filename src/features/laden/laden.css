@@ -303,9 +303,6 @@
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
-.wf-laden-plan__match--new {
-  color: var(--verdigris);
-}
 .wf-laden-plan__match--word {
   color: var(--ink-mute);
 }

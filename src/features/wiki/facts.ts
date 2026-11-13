@@ -559,6 +559,10 @@ const FOLDER_KIND = new Map(
   FOLDER_WORDS.flatMap(([kind, words]) => words.map((word) => [norm(word), kind] as const)),
 );
 
+/** Was in einem Ordner (oder unter einer Überschrift) dieses Namens liegt: „Kräuter“ → Pflanze. */
+export const kindFromFolderTitle = (title: string): EntityKind | null =>
+  FOLDER_KIND.get(norm(title)) ?? null;
+
 /**
  * Was ein Artikel wohl ist, nach dem Ordner, in dem er liegt: der nächste Ordner, dessen Name es
  * verrät („Flora › Kräuter › Mondkraut“ ist eine Pflanze). Nur ein Vorschlag für „In die Welt
