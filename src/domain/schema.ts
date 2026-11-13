@@ -954,6 +954,8 @@ export const PrepSceneSchema = z.object({
   text: z.string(),
   /** Gespielt. */
   done: z.boolean().default(false),
+  /** Wo die Szene spielen kann – am Spieltisch erscheint sie, sobald die Gruppe dort ist. */
+  placeId: id.nullable().default(null),
 });
 export type PrepScene = z.infer<typeof PrepSceneSchema>;
 
@@ -1004,6 +1006,8 @@ export const StorySceneSchema = z.object({
   encounterId: id.nullable().default(null),
   /** Kommt sicher, vielleicht oder eher nicht. */
   odds: z.enum(SCENE_ODDS).default('maybe'),
+  /** Wo die Szene spielen kann – am Spieltisch erscheint sie, sobald die Gruppe dort ist. */
+  placeId: id.nullable().default(null),
 });
 export type StoryScene = z.infer<typeof StorySceneSchema>;
 

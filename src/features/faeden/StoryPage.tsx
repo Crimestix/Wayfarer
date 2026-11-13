@@ -771,7 +771,9 @@ function Scenes({ story }: { story: Story }) {
         <Button
           size="sm"
           icon={<Plus />}
-          onClick={() => list.add({ id: newId(), text: '', encounterId: null, odds: 'maybe' })}
+          onClick={() =>
+            list.add({ id: newId(), text: '', encounterId: null, odds: 'maybe', placeId: null })
+          }
         >
           Szene
         </Button>
@@ -834,6 +836,14 @@ function Scenes({ story }: { story: Story }) {
           >
             <X />
           </IconButton>
+          <div className="wf-faden-scene-place">
+            <EntityPicker
+              value={scene.placeId}
+              onChange={(placeId) => list.set(scene.id, { placeId })}
+              kinds={['place']}
+              placeholder="Wo? – erscheint dann dort am Spieltisch"
+            />
+          </div>
         </div>
       ))}
     </SheetSection>

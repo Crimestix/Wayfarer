@@ -161,3 +161,9 @@
 .wf-abend-last__row--taken .wf-abend-last__line {
   color: var(--ink-mute);
 }
+
+/* Der Ort einer Szene: zweite Zeile unter dem Text */
+.wf-abend-scene-place {
+  grid-column: 2 / 3;
+  max-width: 360px;
+}

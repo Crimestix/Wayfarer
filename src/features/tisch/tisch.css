@@ -1606,3 +1606,26 @@ button.wf-tisch-story__title:enabled:hover b {
     max-height: 36%;
   }
 }
+
+/* Was hier passieren kann: Szenen, die an den Ort der Gruppe geheftet sind */
+.wf-tisch-scene .wf-tisch-story__title {
+  align-items: flex-start;
+}
+.wf-tisch-scene .wf-chron__check {
+  flex: none;
+  margin-top: 3px;
+}
+.wf-tisch-scene__text {
+  min-width: 0;
+  color: var(--ink);
+  font-style: normal;
+  line-height: 1.4;
+}
+.wf-tisch-scene__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-3);
+  padding: 0 0 2px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

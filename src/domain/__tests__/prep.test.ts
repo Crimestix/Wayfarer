@@ -41,7 +41,12 @@ async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
   endSession(db);
   const data = () => db.getSnapshot();
-  const scene = (text: string, done = false): PrepScene => ({ id: newId(), text, done });
+  const scene = (text: string, done = false): PrepScene => ({
+    id: newId(),
+    text,
+    done,
+    placeId: null,
+  });
   const secret = (text: string, revealed = false): PrepSecret => ({
     id: newId(),
     text,

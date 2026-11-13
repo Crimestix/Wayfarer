@@ -443,10 +443,22 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
     const ambush = db.put('encounters', createEncounter({ name: 'Überfall am Zollhaus' }));
     patchStory(db, toll.id, {
       scenes: [
-        { id: newId(), text: 'Ein Zöllner will reden', encounterId: null, odds: 'maybe' },
-        { id: newId(), text: '', encounterId: ambush.id, odds: 'sure' },
-        { id: newId(), text: 'Gibt es nicht', encounterId: 'gibtsnicht', odds: 'unlikely' },
-        { id: newId(), text: ' ', encounterId: null, odds: 'maybe' },
+        {
+          id: newId(),
+          text: 'Ein Zöllner will reden',
+          encounterId: null,
+          odds: 'maybe',
+          placeId: null,
+        },
+        { id: newId(), text: '', encounterId: ambush.id, odds: 'sure', placeId: null },
+        {
+          id: newId(),
+          text: 'Gibt es nicht',
+          encounterId: 'gibtsnicht',
+          odds: 'unlikely',
+          placeId: null,
+        },
+        { id: newId(), text: ' ', encounterId: null, odds: 'maybe', placeId: null },
       ],
     });
     expect(data().stories[toll.id]!.scenes.map((scene) => scene.encounterId)).toEqual([

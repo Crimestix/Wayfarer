@@ -733,3 +733,9 @@
   width: 13px;
   height: 13px;
 }
+
+/* Der Ort einer Szene: zweite Zeile unter dem Text */
+.wf-faden-scene-place {
+  grid-column: 1 / 2;
+  max-width: 360px;
+}

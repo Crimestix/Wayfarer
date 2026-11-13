@@ -24,6 +24,7 @@ import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { placePath, placeStatus } from '../../domain/derive';
 import { netsOfPlace } from '../../domain/net';
+import { scenesHere } from '../../domain/scenesHere';
 import type { Place } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
 import { openAttitude, openMoveParty, openQuickLog } from '../../shell/commands';
@@ -54,6 +55,7 @@ import {
 } from './model';
 import { articleOf, placeMaps } from './wiki';
 import { WeatherLine } from '../wetter';
+import { ScenesHere } from './ScenesHere';
 import { StocksHere } from './StocksHere';
 import { WayRow } from './WayRow';
 import { ArticleDialog, MapDialog } from './WikiPeek';
@@ -352,7 +354,8 @@ export function PlacePanel({ place }: { place: Place }) {
 
   const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
   /** Über den Ort ist noch gar nichts eingetragen. */
-  const bare = cast.total === 0 && !hasAside && changes.length === 0;
+  const sceneCount = useMemo(() => scenesHere(data).length, [data]);
+  const bare = cast.total === 0 && !hasAside && changes.length === 0 && sceneCount === 0;
 
   return (
     <Panel flush className="wf-tisch-place">
@@ -546,6 +549,7 @@ export function PlacePanel({ place }: { place: Place }) {
               )}
             </section>
 
+            <ScenesHere />
             <StocksHere />
 
             {hasAside && (

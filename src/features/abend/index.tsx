@@ -23,6 +23,7 @@ import { storiesOfHero, storyClock, untilText } from '../../domain/story';
 import {
   Button,
   Checkbox,
+  EntityPicker,
   IconButton,
   Input,
   Select,
@@ -365,7 +366,7 @@ function Scenes({ scenes }: { scenes: PrepScene[] }) {
         <Button
           size="sm"
           icon={<Plus />}
-          onClick={() => list.add({ id: newId(), text: '', done: false })}
+          onClick={() => list.add({ id: newId(), text: '', done: false, placeId: null })}
         >
           Szene
         </Button>
@@ -395,6 +396,14 @@ function Scenes({ scenes }: { scenes: PrepScene[] }) {
           >
             <X />
           </IconButton>
+          <div className="wf-abend-scene-place">
+            <EntityPicker
+              value={scene.placeId}
+              onChange={(placeId) => list.set(scene.id, { placeId })}
+              kinds={['place']}
+              placeholder="Wo? – erscheint dann dort am Spieltisch"
+            />
+          </div>
         </div>
       ))}
     </SheetSection>
