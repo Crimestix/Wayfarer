@@ -1929,6 +1929,40 @@ export type Atlas = z.infer<typeof AtlasSchema>;
 
 // ── Sammlungen ─────────────────────────────────────────────────────────────
 
+// ── Fortschrittsleisten ─────────────────────────────────────────────────────
+
+/** stages = benannte Stufen; count = eine Zahl bis zu einem Ziel; steps = Abschnitte wie eine Uhr. */
+export const TRACK_KINDS = ['stages', 'count', 'steps'] as const;
+export type TrackKind = (typeof TRACK_KINDS)[number];
+
+/**
+ * Eine Fortschrittsleiste (`domain/track.ts`): ein Ausbildungsweg, Ruf, eine Schuld, eine Studie, eine
+ * Reparatur. Sie gehört einem Eintrag der Welt oder der Gruppe; jeder Schritt steht in der Chronik.
+ */
+export const TrackSchema = z.object({
+  ...base,
+  name: z.string(),
+  /** Wem sie gehört: Gefährte, Person, Fraktion, Ort … oder die Gruppe (`PARTY_ID`). */
+  ownerId: z.string().nullable().default(null),
+  kind: z.enum(TRACK_KINDS).default('steps'),
+  /** stages: die Namen der Stufen, von der ersten bis zur letzten. */
+  stages: z.array(z.string()).default([]),
+  /** count: Ziel und Schrittweite, dazu ein Wort für die Einheit („Gold“). */
+  target: z.number().nonnegative().default(0),
+  step: z.number().positive().default(1),
+  unit: z.string().default(''),
+  /** steps: Zahl der Abschnitte. */
+  segments: z.number().int().min(1).max(24).default(4),
+  /** Erreicht: Stufe (Index), Zahl oder gefüllte Abschnitte. */
+  value: z.number().nonnegative().default(0),
+  note: z.string().default(''),
+  /** Die Geschichte, zu der sie gehört. */
+  storyId: id.nullable().default(null),
+  /** Abgeschlossen – bleibt sichtbar, steht aber unten. */
+  done: z.boolean().default(false),
+});
+export type Track = z.infer<typeof TrackSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -1957,6 +1991,7 @@ export const COLLECTION_SCHEMAS = {
   nets: NetSchema,
   preps: PrepSchema,
   loot: LootSchema,
+  tracks: TrackSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1985,6 +2020,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'nets',
   'preps',
   'loot',
+  'tracks',
 ];
 
 export type CollectionTypes = {
@@ -2086,6 +2122,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createTrack(init: Partial<Track> & { name: string }): Track {
+  const stamp = nowIso();
+  return TrackSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createLoot(init: Partial<Loot> = {}): Loot {

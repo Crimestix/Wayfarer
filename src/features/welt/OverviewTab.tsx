@@ -1,4 +1,6 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
+import { tracksOf } from '../../domain/track';
+import { TrackCard } from '../fortschritt/TrackCard';
 import { Children, useState, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import {
@@ -637,6 +639,22 @@ function AttitudeTrail({ entity }: { entity: Person | Faction }) {
   );
 }
 
+/** Fortschrittsleisten dieses Eintrags – nur, wenn es welche gibt (angelegt unter Gefährten → Fortschritt). */
+function Tracks({ entity }: { entity: Entity }) {
+  const data = useData();
+  const tracks = tracksOf(data, entity.id);
+  if (!tracks.length) return null;
+  return (
+    <Section title="Fortschritt" count={tracks.length}>
+      <div className="wf-welt-tracks">
+        {tracks.map((track) => (
+          <TrackCard key={track.id} track={track} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function Promises({ entity }: { entity: Entity }) {
   const data = useData();
   const promises = openPromises(data, entity.id);
@@ -790,6 +808,7 @@ function PersonOverview({ entity: person, onShowTab }: Props<Person>) {
       main={
         <>
           <Promises entity={person} />
+          <Tracks entity={person} />
           <NotesSection entity={person} />
           <SecretSection entity={person} />
           <AttitudeTrail entity={person} />
@@ -905,6 +924,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
             empty="Noch keine Mitglieder. Wer über eine Beziehung zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, erscheint hier."
           />
           <Promises entity={faction} />
+          <Tracks entity={faction} />
           <NotesSection entity={faction} />
           <SecretSection entity={faction} />
           <AttitudeTrail entity={faction} />
@@ -987,6 +1007,7 @@ function FamilyOverview({ entity: family, onShowTab }: Props<Family>) {
             empty="Noch niemand. Wer bei einer Person als Mitglied dieser Familie eingetragen ist, sie führt oder hier arbeitet, erscheint hier."
           />
           <Promises entity={family} />
+          <Tracks entity={family} />
           <NotesSection entity={family} />
           <SecretSection entity={family} />
           <RecentChronicle entity={family} onShowTab={onShowTab} />

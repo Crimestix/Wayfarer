@@ -1,4 +1,5 @@
 /** Ein Gefährte im Ganzen: Werte, Notizen, Geheimnis, Beziehungen, Abmachungen, Chronik. */
+import { TracksPanel } from '../fortschritt/TrackCard';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import {
@@ -574,6 +575,8 @@ export function Detail({
                 </p>
               )}
             </Panel>
+
+            <TracksPanel ownerId={character.id} />
 
             <Panel
               title="Erhalten"

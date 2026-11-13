@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Coins,
   Flame,
+  Gauge,
   Globe,
   Hexagon,
   Landmark,
@@ -79,6 +80,12 @@ export const STORY_TABS: readonly AreaTab[] = [
 export const GROUP_TABS: readonly AreaTab[] = [
   { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Users },
   { path: '/beute', label: 'Beute-Buch', hint: 'Was die Gruppe bekommen hat', icon: Coins },
+  {
+    path: '/fortschritt',
+    label: 'Fortschritt',
+    hint: 'Ausbildungswege, Ruf, Schulden, Studien',
+    icon: Gauge,
+  },
 ];
 
 /** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */
