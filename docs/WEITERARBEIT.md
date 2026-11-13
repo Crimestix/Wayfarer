@@ -1195,6 +1195,38 @@ gezeigt (`docs/proben/spieltisch.html`), dann so gebaut.
   Notiz zur Geschichte; Reihenfolge der Geschichten von Hand; Punkt 19 des Rundgangs (kleine
   Schrift) gilt weiter.
 
+### Geschichten schreiben: das Blatt – und Uhren gehören zu Geschichten (13. 11. 2026) – gebaut
+
+Der Spielleiter fand das Vorbereiten von Geschichten „noch sehr schwer“ (drei Fenster an zwei
+Stellen) und die Uhren „irgendwie weird“ – sie sollten zu den Geschichten, nicht in den
+Kalender. Vorher nachgelesen, wie Abenteuer vorbereitet werden (Lage statt Ablauf; wer will was;
+was geschieht, wenn niemand eingreift; drei Hinweise je Erkenntnis; Einstiege; Begegnungen mit
+Zweck; Ende und Belohnung; für den Abend: starker Einstieg, Szenen, Geheimnisse ohne festen
+Ort).
+
+- **Das Blatt** (`faeden/StoryPage.tsx`, `/geschichte/<id>`): Name · Worum es geht + Antreiber
+  · Was auf dem Spiel steht (`stakes`) · Wenn niemand eingreift (Schritte der Uhr, direkt
+  geschrieben; „Eingreifen“ öffnet `ClockDialog`) · Fragen und Hinweise (Fäden mit Antwort,
+  Zustand, Hinweisen samt Ort und Quelle; Zähler „2 von 3“) · Einstiege · Szenen und Begegnungen
+  (`scenes`: Text, kommt sicher / vielleicht / eher nicht, Begegnung wählen oder neu anlegen) ·
+  Leute und Orte · Wie es enden kann (`ending`) und was die Gruppe davon hat (`reward`) ·
+  Merkzettel. Rechts: Im Spiel, Gruppe weiß davon, zu Ende erzählt; **Noch offen** (Rat aus
+  `storyAdvice`); Berührt. Alles schreibt beim Verlassen des Feldes.
+- **Wege dorthin:** „Geschichte“ und Doppelklick auf dem Fadenbrett legen eine leere an und
+  öffnen ihr Blatt; „Schreiben“ im Seitenteil; „Blatt öffnen“ am Spieltisch; die Suche. Das
+  Fenster „Geschichte“ gibt es nicht mehr.
+- **Uhren:** aus dem Kalender entfernt (Knopf „Uhr“, Zeilen unter „Läuft gerade“). Im
+  Weltgeschehen öffnet eine Uhr das Blatt ihrer Geschichte. Eine Uhr ohne Geschichte steht dort
+  mit dem Vermerk und auf dem Fadenbrett unten links („Uhren ohne Geschichte“) – ein Klick macht
+  eine Geschichte daraus. Eine Geschichte zu löschen nimmt ihre Uhr mit.
+- **Am Spieltisch** stehen die Szenen einer Geschichte im Spiel bei ihr, mit „Begegnung
+  öffnen“.
+- **Nicht geprüft:** installierte App, echte Daten.
+- **Offen (Reihenfolge der Pläne):** 2. einen Abend vorbereiten (starker Einstieg, mögliche
+  Szenen, Geheimnisse ohne festen Ort, die in den nächsten Abend wandern, Beute) · 3. Gefährten
+  einbinden (was jeder will; an Geschichten heften) · 4. Beute und Belohnungen · Schritte einer
+  Uhr stehen weiter als „Veränderung“ in der Mitschrift (Rundgang 13).
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

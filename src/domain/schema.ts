@@ -545,6 +545,23 @@ export const StoryEntrySchema = z.object({
 });
 export type StoryEntry = z.infer<typeof StoryEntrySchema>;
 
+export const SCENE_ODDS = ['sure', 'maybe', 'unlikely'] as const;
+export type SceneOdds = (typeof SCENE_ODDS)[number];
+
+/**
+ * Eine Szene, die der Spielleiter für eine Geschichte bereithält – mit oder ohne vorbereitete
+ * Begegnung. Sie bringt die Gruppe voran, hält sie auf oder verrät etwas.
+ */
+export const StorySceneSchema = z.object({
+  id,
+  text: z.string(),
+  /** Die vorbereitete Begegnung dazu, wenn es eine gibt. */
+  encounterId: id.nullable().default(null),
+  /** Kommt sicher, vielleicht oder eher nicht. */
+  odds: z.enum(SCENE_ODDS).default('maybe'),
+});
+export type StoryScene = z.infer<typeof StorySceneSchema>;
+
 /**
  * Eine Geschichte ist ein Vorhaben, kein Plot: Jemand treibt sie an, eine Uhr sagt, was geschieht,
  * wenn niemand eingreift. Geschrieben vom Spielleiter; Wayfarer zeigt, wie nah die Gruppe dran
@@ -557,8 +574,16 @@ export const StorySchema = z.object({
   summary: z.string().default(''),
   /** Wer sie antreibt: eine Person oder Fraktion. */
   ownerId: id.nullable().default(null),
+  /** Was auf dem Spiel steht – was verloren geht, wenn die Gruppe nichts tut. */
+  stakes: z.string().default(''),
   /** Was passiert, wenn niemand eingreift. */
   clockId: id.nullable().default(null),
+  /** Szenen und Begegnungen, die bereitliegen. */
+  scenes: z.array(StorySceneSchema).default([]),
+  /** Wie es enden kann: Höhepunkt und Folgen – ohne den Weg dorthin festzulegen. */
+  ending: z.string().default(''),
+  /** Was die Gruppe davon hat. */
+  reward: z.string().default(''),
   /** Personen, Orte und Fraktionen, die dazugehören. */
   refs: z.array(id).default([]),
   entries: z.array(StoryEntrySchema).default([]),

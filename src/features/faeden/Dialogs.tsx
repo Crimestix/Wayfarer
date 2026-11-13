@@ -1,19 +1,16 @@
 /**
- * Geschichte und Faden schreiben. Alles hier schreibt der Spielleiter selbst – Wayfarer leitet nur
- * ab, was daraus folgt.
+ * Einen Faden schreiben – einen losen oder einen einer Geschichte, vom Brett aus. Eine Geschichte
+ * selbst schreibt man auf ihrem Blatt (`StoryPage`). Alles hier schreibt der Spielleiter selbst –
+ * Wayfarer leitet nur ab, was daraus folgt.
  */
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { ENTRY_STANDING_LABEL, THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
+import { THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
 import {
-  ENTRY_STANDINGS,
   THREAD_STATES,
-  type EntryStanding,
   createEntity,
   newId,
-  type Story,
-  type StoryEntry,
   type Thread,
   type ThreadHint,
   type ThreadState,
@@ -31,212 +28,7 @@ import {
   TextArea,
   confirmDialog,
 } from '../../ui';
-import {
-  removeStory,
-  removeThread,
-  saveStory,
-  saveThread,
-  type StoryInput,
-  type ThreadInput,
-} from './actions';
-
-export function StoryDialog({
-  story,
-  onClose,
-  onSaved,
-}: {
-  story: Story | null;
-  onClose: () => void;
-  onSaved: (story: Story) => void;
-}) {
-  const db = useDb();
-  const data = useData();
-  const [form, setForm] = useState<StoryInput>(() => ({
-    title: story?.title ?? '',
-    summary: story?.summary ?? '',
-    ownerId: story?.ownerId ?? null,
-    clockId: story?.clockId ?? null,
-    refs: story?.refs ?? [],
-    entries: story?.entries ?? [],
-    known: story?.known ?? false,
-    closed: story?.closed ?? false,
-  }));
-  const set = (change: Partial<StoryInput>) => setForm((before) => ({ ...before, ...change }));
-  const setEntry = (id: string, change: Partial<StoryEntry>) =>
-    set({
-      entries: form.entries.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)),
-    });
-  const clocks = Object.values(data.clocks).sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  const place = (name: string) => db.put('entities', createEntity({ kind: 'place', name })).id;
-  const remove = async () => {
-    if (!story) return;
-    const ok = await confirmDialog({
-      title: `„${story.title}“ löschen?`,
-      body: 'Die Fäden der Geschichte bleiben als lose Fäden auf dem Brett.',
-      confirmLabel: 'Löschen',
-      danger: true,
-    });
-    if (!ok) return;
-    removeStory(db, story.id);
-    onClose();
-  };
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={story ? 'Geschichte ändern' : 'Neue Geschichte'}
-      width={640}
-      footer={
-        <>
-          {story && (
-            <Button variant="ghost" icon={<Trash2 aria-hidden />} onClick={remove}>
-              Löschen
-            </Button>
-          )}
-          <span className="wf-grow" />
-          <Button variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!form.title.trim()}
-            onClick={() => onSaved(saveStory(db, form, story?.id))}
-          >
-            Speichern
-          </Button>
-        </>
-      }
-    >
-      <div className="wf-col">
-        <Field label="Name">
-          <Input
-            value={form.title}
-            autoFocus
-            placeholder="etwa „Die Aalfischer wollen den Hafen“"
-            onChange={(event) => set({ title: event.target.value })}
-          />
-        </Field>
-        <Field label="Worum es geht" hint="Ein Vorhaben, kein Plot: wer will was?">
-          <TextArea
-            value={form.summary}
-            rows={3}
-            onChange={(event) => set({ summary: event.target.value })}
-          />
-        </Field>
-        <div className="wf-form-grid">
-          <Field label="Wer sie antreibt">
-            <EntityPicker
-              value={form.ownerId}
-              onChange={(ownerId) => set({ ownerId })}
-              kinds={['person', 'faction', 'family']}
-              placeholder="Person oder Fraktion …"
-            />
-          </Field>
-          <Field
-            label="Wenn niemand eingreift"
-            hint={
-              clocks.length
-                ? 'Die Uhr läuft weiter, auch wenn die Gruppe woanders ist.'
-                : 'Uhren legst du im Kalender an.'
-            }
-          >
-            <Select
-              value={form.clockId ?? ''}
-              onChange={(event) => set({ clockId: event.target.value || null })}
-              aria-label="Uhr"
-            >
-              <option value="">Keine Uhr</option>
-              {clocks.map((clock) => (
-                <option key={clock.id} value={clock.id}>
-                  {clock.title}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <Field
-          label="Wer und was dazugehört"
-          hint="Personen, Orte, Fraktionen. Daran erkennt Wayfarer, wie nah die Gruppe dran ist und wo Geschichten sich berühren."
-        >
-          <EntityRefsEditor
-            value={form.refs}
-            onChange={(refs) => set({ refs })}
-            placeholder="Person, Ort, Fraktion … verknüpfen"
-          />
-        </Field>
-        <Field
-          label="Einstiege"
-          hint="Wo und wie die Gruppe darauf stoßen kann – auf Wunsch nur bei gutem oder schlechtem Ruf beim Antreiber."
-        >
-          <div className="wf-faden-rows">
-            {form.entries.map((entry) => (
-              <div key={entry.id} className="wf-faden-formrow wf-faden-formrow--entry">
-                <Input
-                  value={entry.text}
-                  placeholder="etwa „Ein Fischer bittet um Hilfe“"
-                  aria-label="Einstieg"
-                  onChange={(event) => setEntry(entry.id, { text: event.target.value })}
-                />
-                <EntityPicker
-                  value={entry.placeId}
-                  onChange={(placeId) => setEntry(entry.id, { placeId })}
-                  kinds={['place']}
-                  placeholder="Wo?"
-                  onCreate={place}
-                />
-                <Select
-                  value={entry.standing}
-                  aria-label="Wann der Einstieg passt"
-                  title="Der Ruf beim Antreiber entscheidet, wie die Gruppe hineinkommt"
-                  onChange={(event) =>
-                    setEntry(entry.id, { standing: event.target.value as EntryStanding })
-                  }
-                >
-                  {ENTRY_STANDINGS.map((standing) => (
-                    <option key={standing} value={standing}>
-                      {ENTRY_STANDING_LABEL[standing]}
-                    </option>
-                  ))}
-                </Select>
-                <IconButton
-                  size="sm"
-                  label="Einstieg entfernen"
-                  onClick={() =>
-                    set({ entries: form.entries.filter((other) => other.id !== entry.id) })
-                  }
-                >
-                  <X aria-hidden />
-                </IconButton>
-              </div>
-            ))}
-            <Button
-              size="sm"
-              icon={<Plus aria-hidden />}
-              onClick={() =>
-                set({
-                  entries: [
-                    ...form.entries,
-                    { id: newId(), text: '', placeId: null, standing: 'any' },
-                  ],
-                })
-              }
-            >
-              Einstieg
-            </Button>
-          </div>
-        </Field>
-        <Checkbox checked={form.known} onChange={(known) => set({ known })}>
-          Die Gruppe weiß von dieser Geschichte
-        </Checkbox>
-        {story && (
-          <Checkbox checked={form.closed} onChange={(closed) => set({ closed })}>
-            Zu Ende erzählt
-          </Checkbox>
-        )}
-      </div>
-    </Dialog>
-  );
-}
+import { removeThread, saveThread, type ThreadInput } from './actions';
 
 export function ThreadDialog({
   thread,

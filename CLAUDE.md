@@ -162,7 +162,15 @@ nicht übernommen.
   und alles an einem offenen Faden immer. Alltag wird geführt, aber nur am Tag gezeigt. Neue
   Listen von Terminen („Anstehend“, Meldungen) filtern mit `isEveryday()`.
 - Geschichten und Fäden (`stories/`, `threads/`): geschrieben vom Spielleiter (oder als
-  Vorschlag des KI-Lesers angenommen), nie erzeugt. Nähe zur Gruppe, Berührungen und Warnungen
+  Vorschlag des KI-Lesers angenommen), nie erzeugt. Eine Geschichte schreibt man auf ihrem
+  **Blatt** (`faeden/StoryPage`, `/geschichte/<id>`): worum es geht, was auf dem Spiel steht,
+  die Schritte ihrer Uhr, Fragen (Fäden) mit Hinweisen, Einstiege, Szenen und Begegnungen, Ende
+  und Belohnung – ohne „Speichern“, über `patchStory`, `setStorySteps`, `patchThread`. Was noch
+  fehlt, sagt `storyAdvice()` als Rat (drei Hinweise je Frage, `HINTS_WANTED`), nie als Pflicht.
+  **Uhren gehören zu Geschichten** (Entscheidung des Spielleiters, 13. 11. 2026): Im Kalender
+  gibt es keine mehr. Eine Uhr entsteht mit dem ersten Schritt auf dem Blatt und geht mit der
+  Geschichte; `ClockDialog` ist nur noch zum Eingreifen da. Uhren ohne Geschichte aus früheren
+  Ständen (`looseClocks`) werden über `storyFromClock` zu einer. Nähe zur Gruppe, Berührungen und Warnungen
   leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
   Ruf ist keine eigene Angabe: `reputeOf()` liest die Haltungen des Antreibers zur Gruppe und zu
   Gefährten; ob ein Einstieg passt, sagt `entryFit()`, was am Ort der Gruppe bereitliegt

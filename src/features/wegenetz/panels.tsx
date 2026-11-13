@@ -32,7 +32,7 @@ import {
   Field,
   Input,
   Select,
-  TextArea,
+  Written,
   entityHref,
   toast,
 } from '../../ui';
@@ -49,48 +49,6 @@ const SORT_SHORT: Record<WaySort, string> = {
   swamp: 'Pfade durch Sumpf oder Moor',
   underground: 'Gänge unter der Erde',
 };
-
-/** Ein Textfeld, das beim Verlassen schreibt – und nur, wenn sich etwas geändert hat. */
-function Written({
-  value,
-  onSave,
-  rows,
-  placeholder,
-  label,
-}: {
-  value: string;
-  onSave: (text: string) => void;
-  /** Mit Zeilen: ein mehrzeiliges Feld. */
-  rows?: number;
-  placeholder?: string;
-  label: string;
-}) {
-  const [text, setText] = useState(value);
-  const commit = () => {
-    if (text !== value) onSave(text);
-  };
-  return rows ? (
-    <TextArea
-      rows={rows}
-      value={text}
-      aria-label={label}
-      placeholder={placeholder}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-    />
-  ) : (
-    <Input
-      value={text}
-      aria-label={label}
-      placeholder={placeholder}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
-      }}
-    />
-  );
-}
 
 function Head({
   kicker,

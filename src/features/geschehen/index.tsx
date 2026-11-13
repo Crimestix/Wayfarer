@@ -4,12 +4,13 @@
  * Die Rechnung steht in `domain/worldTurn.ts`.
  */
 import { useMemo, useState } from 'react';
+import { useLocation } from 'wouter';
 import { CalendarDays, CloudRain, Eye, Milestone, PackageX, Plus, X } from 'lucide-react';
 import { resumeClock } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { scheduleText } from '../../domain/runs';
 import type { Clock, Run } from '../../domain/schema';
-import { untilText } from '../../domain/story';
+import { storyOfClock, untilText } from '../../domain/story';
 import { dayIndexOf, formatDayMonth } from '../../domain/time/calendar';
 import {
   TURN_DAYS,
@@ -22,6 +23,7 @@ import {
 import { Button, EmptyState, EntityLink, EntityPicker, KindIcon, cx, toast } from '../../ui';
 import { decideTrip, setWatch } from './actions';
 import { RunDialog } from './RunDialog';
+import { storyFromClock } from '../faeden/actions';
 import { useFocus } from '../../shell/focus';
 import { ClockDialog } from '../kalender/ClockDialog';
 import './geschehen.css';
@@ -49,6 +51,7 @@ export default function GeschehenPage() {
   /** Der Ablauf im Dialog – `'new'` für einen neuen. */
   const [run, setRun] = useState<Run | 'new' | null>(null);
   const cal = data.campaign.calendar;
+  const [, navigate] = useLocation();
   // Aus der Suche geöffnet: Die gesuchte Uhr oder der Ablauf geht gleich auf.
   useFocus(['clock', 'run'], (focus) => {
     if (focus.type === 'clock') setClock(data.clocks[focus.id] ?? null);
@@ -199,10 +202,21 @@ export default function GeschehenPage() {
                 key={view.clock.id}
                 type="button"
                 className="wf-turn-clock"
-                onClick={() => setClock(view.clock)}
-                title="Uhr öffnen"
+                onClick={() => {
+                  const story = storyOfClock(data, view.clock.id);
+                  if (story) navigate(`/geschichte/${story.id}`);
+                  else setClock(view.clock);
+                }}
+                title={
+                  storyOfClock(data, view.clock.id)
+                    ? 'Die Geschichte dieser Uhr öffnen'
+                    : 'Diese Uhr gehört noch zu keiner Geschichte – öffnen'
+                }
               >
                 <span className="wf-turn-clock__title">{view.clock.title}</span>
+                {!storyOfClock(data, view.clock.id) && (
+                  <span className="wf-turn-clock__sub">ohne Geschichte</span>
+                )}
                 <span className="wf-turn-clock__pips" aria-hidden>
                   {view.steps.map((step) => (
                     <i key={step.step.id} data-state={step.state} />
@@ -219,8 +233,8 @@ export default function GeschehenPage() {
             ))}
             {!turn.clocks.length && (
               <p className="wf-turn-none">
-                Keine Uhr läuft. Eine Uhr ist ein Vorhaben der Welt, das ohne die Gruppe weitergeht
-                – angelegt im Kalender.
+                Keine Uhr läuft. Eine Uhr gehört zu einer Geschichte: Auf ihrem Blatt schreibst du
+                unter „Wenn niemand eingreift“, was der Reihe nach geschieht.
               </p>
             )}
           </section>
@@ -317,7 +331,18 @@ export default function GeschehenPage() {
           </EmptyState>
         </div>
       )}
-      {clock && <ClockDialog key={clock.id} clock={clock} onClose={() => setClock(null)} />}
+      {clock && (
+        <ClockDialog
+          key={clock.id}
+          clock={clock}
+          onClose={() => setClock(null)}
+          onStory={(clockId) => {
+            const story = storyFromClock(db, clockId);
+            setClock(null);
+            if (story) navigate(`/geschichte/${story.id}`);
+          }}
+        />
+      )}
     </div>
   );
 }

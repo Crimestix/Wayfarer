@@ -1,13 +1,26 @@
 /**
- * Eine Uhr anlegen oder ändern: ein Vorhaben der Welt mit seinen Schritten. Bei einer laufenden
- * Uhr lässt sich hier auch eingreifen – anhalten, verzögern, den nächsten Schritt jetzt eintreten
- * lassen oder festhalten, dass die Gruppe ihn verhindert hat.
+ * In die Uhr einer Geschichte eingreifen: anhalten, verzögern, den nächsten Schritt jetzt
+ * eintreten lassen oder festhalten, dass die Gruppe ihn verhindert hat – dazu Bedingungen der
+ * Schritte. Geschrieben werden die Schritte auf dem Blatt der Geschichte (`faeden/StoryPage`);
+ * eine Uhr ohne Geschichte (aus früheren Ständen) lässt sich hier zu einer machen.
  */
 import { Fragment, useState } from 'react';
-import { Ban, Check, Link2, Pause, Play, Plus, ShieldOff, Trash2, X } from 'lucide-react';
+import {
+  Ban,
+  Check,
+  Link2,
+  Pause,
+  Play,
+  Plus,
+  ShieldOff,
+  Trash2,
+  Waypoints,
+  X,
+} from 'lucide-react';
 import { blockClock, delayClock, pauseClock, resumeClock, settleStep } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { clockView } from '../../domain/clock';
+import { storyOfClock } from '../../domain/story';
 import { createClock, newId, type Clock } from '../../domain/schema';
 import { MINUTES_PER_DAY, formatDate } from '../../domain/time/calendar';
 import {
@@ -22,6 +35,7 @@ import {
   confirmDialog,
   toast,
 } from '../../ui';
+import './kalender.css';
 
 interface StepDraft {
   id: string;
@@ -40,7 +54,16 @@ const parseDays = (text: string): number | null => {
   return text.trim() && Number.isFinite(n) && n > 0 ? n : null;
 };
 
-export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: () => void }) {
+export function ClockDialog({
+  clock,
+  onClose,
+  onStory,
+}: {
+  clock: Clock | null;
+  onClose: () => void;
+  /** Für eine Uhr ohne Geschichte: macht eine daraus und öffnet ihr Blatt. */
+  onStory?: (clockId: string) => void;
+}) {
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
@@ -161,6 +184,15 @@ export function ClockDialog({ clock, onClose }: { clock: Clock | null; onClose: 
           {live && (
             <Button variant="danger" icon={<Trash2 />} onClick={() => void remove()}>
               Löschen
+            </Button>
+          )}
+          {live && !storyOfClock(data, live.id) && onStory && (
+            <Button
+              icon={<Waypoints />}
+              title="Die Uhr bekommt eine Geschichte: mit Fragen, Einstiegen und allem, was dazugehört"
+              onClick={() => onStory(live.id)}
+            >
+              Geschichte daraus machen
             </Button>
           )}
           <span className="wf-grow wf-kal-clock__problem" role="status">

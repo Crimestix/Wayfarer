@@ -613,6 +613,20 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-dazu__row em.wf-tisch-dazu__late {
   color: var(--blood-bright);
 }
+.wf-tisch-dazu__link {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted var(--gold-deep);
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-tisch-dazu__link:hover {
+  color: var(--gold-bright);
+}
 .wf-tisch-dazu__warn {
   width: 13px;
   height: 13px;

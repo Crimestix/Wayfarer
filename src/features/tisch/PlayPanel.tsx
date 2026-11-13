@@ -21,8 +21,7 @@ import {
 import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
 import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
-import { setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
-import { StoryDialog } from '../faeden/Dialogs';
+import { newStory, setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
 import { whenLabel } from './model';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -44,7 +43,7 @@ export function PlayPanel() {
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const add = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
-  const [writing, setWriting] = useState(false);
+  const [, navigate] = useLocation();
   /** Was sich hereinnehmen lässt: alles Offene, das noch nicht im Spiel ist. */
   const idle = useMemo(() => {
     const playing = new Set(view.cards.map((play) => play.card.key));
@@ -140,22 +139,13 @@ export function PlayPanel() {
           icon={<Plus />}
           onClick={() => {
             setAdding(false);
-            setWriting(true);
+            // Sie entsteht leer, ist gleich im Spiel und wird auf ihrem Blatt geschrieben.
+            navigate(`/geschichte/${newStory(db, { inPlay: true }).id}`);
           }}
         >
           Neue Geschichte schreiben …
         </MenuItem>
       </Popover>
-      {writing && (
-        <StoryDialog
-          story={null}
-          onClose={() => setWriting(false)}
-          onSaved={(story) => {
-            setWriting(false);
-            setInPlay(db, `story:${story.id}`, true);
-          }}
-        />
-      )}
     </Panel>
   );
 }
@@ -376,6 +366,25 @@ function PlayStory({
               </span>
             </Row>
           ))}
+          {play.scenes.map((scene) => (
+            <Row key={scene.id} label="Szene" muted={scene.odds === 'unlikely'}>
+              <span>
+                {scene.text || data.encounters[scene.encounterId ?? '']?.name}
+                {scene.odds !== 'maybe' && (
+                  <em> – {scene.odds === 'sure' ? 'kommt sicher' : 'eher nicht'}</em>
+                )}
+                {scene.encounterId && data.encounters[scene.encounterId] && (
+                  <button
+                    type="button"
+                    className="wf-tisch-dazu__link"
+                    onClick={() => navigate(`/begegnungen/${scene.encounterId}`)}
+                  >
+                    Begegnung öffnen
+                  </button>
+                )}
+              </span>
+            </Row>
+          ))}
           {story && (
             <Row label="Merkzettel" block>
               <TextArea
@@ -411,6 +420,11 @@ function PlayStory({
             </Row>
           )}
           <div className="wf-tisch-dazu__foot">
+            {story && (
+              <button type="button" onClick={() => navigate(`/geschichte/${story.id}`)}>
+                Blatt öffnen
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

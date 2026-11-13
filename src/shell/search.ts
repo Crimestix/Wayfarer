@@ -6,7 +6,7 @@
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
 import { scheduleText } from '../domain/runs';
 import type { CampaignData, Entity } from '../domain/schema';
-import { THREAD_STATE_LABEL } from '../domain/story';
+import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
 import { MINUTES_PER_DAY, dayIndexOf, formatDayMonth, startOfDay } from '../domain/time/calendar';
 import type { Focus } from './focus';
 
@@ -88,13 +88,12 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
     });
   }
   for (const story of Object.values(data.stories))
-    add(score(q, story.title, story.summary), {
+    add(score(q, story.title, story.summary, story.stakes, story.memo), {
       key: `story:${story.id}`,
       sort: 'story',
       label: story.title,
       sub: sub('Geschichte', name(story.ownerId), story.closed && 'zu Ende erzählt'),
-      href: '/faeden',
-      focus: { type: 'card', key: `story:${story.id}` },
+      href: `/geschichte/${story.id}`,
     });
   for (const thread of Object.values(data.threads)) {
     const story = thread.storyId ? data.stories[thread.storyId] : undefined;
@@ -108,15 +107,20 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       focus: { type: 'card', key: story ? `story:${story.id}` : `thread:${thread.id}` },
     });
   }
-  for (const clock of Object.values(data.clocks))
-    add(score(q, clock.title, ...clock.steps.map((step) => step.text)), {
+  for (const clock of Object.values(data.clocks)) {
+    // Die Uhr einer Geschichte ist ein Teil von ihr: Ihre Schritte führen zum Blatt.
+    const story = storyOfClock(data, clock.id);
+    const points = score(q, clock.title, ...clock.steps.map((step) => step.text));
+    if (story && normalize(story.title).includes(q)) continue;
+    add(points, {
       key: `clock:${clock.id}`,
       sort: 'clock',
       label: clock.title,
-      sub: sub('Uhr', name(clock.ownerId), name(clock.placeId)),
-      href: '/geschehen',
-      focus: { type: 'clock', id: clock.id },
+      sub: sub(story ? 'Uhr einer Geschichte' : 'Uhr', name(clock.ownerId), name(clock.placeId)),
+      href: story ? `/geschichte/${story.id}` : '/geschehen',
+      focus: story ? undefined : { type: 'clock', id: clock.id },
     });
+  }
   for (const run of Object.values(data.runs))
     add(score(q, run.name, run.carrier), {
       key: `run:${run.id}`,

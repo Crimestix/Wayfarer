@@ -350,12 +350,24 @@
 }
 
 /* Abgeschlossenes */
-.wf-faden-closed {
+/* Unten links am Brett: was nicht auf ihm liegt */
+.wf-faden-shelf {
   position: absolute;
   left: var(--s-3);
   bottom: var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: flex-start;
   max-width: 340px;
-  max-height: 50%;
+  max-height: 60%;
+  cursor: default;
+}
+.wf-faden-shelf:empty {
+  display: none;
+}
+.wf-faden-closed {
+  max-width: 100%;
   overflow: auto;
   padding: 0 var(--s-3);
   border: 1px solid var(--line);
@@ -622,4 +634,305 @@
 }
 .wf-faden-formrow--hint {
   grid-template-columns: auto minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+/* ── Das Blatt einer Geschichte ─────────────────────────────────────────── */
+.wf-faden-blatt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  height: 100%;
+  min-height: 0;
+}
+.wf-faden-blatt__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--s-4) var(--s-6) var(--s-7);
+}
+.wf-faden-blatt__main > * {
+  width: 100%;
+  max-width: 860px;
+}
+.wf-faden-blatt__top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-faden-blatt__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.wf-faden-blatt__back:hover {
+  color: var(--gold-bright);
+}
+.wf-faden-blatt__back svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-faden-blatt__kicker {
+  margin-top: var(--s-2);
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.wf-faden-blatt__name {
+  padding: 2px var(--s-2);
+  margin-left: calc(var(--s-2) * -1);
+  border-color: transparent;
+  background: none;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-faden-blatt__name:hover {
+  border-color: var(--line);
+}
+.wf-faden-blatt__name:focus {
+  border-color: var(--gold-deep);
+  background: var(--bg-inset);
+}
+.wf-faden-blatt__sec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-faden-blatt__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 30px;
+  border-bottom: 1px solid var(--line);
+}
+.wf-faden-blatt__head h2 {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.wf-faden-blatt__hint {
+  margin: 0 0 2px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-faden-blatt__pair {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: center;
+}
+.wf-faden-blatt__pair--top {
+  align-items: start;
+}
+.wf-faden-blatt__label {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-faden-blatt__pair--top .wf-faden-blatt__label {
+  padding-top: 9px;
+}
+.wf-faden-blatt__status {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.wf-faden-blatt__none {
+  margin: 0;
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-faden-blatt__foot {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-faden-blatt__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-height: 0;
+  overflow: auto;
+  padding: var(--s-4);
+  border-left: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-faden-blatt__side section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: flex-start;
+}
+.wf-faden-blatt__side section > * {
+  max-width: 100%;
+}
+.wf-faden-blatt__side p {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.wf-faden-blatt__side .wf-faden-touchrow {
+  width: 100%;
+}
+
+/* Zeilen zum Schreiben: Schritte, Hinweise, Einstiege, Szenen */
+.wf-faden-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-faden-liste:empty {
+  display: none;
+}
+.wf-faden-liste__row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto 64px auto 30px;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-liste__row--done {
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  color: var(--ink-mute);
+}
+.wf-faden-liste__row--done em {
+  font-size: var(--text-sm);
+}
+.wf-faden-liste__row--hint {
+  grid-template-columns: 22px minmax(0, 1fr) 170px 170px 30px;
+}
+.wf-faden-liste__row--entry {
+  grid-template-columns: minmax(0, 1fr) 190px 170px 30px;
+}
+.wf-faden-liste__row--scene {
+  grid-template-columns: minmax(0, 1fr) 130px 200px 30px 30px;
+}
+.wf-faden-liste__mark {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  text-align: right;
+}
+.wf-faden-liste__unit {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-liste__days {
+  text-align: center;
+}
+.wf-faden-liste__row input[aria-invalid='true'] {
+  border-color: var(--blood-bright);
+}
+.wf-faden-liste__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* Eine Frage mit dem, was dahintersteckt, und ihren Hinweisen */
+.wf-faden-frage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blood);
+  background: var(--bg-1);
+}
+.wf-faden-frage + .wf-faden-frage {
+  margin-top: var(--s-2);
+}
+.wf-faden-frage.wf-faden-thread--solved,
+.wf-faden-frage.wf-faden-thread--lost {
+  border-left-color: var(--line-strong);
+  opacity: 0.75;
+}
+.wf-faden-frage__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 30px;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-frage__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-faden-frage__hints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--s-1);
+}
+.wf-faden-frage__sub {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-faden-frage__thin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ember);
+}
+.wf-faden-frage__thin svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Der Rat rechts: was geschrieben ist, was noch offen ist */
+.wf-faden-rat {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-faden-rat li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: start;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.wf-faden-rat svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  color: var(--ember);
+}
+.wf-faden-rat li[data-done='true'] {
+  color: var(--ink-mute);
+}
+.wf-faden-rat li[data-done='true'] svg {
+  color: var(--moss);
+}
+.wf-faden-rat em {
+  display: block;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
 }

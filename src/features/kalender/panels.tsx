@@ -1,11 +1,10 @@
 /** Leiste unter dem Raster: Anstehendes und Überfälliges, laufende Wirkungen, Monde. */
 import { useRef, useState } from 'react';
-import { Flame, Hammer, Milestone, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { Flame, Hammer, Plus, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { entityName, overdueEvents, runningTimers, upcomingOccurrences } from '../../domain/derive';
 import { isEveryday } from '../../domain/weight';
-import { openClocks } from '../../domain/clock';
-import type { CampaignData, Clock, Timer } from '../../domain/schema';
+import type { CampaignData, Timer } from '../../domain/schema';
 import {
   dayIndexOf,
   formatClock,
@@ -144,18 +143,15 @@ export function TimersPanel({
   data,
   onAdd,
   onEdit,
-  onClock,
 }: {
   data: CampaignData;
   onAdd: () => void;
   onEdit: (timer: Timer) => void;
-  onClock: (clock: Clock | null) => void;
 }) {
   const db = useDb();
   const cal = data.campaign.calendar;
   const now = data.state.now;
   const timers = runningTimers(data);
-  const clocks = openClocks(data.clocks, now);
   const endLabel = (end: WorldTime) =>
     dayIndexOf(end) === dayIndexOf(now)
       ? `bis ${formatClock(end)} Uhr`
@@ -189,41 +185,6 @@ export function TimersPanel({
         </IconButton>
       }
     >
-      {clocks.map((view) => {
-        const { clock } = view;
-        const owner = clock.ownerId ? entityName(data, clock.ownerId) : '';
-        return (
-          <div key={clock.id} className="wf-kal-row wf-kal-timer wf-kal-timer--clock">
-            <Milestone className="wf-kal-timer__icon" aria-label="Uhr" />
-            <button
-              type="button"
-              className="wf-kal-row__main"
-              onClick={() => onClock(clock)}
-              title={`Uhr: ${clock.title}${owner ? ` – ${owner}` : ''}\nAnklicken zum Ändern und Eingreifen.`}
-            >
-              <span className="wf-kal-row__title">
-                {clock.title}
-                {owner && <span className="wf-mute"> · {owner}</span>}
-              </span>
-              <span className="wf-kal-row__meta">
-                {view.paused ? (
-                  <b>angehalten</b>
-                ) : view.next ? (
-                  <>
-                    <b>in {formatDuration(Math.max(0, view.next.at - now))}</b>{' '}
-                    <span>{view.next.step.text}</span>
-                  </>
-                ) : (
-                  <b>ohne Schritte</b>
-                )}
-              </span>
-              <span className="wf-kal-timer__bar">
-                <i style={{ width: `${Math.round(view.progress * 100)}%` }} />
-              </span>
-            </button>
-          </div>
-        );
-      })}
       {timers.map((timer) => {
         const Icon = timer.kind === 'task' ? Hammer : timer.kind === 'light' ? Flame : Sparkles;
         const refs = timer.refs.map((id) => entityName(data, id)).join(', ');
@@ -263,7 +224,7 @@ export function TimersPanel({
           </div>
         );
       })}
-      {timers.length === 0 && clocks.length === 0 && (
+      {timers.length === 0 && (
         <div className="wf-kal-hint">
           Keine Wirkung, keine Tätigkeit. Halte hier fest, was eine Weile andauert – ein Zauber,
           eine Fackel, eine Reparatur.

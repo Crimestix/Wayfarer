@@ -115,10 +115,10 @@ describe('Die Suche', () => {
       href: `/begegnungen/${world.encounter.id}`,
       sub: 'Begegnung · Hohenfurt',
     });
+    // Eine Geschichte öffnet ihr Blatt.
     expect(hit(`story:${world.story.id}`)).toMatchObject({
-      href: '/faeden',
+      href: `/geschichte/${world.story.id}`,
       sub: 'Geschichte · Die Aalfischer',
-      focus: { type: 'card', key: `story:${world.story.id}` },
     });
     // Ein Faden einer Geschichte liegt auf deren Karte, ein loser auf seiner eigenen.
     expect(hit(`thread:${world.thread.id}`).focus).toEqual({

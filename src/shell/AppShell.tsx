@@ -20,6 +20,7 @@ import BestiariumPage from '../features/bestiarium';
 import EncountersPage from '../features/bestiarium/Encounters';
 import StocksPage from '../features/bestiarium/Stocks';
 import FaedenPage from '../features/faeden';
+import StoryPage from '../features/faeden/StoryPage';
 import GeschehenPage from '../features/geschehen';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
@@ -351,6 +352,7 @@ export function AppShell() {
             <Route path="/karten/:id?" component={KartenKarten} />
             <Route path="/wegenetze/:id?" component={KartenNetze} />
             <Route path="/faeden" component={FaedenPage} />
+            <Route path="/geschichte/:id" component={StoryPage} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/bestaende/:id?" component={BestiariumBestaende} />

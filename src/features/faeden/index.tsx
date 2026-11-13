@@ -27,6 +27,7 @@ import {
   boardCards,
   boardLayout,
   entryFit,
+  looseClocks,
   reputeOf,
   threadLive,
   threadWarning,
@@ -39,13 +40,7 @@ import {
   type Spot,
   type Touch,
 } from '../../domain/story';
-import {
-  THREAD_STATES,
-  type Clock,
-  type Story,
-  type Thread,
-  type ThreadState,
-} from '../../domain/schema';
+import { THREAD_STATES, type Clock, type Thread, type ThreadState } from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
 import { isNear } from '../../domain/weight';
 import { openAttitude } from '../../shell/commands';
@@ -65,14 +60,21 @@ import {
 } from '../../ui';
 import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
-import { pinToCard, placeOnBoard, setHintFound, setThreadState, tidyBoard } from './actions';
-import { StoryDialog, ThreadDialog } from './Dialogs';
+import {
+  newStory,
+  pinToCard,
+  placeOnBoard,
+  setHintFound,
+  setThreadState,
+  storyFromClock,
+  tidyBoard,
+} from './actions';
+import { ThreadDialog } from './Dialogs';
 import './faeden.css';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 type OpenDialog =
-  | { type: 'story'; story: Story | null }
   | { type: 'thread'; thread: Thread | null; storyId: string | null }
   /** Die Uhr einer Geschichte – `before`: welche Uhren es beim Öffnen schon gab. */
   | { type: 'clock'; clock: Clock | null; storyId: string; before: ReadonlySet<string> }
@@ -92,6 +94,8 @@ export default function FaedenPage() {
   const links = useMemo(() => touches(cards), [cards]);
   const open = cards.filter((card) => !card.closed);
   const closed = cards.filter((card) => card.closed);
+  /** Uhren, die zu keiner Geschichte gehören – sie lassen sich zu einer machen. */
+  const orphans = useMemo(() => looseClocks(data), [data]);
   const current = cards.find((card) => card.key === selected) ?? null;
 
   // Die Pinnwand: frei verschieben, vergrößern, Karten und Namen ziehen.
@@ -99,8 +103,13 @@ export default function FaedenPage() {
   const wall = useBoard(frame);
   /** Was gerade gezogen wird – seine Stelle, bis es losgelassen wird. */
   const [moving, setMoving] = useState<{ key: string; x: number; y: number } | null>(null);
-  /** Wohin die Geschichte kommt, die gerade per Doppelklick aufs Brett entsteht. */
-  const [spot, setSpot] = useState<Spot | null>(null);
+  const [, navigate] = useLocation();
+  /** Eine neue Geschichte: Sie entsteht leer und wird auf ihrem Blatt geschrieben. */
+  const write = (at?: Spot) => {
+    const story = newStory(db);
+    if (at) placeOnBoard(db, `story:${story.id}`, at.x, at.y);
+    navigate(`/geschichte/${story.id}`);
+  };
   const placed = data.state.board;
   const layout = useMemo(
     () =>
@@ -219,7 +228,8 @@ export default function FaedenPage() {
         <Button
           variant="primary"
           icon={<Plus />}
-          onClick={() => setDialog({ type: 'story', story: null })}
+          onClick={() => write()}
+          title="Eine neue Geschichte schreiben"
         >
           Geschichte
         </Button>
@@ -245,9 +255,8 @@ export default function FaedenPage() {
             className="wf-faden-wall"
             onPointerDown={(event) => wall.pan(event, () => setSelected(null))}
             onDoubleClick={(event) => {
-              if (view !== 'truth') return;
-              setSpot(wall.toBoard(event.clientX, event.clientY));
-              setDialog({ type: 'story', story: null });
+              // Die Karte liegt später dort, wo geklickt wurde.
+              if (view === 'truth') write(wall.toBoard(event.clientX, event.clientY));
             }}
           >
             <div className="wf-faden-layer" style={{ transform: wall.transform }}>
@@ -317,28 +326,52 @@ export default function FaedenPage() {
                 <LayoutGrid />
               </IconButton>
             </div>
-            {closed.length > 0 && (
-              <details
-                className="wf-faden-closed"
-                onPointerDown={(event) => event.stopPropagation()}
-                onDoubleClick={(event) => event.stopPropagation()}
-              >
-                <summary>Abgeschlossen · {closed.length}</summary>
-                {closed.map((card) => (
-                  <button
-                    key={card.key}
-                    type="button"
-                    className="wf-faden-closed__row"
-                    onClick={() => setSelected(card.key)}
-                  >
-                    {card.title}
-                    <span>
-                      {card.story ? 'Geschichte' : THREAD_STATE_LABEL[card.threads[0]!.state]}
-                    </span>
-                  </button>
-                ))}
-              </details>
-            )}
+            <div
+              className="wf-faden-shelf"
+              onPointerDown={(event) => event.stopPropagation()}
+              onDoubleClick={(event) => event.stopPropagation()}
+            >
+              {view === 'truth' && orphans.length > 0 && (
+                <details className="wf-faden-closed">
+                  <summary title="Uhren aus der Zeit, als sie im Kalender angelegt wurden">
+                    Uhren ohne Geschichte · {orphans.length}
+                  </summary>
+                  {orphans.map((clock) => (
+                    <button
+                      key={clock.id}
+                      type="button"
+                      className="wf-faden-closed__row"
+                      title="Eine Geschichte daraus machen und ihr Blatt öffnen"
+                      onClick={() => {
+                        const story = storyFromClock(db, clock.id);
+                        if (story) navigate(`/geschichte/${story.id}`);
+                      }}
+                    >
+                      {clock.title}
+                      <span>Geschichte daraus machen</span>
+                    </button>
+                  ))}
+                </details>
+              )}
+              {closed.length > 0 && (
+                <details className="wf-faden-closed">
+                  <summary>Abgeschlossen · {closed.length}</summary>
+                  {closed.map((card) => (
+                    <button
+                      key={card.key}
+                      type="button"
+                      className="wf-faden-closed__row"
+                      onClick={() => setSelected(card.key)}
+                    >
+                      {card.title}
+                      <span>
+                        {card.story ? 'Geschichte' : THREAD_STATE_LABEL[card.threads[0]!.state]}
+                      </span>
+                    </button>
+                  ))}
+                </details>
+              )}
+            </div>
           </div>
           {pin ? (
             <PinSide pin={pin} cards={cards} onSelect={setSelected} />
@@ -355,22 +388,6 @@ export default function FaedenPage() {
         </div>
       )}
 
-      {dialog?.type === 'story' && (
-        <StoryDialog
-          story={dialog.story}
-          onClose={() => {
-            setDialog(null);
-            setSpot(null);
-          }}
-          onSaved={(story) => {
-            // Per Doppelklick aufs Brett angelegt: Die Karte liegt dort, wo geklickt wurde.
-            if (spot) placeOnBoard(db, `story:${story.id}`, spot.x, spot.y);
-            setSpot(null);
-            setDialog(null);
-            setSelected(`story:${story.id}`);
-          }}
-        />
-      )}
       {dialog?.type === 'thread' && (
         <ThreadDialog
           thread={dialog.thread}
@@ -613,8 +630,13 @@ function Side({
           {story ? 'Geschichte' : 'Loser Faden'} · {NEARNESS_LABEL[card.nearness]}
         </span>
         {truth && story && (
-          <Button size="sm" icon={<Pencil />} onClick={() => onEdit({ type: 'story', story })}>
-            Ändern
+          <Button
+            size="sm"
+            icon={<Pencil />}
+            onClick={() => navigate(`/geschichte/${story.id}`)}
+            title="Die Geschichte auf ihrem Blatt schreiben"
+          >
+            Schreiben
           </Button>
         )}
       </div>

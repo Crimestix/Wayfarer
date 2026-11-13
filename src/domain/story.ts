@@ -14,6 +14,7 @@ import { formatDuration } from './time/calendar';
 import {
   PARTY_ID,
   type CampaignData,
+  type Clock,
   type EntryStanding,
   type Story,
   type StoryEntry,
@@ -282,6 +283,137 @@ export function touches(cards: readonly BoardCard[]): Touch[] {
       if (via.length) found.push({ a: a.key, b: b.key, via });
     }
   return found;
+}
+
+/** Die Geschichte, zu der eine Uhr gehört – null, wenn sie (noch) für sich steht. */
+export function storyOfClock(data: Pick<CampaignData, 'stories'>, clockId: string): Story | null {
+  return Object.values(data.stories).find((story) => story.clockId === clockId) ?? null;
+}
+
+/** Uhren, die zu keiner Geschichte gehören – aus der Zeit, als sie im Kalender angelegt wurden. */
+export function looseClocks(data: Pick<CampaignData, 'stories' | 'clocks'>): Clock[] {
+  const owned = new Set(Object.values(data.stories).map((story) => story.clockId));
+  return Object.values(data.clocks)
+    .filter((clock) => !owned.has(clock.id))
+    .sort((a, b) => a.title.localeCompare(b.title, 'de'));
+}
+
+// ── Rat zu einer Geschichte ────────────────────────────────────────────────
+
+/** So viele Hinweise sollten zu jeder Frage führen: Einen übersieht die Gruppe, einen versteht sie falsch. */
+export const HINTS_WANTED = 3;
+
+export interface StoryAdvice {
+  key: string;
+  /** Das ist geschrieben. */
+  done: boolean;
+  /** Was es ist: „Was auf dem Spiel steht“. */
+  text: string;
+  /** Warum es hilft – oder was genau noch fehlt. */
+  why: string;
+}
+
+/**
+ * Was eine Geschichte braucht, damit sie am Tisch trägt – als Rat, nie als Pflicht: wer was will,
+ * was auf dem Spiel steht, was geschieht, wenn niemand eingreift, wie die Gruppe hineinkommt, wo
+ * sie spielt, welche Fragen sie stellt (mit genug Hinweisen) und wie sie enden kann. Wayfarer
+ * schreibt nichts davon; es zeigt nur, was noch leer ist.
+ */
+export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
+  const clock = story.clockId ? data.clocks[story.clockId] : undefined;
+  const steps = clock?.steps.filter((step) => step.text.trim()).length ?? 0;
+  const threads = threadsOf(data, story.id).filter(threadLive);
+  const thin = threads.filter(
+    (thread) => thread.hints.filter((hint) => hint.text.trim()).length < HINTS_WANTED,
+  );
+  const entries = story.entries.filter((entry) => entry.text.trim()).length;
+  const placed = storyNodes(data, story).some((id) => whereOf(data, id) !== null);
+  const advice: StoryAdvice[] = [
+    {
+      key: 'goal',
+      done: story.summary.trim() !== '',
+      text: 'Worum es geht',
+      why: 'Wer will was – in ein, zwei Sätzen.',
+    },
+    {
+      key: 'owner',
+      done: story.ownerId !== null && data.entities[story.ownerId] !== undefined,
+      text: 'Wer sie antreibt',
+      why: 'Eine Person oder Fraktion mit einem Ziel. Ihr Ruf bei der Gruppe zählt für die Einstiege.',
+    },
+    {
+      key: 'stakes',
+      done: story.stakes.trim() !== '',
+      text: 'Was auf dem Spiel steht',
+      why: 'Was geht verloren, wenn die Gruppe nichts tut?',
+    },
+    {
+      key: 'clock',
+      done: steps >= 2,
+      text: 'Was geschieht, wenn niemand eingreift',
+      why:
+        steps === 0
+          ? 'Noch kein Schritt – so steht die Geschichte still, bis die Gruppe kommt.'
+          : steps === 1
+            ? 'Erst ein Schritt. Zwei oder drei zeigen, wie es schlimmer wird.'
+            : `${steps} Schritte bis zum Ende.`,
+    },
+    {
+      key: 'entry',
+      done: entries > 0,
+      text: 'Ein Einstieg',
+      why:
+        entries > 1
+          ? `${entries} Wege hinein.`
+          : 'Wo und wie stößt die Gruppe darauf? Zwei Einstiege an verschiedenen Orten sind sicherer als einer.',
+    },
+    {
+      key: 'place',
+      done: placed,
+      text: 'An einem Ort festgemacht',
+      why: 'Über die Orte und Personen der Geschichte erkennt Wayfarer, wie nah die Gruppe dran ist.',
+    },
+    {
+      key: 'threads',
+      done: threads.length > 0,
+      text: 'Eine Frage, der die Gruppe folgen kann',
+      why: 'Ein Faden: was die Gruppe herausfinden soll – und was dahintersteckt.',
+    },
+  ];
+  if (threads.length > 0 && thin.length === 0)
+    advice.push({
+      key: 'hints',
+      done: true,
+      text: 'Drei Hinweise zu jeder Frage',
+      why: 'Einen übersieht die Gruppe, einen versteht sie falsch – der dritte trägt.',
+    });
+  for (const thread of thin) {
+    const count = thread.hints.filter((hint) => hint.text.trim()).length;
+    advice.push({
+      key: `hints:${thread.id}`,
+      done: false,
+      text: `Drei Hinweise zu „${thread.title}“`,
+      why:
+        count === 0
+          ? 'Noch keiner – die Gruppe kann die Antwort nicht finden.'
+          : `Erst ${count === 1 ? 'einer' : 'zwei'}. Einen übersieht die Gruppe, einen versteht sie falsch.`,
+    });
+  }
+  advice.push(
+    {
+      key: 'ending',
+      done: story.ending.trim() !== '',
+      text: 'Wie es enden kann',
+      why: 'Höhepunkt und Folgen – nicht der Weg dorthin.',
+    },
+    {
+      key: 'reward',
+      done: story.reward.trim() !== '',
+      text: 'Was die Gruppe davon hat',
+      why: 'Beute, ein Gefallen, ein Verbündeter, Wissen.',
+    },
+  );
+  return advice;
 }
 
 // ── Das Brett als Pinnwand ─────────────────────────────────────────────────

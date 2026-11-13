@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { logEntry, setAttitude } from '../../data/actions';
+import { advanceTime, logEntry, setAttitude } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   PARTY_ID,
   createClock,
+  createEncounter,
   createEntity,
   createEvent,
   newId,
@@ -18,10 +19,13 @@ import {
   boardCards,
   boardLayout,
   entryFit,
+  looseClocks,
   nearness,
   reputeOf,
   storiesHere,
+  storyAdvice,
   storyNodes,
+  storyOfClock,
   threadWarning,
   touchReason,
   touches,
@@ -30,6 +34,9 @@ import {
 import { playClaims, playView } from '../../domain/play';
 import { saveWay } from '../wege/actions';
 import {
+  newStory,
+  patchStory,
+  patchThread,
   pinToCard,
   placeOnBoard,
   removeStory,
@@ -39,6 +46,8 @@ import {
   setHintFound,
   setInPlay,
   setStoryMemo,
+  setStorySteps,
+  storyFromClock,
   tidyBoard,
   unpinFromCard,
   type StoryInput,
@@ -281,6 +290,133 @@ describe('Die Pinnwand', () => {
   });
 });
 
+describe('Eine Geschichte auf ihrem Blatt', () => {
+  it('sagt, was noch fehlt – als Rat', async () => {
+    const { db, data, hint, market, harbour, fishers } = await setup();
+    const blank = newStory(db);
+    const open = () =>
+      storyAdvice(data(), data().stories[blank.id]!)
+        .filter((entry) => !entry.done)
+        .map((entry) => entry.key);
+    expect(open()).toEqual([
+      'goal',
+      'owner',
+      'stakes',
+      'clock',
+      'entry',
+      'place',
+      'threads',
+      'ending',
+      'reward',
+    ]);
+    patchStory(db, blank.id, {
+      title: '  Der Zoll wird verdoppelt ',
+      summary: 'Die Aalfischer wollen den Zoll.',
+      ownerId: fishers.id,
+      stakes: 'Der Hafen gehört bald ihnen.',
+      refs: [harbour.id, harbour.id],
+      entries: [
+        { id: newId(), text: 'Ein Aushang am Zollhaus', placeId: market.id, standing: 'any' },
+        { id: newId(), text: '  ', placeId: null, standing: 'any' },
+      ],
+      ending: 'Der Rat entscheidet.',
+      reward: 'Ein Gefallen der Zöllner.',
+    });
+    const story = () => data().stories[blank.id]!;
+    expect(story().title).toBe('Der Zoll wird verdoppelt');
+    expect(story().refs).toEqual([harbour.id]);
+    // Einstiege ohne Text fallen weg.
+    expect(story().entries).toHaveLength(1);
+    expect(open()).toEqual(['clock', 'threads']);
+
+    // Eine Frage mit zu wenigen Hinweisen wird genannt – mit dreien ist es gut.
+    const who = saveThread(db, {
+      title: 'Wer hat den Zöllner bestochen?',
+      truth: '',
+      state: 'open',
+      storyId: blank.id,
+      refs: [],
+      known: false,
+      hints: [hint('Ein Beutel mit fremden Münzen', market.id)],
+    });
+    expect(open()).toEqual(['clock', `hints:${who.id}`]);
+    expect(
+      storyAdvice(data(), story()).find((entry) => entry.key === `hints:${who.id}`)!.why,
+    ).toContain('Erst einer');
+    patchThread(db, who.id, {
+      hints: [
+        ...data().threads[who.id]!.hints,
+        hint('Ein Brief im Kontor', harbour.id),
+        hint('Die Wirtin hat es gesehen'),
+        hint('   '),
+      ],
+    });
+    expect(data().threads[who.id]!.hints).toHaveLength(3);
+    expect(open()).toEqual(['clock']);
+    expect(storyAdvice(data(), story()).some((entry) => entry.key === 'hints' && entry.done)).toBe(
+      true,
+    );
+  });
+
+  it('schreibt die Schritte der Uhr – die Uhr entsteht mit dem ersten', async () => {
+    const { db, data, fishers } = await setup();
+    const toll = newStory(db, { title: 'Der Zoll wird verdoppelt', ownerId: fishers.id });
+    const now = data().state.now;
+    const DAY = 24 * 60;
+    // Ohne Text entsteht nichts.
+    setStorySteps(db, toll.id, [{ id: newId(), text: '  ', days: 3 }]);
+    expect(data().stories[toll.id]!.clockId).toBeNull();
+    const [first, second] = [newId(), newId()];
+    setStorySteps(db, toll.id, [
+      { id: first, text: 'Die Zöllner werden bestochen', days: 2 },
+      { id: second, text: 'Der Zoll wird verdoppelt', days: 0 },
+    ]);
+    const clock = () => data().clocks[data().stories[toll.id]!.clockId!]!;
+    expect(clock()).toMatchObject({ title: 'Der Zoll wird verdoppelt', ownerId: fishers.id });
+    expect(clock().steps.map((step) => [step.text, step.days])).toEqual([
+      ['Die Zöllner werden bestochen', 2],
+      // Eine Dauer von null gibt es nicht: mindestens ein Tag.
+      ['Der Zoll wird verdoppelt', 1],
+    ]);
+    // Die Uhr heißt wie die Geschichte – und zieht mit, wenn die umbenannt wird.
+    patchStory(db, toll.id, { title: 'Der Griff nach dem Zoll' });
+    expect(clock().title).toBe('Der Griff nach dem Zoll');
+    // Was eingetreten ist, bleibt, auch wenn die offenen Schritte neu geschrieben werden.
+    advanceTime(db, now + 2 * DAY + 60);
+    expect(clock().steps[0]!.at).not.toBeNull();
+    setStorySteps(db, toll.id, [{ id: second, text: 'Der Zoll wird verdreifacht', days: 4 }]);
+    expect(clock().steps.map((step) => step.text)).toEqual([
+      'Die Zöllner werden bestochen',
+      'Der Zoll wird verdreifacht',
+    ]);
+  });
+
+  it('hält Szenen bereit – mit oder ohne Begegnung', async () => {
+    const { db, data } = await setup();
+    const toll = newStory(db, { inPlay: true });
+    const ambush = db.put('encounters', createEncounter({ name: 'Überfall am Zollhaus' }));
+    patchStory(db, toll.id, {
+      scenes: [
+        { id: newId(), text: 'Ein Zöllner will reden', encounterId: null, odds: 'maybe' },
+        { id: newId(), text: '', encounterId: ambush.id, odds: 'sure' },
+        { id: newId(), text: 'Gibt es nicht', encounterId: 'gibtsnicht', odds: 'unlikely' },
+        { id: newId(), text: ' ', encounterId: null, odds: 'maybe' },
+      ],
+    });
+    expect(data().stories[toll.id]!.scenes.map((scene) => scene.encounterId)).toEqual([
+      null,
+      ambush.id,
+      null,
+    ]);
+    // Am Spieltisch stehen die sicheren zuerst.
+    expect(playView(data()).cards[0]!.scenes.map((scene) => scene.odds)).toEqual([
+      'sure',
+      'maybe',
+      'unlikely',
+    ]);
+  });
+});
+
 describe('Im Spiel', () => {
   it('zeigt nur, was der Spielleiter hereingenommen hat – und bietet an, was den Ort berührt', async () => {
     const { db, data, story, thread, market, far } = await setup();
@@ -411,6 +547,36 @@ describe('Löschen', () => {
     removeStory(db, tale.id);
     expect(data().stories[tale.id]).toBeUndefined();
     expect(data().threads[question.id]!.storyId).toBeNull();
+  });
+
+  it('die Uhr gehört zur Geschichte: Sie geht mit ihr – und eine Uhr für sich wird zu einer', async () => {
+    const { db, data, market, fishers } = await setup();
+    const now = data().state.now;
+    // Eine Uhr aus der Zeit, als Uhren im Kalender angelegt wurden.
+    const old = db.put(
+      'clocks',
+      createClock({
+        title: 'Die Aalfischer rüsten',
+        start: now,
+        ownerId: fishers.id,
+        placeId: market.id,
+      }),
+    );
+    expect(looseClocks(data()).map((clock) => clock.id)).toEqual([old.id]);
+    expect(storyOfClock(data(), old.id)).toBeNull();
+    const tale = storyFromClock(db, old.id)!;
+    expect(tale).toMatchObject({
+      title: 'Die Aalfischer rüsten',
+      ownerId: fishers.id,
+      clockId: old.id,
+      refs: [market.id],
+    });
+    // Ein zweites Mal entsteht keine zweite Geschichte.
+    expect(storyFromClock(db, old.id)!.id).toBe(tale.id);
+    expect(looseClocks(data())).toEqual([]);
+    expect(storyOfClock(data(), old.id)?.id).toBe(tale.id);
+    removeStory(db, tale.id);
+    expect(data().clocks[old.id]).toBeUndefined();
   });
 
   it('ein Faden lässt seine Termine zurück – ohne Faden', async () => {

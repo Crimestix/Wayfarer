@@ -6,11 +6,13 @@
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
 import { occurrencesOf, openPromises, type Occurrence } from './derive';
+import { SCENE_ODDS } from './schema';
 import type {
   CampaignData,
   ChronicleEntry,
   Entity,
   StoryEntry,
+  StoryScene,
   Thread,
   ThreadHint,
 } from './schema';
@@ -44,6 +46,8 @@ export interface PlayCard {
   promises: ChronicleEntry[];
   /** Kommende Termine, die an ihren Fäden oder ihren Leuten hängen – je Termin das nächste Mal. */
   events: Occurrence[];
+  /** Szenen und Begegnungen, die bereitliegen – die sicheren zuerst. */
+  scenes: StoryScene[];
   /** Was zuletzt zu ihr notiert wurde, das Neueste zuerst. */
   notes: ChronicleEntry[];
   /** Der Merkzettel des Spielleiters – nur Geschichten haben einen. */
@@ -145,6 +149,9 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
         entry.refs.some((id) => people.includes(id) && nodes.has(id)),
     ),
     events: events.slice(0, EVENTS_SHOWN),
+    scenes: [...(story?.scenes ?? [])].sort(
+      (a, b) => SCENE_ODDS.indexOf(a.odds) - SCENE_ODDS.indexOf(b.odds),
+    ),
     notes: story
       ? Object.values(data.chronicle)
           .filter((entry) => entry.storyId === story.id && entry.kind !== 'promise')

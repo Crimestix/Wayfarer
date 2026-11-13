@@ -239,6 +239,55 @@ export function Checkbox({
   );
 }
 
+/**
+ * Ein Textfeld, das beim Verlassen schreibt – und nur, wenn sich etwas geändert hat. Für Blätter,
+ * auf denen es kein „Speichern“ gibt. Mit `rows` ein mehrzeiliges Feld.
+ */
+export function Written({
+  value,
+  onSave,
+  rows,
+  placeholder,
+  label,
+  className,
+}: {
+  value: string;
+  onSave: (text: string) => void;
+  rows?: number;
+  placeholder?: string;
+  /** Wofür das Feld ist – für Vorleseprogramme. */
+  label: string;
+  className?: string;
+}) {
+  const [text, setText] = useState(value);
+  const commit = () => {
+    if (text !== value) onSave(text);
+  };
+  return rows ? (
+    <TextArea
+      className={className}
+      rows={rows}
+      value={text}
+      aria-label={label}
+      placeholder={placeholder}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+    />
+  ) : (
+    <Input
+      className={className}
+      value={text}
+      aria-label={label}
+      placeholder={placeholder}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 // ── Reiter ─────────────────────────────────────────────────────────────────
 
 export interface TabDef<T extends string> {

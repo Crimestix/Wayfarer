@@ -84,7 +84,13 @@ export const AREAS: Area[] = [
     icon: CalendarDays,
     tabs: TIME_TABS,
   },
-  { path: '/faeden', label: 'Fadenbrett', hint: 'Geschichten und Fäden', icon: Waypoints },
+  {
+    path: '/faeden',
+    label: 'Fadenbrett',
+    hint: 'Geschichten und Fäden',
+    icon: Waypoints,
+    also: ['/geschichte'],
+  },
   {
     path: '/bestiarium',
     label: 'Bestiarium',
