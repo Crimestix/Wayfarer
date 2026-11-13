@@ -308,6 +308,18 @@ nicht übernommen.
   ein Zug fällig (`turnsDue`); er steht am Spieltisch unter „Sonst noch“, ausgeführt wird er nur
   über `runTurn` (`features/bastion/actions.ts`) – nie von selbst. Ereignisse würfelt `fairDie`
   auf der Tabelle des Spielleiters (`bastion.events`, Zeilen „1–50: …“). Keine Buchinhalte.
+- Pflanzen, Tiere, Gesteine, Berufe (Arten `plant`, `animal`, `mineral`, `profession`): Arten der
+  Welt, kein eigenes Lexikon. Faustregel, damit nie Zweifel bleibt: gewachsen = Pflanze (auch
+  Pilze, Moose), lebt = Tier, aus dem Boden = Gestein, von Hand gemacht = Gegenstand (auch Trank,
+  Gift, Buch), Tätigkeit = Beruf; ein Tier mit Namen und eigener Geschichte ist eine Person. Die
+  drei der Natur tragen Lebensraum (Wörter), Vorkommen (`regionIds`, Orte mit allem darunter),
+  Zeit (Jahreszeiten oder Monate des Kalenders), Seltenheit und Wert – gelesen über `natureOf()`.
+  Was an einer Stelle vorkommt, sagt `natureAt()` / `natureHere()` / `natureOnHex()`
+  (`domain/nature.ts`): Wer Gegenden hat, kommt nur dort vor; sonst zählt der Lebensraum (Ort,
+  Klima, Lage, Gelände des Feldes). Jahreszeiten folgen aus dem wärmsten Monat, nie fest im Code.
+  Unter „Nach Art“ zeigen sie ein Lexikon (`welt/lexicon.ts`, `LexiconView.tsx`). Ein Tier
+  verweist auf seine Kampfwerte (`animal.creatureId`, `linkAnimalCreature`); wer einen Beruf
+  ausübt, steht in Beziehungen der Art `practises`.
 - Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt

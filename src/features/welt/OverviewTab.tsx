@@ -14,10 +14,13 @@ import {
   Handshake,
   Home,
   Plus,
+  Skull,
   Sparkles,
   Users,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { creatureOfAnimal, natureAt } from '../../domain/nature';
+import { NatureFold } from './NatureList';
 import { articleShare } from '../wiki/facts';
 import { fateSinceLabel } from '../../domain/chronicleKinds';
 import { whereaboutsSince } from '../../domain/history';
@@ -36,15 +39,18 @@ import {
   PERSON_STATUS,
   createEntity,
   type Ability,
+  type Animal,
   type CampaignData,
   type Entity,
   type Faction,
   type Family,
   type Item,
   type Language,
+  type NatureEntity,
   type Person,
   type PersonStatus,
   type Place,
+  type Profession,
   type Script,
   type Species,
   type Topic,
@@ -149,7 +155,12 @@ function KindOverview({ entity, onShowTab }: Props<WorldEntity>) {
     case 'language':
     case 'script':
     case 'ability':
+    case 'profession':
       return <KnowledgeOverview entity={entity} onShowTab={onShowTab} />;
+    case 'plant':
+    case 'animal':
+    case 'mineral':
+      return <NatureOverview entity={entity} onShowTab={onShowTab} />;
   }
 }
 
@@ -343,6 +354,10 @@ function PlaceOverview({ entity: place }: Props<Place>) {
           <Tracks entity={place} />
           <PlacesBelow place={place} />
           <Upcoming entity={place} empty="In den nächsten Monaten steht hier kein Termin an." />
+          <NatureFold
+            spot={`ort:${place.id}`}
+            hits={natureAt(data, { placeId: place.id, allYear: true })}
+          />
         </>
       }
     />
@@ -1119,7 +1134,7 @@ function MemberList({
 
 // ── Spezies, Sprache, Schrift, Fähigkeit ───────────────────────────────────
 
-type KnowledgeEntity = Species | Language | Script | Ability;
+type KnowledgeEntity = Species | Language | Script | Ability | Profession;
 
 /** Wer zu einer Spezies gehört, eine Sprache spricht, eine Schrift schreibt, eine Fähigkeit hat. */
 const KNOWLEDGE: Record<
@@ -1143,6 +1158,11 @@ const KNOWLEDGE: Record<
     empty:
       'Noch niemand. Wer diese Schrift beherrscht, steht hier, sobald eine Beziehung „schreibt“ besteht.',
     people: (data, id) => linkedFrom(data, id, 'writes'),
+  },
+  profession: {
+    title: 'Üben ihn aus',
+    empty: 'Noch niemand. Wer diesen Beruf ausübt, trägst du bei der Person unter „Berufe“ ein.',
+    people: (data, id) => linkedFrom(data, id, 'practises'),
   },
   ability: {
     title: 'Verfügen darüber',
@@ -1217,6 +1237,61 @@ function KnowledgeOverview({ entity, onShowTab }: Props<KnowledgeEntity>) {
         </>
       }
     />
+  );
+}
+
+// ── Pflanze, Tier, Gestein ─────────────────────────────────────────────────
+
+/** Was in der Natur vorkommt: Text und Geheimnis; beim Tier dazu seine Kampfwerte. */
+function NatureOverview({ entity, onShowTab }: Props<NatureEntity>) {
+  return (
+    <Columns
+      main={
+        <>
+          <NotesSection entity={entity} />
+          <SecretSection entity={entity} />
+          <GroupKnows entity={entity} />
+          <RecentChronicle entity={entity} onShowTab={onShowTab} />
+        </>
+      }
+      side={
+        <>
+          {entity.kind === 'animal' && <CombatStats animal={entity} />}
+          <Connections entity={entity} onShowTab={onShowTab} title="Zusammenhänge" />
+        </>
+      }
+    />
+  );
+}
+
+/** Die Kampfwerte eines Tieres im Bestiarium – oder der Weg dorthin, sie anzulegen. */
+function CombatStats({ animal }: { animal: Animal }) {
+  const data = useData();
+  const creature = creatureOfAnimal(data, animal);
+  return (
+    <Section title="Kampfwerte">
+      {creature ? (
+        <Link href={`/bestiarium/${creature.id}`} className="wf-welt-combat">
+          <Skull aria-hidden />
+          <span className="wf-grow">
+            <span className="wf-welt-combat__name">{creature.name}</span>
+            <span className="wf-welt-combat__sub">im Bestiarium</span>
+          </span>
+          <ArrowRight aria-hidden />
+        </Link>
+      ) : (
+        <Hint
+          action={
+            <Link href={`/bestiarium/neu/tier/${animal.id}`} className="wf-btn wf-btn--sm">
+              <Plus aria-hidden />
+              Kampfwerte anlegen
+            </Link>
+          }
+        >
+          Noch keine. Kampfwerte entstehen im Bestiarium und bleiben mit diesem Tier verbunden.
+        </Hint>
+      )}
+    </Section>
   );
 }
 

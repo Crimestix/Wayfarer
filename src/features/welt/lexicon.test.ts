@@ -74,14 +74,13 @@ describe('Lexikon der Pflanzen', () => {
   });
 
   it('bietet nur an, was an den Einträgen vorkommt', async () => {
-    const { db, mark } = await setup();
+    const { db } = await setup();
     const facets = lexiconFacets(db.getSnapshot(), 'plant');
     expect(facets.habitats).toEqual([
       { value: 'w:schilfgürtel', label: 'Schilfgürtel', count: 1 },
       { value: 'k:sumpf', label: 'Sumpf', count: 2 },
       { value: 'k:wald', label: 'Wald', count: 1 },
     ]);
-    expect(facets.regions.map((p) => p.id)).toEqual([mark.id]);
     expect(facets.seasons[0]).toEqual({ value: 's:spring', label: 'Frühling' });
     expect(facets.seasons[4]).toEqual({ value: 'm:0', label: 'Tauwind' });
   });

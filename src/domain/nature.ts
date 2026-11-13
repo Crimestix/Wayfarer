@@ -13,7 +13,7 @@ import { byName, entitiesOfKind, placeAncestors } from './derive';
 import { warmestMonthAt } from './geoClimate';
 import { parseGold } from './loot';
 import { coastKm, placeChain, placeGeo, planetOf, reliefOf, terrainAt } from './planet';
-import type { CampaignData, EntityKind, NatureEntity, Rarity, Terrain } from './schema';
+import type { Area, CampaignData, EntityKind, Hex, NatureEntity, Rarity, Terrain } from './schema';
 import { fromTime, type CalendarDef, type WorldTime } from './time/calendar';
 import { warmestMonth, weatherZone } from './weatherZone';
 import type { ClimatePreset } from './weather';
@@ -576,6 +576,27 @@ export function commonPlace(
   const above = new Set([aId, ...placeAncestors(data, aId).map((p) => p.id)]);
   for (const place of placeChain(data, bId)) if (above.has(place.id)) return place.id;
   return null;
+}
+
+/**
+ * Was auf einem Feld der Hexkarte vorkommen kann: das Gelände des Feldes (und ein Fluss) als
+ * Lebensraum; als Gegend der Ort auf dem Feld, sonst der nächste Ort über Start und Ziel.
+ */
+export function natureOnHex(
+  data: CampaignData,
+  area: Pick<Area, 'fromId' | 'toId' | 'biome'>,
+  hex: Pick<Hex, 'terrain' | 'river' | 'placeId'>,
+  now: WorldTime = data.state.now,
+): NatureHit[] {
+  const terrain = hex.terrain ?? area.biome;
+  const habitats = new Set<HabitatKey>(terrain ? TERRAIN_HABITATS[terrain] : []);
+  if (hex.river) habitats.add('gewaesser');
+  const placeId = hex.placeId ?? commonPlace(data, area.fromId, area.toId);
+  return natureAt(
+    data,
+    { placeId, habitats: [...habitats], placeHabitats: hex.placeId !== null },
+    now,
+  );
 }
 
 /** Monat oder Jahreszeit als Auswahl für eine Sicht: „s:winter“ oder „m:3“. */

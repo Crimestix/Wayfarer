@@ -9,6 +9,7 @@ import {
   monthsOfChoice,
   natureAt,
   natureHere,
+  natureOnHex,
   rarityFromText,
   readPrice,
   readSeasons,
@@ -155,6 +156,34 @@ describe('Was hier wächst und lebt', () => {
     expect(
       names(natureAt(data(), { placeId: mark.id, habitats: ['sumpf'], placeHabitats: false })),
     ).toEqual(['Nebelfalter', 'Sumpfwurz']);
+  });
+});
+
+describe('Auf der Hexkarte', () => {
+  it('nimmt Gelände und Fluss des Feldes, als Gegend den Ort darauf oder über Start und Ziel', async () => {
+    const { mark, forest, town, swamp, nature, data } = await setup();
+    nature('plant', 'Sumpfwurz', { habitat: ['Sumpf'] });
+    nature('plant', 'Uferried', { habitat: ['Fluss'] });
+    nature('animal', 'Nebelfalter', { regionIds: [mark.id] });
+    nature('plant', 'Mondkraut', { habitat: ['Wald'] });
+    const area = { fromId: town.id, toId: forest.id, biome: null };
+    const field = { terrain: 'swamp' as const, river: '', placeId: null };
+    // Zwischen Hohenfurt und dem Dunkelwald: der Dunkelwald, und der liegt in der Nordmark.
+    expect(names(natureOnHex(data(), area, field))).toEqual(['Nebelfalter', 'Sumpfwurz']);
+    expect(names(natureOnHex(data(), area, { ...field, river: 'Furt' }))).toEqual([
+      'Nebelfalter',
+      'Sumpfwurz',
+      'Uferried',
+    ]);
+    // Liegt ein Ort auf dem Feld, zählt auch er: Hohenfurt liegt im Dunkelwald.
+    expect(names(natureOnHex(data(), area, { ...field, placeId: town.id }))).toEqual([
+      'Nebelfalter',
+      'Mondkraut',
+      'Sumpfwurz',
+    ]);
+    expect(
+      names(natureOnHex(data(), { fromId: swamp.id, toId: null, biome: null }, field)),
+    ).toEqual(['Sumpfwurz']);
   });
 });
 

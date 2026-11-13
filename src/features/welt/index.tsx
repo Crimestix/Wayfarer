@@ -16,6 +16,8 @@ import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
 import { Gallery } from './Gallery';
 import { Landing } from './Landing';
+import { isLexiconKind } from './lexicon';
+import { Lexicon } from './LexiconView';
 import { isWorldEntity } from './model';
 import { useKindFilter } from './overview';
 import { Sidebar } from './Sidebar';
@@ -76,6 +78,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           </EmptyState>
         ) : filter === 'person' ? (
           <Gallery />
+        ) : filter !== 'all' && isLexiconKind(filter) ? (
+          <Lexicon key={filter} kind={filter} />
         ) : (
           <>
             <Landing />

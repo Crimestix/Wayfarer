@@ -1,4 +1,6 @@
 /** Erkundung – Hexkarten zwischen zwei Orten: links die Karten, in der Mitte die Karte, rechts das Feld. */
+import { natureOnHex } from '../../domain/nature';
+import { NatureFold } from '../welt/NatureList';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { Dices, Eye, EyeOff, Footprints, Hexagon, Minus, Plus, Trash2 } from 'lucide-react';
@@ -396,6 +398,7 @@ function AreaView({ area }: { area: Area }) {
                   style={{ minHeight: 64 }}
                 />
               </Field>
+              <NatureFold spot={`feld:${area.id}`} hits={natureOnHex(data, area, hex)} />
             </div>
           </Panel>
         ) : (

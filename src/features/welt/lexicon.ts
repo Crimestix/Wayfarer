@@ -174,15 +174,13 @@ function ancestorIds(data: CampaignData, place: Place): string[] {
 
 export interface LexiconFacets {
   habitats: { value: string; label: string; count: number }[];
-  regions: Place[];
   seasons: { value: string; label: string }[];
 }
 
 /** Was sich bei dieser Art filtern lässt: nur, was an den Einträgen auch vorkommt. */
 export function lexiconFacets(data: CampaignData, kind: LexiconKind): LexiconFacets {
-  if (!isNatureKind(kind)) return { habitats: [], regions: [], seasons: [] };
+  if (!isNatureKind(kind)) return { habitats: [], seasons: [] };
   const habitats = new Map<string, { label: string; ids: Set<string> }>();
-  const regions = new Map<string, Place>();
   for (const entity of entitiesOfKind(data, kind)) {
     const details = natureOf(entity);
     for (const word of details.habitat)
@@ -194,16 +192,11 @@ export function lexiconFacets(data: CampaignData, kind: LexiconKind): LexiconFac
         if (entry) entry.ids.add(entity.id);
         else habitats.set(value, { label, ids: new Set([entity.id]) });
       }
-    for (const id of details.regionIds) {
-      const place = data.entities[id];
-      if (place?.kind === 'place') regions.set(id, place);
-    }
   }
   return {
     habitats: [...habitats.entries()]
       .map(([value, { label, ids }]) => ({ value, label, count: ids.size }))
       .sort((a, b) => a.label.localeCompare(b.label, 'de')),
-    regions: [...regions.values()].sort(byName),
     seasons: [
       ...SEASONS.map((season) => ({ value: `s:${season}`, label: SEASON_LABEL[season] })),
       ...data.campaign.calendar.months.map((month, index) => ({

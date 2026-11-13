@@ -1,4 +1,6 @@
 /** Hauptfläche des Spieltischs: der Ort der Gruppe mit allem, was dort eine Rolle spielt. */
+import { natureHere } from '../../domain/nature';
+import { NatureFold } from '../welt/NatureList';
 import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'wouter';
 import {
@@ -355,11 +357,15 @@ export function PlacePanel({ place }: { place: Place }) {
 
   const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
   /** Über den Ort ist noch gar nichts eingetragen. */
-  const sceneCount = useMemo(
-    () => scenesHere(data).length + looseEndsHere(data).length,
-    [data],
-  );
-  const bare = cast.total === 0 && !hasAside && changes.length === 0 && sceneCount === 0;
+  const sceneCount = useMemo(() => scenesHere(data).length + looseEndsHere(data).length, [data]);
+  // Was aus den Einträgen der Welt hier wächst und lebt – jetzt, zu dieser Jahreszeit.
+  const nature = useMemo(() => natureHere(data, place.id), [data, place.id]);
+  const bare =
+    cast.total === 0 &&
+    !hasAside &&
+    changes.length === 0 &&
+    sceneCount === 0 &&
+    nature.length === 0;
 
   return (
     <Panel flush className="wf-tisch-place">
@@ -555,6 +561,7 @@ export function PlacePanel({ place }: { place: Place }) {
 
             <ScenesHere />
             <StocksHere />
+            <NatureFold spot={`tisch:${place.id}`} hits={nature} />
 
             {hasAside && (
               <div className="wf-col wf-tisch-aside">

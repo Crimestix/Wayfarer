@@ -5,12 +5,7 @@ import { useLocation } from 'wouter';
 import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
-import {
-  RARITY_LABEL,
-  SEASON_LABEL,
-  SEASONS,
-  isNatureKind,
-} from '../../domain/nature';
+import { RARITY_LABEL, SEASON_LABEL, SEASONS, isNatureKind } from '../../domain/nature';
 import { freshSeed } from '../../domain/random';
 import {
   PERSON_STATUS,
@@ -566,8 +561,36 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               />
             </Field>
           )}
+          {draft.kind !== 'person' && (
+            <Field label="Art">
+              <Input
+                list={categoryList}
+                value={draft.category}
+                onChange={(e) => set({ category: e.target.value })}
+                placeholder={categories.slice(0, 3).join(', ') + ' …'}
+              />
+              <datalist id={categoryList}>
+                {categories.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+            </Field>
+          )}
           {isNatureKind(draft.kind) && (
             <>
+              <Field label="Seltenheit">
+                <Select
+                  value={draft.rarity}
+                  onChange={(e) => set({ rarity: e.target.value as Rarity | '' })}
+                >
+                  <option value="">nicht angegeben</option>
+                  {RARITIES.map((rarity) => (
+                    <option key={rarity} value={rarity}>
+                      {RARITY_LABEL[rarity]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               <Field
                 label="Lebensraum"
                 className="wf-span-2"
@@ -606,19 +629,6 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   label="Jahreszeit oder Monat hinzufügen"
                 />
               </Field>
-              <Field label="Seltenheit">
-                <Select
-                  value={draft.rarity}
-                  onChange={(e) => set({ rarity: e.target.value as Rarity | '' })}
-                >
-                  <option value="">nicht angegeben</option>
-                  {RARITIES.map((rarity) => (
-                    <option key={rarity} value={rarity}>
-                      {RARITY_LABEL[rarity]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
               <Field label="Wert" hint="In Gold – „2,5“, „12 GM“ oder „5 Silber“.">
                 <Input
                   value={draft.price}
@@ -653,21 +663,6 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           {draft.kind === 'profession' && (
             <Field label="Werkzeug" hint="Nach den Regeln, z. B. „Schmiedewerkzeug“.">
               <Input value={draft.tool} onChange={(e) => set({ tool: e.target.value })} />
-            </Field>
-          )}
-          {draft.kind !== 'person' && (
-            <Field label="Art">
-              <Input
-                list={categoryList}
-                value={draft.category}
-                onChange={(e) => set({ category: e.target.value })}
-                placeholder={categories.slice(0, 3).join(', ') + ' …'}
-              />
-              <datalist id={categoryList}>
-                {categories.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
             </Field>
           )}
           <Field

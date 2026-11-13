@@ -1489,6 +1489,18 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Ein Klick auf eine Schadensart legt nur die geänderte Liste fest (`defenceChange`). „Nicht
   gespeichert“ nicht mehr nach Setzen und Leeren eines Feldes.
 
+### Zweite Welle 13./14. 11. 2026
+
+- **Neue Arten Pflanze, Tier, Gestein, Beruf.** Kein eigenes Lexikon, sondern Arten der Welt
+  (Herbarium als Sicht): `plant`/`animal`/`mineral` mit Lebensraum, Vorkommen (Orte), Zeit
+  (Jahreszeit oder Monate des Kalenders), Seltenheit und Wert; `profession` mit Werkzeug, wer ihn
+  ausübt über `practises`. Unter „Nach Art“ ein Lexikon je Art (`welt/lexicon.ts`,
+  `LexiconView.tsx`), filterbar nach Lebensraum, Gegend und Zeit. `domain/nature.ts` (`natureAt`,
+  `natureHere`, `natureOnHex`) sagt, was an einem Ort wächst und lebt – am Spieltisch, auf einem
+  Feld der Hexkarte und auf der Seite eines Ortes, eingeklappt. Tier ↔ Kampfwerte über
+  `animal.creatureId` (`/bestiarium/neu/tier/<id>`). Steckbrief-Felder, Art nach Ordner („Kräuter“).
+  Geprüft in der Vorschau bei 1440×900; nicht in der installierten App.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)
