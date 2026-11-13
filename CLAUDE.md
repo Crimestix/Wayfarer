@@ -277,6 +277,10 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+- Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
+  einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
+  `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt
+  `roomCandidates` einmal zum Umwandeln vor. Ein Raum bleibt ein Ort (Gruppe, Chronik, Karten).
 - Handouts (`handouts/`, `domain/handout.ts`, Reiter „Handouts“ neben Fadenbrett und Abend):
   Brief, Notiz, Erlass, Hinweiskarte – geschrieben vom Spielleiter, auf Pergament gezeigt und
   gedruckt (`usePrint` in `handouts/print.tsx`: eine eigene Ebene nur für den Druck). Wortlaut

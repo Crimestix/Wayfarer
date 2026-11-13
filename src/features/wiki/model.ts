@@ -29,8 +29,12 @@ export interface ArticleTree {
   templates: Article[];
 }
 
-export function articleTree(articles: Articles): ArticleTree {
-  const all = Object.values(articles);
+export function articleTree(
+  articles: Articles,
+  /** Artikel, die nicht im Baum stehen (die Räume eines Ortes). */
+  hidden: ReadonlySet<string> = new Set(),
+): ArticleTree {
+  const all = Object.values(articles).filter((article) => !hidden.has(article.id));
   const kids = new Map<string, Article[]>();
   const roots: Article[] = [];
   const templates: Article[] = [];

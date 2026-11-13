@@ -1,4 +1,5 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
+import { RoomsSection } from './RoomsSection';
 import { tracksOf } from '../../domain/track';
 import { TrackCard } from '../fortschritt/TrackCard';
 import { Children, useState, type ReactNode } from 'react';
@@ -335,6 +336,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
       side={
         <>
           <PartyAtPlace place={place} />
+          <RoomsSection place={place} />
           <PlacesBelow place={place} />
           <Upcoming entity={place} empty="In den nächsten Monaten steht hier kein Termin an." />
         </>
@@ -516,7 +518,8 @@ function ChangesSince({ place }: { place: Place }) {
 
 function PlacesBelow({ place }: { place: Place }) {
   const data = useData();
-  const children = placeChildren(data, place.id);
+  // Räume stehen unter „Räume“, nicht hier.
+  const children = placeChildren(data, place.id).filter((child) => !child.place.room);
   const create = () =>
     openEntityDialog({ mode: 'create', kind: 'place', preset: { parentId: place.id } });
   return (

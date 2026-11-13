@@ -1842,3 +1842,120 @@
 .wf-welt-picker {
   display: contents;
 }
+
+/* Räume eines Ortes */
+.wf-welt-rooms {
+  display: flex;
+  flex-direction: column;
+}
+.wf-welt-rooms__offer {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--verdigris);
+  background: var(--bg-2);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-welt-rooms__add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+.wf-welt-rooms__add-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+}
+.wf-welt-room {
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-room--open {
+  background: linear-gradient(90deg, var(--gold-glow), transparent 75%);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.wf-welt-room__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 6px var(--s-2);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-room__head > svg {
+  flex: none;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-mute);
+}
+.wf-welt-room__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-welt-room__line {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-welt-room__state {
+  flex: none;
+  color: var(--ember);
+  font-size: var(--text-sm);
+}
+.wf-welt-room__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: 0 var(--s-3) var(--s-3) calc(var(--s-2) + 22px);
+}
+.wf-welt-room__notes {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.wf-welt-room__state-edit {
+  display: grid;
+  grid-template-columns: auto minmax(0, 320px);
+  gap: var(--s-3);
+  align-items: center;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-room__links {
+  display: flex;
+  gap: var(--s-4);
+}
+.wf-welt-room__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
+.wf-welt-room__link:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-room__link svg {
+  width: 13px;
+  height: 13px;
+}

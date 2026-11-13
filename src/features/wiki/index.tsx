@@ -2,6 +2,7 @@
  * Wiki – die Artikel der Welt. Keine eigene Seite mehr: Baum, Suche, Übersicht und der Artikel
  * selbst sind Bausteine der Seite „Welt“ (`features/welt`).
  */
+import { roomArticleIds } from '../../domain/rooms';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
@@ -270,7 +271,8 @@ export function WikiStart() {
   const data = useData();
   const [, navigate] = useLocation();
   const articles = data.articles;
-  const tree = useMemo(() => articleTree(articles), [articles]);
+  const hidden = useMemo(() => roomArticleIds(data), [data]);
+  const tree = useMemo(() => articleTree(articles, hidden), [articles, hidden]);
   const total = Object.keys(articles).length - tree.templates.length;
   const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
   const dialog = creating && (
@@ -361,8 +363,15 @@ export function useArticleHits(query: string) {
  * Blick geholt.
  */
 export function ArticleTree({ current }: { current: string | undefined }) {
-  const articles = useData().articles;
-  const tree = useMemo(() => articleTree(articles), [articles]);
+  const data = useData();
+  const articles = data.articles;
+  // Die Räume eines Ortes stehen auf seiner Seite, nicht im Baum – außer der gerade offene.
+  const hidden = useMemo(() => {
+    const ids = roomArticleIds(data);
+    if (current) ids.delete(current);
+    return ids;
+  }, [data, current]);
+  const tree = useMemo(() => articleTree(articles, hidden), [articles, hidden]);
   const [open, setOpen] = useState(memory.open);
   const [showTemplates, setShowTemplates] = useState(false);
   useEffect(() => {

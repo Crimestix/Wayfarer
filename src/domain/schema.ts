@@ -200,6 +200,13 @@ const PlaceDetails = z.object({
    * Wayfarer errechnet sie (`domain/underground.ts`).
    */
   light: z.enum(PLACE_LIGHTS).nullable().default(null),
+  /**
+   * Ein Raum des Ortes darüber (Festung, Verlies, Haus): steht nicht einzeln in der Welt und im
+   * Wiki, sondern auf der Seite des Ortes darüber unter „Räume“ (`domain/rooms.ts`).
+   */
+  room: z.boolean().default(false),
+  /** Stand eines Raums in Worten: frei, verschlossen, eingestürzt, Falle … */
+  roomState: z.string().default(''),
 });
 
 const FactionDetails = z.object({

@@ -133,7 +133,12 @@ export function worldCounts(
     number
   >;
   for (const entity of Object.values(data.entities))
-    if (isWorldKind(entity.kind) && (!visible || visible.has(entity.id))) counts[entity.kind]++;
+    if (
+      isWorldKind(entity.kind) &&
+      !(entity.kind === 'place' && entity.place.room) &&
+      (!visible || visible.has(entity.id))
+    )
+      counts[entity.kind]++;
   return counts;
 }
 
@@ -174,7 +179,10 @@ export function placeTreeRows(
   openState: Readonly<Record<string, boolean>> = {},
   visible: ReadonlySet<string> | null = null,
 ): PlaceRow[] {
-  const places = entitiesOfKind(data, 'place').filter((p) => !visible || visible.has(p.id));
+  // Räume stehen auf der Seite ihres Ortes, nicht im Baum.
+  const places = entitiesOfKind(data, 'place').filter(
+    (p) => !p.place.room && (!visible || visible.has(p.id)),
+  );
   const byId = new Map(places.map((p) => [p.id, p]));
   const children = new Map<string | null, Place[]>();
   for (const place of places) {
