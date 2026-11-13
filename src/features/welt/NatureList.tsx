@@ -23,12 +23,14 @@ export function NatureFold({
   spot: string;
   title?: string;
 }) {
-  const [open, setOpen] = useState(() => opened.has(spot));
+  // Wechselt die Stelle (die Gruppe zieht weiter), gilt, was dort zuletzt offen war.
+  const [state, setState] = useState(() => ({ spot, open: opened.has(spot) }));
+  const open = state.spot === spot ? state.open : opened.has(spot);
   if (!hits.length) return null;
   const toggle = () => {
     if (open) opened.delete(spot);
     else opened.add(spot);
-    setOpen(!open);
+    setState({ spot, open: !open });
   };
   return (
     <section className="wf-welt-nature" aria-label={title}>

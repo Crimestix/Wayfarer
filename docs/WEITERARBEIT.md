@@ -1500,6 +1500,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Feld der Hexkarte und auf der Seite eines Ortes, eingeklappt. Tier ↔ Kampfwerte über
   `animal.creatureId` (`/bestiarium/neu/tier/<id>`). Steckbrief-Felder, Art nach Ordner („Kräuter“).
   Geprüft in der Vorschau bei 1440×900; nicht in der installierten App.
+- **Gegengelesen: Neue Arten.** Auf einem Feld der Hexkarte muss ein bekannter Lebensraum auch in
+  der eigenen Gegend passen (keine Sumpfblume auf dem Bergfeld). Das Lexikon zählt im Ausschnitt
+  links und bietet dort „Ganze Welt zeigen“ an; Filterleiste bei 1280×800 neu geordnet. Der
+  Ausschnitt „Hier: Ort“ nimmt auch auf, was dort nach Lebensraum vorkommt (wie am Spieltisch). Ein Tier
+  ist im Festhalten ein Gegner; Gift, Salbe, Elixier, Tinktur, Buch sind Gegenstände am Wort.
+  Der Abschnitt „Was hier wächst und lebt“ merkt sich das Aufklappen je Ort auch beim Weiterziehen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

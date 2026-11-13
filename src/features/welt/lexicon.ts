@@ -98,6 +98,15 @@ export function lexicon(
     }));
 }
 
+/** Wie viele Einträge dieser Art im gewählten Ausschnitt der Welt stehen – ohne die Filter des Lexikons. */
+export function lexiconTotal(
+  data: CampaignData,
+  kind: LexiconKind,
+  visible: ReadonlySet<string> | null = null,
+): number {
+  return entitiesOfKind(data, kind).filter((entity) => !visible || visible.has(entity.id)).length;
+}
+
 function rowOf(data: CampaignData, entity: NatureEntity | Profession): LexiconRow {
   if (entity.kind === 'profession')
     return {

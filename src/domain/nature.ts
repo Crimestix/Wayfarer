@@ -7,7 +7,9 @@
  *
  * Regel für die Gegend: Wer Gegenden hat, kommt nur dort vor (der Lebensraum ist dann nur ein
  * weiterer Grund). Wer keine hat, kommt überall vor, wo sein Lebensraum passt. Wer weder das
- * eine noch das andere hat, steht nirgends von selbst.
+ * eine noch das andere hat, steht nirgends von selbst. Steht das Gelände einer Stelle fest (ein
+ * Feld der Hexkarte), muss auch ein Lebensraum, den Wayfarer kennt, dazu passen: Die Sumpfblume
+ * der Nordmark wächst nicht auf jedem Bergfeld der Nordmark.
  */
 import { byName, entitiesOfKind, placeAncestors } from './derive';
 import { warmestMonthAt } from './geoClimate';
@@ -510,6 +512,8 @@ export function natureAt(
   const cal = data.campaign.calendar;
   const warmest = warmestMonthHere(data, spot.placeId);
   const month = fromTime(cal, now).month;
+  /** Das Gelände steht fest: Ein bekannter Lebensraum muss passen, auch in der eigenen Gegend. */
+  const firm = (spot.habitats?.length ?? 0) > 0;
 
   const out: NatureHit[] = [];
   for (const kind of NATURE_KINDS) {
@@ -528,17 +532,21 @@ export function natureAt(
           placeId: region.place.id,
           text: VERB[kind](region.depth === 0 ? null : region.place.name),
         });
+      let known = false;
+      let fitting = false;
       for (const word of details.habitat) {
         const keys = habitatKeysOf(word);
+        if (keys.length) known = true;
         const fits = keys.length
           ? keys.some((key) => read.keys.has(key))
           : ownWordFits(word, read.words);
         if (fits) {
+          fitting = true;
           reasons.push({ kind: 'habitat', word, text: `passt zum Lebensraum ${word.trim()}` });
           break;
         }
       }
-      if (!reasons.length) continue;
+      if (!reasons.length || (firm && known && !fitting)) continue;
       const when = readSeasons(cal, warmest, details.seasons);
       if (!spot.allYear && when.months && !when.months.has(month)) continue;
       out.push({ entity, reasons, seasonal: when.months ? details.seasons.join(', ') : '' });

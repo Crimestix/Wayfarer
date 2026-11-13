@@ -71,6 +71,32 @@ describe('Bereich der Welt', () => {
     expect(scope.has(far.id)).toBe(false);
   });
 
+  it('nimmt Pflanzen und Tiere mit, die dort vorkommen – nach Gegend oder Lebensraum', () => {
+    const base = world();
+    const hafen = named(base, 'Hafenviertel');
+    const town = named(base, 'Hohenfurt');
+    const tangle = createEntity({
+      kind: 'plant',
+      name: 'Hafentang',
+      plant: { regionIds: [town.id] },
+    });
+    // „Hafenviertel“ sagt Küste: Was an der Küste lebt, gehört dazu.
+    const gull = createEntity({
+      kind: 'animal',
+      name: 'Sturmmöwe',
+      animal: { habitat: ['Küste'] },
+    });
+    const deer = createEntity({ kind: 'animal', name: 'Rotwild', animal: { habitat: ['Wald'] } });
+    const data: CampaignData = {
+      ...base,
+      entities: { ...base.entities, [tangle.id]: tangle, [gull.id]: gull, [deer.id]: deer },
+    };
+    const scope = scopeMembers(data, hafen.id);
+    expect(scope.has(tangle.id)).toBe(true);
+    expect(scope.has(gull.id)).toBe(true);
+    expect(scope.has(deer.id)).toBe(false);
+  });
+
   it('bietet den Ort der Gruppe und die Orte darüber an', async () => {
     const db = await CampaignDb.create(new MemoryStore(), world());
     expect(scopeChoices(db.getSnapshot(), null)).toEqual([]);

@@ -185,6 +185,30 @@ describe('Auf der Hexkarte', () => {
       names(natureOnHex(data(), { fromId: swamp.id, toId: null, biome: null }, field)),
     ).toEqual(['Sumpfwurz']);
   });
+
+  it('auch in der eigenen Gegend muss ein bekannter Lebensraum zum Gelände passen', async () => {
+    const { mark, forest, town, nature, data } = await setup();
+    nature('plant', 'Moorlilie', { regionIds: [mark.id], habitat: ['Sumpf'] });
+    nature('plant', 'Nebelgras', { regionIds: [mark.id], habitat: ['Nebelschleier'] });
+    nature('animal', 'Nebelfalter', { regionIds: [mark.id] });
+    const area = { fromId: town.id, toId: forest.id, biome: null };
+    const mountain = { terrain: 'mountains' as const, river: '', placeId: null };
+    // Auf dem Bergfeld keine Sumpfblume; wer keinen bekannten Lebensraum hat, bleibt.
+    expect(names(natureOnHex(data(), area, mountain))).toEqual(['Nebelgras', 'Nebelfalter']);
+    expect(names(natureOnHex(data(), area, { ...mountain, terrain: 'swamp' }))).toEqual([
+      'Moorlilie',
+      'Nebelgras',
+      'Nebelfalter',
+    ]);
+    // Ohne bekanntes Gelände entscheidet die Gegend allein.
+    expect(names(natureOnHex(data(), area, { ...mountain, terrain: null }))).toEqual([
+      'Moorlilie',
+      'Nebelgras',
+      'Nebelfalter',
+    ]);
+    // Am Ort selbst (am Spieltisch) bleibt die Gegend genug: Lebensräume eines Ortes sind gelesen.
+    expect(names(natureHere(data(), town.id))).toContain('Moorlilie');
+  });
 });
 
 describe('Preis', () => {

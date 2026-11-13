@@ -3,7 +3,7 @@
  * auf das, was die Gruppe schon kennt. Reine Funktionen.
  */
 import { placeAncestors, placeSubtreeIds, partyStays } from '../../domain/derive';
-import { isNature, natureOf } from '../../domain/nature';
+import { isNature, natureAt, natureOf } from '../../domain/nature';
 import type { CampaignData, Entity, Place } from '../../domain/schema';
 
 /**
@@ -47,11 +47,13 @@ export function scopeMembers(data: CampaignData, placeId: string): Set<string> {
   for (const entity of entities)
     if (entity.kind === 'item' && entity.item.holderId && members.has(entity.item.holderId))
       members.add(entity.id);
-  // Pflanzen, Tiere und Gesteine, die hier vorkommen: in einer Gegend darunter oder darüber.
+  // Pflanzen, Tiere und Gesteine, die hier vorkommen: in einer Gegend darunter oder darüber –
+  // oder, wie am Spieltisch, weil ihr Lebensraum zum Ort passt (übers ganze Jahr).
   const around = new Set([...places, ...placeAncestors(data, placeId).map((p) => p.id)]);
   for (const entity of entities)
     if (isNature(entity) && natureOf(entity).regionIds.some((id) => around.has(id)))
       members.add(entity.id);
+  for (const hit of natureAt(data, { placeId, allYear: true })) members.add(hit.entity.id);
   return members;
 }
 

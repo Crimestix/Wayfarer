@@ -316,7 +316,9 @@ nicht übernommen.
   Zeit (Jahreszeiten oder Monate des Kalenders), Seltenheit und Wert – gelesen über `natureOf()`.
   Was an einer Stelle vorkommt, sagt `natureAt()` / `natureHere()` / `natureOnHex()`
   (`domain/nature.ts`): Wer Gegenden hat, kommt nur dort vor; sonst zählt der Lebensraum (Ort,
-  Klima, Lage, Gelände des Feldes). Jahreszeiten folgen aus dem wärmsten Monat, nie fest im Code.
+  Klima, Lage, Gelände des Feldes). Steht das Gelände fest (Feld der Hexkarte), muss ein
+  bekannter Lebensraum auch in der eigenen Gegend passen. Ein Tier ist im Festhalten ein Gegner
+  wie eine Spezies (ohne Schicksal). Jahreszeiten folgen aus dem wärmsten Monat, nie fest im Code.
   Unter „Nach Art“ zeigen sie ein Lexikon (`welt/lexicon.ts`, `LexiconView.tsx`). Ein Tier
   verweist auf seine Kampfwerte (`animal.creatureId`, `linkAnimalCreature`); wer einen Beruf
   ausübt, steht in Beziehungen der Art `practises`.

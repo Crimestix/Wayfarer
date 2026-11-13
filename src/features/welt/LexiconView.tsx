@@ -15,11 +15,12 @@ import {
   NO_LEXICON_FILTER,
   lexicon,
   lexiconFacets,
+  lexiconTotal,
   type LexiconFilter,
   type LexiconKind,
   type LexiconRow,
 } from './lexicon';
-import { useWorldView } from './overview';
+import { setWorldView, useWorldView } from './overview';
 import { Picker } from './parts';
 import { visibleIds } from './scope';
 
@@ -49,7 +50,9 @@ export function Lexicon({ kind }: { kind: LexiconKind }) {
     [data, kind, filter, regionId, visible],
   );
   const facets = useMemo(() => lexiconFacets(data, kind), [data, kind]);
-  const total = Object.values(data.entities).filter((e) => e.kind === kind).length;
+  const total = useMemo(() => lexiconTotal(data, kind), [data, kind]);
+  /** Was der Ausschnitt links (ein Ort, nur Bekanntes) übrig lässt. */
+  const inView = useMemo(() => lexiconTotal(data, kind, visible), [data, kind, visible]);
   const shown = groups.reduce((sum, group) => sum + group.rows.length, 0);
   const filtered = filter.habitat !== '' || regionId !== null || filter.season !== '';
   const nature = kind !== 'profession';
@@ -125,7 +128,7 @@ export function Lexicon({ kind }: { kind: LexiconKind }) {
           </>
         )}
         <span className="wf-welt-lex__count">
-          {filtered ? `${shown} von ${total}` : total === 1 ? '1 Eintrag' : `${total} Einträge`}
+          {filtered ? `${shown} von ${inView}` : inView === 1 ? '1 Eintrag' : `${inView} Einträge`}
           {filtered && (
             <button
               type="button"
@@ -147,6 +150,17 @@ export function Lexicon({ kind }: { kind: LexiconKind }) {
             ? 'Lege an, was in deiner Welt vorkommt – mit Lebensraum, Gegend und Jahreszeit. Am Spieltisch steht dann, was dort wächst und lebt.'
             : 'Lege die Berufe deiner Welt an. Wer einen ausübt, trägst du bei der Person unter „Berufe“ ein.'}
         </EmptyState>
+      ) : inView === 0 ? (
+        <p className="wf-welt-lex__none">
+          Im gewählten Ausschnitt der Welt steht nichts davon.{' '}
+          <button
+            type="button"
+            className="wf-welt-form__link"
+            onClick={() => setWorldView({ scopeId: null, knownOnly: false })}
+          >
+            Ganze Welt zeigen
+          </button>
+        </p>
       ) : shown === 0 ? (
         <p className="wf-welt-lex__none">
           Nichts passt zu dieser Auswahl.{' '}

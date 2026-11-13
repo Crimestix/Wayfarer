@@ -267,6 +267,20 @@ describe('Erkennen: am Tisch', () => {
     ).toEqual({ outcome: 'lost' });
   });
 
+  it('ein Tier der Welt ist ein Gegner wie eine Spezies', () => {
+    const w = world();
+    const wolf = createEntity({ kind: 'animal', name: 'Grauwolf' });
+    const data = { ...w.data, entities: { ...w.data.entities, [wolf.id]: wolf } };
+    expect(
+      only(recognizeEntry(data, 'Die Gruppe hat den Grauwolf besiegt.'), 'fight'),
+    ).toMatchObject([{ label: 'Kampf: Grauwolf · gewonnen', refs: [wolf.id] }]);
+    // Ein Tier hat kein Schicksal und ist keine Begegnung.
+    expect(kinds(recognizeEntry(data, 'Wir töteten den Grauwolf.'))).not.toContain('fate');
+    expect(kinds(recognizeEntry(data, 'Wir trafen auf den Grauwolf und kämpften.'))).toEqual([
+      'fight',
+    ]);
+  });
+
   it('„Krummzahn ist geflohen“ allein ist kein Kampf', () => {
     const w = world();
     expect(only(recognizeEntry(w.data, 'Krummzahn ist geflohen.'), 'fight')).toEqual([]);

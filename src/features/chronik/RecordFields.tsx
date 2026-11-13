@@ -52,7 +52,7 @@ import {
 export type { RecordDraft, RecordFieldsKind } from './recordDraft';
 
 const PEOPLE: EntityKind[] = WHO_KINDS.attitude!;
-const OPPONENTS: EntityKind[] = ['person', 'faction', 'family', 'species', 'character'];
+const OPPONENTS: EntityKind[] = ['person', 'faction', 'family', 'species', 'animal', 'character'];
 
 /** Erster Buchstabe groß: „tot“ → „Tot“ für Auswahllisten. */
 const capital = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);

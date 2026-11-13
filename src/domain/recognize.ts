@@ -534,7 +534,9 @@ function objectsAfter(ctx: Context, at: number, kinds: readonly EntityKind[]): N
 }
 
 const PEOPLE: EntityKind[] = ['person', 'character', 'faction', 'family'];
-const OPPONENTS: EntityKind[] = ['person', 'faction', 'family', 'species'];
+const OPPONENTS: EntityKind[] = ['person', 'faction', 'family', 'species', 'animal'];
+/** Wesen ohne eigenes Schicksal: eine Spezies oder ein Tier (als Art, nicht als Einzelner). */
+const BEASTS: readonly EntityKind[] = ['species', 'animal'];
 
 /** Eindeutige Einträge der gewünschten Arten im Satz, in der Reihenfolge des Textes. */
 function namedIds(ctx: Context, kinds: readonly EntityKind[], except: string[] = []): string[] {
@@ -615,7 +617,7 @@ function fateRules(ctx: Context, out: Draft[]) {
         if (!targets.length) targets = objectsAfter(ctx, cue.to, living);
       }
       // „Wir töteten zwei Grubenschleicher“: Wesen haben kein Schicksal, das ist ein Kampf.
-      if (!targets.length && ctx.names.some((hit) => kindOf(ctx.data, hit.id) === 'species'))
+      if (!targets.length && ctx.names.some((hit) => BEASTS.includes(kindOf(ctx.data, hit.id)!)))
         continue;
       const ids = targets.length ? targets.map((hit) => hit.id) : [null];
       for (const id of ids) {
@@ -761,7 +763,7 @@ function meetingRules(ctx: Context, out: Draft[]) {
   if (!refs.length) {
     // Ohne Person nur, wenn die Gruppe jemanden trifft – und nicht auf Wesen, mit denen sie kämpft.
     const actor = actorBefore(ctx, cue.from, { kinds: PEOPLE });
-    const creatures = ctx.names.some((hit) => kindOf(ctx.data, hit.id) === 'species');
+    const creatures = ctx.names.some((hit) => BEASTS.includes(kindOf(ctx.data, hit.id)!));
     if (!actor?.party || creatures || FIGHT.test(text)) return;
   }
   out.push({

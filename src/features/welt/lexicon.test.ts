@@ -3,7 +3,7 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { createEntity, createRelation } from '../../domain/schema';
-import { NO_LEXICON_FILTER, lexicon, lexiconFacets } from './lexicon';
+import { NO_LEXICON_FILTER, lexicon, lexiconFacets, lexiconTotal } from './lexicon';
 
 /** Ein erfundenes Herbarium rund um Hohenfurt. */
 async function setup() {
@@ -71,6 +71,17 @@ describe('Lexikon der Pflanzen', () => {
       '–: Irrlichtpilz',
     ]);
     expect(by({ season: 'm:0' })).toHaveLength(3);
+  });
+
+  it('zählt, was im Ausschnitt der Welt steht', async () => {
+    const { db } = await setup();
+    const data = db.getSnapshot();
+    expect(lexiconTotal(data, 'plant')).toBe(4);
+    const moon = Object.values(data.entities).find((e) => e.name === 'Mondkraut')!;
+    // Ein Ausschnitt, der nur das Mondkraut übrig lässt: gezählt wird nur, was dort steht.
+    expect(lexiconTotal(data, 'plant', new Set([moon.id]))).toBe(1);
+    expect(lexiconTotal(data, 'plant', new Set())).toBe(0);
+    expect(lexiconTotal(data, 'animal')).toBe(0);
   });
 
   it('bietet nur an, was an den Einträgen vorkommt', async () => {

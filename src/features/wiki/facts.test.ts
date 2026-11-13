@@ -448,6 +448,12 @@ describe('Steckbrief: Pflanzen, Tiere, Gesteine und Berufe', () => {
     expect(kindFromText('Handwerk')).toBe('profession');
     // Ein Trank ist ein Gegenstand, auch wenn er aus einem Kraut gemacht ist.
     expect(kindFromText('Trank')).toBe('item');
+    // Gifte, Salben und Bücher sind von Hand gemacht: Gegenstände, auch aus Kräutern.
+    expect(kindFromText('Kräutersalbe')).toBe('item');
+    expect(kindFromText('Pflanzengift')).toBe('item');
+    expect(kindFromText('Heilelixier')).toBe('item');
+    expect(kindFromText('Zauberbuch')).toBe('item');
+    expect(kindFromText('Blutbuche')).toBeNull();
     expect(factField('plant', 'Blütezeit')).toBe('season');
     expect(factField('animal', 'Verbreitung')).toBe('region');
     expect(factField('mineral', 'Preis')).toBe('price');
