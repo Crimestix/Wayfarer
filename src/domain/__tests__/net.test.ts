@@ -10,6 +10,7 @@ import {
   addRoutes,
   connectPoints,
   movePoint,
+  patchNet,
   removeNet,
   removePoint,
 } from '../../features/wegenetz/actions';
@@ -34,6 +35,8 @@ async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
   const data = () => db.getSnapshot();
   const net = addNet(db, 'Der Weg zum Schwarzen See');
+  // Gänge unter der Erde: Dort gibt es kein Wetter, das die Dauer verändert.
+  patchNet(db, net.id, { waySort: 'underground' });
   const live = () => data().nets[net.id]!;
   const place = (name: string) =>
     Object.values(data().entities).find((e): e is Place => e.kind === 'place' && e.name === name)!;
@@ -108,7 +111,10 @@ describe('Eine Strecke als Text', () => {
     const lake = place('Schwarzer See');
     expect(routeBetween(data(), gate.id, lake.id)).toMatchObject({ minutes: 240 + 2 * DAY });
     // Die Wege sind Gänge, Pfade oder Gassen – so, wie es für das Netz eingestellt ist.
-    expect(waysFrom(data(), gate.id)[0]!.path).toMatchObject({ road: 'trail', minutes: 240 });
+    expect(waysFrom(data(), gate.id)[0]!.path).toMatchObject({
+      terrain: 'underdark',
+      minutes: 240,
+    });
     expect(waysFrom(data(), grotto.id).map((way) => way.minutes)).toEqual([240, 2 * DAY, null]);
 
     // Noch einmal dasselbe: Es entsteht nichts doppelt.
