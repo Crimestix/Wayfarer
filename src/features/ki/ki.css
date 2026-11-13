@@ -80,3 +80,30 @@
   background: var(--bg-inset);
   font-size: var(--text-sm);
 }
+/* Wann eine Abmachung getroffen wurde – unter dem Vorschlag */
+.wf-ki-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-2);
+  margin: 2px 0 2px var(--s-3);
+  font-size: var(--text-sm);
+}
+.wf-ki-when__label {
+  color: var(--ink-soft);
+}
+.wf-ki-when__fields {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.wf-ki-when__fields .wf-input,
+.wf-ki-when__fields .wf-select {
+  width: auto;
+}
+.wf-ki-when__day {
+  max-width: 5.5em;
+}
+.wf-ki-when__year {
+  max-width: 6.5em;
+}

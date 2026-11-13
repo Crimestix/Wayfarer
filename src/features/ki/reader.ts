@@ -27,7 +27,10 @@ import {
   monthLength,
   toTime,
   type CalendarDef,
+  type WorldTime,
 } from '../../domain/time/calendar';
+import { findDates } from '../../domain/time/textDates';
+import { sessionAt } from '../chronik/model';
 import { worldIndex, type WorldIndex } from '../wiki/facts';
 import { titleKey } from '../wiki/text';
 
@@ -175,10 +178,13 @@ export const READING_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['text', 'sort', 'who', 'place', 'quote'],
+        required: ['text', 'sort', 'day', 'month', 'year', 'who', 'place', 'quote'],
         properties: {
           text: { type: 'string' },
           sort: { type: 'string', enum: ['promise', 'secret', 'lead'] },
+          day: { type: 'integer' },
+          month: { type: 'string' },
+          year: { type: 'integer' },
           who: { type: 'array', items: { type: 'string' } },
           place: { type: 'string' },
           quote: { type: 'string' },
@@ -215,6 +221,7 @@ const SYSTEM = `Du liest für einen Spielleiter Artikel aus seinem selbst geschr
    - promise: etwas, das noch eingelöst werden muss – ein Versprechen, eine Schuld, ein Auftrag, eine Drohung.
    - secret: Wissen und Nichtwissen – ein Geheimnis, etwas, das jemand weiß, nicht weiß oder verbirgt, ein ungelöstes Rätsel. Beispiel: „Mira weiß nicht, was ihr Bruder im Wrack fand“ ist secret, kein promise.
    - lead: eine Spur oder offene Frage der Geschichte, der die Gruppe nachgehen kann – wohin etwas führt, woher etwas kommt, wer oder was dahintersteckt. Niemand verbirgt es und niemand schuldet es; es ist schlicht noch nicht geklärt. Beispiel: „Die Wolfsfährten führen nach Norden in den Wald; woher das Gift stammt, ist noch unbekannt“ ist lead.
+   - day, month und year: nur bei promise – der Tag, an dem die Abmachung getroffen wurde (Monat genau wie in der Liste, Jahr der genannten Zeitrechnung), wenn der Text ihn nennt. Nicht die Frist, bis wann sie eingelöst sein muss. Nennt der Text den Tag nicht, ist day 0, month leer und year 0 – rate nie.
 
 Regeln:
 - Nimm nur auf, was im Text steht. Erfinde nichts, ergänze nichts, deute nichts aus.
@@ -285,6 +292,10 @@ export const ReadingSchema = z.object({
       z.object({
         text: z.string(),
         sort: z.enum(['promise', 'secret', 'lead']).optional(),
+        /** Wann eine Abmachung getroffen wurde – fehlt bei älteren Antworten. */
+        day: z.number().int().optional(),
+        month: z.string().optional(),
+        year: z.number().int().optional(),
         who: names,
         place: words,
         quote: words,
@@ -478,6 +489,130 @@ export function threadSort(text: string, given?: unknown): ThreadSort {
   return SECRET_WORDS.test(text) ? 'secret' : 'promise';
 }
 
+// ── Wann eine Abmachung getroffen wurde ────────────────────────────────────
+
+type ReadThread = Reading['threads'][number];
+
+/** Worte direkt vor einem Datum, die eine Frist nennen („bis zum 3. Tauwind“) – kein Tag der Abmachung. */
+const DEADLINE_BEFORE =
+  /(?<![\p{L}\p{N}])(?:bis|spätestens|vor|binnen|ab|fällig|frist)(?:\s+(?:zum|zur|am|an|dem|den|der|ende|anfang|mitte))*\s*$/iu;
+
+/**
+ * Der Tag, an dem eine Abmachung getroffen wurde: aus der Antwort des Lesers, sonst aus einem
+ * Datum in den Worten des Kalenders in den genannten Sätzen („am 3. Tauwind 701“). Aus den
+ * Sätzen zählt nur ein Tag oder Monat, der nicht nach heute liegt und nicht als Frist dasteht
+ * („bis zum …“) – das ist nicht der Tag der Abmachung. null, wenn der Text es nicht sagt.
+ */
+export function promiseDate(
+  cal: CalendarDef,
+  now: WorldTime,
+  given: Partial<Pick<ReadThread, 'day' | 'month' | 'year'>>,
+  sentences: readonly string[],
+): WorldTime | null {
+  const told = eventTime(cal, now, {
+    rhythm: 'once',
+    weekday: '',
+    day: given.day ?? 0,
+    month: given.month ?? '',
+    year: given.year ?? 0,
+  });
+  if (told) return told.at;
+  for (const sentence of sentences) {
+    const found = findDates(cal, sentence, now).find(
+      (date) =>
+        date.precision !== 'year' &&
+        date.time <= now &&
+        !DEADLINE_BEFORE.test(sentence.slice(0, date.from)),
+    );
+    if (found) return found.time;
+  }
+  return null;
+}
+
+/** Ob ein Vorschlag eine Abmachung wird (und damit in die Chronik kommt). */
+export function isPromiseHint(hint: AiHint): boolean {
+  if (hint.kind !== 'thread') return false;
+  const payload = hint.payload as { text?: unknown; sort?: unknown };
+  return (
+    threadSort(typeof payload.text === 'string' ? payload.text : hint.line, payload.sort) ===
+    'promise'
+  );
+}
+
+/**
+ * Der Tag, den ein Vorschlag für eine Abmachung kennt. Ältere Vorschläge haben keinen
+ * gespeichert – dann wird der zitierte Satz gelesen.
+ */
+export function hintPromiseDate(
+  data: Pick<CampaignData, 'campaign' | 'state'>,
+  hint: AiHint,
+): WorldTime | null {
+  const at = hint.payload.at;
+  if (typeof at === 'number') return at;
+  if (at === null) return null;
+  const text = typeof hint.payload.text === 'string' ? hint.payload.text : hint.line;
+  return promiseDate(data.campaign.calendar, data.state.now, {}, [hint.quote, text]);
+}
+
+/**
+ * Beginn der Mitschrift: der erste Spielabend oder das Früheste, was an einem Abend festgehalten
+ * wurde. Gibt es noch keinen Abend, das Früheste der Chronik – und ohne alles: jetzt.
+ */
+export function recordStart(
+  data: Pick<CampaignData, 'state' | 'sessions' | 'chronicle'>,
+): WorldTime {
+  const entries = Object.values(data.chronicle);
+  const played = [
+    ...Object.values(data.sessions).map((session) => session.startAt),
+    ...entries.filter((entry) => entry.sessionId !== null).map((entry) => entry.at),
+  ];
+  const times = played.length ? played : entries.map((entry) => entry.at);
+  return Math.min(data.state.now, ...times);
+}
+
+export interface PromiseWhen {
+  /** Weltzeit des Eintrags in der Chronik. */
+  at: WorldTime;
+  /** Der Abend, zu dem der Eintrag gehört – nur, wenn es an einem Abend geschah. */
+  sessionId: string | null;
+  /**
+   * dated = am genannten Tag; later = genannt war ein Tag nach heute, eingetragen wird heute;
+   * undated = kein Tag bekannt, der Eintrag steht vor dem Beginn der Mitschrift.
+   */
+  how: 'dated' | 'later' | 'undated';
+  /** „am 3. Tauwind 701 AD“ – so steht es hinter dem Vorschlag. */
+  text: string;
+}
+
+/**
+ * Wohin eine Abmachung in der Chronik kommt. Nie in die Zukunft und nie „jetzt“, nur weil der
+ * Tag unbekannt ist: Ohne Tag steht sie vor dem Beginn der Mitschrift, an keinem Abend. Mit Tag
+ * gehört sie zu dem Abend, in dessen Weltzeit er fällt – wie beim Nachtragen in der Chronik.
+ */
+export function promiseWhen(data: CampaignData, date: WorldTime | null): PromiseWhen {
+  const cal = data.campaign.calendar;
+  const now = data.state.now;
+  if (date === null)
+    return {
+      at: Math.max(0, recordStart(data) - 1),
+      sessionId: null,
+      how: 'undated',
+      text: 'vor Beginn der Mitschrift',
+    };
+  const later = date > now;
+  const at = later ? now : date;
+  return {
+    at,
+    // Auf heute geholt, weil der genannte Tag nach heute liegt: geschehen ist sie trotzdem nicht
+    // am laufenden Abend.
+    sessionId: later ? null : (sessionAt(data, at)?.id ?? null),
+    how: later ? 'later' : 'dated',
+    text: later
+      ? `am ${formatDate(cal, at)} (genannt ist der ${formatDate(cal, date)} – das liegt nach heute)`
+      : `am ${formatDate(cal, at)}`,
+  };
+}
+
 export interface Suggestions {
   hints: AiHint[];
   /** Angaben, die sich nicht eintragen lassen – mit dem Grund. */
@@ -610,6 +745,11 @@ export function suggest(data: CampaignData, article: Article, reading: Reading):
         sort,
         refs: sort === 'secret' && !refs.length && holder ? [holder] : refs,
         placeId: place?.id ?? null,
+        // Wann eine Abmachung getroffen wurde – Geheimnisse und Spuren haben kein Datum.
+        at:
+          sort === 'promise'
+            ? promiseDate(cal, data.state.now, thread, [thread.quote, text])
+            : null,
       },
     });
   }

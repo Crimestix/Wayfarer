@@ -5,17 +5,22 @@
 import { useState, useSyncExternalStore } from 'react';
 import { Link } from 'wouter';
 import { Sparkles } from 'lucide-react';
-import { useDb } from '../../data/hooks';
+import { useData, useDb } from '../../data/hooks';
 import { aiStatus, isDesktopApp } from '../../data/platform';
 import type { AiHint, Article } from '../../domain/schema';
-import { toast } from '../../ui';
+import { primaryEra, type CalendarDef } from '../../domain/time/calendar';
+import { Input, Select, toast } from '../../ui';
+import { timeDraftOf, timeOfDraft, type TimeDraft } from '../chronik/model';
 import { flushEdits } from '../wiki/editing';
 import { acceptAiHint, dismissAiHint, readArticle } from './actions';
 import {
   MIN_TEXT_CHARS,
   articleText,
   formatUsd,
+  hintPromiseDate,
+  isPromiseHint,
   needsReading,
+  promiseWhen,
   threadSort,
   type ThreadSort,
 } from './reader';
@@ -74,7 +79,7 @@ const WHERE: Record<AiHint['kind'], string> = {
   event: 'Wird ein Termin im Kalender – er steht auch am Spieltisch unter „Anstehend“.',
   relation: 'Wird eine Beziehung in der Welt – zu sehen im Dossier beider unter „Beziehungen“.',
   thread:
-    'Wird eine offene Abmachung – zu sehen in der Chronik unter „Offene Abmachungen“ und am Spieltisch unter „Anstehend“.',
+    'Wird eine offene Abmachung in der Chronik – an dem Tag, an dem sie getroffen wurde. Zu sehen unter „Offene Abmachungen“ und am Spieltisch unter „Anstehend“.',
 };
 
 const DONE_WHERE: Record<AiHint['kind'], string> = {
@@ -83,9 +88,75 @@ const DONE_WHERE: Record<AiHint['kind'], string> = {
   thread: 'Zu finden in der Chronik unter „Offene Abmachungen“.',
 };
 
+/** Ein Tag im Kalender der Welt: Tag, Monat, Jahr. Ohne Tag gilt „kein Tag bekannt“. */
+function DayFields({
+  cal,
+  value,
+  onChange,
+}: {
+  cal: CalendarDef;
+  value: TimeDraft;
+  onChange: (value: TimeDraft) => void;
+}) {
+  const set = (change: Partial<TimeDraft>) => onChange({ ...value, ...change });
+  return (
+    <span className="wf-ki-when__fields">
+      <Input
+        type="number"
+        min={1}
+        max={31}
+        placeholder="Tag"
+        aria-label="Tag"
+        className="wf-ki-when__day"
+        value={value.day}
+        onChange={(e) => set({ day: e.target.value })}
+      />
+      <Select
+        aria-label="Monat"
+        value={value.month}
+        onChange={(e) => set({ month: Number(e.target.value) })}
+      >
+        {cal.months.map((month, i) => (
+          <option key={month.name} value={i}>
+            {month.name}
+          </option>
+        ))}
+      </Select>
+      <Input
+        type="number"
+        aria-label={`Jahr ${primaryEra(cal).label}`.trim()}
+        className="wf-ki-when__year"
+        value={value.year}
+        onChange={(e) => set({ year: e.target.value })}
+      />
+      <span className="wf-mute">{primaryEra(cal).label}</span>
+    </span>
+  );
+}
+
+/** Ein Tag als Eingabe; ohne bekannten Tag ist das Feld „Tag“ leer. */
+const dayDraft = (cal: CalendarDef, at: number, known: boolean): TimeDraft => ({
+  ...timeDraftOf(cal, at),
+  day: known ? timeDraftOf(cal, at).day : '',
+  hour: '0',
+  minute: '0',
+});
+
 /** Ein Vorschlag mit dem Satz, aus dem er stammt – zum Eintragen oder Verwerfen. */
 export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   const db = useDb();
+  const data = useData();
+  const cal = data.campaign.calendar;
+  // Eine Abmachung kommt an dem Tag in die Chronik, an dem sie getroffen wurde.
+  const promise = isPromiseHint(hint);
+  const found = promise ? hintPromiseDate(data, hint) : null;
+  /** Der Tag, den der Spielleiter selbst setzt; null = das Feld ist zu. */
+  const [draft, setDraft] = useState<TimeDraft | null>(() =>
+    promise && found === null ? dayDraft(cal, data.state.now, false) : null,
+  );
+  const chosen = draft ? timeOfDraft(cal, draft) : undefined;
+  const when = promise ? promiseWhen(data, chosen === undefined ? found : chosen) : null;
+  const line = when ? `${hint.line} – ${when.text}` : hint.line;
   // Ein offener Punkt ist entweder eine Abmachung oder Wissen, das jemand hat oder nicht hat.
   const payload = hint.payload as { text?: unknown; sort?: unknown };
   const sort =
@@ -96,7 +167,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
   const lead = sort === 'lead';
   const accept = (as?: ThreadSort) => {
     const asLead = as === 'lead' || (as === undefined && lead);
-    const undo = acceptAiHint(db, article.id, hint.id, as);
+    const undo = acceptAiHint(db, article.id, hint.id, as, asLead ? undefined : chosen);
     if (!undo) {
       toast({
         title: 'Der Vorschlag lässt sich nicht eintragen',
@@ -113,7 +184,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
           : DONE_TITLE[hint.kind],
       body: (
         <>
-          <div>{hint.line}</div>
+          <div>{asLead ? hint.line : line}</div>
           <div className="wf-mute">
             {asLead
               ? 'Zu finden auf dem Fadenbrett.'
@@ -141,7 +212,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
         <span className="wf-wiki-facts__label">
           {lead ? 'Faden' : secret ? 'Geheimnis' : KIND_LABEL[hint.kind]}
         </span>
-        <span className="wf-wiki-facts__what">{hint.line}</span>
+        <span className="wf-wiki-facts__what">{line}</span>
         <button
           type="button"
           className="wf-wiki-facts__act"
@@ -170,6 +241,35 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
           Stimmt nicht
         </button>
       </div>
+      {when && draft && (
+        <div className="wf-ki-when">
+          <span className="wf-ki-when__label">Getroffen am</span>
+          <DayFields cal={cal} value={draft} onChange={setDraft} />
+          <span className="wf-mute">
+            {draft.day.trim() && chosen === null
+              ? 'Diesen Tag gibt es im Kalender nicht – so kommt sie vor den Beginn der Mitschrift.'
+              : when.how === 'undated'
+                ? 'Im Text steht kein Tag. Ohne Tag kommt sie vor den Beginn der Mitschrift, nicht auf heute.'
+                : when.how === 'later'
+                  ? 'Nichts wird in die Zukunft eingetragen.'
+                  : ''}
+          </span>
+        </div>
+      )}
+      {when && !draft && (
+        <div className="wf-ki-when">
+          {when.how === 'later' && (
+            <span className="wf-mute">Nichts wird in die Zukunft eingetragen.</span>
+          )}
+          <button
+            type="button"
+            className="wf-wiki-facts__act"
+            onClick={() => setDraft(dayDraft(cal, found ?? data.state.now, found !== null))}
+          >
+            Anderer Tag
+          </button>
+        </div>
+      )}
       {hint.quote && <div className="wf-ki-quote">„{hint.quote}“</div>}
     </div>
   );

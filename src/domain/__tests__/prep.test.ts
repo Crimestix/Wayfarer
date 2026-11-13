@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { endSession, startSession } from '../../data/actions';
+import { endSession, logEntry, moveParty, setTime, startSession } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
+  addToStart,
   ensurePrep,
+  newStoryForHero,
   patchPrep,
   setSceneDone,
   setSecretRevealed,
@@ -12,7 +14,10 @@ import {
 import { newStory, tieHero } from '../../features/faeden/actions';
 import {
   SECRETS_WANTED,
+  appendLine,
   currentPrep,
+  hasLine,
+  lastSessionLines,
   openScenes,
   openSecrets,
   prepAdvice,
@@ -20,7 +25,16 @@ import {
   prepView,
   readyEncounters,
 } from '../prep';
-import { createEncounter, createEntity, newId, type PrepScene, type PrepSecret } from '../schema';
+import {
+  createEvent,
+  createChronicleEntry,
+  createEncounter,
+  createEntity,
+  newId,
+  type PrepScene,
+  type PrepSecret,
+} from '../schema';
+import { storiesOfHero } from '../story';
 
 /** Ein Spielstand ohne laufende Session – der nächste Abend ist noch nicht vorbereitet. */
 async function setup() {
@@ -186,5 +200,139 @@ describe('Das Blatt eines Abends', () => {
     expect(
       prepAdvice(data(), prepView(data()).content).find((entry) => entry.key === 'secrets')!.why,
     ).toContain(`${SECRETS_WANTED - 1} von ${SECRETS_WANTED}`);
+  });
+});
+
+describe('Wo es zuletzt aufhörte', () => {
+  /** Ein gespielter Abend mit ein paar Einträgen – die Zeit läuft dabei weiter. */
+  async function played() {
+    const { db, data } = await setup();
+    for (const entry of Object.values(data().chronicle)) db.remove('chronicle', entry.id);
+    for (const session of Object.values(data().sessions)) db.remove('sessions', session.id);
+    const harbour = db.put('entities', createEntity({ kind: 'place', name: 'Nebelsteg' }));
+    const first = startSession(db);
+    const tick = () => setTime(db, data().state.now + 30);
+    logEntry(db, { text: 'Die Gruppe kauft Salz beim Fährmann.' });
+    tick();
+    logEntry(db, { text: '   ' });
+    moveParty(db, harbour.id);
+    tick();
+    logEntry(db, { kind: 'change', text: 'Der Steg ist eingestürzt.' });
+    tick();
+    logEntry(db, { kind: 'promise', text: 'Mira bringt das Boot zurück.' });
+    tick();
+    logEntry(db, { text: 'Ein Schrei aus dem Nebel – dann Stille.' });
+    tick();
+    endSession(db);
+    return { db, data, first, harbour };
+  }
+
+  it('gibt es nicht, solange kein Abend gespielt ist', async () => {
+    const { db, data } = await setup();
+    for (const session of Object.values(data().sessions)) db.remove('sessions', session.id);
+    expect(lastSessionLines(data())).toBeNull();
+  });
+
+  it('zeigt die letzten Einträge des letzten Abends – der jüngste zuletzt, Leeres nicht', async () => {
+    const { data, first } = await played();
+    const last = lastSessionLines(data())!;
+    expect(last.session.id).toBe(first.id);
+    expect(last.running).toBe(false);
+    expect(last.entries.map((entry) => entry.kind)).toEqual([
+      'note',
+      'travel',
+      'change',
+      'promise',
+      'note',
+    ]);
+    expect(last.entries.at(-1)!.text).toBe('Ein Schrei aus dem Nebel – dann Stille.');
+    // Höchstens so viele, wie gewünscht – vom Ende her.
+    expect(lastSessionLines(data(), 2)!.entries.map((entry) => entry.kind)).toEqual([
+      'promise',
+      'note',
+    ]);
+  });
+
+  it('nimmt beim laufenden Abend den davor – und lässt Einträge anderer Abende weg', async () => {
+    const { db, data, first } = await played();
+    patchPrep(db, { start: 'Etwas' });
+    const second = startSession(db);
+    logEntry(db, { text: 'Am zweiten Abend notiert.' });
+    // Das Blatt gehört jetzt zum laufenden Abend: Zuletzt aufgehört hat der erste.
+    expect(prepView(data()).session?.id).toBe(second.id);
+    const last = lastSessionLines(data())!;
+    expect(last.session.id).toBe(first.id);
+    expect(last.entries.map((entry) => entry.text)).not.toContain('Am zweiten Abend notiert.');
+  });
+
+  it('nimmt Alltägliches nicht mit', async () => {
+    const { db, data } = await played();
+    const market = db.put(
+      'events',
+      createEvent({
+        title: 'Brot backen',
+        at: 0,
+        repeat: { every: 1, unit: 'day' },
+      }),
+    );
+    const session = lastSessionLines(data())!.session;
+    db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'event',
+        at: data().state.now,
+        sessionId: session.id,
+        text: 'Brot backen',
+        eventId: market.id,
+      }),
+    );
+    expect(lastSessionLines(data())!.entries.map((entry) => entry.text)).not.toContain(
+      'Brot backen',
+    );
+  });
+
+  it('hängt eine Zeile an den Einstieg an – nie darüber, nie doppelt', async () => {
+    expect(appendLine('', 'Ein Schrei.')).toBe('Ein Schrei.');
+    expect(appendLine('Das Boot treibt.  \n', 'Ein Schrei.')).toBe('Das Boot treibt.\nEin Schrei.');
+    expect(appendLine('Das Boot treibt.\nEin Schrei.', 'Ein Schrei.')).toBe(
+      'Das Boot treibt.\nEin Schrei.',
+    );
+    expect(appendLine('Das Boot treibt.', '   ')).toBe('Das Boot treibt.');
+    // Ein Wort mitten in einem Satz ist noch keine übernommene Zeile.
+    expect(hasLine('Ein Schrei – dann Stille.', 'Stille.')).toBe(false);
+    expect(appendLine('Ein Schrei – dann Stille.', 'Stille.')).toBe(
+      'Ein Schrei – dann Stille.\nStille.',
+    );
+    // Mehrzeiliges zählt als übernommen, wenn jede seiner Zeilen dasteht.
+    expect(hasLine('Vorher.\n Nebel. \nRegen.', 'Nebel.\nRegen.')).toBe(true);
+    expect(hasLine('Nebel.', 'Nebel.\nRegen.')).toBe(false);
+
+    const { db, data } = await played();
+    patchPrep(db, { start: 'Mitten im Nebel.' });
+    addToStart(db, 'Ein Schrei aus dem Nebel – dann Stille.');
+    expect(prepView(data()).content.start).toBe(
+      'Mitten im Nebel.\nEin Schrei aus dem Nebel – dann Stille.',
+    );
+    // Auf einem Blatt, das es noch nicht gibt, beginnt der Einstieg mit der Zeile.
+    for (const prep of Object.values(data().preps)) db.remove('preps', prep.id);
+    addToStart(db, 'Der Steg ist eingestürzt.');
+    expect(prepView(data()).content.start).toBe('Der Steg ist eingestürzt.');
+  });
+});
+
+describe('Eine neue Geschichte für einen Gefährten', () => {
+  it('wird angelegt, ist im Spiel und betrifft ihn – ohne erfundenen Text', async () => {
+    const { db, data } = await setup();
+    const mate = db.put(
+      'entities',
+      createEntity({ kind: 'character', name: 'Corrin', character: { goal: '' } }),
+    );
+    const story = newStoryForHero(db, mate.id);
+    const saved = data().stories[story.id]!;
+    expect(saved.inPlay).toBe(true);
+    expect(saved.title).toBe('Neue Geschichte');
+    expect(saved.summary).toBe('');
+    expect(saved.heroes.map((hero) => hero.characterId)).toEqual([mate.id]);
+    expect(storiesOfHero(data(), mate.id).map((tie) => tie.story.id)).toEqual([story.id]);
   });
 });

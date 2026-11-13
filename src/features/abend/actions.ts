@@ -4,8 +4,9 @@
  */
 import type { CampaignDb } from '../../data/db';
 import { currentSession } from '../../domain/derive';
-import { carryOver, currentPrep, type PrepContent } from '../../domain/prep';
-import { createPrep, type Prep } from '../../domain/schema';
+import { appendLine, carryOver, currentPrep, prepView, type PrepContent } from '../../domain/prep';
+import { createPrep, type Prep, type Story } from '../../domain/schema';
+import { newStory, tieHero } from '../faeden/actions';
 
 /**
  * Das Blatt des Abends – legt es an, falls es noch keines gibt. Läuft gerade eine Session, gehört
@@ -62,5 +63,26 @@ export function setSecretRevealed(db: CampaignDb, secretId: string, revealed: bo
     secrets: prep.secrets.map((secret) =>
       secret.id === secretId ? { ...secret, revealed, revealedAt: revealed ? now : null } : secret,
     ),
+  });
+}
+
+/**
+ * Nimmt eine Zeile in den Einstieg auf – in einer neuen Zeile unter dem, was schon dasteht, nie
+ * darüber. Gelesen wird der Einstieg, wie er gerade gespeichert ist.
+ */
+export function addToStart(db: CampaignDb, line: string): Prep {
+  const start = prepView(db.getSnapshot()).content.start;
+  return patchPrep(db, { start: appendLine(start, line) });
+}
+
+/**
+ * Eine neue Geschichte für einen Gefährten: Sie betrifft ihn persönlich und ist gleich im Spiel.
+ * Mehr steht nicht darin – was sie erzählt, schreibt der Spielleiter auf ihrem Blatt.
+ */
+export function newStoryForHero(db: CampaignDb, characterId: string): Story {
+  return db.batch(() => {
+    const story = newStory(db, { inPlay: true });
+    tieHero(db, story.id, characterId);
+    return db.getSnapshot().stories[story.id] ?? story;
   });
 }

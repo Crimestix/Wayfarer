@@ -10,9 +10,11 @@
 import { activeParty, currentSession, sessionsSorted } from './derive';
 import { readyLoot } from './loot';
 import { storiesOfHero } from './story';
+import { isEveryday } from './weight';
 import type {
   CampaignData,
   Character,
+  ChronicleEntry,
   Encounter,
   Prep,
   PrepScene,
@@ -92,6 +94,83 @@ export function prepView(data: CampaignData): PrepView {
     number: session ? session.number : number,
     carried: { scenes: content.scenes.length, secrets: content.secrets.length },
   };
+}
+
+// ── Wo es zuletzt aufhörte ────────────────────────────────────────────────
+
+/** So viele Zeilen vom Ende des letzten Abends stehen beim Einstieg zur Auswahl. */
+export const LAST_LINES = 5;
+
+export interface LastSessionLines {
+  /** Der letzte Abend vor dem, dem das Blatt gilt. */
+  session: Session;
+  /** Läuft dieser Abend noch? (Das Blatt gilt dann schon dem danach.) */
+  running: boolean;
+  /** Die letzten Einträge der Chronik aus diesem Abend – der jüngste zuletzt. */
+  entries: ChronicleEntry[];
+}
+
+/** Trägt ein Eintrag etwas, das sich als Einstieg aufgreifen lässt? Alltag und Leeres nicht. */
+function worthTelling(data: CampaignData, entry: ChronicleEntry): boolean {
+  if (entry.kind === 'travel') return !!entry.travel;
+  if (entry.kind === 'attitude') return !!entry.attitude;
+  if (entry.kind === 'event') {
+    const event = entry.eventId ? data.events[entry.eventId] : undefined;
+    if (event && isEveryday(data, event)) return false;
+  }
+  return entry.text.trim() !== '';
+}
+
+/**
+ * Wo es zuletzt aufhörte: die letzten Einträge der Chronik aus dem Abend vor dem, dem das Blatt
+ * gilt – Notizen, Veränderungen, Ortswechsel, Abmachungen, so wie sie dort stehen. Gehört das
+ * Blatt zur laufenden Session, ist es die davor; gilt es dem kommenden Abend, die letzte bisher.
+ * null, wenn es noch keinen früheren Abend gibt. Wayfarer formuliert nichts um – es zeigt nur,
+ * was in der Chronik steht.
+ */
+export function lastSessionLines(
+  data: CampaignData,
+  limit: number = LAST_LINES,
+): LastSessionLines | null {
+  const { number } = prepView(data);
+  const session = Object.values(data.sessions)
+    .filter((entry) => entry.number < number)
+    .sort((a, b) => b.number - a.number || b.startAt - a.startAt)[0];
+  if (!session) return null;
+  const entries = Object.values(data.chronicle)
+    .filter((entry) => entry.sessionId === session.id && worthTelling(data, entry))
+    .sort((a, b) => a.at - b.at || a.created.localeCompare(b.created));
+  return {
+    session,
+    running: data.state.sessionId === session.id,
+    entries: limit > 0 ? entries.slice(-limit) : [],
+  };
+}
+
+/**
+ * Hängt eine Zeile an einen Text an – in einer neuen Zeile, nie über das Geschriebene. Steht sie
+ * schon darin, bleibt der Text, wie er ist.
+ */
+export function appendLine(text: string, line: string): string {
+  const add = line.trim();
+  if (!add) return text;
+  if (hasLine(text, add)) return text;
+  const before = text.trimEnd();
+  return before ? `${before}\n${add}` : add;
+}
+
+/**
+ * Steht diese Zeile schon im Text – als eigene Zeile (bei mehrzeiligen: jede ihrer Zeilen)?
+ * Ein kurzes Wort mitten in einem Satz zählt nicht, sonst ließe sich „Stille.“ nicht übernehmen,
+ * sobald irgendwo „… dann Stille.“ steht.
+ */
+export function hasLine(text: string, line: string): boolean {
+  const present = new Set(text.split(/\r?\n/).map((row) => row.trim()));
+  const wanted = line
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+  return wanted.length > 0 && wanted.every((row) => present.has(row));
 }
 
 /** Szenen, die noch nicht gespielt sind. */

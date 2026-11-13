@@ -6,11 +6,12 @@
  */
 import { useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Flame, Plus, Swords, X } from 'lucide-react';
+import { Check, CornerDownLeft, Flame, Plus, Swords, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import {
   SECRETS_WANTED,
+  lastSessionLines,
   openSecrets,
   prepAdvice,
   prepView,
@@ -37,16 +38,22 @@ import { newEncounter } from '../bestiarium/encounterActions';
 import { newStory, setInPlay, tieHero } from '../faeden/actions';
 import { patchCharacter } from '../gruppe/actions';
 import { LootList } from '../beute/LootList';
-import { patchPrep } from './actions';
+import { addToStart, newStoryForHero, patchPrep } from './actions';
+import { lastLinesView } from './model';
 import './abend.css';
+
+/** Der Eintrag im Auswahlfeld, der eine neue Geschichte anlegt. */
+const NEW_STORY = '__neu__';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 export default function AbendPage() {
   const data = useData();
   const view = useMemo(() => prepView(data), [data]);
-  // Wechselt das Blatt (eine Session beginnt oder endet), beginnen die Felder neu.
-  return <PrepSheet key={`${view.prep?.id ?? 'neu'}:${view.number}`} view={view} />;
+  // Wechselt das Blatt (eine Session beginnt oder endet), beginnen die Felder neu. Das erste
+  // gespeicherte Wort legt das Blatt an, ist aber kein Wechsel: Sonst ginge der Klick verloren,
+  // der das Feld verlassen hat (etwa „Übernehmen“), und das nächste Feld verlöre den Cursor.
+  return <PrepSheet key={`${view.session?.id ?? 'offen'}:${view.number}`} view={view} />;
 }
 
 function PrepSheet({ view }: { view: PrepView }) {
@@ -95,6 +102,7 @@ function PrepSheet({ view }: { view: PrepView }) {
             placeholder="Als die Gruppe den Steg betritt, treibt ein leeres Boot aus dem Nebel …"
             onSave={(start) => patchPrep(db, { start })}
           />
+          <LastLines start={content.start} />
         </SheetSection>
 
         <Stories />
@@ -144,11 +152,52 @@ function PrepSheet({ view }: { view: PrepView }) {
   );
 }
 
+// ── Wo es zuletzt aufhörte ─────────────────────────────────────────────────
+
+/** Die letzten Einträge der Chronik vom letzten Abend – mit einem Klick in den Einstieg. */
+function LastLines({ start }: { start: string }) {
+  const db = useDb();
+  const data = useData();
+  const view = useMemo(() => lastLinesView(data, lastSessionLines(data), start), [data, start]);
+  return (
+    <div className="wf-abend-last">
+      <span className="wf-sheet__label">{view.title}</span>
+      {view.empty && <p className="wf-abend-last__none">{view.empty}</p>}
+      {view.lines.map((entry) => (
+        <div
+          key={entry.id}
+          className={cx('wf-abend-last__row', entry.taken && 'wf-abend-last__row--taken')}
+        >
+          <span className="wf-abend-last__kind">{entry.kind}</span>
+          <span className="wf-abend-last__line wf-clamp-2" title={entry.line}>
+            {entry.line}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={entry.taken ? <Check /> : <CornerDownLeft />}
+            disabled={entry.taken}
+            title={
+              entry.taken
+                ? 'Steht schon im Einstieg.'
+                : 'In den Einstieg übernehmen – in einer neuen Zeile unter dem, was schon dasteht.'
+            }
+            onClick={() => addToStart(db, entry.line)}
+          >
+            {entry.taken ? 'Übernommen' : 'Übernehmen'}
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Die Gefährten ──────────────────────────────────────────────────────────
 
 function Companions() {
   const db = useDb();
   const data = useData();
+  const [, navigate] = useLocation();
   const party = activeParty(data);
   const stories = Object.values(data.stories)
     .filter((story) => !story.closed)
@@ -193,22 +242,29 @@ function Companions() {
                     {!tie.story.inPlay && ' (nicht im Spiel)'}
                   </Link>
                 ))}
-                {free.length > 0 && (
-                  <Select
-                    value=""
-                    aria-label={`${character.name} an eine Geschichte heften`}
-                    onChange={(event) => {
-                      if (event.target.value) tieHero(db, event.target.value, character.id);
-                    }}
-                  >
-                    <option value="">an Geschichte heften …</option>
-                    {free.map((story) => (
-                      <option key={story.id} value={story.id}>
-                        {story.title}
-                      </option>
-                    ))}
-                  </Select>
-                )}
+                <Select
+                  value=""
+                  aria-label={`${character.name} an eine Geschichte heften`}
+                  title="An eine Geschichte heften, die ihn persönlich betrifft – oder gleich eine neue für ihn schreiben"
+                  onChange={(event) => {
+                    const choice = event.target.value;
+                    if (choice === NEW_STORY)
+                      navigate(`/geschichte/${newStoryForHero(db, character.id).id}`);
+                    else if (choice) tieHero(db, choice, character.id);
+                  }}
+                >
+                  <option value="">an Geschichte heften …</option>
+                  <option value={NEW_STORY}>{`+ Neue Geschichte für ${character.name}`}</option>
+                  {free.length > 0 && (
+                    <optgroup label="Bestehende Geschichten">
+                      {free.map((story) => (
+                        <option key={story.id} value={story.id}>
+                          {story.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </Select>
               </div>
             </div>
           </div>

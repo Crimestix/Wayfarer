@@ -32,12 +32,15 @@
 }
 .wf-best-side__new {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
   padding: var(--s-2) var(--s-4) var(--s-3);
 }
+/* Die Spalte ist schmal: Passen beide Knöpfe nicht nebeneinander, steht der zweite darunter. */
 .wf-best-side__new .wf-btn {
-  flex: 1;
+  flex: 1 1 auto;
   justify-content: center;
+  padding: 0 var(--s-3);
 }
 .wf-best-side__filter {
   display: flex;
@@ -100,6 +103,7 @@
   color: var(--ink);
   font: inherit;
   text-align: left;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .wf-best-row:hover {
@@ -144,6 +148,7 @@
 }
 .wf-best-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
   align-items: center;
   padding: var(--s-3) var(--s-5);
@@ -225,7 +230,7 @@
 }
 .wf-best-top {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2px var(--s-5);
   padding: var(--s-3) 0;
   border-top: 1px solid var(--gold-deep);
@@ -286,11 +291,15 @@
 }
 .wf-best-feature {
   display: flex;
-  gap: var(--s-3);
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-3);
   align-items: flex-start;
   justify-content: space-between;
 }
+/* In der schmalen Spalte der Begegnungen rutschen die Würfelknöpfe unter den Text. */
 .wf-best-feature p {
+  flex: 1 1 240px;
+  min-width: 0;
   line-height: 1.45;
 }
 .wf-best-feature__name {
@@ -365,6 +374,7 @@
 /* Trefferpunkte eines Einzelnen */
 .wf-best-hp {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
   align-items: center;
 }
@@ -421,9 +431,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+  min-width: 0;
   padding: var(--s-4);
   border: 1px solid var(--line);
   background: var(--bg-inset);
+  overflow-wrap: anywhere;
 }
 .wf-best-paste__read p {
   margin: 0;
@@ -438,9 +450,17 @@
   color: var(--ember);
   font-size: var(--text-sm);
 }
-.wf-best-paste__unread span {
+.wf-best-paste__unread span,
+.wf-best-paste__notes span {
   color: var(--ink-soft);
   font-style: italic;
+}
+.wf-best-paste__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
 }
 
 /* Bauen */
@@ -565,15 +585,20 @@
 
 /* Begegnungen */
 .wf-best-enc__bar {
-  gap: var(--s-3);
+  gap: var(--s-2) var(--s-3);
 }
+/* Name und Ort geben nach, bevor die Knöpfe über den Rand laufen. */
 .wf-best-enc__name {
-  width: 300px;
+  flex: 1 1 180px;
+  min-width: 0;
+  max-width: 300px;
   font-family: var(--font-display);
   font-size: var(--text-xl);
 }
 .wf-best-enc__place {
-  width: 220px;
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 220px;
 }
 .wf-best--enc {
   grid-template-columns: 250px minmax(0, 1fr);
@@ -606,6 +631,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 64px auto;
   gap: var(--s-2);
+  min-width: 0;
 }
 .wf-best-enc__add .wf-input {
   text-align: center;

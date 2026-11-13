@@ -54,7 +54,8 @@ export function AiOverview() {
           <strong>Beziehung</strong> kommt in die Welt: ins Dossier beider unter „Beziehungen“.
         </li>
         <li>
-          <strong>Abmachung</strong> kommt in die Chronik unter „Offene Abmachungen“.
+          <strong>Abmachung</strong> kommt in die Chronik unter „Offene Abmachungen“ – an dem Tag,
+          an dem sie getroffen wurde.
         </li>
         <li>
           <strong>Geheimnis</strong> kommt ohne Datum ins Dossier der Person, ins Feld „Geheimnis“.

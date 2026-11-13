@@ -159,6 +159,10 @@ nicht übernommen.
 - KI-Leser: Ein offener Punkt ist eine Abmachung (kommt in die Chronik) oder ein Geheimnis
   (`threadSort`) – Wissen und Nichtwissen stehen ohne Datum im Feld „Geheimnis“ des Eintrags,
   nie als heutiger Eintrag der Chronik. Vergangenes kommt nur mit eigenem Datum in den Kalender.
+  Eine angenommene Abmachung steht an dem Tag, an dem sie getroffen wurde: aus der Antwort, sonst
+  aus dem zitierten Satz, sonst vom Spielleiter in der Karte gesetzt; ohne Tag vor dem Beginn der
+  Mitschrift – nie auf „jetzt“, nie in der Zukunft, nie im laufenden Abend (`promiseWhen` in
+  `ki/reader.ts`).
 - Kalender: Was im Kalender steht, entscheidet `eventWeight()` (`domain/weight.ts`), nie die
   Oberfläche: Tägliches ist Alltag, Wöchentliches zählt nur am Ort der Gruppe, Einmaliges, Feste
   und alles an einem offenen Faden immer. Alltag wird geführt, aber nur am Tag gezeigt. Neue
@@ -220,7 +224,9 @@ nicht übernommen.
   kommenden Abend; `startSession` hängt es an die Session. Was nicht gespielt und nicht
   aufgedeckt wurde, wandert über `carryOver()` auf das nächste Blatt – nie von Hand kopieren.
   Gelesen wird über `prepView()`, geschrieben über `features/abend/actions.ts` (`patchPrep`
-  legt das Blatt mit dem ersten Wort an). Was fehlt, sagt `prepAdvice()` als Rat. Was ein
+  legt das Blatt mit dem ersten Wort an). Was fehlt, sagt `prepAdvice()` als Rat. Unter „Starker
+  Einstieg“ stehen die letzten Einträge der vorigen Session zum Übernehmen (`lastSessionLines`) –
+  Wayfarer bietet nur die eigenen Zeilen des Spielleiters an, es formuliert nichts. Was ein
   Gefährte will, steht bei ihm (`character.goal`). Welche Geschichte einen Gefährten persönlich
   betrifft, steht an der Geschichte (`story.heroes`, mit seinem Grund; gesetzt über `tieHero` /
   `untieHero`) – gelesen über `heroesOf()` und `storiesOfHero()`. Solche Gefährten zählen zu

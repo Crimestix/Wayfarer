@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { ArticleSchema, createEntity, type Article } from '../../domain/schema';
+import {
+  ArticleSchema,
+  createChronicleEntry,
+  createEntity,
+  createSession,
+  type Article,
+} from '../../domain/schema';
 import { MINUTES_PER_DAY, fromTime, toTime } from '../../domain/time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
 import {
@@ -23,6 +29,9 @@ import {
   formatUsd,
   needsReading,
   parseReply,
+  promiseDate,
+  promiseWhen,
+  recordStart,
   replyProblem,
   textMark,
   type Reading,
@@ -528,5 +537,163 @@ describe('KI-Leser: lesen, vorschlagen, annehmen', () => {
       /zu wenig Text/,
     );
     expect(db.getSnapshot().articles.seeschwalbe!.aiRead).toBeNull();
+  });
+});
+
+describe('KI-Leser: Abmachungen an ihrem Tag', () => {
+  const cal = ELARIS_CALENDAR;
+  const day = (d: number, month: number, year = 701) =>
+    toTime(cal, { year: year + 27387, month, day: d, hour: 0, minute: 0 });
+  const promises = (db: CampaignDb) =>
+    Object.values(db.getSnapshot().chronicle).filter((entry) => entry.kind === 'promise');
+  const readOne = async (db: CampaignDb, thread: Reading['threads'][number]) => {
+    await readArticle(db, 'seeschwalbe', async () => ({
+      status: 200,
+      body: apiReply({ events: [], relations: [], threads: [thread] }),
+    }));
+    return db.getSnapshot().articles.seeschwalbe!.aiHints[0]!;
+  };
+  const debt = {
+    text: 'Mira schuldet Odo die Heuer eines ganzen Sommers',
+    sort: 'promise' as const,
+    who: ['Mira Tannhaus', 'Odo Tannhaus'],
+    place: '',
+    quote: 'dem sie noch die Heuer eines ganzen Sommers schuldet',
+  };
+
+  it('fragt nach dem Tag, an dem eine Abmachung getroffen wurde', () => {
+    const request = buildReadRequest(elarisCampaign(), article());
+    expect(request.system).toMatch(/Tag, an dem die Abmachung getroffen wurde/);
+    const threads = request.schema.properties.threads.items;
+    expect(threads.required).toEqual(expect.arrayContaining(['day', 'month', 'year']));
+    // Ältere Antworten ohne Tag bleiben lesbar.
+    expect(
+      parseReply(200, apiReply({ threads: [{ text: 'x', who: [], place: '', quote: '' }] })),
+    ).toBeTruthy();
+  });
+
+  it('nimmt den Tag aus der Antwort – nicht heute und nicht den laufenden Abend', async () => {
+    const { db, mira, odo } = await setup();
+    const running = db.getSnapshot().state.sessionId;
+    expect(running).not.toBeNull();
+    const hint = await readOne(db, { ...debt, day: 3, month: 'Tauwind', year: 701 });
+    expect(hint.payload.at).toBe(day(3, 0));
+    const data = db.getSnapshot();
+    expect(promiseWhen(data, day(3, 0)).text).toBe('am 3. Tauwind 701 AD');
+    const undo = acceptAiHint(db, 'seeschwalbe', hint.id)!;
+    expect(promises(db)).toMatchObject([
+      { at: day(3, 0), sessionId: null, refs: [mira.id, odo.id], promise: { done: false } },
+    ]);
+    expect(promises(db)[0]!.at).toBeLessThan(data.state.now);
+    undo();
+    expect(promises(db)).toHaveLength(0);
+  });
+
+  it('liest den Tag aus dem zitierten Satz, wenn die Antwort keinen nennt', async () => {
+    const { db } = await setup();
+    const hint = await readOne(db, {
+      ...debt,
+      quote: 'Am 9. Tauwind 701 AD versprach Mira, Odo die Heuer bis zum Herbst zu zahlen.',
+    });
+    expect(hint.payload.at).toBe(day(9, 0));
+    acceptAiHint(db, 'seeschwalbe', hint.id);
+    expect(promises(db)[0]).toMatchObject({ at: day(9, 0), sessionId: null });
+    // Ein Tag nach heute im Satz ist eher die Frist als der Tag der Abmachung.
+    expect(
+      promiseDate(cal, ELARIS_START, {}, ['Zu zahlen bis zum 3. Erntfall 701 AD.']),
+    ).toBeNull();
+    // Eine Frist ist nicht der Tag der Abmachung – auch wenn sie schon vorbei ist.
+    expect(
+      promiseDate(cal, ELARIS_START, {}, ['Bis zum 3. Tauwind 701 AD musste Mira zahlen.']),
+    ).toBeNull();
+    expect(
+      promiseDate(cal, ELARIS_START, {}, ['Vor Zeugen am 3. Tauwind 701 AD schwor Mira es.']),
+    ).toBe(day(3, 0));
+    // Ältere Vorschläge ohne gespeicherten Tag lesen den Satz beim Annehmen.
+    const old = {
+      ...hint,
+      id: 'alt',
+      key: 'alt',
+      state: 'open' as const,
+      payload: { ...hint.payload },
+    };
+    delete old.payload.at;
+    db.patch('articles', 'seeschwalbe', { aiHints: [old] });
+    acceptAiHint(db, 'seeschwalbe', 'alt');
+    expect(promises(db).map((entry) => entry.at)).toEqual([day(9, 0), day(9, 0)]);
+  });
+
+  it('ohne Tag: vor den Beginn der Mitschrift, an keinem Abend – nie auf heute', async () => {
+    const { db } = await setup();
+    // Gespielt wurde schon: ein Abend mit einer Notiz, danach ist Zeit vergangen.
+    const first = db.getSnapshot().state.sessionId!;
+    db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'note',
+        at: ELARIS_START + 60,
+        sessionId: first,
+        text: 'Ankunft',
+      }),
+    );
+    db.setState({ now: ELARIS_START + 10 * MINUTES_PER_DAY });
+    const hint = await readOne(db, debt);
+    expect(hint.payload.at).toBeNull();
+    const data = db.getSnapshot();
+    expect(recordStart(data)).toBe(ELARIS_START);
+    expect(promiseWhen(data, null)).toMatchObject({
+      how: 'undated',
+      text: 'vor Beginn der Mitschrift',
+    });
+    acceptAiHint(db, 'seeschwalbe', hint.id);
+    const [entry] = promises(db);
+    expect(entry).toMatchObject({ at: ELARIS_START - 1, sessionId: null });
+    expect(entry!.at).not.toBe(data.state.now);
+    // Weitere Abmachungen ohne Tag rücken nicht immer weiter nach vorn.
+    expect(recordStart(db.getSnapshot())).toBe(ELARIS_START);
+  });
+
+  it('setzt den Tag, den der Spielleiter wählt – und trägt nie in die Zukunft ein', async () => {
+    const { db } = await setup();
+    const hint = await readOne(db, { ...debt, day: 3, month: 'Erntfall', year: 701 });
+    const data = db.getSnapshot();
+    const later = promiseWhen(data, hint.payload.at as number);
+    expect(later).toMatchObject({ how: 'later', at: data.state.now });
+    expect(later.text).toMatch(/^am 17\. Tauwind 701 AD \(genannt ist der 3\. Erntfall 701 AD/);
+    const undo = acceptAiHint(db, 'seeschwalbe', hint.id)!;
+    expect(promises(db)[0]!.at).toBe(data.state.now);
+    // Auf heute geholt – aber nicht am laufenden Abend geschehen.
+    expect(data.state.sessionId).not.toBeNull();
+    expect(promises(db)[0]!.sessionId).toBeNull();
+    undo();
+    // Der Spielleiter setzt den Tag selbst …
+    acceptAiHint(db, 'seeschwalbe', hint.id, undefined, day(1, 0));
+    expect(promises(db)[0]!.at).toBe(day(1, 0));
+    db.remove('chronicle', promises(db)[0]!.id);
+    db.patch('articles', 'seeschwalbe', {
+      aiHints: db
+        .getSnapshot()
+        .articles.seeschwalbe!.aiHints.map((h) => ({ ...h, state: 'open' as const })),
+    });
+    // … oder lässt ihn bewusst offen.
+    acceptAiHint(db, 'seeschwalbe', hint.id, undefined, null);
+    expect(promises(db)[0]!.at).toBeLessThan(data.state.now);
+  });
+
+  it('gehört zu dem Abend, in dessen Weltzeit der Tag fällt – nicht zum laufenden', async () => {
+    const { db } = await setup();
+    const running = db.getSnapshot().state.sessionId!;
+    const past = db.put(
+      'sessions',
+      createSession({
+        number: 11,
+        startAt: day(1, 0),
+        endAt: day(5, 0),
+      }),
+    );
+    const hint = await readOne(db, { ...debt, day: 3, month: 'Tauwind', year: 701 });
+    acceptAiHint(db, 'seeschwalbe', hint.id);
+    expect(promises(db)[0]!.sessionId).toBe(past.id);
+    expect(promises(db)[0]!.sessionId).not.toBe(running);
   });
 });

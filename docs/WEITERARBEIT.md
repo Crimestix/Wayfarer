@@ -1293,6 +1293,23 @@ Wayfarer merkt sich, was die Gruppe bekommt.
 - **Offen:** Beute aus einem Bestand (Hort) oder einer Begegnung heraus vorschlagen; Gold in
   anderen Münzen (Silber, Kupfer).
 
+### Funde des Spielleiters (13. 11. 2026) – behoben
+
+- **Abend vorbereiten:** „an Geschichte heften“ steht immer da und kann eine neue Geschichte für
+  den Gefährten anlegen (öffnet ihr Blatt). Unter „Starker Einstieg“: „Wo es zuletzt aufhörte“ –
+  die letzten fünf Einträge der vorigen Session, je mit „Übernehmen“ (hängt die Zeile an).
+- **KI-Leser:** Abmachungen kommen an den Tag, an dem sie getroffen wurden (Antwort, zitierter
+  Satz oder Datumsfeld in der Karte); ohne Tag vor den Beginn der Mitschrift. Ein Datum nach
+  „bis“, „spätestens“ … gilt als Frist, nicht als Tag der Abmachung. Schon früher angenommene
+  Abmachungen bleiben, wo sie stehen – in der Chronik lässt sich ihr Tag von Hand ändern.
+- **Bestiarium:** Knöpfe brechen um statt über den Rand zu laufen (Liste, Leisten von
+  Begegnungen und Beständen, Statblock in schmaler Spalte). Werteblöcke: PDF mit getrennten
+  Zeilen, D&D Beyond (2014 und 2024), deutsche Übersetzung („STÄ“, „W“-Würfel, Meter), Hort- und
+  Regionalaktionen; was nicht verstanden wurde, steht im Dialog.
+- **Nicht geprüft:** installierte App; Werteblöcke aus echten Büchern (nur erfundene Wesen).
+- **Offen:** Hortaktionen haben keinen eigenen Abschnitt (stehen bei den legendären Aktionen);
+  Zauberlisten werden zu einem Absatz; eine Frist aus dem Satz wird nicht als Fälligkeit gesetzt.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

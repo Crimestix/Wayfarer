@@ -4,11 +4,10 @@
  */
 import { useMemo, useState } from 'react';
 import { useDb } from '../../data/hooks';
-import { DEFAULT_BLOCK, speedText, statsOf, typeLine } from '../../domain/creature';
 import type { Creature } from '../../domain/schema';
 import { Button, Dialog, Field, Input, TextArea } from '../../ui';
 import { importStatblock } from './actions';
-import { parseStatblock } from './parse';
+import { missingOf, parseStatblock, readSummary } from './parse';
 
 export function PasteDialog({
   onClose,
@@ -21,16 +20,8 @@ export function PasteDialog({
   const [text, setText] = useState('');
   const [source, setSource] = useState('');
   const parsed = useMemo(() => parseStatblock(text), [text]);
-  const block = parsed ? { ...DEFAULT_BLOCK, ...parsed.block } : null;
-  const stats = block ? statsOf(block) : null;
-  const missing = parsed
-    ? [
-        parsed.block.abilities ? '' : 'Attribute',
-        parsed.block.ac === undefined ? 'Rüstungsklasse' : '',
-        parsed.block.hitDice === undefined && parsed.block.hp === undefined ? 'Trefferpunkte' : '',
-        parsed.block.cr === undefined ? 'Herausforderungsgrad' : '',
-      ].filter(Boolean)
-    : [];
+  const summary = parsed ? readSummary(parsed) : [];
+  const missing = parsed ? missingOf(parsed) : [];
   return (
     <Dialog
       open
@@ -56,7 +47,7 @@ export function PasteDialog({
         <div className="wf-col">
           <Field
             label="Statblock"
-            hint="Deutsch oder englisch, aus einem Buch abgetippt, aus eigenen Notizen oder von D&D Beyond kopiert."
+            hint="Deutsch oder englisch – aus einem PDF, von D&D Beyond oder aus eigenen Notizen kopiert. Umbrochene Zeilen und Trennstriche fügt Wayfarer selbst zusammen."
           >
             <TextArea
               value={text}
@@ -72,7 +63,7 @@ export function PasteDialog({
         </div>
         <div className="wf-best-paste__read">
           <div className="wf-best-bar__kind">Das liest Wayfarer</div>
-          {!parsed || !block || !stats ? (
+          {!parsed ? (
             <p className="wf-mute">
               Füge links einen Statblock ein. Hier steht dann, was Wayfarer verstanden hat – bevor
               etwas übernommen wird.
@@ -80,23 +71,12 @@ export function PasteDialog({
           ) : (
             <>
               <div className="wf-best-block__name">{parsed.name}</div>
-              <div className="wf-best-block__type">{typeLine(block)}</div>
               <div className="wf-best-lines">
-                <div className="wf-best-line">
-                  <b>RK</b> {block.ac} · <b>TP</b> {stats.hp}
-                  {block.hp === null ? ` (${stats.hpFormula})` : ''} · <b>HG</b> {block.cr}
-                </div>
-                <div className="wf-best-line">
-                  <b>Bewegung</b> {speedText(block)}
-                </div>
-                <div className="wf-best-line">
-                  <b>Fähigkeiten</b>{' '}
-                  {parsed.features.length
-                    ? parsed.features
-                        .map((feature) => feature.name + (feature.attack ? ' (Angriff)' : ''))
-                        .join(', ')
-                    : 'keine erkannt'}
-                </div>
+                {summary.map((row) => (
+                  <div key={row.label} className="wf-best-line">
+                    <b>{row.label}</b> {row.value}
+                  </div>
+                ))}
               </div>
               {missing.length > 0 && (
                 <p className="wf-best-check wf-best-check--high">
@@ -106,9 +86,17 @@ export function PasteDialog({
               )}
               {parsed.unread.length > 0 && (
                 <div className="wf-best-paste__unread">
-                  <b>Nicht zugeordnet – bitte selbst prüfen:</b>
+                  <b>Nicht verstanden – bitte nach dem Übernehmen selbst eintragen:</b>
                   {parsed.unread.map((line, index) => (
                     <span key={index}>{line}</span>
+                  ))}
+                </div>
+              )}
+              {parsed.notes.length > 0 && (
+                <div className="wf-best-paste__notes">
+                  <b>Gut zu wissen:</b>
+                  {parsed.notes.map((note, index) => (
+                    <span key={index}>{note}</span>
                   ))}
                 </div>
               )}

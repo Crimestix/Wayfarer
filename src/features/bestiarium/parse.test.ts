@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStatblock } from './parse';
+import { UNNAMED, joinBroken, missingOf, parseStatblock, readSummary } from './parse';
 
 /** Erfundene Wesen – im Satz der Bücher, aber aus keinem Buch. */
 const GERMAN = `
@@ -217,5 +217,160 @@ Biss. Nahkampfangriffswurf: +9, Reichweite 1,5 m. Treffer: 4 Stichschaden.`)!;
     // Kein Attribut erklärt +9: Der Bonus bleibt, wie er dasteht.
     expect(read.features[0]!.attack).toMatchObject({ bonus: 9, dice: '4', addMod: false });
     expect(parseStatblock('   \n ')).toBeNull();
+  });
+});
+
+describe('Was Wayfarer dem Spielleiter sagt', () => {
+  it('nennt unbekannte Fertigkeiten und Rettungswürfe, statt sie zu verschlucken', () => {
+    const read = parseStatblock(`Moosläufer
+Kleines Tier, gesinnungslos
+Rüstungsklasse 12
+Trefferpunkte 7 (2W6)
+Bewegungsrate 12 m
+STÄ 6 −2 −2 GES 15 +2 +4 KON 10 +0 +0
+INT 2 −4 −4 WEI 12 +1 +1 CHA 5 −3 −3
+Rettungswürfe Glück +3
+Fertigkeiten Schleichen +4, Wahrnehmung +3
+Herausforderungsgrad 1/8 (25 EP)`)!;
+    // Im Satz von 2024 mit „STÄ“ – das Umlaut-Kürzel wird als Wort erkannt.
+    expect(read.block.abilities).toEqual({ str: 6, dex: 15, con: 10, int: 2, wis: 12, cha: 5 });
+    expect(read.block.saves).toEqual(['dex']);
+    expect(read.block.speed).toMatchObject({ walk: 40 });
+    expect(read.block.skills).toEqual({ perception: 1 });
+    expect(read.unread).toEqual(['Rettungswurf: Glück +3', 'Fertigkeit: Schleichen +4']);
+  });
+
+  it('sagt, wenn Trefferpunkte oder Angriffsbonus fest gelten', () => {
+    const read = parseStatblock(`Dornwolf
+Medium Beast, Unaligned
+AC 13
+HP 30 (4d8 + 4)
+Speed 40 ft.
+STR 14 +2 +2 DEX 12 +1 +1 CON 12 +1 +1
+INT 3 -4 -4 WIS 12 +1 +1 CHA 6 -2 -2
+CR 1 (XP 200; PB +2)
+Actions
+Thorn Bite. Melee Attack Roll: +7, reach 5 ft. Hit: 6 (1d8 + 2) Piercing damage.`)!;
+    expect(read.block.hp).toBe(30);
+    expect(read.notes).toEqual([
+      '30 Trefferpunkte folgen nicht aus 4d8 + 4 bei dieser Größe und Konstitution – sie gelten fest.',
+      '„Thorn Bite“: Der Angriffsbonus +7 passt zu keinem Attribut – er gilt fest, so wie er dasteht.',
+    ]);
+  });
+
+  it('liest Lebensraum und Schatz, auch in einer Zeile', () => {
+    const read = parseStatblock(`Schilfgeist
+Winziges Feenwesen, chaotisch neutral
+Lebensraum: Sumpf, Fluss; Schatz: Krimskrams
+Rüstungsklasse 13`)!;
+    expect(read.block).toMatchObject({
+      habitat: 'Sumpf, Fluss',
+      treasure: 'Krimskrams',
+      size: 'tiny',
+    });
+  });
+
+  it('ohne Namen: ein Platzhalter und ein Hinweis', () => {
+    const read = parseStatblock(`Armor Class 12
+Hit Points 9 (2d8)`)!;
+    expect(read.name).toBe(UNNAMED);
+    expect(missingOf(read)).toEqual([
+      'Name',
+      'Größe und Typ',
+      'Attribute',
+      'Bewegungsrate',
+      'Herausforderungsgrad',
+    ]);
+    expect(read.notes[0]).toContain('ohne Namen');
+  });
+
+  it('fasst zusammen, was verstanden wurde', () => {
+    const rows = readSummary(parseStatblock(GERMAN)!);
+    expect(rows.map((row) => row.label)).toEqual([
+      'Art',
+      'RK',
+      'TP',
+      'HG',
+      'Bewegung',
+      'Attribute',
+      'Fertigkeiten',
+      'Sinne',
+      'Sprachen',
+      'Fähigkeiten',
+    ]);
+    expect(rows.find((row) => row.label === 'TP')?.value).toBe('9 (2W6 + 2)');
+    expect(rows.find((row) => row.label === 'Attribute')?.value).toBe(
+      'STÄ 8 · GES 14 · KON 12 · INT 10 · WEI 8 · CHA 8',
+    );
+  });
+});
+
+describe('Umbrochene Zeilen zusammenfügen', () => {
+  it('nimmt Trennstriche weg, behält sie aber bei Zahlen und vor „und“', () => {
+    expect(joinBroken('der Aschen-', 'weber')).toBe('der Aschenweber');
+    expect(joinBroken('in a 15-', 'foot Cone')).toBe('in a 15-foot Cone');
+    expect(joinBroken('Feuer-', 'und Kälteschaden')).toBe('Feuer- und Kälteschaden');
+    expect(joinBroken('Hit: 7 (1d8', '+ 3) Slashing')).toBe('Hit: 7 (1d8 + 3) Slashing');
+  });
+});
+
+describe('Was beim Prüfen auffiel', () => {
+  it('nimmt Namen, die mit einer Größe oder Bezeichnung beginnen, als Namen', () => {
+    const big = parseStatblock(`Großer Dornwolf
+Großes Tier, gesinnungslos
+Rüstungsklasse 13`)!;
+    expect(big.name).toBe('Großer Dornwolf');
+    expect(big.block).toMatchObject({ size: 'large', type: 'Tier', alignment: 'gesinnungslos' });
+    expect(big.unread).toEqual([]);
+    expect(parseStatblock(`Tiny Lampwick\nTiny Construct, Unaligned\nAC 12`)!.name).toBe(
+      'Tiny Lampwick',
+    );
+    const gear = parseStatblock(`Gear Golem\nMedium Construct, Unaligned\nAC 17`)!;
+    expect(gear.name).toBe('Gear Golem');
+    expect(gear.block.gear).toBeUndefined();
+    // Ohne Namen bleibt es beim Platzhalter.
+    expect(parseStatblock(`Medium Beast, Unaligned\nAC 13`)!.name).toBe(UNNAMED);
+    expect(parseStatblock(`Armor Class\n12\nHit Points\n9 (2d8)`)!.name).toBe(UNNAMED);
+  });
+
+  it('trennt den Schatz nur am ganzen Wort', () => {
+    const read = parseStatblock(`Schilfgeist
+Winziges Feenwesen, chaotisch neutral
+Lebensraum: Schatzkammer, Höhle
+Schatz: Krimskrams`)!;
+    expect(read.block).toMatchObject({ habitat: 'Schatzkammer, Höhle', treasure: 'Krimskrams' });
+  });
+
+  it('hängt eine Zeile, die zufällig mit einem Satz endet, nicht als neue Fähigkeit an', () => {
+    const read = parseStatblock(`Dornwolf
+Medium Beast, Unaligned
+AC 13
+CR 1 (XP 200; PB +2)
+Traits
+Thorn Hide. A creature that hits the wolf takes 2 Piercing damage.
+The wolf can't use this trait while restrained. It
+regrows its thorns at dawn.
+Pack Hunter. The wolf has advantage on attack rolls.`)!;
+    expect(read.features.map((feature) => feature.name)).toEqual(['Thorn Hide', 'Pack Hunter']);
+    expect(read.features[0]!.text).toContain("damage. The wolf can't use this trait");
+  });
+
+  it('hängt Hortaktionen nicht an die letzte Aktion, sondern hält sie beisammen', () => {
+    const read = parseStatblock(`Dornwolf
+Medium Beast, Unaligned
+AC 13
+CR 1 (XP 200; PB +2)
+Actions
+Bite. Melee Attack Roll: +2, reach 5 ft. Hit: 3 (1d6) Piercing damage.
+Lair Actions
+On Initiative count 20, the wolf howls. Each creature
+within 30 feet must succeed on a DC 10 Wisdom saving throw.`)!;
+    expect(read.features.map((feature) => [feature.section, feature.name])).toEqual([
+      ['action', 'Bite'],
+      ['legendary', 'Lair Actions'],
+    ]);
+    expect(read.features[0]!.text).toBe('');
+    expect(read.features[1]!.text).toContain('Each creature within 30 feet');
+    expect(read.notes.some((note) => note.includes('„Lair Actions“'))).toBe(true);
   });
 });

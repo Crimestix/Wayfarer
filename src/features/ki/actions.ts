@@ -3,11 +3,11 @@
  * Geschrieben wird in die Welt erst beim Annehmen – und nur das, was der Vorschlag nennt.
  */
 import { z } from 'zod';
-import { logEntry } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { aiAsk, type AiAskRequest, type AiAskResponse } from '../../data/platform';
 import {
   CalendarEventSchema,
+  createChronicleEntry,
   createEvent,
   createRelation,
   createThread,
@@ -16,6 +16,7 @@ import {
   type Article,
   type CampaignData,
 } from '../../domain/schema';
+import type { WorldTime } from '../../domain/time/calendar';
 import { articlePath } from '../wiki/model';
 import {
   DEFAULT_AI_MODEL,
@@ -26,8 +27,10 @@ import {
   threadSort,
   type ThreadSort,
   costUsd,
+  hintPromiseDate,
   needsReading,
   parseReply,
+  promiseWhen,
   suggest,
   textMark,
 } from './reader';
@@ -123,7 +126,10 @@ function setState(db: CampaignDb, articleId: string, hintId: string, state: AiHi
 /**
  * Nimmt einen Vorschlag an: Der Termin kommt in den Kalender, die Beziehung in die Welt, das
  * Offene als Abmachung in die Chronik, als Geheimnis ins Dossier oder als Faden aufs Fadenbrett.
- * `as` legt fest, was ein offener Punkt sein soll – sonst gilt, was der Leser sagt. Gibt
+ * `as` legt fest, was ein offener Punkt sein soll – sonst gilt, was der Leser sagt. `date` ist
+ * der Tag, an dem eine Abmachung getroffen wurde, wie der Spielleiter ihn setzt (null = ohne
+ * Tag); fehlt er, gilt der Tag aus dem Vorschlag. Eine Abmachung steht in der Chronik an ihrem
+ * Tag – nie in der Zukunft, und ohne Tag vor dem Beginn der Mitschrift (`promiseWhen`). Gibt
  * `undo` zurück – oder null, wenn der Vorschlag nicht (mehr) zu gebrauchen ist.
  */
 export function acceptAiHint(
@@ -131,6 +137,7 @@ export function acceptAiHint(
   articleId: string,
   hintId: string,
   as?: ThreadSort,
+  date?: WorldTime | null,
 ): (() => void) | null {
   const data = db.getSnapshot();
   const hint = data.articles[articleId]?.aiHints.find((entry) => entry.id === hintId);
@@ -199,12 +206,20 @@ export function acceptAiHint(
             setState(db, articleId, hintId, 'open');
           });
       }
-      const entry = logEntry(db, {
-        kind: 'promise',
-        text: draft.data.text,
-        refs: draft.data.refs.filter(exists),
-        placeId: exists(draft.data.placeId) ? draft.data.placeId : null,
-      });
+      // Nicht „jetzt“ und nicht am laufenden Abend: dann, als sie getroffen wurde.
+      const when = promiseWhen(data, date === undefined ? hintPromiseDate(data, hint) : date);
+      const entry = db.put(
+        'chronicle',
+        createChronicleEntry({
+          kind: 'promise',
+          at: when.at,
+          sessionId: when.sessionId,
+          text: draft.data.text.trim(),
+          refs: [...new Set(draft.data.refs.filter(exists))],
+          placeId: exists(draft.data.placeId) ? draft.data.placeId : null,
+          promise: { due: null, done: false, failed: false },
+        }),
+      );
       undo = () => db.remove('chronicle', entry.id);
     }
     setState(db, articleId, hintId, 'accepted');
