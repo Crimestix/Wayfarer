@@ -159,6 +159,10 @@
 .wf-chron__failed {
   color: var(--ember);
 }
+/* Die Geschichte, zu der ein Eintrag notiert wurde */
+.wf-chron__story {
+  color: var(--gold);
+}
 .wf-chron--done .wf-chron__text {
   color: var(--ink-mute);
   text-decoration: line-through;

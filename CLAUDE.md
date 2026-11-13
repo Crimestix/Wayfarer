@@ -204,6 +204,14 @@ nicht übernommen.
   `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
   werden nie gespeichert – sie folgen aus dem, woran eine Geschichte hängt (`pinToCard` heftet
   einen Namen an).
+- Spieltisch (`features/tisch`): drei Spalten – der Ort (wer hier ist, Wege, was hier ist), in
+  der Mitte **„Im Spiel“** (`PlayPanel`), rechts Mitschrift und „Sonst noch“. Im Spiel ist, was
+  der Spielleiter hereinnimmt (`story.inPlay`, bei losen Fäden `thread.inPlay`, gesetzt über
+  `setInPlay`) – nie von selbst. Was an einer Geschichte hängt (Uhr, was am Ort bereitliegt,
+  wer hier ist, Fäden, Abmachungen, Termine, Notizen, Merkzettel `story.memo`), sammelt
+  `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
+  Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
+  Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
   anwesend, sie stehen für sich in `lost`.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);

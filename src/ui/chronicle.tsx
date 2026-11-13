@@ -95,6 +95,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
     headline = <span className="wf-chron__event">{entry.text}</span>;
   }
 
+  const story = entry.storyId ? data.stories[entry.storyId] : undefined;
   const promise = entry.kind === 'promise' ? entry.promise : null;
   const outcome = promiseOutcome(promise);
   const overdue = promise && !promise.done && promise.due !== null && promise.due < data.state.now;
@@ -116,6 +117,11 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           {showDate && <span>{formatDate(cal, entry.at)}</span>}
           <span className="wf-num">{formatClock(entry.at)}</span>
           {entry.kind !== 'note' && <span>{CHRONICLE_KIND_LABEL[entry.kind]}</span>}
+          {story && (
+            <span className="wf-chron__story" title="Zu dieser Geschichte notiert">
+              {story.title}
+            </span>
+          )}
           {showPlace && (
             <span>
               <EntityLink id={entry.placeId} icon={false} />

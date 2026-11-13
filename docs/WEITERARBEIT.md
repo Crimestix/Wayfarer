@@ -1167,6 +1167,34 @@ solle „wie eine Art Whiteboard“ funktionieren.
   auf einem Blatt schreiben (Vorhaben, Uhr, Fäden, Hinweise zusammen) – der Spielleiter nennt
   das Vorbereiten von Geschichten „noch sehr schwer“.
 
+### Spieltisch aufgeräumt: „Im Spiel“ (13. 11. 2026) – gebaut
+
+Der Spielleiter: „Der Spielleitertisch muss auch aufgeräumt werden. Hier müssen wir quasi die
+aktuell wichtigen Geschichten und davon abhängigen Dinge notieren und sehen.“ Erst als Probe
+gezeigt (`docs/proben/spieltisch.html`), dann so gebaut.
+
+- **Drei Spalten:** links der Ort (Kopf mit Knöpfen unter dem Namen, Orte hier, Wege, „Seit
+  eurem letzten Besuch“, wer hier ist, „Wer hier haust“, „Was hier ist“, „Nur für dich“, was
+  hier bisher geschah) · Mitte „Im Spiel“ · rechts Mitschrift und „Sonst noch“. Unten die
+  Gefährten.
+- **Im Spiel** (`domain/play.ts`, `tisch/PlayPanel.tsx`): Geschichten und lose Fäden, die der
+  Spielleiter hereinnimmt (Knopf „Geschichte“, auch „Neue Geschichte schreiben“). Die erste ist
+  aufgeklappt: nächster Schritt der Uhr; **Liegt hier** (Hinweise zum Abhaken, Einstiege);
+  **Hier** (ihre Leute am Ort); **Faden**; **Abmachung** (Haken, Kreuz); **Termin**;
+  **Merkzettel** (`story.memo`); **Notiert** (Notizen mit `storyId`, Eingabe darunter).
+  Zugeklappt: eine Zeile. Unten: was den Ort berührt, aber nicht im Spiel ist – zum
+  Hereinnehmen.
+- **Weg vom Tisch:** der Kasten „Was diesen Ort gerade berührt“ (in „Im Spiel“ aufgegangen) und
+  der Auszug aus dem Artikel (der Knopf „Artikel“ öffnet ihn). „Anstehend“ heißt „Sonst noch“
+  und zeigt nicht, was schon bei einer Geschichte steht.
+- **Nebenbei:** In der Weltleiste schob ein langer Ortsname „Festhalten“ aus dem Bild – jetzt
+  gibt nur der Ort nach.
+- **Nicht geprüft:** installierte App, echte Daten. Bei 1280 Breite ist es eng (Spalten 328 /
+  414 / 269), aber nichts läuft über.
+- **Offen:** Begegnungen und Bestände einer Geschichte bei ihr zeigen; @-Verweise in der
+  Notiz zur Geschichte; Reihenfolge der Geschichten von Hand; Punkt 19 des Rundgangs (kleine
+  Schrift) gilt weiter.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

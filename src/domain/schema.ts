@@ -378,6 +378,8 @@ export const ChronicleEntrySchema = z.object({
     .default(null),
   /** kind = event: eingetretener Termin. */
   eventId: id.nullable().default(null),
+  /** Die Geschichte, zu der der Eintrag gehört – am Spieltisch zu ihr notiert. */
+  storyId: id.nullable().default(null),
   /** Der Eintrag stammt von einer Uhr: ihr Schritt ist eingetreten oder wurde verhindert. */
   clockId: id.nullable().default(null),
   stepId: id.nullable().default(null),
@@ -519,6 +521,8 @@ export const ThreadSchema = z.object({
   refs: z.array(id).default([]),
   /** Die Gruppe kennt den Faden. */
   known: z.boolean().default(true),
+  /** Ein loser Faden steht am Spieltisch unter „Im Spiel“ (`domain/play.ts`). */
+  inPlay: z.boolean().default(false),
   hints: z.array(ThreadHintSchema).default([]),
   /** Der Artikel, aus dem er stammt. */
   articleId: id.nullable().default(null),
@@ -562,6 +566,10 @@ export const StorySchema = z.object({
   known: z.boolean().default(false),
   /** Zu Ende erzählt. */
   closed: z.boolean().default(false),
+  /** Steht am Spieltisch unter „Im Spiel“ – der Spielleiter nimmt sie herein und heraus. */
+  inPlay: z.boolean().default(false),
+  /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
+  memo: z.string().default(''),
 });
 export type Story = z.infer<typeof StorySchema>;
 

@@ -52,10 +52,9 @@ import {
   type CastRow,
   type Nearby,
 } from './model';
-import { articleExcerpt, articleOf, placeMaps } from './wiki';
+import { articleOf, placeMaps } from './wiki';
 import { WeatherLine } from '../wetter';
 import { StocksHere } from './StocksHere';
-import { StoriesHere } from './StoriesHere';
 import { WayRow } from './WayRow';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
@@ -346,19 +345,12 @@ export function PlacePanel({ place }: { place: Place }) {
 
   // Aus dem Wiki: der Artikel zum Ort und die Karten, auf denen die Gruppe steht.
   const article = articleOf(data, place);
-  const excerpt = useMemo(
-    () => (article ? articleExcerpt(data.articles, article) : null),
-    [data.articles, article],
-  );
   const maps = useMemo(() => placeMaps(data, place), [data, place]);
   const nets = useMemo(() => netsOfPlace(data, place.id), [data, place.id]);
   const [reading, setReading] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
-  const hasExcerpt = Boolean(excerpt?.paragraphs.length);
 
-  const hasAside = Boolean(
-    place.notes.trim() || place.secret.trim() || earlier.length || hasExcerpt,
-  );
+  const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
   /** Über den Ort ist noch gar nichts eingetragen. */
   const bare = cast.total === 0 && !hasAside && changes.length === 0;
 
@@ -391,6 +383,7 @@ export function PlacePanel({ place }: { place: Place }) {
           <div className="wf-tisch-hero__actions">
             {maps.length > 0 && (
               <Button
+                size="sm"
                 icon={<MapIcon />}
                 onClick={() => setMapOpen(true)}
                 title={
@@ -405,6 +398,7 @@ export function PlacePanel({ place }: { place: Place }) {
             )}
             {article && (
               <Button
+                size="sm"
                 icon={<Library />}
                 onClick={() => setReading(article.id)}
                 title="Den Artikel zu diesem Ort lesen, ohne den Spieltisch zu verlassen"
@@ -416,7 +410,7 @@ export function PlacePanel({ place }: { place: Place }) {
             {nets[0] && (
               <Link
                 href={`/wegenetze/${nets[0].id}`}
-                className="wf-btn"
+                className="wf-btn wf-btn--sm"
                 title={`Das Wegenetz „${nets[0].name}“: wo die Gruppe steht und wohin es von hier geht`}
                 aria-label="Wegenetz"
               >
@@ -424,11 +418,16 @@ export function PlacePanel({ place }: { place: Place }) {
                 <span className="wf-tisch-hero__label">Wegenetz</span>
               </Link>
             )}
-            <Link href={entityHref(place)} className="wf-btn" title="Alles über diesen Ort">
+            <Link
+              href={entityHref(place)}
+              className="wf-btn wf-btn--sm"
+              title="Alles über diesen Ort"
+            >
               <BookOpen />
-              Dossier
+              Seite
             </Link>
             <Button
+              size="sm"
               icon={<Footprints />}
               onClick={() => openMoveParty()}
               title="Die Gruppe zieht an einen anderen Ort"
@@ -456,8 +455,6 @@ export function PlacePanel({ place }: { place: Place }) {
       <WayRow placeId={place.id} />
 
       <div className="wf-tisch-place__body">
-        <StoriesHere />
-        <StocksHere />
         {changes.length > 0 && (
           <section className="wf-tisch-since" aria-label="Seit eurem letzten Besuch">
             <header className="wf-tisch-since__head">
@@ -515,7 +512,7 @@ export function PlacePanel({ place }: { place: Place }) {
         )}
 
         {!bare && (
-          <div className={cx('wf-tisch-cols', hasAside && 'wf-tisch-cols--split')}>
+          <div className="wf-tisch-cols">
             <section className="wf-col" aria-label="Wer hier ist">
               <SectionTitle>
                 Wer hier ist
@@ -549,11 +546,13 @@ export function PlacePanel({ place }: { place: Place }) {
               )}
             </section>
 
+            <StocksHere />
+
             {hasAside && (
               <div className="wf-col wf-tisch-aside">
                 {place.notes.trim() && (
-                  <section className="wf-col" aria-label="Notizen">
-                    <SectionTitle>Notizen</SectionTitle>
+                  <section className="wf-col" aria-label="Was hier ist">
+                    <SectionTitle>Was hier ist</SectionTitle>
                     <p className="wf-prose wf-soft">{place.notes.trim()}</p>
                   </section>
                 )}
@@ -561,28 +560,9 @@ export function PlacePanel({ place }: { place: Place }) {
                   <section className="wf-tisch-secret" aria-label="Spielleiterwissen">
                     <div className="wf-tisch-secret__label">
                       <EyeOff />
-                      Spielleiterwissen
+                      Nur für dich
                     </div>
                     <p className="wf-prose">{place.secret.trim()}</p>
-                  </section>
-                )}
-                {excerpt && hasExcerpt && article && (
-                  <section className="wf-col wf-tisch-wiki" aria-label="Aus dem Artikel">
-                    <SectionTitle>Aus dem Artikel</SectionTitle>
-                    {excerpt.paragraphs.map((paragraph, index) => (
-                      <p key={index} className="wf-prose wf-soft">
-                        {paragraph}
-                      </p>
-                    ))}
-                    {excerpt.more && (
-                      <button
-                        type="button"
-                        className="wf-tisch-more"
-                        onClick={() => setReading(article.id)}
-                      >
-                        Ganzen Artikel lesen
-                      </button>
-                    )}
                   </section>
                 )}
                 {earlier.length > 0 && (

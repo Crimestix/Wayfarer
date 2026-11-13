@@ -328,6 +328,8 @@ export interface LogInput {
   due?: WorldTime | null;
   /** Nur für die Spielleitung. */
   secret?: boolean;
+  /** Die Geschichte, zu der die Notiz gehört. */
+  storyId?: string | null;
 }
 
 /** Hält fest, was am Tisch passiert ist. */
@@ -345,6 +347,7 @@ export function logEntry(db: CampaignDb, input: LogInput): ChronicleEntry {
       refs: [...new Set(input.refs ?? [])],
       promise: kind === 'promise' ? { due: input.due ?? null, done: false, failed: false } : null,
       secret: input.secret ?? false,
+      storyId: input.storyId ?? null,
     }),
   );
 }

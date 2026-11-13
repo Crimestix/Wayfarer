@@ -1,8 +1,9 @@
-/* Spieltisch: links der Ort der Gruppe, rechts Mitschrift und Anstehendes, unten die Gefährten. */
+/* Spieltisch: links der Ort, in der Mitte die Geschichten im Spiel, rechts Mitschrift und was
+   sonst noch ansteht, unten die Gefährten. */
 
 .wf-tisch {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(350px, 30%, 430px);
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.2fr) minmax(0, 0.78fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--s-4);
   height: 100%;
@@ -17,8 +18,18 @@
 .wf-tisch__place > .wf-panel {
   flex: 1 1 auto;
 }
-.wf-tisch__side {
+.wf-tisch__play {
   grid-area: 1 / 2;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+.wf-tisch__play > .wf-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.wf-tisch__side {
+  grid-area: 1 / 3;
   display: flex;
   flex-direction: column;
   gap: var(--s-4);
@@ -67,8 +78,8 @@
 .wf-tisch-hero__top {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--s-4);
+  flex-direction: column;
+  gap: var(--s-2);
 }
 .wf-tisch-hero__heading {
   flex: 1 1 auto;
@@ -146,18 +157,12 @@
   position: relative;
   display: flex;
   flex: none;
-  gap: var(--s-2);
+  flex-wrap: wrap;
+  gap: 6px;
 }
 /* Deckend, damit ein Bild des Ortes die Beschriftung nicht stört. */
 .wf-tisch-hero__actions .wf-btn {
   background-color: var(--bg-1);
-}
-
-/* In schmalen Fenstern zeigen „Karte“ und „Artikel“ nur ihr Symbol – der Ortsname braucht den Platz. */
-@media (max-width: 1400px) {
-  .wf-tisch-hero__label {
-    display: none;
-  }
 }
 
 /* Nachschlagen über dem Tisch: Artikel und Karte */
@@ -454,6 +459,232 @@ button.wf-tisch-story__title:enabled:hover b {
   color: var(--ink-faint);
 }
 
+/* ── Im Spiel ───────────────────────────────────────────────────────────── */
+.wf-tisch-play__none {
+  margin: 0;
+  padding: var(--s-4);
+  color: var(--ink-mute);
+  font-style: italic;
+  line-height: 1.45;
+}
+.wf-tisch-gesch {
+  padding: var(--s-2) var(--s-4) var(--s-3);
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid transparent;
+}
+.wf-tisch-gesch--open {
+  padding-bottom: var(--s-4);
+  border-left-color: var(--gold-deep);
+  background: linear-gradient(90deg, var(--gold-glow), transparent 70%);
+}
+.wf-tisch-gesch--open[data-near='here'] {
+  border-left-color: var(--gold);
+}
+.wf-tisch-gesch__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-tisch-gesch__head > svg {
+  flex: none;
+  align-self: center;
+  width: 15px;
+  height: 15px;
+  margin-left: -4px;
+  color: var(--ink-mute);
+}
+.wf-tisch-gesch__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-tisch-gesch--open .wf-tisch-gesch__title {
+  font-size: var(--text-xl);
+}
+.wf-tisch-gesch__head:hover .wf-tisch-gesch__title {
+  color: var(--gold-bright);
+}
+.wf-tisch-gesch__where {
+  flex: none;
+  max-width: 46%;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+.wf-tisch-gesch[data-near='here'] .wf-tisch-gesch__where {
+  color: var(--gold);
+}
+.wf-tisch-gesch__brief {
+  margin: 1px 0 0 19px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.wf-tisch-gesch__clock {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin: 3px 0 0 19px;
+  color: var(--ink-soft);
+}
+.wf-tisch-gesch__pips {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+  align-self: center;
+}
+.wf-tisch-gesch__pips i {
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border: 1px solid var(--gold-deep);
+}
+.wf-tisch-gesch__pips i[data-state='done'] {
+  background: var(--gold);
+}
+.wf-tisch-gesch__pips i[data-state='prevented'] {
+  border-color: var(--ink-faint);
+}
+
+/* Was an einer Geschichte hängt: links, was es ist, rechts der Inhalt */
+.wf-tisch-dazu {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 6px var(--s-2);
+  align-items: baseline;
+  margin: var(--s-3) 0 0;
+}
+.wf-tisch-dazu__label {
+  padding-top: 2px;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wf-tisch-dazu__label[data-here] {
+  color: var(--gold-bright);
+}
+.wf-tisch-dazu__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  line-height: 1.35;
+}
+.wf-tisch-dazu__row--block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.wf-tisch-dazu__row[data-muted] {
+  color: var(--ink-faint);
+}
+.wf-tisch-dazu__row > .wf-chron__check {
+  flex: none;
+  align-self: center;
+}
+.wf-tisch-dazu__row > .wf-chron__check svg {
+  opacity: 0;
+}
+.wf-tisch-dazu__row > .wf-chron__check:hover svg,
+.wf-tisch-dazu__row > .wf-chron__check--fail svg {
+  opacity: 0.75;
+}
+.wf-tisch-dazu__row em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-tisch-dazu__row .wf-entity-link {
+  color: var(--ink);
+}
+.wf-tisch-dazu__row em.wf-tisch-dazu__late {
+  color: var(--blood-bright);
+}
+.wf-tisch-dazu__warn {
+  width: 13px;
+  height: 13px;
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: var(--ember);
+}
+.wf-tisch-zettel {
+  border-style: dashed;
+  background: var(--bg-inset);
+  line-height: 1.4;
+  resize: vertical;
+}
+.wf-tisch-dazu__note {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: baseline;
+}
+.wf-tisch-dazu__note > .wf-num {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-tisch-dazu__foot {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-4);
+  margin-top: var(--s-1);
+}
+.wf-tisch-dazu__foot button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-style: italic;
+  cursor: pointer;
+}
+.wf-tisch-dazu__foot button:hover {
+  color: var(--gold-bright);
+}
+.wf-tisch-play__offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-tisch-play__offer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted var(--gold-deep);
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-tisch-play__offer button:hover {
+  color: var(--gold-bright);
+}
+.wf-tisch-play__offer svg {
+  width: 12px;
+  height: 12px;
+}
+
 .wf-tisch-since {
   flex: none;
   border: 1px solid color-mix(in srgb, var(--ember) 34%, var(--line));
@@ -641,6 +872,13 @@ button.wf-tisch-story__title:enabled:hover b {
   align-items: baseline;
   gap: var(--s-2);
   min-width: 0;
+}
+/* Die Spalte des Ortes ist schmal: Ein langer Name bricht um, statt abgeschnitten zu werden. */
+.wf-tisch-cast__name.wf-clamp-1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
 }
 .wf-tisch-cast__name {
   flex: 0 1 auto;
@@ -1040,7 +1278,7 @@ button.wf-tisch-story__title:enabled:hover b {
 
 /* ── Gefährten ──────────────────────────────────────────────────────────── */
 .wf-tisch-party {
-  grid-area: 2 / 1 / 3 / 3;
+  grid-area: 2 / 1 / 3 / -1;
   position: relative;
   display: flex;
   min-width: 0;

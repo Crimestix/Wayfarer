@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setAttitude } from '../../data/actions';
+import { logEntry, setAttitude } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -27,6 +27,7 @@ import {
   touches,
   untilText,
 } from '../../domain/story';
+import { playClaims, playView } from '../../domain/play';
 import { saveWay } from '../wege/actions';
 import {
   pinToCard,
@@ -36,6 +37,8 @@ import {
   saveStory,
   saveThread,
   setHintFound,
+  setInPlay,
+  setStoryMemo,
   tidyBoard,
   unpinFromCard,
   type StoryInput,
@@ -275,6 +278,107 @@ describe('Die Pinnwand', () => {
     expect(layout.pins.map((pin) => pin.id).sort()).toEqual([mira.id, odo.id].sort());
     unpinFromCard(db, `story:${toll.id}`, mira.id);
     expect(data().stories[toll.id]!.refs).toEqual([]);
+  });
+});
+
+describe('Im Spiel', () => {
+  it('zeigt nur, was der Spielleiter hereingenommen hat – und bietet an, was den Ort berührt', async () => {
+    const { db, data, story, thread, market, far } = await setup();
+    const bell = story('Die stumme Glocke', { refs: [market.id] });
+    const toll = story('Der Zoll wird verdoppelt', { refs: [far.id] });
+    const loose = thread('Wer bezahlt den Aalwächter?', { refs: [market.id] });
+    expect(playView(data()).cards).toEqual([]);
+    // Was am Ort der Gruppe hängt, wird angeboten – das Entfernte nicht.
+    expect(
+      playView(data())
+        .offered.map((card) => card.key)
+        .sort(),
+    ).toEqual([`story:${bell.id}`, `thread:${loose.id}`].sort());
+    setInPlay(db, `story:${toll.id}`, true);
+    setInPlay(db, `story:${bell.id}`, true);
+    setInPlay(db, `thread:${loose.id}`, true);
+    const view = playView(data());
+    // Was hier hängt, steht oben.
+    expect(view.cards.map((play) => play.card.title)).toEqual([
+      'Die stumme Glocke',
+      'Wer bezahlt den Aalwächter?',
+      'Der Zoll wird verdoppelt',
+    ]);
+    expect(view.cards.map((play) => play.where)).toEqual([
+      'hängt an diesem Ort',
+      'hängt an diesem Ort',
+      'weit weg',
+    ]);
+    expect(view.offered).toEqual([]);
+    // Zu Ende erzählt: Die Geschichte steht nicht mehr am Tisch.
+    db.patch('stories', bell.id, { closed: true });
+    expect(playView(data()).cards.map((play) => play.card.title)).not.toContain(
+      'Die stumme Glocke',
+    );
+    setInPlay(db, `story:${toll.id}`, false);
+    expect(playView(data()).cards).toHaveLength(1);
+  });
+
+  it('sammelt, was an einer Geschichte hängt', async () => {
+    const { db, data, story, thread, hint, market, harbour, far, mira, odo, fishers } =
+      await setup();
+    const now = data().state.now;
+    const DAY = 24 * 60;
+    for (const id of Object.keys(data().events)) db.remove('events', id);
+    const toll = story('Der Zoll wird verdoppelt', {
+      ownerId: fishers.id,
+      refs: [mira.id, odo.id],
+      entries: [
+        { id: newId(), text: 'Ein Aushang am Zollhaus', placeId: market.id, standing: 'any' },
+        { id: newId(), text: 'Odo erzählt davon', placeId: far.id, standing: 'any' },
+      ],
+    });
+    const who = thread('Wer hat den Zöllner bestochen?', {
+      storyId: toll.id,
+      hints: [
+        hint('Ein Beutel mit fremden Münzen', market.id),
+        hint('Ein Brief im Kontor', harbour.id),
+        hint('Schon gefunden', market.id, true),
+      ],
+    });
+    thread('Längst gelöst', { storyId: toll.id, state: 'solved' });
+    setInPlay(db, `story:${toll.id}`, true);
+    // Mira kommt vom Hafen an den Markt, wo die Gruppe steht.
+    if (mira.kind === 'person')
+      db.put('entities', { ...mira, person: { ...mira.person, placeId: market.id } });
+    const promise = logEntry(db, {
+      kind: 'promise',
+      text: 'Mira schweigt über den Zoll',
+      refs: [mira.id],
+    });
+    logEntry(db, { kind: 'promise', text: 'Ohne Bezug', refs: [market.id] });
+    const own = logEntry(db, { kind: 'promise', text: 'Der Rat zahlt', storyId: toll.id });
+    db.put('events', createEvent({ title: 'Zollabrechnung', at: now + 6 * DAY, threadId: who.id }));
+    db.put('events', createEvent({ title: 'Mira reist ab', at: now + 2 * DAY, refs: [mira.id] }));
+    db.put('events', createEvent({ title: 'Markttag', at: now + DAY, placeId: market.id }));
+    logEntry(db, { text: 'Die Gruppe hört vom Zoll', storyId: toll.id });
+    setStoryMemo(db, toll.id, 'Mira weiß mehr, als sie sagt.');
+
+    const [play] = playView(data()).cards;
+    expect(play!.hints.map(({ hint: entry }) => entry.text)).toEqual([
+      'Ein Beutel mit fremden Münzen',
+    ]);
+    expect(play!.entries.map(({ entry }) => entry.text)).toEqual(['Ein Aushang am Zollhaus']);
+    expect(play!.present.map((entity) => entity.name)).toEqual(['Mira Tannhaus']);
+    expect(play!.threads.map((entry) => [entry.thread.title, entry.found])).toEqual([
+      ['Wer hat den Zöllner bestochen?', 1],
+    ]);
+    expect(play!.promises.map((entry) => entry.id).sort()).toEqual([promise.id, own.id].sort());
+    expect(play!.events.map((occurrence) => occurrence.event.title)).toEqual([
+      'Mira reist ab',
+      'Zollabrechnung',
+    ]);
+    expect(play!.notes.map((entry) => entry.text)).toEqual(['Die Gruppe hört vom Zoll']);
+    expect(play!.memo).toBe('Mira weiß mehr, als sie sagt.');
+    // Was bei der Geschichte steht, steht unter „Sonst noch“ nicht noch einmal.
+    const claims = playClaims(playView(data()));
+    expect(claims.has(`promise:${promise.id}`)).toBe(true);
+    expect([...claims].filter((key) => key.startsWith('event:'))).toHaveLength(2);
   });
 });
 

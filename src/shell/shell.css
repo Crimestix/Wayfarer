@@ -226,10 +226,15 @@
   /* Eine gravierte Fuge statt einer Linie: dunkel, daneben ein Hauch Licht. */
   border-right: 1px solid rgba(0, 0, 0, 0.55);
   box-shadow: 1px 0 0 rgba(239, 212, 151, 0.05);
+  /* Datum, Zeit, Wetter und die Knöpfe behalten ihre Breite – nur der Ort gibt nach. */
+  flex: 0 0 auto;
   min-width: 0;
 }
+/* Der Ort der Gruppe nimmt, was übrig ist; ein langer Name wird gekürzt, statt „Festhalten“
+   aus dem Bild zu schieben. */
 .wf-bar__cell--grow {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  overflow: hidden;
 }
 /* Das Wetterfeld: ohne Ort der Gruppe leer und dann ohne Platzbedarf. */
 .wf-bar__cell--weather {

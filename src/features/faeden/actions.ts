@@ -41,6 +41,21 @@ export function removeStory(db: CampaignDb, id: string): void {
   });
 }
 
+/** Nimmt eine Geschichte oder einen losen Faden ins Spiel – oder wieder heraus. */
+export function setInPlay(db: CampaignDb, cardKey: string, on: boolean): void {
+  const data = db.getSnapshot();
+  const [sort, id] = cardKey.split(':') as [string, string];
+  const doc = sort === 'story' ? data.stories[id] : data.threads[id];
+  if (!doc || doc.inPlay === on) return;
+  db.patch(sort === 'story' ? 'stories' : 'threads', id, { inPlay: on });
+}
+
+/** Schreibt den Merkzettel einer Geschichte. */
+export function setStoryMemo(db: CampaignDb, storyId: string, memo: string): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (story && story.memo !== memo) db.patch('stories', storyId, { memo });
+}
+
 /** Legt eine Karte oder einen Namen an eine Stelle des Bretts. */
 export function placeOnBoard(db: CampaignDb, key: string, x: number, y: number): void {
   const board = db.getSnapshot().state.board;

@@ -1,4 +1,7 @@
-/** „Anstehend“: Überfälliges, laufende und kommende Termine, offene Abmachungen, Wirkungen. */
+/**
+ * „Sonst noch“: Überfälliges, laufende und kommende Termine, offene Abmachungen, Wirkungen –
+ * soweit sie nicht schon bei einer Geschichte im Spiel stehen (`domain/play.ts`).
+ */
 import { Fragment, useMemo } from 'react';
 import { Link } from 'wouter';
 import {
@@ -14,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { playClaims, playView } from '../../domain/play';
 import { openQuickLog } from '../../shell/commands';
 import { Button, EntityLinks, Panel, toast } from '../../ui';
 import { settleAgendaItem } from './commands';
@@ -106,7 +110,13 @@ function AgendaRow({ item }: { item: AgendaItem }) {
 
 export function AgendaPanel() {
   const data = useData();
-  const items = useMemo(() => buildAgenda(data, DAYS_AHEAD), [data]);
+  const items = useMemo(() => {
+    // Was bei einer Geschichte im Spiel steht, steht hier nicht noch einmal.
+    const claimed = playClaims(playView(data));
+    return buildAgenda(data, DAYS_AHEAD).filter(
+      (item) => !claimed.has(`${item.source}:${item.id}`),
+    );
+  }, [data]);
   const overdue = items.filter((item) => item.tone === 'overdue').length;
   return (
     <Panel
@@ -115,7 +125,7 @@ export function AgendaPanel() {
       className="wf-tisch-agenda"
       title={
         <>
-          Anstehend
+          Sonst noch
           {overdue > 0 && <span className="wf-tisch-agenda__overdue">{overdue} überfällig</span>}
         </>
       }
@@ -132,8 +142,9 @@ export function AgendaPanel() {
       {items.length === 0 ? (
         <div className="wf-tisch-agenda__empty">
           <p className="wf-tisch-hint">
-            In den nächsten {DAYS_AHEAD} Tagen steht nichts an. Hier erscheinen Termine, Fristen,
-            offene Abmachungen und laufende Wirkungen.
+            In den nächsten {DAYS_AHEAD} Tagen steht sonst nichts an. Hier erscheinen Termine,
+            Fristen, offene Abmachungen und laufende Wirkungen, die zu keiner Geschichte im Spiel
+            gehören.
           </p>
           <div className="wf-row-wrap">
             <Link href="/kalender" className="wf-btn wf-btn--sm">
