@@ -557,6 +557,29 @@ button.wf-tisch-story__title:enabled:hover b {
   border-color: var(--ink-faint);
 }
 
+/* Der Abend: was auf dem Blatt des Abends bereitliegt */
+.wf-tisch-abend.wf-tisch-gesch--open {
+  border-left-color: var(--ember);
+  background: linear-gradient(90deg, var(--ember-wash), transparent 70%);
+}
+.wf-tisch-abend--blank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-tisch-abend--blank a {
+  color: var(--gold);
+  font-style: normal;
+}
+.wf-tisch-abend__text {
+  white-space: pre-wrap;
+}
+
 /* Was an einer Geschichte hängt: links, was es ist, rechts der Inhalt */
 .wf-tisch-dazu {
   display: grid;

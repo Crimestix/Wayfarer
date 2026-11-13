@@ -421,6 +421,9 @@ export function startSession(
       }),
     );
     db.setState({ sessionId: session.id });
+    // Was für den kommenden Abend vorbereitet wurde, ist jetzt das Blatt dieses Abends.
+    const prep = Object.values(db.getSnapshot().preps).find((entry) => entry.sessionId === null);
+    if (prep) db.patch('preps', prep.id, { sessionId: session.id });
     return session;
   });
 }

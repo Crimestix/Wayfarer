@@ -5,12 +5,10 @@
  * Speichern. Rechts steht, was noch leer ist – als Rat, nie als Pflicht (`storyAdvice`).
  * Wayfarer schreibt nichts davon selbst.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import {
   ArrowLeft,
-  Check,
-  Circle,
   Hourglass,
   Plus,
   Swords,
@@ -60,10 +58,13 @@ import {
   IconButton,
   Input,
   Select,
+  SheetAdvice,
+  SheetSection,
   Written,
   confirmDialog,
   cx,
   toast,
+  useDraftList,
 } from '../../ui';
 import { newEncounter } from '../bestiarium/encounterActions';
 import { ClockDialog } from '../kalender/ClockDialog';
@@ -107,74 +108,6 @@ export default function StoryPage() {
   return <StorySheet key={story.id} story={story} />;
 }
 
-/**
- * Eine Liste zum Schreiben: Getippt wird nur hier; geschrieben wird beim Verlassen eines Feldes
- * (`flush`) oder sofort bei einer Auswahl (`set`). Leere Zeilen bleiben stehen, bis etwas darin
- * steht – gespeichert werden sie nie.
- */
-function useDraftList<T extends { id: string }>(
-  source: readonly T[],
-  save: (items: T[]) => void,
-  isEmpty: (item: T) => boolean,
-) {
-  const [items, setItems] = useState<T[]>(() => [...source]);
-  const key = JSON.stringify(source);
-  // Ändert sich der Spielstand (auch durch das eigene Speichern), gilt er – leere Zeilen bleiben.
-  useEffect(() => {
-    setItems((before) => [
-      ...source,
-      ...before.filter((item) => isEmpty(item) && !source.some((kept) => kept.id === item.id)),
-    ]);
-    // `source` und `isEmpty` sind bei jedem Zeichnen neu; gemeint ist der Inhalt.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  const filled = (list: T[]) => list.filter((item) => !isEmpty(item));
-  return {
-    items,
-    /** Tippen: nur hier. */
-    edit: (id: string, change: Partial<T>) =>
-      setItems((list) => list.map((item) => (item.id === id ? { ...item, ...change } : item))),
-    /** Feld verlassen: schreiben. */
-    flush: () => save(filled(items)),
-    /** Eine Auswahl: gleich schreiben. */
-    set: (id: string, change: Partial<T>) => {
-      const next = items.map((item) => (item.id === id ? { ...item, ...change } : item));
-      setItems(next);
-      save(filled(next));
-    },
-    add: (item: T) => setItems((list) => [...list, item]),
-    remove: (id: string) => {
-      const next = items.filter((item) => item.id !== id);
-      setItems(next);
-      save(filled(next));
-    },
-  };
-}
-
-function Section({
-  title,
-  hint,
-  action,
-  children,
-}: {
-  title: string;
-  /** Was hierhin gehört – ein Satz. */
-  hint: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="wf-faden-blatt__sec">
-      <header className="wf-faden-blatt__head">
-        <h2>{title}</h2>
-        {action}
-      </header>
-      <p className="wf-faden-blatt__hint">{hint}</p>
-      {children}
-    </section>
-  );
-}
-
 function StorySheet({ story }: { story: Story }) {
   const db = useDb();
   const data = useData();
@@ -214,15 +147,15 @@ function StorySheet({ story }: { story: Story }) {
   };
 
   return (
-    <div className="wf-faden-blatt">
-      <div className="wf-faden-blatt__main">
-        <header className="wf-faden-blatt__top">
-          <Link href="/faeden" className="wf-faden-blatt__back">
+    <div className="wf-sheet">
+      <div className="wf-sheet__main">
+        <header className="wf-sheet__top">
+          <Link href="/faeden" className="wf-sheet__back">
             <ArrowLeft aria-hidden /> Fadenbrett
           </Link>
-          <div className="wf-faden-blatt__kicker">Geschichte</div>
+          <div className="wf-sheet__kicker">Geschichte</div>
           <Written
-            className="wf-faden-blatt__name"
+            className="wf-sheet__name"
             label="Name der Geschichte"
             value={story.title}
             placeholder="Wie heißt sie?"
@@ -230,7 +163,7 @@ function StorySheet({ story }: { story: Story }) {
           />
         </header>
 
-        <Section title="Worum es geht" hint="Wer will was – ein Vorhaben, kein Ablauf.">
+        <SheetSection title="Worum es geht" hint="Wer will was – ein Vorhaben, kein Ablauf.">
           <Written
             label="Worum es geht"
             rows={3}
@@ -238,8 +171,8 @@ function StorySheet({ story }: { story: Story }) {
             placeholder="Die Aalfischer wollen den Zoll am Hafen an sich reißen …"
             onSave={(summary) => patch({ summary })}
           />
-          <div className="wf-faden-blatt__pair">
-            <span className="wf-faden-blatt__label">Wer sie antreibt</span>
+          <div className="wf-sheet__pair">
+            <span className="wf-sheet__label">Wer sie antreibt</span>
             <EntityPicker
               value={story.ownerId}
               onChange={(ownerId) => patch({ ownerId })}
@@ -248,9 +181,9 @@ function StorySheet({ story }: { story: Story }) {
               onCreate={createEntityOf('faction')}
             />
           </div>
-        </Section>
+        </SheetSection>
 
-        <Section
+        <SheetSection
           title="Was auf dem Spiel steht"
           hint="Was geht verloren, wenn die Gruppe nichts tut? Bedrohlich – aber kein Weltuntergang, sonst hat sie keine Wahl."
         >
@@ -260,14 +193,14 @@ function StorySheet({ story }: { story: Story }) {
             value={story.stakes}
             onSave={(stakes) => patch({ stakes })}
           />
-        </Section>
+        </SheetSection>
 
         <Steps story={story} />
         <Threads story={story} />
         <Entries story={story} />
         <Scenes story={story} />
 
-        <Section
+        <SheetSection
           title="Leute und Orte"
           hint="Wer und was dazugehört. Daran erkennt Wayfarer, wie nah die Gruppe dran ist und wo Geschichten sich berühren."
         >
@@ -277,9 +210,9 @@ function StorySheet({ story }: { story: Story }) {
             kinds={['person', 'place', 'faction', 'family', 'item']}
             placeholder="Person, Ort oder Fraktion hinzufügen …"
           />
-        </Section>
+        </SheetSection>
 
-        <Section
+        <SheetSection
           title="Wie es enden kann"
           hint="Der Höhepunkt und was danach anders ist – nicht der Weg dorthin."
         >
@@ -289,8 +222,8 @@ function StorySheet({ story }: { story: Story }) {
             value={story.ending}
             onSave={(ending) => patch({ ending })}
           />
-          <div className="wf-faden-blatt__pair wf-faden-blatt__pair--top">
-            <span className="wf-faden-blatt__label">Was die Gruppe davon hat</span>
+          <div className="wf-sheet__pair wf-sheet__pair--top">
+            <span className="wf-sheet__label">Was die Gruppe davon hat</span>
             <Written
               label="Was die Gruppe davon hat"
               rows={2}
@@ -299,9 +232,9 @@ function StorySheet({ story }: { story: Story }) {
               onSave={(reward) => patch({ reward })}
             />
           </div>
-        </Section>
+        </SheetSection>
 
-        <Section
+        <SheetSection
           title="Merkzettel"
           hint="Woran du am Tisch denken willst. Steht am Spieltisch, wenn die Geschichte im Spiel ist."
         >
@@ -311,16 +244,16 @@ function StorySheet({ story }: { story: Story }) {
             value={story.memo}
             onSave={(memo) => patch({ memo })}
           />
-        </Section>
+        </SheetSection>
 
-        <footer className="wf-faden-blatt__foot">
+        <footer className="wf-sheet__foot">
           <Button variant="ghost" icon={<Trash2 />} onClick={remove}>
             Geschichte löschen
           </Button>
         </footer>
       </div>
 
-      <aside className="wf-faden-blatt__side">
+      <aside className="wf-sheet__side">
         <section>
           <h3 className="wf-faden-side__sub">Am Tisch</h3>
           <Checkbox checked={story.inPlay} onChange={(inPlay) => patch({ inPlay })}>
@@ -356,17 +289,7 @@ function StorySheet({ story }: { story: Story }) {
           <p className="wf-mute">
             Ein Rat, keine Pflicht: Was hier fehlt, trägt eine Geschichte am Tisch.
           </p>
-          <ul className="wf-faden-rat">
-            {advice.map((entry) => (
-              <li key={entry.key} data-done={entry.done} title={entry.why}>
-                {entry.done ? <Check aria-label="geschrieben" /> : <Circle aria-label="offen" />}
-                <span>
-                  {entry.text}
-                  {!entry.done && <em>{entry.why}</em>}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <SheetAdvice items={advice} />
         </section>
 
         {touching.length > 0 && (
@@ -431,7 +354,7 @@ function Steps({ story }: { story: Story }) {
   );
 
   return (
-    <Section
+    <SheetSection
       title="Wenn niemand eingreift"
       hint="Schritt für Schritt bis zum schlimmen Ende. Die Schritte treten von selbst ein, wenn die Weltzeit vergeht."
       action={
@@ -448,7 +371,7 @@ function Steps({ story }: { story: Story }) {
       }
     >
       {view && (
-        <p className="wf-faden-blatt__status">
+        <p className="wf-sheet__status">
           {view.blocked
             ? `Blockiert: ${view.blocked}`
             : view.paused
@@ -458,10 +381,10 @@ function Steps({ story }: { story: Story }) {
                 : 'Alles ist geschehen.'}
         </p>
       )}
-      <ol className="wf-faden-liste">
+      <ol className="wf-sheet-list">
         {behind.map((step) => (
-          <li key={step.step.id} className="wf-faden-liste__row wf-faden-liste__row--done">
-            <span className="wf-faden-liste__mark">{step.state === 'prevented' ? '×' : '✓'}</span>
+          <li key={step.step.id} className="wf-sheet-list__row wf-sheet-list__row--done">
+            <span className="wf-sheet-list__mark">{step.state === 'prevented' ? '×' : '✓'}</span>
             <span>{step.step.text}</span>
             <em>
               {step.state === 'prevented' ? 'verhindert' : `am ${formatDayMonth(cal, step.at)}`}
@@ -469,8 +392,8 @@ function Steps({ story }: { story: Story }) {
           </li>
         ))}
         {list.items.map((step, index) => (
-          <li key={step.id} className="wf-faden-liste__row">
-            <span className="wf-faden-liste__mark">{behind.length + index + 1}.</span>
+          <li key={step.id} className="wf-sheet-list__row">
+            <span className="wf-sheet-list__mark">{behind.length + index + 1}.</span>
             <Input
               value={step.text}
               aria-label={`Schritt ${behind.length + index + 1}`}
@@ -478,9 +401,9 @@ function Steps({ story }: { story: Story }) {
               onChange={(event) => list.edit(step.id, { text: event.target.value })}
               onBlur={list.flush}
             />
-            <span className="wf-faden-liste__unit">nach</span>
+            <span className="wf-sheet-list__unit">nach</span>
             <Input
-              className="wf-faden-liste__days"
+              className="wf-sheet-list__days"
               value={step.days}
               inputMode="decimal"
               aria-label="Tage nach dem vorigen Schritt"
@@ -488,7 +411,7 @@ function Steps({ story }: { story: Story }) {
               onChange={(event) => list.edit(step.id, { days: event.target.value })}
               onBlur={list.flush}
             />
-            <span className="wf-faden-liste__unit">Tagen</span>
+            <span className="wf-sheet-list__unit">Tagen</span>
             <IconButton
               label="Schritt entfernen"
               size="sm"
@@ -512,7 +435,7 @@ function Steps({ story }: { story: Story }) {
       {dialog && clock && (
         <ClockDialog key={clock.id} clock={clock} onClose={() => setDialog(false)} />
       )}
-    </Section>
+    </SheetSection>
   );
 }
 
@@ -533,7 +456,7 @@ function Threads({ story }: { story: Story }) {
       hints: [],
     });
   return (
-    <Section
+    <SheetSection
       title="Fragen und Hinweise"
       hint="Was die Gruppe herausfinden soll. Zu jeder Frage führen am besten drei Hinweise – einen übersieht sie, einen versteht sie falsch."
       action={
@@ -543,7 +466,7 @@ function Threads({ story }: { story: Story }) {
       }
     >
       {threads.length === 0 && (
-        <p className="wf-faden-blatt__none">
+        <p className="wf-sheet__none">
           Noch keine Frage. Eine Frage ist ein Faden, dem die Gruppe folgen kann: „Wer bezahlt den
           Zöllner?“
         </p>
@@ -551,7 +474,7 @@ function Threads({ story }: { story: Story }) {
       {threads.map((thread) => (
         <ThreadBlock key={thread.id} thread={thread} />
       ))}
-    </Section>
+    </SheetSection>
   );
 }
 
@@ -615,9 +538,9 @@ function ThreadBlock({ thread }: { thread: Thread }) {
           </span>
         </div>
         {hints.items.map((hint) => (
-          <div key={hint.id} className="wf-faden-liste__row wf-faden-liste__row--hint">
+          <div key={hint.id} className="wf-sheet-list__row wf-sheet-list__row--hint">
             <Checkbox checked={hint.found} onChange={(found) => hints.set(hint.id, { found })}>
-              <span className="wf-faden-liste__sr">Die Gruppe hat den Hinweis</span>
+              <span className="wf-sheet-list__sr">Die Gruppe hat den Hinweis</span>
             </Checkbox>
             <Input
               value={hint.text}
@@ -677,7 +600,7 @@ function Entries({ story }: { story: Story }) {
     (entry) => !entry.text.trim(),
   );
   return (
-    <Section
+    <SheetSection
       title="Einstiege"
       hint="Wo und wie die Gruppe auf die Geschichte stößt. Zwei an verschiedenen Orten sind sicherer als einer."
       action={
@@ -690,9 +613,9 @@ function Entries({ story }: { story: Story }) {
         </Button>
       }
     >
-      {list.items.length === 0 && <p className="wf-faden-blatt__none">Noch kein Einstieg.</p>}
+      {list.items.length === 0 && <p className="wf-sheet__none">Noch kein Einstieg.</p>}
       {list.items.map((entry) => (
-        <div key={entry.id} className="wf-faden-liste__row wf-faden-liste__row--entry">
+        <div key={entry.id} className="wf-sheet-list__row wf-sheet-list__row--entry">
           <Input
             value={entry.text}
             aria-label="Einstieg"
@@ -729,7 +652,7 @@ function Entries({ story }: { story: Story }) {
           </IconButton>
         </div>
       ))}
-    </Section>
+    </SheetSection>
   );
 }
 
@@ -757,7 +680,7 @@ function Scenes({ story }: { story: Story }) {
     });
   };
   return (
-    <Section
+    <SheetSection
       title="Szenen und Begegnungen"
       hint="Was bereitliegt. Jede Szene bringt die Gruppe voran, hält sie auf oder verrät etwas."
       action={
@@ -770,9 +693,9 @@ function Scenes({ story }: { story: Story }) {
         </Button>
       }
     >
-      {list.items.length === 0 && <p className="wf-faden-blatt__none">Noch keine Szene.</p>}
+      {list.items.length === 0 && <p className="wf-sheet__none">Noch keine Szene.</p>}
       {list.items.map((scene) => (
-        <div key={scene.id} className="wf-faden-liste__row wf-faden-liste__row--scene">
+        <div key={scene.id} className="wf-sheet-list__row wf-sheet-list__row--scene">
           <Input
             value={scene.text}
             aria-label="Szene"
@@ -829,6 +752,6 @@ function Scenes({ story }: { story: Story }) {
           </IconButton>
         </div>
       ))}
-    </Section>
+    </SheetSection>
   );
 }

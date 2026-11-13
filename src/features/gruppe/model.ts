@@ -545,6 +545,8 @@ export interface CharacterDraft {
   placeId: string | null;
   active: boolean;
   sheetUrl: string;
+  /** Was der Gefährte will. */
+  goal: string;
 }
 
 const text = (n: number | null) => (n === null ? '' : String(n));
@@ -574,6 +576,7 @@ export function emptyDraft(): CharacterDraft {
     placeId: null,
     active: true,
     sheetUrl: '',
+    goal: '',
   };
 }
 
@@ -603,6 +606,7 @@ export function draftFromCharacter(c: Character): CharacterDraft {
     placeId: d.placeId,
     active: d.active,
     sheetUrl: d.sheetUrl,
+    goal: d.goal,
   };
 }
 
@@ -806,6 +810,7 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
         placeId: draft.placeId,
         active: draft.active,
         sheetUrl: sheetUrl ? (sheetHref(sheetUrl) ?? sheetUrl) : '',
+        goal: draft.goal.trim(),
       },
     },
   };

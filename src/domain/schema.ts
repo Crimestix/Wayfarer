@@ -226,6 +226,8 @@ const CharacterDetails = z.object({
   active: z.boolean().default(true),
   /** Link zum Charakterbogen auf D&D Beyond. */
   sheetUrl: z.string().default(''),
+  /** Was der Gefährte will – was ihn in den nächsten Abend zieht. */
+  goal: z.string().default(''),
 });
 
 const ItemDetails = z.object({
@@ -544,6 +546,48 @@ export const StoryEntrySchema = z.object({
   standing: z.enum(ENTRY_STANDINGS).default('any'),
 });
 export type StoryEntry = z.infer<typeof StoryEntrySchema>;
+
+/** Eine mögliche Szene eines Abends – ein paar Sätze, bereit, verworfen zu werden. */
+export const PrepSceneSchema = z.object({
+  id,
+  text: z.string(),
+  /** Gespielt. */
+  done: z.boolean().default(false),
+});
+export type PrepScene = z.infer<typeof PrepSceneSchema>;
+
+/**
+ * Ein Geheimnis oder Hinweis für einen Abend: etwas, das die Gruppe erfahren könnte – noch an
+ * keinem Ort und keiner Person festgemacht. Wo sie es findet, entscheidet sich am Tisch.
+ */
+export const PrepSecretSchema = z.object({
+  id,
+  text: z.string(),
+  /** Die Geschichte, zu der es gehört – wenn es zu einer gehört. */
+  storyId: id.nullable().default(null),
+  /** Die Gruppe hat es erfahren. */
+  revealed: z.boolean().default(false),
+  revealedAt: worldTime.nullable().default(null),
+});
+export type PrepSecret = z.infer<typeof PrepSecretSchema>;
+
+/**
+ * Das Blatt eines Abends (`domain/prep.ts`): was der Spielleiter für ihn bereitlegt. Ohne
+ * Session gilt es dem kommenden Abend; beginnt eine, gehört es zu ihr.
+ */
+export const PrepSchema = z.object({
+  ...base,
+  sessionId: id.nullable().default(null),
+  /** Der starke Einstieg: Etwas passiert. */
+  start: z.string().default(''),
+  scenes: z.array(PrepSceneSchema).default([]),
+  secrets: z.array(PrepSecretSchema).default([]),
+  /** Begegnungen, die bereitliegen. */
+  encounterIds: z.array(id).default([]),
+  /** Beute, die der Abend bringen kann. */
+  treasure: z.string().default(''),
+});
+export type Prep = z.infer<typeof PrepSchema>;
 
 export const SCENE_ODDS = ['sure', 'maybe', 'unlikely'] as const;
 export type SceneOdds = (typeof SCENE_ODDS)[number];
@@ -1482,6 +1526,7 @@ export const COLLECTION_SCHEMAS = {
   stocks: StockSchema,
   runs: RunSchema,
   nets: NetSchema,
+  preps: PrepSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1508,6 +1553,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'stocks',
   'runs',
   'nets',
+  'preps',
 ];
 
 export type CollectionTypes = {
@@ -1609,6 +1655,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createPrep(init: Partial<Prep> = {}): Prep {
+  const stamp = nowIso();
+  return PrepSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createNet(init: Partial<Net> & { name: string }): Net {

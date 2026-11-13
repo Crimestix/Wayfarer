@@ -1227,6 +1227,32 @@ Ort).
   einbinden (was jeder will; an Geschichten heften) · 4. Beute und Belohnungen · Schritte einer
   Uhr stehen weiter als „Veränderung“ in der Mitschrift (Rundgang 13).
 
+### Abend vorbereiten (13. 11. 2026) – gebaut
+
+Plan 2 aus der Liste nach dem Nachlesen (acht Schritte der „faulen“ Vorbereitung).
+
+- **Das Blatt** (`features/abend`, `/abend`, Reiter „Abend vorbereiten“ neben dem Fadenbrett):
+  Die Gefährten (was jeder will – `character.goal`, auch im Fenster des Gefährten) · Starker
+  Einstieg · Geschichten im Spiel (hereinnehmen, herausnehmen, neue schreiben) · Mögliche Szenen
+  (abhaken: gespielt) · Geheimnisse und Hinweise (abhaken: aufgedeckt; auf Wunsch einer
+  Geschichte zugeordnet; Zähler „4 von 10“; Enter legt gleich das nächste an) · Begegnungen
+  bereit · Beute. Rechts der Rat (`prepAdvice`).
+- **Ein Blatt je Abend** (Sammlung `preps`): Das offene Blatt gilt dem kommenden Abend; beginnt
+  eine Session, gehört es zu ihr. Nach dem Abend beginnt das nächste Blatt mit den Szenen, die
+  nicht gespielt, und den Geheimnissen, die nicht aufgedeckt wurden (`carryOver`) – Einstieg,
+  Begegnungen und Beute bleiben beim alten. Wer mitten im Abend zu schreiben beginnt, schreibt
+  auf das Blatt dieses Abends.
+- **Am Spieltisch** steht „Dieser Abend“ über den Geschichten im Spiel (`tisch/EveningBlock`):
+  Einstieg, Szenen und Geheimnisse zum Abhaken (mit „Rückgängig“), Begegnungen zum Öffnen,
+  Beute.
+- **Gemeinsame Bausteine:** `ui/sheet.tsx` und `ui/sheet.css` tragen jetzt beide Blätter
+  (Geschichte und Abend).
+- **Nicht geprüft:** installierte App, echte Daten, der Wechsel über mehrere Abende nur in
+  Tests.
+- **Offen:** ältere Blätter ansehen (was für Session 11 vorbereitet war); ein aufgedecktes
+  Geheimnis steht nicht von selbst in der Mitschrift; Gefährten an Geschichten heften (Plan 3);
+  Beute als eigene Sache statt als Text (Plan 4).
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

@@ -379,6 +379,17 @@ export function EditDialog({
         <SectionTitle>Zugehörigkeit</SectionTitle>
         <div className="wf-gruppe-form__grid">
           <Field
+            label="Was will dieser Gefährte?"
+            hint="Ein Ziel, eine offene Rechnung, eine Sehnsucht – was ihn in den nächsten Abend zieht."
+            className="wf-gruppe-col-6"
+          >
+            <Input
+              value={draft.goal}
+              onChange={(e) => set('goal', e.target.value)}
+              placeholder="Will seine Schwester finden, die in der Tiefe verschwand."
+            />
+          </Field>
+          <Field
             label="Link zum Charakterbogen"
             hint={error('sheetUrl') ?? 'Die Adresse des Bogens bei D&D Beyond.'}
             className={cx('wf-gruppe-col-4', error('sheetUrl') && 'wf-gruppe-field--error')}

@@ -1,0 +1,82 @@
+/* „Abend vorbereiten“ – das Gerüst des Blatts steht in ui/sheet.css. */
+
+.wf-abend-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.wf-abend-sub {
+  margin: 0;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Zeilen des Blatts */
+.wf-abend-row {
+  display: grid;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-abend-row--goal {
+  grid-template-columns: 170px minmax(0, 1fr);
+}
+.wf-abend-row--story {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) 30px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-abend-row--scene {
+  grid-template-columns: 22px minmax(0, 1fr) 30px;
+}
+.wf-abend-row--secret {
+  grid-template-columns: 22px minmax(0, 1fr) 210px 30px;
+}
+/* Gespielt, aufgedeckt: bleibt lesbar, tritt aber zurück. */
+.wf-abend-row--done input[type='text'],
+.wf-abend-row--done input:not([type]) {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-faint);
+}
+.wf-abend-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wf-abend-name:hover {
+  color: var(--gold-bright);
+}
+.wf-abend-name svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-mute);
+}
+.wf-abend-next {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-abend-add {
+  align-self: flex-start;
+  width: auto;
+  max-width: 100%;
+}
+.wf-abend-count {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.wf-abend-count--low {
+  color: var(--ember);
+}

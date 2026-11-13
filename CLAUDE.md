@@ -111,6 +111,7 @@ nicht übernommen.
   `domain/net.ts`),
   `faeden` (das Fadenbrett: eine Pinnwand aus Geschichten, losen Fäden und den Namen, an denen
   sie hängen; die Rechnung steht in `domain/story.ts`),
+  `abend` (den nächsten Abend vorbereiten; die Rechnung steht in `domain/prep.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -120,7 +121,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -212,6 +213,17 @@ nicht übernommen.
   `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
   werden nie gespeichert – sie folgen aus dem, woran eine Geschichte hängt (`pinToCard` heftet
   einen Namen an).
+- Einen Abend vorbereiten (`preps/`, `domain/prep.ts`, `features/abend`, Reiter neben dem
+  Fadenbrett): je Abend ein Blatt – starker Einstieg, mögliche Szenen, Geheimnisse (noch an
+  keinem Ort festgemacht), Begegnungen, Beute. Das offene Blatt (`sessionId: null`) gilt dem
+  kommenden Abend; `startSession` hängt es an die Session. Was nicht gespielt und nicht
+  aufgedeckt wurde, wandert über `carryOver()` auf das nächste Blatt – nie von Hand kopieren.
+  Gelesen wird über `prepView()`, geschrieben über `features/abend/actions.ts` (`patchPrep`
+  legt das Blatt mit dem ersten Wort an). Was fehlt, sagt `prepAdvice()` als Rat. Was ein
+  Gefährte will, steht bei ihm (`character.goal`).
+- Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
+  (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
+  Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.
 - Spieltisch (`features/tisch`): drei Spalten – der Ort (wer hier ist, Wege, was hier ist), in
   der Mitte **„Im Spiel“** (`PlayPanel`), rechts Mitschrift und „Sonst noch“. Im Spiel ist, was
   der Spielleiter hereinnimmt (`story.inPlay`, bei losen Fäden `thread.inPlay`, gesetzt über

@@ -8,6 +8,7 @@ import {
   Landmark,
   Skull,
   Map as MapIcon,
+  NotebookPen,
   Orbit,
   Route,
   Swords,
@@ -55,6 +56,17 @@ export const BEAST_TABS: readonly AreaTab[] = [
   { path: '/bestaende', label: 'Bestände', hint: 'Baue, Horte und Nester', icon: Tent },
 ];
 
+/** Geschichten: das Brett mit allen – und das Blatt für den nächsten Abend. */
+export const STORY_TABS: readonly AreaTab[] = [
+  { path: '/faeden', label: 'Fadenbrett', hint: 'Geschichten und Fäden', icon: Waypoints },
+  {
+    path: '/abend',
+    label: 'Abend vorbereiten',
+    hint: 'Einstieg, Szenen, Geheimnisse, Begegnungen, Beute',
+    icon: NotebookPen,
+  },
+];
+
 /** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */
 export const MAP_TABS: readonly AreaTab[] = [
   { path: '/atlas', label: 'Weltkarte', hint: 'Der ganze Planet und wo alles liegt', icon: Globe },
@@ -87,8 +99,9 @@ export const AREAS: Area[] = [
   {
     path: '/faeden',
     label: 'Fadenbrett',
-    hint: 'Geschichten und Fäden',
+    hint: 'Geschichten, Fäden, der nächste Abend',
     icon: Waypoints,
+    tabs: STORY_TABS,
     also: ['/geschichte'],
   },
   {

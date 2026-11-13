@@ -22,6 +22,7 @@ import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
 import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
 import { newStory, setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
+import { EveningBlock } from './EveningBlock';
 import { whenLabel } from './model';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -79,6 +80,7 @@ export function PlayPanel() {
         </>
       }
     >
+      <EveningBlock />
       {view.cards.length === 0 && (
         <p className="wf-tisch-play__none">
           Noch keine Geschichte im Spiel. Nimm die herein, die gerade wichtig sind – dann steht hier

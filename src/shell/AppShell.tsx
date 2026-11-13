@@ -19,6 +19,7 @@ import AtlasPage from '../features/atlas';
 import BestiariumPage from '../features/bestiarium';
 import EncountersPage from '../features/bestiarium/Encounters';
 import StocksPage from '../features/bestiarium/Stocks';
+import AbendPage from '../features/abend';
 import FaedenPage from '../features/faeden';
 import StoryPage from '../features/faeden/StoryPage';
 import GeschehenPage from '../features/geschehen';
@@ -30,7 +31,15 @@ import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
 import { TwinSync } from '../features/wiki/TwinSync';
-import { AREAS, BEAST_TABS, MAP_TABS, TIME_TABS, areaPaths, type Area } from '../features/registry';
+import {
+  AREAS,
+  BEAST_TABS,
+  MAP_TABS,
+  STORY_TABS,
+  TIME_TABS,
+  areaPaths,
+  type Area,
+} from '../features/registry';
 import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
 import WeltPage, { WikiRoute } from '../features/welt';
@@ -62,6 +71,14 @@ const beastPage = (Page: ComponentType) => () => (
     <Page />
   </AreaTabs>
 );
+const storyPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={STORY_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const GeschichtenBrett = storyPage(FaedenPage);
+const GeschichtenBlatt = storyPage(StoryPage);
+const GeschichtenAbend = storyPage(AbendPage);
 const BestiariumWesen = beastPage(BestiariumPage);
 const BestiariumBegegnungen = beastPage(EncountersPage);
 const BestiariumBestaende = beastPage(StocksPage);
@@ -351,8 +368,9 @@ export function AppShell() {
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />
             <Route path="/wegenetze/:id?" component={KartenNetze} />
-            <Route path="/faeden" component={FaedenPage} />
-            <Route path="/geschichte/:id" component={StoryPage} />
+            <Route path="/faeden" component={GeschichtenBrett} />
+            <Route path="/geschichte/:id" component={GeschichtenBlatt} />
+            <Route path="/abend" component={GeschichtenAbend} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/bestaende/:id?" component={BestiariumBestaende} />
