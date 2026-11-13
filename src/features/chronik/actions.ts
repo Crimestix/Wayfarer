@@ -136,6 +136,8 @@ export function reviseRecorded(db: CampaignDb, entryId: string, input: RecordInp
       ...fresh,
       id: entry.id,
       created: reorders ? fresh.created : entry.created,
+      // Angeheftet oder erledigt („Noch offen“) bleibt, was es war.
+      loose: entry.loose,
       rev: Math.max(entry.rev, fresh.rev),
     });
     if (input.writing?.createArticle && !db.getSnapshot().chronicle[entry.id]?.writing?.articleId)

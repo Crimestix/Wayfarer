@@ -4,7 +4,9 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { patchCharacter } from '../../features/gruppe/actions';
-import { looseEnds, looseEndsHere, looseGroups, sinceText } from '../looseEnds';
+import { reviseRecorded } from '../../features/chronik/actions';
+import { recordEntry } from '../../data/record';
+import { looseAfterPin, looseEnds, looseEndsHere, looseGroups, sinceText } from '../looseEnds';
 import { createChronicleEntry, createEntity, type ChronicleEntry } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
 
@@ -120,5 +122,53 @@ describe('Was hängt noch offen', () => {
     // Am Spieltisch ohne Abmachungen – die stehen unter „Sonst noch“.
     expect(of(promise.id).here).toBe(true);
     expect(looseEndsHere(data()).map((end) => end.entry.id)).toEqual([rumor.id]);
+  });
+
+  it('ein Ortswechsel in derselben Minute erfüllt ein Vorhaben; wo man schon steht, ist kein Ziel', async () => {
+    const { db, add, town, harbour, data } = await setup();
+    const plan = add({ kind: 'decision', text: 'Zum Hafen', placeId: town.id, refs: [harbour.id] });
+    const stay = add({
+      kind: 'decision',
+      text: 'Wir bleiben hier',
+      placeId: harbour.id,
+      refs: [town.id],
+    });
+    expect(looseEnds(data()).map((end) => end.entry.id)).toEqual([plan.id]);
+    // Ohne Weg vergeht keine Zeit: Der Ortswechsel trägt dieselbe Minute.
+    moveParty(db, harbour.id);
+    expect(looseEnds(data())).toEqual([]);
+    expect(stay.id).toBeTruthy();
+  });
+
+  it('zählt Abende nach der Session des Eintrags – auch in derselben Minute', async () => {
+    const { db, add, data } = await setup();
+    startSession(db);
+    const rumor = add({
+      kind: 'rumor',
+      text: 'Am Ende des Abends gehört',
+      sessionId: data().state.sessionId,
+    });
+    // Der nächste Abend beginnt in derselben Weltminute.
+    startSession(db);
+    expect(sinceText(looseEnds(data()).find((end) => end.entry.id === rumor.id)!)).toBe(
+      'seit dem letzten Abend',
+    );
+  });
+
+  it('die Nadel lösen nimmt auch von selbst Offenes heraus; Bearbeiten behält sie', async () => {
+    const { db, add, data } = await setup();
+    const rumor = add({ kind: 'rumor', text: 'Die Grotte flutet' });
+    const note = add({ kind: 'note', text: 'Nur eine Notiz' });
+    expect(looseAfterPin(data(), rumor, true)).toBe('open');
+    expect(looseAfterPin(data(), rumor, false)).toBe('settled');
+    expect(looseAfterPin(data(), note, false)).toBeNull();
+    // Ein angehefteter Eintrag, dessen Art im Dialog geändert wird, bleibt angeheftet.
+    const written = recordEntry(db, { kind: 'note', text: 'Die goldene Eichel' });
+    if ('problem' in written) throw new Error(written.problem);
+    db.patch('chronicle', written.entry.id, { loose: 'open' });
+    expect(
+      reviseRecorded(db, written.entry.id, { kind: 'decision', text: 'Die goldene Eichel suchen' }),
+    ).toBe('');
+    expect(data().chronicle[written.entry.id]!.loose).toBe('open');
   });
 });

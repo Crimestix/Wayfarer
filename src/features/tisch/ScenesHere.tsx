@@ -13,6 +13,7 @@ import { LOOSE_REASON_SHORT, looseEndsHere, sinceText } from '../../domain/loose
 import { scenesHere } from '../../domain/scenesHere';
 import { chronicleEntryLabel, toast } from '../../ui';
 import { setSceneDone } from '../abend/actions';
+import { entryHeadline } from '../chronik/model';
 
 export function ScenesHere() {
   const db = useDb();
@@ -97,9 +98,11 @@ export function ScenesHere() {
         </div>
       )}
       {loose.map((end) => {
+        const places = end.placeIds.map((id) => entityName(data, id)).join(', ');
         const text =
           end.entry.text.trim() ||
-          `${chronicleEntryLabel(end.entry)}: ${end.placeIds.map((id) => entityName(data, id)).join(', ')}`;
+          entryHeadline(data, end.entry) ||
+          [chronicleEntryLabel(end.entry), places].filter(Boolean).join(': ');
         return (
           <div key={end.entry.id} className="wf-tisch-story wf-tisch-scene">
             <div className="wf-tisch-story__title">

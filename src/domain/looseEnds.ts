@@ -12,8 +12,7 @@
  * Was der Spielleiter erledigt hat (`loose = 'settled'`), fällt heraus. Wayfarer erfindet dabei
  * nichts: Jeder Punkt ist ein Eintrag der Chronik, so wie er geschrieben wurde.
  */
-import { placeAncestors, placeCast } from './derive';
-import { partyPlaceAt } from './history';
+import { byTime, placeAncestors, placeCast } from './derive';
 import type { CampaignData, ChronicleEntry } from './schema';
 import { dayIndexOf } from './time/calendar';
 
@@ -69,18 +68,37 @@ function chainOf(data: CampaignData, placeId: string | null): string[] {
   return [placeId, ...placeAncestors(data, placeId).map((place) => place.id)];
 }
 
+/** Die Ortswechsel der Gruppe in der Reihenfolge der Chronik (auch innerhalb einer Minute). */
+const travelsOf = (data: CampaignData) =>
+  Object.values(data.chronicle)
+    .filter((entry) => entry.kind === 'travel' && entry.travel)
+    .sort(byTime);
+
 /**
- * Ob die Gruppe nach `at` an `placeId` angekommen ist: ein Ortswechsel dorthin (oder in einen Ort
- * darin) – oder sie steht jetzt dort und stand damals noch nicht dort.
+ * Wo die Gruppe stand, als der Eintrag geschrieben wurde: das Ziel des letzten Ortswechsels davor –
+ * ein Ortswechsel in derselben Minute zählt nur, wenn er vorher angelegt wurde.
  */
-export function reachedSince(data: CampaignData, placeId: string, at: number): boolean {
-  for (const entry of Object.values(data.chronicle)) {
-    if (entry.kind !== 'travel' || entry.at <= at || !entry.travel?.toId) continue;
-    if (chainOf(data, entry.travel.toId).includes(placeId)) return true;
+export function placeAtEntry(data: CampaignData, entry: ChronicleEntry): string | null {
+  const travels = travelsOf(data);
+  const before = travels.filter((travel) => byTime(travel, entry) < 0);
+  const last = before[before.length - 1];
+  if (last) return last.travel!.toId;
+  const next = travels.find((travel) => byTime(travel, entry) > 0);
+  return next ? next.travel!.fromId : data.state.placeId;
+}
+
+/**
+ * Ob die Gruppe nach dem Eintrag an `placeId` angekommen ist: ein späterer Ortswechsel dorthin
+ * (oder in einen Ort darin) – oder sie steht jetzt dort und stand damals noch nicht dort.
+ */
+export function reachedSince(data: CampaignData, placeId: string, entry: ChronicleEntry): boolean {
+  for (const travel of travelsOf(data)) {
+    if (byTime(travel, entry) <= 0 || !travel.travel?.toId) continue;
+    if (chainOf(data, travel.travel.toId).includes(placeId)) return true;
   }
   return (
     chainOf(data, data.state.placeId).includes(placeId) &&
-    !chainOf(data, partyPlaceAt(data, at)).includes(placeId)
+    !chainOf(data, placeAtEntry(data, entry)).includes(placeId)
   );
 }
 
@@ -106,18 +124,35 @@ export function looseReason(data: CampaignData, entry: ChronicleEntry): LooseRea
       if (entry.loose === 'open') return 'pinned';
       const placeId = entry.placeId;
       if (!placeId) return null;
-      const there = chainOf(data, partyPlaceAt(data, entry.at)).includes(placeId);
-      return there || reachedSince(data, placeId, entry.at) ? null : 'discovery';
+      const there = chainOf(data, placeAtEntry(data, entry)).includes(placeId);
+      return there || reachedSince(data, placeId, entry) ? null : 'discovery';
     }
     case 'decision': {
       if (entry.loose === 'open') return 'pinned';
-      const targets = entry.refs.filter((id) => id !== entry.placeId && isPlace(data, id));
+      // Orte, an denen die Gruppe damals schon stand, sind kein Ziel („Wir bleiben in Hohenfurt“).
+      const there = chainOf(data, placeAtEntry(data, entry));
+      const targets = entry.refs.filter(
+        (id) => id !== entry.placeId && isPlace(data, id) && !there.includes(id),
+      );
       if (!targets.length) return null;
-      return targets.some((id) => reachedSince(data, id, entry.at)) ? null : 'decision';
+      return targets.some((id) => reachedSince(data, id, entry)) ? null : 'decision';
     }
     default:
       return entry.loose === 'open' ? 'pinned' : null;
   }
+}
+
+/**
+ * Was `loose` wird, wenn der Spielleiter die Nadel setzt oder löst. Gelöst ist der Eintrag nicht
+ * mehr offen – auch wenn er es von selbst wäre (ein ungeprüftes Gerücht): dann gilt er als erledigt.
+ */
+export function looseAfterPin(
+  data: CampaignData,
+  entry: ChronicleEntry,
+  pin: boolean,
+): ChronicleEntry['loose'] {
+  if (pin) return 'open';
+  return looseReason(data, { ...entry, loose: null }) ? 'settled' : null;
 }
 
 /** Die Orte, um die es bei einem offenen Punkt geht. */
@@ -137,9 +172,16 @@ export function looseEnds(data: CampaignData): LooseEnd[] {
   const here = data.state.placeId;
   const chain = new Set(chainOf(data, here));
   const present = new Set(here ? placeCast(data, here).present.map((person) => person.id) : []);
-  const starts = Object.values(data.sessions)
-    .map((session) => session.startAt)
-    .filter((start) => start <= now);
+  const begun = Object.values(data.sessions).filter((session) => session.startAt <= now);
+  // Ein neuer Abend beginnt in derselben Minute, in der der alte endete: Gezählt wird deshalb nach
+  // der Session des Eintrags, ohne sie nach der Zeit
+  // (ein Eintrag zwischen den Abenden zählt den Abend, der in seiner Minute beginnt, nicht mit).
+  const sessionsSince = (entry: ChronicleEntry) => {
+    const own = entry.sessionId ? data.sessions[entry.sessionId] : undefined;
+    return own
+      ? begun.filter((session) => session.number > own.number).length
+      : begun.filter((session) => session.startAt > entry.at).length;
+  };
   const out: LooseEnd[] = [];
   for (const entry of Object.values(data.chronicle)) {
     const reason = looseReason(data, entry);
@@ -153,7 +195,7 @@ export function looseEnds(data: CampaignData): LooseEnd[] {
       entry,
       reason,
       placeIds,
-      sessionsSince: starts.filter((start) => start > entry.at).length,
+      sessionsSince: sessionsSince(entry),
       daysSince: dayIndexOf(now) - dayIndexOf(entry.at),
       here: isHere,
     });

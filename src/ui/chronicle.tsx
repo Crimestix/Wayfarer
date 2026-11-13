@@ -51,6 +51,7 @@ import {
 } from '../domain/chronicleKinds';
 import { PROMISE_OUTCOME_LABEL, promiseOutcome } from '../domain/derive';
 import { activeConditions, conditionEnding } from '../domain/history';
+import { looseAfterPin } from '../domain/looseEnds';
 import { relationLabel } from '../domain/relations';
 import { useData, useDb } from '../data/hooks';
 import {
@@ -600,12 +601,14 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
       </div>
       {entry.kind !== 'event' && entry.kind !== 'promise' && (
         <IconButton
-          label={pinned ? 'Nicht mehr offen halten' : 'Hängt noch offen – merken'}
+          label={pinned ? 'Lösen – hängt nicht mehr offen' : 'Hängt noch offen – merken'}
           size="sm"
           variant="ghost"
           className={cx('wf-chron__pin', pinned && 'wf-chron__pin--on')}
           aria-pressed={pinned}
-          onClick={() => db.patch('chronicle', entry.id, { loose: pinned ? null : 'open' })}
+          onClick={() =>
+            db.patch('chronicle', entry.id, { loose: looseAfterPin(data, entry, !pinned) })
+          }
         >
           <Pin />
         </IconButton>
