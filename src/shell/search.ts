@@ -1,9 +1,12 @@
 /**
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
- * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände und Karten. Reine Funktion –
+ * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
+ * Handouts, Bastionen (mit ihren Einrichtungen) und Beute. Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
+import { HANDOUT_KIND_LABEL } from '../domain/handout';
+import { formatGold } from '../domain/loot';
 import { scheduleText } from '../domain/runs';
 import type { CampaignData, Entity } from '../domain/schema';
 import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
@@ -22,7 +25,11 @@ export type SearchSort =
   | 'encounter'
   | 'stock'
   | 'map'
-  | 'net';
+  | 'net'
+  | 'track'
+  | 'handout'
+  | 'bastion'
+  | 'loot';
 
 export interface SearchHit {
   key: string;
@@ -192,6 +199,65 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       sub: sub('Wegenetz', net.points.length === 1 ? '1 Punkt' : `${net.points.length} Punkte`),
       href: `/wegenetze/${net.id}`,
     });
+
+  for (const track of Object.values(data.tracks))
+    add(score(q, track.name, track.note, ...track.stages), {
+      key: `track:${track.id}`,
+      sort: 'track',
+      label: track.name,
+      sub: sub('Fortschritt', name(track.ownerId) ?? 'Gruppe', track.done && 'abgeschlossen'),
+      href: '/fortschritt',
+    });
+  for (const handout of Object.values(data.handouts)) {
+    const title = handout.title.trim() || HANDOUT_KIND_LABEL[handout.kind];
+    add(score(q, title, handout.text, handout.signature), {
+      key: `handout:${handout.id}`,
+      sort: 'handout',
+      label: title,
+      sub: sub(
+        'Handout',
+        HANDOUT_KIND_LABEL[handout.kind],
+        handout.givenAt !== null && 'übergeben',
+      ),
+      href: '/handouts',
+      focus: { type: 'handout', id: handout.id },
+    });
+  }
+  for (const bastion of Object.values(data.bastions)) {
+    add(score(q, bastion.name), {
+      key: `bastion:${bastion.id}`,
+      sort: 'bastion',
+      label: bastion.name,
+      sub: sub('Bastion', name(bastion.placeId)),
+      href: '/bastion',
+      focus: { type: 'bastion', id: bastion.id },
+    });
+    for (const facility of bastion.facilities)
+      add(score(q, facility.name, facility.hirelings, facility.notes), {
+        key: `facility:${facility.id}`,
+        sort: 'bastion',
+        label: facility.name,
+        sub: sub('Einrichtung', bastion.name, name(facility.ownerId)),
+        href: '/bastion',
+        focus: { type: 'bastion', id: bastion.id },
+      });
+  }
+  for (const loot of Object.values(data.loot)) {
+    const label =
+      loot.text.trim() || name(loot.itemId) || (loot.gold > 0 ? formatGold(loot.gold) : '');
+    if (!label) continue;
+    add(score(q, label, loot.source), {
+      key: `loot:${loot.id}`,
+      sort: 'loot',
+      label,
+      sub: sub(
+        'Beute',
+        loot.given ? `bekommen: ${name(loot.toId) ?? 'die Gruppe'}` : 'liegt bereit',
+        loot.source,
+      ),
+      href: '/beute',
+    });
+  }
 
   rest.sort((a, b) => a.score - b.score || a.hit.label.localeCompare(b.hit.label, 'de'));
   // Was genau so heißt wie gesucht, steht ganz oben – auch vor den Einträgen der Welt.

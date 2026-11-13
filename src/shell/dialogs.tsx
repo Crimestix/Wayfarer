@@ -4,7 +4,11 @@ import { useLocation } from 'wouter';
 import {
   ArrowRight,
   CalendarDays,
+  Castle,
+  Coins,
+  FileText,
   Footprints,
+  Gauge,
   Hourglass,
   Library,
   Map as MapIcon,
@@ -1087,6 +1091,10 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   stock: <Tent />,
   map: <MapIcon />,
   net: <RouteIcon />,
+  track: <Gauge />,
+  handout: <FileText />,
+  bastion: <Castle />,
+  loot: <Coins />,
 };
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {

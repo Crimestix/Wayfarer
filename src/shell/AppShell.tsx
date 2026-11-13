@@ -21,6 +21,7 @@ import EncountersPage from '../features/bestiarium/Encounters';
 import StocksPage from '../features/bestiarium/Stocks';
 import AbendPage from '../features/abend';
 import HandoutsPage from '../features/handouts';
+import OffenPage from '../features/offen';
 import FaedenPage from '../features/faeden';
 import StoryPage from '../features/faeden/StoryPage';
 import GeschehenPage from '../features/geschehen';
@@ -95,6 +96,7 @@ const GeschichtenBrett = storyPage(FaedenPage);
 const GeschichtenBlatt = storyPage(StoryPage);
 const GeschichtenAbend = storyPage(AbendPage);
 const GeschichtenHandouts = storyPage(HandoutsPage);
+const GeschichtenOffen = storyPage(OffenPage);
 const BestiariumWesen = beastPage(BestiariumPage);
 const BestiariumBegegnungen = beastPage(EncountersPage);
 const BestiariumBestaende = beastPage(StocksPage);
@@ -393,6 +395,7 @@ export function AppShell() {
             <Route path="/geschichte/:id" component={GeschichtenBlatt} />
             <Route path="/abend" component={GeschichtenAbend} />
             <Route path="/handouts" component={GeschichtenHandouts} />
+            <Route path="/offen" component={GeschichtenOffen} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/bestaende/:id?" component={BestiariumBestaende} />

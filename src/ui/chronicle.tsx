@@ -24,6 +24,7 @@ import {
   Link,
   MapPin,
   Pencil,
+  Pin,
   Quote,
   SearchCheck,
   Skull,
@@ -482,6 +483,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   const outcome = promiseOutcome(promise);
   const overdue = promise && !promise.done && promise.due !== null && promise.due < data.state.now;
   const conditionStart = entry.kind === 'condition' && !!entry.condition && !entry.condition.ended;
+  const pinned = entry.loose === 'open';
 
   return (
     <article
@@ -501,6 +503,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           {showDate && <span>{formatDate(cal, entry.at)}</span>}
           <span className="wf-num">{formatClock(entry.at)}</span>
           {entry.kind !== 'note' && <span>{chronicleEntryLabel(entry)}</span>}
+          {pinned && <span className="wf-chron__loose">hängt offen</span>}
           {isApproximate(entry) && (
             <span title="Der Zeitpunkt ist nur ungefähr bekannt">ungefähr</span>
           )}
@@ -595,6 +598,18 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           </div>
         )}
       </div>
+      {entry.kind !== 'event' && entry.kind !== 'promise' && (
+        <IconButton
+          label={pinned ? 'Nicht mehr offen halten' : 'Hängt noch offen – merken'}
+          size="sm"
+          variant="ghost"
+          className={cx('wf-chron__pin', pinned && 'wf-chron__pin--on')}
+          aria-pressed={pinned}
+          onClick={() => db.patch('chronicle', entry.id, { loose: pinned ? null : 'open' })}
+        >
+          <Pin />
+        </IconButton>
+      )}
       {onEdit && (
         <IconButton
           label="Eintrag bearbeiten"

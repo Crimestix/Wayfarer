@@ -8,9 +8,13 @@ import {
   createEncounter,
   createEntity,
   createEvent,
+  createBastion,
+  createHandout,
+  createLoot,
   createStock,
   createStory,
   createThread,
+  createTrack,
 } from '../domain/schema';
 import { MINUTES_PER_DAY, dayIndexOf } from '../domain/time/calendar';
 import { saveRun } from '../features/geschehen/actions';
@@ -149,5 +153,64 @@ describe('Die Suche', () => {
     expect(hits[0]!.key).toBe(`run:${world.run.id}`);
     const exact = searchWorld(world.data(), 'aalinsel');
     expect(exact[0]).toMatchObject({ sort: 'entity', label: 'Aalinsel' });
+  });
+
+  it('findet Fortschrittsleisten, Handouts, Bastionen mit Einrichtungen und Beute', async () => {
+    const world = await setup();
+    const db = world.db;
+    const track = db.put(
+      'tracks',
+      createTrack({ name: 'Schulden beim Aalhändler', ownerId: null }),
+    );
+    const letter = db.put(
+      'handouts',
+      createHandout({ kind: 'letter', title: '', text: 'Kommt allein zum Aalsteg.' }),
+    );
+    const keep = db.put(
+      'bastions',
+      createBastion({
+        name: 'Burg Graufels',
+        placeId: world.isle.id,
+        facilities: [
+          {
+            id: 'f1',
+            name: 'Aalräucherei',
+            roomId: null,
+            kind: 'special',
+            ownerId: null,
+            orders: [],
+            hirelings: '',
+            state: 'ready',
+            trackId: null,
+            order: null,
+            notes: '',
+          },
+        ],
+      }),
+    );
+    const loot = db.put('loot', createLoot({ text: 'Silberner Aalhaken', source: 'aus dem Nest' }));
+    const hits = searchWorld(world.data(), 'aal');
+    const hit = (key: string) => hits.find((h) => h.key === key)!;
+    expect(hit(`track:${track.id}`)).toMatchObject({
+      href: '/fortschritt',
+      sub: 'Fortschritt · Gruppe',
+    });
+    // Ein Handout ohne Titel heißt nach seiner Art und wird über seinen Wortlaut gefunden.
+    expect(hit(`handout:${letter.id}`)).toMatchObject({
+      label: 'Brief',
+      focus: { type: 'handout', id: letter.id },
+    });
+    expect(hit('facility:f1')).toMatchObject({
+      sub: 'Einrichtung · Burg Graufels',
+      focus: { type: 'bastion', id: keep.id },
+    });
+    expect(hit(`loot:${loot.id}`)).toMatchObject({
+      href: '/beute',
+      sub: 'Beute · liegt bereit · aus dem Nest',
+    });
+    expect(searchWorld(world.data(), 'graufels')[0]).toMatchObject({
+      key: `bastion:${keep.id}`,
+      sub: 'Bastion · Aalinsel',
+    });
   });
 });

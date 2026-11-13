@@ -1,6 +1,6 @@
 /**
  * Eine Seite gezielt öffnen: Die Suche merkt vor, was dort gezeigt werden soll – eine Karte des
- * Fadenbretts, eine Uhr, ein Ablauf, ein Tag im Kalender. Die Seite nimmt es, sobald sie offen
+ * Fadenbretts, eine Uhr, ein Ablauf, ein Tag im Kalender, ein Handout, eine Bastion. Die Seite nimmt es, sobald sie offen
  * ist; steht sie schon offen, springt sie sofort.
  */
 import { useEffect, useSyncExternalStore } from 'react';
@@ -10,6 +10,8 @@ export type Focus =
   | { type: 'card'; key: string }
   | { type: 'clock'; id: string }
   | { type: 'run'; id: string }
+  | { type: 'handout'; id: string }
+  | { type: 'bastion'; id: string }
   /** Ein Tag im Kalender (Tagesindex seit Beginn der Zeitrechnung). */
   | { type: 'day'; day: number };
 

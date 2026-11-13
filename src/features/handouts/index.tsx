@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { Check, FileText, Plus, Printer, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { useFocus } from '../../shell/focus';
 import {
   HANDOUT_KIND_HINT,
   HANDOUT_KIND_LABEL,
@@ -38,6 +39,7 @@ export default function HandoutsPage() {
   const list = useMemo(() => handoutList(data), [data]);
   const [selectedId, setSelectedId] = useState<string | null>(list[0]?.id ?? null);
   const selected = selectedId ? data.handouts[selectedId] : undefined;
+  useFocus(['handout'], (focus) => setSelectedId(focus.id));
   const { print, layer } = usePrint();
   const cards = useMemo(() => prepHintCards(data), [data]);
 

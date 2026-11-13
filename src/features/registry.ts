@@ -12,6 +12,7 @@ import {
   Skull,
   Map as MapIcon,
   NotebookPen,
+  Pin,
   Orbit,
   Route,
   ScrollText,
@@ -80,6 +81,12 @@ export const STORY_TABS: readonly AreaTab[] = [
     label: 'Handouts',
     hint: 'Briefe, Aushänge, Hinweiskarten drucken',
     icon: ScrollText,
+  },
+  {
+    path: '/offen',
+    label: 'Noch offen',
+    hint: 'Was die Gruppe angestoßen und nie beendet hat',
+    icon: Pin,
   },
 ];
 

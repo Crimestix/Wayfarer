@@ -1405,6 +1405,17 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
 - **Offen:** Würfeltabellen für alles (dann ersetzt eine allgemeine Tabelle die Ereigniszeilen der
   Bastion), Bastion-Einrichtungen aus Räumen vorschlagen, Drucken auf dem Mac (WKWebView) prüfen.
 
+### Abends 13. 11. 2026 – Noch offen, Suche – gebaut
+
+- **Noch offen:** eigener Reiter neben Fadenbrett, Abend und Handouts. Abgeleitet aus der Chronik:
+  offene Abmachungen, ungeprüfte Gerüchte, Wünsche der Spieler, entdeckte Orte ohne Besuch,
+  Vorhaben mit einem Ort, an dem die Gruppe nie ankam – dazu alles, was der Spielleiter mit der
+  Nadel an einem Eintrag anheftet. „Erledigt“ nimmt es heraus. Am Spieltisch steht unter „Was hier
+  passieren kann“, was am Ort der Gruppe offen hängt; je Punkt „seit 3 Abenden“.
+- **Suche:** findet jetzt auch Fortschrittsleisten, Handouts, Bastionen mit Einrichtungen und Beute.
+- **Nicht geprüft:** installierte App, echter Spielstand (dort werden viele nachgetragene Gerüchte
+  ungeprüft stehen – das ist gewollt, sie lassen sich mit „stimmt“/„falsch“ oder „Erledigt“ klären).
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

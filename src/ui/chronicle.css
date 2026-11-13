@@ -195,13 +195,24 @@
   text-decoration: line-through;
   text-decoration-color: var(--ink-faint);
 }
-.wf-chron__edit {
+.wf-chron__edit,
+.wf-chron__pin {
   opacity: 0;
   transition: opacity 0.12s var(--ease);
 }
 .wf-chron:hover .wf-chron__edit,
-.wf-chron__edit:focus-visible {
+.wf-chron__edit:focus-visible,
+.wf-chron:hover .wf-chron__pin,
+.wf-chron__pin:focus-visible,
+.wf-chron__pin--on {
   opacity: 1;
+}
+/* Angeheftet: hängt noch offen */
+.wf-chron__pin--on {
+  color: var(--gold-bright);
+}
+.wf-chron__loose {
+  color: var(--gold);
 }
 /* Stand in der Kopfzeile: Schicksal, Ausgang eines Kampfes */
 .wf-chron__state--dead,

@@ -1,0 +1,29 @@
+/* Noch offen: Gruppen offener Punkte, je Punkt warum und seit wann, darunter der Eintrag. */
+
+.wf-offen-body {
+  overflow: auto;
+}
+.wf-offen-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: var(--s-4);
+  align-items: start;
+}
+.wf-offen-item {
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-offen-item:last-child {
+  border-bottom: 0;
+}
+.wf-offen-item__why {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-3);
+  padding: var(--s-2) var(--s-4) 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-offen-item__settle {
+  margin-left: auto;
+}

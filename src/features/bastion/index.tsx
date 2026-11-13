@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { Castle, Hammer, Pencil, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { useFocus } from '../../shell/focus';
 import {
   ORDER_LABEL,
   STATE_LABEL,
@@ -38,6 +39,7 @@ export default function BastionPage() {
   const data = useData();
   const bastions = Object.values(data.bastions).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   const [chosen, setChosen] = useState<string | null>(null);
+  useFocus(['bastion'], (focus) => setChosen(focus.id));
   const bastion = bastions.find((b) => b.id === chosen) ?? bastions[0];
   return bastion ? (
     // Je Bastion eine eigene Ansicht: Die Felder mit `defaultValue` gehören sonst der vorigen.

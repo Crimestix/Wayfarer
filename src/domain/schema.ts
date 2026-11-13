@@ -477,6 +477,11 @@ export const ChronicleEntrySchema = z.object({
   backfilled: z.boolean().default(false),
   /** Wie genau `at` bekannt ist. */
   precision: z.enum(CHRONICLE_PRECISIONS).default('exact'),
+  /**
+   * Hängt noch offen: `open` = vom Spielleiter angeheftet, `settled` = erledigt (fällt aus „Noch
+   * offen“). null = Wayfarer entscheidet nach der Art (`looseEnds` in `domain/looseEnds.ts`).
+   */
+  loose: z.enum(['open', 'settled']).nullable().default(null),
 
   // Angaben der Arten, die beim Festhalten dazukamen. Was ein Eintrag am heutigen Stand geändert
   // hat, merkt er sich (`before`, `firstMet` …), damit Löschen es zurücknehmen kann.

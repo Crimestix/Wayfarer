@@ -1629,3 +1629,11 @@ button.wf-tisch-story__title:enabled:hover b {
   color: var(--ink-mute);
   font-size: var(--text-sm);
 }
+/* „Hängt hier noch offen“ unter den Szenen am Ort */
+.wf-tisch-loosehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}

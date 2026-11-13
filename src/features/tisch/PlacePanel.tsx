@@ -24,6 +24,7 @@ import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { placePath, placeStatus } from '../../domain/derive';
 import { netsOfPlace } from '../../domain/net';
+import { looseEndsHere } from '../../domain/looseEnds';
 import { scenesHere } from '../../domain/scenesHere';
 import type { Place } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
@@ -354,7 +355,10 @@ export function PlacePanel({ place }: { place: Place }) {
 
   const hasAside = Boolean(place.notes.trim() || place.secret.trim() || earlier.length);
   /** Über den Ort ist noch gar nichts eingetragen. */
-  const sceneCount = useMemo(() => scenesHere(data).length, [data]);
+  const sceneCount = useMemo(
+    () => scenesHere(data).length + looseEndsHere(data).length,
+    [data],
+  );
   const bare = cast.total === 0 && !hasAside && changes.length === 0 && sceneCount === 0;
 
   return (

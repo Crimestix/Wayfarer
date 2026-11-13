@@ -81,7 +81,7 @@ nicht übernommen.
   `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Nachtragen und Weltgeschehen; „Gefährten“ =
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Nachtragen und Weltgeschehen; „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
@@ -296,6 +296,13 @@ nicht übernommen.
   Stufen, eine Zahl bis zu einem Ziel oder Abschnitte; sie gehören einem Eintrag oder der Gruppe.
   Geändert über `features/fortschritt/actions.ts` (`moveTrack` hält jeden Schritt als Veränderung
   beim Besitzer fest). Bastion-Reparaturen und Studien sollen diese Leisten nutzen.
+- Noch offen (`domain/looseEnds.ts`, Reiter „Noch offen“ neben Fadenbrett, Abend und Handouts):
+  was die Gruppe angestoßen und nie beendet hat – nie gespeichert, aus der Chronik abgeleitet
+  (`looseEnds`): offene Abmachungen, ungeprüfte Gerüchte, Wünsche der Spieler, entdeckte Orte ohne
+  Besuch, Entscheidungen mit einem Ort, an dem die Gruppe nie ankam, und Angeheftetes
+  (`entry.loose = 'open'`, die Nadel an jedem Eintrag). „Erledigt“ setzt `loose = 'settled'`.
+  Am Spieltisch steht unter „Was hier passieren kann“, was am Ort der Gruppe offen hängt
+  (`looseEndsHere`, ohne Abmachungen). Neue Arten offener Punkte dort eintragen (`looseReason`).
 - Marschordnung: Reihen von vorn nach hinten in `state.march`; gelesen über `marchRows()`
   (`gruppe/march.ts`) – wer nicht dabei ist, fällt weg, Neue gehen hinten mit. Der Kasten
   „Unterwegs“ auf der Gefährten-Seite zeigt dazu Dunkelsicht, Lichter (`timer.refs`) und das Gold.
