@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Probe: Räume und Bastion</title>
+<!--
+  Probe vom 13. 11. 2026 – kein Teil der App. Zeigt Räume als Teil eines Ortes (statt eigener
+  Artikel) und die Bastion nach den Regeln von 2024 mit vorgeschlagenem Bastionszug. Alle Namen von
+  Orten, Einrichtungen und Gefolgsleuten sind erfunden; Wayfarer bringt keine Inhalte aus dem Buch
+  mit. Ansehen: `npm run dev`, dann /docs/proben/bastion.html. Oben zwischen den Bildern wechseln.
+-->
+<script type="module">
+  import '/src/ui/base.css';
+  import '/src/ui/ui.css';
+  import '/src/ui/chronicle.css';
+</script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: var(--text-md); }
+  .caps { font-family: var(--font-caps); font-size: var(--text-2xs); letter-spacing: .15em; text-transform: uppercase; color: var(--ink-mute); }
+  .gold { color: var(--gold); }
+  .mute { color: var(--ink-mute); }
+  .soft { color: var(--ink-soft); }
+  .display { font-family: var(--font-display); font-weight: 600; }
+  .ok { color: var(--moss); }
+  .warn { color: var(--ember); }
+
+  .probe { display: flex; gap: var(--s-2); align-items: center; padding: 6px var(--s-4); background: var(--bg-void); border-bottom: 1px dashed var(--line-strong); flex: none; }
+  .probe b { margin-right: var(--s-3); color: var(--ember); font-weight: 400; font-size: var(--text-sm); }
+  .probe button { padding: 3px 12px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--ink-soft); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+  .probe button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-bright); }
+
+  .bar { display: flex; align-items: center; gap: var(--s-5); height: 58px; padding: 0 var(--s-5); border-bottom: 1px solid var(--line); background: var(--bg-1); flex: none; }
+  .bar .date { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; }
+  .bar .clock { font-family: var(--font-display); font-size: var(--text-2xl); color: var(--gold-bright); }
+  .bar .grow { flex: 1; }
+  .tabs { display: flex; gap: var(--s-5); padding: 0 var(--s-5); border-bottom: 1px solid var(--line-faint); flex: none; }
+  .tabs span { padding: 10px 0 8px; }
+  .tabs span.on { color: var(--gold-bright); border-bottom: 2px solid var(--gold); }
+
+  .view { display: none; flex: 1; min-height: 0; }
+  .view.on { display: flex; }
+  .page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: var(--s-4) var(--s-5); gap: var(--s-3); overflow: auto; }
+  .head { display: flex; align-items: baseline; gap: var(--s-4); }
+  .head h1 { margin: 0; font-family: var(--font-display); font-size: 2rem; font-weight: 600; }
+  .head .grow { flex: 1; }
+
+  /* ── Bild 1: Ort mit Räumen ── */
+  .ort { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .9fr); gap: var(--s-4); align-items: start; }
+  .raum { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 2px var(--s-3); align-items: baseline; padding: 8px var(--s-4); border-bottom: 1px solid var(--line-faint); }
+  .raum .nr { color: var(--gold); font-family: var(--font-display); font-size: var(--text-lg); }
+  .raum .n { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; }
+  .raum .n small { margin-left: 8px; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; color: var(--ink-mute); }
+  .raum .stand { font-size: var(--text-sm); }
+  .raum.offen { background: linear-gradient(90deg, var(--gold-glow), transparent 70%); border-left: 2px solid var(--gold); }
+  .raum .text { grid-column: 2 / -1; margin: 4px 0 2px; line-height: 1.45; color: var(--ink-soft); }
+  .raum .einr { grid-column: 2 / -1; font-size: var(--text-sm); }
+  .hinweis { padding: 8px var(--s-4); color: var(--ink-mute); font-size: var(--text-sm); font-style: italic; }
+  .vorschlag { padding: 10px var(--s-4); border-left: 2px solid var(--verdigris); background: var(--bg-2); font-size: var(--text-sm); }
+  .vorschlag .wf-btn { margin-left: 6px; }
+
+  /* ── Bild 2: Bastion ── */
+  .bastion { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+  .zug { display: flex; align-items: center; gap: var(--s-4); padding: 12px var(--s-4); border: 1px solid var(--gold-deep); background: var(--gold-glow); }
+  .zug .display { font-size: var(--text-xl); }
+  .zug .grow { flex: 1; }
+  .besitzer { padding: 6px var(--s-4) 2px; }
+  .einrichtung { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 2px var(--s-4); padding: 8px var(--s-4); border-bottom: 1px solid var(--line-faint); }
+  .einrichtung .n { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; }
+  .einrichtung .meta { font-size: var(--text-sm); color: var(--ink-mute); }
+  .einrichtung .auftrag { font-size: var(--text-sm); text-align: right; }
+  .leiste { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: 6px; }
+  .leiste i { width: 8px; height: 8px; transform: rotate(45deg); border: 1px solid var(--gold-deep); }
+  .leiste i.on { background: var(--gold); }
+  .vergangen { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 3px var(--s-3); padding: 8px var(--s-4); border-bottom: 1px solid var(--line-faint); font-size: var(--text-sm); }
+  .vergangen .wann { color: var(--ink-mute); }
+
+  /* ── Bild 3: Bastionszug ── */
+  .dim { flex: 1; display: grid; place-items: center; background: rgba(7, 6, 5, .72); }
+  .dialog { width: 820px; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-5) var(--s-5) var(--s-4); }
+  .dialog h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; }
+  .befehl { display: grid; grid-template-columns: 190px 170px minmax(0, 1fr); gap: var(--s-3); align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line-faint); }
+  .befehl .n { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; }
+  .befehl .n small { display: block; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; color: var(--ink-mute); }
+  .wahl { padding: 5px var(--s-3); border: 1px solid var(--line-strong); background: var(--bg-inset); }
+  .wahl::after { content: ' ▾'; color: var(--ink-faint); }
+  .folge { font-size: var(--text-sm); color: var(--ink-soft); }
+  .folge em { color: var(--ink-mute); }
+  .ereignis { padding: 10px var(--s-3); border: 1px solid var(--line); background: var(--bg-inset); }
+  .ereignis .wf-btn { margin-left: 6px; }
+  .fuss { display: flex; align-items: center; gap: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line-faint); }
+  .fuss .grow { flex: 1; }
+</style>
+</head>
+<body>
+<div class="probe">
+  <b>Probe</b>
+  <button data-v="1" aria-pressed="true">1 · Ort mit Räumen</button>
+  <button data-v="2" aria-pressed="false">2 · Die Bastion</button>
+  <button data-v="3" aria-pressed="false">3 · Bastionszug am Tisch</button>
+</div>
+
+<div class="bar">
+  <div><div class="date">17. Tauwind 701 AD</div><div class="caps">Leuchtabend</div></div>
+  <div class="clock">16:00</div>
+  <div class="grow"></div>
+  <span class="mute">Session 14</span>
+  <span class="wf-btn">Suchen</span>
+  <span class="wf-btn">Festhalten</span>
+</div>
+
+<!-- ── Bild 1 ─────────────────────────────────────────────────────── -->
+<div class="view on" data-view="1">
+  <div class="page">
+    <div class="tabs caps" style="padding: 0; margin-bottom: var(--s-2)"><span>Text</span><span class="on">Überblick</span><span>Beziehungen</span><span>Chronik</span></div>
+    <div class="head">
+      <div>
+        <div class="caps"><span class="gold">Ort</span> &nbsp;◆&nbsp; Feste · Bastion der Gruppe</div>
+        <h1>Burg Graufels</h1>
+      </div>
+      <span class="grow"></span>
+      <span class="wf-btn">Bastion öffnen</span>
+    </div>
+    <div class="ort">
+      <section class="wf-panel">
+        <header class="wf-panel__head">
+          <h3 class="wf-panel__title">Räume <span class="wf-panel__count">9</span></h3>
+          <span class="wf-btn wf-btn--sm">+ Raum</span>
+          <span class="wf-btn wf-btn--sm wf-btn--ghost">Mehrere eintragen</span>
+        </header>
+        <div class="wf-panel__body" style="padding: 0">
+          <div class="raum"><span class="nr">1</span><span class="n">Torhaus<small>Fallgitter, zwei Wachen</small></span><span class="stand mute">frei</span></div>
+          <div class="raum"><span class="nr">2</span><span class="n">Große Halle<small>Speisen, Empfang</small></span><span class="stand mute">frei</span></div>
+          <div class="raum offen">
+            <span class="nr">3</span><span class="n">Schmiede<small>Einrichtung von Veres</small></span><span class="stand gold">stellt her · noch 1 Zug</span>
+            <p class="text">Eine Esse unter der Nordmauer, der Rauch zieht durch einen alten Schacht ab. Der Amboss stammt aus dem Bergwerk unterhalb.</p>
+            <span class="einr mute">Gefolgsleute: Hagen, Ute · Befehle: Herstellen, Instandhalten · auf der Karte „Graufels, Erdgeschoss“</span>
+          </div>
+          <div class="raum"><span class="nr">4</span><span class="n">Bibliothek<small>Einrichtung von Tomlin</small></span><span class="stand gold">erforscht</span></div>
+          <div class="raum"><span class="nr">5</span><span class="n">Labor<small>Einrichtung von Nex</small></span><span class="stand mute">wartet auf Befehl</span></div>
+          <div class="raum"><span class="nr">6</span><span class="n">Kräutergarten<small>Einrichtung von Naelmira</small></span><span class="stand gold">erntet</span></div>
+          <div class="raum"><span class="nr">7</span><span class="n">Schlafräume<small>einfach · geräumig</small></span><span class="stand mute">frei</span></div>
+          <div class="raum"><span class="nr">8</span><span class="n">Keller<small>verschlossen seit dem Einsturz</small></span><span class="stand warn">verschlossen</span></div>
+          <div class="raum"><span class="nr">9</span><span class="n">Gruft<small>noch nicht betreten</small></span><span class="stand warn">Falle</span></div>
+          <div class="hinweis">Räume stehen nicht einzeln in der Welt und im Wiki – nur hier. Wird einer wichtig: „Zum eigenen Eintrag machen“.</div>
+        </div>
+      </section>
+      <div style="display: flex; flex-direction: column; gap: var(--s-3)">
+        <section class="wf-panel">
+          <header class="wf-panel__head"><h3 class="wf-panel__title">Wer hier ist</h3></header>
+          <div class="wf-panel__body soft">Hagen (Schmied) · Ute (Gehilfin) · 12 Verteidiger</div>
+        </section>
+        <div class="vorschlag">
+          <b class="gold">Einmal aufräumen:</b> 14 Seiten im Ordner „Graufels“ sind Räume dieser Burg (Art „Dungeonraum“). Als Räume führen?
+          <br><span class="wf-btn wf-btn--sm" style="margin: 6px 0 0">Als Räume führen</span><span class="wf-btn wf-btn--sm wf-btn--ghost" style="margin: 6px 0 0">Nicht jetzt</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bild 2 ─────────────────────────────────────────────────────── -->
+<div class="view" data-view="2">
+  <div class="page">
+    <div class="tabs caps" style="padding: 0; margin-bottom: var(--s-2)"><span>Gefährten</span><span>Beute-Buch</span><span class="on">Bastion</span></div>
+    <div class="head"><h1>Burg Graufels</h1><span class="mute">Bastion der Gruppe · 12 Verteidiger · 7 Gefolgsleute</span></div>
+    <div class="zug">
+      <div><div class="display">Bastionszug in 3 Tagen</div><div class="mute">am 20. Tauwind · der letzte war am 13. Tauwind</div></div>
+      <span class="grow"></span>
+      <span class="wf-btn">Befehle vorbereiten</span>
+    </div>
+    <div class="bastion">
+      <section class="wf-panel">
+        <header class="wf-panel__head"><h3 class="wf-panel__title">Einrichtungen <span class="wf-panel__count">6</span></h3><span class="wf-btn wf-btn--sm">+ Einrichtung</span></header>
+        <div class="wf-panel__body" style="padding: 0">
+          <div class="besitzer caps">Veres</div>
+          <div class="einrichtung"><div><div class="n">Schmiede</div><div class="meta">Hagen, Ute · Herstellen, Instandhalten</div></div><div class="auftrag gold">Herstellen: Langschwert<span class="leiste"><i class="on"></i><i></i></span></div></div>
+          <div class="besitzer caps">Tomlin</div>
+          <div class="einrichtung"><div><div class="n">Bibliothek</div><div class="meta">Edda · Erforschen</div></div><div class="auftrag gold">Erforschen: die Ringe</div></div>
+          <div class="besitzer caps">Nex</div>
+          <div class="einrichtung"><div><div class="n">Labor</div><div class="meta">Ivo · Herstellen, Stärken</div></div><div class="auftrag mute">kein Befehl</div></div>
+          <div class="besitzer caps">Naelmira</div>
+          <div class="einrichtung"><div><div class="n">Kräutergarten</div><div class="meta">Marlis · Ernten</div></div><div class="auftrag gold">Ernten: Heilkräuter</div></div>
+          <div class="besitzer caps">Corrin</div>
+          <div class="einrichtung"><div><div class="n">Übungshof</div><div class="meta">Rado · Stärken, Anwerben</div></div><div class="auftrag mute">Instandhalten</div></div>
+          <div class="besitzer caps">Die Gruppe</div>
+          <div class="einrichtung"><div><div class="n">Schlafräume, Küche, Lager</div><div class="meta">einfache Einrichtungen</div></div><div class="auftrag mute">–</div></div>
+        </div>
+      </section>
+      <section class="wf-panel">
+        <header class="wf-panel__head"><h3 class="wf-panel__title">Letzte Züge</h3></header>
+        <div class="wf-panel__body" style="padding: 0">
+          <div class="vergangen"><span class="wann">13. Tauwind</span><span>Kräuter geerntet → Beute für Naelmira · Ereignis: <b>Besuch</b> – ein Händler bleibt zwei Tage</span></div>
+          <div class="vergangen"><span class="wann">6. Tauwind</span><span>Langschwert begonnen · Bibliothek erforscht die Ringe (2 von 3)</span></div>
+          <div class="vergangen"><span class="wann">29. Eisruh</span><span>Zwei Verteidiger angeworben · Ereignis: alles ruhig</span></div>
+          <div class="hinweis">Jeder Zug steht auch in der Chronik.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bild 3 ─────────────────────────────────────────────────────── -->
+<div class="view" data-view="3">
+  <div class="dim">
+    <section class="wf-panel dialog">
+      <h2>Bastionszug · 20. Tauwind</h2>
+      <div class="mute">Sieben Tage sind vergangen. Wayfarer schlägt die Befehle vom letzten Mal vor – du entscheidest.</div>
+      <div class="befehl"><span class="n">Schmiede<small>Veres · Hagen, Ute</small></span><span class="wahl">Herstellen</span><span class="folge">Langschwert – <b class="ok">fertig</b> <em>· liegt für Veres im Beute-Buch bereit</em></span></div>
+      <div class="befehl"><span class="n">Bibliothek<small>Tomlin · Edda</small></span><span class="wahl">Erforschen</span><span class="folge">die Ringe – 3 von 3 <em>· was herauskommt, schreibst du</em></span></div>
+      <div class="befehl"><span class="n">Labor<small>Nex · Ivo</small></span><span class="wahl">Herstellen</span><span class="folge"><em>Was soll entstehen? …</em></span></div>
+      <div class="befehl"><span class="n">Kräutergarten<small>Naelmira · Marlis</small></span><span class="wahl">Ernten</span><span class="folge">Heilkräuter <em>· wie letztes Mal</em></span></div>
+      <div class="befehl"><span class="n">Übungshof<small>Corrin · Rado</small></span><span class="wahl">Instandhalten</span><span class="folge">→ Ereignis würfeln</span></div>
+      <div class="ereignis">
+        <span class="caps">Ereignis</span> &nbsp;
+        aus deiner Tabelle „Bastion-Ereignisse“: <b class="gold">47 – Bitte um Hilfe</b> <span class="mute">· Text aus deiner Tabelle</span>
+        <span class="wf-btn wf-btn--sm">Neu würfeln</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Selbst eintragen</span>
+      </div>
+      <div class="fuss">
+        <span class="mute">Danach: nächster Zug am 27. Tauwind</span>
+        <span class="grow"></span>
+        <span class="wf-btn">Später</span>
+        <span class="wf-btn wf-btn--primary">Zug ausführen</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  for (const button of document.querySelectorAll('.probe button'))
+    button.addEventListener('click', () => {
+      for (const b of document.querySelectorAll('.probe button')) b.setAttribute('aria-pressed', String(b === button));
+      for (const v of document.querySelectorAll('.view')) v.classList.toggle('on', v.dataset.view === button.dataset.v);
+    });
+</script>
+</body>
+</html>
