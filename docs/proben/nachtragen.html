@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Probe: Vergangenes nachtragen und mehr festhalten</title>
+<!--
+  Probe vom 13. 11. 2026 – kein Teil der App. Zeigt, wie alte Sessions aus Notizen nachgetragen
+  werden könnten und wie „Festhalten“ mehr Arten kennt. Alle Namen und Notizen sind erfunden.
+  Ansehen: `npm run dev`, dann /docs/proben/nachtragen.html. Oben zwischen den drei Bildern wechseln.
+-->
+<script type="module">
+  import '/src/ui/base.css';
+  import '/src/ui/ui.css';
+  import '/src/ui/chronicle.css';
+</script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: var(--text-md); }
+  .caps { font-family: var(--font-caps); font-size: var(--text-2xs); letter-spacing: .15em; text-transform: uppercase; color: var(--ink-mute); }
+  .gold { color: var(--gold); }
+  .mute { color: var(--ink-mute); }
+  .soft { color: var(--ink-soft); }
+  .display { font-family: var(--font-display); font-weight: 600; }
+
+  /* Umschalter der Probe – nicht Teil der App */
+  .probe { display: flex; gap: var(--s-2); align-items: center; padding: 6px var(--s-4); background: var(--bg-void); border-bottom: 1px dashed var(--line-strong); flex: none; }
+  .probe b { margin-right: var(--s-3); color: var(--ember); font-weight: 400; font-size: var(--text-sm); }
+  .probe button { padding: 3px 12px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--ink-soft); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+  .probe button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-bright); }
+
+  .bar { display: flex; align-items: center; gap: var(--s-5); height: 58px; padding: 0 var(--s-5); border-bottom: 1px solid var(--line); background: var(--bg-1); flex: none; }
+  .bar .date { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; }
+  .bar .clock { font-family: var(--font-display); font-size: var(--text-2xl); color: var(--gold-bright); }
+  .bar .grow { flex: 1; }
+  .tabs { display: flex; gap: var(--s-5); padding: 0 var(--s-5); border-bottom: 1px solid var(--line-faint); flex: none; }
+  .tabs span { padding: 10px 0 8px; }
+  .tabs span.on { color: var(--gold-bright); border-bottom: 2px solid var(--gold); }
+
+  .view { display: none; flex: 1; min-height: 0; }
+  .view.on { display: flex; }
+  .page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: var(--s-4) var(--s-5); gap: var(--s-3); }
+  .head { display: flex; align-items: baseline; gap: var(--s-4); }
+  .head h1 { margin: 0; font-family: var(--font-display); font-size: 2rem; font-weight: 600; }
+  .head .grow { flex: 1; }
+  .lead { margin: 0; max-width: 900px; color: var(--ink-soft); line-height: 1.45; }
+
+  /* ── Bild 1: Übersicht ── */
+  .uebersicht { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--s-4); }
+  .sitzungen { display: flex; flex-direction: column; }
+  .sz { display: grid; grid-template-columns: 54px minmax(0, 1fr) 150px 150px; gap: var(--s-3); align-items: baseline; padding: 9px var(--s-4); border-bottom: 1px solid var(--line-faint); }
+  .sz .nr { font-family: var(--font-display); font-size: var(--text-xl); color: var(--gold); }
+  .sz .t { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; }
+  .sz .t small { display: block; font-family: var(--font-body); font-size: var(--text-sm); font-weight: 400; color: var(--ink-mute); }
+  .sz .stand { font-size: var(--text-sm); }
+  .bar-mini { height: 5px; margin-top: 4px; background: var(--bg-3); }
+  .bar-mini i { display: block; height: 100%; background: var(--gold); }
+  .ok { color: var(--moss); }
+  .warn { color: var(--ember); }
+  .drop { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-5); border: 1px dashed var(--line-strong); background: var(--bg-inset); }
+  .datei { display: flex; justify-content: space-between; gap: var(--s-3); padding: 6px var(--s-3); border: 1px solid var(--line); background: var(--bg-2); }
+  .datei span:last-child { color: var(--ink-mute); font-size: var(--text-sm); }
+  .regeln { margin: 0; padding-left: 1.1em; color: var(--ink-soft); line-height: 1.5; }
+  .regeln li { margin-bottom: 4px; }
+
+  /* ── Bild 2: Prüfen ── */
+  .pruefen { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: var(--s-4); }
+  .notizen { line-height: 1.6; white-space: pre-wrap; color: var(--ink-soft); }
+  .notizen .n { color: var(--gold-bright); border-bottom: 1px dotted var(--gold-deep); }
+  .notizen .q { color: var(--ember); border-bottom: 1px dotted var(--ember); }
+  .notizen .d { color: var(--verdigris); }
+  .notizen .on { background: var(--gold-glow); outline: 1px solid var(--gold-deep); }
+  .zeitleiste { display: flex; align-items: baseline; gap: var(--s-3); padding: 8px var(--s-4); border-bottom: 1px solid var(--line-faint); background: var(--bg-2); font-size: var(--text-sm); }
+  .vs { overflow: auto; }
+  .v { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 3px var(--s-3); padding: 10px var(--s-4); border-bottom: 1px solid var(--line-faint); align-items: start; }
+  .v.done { opacity: .55; }
+  .v.on { background: linear-gradient(90deg, var(--gold-glow), transparent 70%); border-left: 2px solid var(--gold); }
+  .art { display: inline-block; padding: 1px 7px; border: 1px solid var(--line-strong); font-family: var(--font-caps); font-size: var(--text-2xs); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+  .art.k { border-color: var(--blood); color: var(--blood-bright); }
+  .art.g { border-color: var(--gold-deep); color: var(--gold); }
+  .art.a { border-color: var(--arcane); color: var(--arcane); }
+  .art.m { border-color: var(--moss); color: var(--moss); }
+  .v .was { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; line-height: 1.2; }
+  .v .wann { font-size: var(--text-sm); color: var(--verdigris); margin-top: 3px; }
+  .v .quelle { margin-top: 3px; color: var(--ink-mute); font-size: var(--text-sm); font-style: italic; }
+  .v .folgen { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; font-size: var(--text-sm); color: var(--ink-soft); }
+  .v .folgen label { display: flex; gap: 6px; align-items: baseline; }
+  .v .folgen input { accent-color: var(--gold); }
+  .v .acts { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+  .frage { margin-top: 6px; padding: 6px var(--s-3); border: 1px solid var(--gold-deep); background: var(--bg-inset); font-size: var(--text-sm); }
+  .frage .wf-btn { margin-left: 4px; }
+  .widerspruch { margin-top: 6px; padding: 6px var(--s-3); border-left: 2px solid var(--ember); background: var(--ember-wash); font-size: var(--text-sm); color: var(--ink-soft); }
+
+  /* ── Bild 3: Festhalten ── */
+  .dim { flex: 1; display: grid; place-items: center; background: rgba(7, 6, 5, .72); }
+  .dialog { width: 760px; display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-5) var(--s-5) var(--s-4); }
+  .dialog h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; }
+  .eingabe { min-height: 74px; padding: 10px var(--s-3); border: 1px solid var(--gold-deep); background: var(--bg-inset); line-height: 1.45; }
+  .eingabe .n { color: var(--gold-bright); }
+  .erkannt { display: flex; flex-wrap: wrap; gap: 6px var(--s-3); align-items: baseline; font-size: var(--text-sm); }
+  .chip { padding: 2px 9px; border: 1px solid var(--gold-deep); background: var(--gold-glow); color: var(--gold-bright); }
+  .chip.aus { border-color: var(--line); background: none; color: var(--ink-mute); text-decoration: line-through; }
+  .arten { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-3) var(--s-4); }
+  .gruppe .caps { margin-bottom: 4px; padding-bottom: 3px; border-bottom: 1px solid var(--line-faint); }
+  .gruppe span { display: block; padding: 2px 6px; font-size: var(--text-sm); color: var(--ink-soft); }
+  .gruppe span.on { color: var(--gold-bright); background: var(--gold-glow); border-left: 2px solid var(--gold); }
+  .gruppe span i { font-style: normal; color: var(--ink-faint); }
+  .felder { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3) var(--s-4); }
+  .feld .caps { margin-bottom: 3px; }
+  .feld .wert { padding: 6px var(--s-3); border: 1px solid var(--line); background: var(--bg-inset); }
+  .fuss { display: flex; align-items: center; gap: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line-faint); }
+  .fuss .grow { flex: 1; }
+</style>
+</head>
+<body>
+<div class="probe">
+  <b>Probe</b>
+  <button data-v="1" aria-pressed="true">1 · Notizen einlesen</button>
+  <button data-v="2" aria-pressed="false">2 · Eine Session prüfen</button>
+  <button data-v="3" aria-pressed="false">3 · Festhalten mit mehr Arten</button>
+</div>
+
+<div class="bar">
+  <div><div class="date">17. Tauwind 701 AD</div><div class="caps">Leuchtabend</div></div>
+  <div class="clock">16:00</div>
+  <div class="grow"></div>
+  <span class="mute">Keine Session</span>
+  <span class="wf-btn">Suchen</span>
+  <span class="wf-btn">Festhalten</span>
+</div>
+<div class="tabs caps"><span>Kalender</span><span>Chronik</span><span class="on">Nachtragen</span><span>Weltgeschehen</span></div>
+
+<!-- ── Bild 1 ─────────────────────────────────────────────────────── -->
+<div class="view on" data-view="1">
+  <div class="page">
+    <div class="head">
+      <h1>Vergangenes nachtragen</h1>
+      <span class="mute">12 Sessions aus deinen Notizen · 4 geprüft</span>
+      <span class="grow"></span>
+      <span class="wf-btn">Weitere Dateien</span>
+      <span class="wf-btn wf-btn--primary">Session 5 prüfen</span>
+    </div>
+    <p class="lead">Deine Notizen bleiben, wie du sie geschrieben hast – sie sind die Quelle. Wayfarer liest sie, schlägt Einträge vor und zeigt bei jedem den Satz, aus dem er stammt. Erst was du annimmst, steht in der Chronik, bei den Personen und Orten und in den Artikeln.</p>
+
+    <div class="uebersicht">
+      <section class="wf-panel">
+        <header class="wf-panel__head"><h3 class="wf-panel__title">Sessions <span class="wf-panel__count">12</span></h3><span class="mute" style="font-size: var(--text-sm)">in der Reihenfolge des Spiels</span></header>
+        <div class="wf-panel__body sitzungen" style="padding: 0; overflow: auto">
+          <div class="sz"><span class="nr">1</span><span class="t">Ankunft in Hohenfurt<small>12.04.2026 · Weltzeit 1.–2. Saatmond</small></span><span class="stand ok">geprüft · 9 Einträge</span><span></span></div>
+          <div class="sz"><span class="nr">2</span><span class="t">Der Zoll der Aalfischer<small>26.04.2026 · Weltzeit 2.–4. Saatmond</small></span><span class="stand ok">geprüft · 12 Einträge</span><span></span></div>
+          <div class="sz"><span class="nr">3</span><span class="t">Die Tiefe Pforte<small>10.05.2026 · Weltzeit 5. Saatmond</small></span><span class="stand ok">geprüft · 7 Einträge</span><span></span></div>
+          <div class="sz"><span class="nr">4</span><span class="t">Salzgrotte<small>24.05.2026 · Weltzeit ungefähr 6.–7. Saatmond</small></span><span class="stand ok">geprüft · 11 Einträge</span><span></span></div>
+          <div class="sz" style="background: var(--gold-glow)"><span class="nr">5</span><span class="t">Krummzahns Bau<small>07.06.2026 · Weltzeit unbekannt – nach Session 4</small></span><span class="stand">gelesen · 14 Vorschläge</span><span><span class="mute" style="font-size: var(--text-sm)">0 von 14</span><span class="bar-mini"><i style="width: 0"></i></span></span></div>
+          <div class="sz"><span class="nr">6</span><span class="t">Ohne Titel<small>21.06.2026 · Weltzeit unbekannt</small></span><span class="stand">gelesen · 9 Vorschläge</span><span></span></div>
+          <div class="sz"><span class="nr">7</span><span class="t">Der Salzkahn<small>05.07.2026 · Weltzeit unbekannt</small></span><span class="stand warn">2 Widersprüche</span><span></span></div>
+          <div class="sz"><span class="nr">8–12</span><span class="t">5 weitere<small>Juli bis Oktober 2026</small></span><span class="stand mute">noch nicht gelesen</span><span></span></div>
+        </div>
+      </section>
+
+      <section class="wf-panel">
+        <header class="wf-panel__head"><h3 class="wf-panel__title">Notizen einlesen</h3></header>
+        <div class="wf-panel__body">
+          <div class="drop">
+            <span class="soft">Text- und Word-Dateien hierher ziehen – oder auswählen.</span>
+            <div class="datei"><span>Elaris Notizen 2026.docx</span><span>8 Sessions erkannt</span></div>
+            <div class="datei"><span>session-09.txt</span><span>1 Session</span></div>
+            <div class="datei"><span>Notizen Herbst.md</span><span>3 Sessions</span></div>
+          </div>
+          <ul class="regeln">
+            <li><b class="gold">Sessions trennen:</b> an Überschriften wie „Session 5“, „Sitzung 5“ oder einem Datum. Stimmt die Trennung nicht, ziehst du die Grenze von Hand.</li>
+            <li><b class="gold">Weltzeit:</b> steht ein Tag deines Kalenders in den Notizen, nimmt Wayfarer ihn. Sonst reiht es die Sessions nur hintereinander („ungefähr“), bis du einen Tag setzt.</li>
+            <li><b class="gold">Lesen:</b> ohne Netz erkennt Wayfarer Namen, Tage und typische Sätze („… ist tot“, „gefunden“, „verspricht“). Der KI-Leser findet mehr, wenn du ihn lässt – geschätzt 0,40 € für alle 12 Sessions.</li>
+            <li><b class="gold">Nachgetragenes</b> ist Geschichte, keine Gegenwart: Es stellt keine Zeit vor, löst keine Termine und keine Uhren aus.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bild 2 ─────────────────────────────────────────────────────── -->
+<div class="view" data-view="2">
+  <div class="page">
+    <div class="head">
+      <h1>Session 5 · Krummzahns Bau</h1>
+      <span class="mute">gespielt am 07.06.2026</span>
+      <span class="grow"></span>
+      <span class="wf-btn">◂ Session 4</span>
+      <span class="wf-btn">Session 6 ▸</span>
+    </div>
+    <div class="pruefen">
+      <section class="wf-panel">
+        <header class="wf-panel__head"><h3 class="wf-panel__title">Deine Notizen</h3><span class="mute" style="font-size: var(--text-sm)">aus „Elaris Notizen 2026.docx“</span></header>
+        <div class="wf-panel__body" style="overflow: auto">
+<div class="notizen">Aufbruch aus <span class="n">Hohenfurt</span> früh morgens, Richtung <span class="n">Salzgrotte</span>. Unterwegs <span class="n">Lando</span> getroffen, will uns gegen zwei Säcke Salz über den <span class="n">Schwarzen See</span> bringen.
+
+<span class="on">In der Grotte gegen die <span class="n">Grubenschleicher</span> gekämpft, <span class="n">Krummzahn</span> ist tot.</span> <span class="n">Odo</span> hat einen Pfeil ins Bein bekommen.
+
+<span class="q">Mirabel</span> sagt, die <span class="n">Krähenbande</span> zahlt den Zoll nicht mehr. (stimmt das?)
+
+Im Lager eine Karte der <span class="n">Aalinsel</span> gefunden → <span class="n">Neil</span>.
+
+Rast in der Grotte. <span class="d">Am nächsten Tag</span> zurück nach <span class="n">Hohenfurt</span>.
+
+<span class="n">Neil</span> will unbedingt den Hort der <span class="n">Aalwächter</span> suchen.</div>
+        </div>
+      </section>
+
+      <section class="wf-panel">
+        <header class="wf-panel__head">
+          <h3 class="wf-panel__title">Vorschläge <span class="wf-panel__count">14</span></h3>
+          <span class="wf-btn wf-btn--sm">Alle sicheren annehmen (9)</span>
+        </header>
+        <div class="zeitleiste">
+          <span class="caps">Weltzeit</span>
+          <span>ungefähr <b class="gold">8. Saatmond</b> – nach Session 4, 2 Tage lang</span>
+          <span class="wf-btn wf-btn--sm wf-btn--ghost">Tag setzen</span>
+        </div>
+        <div class="wf-panel__body vs" style="padding: 0">
+          <div class="v done">
+            <span class="art">Ortswechsel</span>
+            <div><div class="was">Hohenfurt → Salzgrotte</div><div class="wann">8. Saatmond, morgens</div></div>
+            <div class="acts"><span class="ok" style="font-size: var(--text-sm)">angenommen</span></div>
+          </div>
+          <div class="v done">
+            <span class="art g">Begegnung</span>
+            <div><div class="was">Erstmals getroffen: Lando Furtner</div><div class="wann">8. Saatmond · unterwegs</div></div>
+            <div class="acts"><span class="ok" style="font-size: var(--text-sm)">angenommen</span></div>
+          </div>
+          <div class="v">
+            <span class="art g">Abmachung</span>
+            <div><div class="was">Lando bringt die Gruppe über den Schwarzen See – gegen zwei Säcke Salz</div><div class="wann">8. Saatmond · offen</div><div class="quelle">„will uns gegen zwei Säcke Salz über den Schwarzen See bringen“</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span></div>
+          </div>
+          <div class="v">
+            <span class="art k">Kampf</span>
+            <div><div class="was">Kampf gegen die Grubenschleicher in der Salzgrotte</div><div class="wann">8. Saatmond</div>
+              <div class="folgen"><label><input type="checkbox"> Verluste beim Bestand „Lager der Grubenschleicher“ eintragen …</label></div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span></div>
+          </div>
+          <div class="v on">
+            <span class="art k">Schicksal</span>
+            <div><div class="was">Krummzahn ist tot</div><div class="wann">8. Saatmond · in der Salzgrotte</div><div class="quelle">„In der Grotte gegen die Grubenschleicher gekämpft, Krummzahn ist tot.“</div>
+              <div class="folgen">
+                <label><input type="checkbox" checked> Zustand bei Krummzahn: <b>tot</b> – auch im Steckbrief</label>
+                <label><input type="checkbox" checked> Bei Krummzahn unter „Was geschah“ deinen Satz eintragen</label>
+              </div>
+              <div class="widerspruch">In Session 7 steht: „Krummzahn verlangt Wegzoll am Anleger.“ – Passt „tot“? Du kannst beides annehmen; Wayfarer zeigt den Widerspruch dann bei Krummzahn.</div>
+            </div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Stimmt nicht</span></div>
+          </div>
+          <div class="v">
+            <span class="art m">Zustand</span>
+            <div><div class="was">Odo Tannhaus: Pfeil im Bein</div><div class="wann">8. Saatmond · bis du ihn aufhebst</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span></div>
+          </div>
+          <div class="v">
+            <span class="art a">Gerücht</span>
+            <div><div class="was">Die Krähenbande zahlt den Zoll nicht mehr</div><div class="wann">8. Saatmond · ungeprüft</div><div class="quelle">„Mirabel sagt, die Krähenbande zahlt den Zoll nicht mehr. (stimmt das?)“</div>
+              <div class="frage">Wer ist „Mirabel“? <span class="wf-btn wf-btn--sm">Mira Tannhaus</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Neue Person anlegen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Niemand Bestimmtes</span><br><span class="mute">Wählst du Mira Tannhaus, merkt sich Wayfarer „Mirabel“ als ihren zweiten Namen.</span></div>
+            </div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span></div>
+          </div>
+          <div class="v">
+            <span class="art g">Beute</span>
+            <div><div class="was">Karte der Aalinsel – an Neil</div><div class="wann">8. Saatmond · aus dem Lager der Grubenschleicher</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span><span class="wf-btn wf-btn--sm wf-btn--ghost">Ändern</span></div>
+          </div>
+          <div class="v">
+            <span class="art">Rast</span>
+            <div><div class="was">Lange Rast in der Salzgrotte</div><div class="wann">8. auf 9. Saatmond</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span></div>
+          </div>
+          <div class="v">
+            <span class="art">Ortswechsel</span>
+            <div><div class="was">Salzgrotte → Hohenfurt</div><div class="wann">9. Saatmond – „am nächsten Tag“</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span></div>
+          </div>
+          <div class="v">
+            <span class="art m">Spielerwunsch</span>
+            <div><div class="was">Neil will den Hort der Aalwächter suchen</div><div class="wann">ohne Tag – wird Neils Ziel</div></div>
+            <div class="acts"><span class="wf-btn wf-btn--sm">Annehmen</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ── Bild 3 ─────────────────────────────────────────────────────── -->
+<div class="view" data-view="3">
+  <div class="dim">
+    <section class="wf-panel dialog">
+      <h2>Festhalten</h2>
+      <div class="eingabe">Krummzahn ist im Kampf am <span class="n">Alten Anleger</span> gefallen, <span class="n">Lando</span> hat ihn erschlagen.</div>
+      <div class="erkannt">
+        <span class="caps">Erkannt</span>
+        <span class="chip">Schicksal: Krummzahn → tot</span>
+        <span class="chip">Kampf am Alten Anleger</span>
+        <span class="chip aus">Begegnung: Lando</span>
+        <span class="mute">– ein Klick nimmt einen Vorschlag weg</span>
+      </div>
+      <div class="arten">
+        <div class="gruppe"><div class="caps">Am Tisch</div><span>Notiz</span><span>Begegnung</span><span>Entscheidung</span><span class="on">Kampf</span><span>Rast</span><span>Zitat</span></div>
+        <div class="gruppe"><div class="caps">Die Welt</div><span>Veränderung</span><span class="on">Schicksal</span><span>Aufenthalt</span><span>Entdeckung</span><span>Gerücht</span><span>Weltwissen</span></div>
+        <div class="gruppe"><div class="caps">Zwischen Leuten</div><span>Abmachung</span><span>Haltung</span><span>Beziehung</span><span>Ruf <i>(Fraktion)</i></span></div>
+        <div class="gruppe"><div class="caps">Die Gruppe</div><span>Ortswechsel</span><span>Beute</span><span>Zustand</span><span>Meilenstein</span><span>Spielerwunsch</span></div>
+        <div class="gruppe"><div class="caps">Geheimnisse</div><span>Hinweis gefunden</span><span>Aufgedeckt</span><span>Wer was weiß</span></div>
+      </div>
+      <div class="felder">
+        <div class="feld"><div class="caps">Wann</div><div class="wert">jetzt – 17. Tauwind, 16:00 <span class="mute">· oder früher</span></div></div>
+        <div class="feld"><div class="caps">Wo</div><div class="wert">Alter Anleger</div></div>
+        <div class="feld"><div class="caps">Schicksal</div><div class="wert">Krummzahn · <b class="gold">tot</b> · auch in den Steckbrief</div></div>
+        <div class="feld"><div class="caps">Kampf</div><div class="wert">Gegen: Krummzahn · Ausgang: gewonnen</div></div>
+      </div>
+      <div class="fuss">
+        <label class="mute"><input type="checkbox" style="accent-color: var(--gold)"> Nur für die Spielleitung</label>
+        <span class="grow"></span>
+        <span class="wf-btn">Abbrechen</span>
+        <span class="wf-btn wf-btn--primary">Festhalten</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  for (const button of document.querySelectorAll('.probe button'))
+    button.addEventListener('click', () => {
+      for (const b of document.querySelectorAll('.probe button')) b.setAttribute('aria-pressed', String(b === button));
+      for (const v of document.querySelectorAll('.view')) v.classList.toggle('on', v.dataset.view === button.dataset.v);
+    });
+</script>
+</body>
+</html>
