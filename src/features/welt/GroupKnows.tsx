@@ -3,9 +3,8 @@
  * sie vermutet (mit Stand) und was nur die Spielleitung weiß. Die Rechnung steht in
  * `knowledgeOf()` (`domain/playerBook.ts`); das Geheimnis des Eintrags steht schon darüber.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BookUser, EyeOff, Lightbulb } from 'lucide-react';
-import { Link } from 'wouter';
 import { useData } from '../../data/hooks';
 import { knowledgeOf } from '../../domain/playerBook';
 import type { Entity, Guess } from '../../domain/schema';
@@ -20,7 +19,7 @@ type OpenDialog = { guess?: Guess } | null;
 export function GroupKnows({ entity }: { entity: Entity }) {
   const data = useData();
   const [dialog, setDialog] = useState<OpenDialog>(null);
-  const k = knowledgeOf(data, entity.id);
+  const k = useMemo(() => knowledgeOf(data, entity.id), [data, entity.id]);
   const visible = k.inBook || k.known.length > 0 || k.guesses.length > 0 || k.secretCount > 0;
   const dialogs = dialog && (
     <GuessDialog
@@ -52,8 +51,7 @@ export function GroupKnows({ entity }: { entity: Entity }) {
             <ul className="wf-welt-knows__lines">
               {olderKnown > 0 && (
                 <li className="wf-welt-knows__more">
-                  {olderKnown === 1 ? '1 frühere Zeile' : `${olderKnown} frühere Zeilen`} –{' '}
-                  <Link href="/spielerbuch">im Spielerbuch</Link>
+                  {olderKnown === 1 ? '1 frühere Zeile' : `${olderKnown} frühere Zeilen`}
                 </li>
               )}
               {k.known.map((entry) => (

@@ -216,6 +216,7 @@ describe('Die Suche', () => {
     expect(hit(`guess:${guess.id}`)).toMatchObject({
       href: '/spielerbuch',
       sub: 'Vermutung · halb',
+      focus: { type: 'guess', id: guess.id },
     });
     expect(searchWorld(world.data(), 'graufels')[0]).toMatchObject({
       key: `bastion:${keep.id}`,

@@ -4,7 +4,7 @@
  * ohne den Stand von Gerüchten und Vermutungen.
  */
 import { GUESS_TRUTH_LABEL, playerBook, type PlayerBook } from '../../domain/playerBook';
-import type { CampaignData, ChronicleEntry, Guess } from '../../domain/schema';
+import type { CampaignData, ChronicleEntry, Guess, Handout } from '../../domain/schema';
 import { formatDate } from '../../domain/time/calendar';
 import { entryPlainText, type SummaryAudience } from '../chronik/model';
 
@@ -21,6 +21,13 @@ export function guessLine(guess: Guess, audience: BookAudience): string {
   if (audience === 'players') return text;
   const note = guess.note.trim();
   return `${text} (${GUESS_TRUTH_LABEL[guess.truth]}${note ? ` – ${note}` : ''})`;
+}
+
+/** Der Wortlaut eines Handouts, wie die Gruppe ihn bekam – mit Unterschrift, wenn es eine gibt. */
+export function handoutBody(handout: Handout): string {
+  const text = handout.text.trim();
+  const signature = handout.signature.trim();
+  return [text, signature && `– ${signature}`].filter(Boolean).join('\n');
 }
 
 /** Ein Text, der mehrere Zeilen haben kann, als Punkt einer Liste. */
@@ -57,8 +64,8 @@ export function playerBookText(
       case 'handouts':
         for (const handout of section.handouts) {
           const title = handout.title.trim() || 'Ohne Titel';
-          const text = handout.text.trim();
-          block.push(bullet(text ? `${title}\n${text}` : title));
+          const body = handoutBody(handout);
+          block.push(bullet(body ? `${title}\n${body}` : title));
         }
         break;
       case 'guesses':

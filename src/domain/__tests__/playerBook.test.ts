@@ -275,4 +275,45 @@ describe('Vermutungen', () => {
     expect(w.data().guesses[guess.id]!.text).toBe('Krummzahn ist der wahre Erbe');
     expect(removeGuess(w.db, 'weg')).toBeNull();
   });
+
+  it('legt beim Ändern einer gelöschten Vermutung keine zweite an', async () => {
+    const w = await setup();
+    removeGuess(w.db, w.guess.id);
+    const count = Object.keys(w.data().guesses).length;
+    expect(saveGuess(w.db, { text: 'Mira lügt doch nicht', refs: [] }, w.guess.id)).toBeNull();
+    expect(Object.keys(w.data().guesses)).toHaveLength(count);
+  });
+});
+
+describe('Spielerbuch – Randfälle', () => {
+  it('ein Raum, in dem die Gruppe war, gilt als bekannt – steht aber bei seinem Ort', async () => {
+    const w = await setup();
+    const cellar = w.db.put(
+      'entities',
+      createEntity({
+        kind: 'place',
+        name: 'Weinkeller',
+        place: { parentId: w.castle.id, room: true },
+      } as never),
+    );
+    moveParty(w.db, cellar.id);
+    const data = w.data();
+    expect(knowledgeOf(data, cellar.id).inBook).toBe(true);
+    expect(bookIds(data).has(cellar.id)).toBe(false);
+    expect(bookIds(data).has(w.castle.id)).toBe(true);
+  });
+
+  it('nennt bei einem übergebenen Handout die Unterschrift', async () => {
+    const w = await setup();
+    const note = saveHandout(w.db, { title: 'Zettel', text: 'Morgen am Steg.', signature: 'L.' });
+    giveHandout(w.db, note.id);
+    expect(playerBookText(w.data(), 'players')).toContain('Morgen am Steg.\n  – L.');
+  });
+
+  it('ein leerer Spielstand hat ein leeres Buch', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const data = db.getSnapshot();
+    expect(playerBook(data)).toEqual({ sections: [], guessCount: 0, openGuesses: 0 });
+    expect(playerBookText(data, 'players')).toContain('Noch steht nichts darin.');
+  });
 });

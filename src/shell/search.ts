@@ -268,6 +268,7 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       label: guess.text,
       sub: sub('Vermutung', GUESS_TRUTH_LABEL[guess.truth], about.join(', ')),
       href: '/spielerbuch',
+      focus: { type: 'guess', id: guess.id },
     });
   }
 

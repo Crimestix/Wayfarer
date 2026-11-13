@@ -23,20 +23,23 @@ function cleanRefs(db: CampaignDb, refs: string[]): string[] {
 }
 
 /**
- * Hält eine Vermutung fest oder ändert sie (`id`). Ohne Text geschieht nichts (null). Neue
- * Vermutungen stehen jetzt, in der laufenden Session; nie in der Zukunft.
+ * Hält eine Vermutung fest oder ändert sie (`id`). Ohne Text geschieht nichts (null) – ebenso,
+ * wenn die Vermutung, die geändert werden soll, inzwischen gelöscht ist (sonst entstünde eine
+ * zweite). Neue Vermutungen stehen jetzt, in der laufenden Session; nie in der Zukunft.
  */
 export function saveGuess(db: CampaignDb, input: GuessInput, id?: string): Guess | null {
   const text = input.text.trim();
   if (!text) return null;
   const data = db.getSnapshot();
   const refs = cleanRefs(db, input.refs);
-  if (id && data.guesses[id])
+  if (id !== undefined) {
+    if (!data.guesses[id]) return null;
     return db.patch('guesses', id, {
       text,
       refs,
       ...(input.note === undefined ? {} : { note: input.note.trim() }),
     });
+  }
   const at = Math.min(input.at ?? data.state.now, data.state.now);
   return db.put(
     'guesses',

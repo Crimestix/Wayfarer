@@ -32,8 +32,8 @@ export function GuessDialog({
 
   const save = () => {
     if (guess) {
-      saveGuess(db, { text, refs, note }, guess.id);
-      setGuessTruth(db, guess.id, truth);
+      if (saveGuess(db, { text, refs, note }, guess.id)) setGuessTruth(db, guess.id, truth);
+      else toast({ title: 'Nicht gespeichert', body: 'Die Vermutung gibt es nicht mehr.' });
       onClose();
       return;
     }

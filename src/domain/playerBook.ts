@@ -283,7 +283,10 @@ export function playerBook(data: CampaignData): PlayerBook {
 
 /** Was die Gruppe über einen Eintrag weiß, was sie vermutet – und was nur die Spielleitung weiß. */
 export interface Knowledge {
-  /** Der Eintrag steht im Spielerbuch (getroffen, besucht, erwähnt, bekommen). */
+  /**
+   * Die Gruppe kennt den Eintrag: Er steht im Spielerbuch (getroffen, besucht, erwähnt, bekommen)
+   * – oder ist ein Raum, in dem sie war (Räume stehen dort bei ihrem Ort).
+   */
   inBook: boolean;
   /** Weiß die Gruppe: die letzten Zeilen für die Spieler, älteste zuerst. */
   known: ChronicleEntry[];
@@ -312,7 +315,9 @@ export function knowledgeOf(
   const guesses = guessesAbout(data, entityId);
   const secretText = entity?.secret.trim() ?? '';
   return {
-    inBook: bookIds(data).has(entityId),
+    inBook:
+      bookIds(data).has(entityId) ||
+      (entity?.kind === 'place' && knownPlaceIds(data).has(entityId)),
     known: known.slice(-limit),
     knownCount: known.length,
     guesses,

@@ -303,6 +303,7 @@ nicht übernommen.
   von Gerüchten. Vermutungen (`guesses/`) legen nur `features/spielerbuch/actions.ts` an
   (`saveGuess`, `setGuessTruth`, `removeGuess`); ihr Stand gilt nur „Für dich“. Im Festhalten
   ist „Vermutung“ ein zweiter Eingang wie „Beute“ (`isOwnDialogChoice`), keine Art der Chronik.
+  Ein Treffer der Suche öffnet die Vermutung zum Ändern (`focusOn`, Art `guess`).
 - Noch offen (`domain/looseEnds.ts`, Reiter „Noch offen“ neben Fadenbrett, Abend und Handouts):
   was die Gruppe angestoßen und nie beendet hat – nie gespeichert, aus der Chronik abgeleitet
   (`looseEnds`): offene Abmachungen, ungeprüfte Gerüchte, Wünsche der Spieler, entdeckte Orte ohne

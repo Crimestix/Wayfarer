@@ -1423,6 +1423,10 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Handouts) samt Vermutungen zum Abhaken (stimmt / halb / stimmt nicht); „Für die Spieler“ ohne
   alles Geheime, auch als Text zum Kopieren. Auf jeder Seite der Welt „Was die Gruppe weiß“ in
   drei Schichten; „Vermutung“ auch im Festhalten. Nicht geprüft: installierte App, echter Spielstand.
+- **Spielerbuch gegengelesen:** Ändern einer inzwischen gelöschten Vermutung legt keine zweite
+  an; ein Treffer der Suche öffnet die Vermutung; ein besuchter Raum gilt auf seiner Seite als
+  bekannt; übergebene Handouts stehen mit Unterschrift im Buch. Offen bleibt, ob Veränderungen
+  abseits der Gruppe (`change`, `fate`, `whereabouts`) für die Spieler verborgen bleiben sollen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

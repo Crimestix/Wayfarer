@@ -10,10 +10,11 @@ import { useData, useDb } from '../../data/hooks';
 import { playerBook, type BookSection, type BookThing } from '../../domain/playerBook';
 import type { CampaignData, Guess } from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
+import { useFocus } from '../../shell/focus';
 import { Button, EmptyState, Panel, SectionTitle, Tabs, cx, entityHref, toast } from '../../ui';
 import { GuessDialog } from './GuessDialog';
 import { GuessRow } from './GuessRow';
-import { bookLine, playerBookText, type BookAudience } from './model';
+import { bookLine, handoutBody, playerBookText, type BookAudience } from './model';
 import './spielerbuch.css';
 
 const AUDIENCE_TABS: { id: BookAudience; label: string }[] = [
@@ -29,6 +30,11 @@ export default function SpielerbuchPage() {
   const book = useMemo(() => playerBook(data), [data]);
   const [audience, setAudience] = useState<BookAudience>('gm');
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  // Ein Treffer der Suche öffnet die Vermutung zum Ändern.
+  useFocus(['guess'], (focus) => {
+    const guess = db.getSnapshot().guesses[focus.id];
+    if (guess) setDialog({ guess });
+  });
   const things = book.sections.filter((s) => s.sort === 'things');
   const rest = book.sections.filter((s) => s.sort !== 'things');
 
@@ -159,8 +165,8 @@ function Section({ section, ...view }: ViewProps & { section: BookSection }) {
                 {' '}
                 · übergeben am {formatDayMonth(data.campaign.calendar, handout.givenAt!)}
               </span>
-              {handout.text.trim() && (
-                <div className="wf-prose wf-spielerbuch-handout__text">{handout.text.trim()}</div>
+              {handoutBody(handout) && (
+                <div className="wf-prose wf-spielerbuch-handout__text">{handoutBody(handout)}</div>
               )}
             </li>
           ))}
