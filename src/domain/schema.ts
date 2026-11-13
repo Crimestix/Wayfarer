@@ -986,11 +986,35 @@ export const PathSchema = z.object({
   oneWay: z.boolean().default(false),
   /** Die Gruppe kennt diesen Weg noch nicht. */
   secret: z.boolean().default(false),
+  /** Was unterwegs wartet – ein Hindernis, eine Szene, eine Probe. Nur für die Spielleitung. */
+  onTheWay: z.string().default(''),
+  /** Eine vorbereitete Begegnung, die auf diesem Weg wartet. */
+  encounterId: id.nullable().default(null),
   mapId: id.nullable().default(null),
   /** Verlauf auf der Karte, von from nach to. */
   points: z.array(point).default([]),
 });
 export type TravelPath = z.infer<typeof PathSchema>;
+
+/** Ein Punkt eines Wegenetzes: ein Ort der Welt und wo er auf dem Blatt liegt. */
+export const NetPointSchema = z.object({ placeId: id, x: z.number(), y: z.number() });
+export type NetPoint = z.infer<typeof NetPointSchema>;
+
+/**
+ * Ein Wegenetz: eine vorbereitete Strecke oder Gegend aus Punkten und den Wegen dazwischen
+ * (`domain/net.ts`). Die Wege selbst liegen in `paths` – zum Netz gehört jeder, dessen beide
+ * Orte Punkte des Netzes sind. Geschrieben vom Spielleiter, nie erzeugt.
+ */
+export const NetSchema = z.object({
+  ...base,
+  name: z.string(),
+  /** Worum es bei dieser Strecke geht – nur für die Spielleitung. */
+  note: z.string().default(''),
+  /** Was für Wege hier neu entstehen: Gasse, Straße, Pfad, Sumpfpfad, Gang (`WaySort`). */
+  waySort: z.enum(['street', 'road', 'trail', 'swamp', 'underground']).default('trail'),
+  points: z.array(NetPointSchema).default([]),
+});
+export type Net = z.infer<typeof NetSchema>;
 
 export const PACES = ['slow', 'normal', 'fast'] as const;
 export type Pace = (typeof PACES)[number];
@@ -1418,6 +1442,7 @@ export const COLLECTION_SCHEMAS = {
   encounters: EncounterSchema,
   stocks: StockSchema,
   runs: RunSchema,
+  nets: NetSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1443,6 +1468,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'encounters',
   'stocks',
   'runs',
+  'nets',
 ];
 
 export type CollectionTypes = {
@@ -1544,6 +1570,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createNet(init: Partial<Net> & { name: string }): Net {
+  const stamp = nowIso();
+  return NetSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createThread(init: Partial<Thread> & { title: string }): Thread {

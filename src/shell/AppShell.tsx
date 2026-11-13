@@ -23,6 +23,7 @@ import FaedenPage from '../features/faeden';
 import GeschehenPage from '../features/geschehen';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
+import WegenetzPage from '../features/wegenetz';
 import { WeatherChip } from '../features/wetter';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
@@ -69,6 +70,7 @@ const ZeitGeschehen = timePage(GeschehenPage);
 const KartenAtlas = mapPage(AtlasPage);
 const KartenKarten = mapPage(KartenPage);
 const KartenHex = mapPage(ErkundungPage);
+const KartenNetze = mapPage(WegenetzPage);
 
 function NavRail() {
   const data = useData();
@@ -347,6 +349,7 @@ export function AppShell() {
             <Route path="/erkundung/:id?" component={KartenHex} />
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />
+            <Route path="/wegenetze/:id?" component={KartenNetze} />
             <Route path="/faeden" component={FaedenPage} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />

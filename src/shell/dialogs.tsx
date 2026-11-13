@@ -9,6 +9,7 @@ import {
   Library,
   Map as MapIcon,
   Repeat,
+  Route as RouteIcon,
   Search,
   Skull,
   Swords,
@@ -661,6 +662,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   encounter: <Swords />,
   stock: <Tent />,
   map: <MapIcon />,
+  net: <RouteIcon />,
 };
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {

@@ -92,16 +92,22 @@ export function waySigns(data: WayData, path: TravelPath, reverse = false): MapS
 }
 
 /**
- * Was auf einem Weg zu beachten ist, in Worten: verschlossene Türen, Geheimtüren, scharfe Fallen.
+ * Was auf einem Weg zu beachten ist, in Worten: verschlossene Türen, Geheimtüren, scharfe Fallen
+ * – und was der Spielleiter für unterwegs vorbereitet hat.
  */
 export function wayNotes(
   data: WayData,
   way: Pick<Way, 'path' | 'signs'> & Partial<Pick<Way, 'weather'>>,
 ): string[] {
   const level = (way.path.mapId && data.maps[way.path.mapId]?.level) || 'surface';
+  const encounter = way.path.encounterId
+    ? (data as Partial<CampaignData>).encounters?.[way.path.encounterId]
+    : undefined;
   return [
     ...(way.weather?.text ? [way.weather.text] : []),
     ...way.signs.flatMap((sign) => signNote(sign, level) ?? []),
+    ...(way.path.onTheWay.trim() ? [way.path.onTheWay.trim().replace(/[.!?]+$/, '')] : []),
+    ...(encounter ? [`Begegnung „${encounter.name}“`] : []),
   ];
 }
 

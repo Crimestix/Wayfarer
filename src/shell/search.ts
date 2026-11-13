@@ -21,7 +21,8 @@ export type SearchSort =
   | 'creature'
   | 'encounter'
   | 'stock'
-  | 'map';
+  | 'map'
+  | 'net';
 
 export interface SearchHit {
   key: string;
@@ -177,6 +178,15 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       label: map.name,
       sub: sub('Karte', name(map.placeId)),
       href: `/karten/${map.id}`,
+    });
+
+  for (const net of Object.values(data.nets))
+    add(score(q, net.name, net.note), {
+      key: `net:${net.id}`,
+      sort: 'net',
+      label: net.name,
+      sub: sub('Wegenetz', net.points.length === 1 ? '1 Punkt' : `${net.points.length} Punkte`),
+      href: `/wegenetze/${net.id}`,
     });
 
   rest.sort((a, b) => a.score - b.score || a.hit.label.localeCompare(b.hit.label, 'de'));

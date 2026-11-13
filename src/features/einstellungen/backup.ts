@@ -61,6 +61,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   encounters: ['Begegnung', 'Begegnungen'],
   stocks: ['Bestand', 'Bestände'],
   runs: ['Ablauf', 'Abläufe'],
+  nets: ['Wegenetz', 'Wegenetze'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

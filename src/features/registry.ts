@@ -9,6 +9,7 @@ import {
   Skull,
   Map as MapIcon,
   Orbit,
+  Route,
   Swords,
   Tent,
   Users,
@@ -54,10 +55,16 @@ export const BEAST_TABS: readonly AreaTab[] = [
   { path: '/bestaende', label: 'Bestände', hint: 'Baue, Horte und Nester', icon: Tent },
 ];
 
-/** Karten: der Planet, gezeichnete und Bildkarten, Hexkarten für Reisen. */
+/** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */
 export const MAP_TABS: readonly AreaTab[] = [
   { path: '/atlas', label: 'Weltkarte', hint: 'Der ganze Planet und wo alles liegt', icon: Globe },
   { path: '/karten', label: 'Karten', hint: 'Zeichnen und ansehen', icon: MapIcon },
+  {
+    path: '/wegenetze',
+    label: 'Wegenetze',
+    hint: 'Strecken und Gegenden vorbereiten',
+    icon: Route,
+  },
   { path: '/erkundung', label: 'Hexkarten', hint: 'Erkundung und Reisen', icon: Hexagon },
 ];
 
@@ -89,7 +96,7 @@ export const AREAS: Area[] = [
   {
     path: '/karten',
     label: 'Karten',
-    hint: 'Weltkarte, Karten, Hexkarten',
+    hint: 'Weltkarte, Karten, Wegenetze, Hexkarten',
     icon: MapIcon,
     tabs: MAP_TABS,
   },

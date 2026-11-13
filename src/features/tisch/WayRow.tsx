@@ -24,6 +24,9 @@ import { MenuItem, Popover } from '../../ui';
 import { walk } from '../wege/actions';
 import { WayDialog } from '../wege/WayDialog';
 
+/** Auf dem Weg wartet etwas, das der Spielleiter vorbereitet hat (Wegenetz). */
+const prepared = (way: Way) => way.path.onTheWay.trim() !== '' || way.path.encounterId !== null;
+
 /** So viele Wege stehen als Knopf in der Zeile; der Rest hinter „Wege …“. */
 const SHOWN = 5;
 
@@ -41,8 +44,9 @@ export function WayRow({ placeId }: { placeId: string }) {
   const elsewhere = origin !== null && origin.id !== placeId;
 
   const go = (way: Way) => {
-    // Eine verschlossene Tür: nicht still hindurchgehen, sondern erst zeigen, was im Weg ist.
-    if (way.barred) {
+    // Eine verschlossene Tür – oder es wartet etwas Vorbereitetes: nicht still hindurchgehen,
+    // sondern erst zeigen, was auf dem Weg ist.
+    if (way.barred || prepared(way)) {
       openMoveParty({ placeId: way.toId });
       return;
     }
@@ -98,6 +102,7 @@ export function WayRow({ placeId }: { placeId: string }) {
                 <CloudRain className="wf-tisch-way__flag" aria-hidden />
               )}
               {(way.path.conditions ||
+                prepared(way) ||
                 way.signs.some((sign) => sign.kind === 'trap' && sign.armed)) && (
                 <TriangleAlert className="wf-tisch-way__flag" aria-hidden />
               )}

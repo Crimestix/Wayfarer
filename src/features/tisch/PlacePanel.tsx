@@ -15,6 +15,7 @@ import {
   Library,
   Map as MapIcon,
   MapPin,
+  Route as RouteIcon,
   ScrollText,
   Sparkles,
   User,
@@ -22,6 +23,7 @@ import {
 import { useData } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { placePath, placeStatus } from '../../domain/derive';
+import { netsOfPlace } from '../../domain/net';
 import type { Place } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
 import { openAttitude, openMoveParty, openQuickLog } from '../../shell/commands';
@@ -349,6 +351,7 @@ export function PlacePanel({ place }: { place: Place }) {
     [data.articles, article],
   );
   const maps = useMemo(() => placeMaps(data, place), [data, place]);
+  const nets = useMemo(() => netsOfPlace(data, place.id), [data, place.id]);
   const [reading, setReading] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const hasExcerpt = Boolean(excerpt?.paragraphs.length);
@@ -409,6 +412,17 @@ export function PlacePanel({ place }: { place: Place }) {
               >
                 <span className="wf-tisch-hero__label">Artikel</span>
               </Button>
+            )}
+            {nets[0] && (
+              <Link
+                href={`/wegenetze/${nets[0].id}`}
+                className="wf-btn"
+                title={`Das Wegenetz „${nets[0].name}“: wo die Gruppe steht und wohin es von hier geht`}
+                aria-label="Wegenetz"
+              >
+                <RouteIcon />
+                <span className="wf-tisch-hero__label">Wegenetz</span>
+              </Link>
             )}
             <Link href={entityHref(place)} className="wf-btn" title="Alles über diesen Ort">
               <BookOpen />
