@@ -9,6 +9,7 @@
  */
 import { recordHeadline } from './chronicleKinds';
 import { activeParty, currentSession, sessionsSorted } from './derive';
+import { spotlightHint } from './heroArc';
 import { readyLoot } from './loot';
 import { storiesOfHero } from './story';
 import { isEveryday } from './weight';
@@ -217,7 +218,8 @@ export const withoutHook = (data: CampaignData): Character[] =>
   );
 
 /**
- * Was ein Abend braucht – als Rat, nie als Pflicht: was die Gefährten wollen, ein Einstieg,
+ * Was ein Abend braucht – als Rat, nie als Pflicht: was die Gefährten wollen, wer zuletzt selten
+ * im Mittelpunkt stand, ein Einstieg,
  * Geschichten im Spiel, ein paar mögliche Szenen, ein Vorrat an Geheimnissen, eine Begegnung,
  * Beute.
  */
@@ -228,6 +230,8 @@ export function prepAdvice(data: CampaignData, content: PrepContent): PrepAdvice
   const unhooked = withoutHook(data);
   const scenes = openScenes(content).length;
   const secrets = openSecrets(content).length;
+  /** Wer an den letzten Abenden selten vorkam – nur dann ein Punkt, und nie als Pflicht. */
+  const quiet = spotlightHint(data);
   return [
     {
       key: 'goals',
@@ -251,6 +255,9 @@ export function prepAdvice(data: CampaignData, content: PrepContent): PrepAdvice
             ? `Keine Geschichte im Spiel betrifft ${unhooked.map((character) => character.name).join(', ')}.`
             : 'Jeden betrifft eine Geschichte im Spiel persönlich.',
     },
+    ...(quiet
+      ? [{ key: 'spotlight', done: false, text: 'Rampenlicht für jeden', why: quiet }]
+      : []),
     {
       key: 'start',
       done: content.start.trim() !== '',

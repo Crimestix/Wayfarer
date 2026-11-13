@@ -1,5 +1,4 @@
 /** Ein Gefährte im Ganzen: Werte, Notizen, Geheimnis, Beziehungen, Abmachungen, Chronik. */
-import { TracksPanel } from '../fortschritt/TrackCard';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import {
@@ -15,10 +14,9 @@ import {
 import { useData, useDb } from '../../data/hooks';
 import { FATE_LABEL, fateSinceLabel } from '../../domain/chronicleKinds';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
-import { partyCompanions, personasOf, transformationsOf } from '../../domain/history';
+import { partyCompanions, personasOf } from '../../domain/history';
 import { formatGold, lootLine, receivedBy } from '../../domain/loot';
 import { relationLabel } from '../../domain/relations';
-import { storiesOfHero } from '../../domain/story';
 import type { Character } from '../../domain/schema';
 import { openAttitude, openQuickLog } from '../../shell/commands';
 import {
@@ -35,10 +33,9 @@ import {
   TextArea,
   cx,
 } from '../../ui';
-import { milestoneLine, milestonesOf } from '../chronik/model';
-import { formatShortDate } from '../welt/model';
 import { patchCharacter, toggleCharacterCondition } from './actions';
 import { BondDialog } from './BondDialog';
+import { HeroArcPanel } from './HeroArc';
 import type { EditFocus } from './EditDialog';
 import {
   characterBonds,
@@ -260,7 +257,6 @@ function BondRow({
 
 /** So viele Einträge des Beute-Buchs stehen beim Gefährten; der Rest steht im Buch. */
 const RECEIVED_SHOWN = 6;
-const MILESTONES_SHOWN = 3;
 
 export function Detail({
   id,
@@ -311,15 +307,10 @@ export function Detail({
   const bonds = characterBonds(data, character.id);
   const promises = openPromises(data, character.id);
   const chronicle = chronicleFor(data, character.id);
-  /** Die Geschichten, die diesen Gefährten persönlich betreffen. */
-  const ties = storiesOfHero(data, character.id);
   /** Was dieser Gefährte am Tisch bekommen hat (Beute-Buch). */
   const received = receivedBy(data, character.id);
   const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
-  const milestones = milestonesOf(data, character.id);
-  /** Neue Kräfte, Gestalt, verlorene Glieder – aus Einträgen der Art „Wandlung“. */
-  const changes = transformationsOf(data, character.id);
   /** Tiere und Wesen, die mit diesem Gefährten ziehen. */
   const beasts = partyCompanions(data, character.id);
   /** Zweite Gestalten: eigene Einträge, verbunden über „ist die zweite Gestalt von“. */
@@ -401,38 +392,6 @@ export function Detail({
                   />
                   <OpenConditions entityId={character.id} />
                 </dd>
-                {milestones.length > 0 && (
-                  <>
-                    <dt>Meilensteine</dt>
-                    <dd className="wf-gruppe-stack">
-                      {milestones.slice(0, MILESTONES_SHOWN).map((entry) => (
-                        <span key={entry.id} className="wf-gruppe-milestone">
-                          <span className="wf-clamp-1">{milestoneLine(entry)}</span>
-                          <span className="wf-mute">
-                            {formatShortDate(data.campaign.calendar, data.state.now, entry.at)}
-                          </span>
-                        </span>
-                      ))}
-                    </dd>
-                  </>
-                )}
-                {changes.length > 0 && (
-                  <>
-                    <dt>Wandlungen</dt>
-                    <dd className="wf-gruppe-stack">
-                      {changes.map((entry) => (
-                        <span key={entry.id} className="wf-gruppe-milestone">
-                          <span className="wf-clamp-1" title={entry.text}>
-                            {entry.text}
-                          </span>
-                          <span className="wf-mute">
-                            {formatShortDate(data.campaign.calendar, data.state.now, entry.at)}
-                          </span>
-                        </span>
-                      ))}
-                    </dd>
-                  </>
-                )}
                 {personas.length > 0 && (
                   <>
                     <dt>Zweite Gestalt</dt>
@@ -548,35 +507,7 @@ export function Detail({
               )}
             </Panel>
 
-            <Panel title="Geschichten" count={ties.length || undefined} flush>
-              <p className="wf-gruppe-hint wf-gruppe-hint--pad">
-                {character.character.goal.trim()
-                  ? `Ziel: ${character.character.goal.trim()}`
-                  : `Was ${character.name} will, steht noch nirgends – trag es beim Bearbeiten oder unter „Abend vorbereiten“ ein.`}
-              </p>
-              {ties.map((tie) => (
-                <Link
-                  key={tie.story.id}
-                  href={`/geschichte/${tie.story.id}`}
-                  className="wf-gruppe-tie"
-                  title="Das Blatt der Geschichte öffnen"
-                >
-                  <span className="wf-gruppe-tie__title">
-                    {tie.story.title}
-                    {tie.story.inPlay && <em>im Spiel</em>}
-                  </span>
-                  {tie.why && <span className="wf-gruppe-tie__why">{tie.why}</span>}
-                </Link>
-              ))}
-              {ties.length === 0 && (
-                <p className="wf-gruppe-hint wf-gruppe-hint--pad">
-                  Noch betrifft keine Geschichte {character.name} persönlich. Auf dem Blatt einer
-                  Geschichte heftest du Gefährten an – mit ihrem eigenen Grund.
-                </p>
-              )}
-            </Panel>
-
-            <TracksPanel ownerId={character.id} />
+            <HeroArcPanel character={character} />
 
             <Panel
               title="Erhalten"

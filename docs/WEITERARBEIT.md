@@ -1436,6 +1436,11 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Gegengelesen: Wer in derselben Minute stirbt und kämpft (Tod zuerst eingetragen), gilt nicht
   mehr als „danach noch dabei“; bei nur bekanntem Tag erst ab dem Tag danach. Die Reiseprüfung
   sucht jede Strecke nur einmal und rechnet nur neu, wenn sich Chronik, Wege, Karten oder Einträge ändern.
+- **Heldenbögen und Rampenlicht:** `domain/heroArc.ts` (`heroArc`, `spotlight`,
+  `spotlightHint`). Auf der Seite eines Gefährten ersetzt der Kasten „Heldenbogen“ die Kästen
+  „Geschichten“ und „Fortschritt“ und nimmt Meilensteine und Wandlungen aus „Am Tisch“ mit; dazu
+  Wünsche und Lehrer. Auf der Übersicht „Rampenlicht“ mit Balken der letzten drei Abende; der
+  Hinweis steht auch als Rat unter „Abend vorbereiten“. Gezählt wird nach `entry.sessionId`.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

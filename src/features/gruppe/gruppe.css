@@ -1439,3 +1439,84 @@
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
+
+/* Heldenbogen: Ziel, Wünsche, Lehrer, dann Geschichten und Leisten */
+.wf-gruppe-arc__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4) var(--s-2);
+  border-top: 1px solid var(--line-faint);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-gruppe-arc__head .wf-gruppe-textlink {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-gruppe-arc__none {
+  margin: 0;
+  padding: 0 var(--s-4) var(--s-3);
+  font-size: var(--text-sm);
+}
+
+/* Rampenlicht: je Gefährte ein schmaler Balken */
+.wf-gruppe-spot {
+  flex: none;
+}
+.wf-gruppe-spot__lead,
+.wf-gruppe-spot__hint {
+  margin: 0;
+  padding: var(--s-3) var(--s-4) 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-gruppe-spot__hint {
+  padding: 0 var(--s-4) var(--s-3);
+  color: var(--ink-soft);
+}
+.wf-gruppe-spot__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--s-2) var(--s-5);
+  padding: var(--s-3) var(--s-4);
+}
+.wf-gruppe-spot__row {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 2.2rem;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wf-gruppe-spot__name {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wf-gruppe-spot__name:hover {
+  color: var(--gold-bright);
+}
+.wf-gruppe-spot__bar {
+  display: block;
+  height: 6px;
+  border: 1px solid var(--gold-deep);
+  background: var(--bg-inset);
+}
+.wf-gruppe-spot__bar i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+.wf-gruppe-spot__count {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-align: right;
+}

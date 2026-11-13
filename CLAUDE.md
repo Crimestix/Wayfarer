@@ -314,6 +314,14 @@ nicht übernommen.
 - Marschordnung: Reihen von vorn nach hinten in `state.march`; gelesen über `marchRows()`
   (`gruppe/march.ts`) – wer nicht dabei ist, fällt weg, Neue gehen hinten mit. Der Kasten
   „Unterwegs“ auf der Gefährten-Seite zeigt dazu Dunkelsicht, Lichter (`timer.refs`) und das Gold.
+- Heldenbogen und Rampenlicht (`domain/heroArc.ts`): Was die Geschichte eines Gefährten
+  ausmacht, sammelt `heroArc()` – Ziel, offene Wünsche (`openWishes`), Wandlungen, Meilensteine,
+  Lehrer und Schüler (`mentorsOf`, Art `mentor` in beiden Richtungen), Geschichten
+  (`storiesOfHero`), Leisten, offene Zustände; gezeigt im Kasten „Heldenbogen“ der Seite (dort
+  auch die Leisten). `spotlight()` zählt, in wie vielen Einträgen der letzten begonnenen Abende
+  jeder aktive Gefährte vorkommt (über `entryEntityIds`, je Eintrag einmal, ohne Termine und
+  Uhren); `spotlightHint()` gibt höchstens einen ruhigen Satz – erst ab zwei Abenden mit
+  Einträgen und unter der Hälfte des Schnitts – und steht als Rat in `prepAdvice`. Nie bewerten.
 - Lebensdaten: `entity.born` / `entity.ended` (Tag, Monat oder Jahr, `DatePoint`). Alter, Gründung
   und „vor N Jahren“ rechnet `lifeFacts()` (`domain/lifespan.ts`) – nie ein Alter speichern. Gelesen
   wird über `readDatePoint` („3. Tauwind 667“, „667“, „vor 300 Jahren“, „Alter 34“), auch aus dem

@@ -9,6 +9,7 @@ import { Badge, Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, c
 import { openRest } from '../../shell/commands';
 import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
+import { SpotlightPanel } from './HeroArc';
 import { OnTheRoad } from './OnTheRoad';
 import {
   classLine,
@@ -338,6 +339,7 @@ export function Overview({
                     />
                   ))}
                 </div>
+                <SpotlightPanel />
               </>
             ) : (
               <EmptyState icon={<Swords />} title="Im Augenblick ist niemand dabei">
