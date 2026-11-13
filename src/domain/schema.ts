@@ -1963,6 +1963,36 @@ export const TrackSchema = z.object({
 });
 export type Track = z.infer<typeof TrackSchema>;
 
+// ── Handouts ───────────────────────────────────────────────────────────────
+
+/** letter = Brief, note = Notiz/Zettel, decree = Erlass/Aushang, card = Hinweiskarte. */
+export const HANDOUT_KINDS = ['letter', 'note', 'decree', 'card'] as const;
+export type HandoutKind = (typeof HANDOUT_KINDS)[number];
+
+/**
+ * Ein Handout zum Ausdrucken (`features/handouts`): ein Brief, eine Notiz, ein Erlass oder eine
+ * Hinweiskarte – geschrieben vom Spielleiter, gedruckt auf Pergament. „Übergeben“ hält in der
+ * Chronik fest, wann die Gruppe es bekam.
+ */
+export const HandoutSchema = z.object({
+  ...base,
+  title: z.string().default(''),
+  kind: z.enum(HANDOUT_KINDS).default('letter'),
+  /** Der Wortlaut; Leerzeilen trennen Absätze. */
+  text: z.string().default(''),
+  /** Unterschrift oder Absender, unten rechts. */
+  signature: z.string().default(''),
+  /** Ein Siegel mit diesem Zeichen (ein, zwei Buchstaben); leer = kein Siegel. */
+  seal: z.string().default(''),
+  storyId: id.nullable().default(null),
+  /** Woher der Wortlaut stammt: ein Schriftstück der Chronik oder ein Artikel. */
+  sourceId: z.string().nullable().default(null),
+  /** Übergeben an die Gruppe – mit der Zeile in der Chronik. */
+  givenAt: worldTime.nullable().default(null),
+  chronicleId: id.nullable().default(null),
+});
+export type Handout = z.infer<typeof HandoutSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -1992,6 +2022,7 @@ export const COLLECTION_SCHEMAS = {
   preps: PrepSchema,
   loot: LootSchema,
   tracks: TrackSchema,
+  handouts: HandoutSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2021,6 +2052,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'preps',
   'loot',
   'tracks',
+  'handouts',
 ];
 
 export type CollectionTypes = {
@@ -2122,6 +2154,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createHandout(init: Partial<Handout> = {}): Handout {
+  const stamp = nowIso();
+  return HandoutSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTrack(init: Partial<Track> & { name: string }): Track {

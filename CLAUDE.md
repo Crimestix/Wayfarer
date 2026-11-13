@@ -124,7 +124,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -277,6 +277,11 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+- Handouts (`handouts/`, `domain/handout.ts`, Reiter „Handouts“ neben Fadenbrett und Abend):
+  Brief, Notiz, Erlass, Hinweiskarte – geschrieben vom Spielleiter, auf Pergament gezeigt und
+  gedruckt (`usePrint` in `handouts/print.tsx`: eine eigene Ebene nur für den Druck). Wortlaut
+  aus Schriftstücken übernehmen (`handoutSources`), Hinweiskarten aus den Geheimnissen des
+  Abend-Blatts (`prepHintCards`). „Übergeben“ hält es in der Mitschrift fest. Kein Vollbild-Zeigen.
 - Fortschrittsleisten (`tracks/`, `domain/track.ts`, Reiter „Fortschritt“ unter Gefährten): benannte
   Stufen, eine Zahl bis zu einem Ziel oder Abschnitte; sie gehören einem Eintrag oder der Gruppe.
   Geändert über `features/fortschritt/actions.ts` (`moveTrack` hält jeden Schritt als Veränderung

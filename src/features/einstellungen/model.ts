@@ -81,6 +81,7 @@ const FOLDER_LABEL: Record<string, string> = {
   preps: 'Vorbereitung der Abende',
   loot: 'Beute-Buch',
   tracks: 'Fortschrittsleisten',
+  handouts: 'Handouts',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */

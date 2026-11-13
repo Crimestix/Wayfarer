@@ -74,6 +74,12 @@ export const STORY_TABS: readonly AreaTab[] = [
     hint: 'Einstieg, Szenen, Geheimnisse, Begegnungen, Beute',
     icon: NotebookPen,
   },
+  {
+    path: '/handouts',
+    label: 'Handouts',
+    hint: 'Briefe, Aushänge, Hinweiskarten drucken',
+    icon: ScrollText,
+  },
 ];
 
 /** Gefährten: die Gruppe – und was sie bekommen hat. */

@@ -1,0 +1,199 @@
+/* Handouts: Liste, Schreiben, Blatt – und der Druck. Papierfarben aus den Karten-Tokens. */
+
+.wf-handouts {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-handouts-blank {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 0 var(--s-6) var(--s-6);
+}
+.wf-handouts-blank > * {
+  max-width: 560px;
+}
+.wf-handouts-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: var(--s-4);
+  min-height: 0;
+  padding: 0 var(--s-5) var(--s-5);
+}
+.wf-handouts-list,
+.wf-handouts-write {
+  min-height: 0;
+  overflow: auto;
+}
+.wf-handouts-pick {
+  grid-column: 2 / -1;
+  align-self: center;
+  color: var(--ink-mute);
+  font-style: italic;
+  text-align: center;
+}
+.wf-handouts-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: var(--s-2) var(--s-4);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-handouts-item:hover {
+  background: var(--bg-2);
+}
+.wf-handouts-item--on {
+  background: linear-gradient(90deg, var(--gold-glow), transparent 80%);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.wf-handouts-item--given {
+  opacity: 0.6;
+}
+.wf-handouts-item__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-handouts-item__meta {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-handouts-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 0;
+}
+.wf-handouts-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wf-handouts-preview__desk {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+
+/* ── Das Blatt ── */
+.wf-handout-paper {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 44px 48px 36px;
+  border: 1px solid var(--map-paper-edge);
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255, 255, 255, 0.35), transparent 60%),
+    radial-gradient(ellipse at 80% 90%, var(--map-paper-edge), transparent 70%), var(--map-paper);
+  color: var(--map-ink);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  line-height: 1.55;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.wf-handout-paper__text p {
+  margin: 0 0 0.8em;
+  white-space: pre-wrap;
+}
+.wf-handout-paper--letter .wf-handout-paper__text {
+  font-style: italic;
+}
+.wf-handout-paper--note {
+  max-width: 380px;
+  padding: 26px 28px 22px;
+  font-size: 1.08rem;
+  font-style: italic;
+}
+.wf-handout-paper--decree {
+  text-align: center;
+}
+.wf-handout-paper__title {
+  margin: 0 0 18px;
+  font-family: var(--font-caps);
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-handout-paper--card {
+  max-width: 300px;
+  padding: 18px 20px 14px;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.wf-handout-paper__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  margin-top: 10px;
+}
+.wf-handout-paper--decree .wf-handout-paper__foot {
+  justify-content: center;
+}
+.wf-handout-paper--card .wf-handout-paper__foot {
+  margin-top: 4px;
+}
+.wf-handout-paper__sign {
+  color: var(--map-ink-soft);
+  font-style: italic;
+}
+.wf-handout-paper--card .wf-handout-paper__sign {
+  font-size: 0.85rem;
+}
+.wf-handout-paper__seal {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--blood-bright), var(--blood) 70%);
+  color: var(--map-paper);
+  font-family: var(--font-caps);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* ── Drucken: nur die Ebene mit dem Blatt ── */
+.wf-print-layer {
+  display: none;
+}
+.wf-print-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8mm;
+}
+.wf-print-cards .wf-handout-paper {
+  max-width: none;
+  margin: 0;
+  break-inside: avoid;
+}
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  body > *:not(.wf-print-layer) {
+    display: none !important;
+  }
+  .wf-print-layer {
+    display: block;
+    background: white;
+  }
+  .wf-print-layer .wf-handout-paper {
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
