@@ -325,7 +325,8 @@ nicht übernommen.
   Rückfrage oder Toast. Geprüft wird nach Eintrag (id), nie nach Namen; gleiche Namen sind nur ein
   Hinweis. Jeder Punkt hat einen stabilen `key`; „Passt so“ (`markContinuityOk`,
   `features/offen/actions.ts`) merkt ihn in `state.continuityOk`. Neue Prüfungen dort eintragen,
-  nie in der Oberfläche; Nachgetragenes und Ungefähres taugt nicht für einen Widerspruch.
+  nie in der Oberfläche; Nachgetragenes und Ungefähres taugt nicht für einen Widerspruch, und was
+  in derselben Minute (bei nur bekanntem Tag: am selben Tag) festgehalten ist, gilt als gleichzeitig.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);
   alles, was Geschichte ist, bleibt Vorschlag. Was abseits der Gruppe geschieht, sammelt
   `worldTurn()` (`domain/worldTurn.ts`) für die Seite „Weltgeschehen“ – nach Gewicht

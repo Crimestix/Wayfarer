@@ -13,7 +13,7 @@ import {
   type ChronicleEntry,
   type DatePoint,
 } from '../schema';
-import { MINUTES_PER_DAY, fromTime, toTime } from '../time/calendar';
+import { MINUTES_PER_DAY, fromTime, startOfDay, toTime } from '../time/calendar';
 
 const DAY = MINUTES_PER_DAY;
 
@@ -102,6 +102,39 @@ describe('Passt nicht zusammen', () => {
     add({ kind: 'fate', at: now, fate: { entityId: mira.id, status: 'alive', before: 'dead' } });
     expect(issues().filter((issue) => issue.key.startsWith('dead-seen:'))).toEqual([]);
     expect(fate.id).toBeTruthy();
+  });
+
+  it('wer im Kampf stirbt, steht im Kampf – auch wenn der Tod zuerst eingetragen wurde', async () => {
+    const { add, now, mira, odo, issues } = await setup();
+    // Am Tisch: alles in derselben Minute, der Tod vor dem Kampf eingetragen.
+    add({
+      kind: 'fate',
+      at: now,
+      created: '2026-11-13T10:00:00.000Z',
+      fate: { entityId: mira.id, status: 'dead', before: 'alive' },
+    });
+    add({
+      kind: 'fight',
+      at: now,
+      created: '2026-11-13T10:00:05.000Z',
+      refs: [mira.id],
+    });
+    // Nur der Tag ist bekannt: Ein Treffen am selben Tag kann vor dem Tod gewesen sein.
+    add({
+      kind: 'fate',
+      at: startOfDay(now) - 3 * DAY + 60,
+      precision: 'day',
+      fate: { entityId: odo.id, status: 'dead', before: 'alive' },
+    });
+    add({ kind: 'meeting', at: startOfDay(now) - 3 * DAY + 600, refs: [odo.id] });
+    expect(issues().filter((issue) => issue.key.startsWith('dead-seen:'))).toEqual([]);
+    // Am Tag danach passt es nicht mehr.
+    const later = add({ kind: 'meeting', at: startOfDay(now) - 2 * DAY + 600, refs: [odo.id] });
+    expect(
+      issues()
+        .filter((issue) => issue.key.startsWith('dead-seen:'))
+        .map((issue) => issue.entryId),
+    ).toEqual([later.id]);
   });
 
   it('verschollen ist nur ein Hinweis; Haltung und neue Beziehung zählen als dabei', async () => {
@@ -241,6 +274,17 @@ describe('Passt nicht zusammen', () => {
     // Ohne bekannten Weg nichts melden.
     const far = place('Burg Graufels');
     add({ kind: 'travel', at: now + 1, travel: { fromId: grotto.id, toId: far.id } });
+    expect(issues().filter((issue) => issue.key.startsWith('travel-fast:'))).toEqual([]);
+  });
+
+  it('ein Weg, der später eingetragen wird, zählt sofort', async () => {
+    const { db, add, now, town, grotto, issues } = await setup();
+    add({ kind: 'travel', at: now - 120, travel: { fromId: null, toId: town.id } });
+    add({ kind: 'travel', at: now - 60, travel: { fromId: town.id, toId: grotto.id } });
+    expect(issues().filter((issue) => issue.key.startsWith('travel-fast:'))).toEqual([]);
+    const path = db.put('paths', createPath({ fromId: town.id, toId: grotto.id, minutes: 3 * 60 }));
+    expect(issues().filter((issue) => issue.key.startsWith('travel-fast:'))).toHaveLength(1);
+    db.patch('paths', path.id, { minutes: 30 });
     expect(issues().filter((issue) => issue.key.startsWith('travel-fast:'))).toEqual([]);
   });
 

@@ -1433,6 +1433,9 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   schneller als der kürzeste bekannte Weg (schnelles Tempo, trocken); Verweise auf Gelöschtes;
   gleiche Namen. Eigener Kasten auf „Noch offen“ mit „Passt so“, leiser Hinweis auf der Seite
   eines Eintrags. Reittiere und Zauber kennt die Reiseprüfung nicht – dafür ist „Passt so“ da.
+  Gegengelesen: Wer in derselben Minute stirbt und kämpft (Tod zuerst eingetragen), gilt nicht
+  mehr als „danach noch dabei“; bei nur bekanntem Tag erst ab dem Tag danach. Die Reiseprüfung
+  sucht jede Strecke nur einmal und rechnet nur neu, wenn sich Chronik, Wege, Karten oder Einträge ändern.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

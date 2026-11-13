@@ -8,10 +8,10 @@
  * der Spielleiter mit „Passt so“ wegklickt, steht in `state.continuityOk` und fällt heraus.
  * Wayfarer ändert nichts – es zeigt nur. Reine Funktionen.
  */
-import { KIND_LABEL, byTime, chronicleSorted, entityName } from './derive';
-import { entryEntityIds, fateSince, statusOf } from './history';
+import { KIND_LABEL, chronicleSorted, entityName } from './derive';
+import { entryEntityIds, statusOf } from './history';
 import { genderOf, kinGraph, kinLabel } from './kin';
-import { formatDatePoint, lifeWords } from './lifespan';
+import { endOf, formatDatePoint, lifeWords } from './lifespan';
 import { formatWayTime, routeBetween } from './ways';
 import {
   PARTY_ID,
@@ -64,14 +64,6 @@ export function pointEnd(cal: CalendarDef, point: DatePoint): WorldTime {
     return toTime(cal, { year: next.year, month: next.month, day: 1, hour: 0, minute: 0 });
   }
   return toTime(cal, { year: d.year + 1, month: 0, day: 1, hour: 0, minute: 0 });
-}
-
-/** Der Tod: als Lebensdatum eingetragen oder aus der Chronik (Schicksal „tot“). */
-function deathOf(data: CampaignData, entity: Entity): DatePoint | null {
-  if (entity.ended) return entity.ended;
-  if (statusOf(data, entity.id) !== 'dead') return null;
-  const since = fateSince(data, entity.id);
-  return since ? { at: since.since, precision: 'day' } : null;
 }
 
 /** „am 3. Tauwind 680“, „im Tauwind 680“, „680“. */
@@ -145,6 +137,18 @@ function actorsOf(entry: ChronicleEntry): { id: string; doing: (d: string) => st
 
 const isGone = (status: string | undefined) => status === 'dead' || status === 'missing';
 
+/**
+ * Liegt ein Eintrag sicher nach dem Schicksal? Am Tisch wird alles in derselben Minute
+ * festgehalten – wer im Kampf stirbt, steht im Kampf, egal was zuerst eingetragen wurde. Ist nur
+ * der Tag bekannt, zählt erst der Tag danach; Ungefähres taugt nicht für einen Widerspruch.
+ */
+function surelyAfter(fate: ChronicleEntry, entry: ChronicleEntry): boolean {
+  if (fate.precision === 'approx' || entry.precision === 'approx') return false;
+  if (fate.precision === 'day' || entry.precision === 'day')
+    return startOfDay(entry.at) > startOfDay(fate.at);
+  return entry.at > fate.at;
+}
+
 function afterFate(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
   const cal = data.campaign.calendar;
   const fates = new Map<string, ChronicleEntry[]>();
@@ -163,10 +167,10 @@ function afterFate(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
       seen.add(actor.id);
       const list = fates.get(actor.id);
       if (!list || !isLiving(data.entities[actor.id])) continue;
-      const before = list.filter((fate) => byTime(fate, entry) < 0).at(-1);
-      if (!before || !isGone(before.fate!.status)) continue;
+      const before = list.filter((fate) => fate.at < entry.at).at(-1);
+      if (!before || !isGone(before.fate!.status) || !surelyAfter(before, entry)) continue;
       // Ein späteres Schicksal hebt es auf: wiedergefunden, zurückgekehrt.
-      if (list.some((fate) => byTime(fate, entry) > 0 && !isGone(fate.fate!.status))) continue;
+      if (list.some((fate) => fate.at >= entry.at && !isGone(fate.fate!.status))) continue;
       const dead = before.fate!.status === 'dead';
       const name = entityName(data, actor.id);
       const when = formatDate(cal, before.at);
@@ -240,7 +244,7 @@ function lifeIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
   const out: Issue[] = [];
   const deaths = new Map<string, DatePoint | null>();
   const death = (entity: Entity) => {
-    if (!deaths.has(entity.id)) deaths.set(entity.id, deathOf(data, entity));
+    if (!deaths.has(entity.id)) deaths.set(entity.id, endOf(data, entity));
     return deaths.get(entity.id)!;
   };
 
@@ -326,7 +330,22 @@ function lifeIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
 
 // ── d) Unmögliche Reise ────────────────────────────────────────────────────
 
+/**
+ * Die Reiseprüfung sucht Routen und ist die teuerste. Sie hängt nur an Chronik, Wegen, Karten,
+ * Einträgen und Kalender – ändert sich nur ein Artikel oder die Uhrzeit, gilt das letzte Ergebnis.
+ */
+let lastTravel: { inputs: unknown[]; issues: Issue[] } | null = null;
+
 function travelIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
+  const inputs = [data.chronicle, data.paths, data.maps, data.entities, data.campaign];
+  if (lastTravel && lastTravel.inputs.every((input, i) => input === inputs[i]))
+    return lastTravel.issues;
+  const issues = findTravelIssues(data, sorted);
+  lastTravel = { inputs, issues };
+  return issues;
+}
+
+function findTravelIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
   const cal = data.campaign.calendar;
   // Wer in derselben Minute mehrmals den Ort wechselt, hat sich verbessert: Es zählt der letzte.
   const arrivals: ChronicleEntry[] = [];
@@ -335,8 +354,16 @@ function travelIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
     if (arrivals.at(-1)?.at === entry.at) arrivals[arrivals.length - 1] = entry;
     else arrivals.push(entry);
   }
-  // Ohne Wetter: Gerechnet wird mit dem schnellsten Tempo bei trockenem Weg.
+  // Ohne Wetter: Gerechnet wird mit dem schnellsten Tempo bei trockenem Weg. Jede Strecke nur
+  // einmal – die Gruppe geht dieselben Wege oft hin und her.
   const ways = { entities: data.entities, paths: data.paths, maps: data.maps };
+  const routes = new Map<string, number | null>();
+  const fastest = (fromId: string, toId: string) => {
+    const key = `${fromId}>${toId}`;
+    if (!routes.has(key))
+      routes.set(key, routeBetween(ways, fromId, toId, 'fast')?.minutes ?? null);
+    return routes.get(key) ?? null;
+  };
   const out: Issue[] = [];
   for (let i = 1; i < arrivals.length; i++) {
     const before = arrivals[i - 1]!;
@@ -346,15 +373,14 @@ function travelIssues(data: CampaignData, sorted: ChronicleEntry[]): Issue[] {
     const fromId = before.travel!.toId!;
     const toId = entry.travel!.toId!;
     if (fromId === toId) continue;
-    const route = routeBetween(ways, fromId, toId, 'fast');
-    if (!route || route.minutes <= 0) continue;
     const gap = entry.at - before.at;
-    if (gap >= route.minutes) continue;
+    const minutes = fastest(fromId, toId);
+    if (minutes === null || minutes <= 0 || gap >= minutes) continue;
     const from = entityName(data, fromId);
     const to = entityName(data, toId);
     out.push({
       key: `travel-fast:${entry.id}`,
-      text: `Die Gruppe war am ${formatDateTime(cal, before.at)} in ${from} und ${gap === 0 ? 'in derselben Minute' : `${formatDuration(gap)} später`} in ${to} – der kürzeste bekannte Weg dauert auch im schnellen Tempo ${formatWayTime(route.minutes)}.`,
+      text: `Die Gruppe war am ${formatDateTime(cal, before.at)} in ${from} und ${gap === 0 ? 'in derselben Minute' : `${formatDuration(gap)} später`} in ${to} – der kürzeste bekannte Weg dauert auch im schnellen Tempo ${formatWayTime(minutes)}.`,
       refs: [fromId, toId],
       entryId: entry.id,
       weight: 'hint',

@@ -130,7 +130,7 @@ export interface LifeFact {
 }
 
 /** Der Tod: eingetragen oder aus der Chronik (Schicksal „tot“). */
-function endOf(data: CampaignData, entity: Entity): DatePoint | null {
+export function endOf(data: CampaignData, entity: Entity): DatePoint | null {
   if (entity.ended) return entity.ended;
   if (entity.kind !== 'person' && entity.kind !== 'character') return null;
   const status = entity.kind === 'person' ? entity.person.status : entity.character.status;
