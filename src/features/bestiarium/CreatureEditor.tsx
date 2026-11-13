@@ -62,9 +62,10 @@ import {
   confirmDialog,
   cx,
 } from '../../ui';
-import { keepInWorld, saveCreature } from './actions';
+import { addToWorld, saveCreature } from './actions';
 import {
   EMPTY_HISTORY,
+  clampNumber,
   draftInherits,
   draftOf,
   draftProblem,
@@ -81,6 +82,7 @@ import {
   recordStep,
   redoStep,
   resolveDraft,
+  switchKind,
   undoStep,
   withBlock,
   type CreatureDraft,
@@ -91,6 +93,7 @@ import {
   FeatureEditor,
   FeatureLibrary,
   LanguageChips,
+  NumberBox,
   SECTION_ONE,
 } from './EditorParts';
 import { StatBlock } from './StatBlock';
@@ -117,12 +120,6 @@ const PARTS = [
 
 type TextKey = 'type' | 'tags' | 'alignment' | 'acNote' | 'gear' | 'habitat' | 'treasure';
 type NumberKey = 'ac' | 'hitDice' | 'attacksPerRound' | 'legendaryUses';
-
-/** Eine ganze Zahl aus einem Feld – leer heißt: nichts festgelegt. */
-const wholeNumber = (text: string): number | undefined => {
-  const value = Math.round(Number(text.replace(',', '.')));
-  return text.trim() && Number.isFinite(value) ? value : undefined;
-};
 
 /** Die Wörter der Adresse für „Variante“ und „Einzelner“. */
 const ART_KIND: Record<string, CreatureKind> = { variante: 'variant', einzelner: 'individual' };
@@ -202,7 +199,7 @@ function Editor({
     [data.creatures, draft.kind, storedId],
   );
   const types = useMemo(() => typeChoices(data), [data]);
-  const problem = draftProblem(draft);
+  const problem = draftProblem(draft, data.creatures, storedId);
   const note = storedId ? importNoteOf(storedId) : null;
 
   // ── Ändern, Rückgängig ──
@@ -251,10 +248,14 @@ function Editor({
   const leave = () =>
     navigate(`/bestiarium/${storedId ?? draft.parentId ?? ''}`.replace(/\/$/, ''));
   const cancel = async () => {
-    if (dirty) {
+    // Auch was hier in der Welt angelegt wurde, räumt Abbrechen weg – also erst fragen.
+    const madeHere = created.current.filter((id) => db.getSnapshot().entities[id]);
+    if (dirty || madeHere.length) {
       const ok = await confirmDialog({
         title: 'Änderungen verwerfen?',
-        body: 'Was du seit dem Öffnen eingetragen hast, geht verloren.',
+        body: madeHere.length
+          ? 'Was du seit dem Öffnen eingetragen hast, geht verloren – auch was du dabei in der Welt angelegt hast, sofern es nirgends gebraucht wird.'
+          : 'Was du seit dem Öffnen eingetragen hast, geht verloren.',
         confirmLabel: 'Verwerfen',
         danger: true,
       });
@@ -309,11 +310,14 @@ function Editor({
   );
   const number = (field: NumberKey, label: string, hint?: string) => (
     <Field label={label} hint={hint}>
-      <Input
-        value={draft.block[field] ?? ''}
-        inputMode="numeric"
+      <NumberBox
+        value={draft.block[field]}
         placeholder={String(base[field])}
-        onChange={(event) => setBlock(field, { [field]: wholeNumber(event.target.value) })}
+        onValue={(value) =>
+          setBlock(field, {
+            [field]: value === undefined ? undefined : clampNumber(field, value),
+          })
+        }
       />
     </Field>
   );
@@ -325,17 +329,20 @@ function Editor({
     const own = draft.block[field] as Record<string, number> | undefined;
     const from = base[field] as Record<string, number>;
     return {
-      value: own ? String(own[part]) : '',
+      value: own ? own[part] : undefined,
       placeholder: String(from[part]),
-      onChange: (raw: string) => {
-        const value = wholeNumber(raw) ?? from[part]!;
-        const limit = field === 'abilities' ? 30 : 9999;
+      onValue: (value: number | undefined) => {
+        if (value === undefined) return;
         setBlock(`${field}.${part}`, {
-          [field]: {
-            ...from,
-            ...own,
-            [part]: Math.min(limit, Math.max(field === 'abilities' ? 1 : 0, value)),
-          },
+          [field]: { ...from, ...own, [part]: clampNumber(field, value) },
+        } as CreatureBlock);
+      },
+      // Leer verlassen heißt: wieder der Wert, der ohne eigene Angabe gälte. Die ganze Gruppe
+      // setzt „erben“ zurück.
+      onCleared: () => {
+        if (!own) return;
+        setBlock(`${field}.${part}`, {
+          [field]: { ...from, ...own, [part]: from[part] },
         } as CreatureBlock);
       },
     };
@@ -349,11 +356,11 @@ function Editor({
     return (
       <label key={part} className="wf-best-num" title={`${label} in Fuß`}>
         <span>{label}</span>
-        <Input
+        <NumberBox
           value={box.value}
-          inputMode="numeric"
           placeholder={box.placeholder}
-          onChange={(event) => box.onChange(event.target.value)}
+          onValue={box.onValue}
+          onCleared={box.onCleared}
         />
       </label>
     );
@@ -486,7 +493,16 @@ function Editor({
                 <Select
                   value={draft.kind}
                   aria-label="Art"
-                  onChange={(event) => set('kind', { kind: event.target.value as CreatureKind })}
+                  onChange={(event) =>
+                    change('kind', (before) =>
+                      switchKind(
+                        data.creatures,
+                        before,
+                        stored,
+                        event.target.value as CreatureKind,
+                      ),
+                    )
+                  }
                 >
                   {CREATURE_KINDS.map((kind) => (
                     <option key={kind} value={kind}>
@@ -520,9 +536,9 @@ function Editor({
                   placeholder="Spezies wählen oder neu anlegen …"
                   onChange={(speciesId) => set('speciesId', { speciesId })}
                   onCreate={(name) => {
-                    const entity = keepInWorld(db, 'species', name)!;
-                    createdHere(entity.id);
-                    return entity.id;
+                    const result = addToWorld(db, 'species', name)!;
+                    if (result.created) createdHere(result.entity.id);
+                    return result.entity.id;
                   }}
                 />
               </Field>
@@ -583,16 +599,15 @@ function Editor({
               {text('acNote', 'Rüstung', 'etwa Lederrüstung, Schild')}
               {number('hitDice', 'Trefferwürfel', 'Anzahl')}
               <Field label="TP festlegen" hint="nur, wenn sie nicht aus den Würfeln folgen">
-                <Input
-                  value={draft.block.hp ?? ''}
-                  inputMode="numeric"
+                <NumberBox
+                  value={draft.block.hp}
                   placeholder={String(stats.hp)}
-                  onChange={(event) => {
-                    const value = wholeNumber(event.target.value);
+                  onValue={(value) =>
+                    // Leer heißt: aus den Würfeln rechnen (oder erben) – nichts festlegen.
                     setBlock('hp', {
-                      hp: value && value > 0 ? value : inherits ? undefined : null,
-                    });
-                  }}
+                      hp: value && value > 0 ? clampNumber('hp', value) : undefined,
+                    })
+                  }
                 />
               </Field>
             </div>
@@ -650,12 +665,12 @@ function Editor({
                 return (
                   <div key={ability} className="wf-best-edit__ability">
                     <span title={ABILITY_NAME[ability]}>{ABILITY_SHORT[ability]}</span>
-                    <Input
+                    <NumberBox
                       value={box.value}
-                      inputMode="numeric"
                       placeholder={box.placeholder}
                       aria-label={ABILITY_NAME[ability]}
-                      onChange={(event) => box.onChange(event.target.value)}
+                      onValue={box.onValue}
+                      onCleared={box.onCleared}
                     />
                     <b>{signed(stats.mods[ability])}</b>
                     <button
@@ -798,14 +813,16 @@ function Editor({
                     {section === 'legendary' && (
                       <label className="wf-best-edit__legendary">
                         je Runde
-                        <Input
-                          value={draft.block.legendaryUses ?? ''}
-                          inputMode="numeric"
+                        <NumberBox
+                          value={draft.block.legendaryUses}
                           placeholder={String(base.legendaryUses || '–')}
                           aria-label="Legendäre Aktionen je Runde"
-                          onChange={(event) =>
+                          onValue={(value) =>
                             setBlock('legendaryUses', {
-                              legendaryUses: wholeNumber(event.target.value),
+                              legendaryUses:
+                                value === undefined
+                                  ? undefined
+                                  : clampNumber('legendaryUses', value),
                             })
                           }
                         />

@@ -199,7 +199,10 @@ nicht übernommen.
   Bibliothek der Fähigkeiten (`featureLibrary`), Gerüste (`FEATURE_TEMPLATES`) und Platzhalter
   im Text (`fillPlaceholders`, `[SG KON]`) in `domain/creatureParts.ts`. Was in der Welt fehlt
   (Spezies, Sprache, Fähigkeit), legt `keepInWorld` an – gibt es den Namen schon, bleibt es bei
-  dem Eintrag. Gerüste sind leere Formen in eigenen Worten, nie Buchtexte.
+  dem Eintrag. Gerüste sind leere Formen in eigenen Worten, nie Buchtexte. Abbrechen räumt nur
+  weg, was dort gerade entstanden ist (`addToWorld` sagt `created`), nie einen Eintrag, den es
+  schon gab. Zahlen hält `clampNumber` in den Grenzen des Schemas, `draftProblem` prüft Art
+  gegen die Erben; wird eine Variante zur Vorlage, schreibt `switchKind` ihr das Geerbte ein.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

@@ -4,12 +4,13 @@
  * Reine Funktionen – die Seite rechnet nicht selbst.
  */
 import { creatureChain, resolveCreature, type Resolved } from '../../domain/creature';
-import type {
-  Creature,
-  CreatureBlock,
-  CreatureFeature,
-  CreatureKind,
-  FeatureSection,
+import {
+  CreatureBlockSchema,
+  type Creature,
+  type CreatureBlock,
+  type CreatureFeature,
+  type CreatureKind,
+  type FeatureSection,
 } from '../../domain/schema';
 import type { CreatureInput } from './actions';
 
@@ -59,9 +60,25 @@ export function presetFor(
   return {};
 }
 
-/** Unterscheiden sich zwei Entwürfe? */
+/** Ein Wert als Text mit geordneten Schlüsseln – die Reihenfolge der Eingabe zählt nicht. */
+function stable(value: unknown): string {
+  return JSON.stringify(value, (_key, entry: unknown) =>
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? Object.fromEntries(
+          Object.entries(entry as Record<string, unknown>)
+            .filter(([, inner]) => inner !== undefined)
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        )
+      : entry,
+  );
+}
+
+/**
+ * Unterscheiden sich zwei Entwürfe? In welcher Reihenfolge Felder gesetzt wurden, zählt nicht –
+ * wer ein Feld setzt und wieder leert, hat nichts geändert.
+ */
 export const draftsDiffer = (a: CreatureDraft, b: CreatureDraft): boolean =>
-  JSON.stringify(a) !== JSON.stringify(b);
+  stable(a) !== stable(b);
 
 /** Erbt der Entwurf? Nur Varianten und Einzelne mit gewählter Vorlage. */
 export const draftInherits = (draft: CreatureDraft): boolean =>
@@ -107,12 +124,91 @@ export function parentChoices(
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
-/** Was dem Speichern im Weg steht – null, wenn nichts. */
-export function draftProblem(draft: CreatureDraft): string | null {
+/**
+ * Was dem Speichern im Weg steht – null, wenn nichts. Mit den Wesen und der eigenen Kennung
+ * prüft es auch, ob die Art zu denen passt, die schon von diesem Wesen erben: Von einem
+ * Einzelnen erbt niemand, und eine Variante erbt von einer Vorlage, nicht von einer Variante.
+ */
+export function draftProblem(
+  draft: CreatureDraft,
+  creatures: Creatures = {},
+  selfId: string | null = null,
+): string | null {
   if (!draft.name.trim()) return 'Das Wesen braucht einen Namen.';
   if (draft.kind !== 'template' && !draft.parentId)
     return 'Wähle, wovon es erbt – oder mach es zur Vorlage.';
+  if (selfId && draft.kind !== 'template') {
+    const heirs = Object.values(creatures).filter((entry) => entry.parentId === selfId);
+    if (draft.kind === 'individual' && heirs.length)
+      return `Von diesem Wesen erben ${heirs.map((entry) => `„${entry.name}“`).join(', ')} – ein Einzelner kann nicht vererben.`;
+    const variants = heirs.filter((entry) => entry.kind === 'variant');
+    if (variants.length)
+      return `${variants.map((entry) => `„${entry.name}“`).join(', ')} ${variants.length === 1 ? 'ist eine Variante' : 'sind Varianten'} dieses Wesens – es muss eine Vorlage bleiben.`;
+  }
+  const field = blockProblem(draft.block);
+  if (field) return `${field} liegt außerhalb dessen, was ein Statblock kennt.`;
   return null;
+}
+
+/** Wie weit eine Zahl des Statblocks reichen darf – wie im Schema. */
+export const NUMBER_LIMITS = {
+  ac: [0, 40],
+  hitDice: [1, 100],
+  hp: [1, 99999],
+  attacksPerRound: [1, 10],
+  legendaryUses: [0, 10],
+  abilities: [1, 30],
+  speed: [0, 9999],
+  senses: [0, 9999],
+} as const satisfies Record<string, readonly [number, number]>;
+
+/** Hält eine eingetippte Zahl in ihren Grenzen – damit nie ein ungültiger Statblock entsteht. */
+export function clampNumber(field: keyof typeof NUMBER_LIMITS, value: number): number {
+  const [low, high] = NUMBER_LIMITS[field];
+  return Math.min(high, Math.max(low, Math.round(value)));
+}
+
+const FIELD_NAME: Partial<Record<keyof CreatureBlock, string>> = {
+  ac: 'Die Rüstungsklasse',
+  hitDice: 'Die Zahl der Trefferwürfel',
+  hp: 'Die Zahl der Trefferpunkte',
+  attacksPerRound: 'Die Zahl der Angriffe je Runde',
+  legendaryUses: 'Die Zahl der legendären Aktionen',
+  abilities: 'Ein Attribut',
+  speed: 'Eine Bewegung',
+  senses: 'Ein Sinn',
+};
+
+/** Das erste Feld, das das Schema nicht annähme – null, wenn alles passt. */
+function blockProblem(block: CreatureBlock): string | null {
+  const result = CreatureBlockSchema.safeParse(block);
+  if (result.success) return null;
+  const key = result.error.issues[0]?.path[0];
+  return (typeof key === 'string' && FIELD_NAME[key as keyof CreatureBlock]) || 'Ein Wert';
+}
+
+/**
+ * Wechselt die Art des Entwurfs. Wird aus einer Variante oder einem Einzelnen eine Vorlage, erbt
+ * sie nichts mehr – deshalb schreibt der Wechsel ihr ein, was sie bisher geerbt hat, wie beim
+ * Löschen einer Vorlage (`removeCreature`). So sieht die neue Vorlage aus wie vorher.
+ */
+export function switchKind(
+  creatures: Creatures,
+  draft: CreatureDraft,
+  stored: Creature | null,
+  kind: CreatureKind,
+): CreatureDraft {
+  if (kind !== 'template' || !draftInherits(draft)) return { ...draft, kind };
+  const resolved = resolveDraft(creatures, draft, stored);
+  return {
+    ...draft,
+    kind,
+    parentId: null,
+    block: { ...resolved.block },
+    features: resolved.features.map(({ inherited: _inherited, ...feature }) => feature),
+    dropped: [],
+    source: draft.source || resolved.source,
+  };
 }
 
 /** Setzt Felder des Statblocks; `undefined` heißt: wieder erben (oder Vorgabe). */

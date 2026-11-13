@@ -122,6 +122,8 @@ export function discardUnusedDrafts(
 function isReferenced(db: CampaignDb, id: string): boolean {
   const data = db.getSnapshot();
   if (data.state.placeId === id) return true;
+  // Ein Wesen des Bestiariums, das zu dieser Spezies gehört, braucht den Eintrag.
+  if (Object.values(data.creatures).some((creature) => creature.speciesId === id)) return true;
   for (const other of Object.values(data.entities))
     if (other.id !== id && linksTo(other, id)) return true;
   return (

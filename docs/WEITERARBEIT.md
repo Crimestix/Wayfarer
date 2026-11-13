@@ -1480,6 +1480,14 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Nach „Text einfügen“ öffnet der Editor mit dem, was nicht verstanden wurde. Geprüft in der
   Vorschau bei 1440×900 und 1280×800; nicht in der installierten App. Nicht gebaut: auf einen
   anderen HG skalieren, Hort- und regionale Aktionen als eigene Abschnitte, Ziehen zum Umordnen.
+- **Gegengelesen: Statblock-Editor.** Abbrechen konnte eine schon vorhandene Spezies löschen
+  (unter einem Beinamen „neu angelegt“); jetzt nur, was dort entstand (`addToWorld`), und eine
+  Spezies, zu der ein Wesen gehört, gilt als gebraucht. Zahlen außerhalb des Schemas (RK 45,
+  12 legendäre Aktionen) ließen Speichern still scheitern – jetzt begrenzt (`clampNumber`) und
+  gemeldet. Zahlenkästen springen beim Leeren nicht mehr auf einen Wert (`NumberBox`). Eine
+  Variante, die zur Vorlage wird, behält ihre Werte (`switchKind`); Art gegen Erben geprüft.
+  Ein Klick auf eine Schadensart legt nur die geänderte Liste fest (`defenceChange`). „Nicht
+  gespeichert“ nicht mehr nach Setzen und Leeren eines Feldes.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

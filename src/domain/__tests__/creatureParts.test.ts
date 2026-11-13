@@ -5,6 +5,7 @@ import {
   abilityEntryText,
   addToList,
   adoptFeature,
+  defenceChange,
   defenceOf,
   extrasOf,
   featureLibrary,
@@ -135,6 +136,13 @@ describe('Abwehr', () => {
       vulnerable: '',
     });
     expect(setDefence(block, 'Feuer', null).resistant).toBe('Hieb aus Silberwaffen');
+  });
+
+  it('gibt beim Anklicken nur die Listen zurück, die sich ändern – der Rest bleibt geerbt', () => {
+    const block: FullBlock = { ...DEFAULT_BLOCK, resistant: 'Gift', immune: '', vulnerable: '' };
+    expect(defenceChange(block, 'Feuer')).toEqual({ resistant: 'Gift, Feuer' });
+    const resistant: FullBlock = { ...block, resistant: 'Gift, Feuer' };
+    expect(defenceChange(resistant, 'Feuer')).toEqual({ resistant: 'Gift', immune: 'Feuer' });
   });
 });
 

@@ -198,6 +198,22 @@ export function setDefence(
   return next;
 }
 
+/**
+ * Ein Klick auf eine Schadensart: schaltet sie eine Stufe weiter und gibt nur die Listen zurück,
+ * die sich dabei ändern. Eine Variante legt so nur fest, was wirklich abweicht – die anderen
+ * Listen erbt sie weiter.
+ */
+export function defenceChange(
+  block: Defences,
+  word: string,
+): Partial<Pick<CreatureBlock, DefenceLevel>> {
+  const next = setDefence(block, word, nextDefence(defenceOf(block, word)));
+  const change: Partial<Pick<CreatureBlock, DefenceLevel>> = {};
+  for (const level of DEFENCE_LEVELS)
+    if (next[level] !== joinList(splitList(block[level]))) change[level] = next[level];
+  return change;
+}
+
 // ── Auswahl aus der Welt ───────────────────────────────────────────────────
 
 /** Der Eintrag einer Art mit diesem Namen (oder Beinamen) – nie geraten, nur bei Gleichheit. */

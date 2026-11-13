@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { createCreature, newId, type CreatureFeature } from '../../domain/schema';
-import { keepInWorld, saveCreature } from './actions';
+import { createCreature, createEntity, newId, type CreatureFeature } from '../../domain/schema';
+import { discardUnusedDrafts } from '../welt/actions';
+import { addToWorld, keepInWorld, saveCreature } from './actions';
 import {
   EMPTY_HISTORY,
+  clampNumber,
   draftOf,
   draftProblem,
   draftsDiffer,
@@ -21,6 +23,7 @@ import {
   recordStep,
   redoStep,
   resolveDraft,
+  switchKind,
   undoStep,
   withBlock,
 } from './draft';
@@ -182,5 +185,68 @@ describe('Aus dem Bestiarium in die Welt', () => {
     // Ohne Angabe bleibt die Spezies, wie sie war.
     const { speciesId: _speciesId, ...rest } = draftOf(saved);
     expect(saveCreature(db, { ...rest, notes: 'still' }, saved.id).speciesId).toBe(folk.id);
+  });
+});
+
+describe('Gegengelesen', () => {
+  it('sieht keinen Unterschied, wenn ein Feld gesetzt und wieder geleert wurde', () => {
+    const base = draftOf(null, { block: { ac: 12, cr: '1' } });
+    const touched = withBlock(withBlock(withBlock(base, { ac: undefined }), { hp: 9 }), {
+      ac: 12,
+      hp: undefined,
+    });
+    expect(Object.keys(touched.block)).toEqual(['cr', 'ac']);
+    expect(draftsDiffer(base, touched)).toBe(false);
+  });
+
+  it('lässt keine Art zu, die zu den Erben nicht passt', () => {
+    const { all, base, driver } = creatures();
+    expect(
+      draftProblem({ ...draftOf(base), kind: 'variant', parentId: driver.id }, all, base.id),
+    ).toMatch(/Vorlage bleiben/);
+    expect(draftProblem({ ...draftOf(driver), kind: 'individual' }, all, driver.id)).toMatch(
+      /Krummzahn.*nicht vererben/,
+    );
+    expect(draftProblem(draftOf(driver), all, driver.id)).toBeNull();
+  });
+
+  it('meldet Zahlen außerhalb der Grenzen, statt beim Speichern zu scheitern', () => {
+    expect(draftProblem(draftOf(null, { name: 'A', block: { ac: 45 } }))).toMatch(/Rüstungsklasse/);
+    expect(clampNumber('ac', 45)).toBe(40);
+    expect(clampNumber('legendaryUses', -2)).toBe(0);
+    expect(clampNumber('abilities', 0)).toBe(1);
+    expect(clampNumber('hitDice', 2.6)).toBe(3);
+  });
+
+  it('schreibt einer neuen Vorlage ein, was sie bisher geerbt hat', () => {
+    const { all, driver } = creatures();
+    const draft = withBlock(draftOf(driver), { ac: 15 });
+    const template = switchKind(all, keepHeir(draft, 'Krummsäbel', false), driver, 'template');
+    expect(template).toMatchObject({ kind: 'template', parentId: null, dropped: [] });
+    expect(template.block).toMatchObject({ ac: 15, hitDice: 2, cr: '1/4' });
+    expect(template.features.map((f) => f.name)).toEqual(['Dunkelpirsch']);
+    // Vorschau und Speichern sehen dasselbe wie vorher.
+    const before = resolveDraft(all, draft, driver).block;
+    expect(resolveDraft(all, template, driver).block).toEqual({ ...before });
+    // Nur der Wechsel zur Vorlage schreibt ein.
+    expect(switchKind(all, draft, driver, 'individual').block).toEqual({ ac: 15 });
+  });
+
+  it('räumt beim Abbrechen nur weg, was gerade erst entstanden ist', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const folk = db.put(
+      'entities',
+      createEntity({ kind: 'species', name: 'Grottenvolk', aliases: ['Grottler'] }),
+    );
+    const found = addToWorld(db, 'species', 'grottler')!;
+    expect(found).toEqual({ entity: folk, created: false });
+    const fresh = addToWorld(db, 'species', 'Salzhaut')!;
+    expect(fresh.created).toBe(true);
+    // Eine Spezies, zu der ein Wesen gehört, bleibt – auch frisch angelegt.
+    const used = addToWorld(db, 'species', 'Brackwasservolk')!;
+    saveCreature(db, draftOf(null, { name: 'Brackwasserkriecher', speciesId: used.entity.id }));
+    const removed = discardUnusedDrafts(db, [fresh.entity.id, used.entity.id], []);
+    expect(removed.map((e) => e.name)).toEqual(['Salzhaut']);
+    expect(db.getSnapshot().entities[folk.id]).toBeDefined();
   });
 });

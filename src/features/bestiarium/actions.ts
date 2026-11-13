@@ -115,15 +115,31 @@ export function removeCreature(db: CampaignDb, id: string): void {
  */
 export function keepInWorld(
   db: CampaignDb,
-  kind: 'species' | 'language' | 'ability',
+  kind: WorldPart,
   name: string,
   more: { tagline?: string; notes?: string } = {},
 ): Entity | null {
+  return addToWorld(db, kind, name, more)?.entity ?? null;
+}
+
+type WorldPart = 'species' | 'language' | 'ability';
+
+/**
+ * Wie `keepInWorld`, sagt aber dazu, ob der Eintrag gerade erst entstanden ist. Nur solche darf
+ * der Editor beim Abbrechen wieder wegräumen – einen Eintrag, den es vorher schon gab (etwa unter
+ * einem Beinamen gefunden), nie.
+ */
+export function addToWorld(
+  db: CampaignDb,
+  kind: WorldPart,
+  name: string,
+  more: { tagline?: string; notes?: string } = {},
+): { entity: Entity; created: boolean } | null {
   const clean = name.trim();
   if (!clean) return null;
   const known = namedEntry(db.getSnapshot(), kind, clean);
-  if (known) return known;
-  return db.put(
+  if (known) return { entity: known, created: false };
+  const entity = db.put(
     'entities',
     createEntity({
       kind,
@@ -132,4 +148,5 @@ export function keepInWorld(
       notes: more.notes?.trim() ?? '',
     }),
   );
+  return { entity, created: true };
 }

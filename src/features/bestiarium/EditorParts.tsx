@@ -23,17 +23,16 @@ import {
   USES_CHOICES,
   abilityEntryText,
   adoptFeature,
+  defenceChange,
   defenceOf,
   extrasOf,
   featureLibrary,
   languageChoices,
   listHas,
   namedEntry,
-  nextDefence,
   removeFromList,
   addToList,
   searchLibrary,
-  setDefence,
   toggleInList,
   withExtras,
   wordsWithEntries,
@@ -48,7 +47,7 @@ import {
   type FeatureSection,
 } from '../../domain/schema';
 import { Button, Checkbox, IconButton, Input, Select, TextArea } from '../../ui';
-import { keepInWorld } from './actions';
+import { addToWorld } from './actions';
 
 /** Ein Wort für die Mehrzahl der Abschnitte – „Aktion“ statt „Aktionen“. */
 export const SECTION_ONE: Record<FeatureSection, string> = {
@@ -90,7 +89,7 @@ export function DefenceGrid({
               className="wf-best-chip wf-best-edit__def"
               data-state={level ?? 'none'}
               title={`${word}: ${level ? DEFENCE_LABEL[level] : 'nichts Besonderes'} – klicken zum Ändern`}
-              onClick={() => onChange(setDefence(block, word, nextDefence(level)))}
+              onClick={() => onChange(defenceChange(block, word))}
             >
               {word}
               {level && <em>{DEFENCE_LABEL[level]}</em>}
@@ -170,6 +169,48 @@ function ExtrasInput({
   );
 }
 
+/**
+ * Ein Zahlenfeld, das beim Tippen nicht dazwischenfährt: Was gerade im Feld steht, bleibt
+ * stehen, bis man es verlässt – auch ein leeres Feld oder eine Zahl außerhalb der Grenzen.
+ * Weitergegeben wird nur, was sich lesen lässt; leer heißt `undefined`.
+ */
+export function NumberBox({
+  value,
+  placeholder,
+  onValue,
+  onCleared,
+  ...rest
+}: {
+  value: number | null | undefined;
+  placeholder?: string;
+  onValue: (value: number | undefined) => void;
+  /** Das Feld wurde leer verlassen. */
+  onCleared?: () => void;
+  'aria-label'?: string;
+  title?: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const shown = value === null || value === undefined ? '' : String(value);
+  return (
+    <Input
+      {...rest}
+      value={text ?? shown}
+      inputMode="numeric"
+      placeholder={placeholder}
+      onChange={(event) => {
+        const raw = event.target.value;
+        setText(raw);
+        const number = Math.round(Number(raw.replace(',', '.')));
+        onValue(raw.trim() && Number.isFinite(number) ? number : undefined);
+      }}
+      onBlur={() => {
+        if (text !== null && !text.trim()) onCleared?.();
+        setText(null);
+      }}
+    />
+  );
+}
+
 // ── Sprachen ───────────────────────────────────────────────────────────────
 
 /**
@@ -208,8 +249,8 @@ export function LanguageChips({
               type="button"
               title={`„${word}“ in der Welt als Sprache anlegen`}
               onClick={() => {
-                const entity = keepInWorld(db, 'language', word);
-                if (entity) onCreated(entity.id);
+                const result = addToWorld(db, 'language', word);
+                if (result?.created) onCreated(result.entity.id);
               }}
             >
               <BookPlus aria-hidden />
@@ -438,8 +479,8 @@ export function FeatureEditor({
               className="wf-best-reset"
               title="Als Eintrag der Art „Fähigkeit“ in der Welt ablegen – damit Personen sie haben können"
               onClick={() => {
-                const entity = keepInWorld(db, 'ability', feature.name, abilityEntryText(feature));
-                if (entity) onKept(entity.id);
+                const result = addToWorld(db, 'ability', feature.name, abilityEntryText(feature));
+                if (result?.created) onKept(result.entity.id);
               }}
             >
               <BookPlus aria-hidden /> In der Welt als Fähigkeit ablegen
@@ -518,7 +559,15 @@ export function FeatureLibrary({
               <Button
                 size="sm"
                 icon={<Plus aria-hidden />}
-                onClick={() => onAdopt(adoptFeature(entry.feature))}
+                onClick={() =>
+                  // Eine Fähigkeit der Welt kommt in den Abschnitt, nach dem gerade gesucht wird.
+                  onAdopt(
+                    adoptFeature(
+                      entry.feature,
+                      entry.from === 'world' && section ? section : undefined,
+                    ),
+                  )
+                }
               >
                 Übernehmen
               </Button>
