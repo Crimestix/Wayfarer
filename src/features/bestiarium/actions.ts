@@ -4,13 +4,17 @@
  */
 import type { CampaignDb } from '../../data/db';
 import { resolveCreature, statsOf } from '../../domain/creature';
-import { createCreature, type Creature } from '../../domain/schema';
+import { namedEntry } from '../../domain/creatureParts';
+import { createCreature, createEntity, type Creature, type Entity } from '../../domain/schema';
 import type { ParsedStatblock } from './parse';
 
 export type CreatureInput = Pick<
   Creature,
   'name' | 'kind' | 'parentId' | 'block' | 'features' | 'dropped' | 'source' | 'notes'
->;
+> & {
+  /** Die Spezies der Welt; fehlt die Angabe, bleibt sie, wie sie war. */
+  speciesId?: string | null;
+};
 
 /** Legt ein Wesen an oder ändert es. Fähigkeiten ohne Namen fallen weg. */
 export function saveCreature(db: CampaignDb, input: CreatureInput, id?: string): Creature {
@@ -25,6 +29,7 @@ export function saveCreature(db: CampaignDb, input: CreatureInput, id?: string):
     source: input.source.trim(),
     notes: input.notes.trim(),
   };
+  if (clean.speciesId === undefined) delete clean.speciesId;
   if (id && db.getSnapshot().creatures[id])
     return db.put('creatures', { ...db.getSnapshot().creatures[id]!, ...clean });
   return db.put('creatures', createCreature(clean));
@@ -100,4 +105,31 @@ export function removeCreature(db: CampaignDb, id: string): void {
     }
     db.remove('creatures', id);
   });
+}
+
+/**
+ * Legt aus dem Bestiarium einen Eintrag der Welt an – eine Spezies, Sprache oder Fähigkeit, die
+ * im Statblock steht, aber in der Welt noch fehlt. Gibt es schon einen mit diesem Namen, bleibt es
+ * bei ihm: Nie zwei Einträge für einen Namen. Ein Artikel gleichen Namens verbindet sich danach
+ * von selbst (`linkTwins`).
+ */
+export function keepInWorld(
+  db: CampaignDb,
+  kind: 'species' | 'language' | 'ability',
+  name: string,
+  more: { tagline?: string; notes?: string } = {},
+): Entity | null {
+  const clean = name.trim();
+  if (!clean) return null;
+  const known = namedEntry(db.getSnapshot(), kind, clean);
+  if (known) return known;
+  return db.put(
+    'entities',
+    createEntity({
+      kind,
+      name: clean,
+      tagline: more.tagline?.trim() ?? '',
+      notes: more.notes?.trim() ?? '',
+    }),
+  );
 }

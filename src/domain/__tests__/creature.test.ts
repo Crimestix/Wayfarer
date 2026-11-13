@@ -27,6 +27,7 @@ const feature = (name: string, more: Partial<CreatureFeature> = {}): CreatureFea
   attack: null,
   saveAbility: null,
   saveDc: null,
+  uses: '',
   ...more,
 });
 

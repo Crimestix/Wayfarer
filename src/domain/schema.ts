@@ -1158,6 +1158,8 @@ export const CreatureFeatureSchema = z.object({
   saveAbility: z.enum(ABILITY_KEYS).nullable().default(null),
   /** Fester SG – nur, wenn er nicht aus dem Attribut folgt. */
   saveDc: z.number().int().nullable().default(null),
+  /** Wie oft: „Aufladung 5–6“, „3/Tag“, „kostet 2 Aktionen“ – leer = ohne Grenze. */
+  uses: z.string().default(''),
 });
 export type CreatureFeature = z.infer<typeof CreatureFeatureSchema>;
 
@@ -1204,6 +1206,8 @@ export const CreatureBlockSchema = z
     cr: z.string(),
     /** Wie viele Angriffe das Wesen je Runde macht – für die Einschätzung des HG. */
     attacksPerRound: z.number().int().min(1).max(10),
+    /** Legendäre Aktionen je Runde; 0 = ohne Angabe. */
+    legendaryUses: z.number().int().min(0).max(10),
     gear: z.string(),
     /** Lebensräume, mit Komma getrennt: „Wald, Hügel“. */
     habitat: z.string(),

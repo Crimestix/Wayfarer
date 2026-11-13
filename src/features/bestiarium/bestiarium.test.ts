@@ -68,6 +68,7 @@ async function setup() {
           attack: null,
           saveAbility: null,
           saveDc: null,
+          uses: '',
         },
       ],
     }),

@@ -205,6 +205,7 @@ export const DEFAULT_BLOCK: FullBlock = {
   languages: '',
   cr: '0',
   attacksPerRound: 1,
+  legendaryUses: 0,
   gear: '',
   habitat: '',
   treasure: '',
@@ -448,6 +449,21 @@ const GUIDE: readonly (readonly [ac: number, hp: number, attack: number, damage:
   [19, 805, 13, 302],
   [19, 850, 14, 320],
 ];
+
+export interface CrGuide {
+  ac: number;
+  /** Höchste Trefferpunkte für diesen Grad. */
+  hp: number;
+  attack: number;
+  /** Höchster Schaden je Runde für diesen Grad. */
+  damage: number;
+}
+
+/** Die Richtwerte für einen Herausforderungsgrad – dieselbe Faustregel, nach der `crCheck` schätzt. */
+export function crGuide(cr: string): CrGuide {
+  const [ac, hp, attack, damage] = GUIDE[crIndex(cr)]!;
+  return { ac, hp, attack, damage };
+}
 
 const clampIndex = (index: number): number => Math.max(0, Math.min(GUIDE.length - 1, index));
 

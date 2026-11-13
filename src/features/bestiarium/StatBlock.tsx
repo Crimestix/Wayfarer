@@ -20,6 +20,7 @@ import {
   type Resolved,
   type ResolvedFeature,
 } from '../../domain/creature';
+import { fillPlaceholders } from '../../domain/creatureParts';
 import { ABILITY_KEYS, FEATURE_SECTIONS, type CreatureBlock } from '../../domain/schema';
 import { Button, IconButton, Input, cx } from '../../ui';
 import { setCreatureHp } from './actions';
@@ -49,12 +50,20 @@ const FIELD_LABEL: Partial<Record<keyof CreatureBlock, string>> = {
   languages: 'Sprachen',
   cr: 'Herausforderungsgrad',
   attacksPerRound: 'Angriffe je Runde',
+  legendaryUses: 'Legendäre Aktionen je Runde',
   gear: 'Ausrüstung',
   habitat: 'Lebensraum',
   treasure: 'Schatz',
 };
 
-export function StatBlock({ resolved }: { resolved: Resolved }) {
+export function StatBlock({
+  resolved,
+  preview = false,
+}: {
+  resolved: Resolved;
+  /** Vorschau beim Bauen: ohne Trefferpunkte führen und ohne Würfeln. */
+  preview?: boolean;
+}) {
   const db = useDb();
   const { creature, block, features, chain } = resolved;
   const stats = statsOf(block);
@@ -79,7 +88,7 @@ export function StatBlock({ resolved }: { resolved: Resolved }) {
     ) : null;
 
   return (
-    <article className="wf-best-block">
+    <article className={cx('wf-best-block', preview && 'wf-best-block--preview')}>
       <header className="wf-best-block__head">
         <div>
           <h2 className="wf-best-block__name">{creature.name}</h2>
@@ -105,7 +114,7 @@ export function StatBlock({ resolved }: { resolved: Resolved }) {
         </p>
       )}
 
-      {creature.kind === 'individual' && (
+      {creature.kind === 'individual' && !preview && (
         <div className="wf-best-hp">
           <div className="wf-best-hp__now" data-low={hpNow <= stats.hp / 2} data-zero={hpNow === 0}>
             <b>{hpNow}</b>
@@ -203,8 +212,22 @@ export function StatBlock({ resolved }: { resolved: Resolved }) {
         return (
           <section key={section} className="wf-best-section">
             <h3>{SECTION_LABEL[section]}</h3>
+            {section === 'legendary' && block.legendaryUses > 0 && (
+              <p className="wf-best-section__intro">
+                {block.legendaryUses === 1
+                  ? 'Eine legendäre Aktion je Runde'
+                  : `${block.legendaryUses} legendäre Aktionen je Runde`}
+                , jeweils direkt nach dem Zug einer anderen Kreatur; verbrauchte kehren zu Beginn
+                des eigenen Zuges zurück.
+              </p>
+            )}
             {list.map((feature) => (
-              <Feature key={feature.id} resolved={resolved} feature={feature} onRoll={add} />
+              <Feature
+                key={feature.id}
+                resolved={resolved}
+                feature={feature}
+                onRoll={preview ? undefined : add}
+              />
             ))}
           </section>
         );
@@ -247,7 +270,7 @@ function Feature({
 }: {
   resolved: Resolved;
   feature: ResolvedFeature;
-  onRoll: (roll: Roll) => void;
+  onRoll?: (roll: Roll) => void;
 }) {
   const { block } = resolved;
   const math = feature.attack ? attackMath(block, feature.attack) : null;
@@ -256,7 +279,10 @@ function Feature({
   return (
     <div className="wf-best-feature">
       <p>
-        <b className="wf-best-feature__name">{feature.name}.</b>{' '}
+        <b className="wf-best-feature__name">
+          {feature.name}
+          {feature.uses && ` (${feature.uses})`}.
+        </b>{' '}
         {attack && math && (
           <>
             <i>{attack.ranged ? 'Fernkampfangriff' : 'Nahkampfangriff'}:</i> {signed(math.bonus)}
@@ -275,9 +301,9 @@ function Feature({
             <i>Rettungswurf:</i> SG {dc}.{' '}
           </>
         )}
-        {feature.text}
+        {fillPlaceholders(block, feature.text)}
       </p>
-      {attack && math && (
+      {attack && math && onRoll && (
         <span className="wf-best-feature__rolls">
           <IconButton
             size="sm"

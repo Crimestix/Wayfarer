@@ -648,6 +648,7 @@ export function parseStatblock(input: string): ParsedStatblock | null {
       attack: null,
       saveAbility: null,
       saveDc: dc ? Number(dc[1]) : null,
+      uses: '',
     };
     if (!attackRead) return feature;
     const { attack } = attackRead;

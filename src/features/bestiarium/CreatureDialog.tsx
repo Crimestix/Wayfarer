@@ -83,6 +83,7 @@ const blankFeature = (section: FeatureSection): CreatureFeature => ({
   attack: null,
   saveAbility: null,
   saveDc: null,
+  uses: '',
 });
 
 export function CreatureDialog({
