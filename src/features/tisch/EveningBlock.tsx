@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { eveningLoot, lootLine, lootRecipient } from '../../domain/loot';
 import {
   openScenes,
   openSecrets,
@@ -16,6 +17,8 @@ import {
 } from '../../domain/prep';
 import { cx, toast } from '../../ui';
 import { setSceneDone, setSecretRevealed } from '../abend/actions';
+import { LootDialog } from '../beute/LootDialog';
+import { useGiveLoot } from '../beute/useGive';
 
 const count = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
@@ -29,12 +32,21 @@ export function EveningBlock() {
   const scenes = openScenes(content);
   const secrets = openSecrets(content);
   const encounters = readyEncounters(data, content);
+  /** Beute, die bereitliegt und zu keiner Geschichte im Spiel gehört – die steht dort. */
+  const loot = eveningLoot(data);
+  const give = useGiveLoot();
+  const [handing, setHanding] = useState(false);
+  const handOut = handing && <LootDialog give onClose={() => setHanding(false)} />;
 
-  if (!prepHasContent(data, content))
+  if (!prepHasContent(data, content) && loot.length === 0)
     return (
       <div className="wf-tisch-abend wf-tisch-abend--blank">
         Für diesen Abend liegt noch nichts bereit.
         <Link href="/abend">Abend vorbereiten</Link>
+        <button type="button" onClick={() => setHanding(true)}>
+          Beute ausgeben
+        </button>
+        {handOut}
       </div>
     );
 
@@ -42,6 +54,7 @@ export function EveningBlock() {
     scenes.length > 0 && count(scenes.length, 'Szene', 'Szenen'),
     secrets.length > 0 && count(secrets.length, 'Geheimnis', 'Geheimnisse'),
     encounters.length > 0 && count(encounters.length, 'Begegnung', 'Begegnungen'),
+    loot.length > 0 && `${loot.length}× Beute`,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -130,21 +143,41 @@ export function EveningBlock() {
               </span>
             </Line>
           ))}
+          {loot.map((entry) => (
+            <Line key={entry.id} label="Beute">
+              <span>
+                {lootLine(data, entry)}
+                <em> – für {lootRecipient(data, entry)}</em>
+                <button
+                  type="button"
+                  className="wf-tisch-dazu__link"
+                  title="Steht danach im Beute-Buch und in der Mitschrift"
+                  onClick={() => give(entry)}
+                >
+                  ausgeben
+                </button>
+              </span>
+            </Line>
+          ))}
           {content.treasure.trim() && (
             <>
-              <span className="wf-tisch-dazu__label">Beute</span>
+              <span className="wf-tisch-dazu__label">{loot.length > 0 ? 'Dazu' : 'Beute'}</span>
               <div className="wf-tisch-dazu__row wf-tisch-abend__text">
                 {content.treasure.trim()}
               </div>
             </>
           )}
           <div className="wf-tisch-dazu__foot">
+            <button type="button" onClick={() => setHanding(true)}>
+              Beute ausgeben
+            </button>
             <button type="button" onClick={() => navigate('/abend')}>
               Vorbereitung öffnen
             </button>
           </div>
         </div>
       )}
+      {handOut}
     </section>
   );
 }

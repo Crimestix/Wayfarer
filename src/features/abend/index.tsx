@@ -36,6 +36,7 @@ import {
 import { newEncounter } from '../bestiarium/encounterActions';
 import { newStory, setInPlay, tieHero } from '../faeden/actions';
 import { patchCharacter } from '../gruppe/actions';
+import { LootList } from '../beute/LootList';
 import { patchPrep } from './actions';
 import './abend.css';
 
@@ -103,14 +104,19 @@ function PrepSheet({ view }: { view: PrepView }) {
 
         <SheetSection
           title="Beute"
-          hint="Was der Abend bringen kann – am besten etwas, das zu einem bestimmten Gefährten passt."
+          hint="Was der Abend bringen kann – am besten etwas, das zu einem bestimmten Gefährten passt. Am Spieltisch gibst du sie mit einem Klick aus; dann steht sie im Beute-Buch."
         >
-          <Written
-            label="Beute"
-            rows={3}
-            value={content.treasure}
-            onSave={(treasure) => patchPrep(db, { treasure })}
-          />
+          <LootList />
+          <div className="wf-sheet__pair wf-sheet__pair--top">
+            <span className="wf-sheet__label">Gedanken zur Beute</span>
+            <Written
+              label="Gedanken zur Beute"
+              rows={2}
+              value={content.treasure}
+              placeholder="Was noch nicht feststeht …"
+              onSave={(treasure) => patchPrep(db, { treasure })}
+            />
+          </div>
         </SheetSection>
       </div>
 

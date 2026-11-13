@@ -8,6 +8,7 @@
  * leer ist. Reine Funktionen.
  */
 import { activeParty, currentSession, sessionsSorted } from './derive';
+import { readyLoot } from './loot';
 import { storiesOfHero } from './story';
 import type {
   CampaignData,
@@ -210,7 +211,7 @@ export function prepAdvice(data: CampaignData, content: PrepContent): PrepAdvice
     },
     {
       key: 'treasure',
-      done: content.treasure.trim() !== '',
+      done: content.treasure.trim() !== '' || readyLoot(data).length > 0,
       text: 'Beute',
       why: 'Am besten etwas, das zu einem bestimmten Gefährten passt.',
     },

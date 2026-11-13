@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
+import { formatGold, lootLine, receivedBy } from '../../domain/loot';
 import { relationLabel } from '../../domain/relations';
 import { storiesOfHero } from '../../domain/story';
 import type { Character } from '../../domain/schema';
@@ -251,6 +252,9 @@ function BondRow({
 
 // ── Seite ──────────────────────────────────────────────────────────────────
 
+/** So viele Einträge des Beute-Buchs stehen beim Gefährten; der Rest steht im Buch. */
+const RECEIVED_SHOWN = 6;
+
 export function Detail({
   id,
   onEdit,
@@ -302,6 +306,8 @@ export function Detail({
   const chronicle = chronicleFor(data, character.id);
   /** Die Geschichten, die diesen Gefährten persönlich betreffen. */
   const ties = storiesOfHero(data, character.id);
+  /** Was dieser Gefährte am Tisch bekommen hat (Beute-Buch). */
+  const received = receivedBy(data, character.id);
   const sole = soleLanguages(partySummary(all.filter((c) => c.character.active)), character.id);
   const active = sortConditions(d.conditions);
   const log = (kind?: 'promise') => openQuickLog({ kind, refs: [character.id] });
@@ -483,6 +489,44 @@ export function Detail({
                   Geschichte heftest du Gefährten an – mit ihrem eigenen Grund.
                 </p>
               )}
+            </Panel>
+
+            <Panel
+              title="Erhalten"
+              count={received.items.length || undefined}
+              flush
+              actions={
+                received.gold > 0 ? (
+                  <span className="wf-gruppe-gold">{formatGold(received.gold)}</span>
+                ) : undefined
+              }
+            >
+              {received.items.slice(0, RECEIVED_SHOWN).map((loot) => (
+                <div key={loot.id} className="wf-gruppe-tie wf-gruppe-tie--plain">
+                  <span className="wf-gruppe-tie__title">{lootLine(data, loot)}</span>
+                  <span className="wf-gruppe-tie__why">
+                    {[
+                      loot.sessionId && data.sessions[loot.sessionId]
+                        ? `Session ${data.sessions[loot.sessionId]!.number}`
+                        : '',
+                      loot.source,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </div>
+              ))}
+              <p className="wf-gruppe-hint wf-gruppe-hint--pad">
+                {received.items.length === 0
+                  ? `Noch nichts. Was ${character.name} am Tisch bekommt, steht hier und im `
+                  : received.items.length > RECEIVED_SHOWN
+                    ? `Und ${received.items.length - RECEIVED_SHOWN} mehr im `
+                    : 'Alles im '}
+                <Link href="/beute" className="wf-gruppe-textlink">
+                  Beute-Buch
+                </Link>
+                .
+              </p>
             </Panel>
 
             <Panel

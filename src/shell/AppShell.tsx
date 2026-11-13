@@ -27,6 +27,7 @@ import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
 import WegenetzPage from '../features/wegenetz';
 import { WeatherChip } from '../features/wetter';
+import BeutePage from '../features/beute';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import { LkNameSync } from '../features/import/NameSync';
@@ -34,6 +35,7 @@ import { TwinSync } from '../features/wiki/TwinSync';
 import {
   AREAS,
   BEAST_TABS,
+  GROUP_TABS,
   MAP_TABS,
   STORY_TABS,
   TIME_TABS,
@@ -76,6 +78,13 @@ const storyPage = (Page: ComponentType) => () => (
     <Page />
   </AreaTabs>
 );
+const groupPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={GROUP_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const GruppeGefaehrten = groupPage(GruppePage);
+const GruppeBeute = groupPage(BeutePage);
 const GeschichtenBrett = storyPage(FaedenPage);
 const GeschichtenBlatt = storyPage(StoryPage);
 const GeschichtenAbend = storyPage(AbendPage);
@@ -363,7 +372,8 @@ export function AppShell() {
             <Route path="/chronik" component={ZeitChronik} />
             <Route path="/geschehen" component={ZeitGeschehen} />
             <Route path="/kalender" component={ZeitKalender} />
-            <Route path="/gruppe/:id?" component={GruppePage} />
+            <Route path="/gruppe/:id?" component={GruppeGefaehrten} />
+            <Route path="/beute" component={GruppeBeute} />
             <Route path="/erkundung/:id?" component={KartenHex} />
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />

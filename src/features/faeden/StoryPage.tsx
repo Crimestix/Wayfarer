@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { LootList } from '../beute/LootList';
 import { clockView } from '../../domain/clock';
 import { entitiesOfKind } from '../../domain/derive';
 import {
@@ -238,6 +239,10 @@ function StorySheet({ story }: { story: Story }) {
               placeholder="Beute, ein Gefallen, ein Verbündeter, Wissen …"
               onSave={(reward) => patch({ reward })}
             />
+          </div>
+          <div className="wf-sheet__pair wf-sheet__pair--top">
+            <span className="wf-sheet__label">Beute, die bereitliegt</span>
+            <LootList storyId={story.id} />
           </div>
         </SheetSection>
 

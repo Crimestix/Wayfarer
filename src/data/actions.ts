@@ -504,6 +504,14 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
           : area.hexes,
       });
     }
+    // Beute-Buch: Ein Gegenstand bleibt mit seinem Namen stehen; was für einen Gefährten
+    // bereitlag, ist jetzt für die Gruppe. Ausgegebenes behält, wem es gegeben wurde.
+    for (const loot of Object.values(data.loot)) {
+      if (loot.itemId === entityId)
+        db.patch('loot', loot.id, { itemId: null, text: loot.text.trim() || removed?.name || '' });
+      if (loot.toId === entityId && !loot.given) db.patch('loot', loot.id, { toId: null });
+      if (loot.holderBefore === entityId) db.patch('loot', loot.id, { holderBefore: null });
+    }
     if (data.state.placeId === entityId) db.setState({ placeId: null });
     db.remove('entities', entityId);
   });

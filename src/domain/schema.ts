@@ -547,6 +547,37 @@ export const StoryEntrySchema = z.object({
 });
 export type StoryEntry = z.infer<typeof StoryEntrySchema>;
 
+/**
+ * Ein Eintrag im Beute-Buch (`domain/loot.ts`): etwas, das die Gruppe bekommt – bereitgelegt oder
+ * schon ausgegeben. Wayfarer führt kein Inventar; es merkt sich nur, was hinausging.
+ */
+export const LootSchema = z.object({
+  ...base,
+  /** Was es ist, in Worten. */
+  text: z.string().default(''),
+  /** Gold in Goldmünzen; 0 = keins. */
+  gold: z.number().nonnegative().default(0),
+  /** Ein Gegenstand der Welt, wenn es einer ist (etwa ein magisches Einzelstück). */
+  itemId: id.nullable().default(null),
+  /** Der Gefährte, der es bekommt; null = die Gruppe. */
+  toId: id.nullable().default(null),
+  /** Woher es stammt: „aus dem Hort des Aalwächters“. */
+  source: z.string().default(''),
+  /** Die Geschichte, zu der es gehört. */
+  storyId: id.nullable().default(null),
+  /** Ausgegeben – steht im Beute-Buch. Sonst liegt es bereit. */
+  given: z.boolean().default(false),
+  /** Wann, an welchem Abend und wo es ausgegeben wurde. */
+  at: worldTime.nullable().default(null),
+  sessionId: id.nullable().default(null),
+  placeId: id.nullable().default(null),
+  /** Die Zeile der Chronik zu dieser Ausgabe. */
+  chronicleId: id.nullable().default(null),
+  /** Wer den Gegenstand der Welt vor der Ausgabe hatte – dorthin kehrt er beim Zurücknehmen zurück. */
+  holderBefore: id.nullable().default(null),
+});
+export type Loot = z.infer<typeof LootSchema>;
+
 /** Eine mögliche Szene eines Abends – ein paar Sätze, bereit, verworfen zu werden. */
 export const PrepSceneSchema = z.object({
   id,
@@ -1538,6 +1569,7 @@ export const COLLECTION_SCHEMAS = {
   runs: RunSchema,
   nets: NetSchema,
   preps: PrepSchema,
+  loot: LootSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -1565,6 +1597,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'runs',
   'nets',
   'preps',
+  'loot',
 ];
 
 export type CollectionTypes = {
@@ -1666,6 +1699,11 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createLoot(init: Partial<Loot> = {}): Loot {
+  const stamp = nowIso();
+  return LootSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createPrep(init: Partial<Prep> = {}): Prep {

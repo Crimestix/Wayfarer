@@ -936,6 +936,14 @@
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
+.wf-gruppe-tie--plain:hover {
+  background: none;
+}
+.wf-gruppe-gold {
+  color: var(--gold-bright);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
 .wf-gruppe-textlink {
   padding: 0;
   border: 0;

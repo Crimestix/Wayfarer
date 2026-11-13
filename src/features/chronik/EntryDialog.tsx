@@ -2,6 +2,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Lock, MapPin, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { dropLootLine } from '../beute/actions';
 import {
   PROMISE_OUTCOME_LABEL,
   entityName,
@@ -254,13 +255,15 @@ export function EntryDialog({
     });
     if (!ok) return;
     const current = db.getSnapshot().chronicle[entry.id];
-    db.remove('chronicle', entry.id);
+    // Die Zeile einer Ausgabe: Die Beute liegt danach wieder bereit.
+    const undoLoot = dropLootLine(db, entry.id);
+    if (!undoLoot) db.remove('chronicle', entry.id);
     onClose();
     if (current)
       toast({
         title: 'Eintrag gelöscht',
         body: entryHeadline(data, current) || current.text.slice(0, 120),
-        action: { label: 'Rückgängig', run: () => db.put('chronicle', current) },
+        action: { label: 'Rückgängig', run: undoLoot ?? (() => db.put('chronicle', current)) },
       });
   };
 

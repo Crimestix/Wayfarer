@@ -1270,8 +1270,28 @@ Plan 3: Bei jedem Gefährten steht, was er will, und er lässt sich an eine Gesc
 - **Nebenbei:** Ein Feld auf einem Blatt (`Written`) übernimmt jetzt, was woanders geändert
   wurde.
 - **Nicht geprüft:** installierte App, echte Daten.
-- **Offen:** Plan 4 (Beute und Belohnungen als eigene Sache); lose Fäden lassen sich nicht an
-  Gefährten heften.
+- **Offen:** lose Fäden lassen sich nicht an Gefährten heften.
+
+### Beute und Belohnungen: das Beute-Buch (13. 11. 2026) – gebaut
+
+Plan 4, nach der Entscheidung im Konzept (§ 4d): Die Spieler führen ihr Inventar selbst;
+Wayfarer merkt sich, was die Gruppe bekommt.
+
+- **Ein Eintrag** (`loot/`): was es ist (in Worten), Gold, auf Wunsch ein Gegenstand der Welt,
+  für wen (Gefährte oder die Gruppe), woher, zu welcher Geschichte. Er liegt bereit oder ist
+  ausgegeben.
+- **Vorbereiten:** unter „Abend vorbereiten“ im Abschnitt „Beute“ (das alte Textfeld bleibt als
+  „Gedanken zur Beute“) und auf dem Blatt einer Geschichte unter „Wie es enden kann“.
+- **Am Spieltisch:** bereitliegende Beute steht bei ihrer Geschichte im Spiel, sonst unter
+  „Dieser Abend“ – mit „ausgeben“. Dort auch „Beute ausgeben“ für Ungeplantes. Ausgeben schreibt
+  eine Zeile in die Mitschrift; ein Gegenstand der Welt gehört danach dem Empfänger.
+  „Rückgängig“ nimmt alles zurück.
+- **Beute-Buch** (Reiter unter Gefährten, `/beute`): was bereitliegt, was an welchem Abend
+  hinausging (mit „Kopieren“ für den Gruppenchat), rechts „Wer was hat“.
+- **Seite des Gefährten:** Kasten „Erhalten“ mit Gold und den letzten Einträgen.
+- **Nicht geprüft:** installierte App, echte Daten, „Kopieren“ in der installierten App.
+- **Offen:** Beute aus einem Bestand (Hort) oder einer Begegnung heraus vorschlagen; Gold in
+  anderen Münzen (Silber, Kupfer).
 
 ## 6. Bekannte Mängel und Aufräumliste
 

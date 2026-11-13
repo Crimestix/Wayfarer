@@ -699,6 +699,8 @@ export function deleteConsequence(data: CampaignData, entry: ChronicleEntry): st
     return 'Der Termin selbst bleibt im Kalender. Es verschwindet nur der Vermerk, dass er eingetreten ist.';
   if (entry.kind === 'promise')
     return 'Die Abmachung verschwindet aus der Chronik und von den Seiten aller Beteiligten.';
+  if (Object.values(data.loot).some((loot) => loot.given && loot.chronicleId === entry.id))
+    return 'Die Ausgabe gilt dann als nicht geschehen: Die Beute liegt im Beute-Buch wieder bereit, und ein Gegenstand ist wieder dort, wo er vorher war.';
   return 'Der Eintrag verschwindet aus der Chronik und von den Seiten der verknüpften Orte und Personen.';
 }
 

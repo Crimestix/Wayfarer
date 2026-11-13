@@ -1,0 +1,149 @@
+/* Beute-Buch: links, was bereitliegt und was an welchem Abend hinausging; rechts, wer was hat. */
+
+.wf-beute {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.wf-beute-head {
+  gap: var(--s-3);
+  align-items: center;
+}
+.wf-beute-head__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-beute-blank {
+  display: grid;
+  flex: 1;
+  padding: 0 var(--s-6) var(--s-6);
+  place-items: center;
+}
+.wf-beute-blank > * {
+  max-width: 560px;
+}
+.wf-beute-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--s-4);
+  min-height: 0;
+  padding: 0 var(--s-6) var(--s-5);
+}
+.wf-beute-main,
+.wf-beute-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-height: 0;
+  overflow: auto;
+}
+.wf-beute-sum {
+  color: var(--gold-bright);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* Ein Eintrag */
+.wf-beute-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-beute-row:last-child {
+  border-bottom: 0;
+}
+.wf-beute-row__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wf-beute-row__what {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-beute-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-3);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-beute-row__to {
+  color: var(--gold);
+}
+
+/* Wer was hat */
+.wf-beute-share {
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-beute-share__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.wf-beute-share__name {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+}
+a.wf-beute-share__name:hover {
+  color: var(--gold-bright);
+}
+.wf-beute-share__item {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.wf-beute-note {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Bereitgelegte Beute auf einem Blatt */
+.wf-beute-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-beute-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-beute-item:hover {
+  border-color: var(--gold-deep);
+  background: var(--bg-2);
+}
+.wf-beute-item__what {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-beute-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-3);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

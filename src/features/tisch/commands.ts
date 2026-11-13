@@ -4,6 +4,7 @@
  */
 import { setPromiseOutcome } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { dropLootLine } from '../beute/actions';
 import type { ChronicleEntry } from '../../domain/schema';
 import { MAX_EXHAUSTION, type AgendaItem } from './model';
 
@@ -78,10 +79,24 @@ export function canDeleteEntry(entry: Pick<ChronicleEntry, 'kind'>): boolean {
 
 /** Löscht eine Notiz, Abmachung oder Veränderung. Gibt den Eintrag zurück, um ihn wiederherzustellen. */
 export function deleteEntry(db: CampaignDb, entryId: string): ChronicleEntry | null {
+  return removeEntry(db, entryId)?.entry ?? null;
+}
+
+/**
+ * Löscht eine Notiz, Abmachung oder Veränderung – mit dem Handgriff, der sie zurückholt. Ist es
+ * die Zeile einer Ausgabe im Beute-Buch, gilt die Ausgabe als nicht geschehen: Die Beute liegt
+ * wieder bereit, ein Gegenstand ist wieder dort, wo er war.
+ */
+export function removeEntry(
+  db: CampaignDb,
+  entryId: string,
+): { entry: ChronicleEntry; undo: () => void } | null {
   const entry = db.getSnapshot().chronicle[entryId];
   if (!entry || !canDeleteEntry(entry)) return null;
+  const undoLoot = dropLootLine(db, entryId);
+  if (undoLoot) return { entry, undo: undoLoot };
   db.remove('chronicle', entryId);
-  return entry;
+  return { entry, undo: () => restoreEntry(db, entry) };
 }
 
 /** Stellt einen gelöschten Eintrag wieder her. */

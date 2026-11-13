@@ -81,7 +81,8 @@ nicht übernommen.
   `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Bestiarium“ = Wesen,
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik und Weltgeschehen; „Gefährten“ =
+  Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“ und „Ordner“, eine Suche auch
@@ -91,7 +92,7 @@ nicht übernommen.
   Navigation prüfen, ob er als Reiter oder als Teil der Welt passt (Entscheidung des
   Spielleiters, 12. 11. 2026: „vieles ist drin, dadurch ist einiges unübersichtlich geworden“).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
-  `gruppe`, `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
+  `gruppe`, `beute` (das Beute-Buch; die Rechnung steht in `domain/loot.ts`), `erkundung` (Hexkarten), `wiki` (eigene Artikel schreiben und lesen, Editor unter `wiki/editor`, Übernahme des
   LegendKeeper-Exports),
   `wetter` (Anzeige; die Rechnung steht in `domain/weather.ts` und `domain/weatherZone.ts`),
   `unterreich` (unter der Erde zeigt das Feld des Wetters Licht, Sicht und Umgebung; die
@@ -121,7 +122,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -224,6 +225,16 @@ nicht übernommen.
   betrifft, steht an der Geschichte (`story.heroes`, mit seinem Grund; gesetzt über `tieHero` /
   `untieHero`) – gelesen über `heroesOf()` und `storiesOfHero()`. Solche Gefährten zählen zu
   den Knoten der Geschichte (`storyNodes`): Auf dem Brett verbindet sie ein Faden.
+- Beute (`loot/`, `domain/loot.ts`, Seite `features/beute`, Reiter „Beute-Buch“ unter
+  Gefährten): Wayfarer führt kein Inventar – das tun die Spieler –, sondern ein Beute-Buch. Ein
+  Eintrag liegt bereit (vorbereitet, auf dem Abend-Blatt oder an einer Geschichte) oder ist
+  ausgegeben – mit Abend, Ort, Herkunft und Empfänger (ein Gefährte oder die Gruppe). Ausgegeben
+  wird nur über `giveLoot` (`features/beute/actions.ts`, in der Oberfläche `useGiveLoot`):
+  Dabei entsteht die Zeile der Chronik, und ein Gegenstand der Welt gehört danach dem
+  Empfänger; `takeBackLoot` und `removeLoot` nehmen beides zurück. Am Spieltisch steht
+  bereitliegende Beute bei ihrer Geschichte im Spiel (`playView`), sonst unter „Dieser Abend“
+  (`eveningLoot`). Was ein Gefährte bekommen hat, sagt `receivedBy()`, das ganze Buch
+  `lootBook()`, den Text für die Spieler `receivedText()`.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

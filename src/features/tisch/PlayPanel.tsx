@@ -9,6 +9,7 @@ import { Link, useLocation } from 'wouter';
 import { Check, ChevronDown, ChevronRight, Plus, TriangleAlert, Waypoints, X } from 'lucide-react';
 import { logEntry, setPromiseOutcome } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
+import { lootLine, lootRecipient } from '../../domain/loot';
 import { playView, type PlayCard } from '../../domain/play';
 import type { ChronicleEntry } from '../../domain/schema';
 import {
@@ -21,6 +22,7 @@ import {
 import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
 import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
+import { useGiveLoot } from '../beute/useGive';
 import { newStory, setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
 import { EveningBlock } from './EveningBlock';
 import { whenLabel } from './model';
@@ -162,6 +164,7 @@ function PlayStory({
   onToggle: () => void;
 }) {
   const db = useDb();
+  const give = useGiveLoot();
   const data = useData();
   const [, navigate] = useLocation();
   const cal = data.campaign.calendar;
@@ -397,6 +400,22 @@ function PlayStory({
                     Begegnung öffnen
                   </button>
                 )}
+              </span>
+            </Row>
+          ))}
+          {play.loot.map((loot) => (
+            <Row key={loot.id} label="Beute">
+              <span>
+                {lootLine(data, loot)}
+                <em> – für {lootRecipient(data, loot)}</em>
+                <button
+                  type="button"
+                  className="wf-tisch-dazu__link"
+                  title="Steht danach im Beute-Buch und in der Mitschrift"
+                  onClick={() => give(loot)}
+                >
+                  ausgeben
+                </button>
               </span>
             </Row>
           ))}

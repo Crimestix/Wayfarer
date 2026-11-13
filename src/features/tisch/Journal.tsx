@@ -22,7 +22,7 @@ import {
   TextArea,
   toast,
 } from '../../ui';
-import { canDeleteEntry, deleteEntry, restoreEntry, reviseEntry } from './commands';
+import { canDeleteEntry, removeEntry, reviseEntry } from './commands';
 import {
   activeMention,
   groupByDay,
@@ -226,13 +226,16 @@ function EntryDialog({ entry, onClose }: { entry: ChronicleEntry; onClose: () =>
     onClose();
   };
   const remove = () => {
-    const removed = deleteEntry(db, entry.id);
+    const removed = removeEntry(db, entry.id);
     onClose();
     if (removed)
       toast({
         title: 'Eintrag gelöscht',
-        body: removed.text.length > 90 ? removed.text.slice(0, 90) + ' …' : removed.text,
-        action: { label: 'Rückgängig', run: () => restoreEntry(db, removed) },
+        body:
+          removed.entry.text.length > 90
+            ? removed.entry.text.slice(0, 90) + ' …'
+            : removed.entry.text,
+        action: { label: 'Rückgängig', run: removed.undo },
       });
   };
   return (

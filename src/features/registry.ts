@@ -2,6 +2,7 @@
 import {
   BookOpen,
   CalendarDays,
+  Coins,
   Flame,
   Globe,
   Hexagon,
@@ -67,6 +68,12 @@ export const STORY_TABS: readonly AreaTab[] = [
   },
 ];
 
+/** Gefährten: die Gruppe – und was sie bekommen hat. */
+export const GROUP_TABS: readonly AreaTab[] = [
+  { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Users },
+  { path: '/beute', label: 'Beute-Buch', hint: 'Was die Gruppe bekommen hat', icon: Coins },
+];
+
 /** Karten: der Planet, gezeichnete und Bildkarten, Wegenetze, Hexkarten für Reisen. */
 export const MAP_TABS: readonly AreaTab[] = [
   { path: '/atlas', label: 'Weltkarte', hint: 'Der ganze Planet und wo alles liegt', icon: Globe },
@@ -111,7 +118,13 @@ export const AREAS: Area[] = [
     icon: Skull,
     tabs: BEAST_TABS,
   },
-  { path: '/gruppe', label: 'Gefährten', hint: 'Die Gruppe', icon: Users },
+  {
+    path: '/gruppe',
+    label: 'Gefährten',
+    hint: 'Die Gruppe und ihre Beute',
+    icon: Users,
+    tabs: GROUP_TABS,
+  },
   {
     path: '/karten',
     label: 'Karten',

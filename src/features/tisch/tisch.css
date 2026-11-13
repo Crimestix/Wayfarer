@@ -572,9 +572,18 @@ button.wf-tisch-story__title:enabled:hover b {
   font-size: var(--text-sm);
   font-style: italic;
 }
-.wf-tisch-abend--blank a {
+.wf-tisch-abend--blank > a,
+.wf-tisch-abend--blank > button {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--gold);
+  font: inherit;
   font-style: normal;
+  cursor: pointer;
+}
+.wf-tisch-abend--blank > button:hover {
+  color: var(--gold-bright);
 }
 .wf-tisch-abend__text {
   white-space: pre-wrap;
