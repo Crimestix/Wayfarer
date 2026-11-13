@@ -15,11 +15,17 @@ import { entityHref } from './entity';
 export function NameMemory({
   text,
   refs = [],
+  link = true,
   className,
 }: {
   text: string;
   /** Schon gewählte Einträge (über „@“): machen mehrdeutige Namen eindeutig. */
   refs?: readonly string[];
+  /**
+   * Name als Verweis auf seine Seite. In einem Dialog aus: Dort würde der Klick unbemerkt die
+   * Seite dahinter wechseln, und nach dem Festhalten stünde man nicht mehr am Spieltisch.
+   */
+  link?: boolean;
   className?: string;
 }) {
   const db = useDb();
@@ -50,14 +56,18 @@ export function NameMemory({
       ) : (
         lines.map((line, i) => (
           <div key={line.id} className="wf-memory__line">
-            <Link
-              href={entityHref(line)}
-              className="wf-memory__name"
-              // Die Schreibmarke bleibt im Feld.
-              onMouseDown={(e) => e.preventDefault()}
-            >
-              {line.name}
-            </Link>
+            {link ? (
+              <Link
+                href={entityHref(line)}
+                className="wf-memory__name"
+                // Die Schreibmarke bleibt im Feld.
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {line.name}
+              </Link>
+            ) : (
+              <span className="wf-memory__name wf-memory__name--plain">{line.name}</span>
+            )}
             {/* Wird es zu lang, endet die Zeile mit „…“ – das Wichtigste steht vorn. */}
             <span className="wf-memory__facts">
               {line.facts.map((fact) => (

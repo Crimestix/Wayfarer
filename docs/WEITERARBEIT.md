@@ -1460,6 +1460,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Quelle) – auch eine Haltung, die in der Vorbereitung gesetzt wurde. Ausblenden über das Auge an
   der ersten Zeile (`state.nameMemory`); eine Einstellung für Vorlieben gibt es noch nicht.
   Geprüft in der Vorschau bei 1440×900; nicht in der installierten App.
+  Gegengelesen: Tote nach Lebensdaten („Gestorben: vor 300 Jahren“) standen „jetzt in …“, ein
+  Schicksal, Geheimes oder eine Beziehung zwischen zwei anderen zählte als „zuletzt“, Gegenstände
+  hießen „bei Salzgrotte“ und nach einer Ausgabe an die Gruppe fehlten sie (alles behoben). Ein
+  Klick auf einen Namen ließ die angefangene Mitschrift verschwinden (bleibt jetzt stehen); im
+  Festhalten-Dialog sind die Namen keine Verweise mehr. Ein Test hing an der Reihenfolge zweier
+  Ortswechsel in derselben Minute (behoben).
 
 ## 6. Bekannte Mängel und Aufräumliste
 

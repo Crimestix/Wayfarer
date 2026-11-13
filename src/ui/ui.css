@@ -873,6 +873,11 @@ button.wf-item:hover,
   color: var(--ink);
   border-bottom-color: var(--gold-deep);
 }
+.wf-memory__name--plain,
+.wf-memory__name--plain:hover {
+  color: var(--ink-mute);
+  border-bottom: 0;
+}
 .wf-memory__facts {
   flex: 1 1 auto;
   min-width: 0;

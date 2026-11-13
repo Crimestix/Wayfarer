@@ -539,7 +539,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
               setRefs((current) => (current.includes(id) ? current : [...current, id]))
             }
           />
-          <NameMemory text={text} refs={refs} />
+          <NameMemory text={text} refs={refs} link={false} />
           <div className="wf-field__hint">
             {single
               ? single === 'job'

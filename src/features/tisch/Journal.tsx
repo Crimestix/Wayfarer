@@ -37,6 +37,9 @@ import {
 
 // ── Eingabezeile mit @-Verweisen ───────────────────────────────────────────
 
+/** Angefangene Zeilen, solange die App offen ist – nie im Spielstand. */
+const drafts = new Map<string, { text: string; mentions: Mention[] }>();
+
 /**
  * Eingabefeld, in dem „@“ Einträge der Weltdatenbank vorschlägt. Der gewählte Name bleibt im Text
  * stehen; `onSubmit` bekommt den Text und die IDs der Einträge, deren Name noch darin steht.
@@ -46,20 +49,33 @@ export function MentionInput({
   label,
   placeholder,
   autoFocus,
+  draftKey,
 }: {
   onSubmit: (text: string, refs: string[]) => void;
   /** Name des Feldes für Vorleseprogramme. */
   label: string;
   placeholder: string;
   autoFocus?: boolean;
+  /**
+   * Was angefangen, aber noch nicht festgehalten ist, bleibt unter diesem Schlüssel stehen, wenn
+   * man die Seite kurz verlässt (etwa über einen Namen im Gedächtnis darunter).
+   */
+  draftKey?: string;
 }) {
   const data = useData();
   const box = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
-  const pendingCaret = useRef<number | null>(null);
-  const [text, setText] = useState('');
+  const draft = draftKey ? drafts.get(draftKey) : undefined;
+  // Eine zurückgeholte Zeile: die Schreibmarke ans Ende, ohne gleich Vorschläge zu öffnen.
+  const pendingCaret = useRef<number | null>(draft ? draft.text.length : null);
+  const [text, setText] = useState(() => draft?.text ?? '');
   const [caret, setCaret] = useState(0);
-  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [mentions, setMentions] = useState<Mention[]>(() => draft?.mentions ?? []);
+  useEffect(() => {
+    if (!draftKey) return;
+    if (text) drafts.set(draftKey, { text, mentions });
+    else drafts.delete(draftKey);
+  }, [draftKey, text, mentions]);
   /** Position des „@“, dessen Vorschläge mit Escape weggeklickt wurden. */
   const [dismissed, setDismissed] = useState<number | null>(null);
   const [picked, setPicked] = useState(0);
@@ -363,6 +379,7 @@ export function JournalPanel() {
       )}
       <MentionInput
         autoFocus
+        draftKey="mitschrift"
         label="Was passiert gerade?"
         placeholder="Was passiert gerade? (@ verknüpft)"
         onSubmit={(text, refs) => logEntry(db, { text, refs })}

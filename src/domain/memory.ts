@@ -14,9 +14,11 @@ import {
   placeSubtreeIds,
 } from './derive';
 import { entryEntityIds, sessionAt, statusOf } from './history';
+import { holderWord, holdersOf } from './itemHistory';
+import { lifeWords } from './lifespan';
 import { namesIn } from './recognize';
 import { attitudeLabel } from './relations';
-import type { CampaignData, ChronicleEntry, EntityKind } from './schema';
+import { PARTY_ID, type CampaignData, type ChronicleEntry, type EntityKind } from './schema';
 import { dayIndexOf, type WorldTime } from './time/calendar';
 
 /** Arten, zu denen das Gedächtnis etwas sagt. */
@@ -53,13 +55,30 @@ const TAGLINE_MAX = 60;
 
 /**
  * Einträge, die nicht heißen, dass die Gruppe mit jemandem zu tun hatte: eingetretene Termine,
- * Veränderungen und Aufenthalte in der Welt, Weltwissen. Ein Gerücht zählt nur für seine Quelle.
+ * Veränderungen, Schicksale und Aufenthalte in der Welt, Weltwissen und wer was weiß. Ein Gerücht
+ * zählt nur für seine Quelle, eine Beziehung nur, wenn die Gruppe oder ein Gefährte darin steht;
+ * was nur für die Spielleitung festgehalten ist, hat die Gruppe nicht erlebt.
  */
-const NOT_MET: readonly ChronicleEntry['kind'][] = ['event', 'change', 'whereabouts', 'lore'];
+const NOT_MET: readonly ChronicleEntry['kind'][] = [
+  'event',
+  'change',
+  'fate',
+  'whereabouts',
+  'lore',
+  'knowledge',
+];
 
-const metIn = (entry: ChronicleEntry, id: string) =>
+const isParty = (data: CampaignData, id: string) =>
+  id === PARTY_ID || data.entities[id]?.kind === 'character';
+
+const metIn = (data: CampaignData, entry: ChronicleEntry, id: string) =>
+  !entry.secret &&
   !NOT_MET.includes(entry.kind) &&
   (entry.kind !== 'rumor' || entry.rumor?.sourceId === id) &&
+  (entry.kind !== 'bond' ||
+    !entry.bond ||
+    isParty(data, entry.bond.fromId) ||
+    isParty(data, entry.bond.toId)) &&
   entryEntityIds(entry).includes(id);
 
 /**
@@ -89,11 +108,23 @@ export function agoText(data: CampaignData, at: WorldTime, sessionId: string | n
 const isHere = (data: CampaignData, placeId: string | null) =>
   !!placeId && !!data.state.placeId && placeSubtreeIds(data, data.state.placeId).has(placeId);
 
+/**
+ * Tot oder verschollen (Schicksal) – oder vorbei nach den Lebensdaten: gestorben, zerstört,
+ * untergegangen, aufgelöst (`entity.ended`, auch aus dem Steckbrief).
+ */
 function fateFact(data: CampaignData, id: string): MemoryFact | null {
   const status = statusOf(data, id);
-  return status === 'dead' || status === 'missing'
-    ? { kind: 'fate', text: FATE_LABEL[status] }
-    : null;
+  if (status === 'dead' || status === 'missing') return { kind: 'fate', text: FATE_LABEL[status] };
+  const entity = data.entities[id];
+  if (!entity?.ended || entity.ended.at > data.state.now) return null;
+  const kind = entity.kind;
+  return {
+    kind: 'fate',
+    text:
+      kind === 'person' || kind === 'character'
+        ? FATE_LABEL.dead
+        : lifeWords(kind).end.toLocaleLowerCase('de'),
+  };
 }
 
 function attitudeFact(data: CampaignData, id: string): MemoryFact | null {
@@ -129,9 +160,16 @@ function whereFact(data: CampaignData, id: string, gone: boolean): MemoryFact | 
     case 'faction':
       return at(entity.faction.seatId, 'Sitz in ');
     case 'item': {
-      const holderId = entity.item.holderId;
-      if (!holderId) return null;
-      return { kind: 'where', text: `bei ${entityName(data, holderId)}` };
+      if (gone) return null;
+      // Wer ihn heute hat – nach einer Ausgabe an die Gruppe die Gruppe; in einem Ort „in“.
+      const holding = holdersOf(data, id).find((h) => h.current);
+      if (holding?.party) return { kind: 'where', text: 'bei der Gruppe' };
+      const holderId = holding?.holderId;
+      if (!holderId || !data.entities[holderId]) return null;
+      return {
+        kind: 'where',
+        text: `${holderWord(data, holderId)} ${entityName(data, holderId)}`,
+      };
     }
     default:
       return null;
@@ -153,7 +191,7 @@ function seenFact(data: CampaignData, id: string): MemoryFact | null {
   }
   const now = data.state.now;
   const last = chronicleSorted(data)
-    .filter((entry) => entry.at <= now && metIn(entry, id))
+    .filter((entry) => entry.at <= now && metIn(data, entry, id))
     .at(-1);
   if (!last) return null;
   const where =

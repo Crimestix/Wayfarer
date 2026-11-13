@@ -234,7 +234,10 @@ nicht übernommen.
   Namen, je drei Angaben (`memoryOf`: Schicksal, Haltung, wo, zuletzt, offene Abmachungen, sonst
   `tagline`). Namen findet `namesInText` mit den Regeln des Erkennens (`namesIn` in
   `recognize.ts`), nie mit eigenem Muster. Kein Fenster, kein Fokuswechsel, gleichbleibende
-  Höhe; ausgeblendet über `state.nameMemory`.
+  Höhe; ausgeblendet über `state.nameMemory`. „Zuletzt“ zählt nur, was die Gruppe erlebt hat –
+  nie Geheimes, Schicksale, Aufenthalte, Weltwissen oder Beziehungen zwischen anderen; tot ist
+  auch, wessen Lebensdaten enden (`entity.ended`). In Dialogen sind die Namen keine Verweise
+  (`link={false}`), und die Mitschrift behält eine angefangene Zeile (`draftKey`).
 - Wegenetze (`nets/`, `domain/net.ts`): Ein Netz merkt sich nur, welche Orte seine Punkte
   sind und wo sie auf dem Blatt liegen. Die Wege sind die der Welt (`paths`): Zum Netz gehört
   jeder Weg, dessen beide Orte Punkte sind – nie Wege im Netz selbst speichern. Gelesen wird

@@ -8,6 +8,7 @@ import {
   startSession,
 } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
+import { giveLoot, saveLoot } from '../../features/beute/actions';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { agoText, memoryOf, nameMemory, namesInText } from '../memory';
@@ -16,6 +17,7 @@ import {
   createChronicleEntry,
   createEntity,
   type Character,
+  type Item,
   type Person,
 } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
@@ -154,6 +156,96 @@ describe('Gedächtnis: was zu einem Namen gehört', () => {
     expect(memoryOf(w.data(), w.lando.id)).toEqual([]);
   });
 
+  it('Schicksale, Geheimes und Beziehungen zwischen anderen zählen nicht als Begegnung', async () => {
+    const w = await setup();
+    const now = w.data().state.now;
+    w.db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'fate',
+        at: now,
+        fate: { entityId: w.lando.id, status: 'missing' },
+      } as never),
+    );
+    logEntry(w.db, {
+      text: 'Lando verhandelt heimlich mit Krummzahn.',
+      refs: [w.lando.id],
+      secret: true,
+    });
+    w.db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'bond',
+        at: now,
+        bond: { fromId: w.lando.id, toId: w.krummzahn.id, type: 'knows' },
+      } as never),
+    );
+    expect(memoryOf(w.data(), w.lando.id).some((fact) => fact.kind === 'seen')).toBe(false);
+    // Eine Beziehung zur Gruppe oder zu einem Gefährten schon.
+    w.db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'bond',
+        at: now,
+        bond: { fromId: w.lando.id, toId: w.brann.id, type: 'knows' },
+      } as never),
+    );
+    expect(memoryOf(w.data(), w.lando.id).find((fact) => fact.kind === 'seen')?.text).toBe(
+      'zuletzt heute',
+    );
+  });
+
+  it('Lebensdaten: wer gestorben ist, ist tot und nirgends; Zerstörtes ist zerstört', async () => {
+    const w = await setup();
+    const now = w.data().state.now;
+    w.db.patch('entities', w.lando.id, {
+      ended: { at: now - 300 * 365 * MINUTES_PER_DAY, precision: 'year' },
+      person: { ...(w.lando as Person).person, placeId: w.grotto.id },
+    } as never);
+    expect(texts(memoryOf(w.data(), w.lando.id))).toEqual(['tot']);
+    const ring = w.db.put(
+      'entities',
+      createEntity({
+        kind: 'item',
+        name: 'Salzring',
+        ended: { at: now - MINUTES_PER_DAY, precision: 'day' },
+      } as never),
+    );
+    expect(texts(memoryOf(w.data(), ring.id))).toEqual(['zerstört']);
+    // Ein Ende, das erst kommt, zählt noch nicht.
+    w.db.patch('entities', w.lando.id, {
+      ended: { at: now + MINUTES_PER_DAY, precision: 'day' },
+    } as never);
+    expect(texts(memoryOf(w.data(), w.lando.id))).toEqual(['jetzt in Salzgrotte']);
+  });
+
+  it('Gegenstände: bei wem, in welchem Ort – unbekannte Besitzer fehlen', async () => {
+    const w = await setup();
+    const ring = w.db.put(
+      'entities',
+      createEntity({ kind: 'item', name: 'Salzring', item: { holderId: w.mira.id } } as never),
+    );
+    expect(texts(memoryOf(w.data(), ring.id))).toEqual(['bei Mira Tannhaus']);
+    const holder = (holderId: string) =>
+      w.db.patch('entities', ring.id, { item: { ...(ring as Item).item, holderId } } as never);
+    holder(w.grotto.id);
+    expect(texts(memoryOf(w.data(), ring.id))).toEqual(['in Salzgrotte']);
+    holder('weg');
+    expect(memoryOf(w.data(), ring.id)).toEqual([]);
+    // An die Gruppe ausgegeben: Er hat keinen bestimmten Besitzer, die Gruppe hat ihn.
+    holder(w.mira.id);
+    const loot = saveLoot(w.db, {
+      text: 'Salzring',
+      gold: 0,
+      itemId: ring.id,
+      toId: null,
+      source: '',
+      storyId: null,
+    });
+    giveLoot(w.db, loot!.id);
+    expect(texts(memoryOf(w.data(), ring.id))).toContainEqual('bei der Gruppe');
+  });
+
   it('ohne Session: in Tagen der Welt', async () => {
     const w = await setup();
     const at = w.data().state.now;
@@ -186,6 +278,8 @@ describe('Gedächtnis: was zu einem Namen gehört', () => {
     const w = await setup();
     expect(texts(memoryOf(w.data(), w.mill.id))).toEqual(['in Hohenfurt']);
     expect(texts(memoryOf(w.data(), w.town.id))).toEqual(['die Gruppe ist hier']);
+    // Zwei Ortswechsel in derselben Minute hätten keine feste Reihenfolge.
+    w.later(1);
     startSession(w.db);
     moveParty(w.db, w.grotto.id);
     endSession(w.db);
