@@ -25,6 +25,7 @@ export type ShellRequest =
   | { type: 'time' }
   | { type: 'rest'; kind: 'short' | 'long' }
   | { type: 'downtime' }
+  | { type: 'shop'; shopId: string | null; direction: 'buy' | 'sell' }
   | null;
 
 let current: ShellRequest = null;
@@ -53,6 +54,12 @@ export const openTimeDialog = () => set({ type: 'time' });
 export const openRest = (kind: 'short' | 'long' = 'long') => set({ type: 'rest', kind });
 /** Öffnet „Freie Zeit“: Tage vergehen, die Gefährten gehen ihren Vorhaben nach. */
 export const openDowntime = () => set({ type: 'downtime' });
+/**
+ * Öffnet den Laden zum Kaufen oder Verkaufen. Ohne Laden fragt der Dialog, wo gehandelt wird –
+ * auch ohne Laden geht es.
+ */
+export const openShop = (shopId: string | null = null, direction: 'buy' | 'sell' = 'buy') =>
+  set({ type: 'shop', shopId, direction });
 export const closeShellRequest = () => set(null);
 
 export function useShellRequest(): ShellRequest {

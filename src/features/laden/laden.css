@@ -1,0 +1,316 @@
+/* Läden: der Laden am Tisch (Ware links, Korb rechts) und der Abschnitt „Laden“ auf einer Seite. */
+
+/* ── Der Laden am Tisch ─────────────────────────────────────────────────── */
+
+.wf-laden-trade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-laden-trade__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wf-laden-trade__top > .wf-select {
+  max-width: 320px;
+}
+.wf-laden-trade__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-laden-trade__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--s-4);
+  min-height: 0;
+}
+.wf-laden-trade__pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.wf-laden-problem {
+  color: var(--blood-bright);
+  font-size: var(--text-sm);
+}
+
+/* Die Waren */
+.wf-laden-list {
+  display: flex;
+  flex-direction: column;
+  height: min(46vh, 420px);
+  overflow: auto;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-laden-ware {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-laden-ware:hover:not(:disabled),
+.wf-laden-ware:focus-visible {
+  background: var(--bg-2);
+}
+.wf-laden-ware:focus-visible {
+  outline: var(--focus);
+}
+.wf-laden-ware:disabled {
+  cursor: default;
+}
+.wf-laden-ware--out {
+  color: var(--ink-faint);
+}
+.wf-laden-ware--unwanted .wf-laden-ware__name b {
+  color: var(--ink-soft);
+}
+.wf-laden-ware__name {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-laden-ware__name b {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-laden-ware__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-laden-ware__price {
+  color: var(--gold-bright);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+.wf-laden-ware--out .wf-laden-ware__price {
+  color: var(--ink-faint);
+}
+.wf-laden-ware__add {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+.wf-laden-ware--out .wf-laden-ware__add {
+  visibility: hidden;
+}
+.wf-laden-empty {
+  margin: 0;
+  padding: var(--s-3);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Anderes dazu: aus der Welt, in Worten */
+.wf-laden-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-laden-free {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-laden-free > .wf-input:first-child {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.wf-input.wf-laden-price {
+  width: 96px;
+  flex: none;
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: right;
+}
+
+/* Der Korb */
+.wf-laden-basket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.wf-laden-line {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.wf-laden-line__name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wf-laden-line .wf-input.wf-laden-price {
+  width: 80px;
+}
+.wf-laden-qty {
+  display: inline-flex;
+  align-items: center;
+}
+.wf-laden-qty__n {
+  min-width: 1.6em;
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: center;
+}
+.wf-laden-sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--s-2) 0;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-laden-sum__value {
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ── Abschnitt „Laden“ auf der Seite eines Ortes oder Händlers ───────────── */
+
+.wf-laden-shop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-laden-shop + .wf-laden-shop {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-laden-shop__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+}
+.wf-laden-shop__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.wf-laden-shop__facts {
+  flex: 1 1 auto;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-laden-stock {
+  display: flex;
+  flex-direction: column;
+}
+.wf-laden-stockrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 72px auto;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-laden-stockrow__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-laden-stockrow__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-laden-stockrow .wf-input {
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: right;
+}
+.wf-laden-stockhead {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-laden-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-laden-add > .wf-picker {
+  flex: 1 1 220px;
+}
+.wf-laden-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-3);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+.wf-laden-suggest__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.wf-laden-suggest__why {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+
+/* Preisliste einfügen */
+.wf-laden-plan {
+  display: flex;
+  flex-direction: column;
+  max-height: 44vh;
+  overflow: auto;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+}
+.wf-laden-plan__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 90px minmax(0, 1.3fr);
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-laden-plan__price {
+  color: var(--gold-bright);
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: right;
+}
+.wf-laden-plan__match {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-laden-plan__match--new {
+  color: var(--verdigris);
+}
+.wf-laden-plan__match--word {
+  color: var(--ink-mute);
+}
+.wf-laden-warn {
+  margin: 0;
+  color: var(--ember);
+  font-size: var(--text-sm);
+}

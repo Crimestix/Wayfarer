@@ -1535,6 +1535,15 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   oder in „Weiß die Gruppe“ (`isReadable`; die Spielleitung sieht sie weiter in ihrer Liste). Wird
   die einzige Gegend eines Buches gelöscht, bleibt sie als gelöscht stehen, statt das Buch auf die
   ganze Welt zu öffnen. „Von ein Mönch“: Zusammenfassung jetzt „Verfasser: …“.
+- **Läden und Preise.** Neue Sammlung `shops` (`domain/shop.ts`) und Art der Chronik „Handel“: Am
+  Spieltisch „Läden hier“, ein Klick öffnet den Laden (Ware suchen, „+“ in den Korb, Preis am Tisch
+  ändern, wer kauft, „Kaufen“); Reiter „Ankaufen“ mit den Gegenständen der Gruppe. Abschnitt
+  „Laden“ auf Seiten von Orten, Händlern und Fraktionen: Bestand, Preisliste einfügen
+  (`domain/priceList.ts`, legt Fehlendes erst nach Bestätigung an), Vorschläge, „Zuletzt“.
+  Gegenstände haben einen Listenpreis. Offen: Gold wird nur aus Beute und Handel gezählt – kauft
+  die Gruppe mit Gold, das nie im Beute-Buch stand, wird „Gold der Gruppe“ negativ; einen
+  Geldbeutel zum Setzen gibt es nicht. Handel aus Notizen (Abschnitt „Einkäufe“ beim Nachtragen)
+  wird noch nicht vorgeschlagen. Geprüft in der Vorschau bei 1440×900.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

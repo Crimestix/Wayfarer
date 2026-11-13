@@ -94,6 +94,7 @@ import { RestDialog } from '../features/gruppe/RestDialog';
 import { DowntimeDialog } from '../features/gruppe/DowntimeDialog';
 import { LootDialog } from '../features/beute/LootDialog';
 import { GuessDialog } from '../features/spielerbuch/GuessDialog';
+import { TradeDialog } from '../features/laden/TradeDialog';
 import { RecordFields } from '../features/chronik/RecordFields';
 import { WorldTimeFields } from '../features/chronik/WorldTimeFields';
 import {
@@ -397,6 +398,8 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   /** undefined = Ort der Gruppe zu dieser Zeit. */
   const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(undefined);
   const [loot, setLoot] = useState(false);
+  /** „Handel“ gewählt: Der Laden öffnet sich – dort wird zusammengestellt, was gekauft wird. */
+  const [trading, setTrading] = useState(false);
   /** „Vermutung“ gewählt: Text und „Betrifft“ gehen ins Spielerbuch, nicht in die Chronik. */
   const [guessing, setGuessing] = useState(false);
   /** Bestellung oder Lieferung „in 3 Tagen“ zusätzlich als Termin eintragen. */
@@ -434,6 +437,10 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
     }
     if (choice === 'guess') {
       setGuessing(true);
+      return;
+    }
+    if (choice === 'trade') {
+      setTrading(true);
       return;
     }
     // Eine neu gewählte Art übernimmt „Wer“ aus „Betrifft“, wenn dort genau einer passt.
@@ -509,6 +516,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   };
 
   if (loot) return <LootDialog give onClose={closeShellRequest} />;
+  if (trading) return <TradeDialog shopId={null} onClose={closeShellRequest} />;
   if (guessing)
     return (
       <GuessDialog
@@ -1258,6 +1266,14 @@ export function ShellDialogs() {
         <DowntimeDialog
           onClose={closeShellRequest}
           onDone={(result) => reportDowntime(db.getSnapshot(), result)}
+        />
+      );
+    case 'shop':
+      return (
+        <TradeDialog
+          shopId={request.shopId}
+          direction={request.direction}
+          onClose={closeShellRequest}
         />
       );
     case 'search':

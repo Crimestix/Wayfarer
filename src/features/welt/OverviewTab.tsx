@@ -1,5 +1,6 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
+import { ShopSection } from '../laden/ShopSection';
 import { GroupKnows } from './GroupKnows';
 import { BookSection, BookSwitch } from './BookSection';
 import { ItemLife } from './ItemLife';
@@ -344,6 +345,7 @@ function PlaceOverview({ entity: place }: Props<Place>) {
               </div>
             </Section>
           )}
+          <ShopSection entity={place} />
           <NotesSection entity={place} />
           <SecretSection entity={place} />
           <GroupKnows entity={place} />
@@ -833,6 +835,7 @@ function PersonOverview({ entity: person, onShowTab }: Props<Person>) {
         <>
           <Promises entity={person} />
           <Tracks entity={person} />
+          <ShopSection entity={person} />
           <NotesSection entity={person} />
           <SecretSection entity={person} />
           <GroupKnows entity={person} />
@@ -950,6 +953,7 @@ function FactionOverview({ entity: faction, onShowTab }: Props<Faction>) {
           />
           <Promises entity={faction} />
           <Tracks entity={faction} />
+          <ShopSection entity={faction} />
           <NotesSection entity={faction} />
           <SecretSection entity={faction} />
           <GroupKnows entity={faction} />

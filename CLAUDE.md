@@ -115,6 +115,8 @@ nicht übernommen.
   `abend` (den nächsten Abend vorbereiten; die Rechnung steht in `domain/prep.ts`),
   `nachtragen` (alte Sessions aus Notizdateien: lesen, trennen, in die Weltzeit legen,
   übernehmen),
+  `laden` (Läden: Handel am Tisch, Abschnitt „Laden“ auf Seiten; die Rechnung steht in
+  `domain/shop.ts`, das Lesen von Preislisten in `domain/priceList.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -124,7 +126,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -284,6 +286,22 @@ nicht übernommen.
   bereitliegende Beute bei ihrer Geschichte im Spiel (`playView`), sonst unter „Dieser Abend“
   (`eveningLoot`). Was ein Gefährte bekommen hat, sagt `receivedBy()`, das ganze Buch
   `lootBook()`, den Text für die Spieler `receivedText()`.
+- Läden und Preise (`shops/`, `domain/shop.ts`, `features/laden`): Gegenstände, Pflanzen, Tiere
+  und Gesteine haben einen Listenpreis (`listPrice()`; Gegenstand: `item.price`). Ein Laden steht
+  an einem Ort oder geht mit seinem Händler (`shopPlaceId`), hat Preisstufe (`priceFactor`),
+  Ankauf (`buyFactor`), was er ankauft (`buys`, leer = alles) und einen Bestand (`stock`: Eintrag
+  oder Worte, eigener Preis oder Listenpreis × Stufe, Menge oder unbegrenzt) – gelesen über
+  `stockRows()`. Gehandelt wird nur über `tradeAt` (`laden/actions.ts`): ein Eintrag der Art
+  „Handel“ (`kind: 'trade'`, `entry.trade`, über `recordEntry`); Bestand und Besitzer eines
+  einzelnen Stücks (`isSingleItem`: Lebenslauf, Besitzer oder bei der Gruppe) ziehen mit,
+  `removeRecorded` nimmt beides zurück. Handel ist keine Beute; „Gold der Gruppe“ im Kasten
+  „Unterwegs“ ist Beute plus Handel (`tradeTotals`). Was ein Laden verkauft hat, steht nur in der
+  Chronik (`shopTrades`). Preislisten liest `parsePriceLines`, `planPriceLines` sucht Einträge nach
+  Namen (nie einen Namen doppelt; ein Name einer Person bleibt Wort), übernommen wird nur
+  Bestätigtes (`takePriceList`, danach `linkTwins`). Vorschläge für den Bestand (`shopSuggestions`:
+  Natur am Ort nach Art des Ladens, Einordnungen) gelten erst nach Annahme. Am Spieltisch „Läden
+  hier“ (`shopsHere`, Ort der Gruppe und Orte darin), überall `openShop`; im Festhalten öffnet
+  „Handel“ den Laden.
 - Bücher in der Welt (`item.book`, `domain/book.ts`, Abschnitt „Buch“ am Gegenstand): Ein Buch
   ist ein Gegenstand mit Verfasser; seine Seiten stellt `bookPages()` aus den Artikeln zusammen
   (Auswahl nach Art, Gegend über `scopeMembers`, Einordnung, einzeln dazu und weg –

@@ -284,7 +284,7 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       key: `shop:${shop.id}`,
       sort: 'shop',
       label: title,
-      sub: sub('Laden', shop.kind !== title && shop.kind, name(placeId)),
+      sub: sub('Laden', !title.includes(shop.kind.trim()) && shop.kind, name(placeId)),
       href: home && data.entities[home] ? `/welt/${home}` : '/welt',
       focus: { type: 'shop', id: shop.id },
     });

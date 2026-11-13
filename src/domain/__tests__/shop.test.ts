@@ -15,12 +15,13 @@ import { recordHeadline } from '../chronicleKinds';
 import { holdersOf, itemHistory } from '../itemHistory';
 import { lootBook } from '../loot';
 import { parsePriceLines, planPriceLines } from '../priceList';
-import { createEntity, type Item } from '../schema';
+import { createEntity, createRelation, type Item } from '../schema';
 import {
   buysThing,
   filterRows,
   formatPrice,
   groupItems,
+  looksLikeTrader,
   priceLevelLabel,
   readFactor,
   sellPrice,
@@ -127,6 +128,18 @@ describe('Läden', () => {
     db.patch('shops', shop.id, { placeId: null });
     db.put('entities', { ...odo, person: { ...odo.person, placeId: grotto.id } });
     expect(shopsHere(data()).map((s) => s.id)).toEqual([shop.id]);
+  });
+
+  it('erkennt Händler an Rolle und Beruf', async () => {
+    const { db, data, odo, mira } = await setup();
+    expect(looksLikeTrader(data(), odo)).toBe(false);
+    db.put('entities', { ...odo, person: { ...odo.person, role: 'Krämer am Markt' } });
+    expect(looksLikeTrader(data(), data().entities[odo.id]!)).toBe(true);
+    const smith = db.put('entities', createEntity({ kind: 'profession', name: 'Schmied' }));
+    const brann = db.put('entities', createEntity({ kind: 'person', name: 'Brann Eichwald' }));
+    db.put('relations', createRelation({ from: brann.id, to: smith.id, type: 'practises' }));
+    expect(looksLikeTrader(data(), brann)).toBe(true);
+    expect(looksLikeTrader(data(), mira)).toBe(false);
   });
 
   it('kauft an, was zu seinen Einordnungen passt – zum halben Listenpreis', async () => {

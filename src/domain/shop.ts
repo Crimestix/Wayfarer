@@ -644,3 +644,38 @@ export function withListPrice<E extends Entity>(entity: E, price: number | null)
   if (entity.kind === 'mineral') return { ...entity, mineral: { ...entity.mineral, price } };
   return entity;
 }
+
+/** Wörter in Rolle oder Beruf einer Person, die sagen: Sie verkauft etwas. */
+const TRADER_WORDS = [
+  'handl',
+  'kramer',
+  'kaufmann',
+  'kauffrau',
+  'verkauf',
+  'schmied',
+  'wirt',
+  'apothek',
+  'backer',
+  'metzger',
+  'schneider',
+  'juwel',
+  'kurschner',
+  'gerber',
+  'marketend',
+  'hoker',
+  'trodler',
+  'alchemist',
+];
+
+/**
+ * Sieht die Person nach jemandem aus, der etwas verkauft – nach ihrer Rolle und ihren Berufen?
+ * Dann bietet ihre Seite an, einen Laden anzulegen.
+ */
+export function looksLikeTrader(data: CampaignData, entity: Entity): boolean {
+  if (entity.kind !== 'person') return false;
+  const professions = Object.values(data.relations)
+    .filter((r) => r.from === entity.id && r.type === 'practises' && !r.ended)
+    .map((r) => data.entities[r.to]?.name ?? '');
+  const words = [entity.person.role, ...professions].map(plainWord).join(' ');
+  return TRADER_WORDS.some((word) => words.includes(word));
+}
