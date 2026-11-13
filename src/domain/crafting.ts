@@ -173,7 +173,8 @@ export function craftableItems(data: Pick<CampaignData, 'entities'>): Item[] {
 
 /**
  * Das Rezept ohne Verweis auf einen gelöschten Eintrag: Der Beruf fällt weg, eine Zutat bleibt
- * mit ihrem Namen stehen. Unverändert, wenn nichts darauf zeigt.
+ * mit ihrem Namen stehen – dem heutigen (`name`), sonst dem bei der Wahl gemerkten. Unverändert,
+ * wenn nichts darauf zeigt.
  */
 export function recipeWithout(recipe: Recipe, entityId: string, name = ''): Recipe {
   const touchesIngredients = recipe.ingredients.some((i) => i.entityId === entityId);
@@ -183,7 +184,9 @@ export function recipeWithout(recipe: Recipe, entityId: string, name = ''): Reci
     professionId: recipe.professionId === entityId ? null : recipe.professionId,
     ingredients: touchesIngredients
       ? recipe.ingredients.map((i) =>
-          i.entityId === entityId ? { ...i, entityId: null, text: i.text.trim() || name } : i,
+          i.entityId === entityId
+            ? { ...i, entityId: null, text: name.trim() || i.text.trim() }
+            : i,
         )
       : recipe.ingredients,
   };

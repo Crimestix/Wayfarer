@@ -332,8 +332,10 @@ nicht übernommen.
   ein Rezept kann sie übersteuern; gelesen über `recipeView`, `madeBy`, `usedIn`. Freie Zeit
   (`domain/downtime.ts`, Dialog über `openDowntime`): ein Vorhaben ist eine Fortschrittsleiste mit
   `track.downtime` (zählt Arbeitstage, je Helfer einer pro Tag); verbracht wird nur über
-  `spendDowntime` (`gruppe/downtime.ts`): Zeit über `advanceTime`, Leisten, ein Eintrag der
-  Chronik nur aus den gewählten Tätigkeiten, Fertiges gehört auf Wunsch dem Gefährten, Rückgängig.
+  `spendDowntime` (`gruppe/downtime.ts`): Zeit über `advanceTime`, Leisten, ein Eintrag
+  „Zwischenzeit“ (`kind: 'downtime'`, am Beginn, je Gefährte seine Tätigkeit) nur aus den
+  gewählten Tätigkeiten, Fertiges gehört auf Wunsch dem Gefährten – einem anderen nimmt es ihn
+  nur ausdrücklich (`keepByDefault`), Rückgängig.
 - Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt

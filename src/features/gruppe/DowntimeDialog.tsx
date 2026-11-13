@@ -13,6 +13,7 @@ import {
   NO_CHOICE,
   downtimeInput,
   downtimeOptions,
+  keepByDefault,
   newProjectKey,
   newProjectOf,
   planDowntime,
@@ -204,7 +205,7 @@ export function DowntimeDialog({
                     )}
                     {craftItem?.kind === 'item' && owns && (
                       <Checkbox
-                        checked={keep[keepKey] ?? true}
+                        checked={keep[keepKey] ?? keepByDefault(data, craftItem.id, character.id)}
                         onChange={(on) => setKeep((current) => ({ ...current, [keepKey]: on }))}
                       >
                         Wenn fertig, gehört {craftItem.name} {character.name}
@@ -245,7 +246,18 @@ export function DowntimeDialog({
                 der Chronik.
               </p>
             )}
-            <p className="wf-gruppe-downtime__entry">In der Chronik: {plan.text}</p>
+            <div className="wf-gruppe-downtime__entry">
+              In der Chronik: Zwischenzeit, {days === 1 ? 'ein Tag' : `${days} Tage`}
+              {plan.activities.length > 0 && (
+                <ul>
+                  {plan.activities.map((activity) => (
+                    <li key={activity.characterId}>
+                      {entityName(data, activity.characterId)}: {activity.text}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>

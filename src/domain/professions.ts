@@ -167,6 +167,13 @@ export const KNOWN_PROFESSIONS: readonly KnownProfession[] = [
   p('Henker', 'Dienst', 'none', ['Scharfrichter']),
   p('Totengräber', 'Dienst', 'none'),
   p('Söldner', 'Dienst', 'none'),
+  // Ämter
+  p('Hafenmeister', 'Dienst', 'none'),
+  p('Zöllner', 'Dienst', 'none'),
+  p('Steuereintreiber', 'Dienst', 'none'),
+  p('Vogt', 'Dienst', 'none'),
+  p('Richter', 'Dienst', 'none'),
+  p('Kerkermeister', 'Dienst', 'none'),
   p('Spielmann', 'Kunst', 'music', ['Spielfrau', 'Spielleute']),
   p('Barde', 'Kunst', 'music', ['Bardin']),
   p('Gaukler', 'Kunst', 'disguise'),
@@ -253,6 +260,9 @@ const lastWord = (text: string) => text.trim().split(/\s+/).pop() ?? '';
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const LETTER = '[\\p{L}\\p{N}]';
 const NAME = "\\p{Lu}[\\p{L}'’-]+";
+/** Was in der Zeile „Beruf“ steht, wenn es keinen gibt oder er offen ist – kein neuer Beruf. */
+const NO_PROFESSION =
+  /^(?:keiner|keine|keins|kein|ohne|nichts|unbekannt|unklar|offen|ungewiss|geheim|verschiedene|diverse)(?!\p{L})/iu;
 
 /** Die Angaben der Einträge selbst: Rolle, Kurzzeile, Notizen von Personen und Gefährten. */
 function entitySources(data: Pick<CampaignData, 'entities'>): WrittenSource[] {
@@ -450,7 +460,7 @@ export function professionSuggestions(
         if (label !== 'Beruf' || hits.length) continue;
         for (const part of parts(line)) {
           if (!/^\p{Lu}/u.test(part) || part.length > 40 || part.split(' ').length > 3) continue;
-          if (takenNames.has(key(part))) continue;
+          if (takenNames.has(key(part)) || NO_PROFESSION.test(part)) continue;
           const k = `n:${key(part)}`;
           let candidate = freeNew.get(k);
           if (!candidate) {

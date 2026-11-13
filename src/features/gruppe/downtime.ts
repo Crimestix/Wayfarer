@@ -6,6 +6,7 @@
  */
 import { advanceTime, logEntry, undoTimeAdvance, type TimeAdvanceResult } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { recordEntry } from '../../data/record';
 import {
   itemsToHand,
   planDowntime,
@@ -66,7 +67,17 @@ export function spendDowntime(db: CampaignDb, input: DowntimeInput): DowntimeRes
       );
       created.push(track.id);
     }
-    const entry = logEntry(db, { text: plan.text, refs: plan.refs });
+    // Ein Eintrag „Zwischenzeit“ am Beginn der freien Zeit, je Gefährte seine Tätigkeit – so
+    // steht er wie ein von Hand festgehaltener in Chronik, Rückblick und Nachtragen.
+    const recorded = recordEntry(db, {
+      kind: 'downtime',
+      at: from,
+      backfilled: false,
+      refs: plan.refs,
+      downtime: { days: plan.days, activities: plan.activities },
+    });
+    const entry =
+      'entry' in recorded ? recorded.entry : logEntry(db, { text: plan.text, refs: plan.refs });
     const holderEntries: string[] = [];
     for (const { itemId, holderId } of hand) {
       const current = db.getSnapshot().entities[itemId];

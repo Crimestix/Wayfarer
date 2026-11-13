@@ -1538,7 +1538,7 @@
 }
 .wf-gruppe-downtime__row {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
+  grid-template-columns: 130px minmax(0, 1fr);
   gap: var(--s-3);
   align-items: start;
   padding: var(--s-2) 2px;
@@ -1560,7 +1560,7 @@
 }
 .wf-gruppe-downtime__more {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--s-2);
 }
 .wf-gruppe-downtime__hint {
@@ -1573,4 +1573,9 @@
   color: var(--ink-mute);
   font-size: var(--text-sm);
   font-style: italic;
+}
+
+.wf-gruppe-downtime__entry ul {
+  margin: var(--s-1) 0 0;
+  padding-left: var(--s-4);
 }

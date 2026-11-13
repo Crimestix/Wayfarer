@@ -23,7 +23,7 @@ export const DOWNTIME_LABEL: Record<DowntimeActivity, string> = {
 /** Woran ein Vorhaben dieser Art hängt – für das Feld unter der Wahl. */
 export const DOWNTIME_HINT: Record<DowntimeActivity, string> = {
   craft: 'Ein Gegenstand mit Rezept – die Dauer folgt den Regeln.',
-  train: 'Was gelernt wird: eine Sprache, ein Werkzeug …',
+  train: 'Was gelernt wird – Sprache, Werkzeug …',
   research: 'Wonach geforscht wird.',
   work: 'Wofür gearbeitet wird; ohne Ziel zählt nur die Zeit.',
   recover: 'Wovon sich erholt wird; ohne Ziel zählt nur die Zeit.',
@@ -102,10 +102,30 @@ export interface ProjectProgress {
 export interface DowntimePlan {
   days: number;
   progress: ProjectProgress[];
-  /** Der Eintrag der Chronik – nur aus den gewählten Tätigkeiten zusammengesetzt. */
+  /** In einem Satz – nur aus den gewählten Tätigkeiten zusammengesetzt (für die Meldung). */
   text: string;
+  /**
+   * Je Gefährte, was er getan hat – so steht es im Eintrag „Zwischenzeit“ der Chronik
+   * (`entry.downtime.activities`): „Langschwert herstellen (5 von 8 Tagen), mit Mira“.
+   */
+  activities: { characterId: string; text: string }[];
   /** Wer und was darin vorkommt: die Gefährten und die Gegenstände. */
   refs: string[];
+}
+
+/**
+ * Ob der fertige Gegenstand ohne eigene Wahl an den Besitzer des Vorhabens geht: nur, wenn er
+ * noch niemandem gehört (oder schon ihm). Was ein anderer hält, wechselt nur auf ausdrücklichen
+ * Wunsch den Besitzer.
+ */
+export function keepByDefault(
+  data: Pick<CampaignData, 'entities'>,
+  itemId: string | null,
+  ownerId: string | null,
+): boolean {
+  const item = itemId ? data.entities[itemId] : undefined;
+  if (item?.kind !== 'item') return true;
+  return !item.item.holderId || item.item.holderId === ownerId;
 }
 
 const number = (n: number) => n.toLocaleString('de-DE');
@@ -136,7 +156,8 @@ export function planDowntime(
   const days = Math.max(0, Math.floor(input.days));
   const helpersOf = new Map<string, string[]>();
   for (const { characterId, projectKey } of input.work) {
-    if (!data.entities[characterId]) continue;
+    // Freie Zeit haben die Gefährten.
+    if (data.entities[characterId]?.kind !== 'character') continue;
     const list = helpersOf.get(projectKey) ?? [];
     if (!list.includes(characterId)) list.push(characterId);
     helpersOf.set(projectKey, list);
@@ -170,7 +191,9 @@ export function planDowntime(
       target,
       finished,
       doneAfter: finished ? Math.max(0, Math.ceil((target - before) / helpers.length)) : null,
-      keep: input.keep?.[key] ?? true,
+      keep:
+        input.keep?.[key] ??
+        keepByDefault(data, item ? item.id : null, track ? track.ownerId : project!.ownerId),
     });
   }
   const parts = progress.map(
@@ -179,13 +202,22 @@ export function planDowntime(
   const text = parts.length
     ? `Freie Zeit, ${dayWord(days)}: ${parts.join('; ')}.`
     : `Freie Zeit, ${dayWord(days)}.`;
+  const activities = progress.flatMap((p) =>
+    p.helpers.map((characterId) => {
+      const others = p.helpers.filter((id) => id !== characterId).map(nameOf);
+      return {
+        characterId,
+        text: `${progressLine(p)}${others.length ? `, mit ${joinNames(others)}` : ''}`,
+      };
+    }),
+  );
   const refs = [
     ...new Set([
       ...progress.flatMap((p) => p.helpers),
       ...progress.flatMap((p) => (p.itemId ? [p.itemId] : [])),
     ]),
   ];
-  return { days, progress, text, refs };
+  return { days, progress, text, activities, refs };
 }
 
 /** Fertige Vorhaben, deren Gegenstand jetzt jemandem gehören soll: Gegenstand und neuer Besitzer. */

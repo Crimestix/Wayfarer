@@ -168,4 +168,15 @@ describe('Rezepte in der Welt', () => {
       qty: '3 Barren',
     });
   });
+
+  it('behält beim Löschen den heutigen Namen einer umbenannten Zutat', async () => {
+    const { db, data, kettle, ore } = await setup();
+    db.patch('entities', ore.id, { name: 'Graufelser Stahl' });
+    deleteEntity(db, ore.id);
+    const after = data().entities[kettle.id] as Item;
+    expect(after.item.recipe?.ingredients[0]).toMatchObject({
+      entityId: null,
+      text: 'Graufelser Stahl',
+    });
+  });
 });

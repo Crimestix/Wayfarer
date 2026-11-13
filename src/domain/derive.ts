@@ -113,7 +113,13 @@ export const linksTo = (entity: Entity, targetId: string): boolean =>
  * Der Eintrag mit allen Einzelangaben, die auf `targetId` zeigen, ersetzt durch `replacement`. In
  * einer Liste fällt der Verweis ohne Ersatz heraus.
  */
-export function replaceLink(entity: Entity, targetId: string, replacement: string | null): Entity {
+export function replaceLink(
+  entity: Entity,
+  targetId: string,
+  replacement: string | null,
+  /** Der Name des Ziels – eine Zutat im Rezept behält ihn. */
+  targetName = '',
+): Entity {
   if (!linksTo(entity, targetId)) return entity;
   const kind = entity.kind as LinkKind;
   const details = { ...(entity as unknown as Record<string, Record<string, unknown>>)[kind] };
@@ -131,7 +137,7 @@ export function replaceLink(entity: Entity, targetId: string, replacement: strin
   }
   // Im Rezept fällt der Verweis weg; eine Zutat bleibt mit ihrem Namen stehen.
   if (entity.kind === 'item' && entity.item.recipe)
-    details.recipe = recipeWithout(entity.item.recipe, targetId);
+    details.recipe = recipeWithout(entity.item.recipe, targetId, targetName);
   return { ...entity, [kind]: details } as Entity;
 }
 

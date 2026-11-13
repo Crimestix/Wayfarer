@@ -101,12 +101,12 @@ export function RecipeSection({ item }: { item: Item }) {
               onSave={(toolText) => save({ toolText: toolText.trim() })}
             />
           </Field>
-          <Field label="Art">
+          <Field label="Magie">
             <Select
               value={recipe.rarity}
               onChange={(e) => save({ rarity: e.target.value as Recipe['rarity'] })}
             >
-              <option value="">Gewöhnlicher Gegenstand</option>
+              <option value="">Nicht magisch</option>
               {RARITIES.map((rarity) => (
                 <option key={rarity} value={rarity}>
                   Magisch, {MAGIC_RARITY_LABEL[rarity]} ({CRAFTING_RULES.magic[rarity].days} Tage,{' '}
@@ -116,7 +116,10 @@ export function RecipeSection({ item }: { item: Item }) {
             </Select>
           </Field>
           {recipe.rarity === '' && (
-            <Field label="Preis in Gold" hint="Grundlage: 10 Gold Wert je Arbeitstag">
+            <Field
+              label="Preis in Gold"
+              hint={`Grundlage: ${CRAFTING_RULES.goldPerDay} Gold Wert je Arbeitstag`}
+            >
               <NumberField
                 label="Preis in Gold"
                 value={priceText(recipe.price)}

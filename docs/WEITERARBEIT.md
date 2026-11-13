@@ -1513,6 +1513,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „Freie Zeit …“ auf der Gefährten-Seite: Tage vergehen, Vorhaben laufen als Fortschrittsleisten,
   ein Eintrag in der Chronik. Offen: abgelehnte Berufs-Vorschläge merken; Werkzeug der Gefährten
   (wer welches beherrscht) gibt es noch nicht – geteilt wird die Arbeit nach Wahl des Spielleiters.
+- **Gegengelesen: Handwerk, Berufe und freie Zeit.** Freie Zeit steht jetzt als „Zwischenzeit“ in
+  der Chronik (vorhandene Art, je Gefährte seine Tätigkeit, am Beginn) statt als lose Notiz; ein
+  Gegenstand, den schon ein anderer hält, wechselt nur auf ausdrücklichen Wunsch den Besitzer.
+  „Unbekannt“ oder „Keiner“ in der Zeile „Beruf“ wird kein Beruf; einige Ämter (Hafenmeister,
+  Zöllner, Vogt …) in der Liste. Rezept: „Magie – Nicht magisch“ statt „Art – Gewöhnlicher
+  Gegenstand“ (verwechselbar mit „magisch, gewöhnlich“); eine gelöschte Zutat behält ihren
+  heutigen Namen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

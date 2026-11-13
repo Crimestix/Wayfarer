@@ -106,6 +106,17 @@ describe('Berufe vorschlagen', () => {
     });
   });
 
+  it('macht aus „Unbekannt“ oder „Keiner“ keinen Beruf', async () => {
+    const { data, odo, mira } = await setup();
+    const { found } = professionSuggestions(data(), [
+      article({ title: 'Odo Tannhaus', ownerId: odo.id, professionLines: ['Unbekannt'] }),
+      article({ title: 'Mira Tannhaus', ownerId: mira.id, professionLines: ['Keiner (früher)'] }),
+    ]);
+    const names = found.map((s) => s.name);
+    expect(names).not.toContain('Unbekannt');
+    expect(names).not.toContain('Keiner');
+  });
+
   it('verbindet vorhandene Berufe nur mit Personen, die ihn noch nicht ausüben', async () => {
     const { db, data, brann } = await setup();
     const smith = db.put('entities', createEntity({ kind: 'profession', name: 'Schmied' }));

@@ -484,7 +484,15 @@ export function deleteEntity(db: CampaignDb, entityId: string): void {
     const grandparent = removed?.kind === 'place' ? removed.place.parentId : null;
     for (const other of Object.values(data.entities)) {
       if (other.id === entityId || !linksTo(other, entityId)) continue;
-      db.put('entities', replaceLink(other, entityId, other.kind === 'place' ? grandparent : null));
+      db.put(
+        'entities',
+        replaceLink(
+          other,
+          entityId,
+          other.kind === 'place' ? grandparent : null,
+          removed?.name ?? '',
+        ),
+      );
     }
     for (const event of Object.values(data.events))
       if (event.placeId === entityId || event.refs.includes(entityId))

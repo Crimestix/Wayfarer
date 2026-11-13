@@ -12,6 +12,7 @@ import {
   downtimeTracks,
   newProjectKey,
   itemsToHand,
+  keepByDefault,
   planDowntime,
   projectName,
   type NewProject,
@@ -152,8 +153,27 @@ describe('Freie Zeit verbringen', () => {
       done: true,
       downtime: { activity: 'craft', itemId: sword.id },
     });
-    const notes = Object.values(data().chronicle).filter((e) => e.text.startsWith('Freie Zeit'));
-    expect(notes.map((e) => e.text)).toEqual([result.text]);
+    // Ein Eintrag „Zwischenzeit“ am Beginn, je Gefährte seine Tätigkeit.
+    const entries = Object.values(data().chronicle).filter((e) => e.kind === 'downtime');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      at: now,
+      backfilled: false,
+      downtime: {
+        days: 5,
+        activities: [
+          {
+            characterId: corrin.id,
+            text: 'Langschwert herstellen (8 von 8 Tagen, fertig), mit Mira Tannhaus',
+          },
+          {
+            characterId: mira.id,
+            text: 'Langschwert herstellen (8 von 8 Tagen, fertig), mit Corrin',
+          },
+        ],
+      },
+    });
+    expect(entries[0]!.refs).toEqual(expect.arrayContaining([corrin.id, mira.id, sword.id]));
     expect(result.finished.map((p) => p.name)).toEqual(['Langschwert herstellen']);
     expect(result.handed).toEqual([{ item: 'Langschwert', holder: 'Corrin' }]);
     expect((data().entities[sword.id] as Item).item.holderId).toBe(corrin.id);
@@ -166,9 +186,44 @@ describe('Freie Zeit verbringen', () => {
     expect((data().entities[sword.id] as Item).item.holderId).toBeNull();
     expect(
       Object.values(data().chronicle).filter(
-        (e) => e.text.startsWith('Freie Zeit') || e.holder || e.kind === 'event',
+        (e) => e.kind === 'downtime' || e.holder || e.kind === 'event',
       ),
     ).toEqual([]);
+  });
+
+  it('nimmt einem anderen einen Gegenstand nur auf ausdrücklichen Wunsch', async () => {
+    const { db, data, corrin, odo, sword } = await setup();
+    db.put('entities', { ...sword, item: { ...sword.item, holderId: odo.id } });
+    const input = {
+      days: 8,
+      projects: [craft(corrin.id, sword.id)],
+      work: [{ characterId: corrin.id, projectKey: `neu:${corrin.id}` }],
+    };
+    expect(keepByDefault(data(), sword.id, corrin.id)).toBe(false);
+    expect(itemsToHand(data(), planDowntime(data(), input))).toEqual([]);
+    const keep = { [`neu:${corrin.id}`]: true };
+    expect(itemsToHand(data(), planDowntime(data(), { ...input, keep }))).toEqual([
+      { itemId: sword.id, holderId: corrin.id },
+    ]);
+  });
+
+  it('zählt nur Gefährten', async () => {
+    const { db, data, corrin } = await setup();
+    const brann = db.put('entities', createEntity({ kind: 'person', name: 'Brann Eichwald' }));
+    const plan = planDowntime(data(), {
+      days: 2,
+      projects: [],
+      work: [
+        { characterId: brann.id, projectKey: 'neu:x' },
+        { characterId: corrin.id, projectKey: 'neu:x' },
+      ],
+    });
+    expect(plan.progress).toEqual([]);
+    expect(plan.activities).toEqual([]);
+    expect(plan.text).toBe('Freie Zeit, 2 Tage.');
+    // Ohne Vorhaben steht trotzdem eine Zwischenzeit in der Chronik.
+    spendDowntime(db, { days: 2, projects: [], work: [] });
+    expect(Object.values(data().chronicle).filter((e) => e.kind === 'downtime')).toHaveLength(1);
   });
 
   it('tut ohne ganze Tage nichts', async () => {
