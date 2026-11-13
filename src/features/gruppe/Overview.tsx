@@ -9,6 +9,7 @@ import { Badge, Button, EmptyState, IconButton, Panel, Portrait, SectionTitle, c
 import { openRest } from '../../shell/commands';
 import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
+import { OnTheRoad } from './OnTheRoad';
 import {
   classLine,
   exhaustionEffect,
@@ -326,6 +327,7 @@ export function Overview({
             {active.length > 0 ? (
               <>
                 <SummaryBand summary={summary} />
+                <OnTheRoad />
                 <div className="wf-gruppe-grid" data-count={Math.min(active.length, 6)}>
                   {active.map((c) => (
                     <CharacterCard

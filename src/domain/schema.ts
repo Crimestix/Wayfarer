@@ -90,6 +90,8 @@ export const PlayStateSchema = z.object({
    * (`boardLayout` in `domain/story.ts`).
    */
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
+  /** Marschordnung: Reihen von vorn nach hinten, je Reihe die Gefährten (`gruppe/march.ts`). */
+  march: z.array(z.array(id)).default([]),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

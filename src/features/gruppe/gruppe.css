@@ -1347,3 +1347,95 @@
   flex: none;
   font-size: var(--text-xs);
 }
+
+/* Unterwegs: Marschordnung, Licht, Gold */
+.wf-gruppe-road {
+  flex: none;
+}
+.wf-gruppe-road > .wf-panel__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+}
+.wf-gruppe-road__march {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--s-2) var(--s-4);
+}
+.wf-gruppe-road__row {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: center;
+  padding: 3px 0;
+}
+.wf-gruppe-road__row + .wf-gruppe-road__row {
+  border-top: 1px dashed var(--line-faint);
+}
+.wf-gruppe-road__label {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-gruppe-road__members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  min-width: 0;
+}
+.wf-gruppe-road__member {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.wf-gruppe-road__name {
+  margin-right: var(--s-1);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wf-gruppe-road__name:hover {
+  color: var(--gold-bright);
+}
+.wf-gruppe-road__sign {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: var(--s-1);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-gruppe-road__sign svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-gruppe-road__sign--light {
+  color: var(--ember);
+}
+.wf-gruppe-road__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: var(--s-1) var(--s-3);
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  border-left: 1px solid var(--line-faint);
+}
+.wf-gruppe-road__facts dt {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wf-gruppe-road__facts dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}

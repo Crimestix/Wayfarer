@@ -277,6 +277,9 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+- Marschordnung: Reihen von vorn nach hinten in `state.march`; gelesen über `marchRows()`
+  (`gruppe/march.ts`) – wer nicht dabei ist, fällt weg, Neue gehen hinten mit. Der Kasten
+  „Unterwegs“ auf der Gefährten-Seite zeigt dazu Dunkelsicht, Lichter (`timer.refs`) und das Gold.
 - Lebensdaten: `entity.born` / `entity.ended` (Tag, Monat oder Jahr, `DatePoint`). Alter, Gründung
   und „vor N Jahren“ rechnet `lifeFacts()` (`domain/lifespan.ts`) – nie ein Alter speichern. Gelesen
   wird über `readDatePoint` („3. Tauwind 667“, „667“, „vor 300 Jahren“, „Alter 34“), auch aus dem
