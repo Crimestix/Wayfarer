@@ -320,6 +320,12 @@ nicht übernommen.
   Steckbrief (Geboren, Alter, Gegründet, Gestorben …). Ein Tod aus der Chronik zählt ohne Tag.
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
   anwesend, sie stehen für sich in `lost`.
+- Kontinuität („Passt nicht zusammen“, `domain/continuity.ts`): `continuityIssues()` meldet
+  Widersprüche leise – auf „Noch offen“ und als Hinweis auf der Seite eines Eintrags, nie als
+  Rückfrage oder Toast. Geprüft wird nach Eintrag (id), nie nach Namen; gleiche Namen sind nur ein
+  Hinweis. Jeder Punkt hat einen stabilen `key`; „Passt so“ (`markContinuityOk`,
+  `features/offen/actions.ts`) merkt ihn in `state.continuityOk`. Neue Prüfungen dort eintragen,
+  nie in der Oberfläche; Nachgetragenes und Ungefähres taugt nicht für einen Widerspruch.
 - Lebendige Welt: Was eindeutig folgt, geschieht von selbst und still (Zustand statt Meldung);
   alles, was Geschichte ist, bleibt Vorschlag. Was abseits der Gruppe geschieht, sammelt
   `worldTurn()` (`domain/worldTurn.ts`) für die Seite „Weltgeschehen“ – nach Gewicht

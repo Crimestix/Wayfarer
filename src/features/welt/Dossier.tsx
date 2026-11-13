@@ -22,6 +22,7 @@ import {
   toast,
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
+import { ContinuityNote } from '../offen/ContinuityItem';
 import { ArticlePage } from '../wiki';
 import { createArticle } from '../wiki/actions';
 import { deleteEntityUndoable } from './actions';
@@ -171,6 +172,8 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           </IconButton>
         </div>
       </header>
+
+      <ContinuityNote entityId={entity.id} />
 
       {(entity.kind === 'person' || entity.kind === 'faction') && <AttitudeBand entity={entity} />}
 

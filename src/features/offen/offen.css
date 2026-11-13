@@ -27,3 +27,68 @@
 .wf-offen-item__settle {
   margin-left: auto;
 }
+
+/* Passt nicht zusammen: der Satz, darunter die Verweise und der Eintrag der Chronik. */
+.wf-offen-issue {
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid var(--line);
+}
+.wf-offen-issue:last-child {
+  border-bottom: 0;
+}
+.wf-offen-issue--warn {
+  border-left-color: var(--blood);
+}
+.wf-offen-issue__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4) 0;
+}
+.wf-offen-issue__text {
+  flex: 1;
+  margin: 0;
+  color: var(--ink-soft);
+}
+.wf-offen-issue__ok {
+  flex: none;
+}
+.wf-offen-issue__refs {
+  padding: var(--s-1) var(--s-4) var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+
+/* Auf der Seite eines Eintrags: ein ruhiger Hinweis unter dem Kopf. */
+.wf-offen-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-offen-note--warn {
+  border-left-color: var(--blood);
+}
+.wf-offen-note__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--ink-faint);
+}
+.wf-offen-note__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.wf-offen-note__body p {
+  margin: 0;
+}
+.wf-offen-note__more {
+  color: var(--gold);
+  font-size: var(--text-xs);
+}

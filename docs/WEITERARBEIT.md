@@ -1427,6 +1427,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   an; ein Treffer der Suche öffnet die Vermutung; ein besuchter Raum gilt auf seiner Seite als
   bekannt; übergebene Handouts stehen mit Unterschrift im Buch. Offen bleibt, ob Veränderungen
   abseits der Gruppe (`change`, `fate`, `whereabouts`) für die Spieler verborgen bleiben sollen.
+- **Passt nicht zusammen:** `domain/continuity.ts` prüft Tote und Verschollene, die danach noch
+  handeln; zweimal ausgegebene Gegenstände und tote Besitzer; Lebensdaten (Geburt nach Tod oder in
+  der Zukunft, Kind vor den Eltern oder lange nach deren Tod, Chronik vor der Geburt); Reisen
+  schneller als der kürzeste bekannte Weg (schnelles Tempo, trocken); Verweise auf Gelöschtes;
+  gleiche Namen. Eigener Kasten auf „Noch offen“ mit „Passt so“, leiser Hinweis auf der Seite
+  eines Eintrags. Reittiere und Zauber kennt die Reiseprüfung nicht – dafür ist „Passt so“ da.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

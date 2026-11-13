@@ -92,6 +92,11 @@ export const PlayStateSchema = z.object({
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
   /** Marschordnung: Reihen von vorn nach hinten, je Reihe die Gefährten (`gruppe/march.ts`). */
   march: z.array(z.array(id)).default([]),
+  /**
+   * „Passt so“: Widersprüche, die der Spielleiter für richtig erklärt hat – je Punkt sein
+   * Schlüssel aus `continuityIssues` (`domain/continuity.ts`).
+   */
+  continuityOk: z.array(z.string()).default([]),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

@@ -2,10 +2,12 @@
  * „Noch offen“: was die Gruppe angestoßen und nie zu Ende gebracht hat – offene Abmachungen,
  * ungeprüfte Gerüchte, Wünsche der Spieler, Orte, an denen sie nie ankam, und alles, was der
  * Spielleiter in der Chronik angeheftet hat. Die Rechnung steht in `domain/looseEnds.ts`.
+ * Darunter, leise: was nicht zusammenpasst (`domain/continuity.ts`).
  */
 import { useMemo } from 'react';
 import { Check, Pin } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { continuityIssues } from '../../domain/continuity';
 import {
   LOOSE_REASON_LABEL,
   looseEnds,
@@ -14,6 +16,7 @@ import {
   type LooseEnd,
 } from '../../domain/looseEnds';
 import { ChronicleItem, EmptyState, IconButton, Panel, toast } from '../../ui';
+import { ContinuityItem } from './ContinuityItem';
 import './offen.css';
 
 export default function OffenPage() {
@@ -21,6 +24,7 @@ export default function OffenPage() {
   const ends = useMemo(() => looseEnds(data), [data]);
   const here = ends.filter((end) => end.here);
   const groups = looseGroups(ends.filter((end) => !end.here));
+  const issues = useMemo(() => continuityIssues(data), [data]);
   return (
     <div className="wf-page">
       <header className="wf-page__head">
@@ -32,7 +36,7 @@ export default function OffenPage() {
         )}
       </header>
       <div className="wf-page__body wf-offen-body">
-        {ends.length === 0 ? (
+        {ends.length === 0 && issues.length === 0 ? (
           <EmptyState icon={<Pin />} title="Nichts hängt offen">
             Hier erscheint, was die Gruppe angestoßen und nie beendet hat: offene Abmachungen,
             Gerüchte, die niemand geprüft hat, Wünsche der Spieler, entdeckte Orte, an denen sie nie
@@ -59,6 +63,13 @@ export default function OffenPage() {
                 ))}
               </Panel>
             ))}
+            {issues.length > 0 && (
+              <Panel title="Passt nicht zusammen" count={issues.length} flush>
+                {issues.map((issue) => (
+                  <ContinuityItem key={issue.key} issue={issue} />
+                ))}
+              </Panel>
+            )}
           </div>
         )}
       </div>
