@@ -1466,6 +1466,20 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Klick auf einen Namen ließ die angefangene Mitschrift verschwinden (bleibt jetzt stehen); im
   Festhalten-Dialog sind die Namen keine Verweise mehr. Ein Test hing an der Reihenfolge zweier
   Ortswechsel in derselben Minute (behoben).
+- **Statblock-Editor:** eigene Seite statt Dialog (`/bestiarium/neu`, `…/neu/variante/<id>`,
+  `…/neu/einzelner/<id>`, `/bestiarium/<id>/bearbeiten`; `bestiarium/CreatureEditor.tsx`, Teile
+  in `EditorParts.tsx`, Entwurf und Rückgängig in `draft.ts`). Links Abschnitte mit Sprungleiste,
+  rechts der Statblock, der mitläuft, mit Einschätzung und Richtwerten (`crGuide`). Typ und
+  Gesinnung zum Wählen, Attribute als Kästen mit Rettungswurf, Schadensarten zum Durchklicken
+  (resistent → immun → anfällig), Zustände als Chips, Sprachen als Chips aus der Welt; Spezies,
+  Sprache und Fähigkeit lassen sich in der Welt anlegen (`keepInWorld`, nie doppelt). Bibliothek
+  aller Fähigkeiten aus Bestiarium und Welt, Gerüste (Mehrfachangriff, Nah-/Fernkampf, Rettungswurf
+  mit Aufladung, Zauberwirken, legendäre Resistenz/Aktion), Platzhalter `[SG KON]`, `[ANG STÄ]`,
+  `[2W6 STÄ]` (`domain/creatureParts.ts`). Neu im Schema: `feature.uses`, `block.legendaryUses`.
+  Strg+Z/Strg+Umschalt+Z/Strg+S; ungespeicherte Entwürfe bleiben liegen, bis man zurückkommt.
+  Nach „Text einfügen“ öffnet der Editor mit dem, was nicht verstanden wurde. Geprüft in der
+  Vorschau bei 1440×900 und 1280×800; nicht in der installierten App. Nicht gebaut: auf einen
+  anderen HG skalieren, Hort- und regionale Aktionen als eigene Abschnitte, Ziehen zum Umordnen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

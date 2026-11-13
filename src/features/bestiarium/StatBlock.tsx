@@ -22,7 +22,7 @@ import {
 } from '../../domain/creature';
 import { fillPlaceholders } from '../../domain/creatureParts';
 import { ABILITY_KEYS, FEATURE_SECTIONS, type CreatureBlock } from '../../domain/schema';
-import { Button, IconButton, Input, cx } from '../../ui';
+import { Button, EntityLink, IconButton, Input, cx } from '../../ui';
 import { setCreatureHp } from './actions';
 import { rollAttack, rollDamage, type Roll } from './model';
 
@@ -250,13 +250,20 @@ export function StatBlock({
       )}
 
       <footer className="wf-best-foot">
+        {creature.speciesId && (
+          <div className="wf-best-line">
+            <b>Spezies</b> <EntityLink id={creature.speciesId} />
+          </div>
+        )}
         {line('Lebensraum', block.habitat)}
         {line('Schatz', block.treasure)}
         {line('Quelle', resolved.source)}
         {creature.notes && <p className="wf-prose">{creature.notes}</p>}
-        <p className={cx('wf-best-check', `wf-best-check--${check.verdict}`)}>
-          <b>Einschätzung:</b> {check.text} Merkmale und Zauber rechnet die Faustregel nicht mit.
-        </p>
+        {!preview && (
+          <p className={cx('wf-best-check', `wf-best-check--${check.verdict}`)}>
+            <b>Einschätzung:</b> {check.text} Merkmale und Zauber rechnet die Faustregel nicht mit.
+          </p>
+        )}
       </footer>
     </article>
   );

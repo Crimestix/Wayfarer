@@ -194,6 +194,12 @@ nicht übernommen.
   Bestände (`stocks/`, `domain/stock.ts`) sind Baue und Horte an Orten; Verluste kommen nur
   über `loseFromGroup` oder `bookLosses` hinein, Bewohner nur über `fieldFromStock` in eine
   Begegnung – so wird niemand doppelt gezählt.
+  Gebaut wird auf der Seite `bestiarium/CreatureEditor` (nie wieder ein Dialog): Entwurf,
+  Vorschau und Rückgängig über `bestiarium/draft.ts`; Regelbegriffe, Abwehr, Sprachen, die
+  Bibliothek der Fähigkeiten (`featureLibrary`), Gerüste (`FEATURE_TEMPLATES`) und Platzhalter
+  im Text (`fillPlaceholders`, `[SG KON]`) in `domain/creatureParts.ts`. Was in der Welt fehlt
+  (Spezies, Sprache, Fähigkeit), legt `keepInWorld` an – gibt es den Namen schon, bleibt es bei
+  dem Eintrag. Gerüste sind leere Formen in eigenen Worten, nie Buchtexte.
 - Wege: Ein Weg (`paths/`) verbindet zwei Orte und hat eine Dauer – fest in Minuten oder aus
   seiner Länge gerechnet (`wayMinutes`). Orte sind die Punkte, Wege die Verbindungen
   (`waysFrom`, `routeBetween`). Die Gruppe bewegt sich über `walk` / `walkRoute`

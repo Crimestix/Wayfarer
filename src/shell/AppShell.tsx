@@ -17,6 +17,7 @@ import ChronikPage from '../features/chronik';
 import EinstellungenPage from '../features/einstellungen';
 import AtlasPage from '../features/atlas';
 import BestiariumPage from '../features/bestiarium';
+import CreatureEditorPage from '../features/bestiarium/CreatureEditor';
 import EncountersPage from '../features/bestiarium/Encounters';
 import StocksPage from '../features/bestiarium/Stocks';
 import AbendPage from '../features/abend';
@@ -100,6 +101,7 @@ const GeschichtenAbend = storyPage(AbendPage);
 const GeschichtenHandouts = storyPage(HandoutsPage);
 const GeschichtenOffen = storyPage(OffenPage);
 const BestiariumWesen = beastPage(BestiariumPage);
+const BestiariumBearbeiten = beastPage(CreatureEditorPage);
 const BestiariumBegegnungen = beastPage(EncountersPage);
 const BestiariumBestaende = beastPage(StocksPage);
 const ZeitKalender = timePage(KalenderPage);
@@ -399,6 +401,8 @@ export function AppShell() {
             <Route path="/abend" component={GeschichtenAbend} />
             <Route path="/handouts" component={GeschichtenHandouts} />
             <Route path="/offen" component={GeschichtenOffen} />
+            <Route path="/bestiarium/neu/:art?/:erbt?" component={BestiariumBearbeiten} />
+            <Route path="/bestiarium/:id/bearbeiten" component={BestiariumBearbeiten} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/bestaende/:id?" component={BestiariumBestaende} />

@@ -7,6 +7,7 @@ import { useDb } from '../../data/hooks';
 import type { Creature } from '../../domain/schema';
 import { Button, Dialog, Field, Input, TextArea } from '../../ui';
 import { importStatblock } from './actions';
+import { noteImport } from './draft';
 import { missingOf, parseStatblock, readSummary } from './parse';
 
 export function PasteDialog({
@@ -36,9 +37,14 @@ export function PasteDialog({
           <Button
             variant="primary"
             disabled={!parsed}
-            onClick={() => parsed && onSaved(importStatblock(db, parsed, source))}
+            onClick={() => {
+              if (!parsed) return;
+              const creature = importStatblock(db, parsed, source);
+              noteImport(creature.id, { missing, unread: parsed.unread, notes: parsed.notes });
+              onSaved(creature);
+            }}
           >
-            Übernehmen
+            Übernehmen und prüfen
           </Button>
         </>
       }

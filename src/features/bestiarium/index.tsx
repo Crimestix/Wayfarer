@@ -10,14 +10,11 @@ import { useData, useDb } from '../../data/hooks';
 import { CRS, KIND_LABEL, creatureChildren } from '../../domain/creature';
 import type { Creature } from '../../domain/schema';
 import { Button, EmptyState, IconButton, Input, Select, confirmDialog, cx } from '../../ui';
-import { makeIndividual, makeVariant, removeCreature } from './actions';
-import { CreatureDialog } from './CreatureDialog';
+import { removeCreature } from './actions';
 import { NO_FILTER, creatureFacets, creatureRows, type CreatureFilter } from './model';
 import { PasteDialog } from './PasteDialog';
 import { StatBlock } from './StatBlock';
 import './bestiarium.css';
-
-type OpenDialog = { type: 'edit'; creature: Creature | null } | { type: 'paste' } | null;
 
 export default function BestiariumPage() {
   const db = useDb();
@@ -25,7 +22,7 @@ export default function BestiariumPage() {
   const [, navigate] = useLocation();
   const params = useParams<{ id?: string }>();
   const [filter, setFilter] = useState<CreatureFilter>(NO_FILTER);
-  const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [pasting, setPasting] = useState(false);
   const set = (change: Partial<CreatureFilter>) =>
     setFilter((before) => ({ ...before, ...change }));
 
@@ -63,14 +60,14 @@ export default function BestiariumPage() {
           <Button
             variant="primary"
             icon={<Plus aria-hidden />}
-            onClick={() => setDialog({ type: 'edit', creature: null })}
+            onClick={() => navigate('/bestiarium/neu')}
           >
             Neues Wesen
           </Button>
           <Button
             icon={<ClipboardPaste aria-hidden />}
             title="Einen Statblock als Text einfügen – aus einem Buch, von D&D Beyond oder aus eigenen Notizen"
-            onClick={() => setDialog({ type: 'paste' })}
+            onClick={() => setPasting(true)}
           >
             Text einfügen
           </Button>
@@ -186,13 +183,7 @@ export default function BestiariumPage() {
                     size="sm"
                     icon={<CopyPlus aria-hidden />}
                     title="Erbt diesen Statblock und hält nur fest, was abweicht"
-                    onClick={() => {
-                      const variant = makeVariant(db, current.id);
-                      if (variant) {
-                        open(variant.id);
-                        setDialog({ type: 'edit', creature: variant });
-                      }
-                    }}
+                    onClick={() => navigate(`/bestiarium/neu/variante/${current.id}`)}
                   >
                     Variante
                   </Button>
@@ -200,13 +191,7 @@ export default function BestiariumPage() {
                     size="sm"
                     icon={<UserPlus aria-hidden />}
                     title="Ein bestimmtes Wesen mit Namen und eigenen Trefferpunkten"
-                    onClick={() => {
-                      const single = makeIndividual(db, current.id, current.name);
-                      if (single) {
-                        open(single.id);
-                        setDialog({ type: 'edit', creature: single });
-                      }
-                    }}
+                    onClick={() => navigate(`/bestiarium/neu/einzelner/${current.id}`)}
                   >
                     Einzelner
                   </Button>
@@ -215,9 +200,9 @@ export default function BestiariumPage() {
               <Button
                 size="sm"
                 icon={<Pencil aria-hidden />}
-                onClick={() => setDialog({ type: 'edit', creature: current.resolved.creature })}
+                onClick={() => navigate(`/bestiarium/${current.id}/bearbeiten`)}
               >
-                Ändern
+                Bearbeiten
               </Button>
               <IconButton
                 size="sm"
@@ -234,23 +219,13 @@ export default function BestiariumPage() {
         )}
       </div>
 
-      {dialog?.type === 'edit' && (
-        <CreatureDialog
-          key={dialog.creature?.id ?? 'neu'}
-          creature={dialog.creature}
-          onClose={() => setDialog(null)}
-          onSaved={(creature) => {
-            setDialog(null);
-            open(creature.id);
-          }}
-        />
-      )}
-      {dialog?.type === 'paste' && (
+      {pasting && (
         <PasteDialog
-          onClose={() => setDialog(null)}
+          onClose={() => setPasting(false)}
           onSaved={(creature) => {
-            setDialog(null);
-            open(creature.id);
+            setPasting(false);
+            // Gleich prüfen und ergänzen: Was Wayfarer nicht verstanden hat, steht dort oben.
+            navigate(`/bestiarium/${creature.id}/bearbeiten`);
           }}
         />
       )}
