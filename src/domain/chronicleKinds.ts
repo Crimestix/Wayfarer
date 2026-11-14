@@ -130,7 +130,7 @@ export const KIND_LABEL: Record<ChronicleKind, string> = {
   reveal: 'Aufgedeckt',
   knowledge: 'Wer was weiß',
   writing: 'Schriftstück',
-  downtime: 'Zwischenzeit',
+  downtime: 'Freie Zeit',
   transformation: 'Wandlung',
   companion: 'Begleiter',
   trade: 'Handel',
@@ -488,7 +488,7 @@ export function recordHeadline(data: CampaignData, entry: ChronicleEntry): strin
     }
     case 'downtime': {
       const days = entry.downtime?.days ?? 0;
-      return days > 0 ? `Zwischenzeit: ${daysLabel(days)}` : 'Zwischenzeit';
+      return days > 0 ? `Freie Zeit: ${daysLabel(days)}` : 'Freie Zeit';
     }
     case 'transformation':
       return entry.transformation

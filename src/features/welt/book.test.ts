@@ -76,6 +76,11 @@ describe('Befehle für Bücher', () => {
     resetBookPage(w.db, w.book.id, w.herb.id);
     page = bookPages(w.db.getSnapshot(), w.item())[0]!;
     expect(page).toMatchObject({ own: false, text: 'Brennt.' });
+    // Leer gespeichert setzt ebenfalls zurück.
+    writeBookPage(w.db, w.book.id, w.herb.id, 'Brennt nie.', source);
+    writeBookPage(w.db, w.book.id, w.herb.id, '  ', source);
+    page = bookPages(w.db.getSnapshot(), w.item())[0]!;
+    expect(page).toMatchObject({ own: false, text: 'Brennt.' });
   });
 
   it('lässt einen Eintrag weg und nimmt eine Seite als Handout', async () => {

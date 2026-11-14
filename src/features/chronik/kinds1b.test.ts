@@ -251,7 +251,7 @@ describe('Als Text', () => {
       }),
     );
     expect(entryPlainText(db.getSnapshot(), downtime)).toBe(
-      'Zwischenzeit: 1 Woche [Hohenfurt]\n- Brann Eichwald: schmiedet',
+      'Freie Zeit: 1 Woche [Hohenfurt]\n- Brann Eichwald: schmiedet',
     );
     const job = ok(
       recordEntry(db, {

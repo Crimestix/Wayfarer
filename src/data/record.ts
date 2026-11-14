@@ -409,7 +409,7 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       const d = input.downtime;
       const days = d?.days ?? 0;
       if (!Number.isInteger(days) || days < 0 || days > MAX_DOWNTIME_DAYS)
-        return { problem: 'Die Zwischenzeit ist keine Zahl von Tagen.' };
+        return { problem: 'Die freie Zeit ist keine Zahl von Tagen.' };
       const activities: { characterId: string; text: string }[] = [];
       for (const activity of d?.activities ?? []) {
         const words = activity.text.trim();
@@ -419,7 +419,7 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
         activities.push({ characterId: activity.characterId, text: words });
       }
       if (!days && !text && !activities.length)
-        return { problem: 'Wie lange dauert die Zwischenzeit?' };
+        return { problem: 'Wie lange dauert die freie Zeit?' };
       refs = [...new Set([...refs, ...activities.map((a) => a.characterId)])];
       return { entry: probe({ placeId, refs, downtime: { days, activities }, ...rest() }) };
     }

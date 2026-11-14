@@ -363,9 +363,7 @@ function headlineOf(
     }
     case 'downtime':
       return {
-        node: entry.downtime?.days
-          ? `Zwischenzeit: ${daysLabel(entry.downtime.days)}`
-          : 'Zwischenzeit',
+        node: entry.downtime?.days ? `Freie Zeit: ${daysLabel(entry.downtime.days)}` : 'Freie Zeit',
         ids: (entry.downtime?.activities ?? []).map((a) => a.characterId),
       };
     case 'transformation': {

@@ -247,7 +247,7 @@ export function DowntimeDialog({
               </p>
             )}
             <div className="wf-gruppe-downtime__entry">
-              In der Chronik: Zwischenzeit, {days === 1 ? 'ein Tag' : `${days} Tage`}
+              In der Chronik: Freie Zeit, {days === 1 ? 'ein Tag' : `${days} Tage`}
               {plan.activities.length > 0 && (
                 <ul>
                   {plan.activities.map((activity) => (

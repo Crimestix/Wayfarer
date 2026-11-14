@@ -190,7 +190,10 @@ export default function ZeitleistePage() {
   const bands = useMemo(() => evenings(data), [data]);
   const empty = lanes.every((lane) => lane.pieces.length === 0) && bands.length === 0;
 
-  // Mausrad: zoomen um die Stelle unter der Maus; waagrecht (oder mit Umschalt) verschieben.
+  // Mausrad und Trackpad: Strg/⌘ (oder zwei Finger auseinander, das meldet der Browser als Strg)
+  // zoomt um die Stelle unter der Maus; waagrecht (oder mit Umschalt) verschiebt. Senkrecht
+  // blättert durch die Bahnen, solange es dort etwas zu blättern gibt – sonst zoomt auch das
+  // einfache Mausrad (am Laptop wischt man so nie aus Versehen in die Jahrhunderte).
   useEffect(() => {
     const el = stage.current;
     if (!el) return;
@@ -198,9 +201,12 @@ export default function ZeitleistePage() {
       const rect = el.getBoundingClientRect();
       const x = event.clientX - rect.left - HEAD_W;
       if (x < 0) return;
+      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey;
+      const zoomKey = event.ctrlKey || event.metaKey;
+      const canScroll = el.scrollHeight > el.clientHeight + 1;
+      if (!horizontal && !zoomKey && canScroll) return;
       event.preventDefault();
       setHover(null);
-      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey;
       setView((current) => {
         if (!current) return current;
         if (horizontal) return panView(current, -(event.shiftKey ? event.deltaY : event.deltaX));
@@ -326,8 +332,8 @@ export default function ZeitleistePage() {
         <div>
           <h1 className="wf-page__title">Zeitleiste</h1>
           <p className="wf-page__lead">
-            Was war und was kommt – Bahn für Bahn. Mausrad zoomt, Ziehen verschiebt, ein Klick
-            öffnet.
+            Was war und was kommt – Bahn für Bahn. Zoomen mit Strg/⌘ und Mausrad oder zwei Fingern,
+            Ziehen verschiebt, ein Klick öffnet.
           </p>
         </div>
         <span className="wf-grow" />

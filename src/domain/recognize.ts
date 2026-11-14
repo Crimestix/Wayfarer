@@ -1279,7 +1279,7 @@ const SPAN = new RegExp(
   `(?<![\\p{L}\\p{N}])(${AMOUNT})\\s+(Tage|Tagen|Tag|Wochen|Woche|Monate|Monaten|Monat|Jahre|Jahren|Jahr)(?![\\p{L}\\p{N}])`,
   'giu',
 );
-const DOWNTIME_WORD = words('Zwischenzeit|Downtime|Auszeit|Ruhezeit|Ruhepause');
+const DOWNTIME_WORD = words('Freie Zeit|Zwischenzeit|Downtime|Auszeit|Ruhezeit|Ruhepause');
 const PASSING = words(
   'vergehen|vergeht|verging|vergingen|vergangen|später|danach|Pause|Ruhe|verbringen|verbrachten|verbringt|verbrachte',
 );

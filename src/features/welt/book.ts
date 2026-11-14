@@ -94,6 +94,9 @@ export function writeBookPage(
 ): void {
   const book = current(db, itemId);
   if (!book) return;
+  // Leer gespeichert heißt: zurück zum Artikel (eine leere Seite „in den Worten des Verfassers“
+  // wäre nie gemeint). Weglassen geht über „Aus dem Buch nehmen“.
+  if (!text.trim()) return resetBookPage(db, itemId, entityId);
   patchBook(db, itemId, { pages: { ...book.pages, [entityId]: { text, base } } });
 }
 

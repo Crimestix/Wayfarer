@@ -182,7 +182,7 @@ describe('Zwischenzeit', () => {
       activities: [{ characterId: brann.id, text: 'lernt Zwergisch' }],
     });
     expect(entry.refs).toContain(brann.id);
-    expect(recordHeadline(data(db), entry)).toBe('Zwischenzeit: 6 Wochen');
+    expect(recordHeadline(data(db), entry)).toBe('Freie Zeit: 6 Wochen');
     expect(entry.backfilled).toBe(true);
   });
 

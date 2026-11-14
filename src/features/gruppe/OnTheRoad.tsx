@@ -98,6 +98,9 @@ export function OnTheRoad() {
           }
         >
           {road.groupGold !== 0 ? formatSigned(road.groupGold) : '–'}
+          {road.groupGold < 0 && (
+            <span className="wf-mute"> – mehr ausgegeben, als im Beute-Buch steht</span>
+          )}
           {road.totalGold !== road.groupGold && (
             <span className="wf-mute"> · alles zusammen {formatSigned(road.totalGold)}</span>
           )}{' '}
