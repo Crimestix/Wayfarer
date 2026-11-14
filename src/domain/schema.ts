@@ -216,6 +216,14 @@ const entityBase = {
    * bleibt er gleich, bleibt stehen, was seither von Hand geändert wurde.
    */
   fromArticle: z.record(z.string(), z.string()).default({}),
+  /**
+   * Platzhalter, noch zu schreiben: beim Schreiben einer Geschichte angelegt (`addFromWriting`),
+   * mit Namen, Art und höchstens einem Satz. Gefragt wird über `isStub()` (`domain/stub.ts`) –
+   * sobald etwas Eigenes dasteht, gilt er von selbst nicht mehr als Platzhalter.
+   */
+  stub: z.boolean().default(false),
+  /** Die Geschichte, bei deren Schreiben der Eintrag entstand. */
+  fromStoryId: id.nullable().default(null),
 };
 
 export const PERSON_STATUS = ['alive', 'dead', 'missing', 'unknown'] as const;
@@ -1427,6 +1435,11 @@ export const StorySchema = z.object({
   inPlay: z.boolean().default(false),
   /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
   memo: z.string().default(''),
+  /**
+   * Namen aus dem Text des Blatts, die der Spielleiter weggeklickt hat („nicht gemeint“): die
+   * Kennung eines Eintrags oder ein unbekannter Name (`writtenNames` in `domain/written.ts`).
+   */
+  notMeant: z.array(z.string()).default([]),
 });
 export type Story = z.infer<typeof StorySchema>;
 

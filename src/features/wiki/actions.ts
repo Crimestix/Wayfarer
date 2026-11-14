@@ -98,11 +98,20 @@ export function linkTwins(db: CampaignDb): Entity[] {
   return found.map((twin) => twin.entity);
 }
 
+/** Was ein neuer Eintrag gleich mitbekommt – etwa den einen Satz und „Platzhalter“. */
+export type EntityExtras = Partial<Pick<Entity, 'tagline' | 'stub' | 'fromStoryId'>>;
+
 /** Nimmt einen Artikel von Hand als Eintrag in die Welt auf. */
-export function adoptArticle(db: CampaignDb, article: Article, kind: EntityKind): Entity {
+export function adoptArticle(
+  db: CampaignDb,
+  article: Article,
+  kind: EntityKind,
+  more: EntityExtras = {},
+): Entity {
   return db.put(
     'entities',
     createEntity({
+      ...more,
       kind,
       name: article.title,
       aliases: article.aliases,
@@ -726,13 +735,15 @@ export function syncFacts(
 /**
  * Legt zu einem Namen aus einem Steckbrief den fehlenden Eintrag an und liest die Steckbriefe, die
  * ihn nennen, gleich neu – damit sie auf ihn zeigen. Gibt es einen Artikel dieses Titels, der noch
- * keinen Eintrag hat, wird er der Artikel des neuen Eintrags.
+ * keinen Eintrag hat, wird er der Artikel des neuen Eintrags. `more` – was der Eintrag gleich
+ * mitbekommt (der eine Satz, „Platzhalter“).
  */
 export function createNamedEntity(
   db: CampaignDb,
   name: string,
   kind: EntityKind,
   articleIds: readonly string[],
+  more: EntityExtras = {},
 ): { entity: Entity; undo: () => void } {
   const clean = name.replace(/\s+/g, ' ').trim();
   let created: Entity | null = null;
@@ -746,8 +757,8 @@ export function createNamedEntity(
       !article.template &&
       !Object.values(data.entities).some((e) => e.lk?.resourceId === article.id);
     created = free
-      ? adoptArticle(db, article, kind)
-      : db.put('entities', createEntity({ kind, name: clean }));
+      ? adoptArticle(db, article, kind, more)
+      : db.put('entities', createEntity({ ...more, kind, name: clean }));
     sync = syncFacts(db, free ? [...articleIds, article.id] : articleIds);
   });
   const entity = created!;

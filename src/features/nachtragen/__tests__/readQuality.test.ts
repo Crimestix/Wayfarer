@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { ReadProposal, SessionReading } from '../../../domain/schema';
-import { unknownNames } from '../readNames';
+import { unknownNames } from '../../../domain/readNames';
 import { readSession } from '../readSession';
 import { at, noted, readWorld, withSessions } from './readWorld';
 

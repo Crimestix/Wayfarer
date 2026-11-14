@@ -23,7 +23,7 @@ import { createNamedEntity, savePageText } from '../wiki/actions';
 import { flushEdits } from '../wiki/editing';
 import { addHappenedLine, removeHappenedLine, setFactLine, unsetFactLine } from '../wiki/factLines';
 import { pageText, titleKey } from '../wiki/text';
-import { foldName } from './readNames';
+import { foldName } from '../../domain/readNames';
 import { storeReading } from './readActions';
 import {
   articleTarget,

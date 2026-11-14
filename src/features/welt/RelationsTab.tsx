@@ -2,11 +2,10 @@
 import { useState, type KeyboardEvent } from 'react';
 import { Link } from 'wouter';
 import { EyeOff, Pencil, Plus, Users, Waypoints } from 'lucide-react';
-import { setAttitude } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, entityName, findRelation } from '../../domain/derive';
 import { RELATION_TYPES, attitudeLabel } from '../../domain/relations';
-import { PARTY_ID, createRelation, type Relation } from '../../domain/schema';
+import { PARTY_ID, type Relation } from '../../domain/schema';
 import {
   AttitudeBadge,
   AttitudeScale,
@@ -26,7 +25,7 @@ import {
   entityHref,
   toast,
 } from '../../ui';
-import { removeRelation } from './actions';
+import { relate, removeRelation } from './actions';
 import type { RelationIntent } from './OverviewTab';
 import { Picker } from './parts';
 import {
@@ -288,28 +287,18 @@ function RelationDialog({
         const next = drafts[d];
         // Eine Richtung, die es nicht gibt und die niemand angefasst hat, bleibt leer.
         if (!savesDirection(next, current, { active: d === dir, pairExists })) continue;
-        const fields = {
+        // Je Richtung eine Beziehung; die Haltung zur Gruppe steht dabei im Verlauf (`relate`).
+        relate(db, {
+          from,
+          to,
           type: next.type,
-          label: next.type === 'custom' ? next.label.trim() : '',
-          note: next.note.trim(),
+          label: next.label,
+          note: next.note,
           secret: next.secret,
           ended: next.ended,
-        };
-        // Die Haltung zur Gruppe läuft über setAttitude, damit sie im Verlauf steht.
-        const viaHistory = to === PARTY_ID;
-        if (current)
-          db.patch(
-            'relations',
-            current.id,
-            viaHistory ? fields : { ...fields, attitude: next.attitude },
-          );
-        else
-          db.put(
-            'relations',
-            createRelation({ from, to, ...fields, attitude: viaHistory ? null : next.attitude }),
-          );
-        if (viaHistory && next.attitude !== (current?.attitude ?? null))
-          setAttitude(db, from, to, next.attitude, reason);
+          attitude: next.attitude,
+          reason,
+        });
       }
     });
     onClose();

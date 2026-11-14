@@ -38,7 +38,7 @@ import {
   type RecordFieldsKind,
 } from '../chronik/recordDraft';
 import { FIELD_LABEL, type FactField } from '../wiki/facts';
-import { foldName, mentions, readingText } from './readNames';
+import { foldName, mentions, readingText } from '../../domain/readNames';
 import { isSafeProposal, proposalInput, sessionNotes } from './readSession';
 import { timeMarks } from './readTime';
 

@@ -4,7 +4,7 @@
  * typografische Apostrophe („Hagen’s Rast“). Was Wayfarer nicht findet und mehrfach als Name
  * dasteht, wird zur Frage „Wer oder was ist X?“ – nie legt Wayfarer selbst etwas an.
  */
-import type { CampaignData, Entity, EntityKind } from '../../domain/schema';
+import type { CampaignData, Entity, EntityKind } from './schema';
 
 /** Vereinheitlicht einen Namen: klein, Apostrophe gleich, keine doppelten Buchstaben. */
 export function foldName(name: string): string {
@@ -257,16 +257,22 @@ export interface TextPiece {
 
 const SENTENCE_START = /(?:^|[.!?:;]["“”»«]?\s+|[„“"»(]\s*|^\s*(?:[*•·\-–—]|\d{1,2}[.)])\s+)$/u;
 
+/** Wörter, nach denen ein Name folgt: „ein Fährmann namens Lando“. */
+const NAME_LEAD = new Set(['namens', 'genannt', 'heißt', 'hieß']);
+
 /**
  * Unbekannte Eigennamen: großgeschrieben, nicht am Satzanfang, nicht in der Welt, kein
  * gewöhnliches Hauptwort (steht nirgends hinter „der/die/das …“) und mehrfach in der Session.
  * `corpus` – weitere Texte (andere Sessions), an denen sich gewöhnliche Hauptwörter verraten.
+ * Mit `clear` zählt auch, was nur einmal dasteht, aber eindeutig ein Name ist: Vor- und Nachname
+ * mitten im Satz („trifft Lando Furtner“) oder ein Wort nach „namens“, „genannt“, „heißt“.
  */
 export function unknownNames(
   data: CampaignData,
   pieces: TextPiece[],
   corpus: string[] = [],
   limit = 12,
+  clear = false,
 ): NameQuestionDraft[] {
   const { byFold } = known(data);
   const all = [...pieces.map((p) => p.text), ...corpus];
@@ -335,6 +341,8 @@ export function unknownNames(
     count: number;
     lines: Set<number>;
     inner: number;
+    /** Wie oft er hinter „namens“, „genannt“ … steht. */
+    marked: number;
     /** Wie oft er wie geschrieben steht – gezeigt wird die häufigste Schreibweise. */
     spellings: Map<string, number>;
   }
@@ -355,15 +363,22 @@ export function unknownNames(
       const name = span.map((w) => bareOf(w.word)).join(' ');
       const key = foldName(name);
       const initial = SENTENCE_START.test(piece.text.slice(0, words[i]!.from));
+      const lead = i > 0 ? words[i - 1]! : null;
+      const named =
+        lead !== null &&
+        NAME_LEAD.has(lead.word.toLocaleLowerCase('de')) &&
+        /^\s+$/.test(piece.text.slice(lead.to, words[i]!.from));
       const entry = found.get(key) ?? {
         key,
         name,
         count: 0,
         lines: new Set<number>(),
         inner: 0,
+        marked: 0,
         spellings: new Map<string, number>(),
       };
       entry.count++;
+      if (named) entry.marked++;
       entry.spellings.set(name, (entry.spellings.get(name) ?? 0) + 1);
       entry.lines.add(piece.line);
       if (!initial) entry.inner++;
@@ -378,6 +393,8 @@ export function unknownNames(
     .sort((a, b) => b.key.split(' ').length - a.key.split(' ').length);
   for (const entry of longest) {
     if (entry.count > 1 || found.get(entry.key) !== entry) continue;
+    // Eindeutig ein Name: Er bleibt zusammen.
+    if (clear && (entry.inner >= 1 || entry.marked > 0)) continue;
     found.delete(entry.key);
     const parts = entry.key.split(' ');
     let target: Found | undefined;
@@ -387,6 +404,7 @@ export function unknownNames(
     if (target) {
       target.count += entry.count;
       target.inner += entry.inner;
+      target.marked += entry.marked;
       for (const line of entry.lines) target.lines.add(line);
       continue;
     }
@@ -399,6 +417,7 @@ export function unknownNames(
         count: 0,
         lines: new Set<number>(),
         inner: 0,
+        marked: 0,
         spellings: new Map<string, number>(),
       };
       single.count++;
@@ -419,13 +438,16 @@ export function unknownNames(
     const target = long[0]!;
     target.count += short.count;
     target.inner += short.inner;
+    target.marked += short.marked;
     for (const line of short.lines) target.lines.add(line);
     found.delete(short.key);
   }
   // Endet ein einzelnes Wort wie ein Hauptwort („Schatten“, „Gottkrieger“), braucht es mehr Belege.
   const nounish = (key: string) => !key.includes(' ') && /(?:e|en|er|el|em|es|ern|eln)$/u.test(key);
+  /** Einmal genügt, wenn es eindeutig ein Name ist. */
+  const plain = (e: Found) => clear && (e.marked > 0 || (e.key.includes(' ') && e.inner >= 1));
   return [...found.values()]
-    .filter((e) => e.count >= (nounish(e.key) ? 3 : 2) && e.inner >= 1)
+    .filter((e) => (e.count >= (nounish(e.key) ? 3 : 2) && e.inner >= 1) || plain(e))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'de'))
     .slice(0, limit)
     .map((e) => ({

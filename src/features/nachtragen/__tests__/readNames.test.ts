@@ -8,7 +8,7 @@ import {
   readingText,
   tolerantWorld,
   unknownNames,
-} from '../readNames';
+} from '../../../domain/readNames';
 import { readWorld } from './readWorld';
 
 describe('Tolerante Namen', () => {

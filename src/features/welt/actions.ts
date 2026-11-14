@@ -1,12 +1,13 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
-import { deleteEntity, moveParty } from '../../data/actions';
+import { deleteEntity, moveParty, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { recordEntry } from '../../data/record';
-import { entityName, linksTo } from '../../domain/derive';
+import { entityName, findRelation, linksTo } from '../../domain/derive';
 import { holderWord } from '../../domain/itemHistory';
 import { DERIVED_FAMILY_TAG, describePlan, planFamilies } from './dynasty';
 import {
   COLLECTION_NAMES,
+  PARTY_ID,
   createEntity,
   createRelation,
   type ChronicleEntry,
@@ -49,6 +50,104 @@ export function removeRelation(db: CampaignDb, relation: Relation): () => void {
     );
     if (!taken) db.put('relations', relation);
   };
+}
+
+export interface RelateInput {
+  /** Von wem die Beziehung ausgeht – ein Eintrag, nie die Gruppe. */
+  from: string;
+  /** Auf wen sie sich richtet: ein Eintrag oder die Gruppe (`PARTY_ID`). */
+  to: string;
+  /** Schlüssel aus `RELATION_TYPES` oder „custom“. */
+  type: string;
+  /** Eigene Bezeichnung bei `type = custom`. */
+  label?: string | undefined;
+  note?: string | undefined;
+  secret?: boolean | undefined;
+  ended?: boolean | undefined;
+  /** Haltung von `from` zu `to`; ohne Angabe bleibt sie, wie sie ist. */
+  attitude?: number | null | undefined;
+  /** Warum sich die Haltung zur Gruppe ändert – steht im Verlauf. */
+  reason?: string | undefined;
+}
+
+export interface RelateResult {
+  relation: Relation;
+  /** Neu entstanden – sonst wurde die vorhandene Beziehung dieser Richtung geändert. */
+  created: boolean;
+  /** Nimmt die Verbindung zurück: Eine neue verschwindet, eine geänderte steht wie vorher. */
+  undo: () => void;
+}
+
+/**
+ * Verbindet zwei Einträge: `from` ist für `to` Anführer, Mitglied, Verbündeter … Zwischen zweien
+ * gibt es je Richtung höchstens eine Beziehung – gibt es sie schon, bekommt sie die neue Art,
+ * statt dass eine zweite entsteht. Was nicht angegeben ist (Notiz, geheim, beendet, Haltung),
+ * bleibt, wie es war. Die Haltung zur Gruppe läuft über `setAttitude`, damit sie im Verlauf
+ * steht. null, wenn es einen der beiden nicht gibt oder die Beziehung von der Gruppe ausginge.
+ */
+export function relate(db: CampaignDb, input: RelateInput): RelateResult | null {
+  const before = db.getSnapshot();
+  const { from, to } = input;
+  if (from === PARTY_ID || from === to || !before.entities[from]) return null;
+  if (to !== PARTY_ID && !before.entities[to]) return null;
+  const existing = findRelation(before, from, to);
+  const fields: Partial<Relation> = {
+    type: input.type,
+    label: input.type === 'custom' ? (input.label ?? existing?.label ?? '').trim() : '',
+  };
+  if (input.note !== undefined) fields.note = input.note.trim();
+  if (input.secret !== undefined) fields.secret = input.secret;
+  if (input.ended !== undefined) fields.ended = input.ended;
+  // Die Haltung zur Gruppe gehört in den Verlauf – sie wird nie still überschrieben.
+  const viaHistory = to === PARTY_ID;
+  if (!viaHistory && input.attitude !== undefined) fields.attitude = input.attitude;
+  const relation = db.batch(() => {
+    const saved = existing
+      ? db.patch('relations', existing.id, fields)
+      : db.put('relations', createRelation({ from, to, ...fields }));
+    if (
+      viaHistory &&
+      input.attitude !== undefined &&
+      input.attitude !== (existing?.attitude ?? null)
+    )
+      return setAttitude(db, from, to, input.attitude, input.reason ?? '');
+    return saved;
+  });
+  const logged = Object.keys(db.getSnapshot().chronicle).filter((id) => !before.chronicle[id]);
+  return {
+    relation,
+    created: !existing,
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot();
+        if (now.relations[relation.id]) {
+          if (existing)
+            db.patch('relations', relation.id, {
+              type: existing.type,
+              label: existing.label,
+              note: existing.note,
+              secret: existing.secret,
+              ended: existing.ended,
+              attitude: existing.attitude,
+            });
+          else db.remove('relations', relation.id);
+        }
+        for (const id of logged) if (now.chronicle[id]) db.remove('chronicle', id);
+      }),
+  };
+}
+
+/**
+ * Löst die Beziehung von `from` zu `to` – mit `type` nur, wenn sie von dieser Art ist. Gibt
+ * `undo` zurück, null, wenn es keine solche gab.
+ */
+export function unrelate(
+  db: CampaignDb,
+  input: { from: string; to: string; type?: string | undefined },
+): (() => void) | null {
+  const relation = findRelation(db.getSnapshot(), input.from, input.to);
+  if (!relation || (input.type !== undefined && relation.type !== input.type)) return null;
+  return removeRelation(db, relation);
 }
 
 /**

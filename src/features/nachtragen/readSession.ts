@@ -56,7 +56,7 @@ import {
   unknownNames,
   type Mention,
   type TextPiece,
-} from './readNames';
+} from '../../domain/readNames';
 import { spreadTimes } from './readTime';
 
 /** So viele Vorschläge höchstens je Session – „nicht jedes Wort wird ein Eintrag“. */
