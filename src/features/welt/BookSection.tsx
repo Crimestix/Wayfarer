@@ -11,6 +11,7 @@ import { useData, useDb } from '../../data/hooks';
 import {
   BOOK_ORDER_LABEL,
   bookView,
+  isBook,
   isReadable,
   type BookPageView,
   type BookView,
@@ -23,7 +24,6 @@ import {
   Checkbox,
   Dialog,
   EntityLink,
-  EntityRefsEditor,
   Field,
   IconButton,
   Select,
@@ -35,13 +35,13 @@ import { usePrint } from '../handouts/print';
 import {
   pageToHandout,
   patchBook,
-  patchSelection,
   resetBookPage,
   setInBook,
   setIsBook,
   writeBookPage,
 } from './book';
 import { BookPaper } from './BookPaper';
+import { BookTopics } from './BookTopics';
 import { Hint, Picker, Section, useInlineText } from './parts';
 import './book.css';
 
@@ -90,7 +90,6 @@ export function BookSection({ item }: { item: Item }) {
   if (!book || !view) return null;
 
   const cal = data.campaign.calendar;
-  const { selection } = book;
   const saveWritten = (text: string) => {
     if (!text.trim()) return patchBook(db, item.id, { written: null });
     const written = readDatePoint(cal, text, data.state.now);
@@ -181,22 +180,12 @@ export function BookSection({ item }: { item: Item }) {
           </Field>
         </div>
 
-        <div className="wf-welt-booksec__grid">
-          <Field label="Einzeln dazu">
-            <EntityRefsEditor
-              value={selection.include}
-              onChange={(include) => patchSelection(db, item.id, { include })}
-              placeholder="Eintrag hinzufügen …"
-            />
-          </Field>
-          <Field label="Einzeln weg">
-            <EntityRefsEditor
-              value={selection.exclude}
-              onChange={(exclude) => patchSelection(db, item.id, { exclude })}
-              placeholder="Eintrag weglassen …"
-            />
-          </Field>
-        </div>
+        <Field
+          label="Was darin steht"
+          hint="Kreuze an, was im Buch stehen soll. „Alles aus diesem Thema“ nimmt auch, was du später anlegst; ohne den Haken bleibt, was angekreuzt ist."
+        >
+          {isBook(item) && <BookTopics item={item} />}
+        </Field>
 
         <Field label="Vorwort">
           <Written
@@ -208,13 +197,11 @@ export function BookSection({ item }: { item: Item }) {
           />
         </Field>
 
+        <div className="wf-welt-booksec__label">Seiten</div>
         {total === 0 ? (
-          <Hint>
-            Noch steht keine Seite darin – wähle oben Arten, Gegenden oder Einordnungen, oder nimm
-            einzelne Einträge dazu.
-          </Hint>
+          <Hint>Noch steht keine Seite darin – kreuze oben an, was hineingehört.</Hint>
         ) : (
-          <ul className="wf-welt-booksec__pages">
+          <ul className="wf-welt-booksec__pages" aria-label="Seiten">
             {groups.map((group) => (
               <li key={group.label}>
                 <div className="wf-welt-booksec__group">{group.label}</div>

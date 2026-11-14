@@ -58,8 +58,7 @@ describe('Befehle für Bücher', () => {
     expect(w.item().item.book!.selection.rules).toEqual([kraut]);
     expect(bookEntries(w.db.getSnapshot(), w.item()).map((e) => e.name)).toEqual(['Feuerkraut']);
     setBookRule(w.db, w.book.id, kraut, false);
-    expect(w.item().item.book!.selection.rules).toEqual([]);
-    expect(bookEntries(w.db.getSnapshot(), w.item())).toEqual([]);
+    expect(w.item().item.book!.selection).toMatchObject({ rules: [], include: [w.herb.id] });
   });
 
   it('schreibt eine Seite in den Worten des Verfassers und setzt sie zurück', async () => {
@@ -166,14 +165,21 @@ describe('Ankreuzen beim Durchsehen', () => {
     expect(w.selection().exclude).toHaveLength(3);
   });
 
-  it('nimmt mit dem Thema auch, was später dazukommt – und behält Einzelnes beim Abschalten', async () => {
+  it('nimmt mit dem Thema auch, was später dazukommt – und behält beim Abschalten, was angekreuzt ist', async () => {
     const w = await world();
-    setInBook(w.db, w.book.id, [w.krummzahn.id], true);
+    setInBook(w.db, w.book.id, [w.krummzahn.id, w.herb.id], true);
     setBookRule(w.db, w.book.id, plants, true);
-    w.db.put('entities', createEntity({ kind: 'plant', name: 'Eisenhut' }));
-    expect(w.names()).toEqual(['Eisenhut', 'Feuerkraut', 'Graudistel', 'Krummzahn', 'Moosling']);
+    // Was das Thema nun ohnehin nimmt, braucht kein „dazu“ mehr.
+    expect(w.selection().include).toEqual([w.krummzahn.id]);
+    const later = w.db.put('entities', createEntity({ kind: 'plant', name: 'Eisenhut' }));
+    setInBook(w.db, w.book.id, [w.moss.id], false);
+    expect(w.names()).toEqual(['Eisenhut', 'Feuerkraut', 'Graudistel', 'Krummzahn']);
     setBookRule(w.db, w.book.id, plants, false);
-    expect(w.names()).toEqual(['Krummzahn']);
+    expect(w.names()).toEqual(['Eisenhut', 'Feuerkraut', 'Graudistel', 'Krummzahn']);
+    expect(w.selection()).toMatchObject({ rules: [], exclude: [] });
+    expect(w.selection().include).toContain(later.id);
+    w.db.put('entities', createEntity({ kind: 'plant', name: 'Bilsenkraut' }));
+    expect(w.names()).not.toContain('Bilsenkraut');
   });
 
   it('macht aus der älteren Regel Themen, die sich einzeln abschalten lassen', async () => {
@@ -183,7 +189,13 @@ describe('Ankreuzen beim Durchsehen', () => {
     setBookRule(w.db, w.book.id, { ...emptyTopic(), kind: 'person', regionId: w.town.id }, false);
     expect(w.selection()).toMatchObject({ kinds: [], regionIds: [], categories: [] });
     expect(w.selection().rules).toEqual([{ ...plants, regionId: w.town.id }]);
-    expect(w.names()).toEqual(['Feuerkraut', 'Moosling']);
+    // Krummzahn bleibt einzeln; wer später nach Hohenfurt zieht, kommt nicht mehr von selbst dazu.
+    expect(w.selection().include).toEqual([w.krummzahn.id]);
+    w.db.put(
+      'entities',
+      createEntity({ kind: 'person', name: 'Lando Furtner', person: { placeId: w.town.id } }),
+    );
+    expect(w.names()).toEqual(['Feuerkraut', 'Krummzahn', 'Moosling']);
   });
 
   it('lässt ein Thema fallen, wenn seine Gegend gelöscht wird', async () => {

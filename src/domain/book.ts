@@ -127,9 +127,11 @@ export function topicListing(
     return { idle: true, groups: [], total: 0, inBook: 0, ruleOn, elsewhere };
 
   const shown = all.filter((entity) => nameMatches(entity, query));
+  // Nach Einordnung nur, wenn es welche gibt – Personen haben keine.
+  const byCategory = !!topic.kind && shown.some((entity) => entityCategory(entity).trim());
   const groups = new Map<string, TopicRow[]>();
   for (const entity of shown) {
-    const label = topic.kind
+    const label = byCategory
       ? entityCategory(entity).trim() || WITHOUT_CATEGORY
       : KIND_LABEL_PLURAL[entity.kind];
     const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
@@ -146,7 +148,7 @@ export function topicListing(
   const kindOrder = (label: string) =>
     ENTITY_KINDS.findIndex((kind) => KIND_LABEL_PLURAL[kind] === label);
   const sorted = [...groups.entries()].sort(([a], [b]) =>
-    topic.kind
+    byCategory
       ? Number(a === WITHOUT_CATEGORY) - Number(b === WITHOUT_CATEGORY) ||
         a.localeCompare(b, 'de', { numeric: true })
       : kindOrder(a) - kindOrder(b),

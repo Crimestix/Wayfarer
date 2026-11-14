@@ -78,9 +78,11 @@ export function setInBook(db: CampaignDb, itemId: string, entityIds: string[], o
 }
 
 /**
- * Nimmt alles aus einem Thema ins Buch – auch, was später dazukommt – oder nicht mehr. Die ältere
- * Regel aus Arten, Gegenden und Einordnungen wird dabei zu Themen (`legacyRules`), damit jedes
- * Thema für sich an- und abschaltbar ist. Einzeln Angekreuztes bleibt, wie es ist.
+ * Nimmt alles aus einem Thema ins Buch – auch, was später dazukommt – oder nicht mehr. Abschalten
+ * leert nichts: Was jetzt angekreuzt ist, bleibt einzeln darin; nur Neues kommt nicht mehr von
+ * selbst dazu (leeren geht über „Keine“). Die ältere Regel aus Arten, Gegenden und Einordnungen
+ * wird dabei zu Themen (`legacyRules`), damit jedes Thema für sich an- und abschaltbar ist.
+ * „Dazu“ und „weg“ bleiben nur, wo sie noch etwas ändern.
  */
 export function setBookRule(db: CampaignDb, itemId: string, topic: BookTopic, on: boolean): void {
   const book = current(db, itemId);
@@ -89,7 +91,23 @@ export function setBookRule(db: CampaignDb, itemId: string, topic: BookTopic, on
   if (now.some((rule) => sameTopic(rule, topic)) === on) return;
   const rules = now.filter((rule) => !sameTopic(rule, topic));
   if (on) rules.push({ ...topic, category: topic.category.trim(), tag: topic.tag.trim() });
-  patchSelection(db, itemId, { rules, kinds: [], regionIds: [], categories: [] });
+  const data = db.getSnapshot();
+  const next: BookSelection = {
+    ...book.selection,
+    rules,
+    kinds: [],
+    regionIds: [],
+    categories: [],
+  };
+  const before = ruleMembers(data, book.selection, itemId);
+  const after = ruleMembers(data, next, itemId);
+  const exclude = new Set(book.selection.exclude);
+  const include = new Set(book.selection.include);
+  // Was eben noch über das Thema darin stand, bleibt einzeln darin.
+  for (const id of before) if (!after.has(id) && !exclude.has(id)) include.add(id);
+  for (const id of after) include.delete(id);
+  for (const id of exclude) if (!after.has(id)) exclude.delete(id);
+  patchSelection(db, itemId, { ...next, include: [...include], exclude: [...exclude] });
 }
 
 /**

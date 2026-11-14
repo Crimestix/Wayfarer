@@ -1581,6 +1581,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   (`repeatWindow`, `span`). Überfällig sind alle offenen Schritte vor jetzt (nicht nur der
   nächste, nie bei angehaltener Uhr) und Fristen mit Uhrzeit wie im Kalender; Abende ohne Titel
   heißen „Session 3“ wie überall.
+- **Bücher: Inhalt nach Themen durchsehen und anklicken.** „Was darin steht“ zeigt jetzt ein
+  Thema (Art mit Anzahl, Einordnung, Schlagwort, Gegend, Ordner des Wikis, Suche nach Namen) mit
+  allen Einträgen dazu als Liste mit Kästchen, „Alle“ / „Keine“ und dem Schalter „Alles aus diesem
+  Thema – auch was später dazukommt“ (`selection.rules`, mehrere Themen nebeneinander; die ältere
+  Regel wird beim ersten Schalten zu Themen). Was sonst im Buch steht, nennt „Außerdem im Buch“.
+  Geprüft in der Vorschau bei 1440×900. Offen: Räume kommen nur einzeln hinein und stehen nicht
+  in der Liste; Schlagworte nur als Auswahl, nicht als Chips.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

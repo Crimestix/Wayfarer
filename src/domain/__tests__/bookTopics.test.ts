@@ -9,6 +9,7 @@ import {
   emptyTopic,
   legacyRules,
   topicEntries,
+  topicLabel,
   type BookTopic,
 } from '../bookTopics';
 import { ArticleSchema, createEntity, type Book, type Entity } from '../schema';
@@ -202,6 +203,23 @@ describe('Themen zum Durchsehen', () => {
 });
 
 describe('Ein Thema durchsehen', () => {
+  it('nennt ein Thema in Worten', async () => {
+    const w = await setup();
+    expect(topicLabel(w.data(), emptyTopic())).toBe('Alles');
+    expect(
+      topicLabel(
+        w.data(),
+        topic({
+          kind: 'plant',
+          category: 'Kraut',
+          tag: 'giftig',
+          regionId: w.town.id,
+          folderId: 'art-kraeuter',
+        }),
+      ),
+    ).toBe('Pflanzen · Kraut · „giftig“ · in Hohenfurt · Ordner Kräuter');
+  });
+
   it('zeigt ohne Thema und Suche nichts', async () => {
     const w = await setup();
     const listing = topicListing(w.data(), w.bookNow(), emptyTopic());
@@ -243,6 +261,8 @@ describe('Ein Thema durchsehen', () => {
     const listing = topicListing(w.data(), w.bookNow(), topic({ folderId: 'art-welt' }));
     expect(listing.groups.map((g) => g.label)).toEqual(['Personen', 'Pflanzen']);
     expect(listing.groups[0]!.rows[0]).toMatchObject({ withheld: true, inBook: false });
+    const people = topicListing(w.data(), w.bookNow(), topic({ kind: 'person' }));
+    expect(people.groups.map((g) => g.label)).toEqual(['Personen']);
     const search = topicListing(w.data(), w.bookNow(), emptyTopic(), 'grottenmoos');
     expect(search.groups.flatMap((g) => g.rows.map((r) => r.entity.name))).toEqual(['Moosling']);
     expect(search.idle).toBe(false);

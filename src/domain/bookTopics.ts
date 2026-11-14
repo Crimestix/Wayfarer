@@ -6,7 +6,7 @@
  * `legacyRules`), dazu einzeln dazugenommene, ohne einzeln weggenommene (`domain/book.ts`).
  * Räume stehen nicht einzeln (`isRoom`) und kommen über ein Thema nie hinein. Reine Funktionen.
  */
-import { byName, entityCategory, normalize } from './derive';
+import { KIND_LABEL_PLURAL, byName, entityCategory, entityName, normalize } from './derive';
 import { isRoom } from './rooms';
 import { scopeMembers } from './scope';
 import {
@@ -81,6 +81,16 @@ export function legacyRules(selection: BookSelection): BookTopic[] {
 /** Alle Themen, aus denen das Buch alles nimmt – die ältere Regel eingeschlossen. */
 export const bookRules = (selection: BookSelection): BookTopic[] =>
   distinctTopics([...legacyRules(selection), ...selection.rules]);
+
+/** Ein Thema in Worten: „Pflanzen · Kraut · „giftig“ · in Hohenfurt · Ordner Kräuter“. */
+export function topicLabel(data: CampaignData, topic: BookTopic): string {
+  const parts = [topic.kind ? KIND_LABEL_PLURAL[topic.kind] : 'Alles'];
+  if (topic.category.trim()) parts.push(topic.category.trim());
+  if (topic.tag.trim()) parts.push(`„${topic.tag.trim()}“`);
+  if (topic.regionId) parts.push(`in ${entityName(data, topic.regionId)}`);
+  if (topic.folderId) parts.push(`Ordner ${data.articles[topic.folderId]?.title ?? 'gelöscht'}`);
+  return parts.join(' · ');
+}
 
 // ── Prüfen, ob ein Eintrag zu einem Thema gehört ───────────────────────────
 
