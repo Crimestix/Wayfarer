@@ -491,6 +491,16 @@ export function EntityPicker({
         className="wf-picker__value"
         autoFocus={autoFocus}
         onClick={() => (open ? close() : setOpen(true))}
+        // Wer am Feld einfach lostippt, schreibt schon in die Suche – nach einer Wahl geht so gleich
+        // der nächste Name, ohne das Feld erst wieder zu öffnen.
+        onKeyDown={(e) => {
+          if (open || e.nativeEvent.isComposing) return;
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (e.key.length !== 1 || e.key === ' ') return;
+          e.preventDefault();
+          setQuery(e.key);
+          setOpen(true);
+        }}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
