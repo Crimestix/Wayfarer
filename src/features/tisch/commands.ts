@@ -104,3 +104,13 @@ export function restoreEntry(db: CampaignDb, entry: ChronicleEntry): void {
   if (db.getSnapshot().chronicle[entry.id]) return;
   db.put('chronicle', entry);
 }
+
+/**
+ * Klickt „Letztes Mal“ für den laufenden Abend weg (`state.recapDismissed`); `show` holt den
+ * Rückblick zurück. Ohne laufenden Abend geschieht nichts.
+ */
+export function dismissRecap(db: CampaignDb, show = false): void {
+  const sessionId = db.getSnapshot().state.sessionId;
+  if (!sessionId) return;
+  db.setState({ recapDismissed: show ? null : sessionId });
+}

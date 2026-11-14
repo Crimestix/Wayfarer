@@ -118,6 +118,11 @@ export const PlayStateSchema = z.object({
    * `entity:<id>` (`domain/timeline.ts`). null = Wayfarer wählt (`defaultLaneKeys`).
    */
   timelineLanes: z.array(z.string()).nullable().default(null),
+  /**
+   * „Letztes Mal“ am Spieltisch: die Session, für die der Spielleiter den Rückblick weggeklickt
+   * hat (`domain/recap.ts`); null = keiner.
+   */
+  recapDismissed: id.nullable().default(null),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;
