@@ -305,8 +305,9 @@ nicht übernommen.
   Wayfarer bietet nur die eigenen Zeilen des Spielleiters an, es formuliert nichts. Darüber steht
   „Letztes Mal“ (`recap()` in `domain/recap.ts`, gezeigt mit `RecapBox`): die gewichtigsten
   Einträge der vorigen Session (`RECAP_WEIGHT`, Alltag fällt weg), wo die Gruppe steht, was offen
-  hängt, was ansteht – am Spieltisch über `tableRecap()`, bis im Abend etwas festgehalten oder es
-  weggeklickt ist (`state.recapDismissed`, `dismissRecap`). Was ein
+  hängt, was ansteht – am Spieltisch über `tableRecap()` (kürzer, `RECAP_TABLE_LINES`), bis der
+  Spielleiter im Abend etwas festgehalten oder es weggeklickt hat (`state.recapDismissed`,
+  `dismissRecap`); eingetretene Termine und Schritte von Uhren zählen dabei nie. Was ein
   Gefährte will, steht bei ihm (`character.goal`). Welche Geschichte einen Gefährten persönlich
   betrifft, steht an der Geschichte (`story.heroes`, mit seinem Grund; gesetzt über `tieHero` /
   `untieHero`) – gelesen über `heroesOf()` und `storiesOfHero()`. Solche Gefährten zählen zu

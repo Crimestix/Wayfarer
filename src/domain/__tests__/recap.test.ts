@@ -7,6 +7,7 @@ import { MemoryStore } from '../../data/store';
 import { dismissRecap } from '../../features/tisch/commands';
 import {
   RECAP_LINES,
+  RECAP_TABLE_LINES,
   hasRecorded,
   recap,
   recapAhead,
@@ -14,7 +15,7 @@ import {
   sessionBefore,
   tableRecap,
 } from '../recap';
-import { createClock, createEntity, createEvent, newId } from '../schema';
+import { createChronicleEntry, createClock, createEntity, createEvent, newId } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
 
 /** Ein erfundener Abend in Hohenfurt: ein paar Einträge, darunter Alltag. */
@@ -134,6 +135,45 @@ describe('Letztes Mal', () => {
     expect(tableRecap(data())).toBeNull();
     // Auf „Abend vorbereiten“ bleibt der Rückblick auf den Abend vor dem laufenden.
     expect(recap(data(), second.number)!.session.id).toBe(first.id);
+  });
+
+  it('lässt Schritte von Uhren weg – im Rückblick wie beim Ende am Spieltisch', async () => {
+    const { db, data, first } = await played();
+    const clock = db.put(
+      'clocks',
+      createClock({ title: 'Die Schmuggler von Burg Graufels', start: data().state.now }),
+    );
+    const step = (sessionId: string) =>
+      db.put(
+        'chronicle',
+        createChronicleEntry({
+          kind: 'change',
+          at: data().state.now,
+          sessionId,
+          text: 'Das Boot legt ab.',
+          clockId: clock.id,
+          stepId: newId(),
+        }),
+      );
+    step(first.id);
+    expect(recap(data())!.entries.map((entry) => entry.text)).not.toContain('Das Boot legt ab.');
+    // Die Zeit zu Beginn des Abends vorstellen: Der Schritt tritt ein, der Rückblick bleibt.
+    const second = startSession(db);
+    step(second.id);
+    expect(hasRecorded(data(), second.id)).toBe(false);
+    expect(tableRecap(data())).not.toBeNull();
+  });
+
+  it('zeigt am Spieltisch weniger Einträge als auf „Abend vorbereiten“', async () => {
+    const { db, data } = await played();
+    const second = startSession(db);
+    for (let i = 0; i < RECAP_LINES + 2; i++) logEntry(db, { text: `Notiz ${i}` });
+    startSession(db);
+    expect(recap(data())!.session.id).toBe(second.id);
+    expect(recap(data())!.entries).toHaveLength(RECAP_LINES);
+    const table = tableRecap(data())!;
+    expect(table.entries).toHaveLength(RECAP_TABLE_LINES);
+    expect(table.more).toBe(RECAP_LINES + 2 - RECAP_TABLE_LINES);
   });
 
   it('nimmt den Rückblick, den der Spielleiter zum Abend geschrieben hat, wörtlich', async () => {

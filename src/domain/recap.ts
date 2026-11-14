@@ -20,6 +20,8 @@ import { isEveryday } from './weight';
 
 /** So viele Einträge des letzten Abends stehen höchstens im Rückblick. */
 export const RECAP_LINES = 8;
+/** Am Spieltisch weniger: Dort steht der Rückblick über „Im Spiel“ und soll es nicht verdrängen. */
+export const RECAP_TABLE_LINES = 5;
 /** So weit voraus schaut der Rückblick nach Terminen und Schritten von Uhren. */
 export const RECAP_AHEAD_DAYS = 7;
 /** So viele Termine und Schritte stehen höchstens unter „Als Nächstes“. */
@@ -101,9 +103,17 @@ export function sessionBefore(data: CampaignData, number: number): Session | nul
   );
 }
 
-/** Trägt ein Eintrag etwas, das im Rückblick stehen kann? Alltag und Leeres nicht. */
+/**
+ * Hat der Spielleiter das festgehalten? Eingetretene Termine und Schritte von Uhren trägt
+ * Wayfarer beim Vorstellen der Zeit selbst ein – sie gehören nicht in den Rückblick und beenden
+ * ihn nicht.
+ */
+const isOwnEntry = (entry: ChronicleEntry): boolean =>
+  entry.kind !== 'event' && entry.clockId === null;
+
+/** Trägt ein Eintrag etwas, das im Rückblick stehen kann? Alltag, Leeres und Uhren nicht. */
 function worthRecap(data: CampaignData, entry: ChronicleEntry): boolean {
-  if (RECAP_WEIGHT[entry.kind] <= 0) return false;
+  if (RECAP_WEIGHT[entry.kind] <= 0 || !isOwnEntry(entry)) return false;
   if (entry.kind === 'travel') return !!entry.travel?.toId;
   if (entry.kind === 'attitude') return !!entry.attitude;
   return entry.text.trim() !== '' || recordHeadline(data, entry) !== '';
@@ -166,10 +176,14 @@ export function recapAhead(
  * Der Rückblick auf den Abend vor dem mit dieser Nummer. Ohne Nummer gilt der Abend, dem das
  * Blatt „Abend vorbereiten“ gilt (wie bei `lastSessionLines`). null ohne früheren Abend.
  */
-export function recap(data: CampaignData, number: number = prepView(data).number): Recap | null {
+export function recap(
+  data: CampaignData,
+  number: number = prepView(data).number,
+  limit: number = RECAP_LINES,
+): Recap | null {
   const session = sessionBefore(data, number);
   if (!session) return null;
-  const { entries, more } = recapEntries(data, session.id);
+  const { entries, more } = recapEntries(data, session.id, limit);
   const ends = looseEnds(data);
   return {
     session,
@@ -189,10 +203,13 @@ export function recap(data: CampaignData, number: number = prepView(data).number
   };
 }
 
-/** Hat der Spielleiter in diesem Abend schon etwas festgehalten? (Eingetretene Termine zählen nicht.) */
+/**
+ * Hat der Spielleiter in diesem Abend schon etwas festgehalten? Eingetretene Termine und Schritte
+ * von Uhren zählen nicht – wer zu Beginn die Zeit vorstellt, sieht den Rückblick weiter.
+ */
 export function hasRecorded(data: CampaignData, sessionId: string): boolean {
   return Object.values(data.chronicle).some(
-    (entry) => entry.sessionId === sessionId && entry.kind !== 'event',
+    (entry) => entry.sessionId === sessionId && isOwnEntry(entry),
   );
 }
 
@@ -204,5 +221,5 @@ export function tableRecap(data: CampaignData): Recap | null {
   const session = currentSession(data);
   if (!session || data.state.recapDismissed === session.id) return null;
   if (hasRecorded(data, session.id)) return null;
-  return recap(data, session.number);
+  return recap(data, session.number, RECAP_TABLE_LINES);
 }

@@ -1644,6 +1644,11 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   auf „Abend vorbereiten“. `campaign.tableRules`: Blatt mit Hausregeln, am Spieltisch über das
   Zeichen in der Mitschrift, in den Einstellungen, in der Suche. Offen: Die Wetter-Anzeige nennt
   keine Jahreszeit (sie rechnet weiter fließend um den wärmsten Monat).
+- **Gegengelesen: Jahreszeiten, Letztes Mal, Regeln.** Schritte von Uhren stehen nicht mehr im
+  Rückblick und beenden ihn nicht (Zeit vorstellen zu Beginn des Abends); am Spieltisch fünf
+  statt acht Einträge. Das Zeichen der Regeln überlappte bei 1280 und 1440 den Kopf der
+  Mitschrift – die Sessionnummer steht jetzt darunter. Eine Jahreszeit ohne Monate meint noch
+  nichts (weder „Winter“ noch im Lexikon-Filter); Herausnehmen hat Rückgängig.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

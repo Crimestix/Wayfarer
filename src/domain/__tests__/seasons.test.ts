@@ -81,6 +81,15 @@ describe('Jahreszeiten des Kalenders', () => {
     expect(seasonOfMonthIn(year, 0)).toBeNull();
   });
 
+  it('nimmt eine gleichnamige Jahreszeit ohne Monate nicht als das übliche Wort', () => {
+    // Gerade hinzugefügt und „Winter“ genannt, aber noch ohne Monat: „Winter“ bei einer Pflanze
+    // meint weiter die Jahreszeit mit den meisten Wintermonaten – nicht „das ganze Jahr“.
+    const year = seasonYear(withSeasons([...WET_DRY, { name: 'Winter', months: [] }]), 4);
+    expect(sorted(readSeasons(ELARIS_CALENDAR, year, ['Winter']).months)).toEqual([
+      0, 1, 9, 10, 11,
+    ]);
+  });
+
   it('versetzt auf der Südhalbkugel auch die festgelegten Monate um ein halbes Jahr', () => {
     const year = seasonYear(withSeasons(WET_DRY), 10, true);
     expect(year.seasons[0]!.months).toEqual([3, 4, 5, 6, 7]);

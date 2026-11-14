@@ -1035,6 +1035,13 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-journal .wf-panel__count {
   letter-spacing: 0.12em;
 }
+/* Die Nummer der Session steht unter „Mitschrift“, damit daneben Platz für Regeln und Chronik
+   bleibt – auch bei 1280 Punkten Breite. */
+.wf-tisch-journal .wf-panel__head .wf-panel__count {
+  display: block;
+  margin-left: 0;
+  white-space: nowrap;
+}
 .wf-tisch-nosession {
   display: flex;
   align-items: center;

@@ -205,10 +205,13 @@ export function lexiconFacets(data: CampaignData, kind: LexiconKind): LexiconFac
       .map(([value, { label, ids }]) => ({ value, label, count: ids.size }))
       .sort((a, b) => a.label.localeCompare(b.label, 'de')),
     seasons: [
-      ...seasonsAt(data).seasons.map((season) => ({
-        value: `s:${season.key}`,
-        label: season.name,
-      })),
+      // Eine Jahreszeit ohne Monate ließe die Liste leer – sie steht erst mit einem Monat hier.
+      ...seasonsAt(data)
+        .seasons.filter((season) => season.months.length > 0)
+        .map((season) => ({
+          value: `s:${season.key}`,
+          label: season.name,
+        })),
       ...data.campaign.calendar.months.map((month, index) => ({
         value: `m:${index}`,
         label: month.name,

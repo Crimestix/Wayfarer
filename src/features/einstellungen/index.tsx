@@ -67,7 +67,7 @@ export default function Page() {
           <Section
             numeral={numeral()}
             title="Regeln des Tisches"
-            lead="Hausregeln und Absprachen eurer Runde – am Spieltisch mit einem Klick auf „Regeln“ zur Hand."
+            lead="Hausregeln und Absprachen eurer Runde – am Spieltisch mit einem Klick auf die Schriftrolle im Kopf der Mitschrift zur Hand."
           >
             <TableRulesSheet />
           </Section>

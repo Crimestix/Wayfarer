@@ -117,7 +117,10 @@ export function seasonYear(cal: CalendarDef, warmest: number, south = false): Se
   }
   const usual = {} as Record<Season, YearSeason>;
   SEASONS.forEach((season, i) => {
-    const named = own.find((s) => SEASON_WORDS[season].includes(compactWord(s.name)));
+    // Eine gleichnamige Jahreszeit ohne Monate meint noch nichts – dann gilt die mit den meisten.
+    const named = own.find(
+      (s) => s.months.length > 0 && SEASON_WORDS[season].includes(compactWord(s.name)),
+    );
     const months = new Set(computed[i]!.months);
     let best: YearSeason | null = null;
     let most = 0;
@@ -154,11 +157,16 @@ export function seasonNow(
   return { month, season: seasonOfMonthIn(seasonsAt(data, placeId), month) };
 }
 
-/** Ein Wort als Jahreszeit: ein eigener Name oder eines der üblichen Wörter. */
+/**
+ * Ein Wort als Jahreszeit: ein eigener Name oder eines der üblichen Wörter. Eine eigene
+ * Jahreszeit ohne Monate meint noch nichts.
+ */
 export function seasonOfWord(year: SeasonYear, word: string): YearSeason | null {
   const key = compactWord(word);
   if (!key) return null;
-  const own = year.seasons.find((season) => compactWord(season.name) === key);
+  const own = year.seasons.find(
+    (season) => season.months.length > 0 && compactWord(season.name) === key,
+  );
   if (own) return own;
   for (const season of SEASONS) if (SEASON_WORDS[season].includes(key)) return year.usual[season];
   return null;

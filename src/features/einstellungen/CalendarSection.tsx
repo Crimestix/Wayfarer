@@ -236,7 +236,18 @@ function Seasons({ settings }: { settings: SeasonSettings }) {
               label="Diese Jahreszeit herausnehmen – ihre Monate gehören dann zu keiner"
               variant="ghost"
               size="sm"
-              onClick={() => save(removeSeason(settings.seasons, index))}
+              onClick={() => {
+                const before = settings.seasons;
+                save(removeSeason(before, index));
+                toast({
+                  title: `${seasonName(season.name, index)} herausgenommen`,
+                  body:
+                    before.length === 1
+                      ? 'Ohne eigene Jahreszeiten rechnet Wayfarer sie wieder.'
+                      : 'Ihre Monate gehören jetzt zu keiner Jahreszeit.',
+                  action: { label: 'Rückgängig', run: () => save(before) },
+                });
+              }}
             >
               <X />
             </IconButton>
