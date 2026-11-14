@@ -1608,6 +1608,16 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   nichts an, wenn eine Person oder ein Ort den Namen trägt; Gruppe „Kits“ heißt „Pakete und
   Ausrüstungen“; „Fähre“ statt „erfahren“ als Hafen; das Fenster passt bei 1280×800 ohne Rollen.
 
+### Dritte Welle 14. 11. 2026
+
+- **Läden ohne Grenzen: Vorlagen, Handelsgüter, Handelsplätze.** Ein Laden führt alles (jeder
+  Eintrag der Welt, Wesen des Bestiariums, Regelwerk, Worte; Wahl nach Art gruppiert, nie
+  gefiltert), „kauft gern“ ist nur ein Hinweis. Vorlagen je Ladenart (`assortments`, eigene Liste
+  wie eine Preisliste) und „Liste vorschlagen“ zum Ankreuzen; „Als Vorlage merken“. Einheiten
+  („je Pfund“) und getippte Mengen; Handelsplätze mit „Gesucht“/„Nicht gefragt“ und Versteigern
+  (4 W6 um den Wert). Offen: Das SRD 5.2.1 hat keine Tabelle der Handelsgüter (nur die Regel,
+  dass sie ihren Wert behalten) – daher keine im Nachschlagewerk; Vorlagen verweisen über Namen.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)

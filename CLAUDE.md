@@ -45,6 +45,11 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   Personen und Orte, Geheimnisse, Abmachungen. Das kommt vom Spielleiter.
 - Erzeugtes ist als solches erkennbar, lässt sich von Hand übersteuern und bleibt stabil
   (gleicher Ausgangswert → gleiches Ergebnis), damit eine Rückreise dieselbe Welt vorfindet.
+- **Nie einschränken, nur Hinweise** (Grundsatz des Spielleiters, 14. 11. 2026: „Wayfarer soll den
+  Spielleiter nie einschränken – gerade in der Kreativität. Es soll Hinweise geben, aber nie
+  einschränken.“): Arten, Einordnungen und Vorlagen helfen beim Finden und Vorschlagen, filtern
+  aber nie etwas weg; am Tisch bleibt immer ein freier Weg (freie Zeile, eigener Wert, trotzdem
+  tun).
 - Leitbild (ausführlich in `docs/FUNKTIONSUMFANG.md`): ein starkes Werkzeug für die Spielleitung,
   das die Welt simuliert, durch die die Gruppe läuft (Zeit, Wetter, Reisen), möglichst viel selbst
   erkennt und ableitet statt abzufragen, und beim Leiten nicht stört.
@@ -115,8 +120,9 @@ nicht übernommen.
   `abend` (den nächsten Abend vorbereiten; die Rechnung steht in `domain/prep.ts`),
   `nachtragen` (alte Sessions aus Notizdateien: lesen, trennen, in die Weltzeit legen,
   übernehmen),
-  `laden` (Läden: Handel am Tisch, Abschnitt „Laden“ auf Seiten; die Rechnung steht in
-  `domain/shop.ts`, das Lesen von Preislisten in `domain/priceList.ts`),
+  `laden` (Läden und Handelsplätze: Handel am Tisch, Abschnitt „Laden“ auf Seiten, Vorlagen
+  für Ladenarten; die Rechnung steht in `domain/shop.ts`, `domain/market.ts` und
+  `domain/shopTemplate.ts`, das Lesen von Preislisten in `domain/priceList.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -126,7 +132,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`, `assortments/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -289,9 +295,12 @@ nicht übernommen.
 - Läden und Preise (`shops/`, `domain/shop.ts`, `features/laden`): Gegenstände, Pflanzen, Tiere
   und Gesteine haben einen Listenpreis (`listPrice()`; Gegenstand: `item.price`). Ein Laden steht
   an einem Ort oder geht mit seinem Händler (`shopPlaceId`), hat Preisstufe (`priceFactor`),
-  Ankauf (`buyFactor`), was er ankauft (`buys`, leer = alles) und einen Bestand (`stock`: Eintrag
-  oder Worte, eigener Preis oder Listenpreis × Stufe, Menge oder unbegrenzt) – gelesen über
-  `stockRows()`. Gehandelt wird nur über `tradeAt` (`laden/actions.ts`): ein Eintrag der Art
+  Ankauf (`buyFactor`), was er gern ankauft (`buys` – nur ein Hinweis) und einen Bestand
+  (`stock`: Eintrag der Welt jeder Art, Wesen des Bestiariums `creatureId`, Regelwerk oder Worte;
+  eigener Preis oder Listenpreis × Stufe, Einheit `unit` wie „je Pfund“, Menge oder unbegrenzt)
+  – gelesen über `stockRows()`. **Läden schränken nie ein:** Gewählt wird aus allem
+  (`wareGroups`, nach Art gruppiert als Hilfe, nie als Filter; `WarePicker`), am Tisch kauft und
+  verkauft jeder Laden alles mit eigenem Preis; `planTrade` nimmt jeden Eintrag. Gehandelt wird nur über `tradeAt` (`laden/actions.ts`): ein Eintrag der Art
   „Handel“ (`kind: 'trade'`, `entry.trade`, über `recordEntry`); Bestand und Besitzer eines
   einzelnen Stücks (`isSingleItem`: Lebenslauf, Besitzer oder bei der Gruppe) ziehen mit,
   `removeRecorded` nimmt beides zurück. Handel ist keine Beute; „Gold der Gruppe“ im Kasten
@@ -302,10 +311,20 @@ nicht übernommen.
   Pflanze, Gestein, Tier oder Gegenstand angelegt (`newKindOf`: erst der Name, dann die
   Überschrift, ein Tier nur nach der Überschrift) – der Spielleiter bestätigt die Art in der
   Vorschau. Ein einzelnes Stück, das die Gruppe schon hat (`partyHolder`), ist im Laden
-  ausverkauft, auch wenn der Bestand keine Menge zählt. Vorschläge für den Bestand (`shopSuggestions`:
-  Natur am Ort nach Art des Ladens, Einordnungen) gelten erst nach Annahme. Am Spieltisch „Läden
-  hier“ (`shopsHere`, Ort der Gruppe und Orte darin), überall `openShop`; im Festhalten öffnet
-  „Handel“ den Laden.
+  ausverkauft, auch wenn der Bestand keine Menge zählt. Die Art eines Ladens ist ein freies Wort;
+  „Liste vorschlagen“ zeigt zum Ankreuzen die eigene **Vorlage** des Spielleiters für die Art
+  (`assortments/`, Text wie eine Preisliste, `templateProposals`; passende zuerst über
+  `templateFit`/`kindKey`, jede andere wählbar) und „Wayfarer schlägt vor“ (`wayfarerProposals`:
+  `shopSuggestions` – Natur am Ort, Einordnung, Name passend zu `SHOP_KIND_RULES` –,
+  `creatureSuggestions` bei Tierhändlern, Regelwerk); in den Bestand nur über `addProposedLines`.
+  „Als Vorlage für <Art> merken“ (`rememberAsTemplate`, `templateTextOf`). **Handelsplätze**
+  (`shop.market`, `domain/market.ts`): Markt, Hafen, Auktionshaus, Hehler – dort steht
+  „Verkaufen“ vorn, „Gesucht“/„Nicht gefragt“ (`shop.demand`, Wort + Faktor) sind Hinweise, die
+  beim Ankauf auf- oder abschlagen (`buyShare`, `demandOf`); Handelsgüter (Pflanze, Tier,
+  Gestein) bringen dort ihren vollen Wert. Versteigern würfelt das Höchstgebot mit `fairDie`
+  nach fester Regel (`auctionBid`: 4 W6, 50–150 %, Seltenes 25–175 %, in Schritten) – nur ein
+  Vorschlag. Am Spieltisch „Läden hier“ bzw. „Läden und Handelsplätze hier“ (`shopsHere`,
+  `shopsHereTitle`), überall `openShop`; im Festhalten öffnet „Handel“ den Laden.
 - Regelwerk-Ausrüstung (Entscheidung des Spielleiters, 14. 11. 2026): Die Ausrüstung des SRD
   5.2.1 (CC BY 4.0) liegt als **Nachschlagewerk** in `src/domain/srd` (`equipment.ts`: Name
   deutsch und englisch, Gruppe, Preis wie im SRD und in Gold, Gewicht; nachschlagen über
