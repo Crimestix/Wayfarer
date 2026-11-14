@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createEntity, createShop, type ShopStock } from '../../domain/schema';
 import type { Sellable, StockRow } from '../../domain/shop';
+import { srdItem } from '../../domain/srd/lookup';
 import {
   addEntity,
   addFree,
   addRow,
+  addRuleItem,
   addSellable,
   basketProblem,
   basketTotal,
@@ -22,6 +24,7 @@ const line = (init: Partial<ShopStock>): ShopStock => ({
   text: '',
   price: null,
   qty: null,
+  srdId: null,
   ...init,
 });
 
@@ -32,6 +35,7 @@ const row = (init: Partial<StockRow>): StockRow => ({
   price: 1,
   own: false,
   listPrice: 1,
+  rule: null,
   qty: null,
   soldOut: false,
   single: false,
@@ -107,5 +111,29 @@ describe('Neue Namen einer Preisliste', () => {
     // Ware aus Tieren ist kein Tier; ohne Hinweis ein Gegenstand.
     expect(kind('Räucherfisch')).toBe('item');
     expect(kind('Seil (15 m)', 'Ausrüstung')).toBe('item');
+  });
+});
+
+describe('Aus dem Regelwerk in den Korb', () => {
+  it('nimmt den Preis des Regelwerks mal Preisfaktor und zählt hoch', () => {
+    const sword = srdItem('srd-longsword')!;
+    const shop = createShop({ priceFactor: 1.5 });
+    let basket = addRuleItem([], sword, shop);
+    basket = addRuleItem(basket, sword, shop);
+    expect(basket).toEqual([
+      expect.objectContaining({
+        key: 'srd:srd-longsword',
+        text: 'Langschwert',
+        qty: 2,
+        price: 22.5,
+      }),
+    ]);
+    expect(addRuleItem([], sword, null)[0]!.price).toBe(15);
+    expect(tradeInputOf(basket, shop.id, 'buy', null).lines[0]).toMatchObject({
+      entityId: null,
+      text: 'Langschwert',
+      qty: 2,
+      price: 22.5,
+    });
   });
 });

@@ -233,7 +233,9 @@ describe('Die Suche', () => {
         title: 'Zum Rostigen Aal',
         kind: 'Krämer',
         placeId: world.isle.id,
-        stock: [{ id: 's1', entityId: null, text: 'Räucheraal', price: 0.5, qty: null }],
+        stock: [
+          { id: 's1', entityId: null, text: 'Räucheraal', price: 0.5, qty: null, srdId: null },
+        ],
       }),
     );
     const hit = searchWorld(world.data(), 'rostigen')[0];

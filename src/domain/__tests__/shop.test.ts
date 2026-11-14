@@ -79,10 +79,17 @@ async function setup() {
     placeId: market.id,
     priceFactor: 1.25,
     stock: [
-      { id: 'seil', entityId: rope.id, text: 'Seil', price: null, qty: null },
-      { id: 'trank', entityId: potion.id, text: 'Heiltrank', price: null, qty: 3 },
-      { id: 'kompass', entityId: compass.id, text: 'Kompass der Tiefe', price: 100, qty: 1 },
-      { id: 'wurst', entityId: null, text: 'Räucherwurst', price: 0.05, qty: null },
+      { id: 'seil', entityId: rope.id, text: 'Seil', price: null, qty: null, srdId: null },
+      { id: 'trank', entityId: potion.id, text: 'Heiltrank', price: null, qty: 3, srdId: null },
+      {
+        id: 'kompass',
+        entityId: compass.id,
+        text: 'Kompass der Tiefe',
+        price: 100,
+        qty: 1,
+        srdId: null,
+      },
+      { id: 'wurst', entityId: null, text: 'Räucherwurst', price: 0.05, qty: null, srdId: null },
     ],
   });
   return { db, data, town, market, grotto, odo, mira, lando, rope, potion, compass, herb, shop };

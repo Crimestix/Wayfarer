@@ -7,7 +7,15 @@
 import type { CampaignDb } from '../../data/db';
 import { recordEntry, type RecordResult } from '../../data/record';
 import { nameKey, type PricePlan, type TradeKind } from '../../domain/priceList';
-import { listPrice, stockLine, withListPrice, type TradeInput } from '../../domain/shop';
+import {
+  listPrice,
+  stockLine,
+  stockRuleItem,
+  stockedRuleIds,
+  withListPrice,
+  type TradeInput,
+} from '../../domain/shop';
+import { srdItem } from '../../domain/srd/lookup';
 import {
   createEntity,
   createShop,
@@ -106,6 +114,90 @@ export function acceptShopSuggestions(
       .map((entityId) => ({ entityId, text: data.entities[entityId]!.name })),
   );
   return restoreShop(db, before);
+}
+
+/**
+ * Nimmt Gegenstände aus dem Regelwerk (SRD 5.2.1) in den Bestand – als Zeilen in Worten mit
+ * Verweis aufs Regelwerk (`srdId`): ohne eigenen Preis gilt der Preis des Regelwerks mal
+ * Preisfaktor. Legt keine Einträge der Welt an. Was der Laden schon führt, kommt nicht doppelt.
+ * Gibt zurück, wie viele dazukamen, und was es rückgängig macht.
+ */
+export function addRuleItems(
+  db: CampaignDb,
+  shopId: string,
+  srdIds: readonly string[],
+): { added: number; undo: () => void } | null {
+  const before = db.getSnapshot().shops[shopId];
+  if (!before) return null;
+  const have = stockedRuleIds(db.getSnapshot(), before);
+  const lines: ShopStock[] = [];
+  for (const id of srdIds) {
+    const item = srdItem(id);
+    if (!item || have.has(item.id)) continue;
+    have.add(item.id);
+    lines.push(stockLine({ text: item.name, srdId: item.id }));
+  }
+  if (!lines.length) return { added: 0, undo: () => {} };
+  db.patch('shops', shopId, { stock: [...before.stock, ...lines] });
+  return { added: lines.length, undo: restoreShop(db, before) };
+}
+
+/**
+ * „Als Gegenstand anlegen“: macht aus einer Zeile des Regelwerks einen Eintrag der Welt – nur auf
+ * ausdrücklichen Wunsch des Spielleiters. Gibt es schon einen Eintrag dieses Namens, wird er
+ * genommen (nie ein zweiter); sonst entsteht ein Gegenstand (Reittiere: ein Tier) mit dem Preis
+ * des Regelwerks als Listenpreis und der Unterteilung als Einordnung. Gibt die Kennung des
+ * Eintrags zurück und was es rückgängig macht; null, wenn die Zeile nicht passt.
+ */
+export function stockLineToItem(
+  db: CampaignDb,
+  shopId: string,
+  lineId: string,
+): { entityId: string; created: boolean; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const shop = data.shops[shopId];
+  const line = shop?.stock.find((s) => s.id === lineId);
+  if (!shop || !line || line.entityId) return null;
+  const rule = stockRuleItem(data, line);
+  const name = line.text.trim() || rule?.name || '';
+  if (!name) return null;
+  const key = nameKey(name);
+  const twin = Object.values(data.entities).find(
+    (entity) =>
+      (entity.kind === 'item' || entity.kind === 'animal') &&
+      [entity.name, ...entity.aliases].some((n) => nameKey(n) === key),
+  );
+  let entityId = twin?.id ?? '';
+  db.batch(() => {
+    if (!twin) {
+      const details = { price: rule?.price ?? null, category: rule?.sub ?? '' };
+      const made = db.put(
+        'entities',
+        rule?.group === 'mounts'
+          ? createEntity({ kind: 'animal', name, animal: details })
+          : createEntity({ kind: 'item', name, item: details }),
+      );
+      entityId = made.id;
+    }
+    db.patch('shops', shopId, {
+      stock: shop.stock.map((s) => (s.id === lineId ? { ...s, entityId } : s)),
+    });
+    if (!twin) linkTwins(db);
+  });
+  return {
+    entityId,
+    created: !twin,
+    // Löst die Zeile wieder vom Eintrag – auch wenn der Laden seither anders geändert wurde.
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot().shops[shopId];
+        if (now?.stock.some((s) => s.id === lineId && s.entityId === entityId))
+          db.patch('shops', shopId, {
+            stock: now.stock.map((s) => (s.id === lineId ? { ...s, entityId: null } : s)),
+          });
+        if (!twin && db.getSnapshot().entities[entityId]) db.remove('entities', entityId);
+      }),
+  };
 }
 
 /** Stellt den Bestand wieder her, solange seither niemand sonst den Laden geändert hat. */

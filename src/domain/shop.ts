@@ -10,6 +10,7 @@ import { KIND_LABEL, chronicleSorted, entityName, normalize, placeAncestors } fr
 import { formatGold } from './loot';
 import { isNature, natureHere, natureOf, type NatureKind } from './nature';
 import { isTradeKind, roundGold } from './priceList';
+import { srdForShopKind, srdItem, srdMatch, srdSearch, type SrdItem } from './srd/lookup';
 import {
   newId,
   PARTY_ID,
@@ -31,6 +32,21 @@ export function listPrice(entity: Entity | undefined | null): number | null {
   if (entity.kind === 'item') return entity.item.price;
   if (isNature(entity)) return natureOf(entity).price;
   return null;
+}
+
+/**
+ * Der Gegenstand des Regelwerks (SRD 5.2.1), dessen Preis für einen Eintrag ohne Listenpreis gilt:
+ * der gleichen Namens (deutsch oder englisch, `srdMatch`). null, wenn der Eintrag einen eigenen
+ * Listenpreis hat oder kein Name passt.
+ */
+export function ruleItemOf(entity: Entity | undefined | null): SrdItem | null {
+  if (!entity || !isTradeKind(entity.kind) || listPrice(entity) !== null) return null;
+  return srdMatch(entity.name);
+}
+
+/** Der Listenpreis – sonst der Preis nach dem Regelwerk (`ruleItemOf`). null = keiner. */
+export function listOrRulePrice(entity: Entity | undefined | null): number | null {
+  return listPrice(entity) ?? ruleItemOf(entity)?.price ?? null;
 }
 
 /**
@@ -171,6 +187,11 @@ export interface StockRow {
   /** Ein eigener Preis des Ladens statt Listenpreis mal Faktor. */
   own: boolean;
   listPrice: number | null;
+  /**
+   * Der Gegenstand des Regelwerks, nach dem sich der Preis richtet, wenn es keinen eigenen und
+   * keinen Listenpreis gibt: übernommen (`line.srdId`) oder am Namen erkannt. Sonst null.
+   */
+  rule: SrdItem | null;
   /** Wie viele noch da sind; null = so viele man will. */
   qty: number | null;
   soldOut: boolean;
@@ -180,10 +201,25 @@ export interface StockRow {
   category: string;
 }
 
-/** Der Preis einer Zeile des Bestands in diesem Laden. */
+/**
+ * Nach welchem Gegenstand des Regelwerks sich eine Zeile richtet: der übernommene (`srdId`) – bei
+ * einem Eintrag der Welt nur, solange er keinen Listenpreis hat; bei Worten ohne Eintrag der
+ * Gegenstand gleichen Namens.
+ */
+export function stockRuleItem(data: CampaignData, line: ShopStock): SrdItem | null {
+  const entity = line.entityId ? data.entities[line.entityId] : undefined;
+  if (entity)
+    return listPrice(entity) !== null ? null : (srdItem(line.srdId) ?? ruleItemOf(entity));
+  return srdItem(line.srdId) ?? srdMatch(line.text);
+}
+
+/** Der Preis einer Zeile des Bestands in diesem Laden – ohne eigenen Preis nach Liste oder Regelwerk. */
 export function stockPrice(data: CampaignData, shop: Shop, line: ShopStock): number | null {
   if (line.price !== null) return line.price;
-  const list = listPrice(line.entityId ? data.entities[line.entityId] : null);
+  const list =
+    listPrice(line.entityId ? data.entities[line.entityId] : null) ??
+    stockRuleItem(data, line)?.price ??
+    null;
   return list === null ? null : roundGold(list * shop.priceFactor);
 }
 
@@ -214,10 +250,11 @@ export function stockRows(data: CampaignData, shop: Shop): StockRow[] {
       price: stockPrice(data, shop, line),
       own: line.price !== null,
       listPrice: listPrice(entity),
+      rule: stockRuleItem(data, line),
       qty: gone ? 0 : single && line.qty === null ? 1 : line.qty,
       soldOut: line.qty === 0 || gone,
       single,
-      category: tradeCategory(entity),
+      category: tradeCategory(entity) || stockRuleItem(data, line)?.sub || '',
     };
   });
 }
@@ -233,7 +270,7 @@ export function filterRows(rows: readonly StockRow[], query: string): StockRow[]
 
 /** Eine neue Zeile für den Bestand. */
 export function stockLine(init: Partial<ShopStock> = {}): ShopStock {
-  return { id: newId(), entityId: null, text: '', price: null, qty: null, ...init };
+  return { id: newId(), entityId: null, text: '', price: null, qty: null, srdId: null, ...init };
 }
 
 // ── Ankauf ─────────────────────────────────────────────────────────────────
@@ -254,9 +291,12 @@ export function buysThing(shop: Shop | null, entity: Entity | null | undefined):
   });
 }
 
-/** Was der Laden für ein Stück zahlt: Listenpreis mal Ankauf (ohne Laden die Hälfte). */
+/**
+ * Was der Laden für ein Stück zahlt: Listenpreis (sonst Preis nach dem Regelwerk) mal Ankauf –
+ * ohne Laden die Hälfte.
+ */
 export function sellPrice(shop: Shop | null, entity: Entity | null | undefined): number | null {
-  const list = listPrice(entity);
+  const list = listOrRulePrice(entity);
   return list === null ? null : roundGold(list * (shop?.buyFactor ?? 0.5));
 }
 
@@ -482,6 +522,7 @@ export function stockAfter(
           text: line.text,
           price: null,
           qty: line.qty,
+          srdId: null,
         });
       else if (undo) next = next.filter((s) => s.id !== line.stockId);
       continue;
@@ -641,7 +682,7 @@ export function shopSuggestions(data: CampaignData, shop: Shop): ShopSuggestion[
   const out: ShopSuggestion[] = [];
   const add = (entity: Entity, reason: string) => {
     if (own.has(entity.id) || out.some((s) => s.entity.id === entity.id)) return;
-    const list = listPrice(entity);
+    const list = listOrRulePrice(entity);
     out.push({
       entity,
       price: list === null ? null : roundGold(list * shop.priceFactor),
@@ -705,4 +746,56 @@ export function looksLikeTrader(data: CampaignData, entity: Entity): boolean {
     .map((r) => data.entities[r.to]?.name ?? '');
   const words = [entity.person.role, ...professions].map(plainWord).join(' ');
   return TRADER_WORDS.some((word) => words.includes(word));
+}
+
+// ── Aus dem Regelwerk ──────────────────────────────────────────────────────
+
+/**
+ * Welche Gegenstände des Regelwerks der Laden schon führt: übernommen (`srdId`), in Worten mit
+ * gleichem Namen oder als Eintrag der Welt gleichen Namens – so kommt nichts doppelt hinein.
+ */
+export function stockedRuleIds(data: CampaignData, shop: Shop): Set<string> {
+  const ids = new Set<string>();
+  for (const line of shop.stock) {
+    if (line.srdId) ids.add(line.srdId);
+    const entity = line.entityId ? data.entities[line.entityId] : undefined;
+    const named = srdMatch(entity?.name ?? line.text);
+    if (named) ids.add(named.id);
+  }
+  return ids;
+}
+
+/** Was ein Gegenstand des Regelwerks in diesem Laden kostet: sein Preis mal Preisfaktor. */
+export const rulePrice = (shop: Shop | null, item: SrdItem): number =>
+  roundGold(item.price * (shop?.priceFactor ?? 1));
+
+/**
+ * Was ein Laden nach seiner Art führen könnte – aus dem Regelwerk (`srdForShopKind`), ohne das,
+ * was er schon führt. Nur ein Vorschlag: In den Bestand kommt es erst, wenn der Spielleiter es
+ * ankreuzt.
+ */
+export function ruleSuggestions(
+  data: CampaignData,
+  shop: Shop,
+): { items: SrdItem[]; labels: string[] } {
+  const { items, labels } = srdForShopKind(shop.kind, shop.title);
+  const have = stockedRuleIds(data, shop);
+  return { items: items.filter((item) => !have.has(item.id)), labels };
+}
+
+/**
+ * Was die Suche am Tisch zusätzlich findet: Gegenstände des Regelwerks, die der Laden nicht führt –
+ * erst ab zwei Buchstaben, höchstens `limit`.
+ */
+export function ruleHits(
+  data: CampaignData,
+  shop: Shop | null,
+  query: string,
+  limit = 8,
+): SrdItem[] {
+  if (normalize(query.trim()).length < 2) return [];
+  const have = shop ? stockedRuleIds(data, shop) : new Set<string>();
+  return srdSearch(query)
+    .filter((item) => !have.has(item.id))
+    .slice(0, limit);
 }

@@ -2387,6 +2387,11 @@ export const ShopStockSchema = z.object({
   price: z.number().nonnegative().nullable().default(null),
   /** Wie viele da sind; null = so viele man will. */
   qty: z.number().int().nonnegative().nullable().default(null),
+  /**
+   * Aus dem Nachschlagewerk übernommen (`domain/srd`, etwa „srd-longsword“): Ohne eigenen Preis
+   * gilt dessen Preis mal Preisfaktor. null = nicht aus dem Regelwerk.
+   */
+  srdId: z.string().nullable().default(null),
 });
 export type ShopStock = z.infer<typeof ShopStockSchema>;
 

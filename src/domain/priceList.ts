@@ -9,6 +9,7 @@
  */
 import { KIND_LABEL } from './derive';
 import type { CampaignData, Entity, EntityKind } from './schema';
+import { srdMatch, type SrdItem } from './srd/lookup';
 
 // ── Münzen ─────────────────────────────────────────────────────────────────
 
@@ -269,6 +270,27 @@ export interface PricePlan extends PriceLine {
   create: boolean;
   /** Der Name gehört schon einem Eintrag, den man nicht kaufen kann (etwa einer Person). */
   takenBy: string | null;
+  /**
+   * Der Gegenstand des Regelwerks (SRD 5.2.1) gleichen Namens – deutsch oder englisch. Steht kein
+   * Preis da, schlägt die Vorschau seinen Preis vor (`withRulePrices`). null = keiner.
+   */
+  rule: SrdItem | null;
+}
+
+/**
+ * Ergänzt fehlende Preise nach dem Regelwerk: Zeilen ohne Preis, deren Name einem Gegenstand des
+ * SRD entspricht, bekommen dessen Preis – außer, der gemeinte Eintrag hat schon einen Listenpreis
+ * (`hasPrice`). Gilt nur, wenn der Spielleiter es in der Vorschau so lässt.
+ */
+export function withRulePrices<P extends Pick<PricePlan, 'price' | 'rule'>>(
+  plans: readonly P[],
+  hasPrice: (plan: P) => boolean = () => false,
+): P[] {
+  return plans.map((plan) =>
+    plan.price === null && plan.rule && !hasPrice(plan)
+      ? { ...plan, price: plan.rule.price }
+      : plan,
+  );
 }
 
 /** Die Einträge gleichen Namens (oder zweiten Namens). */
@@ -312,6 +334,7 @@ export function planPriceLines(
       choices: found.map((entity) => entity.id),
       create: !found.length && !other,
       takenBy: !found.length && other ? `${other.name} (${KIND_LABEL[other.kind]})` : null,
+      rule: srdMatch(line.name),
     };
   });
 }

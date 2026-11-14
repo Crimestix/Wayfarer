@@ -13,13 +13,15 @@ import {
 } from '../../domain/priceList';
 import { kindFromFolderTitle, kindFromText } from '../wiki/facts';
 import {
-  listPrice,
+  listOrRulePrice,
+  rulePrice,
   sellPrice,
   type Sellable,
   type StockRow,
   type TradeInput,
 } from '../../domain/shop';
 import type { Shop } from '../../domain/schema';
+import type { SrdItem } from '../../domain/srd/lookup';
 
 export interface BasketLine {
   key: string;
@@ -79,7 +81,7 @@ export function addEntity(
   shop: Shop | null,
   direction: TradeDirection,
 ): BasketLine[] {
-  const list = listPrice(entity);
+  const list = listOrRulePrice(entity);
   const price =
     direction === 'sell'
       ? sellPrice(shop, entity)
@@ -96,6 +98,22 @@ export function addEntity(
     max: null,
   });
 }
+
+/** Ein Gegenstand des Regelwerks in den Korb: sein Preis mal Preisfaktor des Ladens. */
+export const addRuleItem = (
+  basket: readonly BasketLine[],
+  item: SrdItem,
+  shop: Shop | null,
+): BasketLine[] =>
+  put(basket, {
+    key: `srd:${item.id}`,
+    entityId: null,
+    stockId: null,
+    text: item.name,
+    qty: 1,
+    price: rulePrice(shop, item),
+    max: null,
+  });
 
 let freeCount = 0;
 
