@@ -194,10 +194,46 @@ describe('Läden mit dem Regelwerk', () => {
     );
     db.patch('shops', shop.id, {
       stock: [
-        { id: 'a', entityId: null, text: 'Kurzschwert', price: null, qty: null, srdId: null },
-        { id: 'b', entityId: rope.id, text: 'Seil', price: null, qty: null, srdId: null },
-        { id: 'c', entityId: priced.id, text: 'Dolch', price: null, qty: null, srdId: null },
-        { id: 'd', entityId: null, text: 'Räucherwurst', price: null, qty: null, srdId: null },
+        {
+          id: 'a',
+          entityId: null,
+          text: 'Kurzschwert',
+          price: null,
+          qty: null,
+          srdId: null,
+          creatureId: null,
+          unit: '',
+        },
+        {
+          id: 'b',
+          entityId: rope.id,
+          text: 'Seil',
+          price: null,
+          qty: null,
+          srdId: null,
+          creatureId: null,
+          unit: '',
+        },
+        {
+          id: 'c',
+          entityId: priced.id,
+          text: 'Dolch',
+          price: null,
+          qty: null,
+          srdId: null,
+          creatureId: null,
+          unit: '',
+        },
+        {
+          id: 'd',
+          entityId: null,
+          text: 'Räucherwurst',
+          price: null,
+          qty: null,
+          srdId: null,
+          creatureId: null,
+          unit: '',
+        },
       ],
     });
     const data = db.getSnapshot();
@@ -282,7 +318,16 @@ describe('Läden mit dem Regelwerk', () => {
     db.patch('shops', shop.id, {
       stock: [
         ...db.getSnapshot().shops[shop.id]!.stock,
-        { id: 'wurst', entityId: null, text: 'Räucherwurst', price: 0.05, qty: null, srdId: null },
+        {
+          id: 'wurst',
+          entityId: null,
+          text: 'Räucherwurst',
+          price: 0.05,
+          qty: null,
+          srdId: null,
+          creatureId: null,
+          unit: '',
+        },
       ],
     });
     const wurst = made_(stockLineToItem(db, shop.id, 'wurst'));

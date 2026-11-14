@@ -633,13 +633,15 @@ export type TradeDirection = (typeof TRADE_DIRECTIONS)[number];
 
 /** Eine Zeile eines Handels: was, wie viele, zu welchem Stückpreis. */
 export const TradeLineSchema = z.object({
-  /** Ein Eintrag der Welt (Gegenstand, Pflanze, Tier, Gestein); null = nur in Worten. */
+  /** Ein Eintrag der Welt (meist Gegenstand, Pflanze, Tier, Gestein); null = nur in Worten. */
   entityId: id.nullable().default(null),
   /** Der Name in Worten, wie er zur Zeit des Handels hieß. */
   text: z.string().default(''),
   qty: z.number().int().positive().default(1),
   /** Stückpreis in Goldmünzen. */
   price: z.number().nonnegative().default(0),
+  /** Die Einheit des Preises: „je Pfund“; leer = je Stück. */
+  unit: z.string().default(''),
   /** Die Zeile des Ladenbestands, aus der es kam bzw. in die es ging; null = keine. */
   stockId: id.nullable().default(null),
   /** Beim Verkauf: Die Zeile des Bestands entstand erst durch diesen Handel. */
@@ -2379,7 +2381,7 @@ export type Guess = z.infer<typeof GuessSchema>;
 /** Eine Zeile im Bestand eines Ladens. */
 export const ShopStockSchema = z.object({
   id,
-  /** Ein Eintrag der Welt (Gegenstand, Pflanze, Tier, Gestein); null = nur in Worten. */
+  /** Ein Eintrag der Welt – jeder Art (meist Gegenstand, Tier, Pflanze, Gestein); null = keiner. */
   entityId: id.nullable().default(null),
   /** Der Name in Worten; bei einem Eintrag sein Name zur Zeit der Wahl (bleibt, wenn er gelöscht wird). */
   text: z.string().default(''),
@@ -2392,8 +2394,25 @@ export const ShopStockSchema = z.object({
    * gilt dessen Preis mal Preisfaktor. null = nicht aus dem Regelwerk.
    */
   srdId: z.string().nullable().default(null),
+  /** Ein Wesen des Bestiariums (ein abgerichtetes Tier, ein Reittier …); null = keins. */
+  creatureId: id.nullable().default(null),
+  /** Die Einheit des Preises: „je Pfund“, „je Sack“, „je Fass“; leer = je Stück. */
+  unit: z.string().default(''),
 });
 export type ShopStock = z.infer<typeof ShopStockSchema>;
+
+/**
+ * Was ein Handelsplatz gerade sucht oder nicht haben will (`domain/market.ts`): ein Wort, das
+ * auf Namen, Einordnung oder Art einer Ware passt („Salz“, „Pelz“, „Waffe“), und ein Faktor auf
+ * den Ankauf – 1,5 = +50 % (gesucht), 0,7 = −30 % (nicht gefragt). Nur ein Hinweis des
+ * Spielleiters; am Tisch gilt der Preis, den er nennt.
+ */
+export const ShopDemandSchema = z.object({
+  id,
+  text: z.string().default(''),
+  factor: z.number().positive().default(1.5),
+});
+export type ShopDemand = z.infer<typeof ShopDemandSchema>;
 
 /**
  * Ein Laden (`domain/shop.ts`): ein Ort, der etwas verkauft – mit Händler, Bestand und Preisen.
@@ -2413,12 +2432,36 @@ export const ShopSchema = z.object({
   priceFactor: z.number().positive().default(1),
   /** Was er beim Ankauf zahlt, im Verhältnis zum Listenpreis. */
   buyFactor: z.number().nonnegative().default(0.5),
-  /** Einordnungen, die er ankauft („Kraut“, „Waffe“, „Pflanze“); leer = alles. */
+  /**
+   * Was er gern ankauft („Kraut“, „Waffe“, „Pflanze“) – nur ein Hinweis: Am Tisch kauft jeder
+   * Laden alles an, zum Preis, den der Spielleiter nennt.
+   */
   buys: z.array(z.string()).default([]),
   stock: z.array(ShopStockSchema).default([]),
   notes: z.string().default(''),
+  /**
+   * Ein Handelsplatz (Markt, Hafen, Auktionshaus, Hehler): ein Ort, an dem die Gruppe vor allem
+   * verkauft – am Tisch steht „Verkaufen“ vorn (`domain/market.ts`).
+   */
+  market: z.boolean().default(false),
+  /** Was hier gesucht ist (Faktor über 1) oder nicht gefragt (unter 1) – Hinweise beim Ankauf. */
+  demand: z.array(ShopDemandSchema).default([]),
 });
 export type Shop = z.infer<typeof ShopSchema>;
+
+/**
+ * Eine Vorlage für eine Ladenart (`domain/shopTemplate.ts`): die eigene Liste des Spielleiters,
+ * was ein Laden dieser Art führt – geschrieben wie eine Preisliste („Langschwert: 15 GM“, „Salz:
+ * 5 KM je Pfund (20)“). In einen Laden kommt sie nur Zeile für Zeile, wenn er sie ankreuzt.
+ */
+export const ShopTemplateSchema = z.object({
+  ...base,
+  /** Die Ladenart, frei: „Schmiede“, „Tierhändler“. */
+  kind: z.string().default(''),
+  /** Die Liste in Worten – eine Ware je Zeile, Überschriften als Einordnung. */
+  text: z.string().default(''),
+});
+export type ShopTemplate = z.infer<typeof ShopTemplateSchema>;
 
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
@@ -2453,6 +2496,7 @@ export const COLLECTION_SCHEMAS = {
   bastions: BastionSchema,
   guesses: GuessSchema,
   shops: ShopSchema,
+  assortments: ShopTemplateSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2486,6 +2530,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'bastions',
   'guesses',
   'shops',
+  'assortments',
 ];
 
 export type CollectionTypes = {
@@ -2607,6 +2652,11 @@ export function createGuess(init: Partial<Guess> = {}): Guess {
 export function createShop(init: Partial<Shop> = {}): Shop {
   const stamp = nowIso();
   return ShopSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createShopTemplate(init: Partial<ShopTemplate> = {}): ShopTemplate {
+  const stamp = nowIso();
+  return ShopTemplateSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTrack(init: Partial<Track> & { name: string }): Track {

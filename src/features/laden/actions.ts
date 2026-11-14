@@ -1,6 +1,6 @@
 /**
  * Befehle der Läden: anlegen, ändern, Bestand pflegen, eine Preisliste übernehmen, Vorschläge
- * annehmen – und handeln. Gekauft und verkauft wird nur über `tradeAt`: ein Eintrag der Art
+ * und Vorlagen annehmen, Vorlagen für Ladenarten schreiben und merken – und handeln. Gekauft und verkauft wird nur über `tradeAt`: ein Eintrag der Art
  * „Handel“ (`recordEntry`), der Bestand und Besitzer einzelner Stücke mitzieht; Löschen des
  * Eintrags nimmt beides zurück. Die Rechnung steht in `domain/shop.ts` und `domain/priceList.ts`.
  */
@@ -17,13 +17,16 @@ import {
   type TradeInput,
 } from '../../domain/shop';
 import { srdItem } from '../../domain/srd/lookup';
+import { templateOfKind, templateTextOf } from '../../domain/shopTemplate';
 import {
   createEntity,
   createShop,
+  createShopTemplate,
   type CampaignData,
   type Entity,
   type Shop,
   type ShopStock,
+  type ShopTemplate,
 } from '../../domain/schema';
 import type { WorldTime } from '../../domain/time/calendar';
 import { linkTwins } from '../wiki/actions';
@@ -52,17 +55,108 @@ export function removeShop(db: CampaignDb, shopId: string): (() => void) | null 
   };
 }
 
-/** Hängt Zeilen an den Bestand. Ein Eintrag, den der Laden schon führt, kommt nicht doppelt. */
-export function addStockLines(db: CampaignDb, shopId: string, lines: Partial<ShopStock>[]): void {
+/**
+ * Hängt Zeilen an den Bestand. Ein Eintrag, ein Wesen oder ein Gegenstand des Regelwerks, den der
+ * Laden schon führt, kommt nicht doppelt. Gibt zurück, wie viele dazukamen.
+ */
+export function addStockLines(
+  db: CampaignDb,
+  shopId: string,
+  lines: Partial<Omit<ShopStock, 'id'>>[],
+): number {
   const shop = db.getSnapshot().shops[shopId];
-  if (!shop) return;
+  if (!shop) return 0;
   const next = [...shop.stock];
+  let added = 0;
   for (const line of lines) {
     if (line.entityId && next.some((s) => s.entityId === line.entityId)) continue;
-    if (!line.entityId && !line.text?.trim()) continue;
-    next.push(stockLine({ ...line, text: line.text?.trim() ?? '' }));
+    if (line.creatureId && next.some((s) => s.creatureId === line.creatureId)) continue;
+    if (!line.entityId && line.srdId && next.some((s) => s.srdId === line.srdId)) continue;
+    if (!line.entityId && !line.creatureId && !line.text?.trim()) continue;
+    next.push(stockLine({ ...line, text: line.text?.trim() ?? '', unit: line.unit?.trim() ?? '' }));
+    added++;
   }
-  db.patch('shops', shopId, { stock: next });
+  if (added) db.patch('shops', shopId, { stock: next });
+  return added;
+}
+
+/**
+ * Nimmt angekreuzte Zeilen in den Bestand – aus einer Vorlage, einem Vorschlag Wayfarers oder
+ * dem Bestiarium. Gibt zurück, wie viele dazukamen, und was es rückgängig macht.
+ */
+export function addProposedLines(
+  db: CampaignDb,
+  shopId: string,
+  lines: readonly Partial<Omit<ShopStock, 'id'>>[],
+): { added: number; undo: () => void } | null {
+  const before = db.getSnapshot().shops[shopId];
+  if (!before) return null;
+  const added = addStockLines(db, shopId, [...lines]);
+  return { added, undo: added ? restoreShop(db, before) : () => {} };
+}
+
+// ── Vorlagen für Ladenarten ────────────────────────────────────────────────
+
+/** Legt eine Vorlage an – leer oder mit Art und Liste. */
+export function newShopTemplate(db: CampaignDb, init: Partial<ShopTemplate> = {}): ShopTemplate {
+  return db.put('assortments', createShopTemplate(init));
+}
+
+/** Ändert Art oder Liste einer Vorlage. */
+export function patchShopTemplate(
+  db: CampaignDb,
+  templateId: string,
+  change: Partial<Pick<ShopTemplate, 'kind' | 'text'>>,
+): void {
+  if (!db.getSnapshot().assortments[templateId]) return;
+  db.patch('assortments', templateId, change);
+}
+
+/** Löscht eine Vorlage – Läden bleiben, wie sie sind. Gibt zurück, was sie wiederherstellt. */
+export function removeShopTemplate(db: CampaignDb, templateId: string): (() => void) | null {
+  const template = db.getSnapshot().assortments[templateId];
+  if (!template) return null;
+  db.remove('assortments', templateId);
+  return () => {
+    if (!db.getSnapshot().assortments[templateId]) db.put('assortments', { ...template, rev: 0 });
+  };
+}
+
+/**
+ * „Als Vorlage für <Art> merken“: Der Bestand des Ladens wird die Liste der Vorlage seiner Art –
+ * eine vorhandene Vorlage dieser Art bekommt die neue Liste (`replaced`), sonst entsteht eine.
+ * null, wenn der Laden keine Art hat. Gibt zurück, was es rückgängig macht.
+ */
+export function rememberAsTemplate(
+  db: CampaignDb,
+  shopId: string,
+): { template: ShopTemplate; replaced: boolean; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const shop = data.shops[shopId];
+  const kind = shop?.kind.trim() ?? '';
+  if (!shop || !kind) return null;
+  const text = templateTextOf(data, shop);
+  const existing = templateOfKind(data, kind);
+  if (existing) {
+    db.patch('assortments', existing.id, { text });
+    const after = db.getSnapshot().assortments[existing.id]!;
+    return {
+      template: after,
+      replaced: true,
+      undo: () => {
+        const now = db.getSnapshot().assortments[existing.id];
+        if (now && now.rev === after.rev) db.put('assortments', { ...now, text: existing.text });
+      },
+    };
+  }
+  const template = newShopTemplate(db, { kind, text });
+  return {
+    template,
+    replaced: false,
+    undo: () => {
+      if (db.getSnapshot().assortments[template.id]) db.remove('assortments', template.id);
+    },
+  };
 }
 
 /** Ändert eine Zeile des Bestands. */
@@ -283,6 +377,7 @@ export function takePriceList(
           ...lines[existing]!,
           price: own,
           qty: plan.qty ?? lines[existing]!.qty,
+          unit: plan.unit || lines[existing]!.unit,
         };
       } else {
         const line = stockLine({
@@ -290,6 +385,7 @@ export function takePriceList(
           text: entity ? entity.name : plan.name,
           price: entity ? own : plan.price,
           qty: plan.qty,
+          unit: plan.unit,
         });
         lines.push(line);
         stocked.add(line.id);

@@ -2,7 +2,16 @@
  * Der Korb im Laden: was am Tisch gekauft oder verkauft werden soll, bevor es festgehalten wird.
  * Reine Funktionen; festgehalten wird über `tradeAt` (`actions.ts`).
  */
-import type { CampaignData, Entity, TradeDirection } from '../../domain/schema';
+import type { CampaignData, Entity, Rarity, ShopDemand, TradeDirection } from '../../domain/schema';
+import {
+  auctionBid,
+  demandOf,
+  demandThingOf,
+  isWideRarity,
+  rarityOf,
+  type AuctionBid,
+  type Die,
+} from '../../domain/market';
 import { activeParty } from '../../domain/derive';
 import {
   baseName,
@@ -13,15 +22,24 @@ import {
 } from '../../domain/priceList';
 import { kindFromFolderTitle, kindFromText } from '../wiki/facts';
 import {
+  creatureCategory,
   listOrRulePrice,
+  readUnit,
   rulePrice,
   sellPrice,
   type Sellable,
   type StockRow,
   type TradeInput,
+  type WareOption,
 } from '../../domain/shop';
 import type { Shop } from '../../domain/schema';
-import { SRD_EQUIPMENT, srdSearch, type SrdGroup, type SrdItem } from '../../domain/srd/lookup';
+import {
+  SRD_EQUIPMENT,
+  srdMatch,
+  srdSearch,
+  type SrdGroup,
+  type SrdItem,
+} from '../../domain/srd/lookup';
 
 export interface BasketLine {
   key: string;
@@ -35,6 +53,14 @@ export interface BasketLine {
   max: number | null;
   /** Wem es gehört (beim Verkauf): der Gefährte; null = die Gruppe; undefined = unbekannt. */
   ownerId?: string | null;
+  /** Die Einheit des Preises: „je Pfund“; leer = je Stück. */
+  unit?: string;
+  /** Der Wert (Listenpreis oder Preis nach dem Regelwerk) – Grundlage beim Versteigern. */
+  worth?: number | null;
+  /** Seltenheit – beim Versteigern wird Seltenes breiter geboten. */
+  rarity?: Rarity | '';
+  /** Was der Handelsplatz dazu sagt (beim Verkauf): gesucht oder nicht gefragt. */
+  demand?: ShopDemand | null;
 }
 
 /** Legt eine Zeile in den Korb – oder zählt eine vorhandene hoch, soweit der Bestand reicht. */
@@ -56,6 +82,9 @@ export const addRow = (basket: readonly BasketLine[], row: StockRow): BasketLine
     qty: 1,
     price: row.price,
     max: row.single ? 1 : row.qty,
+    unit: row.unit,
+    worth: row.listPrice ?? row.rule?.price ?? null,
+    rarity: rarityOf(row.entity),
   });
 
 /** Ein Gegenstand der Gruppe in den Korb (zum Verkaufen). */
@@ -69,6 +98,9 @@ export const addSellable = (basket: readonly BasketLine[], item: Sellable): Bask
     price: item.price,
     max: 1,
     ownerId: item.ownerId,
+    worth: listOrRulePrice(item.entity),
+    rarity: rarityOf(item.entity),
+    demand: item.demand,
   });
 
 /**
@@ -96,7 +128,55 @@ export function addEntity(
     qty: 1,
     price,
     max: null,
+    worth: list,
+    rarity: rarityOf(entity),
+    demand: direction === 'sell' ? demandOf(shop, demandThingOf(entity)) : null,
   });
+}
+
+/**
+ * Ein Wesen des Bestiariums in den Korb (ein abgerichtetes Tier, ein Reittier): Preis nach dem
+ * Regelwerk, wenn ein Gegenstand gleichen Namens dort steht (Mastiff, Reitpferd) – sonst offen.
+ */
+export function addCreature(
+  basket: readonly BasketLine[],
+  data: Pick<CampaignData, 'creatures'>,
+  creatureId: string,
+  shop: Shop | null,
+  direction: TradeDirection,
+): BasketLine[] {
+  const creature = data.creatures[creatureId];
+  if (!creature) return [...basket];
+  const worth = srdMatch(creature.name)?.price ?? null;
+  const thing = { name: creature.name, category: creatureCategory(data, creatureId) };
+  const share =
+    direction === 'sell'
+      ? (shop?.buyFactor ?? 0.5) * (demandOf(shop, thing)?.factor ?? 1)
+      : (shop?.priceFactor ?? 1);
+  return put(basket, {
+    key: `creature:${creature.id}`,
+    entityId: null,
+    stockId: null,
+    text: creature.name,
+    qty: 1,
+    price: worth === null ? null : roundGold(worth * share),
+    max: null,
+    worth,
+    demand: direction === 'sell' ? demandOf(shop, thing) : null,
+  });
+}
+
+/** Eine Ware aus der Wahl (`wareGroups`) in den Korb – Eintrag der Welt oder Wesen. */
+export function addWare(
+  basket: readonly BasketLine[],
+  data: CampaignData,
+  option: WareOption,
+  shop: Shop | null,
+  direction: TradeDirection,
+): BasketLine[] {
+  if (option.creatureId) return addCreature(basket, data, option.creatureId, shop, direction);
+  const entity = option.entityId ? data.entities[option.entityId] : undefined;
+  return entity ? addEntity(basket, entity, shop, direction) : [...basket];
 }
 
 /** Ein Gegenstand des Regelwerks in den Korb: sein Preis mal Preisfaktor des Ladens. */
@@ -117,14 +197,19 @@ export const addRuleItem = (
 
 let freeCount = 0;
 
-/** Etwas nur in Worten, mit Preis. */
+/**
+ * Etwas nur in Worten, mit Preis – beim Verkauf an einem Handelsplatz mit dem, was er dazu sagt
+ * (gesucht, nicht gefragt; der Preis bleibt der genannte).
+ */
 export function addFree(
   basket: readonly BasketLine[],
   text: string,
   price: number | null,
+  options: { shop?: Shop | null; direction?: TradeDirection; qty?: number; unit?: string } = {},
 ): BasketLine[] {
   const words = text.replace(/\s+/g, ' ').trim();
   if (!words) return [...basket];
+  const qty = options.qty && Number.isInteger(options.qty) && options.qty > 0 ? options.qty : 1;
   return [
     ...basket,
     {
@@ -132,11 +217,40 @@ export function addFree(
       entityId: null,
       stockId: null,
       text: words,
-      qty: 1,
+      qty,
       price,
       max: null,
+      unit: readUnit(options.unit ?? ''),
+      worth: price,
+      demand: options.direction === 'sell' ? demandOf(options.shop ?? null, { name: words }) : null,
     },
   ];
+}
+
+/**
+ * Liest eine Menge, wie man sie am Tisch tippt: „12“, „3“; leer oder unlesbar = null. Nie unter
+ * eins, nie Bruchteile.
+ */
+export function readQty(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d{1,6}$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  return value >= 1 ? value : null;
+}
+
+/** Ändert die Einheit einer Zeile im Korb („je Pfund“). */
+export const setUnit = (basket: readonly BasketLine[], key: string, unit: string): BasketLine[] =>
+  basket.map((b) => (b.key === key ? { ...b, unit: readUnit(unit) } : b));
+
+/**
+ * Versteigert eine Zeile des Korbs: das Höchstgebot nach fester Regel (`auctionBid`) um ihren
+ * Wert – den Listenpreis, sonst den genannten Preis. Seltenes (oder `wide`) breiter. null = ohne
+ * Wert nichts zu versteigern. Nur ein Vorschlag; angenommen wird mit `setPrice`.
+ */
+export function auctionFor(line: BasketLine, die: Die, wide?: boolean): AuctionBid | null {
+  const worth = line.worth ?? line.price;
+  if (worth === null || worth === undefined || worth <= 0) return null;
+  return auctionBid(worth, wide ?? isWideRarity(line.rarity), die);
 }
 
 /** Ändert die Menge; unter eins fällt die Zeile weg. Nie mehr, als da ist. */
@@ -193,6 +307,7 @@ export function tradeInputOf(
       text: b.text,
       qty: b.qty,
       price: b.price ?? 0,
+      unit: b.unit ?? '',
     })),
   };
 }

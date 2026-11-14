@@ -234,7 +234,16 @@ describe('Die Suche', () => {
         kind: 'Krämer',
         placeId: world.isle.id,
         stock: [
-          { id: 's1', entityId: null, text: 'Räucheraal', price: 0.5, qty: null, srdId: null },
+          {
+            id: 's1',
+            entityId: null,
+            text: 'Räucheraal',
+            price: 0.5,
+            qty: null,
+            srdId: null,
+            creatureId: null,
+            unit: '',
+          },
         ],
       }),
     );

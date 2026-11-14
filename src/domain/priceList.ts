@@ -86,6 +86,8 @@ export interface PriceLine {
   price: number | null;
   /** Wie viele vorrätig sind; null = nicht angegeben. */
   qty: number | null;
+  /** Die Einheit hinter dem Preis: „je Pfund“, „je Sack“; leer = je Stück. */
+  unit: string;
   /** Die Überschrift darüber („Waffen“) – Einordnung neuer Gegenstände. */
   category: string;
 }
@@ -103,8 +105,15 @@ const LEADING_QTY = /^(\d+)\s*[x×]\s+/i;
 /** Menge hinter dem Preis: „(3)“, „(3 Stück)“, „3 Stück“, „× 3“, „3 vorrätig“. */
 const TRAILING_QTY =
   /\s*(?:\(\s*(\d+)\s*(?:stuck|stk\.?|vorratig|da)?\s*\)|[x×]\s*(\d+)|,?\s*(\d+)\s*(?:stuck|stk\.?|vorratig))\s*$/;
-/** Was nach einem Preis nichts zur Menge sagt: „je Stück“, „pro Bund“, „das Pfund“. */
-const PER = /\s*(?:\/|je|pro|per|das|die|der|each)\s+[\p{L} ]+$/u;
+/** Was nach einem Preis die Einheit nennt: „je Stück“, „pro Bund“, „das Pfund“. */
+const PER = /\s*(?:\/|je|pro|per|das|die|der|each)\s+([\p{L} ]+)$/u;
+
+/** Die Einheit hinter dem Preis, wie sie in der App steht: „pro pfund“ → „je Pfund“; Stück = leer. */
+function unitOf(word: string | undefined): string {
+  const measure = (word ?? '').replace(/\s+/g, ' ').trim();
+  if (!measure || /^(stuck|stk|each|piece)$/.test(measure)) return '';
+  return `je ${measure.charAt(0).toUpperCase()}${measure.slice(1)}`;
+}
 
 /**
  * Trennt Name und Preis: Tabulator, Punkte, Gleichheitszeichen, Doppelpunkt oder Gedankenstrich.
@@ -147,7 +156,7 @@ function cleanName(text: string): string {
 }
 
 /** Der Preisteil einer Zeile – mit Menge und ohne „je Stück“. */
-function readPriceText(text: string): { price: number; qty: number | null } | null {
+function readPriceText(text: string): { price: number; qty: number | null; unit: string } | null {
   let rest = plain(text);
   let qty: number | null = null;
   const trailing = TRAILING_QTY.exec(rest);
@@ -155,9 +164,10 @@ function readPriceText(text: string): { price: number; qty: number | null } | nu
     qty = Number(trailing[1] ?? trailing[2] ?? trailing[3]);
     rest = rest.slice(0, trailing.index);
   }
-  rest = rest.replace(PER, '').trim();
-  const price = parseCoins(rest);
-  return typeof price === 'number' ? { price, qty } : null;
+  const per = PER.exec(rest);
+  if (per) rest = rest.slice(0, per.index).trim();
+  const price = parseCoins(rest.trim());
+  return typeof price === 'number' ? { price, qty, unit: unitOf(per?.[1]) } : null;
 }
 
 /** Ein Preis am Ende einer Zeile ohne Trennzeichen: „Seil 1 GM“ – nur mit Münze. */
@@ -241,6 +251,7 @@ export function parsePriceLines(text: string): PriceListReading {
       name: clean,
       price: reading?.price ?? null,
       qty: reading?.qty ?? qty,
+      unit: reading?.unit ?? '',
       category,
     });
   });

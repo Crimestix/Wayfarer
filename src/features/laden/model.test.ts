@@ -18,7 +18,11 @@ import {
   setPrice,
   setQty,
   tradeInputOf,
+  auctionFor,
+  readQty,
+  setUnit,
 } from './model';
+import type { Die } from '../../domain/market';
 
 const line = (init: Partial<ShopStock>): ShopStock => ({
   id: 'l1',
@@ -27,13 +31,17 @@ const line = (init: Partial<ShopStock>): ShopStock => ({
   price: null,
   qty: null,
   srdId: null,
+  creatureId: null,
+  unit: '',
   ...init,
 });
 
 const row = (init: Partial<StockRow>): StockRow => ({
   line: line({}),
   entity: null,
+  creature: null,
   name: 'Seil',
+  unit: '',
   price: 1,
   own: false,
   listPrice: 1,
@@ -85,6 +93,7 @@ describe('Der Korb', () => {
       ownerId,
       price: 10,
       wanted: true,
+      demand: null,
     });
     const one = addSellable([], sellable(sword, 'lando'));
     expect(sellerOf(one)).toBe('lando');
@@ -93,8 +102,44 @@ describe('Der Korb', () => {
       shopId: 'shop',
       direction: 'sell',
       toId: 'lando',
-      lines: [{ entityId: sword.id, stockId: null, text: 'Graufelser Klinge', qty: 1, price: 10 }],
+      lines: [
+        {
+          entityId: sword.id,
+          stockId: null,
+          text: 'Graufelser Klinge',
+          qty: 1,
+          price: 10,
+          unit: '',
+        },
+      ],
     });
+  });
+
+  it('nimmt Mengen und Einheiten in Worten – und Gesuchtes als Hinweis beim Verkauf', () => {
+    const market = createShop({ market: true, demand: [{ id: 'd', text: 'Salz', factor: 1.5 }] });
+    const sold = addFree([], 'Steinsalz', 0.05, {
+      shop: market,
+      direction: 'sell',
+      qty: 40,
+      unit: 'Pfund',
+    });
+    expect(sold[0]).toMatchObject({ qty: 40, unit: 'je Pfund', worth: 0.05 });
+    expect(sold[0]!.demand?.id).toBe('d');
+    expect(
+      addFree([], 'Steinsalz', 0.05, { shop: market, direction: 'buy' })[0]!.demand,
+    ).toBeNull();
+    expect(readQty('12')).toBe(12);
+    expect(readQty('0')).toBeNull();
+    expect(readQty('2,5')).toBeNull();
+    expect(setUnit(sold, sold[0]!.key, 'Sack')[0]!.unit).toBe('je Sack');
+  });
+
+  it('versteigert eine Zeile um ihren Wert – Seltenes breiter', () => {
+    const [line] = addFree([], 'Sternsaphir', 400);
+    const six: Die = () => 6;
+    expect(auctionFor(line!, six)).toMatchObject({ bid: 600, wide: false });
+    expect(auctionFor({ ...line!, rarity: 'rare' }, six)).toMatchObject({ bid: 700, wide: true });
+    expect(auctionFor({ ...line!, worth: null, price: null }, six)).toBeNull();
   });
 });
 

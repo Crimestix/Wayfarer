@@ -4,21 +4,37 @@
  * Preis einer Ware ist ihr eigener Preis im Laden oder ihr Listenpreis mal dem Preisfaktor des
  * Ladens. Was ein Laden verkauft und angekauft hat, steht nur in der Chronik (Einträge der Art
  * „Handel“) – nie doppelt im Laden. Wayfarer rechnet und ordnet; was im Laden liegt, schreibt
- * der Spielleiter. Vorschläge für den Bestand gelten erst, wenn er sie annimmt. Reine Funktionen.
+ * der Spielleiter. Vorschläge für den Bestand gelten erst, wenn er sie annimmt. Nichts schränkt
+ * ein: Ein Laden kann alles führen (jeden Eintrag der Welt, Wesen des Bestiariums, Regelwerk,
+ * Worte), und am Tisch kauft und verkauft jeder alles – Art, Einordnung und „kauft gern“ sind
+ * nur Hinweise. Reine Funktionen.
  */
-import { KIND_LABEL, chronicleSorted, entityName, normalize, placeAncestors } from './derive';
+import { resolveCreature } from './creature';
+import {
+  KIND_LABEL,
+  KIND_LABEL_PLURAL,
+  chronicleSorted,
+  entityName,
+  normalize,
+  placeAncestors,
+  searchEntities,
+} from './derive';
 import { formatGold } from './loot';
+import { buyShare, demandOf, demandThingOf, plainWord } from './market';
 import { isNature, natureHere, natureOf, type NatureKind } from './nature';
-import { isTradeKind, roundGold } from './priceList';
+import { isTradeKind, roundGold, TRADE_KINDS } from './priceList';
 import { srdForShopKind, srdItem, srdMatch, srdSearch, type SrdItem } from './srd/lookup';
 import {
   newId,
   PARTY_ID,
   type CampaignData,
   type ChronicleEntry,
+  type Creature,
   type Entity,
+  type EntityKind,
   type Item,
   type Shop,
+  type ShopDemand,
   type ShopStock,
   type TradeDirection,
   type TradeLine,
@@ -98,6 +114,53 @@ export function readFactor(text: string): number | null {
   return Number.isFinite(value) && value > 0 && value <= 20 ? value : null;
 }
 
+// ── Einheiten ──────────────────────────────────────────────────────────────
+
+/** Übliche Einheiten für Handelsgüter – zur Auswahl, jede andere geht auch. */
+export const UNIT_SUGGESTIONS = [
+  'je Pfund',
+  'je Sack',
+  'je Fass',
+  'je Elle',
+  'je Ballen',
+  'je Kiste',
+  'je Krug',
+  'je Bund',
+  'je Barren',
+  'je Tag',
+] as const;
+
+/**
+ * Eine Einheit, wie sie dasteht: „Pfund“, „pro Sack“, „/ Fass“, „das Pfund“ → „je Pfund“. Leer
+ * oder „Stück“ = je Stück (leer).
+ */
+export function readUnit(text: string): string {
+  const word = text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^(?:\/|je\s|pro\s|per\s|das\s|die\s|der\s|each\s)\s*/i, '')
+    .trim();
+  if (!word || /^(stuck|stück|stk\.?)$/i.test(word)) return '';
+  return `je ${word}`;
+}
+
+/** Das Maß einer Einheit: „je Pfund“ → „Pfund“. */
+export const unitMeasure = (unit: string): string => unit.replace(/^je\s+/i, '').trim();
+
+/** Ein Preis mit Einheit: „5 KM je Pfund“. */
+export const priceWithUnit = (gold: number, unit: string): string =>
+  unit.trim() ? `${formatPrice(gold)} ${unit.trim()}` : formatPrice(gold);
+
+/**
+ * Eine Menge einer Ware in Worten: „3 Pfund Salz“ (Maße bleiben nach Zahlen in der Einzahl,
+ * wie „drei Sack Mehl“), ohne Einheit „3× Seil“, eins ohne Einheit nur der Name.
+ */
+export function amountText(qty: number, text: string, unit = ''): string {
+  const measure = unitMeasure(unit);
+  if (measure) return `${qty.toLocaleString('de-DE')} ${measure} ${text}`;
+  return qty > 1 ? `${qty}× ${text}` : text;
+}
+
 // ── Läden ──────────────────────────────────────────────────────────────────
 
 /**
@@ -147,6 +210,17 @@ export function shopsAt(data: CampaignData, placeId: string | null): Shop[] {
 /** „Läden hier“ am Spieltisch: am Ort der Gruppe und an den Orten darin. */
 export const shopsHere = (data: CampaignData): Shop[] => shopsAt(data, data.state.placeId);
 
+/**
+ * Wie der Abschnitt am Spieltisch heißt: „Läden hier“ – mit Handelsplätzen „Läden und
+ * Handelsplätze hier“, nur Handelsplätze „Handelsplatz hier“ / „Handelsplätze hier“.
+ */
+export function shopsHereTitle(shops: readonly Pick<Shop, 'market'>[]): string {
+  const markets = shops.filter((shop) => shop.market).length;
+  if (!markets) return 'Läden hier';
+  if (markets < shops.length) return 'Läden und Handelsplätze hier';
+  return markets === 1 ? 'Handelsplatz hier' : 'Handelsplätze hier';
+}
+
 /** Die Läden, die zu einem Eintrag gehören: an diesem Ort oder mit ihm als Händler. */
 export function shopsOf(data: CampaignData, entityId: string): Shop[] {
   return Object.values(data.shops)
@@ -181,7 +255,11 @@ export function partyHolder(data: CampaignData, entity: Entity | undefined | nul
 export interface StockRow {
   line: ShopStock;
   entity: Entity | null;
+  /** Ein Wesen des Bestiariums, wenn die Zeile eins ist. */
+  creature: Creature | null;
   name: string;
+  /** Die Einheit des Preises: „je Pfund“; leer = je Stück. */
+  unit: string;
   /** Preis in diesem Laden je Stück; null = offen. */
   price: number | null;
   /** Ein eigener Preis des Ladens statt Listenpreis mal Faktor. */
@@ -210,7 +288,17 @@ export function stockRuleItem(data: CampaignData, line: ShopStock): SrdItem | nu
   const entity = line.entityId ? data.entities[line.entityId] : undefined;
   if (entity)
     return listPrice(entity) !== null ? null : (srdItem(line.srdId) ?? ruleItemOf(entity));
-  return srdItem(line.srdId) ?? srdMatch(line.text);
+  const creature = line.creatureId ? data.creatures[line.creatureId] : undefined;
+  return srdItem(line.srdId) ?? srdMatch(line.text || creature?.name || '');
+}
+
+/** Was ein Wesen des Bestiariums ist, in einem Wort: seine Art („Tier“), sonst „Wesen“. */
+export function creatureCategory(
+  data: Pick<CampaignData, 'creatures'>,
+  creatureId: string,
+): string {
+  const type = resolveCreature(data.creatures, creatureId)?.block.type.trim() ?? '';
+  return type || 'Wesen';
 }
 
 /** Der Preis einer Zeile des Bestands in diesem Laden – ohne eigenen Preis nach Liste oder Regelwerk. */
@@ -240,13 +328,16 @@ export function stockRows(data: CampaignData, shop: Shop): StockRow[] {
   return shop.stock.map((line) => {
     const found = line.entityId ? data.entities[line.entityId] : undefined;
     const entity = found ?? null;
+    const creature = (line.creatureId ? data.creatures[line.creatureId] : undefined) ?? null;
     const single = isSingleItem(data, entity);
     // Ein einzelnes Stück, das die Gruppe schon hat, liegt nicht mehr im Laden.
     const gone = single && partyHolder(data, entity) !== null;
     return {
       line,
       entity,
-      name: line.text.trim() || entity?.name || '',
+      creature,
+      name: line.text.trim() || entity?.name || creature?.name || '',
+      unit: line.unit.trim(),
       price: stockPrice(data, shop, line),
       own: line.price !== null,
       listPrice: listPrice(entity),
@@ -254,7 +345,11 @@ export function stockRows(data: CampaignData, shop: Shop): StockRow[] {
       qty: gone ? 0 : single && line.qty === null ? 1 : line.qty,
       soldOut: line.qty === 0 || gone,
       single,
-      category: tradeCategory(entity) || stockRuleItem(data, line)?.sub || '',
+      category:
+        tradeCategory(entity) ||
+        (creature ? creatureCategory(data, creature.id) : '') ||
+        stockRuleItem(data, line)?.sub ||
+        '',
     };
   });
 }
@@ -270,18 +365,25 @@ export function filterRows(rows: readonly StockRow[], query: string): StockRow[]
 
 /** Eine neue Zeile für den Bestand. */
 export function stockLine(init: Partial<ShopStock> = {}): ShopStock {
-  return { id: newId(), entityId: null, text: '', price: null, qty: null, srdId: null, ...init };
+  return {
+    id: newId(),
+    entityId: null,
+    text: '',
+    price: null,
+    qty: null,
+    srdId: null,
+    creatureId: null,
+    unit: '',
+    ...init,
+  };
 }
 
 // ── Ankauf ─────────────────────────────────────────────────────────────────
 
-const plainWord = (text: string) =>
-  normalize(text)
-    .replace(/ß/g, 'ss')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-
-/** Kauft der Laden so etwas an? Ohne Angabe kauft er alles; Worte ohne Eintrag immer. */
+/**
+ * Kauft der Laden so etwas gern an („kauft gern …“)? Ohne Angabe: ja; Worte ohne Eintrag immer.
+ * Nur ein Hinweis – angekauft wird am Tisch alles.
+ */
 export function buysThing(shop: Shop | null, entity: Entity | null | undefined): boolean {
   if (!shop || !shop.buys.length || !entity) return true;
   const words = [tradeCategory(entity), KIND_LABEL[entity.kind]].map(plainWord);
@@ -293,11 +395,12 @@ export function buysThing(shop: Shop | null, entity: Entity | null | undefined):
 
 /**
  * Was der Laden für ein Stück zahlt: Listenpreis (sonst Preis nach dem Regelwerk) mal Ankauf –
- * ohne Laden die Hälfte.
+ * ohne Laden die Hälfte; auf einem Handelsplatz bringen Handelsgüter den vollen Wert, und was
+ * dort gesucht oder nicht gefragt ist, schlägt auf oder ab (`buyShare`, `domain/market.ts`).
  */
 export function sellPrice(shop: Shop | null, entity: Entity | null | undefined): number | null {
   const list = listOrRulePrice(entity);
-  return list === null ? null : roundGold(list * (shop?.buyFactor ?? 0.5));
+  return list === null ? null : roundGold(list * buyShare(shop, entity));
 }
 
 /**
@@ -344,8 +447,10 @@ export interface Sellable {
   ownerId: string | null;
   /** Was der Laden zahlt; null = ohne Listenpreis. */
   price: number | null;
-  /** Der Laden kauft so etwas an. */
+  /** Der Laden kauft so etwas gern an (nur ein Hinweis). */
   wanted: boolean;
+  /** Was der Handelsplatz dazu sagt: gesucht oder nicht gefragt; null = nichts. */
+  demand: ShopDemand | null;
 }
 
 /** Was die Gruppe und ihre Gefährten verkaufen könnten: ihre Gegenstände der Welt. */
@@ -369,6 +474,7 @@ export function sellables(data: CampaignData, shop: Shop | null): Sellable[] {
       ownerId: holder,
       price: sellPrice(shop, entity),
       wanted: buysThing(shop, entity),
+      demand: demandOf(shop, demandThingOf(entity)),
     });
   }
   return out.sort(
@@ -386,8 +492,10 @@ export interface TradeLineInput {
   entityId?: string | null;
   text?: string;
   qty?: number;
-  /** Stückpreis in Gold. */
+  /** Stückpreis in Gold (je Einheit). */
   price: number;
+  /** Die Einheit: „je Pfund“; leer = je Stück. */
+  unit?: string;
   /** Die Zeile des Bestands; ohne Angabe die des Eintrags, wenn es eine gibt. */
   stockId?: string | null;
 }
@@ -430,8 +538,8 @@ export function planTrade(
     const qty = raw.qty ?? 1;
     if (!Number.isInteger(qty) || qty < 1) return { problem: 'Die Menge ist keine ganze Zahl.' };
     if (!Number.isFinite(raw.price) || raw.price < 0) return { problem: 'Ein Preis ist ungültig.' };
-    const found = raw.entityId ? data.entities[raw.entityId] : undefined;
-    const entity = found && isTradeKind(found.kind) ? found : undefined;
+    // Jeder Eintrag der Welt lässt sich handeln – nicht nur Gegenstände, Pflanzen, Tiere, Gesteine.
+    const entity = raw.entityId ? data.entities[raw.entityId] : undefined;
     const text = (raw.text ?? '').replace(/\s+/g, ' ').trim() || entity?.name || '';
     if (!text) return { problem: 'Eine Zeile hat keinen Namen.' };
     const line: TradeLine = {
@@ -439,6 +547,7 @@ export function planTrade(
       text,
       qty,
       price: roundGold(raw.price),
+      unit: readUnit(raw.unit ?? ''),
       stockId: null,
       stockAdded: false,
       claimed: false,
@@ -523,6 +632,8 @@ export function stockAfter(
           price: null,
           qty: line.qty,
           srdId: null,
+          creatureId: null,
+          unit: line.unit,
         });
       else if (undo) next = next.filter((s) => s.id !== line.stockId);
       continue;
@@ -542,11 +653,9 @@ export function holderAfter(data: CampaignData, trade: TradeData): string | null
   return shopPlaceId(data, shop);
 }
 
-/** Die Waren eines Handels in einer Zeile: „2× Seil (15 m), Heiltrank“. */
+/** Die Waren eines Handels in einer Zeile: „2× Seil (15 m), Heiltrank, 20 Pfund Salz“. */
 export function tradeGoods(trade: Pick<TradeData, 'lines'>): string {
-  return trade.lines
-    .map((line) => (line.qty > 1 ? `${line.qty}× ${line.text}` : line.text))
-    .join(', ');
+  return trade.lines.map((line) => amountText(line.qty, line.text, line.unit)).join(', ');
 }
 
 /** Die Kopfzeile eines Handels: „Mira kauft bei Schmiede · Brann Eichwald: Dolch · 2 GM“. */
@@ -651,6 +760,32 @@ const SHOP_NATURE: { kind: NatureKind; words: string[] }[] = [
   },
 ];
 
+/**
+ * Wörter in der Art eines Ladens, die sagen: Er verkauft Tiere – Tierhändler, Haustiere, Stall,
+ * Falkner, Zwinger. Dann schlägt Wayfarer Tiere der Welt mit Preis und Tiere des Bestiariums vor.
+ */
+const ANIMAL_SHOP = [
+  'tierhandl',
+  'tierhandel',
+  'haustier',
+  'tierzucht',
+  'zuchter',
+  'menagerie',
+  'falkner',
+  'zwinger',
+  'viehhandl',
+  'viehmarkt',
+  'stall',
+  'gestut',
+  'pferd',
+];
+
+/** Verkauft der Laden nach seiner Art Tiere? Nur für Vorschläge – führen kann jeder alles. */
+export function sellsAnimals(shop: Pick<Shop, 'kind' | 'title'>): boolean {
+  const words = [shop.kind, shop.title].map(plainWord).join(' ');
+  return ANIMAL_SHOP.some((stem) => words.includes(stem));
+}
+
 export interface ShopSuggestion {
   entity: Entity;
   /** Der Preis im Laden (Listenpreis mal Faktor); null = ohne Listenpreis. */
@@ -689,19 +824,149 @@ export function shopSuggestions(data: CampaignData, shop: Shop): ShopSuggestion[
       reason,
     });
   };
+  const animals = sellsAnimals(shop);
+  if (animals) kinds.add('animal');
   for (const hit of natureHere(data, shopPlaceId(data, shop))) {
     const category = natureOf(hit.entity).category;
     if (kinds.has(hit.entity.kind) || fits(category)) add(hit.entity, hit.reasons[0]!.text);
   }
-  const items = Object.values(data.entities)
+  const byName = (a: Entity, b: Entity) => a.name.localeCompare(b.name, 'de');
+  const all = Object.values(data.entities);
+  const items = all
     .filter((entity): entity is Item => entity.kind === 'item' && fits(entity.item.category))
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    .sort(byName);
+  const notOthers = (item: Item) =>
+    !isSingleItem(data, item) || item.item.holderId === shop.keeperId;
   for (const item of items) {
-    const holder = item.item.holderId;
-    if (isSingleItem(data, item) && holder !== shop.keeperId) continue;
+    if (!notOthers(item)) continue;
     add(item, `Einordnung „${item.item.category.trim()}“`);
   }
+  // Einträge der Welt, die so heißen wie Ausrüstung, die zur Art passt (Regelwerk).
+  const { items: ruled, labels } = srdForShopKind(shop.kind, shop.title);
+  if (ruled.length) {
+    const ids = new Set(ruled.map((item) => item.id));
+    for (const entity of all.filter((e) => isTradeKind(e.kind)).sort(byName)) {
+      if (entity.kind === 'item' && !notOthers(entity)) continue;
+      const rule = srdMatch(entity.name);
+      if (rule && ids.has(rule.id)) add(entity, `passt zu „${labels.join(', ')}“`);
+    }
+  }
+  // Tierhändler, Stall, Falkner: die Tiere der Welt, die einen Preis haben.
+  if (animals)
+    for (const animal of all.filter((e) => e.kind === 'animal').sort(byName))
+      if (listPrice(animal) !== null) add(animal, 'Tier mit Preis');
   return out;
+}
+
+export interface CreatureSuggestion {
+  creature: Creature;
+  /** Preis nach dem Regelwerk (gleicher Name, etwa „Mastiff“) mal Faktor; null = offen. */
+  price: number | null;
+  reason: string;
+}
+
+/**
+ * Wesen des Bestiariums für einen Laden, der nach seiner Art Tiere verkauft (`sellsAnimals`):
+ * die Tiere darin (Art „Tier“ oder „Beast“) – ohne die, die er schon führt. Nur ein Vorschlag.
+ */
+export function creatureSuggestions(data: CampaignData, shop: Shop): CreatureSuggestion[] {
+  if (!sellsAnimals(shop)) return [];
+  const have = new Set(shop.stock.map((line) => line.creatureId).filter(Boolean));
+  return Object.values(data.creatures)
+    .filter((creature) => !have.has(creature.id))
+    .filter((creature) =>
+      /\b(tier|tiere|beast|bestie)\b/.test(plainWord(creatureCategory(data, creature.id))),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+    .map((creature) => {
+      const rule = srdMatch(creature.name);
+      return {
+        creature,
+        price: rule ? roundGold(rule.price * shop.priceFactor) : null,
+        reason: 'Tier im Bestiarium',
+      };
+    });
+}
+
+// ── Waren wählen ───────────────────────────────────────────────────────────
+
+/** Eine Ware zur Wahl: ein Eintrag der Welt oder ein Wesen des Bestiariums. */
+export interface WareOption {
+  key: string;
+  entityId: string | null;
+  creatureId: string | null;
+  name: string;
+  /** Was es ist: Einordnung, Art; bei Orten der Ort darüber. */
+  sub: string;
+  /** Listenpreis (sonst nach dem Regelwerk); null = keiner. */
+  price: number | null;
+}
+
+export interface WareGroup {
+  label: string;
+  options: WareOption[];
+}
+
+/** Die Reihenfolge der Gruppen: was man gewöhnlich verkauft, zuerst. */
+const WARE_KIND_ORDER: readonly EntityKind[] = [...TRADE_KINDS];
+
+/**
+ * Was ein Laden führen oder am Tisch gehandelt werden kann – alles: jeder Eintrag der Welt und
+ * jedes Wesen des Bestiariums. Nach Art gruppiert als Hilfe beim Finden, nie als Filter:
+ * Gegenstände, Tiere, Pflanzen, Gesteine, dann die Wesen, dann alle übrigen Einträge (ein Haus,
+ * ein Söldner, eine Karte …). `exclude` = Kennungen, die schon gewählt sind.
+ */
+export function wareGroups(
+  data: CampaignData,
+  query: string,
+  options: { exclude?: ReadonlySet<string>; perGroup?: number } = {},
+): WareGroup[] {
+  const limit = options.perGroup ?? 12;
+  const skip = options.exclude ?? new Set<string>();
+  const q = normalize(query.trim());
+  const found = searchEntities(data, query, { limit: 400 }).filter((e) => !skip.has(e.id));
+  const option = (entity: Entity): WareOption => ({
+    key: `entity:${entity.id}`,
+    entityId: entity.id,
+    creatureId: null,
+    name: entity.name,
+    sub:
+      entity.kind === 'place' && entity.place.parentId
+        ? `${KIND_LABEL.place} · ${entityName(data, entity.place.parentId)}`
+        : tradeCategory(entity),
+    price: listOrRulePrice(entity),
+  });
+  const groups: WareGroup[] = [];
+  for (const kind of WARE_KIND_ORDER) {
+    const options = found
+      .filter((e) => e.kind === kind)
+      .slice(0, limit)
+      .map(option);
+    if (options.length) groups.push({ label: KIND_LABEL_PLURAL[kind], options });
+  }
+  const creatures = Object.values(data.creatures)
+    .filter((c) => !skip.has(c.id) && (!q || normalize(c.name).includes(q)))
+    .sort(
+      (a, b) =>
+        Number(!normalize(a.name).startsWith(q)) - Number(!normalize(b.name).startsWith(q)) ||
+        a.name.localeCompare(b.name, 'de'),
+    )
+    .slice(0, limit)
+    .map((creature): WareOption => ({
+      key: `creature:${creature.id}`,
+      entityId: null,
+      creatureId: creature.id,
+      name: creature.name,
+      sub: creatureCategory(data, creature.id),
+      price: srdMatch(creature.name)?.price ?? null,
+    }));
+  if (creatures.length) groups.push({ label: 'Wesen des Bestiariums', options: creatures });
+  const rest = found
+    .filter((e) => !WARE_KIND_ORDER.includes(e.kind))
+    .slice(0, limit)
+    .map(option);
+  if (rest.length) groups.push({ label: 'Weitere Einträge der Welt', options: rest });
+  return groups;
 }
 
 /** Der Eintrag mit neuem Listenpreis – bei Gegenständen, Pflanzen, Tieren und Gesteinen. */
