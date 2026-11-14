@@ -211,7 +211,8 @@ export function NewStoryDialog({
         label: 'Rückgängig',
         run: () => {
           made.undo();
-          navigate('/faeden');
+          // Zurück ans Brett – aber nur von ihrem Blatt aus, das es jetzt nicht mehr gibt.
+          if (window.location.hash.includes(`/geschichte/${made.story.id}`)) navigate('/faeden');
         },
       },
     });

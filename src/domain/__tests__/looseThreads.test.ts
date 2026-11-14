@@ -5,6 +5,7 @@ import { MemoryStore } from '../../data/store';
 import {
   filterLoose,
   filterStoryChoices,
+  fitsLine,
   looseThreads,
   storyChoices,
   storyFits,
@@ -27,6 +28,7 @@ import {
   type Thread,
 } from '../schema';
 import { boardCards, boardLayout } from '../story';
+import { namesLine } from '../storySheet';
 import { MINUTES_PER_DAY } from '../time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../time/elaris';
 
@@ -178,6 +180,14 @@ describe('Die Liste der losen Fäden', () => {
       [feud.id, 'nennt auch Mira Tannhaus'],
     ]);
     expect(row(old.id).fits.map((fit) => fit.story.id)).toEqual([feud.id]);
+    // In einer Zeile: die beste Geschichte mit ihrem Grund – und dass es weitere gibt.
+    expect(fitsLine(row(light.id).fits)).toBe(
+      'passt zu „Die Pacht der Grotte“ – nennt auch Mira Tannhaus und Salzgrotte; auch zu 1 weiteren Geschichte',
+    );
+    expect(fitsLine(row(old.id).fits)).toBe(
+      'passt zu „Der Streit der Tannhaus“ – nennt auch Odo Tannhaus',
+    );
+    expect(fitsLine(row(siege.id).fits)).toBe('');
     expect(storyFits(data(), threadLike('Odos Schulden', [odo.id])).map((f) => f.story.id)).toEqual(
       [feud.id],
     );
@@ -319,6 +329,42 @@ describe('Die Liste der losen Fäden', () => {
     expect(rows[0]!.fits).toEqual([]);
     db.patch('stories', secret.id, { known: true });
     expect(looseThreads(data(), 'party')[0]!.fits.map((fit) => fit.story.id)).toEqual([secret.id]);
+  });
+
+  it('nennt der Gruppe als Herkunft nur den Abend – nie den Artikel oder den Tag des Anlegens', async () => {
+    const { db, data, thread } = await setup();
+    const article = db.put(
+      'articles',
+      ArticleSchema.parse({ id: newId(), title: 'Das Geheimnis der Salzsieder' }),
+    );
+    const evening = db.put('sessions', createSession({ number: 4, startAt: ELARIS_START }));
+    thread('Aus einem Artikel', { articleId: article.id });
+    thread('Aus einem Abend', { sessionIds: [evening.id] });
+    thread('Von Hand', { created: '2026-11-09T18:00:00.000Z' });
+    const origins = (view: 'truth' | 'party') =>
+      Object.fromEntries(
+        looseThreads(data(), view).map((row) => [row.thread.title, row.origin.text]),
+      );
+    expect(origins('truth')).toMatchObject({
+      'Aus einem Artikel': 'aus dem Artikel „Das Geheimnis der Salzsieder“',
+      'Von Hand': 'angelegt am 9. 11. 2026',
+    });
+    expect(origins('party')).toMatchObject({ 'Aus einem Artikel': '', 'Von Hand': '' });
+    expect(origins('party')['Aus einem Abend']).toMatch(/^aus Session 4 /);
+    // Auch die Suche findet in der Sicht der Gruppe nicht über den Namen des Artikels.
+    expect(filterLoose(looseThreads(data(), 'party'), 'Geheimnis')).toEqual([]);
+    expect(filterLoose(looseThreads(data(), 'truth'), 'Geheimnis')).toHaveLength(1);
+  });
+});
+
+describe('Namen in einer Zeile', () => {
+  it('nennt bis zu drei beim Namen – nie „und 1 weitere“', async () => {
+    const { mira, odo, lando, guild } = await setup();
+    expect(namesLine([])).toBe('');
+    expect(namesLine([mira])).toBe('Mira Tannhaus');
+    expect(namesLine([mira, odo])).toBe('Mira Tannhaus und Odo Tannhaus');
+    expect(namesLine([mira, odo, lando])).toBe('Mira Tannhaus, Odo Tannhaus und Lando Furtner');
+    expect(namesLine([mira, odo, lando, guild])).toBe('Mira Tannhaus, Odo Tannhaus und 2 weitere');
   });
 });
 

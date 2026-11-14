@@ -107,6 +107,15 @@
   position: relative;
   z-index: 1;
 }
+/* Ein Umschalter: Der gewählte Knopf sitzt gedrückt in der Leiste und trägt Messing als Schrift. */
+.wf-btn-group > .wf-btn[aria-pressed='true'] {
+  position: relative;
+  z-index: 1;
+  border-color: var(--gold-deep);
+  background: var(--bg-inset);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+  color: var(--gold-bright);
+}
 
 /* ── Rahmen ─────────────────────────────────────────────────────────────── */
 .wf-panel {

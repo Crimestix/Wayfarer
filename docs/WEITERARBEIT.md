@@ -1777,6 +1777,16 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   stehen unter „Doppelt?“. Fast gleiche Sätze erkennt Wayfarer nur an Füllwörtern und Endungen,
   nicht an Tippfehlern oder Umstellungen. „Hinweis gefunden“ und der Termin-Dialog wählen Fäden
   weiter aus einer Auswahlliste (jetzt: am Ort zuerst), ohne Suche.
+- **Gegengelesen: Lose Fäden aufräumen.** Nahm der erste Abend seinen Faden zurück, verschwand
+  er auch für spätere Abende, die ihn nur als Quelle führten – jetzt bleibt er (`otherSources`).
+  Umschalter in Knopfleisten zeigten nirgends, was gewählt ist (auch „Wahrheit / Was die Gruppe
+  weiß“) – der gedrückte Knopf ist jetzt zu sehen (`ui.css`). Suche und Auswahl der Liste bleiben,
+  wenn man zwischendurch eine Karte ansieht. Was ruht, wird am Spieltisch nicht mehr angeboten
+  und steht überall zuletzt (`looseOrder`); lange Sätze brechen die Auswahl nicht mehr auf. In
+  der Sicht der Gruppe steht als Herkunft nur der Abend, nie Artikel oder Anlagetag. Wortlaut:
+  „und 1 weiterer loser Faden“, „auch zu 1 weiteren Geschichte“ (`fitsLine`), drei Namen werden
+  genannt statt „und 1 weitere“; „gibt es schon“ nennt den vorhandenen Satz und ob er
+  abgeschlossen ist.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

@@ -351,7 +351,12 @@ nicht übernommen.
   KI-Leser), fragt vorher `threadByTitle` – gibt es den Satz schon, entsteht kein zweiter, die
   Session wird nur Quelle (Edit `source`) – und bietet die Geschichte über `StorySelect` an
   („keine“ ist die Vorgabe). Fäden zur Wahl: `threadsInOrder`; am Spieltisch `playChoices`
-  (nie eine endlose Liste, Suche).
+  (nie eine endlose Liste, Suche). Lose Fäden stehen überall in derselben Reihung (`looseOrder`:
+  was ruht zuletzt, sonst am Ort der Gruppe zuerst, aktiv vor offen); Ruhendes bietet der
+  Spieltisch nicht von selbst an. Nimmt das Nachtragen einen Faden zurück, den auch andere
+  angenommene Notizen nennen, bleibt er (`otherSources`). In der Sicht der Gruppe ist die
+  Herkunft nur der Abend. Suche und Auswahl der Liste gehören der Seite (`faeden/index.tsx`),
+  damit sie einen Blick auf eine Karte überstehen.
 - Einen Abend vorbereiten (`preps/`, `domain/prep.ts`, `features/abend`, Reiter neben dem
   Fadenbrett): je Abend ein Blatt – starker Einstieg, mögliche Szenen, Geheimnisse (noch an
   keinem Ort festgemacht), Begegnungen, Beute. Das offene Blatt (`sessionId: null`) gilt dem
@@ -757,6 +762,8 @@ nicht wie ein Admin-Dashboard.
   einer je Ansicht, sonst verliert er seinen Sinn. „Festhalten“ in der Weltleiste ist deshalb
   nur am Spieltisch aus Messing; Knöpfe in Leerzuständen, Listen und Reitern sind gewöhnliche,
   wenn die Seite schon einen hat. Ein Dialog ist eine eigene Ansicht.
+- Umschalter: Knöpfe in einer `wf-btn-group` mit `aria-pressed` – der gewählte sitzt gedrückt
+  und trägt Messing als Schrift (`ui.css`); nie einen Umschalter ohne `aria-pressed` bauen.
 - Abschnittstitel in Versalien, Zierlinie (`Divider`).
 - **Keine Bilder als Schmuck in Arbeitsflächen** (Entscheidung des Spielleiters, 11. 11. 2026:
   „Die Bilder stören mehr, als dass sie gut aussehen“). Gemalt sind nur das Startbild und das

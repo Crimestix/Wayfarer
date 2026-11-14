@@ -383,4 +383,32 @@ describe('Am Spieltisch', () => {
     // Bei wenigen braucht es keine Suche.
     expect(playChoices(data(), cards.slice(0, 3)).search).toBe(false);
   });
+
+  it('reiht lose Fäden wie in der Liste: aktive zuerst – was ruht, drängt sich nicht auf', async () => {
+    const { data, market, thread } = await setup();
+    thread('Ferner Faden');
+    thread('Offen am Markt', { refs: [market.id] });
+    thread('Ruht am Markt', { refs: [market.id], state: 'dormant' });
+    thread('Zuletzt aktiv am Markt', { refs: [market.id], state: 'active' });
+    const view = playView(data());
+    expect(view.offered.map((card) => card.title)).toEqual([
+      'Zuletzt aktiv am Markt',
+      'Offen am Markt',
+    ]);
+    expect(view.offeredMore).toBe(0);
+    // Zur Wahl steht auch, was ruht – hinter allem anderen.
+    expect(playChoices(data(), boardCards(data())).threads.map((card) => card.title)).toEqual([
+      'Zuletzt aktiv am Markt',
+      'Offen am Markt',
+      'Ferner Faden',
+      'Ruht am Markt',
+    ]);
+    // Dieselbe Reihung wie in der Liste neben dem Brett.
+    expect(looseThreads(data()).map((row) => row.thread.title)).toEqual([
+      'Zuletzt aktiv am Markt',
+      'Offen am Markt',
+      'Ferner Faden',
+      'Ruht am Markt',
+    ]);
+  });
 });

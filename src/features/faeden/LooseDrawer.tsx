@@ -23,6 +23,7 @@ import {
 import { useData, useDb } from '../../data/hooks';
 import {
   filterLoose,
+  fitsLine,
   type LooseThread,
   type StoryFit,
   type ThreadTwins,
@@ -54,6 +55,10 @@ export function LooseDrawer({
   twins,
   view,
   focusId,
+  query,
+  onQuery,
+  picked,
+  onPicked,
   onEdit,
   onShow,
 }: {
@@ -62,6 +67,14 @@ export function LooseDrawer({
   view: BoardView;
   /** Ein Faden, der gleich im Bild stehen soll (aus der Suche, nach dem Anlegen). */
   focusId: string | null;
+  /**
+   * Suche und Auswahl gehören der Seite: Sie bleiben, wenn der Spielleiter zwischendurch eine
+   * Karte des Bretts ansieht.
+   */
+  query: string;
+  onQuery: (query: string) => void;
+  picked: ReadonlySet<string>;
+  onPicked: (picked: ReadonlySet<string>) => void;
   onEdit: (thread: Thread) => void;
   /** Zeigt die Karte eines Fadens auf dem Brett. */
   onShow: (key: string) => void;
@@ -69,8 +82,6 @@ export function LooseDrawer({
   const db = useDb();
   const data = useData();
   const truth = view === 'truth';
-  const [query, setQuery] = useState('');
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [opened, setOpened] = useState<string | null>(focusId);
   const [menu, setMenu] = useState<string | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(null);
@@ -85,20 +96,18 @@ export function LooseDrawer({
   const menuRow = rows.find((row) => row.thread.id === menu) ?? null;
 
   useEffect(() => {
-    if (!focusId) return;
-    setOpened(focusId);
-    setQuery('');
+    if (focusId) setOpened(focusId);
   }, [focusId]);
 
   const pick = (id: string, on: boolean) => {
     const next = new Set(picked);
     if (on) next.add(id);
     else next.delete(id);
-    setPicked(next);
+    onPicked(next);
   };
   const done = (title: string, body: string, undo: (() => void) | null) => {
     if (!undo) return;
-    setPicked(new Set());
+    onPicked(new Set());
     toast({ title, body, action: { label: 'Rückgängig', run: undo } });
   };
   const what = (ids: readonly string[]) =>
@@ -210,7 +219,7 @@ export function LooseDrawer({
               value={query}
               placeholder="Suchen: Satz, Text oder Name"
               aria-label="Lose Fäden durchsuchen"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => onQuery(event.target.value)}
             />
           </label>
 
@@ -257,7 +266,7 @@ export function LooseDrawer({
                   checked={allPicked}
                   disabled={open.length === 0}
                   onChange={(event) =>
-                    setPicked(
+                    onPicked(
                       event.target.checked ? new Set(open.map((row) => row.thread.id)) : new Set(),
                     )
                   }
@@ -351,7 +360,7 @@ export function LooseDrawer({
           onClose={() => setDialog(null)}
           onDone={() => {
             setDialog(null);
-            setPicked(new Set());
+            onPicked(new Set());
           }}
         />
       )}
@@ -361,7 +370,7 @@ export function LooseDrawer({
           onClose={() => setDialog(null)}
           onDone={() => {
             setDialog(null);
-            setPicked(new Set());
+            onPicked(new Set());
           }}
         />
       )}
@@ -444,10 +453,7 @@ function LooseRow({
         </div>
         {fit && (
           <div className="wf-faden-loose__fit">
-            <span>
-              passt zu „{fit.story.title}“ – {fit.reason}
-              {row.fits.length > 1 && ` (und ${row.fits.length - 1} weitere)`}
-            </span>
+            <span>{fitsLine(row.fits)}</span>
             {truth && (
               <button type="button" className="wf-faden-link" onClick={() => onAttach(fit)}>
                 Anhängen

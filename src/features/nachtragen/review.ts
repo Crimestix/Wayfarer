@@ -8,6 +8,7 @@ import { FATE_LABEL, type RecordInput } from '../../domain/chronicleKinds';
 import { activeParty, entityName } from '../../domain/derive';
 import { placeForEntry } from '../../domain/history';
 import { threadByTitle } from '../../domain/looseThreads';
+import { THREAD_STATE_LABEL, threadLive } from '../../domain/story';
 import type { Recognized, RecognizedPayload } from '../../domain/recognize';
 import type {
   CampaignData,
@@ -621,7 +622,11 @@ export function threadTwinNote(data: CampaignData, proposal: ReadProposal, title
   if (!twin) return '';
   const story = twin.storyId ? data.stories[twin.storyId] : undefined;
   const where = story ? `als Frage der Geschichte „${story.title}“` : 'als losen Faden';
-  return `Diesen Faden gibt es schon – ${where}. Annehmen legt keinen zweiten an; die Session wird bei ihm als Quelle vermerkt.`;
+  // Steht er dort in anderen Worten, nennt der Hinweis sie – und sagt, wenn er schon vorbei ist.
+  const same = twin.title.trim() === (title ?? proposalThreadTitle(proposal)).trim();
+  const named = same ? '' : ` („${twin.title}“)`;
+  const closed = threadLive(twin) ? '' : `, ${THREAD_STATE_LABEL[twin.state]}`;
+  return `Diesen Faden gibt es schon – ${where}${closed}${named}. Annehmen legt keinen zweiten an; die Session wird bei ihm als Quelle vermerkt.`;
 }
 
 /** Ein Vorschlag als Erkanntes – so, wie ihn das Festhalten kennt. */

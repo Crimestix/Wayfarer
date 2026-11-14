@@ -197,11 +197,12 @@ function sessionsByThread(data: Pick<CampaignData, 'sessions'>): Map<string, Set
   return found;
 }
 
-/** „Session 3“, „den Sessions 3 und 5“, „den Sessions 3, 5 und 2 weiteren“. */
+/** „Session 3“, „den Sessions 3 und 5“, „… 3, 5 und 7“, „… 3, 5 und 2 weiteren“. */
 function sessionsLine(sessions: readonly Session[]): string {
   const numbers = sessions.map((session) => session.number);
   if (numbers.length === 1) return `Session ${numbers[0]}`;
   if (numbers.length === 2) return `den Sessions ${numbers[0]} und ${numbers[1]}`;
+  if (numbers.length === 3) return `den Sessions ${numbers[0]}, ${numbers[1]} und ${numbers[2]}`;
   return `den Sessions ${numbers[0]}, ${numbers[1]} und ${numbers.length - 2} weiteren`;
 }
 
@@ -375,23 +376,46 @@ export interface LooseThread {
 
 const NEAR_ORDER: Nearness[] = ['here', 'reachable', 'far'];
 const STATE_ORDER = ['active', 'open', 'dormant', 'solved', 'lost'];
+const resting = (thread: Pick<Thread, 'state'>) => thread.state === 'dormant';
 
 /**
- * Die Reihung, in der lose Fäden überall stehen: was am Ort der Gruppe hängt zuerst, dann das
- * Erreichbare, dann das Ferne; darin die aktiven vor den offenen, dann nach dem Satz.
+ * Die Reihung, in der lose Fäden überall stehen (Liste am Brett, Auswahl am Spieltisch): was
+ * ruht, zuletzt; sonst was am Ort der Gruppe hängt zuerst, dann das Erreichbare, dann das Ferne;
+ * darin die aktiven vor den offenen, dann nach dem Satz.
  */
-const looseOrder = (a: LooseThread, b: LooseThread) =>
+export const looseOrder = (
+  a: { nearness: Nearness; thread: Pick<Thread, 'id' | 'state' | 'title'> },
+  b: { nearness: Nearness; thread: Pick<Thread, 'id' | 'state' | 'title'> },
+): number =>
+  Number(resting(a.thread)) - Number(resting(b.thread)) ||
   NEAR_ORDER.indexOf(a.nearness) - NEAR_ORDER.indexOf(b.nearness) ||
   STATE_ORDER.indexOf(a.thread.state) - STATE_ORDER.indexOf(b.thread.state) ||
   a.thread.title.localeCompare(b.thread.title, 'de') ||
   a.thread.id.localeCompare(b.thread.id);
 
 /**
+ * „passt zu „Das Erbe“ – nennt auch Mira“, bei mehreren Geschichten dazu „auch zu 2 weiteren
+ * Geschichten“ – die beste zuerst. Leer, wenn keine passt.
+ */
+export function fitsLine(fits: readonly StoryFit[]): string {
+  const best = fits[0];
+  if (!best) return '';
+  const more = fits.length - 1;
+  const others =
+    more === 0
+      ? ''
+      : more === 1
+        ? '; auch zu 1 weiteren Geschichte'
+        : `; auch zu ${more} weiteren Geschichten`;
+  return `passt zu „${best.story.title}“ – ${best.reason}${others}`;
+}
+
+/**
  * Die losen Fäden für die Liste neben dem Brett – ohne die gelösten und verlorenen (die stehen
  * unter „Abgeschlossen“). Je Faden: woran er hängt, woher er stammt, wozu er passen könnte, ob
  * er auf dem Brett liegt. In der Sicht der Gruppe nur, was sie kennt – ohne Antwort, ohne
- * Hinweise, die sie nicht hat, und nur mit Geschichten, von denen sie weiß. `cards` sind die
- * Karten des Bretts, wenn sie schon gerechnet sind.
+ * Hinweise, die sie nicht hat, nur mit Geschichten, von denen sie weiß, und als Herkunft nur die
+ * Abende. `cards` sind die Karten des Bretts, wenn sie schon gerechnet sind.
  */
 export function looseThreads(
   data: CampaignData,
@@ -409,7 +433,10 @@ export function looseThreads(
     const nodes = card.nodes
       .map((id) => data.entities[id])
       .filter((entity): entity is Entity => entity !== undefined);
-    const origin = originOf(data, stored, bySession);
+    const known = originOf(data, stored, bySession);
+    // Die Gruppe weiß, an welchem Abend etwas aufkam – nicht, aus welchem Artikel es stammt.
+    const origin: ThreadOrigin =
+      view === 'party' && !known.sessions.length ? { ...known, article: null, text: '' } : known;
     rows.push({
       thread,
       nodes,
@@ -417,7 +444,7 @@ export function looseThreads(
       origin,
       nearness: card.nearness,
       onBoard: card.onBoard,
-      resting: thread.state === 'dormant',
+      resting: resting(thread),
       search: normalize(
         [
           thread.title,
@@ -443,8 +470,8 @@ export function filterLoose(rows: readonly LooseThread[], query: string): LooseT
 
 /**
  * Alle Fäden in der Reihung, in der sie zur Wahl stehen (Hinweis gefunden, Termin an einem
- * Faden): die lebendigen zuerst, darin was am Ort der Gruppe hängt, dann das Erreichbare, dann
- * das Ferne – Fragen einer Geschichte vor losen Fäden, dann nach dem Satz.
+ * Faden): die lebendigen zuerst (was ruht, dahinter), darin was am Ort der Gruppe hängt, dann das
+ * Erreichbare, dann das Ferne – Fragen einer Geschichte vor losen Fäden, dann nach dem Satz.
  */
 export function threadsInOrder(data: CampaignData): Thread[] {
   const near = new Map<string, number>();
@@ -454,6 +481,7 @@ export function threadsInOrder(data: CampaignData): Thread[] {
   return Object.values(data.threads).sort(
     (a, b) =>
       Number(threadLive(b)) - Number(threadLive(a)) ||
+      Number(resting(a)) - Number(resting(b)) ||
       (near.get(a.id) ?? far) - (near.get(b.id) ?? far) ||
       Number(isLooseThread(data, a)) - Number(isLooseThread(data, b)) ||
       a.title.localeCompare(b.title, 'de') ||

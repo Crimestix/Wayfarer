@@ -221,11 +221,12 @@ export interface ThreadFit {
   reason: string;
 }
 
-/** „A“, „A und B“, „A, B und 2 weitere“. */
+/** „A“, „A und B“, „A, B und C“, „A, B und 2 weitere“ – nie „und 1 weitere“. */
 export function namesLine(shared: readonly Entity[]): string {
   const names = shared.map((entity) => entity.name);
   if (names.length <= 1) return names[0] ?? '';
   if (names.length === 2) return `${names[0]} und ${names[1]}`;
+  if (names.length === 3) return `${names[0]}, ${names[1]} und ${names[2]}`;
   return `${names[0]}, ${names[1]} und ${names.length - 2} weitere`;
 }
 

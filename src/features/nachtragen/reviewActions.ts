@@ -10,6 +10,7 @@
 import type { CampaignDb } from '../../data/db';
 import { effectHolds } from '../../data/record';
 import {
+  type CampaignData,
   type EntityKind,
   type ReadProposal,
   type Session,
@@ -404,6 +405,30 @@ export function acceptProposal(
 // ── Zurücknehmen und verwerfen ─────────────────────────────────────────────
 
 /**
+ * Die Sessions, deren angenommene Vorschläge einen Faden ebenfalls nennen – als Quelle (`source`)
+ * oder weil sie ihn angelegt haben; ohne die Vorschläge, die gerade zurückgenommen werden
+ * (`wanted`, in `sessionId`). Solange es eine gibt, nimmt das Zurücknehmen den Faden nicht weg.
+ */
+function otherSources(
+  data: CampaignData,
+  threadId: string,
+  sessionId: string,
+  wanted: ReadonlySet<string>,
+): string[] {
+  const found = new Set<string>();
+  for (const session of Object.values(data.sessions))
+    for (const proposal of session.reading?.proposals ?? []) {
+      if (proposal.kind !== 'thread' || proposal.state !== 'accepted') continue;
+      if (session.id === sessionId && wanted.has(proposal.id)) continue;
+      const names =
+        proposal.created.some((made) => made.collection === 'threads' && made.id === threadId) ||
+        proposal.edits.some((edit) => edit.kind === 'source' && edit.targetId === threadId);
+      if (names) found.add(session.id);
+    }
+  return [...found];
+}
+
+/**
  * Nimmt angenommene Vorschläge zurück: Einträge der Chronik samt Wirkung, Beute, Fäden und
  * Schriftstücke gehen wieder weg, Zeilen in Artikeln und zweite Namen auch – soweit sie noch so
  * dastehen, wie das Annehmen sie hinterließ. Was der Spielleiter seither weitergeschrieben hat
@@ -464,7 +489,18 @@ export function undoAccepted(
             (thread.storyId === null || thread.storyId === givenStory) &&
             !thread.inPlay &&
             thread.state === 'open';
-          if (untouched) removeThread(db, c.id);
+          // Steht er auch in den Notizen eines anderen Abends (oder ein zweites Mal in diesen),
+          // bleibt er für den – nur diese Quelle geht weg.
+          const others = otherSources(db.getSnapshot(), c.id, sessionId, wanted);
+          if (others.length) {
+            if (!others.includes(sessionId) && thread.sessionIds.includes(sessionId))
+              db.patch('threads', thread.id, {
+                sessionIds: thread.sessionIds.filter((id) => id !== sessionId),
+              });
+            notes.push(
+              `Der Faden „${thread.title}“ bleibt – er steht auch in anderen Notizen, die du angenommen hast.`,
+            );
+          } else if (untouched) removeThread(db, c.id);
           else
             notes.push(
               `Der Faden „${thread.title}“ bleibt – du hast ihn seither weitergeschrieben.`,

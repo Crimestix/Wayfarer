@@ -127,6 +127,20 @@ export default function FaedenPage() {
   const [side, setSide] = useState<'card' | 'loose'>(() => (loose.length ? 'loose' : 'card'));
   /** Der lose Faden, der in der Liste gleich im Bild stehen soll. */
   const [looseFocus, setLooseFocus] = useState<string | null>(null);
+  /** Suche und Auswahl der Liste – sie bleiben, wenn zwischendurch eine Karte angesehen wird. */
+  const [looseQuery, setLooseQuery] = useState('');
+  const [loosePicked, setLoosePicked] = useState<ReadonlySet<string>>(new Set());
+  /** Zeigt die gewählte Karte – die Liste springt danach nicht mehr zu einem alten Faden. */
+  const showCard = () => {
+    setSide('card');
+    setLooseFocus(null);
+  };
+  /** Zeigt einen losen Faden in der Liste – ohne Suche, damit er sicher dasteht. */
+  const showLoose = (threadId: string) => {
+    setLooseFocus(threadId);
+    setLooseQuery('');
+    setSide('loose');
+  };
   /**
    * Wählt eine Karte. Ein loser Faden, der nicht auf dem Brett liegt, steht in der Liste – dort
    * wird er gezeigt.
@@ -134,13 +148,12 @@ export default function FaedenPage() {
   const select = (key: string | null) => {
     const card = key ? cards.find((entry) => entry.key === key) : undefined;
     if (card && !card.story && !card.closed && !card.onBoard) {
-      setLooseFocus(card.threads[0]!.id);
-      setSide('loose');
+      showLoose(card.threads[0]!.id);
       setSelected(null);
       return;
     }
     setSelected(key);
-    if (key) setSide('card');
+    if (key) showCard();
   };
   // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
   useFocus(['card'], (focus) => select(focus.key));
@@ -536,7 +549,7 @@ export default function FaedenPage() {
                 size="sm"
                 aria-pressed={side === 'card'}
                 title="Alles zur gewählten Karte des Bretts"
-                onClick={() => setSide('card')}
+                onClick={showCard}
               >
                 Gewählte Karte
               </Button>
@@ -555,6 +568,10 @@ export default function FaedenPage() {
                 twins={twins}
                 view={view}
                 focusId={looseFocus}
+                query={looseQuery}
+                onQuery={setLooseQuery}
+                picked={loosePicked}
+                onPicked={setLoosePicked}
                 onEdit={(thread) => setDialog({ type: 'thread', thread, storyId: thread.storyId })}
                 onShow={setArriving}
               />
@@ -585,10 +602,7 @@ export default function FaedenPage() {
             // Brett liegt.
             if (thread.storyId) select(`story:${thread.storyId}`);
             else if (thread.inPlay || thread.onBoard) select(`thread:${thread.id}`);
-            else {
-              setLooseFocus(thread.id);
-              setSide('loose');
-            }
+            else showLoose(thread.id);
           }}
         />
       )}

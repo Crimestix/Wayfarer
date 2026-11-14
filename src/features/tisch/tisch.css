@@ -1703,6 +1703,11 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-play__picksearch {
   padding: var(--s-2);
 }
+.wf-tisch-play__picknear {
+  display: block;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
 .wf-tisch-play__pickmore {
   padding: 4px 12px 8px;
   color: var(--ink-mute);

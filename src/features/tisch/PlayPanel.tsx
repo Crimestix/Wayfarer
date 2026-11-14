@@ -90,8 +90,13 @@ export function PlayPanel() {
   };
   const choice = (card: BoardCard) => (
     <MenuItem key={card.key} icon={<Waypoints />} onClick={() => take(card)}>
-      {card.title}
-      {card.nearness === 'here' && <span className="wf-mute"> · hängt an diesem Ort</span>}
+      {/* Ein langer Satz nimmt der Auswahl nicht den Platz: zwei Zeilen, der Rest im Tooltip. */}
+      <span className="wf-clamp-2" title={card.title}>
+        {card.title}
+      </span>
+      {card.nearness === 'here' && (
+        <span className="wf-tisch-play__picknear">hängt an diesem Ort</span>
+      )}
     </MenuItem>
   );
   const none = choices.stories.length + choices.threads.length === 0;
@@ -165,7 +170,9 @@ export function PlayPanel() {
               title="Über „Geschichte“ suchen und ins Spiel nehmen"
               onClick={() => setAdding(true)}
             >
-              und {view.offeredMore} weitere lose Fäden …
+              {view.offeredMore === 1
+                ? 'und 1 weiterer loser Faden …'
+                : `und ${view.offeredMore} weitere lose Fäden …`}
             </button>
           )}
         </div>

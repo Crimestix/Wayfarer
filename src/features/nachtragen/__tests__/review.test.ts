@@ -327,6 +327,39 @@ describe('Annehmen und zurücknehmen', () => {
     ).toEqual(['Der Schlüssel der Grotte', 'Wer bezahlt die Krähenbande?']);
   });
 
+  it('lässt einen Faden stehen, den auch die Notizen eines anderen Abends nennen', async () => {
+    const { db, session, proposal } = await setup();
+    const s2 = noted(
+      2,
+      'Die Gruppe rastete.\nOffene Fragen:\n- der Schlüssel der Grotte?',
+      at(6, 1, 701, 9),
+      at(6, 1, 701, 22),
+    );
+    db.put('sessions', s2);
+    storeReading(db, s2.id, READ_AT);
+    const again = db
+      .getSnapshot()
+      .sessions[s2.id]!.reading!.proposals.find((p) => p.kind === 'thread')!;
+    const hook = proposal((p) => p.kind === 'thread');
+    acceptProposal(db, session().id, hook.id);
+    const id = proposal((p) => p.id === hook.id).created[0]!.id;
+    acceptProposal(db, s2.id, again.id);
+    expect(db.getSnapshot().threads[id]!.sessionIds).toEqual([session().id, s2.id]);
+    // Der erste Abend nimmt seinen Vorschlag zurück: Der Faden bleibt für den zweiten.
+    const { notes } = undoAccepted(db, session().id, [hook.id]);
+    expect(notes[0]).toContain('bleibt – er steht auch in anderen Notizen');
+    expect(db.getSnapshot().threads[id]).toMatchObject({ sessionIds: [s2.id] });
+    expect(proposal((p) => p.id === hook.id)).toMatchObject({ state: 'open', created: [] });
+    expect(
+      threadOrigin(db.getSnapshot(), db.getSnapshot().threads[id]!).sessions.map((s) => s.number),
+    ).toEqual([2]);
+    // Ist er abgeschlossen und anders geschrieben, sagt der Hinweis beides.
+    db.patch('threads', id, { state: 'solved' });
+    expect(threadTwinNote(db.getSnapshot(), hook, 'Schlüssel der Grotte?')).toContain(
+      'gibt es schon – als losen Faden, gelöst („Der Schlüssel der Grotte“).',
+    );
+  });
+
   it('hängt einen Faden beim Annehmen gleich an die gewählte Geschichte', async () => {
     const { db, session, proposal } = await setup();
     const tale = db.put('stories', createStory({ title: 'Die Grotte' }));

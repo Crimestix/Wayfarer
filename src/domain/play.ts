@@ -6,6 +6,7 @@
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
 import { normalize, occurrencesOf, openPromises, type Occurrence } from './derive';
+import { looseOrder } from './looseThreads';
 import { readyLoot } from './loot';
 import { SCENE_ODDS } from './schema';
 import type {
@@ -74,7 +75,7 @@ export interface PlayView {
   cards: PlayCard[];
   /**
    * Was den Ort der Gruppe berührt, aber nicht im Spiel ist – zum Hereinnehmen: alle Geschichten,
-   * von den losen Fäden nur die ersten.
+   * von den losen Fäden nur die ersten (die aktiven zuerst) und keiner, der ruht.
    */
   offered: BoardCard[];
   /** Lose Fäden am Ort, die darüber hinaus zur Wahl stünden. */
@@ -202,7 +203,8 @@ export function playView(data: CampaignData): PlayView {
   const next = (card: BoardCard) =>
     card.clock?.next && !card.clock.paused ? card.clock.next.at : Number.MAX_SAFE_INTEGER;
   const here = cards.filter((card) => !card.closed && !inPlay(card) && card.nearness === 'here');
-  const looseHere = here.filter((card) => !card.story);
+  // Was ruht, hat der Spielleiter für später weggelegt: Es drängt sich am Tisch nicht auf.
+  const looseHere = looseCards(here).filter((card) => card.threads[0]?.state !== 'dormant');
   return {
     cards: cards
       .filter(inPlay)
@@ -216,6 +218,17 @@ export function playView(data: CampaignData): PlayView {
     offered: [...here.filter((card) => card.story), ...looseHere.slice(0, OFFERED_THREADS)],
     offeredMore: Math.max(0, looseHere.length - OFFERED_THREADS),
   };
+}
+
+/** Die Karten loser Fäden in der Reihung, in der lose Fäden überall stehen (`looseOrder`). */
+function looseCards(cards: readonly BoardCard[]): BoardCard[] {
+  return cards
+    .flatMap((card) => {
+      const thread = card.threads[0];
+      return card.story || !thread ? [] : [{ card, thread, nearness: card.nearness }];
+    })
+    .sort(looseOrder)
+    .map((entry) => entry.card);
 }
 
 /** So viele Geschichten und lose Fäden stehen ohne Suche zur Wahl – mit Suche so viele Treffer. */
@@ -237,9 +250,9 @@ export interface PlayChoices {
 
 /**
  * Was sich ins Spiel nehmen lässt: alles Offene, das noch nicht im Spiel ist – Geschichten und
- * lose Fäden getrennt, je in der Reihung des Bretts (was am Ort der Gruppe hängt zuerst). Nie
- * eine endlose Liste: Ohne Suche stehen nur die ersten da; die Suche findet nach dem Satz und
- * nach den Namen, an denen etwas hängt.
+ * lose Fäden getrennt, je in der Reihung des Bretts (was am Ort der Gruppe hängt zuerst; von den
+ * losen Fäden, was ruht, zuletzt). Nie eine endlose Liste: Ohne Suche stehen nur die ersten da;
+ * die Suche findet nach dem Satz und nach den Namen, an denen etwas hängt.
  */
 export function playChoices(
   data: Pick<CampaignData, 'entities'>,
@@ -257,7 +270,7 @@ export function playChoices(
   };
   const found = idle.filter(matches);
   const stories = found.filter((card) => card.story);
-  const threads = found.filter((card) => !card.story);
+  const threads = looseCards(found);
   const [storyLimit, threadLimit] = words.length
     ? [CHOICE_FOUND, CHOICE_FOUND]
     : [CHOICE_STORIES, CHOICE_THREADS];
