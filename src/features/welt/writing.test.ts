@@ -129,6 +129,7 @@ describe('Anlegen beim Schreiben', () => {
           odds: 'maybe',
           encounterId: null,
           placeId: hohenfurt.id,
+          done: false,
         },
         {
           id: newId(),
@@ -136,6 +137,7 @@ describe('Anlegen beim Schreiben', () => {
           odds: 'maybe',
           encounterId: null,
           placeId: grotte.entity.id,
+          done: false,
         },
       ],
     });

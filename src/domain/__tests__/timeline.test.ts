@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { newScheme, newStory, setStorySteps } from '../../features/faeden/actions';
+import { newScheme, newStory, runStoryClock, setStorySteps } from '../../features/faeden/actions';
 import { pauseClock } from '../../data/actions';
 import {
   createChronicleEntry,
@@ -112,6 +112,8 @@ async function setup() {
     { id: 'a', text: 'Die Salzsieder kaufen die Pacht', days: 2 },
     { id: 'b', text: 'Die Salzsieder sperren den Zugang', days: 3 },
   ]);
+  // Eine neue Uhr steht noch – hier soll sie laufen.
+  runStoryClock(db, scheme.id, true);
   return {
     db,
     data,
@@ -309,6 +311,7 @@ describe('Bahnen der Zeitleiste', () => {
       { id: 'b', text: 'Die Brücke wankt', days: 3 },
       { id: 'c', text: 'Die Furt bricht', days: 20 },
     ]);
+    runStoryClock(db, story.id, true);
     const clockId = data().stories[story.id]!.clockId!;
     db.patch('clocks', clockId, { start: now - 10 * DAY });
     const tones = () =>

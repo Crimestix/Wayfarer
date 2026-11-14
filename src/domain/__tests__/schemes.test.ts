@@ -3,7 +3,7 @@ import { advanceTime, endSession, setAttitude, settleStep, startSession } from '
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { newScheme, setStorySteps } from '../../features/faeden/actions';
+import { newScheme, runStoryClock, setStorySteps } from '../../features/faeden/actions';
 import { spendDowntime } from '../../features/gruppe/downtime';
 import { walk } from '../../features/wege/actions';
 import { hasNews, meanwhile } from '../../shell/meanwhile';
@@ -56,6 +56,8 @@ async function setup() {
     { id: 'a', text: 'Die Salzsieder kaufen die Pacht der Grotte', days: 2 },
     { id: 'b', text: 'Die Salzsieder sperren den Zugang', days: 3 },
   ]);
+  // Eine neue Uhr steht noch – hier soll sie laufen.
+  runStoryClock(db, scheme.id, true);
   return { db, data, now, ford, grotto, guild, house, lando, scheme };
 }
 

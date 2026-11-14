@@ -20,6 +20,7 @@ import type {
   Thread,
   TravelPath,
 } from './schema';
+import { storyNodes } from './story';
 import { waysFrom, type Way } from './ways';
 
 /** Ein Punkt des Netzes, fertig zum Zeichnen. */
@@ -64,10 +65,10 @@ export interface Hanging {
 }
 
 export function hangingAt(data: CampaignData, placeId: string): Hanging {
+  // Eine Geschichte hängt an jedem Ort, an dem etwas von ihr liegt: ein Beteiligter, ein
+  // Einstieg, eine Szene, ein Hinweis.
   const stories = Object.values(data.stories).filter(
-    (story) =>
-      !story.closed &&
-      (story.refs.includes(placeId) || story.entries.some((entry) => entry.placeId === placeId)),
+    (story) => !story.closed && storyNodes(data, story).includes(placeId),
   );
   const inStory = new Set(stories.map((story) => story.id));
   return {
@@ -147,6 +148,13 @@ export function netsOfPlace(data: CampaignData, placeId: string | null): Net[] {
   return Object.values(data.nets)
     .filter((net) => net.points.some((point) => ids.has(point.placeId)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+/** Die Wegenetze, die für eine Geschichte vorbereitet sind. */
+export function netsOfStory(data: Pick<CampaignData, 'nets'>, storyId: string): Net[] {
+  return Object.values(data.nets)
+    .filter((net) => net.storyId === storyId)
+    .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id.localeCompare(b.id));
 }
 
 // ── Strecke als Text ───────────────────────────────────────────────────────

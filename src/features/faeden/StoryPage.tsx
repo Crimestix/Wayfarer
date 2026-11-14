@@ -820,7 +820,14 @@ function Scenes({ story }: { story: Story }) {
           size="sm"
           icon={<Plus />}
           onClick={() =>
-            list.add({ id: newId(), text: '', encounterId: null, odds: 'maybe', placeId: null })
+            list.add({
+              id: newId(),
+              text: '',
+              encounterId: null,
+              odds: 'maybe',
+              placeId: null,
+              done: false,
+            })
           }
         >
           Szene

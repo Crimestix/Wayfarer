@@ -4,7 +4,8 @@
  * (`entities`, `paths`); das Netz merkt sich nur, welche Orte dazugehören und wo sie liegen.
  */
 import type { CampaignDb } from '../../data/db';
-import { freeSpot, placeNamed, planRoutes } from '../../domain/net';
+import { freeSpot, netsOfStory, placeNamed, planRoutes } from '../../domain/net';
+import { storyPlaces } from '../../domain/storySheet';
 import {
   createEntity,
   createNet,
@@ -19,6 +20,83 @@ import { saveWay } from '../wege/actions';
 /** Legt ein leeres Wegenetz an. */
 export function addNet(db: CampaignDb, name = ''): Net {
   return db.put('nets', createNet({ name: name.trim() || 'Neues Wegenetz' }));
+}
+
+/**
+ * Legt ein Wegenetz für eine Geschichte an: Es heißt wie sie, und ihre Orte (`storyPlaces`)
+ * liegen als Punkte schon auf dem Blatt – nebeneinander, noch ohne Wege. `undo` nimmt es zurück.
+ */
+export function addStoryNet(
+  db: CampaignDb,
+  storyId: string,
+): { net: Net; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const story = data.stories[storyId];
+  if (!story) return null;
+  const points: NetPoint[] = [];
+  for (const { place } of storyPlaces(data, story)) {
+    const spot = freeSpot(points, points[points.length - 1]);
+    points.push({ placeId: place.id, x: spot.x, y: spot.y });
+  }
+  const net = db.put('nets', createNet({ name: story.title, storyId, points }));
+  return {
+    net,
+    undo: () => {
+      if (db.getSnapshot().nets[net.id]) db.remove('nets', net.id);
+    },
+  };
+}
+
+/**
+ * Hängt ein Wegenetz an eine Geschichte oder löst es von ihr (`storyId = null`). Das Netz selbst
+ * bleibt, wie es ist. Gibt `undo` zurück – null, wenn sich nichts ändert.
+ */
+export function setNetStory(
+  db: CampaignDb,
+  netId: string,
+  storyId: string | null,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const net = data.nets[netId];
+  if (!net || net.storyId === storyId || (storyId !== null && !data.stories[storyId])) return null;
+  const before = net.storyId;
+  db.patch('nets', netId, { storyId });
+  return () => {
+    const now = db.getSnapshot();
+    if (now.nets[netId]?.storyId !== storyId) return;
+    db.patch('nets', netId, { storyId: before && now.stories[before] ? before : null });
+  };
+}
+
+/**
+ * Schreibt eine Strecke für eine Geschichte: in ihr Wegenetz (`netId`, sonst ihr erstes) – gibt
+ * es noch keines, entsteht es dabei. Orte, die neu entstehen, sind Platzhalter dieser
+ * Geschichte. `undo` nimmt alles zurück, auch ein dabei entstandenes Netz.
+ */
+export function addStoryRoute(
+  db: CampaignDb,
+  storyId: string,
+  text: string,
+  netId?: string | null,
+): (RoutesAdded & { net: Net }) | null {
+  const data = db.getSnapshot();
+  if (!data.stories[storyId] || !text.trim()) return null;
+  return db.batch(() => {
+    const own = netsOfStory(data, storyId);
+    const known = own.find((net) => net.id === netId) ?? own[0];
+    const fresh = known ? null : addStoryNet(db, storyId);
+    const net = known ?? fresh!.net;
+    const added = addRoutes(db, net.id, text);
+    return {
+      ...added,
+      net,
+      undo: () =>
+        db.batch(() => {
+          added.undo();
+          fresh?.undo();
+        }),
+    };
+  });
 }
 
 /** Ändert Name, Notiz oder die Art der Wege, die in diesem Netz neu entstehen. */
@@ -119,8 +197,14 @@ function placeFor(db: CampaignDb, netId: string, name: string): { place: Place; 
   const found = placeNamed(data, data.nets[netId]!, name);
   if (found) return { place: found, fresh: false };
   const clean = name.replace(/\s+/g, ' ').trim();
+  // In einem Netz, das zu einer Geschichte gehört, wächst die Welt aus ihr: ein Platzhalter.
+  const storyId = data.nets[netId]!.storyId;
+  const fromStoryId = storyId && data.stories[storyId] ? storyId : null;
   return {
-    place: db.put('entities', createEntity({ kind: 'place', name: clean })) as Place,
+    place: db.put(
+      'entities',
+      createEntity({ kind: 'place', name: clean, stub: fromStoryId !== null, fromStoryId }),
+    ) as Place,
     fresh: true,
   };
 }
@@ -156,8 +240,9 @@ export interface RoutesAdded {
 
 /**
  * Übernimmt Strecken, die als Text geschrieben sind (`parseRoutes`): Orte, die es schon gibt,
- * werden genommen; fehlende entstehen. Zwischen aufeinanderfolgenden Punkten entsteht ein Weg,
- * wenn es noch keinen gibt.
+ * werden genommen; fehlende entstehen – in einem Netz, das zu einer Geschichte gehört, als
+ * Platzhalter dieser Geschichte. Zwischen aufeinanderfolgenden Punkten entsteht ein Weg, wenn es
+ * noch keinen gibt.
  */
 export function addRoutes(db: CampaignDb, netId: string, text: string): RoutesAdded {
   const before = db.getSnapshot();

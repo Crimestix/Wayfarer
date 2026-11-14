@@ -3,14 +3,19 @@
  * mehrere Dokumente betrifft (eine Geschichte mit ihren Fäden, ein Faden mit seinen Terminen),
  * läuft hier in einem Zug.
  */
+import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { storyAttached } from '../../domain/story';
+import { storyAncestors } from '../../domain/storySheet';
 import {
   createClock,
   createStory,
   createThread,
   newId,
+  type CalendarEvent,
   type Story,
+  type StoryRole,
+  type StoryScene,
   type Thread,
   type ThreadState,
 } from '../../domain/schema';
@@ -51,6 +56,16 @@ export function newScheme(db: CampaignDb, ownerId: string): Story | null {
 }
 
 /**
+ * Legt eine Teilgeschichte an: eine leere Geschichte, die zu einer großen gehört und deren
+ * Antreiber übernimmt. Alles Weitere schreibt der Spielleiter auf ihrem Blatt.
+ */
+export function newSubStory(db: CampaignDb, parentId: string): Story | null {
+  const parent = db.getSnapshot().stories[parentId];
+  if (!parent) return null;
+  return newStory(db, { title: 'Neue Teilgeschichte', ownerId: parent.ownerId, parentId });
+}
+
+/**
  * Macht aus einer Uhr, die für sich steht, eine Geschichte: Sie heißt wie die Uhr, wird von
  * deren Betreiber angetrieben und hängt an deren Ort. Gehört die Uhr schon zu einer, bleibt es
  * bei der.
@@ -72,17 +87,23 @@ export function storyFromClock(db: CampaignDb, clockId: string): Story | null {
   );
 }
 
-export type StoryChange = Partial<
+/** Eine Szene, wie sie geschrieben wird – ob sie gespielt ist, darf fehlen. */
+export type SceneInput = Omit<StoryScene, 'done'> & { done?: boolean | undefined };
+
+export type StoryChange = { scenes?: SceneInput[] } & Partial<
   Pick<
     Story,
     | 'title'
     | 'summary'
     | 'ownerId'
+    | 'needs'
     | 'stakes'
     | 'refs'
+    | 'roles'
+    | 'parentId'
+    | 'adviceOff'
     | 'heroes'
     | 'entries'
-    | 'scenes'
     | 'ending'
     | 'reward'
     | 'memo'
@@ -93,14 +114,36 @@ export type StoryChange = Partial<
   >
 >;
 
-/** Ändert einzelne Angaben einer Geschichte. Einstiege und Szenen ohne Text fallen weg. */
+/**
+ * Ändert einzelne Angaben einer Geschichte. Einstiege und Szenen ohne Text fallen weg, leere
+ * Rollen auch; eine Geschichte wird nie Teil ihrer selbst oder eines ihrer eigenen Teile.
+ */
 export function patchStory(db: CampaignDb, id: string, change: StoryChange): void {
   const data = db.getSnapshot();
   const story = data.stories[id];
   if (!story) return;
-  const clean: StoryChange = { ...change };
+  const { scenes, ...rest } = change;
+  const clean: Partial<Story> = { ...rest };
   if (change.title !== undefined) clean.title = change.title.trim() || 'Geschichte ohne Namen';
   if (change.refs) clean.refs = [...new Set(change.refs)];
+  if (change.roles) {
+    clean.roles = {};
+    for (const [entityId, role] of Object.entries(change.roles)) {
+      const tidy: StoryRole = {
+        role: role.role.replace(/\s+/g, ' ').trim(),
+        wants: role.wants.trim(),
+      };
+      if (tidy.role || tidy.wants) clean.roles[entityId] = tidy;
+    }
+  }
+  if (change.parentId !== undefined) {
+    const parent = change.parentId ? data.stories[change.parentId] : undefined;
+    const circle =
+      parent !== undefined &&
+      (parent.id === id || storyAncestors(data, parent).some((ancestor) => ancestor.id === id));
+    clean.parentId = parent && !circle ? parent.id : null;
+  }
+  if (change.adviceOff) clean.adviceOff = [...new Set(change.adviceOff)];
   if (change.entries) clean.entries = change.entries.filter((entry) => entry.text.trim());
   if (change.heroes) {
     // Jeder Gefährte einmal – und nur, wen es gibt.
@@ -112,11 +155,12 @@ export function patchStory(db: CampaignDb, id: string, change: StoryChange): voi
       return true;
     });
   }
-  if (change.scenes)
-    clean.scenes = change.scenes
+  if (scenes)
+    clean.scenes = scenes
       .filter((scene) => scene.text.trim() || scene.encounterId)
       .map((scene) => ({
         ...scene,
+        done: scene.done ?? false,
         encounterId:
           scene.encounterId && data.encounters[scene.encounterId] ? scene.encounterId : null,
       }));
@@ -145,13 +189,71 @@ export function attachToStory(db: CampaignDb, storyId: string, entityId: string)
   else patchStory(db, storyId, { refs: [...story.refs, entityId] });
 }
 
-/** Nimmt einen Eintrag wieder von einer Geschichte – soweit er nur dazugenommen war. */
-export function detachFromStory(db: CampaignDb, storyId: string, entityId: string): void {
+/**
+ * Nimmt einen Eintrag wieder von einer Geschichte – soweit er nur dazugenommen war. Seine Rolle
+ * geht mit. Gibt `undo` zurück.
+ */
+export function detachFromStory(db: CampaignDb, storyId: string, entityId: string): () => void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story) return () => {};
+  const { [entityId]: role, ...roles } = story.roles;
+  const index = story.refs.indexOf(entityId);
+  const hero = story.heroes.find((entry) => entry.characterId === entityId);
+  db.batch(() => {
+    if (index >= 0 || role)
+      patchStory(db, storyId, { refs: story.refs.filter((ref) => ref !== entityId), roles });
+    if (hero) untieHero(db, storyId, entityId);
+  });
+  return () => {
+    const data = db.getSnapshot();
+    const now = data.stories[storyId];
+    if (!now || !data.entities[entityId]) return;
+    db.batch(() => {
+      if (index >= 0 && !now.refs.includes(entityId)) {
+        const refs = [...now.refs];
+        refs.splice(Math.min(index, refs.length), 0, entityId);
+        patchStory(db, storyId, {
+          refs,
+          roles: role ? { ...now.roles, [entityId]: role } : now.roles,
+        });
+      }
+      if (hero) tieHero(db, storyId, entityId, hero.why);
+    });
+  };
+}
+
+/**
+ * Schreibt, was ein Beteiligter in dieser Geschichte ist und was er dort will – beides in freien
+ * Worten. Leeres fällt weg.
+ */
+export function setStoryRole(
+  db: CampaignDb,
+  storyId: string,
+  entityId: string,
+  change: Partial<StoryRole>,
+): void {
   const story = db.getSnapshot().stories[storyId];
   if (!story) return;
-  if (story.refs.includes(entityId))
-    patchStory(db, storyId, { refs: story.refs.filter((ref) => ref !== entityId) });
-  if (story.heroes.some((hero) => hero.characterId === entityId)) untieHero(db, storyId, entityId);
+  const before = story.roles[entityId] ?? { role: '', wants: '' };
+  patchStory(db, storyId, { roles: { ...story.roles, [entityId]: { ...before, ...change } } });
+}
+
+/** „Brauche ich nicht“: wählt einen Rat ab – oder nimmt ihn wieder auf. */
+export function setAdviceOff(db: CampaignDb, storyId: string, key: string, off: boolean): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story || story.adviceOff.includes(key) === off) return;
+  patchStory(db, storyId, {
+    adviceOff: off ? [...story.adviceOff, key] : story.adviceOff.filter((entry) => entry !== key),
+  });
+}
+
+/** Hakt eine Szene ab (gespielt) – oder nimmt den Haken wieder weg. */
+export function setSceneDone(db: CampaignDb, storyId: string, sceneId: string, done: boolean) {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story || !story.scenes.some((scene) => scene.id === sceneId && scene.done !== done)) return;
+  db.patch('stories', storyId, {
+    scenes: story.scenes.map((scene) => (scene.id === sceneId ? { ...scene, done } : scene)),
+  });
 }
 
 /**
@@ -195,12 +297,15 @@ export interface StepInput {
   text: string;
   /** Tage nach dem vorigen Schritt. */
   days: number;
+  /** Woran die Gruppe den Schritt merkt; ohne Angabe bleibt, was dasteht. */
+  sign?: string | undefined;
 }
 
 /**
  * Schreibt die Schritte, die bei der Uhr einer Geschichte noch ausstehen. Hat die Geschichte noch
- * keine Uhr, entsteht sie mit dem ersten Schritt – sie läuft ab jetzt, nur für die Spielleitung.
- * Was schon eingetreten ist, bleibt; Bedingungen und Aufschub eines Schrittes auch.
+ * keine Uhr, entsteht sie mit dem ersten Schritt – nur für die Spielleitung, und sie steht noch:
+ * Nichts tritt ein, bis der Spielleiter sie laufen lässt (`runStoryClock`). Was schon eingetreten
+ * ist, bleibt; Bedingungen und Aufschub eines Schrittes auch.
  */
 export function setStorySteps(db: CampaignDb, storyId: string, steps: readonly StepInput[]): void {
   const data = db.getSnapshot();
@@ -220,6 +325,7 @@ export function setStorySteps(db: CampaignDb, storyId: string, steps: readonly S
         skipped: false,
         needs: before?.needs ?? '',
         runId: before?.runId ?? null,
+        sign: step.sign !== undefined ? step.sign.trim() : (before?.sign ?? ''),
       };
     });
   if (clock) {
@@ -236,11 +342,33 @@ export function setStorySteps(db: CampaignDb, storyId: string, steps: readonly S
         title: story.title,
         ownerId: story.ownerId,
         start: data.state.now,
+        // Beim Schreiben soll nichts von selbst eintreten: Die Uhr steht, bis sie gestartet wird.
+        pausedAt: data.state.now,
         steps: open,
       }),
     );
     db.patch('stories', storyId, { clockId: created.id });
   });
+}
+
+/**
+ * Lässt die Uhr einer Geschichte laufen oder hält sie an. Eine Uhr, die noch nie lief, beginnt
+ * jetzt: Die Frist ihres ersten Schrittes zählt ab dem Start. Sonst gilt die Mechanik der Uhr
+ * (`pauseClock`, `resumeClock`) – die Standzeit schiebt den nächsten Schritt hinaus.
+ */
+export function runStoryClock(db: CampaignDb, storyId: string, on: boolean): void {
+  const data = db.getSnapshot();
+  const story = data.stories[storyId];
+  const clock = story?.clockId ? data.clocks[story.clockId] : undefined;
+  if (!clock) return;
+  if (!on) return pauseClock(db, clock.id);
+  if (clock.pausedAt === null) return;
+  const fresh =
+    !clock.blocked &&
+    clock.pausedAt <= clock.start &&
+    clock.steps.every((step) => step.at === null);
+  if (fresh) db.patch('clocks', clock.id, { start: data.state.now, pausedAt: null });
+  else resumeClock(db, clock.id);
 }
 
 export type ThreadChange = Partial<
@@ -259,8 +387,134 @@ export function patchThread(db: CampaignDb, id: string, change: ThreadChange): v
 }
 
 /**
+ * Hängt einen Faden an eine Geschichte (er wird eine ihrer Fragen) oder löst ihn von ihr (er
+ * wird ein loser Faden auf dem Brett). Gibt `undo` zurück – null, wenn sich nichts ändert.
+ */
+export function moveThread(
+  db: CampaignDb,
+  threadId: string,
+  storyId: string | null,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  if (!thread || (storyId !== null && !data.stories[storyId])) return null;
+  const before = thread.storyId;
+  if (before === storyId) return null;
+  db.patch('threads', threadId, { storyId });
+  return () => {
+    const now = db.getSnapshot();
+    if (now.threads[threadId]?.storyId !== storyId) return;
+    db.patch('threads', threadId, { storyId: before && now.stories[before] ? before : null });
+  };
+}
+
+/** Der erste Ort und die erste Person, Fraktion oder Familie, an denen ein Faden hängt. */
+function threadAnchors(db: CampaignDb, thread: Thread) {
+  const data = db.getSnapshot();
+  const ids = [...thread.refs, ...thread.hints.flatMap((hint) => [hint.placeId, hint.sourceId])];
+  const first = (kinds: readonly string[]) =>
+    ids.find((id) => id && kinds.includes(data.entities[id]?.kind ?? '')) ?? null;
+  return { placeId: first(['place']), sourceId: first(['person', 'faction', 'family']) };
+}
+
+/** Nimmt einen Faden weg und gibt zurück, wie er mit seinen Terminen wiederkommt. */
+function takeThread(db: CampaignDb, thread: Thread, toThreadId: string | null): () => void {
+  const events: CalendarEvent[] = Object.values(db.getSnapshot().events).filter(
+    (event) => event.threadId === thread.id,
+  );
+  for (const event of events) db.patch('events', event.id, { threadId: toThreadId });
+  db.remove('threads', thread.id);
+  return () => {
+    const now = db.getSnapshot();
+    if (!now.threads[thread.id]) db.put('threads', { ...thread, rev: 0 });
+    for (const event of events)
+      if (now.events[event.id]?.threadId === toThreadId)
+        db.patch('events', event.id, { threadId: thread.id });
+  };
+}
+
+/**
+ * Macht aus einem losen Faden einen Hinweis zu einer Frage: Sein Satz wird der Text des
+ * Hinweises, sein erster Ort das „Wo?“, seine erste Person das „Wer weiß es?“; kennt die Gruppe
+ * den Faden, hat sie den Hinweis. Der Faden selbst ist danach weg; seine Termine hängen an der
+ * Frage. Gibt `undo` zurück – null, wenn es Faden oder Frage nicht gibt.
+ */
+export function threadToHint(
+  db: CampaignDb,
+  threadId: string,
+  questionId: string,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  const question = data.threads[questionId];
+  if (!thread || !question || threadId === questionId) return null;
+  const hintId = newId();
+  const restore = db.batch(() => {
+    db.patch('threads', questionId, {
+      hints: [
+        ...question.hints,
+        { id: hintId, text: thread.title, ...threadAnchors(db, thread), found: false },
+      ],
+    });
+    if (thread.known) setHintFound(db, questionId, hintId, true);
+    return takeThread(db, thread, questionId);
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot().threads[questionId];
+      if (now)
+        db.patch('threads', questionId, {
+          hints: now.hints.filter((hint) => hint.id !== hintId),
+          known: question.known,
+          state: now.state === 'active' && question.state === 'open' ? 'open' : now.state,
+        });
+      restore();
+    });
+}
+
+/**
+ * Macht aus einem losen Faden einen Einstieg einer Geschichte: Sein Satz wird der Text, sein
+ * erster Ort das „Wo?“. Der Faden selbst ist danach weg. Gibt `undo` zurück.
+ */
+export function threadToEntry(
+  db: CampaignDb,
+  threadId: string,
+  storyId: string,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  const story = data.stories[storyId];
+  if (!thread || !story) return null;
+  const entryId = newId();
+  const restore = db.batch(() => {
+    db.patch('stories', storyId, {
+      entries: [
+        ...story.entries,
+        {
+          id: entryId,
+          text: thread.title,
+          placeId: threadAnchors(db, thread).placeId,
+          standing: 'any' as const,
+        },
+      ],
+    });
+    return takeThread(db, thread, null);
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot().stories[storyId];
+      if (now)
+        db.patch('stories', storyId, {
+          entries: now.entries.filter((entry) => entry.id !== entryId),
+        });
+      restore();
+    });
+}
+
+/**
  * Löscht eine Geschichte. Ihre Fäden bleiben – als lose Fäden. Ihre Uhr geht mit ihr: Sie ist
- * ein Teil der Geschichte. Was schon eingetreten ist, steht weiter in der Chronik.
+ * ein Teil der Geschichte. Ihre Wegenetze bleiben für sich stehen, ihre Teilgeschichten rücken
+ * eine Stufe hinauf. Was schon eingetreten ist, steht weiter in der Chronik.
  */
 export function removeStory(db: CampaignDb, id: string): void {
   const data = db.getSnapshot();
@@ -268,6 +522,11 @@ export function removeStory(db: CampaignDb, id: string): void {
   db.batch(() => {
     for (const thread of Object.values(data.threads))
       if (thread.storyId === id) db.patch('threads', thread.id, { storyId: null });
+    for (const net of Object.values(data.nets))
+      if (net.storyId === id) db.patch('nets', net.id, { storyId: null });
+    for (const part of Object.values(data.stories))
+      if (part.parentId === id && part.id !== id)
+        db.patch('stories', part.id, { parentId: story?.parentId ?? null });
     if (story?.clockId && data.clocks[story.clockId]) db.remove('clocks', story.clockId);
     db.remove('stories', id);
   });

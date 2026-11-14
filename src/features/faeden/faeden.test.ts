@@ -27,6 +27,7 @@ import {
   storiesOfHero,
   storyAdvice,
   storyNodes,
+  storyStage,
   storyOfClock,
   threadWarning,
   touchReason,
@@ -34,6 +35,7 @@ import {
   untilText,
 } from '../../domain/story';
 import { playClaims, playView } from '../../domain/play';
+import { clockStand } from '../../domain/storySheet';
 import { withoutHook } from '../../domain/prep';
 import { saveWay } from '../wege/actions';
 import {
@@ -47,6 +49,8 @@ import {
   saveStory,
   saveThread,
   setHintFound,
+  runStoryClock,
+  setAdviceOff,
   setInPlay,
   setStoryMemo,
   setStorySteps,
@@ -303,15 +307,18 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       storyAdvice(data(), data().stories[blank.id]!)
         .filter((entry) => !entry.done)
         .map((entry) => entry.key);
+    // In der Reihenfolge der Fächer des Blatts.
     expect(open()).toEqual([
-      'goal',
       'owner',
-      'stakes',
+      'goal',
+      'needs',
       'clock',
-      'entry',
-      'place',
-      'threads',
+      'stakes',
       'hero',
+      'entry',
+      'threads',
+      'place',
+      'scene',
       'ending',
       'reward',
     ]);
@@ -333,9 +340,9 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
     expect(story().refs).toEqual([harbour.id]);
     // Einstiege ohne Text fallen weg.
     expect(story().entries).toHaveLength(1);
-    expect(open()).toEqual(['clock', 'threads', 'hero']);
+    expect(open()).toEqual(['needs', 'clock', 'hero', 'threads', 'scene']);
 
-    // Eine Frage mit zu wenigen Hinweisen wird genannt – mit dreien ist es gut.
+    // Eine Frage mit zu wenigen Hinweisen trägt noch nicht – mit dreien ist es gut.
     const who = saveThread(db, {
       title: 'Wer hat den Zöllner bestochen?',
       truth: '',
@@ -345,10 +352,10 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       known: false,
       hints: [hint('Ein Beutel mit fremden Münzen', market.id)],
     });
-    expect(open()).toEqual(['clock', 'hero', `hints:${who.id}`]);
-    expect(
-      storyAdvice(data(), story()).find((entry) => entry.key === `hints:${who.id}`)!.why,
-    ).toContain('Erst einer');
+    expect(open()).toEqual(['needs', 'clock', 'hero', 'threads', 'scene']);
+    expect(storyAdvice(data(), story()).find((entry) => entry.key === 'threads')!.why).toContain(
+      'Erst einer',
+    );
     patchThread(db, who.id, {
       hints: [
         ...data().threads[who.id]!.hints,
@@ -358,10 +365,68 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       ],
     });
     expect(data().threads[who.id]!.hints).toHaveLength(3);
-    expect(open()).toEqual(['clock', 'hero']);
-    expect(storyAdvice(data(), story()).some((entry) => entry.key === 'hints' && entry.done)).toBe(
-      true,
-    );
+    expect(open()).toEqual(['needs', 'clock', 'hero', 'scene']);
+    // Jede weitere Frage mit zu wenigen Hinweisen wird beim Namen genannt.
+    const where = saveThread(db, {
+      title: 'Wohin geht das Geld?',
+      truth: '',
+      state: 'open',
+      storyId: blank.id,
+      refs: [],
+      known: false,
+      hints: [],
+    });
+    expect(open()).toEqual(['needs', 'clock', 'hero', `hints:${where.id}`, 'scene']);
+    // Ein Schritt reicht – eine Mindestzahl gibt es nicht.
+    setStorySteps(db, blank.id, [{ id: newId(), text: 'Der Zoll steigt', days: 3 }]);
+    expect(open()).not.toContain('clock');
+    // Was der Spielleiter nicht braucht, wählt er ab; es steht weiter da, zählt aber nicht.
+    setAdviceOff(db, blank.id, 'hero', true);
+    setAdviceOff(db, blank.id, 'hero', true);
+    expect(story().adviceOff).toEqual(['hero']);
+    expect(storyAdvice(data(), story()).find((entry) => entry.key === 'hero')).toMatchObject({
+      done: false,
+      off: true,
+      section: 'heroes',
+    });
+    setAdviceOff(db, blank.id, 'hero', false);
+    expect(story().adviceOff).toEqual([]);
+  });
+
+  it('nennt den Stand – Keim, spielbar, rund – und was als Nächstes fehlt', async () => {
+    const { db, data, hint, market, fishers } = await setup();
+    const blank = newStory(db);
+    const stage = () => {
+      const view = storyStage(data(), data().stories[blank.id]!);
+      return [view.stage, view.next.map((entry) => entry.key)];
+    };
+    // Erst, was zum Keim gehört: wer, was er will, ein nächster Schritt.
+    expect(stage()).toEqual(['seed', ['owner', 'goal', 'clock']]);
+    patchStory(db, blank.id, { ownerId: fishers.id, summary: 'Den Zoll am Hafen.' });
+    setStorySteps(db, blank.id, [{ id: newId(), text: 'Der Zoll steigt', days: 3 }]);
+    // Dann, was sie spielbar macht – nie mehr als drei Dinge auf einmal.
+    expect(stage()).toEqual(['seed', ['entry', 'threads', 'place']]);
+    patchStory(db, blank.id, {
+      entries: [{ id: newId(), text: 'Ein Aushang', placeId: market.id, standing: 'any' }],
+      scenes: [
+        { id: newId(), text: 'Am Zollhaus', encounterId: null, odds: 'sure', placeId: null },
+      ],
+    });
+    saveThread(db, {
+      title: 'Wer hat den Zöllner bestochen?',
+      truth: '',
+      state: 'open',
+      storyId: blank.id,
+      refs: [],
+      known: false,
+      hints: [hint('Münzen'), hint('Ein Brief'), hint('Die Wirtin')],
+    });
+    expect(stage()).toEqual(['playable', ['needs', 'stakes', 'hero']]);
+    // Abgewähltes fehlt nicht.
+    for (const key of ['needs', 'hero', 'reward']) setAdviceOff(db, blank.id, key, true);
+    expect(stage()).toEqual(['playable', ['stakes', 'ending']]);
+    patchStory(db, blank.id, { stakes: 'Hält der Rat stand?', ending: 'Der Rat entscheidet.' });
+    expect(stage()).toEqual(['round', []]);
   });
 
   it('schreibt die Schritte der Uhr – die Uhr entsteht mit dem ersten', async () => {
@@ -387,9 +452,37 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
     // Die Uhr heißt wie die Geschichte – und zieht mit, wenn die umbenannt wird.
     patchStory(db, toll.id, { title: 'Der Griff nach dem Zoll' });
     expect(clock().title).toBe('Der Griff nach dem Zoll');
+    // Die neue Uhr steht noch: Beim Schreiben tritt nichts von selbst ein.
+    expect(clock().pausedAt).toBe(now);
+    expect(clockStand(data(), data().stories[toll.id]!)).toMatchObject({
+      pace: 'paused',
+      fresh: true,
+    });
+    advanceTime(db, now + DAY);
+    expect(clock().steps[0]!.at).toBeNull();
+    // Gestartet zählt die Frist des ersten Schrittes ab dem Start – nicht ab dem Schreiben.
+    runStoryClock(db, toll.id, true);
+    expect(clock()).toMatchObject({ pausedAt: null, start: now + DAY });
+    expect(clock().steps[0]!.delay).toBe(0);
+    expect(clockStand(data(), data().stories[toll.id]!)).toMatchObject({
+      pace: 'running',
+      fresh: false,
+    });
     // Was eingetreten ist, bleibt, auch wenn die offenen Schritte neu geschrieben werden.
-    advanceTime(db, now + 2 * DAY + 60);
+    advanceTime(db, now + 3 * DAY + 60);
     expect(clock().steps[0]!.at).not.toBeNull();
+    // Anhalten und wieder laufen lassen: Die Standzeit schiebt den nächsten Schritt hinaus.
+    runStoryClock(db, toll.id, false);
+    expect(clock().pausedAt).toBe(now + 3 * DAY + 60);
+    advanceTime(db, now + 4 * DAY + 60);
+    runStoryClock(db, toll.id, true);
+    expect(clock().pausedAt).toBeNull();
+    expect(clock().steps[1]!.delay).toBe(DAY);
+    // Woran die Gruppe einen Schritt merkt, bleibt stehen, wenn nur der Text neu geschrieben wird.
+    setStorySteps(db, toll.id, [
+      { id: second, text: 'Der Zoll wird verdoppelt', days: 4, sign: ' Neue Tafeln am Tor ' },
+    ]);
+    expect(clock().steps[1]!.sign).toBe('Neue Tafeln am Tor');
     setStorySteps(db, toll.id, [{ id: second, text: 'Der Zoll wird verdreifacht', days: 4 }]);
     expect(clock().steps.map((step) => step.text)).toEqual([
       'Die Zöllner werden bestochen',

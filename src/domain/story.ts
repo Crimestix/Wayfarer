@@ -78,7 +78,7 @@ export function threadsOf(data: StoryData, storyId: string | null): Thread[] {
 
 /**
  * Woran eine Geschichte hängt: wer sie antreibt, wer und was dazugehört, wo ihre Uhr spielt, wo
- * ihre Einstiege liegen – und alles, woran ihre Fäden hängen.
+ * ihre Einstiege und Szenen liegen – und alles, woran ihre Fäden hängen.
  */
 export function storyNodes(data: StoryData, story: Story): string[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
@@ -92,6 +92,7 @@ export function storyNodes(data: StoryData, story: Story): string[] {
       clock?.placeId,
       ...(clock?.refs ?? []),
       ...story.entries.map((entry) => entry.placeId),
+      ...story.scenes.map((scene) => scene.placeId),
       ...threadsOf(data, story.id).flatMap((thread) => threadNodes(data, thread)),
     ],
     data,
@@ -99,16 +100,19 @@ export function storyNodes(data: StoryData, story: Story): string[] {
 }
 
 /**
- * Was auf dem Blatt einer Geschichte geschrieben steht – jedes Feld für sich: worum es geht, was
- * auf dem Spiel steht, die Schritte ihrer Uhr, Fragen mit Antwort und Hinweisen, Einstiege,
- * Szenen, Ende, Belohnung, Merkzettel. Daraus liest `writtenNames`, wer im Text genannt ist.
+ * Was auf dem Blatt einer Geschichte geschrieben steht – jedes Feld für sich: was der Antreiber
+ * will und was ihm fehlt, was auf dem Spiel steht, die Schritte ihrer Uhr und woran man sie
+ * merkt, was die Beteiligten wollen, Fragen mit Antwort und Hinweisen, Einstiege, Szenen, Ende,
+ * Belohnung, Merkzettel. Daraus liest `writtenNames`, wer im Text genannt ist.
  */
 export function storyTexts(data: StoryData, story: Story): string[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
   return [
     story.summary,
+    story.needs,
     story.stakes,
-    ...(clock?.steps ?? []).map((step) => step.text),
+    ...(clock?.steps ?? []).flatMap((step) => [step.text, step.sign]),
+    ...Object.values(story.roles).map((role) => role.wants),
     ...threadsOf(data, story.id).flatMap((thread) => [
       thread.title,
       thread.truth,
@@ -123,13 +127,8 @@ export function storyTexts(data: StoryData, story: Story): string[] {
   ].filter((text) => text.trim() !== '');
 }
 
-/**
- * Wer auf dem Blatt schon dazugehört: alles, woran die Geschichte hängt (`storyNodes`), und die
- * Orte ihrer Szenen.
- */
-export function storyAttached(data: StoryData, story: Story): string[] {
-  return unique([...storyNodes(data, story), ...story.scenes.map((scene) => scene.placeId)], data);
-}
+/** Wer auf dem Blatt schon dazugehört: alles, woran die Geschichte hängt (`storyNodes`). */
+export const storyAttached = storyNodes;
 
 /** Wo etwas ist: ein Ort selbst, eine Person dort, wo sie sich aufhält oder wohnt. */
 export function whereOf(data: StoryData, id: string): string | null {
@@ -369,65 +368,138 @@ export function looseClocks(data: Pick<CampaignData, 'stories' | 'clocks'>): Clo
     .sort((a, b) => a.title.localeCompare(b.title, 'de'));
 }
 
-// ── Rat zu einer Geschichte ────────────────────────────────────────────────
+// ── Stand und Rat zu einer Geschichte ──────────────────────────────────────
 
 /** So viele Hinweise sollten zu jeder Frage führen: Einen übersieht die Gruppe, einen versteht sie falsch. */
 export const HINTS_WANTED = 3;
+
+/** Die Fächer des Blatts, von oben nach unten – in dieser Reihenfolge steht auch der Rat. */
+export const STORY_SECTIONS = [
+  'who',
+  'needs',
+  'clock',
+  'stakes',
+  'cast',
+  'heroes',
+  'entries',
+  'threads',
+  'places',
+  'scenes',
+  'ending',
+  'memo',
+] as const;
+export type StorySection = (typeof STORY_SECTIONS)[number];
+
+/**
+ * Wie weit eine Geschichte ist – ein Stand, keine Zahl. Keim: jemand will etwas, und es gibt
+ * einen nächsten Schritt. Spielbar: dazu ein Einstieg, ein Ort, eine Frage mit drei Hinweisen,
+ * eine Szene. Rund: der Rest.
+ */
+export type StoryStage = 'seed' | 'playable' | 'round';
+
+export const STAGE_LABEL: Record<StoryStage, string> = {
+  seed: 'Keim',
+  playable: 'Spielbar',
+  round: 'Rund',
+};
 
 export interface StoryAdvice {
   key: string;
   /** Das ist geschrieben. */
   done: boolean;
+  /** Abgewählt („brauche ich nicht“): Es zählt nicht mehr als offen. */
+  off: boolean;
   /** Was es ist: „Was auf dem Spiel steht“. */
   text: string;
-  /** Warum es hilft – oder was genau noch fehlt. */
+  /** Die Leitfrage dazu – oder was genau noch fehlt. Beschreibt die Form, nie einen Inhalt. */
   why: string;
+  /** Das Fach des Blatts, in dem es geschrieben wird. */
+  section: StorySection;
+  /** Für welchen Stand es zählt: Was zum Keim gehört, was zum Spielen, was sie rund macht. */
+  stage: StoryStage;
 }
 
+const written = (hints: readonly ThreadHint[]) => hints.filter((hint) => hint.text.trim()).length;
+
 /**
- * Was eine Geschichte braucht, damit sie am Tisch trägt – als Rat, nie als Pflicht: wer was will,
- * was auf dem Spiel steht, was geschieht, wenn niemand eingreift, wie die Gruppe hineinkommt, wo
- * sie spielt, welche Fragen sie stellt (mit genug Hinweisen) und wie sie enden kann. Wayfarer
- * schreibt nichts davon; es zeigt nur, was noch leer ist.
+ * Was eine Geschichte braucht, damit sie am Tisch trägt – als Rat, nie als Pflicht, in der
+ * Reihenfolge der Fächer des Blatts: wer was will und was ihm fehlt, ein nächster Schritt, was
+ * auf dem Spiel steht, wen es persönlich betrifft, wie die Gruppe hineinkommt, welche Fragen sie
+ * stellt (mit genug Hinweisen), wo sie spielt, was bereitliegt und wie sie enden kann. Jeder
+ * Punkt lässt sich abwählen (`story.adviceOff`). Wayfarer schreibt nichts davon; es zeigt nur,
+ * was noch leer ist.
  */
 export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
   const steps = clock?.steps.filter((step) => step.text.trim()).length ?? 0;
-  const threads = threadsOf(data, story.id).filter(threadLive);
-  const thin = threads.filter(
-    (thread) => thread.hints.filter((hint) => hint.text.trim()).length < HINTS_WANTED,
+  const all = threadsOf(data, story.id);
+  const threads = all.filter(threadLive);
+  // Die Frage, die am weitesten ist, trägt den Punkt „Eine Frage mit drei Hinweisen“.
+  const byHints = [...threads].sort((a, b) => written(b.hints) - written(a.hints));
+  const lead = byHints[0];
+  const full = lead !== undefined && written(lead.hints) >= HINTS_WANTED;
+  const thin = byHints.filter(
+    (thread) => written(thread.hints) < HINTS_WANTED && (full || thread !== lead),
   );
   const entries = story.entries.filter((entry) => entry.text.trim()).length;
+  const scenes = story.scenes.filter((scene) => scene.text.trim() || scene.encounterId).length;
   const placed = storyNodes(data, story).some((id) => whereOf(data, id) !== null);
-  const advice: StoryAdvice[] = [
-    {
-      key: 'goal',
-      done: story.summary.trim() !== '',
-      text: 'Worum es geht',
-      why: 'Wer will was – in ein, zwei Sätzen.',
-    },
+  const few = (count: number) =>
+    count === 0 ? 'Noch keiner.' : count === 1 ? 'Erst einer.' : 'Erst zwei.';
+  const off = new Set(story.adviceOff);
+  const advice: Omit<StoryAdvice, 'off'>[] = [
     {
       key: 'owner',
       done: story.ownerId !== null && data.entities[story.ownerId] !== undefined,
       text: 'Wer sie antreibt',
-      why: 'Eine Person oder Fraktion mit einem Ziel. Ihr Ruf bei der Gruppe zählt für die Einstiege.',
+      why: 'Jemand mit einem Ziel. Sein Ruf bei der Gruppe zählt für die Einstiege.',
+      section: 'who',
+      stage: 'seed',
+    },
+    {
+      key: 'goal',
+      done: story.summary.trim() !== '',
+      text: 'Was er will',
+      why: 'In einem Satz, aus seiner Sicht.',
+      section: 'who',
+      stage: 'seed',
+    },
+    {
+      key: 'needs',
+      done: story.needs.trim() !== '',
+      text: 'Was ihm noch fehlt',
+      why: 'Was braucht er noch, bevor er am Ziel ist? Jede Hürde ist ein Schritt.',
+      section: 'needs',
+      stage: 'round',
+    },
+    {
+      key: 'clock',
+      done: steps > 0,
+      text: 'Ein nächster Schritt',
+      why:
+        steps === 0
+          ? 'Was geschieht als Nächstes, wenn niemand eingreift? Einer reicht.'
+          : steps === 1
+            ? 'Ein Schritt steht – das reicht.'
+            : `${steps} Schritte stehen.`,
+      section: 'clock',
+      stage: 'seed',
     },
     {
       key: 'stakes',
       done: story.stakes.trim() !== '',
       text: 'Was auf dem Spiel steht',
-      why: 'Was geht verloren, wenn die Gruppe nichts tut?',
+      why: 'Ein bis drei offene Fragen, deren Antwort du dem Spiel überlässt.',
+      section: 'stakes',
+      stage: 'round',
     },
     {
-      key: 'clock',
-      done: steps >= 2,
-      text: 'Was geschieht, wenn niemand eingreift',
-      why:
-        steps === 0
-          ? 'Noch kein Schritt – so steht die Geschichte still, bis die Gruppe kommt.'
-          : steps === 1
-            ? 'Erst ein Schritt. Zwei oder drei zeigen, wie es schlimmer wird.'
-            : `${steps} Schritte bis zum Ende.`,
+      key: 'hero',
+      done: heroesOf(data, story).length > 0,
+      text: 'Ein Gefährte hat einen eigenen Grund',
+      why: 'Warum mischt sich gerade er ein? Dann ist es mehr als ein Auftrag.',
+      section: 'heroes',
+      stage: 'round',
     },
     {
       key: 'entry',
@@ -436,61 +508,93 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
       why:
         entries > 1
           ? `${entries} Wege hinein.`
-          : 'Wo und wie stößt die Gruppe darauf? Zwei Einstiege an verschiedenen Orten sind sicherer als einer.',
-    },
-    {
-      key: 'place',
-      done: placed,
-      text: 'An einem Ort festgemacht',
-      why: 'Über die Orte und Personen der Geschichte erkennt Wayfarer, wie nah die Gruppe dran ist.',
+          : 'Wo und wie stößt die Gruppe darauf? Zwei an verschiedenen Orten sind sicherer als einer.',
+      section: 'entries',
+      stage: 'playable',
     },
     {
       key: 'threads',
-      done: threads.length > 0,
-      text: 'Eine Frage, der die Gruppe folgen kann',
-      why: 'Ein Faden: was die Gruppe herausfinden soll – und was dahintersteckt.',
+      // Sind alle Fragen beantwortet oder verloren, ist hier nichts mehr zu schreiben.
+      done: full || (threads.length === 0 && all.length > 0),
+      text: 'Eine Frage mit drei Hinweisen',
+      why: !lead
+        ? 'Was soll die Gruppe herausfinden – und was steckt dahinter?'
+        : full
+          ? 'Einen Hinweis übersieht die Gruppe, einen versteht sie falsch – der dritte trägt.'
+          : `Hinweise zu „${lead.title}“: ${few(written(lead.hints))} Einen übersieht die Gruppe, einen versteht sie falsch.`,
+      section: 'threads',
+      stage: 'playable',
     },
-    {
-      key: 'hero',
-      done: heroesOf(data, story).length > 0,
-      text: 'Ein Gefährte hat einen eigenen Grund',
-      why: 'Wen betrifft sie persönlich – und warum? Dann ist es nicht nur ein Auftrag.',
-    },
-  ];
-  if (threads.length > 0 && thin.length === 0)
-    advice.push({
-      key: 'hints',
-      done: true,
-      text: 'Drei Hinweise zu jeder Frage',
-      why: 'Einen übersieht die Gruppe, einen versteht sie falsch – der dritte trägt.',
-    });
-  for (const thread of thin) {
-    const count = thread.hints.filter((hint) => hint.text.trim()).length;
-    advice.push({
+    ...thin.map((thread): Omit<StoryAdvice, 'off'> => ({
       key: `hints:${thread.id}`,
       done: false,
       text: `Drei Hinweise zu „${thread.title}“`,
-      why:
-        count === 0
-          ? 'Noch keiner – die Gruppe kann die Antwort nicht finden.'
-          : `Erst ${count === 1 ? 'einer' : 'zwei'}. Einen übersieht die Gruppe, einen versteht sie falsch.`,
-    });
-  }
-  advice.push(
+      why: `${few(written(thread.hints))} Einen übersieht die Gruppe, einen versteht sie falsch.`,
+      section: 'threads',
+      stage: 'round',
+    })),
+    {
+      key: 'place',
+      done: placed,
+      text: 'Ein Ort',
+      why: 'Wo spielt sie? Über ihre Orte erkennt Wayfarer, wie nah die Gruppe dran ist.',
+      section: 'places',
+      stage: 'playable',
+    },
+    {
+      key: 'scene',
+      done: scenes > 0,
+      text: 'Eine Szene',
+      why: 'Was liegt bereit, wenn die Gruppe hingeht?',
+      section: 'scenes',
+      stage: 'playable',
+    },
     {
       key: 'ending',
       done: story.ending.trim() !== '',
       text: 'Wie es enden kann',
-      why: 'Höhepunkt und Folgen – nicht der Weg dorthin.',
+      why: 'Zwei, drei mögliche Enden – offen, nicht der Weg dorthin.',
+      section: 'ending',
+      stage: 'round',
     },
     {
       key: 'reward',
       done: story.reward.trim() !== '',
       text: 'Was die Gruppe davon hat',
       why: 'Beute, ein Gefallen, ein Verbündeter, Wissen.',
+      section: 'ending',
+      stage: 'round',
     },
-  );
-  return advice;
+  ];
+  return advice.map((entry) => ({ ...entry, off: off.has(entry.key) }));
+}
+
+/** Mehr als so viele Dinge nennt der Stand nie auf einmal. */
+export const STAGE_NEXT = 3;
+
+export interface StoryStageView {
+  stage: StoryStage;
+  /** Die ein bis drei Dinge, die zum nächsten Stand fehlen – leer, wenn sie rund ist. */
+  next: StoryAdvice[];
+}
+
+/**
+ * Der Stand einer Geschichte: Keim, bis sie spielbar ist; spielbar, bis sie rund ist. Dazu, was
+ * als Nächstes fehlt – erst, was zum Keim gehört (wer, was er will, ein nächster Schritt), dann,
+ * was sie spielbar macht. Abgewähltes fehlt nicht. Ein Rat, nie eine Schuld.
+ */
+export function storyStage(
+  data: StoryData,
+  story: Story,
+  advice: readonly StoryAdvice[] = storyAdvice(data, story),
+): StoryStageView {
+  const open = advice.filter((entry) => !entry.done && !entry.off);
+  const of = (stage: StoryStage) => open.filter((entry) => entry.stage === stage);
+  const [seed, playable, round] = [of('seed'), of('playable'), of('round')];
+  const stage: StoryStage =
+    seed.length || playable.length ? 'seed' : round.length ? 'playable' : 'round';
+  const next = seed.length ? seed : playable.length ? playable : round;
+  return { stage, next: next.slice(0, STAGE_NEXT) };
 }
 
 // ── Das Brett als Pinnwand ─────────────────────────────────────────────────
@@ -534,17 +638,36 @@ interface Box {
 const overlaps = (a: Box, b: Box) =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
 
+/** Teilgeschichten liegen bei ihrer großen: in der Reihe gleich hinter ihr. */
+function withParts(cards: readonly BoardCard[]): BoardCard[] {
+  const byKey = new Map(cards.map((card) => [card.key, card]));
+  const parentOf = (card: BoardCard) =>
+    card.story?.parentId ? byKey.get(`story:${card.story.parentId}`) : undefined;
+  const out: BoardCard[] = [];
+  const seen = new Set<string>();
+  const add = (card: BoardCard) => {
+    if (seen.has(card.key)) return;
+    seen.add(card.key);
+    out.push(card);
+    for (const part of cards) if (parentOf(part) === card) add(part);
+  };
+  for (const card of cards) if (!parentOf(card)) add(card);
+  // Ein Kreis (A Teil von B, B Teil von A) dürfte nie entstehen – verloren geht trotzdem nichts.
+  for (const card of cards) add(card);
+  return out;
+}
+
 /**
  * Wo alles auf dem Brett liegt: Was der Spielleiter hingelegt hat (`placed`), bleibt dort; alles
- * andere legt Wayfarer aus – die Karten in Reihen (das Nahe zuerst), die Namen einer Karte
- * darunter, und ein Name, an dem mehrere Karten hängen, zwischen sie. Nichts liegt aufeinander.
- * Abgeschlossenes liegt nicht auf dem Brett.
+ * andere legt Wayfarer aus – die Karten in Reihen (das Nahe zuerst, Teilgeschichten bei ihrer
+ * großen), die Namen einer Karte darunter, und ein Name, an dem mehrere Karten hängen, zwischen
+ * sie. Nichts liegt aufeinander. Abgeschlossenes liegt nicht auf dem Brett.
  */
 export function boardLayout(
   cards: readonly BoardCard[],
   placed: Readonly<Record<string, Spot>> = {},
 ): BoardLayout {
-  const open = cards.filter((card) => !card.closed);
+  const open = withParts(cards.filter((card) => !card.closed));
   const spots: Record<string, Spot> = {};
   open.forEach((card, index) => {
     spots[card.key] = placed[card.key] ?? {

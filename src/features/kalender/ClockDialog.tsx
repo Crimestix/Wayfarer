@@ -124,6 +124,7 @@ export function ClockDialog({
         skipped: false,
         needs: step.needs.trim(),
         runId: step.runId && data.runs[step.runId] ? step.runId : null,
+        sign: before?.sign ?? '',
       };
     });
     const common = { title: title.trim(), ownerId, placeId, secret };

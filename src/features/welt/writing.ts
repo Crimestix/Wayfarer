@@ -49,6 +49,10 @@ function takeFromSheets(db: CampaignDb, entityId: string): void {
     const change: Partial<Story> = {};
     if (story.ownerId === entityId) change.ownerId = null;
     if (story.refs.includes(entityId)) change.refs = story.refs.filter(other);
+    if (story.roles[entityId])
+      change.roles = Object.fromEntries(
+        Object.entries(story.roles).filter(([id]) => id !== entityId),
+      );
     if (placed(story.entries)) change.entries = unplaced(story.entries);
     if (placed(story.scenes)) change.scenes = unplaced(story.scenes);
     if (Object.keys(change).length) db.patch('stories', story.id, change);

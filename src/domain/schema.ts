@@ -1213,6 +1213,8 @@ export const ClockStepSchema = z.object({
   needs: z.string().default(''),
   /** Der Ablauf, an dem die Bedingung hängt: Bleibt er aus, ist die Uhr blockiert. */
   runId: id.nullable().default(null),
+  /** Woran die Gruppe merkt, dass der Schritt eingetreten ist – in Worten des Spielleiters. */
+  sign: z.string().default(''),
 });
 export type ClockStep = z.infer<typeof ClockStepSchema>;
 
@@ -1388,8 +1390,19 @@ export const StorySceneSchema = z.object({
   odds: z.enum(SCENE_ODDS).default('maybe'),
   /** Wo die Szene spielen kann – am Spieltisch erscheint sie, sobald die Gruppe dort ist. */
   placeId: id.nullable().default(null),
+  /** Gespielt: abgehakt auf dem Blatt oder am Spieltisch. */
+  done: z.boolean().default(false),
 });
 export type StoryScene = z.infer<typeof StorySceneSchema>;
+
+/** Was ein Beteiligter in einer Geschichte ist und was er dort will – beides in freien Worten. */
+export const StoryRoleSchema = z.object({
+  /** Seine Rolle in dieser Geschichte: Handlanger, Zeuge, Schauplatz … – ein freies Wort. */
+  role: z.string().default(''),
+  /** Was er hier will – ein Satz. */
+  wants: z.string().default(''),
+});
+export type StoryRole = z.infer<typeof StoryRoleSchema>;
 
 /** Ein Gefährte, den eine Geschichte persönlich betrifft – und warum. */
 export const StoryHeroSchema = z.object({
@@ -1408,11 +1421,13 @@ export type StoryHero = z.infer<typeof StoryHeroSchema>;
 export const StorySchema = z.object({
   ...base,
   title: z.string(),
-  /** Worum es geht. */
+  /** Was der Antreiber will – in einem Satz, aus seiner Sicht. */
   summary: z.string().default(''),
-  /** Wer sie antreibt: eine Person oder Fraktion. */
+  /** Wer sie antreibt: eine Person, Fraktion, Familie – oder was immer der Spielleiter wählt. */
   ownerId: id.nullable().default(null),
-  /** Was auf dem Spiel steht – was verloren geht, wenn die Gruppe nichts tut. */
+  /** Was dem Antreiber noch fehlt, bevor er am Ziel ist – jede Hürde ist ein Schritt der Uhr. */
+  needs: z.string().default(''),
+  /** Was auf dem Spiel steht – offene Fragen, deren Antwort das Spiel gibt. */
   stakes: z.string().default(''),
   /** Was passiert, wenn niemand eingreift. */
   clockId: id.nullable().default(null),
@@ -1424,8 +1439,17 @@ export const StorySchema = z.object({
   ending: z.string().default(''),
   /** Was die Gruppe davon hat. */
   reward: z.string().default(''),
-  /** Personen, Orte und Fraktionen, die dazugehören. */
+  /** Die Beteiligten: Einträge jeder Art, die dazugehören. */
   refs: z.array(id).default([]),
+  /**
+   * Rolle und Absicht der Beteiligten in dieser Geschichte, je Eintrag (`castOf` in
+   * `domain/storySheet.ts`). Wer hier fehlt, gehört trotzdem dazu – `refs` bleibt die Liste.
+   */
+  roles: z.record(z.string(), StoryRoleSchema).default({}),
+  /** Die große Geschichte, zu der diese gehört; null = sie steht für sich. */
+  parentId: id.nullable().default(null),
+  /** Ratschläge, die der Spielleiter abgewählt hat („brauche ich nicht“) – Schlüssel aus `storyAdvice`. */
+  adviceOff: z.array(z.string()).default([]),
   entries: z.array(StoryEntrySchema).default([]),
   /** Die Gruppe weiß von dieser Geschichte. */
   known: z.boolean().default(false),
@@ -1901,6 +1925,8 @@ export const NetSchema = z.object({
   /** Was für Wege hier neu entstehen: Gasse, Straße, Pfad, Sumpfpfad, Gang, Wasserweg (`WaySort`). */
   waySort: z.enum(['street', 'road', 'trail', 'swamp', 'underground', 'water']).default('trail'),
   points: z.array(NetPointSchema).default([]),
+  /** Die Geschichte, für die das Netz vorbereitet ist (`netsOfStory`); null = es steht für sich. */
+  storyId: id.nullable().default(null),
 });
 export type Net = z.infer<typeof NetSchema>;
 
@@ -2876,7 +2902,14 @@ export function createStory(init: Partial<Story> & { title: string }): Story {
   return StorySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
-export function createClock(init: Partial<Clock> & { title: string; start: number }): Clock {
+export function createClock(
+  init: Partial<Omit<Clock, 'steps'>> & {
+    title: string;
+    start: number;
+    /** Was an einem Schritt fehlt (`sign`), füllt die Vorgabe. */
+    steps?: (Omit<ClockStep, 'sign'> & { sign?: string | undefined })[];
+  },
+): Clock {
   const stamp = nowIso();
   return ClockSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
