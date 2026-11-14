@@ -1668,6 +1668,10 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   gespeicherter Wirkungen zurück. Offen: Ob eine Abmachung damals schon erledigt war, ob eine
   Geschichte schon im Spiel oder zu Ende war, wer damals zur Gruppe gehörte (`active`), Stände von
   Fortschrittsleisten und Läden – das alles hat keine Zeit und bleibt, wie es heute ist.
+- **Gegengelesen: Weltgeschichte und Welt an einem Tag.** Ausdünnen füllt ein Fach bis drei
+  Marken (ein einzelnes schweres Stück verdrängt nicht mehr alle anderen); Zeitalter entfernen
+  mit Rückgängig; vor dem ersten Abend kein heutiger Ort der Gruppe; ungefähre Einträge stehen
+  als „ungefähr“; Abend mit `sessionLabel`, Namen mit Zahlen in natürlicher Reihenfolge.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

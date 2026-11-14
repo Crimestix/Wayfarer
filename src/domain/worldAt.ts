@@ -424,6 +424,7 @@ export interface WorldOn {
   /** Der Spielstand damals – für alle weiteren Ableitungen. */
   view: CampaignData;
   ages: AgeSpan[];
+  /** Wo die Gruppe war; null = unbekannt oder vor dem ersten Abend ohne Ortswechsel. */
   placeId: string | null;
   session: Session | null;
   /** Der Tag liegt vor dem ersten Abend – die Gruppe zog noch nicht gemeinsam. */
@@ -523,7 +524,7 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
   lives.sort(
     (a, b) =>
       Number(!LIVING_KINDS.has(a.entity.kind)) - Number(!LIVING_KINDS.has(b.entity.kind)) ||
-      a.entity.name.localeCompare(b.entity.name, 'de'),
+      a.entity.name.localeCompare(b.entity.name, 'de', { numeric: true }),
   );
 
   // Was nur von Hand gesetzt ist, hat keine Zeit: Es gilt erst ab dem ersten Abend als Stand
@@ -621,7 +622,9 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
     future,
     view,
     ages: agesAt(data, t),
-    placeId: view.state.placeId,
+    // Vor dem ersten Abend zog die Gruppe noch nicht gemeinsam – einen Ort hat sie dann nur,
+    // wenn ein Ortswechsel bis dahin ihn belegt (nie der heutige).
+    placeId: beforeCampaign && !sorts.last.has('travel') ? null : view.state.placeId,
     session: view.state.sessionId ? (view.sessions[view.state.sessionId] ?? null) : null,
     party,
     beforeCampaign,

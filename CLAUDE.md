@@ -538,7 +538,7 @@ nicht übernommen.
   dem ersten Abend (`campaignStart`). Weit herausgezoomt dünnt sie nach Gewicht aus
   (`thinPieces`); der Zoom reicht bis Jahrtausende. Zeitalter (`campaign.ages`, `domain/ages.ts`:
   `agesSorted`, `agesAt`, `readAge`) liegen als Bänder über allen Bahnen und werden in der
-  Zeitleiste angelegt (`saveAge`, `removeAge`) – Wayfarer erfindet keine.
+  Zeitleiste angelegt (`saveAge`, `removeAge` mit Rückgängig) – Wayfarer erfindet keine.
 - Welt an einem Tag (`/damals/<Weltzeit>`, `zeitleiste/WorldAtPage.tsx`, auch per Klick auf die
   Achse der Zeitleiste): nur lesen. `worldAt(data, at)` (`domain/worldAt.ts`) gibt den
   Spielstand zu einem Zeitpunkt – Chronik bis dahin, `state.now`, Ort der Gruppe
@@ -548,7 +548,8 @@ nicht übernommen.
   Geheimnisse und Namen, Beute, Handouts, Vermutungen, Schritte der Uhren). Alle Ableitungen
   rechnen darauf unverändert; neue gespeicherte Wirkungen dort zurückrechnen. `worldOn` fasst für
   die Seite zusammen; ein Tag zählt bis zu seinem Ende (`dayEnd`). Von Hand Gesetztes ohne
-  Eintrag hat keine Zeit: Vor dem ersten Abend zeigt die Seite nur, was die Chronik belegt.
+  Eintrag hat keine Zeit: Vor dem ersten Abend zeigt die Seite nur, was die Chronik belegt
+  (auch den Ort der Gruppe – nie den heutigen).
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

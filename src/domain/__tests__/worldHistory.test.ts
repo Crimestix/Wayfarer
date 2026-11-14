@@ -196,7 +196,7 @@ describe('Ausdünnen nach Gewicht', () => {
   });
   const v: TimelineView = { from: t0, mpp: 1, width: 1000 };
 
-  it('behält in dichten Fächern nur das Schwerste; lockere Stellen bleiben ganz', () => {
+  it('behält in dichten Fächern die Schwersten, bis das Fach voll ist; lockere Stellen bleiben ganz', () => {
     const dense = [
       mark('a', t0 + 1, 3),
       mark('b', t0 + 2, 2),
@@ -206,12 +206,24 @@ describe('Ausdünnen nach Gewicht', () => {
     ];
     const loose = [mark('f', t0 + 500, 1), mark('g', t0 + 503, 1)];
     const out = thinPieces([...dense, ...loose], v);
-    expect(out.pieces.map((p) => p.key)).toEqual(['a', 'e', 'f', 'g']);
-    expect(out.hidden).toBe(3);
+    // Zwei mit Gewicht 3, dazu eins der beiden mit Gewicht 2 – das Fach fasst drei.
+    expect(out.pieces.map((p) => p.key)).toEqual(['a', 'd', 'e', 'f', 'g']);
+    expect(out.hidden).toBe(2);
     // Herangezoomt liegen die Marken in eigenen Fächern – nichts fehlt.
     const near = thinPieces(dense, { ...v, mpp: 1 / 60 });
     expect(near.hidden).toBe(0);
     expect(near.pieces).toHaveLength(5);
+  });
+
+  it('ein einzelnes schweres Stück verdrängt nicht alle anderen', () => {
+    const list = [
+      mark('h', t0 + 1, 3),
+      ...Array.from({ length: 9 }, (_, i) => mark(`l${i}`, t0 + 2 + i, 1)),
+    ];
+    const out = thinPieces(list, v);
+    expect(out.pieces).toHaveLength(THIN_KEEP);
+    expect(out.pieces.map((p) => p.key)).toContain('h');
+    expect(out.hidden).toBe(list.length - THIN_KEEP);
   });
 
   it('bis zu THIN_KEEP Marken je Fach bleiben immer', () => {

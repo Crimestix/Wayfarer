@@ -345,6 +345,17 @@ describe('worldOn: was „Welt an einem Tag“ zeigt', () => {
     expect(early.beforeCampaign).toBe(true);
     expect(early.party).toEqual([]);
     expect(early.knew).toEqual([]);
+    // Wo die Gruppe war, weiß man vor dem ersten Abend nur aus einem Ortswechsel bis dahin –
+    // nie den heutigen Ort.
+    expect(early.placeId).toBeNull();
+  });
+
+  it('vor dem ersten Abend zählt ein nachgetragener Ortswechsel', async () => {
+    const { db, grotte } = await setup();
+    ok(recordEntry(db, { kind: 'travel', at: T1 - 5 * DAY, travel: { toId: grotte.id } }));
+    const data = db.getSnapshot();
+    expect(worldOn(data, T1 - 2 * DAY).placeId).toBe(grotte.id);
+    expect(worldOn(data, T1 - 8 * DAY).placeId).toBeNull();
   });
 
   it('von Hand Gesetztes ohne Eintrag gilt erst ab dem ersten Abend', async () => {

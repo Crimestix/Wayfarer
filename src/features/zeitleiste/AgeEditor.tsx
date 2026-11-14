@@ -8,7 +8,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { agesSorted } from '../../domain/ages';
 import { datePointText, formatDatePoint } from '../../domain/lifespan';
-import { Button, Field, IconButton, Input } from '../../ui';
+import { Button, Field, IconButton, Input, toast } from '../../ui';
 import { removeAge, saveAge } from './actions';
 
 const BLANK = { name: '', from: '', to: '' };
@@ -86,8 +86,13 @@ export function AgeEditor({
                 label="Zeitalter entfernen"
                 size="sm"
                 onClick={() => {
-                  removeAge(db, span.age.id);
+                  const undo = removeAge(db, span.age.id);
                   if (editing === span.age.id) onEdit(null);
+                  if (undo)
+                    toast({
+                      title: `Zeitalter „${span.age.name}“ entfernt`,
+                      action: { label: 'Rückgängig', run: undo },
+                    });
                 }}
               >
                 <Trash2 />

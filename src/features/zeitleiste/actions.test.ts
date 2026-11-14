@@ -49,7 +49,13 @@ describe('Zeitalter festlegen', () => {
     expect(data().campaign.ages).toHaveLength(1);
     saveAge(db, { name: 'Das Aschenzeitalter', from: '401', to: '' }, made.id);
     expect(data().campaign.ages).toMatchObject([{ name: 'Das Aschenzeitalter', to: null }]);
-    removeAge(db, made.id);
+    const undo = removeAge(db, made.id);
     expect(data().campaign.ages).toEqual([]);
+    expect(removeAge(db, 'gibt-es-nicht')).toBeNull();
+    // Rückgängig holt es zurück – genau so, wie es war.
+    undo?.();
+    expect(data().campaign.ages).toMatchObject([{ id: made.id, name: 'Das Aschenzeitalter' }]);
+    undo?.();
+    expect(data().campaign.ages).toHaveLength(1);
   });
 });

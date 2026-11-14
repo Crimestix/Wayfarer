@@ -761,7 +761,7 @@ const Lane = memo(function Lane({
         >
           <span className="wf-zeitleiste-head__title wf-clamp-1">{lane.title}</span>
           <span className="wf-zeitleiste-head__sub wf-clamp-1">
-            {thin && thin.hidden > 0 ? `+${thin.hidden} beim Heranzoomen` : lane.sub}
+            {thin && thin.hidden > 0 ? `+${thin.hidden} näher sichtbar` : lane.sub}
           </span>
         </button>
         <span className="wf-zeitleiste-head__tools">

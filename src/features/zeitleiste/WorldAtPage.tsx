@@ -14,7 +14,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { FATE_LABEL } from '../../domain/chronicleKinds';
+import { FATE_LABEL, isApproximate } from '../../domain/chronicleKinds';
 import { entityName } from '../../domain/derive';
 import { formatDatePoint } from '../../domain/lifespan';
 import { PARTY_ID } from '../../domain/schema';
@@ -23,11 +23,12 @@ import { formatDate, formatDateTime, startOfDay, weekdayName } from '../../domai
 import { describeDate } from '../../domain/time/textDates';
 import { worldOn, type ThenAndNow } from '../../domain/worldAt';
 import { AttitudeBadge, Button, EntityLink, IconButton, Input, Panel } from '../../ui';
+import { sessionLabel } from '../chronik/model';
 import { dayEnd, isAfterToday, readDay, stepDay } from './model';
 import './zeitleiste.css';
 
 /** So viele Einträge mit Lebensdaten zeigt die Liste, bevor sie sich aufklappen lässt. */
-const LIVES_SHOWN = 24;
+const LIVES_SHOWN = 12;
 /** So viele Namen nennt eine Zeile unter „Was die Gruppe wusste“. */
 const NAMES_SHOWN = 10;
 
@@ -155,12 +156,16 @@ export default function WorldAtPage() {
             {on.ages.length ? on.ages.map((span) => span.age.name).join(', ') : '–'}
           </Fact>
           <Fact label="Die Gruppe war in">
-            {on.placeId ? <EntityLink id={on.placeId} /> : 'unbekannt'}
+            {on.placeId ? (
+              <EntityLink id={on.placeId} />
+            ) : on.beforeCampaign ? (
+              'Vor dem ersten Abend'
+            ) : (
+              'unbekannt'
+            )}
           </Fact>
           <Fact label="Abend">
-            {on.session
-              ? on.session.title.trim() || `Session ${on.session.number}`
-              : 'An diesem Tag lief kein Abend'}
+            {on.session ? sessionLabel(on.session) : 'An diesem Tag lief kein Abend'}
           </Fact>
         </section>
 
@@ -193,7 +198,7 @@ export default function WorldAtPage() {
             )}
           </Panel>
 
-          <Panel title="Wer lebte" count={on.lives.length}>
+          <Panel title="Wer lebte, was bestand" count={on.lives.length}>
             {on.lives.length === 0 ? (
               <Quiet>
                 Hier stehen Alter und Bestehen von allem, was Lebensdaten hat – Geburt, Gründung,
@@ -390,7 +395,10 @@ export default function WorldAtPage() {
                     <span className="wf-damals-entry__when">
                       {entry.precision === 'exact'
                         ? formatDateTime(cal, entry.at)
-                        : formatDatePoint(cal, { at: entry.at, precision: 'day' })}
+                        : `${isApproximate(entry) ? 'ungefähr ' : ''}${formatDatePoint(cal, {
+                            at: entry.at,
+                            precision: 'day',
+                          })}`}
                     </span>
                     <span className="wf-damals-entry__text">{entryLine(on.view, entry)}</span>
                   </li>

@@ -1419,8 +1419,9 @@ export const THIN_KEEP = 3;
 /**
  * Dünnt eine dichte Bahn nach Gewicht aus: Die Zeit im Bild wird in Fächer von `THIN_PX`
  * Bildpunkten geteilt (fest an der Weltzeit, damit beim Verschieben nichts springt). Liegen in
- * einem Fach mehr als `THIN_KEEP` Marken, bleiben nur die schwersten (und von ihnen höchstens
- * `THIN_KEEP`, gleichmäßig verteilt) – der Rest erscheint beim Heranzoomen. Leisten und Laufzeiten bleiben immer. `hidden` = so viele Marken im Bild fehlen.
+ * einem Fach mehr als `THIN_KEEP` Marken, bleiben `THIN_KEEP` – die schwersten zuerst, vom
+ * letzten Gewicht, das noch Platz findet, gleichmäßig verteilt; der Rest erscheint beim
+ * Heranzoomen. Leisten und Laufzeiten bleiben immer. `hidden` = so viele Marken im Bild fehlen.
  */
 export function thinPieces(
   pieces: readonly TimelinePiece[],
@@ -1447,12 +1448,18 @@ export function thinPieces(
       kept.push(...list);
       continue;
     }
-    const heaviest = Math.max(...list.map((p) => p.weight));
-    const top = list.filter((p) => p.weight === heaviest).sort((a, b) => markAt(a) - markAt(b));
-    // Auch vom Schwersten höchstens `THIN_KEEP` – gleichmäßig über das Fach verteilt.
-    const step = top.length / Math.min(top.length, THIN_KEEP);
+    // Die schwersten zuerst, bis das Fach voll ist; vom Gewicht, das nicht mehr ganz passt,
+    // so viele wie Platz ist – gleichmäßig über das Fach verteilt.
     const chosen = new Set<TimelinePiece>();
-    for (let i = 0; i < top.length; i += step) chosen.add(top[Math.floor(i)]!);
+    for (const weight of [3, 2, 1] as const) {
+      const room = THIN_KEEP - chosen.size;
+      if (room <= 0) break;
+      const same = list.filter((p) => p.weight === weight).sort((a, b) => markAt(a) - markAt(b));
+      if (same.length <= room) same.forEach((p) => chosen.add(p));
+      else
+        for (let i = 0; i < room; i++)
+          chosen.add(same[Math.floor(((i + 0.5) * same.length) / room)]!);
+    }
     const edge = view.from + view.width * view.mpp;
     for (const p of list) {
       if (chosen.has(p)) kept.push(p);

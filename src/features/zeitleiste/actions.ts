@@ -63,8 +63,19 @@ export function saveAge(
   return { id: age.id };
 }
 
-/** Nimmt ein Zeitalter heraus. */
-export function removeAge(db: CampaignDb, id: string): void {
+/**
+ * Nimmt ein Zeitalter heraus. Gibt zurück, wie es sich zurückholen lässt (an seiner alten Stelle);
+ * null, wenn es das Zeitalter nicht gibt.
+ */
+export function removeAge(db: CampaignDb, id: string): (() => void) | null {
   const { campaign } = db.getSnapshot();
+  const index = campaign.ages.findIndex((age) => age.id === id);
+  if (index < 0) return null;
+  const removed = campaign.ages[index]!;
   db.setCampaign({ ages: campaign.ages.filter((age) => age.id !== id) });
+  return () => {
+    const ages = db.getSnapshot().campaign.ages;
+    if (ages.some((age) => age.id === id)) return;
+    db.setCampaign({ ages: [...ages.slice(0, index), removed, ...ages.slice(index)] });
+  };
 }
