@@ -1704,8 +1704,22 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   und in den Zeilen der Listen des Blatts (Schritte, Hinweise, Einstiege, Szenen sind einfache
   Eingabefelder); die übrigen Auswahlfelder der App (Festhalten, Kalender, Läden …) nutzen noch
   `onCreate` oder gar kein Anlegen. Orte mit Begleiter („zur Salzgrotte“) erkennt
-  `unknownNames` bewusst nicht als Namen. Die Prüfung „bleibt bei 3000 Einträgen schnell“
-  (`chronik/model.test.ts`) läuft auf einem ausgelasteten Rechner in die 5-Sekunden-Grenze.
+  `unknownNames` bewusst nicht als Namen.
+- **Gegengelesen: Anlegen beim Schreiben.** „Rückgängig“ nach dem Anlegen ließ einen „Gelöschten
+  Eintrag“ zurück (unter „Leute und Orte“ nach „@“, als Verknüpfung in der Mitschrift, in Feldern
+  eines schon verlassenen Blatts) – `addFromWriting` nimmt ihn jetzt selbst aus Geschichten, Fäden
+  und Abenden (`takeFromSheets`), die Mitschrift verknüpft nur, wen es gibt. Escape im Formular
+  führt zurück zur Liste. Am „@“ auf Blättern legt die Eingabetaste ohne Treffer an (vorher blieb
+  „@Name“ im Text stehen); Tab aus der Auswahl hinaus schließt sie und schreibt das Feld (vorher
+  blieb sie offen und der Text ungespeichert). Im Formular auf einen schon gewählten Namen
+  geändert: nichts doppelt. Nach dem Anlegen aus „Noch unbekannt“ bleibt der Fokus in der Zeile.
+  Drei erfundene Beispiele durch Form-Fragen ersetzt (Fragen der Geschichte, Einstieg und
+  Geheimnis des Abends). Die Prüfung „bleibt bei 3000 Einträgen schnell“ hat mehr Zeit für das
+  Anlegen ihrer Einträge (gemessen wird weiter nur das Filtern).
+- Offen nach dem Gegenlesen: „4 von 10“-Zähler stehen noch auf den Blättern („Noch offen · 10“,
+  „0 von 3“ bei Hinweisen, „0 von 10“ bei Geheimnissen) – das gehört zum Umbau des Blatts.
+  Erfundene Beispiele stehen noch in anderen Dialogen (Uhr, Ablauf, Karten, Wege, Läden). Eine
+  neue Geschichte heißt „Neue Geschichte“, und der Name ist beim ersten Klick nicht markiert.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

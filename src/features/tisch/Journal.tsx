@@ -79,7 +79,8 @@ export function MentionInput({
     header: (query) =>
       query.trim() ? 'Verknüpfen mit' : 'Hier am Ort · weitertippen sucht überall',
   });
-  const kept = keptMentions(text, mentions);
+  // Nur, wen es noch gibt – „Rückgängig“ nach dem Anlegen nimmt auch die Verknüpfung.
+  const kept = keptMentions(text, mentions, (id) => data.entities[id] !== undefined);
   const keptIds = kept.map((m) => m.id);
 
   // Höhe folgt dem Text; die Schreibmarke springt nach dem Einsetzen eines Namens dahinter.
@@ -125,6 +126,7 @@ export function MentionInput({
             at.track(e.target, true);
           }}
           onSelect={(e) => at.track(e.currentTarget)}
+          onBlur={(e) => at.leave(e.relatedTarget)}
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) return;
             // Die offene Auswahl nimmt Pfeile und – auf einer markierten Zeile – die Eingabetaste.

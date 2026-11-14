@@ -384,6 +384,11 @@ export function Dialog({
 export interface PopoverProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Escape tut hier etwas anderes als wegklicken – etwa aus einem Formular einen Schritt zurück
+   * zur Liste. Ohne Angabe schließt Escape die Fläche.
+   */
+  onEscape?: (() => void) | undefined;
   /** Element, an dem die Fläche hängt. */
   anchor: RefObject<HTMLElement | null>;
   children: ReactNode;
@@ -399,6 +404,7 @@ export interface PopoverProps {
 export function Popover({
   open,
   onClose,
+  onEscape,
   anchor,
   children,
   align = 'left',
@@ -434,7 +440,7 @@ export function Popover({
       if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopPropagation();
-      onClose();
+      (onEscape ?? onClose)();
     };
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('keydown', onKey, true);
@@ -442,7 +448,7 @@ export function Popover({
       document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('keydown', onKey, true);
     };
-  }, [open, onClose, anchor]);
+  }, [open, onClose, onEscape, anchor]);
 
   if (!open) return null;
   return (

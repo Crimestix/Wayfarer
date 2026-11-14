@@ -42,13 +42,21 @@ export function Written({
   useEffect(() => setText(value), [value]);
   const input = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
-  const at = useMention({ field: rows ? area : input, text, setText, options: mention ?? null });
   const commit = () => {
     if (text !== value) onSave(text);
   };
+  const at = useMention({
+    field: rows ? area : input,
+    text,
+    setText,
+    options: mention ?? null,
+    // Auf einem Blatt legt die Eingabetaste an, was das „@“ nicht findet – wie in der Auswahl.
+    createOnEnter: true,
+    onLeave: commit,
+  });
   /** Verlassen schreibt – außer der Fokus ist nur in die Auswahl am „@“ gewandert. */
   const leave = (next: EventTarget | null) => {
-    if (!at.contains(next as Node | null)) commit();
+    if (!at.leave(next)) commit();
   };
   return (
     <>

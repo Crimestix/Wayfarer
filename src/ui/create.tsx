@@ -36,6 +36,8 @@ export interface WriteContext {
   /** Die Arten des Feldes – nur gefragt, wenn es keine andere verträgt. */
   kinds?: readonly EntityKind[] | undefined;
   onlyKinds?: boolean | undefined;
+  /** Wer im Feld schon steht – er wird nicht ein zweites Mal genommen. */
+  exclude?: readonly string[] | undefined;
   /** Nimmt beim „Rückgängig“ den Eintrag auch aus dem Feld wieder heraus. */
   revert?: ((entity: Entity) => void) | undefined;
 }
@@ -65,6 +67,8 @@ export function useWriting(): (
     const fits =
       !context.onlyKinds || !context.kinds?.length || context.kinds.includes(entity.kind);
     const only = fits ? '' : `Dieses Feld nimmt nur: ${kindList(context.kinds ?? [])}.`;
+    // Im Formular auf einen Namen geändert, der hier schon steht: nichts doppelt nehmen.
+    const already = context.exclude?.includes(entity.id) ?? false;
     if (created)
       toast({
         title: fits ? `„${entity.name}“ angelegt` : `„${entity.name}“ angelegt, hier nicht gewählt`,
@@ -83,13 +87,15 @@ export function useWriting(): (
     else
       toast({
         title: `„${entity.name}“ gibt es schon`,
-        body: fits
-          ? result.otherKind
-            ? `Als ${KIND_LABEL[entity.kind]} – der vorhandene Eintrag ist genommen.`
-            : 'Der vorhandene Eintrag ist genommen.'
-          : `Als ${KIND_LABEL[entity.kind]}. ${only}`,
+        body: already
+          ? 'Der Eintrag steht hier schon.'
+          : fits
+            ? result.otherKind
+              ? `Als ${KIND_LABEL[entity.kind]} – der vorhandene Eintrag ist genommen.`
+              : 'Der vorhandene Eintrag ist genommen.'
+            : `Als ${KIND_LABEL[entity.kind]}. ${only}`,
       });
-    return { entity, taken: fits, created };
+    return { entity, taken: fits && !already, created };
   };
 }
 

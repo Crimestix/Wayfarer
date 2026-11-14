@@ -104,7 +104,7 @@ function PrepSheet({ view }: { view: PrepView }) {
             label="Starker Einstieg"
             rows={3}
             value={content.start}
-            placeholder="Als die Gruppe den Steg betritt, treibt ein leeres Boot aus dem Nebel …"
+            placeholder="Was geschieht, sobald der Abend beginnt?"
             onSave={(start) => patchPrep(db, { start })}
           />
           <LastLines start={content.start} />
@@ -477,7 +477,7 @@ function Secrets({ secrets }: { secrets: PrepSecret[] }) {
           <Input
             value={secret.text}
             aria-label="Geheimnis"
-            placeholder="Der Zöllner hat das Geld selbst genommen."
+            placeholder="Was wahr ist und die Gruppe noch nicht weiß"
             onChange={(event) => list.edit(secret.id, { text: event.target.value })}
             onBlur={list.flush}
             onKeyDown={(event) => {

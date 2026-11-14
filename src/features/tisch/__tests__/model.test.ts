@@ -507,6 +507,14 @@ describe('Verweise mit @', () => {
     ).toEqual(['a', 'b']);
     expect(keptMentions('Brann Eisenhaken geht', mentions).map((m) => m.id)).toEqual(['a']);
     expect(keptMentions('', mentions)).toEqual([]);
+    // Wen es nicht mehr gibt (Anlegen zurückgenommen), der bleibt Text und wird nicht verknüpft.
+    expect(
+      keptMentions(
+        'Brann Eisenhaken und Isolde Rabenschwinge streiten',
+        mentions,
+        (id) => id !== 'a',
+      ).map((m) => m.id),
+    ).toEqual(['b']);
   });
 
   it('schlägt ohne Suchwort vor, wer am Ort ist, und sucht sonst in der ganzen Welt', async () => {

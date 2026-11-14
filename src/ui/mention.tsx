@@ -17,7 +17,14 @@ import {
 import { useData } from '../data/hooks';
 import { searchEntities } from '../domain/derive';
 import { activeMention, insertMention, type MentionRange } from '../domain/mention';
-import { mentionMark, moveMark, pickRows, rowAction, type EnterAction } from '../domain/pick';
+import {
+  enterAction,
+  mentionMark,
+  moveMark,
+  pickRows,
+  rowAction,
+  type EnterAction,
+} from '../domain/pick';
 import type { CampaignData, Entity, EntityKind } from '../domain/schema';
 import { Popover, cx } from './components';
 import { CreateForm, useWriting, type WriteRequest } from './create';
@@ -47,8 +54,11 @@ export interface MentionControl {
   track: (field: Field, typed?: boolean) => void;
   /** Tasten des Feldes zuerst hierhin; `true` heißt: Die Auswahl hat die Taste genommen. */
   onKeyDown: (event: KeyboardEvent<Field>) => boolean;
-  /** Liegt dieses Element in der aufgeklappten Auswahl? (Dann hat das Feld den Fokus nur geliehen.) */
-  contains: (node: Node | null) => boolean;
+  /**
+   * Das Feld verliert den Fokus (`onBlur`, mit `relatedTarget`). `true`: Er ist nur in die
+   * aufgeklappte Auswahl gewandert – das Feld hat ihn geliehen. Sonst klappt die Auswahl zu.
+   */
+  leave: (next: EventTarget | null) => boolean;
   /** Die aufgeklappte Auswahl – neben das Feld setzen. */
   menu: ReactNode;
 }
@@ -65,6 +75,8 @@ export function useMention({
   options,
   suggest,
   create = true,
+  createOnEnter = false,
+  onLeave,
   onPick,
   onClose,
   header,
@@ -80,6 +92,13 @@ export function useMention({
   suggest?: ((data: CampaignData, query: string) => Entity[]) | undefined;
   /** „neu als …“ anbieten (Vorgabe: ja). */
   create?: boolean | undefined;
+  /**
+   * Ohne Treffer öffnet die Eingabetaste das Anlegen mit der ersten Art – wie in der Auswahl.
+   * Aus, wo die Eingabetaste dem Feld gehört (die Mitschrift hält damit fest).
+   */
+  createOnEnter?: boolean | undefined;
+  /** Der Fokus hat Feld und Auswahl verlassen – das Feld schreibt jetzt. */
+  onLeave?: (() => void) | undefined;
   onPick?: ((entity: Entity) => void) | undefined;
   /** Die Auswahl wurde weggeklickt. */
   onClose?: (() => void) | undefined;
@@ -93,6 +112,8 @@ export function useMention({
   const [caret, setCaret] = useState(0);
   /** Position des „@“, dessen Vorschläge weggeklickt wurden. */
   const [dismissed, setDismissed] = useState<number | null>(null);
+  /** Der Fokus ist woanders: Die Auswahl bleibt zu, bis wieder im Feld geschrieben wird. */
+  const [away, setAway] = useState(false);
   const [marked, setMarked] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   /** Das kleine Formular zum Anlegen ist offen – mit dieser Art, für diese Stelle. */
@@ -105,7 +126,7 @@ export function useMention({
     () => (enabled ? activeMention(text, caret) : null),
     [enabled, text, caret],
   );
-  const range = found && found.start !== dismissed ? found : null;
+  const range = found && found.start !== dismissed && !away ? found : null;
   const query = range?.query ?? '';
   const near = options?.near;
   const rows = useMemo(() => {
@@ -128,6 +149,11 @@ export function useMention({
   }, [data, range, suggest, near, options?.kinds, create, moreOpen]);
   const open = range !== null || form !== null;
   const active = mentionMark(rows, marked);
+  // Ohne Treffer: Was die Eingabetaste täte, wenn sie hier anlegt.
+  const onEnter =
+    createOnEnter && active === null ? enterAction(rows, null, query) : ({ type: 'none' } as const);
+  const inside = (node: EventTarget | null) =>
+    node instanceof Node && (!!box.current?.contains(node) || field.current === node);
 
   useLayoutEffect(() => {
     const el = field.current;
@@ -165,11 +191,12 @@ export function useMention({
     if (outcome) insert(outcome.entity, form.range);
   };
   const close = () => {
-    const hadForm = form !== null;
+    // Stand der Fokus in der Auswahl (Formular, mit Tab erreichte Zeile): zurück an die
+    // Schreibstelle – von dort schreibt das Feld, wenn es verlassen wird.
+    const within = form !== null || !!box.current?.contains(document.activeElement);
     setDismissed(found?.start ?? null);
     reset();
-    // Aus dem Formular zurück an die Schreibstelle.
-    if (hadForm) field.current?.focus();
+    if (within) field.current?.focus();
     onClose?.();
   };
 
@@ -177,12 +204,31 @@ export function useMention({
     <Popover
       open={open}
       onClose={close}
+      // Aus dem Formular führt Escape zurück an die Schreibstelle – die Treffer stehen wieder da.
+      onEscape={
+        form
+          ? () => {
+              setForm(null);
+              field.current?.focus();
+            }
+          : undefined
+      }
       anchor={anchor ?? field}
       // So breit wie das Feld, aber nie schmaler als eine Auswahl.
       width={Math.max(MENTION_WIDTH, (anchor ?? field).current?.offsetWidth ?? 0)}
       className={cx('wf-mention', className)}
     >
-      <div ref={box}>
+      <div
+        ref={box}
+        // Mit Tab aus der Auswahl hinaus: Sie klappt zu, und das Feld schreibt. Ohne Ziel (das
+        // Fenster verliert den Fokus) bleibt sie stehen – ein offenes Formular geht nicht verloren.
+        onBlur={(event) => {
+          if (!event.relatedTarget || inside(event.relatedTarget)) return;
+          setAway(true);
+          reset();
+          onLeave?.();
+        }}
+      >
         {form ? (
           <CreateForm
             name={form.range.query.replace(/\s+/g, ' ').trim()}
@@ -209,6 +255,9 @@ export function useMention({
                   : 'Noch nicht in der Welt'}
             </div>
             <PickList rows={rows} marked={active} name={query.trim()} detail onAct={act} />
+            {onEnter.type === 'create' && (
+              <div className="wf-picker__hint">Eingabetaste legt „{query.trim()}“ neu an</div>
+            )}
           </div>
         )}
       </div>
@@ -218,6 +267,7 @@ export function useMention({
   return {
     open,
     track: (el, typed = false) => {
+      setAway(false);
       setCaret(el.selectionStart ?? el.value.length);
       if (!typed) return;
       setMarked(null);
@@ -236,9 +286,19 @@ export function useMention({
         act(rowAction(rows[active]));
         return true;
       }
+      if (event.key === 'Enter' && !event.shiftKey && onEnter.type === 'create') {
+        event.preventDefault();
+        act(onEnter);
+        return true;
+      }
       return false;
     },
-    contains: (node) => !!node && !!box.current?.contains(node),
+    leave: (next) => {
+      if (next instanceof Node && box.current?.contains(next)) return true;
+      setAway(true);
+      reset();
+      return false;
+    },
     menu,
   };
 }

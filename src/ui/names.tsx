@@ -58,6 +58,22 @@ export function NamesHint({
   const revert = (entityId: string) => {
     if (alive.current) latest.current?.(entityId);
   };
+  // Verschwindet eine Marke (dazugenommen, angelegt, weggeklickt), stünde der Fokus im Leeren:
+  // Er geht zur nächsten Marke der Zeile, solange dort noch eine steht.
+  const root = useRef<HTMLDivElement>(null);
+  const [changed, setChanged] = useState(0);
+  useEffect(() => {
+    if (!changed || (document.activeElement && document.activeElement !== document.body)) return;
+    root.current?.querySelector<HTMLElement>('.wf-names__take')?.focus();
+  }, [changed]);
+  const add = (entityId: string) => {
+    onAdd(entityId);
+    setChanged((count) => count + 1);
+  };
+  const ignore = (key: string) => {
+    onIgnore(key);
+    setChanged((count) => count + 1);
+  };
   const textKey = texts.join('\n\u0000');
   const attachedKey = attached.join(',');
   const ignoredKey = ignored.join('\u0000');
@@ -69,7 +85,7 @@ export function NamesHint({
   );
   if (!names.known.length && !names.unknown.length) return null;
   return (
-    <div className={cx('wf-names', className)}>
+    <div ref={root} className={cx('wf-names', className)}>
       {names.known.length > 0 && (
         <div className="wf-names__line">
           <span className="wf-names__label">Im Text genannt</span>
@@ -79,7 +95,7 @@ export function NamesHint({
                 type="button"
                 className="wf-names__take"
                 title={`${entity.name} dazunehmen`}
-                onClick={() => onAdd(entity.id)}
+                onClick={() => add(entity.id)}
               >
                 <KindIcon kind={entity.kind} />
                 {entity.name}
@@ -90,7 +106,7 @@ export function NamesHint({
                 className="wf-names__drop"
                 aria-label={`${entity.name} ist nicht gemeint`}
                 title="Nicht gemeint"
-                onClick={() => onIgnore(entity.id)}
+                onClick={() => ignore(entity.id)}
               >
                 <X aria-hidden />
               </button>
@@ -107,8 +123,8 @@ export function NamesHint({
               entry={entry}
               kinds={kinds}
               storyId={storyId}
-              onAdd={onAdd}
-              onIgnore={onIgnore}
+              onAdd={add}
+              onIgnore={ignore}
               revert={revert}
             />
           ))}

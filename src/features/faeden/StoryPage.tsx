@@ -593,8 +593,8 @@ function Threads({ story }: { story: Story }) {
     >
       {threads.length === 0 && (
         <p className="wf-sheet__none">
-          Noch keine Frage. Eine Frage ist ein Faden, dem die Gruppe folgen kann: „Wer bezahlt den
-          Zöllner?“
+          Noch keine Frage. Eine Frage ist ein Faden, dem die Gruppe folgen kann: etwas, das sie
+          herausfinden will.
         </p>
       )}
       {threads.map((thread) => (

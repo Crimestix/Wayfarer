@@ -218,7 +218,8 @@ describe('Filter', () => {
     // 299, 1299, 2299 und 2990–2999
     expect(hits).toHaveLength(13);
     expect(rows.filter((r) => r.type === 'entry')).toHaveLength(3010);
-  });
+    // Gemessen wird oben nur das Filtern; das Anlegen der 3000 Einträge darf unter Last dauern.
+  }, 30_000);
 });
 
 describe('Sessions', () => {

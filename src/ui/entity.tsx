@@ -457,6 +457,7 @@ export function EntityPicker({
       storyId: create?.storyId,
       kinds,
       onlyKinds: create?.onlyKinds,
+      exclude,
       revert: (entity) => {
         if (!alive.current) return;
         const now = latest.current;
@@ -519,7 +520,14 @@ export function EntityPicker({
           />
         )}
       </button>
-      <Popover open={open} onClose={close} anchor={anchor} width={340}>
+      <Popover
+        open={open}
+        onClose={close}
+        // Aus dem Formular führt Escape zurück zur Liste – der getippte Name bleibt stehen.
+        onEscape={form ? () => setForm(null) : undefined}
+        anchor={anchor}
+        width={340}
+      >
         {form ? (
           <CreateForm
             name={name}
@@ -614,7 +622,7 @@ export function EntityRefsEditor({
       )}
       <EntityPicker
         value={null}
-        onChange={(id) => id && onChange([...value, id])}
+        onChange={(id) => id && !value.includes(id) && onChange([...value, id])}
         exclude={value}
         placeholder={placeholder}
         create={create}

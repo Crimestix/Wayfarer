@@ -4,7 +4,15 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { findRelation } from '../../domain/derive';
-import { PARTY_ID, createEntity, createStory } from '../../domain/schema';
+import {
+  PARTY_ID,
+  createClock,
+  createEntity,
+  createPrep,
+  createStory,
+  createThread,
+  newId,
+} from '../../domain/schema';
 import { isStub } from '../../domain/stub';
 import { createArticle, savePageText } from '../wiki/actions';
 import { relate, unrelate } from './actions';
@@ -99,6 +107,93 @@ describe('Anlegen beim Schreiben', () => {
     expect(isStub(db.getSnapshot(), db.getSnapshot().entities[b.id])).toBe(false);
     undo();
     expect(isStub(db.getSnapshot(), db.getSnapshot().entities[b.id])).toBe(true);
+  });
+
+  it('nimmt beim Zurücknehmen den Eintrag auch aus den Blättern, in die er gewählt wurde', async () => {
+    const { db, zoll, mira, hohenfurt } = await setup();
+    const grotte = addFromWriting(db, { name: 'Salzgrotte', kind: 'place', storyId: zoll.id })!;
+    const lando = addFromWriting(db, { name: 'Lando Furtner', kind: 'person', storyId: zoll.id })!;
+    const clock = db.put(
+      'clocks',
+      createClock({ title: zoll.title, start: 0, ownerId: lando.entity.id }),
+    );
+    db.patch('stories', zoll.id, {
+      ownerId: lando.entity.id,
+      clockId: clock.id,
+      refs: [mira.id, grotte.entity.id, lando.entity.id],
+      entries: [{ id: newId(), text: 'Ein Aushang', placeId: grotte.entity.id, standing: 'any' }],
+      scenes: [
+        {
+          id: newId(),
+          text: 'Am Ufer',
+          odds: 'maybe',
+          encounterId: null,
+          placeId: hohenfurt.id,
+        },
+        {
+          id: newId(),
+          text: 'Im Salz',
+          odds: 'maybe',
+          encounterId: null,
+          placeId: grotte.entity.id,
+        },
+      ],
+    });
+    const thread = db.put(
+      'threads',
+      createThread({
+        title: 'Wer nimmt den Zoll?',
+        storyId: zoll.id,
+        refs: [lando.entity.id, mira.id],
+        hints: [
+          {
+            id: newId(),
+            text: 'Nasse Münzen',
+            placeId: grotte.entity.id,
+            sourceId: lando.entity.id,
+            found: false,
+          },
+          {
+            id: newId(),
+            text: 'Ein Boot fehlt',
+            placeId: hohenfurt.id,
+            sourceId: mira.id,
+            found: false,
+          },
+        ],
+      }),
+    );
+    const prep = db.put(
+      'preps',
+      createPrep({
+        scenes: [{ id: newId(), text: 'Ankunft', done: false, placeId: grotte.entity.id }],
+      }),
+    );
+
+    grotte.undo();
+    lando.undo();
+    const data = db.getSnapshot();
+    expect(data.entities[grotte.entity.id]).toBeUndefined();
+    expect(data.entities[lando.entity.id]).toBeUndefined();
+    const story = data.stories[zoll.id]!;
+    expect(story.ownerId).toBeNull();
+    expect(data.clocks[clock.id]!.ownerId).toBeNull();
+    // Was schon vorher da war, bleibt; die Texte auch.
+    expect(story.refs).toEqual([mira.id]);
+    expect(story.entries.map((entry) => [entry.text, entry.placeId])).toEqual([
+      ['Ein Aushang', null],
+    ]);
+    expect(story.scenes.map((scene) => scene.placeId)).toEqual([hohenfurt.id, null]);
+    const after = data.threads[thread.id]!;
+    expect(after.refs).toEqual([mira.id]);
+    expect(after.hints.map((hint) => [hint.text, hint.placeId, hint.sourceId])).toEqual([
+      ['Nasse Münzen', null, null],
+      ['Ein Boot fehlt', hohenfurt.id, mira.id],
+    ]);
+    expect(data.preps[prep.id]!.scenes.map((scene) => scene.placeId)).toEqual([null]);
+    // Ein zweites Mal geschieht nichts.
+    grotte.undo();
+    expect(db.getSnapshot().stories[zoll.id]!.refs).toEqual([mira.id]);
   });
 });
 

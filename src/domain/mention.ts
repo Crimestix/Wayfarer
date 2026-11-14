@@ -50,11 +50,19 @@ export interface Mention {
   name: string;
 }
 
-/** Gewählte Verweise, deren Name noch im Text steht – in der Reihenfolge der Wahl, ohne Doppelte. */
-export function keptMentions(text: string, mentions: Mention[]): Mention[] {
+/**
+ * Gewählte Verweise, deren Name noch im Text steht – in der Reihenfolge der Wahl, ohne Doppelte.
+ * Mit `exists` fällt weg, wen es nicht mehr gibt (ein eben angelegter Eintrag, dessen Anlegen
+ * zurückgenommen wurde): Der Name bleibt Text, verknüpft wird er nicht.
+ */
+export function keptMentions(
+  text: string,
+  mentions: Mention[],
+  exists?: (id: string) => boolean,
+): Mention[] {
   const seen = new Set<string>();
   return mentions.filter((m) => {
-    if (seen.has(m.id) || !text.includes(m.name)) return false;
+    if (seen.has(m.id) || !text.includes(m.name) || (exists && !exists(m.id))) return false;
     seen.add(m.id);
     return true;
   });

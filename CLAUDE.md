@@ -426,20 +426,26 @@ nicht übernommen.
   `entity.stub`: Sobald Notizen, ein Geheimnis oder ein Artikel über ein leeres Gerüst hinaus
   dastehen, gilt er von selbst als fertig; von Hand über `finishStub` („Fertig – kein Platzhalter
   mehr“ auf der Seite). `stubRows()` speist die Gruppe „Platzhalter aus Geschichten“ in „Noch zu
-  schreiben“, `StubMark` ist das Zeichen in Listen.
+  schreiben“, `StubMark` ist das Zeichen in Listen. „Rückgängig“ (`undo` des Ergebnisses) nimmt
+  den neuen Eintrag auch aus den Blättern, in die er seither gewählt wurde (Geschichte, Faden,
+  Abend) – ein neues Feld auf einem Blatt, das Einträge wählt, dort in `takeFromSheets` eintragen.
   Die Auswahl (`EntityPicker`, `EntityRefsEditor`; `create={{ storyId, onlyKinds }}`): Welche
   Zeilen dastehen und was die Eingabetaste tut, entscheidet `domain/pick.ts` (`pickRows`,
   `enterAction`) – ohne genauen Treffer „„X“ neu als …“, erst die Arten des Feldes, dann
   „andere Art …“ mit allen übrigen (`CREATE_KINDS`, nie Gefährten); wer genau so heißt, steht
   auch mit fremder Art zur Wahl, außer das Feld verträgt nur seine Arten (`onlyKinds`, etwa
   „Wo?“ – dann nur ein Hinweis). Die Eingabetaste nimmt nur den genauen Namen oder die mit den
-  Pfeiltasten markierte Zeile, nie einen ähnlichen Treffer. Das kleine Formular (`CreateForm`)
+  Pfeiltasten markierte Zeile, nie einen ähnlichen Treffer; Escape führt aus dem Formular zurück
+  zur Liste (`Popover` mit `onEscape`), erst dann schließt es. Das kleine Formular (`CreateForm`)
   und die Meldung mit „Rückgängig“ (`useWriting`) stehen in `ui/create.tsx` – die eine Stelle,
   an der `src/ui` einen Befehl aus `features` ruft. `onCreate` ist der alte Weg (Art fest) und
   bleibt nur für Bestehendes.
   „@“ im Text: `useMention` (`ui/mention.tsx`, Regeln in `domain/mention.ts`) – genutzt von der
   Mitschrift und von `Written` (`mention={{ storyId, near, onMention }}`); der Name steht danach
-  als gewöhnlicher Text da, das Blatt nimmt den Eintrag über `attachToStory` dazu. Namen im
+  als gewöhnlicher Text da, das Blatt nimmt den Eintrag über `attachToStory` dazu. Auf Blättern
+  legt die Eingabetaste ohne Treffer an (`createOnEnter`), in der Mitschrift hält sie fest;
+  verlässt der Fokus Feld und Auswahl, klappt sie zu und das Feld schreibt (`leave`, `onLeave`).
+  Verknüpft wird nur, wen es noch gibt (`keptMentions` mit `exists`). Namen im
   geschriebenen Text: `writtenNames()` (`domain/written.ts`; bekannte über `namesIn`, unbekannte
   über `unknownNames` in `domain/readNames.ts`, mit `clear` auch einmal Genanntes, wenn es
   eindeutig ein Name ist) und der Baustein `NamesHint` – „Im Text genannt“ / „Noch unbekannt“,
