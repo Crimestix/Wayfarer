@@ -3,12 +3,14 @@ import { craftPlan, emptyRecipe } from '../crafting';
 import {
   ATTUNEMENT_LIMIT,
   attunementOf,
+  becomeMagic,
   chargesText,
   emptyMagic,
   itemsByRarity,
   magicRarityFromText,
   magicTag,
   nextDawn,
+  playerBox,
   playerFacts,
   playerMagicLine,
   rarityRuleItem,
@@ -32,8 +34,9 @@ import {
   type Item,
   type Magic,
   type Rest,
+  type ShopStock,
 } from '../schema';
-import { listOrRulePrice, ruleItemOf, sellPrice } from '../shop';
+import { listOrRulePrice, ruleItemOf, sellPrice, stockRuleItem } from '../shop';
 
 const item = (name: string, more: Partial<Item['item']> = {}): Item =>
   createEntity({ kind: 'item', name, item: more });
@@ -92,6 +95,27 @@ describe('Wert eines Gegenstands', () => {
     const old = item('Alter Ring', { recipe: { ...emptyRecipe(), rarity: 'very-rare' } });
     expect(rarityRuleItem(old)?.price).toBe(40000);
     expect(rarityOf(old)).toBe('very-rare');
+    // Überall gleich: in Liste und Suche magisch wie im Preis.
+    expect(magicTag(old)).toBe('magisch · sehr selten');
+    expect(itemsByRarity([old, item('Seil')]).map((g) => g.label)).toEqual([
+      'Nicht magisch',
+      'Magisch, sehr selten',
+    ]);
+  });
+
+  it('zieht die Seltenheit eines alten Rezepts beim Magischwerden um – sie steht nur an einer Stelle', () => {
+    const old = item('Alter Ring', {
+      recipe: { ...emptyRecipe(), rarity: 'rare', consumable: true },
+    });
+    const now = becomeMagic(old.item);
+    expect(now.magic).toMatchObject({ rarity: 'rare', consumable: true });
+    expect(now.recipe?.rarity).toBe('');
+    // Was dazukommt, geht vor; schon Magisches bleibt, wie es ist.
+    expect(becomeMagic(old.item, { rarity: 'legendary' }).magic?.rarity).toBe('legendary');
+    expect(becomeMagic(now, { type: 'Ring' }).magic).toMatchObject({
+      rarity: 'rare',
+      type: 'Ring',
+    });
   });
 
   it('gilt in Läden: Listenpreis, Ankauf und Seltenes breit geboten', () => {
@@ -106,6 +130,17 @@ describe('Wert eines Gegenstands', () => {
     expect(listOrRulePrice(item('Langschwert', { magic: magic({ rarity: 'uncommon' }) }))).toBe(
       400,
     );
+  });
+
+  it('rechnet im Bestand eines Ladens wie überall – auch bei einer Zeile aus der Ausrüstung', () => {
+    const sword = {
+      ...item('Langschwert der Furt', { magic: magic({ rarity: 'uncommon' }) }),
+      id: 'schwert',
+    };
+    const line = { id: 'z1', entityId: 'schwert', srdId: 'srd-longsword' } as ShopStock;
+    expect(stockRuleItem(world([sword]), line)?.price).toBe(400);
+    const plain = { ...item('Langschwert'), id: 'schwert' };
+    expect(stockRuleItem(world([plain]), line)?.price).toBe(15);
   });
 });
 
@@ -217,6 +252,22 @@ describe('Ladungen', () => {
     expect(rechargesDue(world([wand], 5000))).toEqual([]);
     const rest = { id: 'r1', kind: 'long', status: 'done', start: 1100, end: 1580 } as Rest;
     expect(rechargesDue(world([wand], 5000, [rest]))[0]?.reason).toBe('Lange Rast');
+    // Eine Kurze Rast genügt dafür nicht.
+    const short = { ...rest, kind: 'short' } as Rest;
+    expect(rechargesDue(world([wand], 5000, [short]))).toEqual([]);
+  });
+
+  it('bietet bei „nach einer kurzen Rast“ auch nach einer Kurzen Rast an', () => {
+    const wand = item('Kurzstab', {
+      holderId: 'lando',
+      magic: magic({
+        charges: charges({ current: 1, recharge: '1W4 nach einer kurzen Rast', spentAt: 1000 }),
+      }),
+    });
+    const short = { id: 'r2', kind: 'short', status: 'done', start: 1100, end: 1160 } as Rest;
+    expect(rechargesDue(world([wand], 1200, [short]))[0]?.reason).toBe('Kurze Rast');
+    // Eine Rast, die erst nach „jetzt“ endet (etwa nach einem zurückgenommenen Zeitsprung), zählt nicht.
+    expect(rechargesDue(world([wand], 1150, [short]))).toEqual([]);
   });
 });
 
@@ -269,6 +320,31 @@ describe('Was die Spieler sehen', () => {
       'Seltenheit',
       'Ladungen',
     ]);
+    // Dieselben Bezeichnungen wie beim Lesen des Steckbriefs – auch anders geschrieben.
+    const other = [
+      { label: 'Magische Art', value: 'Ring' },
+      { label: 'Einstimmung erforderlich', value: 'ja' },
+      { label: 'Flüche', value: 'bindet' },
+      { label: 'Verfluchung', value: 'bindet' },
+    ];
+    expect(playerFacts(cursed, other)).toEqual([]);
+  });
+
+  it('lässt im Buch die Kopfzeile unerkannter Magie und den Fluch aus dem Kasten weg', () => {
+    const box = [
+      '*Ring, selten (erfordert Einstimmung)*',
+      'Glänzt matt im Salzlicht.',
+      'Verflucht: bindet an den Träger.',
+    ].join('\n');
+    expect(playerBox(cursed, box)).toBe('Glänzt matt im Salzlicht.');
+    expect(playerBox(known, box)).toBe(
+      ['*Ring, selten (erfordert Einstimmung)*', 'Glänzt matt im Salzlicht.'].join('\n'),
+    );
+    // Gewöhnliche Gegenstände und Einträge bleiben, wie sie sind – auch mit „selten“ im Text.
+    const rope = item('Seil');
+    expect(playerBox(rope, 'Ein seltenes Seil, Gegenstand der Fischer.')).toBe(
+      'Ein seltenes Seil, Gegenstand der Fischer.',
+    );
   });
 });
 

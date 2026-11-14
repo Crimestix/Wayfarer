@@ -3,7 +3,7 @@
  * auffrischen. Gerechnet wird in `domain/magicItem.ts`; hier wird nur geschrieben.
  */
 import type { CampaignDb } from '../../data/db';
-import { emptyMagic, rechargedCharges, stepCharges } from '../../domain/magicItem';
+import { becomeMagic, rechargedCharges, stepCharges } from '../../domain/magicItem';
 import type { Item, Magic } from '../../domain/schema';
 
 const itemOf = (db: CampaignDb, itemId: string): Item | null => {
@@ -11,13 +11,8 @@ const itemOf = (db: CampaignDb, itemId: string): Item | null => {
   return entity?.kind === 'item' ? entity : null;
 };
 
-function putMagic(
-  db: CampaignDb,
-  item: Item,
-  magic: Magic | null,
-  more: Partial<Item['item']> = {},
-) {
-  db.put('entities', { ...item, item: { ...item.item, ...more, magic } });
+function putMagic(db: CampaignDb, item: Item, magic: Magic | null) {
+  db.put('entities', { ...item, item: { ...item.item, magic } });
 }
 
 /**
@@ -28,15 +23,8 @@ function putMagic(
 export function setMagical(db: CampaignDb, itemId: string, on: boolean): (() => void) | null {
   const before = itemOf(db, itemId);
   if (!before || on === (before.item.magic !== null)) return null;
-  if (on) {
-    const recipe = before.item.recipe;
-    putMagic(
-      db,
-      before,
-      emptyMagic({ rarity: recipe?.rarity ?? '', consumable: recipe?.consumable ?? false }),
-      recipe?.rarity ? { recipe: { ...recipe, rarity: '' } } : {},
-    );
-  } else putMagic(db, before, null);
+  if (on) db.put('entities', { ...before, item: becomeMagic(before.item) });
+  else putMagic(db, before, null);
   return () => {
     const now = itemOf(db, itemId);
     if (now)
@@ -75,7 +63,7 @@ export function rechargeItem(db: CampaignDb, itemId: string, gained: number): ((
   };
 }
 
-/** „Nicht jetzt“: Das Auffrischen wird erst nach dem nächsten Morgengrauen wieder angeboten. */
+/** „Nicht jetzt“: Das Auffrischen wird erst beim nächsten Anlass (Morgengrauen, Rast) wieder angeboten. */
 export function postponeRecharge(db: CampaignDb, itemId: string): void {
   const item = itemOf(db, itemId);
   const charges = item?.item.magic?.charges;

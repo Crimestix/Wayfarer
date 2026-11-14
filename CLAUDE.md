@@ -399,10 +399,13 @@ nicht übernommen.
   verflucht, erkannt. Die Seltenheit steht nur dort – Herstellung liest sie über `craftPlan(…,
   magic)`, alte `recipe.rarity` bleibt lesbar (`itemRarity`). Wert immer über `valueOf()` bzw.
   `listOrRulePrice()` (eigener Preis, sonst „Richtwert nach Seltenheit“, `rarityRuleItem`).
-  Für Spieler nur `playerMagicLine()` / `playerFacts()`: nie der Fluch, Seltenheit, Art und
-  Ladungen nur, wenn erkannt. Einstimmungen zählt `attunementOf()` – über drei nur ein Hinweis.
-  Ladungen ändern über `welt/magic.ts`; `rechargesDue()` bietet nach Morgengrauen oder Langer
-  Rast das Auffrischen an, gewürfelt wird mit `fairDie` und erst nach Bestätigung geschrieben.
+  Ob er magisch ist, sagt `isMagicItem()` (auch ein altes Rezept mit Seltenheit); wird er es,
+  zieht die Seltenheit über `becomeMagic()` um (Schalter und Steckbrief).
+  Für Spieler nur `playerMagicLine()` / `playerFacts()` / `playerBox()`: nie der Fluch,
+  Seltenheit, Art und Ladungen nur, wenn erkannt; die Bezeichnungen im Steckbrief stehen einmal
+  in `MAGIC_FACT_LABELS`. Einstimmungen zählt `attunementOf()` – über drei nur ein Hinweis.
+  Ladungen ändern über `welt/magic.ts`; `rechargesDue()` bietet nach Morgengrauen oder Rast
+  (Kurze nur, wenn der Text sie nennt) das Auffrischen an, gewürfelt wird mit `fairDie` und erst nach Bestätigung geschrieben.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

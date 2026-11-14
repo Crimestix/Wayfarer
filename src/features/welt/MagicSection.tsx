@@ -48,7 +48,9 @@ export function MagicSection({ item }: { item: Item }) {
     return (
       <Section title="Magie" action={switcher}>
         <Hint>
-          Seltenheit, Einstimmung und Ladungen – Wirkung und Beschreibung schreibst du in den Text.
+          {item.item.recipe?.rarity
+            ? `Das Rezept nennt ihn magisch, ${MAGIC_RARITY_LABEL[item.item.recipe.rarity]} – einschalten übernimmt die Seltenheit hierher.`
+            : 'Seltenheit, Einstimmung und Ladungen – Wirkung und Beschreibung schreibst du in den Text.'}
         </Hint>
       </Section>
     );
@@ -94,7 +96,7 @@ export function MagicSection({ item }: { item: Item }) {
               label="Art des magischen Gegenstands"
               value={magic.type}
               list={typeList}
-              placeholder="Ring, Trank, Wundersamer Gegenstand …"
+              placeholder="Ring, Trank …"
               onSave={(type) => save({ type: type.trim().slice(0, 80) })}
             />
             <datalist id={typeList}>

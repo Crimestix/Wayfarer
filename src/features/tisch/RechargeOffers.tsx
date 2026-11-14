@@ -1,7 +1,7 @@
 /**
- * Leise unter „Sonst noch“: Nach Morgengrauen oder einer Langen Rast bietet Wayfarer an, die
+ * Leise unter „Sonst noch“: Nach Morgengrauen oder einer Rast bietet Wayfarer an, die
  * Ladungen magischer Gegenstände der Gruppe aufzufrischen (`rechargesDue`). Aufgefrischt wird nur,
- * wenn der Spielleiter es bestätigt; „Nicht jetzt“ schiebt das Angebot zum nächsten Morgengrauen.
+ * wenn der Spielleiter es bestätigt; „Nicht jetzt“ schiebt das Angebot zum nächsten Anlass.
  */
 import { useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
@@ -42,7 +42,7 @@ export function RechargeOffers() {
                 size="sm"
                 variant="ghost"
                 onClick={() => postponeRecharge(db, item.id)}
-                title="Erst nach dem nächsten Morgengrauen wieder anbieten"
+                title="Erst beim nächsten Anlass wieder anbieten – Morgengrauen oder Rast, je nach Gegenstand"
               >
                 Nicht jetzt
               </Button>

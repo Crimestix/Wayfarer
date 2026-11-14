@@ -58,6 +58,34 @@ export function magicOf(entity: Entity | null | undefined): Magic | null {
 }
 
 /**
+ * Ist er magisch? Eigene Magie – oder, aus älteren Ständen, ein Rezept mit Seltenheit (dort hieß
+ * das „Magisch, selten“). So zählt ein alter Gegenstand überall gleich: im Preis, in der Liste,
+ * in der Suche.
+ */
+export function isMagicItem(entity: Entity | null | undefined): entity is Item {
+  return entity?.kind === 'item' && (entity.item.magic !== null || !!entity.item.recipe?.rarity);
+}
+
+/**
+ * Die Angaben eines Gegenstands, der magisch wird: Seltenheit und Verbrauchsgut eines älteren
+ * Rezepts ziehen in die Magie um, damit die Seltenheit nur an einer Stelle steht. Schon magisch:
+ * unverändert.
+ */
+export function becomeMagic(details: Item['item'], more: Partial<Magic> = {}): Item['item'] {
+  if (details.magic) return { ...details, magic: { ...details.magic, ...more } };
+  const recipe = details.recipe;
+  return {
+    ...details,
+    magic: emptyMagic({
+      rarity: recipe?.rarity ?? '',
+      consumable: recipe?.consumable ?? false,
+      ...more,
+    }),
+    recipe: recipe?.rarity ? { ...recipe, rarity: '' } : recipe,
+  };
+}
+
+/**
  * Die Seltenheit eines Gegenstands: die seiner Magie – sonst, aus älteren Ständen, die des
  * Rezepts. '' = keine.
  */
@@ -130,9 +158,9 @@ export function valueOf(entity: Entity | null | undefined): ItemValue | null {
 
 /** „magisch · selten“ – für Listen und die Suche. '' = nicht magisch. */
 export function magicTag(entity: Entity | null | undefined): string {
-  const magic = magicOf(entity);
-  if (!magic) return '';
-  return ['magisch', magic.rarity && MAGIC_RARITY_LABEL[magic.rarity]].filter(Boolean).join(' · ');
+  if (!isMagicItem(entity)) return '';
+  const rarity = itemRarity(entity);
+  return ['magisch', rarity && MAGIC_RARITY_LABEL[rarity]].filter(Boolean).join(' · ');
 }
 
 /** Einstimmung in Worten: „erfordert Einstimmung durch einen Zauberwirker“; '' = keine nötig. */
@@ -170,11 +198,30 @@ export function playerMagicLine(entity: Entity | null | undefined): string {
     .join(' · ');
 }
 
-/** Bezeichnungen im Steckbrief, die von der Magie erzählen (Seltenheit, Art, Einstimmung, Ladungen). */
-const MAGIC_FACT =
-  /^(seltenheit|art des magischen gegenstands|magische art|einstimmung.*|erfordert einstimmung|ladung|ladungen)$/i;
+/**
+ * Bezeichnungen im Steckbrief eines Gegenstands, die die Magie speisen – eine Liste für beide
+ * Richtungen: `wiki/facts.ts` liest sie, `playerFacts` hält sie aus Büchern heraus.
+ */
+export const MAGIC_FACT_LABELS = {
+  rarity: ['Seltenheit'],
+  magicType: ['Art des magischen Gegenstands', 'Magische Art'],
+  attunement: ['Einstimmung', 'Erfordert Einstimmung', 'Einstimmung erforderlich'],
+  charges: ['Ladungen', 'Ladung'],
+} satisfies Record<string, string[]>;
+
 /** Bezeichnungen, die von einem Fluch erzählen – nie für die Spieler. */
-const CURSE_FACT = /^(fluch|verflucht|flüche)$/i;
+const CURSE_LABELS = ['Fluch', 'Flüche', 'Verflucht', 'Verfluchung'];
+
+/** Vergleichbar wie in `wiki/facts.ts`: ohne Groß- und Kleinschreibung, Umlaute und Zeichen. */
+const plain = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/ß/g, 'ss');
+const labelKey = (value: string) => plain(value).replace(/[^a-z0-9]+/g, '');
+const MAGIC_LABEL_KEYS = new Set(Object.values(MAGIC_FACT_LABELS).flat().map(labelKey));
+const CURSE_LABEL_KEYS = new Set(CURSE_LABELS.map(labelKey));
 
 /**
  * Welche Zeilen eines Steckbriefs die Spieler sehen dürfen (Bücher): nie den Fluch, und von der
@@ -186,11 +233,42 @@ export function playerFacts<T extends { label: string }>(
 ): T[] {
   const magic = magicOf(entity);
   return facts.filter((fact) => {
-    const label = fact.label.trim();
-    if (CURSE_FACT.test(label)) return false;
-    if (entity?.kind === 'item' && MAGIC_FACT.test(label)) return !!magic?.identified;
+    const key = labelKey(fact.label);
+    if (CURSE_LABEL_KEYS.has(key)) return false;
+    if (entity?.kind === 'item' && MAGIC_LABEL_KEYS.has(key)) return !!magic?.identified;
     return true;
   });
+}
+
+/** Eine Seltenheit als Wort, auch englisch – ohne Umlaute (`plain`). */
+const RARITY_WORD =
+  /\b(gewohnlich|ungewohnlich|selten|legendar|artefakt|common|uncommon|rare|very rare|legendary|artifact)\b/;
+/** Eine Art magischer Gegenstände als Wort. */
+const TYPE_WORD =
+  /\b(waffe|rustung|trank|ring|stab|zauberstab|rute|schriftrolle|zauberschriftrolle|gegenstand|wondrous|weapon|armor|potion|wand|rod|staff|scroll)/;
+
+/**
+ * Der Kasten eines Steckbriefs ohne „Feld: Wert“ für die Spieler (Bücher): Die Kopfzeile eines
+ * magischen Gegenstands („Wundersamer Gegenstand, selten (erfordert Einstimmung)“) bleibt draußen,
+ * solange die Gruppe ihn nicht erkannt hat; eine Zeile vom Fluch eines verfluchten nie.
+ */
+export function playerBox(entity: Entity | null | undefined, box: string): string {
+  if (!isMagicItem(entity)) return box;
+  const magic = entity.item.magic;
+  const hidden = !magic?.identified;
+  const cursed = !!magic?.cursed;
+  return box
+    .split('\n')
+    .filter((line) => {
+      const text = plain(line);
+      if (cursed && /\b(fluch|verflucht)/.test(text)) return false;
+      if (!hidden) return true;
+      if (/einstimmung|attunement/.test(text)) return false;
+      return !(RARITY_WORD.test(text) && TYPE_WORD.test(text));
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // ── Steckbrief ─────────────────────────────────────────────────────────────
@@ -307,13 +385,18 @@ export function nextDawn(after: WorldTime): WorldTime {
   return dawn > after ? dawn : dawn + MINUTES_PER_DAY;
 }
 
-/** Wann die Ladungen wiederkommen, nach dem Text: bei Morgengrauen, nach einer Langen Rast – oder beides. */
-function rechargeWhen(recharge: string): { dawn: boolean; rest: boolean } {
+/**
+ * Wann die Ladungen wiederkommen, nach dem Text: bei Morgengrauen, nach einer Langen Rast, nach
+ * einer Kurzen Rast (dann auch nach einer Langen) – oder, wenn der Text nichts sagt, bei
+ * Morgengrauen und nach einer Langen Rast.
+ */
+function rechargeWhen(recharge: string): { dawn: boolean; rest: boolean; short: boolean } {
   const dawn = /morgengrauen|morgen|sonnenaufgang|tagesanbruch|dawn|t[aä]glich|tag\b/i.test(
     recharge,
   );
-  const rest = /rast|rest/i.test(recharge);
-  return dawn || rest ? { dawn, rest } : { dawn: true, rest: true };
+  const short = /kurze[nr]?\s+rast|short\s+rest/i.test(recharge);
+  const rest = short || /rast|rest/i.test(recharge);
+  return dawn || rest ? { dawn, rest, short } : { dawn: true, rest: true, short: false };
 }
 
 /** Gehört der Gegenstand der Gruppe: bei der Gruppe, bei einem Gefährten oder auf einen eingestimmt? */
@@ -328,7 +411,7 @@ export function isPartyItem(data: Pick<CampaignData, 'entities'>, item: Item): b
 export interface RechargeDue {
   item: Item;
   charges: Charges;
-  /** Was den Anlass gibt: „Morgengrauen“ oder „Lange Rast“. */
+  /** Was den Anlass gibt: „Morgengrauen“, „Lange Rast“ oder „Kurze Rast“. */
   reason: string;
 }
 
@@ -342,8 +425,8 @@ export function rechargesDue(
 ): RechargeDue[] {
   const now = data.state.now;
   const out: RechargeDue[] = [];
-  const longRests = Object.values(data.rests).filter(
-    (rest) => rest.kind === 'long' && rest.status === 'done' && rest.end !== null,
+  const rests = Object.values(data.rests).filter(
+    (rest) => rest.status === 'done' && rest.end !== null && rest.end <= now,
   );
   for (const entity of Object.values(data.entities)) {
     if (entity.kind !== 'item') continue;
@@ -352,10 +435,16 @@ export function rechargesDue(
     if (entity.item.magic!.spent || !isPartyItem(data, entity)) continue;
     const when = rechargeWhen(charges.recharge);
     const since = charges.spentAt;
-    const rested = when.rest && longRests.some((rest) => rest.end! > since && rest.end! <= now);
+    const rest = when.rest
+      ? rests.find((r) => r.end! > since && (r.kind === 'long' || when.short))
+      : undefined;
     const dawned = when.dawn && nextDawn(since) <= now;
-    if (rested || dawned)
-      out.push({ item: entity, charges, reason: dawned ? 'Morgengrauen' : 'Lange Rast' });
+    if (rest || dawned)
+      out.push({
+        item: entity,
+        charges,
+        reason: dawned ? 'Morgengrauen' : rest!.kind === 'long' ? 'Lange Rast' : 'Kurze Rast',
+      });
   }
   return out.sort((a, b) => a.item.name.localeCompare(b.item.name, 'de'));
 }
@@ -415,13 +504,13 @@ export interface ItemGroup {
  * Namen.
  */
 export function itemsByRarity(items: readonly Item[]): ItemGroup[] {
-  const magic = items.filter((item) => item.item.magic);
+  const magic = items.filter((item) => isMagicItem(item));
   if (!magic.length) return [{ label: '', items: [...items] }];
   const groups: ItemGroup[] = [];
-  const plain = items.filter((item) => !item.item.magic);
-  if (plain.length) groups.push({ label: 'Nicht magisch', items: plain });
+  const ordinary = items.filter((item) => !isMagicItem(item));
+  if (ordinary.length) groups.push({ label: 'Nicht magisch', items: ordinary });
   for (const rarity of RARITY_ORDER) {
-    const list = magic.filter((item) => item.item.magic!.rarity === rarity);
+    const list = magic.filter((item) => itemRarity(item) === rarity);
     if (!list.length) continue;
     const label = rarity ? `Magisch, ${MAGIC_RARITY_LABEL[rarity]}` : 'Magisch, ohne Seltenheit';
     groups.push({ label, items: list });

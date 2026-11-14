@@ -306,8 +306,14 @@ export interface StockRow {
  */
 export function stockRuleItem(data: CampaignData, line: ShopStock): SrdItem | null {
   const entity = line.entityId ? data.entities[line.entityId] : undefined;
+  // Ein magischer Gegenstand richtet sich nach seiner Seltenheit – auch wenn die Zeile aus der
+  // Ausrüstung gleichen Namens stammt (wie `valueOf`).
   if (entity)
-    return listPrice(entity) !== null ? null : (srdItem(line.srdId) ?? ruleItemOf(entity));
+    return listPrice(entity) !== null
+      ? null
+      : ((entity.kind === 'item' ? rarityRuleItem(entity) : null) ??
+          srdItem(line.srdId) ??
+          ruleItemOf(entity));
   const creature = line.creatureId ? data.creatures[line.creatureId] : undefined;
   return srdItem(line.srdId) ?? srdMatch(line.text || creature?.name || '');
 }

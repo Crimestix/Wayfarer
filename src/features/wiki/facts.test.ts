@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { emptyRecipe } from '../../domain/crafting';
 import { readDatePoint } from '../../domain/lifespan';
 import { fromTime } from '../../domain/time/calendar';
 import { CampaignDb } from '../../data/db';
@@ -573,6 +574,26 @@ describe('Steckbrief eines magischen Gegenstands', () => {
       rarity: 'very-rare',
       charges: { max: 10, current: 2, recharge: 'alle bei Morgengrauen' },
     });
+  });
+
+  it('zieht die Seltenheit eines älteren Rezepts mit um, wenn der Steckbrief ihn magisch macht', async () => {
+    const { db, data, entity } = await setup();
+    const wand = createArticle(db, { title: 'Furtstab', text: '> [!steckbrief]\n> Art: Stab' })!;
+    syncFacts(db);
+    const before = entity('Furtstab', 'item');
+    db.patch('entities', before.id, {
+      item: { ...before.item, recipe: { ...emptyRecipe(), rarity: 'rare', consumable: true } },
+    });
+    savePageText(
+      db,
+      wand.id,
+      data().articles[wand.id]!.docs[0]!.id,
+      '> [!steckbrief]\n> Art: Stab\n> Ladungen: 3',
+    );
+    syncFacts(db);
+    const after = entity('Furtstab', 'item').item;
+    expect(after.magic).toMatchObject({ rarity: 'rare', consumable: true, charges: { max: 3 } });
+    expect(after.recipe?.rarity).toBe('');
   });
 
   it('macht einen gewöhnlichen Gegenstand nicht von selbst magisch', async () => {

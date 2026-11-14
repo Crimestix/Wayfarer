@@ -7,7 +7,8 @@
  */
 import { lifeWords, readDatePoint } from '../../domain/lifespan';
 import {
-  emptyMagic,
+  MAGIC_FACT_LABELS,
+  becomeMagic,
   magicRarityFromText,
   readAttunement,
   readCharges,
@@ -293,11 +294,12 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
     kind: KIND,
     owner: [...OWNER, 'Träger', 'Trägerin', 'Aufbewahrungsort', 'Ort'],
     price: ['Preis', 'Wert', 'Marktwert', 'Kosten', 'Listenpreis'],
-    // Magische Gegenstände (`domain/magicItem.ts`): Eine dieser Zeilen macht ihn magisch.
-    rarity: ['Seltenheit'],
-    magicType: ['Art des magischen Gegenstands', 'Magische Art'],
-    attunement: ['Einstimmung', 'Erfordert Einstimmung', 'Einstimmung erforderlich'],
-    charges: ['Ladungen', 'Ladung'],
+    // Magische Gegenstände (`domain/magicItem.ts`): Eine dieser Zeilen macht ihn magisch. Die
+    // Bezeichnungen stehen dort, damit Bücher dieselben für die Spieler zurückhalten.
+    rarity: [...MAGIC_FACT_LABELS.rarity],
+    magicType: [...MAGIC_FACT_LABELS.magicType],
+    attunement: [...MAGIC_FACT_LABELS.attunement],
+    charges: [...MAGIC_FACT_LABELS.charges],
   },
   species: { kind: KIND },
   language: { kind: KIND },
@@ -1136,8 +1138,8 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
     if (entity.fromArticle[mark] === reading.text || next.kind !== 'item') return;
     const current = next.item.magic;
     if (current && same(current[key], value)) return;
-    const magic = { ...(current ?? emptyMagic()), [key]: value };
-    next = { ...next, item: { ...next.item, magic } };
+    // Wird er erst jetzt magisch, zieht die Seltenheit eines älteren Rezepts mit um.
+    next = { ...next, item: becomeMagic(next.item, { [key]: value }) };
     changes.push(`${FIELD_LABEL[reading.field]}: ${shown}`);
   };
   const first = (reading: Reading) => reading.entities.find((e) => e.id !== entity.id);
