@@ -1640,3 +1640,43 @@ button.wf-tisch-story__title:enabled:hover b {
   gap: var(--s-3);
   margin-top: var(--s-2);
 }
+
+/* Regeln des Tisches: das Blatt im Fenster und in den Einstellungen */
+.wf-tisch-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.wf-tisch-rules__hint {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--ink-mute);
+  font-style: italic;
+  line-height: 1.45;
+}
+.wf-tisch-rules__editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+.wf-tisch-rules__text .cm-editor {
+  max-height: 62vh;
+}
+.wf-tisch-rules__text .cm-content {
+  min-height: 34vh;
+  padding: var(--s-3) 0;
+}
+.wf-tisch-rules__state {
+  align-self: flex-end;
+  padding: 2px var(--s-2) 4px;
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-tisch-rules__state[data-dirty='true'] {
+  color: var(--gold);
+}

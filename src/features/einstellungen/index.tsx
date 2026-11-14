@@ -15,6 +15,7 @@ import { AiSection } from './AiSection';
 import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import { SourcesSection } from './SourcesSection';
+import { TableRulesSheet } from '../tisch/TableRules';
 import './einstellungen.css';
 
 const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -61,6 +62,14 @@ export default function Page() {
             }
           >
             <CampaignSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Regeln des Tisches"
+            lead="Hausregeln und Absprachen eurer Runde – am Spieltisch mit einem Klick auf „Regeln“ zur Hand."
+          >
+            <TableRulesSheet />
           </Section>
 
           <Section

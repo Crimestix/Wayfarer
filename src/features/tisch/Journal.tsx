@@ -25,6 +25,7 @@ import {
 import { deleteRecorded, isFixedKind } from '../chronik/actions';
 import { KIND_NAME, TEXT_KINDS, entryHeadline, freeRefsOf, meaningRefsOf } from '../chronik/model';
 import { reviseEntry } from './commands';
+import { TableRulesButton } from './TableRules';
 import {
   activeMention,
   groupByDay,
@@ -350,13 +351,16 @@ export function JournalPanel() {
         </>
       }
       actions={
-        <Link
-          href="/chronik"
-          className="wf-btn wf-btn--ghost wf-btn--sm"
-          title="Die ganze Chronik öffnen"
-        >
-          Chronik
-        </Link>
+        <span className="wf-row">
+          <TableRulesButton />
+          <Link
+            href="/chronik"
+            className="wf-btn wf-btn--ghost wf-btn--sm"
+            title="Die ganze Chronik öffnen"
+          >
+            Chronik
+          </Link>
+        </span>
       }
     >
       {!log.session && (
