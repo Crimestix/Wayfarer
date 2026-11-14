@@ -1742,6 +1742,23 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Punkte eines nur angehängten Wegenetzes hängen bewusst nicht an der Geschichte (sonst
   überschwemmt ein großes Netz das Brett); ob sie es sollen, entscheidet der Spielleiter.
   „Abend vorbereiten“ nutzt die neuen Felder (`grow`, `wrap`, `NewLine`) noch nicht.
+- **Gegengelesen: Das Blatt der Geschichte neu.** Ein Klick auf Stand oder Rat konnte die ganze
+  App nach oben wegrollen (Weltleiste weg, unten leer): Die unsichtbaren Beschriftungen der
+  Kästchen (`wf-sheet-list__sr`) machten die Seite rollbar – die Spalten der Blätter halten sie
+  jetzt bei sich (gilt auch für „Abend vorbereiten“). Ein neuer Schritt an einer Uhr, bei der
+  keiner mehr ausstand, trat mit dem nächsten Zeitsprung sofort ein – seine Frist zählt jetzt ab
+  dem Schreiben. Auf dem Brett verriet „Teil von …“ in der Sicht der Gruppe den Namen einer
+  Geschichte, die sie nicht kennt (`card.partOf`). Strecken: „Graufels“ traf den Ort „Graufel“
+  (Tippfehler im Namensvergleich), nur Pfeile legten ein leeres Netz an, und ein neuer Ort mit
+  dem Namen eines anderen Eintrags entsteht jetzt mit Hinweis (`twinNote`). Rat und Stand führen
+  in das gemeinte Feld (Was er will, Was die Gruppe davon hat, neuer Hinweis der genannten
+  Frage); „Rückgängig“ bringt auch die Rolle des Antreibers zurück; der Rückweg zum Netz heißt
+  „Wegenetz „…““; das erfundene Beispiel im Dialog „Strecke schreiben“ ist der Form gewichen.
+- Offen nach dem Gegenlesen: Eine ganz leere Geschichte heißt schon „Keim“. Am Spieltisch steht
+  bei Fäden weiter „0 von 3 Hinweisen“ (gefunden, kein Rat). Schreibt man in eine Strecke den
+  Namen einer Person, entsteht ein gleichnamiger Ort (mit Hinweis) – ob das besser gar nicht
+  geschehen soll, entscheidet der Spielleiter. Der Hinweis „Noch kein Hinweis …“ steht mit
+  Warnzeichen schon an einer eben angelegten Frage.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

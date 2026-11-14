@@ -3,7 +3,7 @@ import { logEntry } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { hangingAt, netsOfStory } from '../../domain/net';
+import { hangingAt, namesakes, netsOfStory, twinNote } from '../../domain/net';
 import {
   PARTY_ID,
   createEntity,
@@ -130,6 +130,18 @@ describe('Beteiligte einer Geschichte', () => {
     expect(story().refs).toEqual([mira.id, grotto.id]);
     expect(story().roles[mira.id]).toEqual({ role: 'Zeugin', wants: 'Ihre Ruhe.' });
     expect(castOf(data(), story()).some((row) => row.entity.id === odo.id)).toBe(false);
+    // Auch die Rolle dessen, der nicht in der Liste steht (der Antreiber), kommt zurück – außer
+    // es steht inzwischen eine neue da.
+    setStoryRole(db, pact.id, guild.id, { wants: 'Die Grotte für sich.' });
+    const back = detachFromStory(db, pact.id, guild.id);
+    expect(story().roles[guild.id]).toBeUndefined();
+    back();
+    expect(story().roles[guild.id]).toEqual({ role: '', wants: 'Die Grotte für sich.' });
+    const again = detachFromStory(db, pact.id, guild.id);
+    setStoryRole(db, pact.id, guild.id, { role: 'Auftraggeber' });
+    again();
+    expect(story().roles[guild.id]).toEqual({ role: 'Auftraggeber', wants: '' });
+    expect(story().refs).toEqual([mira.id, grotto.id]);
     // Wer nur über einen Hinweis dazugehört, lässt sich ausdrücklich in die Liste nehmen.
     listInStory(db, pact.id, lando.id);
     listInStory(db, pact.id, lando.id);
@@ -471,6 +483,36 @@ describe('Wegenetze einer Geschichte', () => {
     expect(storyNodes(data(), story)).toEqual([grotto.id]);
     expect(addStoryNet(db, pact.id)!.net.points.map((point) => point.placeId)).toEqual([grotto.id]);
   });
+
+  it('eine Strecke ohne Namen legt nichts an; Namen gelten genau, nie ähnlich', async () => {
+    const { db, data, castle, lando } = await setup();
+    const pact = newStory(db, { title: 'Die Pacht der Grotte' });
+    const places = () =>
+      Object.values(data().entities)
+        .filter((entity) => entity.kind === 'place')
+        .map((entity) => entity.name)
+        .sort();
+    const before = places();
+    // Nur Pfeile: kein leeres Netz, keine Meldung.
+    expect(addStoryRoute(db, pact.id, ' -> ')).toBeNull();
+    expect(netsOfStory(data(), pact.id)).toEqual([]);
+    // Groß und klein und doppelte Leerzeichen zählen nicht – ein fehlender Buchstabe schon.
+    const added = addStoryRoute(db, pact.id, 'burg   graufels -> Burg Graufel')!;
+    expect(added.placeIds[0]).toBe(castle.id);
+    expect(added.places).toBe(1);
+    expect(places()).toEqual([...before, 'Burg Graufel'].sort());
+    expect(added.twins).toEqual([]);
+    expect(twinNote(added.twins)).toBe('');
+    // Heißt ein Eintrag anderer Art schon so, entsteht der Ort trotzdem – mit einem Hinweis.
+    const more = addStoryRoute(db, pact.id, 'Burg Graufels -> Lando Furtner')!;
+    expect(more.twins.map((entity) => entity.id)).toEqual([lando.id]);
+    expect(twinNote(more.twins)).toBe(
+      '„Lando Furtner“ gibt es schon als Person – der neue Ort heißt genauso.',
+    );
+    expect(namesakes(data(), 'lando  furtner')).toHaveLength(2);
+    more.undo();
+    expect(namesakes(data(), 'Lando Furtner').map((entity) => entity.id)).toEqual([lando.id]);
+  });
 });
 
 describe('Der Weg zurück', () => {
@@ -501,6 +543,13 @@ describe('Der Weg zurück', () => {
     expect(backLink(data(), `/geschichte/${pact.id}`).label).toBe('Die Pacht der Grotte');
     const article = createArticle(db, { title: 'Das Salzrecht von Hohenfurt' })!;
     expect(backLink(data(), `/wiki/${article.id}`).label).toBe('Das Salzrecht von Hohenfurt');
+    // Das Wegenetz einer Geschichte heißt wie sie – der Verweis sagt, dass es das Netz ist.
+    const { net } = addStoryNet(db, pact.id)!;
+    expect(backLink(data(), `/wegenetze/${net.id}`)).toEqual({
+      href: `/wegenetze/${net.id}`,
+      label: 'Wegenetz „Die Pacht der Grotte“',
+    });
+    expect(backLink(data(), '/wegenetze')).toEqual(brett);
     expect(backLink(data(), '/welt/gibtsnicht')).toEqual(brett);
     expect(backLink(data(), '/einstellungen')).toEqual(brett);
   });

@@ -245,16 +245,26 @@ const sheetSectionId = (key: string) => `wf-sheet-sec-${key}`;
 
 /**
  * Springt zu einem Fach des Blatts (`SheetSection` mit `id`) und setzt die Schreibmarke in sein
- * erstes Feld – gibt es noch keines, auf seinen ersten Knopf.
+ * erstes Feld – gibt es noch keines, auf seinen ersten Knopf. Mit `label` in das Feld, das so
+ * heißt (seine Beschriftung für Vorleseprogramme): Ein Fach kann mehrere Dinge fassen.
  */
-export function focusSheetSection(key: string): void {
+export function focusSheetSection(key: string, label?: string): void {
   const section = document.getElementById(sheetSectionId(key));
   if (!section) return;
-  section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  const named = label
+    ? [...section.querySelectorAll<HTMLElement>('[aria-label]')].find(
+        (field) => field.getAttribute('aria-label') === label,
+      )
+    : undefined;
+  // Ein Feld mitten im Fach kommt in die Mitte des Blatts – so bleibt sichtbar, wozu es gehört.
+  if (named) named.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  else section.scrollIntoView({ block: 'start', behavior: 'smooth' });
   const field =
+    named ??
     section.querySelector<HTMLElement>(
       'textarea, input:not([type="checkbox"]), .wf-picker__value',
-    ) ?? section.querySelector<HTMLElement>('button, select');
+    ) ??
+    section.querySelector<HTMLElement>('button, select');
   field?.focus({ preventScroll: true });
 }
 

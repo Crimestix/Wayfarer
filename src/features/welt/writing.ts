@@ -34,7 +34,7 @@ export interface WritingResult {
 
 /**
  * Nimmt einen eben angelegten Eintrag aus den Blättern, in die er seither gewählt wurde: aus
- * Geschichten (Antreiber, Leute und Orte, Ort eines Einstiegs oder einer Szene), ihren Uhren,
+ * Geschichten (Antreiber, Beteiligte, Ort eines Einstiegs oder einer Szene), ihren Uhren,
  * Fäden (Namen, „Wo?“ und „Wer weiß es?“ der Hinweise) und Abenden (Ort einer Szene). Sonst
  * bliebe dort nach „Rückgängig“ ein „Gelöschter Eintrag“ stehen. Der geschriebene Text bleibt.
  */

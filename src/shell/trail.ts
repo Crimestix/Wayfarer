@@ -75,7 +75,8 @@ export function backLink(
   }
   if (area === 'wegenetze') {
     const net = data.nets[id];
-    return net ? { href: from, label: net.name } : FALLBACK;
+    // Das Netz einer Geschichte heißt wie sie – das Wort davor sagt, wohin es zurückgeht.
+    return net ? { href: from, label: `Wegenetz „${net.name}“` } : FALLBACK;
   }
   return FALLBACK;
 }

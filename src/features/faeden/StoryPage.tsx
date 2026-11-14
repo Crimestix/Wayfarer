@@ -12,7 +12,7 @@ import { Fragment, useMemo } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, Plus, Trash2, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import type { Story } from '../../domain/schema';
+import type { CampaignData, Story } from '../../domain/schema';
 import {
   NEARNESS_LABEL,
   PACE_LABEL,
@@ -24,6 +24,7 @@ import {
   storyTexts,
   touchReason,
   touches,
+  type StoryAdvice,
   type StoryStageView,
 } from '../../domain/story';
 import { parentChoices, storyHangs, storyParts } from '../../domain/storySheet';
@@ -48,7 +49,7 @@ import { StoryCast } from './StoryCast';
 import { StoryEntries, StoryHeroes, StoryScenes } from './StoryLists';
 import { StoryPlaces } from './StoryPlaces';
 import { StorySteps } from './StorySteps';
-import { StoryThreads } from './StoryThreads';
+import { StoryThreads, newHintLabel } from './StoryThreads';
 import { useStoryMention } from './storyMention';
 import './faeden.css';
 
@@ -57,6 +58,24 @@ const DEFAULT_TITLES = ['Neue Geschichte', 'Neues Vorhaben', 'Neue Teilgeschicht
 
 const STAGES_HELP =
   'Keim: Jemand will etwas, und es gibt einen nächsten Schritt. Spielbar: dazu ein Einstieg, ein Ort, eine Frage mit drei Hinweisen, eine Szene. Rund: der Rest. Ein Rat, keine Pflicht.';
+
+/** Beschriftungen der Felder, in die ein Rat führt, wenn sein Fach mehrere Dinge fasst. */
+const LABEL_GOAL = 'Was der Antreiber will';
+const LABEL_REWARD = 'Was die Gruppe davon hat';
+
+/** Springt zum Fach eines Rats – und dort in das Feld, das er meint. */
+function goToAdvice(data: CampaignData, entry: StoryAdvice): void {
+  const thread = entry.threadId ? data.threads[entry.threadId] : undefined;
+  const label =
+    entry.key === 'goal'
+      ? LABEL_GOAL
+      : entry.key === 'reward'
+        ? LABEL_REWARD
+        : thread
+          ? newHintLabel(thread.title)
+          : undefined;
+  focusSheetSection(entry.section, label);
+}
 
 export default function StoryPage() {
   const params = useParams<{ id: string }>();
@@ -82,7 +101,13 @@ export default function StoryPage() {
 }
 
 /** Der Stand in einer ruhigen Zeile: was sie ist – und die ein bis drei Dinge, die als Nächstes fehlen. */
-function StageLine({ view }: { view: StoryStageView }) {
+function StageLine({
+  view,
+  onPick,
+}: {
+  view: StoryStageView;
+  onPick: (entry: StoryAdvice) => void;
+}) {
   return (
     <p className="wf-faden-stand">
       <b title={STAGES_HELP}>{STAGE_LABEL[view.stage]}</b>
@@ -98,7 +123,7 @@ function StageLine({ view }: { view: StoryStageView }) {
                 type="button"
                 className="wf-faden-link"
                 title={entry.why}
-                onClick={() => focusSheetSection(entry.section)}
+                onClick={() => onPick(entry)}
               >
                 {entry.text}
               </button>
@@ -182,7 +207,7 @@ function StorySheet({ story }: { story: Story }) {
             selectAll={DEFAULT_TITLES.includes(story.title)}
             onSave={(title) => patch({ title })}
           />
-          <StageLine view={stage} />
+          <StageLine view={stage} onPick={(entry) => goToAdvice(data, entry)} />
         </header>
 
         <SheetSection
@@ -203,7 +228,7 @@ function StorySheet({ story }: { story: Story }) {
           <div className="wf-sheet__pair wf-sheet__pair--top">
             <span className="wf-sheet__label">Was er will</span>
             <Written
-              label="Was der Antreiber will"
+              label={LABEL_GOAL}
               grow
               value={story.summary}
               placeholder="In einem Satz, aus seiner Sicht. Mit @ erwähnst du jemanden – oder legst ihn gleich an."
@@ -265,7 +290,7 @@ function StorySheet({ story }: { story: Story }) {
           <div className="wf-sheet__pair wf-sheet__pair--top">
             <span className="wf-sheet__label">Was die Gruppe davon hat</span>
             <Written
-              label="Was die Gruppe davon hat"
+              label={LABEL_REWARD}
               grow
               value={story.reward}
               placeholder="Beute, ein Gefallen, ein Verbündeter, Wissen …"
@@ -378,7 +403,7 @@ function StorySheet({ story }: { story: Story }) {
           </p>
           <SheetAdvice
             items={advice}
-            onPick={(entry) => focusSheetSection(entry.section)}
+            onPick={(entry) => goToAdvice(data, entry)}
             onOff={(entry, off) => setAdviceOff(db, story.id, entry.key, off)}
           />
         </section>

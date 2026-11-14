@@ -4,11 +4,19 @@
  * (`entities`, `paths`); das Netz merkt sich nur, welche Orte dazugehören und wo sie liegen.
  */
 import type { CampaignDb } from '../../data/db';
-import { freeSpot, netsOfStory, placeNamed, planRoutes } from '../../domain/net';
+import {
+  freeSpot,
+  namesakes,
+  netsOfStory,
+  parseRoutes,
+  placeNamed,
+  planRoutes,
+} from '../../domain/net';
 import { storyPlaces } from '../../domain/storySheet';
 import {
   createEntity,
   createNet,
+  type Entity,
   type Net,
   type NetPoint,
   type Place,
@@ -74,7 +82,8 @@ export function setNetStory(
  * Schreibt eine Strecke für eine Geschichte: in ihr Wegenetz (`netId`, sonst ihr erstes) – gibt
  * es noch keines, entsteht es dabei. Orte, die neu entstehen, sind Platzhalter dieser
  * Geschichte; alle Orte der Strecke gehören danach zu ihr (`story.refs`) – wer sie auf ihr Blatt
- * schreibt, meint sie. `undo` nimmt alles zurück, auch ein dabei entstandenes Netz.
+ * schreibt, meint sie. `undo` nimmt alles zurück, auch ein dabei entstandenes Netz. null, wenn
+ * im Text kein Name steht – dann entsteht auch kein leeres Netz.
  */
 export function addStoryRoute(
   db: CampaignDb,
@@ -83,7 +92,7 @@ export function addStoryRoute(
   netId?: string | null,
 ): (RoutesAdded & { net: Net }) | null {
   const data = db.getSnapshot();
-  if (!data.stories[storyId] || !text.trim()) return null;
+  if (!data.stories[storyId] || !parseRoutes(text).length) return null;
   return db.batch(() => {
     const own = netsOfStory(data, storyId);
     const known = own.find((net) => net.id === netId) ?? own[0];
@@ -200,11 +209,19 @@ export function connectPoints(
   return saveWay(db, { fromId, toId, minutes, sort: net.waySort });
 }
 
-/** Der Ort zu einem Namen: der gemeinte, sonst ein neuer. */
-function placeFor(db: CampaignDb, netId: string, name: string): { place: Place; fresh: boolean } {
+/**
+ * Der Ort zu einem Namen: der gemeinte, sonst ein neuer. `twin`: Ein anderer Eintrag heißt schon
+ * so (eine Person, ein Gegenstand – oder mehrere Orte, zwischen denen Wayfarer nicht rät).
+ */
+function placeFor(
+  db: CampaignDb,
+  netId: string,
+  name: string,
+): { place: Place; fresh: boolean; twin?: Entity | undefined } {
   const data = db.getSnapshot();
   const found = placeNamed(data, data.nets[netId]!, name);
   if (found) return { place: found, fresh: false };
+  const twin = namesakes(data, name)[0];
   const clean = name.replace(/\s+/g, ' ').trim();
   // In einem Netz, das zu einer Geschichte gehört, wächst die Welt aus ihr: ein Platzhalter.
   const storyId = data.nets[netId]!.storyId;
@@ -215,6 +232,7 @@ function placeFor(db: CampaignDb, netId: string, name: string): { place: Place; 
       createEntity({ kind: 'place', name: clean, stub: fromStoryId !== null, fromStoryId }),
     ) as Place,
     fresh: true,
+    twin,
   };
 }
 
@@ -246,6 +264,11 @@ export interface RoutesAdded {
   ways: number;
   /** Alle Orte der geschriebenen Strecken – neue wie vorhandene, jeder einmal. */
   placeIds: string[];
+  /**
+   * Einträge, deren Namen ein neu entstandener Ort jetzt auch trägt (eine Person, ein Gegenstand,
+   * ein gleichnamiger Ort) – nur zum Hinweisen; aus ihnen wird kein Punkt.
+   */
+  twins: Entity[];
   undo: () => void;
 }
 
@@ -258,7 +281,7 @@ export interface RoutesAdded {
 export function addRoutes(db: CampaignDb, netId: string, text: string): RoutesAdded {
   const before = db.getSnapshot();
   const net = before.nets[netId];
-  const out = { places: 0, points: 0, ways: 0, placeIds: [] as string[] };
+  const out = { places: 0, points: 0, ways: 0, placeIds: [] as string[], twins: [] as Entity[] };
   if (!net) return { ...out, undo: () => {} };
   const madePlaces: string[] = [];
   const madeWays: string[] = [];
@@ -266,8 +289,9 @@ export function addRoutes(db: CampaignDb, netId: string, text: string): RoutesAd
     for (const chain of planRoutes(before, net, text)) {
       let previous: string | null = null;
       for (const step of chain) {
-        const { place, fresh } = placeFor(db, netId, step.name);
+        const { place, fresh, twin } = placeFor(db, netId, step.name);
         if (fresh) madePlaces.push(place.id);
+        if (twin && !out.twins.some((entry) => entry.id === twin.id)) out.twins.push(twin);
         if (!out.placeIds.includes(place.id)) out.placeIds.push(place.id);
         const inNet = db.getSnapshot().nets[netId]!.points.some((p) => p.placeId === place.id);
         if (!inNet) {

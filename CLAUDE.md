@@ -227,7 +227,10 @@ nicht übernommen.
   gibt es keine mehr. Eine Uhr entsteht mit dem ersten Schritt auf dem Blatt – sie **steht
   noch**, bis der Spielleiter sie laufen lässt (`runStoryClock`, Schalter auf dem Blatt; wie
   sie steht, sagt `clockStand`) – und geht mit der
-  Geschichte; `ClockDialog` ist nur noch zum Eingreifen da. Uhren ohne Geschichte aus früheren
+  Geschichte; `ClockDialog` ist nur noch zum Eingreifen da. Schritte schreibt nur
+  `setStorySteps`: Stand keiner mehr aus, zählt die Frist des ersten neuen ab jetzt – nie ab
+  einem Schritt, der lange zurückliegt. Die Marke „Teil von …“ auf dem Brett kommt aus
+  `card.partOf` (in der Sicht der Gruppe nur, wenn sie die große Geschichte kennt). Uhren ohne Geschichte aus früheren
   Ständen (`looseClocks`) werden über `storyFromClock` zu einer. Nähe zur Gruppe, Berührungen und Warnungen
   leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
   Ruf ist keine eigene Angabe: `reputeOf()` liest die Haltungen des Antreibers zur Gruppe und zu
@@ -323,7 +326,9 @@ nicht übernommen.
   `path.encounterId`) und gehört zu `wayNotes()`. Was an einem Punkt hängt, sagt `hangingAt()`.
   Ein Netz kann für eine Geschichte vorbereitet sein (`net.storyId`, `netsOfStory`): Orte, die
   in ihm neu entstehen, sind dann Platzhalter dieser Geschichte; `removeStory` löst nur den
-  Bezug.
+  Bezug. Namen gelten genau (ohne Groß/Klein und doppelte Leerzeichen), nie ähnlich. Heißt ein
+  neuer Ort wie ein Eintrag anderer Art, entsteht er trotzdem – `added.twins` / `twinNote()`
+  sagen es als Hinweis.
 - Blätter zum freien Auslegen (Wegenetz, Fadenbrett) nutzen `useBoard` aus `ui/board.ts`:
   verschieben, vergrößern, Stücke ziehen. Wo etwas auf dem Fadenbrett liegt, steht in
   `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
@@ -449,7 +454,9 @@ nicht übernommen.
   oder `wrap` (ein Satz, der umbricht; die Eingabetaste schreibt) ist so hoch wie sein Inhalt –
   leere Fächer bleiben eine Zeile. `NewLine` ist die leere Zeile am Ende einer Liste: Der
   Eintrag entsteht mit dem ersten Wort. Ein Fach mit `id` lässt sich anspringen
-  (`focusSheetSection`) – so führen Stand und Rat zum Feld.
+  (`focusSheetSection`, mit der Beschriftung eines Feldes genau dorthin) – so führen Stand und
+  Rat zum Feld. Die beiden Spalten eines Blatts sind `position: relative`: Unsichtbare
+  Beschriftungen (`wf-sheet-list__sr`) machten sonst die ganze Seite rollbar.
 - Anlegen beim Schreiben (Geschichte zuerst): Angelegt wird nur über `addFromWriting`
   (`features/welt/writing.ts`) – gibt es den Namen schon (`entryForTitle`: Name, Zweitname,
   Titel des Artikels), wird der vorhandene Eintrag genommen (`created: false`, `otherKind`), nie

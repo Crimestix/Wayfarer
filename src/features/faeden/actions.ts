@@ -176,7 +176,7 @@ export function patchStory(db: CampaignDb, id: string, change: StoryChange): voi
 }
 
 /**
- * Nimmt einen Eintrag zu einer Geschichte: Er steht dann unter „Leute und Orte“ – ein Gefährte
+ * Nimmt einen Eintrag zu einer Geschichte: Er steht dann unter „Beteiligte“ – ein Gefährte
  * unter „Wen es persönlich betrifft“. Gehört er schon dazu (als Antreiber, über einen Hinweis,
  * einen Einstieg …), geschieht nichts. Gelesen wird der gespeicherte Stand, nicht der gezeigte.
  */
@@ -223,14 +223,17 @@ export function detachFromStory(db: CampaignDb, storyId: string, entityId: strin
     const now = data.stories[storyId];
     if (!now || !data.entities[entityId]) return;
     db.batch(() => {
-      if (index >= 0 && !now.refs.includes(entityId)) {
-        const refs = [...now.refs];
-        refs.splice(Math.min(index, refs.length), 0, entityId);
+      const refs = [...now.refs];
+      const listed = index >= 0 && !refs.includes(entityId);
+      if (listed) refs.splice(Math.min(index, refs.length), 0, entityId);
+      // Die Rolle kommt auch bei dem zurück, der nicht in der Liste stand (der Antreiber, wer
+      // über einen Hinweis dazugehört) – außer es steht inzwischen eine neue da.
+      const lost = role !== undefined && !now.roles[entityId];
+      if (listed || lost)
         patchStory(db, storyId, {
           refs,
-          roles: role ? { ...now.roles, [entityId]: role } : now.roles,
+          roles: lost ? { ...now.roles, [entityId]: role } : now.roles,
         });
-      }
       if (hero) tieHero(db, storyId, entityId, hero.why);
     });
   };
@@ -343,9 +346,16 @@ export function setStorySteps(db: CampaignDb, storyId: string, steps: readonly S
       };
     });
   if (clock) {
-    db.patch('clocks', clock.id, {
-      steps: [...clock.steps.filter((step) => step.at !== null), ...open],
-    });
+    const happened = clock.steps.filter((step) => step.at !== null);
+    // Stand kein Schritt mehr aus, zählt die Frist des ersten neuen ab jetzt – nicht ab dem
+    // letzten Schritt (oder dem Beginn der Uhr), der lange zurückliegen kann: Sonst träte er mit
+    // dem nächsten Zeitsprung sofort ein. Bei einer stehenden Uhr zählt sie ab dem Anhalten.
+    if (open.length && happened.length === clock.steps.length) {
+      const anchor = happened[happened.length - 1]?.at ?? clock.start;
+      const since = (clock.pausedAt ?? data.state.now) - anchor;
+      if (since > 0) open[0] = { ...open[0]!, delay: open[0]!.delay + since };
+    }
+    db.patch('clocks', clock.id, { steps: [...happened, ...open] });
     return;
   }
   if (!open.length) return;

@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useData, useDb } from '../../data/hooks';
-import { planRoutes } from '../../domain/net';
+import { planRoutes, twinNote } from '../../domain/net';
 import type { Net } from '../../domain/schema';
 import { formatWayTime } from '../../domain/ways';
 import { Button, Dialog, Field, TextArea, toast } from '../../ui';
@@ -41,7 +41,12 @@ export function RouteDialog({
     ].filter(Boolean);
     toast({
       title: 'Strecke übernommen',
-      body: parts.length ? parts.join(', ') : 'Alles davon gab es schon.',
+      body: [
+        parts.length ? `${parts.join(', ')}.` : 'Alles davon gab es schon.',
+        twinNote(added.twins),
+      ]
+        .filter(Boolean)
+        .join(' '),
       action: { label: 'Rückgängig', run: added.undo },
       duration: 9000,
     });
@@ -71,9 +76,7 @@ export function RouteDialog({
             autoFocus
             rows={6}
             value={text}
-            placeholder={
-              'Tiefe Pforte -> Salzgrotte (4 Std.) -> Schwarzer See (2 Tage)\nSalzgrotte -> Krummzahns Bau'
-            }
+            placeholder={'A -> B (4 Std.) -> C (2 Tage)\nB -> D'}
             onChange={(event) => setText(event.target.value)}
           />
         </Field>

@@ -226,6 +226,11 @@ export interface BoardCard {
   clock: ClockView | null;
   /** Abgeschlossen: Die Geschichte ist zu Ende, der lose Faden gelöst oder verloren. */
   closed: boolean;
+  /**
+   * Die große Geschichte, zu der diese gehört – null, wenn sie für sich steht. In der Sicht der
+   * Gruppe nur, wenn sie von der großen weiß: Sonst verriete die Marke deren Namen.
+   */
+  partOf: Story | null;
 }
 
 /** `truth` = alles, was der Spielleiter weiß; `party` = nur, was die Gruppe kennt. */
@@ -256,6 +261,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       ? unique([...shown.flatMap((thread) => threadNodes(data, thread))], data)
       : storyNodes(data, story);
     const { pace, view: clock } = storyClock(data, story);
+    const parent = story.parentId ? data.stories[story.parentId] : undefined;
     cards.push({
       key: `story:${story.id}`,
       story,
@@ -267,6 +273,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       pace: party && clock?.clock.secret ? 'none' : pace,
       clock: party && clock?.clock.secret ? null : clock,
       closed: story.closed,
+      partOf: parent && (!party || parent.known) ? parent : null,
     });
   }
   // Fäden, deren Geschichte es nicht mehr gibt, sind lose.
@@ -287,6 +294,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       pace: 'none',
       clock: null,
       closed: !threadLive(thread),
+      partOf: null,
     });
   }
   return cards.sort(
@@ -417,6 +425,8 @@ export interface StoryAdvice {
   section: StorySection;
   /** Für welchen Stand es zählt: Was zum Keim gehört, was zum Spielen, was sie rund macht. */
   stage: StoryStage;
+  /** Die Frage, deren Hinweise gemeint sind – dorthin führt der Punkt auf dem Blatt. */
+  threadId?: string | undefined;
 }
 
 const written = (hints: readonly ThreadHint[]) => hints.filter((hint) => hint.text.trim()).length;
@@ -524,6 +534,7 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
           : `Hinweise zu „${lead.title}“: ${few(written(lead.hints))} Einen übersieht die Gruppe, einen versteht sie falsch.`,
       section: 'threads',
       stage: 'playable',
+      threadId: lead && !full ? lead.id : undefined,
     },
     ...thin.map((thread): Omit<StoryAdvice, 'off'> => ({
       key: `hints:${thread.id}`,
@@ -532,6 +543,7 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
       why: `${few(written(thread.hints))} Einen übersieht die Gruppe, einen versteht sie falsch.`,
       section: 'threads',
       stage: 'round',
+      threadId: thread.id,
     })),
     {
       key: 'place',

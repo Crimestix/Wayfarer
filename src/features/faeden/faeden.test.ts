@@ -34,6 +34,7 @@ import {
   touches,
   untilText,
 } from '../../domain/story';
+import { clockView } from '../../domain/clock';
 import { playClaims, playView } from '../../domain/play';
 import { clockStand } from '../../domain/storySheet';
 import { withoutHook } from '../../domain/prep';
@@ -224,6 +225,21 @@ describe('Das Fadenbrett', () => {
     // Die Wahrheit zeigt alles.
     expect(boardCards(data()).flatMap((card) => card.threads)).toHaveLength(4);
   });
+
+  it('nennt die große Geschichte einer Teilgeschichte – der Gruppe nur, wenn sie von ihr weiß', async () => {
+    const { db, data, story } = await setup();
+    const big = story('Die Aalfischer wollen den Hafen');
+    const part = story('Der Streit um den Liegeplatz', { known: true });
+    patchStory(db, part.id, { parentId: big.id });
+    const partOf = (view: 'truth' | 'party') =>
+      boardCards(data(), view).find((card) => card.key === `story:${part.id}`)!.partOf?.title;
+    expect(partOf('truth')).toBe('Die Aalfischer wollen den Hafen');
+    // Die Marke „Teil von …“ verriete sonst den Namen einer Geschichte, die die Gruppe nicht kennt.
+    expect(partOf('party')).toBeUndefined();
+    patchStory(db, big.id, { known: true });
+    expect(partOf('party')).toBe('Die Aalfischer wollen den Hafen');
+    expect(boardCards(data()).find((card) => card.key === `story:${big.id}`)!.partOf).toBeNull();
+  });
 });
 
 describe('Die Pinnwand', () => {
@@ -353,9 +369,10 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       hints: [hint('Ein Beutel mit fremden Münzen', market.id)],
     });
     expect(open()).toEqual(['needs', 'clock', 'hero', 'threads', 'scene']);
-    expect(storyAdvice(data(), story()).find((entry) => entry.key === 'threads')!.why).toContain(
-      'Erst einer',
-    );
+    const lead = () => storyAdvice(data(), story()).find((entry) => entry.key === 'threads')!;
+    expect(lead().why).toContain('Erst einer');
+    // Der Punkt weiß, welche Frage gemeint ist – dorthin führt er auf dem Blatt.
+    expect(lead().threadId).toBe(who.id);
     patchThread(db, who.id, {
       hints: [
         ...data().threads[who.id]!.hints,
@@ -366,6 +383,7 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
     });
     expect(data().threads[who.id]!.hints).toHaveLength(3);
     expect(open()).toEqual(['needs', 'clock', 'hero', 'scene']);
+    expect(lead().threadId).toBeUndefined();
     // Jede weitere Frage mit zu wenigen Hinweisen wird beim Namen genannt.
     const where = saveThread(db, {
       title: 'Wohin geht das Geld?',
@@ -377,6 +395,9 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       hints: [],
     });
     expect(open()).toEqual(['needs', 'clock', 'hero', `hints:${where.id}`, 'scene']);
+    expect(
+      storyAdvice(data(), story()).find((entry) => entry.key === `hints:${where.id}`)!.threadId,
+    ).toBe(where.id);
     // Ein Schritt reicht – eine Mindestzahl gibt es nicht.
     setStorySteps(db, blank.id, [{ id: newId(), text: 'Der Zoll steigt', days: 3 }]);
     expect(open()).not.toContain('clock');
@@ -488,6 +509,49 @@ describe('Eine Geschichte auf ihrem Blatt', () => {
       'Die Zöllner werden bestochen',
       'Der Zoll wird verdreifacht',
     ]);
+  });
+
+  it('ein neuer Schritt nach langer Pause zählt ab jetzt – er tritt nicht sofort ein', async () => {
+    const { db, data } = await setup();
+    const toll = newStory(db, { title: 'Der Zoll wird verdoppelt' });
+    const now = data().state.now;
+    const DAY = 24 * 60;
+    const clock = () => data().clocks[data().stories[toll.id]!.clockId!]!;
+    const next = () => clockView(clock(), data().state.now).next!.at;
+    setStorySteps(db, toll.id, [{ id: newId(), text: 'Die Zöllner werden bestochen', days: 2 }]);
+    runStoryClock(db, toll.id, true);
+    advanceTime(db, now + 2 * DAY);
+    expect(clock().steps[0]!.at).toBe(now + 2 * DAY);
+    // Drei Wochen später schreibt der Spielleiter weiter: „nach 3 Tagen“ heißt in drei Tagen.
+    advanceTime(db, now + 23 * DAY);
+    const later = newId();
+    setStorySteps(db, toll.id, [{ id: later, text: 'Der Zoll wird verdoppelt', days: 3 }]);
+    expect(next()).toBe(now + 26 * DAY);
+    advanceTime(db, now + 24 * DAY);
+    expect(clock().steps[1]!.at).toBeNull();
+    // Wird nur der Text neu geschrieben, bleibt die Frist; ein weiterer Schritt hängt sich an.
+    setStorySteps(db, toll.id, [
+      { id: later, text: 'Der Zoll wird verdreifacht', days: 3 },
+      { id: newId(), text: 'Die Fähre stellt den Betrieb ein', days: 2 },
+    ]);
+    expect(next()).toBe(now + 26 * DAY);
+    expect(clock().steps[2]!.delay).toBe(0);
+    // Dasselbe bei einer laufenden Uhr, deren Schritte alle gestrichen wurden.
+    const ferry = newStory(db, { title: 'Die Fähre' });
+    setStorySteps(db, ferry.id, [{ id: newId(), text: 'Der Fährmann kündigt', days: 1 }]);
+    runStoryClock(db, ferry.id, true);
+    setStorySteps(db, ferry.id, []);
+    advanceTime(db, now + 40 * DAY);
+    setStorySteps(db, ferry.id, [{ id: newId(), text: 'Die Fähre liegt fest', days: 2 }]);
+    const ferryClock = data().clocks[data().stories[ferry.id]!.clockId!]!;
+    expect(clockView(ferryClock, data().state.now).next!.at).toBe(now + 42 * DAY);
+    // Eine Uhr, die noch nie lief, braucht keinen Aufschub: Sie beginnt mit dem Start.
+    const quiet = newStory(db, { title: 'Der stille Teilhaber' });
+    setStorySteps(db, quiet.id, [{ id: newId(), text: 'Er kauft die Schuldscheine', days: 2 }]);
+    setStorySteps(db, quiet.id, []);
+    advanceTime(db, now + 50 * DAY);
+    setStorySteps(db, quiet.id, [{ id: newId(), text: 'Er fordert sie ein', days: 2 }]);
+    expect(data().clocks[data().stories[quiet.id]!.clockId!]!.steps[0]!.delay).toBe(0);
   });
 
   it('betrifft Gefährten persönlich – jeden einmal, mit seinem Grund', async () => {

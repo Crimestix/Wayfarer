@@ -7,6 +7,8 @@
   min-height: 0;
 }
 .wf-sheet__main {
+  /* Auch unsichtbare Beschriftungen (__sr) bleiben im Blatt – sonst wird die ganze Seite rollbar. */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
@@ -141,6 +143,7 @@
   border-top: 1px solid var(--line-faint);
 }
 .wf-sheet__side {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--s-5);

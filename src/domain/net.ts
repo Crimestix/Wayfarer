@@ -7,11 +7,12 @@
  * Reine Funktionen: das Netz zum Anzeigen, was an einem Punkt hängt, und das Lesen einer Strecke,
  * die als Text geschrieben ist („Bucht -> Alter Anleger (4 Std.) -> Kriegslager“).
  */
-import { placeAncestors } from './derive';
+import { KIND_LABEL, placeAncestors } from './derive';
 import type {
   CampaignData,
   Clock,
   Encounter,
+  Entity,
   Net,
   NetPoint,
   Place,
@@ -226,8 +227,34 @@ export interface PlannedStep extends RouteStep {
   place: Place | null;
 }
 
+/** Namen vergleichen sich ohne Groß- und Kleinschreibung und ohne doppelte Leerzeichen. */
 const nameKey = (name: string) =>
-  name.normalize('NFC').replace(/s+/g, ' ').trim().toLocaleLowerCase('de');
+  name.normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('de');
+
+/**
+ * Trägt ein anderer Eintrag der Welt diesen Namen (oder Zweitnamen) – einer, der kein Ort ist,
+ * oder einer von mehreren Orten? Dann hieße ein neuer Ort genauso: nur ein Hinweis.
+ */
+export function namesakes(data: Pick<CampaignData, 'entities'>, name: string): Entity[] {
+  const key = nameKey(name);
+  if (!key) return [];
+  return Object.values(data.entities)
+    .filter(
+      (entity) =>
+        nameKey(entity.name) === key || entity.aliases.some((alias) => nameKey(alias) === key),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, 'de') || a.id.localeCompare(b.id));
+}
+
+/** „„Brann“ gibt es schon als Person – der neue Ort heißt genauso.“ – leer ohne Namensvetter. */
+export function twinNote(twins: readonly Entity[]): string {
+  if (!twins.length) return '';
+  const known = twins.map(
+    (entity) => `„${entity.name}“ gibt es schon als ${KIND_LABEL[entity.kind]}`,
+  );
+  const places = twins.length === 1 ? 'der neue Ort heißt' : 'die neuen Orte heißen';
+  return `${known.join(', ')} – ${places} genauso.`;
+}
 
 /**
  * Der Ort, den ein Name in diesem Netz meint: ein Punkt des Netzes, sonst der eine Ort der Welt,

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { MapPin, Plus, Route as RouteIcon, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { netsOfStory } from '../../domain/net';
+import { netsOfStory, twinNote } from '../../domain/net';
 import type { Story } from '../../domain/schema';
 import { PLACE_VIA_LABEL, storyPlaces } from '../../domain/storySheet';
 import {
@@ -60,7 +60,12 @@ export function StoryPlaces({ story }: { story: Story }) {
     ].filter(Boolean);
     toast({
       title: 'Strecke übernommen',
-      body: `In „${added.net.name}“${parts.length ? ` – ${parts.join(', ')}` : ' – alles gab es schon'}.`,
+      body: [
+        `In „${added.net.name}“${parts.length ? ` – ${parts.join(', ')}` : ' – alles gab es schon'}.`,
+        twinNote(added.twins),
+      ]
+        .filter(Boolean)
+        .join(' '),
       action: { label: 'Rückgängig', run: added.undo },
     });
   };

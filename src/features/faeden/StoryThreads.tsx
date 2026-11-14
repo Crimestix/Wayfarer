@@ -42,6 +42,9 @@ import {
 } from './actions';
 import { useStoryMention } from './storyMention';
 
+/** Wie die Zeile für einen neuen Hinweis heißt – so findet sie auch der Rat am Rand. */
+export const newHintLabel = (title: string): string => `Neuer Hinweis zu „${title}“`;
+
 /** Mehr lose Fäden schlägt das Blatt nicht auf einmal vor. */
 const FITS_SHOWN = 4;
 
@@ -201,7 +204,7 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
         ))}
         <NewLine
           className="wf-faden-frage__new"
-          label="Neuer Hinweis"
+          label={newHintLabel(thread.title)}
           placeholder="Was die Gruppe findet oder erfährt"
           mention={mention}
           onAdd={(text) =>
