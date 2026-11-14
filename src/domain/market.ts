@@ -99,10 +99,28 @@ export function demandThingOf(entity: Entity | null | undefined, name = ''): Dem
   return { name: name || entity.name, category, kind: KIND_LABEL[entity.kind] };
 }
 
+/** Ein Wort ohne Endung der Mehrzahl oder Beugung: „Pelze“ → „pelz“, „Kräuter“ → „kraut“. */
+const demandStem = (word: string): string => {
+  const cut = word.replace(/(en|er|es|e|n|s)$/, '');
+  return cut.length >= 3 ? cut : word;
+};
+
+/**
+ * Passt ein Wort des Spielleiters auf ein Wort der Ware? Im Deutschen steht das, was etwas ist,
+ * am Ende: „Salz“ passt auf „Steinsalz“ und „Salze“, nicht auf „Salzdistel“ (eine Distel).
+ */
+function demandFits(field: string, want: string): boolean {
+  if (field === want) return true;
+  if (want.includes(' ')) return ` ${field} `.includes(` ${want} `);
+  const stem = demandStem(want);
+  return field.split(' ').some((word) => demandStem(word).endsWith(stem));
+}
+
 /**
  * Was ein Handelsplatz zu einer Ware sagt: die Zeile unter „Gesucht“ oder „Nicht gefragt“, die
- * passt – ein Wort des Spielleiters, das im Namen, in der Einordnung oder in der Art steht
- * („Salz“ passt auf „Steinsalz“). Der Name zählt vor Einordnung und Art. null = keine passt.
+ * passt – ein Wort des Spielleiters, auf das ein Wort im Namen, in der Einordnung oder in der Art
+ * endet („Salz“ passt auf „Steinsalz“, nicht auf „Salzdistel“; `demandFits`). Der Name zählt vor
+ * Einordnung und Art. null = keine passt.
  */
 export function demandOf(shop: Shop | null | undefined, thing: DemandThing): ShopDemand | null {
   if (!shop?.demand.length) return null;
@@ -111,7 +129,7 @@ export function demandOf(shop: Shop | null | undefined, thing: DemandThing): Sho
     if (!field) continue;
     const hit = shop.demand.find((line) => {
       const want = plainWord(line.text);
-      return want.length >= 2 && (field === want || field.includes(want));
+      return want.length >= 2 && demandFits(field, want);
     });
     if (hit) return hit;
   }
@@ -141,11 +159,23 @@ export function buyShare(
   entity: Entity | null | undefined,
   name = '',
 ): number {
-  const base = shop?.buyFactor ?? 0.5;
-  const share = shop?.market && isTradeGood(entity) ? Math.max(1, base) : base;
-  const demand = demandOf(shop, demandThingOf(entity, name));
-  return share * (demand?.factor ?? 1);
+  return buyShareOf(shop, demandThingOf(entity, name), isTradeGood(entity));
 }
+
+/** Wie `buyShare` – für eine Ware ohne Eintrag der Welt (ein Wesen des Bestiariums). */
+export function buyShareOf(
+  shop: Shop | null | undefined,
+  thing: DemandThing,
+  tradeGood: boolean,
+): number {
+  const base = shop?.buyFactor ?? 0.5;
+  const share = shop?.market && tradeGood ? Math.max(1, base) : base;
+  return share * (demandOf(shop, thing)?.factor ?? 1);
+}
+
+/** Ist die Art eines Wesens ein Tier („Tier“, „Beast“)? Dann ist es Vieh – ein Handelsgut. */
+export const isBeastType = (type: string): boolean =>
+  /\b(tier|tiere|beast|beasts|bestie)\b/.test(plainWord(type));
 
 // ── Versteigern ────────────────────────────────────────────────────────────
 

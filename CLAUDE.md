@@ -299,8 +299,10 @@ nicht übernommen.
   (`stock`: Eintrag der Welt jeder Art, Wesen des Bestiariums `creatureId`, Regelwerk oder Worte;
   eigener Preis oder Listenpreis × Stufe, Einheit `unit` wie „je Pfund“, Menge oder unbegrenzt)
   – gelesen über `stockRows()`. **Läden schränken nie ein:** Gewählt wird aus allem
-  (`wareGroups`, nach Art gruppiert als Hilfe, nie als Filter; `WarePicker`), am Tisch kauft und
-  verkauft jeder Laden alles mit eigenem Preis; `planTrade` nimmt jeden Eintrag. Gehandelt wird nur über `tradeAt` (`laden/actions.ts`): ein Eintrag der Art
+  (`wareGroups`, nach Art gruppiert als Hilfe, nie als Filter; `WarePicker` – die Eingabetaste
+  nimmt nur den genauen Namen oder Handelsübliches, `enterWare`; „als Gegenstand anlegen“ nimmt
+  einen Eintrag gleichen Namens, `wareItem`), am Tisch kauft und verkauft jeder Laden alles mit
+  eigenem Preis; `planTrade` nimmt jeden Eintrag. Gehandelt wird nur über `tradeAt` (`laden/actions.ts`): ein Eintrag der Art
   „Handel“ (`kind: 'trade'`, `entry.trade`, über `recordEntry`); Bestand und Besitzer eines
   einzelnen Stücks (`isSingleItem`: Lebenslauf, Besitzer oder bei der Gruppe) ziehen mit,
   `removeRecorded` nimmt beides zurück. Handel ist keine Beute; „Gold der Gruppe“ im Kasten
@@ -320,8 +322,9 @@ nicht übernommen.
   „Als Vorlage für <Art> merken“ (`rememberAsTemplate`, `templateTextOf`). **Handelsplätze**
   (`shop.market`, `domain/market.ts`): Markt, Hafen, Auktionshaus, Hehler – dort steht
   „Verkaufen“ vorn, „Gesucht“/„Nicht gefragt“ (`shop.demand`, Wort + Faktor) sind Hinweise, die
-  beim Ankauf auf- oder abschlagen (`buyShare`, `demandOf`); Handelsgüter (Pflanze, Tier,
-  Gestein) bringen dort ihren vollen Wert. Versteigern würfelt das Höchstgebot mit `fairDie`
+  beim Ankauf auf- oder abschlagen (`buyShare`, `demandOf`: das Wort passt aufs Ende eines
+  Wortes – „Salz“ auf „Steinsalz“, nie auf „Salzdistel“); Handelsgüter (Pflanze, Tier, Gestein,
+  Tiere des Bestiariums) bringen dort ihren vollen Wert. Versteigern würfelt das Höchstgebot mit `fairDie`
   nach fester Regel (`auctionBid`: 4 W6, 50–150 %, Seltenes 25–175 %, in Schritten) – nur ein
   Vorschlag. Am Spieltisch „Läden hier“ bzw. „Läden und Handelsplätze hier“ (`shopsHere`,
   `shopsHereTitle`), überall `openShop`; im Festhalten öffnet „Handel“ den Laden.

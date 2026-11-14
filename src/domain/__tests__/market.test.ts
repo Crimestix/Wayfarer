@@ -60,6 +60,10 @@ describe('Handelsplätze', () => {
     expect(demandOf(shop, { name: 'Eisenerz', kind: 'Gestein' })?.id).toBe('c');
     expect(demandOf(shop, { name: 'Seil' })).toBeNull();
     expect(demandOf(null, { name: 'Salz' })).toBeNull();
+    // Was etwas ist, steht im Deutschen am Ende: eine Salzdistel ist eine Distel, kein Salz.
+    expect(demandOf(shop, { name: 'Salzdistel', kind: 'Pflanze' })).toBeNull();
+    expect(demandOf(shop, { name: 'Pelze' })?.id).toBe('b');
+    expect(demandOf(shop, { name: 'Grobes Salz' })?.id).toBe('a');
   });
 
   it('zahlt auf dem Markt den vollen Wert für Handelsgüter, sonst den Ankauf – mal Gesuchtem', () => {

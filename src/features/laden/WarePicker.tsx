@@ -6,7 +6,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { PackagePlus, Plus, Skull, Type } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { formatPrice, wareGroups, type WareOption } from '../../domain/shop';
+import { enterWare, formatPrice, wareGroups, wareNamed, type WareOption } from '../../domain/shop';
 import { Input, KindIcon, MenuItem, Popover } from '../../ui';
 
 export function WarePicker({
@@ -36,7 +36,11 @@ export function WarePicker({
   );
   const options = groups.flatMap((group) => group.options);
   const name = query.replace(/\s+/g, ' ').trim();
-  const exact = options.some((o) => o.name.toLowerCase() === name.toLowerCase());
+  // Gibt es den Namen schon (auch unter zweitem Namen oder schon gewählt), wird nichts angelegt.
+  const exists = useMemo(
+    () => (open && name ? wareNamed(data, name) !== null : false),
+    [data, name, open],
+  );
   const close = () => {
     setOpen(false);
     setQuery('');
@@ -68,11 +72,13 @@ export function WarePicker({
           onKeyDown={(e) => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
-            if (options[0]) pick(options[0]);
+            // Genau dieser Name oder eine Ware, die man gewöhnlich handelt – sonst in Worten.
+            const first = enterWare(groups, name);
+            if (first) pick(first);
             else if (name && onWords) {
               onWords(name);
               close();
-            }
+            } else if (options[0]) pick(options[0]);
           }}
         />
         <div className="wf-picker__list wf-laden-wares" role="listbox">
@@ -104,7 +110,9 @@ export function WarePicker({
           ))}
           {!groups.length && !name && <div className="wf-picker__empty">Noch nichts angelegt.</div>}
           {!groups.length && name && (
-            <div className="wf-picker__empty">Nichts dieses Namens in der Welt.</div>
+            <div className="wf-picker__empty">
+              {exists ? 'Schon gewählt.' : 'Nichts dieses Namens in der Welt.'}
+            </div>
           )}
           {name && onWords && (
             <MenuItem
@@ -117,7 +125,7 @@ export function WarePicker({
               „{name}“ in Worten
             </MenuItem>
           )}
-          {name && onCreate && !exact && (
+          {name && onCreate && !exists && (
             <MenuItem
               icon={<PackagePlus />}
               onClick={() => {

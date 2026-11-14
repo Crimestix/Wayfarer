@@ -4,13 +4,14 @@
  * als Preisliste, eigene Preise, Einheiten und Mengen, eine Liste nach Vorlage oder Vorschlag
  * zum Ankreuzen, „als Vorlage merken“ und was der Laden zuletzt verkauft und angekauft hat.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   BookMarked,
   BookOpen,
   ClipboardList,
+  Ellipsis,
   ListChecks,
   PackagePlus,
   Plus,
@@ -33,11 +34,20 @@ import {
   stockRows,
 } from '../../domain/shop';
 import { templateOfKind } from '../../domain/shopTemplate';
-import { createEntity, type Entity, type Shop } from '../../domain/schema';
+import type { Entity, Shop } from '../../domain/schema';
 import { SRD_ATTRIBUTION } from '../../domain/srd/lookup';
 import { openShop } from '../../shell/commands';
 import { useFocus } from '../../shell/focus';
-import { Button, ChronicleList, EntityLink, IconButton, confirmDialog, toast } from '../../ui';
+import {
+  Button,
+  ChronicleList,
+  EntityLink,
+  IconButton,
+  MenuItem,
+  Popover,
+  confirmDialog,
+  toast,
+} from '../../ui';
 import { Hint, Section } from '../welt/parts';
 import {
   addStockLines,
@@ -47,6 +57,7 @@ import {
   rememberAsTemplate,
   removeStockLine,
   stockLineToItem,
+  wareItem,
 } from './actions';
 import { PriceInput, QtyInput, UnitInput, UnitList } from './parts';
 import { PriceListDialog } from './PriceListDialog';
@@ -152,6 +163,7 @@ export function ShopSection({ entity }: { entity: Entity }) {
           }}
         />
       ))}
+      <UnitList />
       {dialog}
     </Section>
   );
@@ -308,34 +320,17 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
                   onChange={(qty) => patchStockLine(db, shop.id, row.line.id, { qty })}
                 />
                 <span className="wf-row" style={{ gap: 0 }}>
-                  {!row.entity && !row.creature && (
-                    <IconButton
-                      label={`Als Gegenstand anlegen: ${row.name}`}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => makeItem(row.line.id, row.name)}
-                    >
-                      <PackagePlus />
-                    </IconButton>
-                  )}
-                  <IconButton
-                    label={`Nach oben: ${row.name}`}
-                    size="sm"
-                    variant="ghost"
-                    disabled={index === 0}
-                    onClick={() => moveStockLine(db, shop.id, row.line.id, -1)}
-                  >
-                    <ArrowUp />
-                  </IconButton>
-                  <IconButton
-                    label={`Nach unten: ${row.name}`}
-                    size="sm"
-                    variant="ghost"
-                    disabled={index === rows.length - 1}
-                    onClick={() => moveStockLine(db, shop.id, row.line.id, 1)}
-                  >
-                    <ArrowDown />
-                  </IconButton>
+                  <StockLineMenu
+                    name={row.name}
+                    first={index === 0}
+                    last={index === rows.length - 1}
+                    onMakeItem={
+                      !row.entity && !row.creature
+                        ? () => makeItem(row.line.id, row.name)
+                        : undefined
+                    }
+                    onMove={(step) => moveStockLine(db, shop.id, row.line.id, step)}
+                  />
                   <IconButton
                     label={`Aus dem Bestand: ${row.name}`}
                     size="sm"
@@ -373,8 +368,11 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           }
           onWords={(text) => addStockLines(db, shop.id, [{ text }])}
           onCreate={(name) => {
-            const made = db.put('entities', createEntity({ kind: 'item', name }));
-            addStockLines(db, shop.id, [{ entityId: made.id, text: made.name }]);
+            const ware = wareItem(db, name);
+            if (ware)
+              addStockLines(db, shop.id, [
+                { entityId: ware.entityId, creatureId: ware.creatureId, text: ware.name },
+              ]);
           }}
         />
         <Button size="sm" icon={<ListChecks />} onClick={() => setProposing(true)}>
@@ -410,7 +408,6 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           <ChronicleList entries={trades.slice(0, TRADES_SHOWN)} showDate />
         </div>
       )}
-      <UnitList />
       {pasting && <PriceListDialog shop={shop} onClose={() => setPasting(false)} />}
       {rules && <RulesDialog shop={shop} onClose={() => setRules(false)} />}
       {proposing && (
@@ -433,5 +430,60 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Was man mit einer Zeile des Bestands seltener tut – verschieben, als Gegenstand anlegen – in
+ * einem kleinen Menü, damit der Name der Ware in der Zeile Platz hat.
+ */
+function StockLineMenu({
+  name,
+  first,
+  last,
+  onMakeItem,
+  onMove,
+}: {
+  name: string;
+  first: boolean;
+  last: boolean;
+  onMakeItem?: () => void;
+  onMove: (step: -1 | 1) => void;
+}) {
+  const anchor = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const run = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
+  return (
+    <>
+      <IconButton
+        ref={anchor}
+        label={`Mehr zu ${name}`}
+        size="sm"
+        variant="ghost"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Ellipsis />
+      </IconButton>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} align="right" width={240}>
+        <div role="menu" aria-label={`Mehr zu ${name}`}>
+          {onMakeItem && (
+            <MenuItem icon={<PackagePlus />} onClick={() => run(onMakeItem)}>
+              Als Gegenstand anlegen
+            </MenuItem>
+          )}
+          <MenuItem icon={<ArrowUp />} disabled={first} onClick={() => run(() => onMove(-1))}>
+            Nach oben
+          </MenuItem>
+          <MenuItem icon={<ArrowDown />} disabled={last} onClick={() => run(() => onMove(1))}>
+            Nach unten
+          </MenuItem>
+        </div>
+      </Popover>
+    </>
   );
 }

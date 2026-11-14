@@ -108,11 +108,25 @@ const TRAILING_QTY =
 /** Was nach einem Preis die Einheit nennt: „je Stück“, „pro Bund“, „das Pfund“. */
 const PER = /\s*(?:\/|je|pro|per|das|die|der|each)\s+([\p{L} ]+)$/u;
 
-/** Die Einheit hinter dem Preis, wie sie in der App steht: „pro pfund“ → „je Pfund“; Stück = leer. */
-function unitOf(word: string | undefined): string {
+/**
+ * Die Einheit hinter dem Preis, wie sie in der App steht: „pro Pfund“ → „je Pfund“; Stück = leer.
+ * `word` ist die Einheit in einfachen Buchstaben; geschrieben wird sie, wie sie im Text steht
+ * („je Kübel“, nicht „je Kubel“).
+ */
+function unitOf(word: string | undefined, text: string): string {
   const measure = (word ?? '').replace(/\s+/g, ' ').trim();
   if (!measure || /^(stuck|stk|each|piece)$/.test(measure)) return '';
-  return `je ${measure.charAt(0).toUpperCase()}${measure.slice(1)}`;
+  const words = text.replace(/\s+/g, ' ').trim().split(' ');
+  const count = measure.split(' ').length;
+  let written = measure;
+  for (let i = words.length - count; i >= 0; i--) {
+    const candidate = words.slice(i, i + count).join(' ');
+    if (plain(candidate) === measure) {
+      written = candidate;
+      break;
+    }
+  }
+  return `je ${written.charAt(0).toUpperCase()}${written.slice(1)}`;
 }
 
 /**
@@ -167,7 +181,7 @@ function readPriceText(text: string): { price: number; qty: number | null; unit:
   const per = PER.exec(rest);
   if (per) rest = rest.slice(0, per.index).trim();
   const price = parseCoins(rest.trim());
-  return typeof price === 'number' ? { price, qty, unit: unitOf(per?.[1]) } : null;
+  return typeof price === 'number' ? { price, qty, unit: unitOf(per?.[1], text) } : null;
 }
 
 /** Ein Preis am Ende einer Zeile ohne Trennzeichen: „Seil 1 GM“ – nur mit Münze. */

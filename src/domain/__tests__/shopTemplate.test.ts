@@ -9,6 +9,7 @@ import {
   rememberAsTemplate,
   removeShopTemplate,
   tradeAt,
+  wareItem,
 } from '../../features/laden/actions';
 import { recordHeadline } from '../chronicleKinds';
 import { parsePriceLines } from '../priceList';
@@ -16,6 +17,7 @@ import { createCreature, createEntity } from '../schema';
 import {
   amountText,
   creatureSuggestions,
+  enterWare,
   priceWithUnit,
   readUnit,
   sellPrice,
@@ -24,6 +26,7 @@ import {
   stockLine,
   stockRows,
   wareGroups,
+  wareNamed,
 } from '../shop';
 import {
   inStock,
@@ -98,6 +101,22 @@ describe('Einheiten und Mengen', () => {
     expect(amountText(20, 'Salz', 'je Pfund')).toBe('20 Pfund Salz');
     expect(amountText(3, 'Seil')).toBe('3× Seil');
     expect(amountText(1, 'Seil')).toBe('Seil');
+    // Maße auf -e und Tage gehen nach einer Zahl in die Mehrzahl, Pfund und Sack nicht.
+    expect(amountText(2, 'Äpfel', 'je Kiste')).toBe('2 Kisten Äpfel');
+    expect(amountText(3, 'Tuch', 'je Elle')).toBe('3 Ellen Tuch');
+    expect(amountText(1, 'Tuch', 'je Elle')).toBe('1 Elle Tuch');
+    expect(amountText(4, 'Unterkunft', 'je Tag')).toBe('4 Tage Unterkunft');
+    expect(amountText(3, 'Mehl', 'je Sack')).toBe('3 Sack Mehl');
+    // Klein getippt wird groß geschrieben, wie ein Hauptwort.
+    expect(readUnit('pfund')).toBe('je Pfund');
+  });
+
+  it('schreibt die Einheit einer Preisliste so, wie sie dasteht – mit Umlauten', () => {
+    const { lines } = parsePriceLines('Eisen: 1 SM je Kübel\nBier: 2 KM das Maß (12)');
+    expect(lines.map((l) => [l.name, l.unit, l.qty])).toEqual([
+      ['Eisen', 'je Kübel', null],
+      ['Bier', 'je Maß', 12],
+    ]);
   });
 
   it('liest die Einheit in einer Preisliste mit', () => {
@@ -193,6 +212,31 @@ describe('Läden ohne Grenzen', () => {
     const market = { ...shop, market: true, demand: [{ id: 'd', text: 'Salz', factor: 2 }] };
     expect(sellPrice(market, salt)).toBe(0.1);
     expect(sellPrice(market, sword)).toBe(7.5);
+  });
+
+  it('nimmt mit der Eingabetaste den Namen oder Handelsübliches – keinen Ort, nur weil er so anfängt', async () => {
+    const { db, data, sword } = await setup();
+    db.put('entities', createEntity({ kind: 'place', name: 'Salzgrotte' }));
+    expect(enterWare(wareGroups(data(), 'Salzg'), 'Salzg')).toBeNull();
+    expect(enterWare(wareGroups(data(), 'Salzgrotte'), 'Salzgrotte')?.name).toBe('Salzgrotte');
+    expect(enterWare(wareGroups(data(), 'Lang'), 'Lang')?.entityId).toBe(sword.id);
+    expect(enterWare(wareGroups(data(), 'mast'), 'mast')?.name).toBe('Mastiff');
+    expect(enterWare(wareGroups(data(), ''), '')).toBeNull();
+  });
+
+  it('legt nie einen zweiten Eintrag gleichen Namens an – auch nicht aus der Ware-Wahl', async () => {
+    const { db, data, sword, mastiff } = await setup();
+    expect(wareNamed(data(), 'langschwert')?.entityId).toBe(sword.id);
+    expect(wareNamed(data(), 'Mastiff')?.creatureId).toBe(mastiff.id);
+    expect(wareNamed(data(), 'Hufnagel')).toBeNull();
+    const same = wareItem(db, 'Langschwert');
+    expect(same).toMatchObject({ entityId: sword.id, created: false });
+    const count = Object.keys(data().entities).length;
+    const made = wareItem(db, '  Hufnagel ');
+    expect(made).toMatchObject({ name: 'Hufnagel', created: true });
+    expect(data().entities[made!.entityId!]).toMatchObject({ kind: 'item', name: 'Hufnagel' });
+    expect(Object.keys(data().entities)).toHaveLength(count + 1);
+    expect(wareItem(db, 'Hufnagel')).toMatchObject({ entityId: made!.entityId, created: false });
   });
 
   it('nennt den Abschnitt am Tisch nach dem, was dort steht', () => {

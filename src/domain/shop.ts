@@ -20,9 +20,9 @@ import {
   searchEntities,
 } from './derive';
 import { formatGold } from './loot';
-import { buyShare, demandOf, demandThingOf, plainWord } from './market';
+import { buyShare, demandOf, demandThingOf, isBeastType, plainWord } from './market';
 import { isNature, natureHere, natureOf, type NatureKind } from './nature';
-import { isTradeKind, roundGold, TRADE_KINDS } from './priceList';
+import { isTradeKind, nameKey, roundGold, TRADE_KINDS } from './priceList';
 import { srdForShopKind, srdItem, srdMatch, srdSearch, type SrdItem } from './srd/lookup';
 import {
   newId,
@@ -141,7 +141,7 @@ export function readUnit(text: string): string {
     .replace(/^(?:\/|je\s|pro\s|per\s|das\s|die\s|der\s|each\s)\s*/i, '')
     .trim();
   if (!word || /^(stuck|stück|stk\.?)$/i.test(word)) return '';
-  return `je ${word}`;
+  return `je ${word.charAt(0).toUpperCase()}${word.slice(1)}`;
 }
 
 /** Das Maß einer Einheit: „je Pfund“ → „Pfund“. */
@@ -151,13 +151,27 @@ export const unitMeasure = (unit: string): string => unit.replace(/^je\s+/i, '')
 export const priceWithUnit = (gold: number, unit: string): string =>
   unit.trim() ? `${formatPrice(gold)} ${unit.trim()}` : formatPrice(gold);
 
+/** Maße, die nach einer Zahl in die Mehrzahl gehen und nicht auf -e enden: „3 Tage“. */
+const MEASURE_PLURAL: Record<string, string> = { Tag: 'Tage', Nacht: 'Nächte', Monat: 'Monate' };
+
 /**
- * Eine Menge einer Ware in Worten: „3 Pfund Salz“ (Maße bleiben nach Zahlen in der Einzahl,
- * wie „drei Sack Mehl“), ohne Einheit „3× Seil“, eins ohne Einheit nur der Name.
+ * Ein Maß nach einer Zahl: Pfund, Sack, Fass, Ballen bleiben in der Einzahl („drei Sack Mehl“),
+ * Maße auf -e gehen in die Mehrzahl („zwei Kisten“, „drei Ellen“), dazu „Tage“ und „Nächte“.
+ */
+function measureAfter(qty: number, measure: string): string {
+  if (qty === 1 || measure.includes(' ')) return measure;
+  const plural = MEASURE_PLURAL[measure];
+  if (plural) return plural;
+  return /[^e]e$/.test(measure) ? `${measure}n` : measure;
+}
+
+/**
+ * Eine Menge einer Ware in Worten: „20 Pfund Salz“, „2 Kisten Äpfel“ (`measureAfter`), ohne
+ * Einheit „3× Seil“, eins ohne Einheit nur der Name.
  */
 export function amountText(qty: number, text: string, unit = ''): string {
   const measure = unitMeasure(unit);
-  if (measure) return `${qty.toLocaleString('de-DE')} ${measure} ${text}`;
+  if (measure) return `${qty.toLocaleString('de-DE')} ${measureAfter(qty, measure)} ${text}`;
   return qty > 1 ? `${qty}× ${text}` : text;
 }
 
@@ -874,9 +888,7 @@ export function creatureSuggestions(data: CampaignData, shop: Shop): CreatureSug
   const have = new Set(shop.stock.map((line) => line.creatureId).filter(Boolean));
   return Object.values(data.creatures)
     .filter((creature) => !have.has(creature.id))
-    .filter((creature) =>
-      /\b(tier|tiere|beast|bestie)\b/.test(plainWord(creatureCategory(data, creature.id))),
-    )
+    .filter((creature) => isBeastType(creatureCategory(data, creature.id)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
     .map((creature) => {
       const rule = srdMatch(creature.name);
@@ -905,6 +917,8 @@ export interface WareOption {
 export interface WareGroup {
   label: string;
   options: WareOption[];
+  /** Was man gewöhnlich handelt (Gegenstände, Tiere, Pflanzen, Gesteine, Wesen) – nicht die übrigen Einträge. */
+  common: boolean;
 }
 
 /** Die Reihenfolge der Gruppen: was man gewöhnlich verkauft, zuerst. */
@@ -942,7 +956,7 @@ export function wareGroups(
       .filter((e) => e.kind === kind)
       .slice(0, limit)
       .map(option);
-    if (options.length) groups.push({ label: KIND_LABEL_PLURAL[kind], options });
+    if (options.length) groups.push({ label: KIND_LABEL_PLURAL[kind], options, common: true });
   }
   const creatures = Object.values(data.creatures)
     .filter((c) => !skip.has(c.id) && (!q || normalize(c.name).includes(q)))
@@ -960,13 +974,47 @@ export function wareGroups(
       sub: creatureCategory(data, creature.id),
       price: srdMatch(creature.name)?.price ?? null,
     }));
-  if (creatures.length) groups.push({ label: 'Wesen des Bestiariums', options: creatures });
+  if (creatures.length)
+    groups.push({ label: 'Wesen des Bestiariums', options: creatures, common: true });
   const rest = found
     .filter((e) => !WARE_KIND_ORDER.includes(e.kind))
     .slice(0, limit)
     .map(option);
-  if (rest.length) groups.push({ label: 'Weitere Einträge der Welt', options: rest });
+  if (rest.length)
+    groups.push({ label: 'Weitere Einträge der Welt', options: rest, common: false });
   return groups;
+}
+
+/**
+ * Was die Eingabetaste in der Wahl nimmt: die Ware genau dieses Namens, sonst die erste, die man
+ * gewöhnlich handelt – nie von selbst einen Ort oder eine Person, nur weil der Name anfängt wie
+ * das Getippte („Salz“ ist nicht „Salzgrotte“). null = keine; dann bleibt das Getippte in Worten.
+ */
+export function enterWare(groups: readonly WareGroup[], query: string): WareOption | null {
+  const key = nameKey(query);
+  if (!key) return null;
+  const exact = groups.flatMap((g) => g.options).find((o) => nameKey(o.name) === key);
+  return exact ?? groups.find((g) => g.common)?.options[0] ?? null;
+}
+
+/**
+ * Gibt es schon etwas dieses Namens – ein Eintrag der Welt jeder Art (auch unter zweitem Namen)
+ * oder ein Wesen des Bestiariums? Dann wird kein zweiter Eintrag gleichen Namens angelegt.
+ */
+export function wareNamed(
+  data: Pick<CampaignData, 'entities' | 'creatures'>,
+  name: string,
+): { entityId: string | null; creatureId: string | null; name: string } | null {
+  const key = nameKey(name);
+  if (!key) return null;
+  const same = Object.values(data.entities).filter((entity) =>
+    [entity.name, ...entity.aliases].some((n) => nameKey(n) === key),
+  );
+  const entity =
+    same.find((e) => e.kind === 'item') ?? same.find((e) => isTradeKind(e.kind)) ?? same[0];
+  if (entity) return { entityId: entity.id, creatureId: null, name: entity.name };
+  const creature = Object.values(data.creatures).find((c) => nameKey(c.name) === key);
+  return creature ? { entityId: null, creatureId: creature.id, name: creature.name } : null;
 }
 
 /** Der Eintrag mit neuem Listenpreis – bei Gegenständen, Pflanzen, Tieren und Gesteinen. */

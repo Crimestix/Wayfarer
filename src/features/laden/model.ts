@@ -5,8 +5,10 @@
 import type { CampaignData, Entity, Rarity, ShopDemand, TradeDirection } from '../../domain/schema';
 import {
   auctionBid,
+  buyShareOf,
   demandOf,
   demandThingOf,
+  isBeastType,
   isWideRarity,
   rarityOf,
   type AuctionBid,
@@ -148,10 +150,12 @@ export function addCreature(
   const creature = data.creatures[creatureId];
   if (!creature) return [...basket];
   const worth = srdMatch(creature.name)?.price ?? null;
-  const thing = { name: creature.name, category: creatureCategory(data, creatureId) };
+  const category = creatureCategory(data, creatureId);
+  const thing = { name: creature.name, category };
+  // Beim Verkauf wie ein Eintrag der Welt: Ein Tier ist auf einem Handelsplatz Vieh – ein Handelsgut.
   const share =
     direction === 'sell'
-      ? (shop?.buyFactor ?? 0.5) * (demandOf(shop, thing)?.factor ?? 1)
+      ? buyShareOf(shop, thing, isBeastType(category))
       : (shop?.priceFactor ?? 1);
   return put(basket, {
     key: `creature:${creature.id}`,

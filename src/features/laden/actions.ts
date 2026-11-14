@@ -13,6 +13,7 @@ import {
   stockLine,
   stockRuleItem,
   stockedRuleIds,
+  wareNamed,
   withListPrice,
   type TradeInput,
 } from '../../domain/shop';
@@ -78,6 +79,28 @@ export function addStockLines(
   }
   if (added) db.patch('shops', shopId, { stock: next });
   return added;
+}
+
+/**
+ * „Als Gegenstand anlegen“ aus der Ware-Wahl: Gibt es schon etwas dieses Namens (ein Eintrag
+ * jeder Art, auch unter zweitem Namen, oder ein Wesen), wird es genommen – nie ein zweiter
+ * Eintrag gleichen Namens. Sonst entsteht ein Gegenstand, der seinen Artikel gleichen Namens
+ * findet (`linkTwins`). Gibt zurück, was gewählt ist; `created` = neu angelegt.
+ */
+export function wareItem(
+  db: CampaignDb,
+  name: string,
+): { entityId: string | null; creatureId: string | null; name: string; created: boolean } | null {
+  const clean = name.replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  const found = wareNamed(db.getSnapshot(), clean);
+  if (found) return { ...found, created: false };
+  let entityId = '';
+  db.batch(() => {
+    entityId = db.put('entities', createEntity({ kind: 'item', name: clean })).id;
+    linkTwins(db);
+  });
+  return { entityId, creatureId: null, name: clean, created: true };
 }
 
 /**

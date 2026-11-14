@@ -4,7 +4,7 @@
  * wird beim Verlassen eines Feldes. Übernommen wird eine Vorlage im Laden unter „Liste
  * vorschlagen“ – Zeile für Zeile, angekreuzt.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { parsePriceLines } from '../../domain/priceList';
@@ -53,6 +53,8 @@ export function TemplatesDialog({
       open
       onClose={onClose}
       width={820}
+      // Geschrieben wird beim Verlassen eines Feldes und beim Schließen – nichts geht verloren.
+      guard={false}
       title="Vorlagen für Ladenarten"
       footer={
         <Button variant="primary" onClick={onClose}>
@@ -103,6 +105,20 @@ function TemplateEditor({ template, onRemove }: { template: ShopTemplate; onRemo
   const [kind, setKind] = useState(template.kind);
   const [text, setText] = useState(template.text);
   const reading = useMemo(() => parsePriceLines(text), [text]);
+  // Was gerade in den Feldern steht – damit es auch beim Schließen (Escape) geschrieben wird.
+  const typed = useRef({ kind: template.kind, text: template.text });
+  useEffect(
+    () => () => {
+      const now = db.getSnapshot().assortments[template.id];
+      if (!now) return;
+      const change: { kind?: string; text?: string } = {};
+      if (typed.current.kind.trim() !== now.kind) change.kind = typed.current.kind.trim();
+      if (typed.current.text !== now.text) change.text = typed.current.text;
+      if (change.kind !== undefined || change.text !== undefined)
+        patchShopTemplate(db, template.id, change);
+    },
+    [db, template.id],
+  );
   return (
     <div className="wf-laden-templates__edit">
       <Field
@@ -113,7 +129,10 @@ function TemplateEditor({ template, onRemove }: { template: ShopTemplate; onRemo
           data-autofocus
           value={kind}
           placeholder="Schmiede"
-          onChange={(event) => setKind(event.target.value)}
+          onChange={(event) => {
+            setKind(event.target.value);
+            typed.current.kind = event.target.value;
+          }}
           onBlur={() => {
             if (kind.trim() !== template.kind)
               patchShopTemplate(db, template.id, { kind: kind.trim() });
@@ -130,7 +149,10 @@ function TemplateEditor({ template, onRemove }: { template: ShopTemplate; onRemo
           placeholder={
             '## Waffen\nLangschwert\nPfeile (20): 1 GM\n## Handelsgüter\nEisen: 1 SM je Pfund'
           }
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            typed.current.text = event.target.value;
+          }}
           onBlur={() => {
             if (text !== template.text) patchShopTemplate(db, template.id, { text });
           }}

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createEntity, createShop, type ShopStock } from '../../domain/schema';
+import { createCreature, createEntity, createShop, type ShopStock } from '../../domain/schema';
 import type { Sellable, StockRow } from '../../domain/shop';
 import { srdItem } from '../../domain/srd/lookup';
 import {
+  addCreature,
   addEntity,
   addFree,
   addRow,
@@ -140,6 +141,19 @@ describe('Der Korb', () => {
     expect(auctionFor(line!, six)).toMatchObject({ bid: 600, wide: false });
     expect(auctionFor({ ...line!, rarity: 'rare' }, six)).toMatchObject({ bid: 700, wide: true });
     expect(auctionFor({ ...line!, worth: null, price: null }, six)).toBeNull();
+  });
+
+  it('zahlt für ein Tier des Bestiariums auf einem Handelsplatz den vollen Wert – wie für Vieh der Welt', () => {
+    const mastiff = createCreature({ name: 'Mastiff', block: { type: 'Tier' } });
+    const ghoul = createCreature({ name: 'Grubenschleicher', block: { type: 'Untoter' } });
+    const data = { creatures: { [mastiff.id]: mastiff, [ghoul.id]: ghoul } };
+    const shop = createShop({ buyFactor: 0.5 });
+    const market = createShop({ buyFactor: 0.5, market: true });
+    expect(addCreature([], data, mastiff.id, shop, 'sell')[0]!.price).toBe(12.5);
+    expect(addCreature([], data, mastiff.id, market, 'sell')[0]!.price).toBe(25);
+    expect(addCreature([], data, mastiff.id, market, 'buy')[0]!.price).toBe(25);
+    // Ohne Preis im Regelwerk bleibt er offen – der Spielleiter nennt ihn.
+    expect(addCreature([], data, ghoul.id, market, 'sell')[0]!.price).toBeNull();
   });
 });
 

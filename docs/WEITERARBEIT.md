@@ -1617,6 +1617,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   („je Pfund“) und getippte Mengen; Handelsplätze mit „Gesucht“/„Nicht gefragt“ und Versteigern
   (4 W6 um den Wert). Offen: Das SRD 5.2.1 hat keine Tabelle der Handelsgüter (nur die Regel,
   dass sie ihren Wert behalten) – daher keine im Nachschlagewerk; Vorlagen verweisen über Namen.
+- **Gegengelesen: Läden ohne Grenzen.** Einheiten behalten Umlaute („je Kübel“) und stehen nach
+  Zahlen richtig („2 Kisten“, „4 Tage“); „Gesucht: Salz“ trifft keine Salzdistel mehr; die
+  Eingabetaste der Ware-Wahl nimmt keinen Ort, nur weil sein Name so anfängt; „als Gegenstand
+  anlegen“ legt keinen zweiten Eintrag gleichen Namens an; Vorlagen werden auch beim Schließen
+  mit Escape geschrieben; Tiere des Bestiariums gelten auf Handelsplätzen als Handelsgut; Zeilen
+  des Bestands haben mehr Platz für den Namen (Verschieben und Anlegen im Menü „Mehr“).
 
 ## 6. Bekannte Mängel und Aufräumliste
 
