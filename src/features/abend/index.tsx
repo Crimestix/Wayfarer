@@ -414,6 +414,7 @@ function Scenes({ scenes }: { scenes: PrepScene[] }) {
               onChange={(placeId) => list.set(scene.id, { placeId })}
               kinds={['place']}
               placeholder="Wo? – erscheint dann dort am Spieltisch"
+              create={{ onlyKinds: true }}
             />
           </div>
         </div>

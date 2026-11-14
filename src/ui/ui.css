@@ -722,6 +722,154 @@ button.wf-item:hover,
   font-style: italic;
   font-size: var(--text-sm);
 }
+/* „neu als …“: leiser als ein Treffer – es ist ein Angebot, kein Fund. */
+.wf-picker__new {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-menu-item:hover .wf-picker__new,
+.wf-menu-item[data-active='true'] .wf-picker__new {
+  color: inherit;
+}
+.wf-picker__note,
+.wf-picker__hint {
+  padding: 6px 12px;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+.wf-picker__hint {
+  border-top: 1px solid var(--line-faint);
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+}
+
+/* Anlegen beim Schreiben: das kleine Formular in einer Auswahl */
+.wf-create {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+}
+.wf-create__head,
+.wf-mention__head {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-mention__head {
+  padding: 7px 12px 5px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-mention [role='listbox'] {
+  max-height: 300px;
+  overflow: auto;
+}
+.wf-create__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-2);
+}
+.wf-create__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-create__hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+  line-height: 1.3;
+}
+
+/* Platzhalter: beim Schreiben angelegt, noch zu schreiben – ein leises Wort, kein Warnzeichen */
+.wf-stub {
+  padding: 0 5px;
+  border: 1px dashed var(--line);
+  color: var(--ink-mute);
+  font-family: var(--font-body);
+  font-size: var(--text-2xs);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Namen im geschriebenen Text: eine ruhige Zeile mit Marken */
+.wf-names {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  font-size: var(--text-xs);
+  color: var(--ink-mute);
+}
+.wf-names__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-2);
+}
+.wf-names__label {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.wf-names__chip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px dashed var(--line);
+}
+.wf-names__chip:hover {
+  border-color: var(--line-strong);
+}
+.wf-names__take,
+.wf-names__drop {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+}
+.wf-names__take {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-names__take:hover {
+  color: var(--gold-bright);
+}
+.wf-names__as {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.wf-names__take:hover .wf-names__as {
+  color: inherit;
+}
+.wf-names__drop {
+  padding: 0 4px;
+  border-left: 1px dashed var(--line-faint);
+  color: var(--ink-faint);
+}
+.wf-names__drop:hover {
+  color: var(--ink);
+}
+.wf-names__chip svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
 
 /* ── Leerer Zustand ─────────────────────────────────────────────────────── */
 .wf-empty {

@@ -1,11 +1,10 @@
 /** Mitschrift am Spieltisch: eine Zeile zum Festhalten und darunter der Verlauf der Session. */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { CornerDownLeft, Feather, Play, Trash2, X } from 'lucide-react';
 import { logEntry, startSession } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
-import { KIND_LABEL, placePath } from '../../domain/derive';
-import type { ChronicleEntry, Entity } from '../../domain/schema';
+import type { ChronicleEntry } from '../../domain/schema';
 import {
   Button,
   ChronicleList,
@@ -15,26 +14,17 @@ import {
   Field,
   IconButton,
   KindIcon,
-  MenuItem,
   NameMemory,
   Panel,
-  Popover,
   TextArea,
   toast,
+  useMention,
 } from '../../ui';
 import { deleteRecorded, isFixedKind } from '../chronik/actions';
 import { KIND_NAME, TEXT_KINDS, entryHeadline, freeRefsOf, meaningRefsOf } from '../chronik/model';
 import { reviseEntry } from './commands';
 import { TableRulesButton } from './TableRules';
-import {
-  activeMention,
-  groupByDay,
-  insertMention,
-  journal,
-  keptMentions,
-  mentionSuggestions,
-  type Mention,
-} from './model';
+import { groupByDay, journal, keptMentions, mentionSuggestions, type Mention } from './model';
 
 // ── Eingabezeile mit @-Verweisen ───────────────────────────────────────────
 
@@ -42,8 +32,9 @@ import {
 const drafts = new Map<string, { text: string; mentions: Mention[] }>();
 
 /**
- * Eingabefeld, in dem „@“ Einträge der Weltdatenbank vorschlägt. Der gewählte Name bleibt im Text
- * stehen; `onSubmit` bekommt den Text und die IDs der Einträge, deren Name noch darin steht.
+ * Eingabefeld, in dem „@“ Einträge der Weltdatenbank vorschlägt – und anlegt, was fehlt
+ * (`useMention`). Der gewählte Name bleibt im Text stehen; `onSubmit` bekommt den Text und die
+ * IDs der Einträge, deren Name noch darin steht.
  */
 export function MentionInput({
   onSubmit,
@@ -70,24 +61,24 @@ export function MentionInput({
   // Eine zurückgeholte Zeile: die Schreibmarke ans Ende, ohne gleich Vorschläge zu öffnen.
   const pendingCaret = useRef<number | null>(draft ? draft.text.length : null);
   const [text, setText] = useState(() => draft?.text ?? '');
-  const [caret, setCaret] = useState(0);
   const [mentions, setMentions] = useState<Mention[]>(() => draft?.mentions ?? []);
   useEffect(() => {
     if (!draftKey) return;
     if (text) drafts.set(draftKey, { text, mentions });
     else drafts.delete(draftKey);
   }, [draftKey, text, mentions]);
-  /** Position des „@“, dessen Vorschläge mit Escape weggeklickt wurden. */
-  const [dismissed, setDismissed] = useState<number | null>(null);
-  const [picked, setPicked] = useState(0);
-
-  const range = useMemo(() => activeMention(text, caret), [text, caret]);
-  const suggestions = useMemo(
-    () => (range && range.start !== dismissed ? mentionSuggestions(data, range.query) : []),
-    [data, range, dismissed],
-  );
-  const open = suggestions.length > 0;
-  const active = Math.min(picked, Math.max(0, suggestions.length - 1));
+  // Das „@“: zuerst, wer am Ort der Gruppe ist; mit Suchwort die ganze Welt und „neu als …“.
+  const at = useMention({
+    field,
+    anchor: box,
+    text,
+    setText,
+    options: {},
+    suggest: mentionSuggestions,
+    onPick: (entity) => setMentions((list) => [...list, { id: entity.id, name: entity.name }]),
+    header: (query) =>
+      query.trim() ? 'Verknüpfen mit' : 'Hier am Ort · weitertippen sucht überall',
+  });
   const kept = keptMentions(text, mentions);
   const keptIds = kept.map((m) => m.id);
 
@@ -103,19 +94,6 @@ export function MentionInput({
     }
   }, [text]);
 
-  const closeSuggestions = useCallback(() => setDismissed(range?.start ?? null), [range?.start]);
-
-  const pick = (entity: Entity) => {
-    if (!range) return;
-    const next = insertMention(text, range, entity.name);
-    pendingCaret.current = next.caret;
-    setText(next.text);
-    setCaret(next.caret);
-    setMentions((list) => [...list, { id: entity.id, name: entity.name }]);
-    setPicked(0);
-    field.current?.focus();
-  };
-
   const submit = () => {
     const clean = text.trim();
     if (!clean) return;
@@ -124,9 +102,7 @@ export function MentionInput({
       kept.map((m) => m.id),
     );
     setText('');
-    setCaret(0);
     setMentions([]);
-    setDismissed(null);
     field.current?.focus();
   };
 
@@ -141,31 +117,18 @@ export function MentionInput({
           className="wf-tisch-composer__field"
           aria-label={label}
           aria-autocomplete="list"
-          aria-expanded={open}
+          aria-expanded={at.open}
           placeholder={placeholder}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
-            setCaret(e.target.selectionStart);
-            setPicked(0);
-            setDismissed((at) => (at !== null && e.target.value[at] === '@' ? at : null));
+            at.track(e.target, true);
           }}
-          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+          onSelect={(e) => at.track(e.currentTarget)}
           onKeyDown={(e) => {
             if (e.nativeEvent.isComposing) return;
-            if (open) {
-              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                const step = e.key === 'ArrowDown' ? 1 : -1;
-                setPicked((active + step + suggestions.length) % suggestions.length);
-                return;
-              }
-              if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault();
-                pick(suggestions[active]!);
-                return;
-              }
-            }
+            // Die offene Auswahl nimmt Pfeile und – auf einer markierten Zeile – die Eingabetaste.
+            if (at.onKeyDown(e)) return;
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               submit();
@@ -204,32 +167,7 @@ export function MentionInput({
           })}
         </div>
       )}
-      <Popover open={open} onClose={closeSuggestions} anchor={box} className="wf-tisch-suggest">
-        {/* Die Schreibmarke bleibt im Feld, auch wenn man einen Vorschlag anklickt. */}
-        <div role="listbox" aria-label="Vorschläge" onMouseDown={(e) => e.preventDefault()}>
-          <div className="wf-tisch-suggest__head">
-            {range?.query ? 'Verknüpfen mit' : 'Hier am Ort · weitertippen sucht überall'}
-          </div>
-          {suggestions.map((entity, i) => (
-            <MenuItem
-              key={entity.id}
-              icon={<KindIcon kind={entity.kind} />}
-              active={i === active}
-              onClick={() => pick(entity)}
-            >
-              {entity.name}
-              <span className="wf-mute">
-                {' · '}
-                {entity.kind === 'person' && entity.person.role
-                  ? entity.person.role
-                  : entity.kind === 'place' && entity.place.parentId
-                    ? placePath(data, entity.place.parentId)
-                    : KIND_LABEL[entity.kind]}
-              </span>
-            </MenuItem>
-          ))}
-        </div>
-      </Popover>
+      {at.menu}
     </div>
   );
 }

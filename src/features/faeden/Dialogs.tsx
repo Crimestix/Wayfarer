@@ -9,7 +9,6 @@ import { useData, useDb } from '../../data/hooks';
 import { THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
 import {
   THREAD_STATES,
-  createEntity,
   newId,
   type Thread,
   type ThreadHint,
@@ -57,7 +56,6 @@ export function ThreadDialog({
   const setHint = (id: string, change: Partial<ThreadHint>) =>
     set({ hints: form.hints.map((hint) => (hint.id === id ? { ...hint, ...change } : hint)) });
   const stories = Object.values(data.stories).sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  const place = (name: string) => db.put('entities', createEntity({ kind: 'place', name })).id;
   const remove = async () => {
     if (!thread) return;
     const ok = await confirmDialog({
@@ -106,7 +104,7 @@ export function ThreadDialog({
             value={form.title}
             rows={2}
             autoFocus
-            placeholder="etwa „Wer läutet nachts die Glocke am Markt?“"
+            placeholder="Was will die Gruppe wissen?"
             onChange={(event) => set({ title: event.target.value })}
           />
         </Field>
@@ -144,6 +142,7 @@ export function ThreadDialog({
             value={form.refs}
             onChange={(refs) => set({ refs })}
             placeholder="Person, Ort, Fraktion … verknüpfen"
+            create={{ storyId: form.storyId }}
           />
         </Field>
         <Field label="Was dahintersteckt" hint="Die Antwort – das siehst nur du.">
@@ -169,7 +168,7 @@ export function ThreadDialog({
                 </Checkbox>
                 <Input
                   value={hint.text}
-                  placeholder="etwa „Wachs an der Glockenschnur“"
+                  placeholder="Was die Gruppe findet oder erfährt"
                   aria-label="Hinweis"
                   onChange={(event) => setHint(hint.id, { text: event.target.value })}
                 />
@@ -178,13 +177,14 @@ export function ThreadDialog({
                   onChange={(placeId) => setHint(hint.id, { placeId })}
                   kinds={['place']}
                   placeholder="Wo?"
-                  onCreate={place}
+                  create={{ storyId: form.storyId, onlyKinds: true }}
                 />
                 <EntityPicker
                   value={hint.sourceId}
                   onChange={(sourceId) => setHint(hint.id, { sourceId })}
                   kinds={['person', 'faction']}
                   placeholder="Wer weiß es?"
+                  create={{ storyId: form.storyId }}
                 />
                 <IconButton
                   size="sm"

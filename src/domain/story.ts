@@ -98,6 +98,39 @@ export function storyNodes(data: StoryData, story: Story): string[] {
   );
 }
 
+/**
+ * Was auf dem Blatt einer Geschichte geschrieben steht – jedes Feld für sich: worum es geht, was
+ * auf dem Spiel steht, die Schritte ihrer Uhr, Fragen mit Antwort und Hinweisen, Einstiege,
+ * Szenen, Ende, Belohnung, Merkzettel. Daraus liest `writtenNames`, wer im Text genannt ist.
+ */
+export function storyTexts(data: StoryData, story: Story): string[] {
+  const clock = story.clockId ? data.clocks[story.clockId] : undefined;
+  return [
+    story.summary,
+    story.stakes,
+    ...(clock?.steps ?? []).map((step) => step.text),
+    ...threadsOf(data, story.id).flatMap((thread) => [
+      thread.title,
+      thread.truth,
+      ...thread.hints.map((hint) => hint.text),
+    ]),
+    ...story.entries.map((entry) => entry.text),
+    ...story.scenes.map((scene) => scene.text),
+    ...story.heroes.map((hero) => hero.why),
+    story.ending,
+    story.reward,
+    story.memo,
+  ].filter((text) => text.trim() !== '');
+}
+
+/**
+ * Wer auf dem Blatt schon dazugehört: alles, woran die Geschichte hängt (`storyNodes`), und die
+ * Orte ihrer Szenen.
+ */
+export function storyAttached(data: StoryData, story: Story): string[] {
+  return unique([...storyNodes(data, story), ...story.scenes.map((scene) => scene.placeId)], data);
+}
+
 /** Wo etwas ist: ein Ort selbst, eine Person dort, wo sie sich aufhält oder wohnt. */
 export function whereOf(data: StoryData, id: string): string | null {
   const entity = data.entities[id];

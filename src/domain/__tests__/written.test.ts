@@ -83,6 +83,15 @@ describe('Noch unbekannt', () => {
     ]);
   });
 
+  it('hält das Wort am Satzanfang nicht für einen Teil des Namens', () => {
+    expect(
+      unknown(['Wenn Ilka Sturmfels schweigt, verliert das Dorf die Furt an Brann Eichwald.']),
+    ).toEqual(['Ilka Sturmfels']);
+    expect(unknown(['Falls Ilka Sturmfels schweigt, ist alles verloren.'])).toEqual([
+      'Ilka Sturmfels',
+    ]);
+  });
+
   it('findet einen Namen nach „namens“ schon beim ersten Mal', () => {
     expect(unknown(['Ein Fährmann namens Lando setzt nachts über.'])).toEqual(['Lando']);
   });

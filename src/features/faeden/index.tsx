@@ -905,6 +905,7 @@ function Side({
               kinds={['person', 'place', 'faction', 'family', 'item']}
               exclude={card.nodes}
               placeholder="Person, Ort oder Fraktion anheften …"
+              create={{ storyId: card.story?.id ?? null }}
             />
           )}
         </section>

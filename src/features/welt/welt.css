@@ -2941,6 +2941,47 @@ button.wf-welt-gaps__count:hover {
   font-size: var(--text-sm);
   font-style: italic;
 }
+/* Platzhalter: Art und der eine Satz – und aus welcher Geschichte */
+.wf-welt-gaps__stubline {
+  min-width: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-gaps__from {
+  flex: none;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-welt-gaps__from:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-hero__stub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-2);
+  margin-top: var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-hero__stub a {
+  color: var(--ink-soft);
+}
+.wf-welt-hero__stub a:hover,
+.wf-welt-hero__stubdone:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-hero__stubdone {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
 .wf-welt-gaps__spots {
   margin: 0 0 var(--s-3);
   padding: 0 0 0 28px;

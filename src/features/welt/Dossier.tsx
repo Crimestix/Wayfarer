@@ -1,11 +1,12 @@
 /** Dossier eines Eintrags: Kopf mit dem Wichtigsten, darunter die Reiter. */
 import { useState, type CSSProperties } from 'react';
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { BookOpen, EyeOff, Feather, Footprints, Pencil, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, attitudeHistory, attitudeToParty, chronicleFor } from '../../domain/derive';
 import { RULES_ATTITUDE_LABEL, attitudeLevel } from '../../domain/relations';
 import { PARTY_ID, type Faction, type Person } from '../../domain/schema';
+import { isStub } from '../../domain/stub';
 import { formatRelative } from '../../domain/time/calendar';
 import { openAttitude, openQuickLog } from '../../shell/commands';
 import {
@@ -29,6 +30,7 @@ import { createArticleOfKind } from '../wiki/actions';
 import { flushEdits } from '../wiki/editing';
 import { scaffoldOf } from '../wiki/scaffold';
 import { deleteEntityUndoable } from './actions';
+import { finishStub } from './writing';
 import { openEntityDialog } from './editor';
 import {
   deletionImpact,
@@ -64,6 +66,16 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   const localArticle =
     entity.lk && data.articles[entity.lk.resourceId] ? entity.lk.resourceId : null;
   const log = () => openQuickLog({ refs: [entity.id] });
+  /** Beim Schreiben einer Geschichte angelegt und noch ohne eigenen Text. */
+  const stub = isStub(data, entity);
+  const fromStory = stub && entity.fromStoryId ? data.stories[entity.fromStoryId] : undefined;
+  const finish = () => {
+    const undo = finishStub(db, entity.id);
+    toast({
+      title: `„${entity.name}“ ist kein Platzhalter mehr`,
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
   /** Ein neuer Artikel bekommt das Steckbrief-Gerüst seiner Art – abwählbar. */
   const [withScaffold, setWithScaffold] = useState(true);
   const scaffold = scaffoldOf(data.campaign, entity.kind);
@@ -133,6 +145,27 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
           </h1>
           {entity.aliases.length > 0 && (
             <div className="wf-welt-hero__alias">auch: {entity.aliases.join(', ')}</div>
+          )}
+          {stub && (
+            <div
+              className="wf-welt-hero__stub"
+              title="Beim Schreiben angelegt. Sobald hier Notizen oder ein Text stehen, gilt der Eintrag von selbst als fertig."
+            >
+              <span className="wf-stub">Platzhalter</span>
+              <span>
+                {fromStory ? (
+                  <>
+                    aus <Link href={`/geschichte/${fromStory.id}`}>„{fromStory.title}“</Link>
+                  </>
+                ) : (
+                  'beim Schreiben angelegt'
+                )}{' '}
+                – noch zu schreiben
+              </span>
+              <button type="button" className="wf-welt-hero__stubdone" onClick={finish}>
+                Fertig – kein Platzhalter mehr
+              </button>
+            </div>
           )}
         </div>
         <div className="wf-welt-hero__more">

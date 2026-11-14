@@ -4,9 +4,96 @@
  * Listen zum Schreiben und der Rat am Rand, was noch leer ist. Geschrieben wird beim Verlassen
  * eines Feldes – ein „Speichern“ gibt es auf einem Blatt nicht.
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Circle } from 'lucide-react';
+import { Input, TextArea } from './components';
+import { useMention, type MentionOptions } from './mention';
 import './sheet.css';
+
+/**
+ * Ein Textfeld, das beim Verlassen schreibt – und nur, wenn sich etwas geändert hat. Für Blätter,
+ * auf denen es kein „Speichern“ gibt. Mit `rows` ein mehrzeiliges Feld. Mit `mention` schlägt „@“
+ * Einträge der Welt vor und legt Fehlendes an; der Name steht danach als gewöhnlicher Text da.
+ */
+export function Written({
+  value,
+  onSave,
+  rows,
+  placeholder,
+  label,
+  className,
+  list,
+  mention,
+}: {
+  value: string;
+  onSave: (text: string) => void;
+  rows?: number;
+  placeholder?: string;
+  /** Wofür das Feld ist – für Vorleseprogramme. */
+  label: string;
+  className?: string;
+  /** Vorschläge zum Auswählen (`<datalist>`), nur einzeilig. */
+  list?: string;
+  /** „@“ im Text: Einträge erwähnen und anlegen (`useMention`). */
+  mention?: MentionOptions | undefined;
+}) {
+  const [text, setText] = useState(value);
+  // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
+  useEffect(() => setText(value), [value]);
+  const input = useRef<HTMLInputElement>(null);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const at = useMention({ field: rows ? area : input, text, setText, options: mention ?? null });
+  const commit = () => {
+    if (text !== value) onSave(text);
+  };
+  /** Verlassen schreibt – außer der Fokus ist nur in die Auswahl am „@“ gewandert. */
+  const leave = (next: EventTarget | null) => {
+    if (!at.contains(next as Node | null)) commit();
+  };
+  return (
+    <>
+      {rows ? (
+        <TextArea
+          ref={area}
+          className={className}
+          rows={rows}
+          value={text}
+          aria-label={label}
+          placeholder={placeholder}
+          onChange={(event) => {
+            setText(event.target.value);
+            at.track(event.target, true);
+          }}
+          onSelect={(event) => at.track(event.currentTarget)}
+          onKeyDown={(event) => {
+            at.onKeyDown(event);
+          }}
+          onBlur={(event) => leave(event.relatedTarget)}
+        />
+      ) : (
+        <Input
+          ref={input}
+          className={className}
+          value={text}
+          list={list}
+          aria-label={label}
+          placeholder={placeholder}
+          onChange={(event) => {
+            setText(event.target.value);
+            at.track(event.target, true);
+          }}
+          onSelect={(event) => at.track(event.currentTarget)}
+          onBlur={(event) => leave(event.relatedTarget)}
+          onKeyDown={(event) => {
+            if (at.onKeyDown(event)) return;
+            if (event.key === 'Enter') event.currentTarget.blur();
+          }}
+        />
+      )}
+      {at.menu}
+    </>
+  );
+}
 
 /**
  * Eine Liste zum Schreiben: Getippt wird nur hier; geschrieben wird beim Verlassen eines Feldes

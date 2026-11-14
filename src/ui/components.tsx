@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type InputHTMLAttributes,
   type ReactNode,
+  type Ref,
   type RefObject,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -239,61 +240,6 @@ export function Checkbox({
   );
 }
 
-/**
- * Ein Textfeld, das beim Verlassen schreibt – und nur, wenn sich etwas geändert hat. Für Blätter,
- * auf denen es kein „Speichern“ gibt. Mit `rows` ein mehrzeiliges Feld.
- */
-export function Written({
-  value,
-  onSave,
-  rows,
-  placeholder,
-  label,
-  className,
-  list,
-}: {
-  value: string;
-  onSave: (text: string) => void;
-  rows?: number;
-  placeholder?: string;
-  /** Wofür das Feld ist – für Vorleseprogramme. */
-  label: string;
-  className?: string;
-  /** Vorschläge zum Auswählen (`<datalist>`), nur einzeilig. */
-  list?: string;
-}) {
-  const [text, setText] = useState(value);
-  // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
-  useEffect(() => setText(value), [value]);
-  const commit = () => {
-    if (text !== value) onSave(text);
-  };
-  return rows ? (
-    <TextArea
-      className={className}
-      rows={rows}
-      value={text}
-      aria-label={label}
-      placeholder={placeholder}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-    />
-  ) : (
-    <Input
-      className={className}
-      value={text}
-      list={list}
-      aria-label={label}
-      placeholder={placeholder}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
-      }}
-    />
-  );
-}
-
 // ── Reiter ─────────────────────────────────────────────────────────────────
 
 export interface TabDef<T extends string> {
@@ -512,15 +458,18 @@ export function MenuItem({
   onClick,
   active,
   disabled,
+  ref,
 }: {
   icon?: ReactNode;
   children: ReactNode;
   onClick: () => void;
   active?: boolean;
   disabled?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       className="wf-menu-item"
       data-active={active}

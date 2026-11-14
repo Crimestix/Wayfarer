@@ -236,6 +236,12 @@ const COMMON_WORDS = new Set(
   ),
 );
 
+/** Wörter, mit denen ein Satz beginnt, ohne dass sie ein Name wären – sie stehen dort groß. */
+for (const word of 'und oder denn falls sobald solange bevor bis seit seitdem obwohl damit darum deshalb deswegen trotzdem dennoch jedoch vielleicht jetzt nun also zwar wer was wo wie warum wann wohin woher dabei dazu davon dafür dagegen darauf daraus darin bald immer nie oft kaum fast wieder zugleich zuletzt endlich plötzlich inzwischen seither bisher allerdings außer statt ohne mit bei nach vor von aus für durch gegen über unter hinter neben zwischen'.split(
+  ' ',
+))
+  COMMON_WORDS.add(word);
+
 /** Endungen deutscher Hauptwörter, die kein Name trägt. */
 const NOUN_END =
   /(?:ung|ungen|heit|heiten|keit|keiten|schaft|schaften|tion|tionen|tät|täten|nis|nisse|tum|tümer|chen|lein|ismus|ment|ling|linge|isse|ierung|erei|ität|tik|sik|gik|fik|mik)$/u;
@@ -325,7 +331,9 @@ export function unknownNames(
     if (word.length < 3 || fold.length < 3) return false;
     if (word === word.toLocaleUpperCase('de')) return false; // „HALT“, „DC“
     if (!/^\p{Lu}\p{Ll}/u.test(word)) return false;
-    if (COMMON_WORDS.has(fold) || NOUN_END.test(fold)) return false;
+    // Auch wie geschrieben: Gefaltet verliert „wenn“ ein n und stünde nicht mehr in der Liste.
+    if (COMMON_WORDS.has(fold) || COMMON_WORDS.has(word.toLocaleLowerCase('de'))) return false;
+    if (NOUN_END.test(fold)) return false;
     // Öfter kleingeschrieben als groß: ein gewöhnliches Wort am Satzanfang.
     const written = foldName(word);
     if (nouns.has(fold) || nouns.has(written)) return false;

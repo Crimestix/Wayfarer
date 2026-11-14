@@ -9,6 +9,7 @@ import { ChevronRight, FilePlus2, Feather } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import type { Article, Entity, EntityKind } from '../../domain/schema';
+import { stubRows, type StubRow } from '../../domain/stub';
 import { Button, KindIcon, cx } from '../../ui';
 import { openForWriting } from '../wiki';
 import { NewArticleDialog } from '../wiki/ArticleTools';
@@ -49,8 +50,25 @@ export function useWikiGaps(): WikiGaps {
   return useMemo(() => gapsOf({ articles, entities }), [articles, entities]);
 }
 
-/** Die Zahl für „Noch zu schreiben: 12“. */
-export const useGapCount = (): number => gapCount(useWikiGaps());
+/** Platzhalter, die beim Schreiben entstanden sind – nach Geschichte. */
+export function useStubRows(): StubRow[] {
+  const { entities, articles, stories } = useData();
+  return useMemo(() => stubRows({ entities, articles, stories }), [entities, articles, stories]);
+}
+
+/** Die Zahl für „Noch zu schreiben: 12“ – Platzhalter zählen mit, jeder Eintrag einmal. */
+export function useGapCount(): number {
+  const gaps = useWikiGaps();
+  const stubs = useStubRows();
+  const counted = new Set(
+    gaps.entries.filter((entry) => entry.count > 0).map((entry) => entry.entity.id),
+  );
+  return gapCount(gaps) + stubs.filter((row) => !counted.has(row.entity.id)).length;
+}
+
+/** Woher ein Platzhalter stammt – in Worten. */
+const stubOrigin = (row: StubRow): string =>
+  row.story ? `aus „${row.story.title}“` : 'beim Schreiben angelegt';
 
 /** Was angelegt werden soll: ein fehlender Titel oder der Artikel zu einem Eintrag. */
 type Creating =
@@ -129,9 +147,13 @@ export function GapsIndex({
   articleId?: string | undefined;
 }) {
   const gaps = useWikiGaps();
+  const stubs = useStubRows();
   const [create, dialog] = useCreate();
-  const mentioned = gaps.entries.filter((entry) => entry.count > 0);
-  if (!gapCount(gaps) && !gaps.orphans.length && !gaps.entries.length)
+  // Ein Platzhalter steht oben bei den Platzhaltern – nicht noch einmal ohne Artikel.
+  const stubIds = new Set(stubs.map((row) => row.entity.id));
+  const entries = gaps.entries.filter((entry) => !stubIds.has(entry.entity.id));
+  const mentioned = entries.filter((entry) => entry.count > 0);
+  if (!gapCount(gaps) && !gaps.orphans.length && !entries.length && !stubs.length)
     return (
       <p className="wf-welt-gaps__none">
         Nichts offen: Jeder Verweis führt zu einem Artikel, und kein Artikel ist auffallend kurz.
@@ -139,6 +161,30 @@ export function GapsIndex({
     );
   return (
     <div className="wf-welt-gaps__index">
+      <IndexGroup
+        label="Platzhalter aus Geschichten"
+        count={stubs.length}
+        more={moreText(stubs.length - INDEX_SHOWN)}
+      >
+        {stubs.slice(0, INDEX_SHOWN).map((row) => (
+          <Link
+            key={row.entity.id}
+            href={`/welt/${row.entity.id}`}
+            className="wf-welt-row"
+            aria-current={row.entity.id === selectedId ? 'page' : undefined}
+          >
+            <span className="wf-welt-row__icon">
+              <KindIcon kind={row.entity.kind} />
+            </span>
+            <span className="wf-welt-row__main">
+              <span className="wf-welt-row__name wf-clamp-1">{row.entity.name}</span>
+              <span className="wf-welt-row__sub wf-clamp-1">
+                {KIND_LABEL[row.entity.kind]} · {stubOrigin(row)}
+              </span>
+            </span>
+          </Link>
+        ))}
+      </IndexGroup>
       <IndexGroup
         label="Fehlt noch"
         count={gaps.missing.length}
@@ -172,11 +218,11 @@ export function GapsIndex({
       </IndexGroup>
       <IndexGroup
         label="Eintrag ohne Artikel"
-        count={gaps.entries.length}
+        count={entries.length}
         more={
           moreText(mentioned.length - INDEX_SHOWN) ??
-          (gaps.entries.length > mentioned.length
-            ? `${mentioned.length ? 'dazu ' : ''}${gaps.entries.length - mentioned.length} nirgends erwähnt`
+          (entries.length > mentioned.length
+            ? `${mentioned.length ? 'dazu ' : ''}${entries.length - mentioned.length} nirgends erwähnt`
             : null)
         }
       >
@@ -345,10 +391,14 @@ function Capped<T>({ items, render }: { items: T[]; render: (item: T) => ReactNo
 /** Rechts auf der Bühne: alles, was noch zu schreiben ist, mit den Stellen. */
 export function GapsView() {
   const gaps = useWikiGaps();
+  const stubs = useStubRows();
   const [create, dialog] = useCreate();
   const [quiet, setQuiet] = useState(false);
-  const mentioned = gaps.entries.filter((entry) => entry.count > 0);
-  const unmentioned = gaps.entries.filter((entry) => entry.count === 0);
+  // Ein Platzhalter steht oben bei den Platzhaltern – nicht noch einmal ohne Artikel.
+  const stubIds = new Set(stubs.map((row) => row.entity.id));
+  const entries = gaps.entries.filter((entry) => !stubIds.has(entry.entity.id));
+  const mentioned = entries.filter((entry) => entry.count > 0);
+  const unmentioned = entries.filter((entry) => entry.count === 0);
   const createMissing = (entry: MissingTitle) =>
     create({
       title: entry.title,
@@ -358,7 +408,11 @@ export function GapsView() {
   const writeFor = (entity: Entity, mentions: GapMention[]) =>
     create({ entity, fromIds: mentions.map((m) => m.articleId) });
   const nothing =
-    !gaps.missing.length && !gaps.entries.length && !gaps.stubs.length && !gaps.orphans.length;
+    !stubs.length &&
+    !gaps.missing.length &&
+    !entries.length &&
+    !gaps.stubs.length &&
+    !gaps.orphans.length;
 
   return (
     <div className="wf-welt-landing wf-welt-gaps">
@@ -376,6 +430,42 @@ export function GapsView() {
           Nichts offen: Jeder Verweis führt zu einem Artikel, jeder Eintrag hat seinen Text, und
           kein Artikel ist auffallend kurz.
         </p>
+      )}
+
+      {stubs.length > 0 && (
+        <Section title="Platzhalter aus Geschichten" count={stubs.length}>
+          <p className="wf-welt-gaps__lead">
+            Beim Schreiben angelegt: ein Name, eine Art, höchstens ein Satz. Sobald du Notizen oder
+            einen Text dazu schreibst, ist es kein Platzhalter mehr.
+          </p>
+          <Capped
+            items={stubs}
+            render={(row) => (
+              <li key={row.entity.id} className="wf-welt-gaps__item">
+                <div className="wf-welt-gaps__line">
+                  <span className="wf-welt-gaps__icon">
+                    <KindIcon kind={row.entity.kind} />
+                  </span>
+                  <Link href={`/welt/${row.entity.id}`} className="wf-welt-gaps__link">
+                    {row.entity.name}
+                  </Link>
+                  <span className="wf-welt-gaps__stubline wf-clamp-1">
+                    {KIND_LABEL[row.entity.kind]}
+                    {row.entity.tagline && ` · ${row.entity.tagline}`}
+                  </span>
+                  <span className="wf-grow" />
+                  {row.story ? (
+                    <Link href={`/geschichte/${row.story.id}`} className="wf-welt-gaps__from">
+                      {stubOrigin(row)}
+                    </Link>
+                  ) : (
+                    <span className="wf-welt-gaps__kind">{stubOrigin(row)}</span>
+                  )}
+                </div>
+              </li>
+            )}
+          />
+        </Section>
       )}
 
       {gaps.missing.length > 0 && (
@@ -418,13 +508,13 @@ export function GapsView() {
         </Section>
       )}
 
-      {gaps.entries.length > 0 && (
-        <Section title="Eintrag ohne Artikel" count={gaps.entries.length}>
+      {entries.length > 0 && (
+        <Section title="Eintrag ohne Artikel" count={entries.length}>
           <p className="wf-welt-gaps__lead">
             Diese Einträge stehen in der Welt, haben aber noch keinen Text. Erwähnte zuerst.
           </p>
           <Capped
-            items={quiet ? gaps.entries : mentioned}
+            items={quiet ? entries : mentioned}
             render={({ entity, count, mentions }) => (
               <GapItem
                 key={entity.id}

@@ -24,6 +24,7 @@ import {
   Input,
   KindIcon,
   Select,
+  StubMark,
   cx,
   toast,
 } from '../../ui';
@@ -255,6 +256,7 @@ export function Sidebar({
       <span className="wf-welt-row__main">
         <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>
         <span className="wf-welt-row__sub wf-clamp-1">
+          <StubMark entity={entity} />{' '}
           {[withKind && KIND_LABEL[entity.kind], entitySubline(data, entity)]
             .filter(Boolean)
             .join(' · ') || entity.tagline}
@@ -297,7 +299,7 @@ export function Sidebar({
           >
             <span className="wf-welt-row__name wf-clamp-1">{place.name}</span>
             <span className="wf-welt-row__sub wf-clamp-1">
-              {place.place.category}
+              <StubMark entity={place} /> {place.place.category}
               {!isOpen && childCount > 0 && ` · ${childCount}`}
             </span>
             {(partyHere || (partyBelow && !isOpen)) && (

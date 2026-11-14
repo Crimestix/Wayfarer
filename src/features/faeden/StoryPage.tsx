@@ -25,7 +25,6 @@ import {
   ENTRY_STANDINGS,
   SCENE_ODDS,
   THREAD_STATES,
-  createEntity,
   newId,
   type EntryStanding,
   type SceneOdds,
@@ -45,6 +44,8 @@ import {
   boardCards,
   heroesOf,
   storyAdvice,
+  storyAttached,
+  storyTexts,
   threadsOf,
   touchReason,
   touches,
@@ -60,6 +61,7 @@ import {
   EntityRefsEditor,
   IconButton,
   Input,
+  NamesHint,
   Select,
   SheetAdvice,
   SheetSection,
@@ -69,10 +71,14 @@ import {
   entityHref,
   toast,
   useDraftList,
+  type MentionOptions,
 } from '../../ui';
 import { newEncounter } from '../bestiarium/encounterActions';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
+  attachToStory,
+  detachFromStory,
+  markNotMeant,
   patchStory,
   patchThread,
   removeStory,
@@ -84,6 +90,25 @@ import {
   type StepInput,
 } from './actions';
 import './faeden.css';
+
+/**
+ * „@“ in den Textfeldern des Blatts: Wer so erwähnt wird, gehört danach zur Geschichte; was es
+ * noch nicht gibt, entsteht als Platzhalter aus dieser Geschichte. Ohne Suchwort stehen zuerst
+ * die da, die schon dazugehören.
+ */
+function useStoryMention(story: Story): MentionOptions {
+  const db = useDb();
+  const data = useData();
+  const near = useMemo(() => storyAttached(data, story), [data, story]);
+  return useMemo(
+    () => ({
+      storyId: story.id,
+      near,
+      onMention: (entityId: string) => attachToStory(db, story.id, entityId),
+    }),
+    [db, story.id, near],
+  );
+}
 
 const SCENE_ODDS_LABEL: Record<SceneOdds, string> = {
   sure: 'kommt sicher',
@@ -137,8 +162,9 @@ function StorySheet({ story }: { story: Story }) {
       .filter((row) => row.other);
   }, [data, story.id]);
   const patch = (change: Parameters<typeof patchStory>[2]) => patchStory(db, story.id, change);
-  const createEntityOf = (kind: 'person' | 'place' | 'faction') => (name: string) =>
-    db.put('entities', createEntity({ kind, name })).id;
+  const mention = useStoryMention(story);
+  const texts = useMemo(() => storyTexts(data, story), [data, story]);
+  const attached = useMemo(() => storyAttached(data, story), [data, story]);
 
   const remove = async () => {
     const ok = await confirmDialog({
@@ -174,7 +200,8 @@ function StorySheet({ story }: { story: Story }) {
             label="Worum es geht"
             rows={3}
             value={story.summary}
-            placeholder="Die Aalfischer wollen den Zoll am Hafen an sich reißen …"
+            placeholder="Wer will was? Mit @ erwähnst du jemanden – oder legst ihn gleich an."
+            mention={mention}
             onSave={(summary) => patch({ summary })}
           />
           <div className="wf-sheet__pair">
@@ -183,8 +210,8 @@ function StorySheet({ story }: { story: Story }) {
               value={story.ownerId}
               onChange={(ownerId) => patch({ ownerId })}
               kinds={['person', 'faction', 'family']}
-              placeholder="Person oder Fraktion …"
-              onCreate={createEntityOf('faction')}
+              placeholder="Person, Fraktion oder Familie …"
+              create={{ storyId: story.id }}
             />
           </div>
         </SheetSection>
@@ -197,6 +224,7 @@ function StorySheet({ story }: { story: Story }) {
             label="Was auf dem Spiel steht"
             rows={2}
             value={story.stakes}
+            mention={mention}
             onSave={(stakes) => patch({ stakes })}
           />
         </SheetSection>
@@ -215,6 +243,17 @@ function StorySheet({ story }: { story: Story }) {
             onChange={(refs) => patch({ refs })}
             kinds={['person', 'place', 'faction', 'family', 'item']}
             placeholder="Person, Ort oder Fraktion hinzufügen …"
+            create={{ storyId: story.id }}
+          />
+          <NamesHint
+            texts={texts}
+            attached={attached}
+            ignored={story.notMeant}
+            storyId={story.id}
+            kinds={['person', 'place', 'faction', 'family', 'item']}
+            onAdd={(entityId) => attachToStory(db, story.id, entityId)}
+            onRemove={(entityId) => detachFromStory(db, story.id, entityId)}
+            onIgnore={(key) => markNotMeant(db, story.id, key)}
           />
         </SheetSection>
 
@@ -228,6 +267,7 @@ function StorySheet({ story }: { story: Story }) {
             label="Wie es enden kann"
             rows={3}
             value={story.ending}
+            mention={mention}
             onSave={(ending) => patch({ ending })}
           />
           <div className="wf-sheet__pair wf-sheet__pair--top">
@@ -237,6 +277,7 @@ function StorySheet({ story }: { story: Story }) {
               rows={2}
               value={story.reward}
               placeholder="Beute, ein Gefallen, ein Verbündeter, Wissen …"
+              mention={mention}
               onSave={(reward) => patch({ reward })}
             />
           </div>
@@ -254,6 +295,7 @@ function StorySheet({ story }: { story: Story }) {
             label="Merkzettel"
             rows={3}
             value={story.memo}
+            mention={mention}
             onSave={(memo) => patch({ memo })}
           />
         </SheetSection>
@@ -556,14 +598,15 @@ function Threads({ story }: { story: Story }) {
         </p>
       )}
       {threads.map((thread) => (
-        <ThreadBlock key={thread.id} thread={thread} />
+        <ThreadBlock key={thread.id} thread={thread} story={story} />
       ))}
     </SheetSection>
   );
 }
 
-function ThreadBlock({ thread }: { thread: Thread }) {
+function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
   const db = useDb();
+  const mention = useStoryMention(story);
   const patch = (change: Parameters<typeof patchThread>[2]) => patchThread(db, thread.id, change);
   const hints = useDraftList<ThreadHint>(
     thread.hints,
@@ -588,6 +631,7 @@ function ThreadBlock({ thread }: { thread: Thread }) {
           className="wf-faden-frage__title"
           label="Die Frage"
           value={thread.title}
+          mention={mention}
           onSave={(title) => patch({ title })}
         />
         <Select
@@ -611,6 +655,7 @@ function ThreadBlock({ thread }: { thread: Thread }) {
         rows={2}
         value={thread.truth}
         placeholder="Die Antwort – das siehst nur du."
+        mention={mention}
         onSave={(truth) => patch({ truth })}
       />
       <div className="wf-faden-frage__hints">
@@ -638,12 +683,14 @@ function ThreadBlock({ thread }: { thread: Thread }) {
               onChange={(placeId) => hints.set(hint.id, { placeId })}
               kinds={['place']}
               placeholder="Wo?"
+              create={{ storyId: story.id, onlyKinds: true }}
             />
             <EntityPicker
               value={hint.sourceId}
               onChange={(sourceId) => hints.set(hint.id, { sourceId })}
               kinds={['person', 'faction']}
               placeholder="Wer weiß es?"
+              create={{ storyId: story.id }}
             />
             <IconButton
               label="Hinweis entfernen"
@@ -712,6 +759,7 @@ function Entries({ story }: { story: Story }) {
             onChange={(placeId) => list.set(entry.id, { placeId })}
             kinds={['place']}
             placeholder="Wo?"
+            create={{ storyId: story.id, onlyKinds: true }}
           />
           <Select
             value={entry.standing}
@@ -842,6 +890,7 @@ function Scenes({ story }: { story: Story }) {
               onChange={(placeId) => list.set(scene.id, { placeId })}
               kinds={['place']}
               placeholder="Wo? – erscheint dann dort am Spieltisch"
+              create={{ storyId: story.id, onlyKinds: true }}
             />
           </div>
         </div>

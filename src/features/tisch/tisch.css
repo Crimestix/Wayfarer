@@ -1129,16 +1129,6 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-composer__refs .wf-tisch-composer__hint {
   margin-top: 0;
 }
-.wf-tisch-suggest__head {
-  padding: 7px 12px 5px;
-  border-bottom: 1px solid var(--line-faint);
-  font-family: var(--font-caps);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-}
-
 .wf-tisch-journal__log {
   flex: 1 1 auto;
   min-height: 0;

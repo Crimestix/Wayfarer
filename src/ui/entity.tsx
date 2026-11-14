@@ -1,5 +1,5 @@
 /** Bausteine, die Einträge der Weltdatenbank darstellen und auswählen. */
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import {
   Castle,
@@ -23,10 +23,20 @@ import {
 } from 'lucide-react';
 import { useData } from '../data/hooks';
 import { useMediaSrc } from '../data/media';
-import { KIND_LABEL, placePath, searchEntities } from '../domain/derive';
+import { KIND_LABEL, placePath } from '../domain/derive';
+import {
+  enterAction,
+  moveMark,
+  pickRows,
+  rowAction,
+  type EnterAction,
+  type PickRow,
+} from '../domain/pick';
 import { ATTITUDES, attitudeLevel, attitudeToken, RULES_ATTITUDE_LABEL } from '../domain/relations';
 import { PARTY_ID, type Entity, type EntityKind } from '../domain/schema';
+import { isStub } from '../domain/stub';
 import { Input, MenuItem, Popover, cx } from './components';
+import { CreateForm, useWriting, type CreateOptions, type WriteRequest } from './create';
 
 const KIND_ICONS: Record<EntityKind, typeof User> = {
   person: User,
@@ -100,6 +110,20 @@ export function EntityLink({ id, icon = true }: { id: string | null | undefined;
       {icon && <KindIcon kind={entity.kind} />}
       {entity.name}
     </Link>
+  );
+}
+
+/**
+ * Das ruhige Zeichen „Platzhalter“ für Listen: Der Eintrag ist beim Schreiben entstanden und noch
+ * zu schreiben (`isStub`). Sonst steht nichts da.
+ */
+export function StubMark({ entity }: { entity: Entity }) {
+  const data = useData();
+  if (!isStub(data, entity)) return null;
+  return (
+    <span className="wf-stub" title="Beim Schreiben angelegt – noch zu schreiben">
+      Platzhalter
+    </span>
   );
 }
 
@@ -204,10 +228,132 @@ export function AttitudeScale({
 
 // ── Auswahl ────────────────────────────────────────────────────────────────
 
+/**
+ * Die Zeilen einer Auswahl: Treffer, dann „neu als …“. Welche Zeilen dastehen und was die
+ * Eingabetaste tut, entscheidet `domain/pick.ts`; hier wird nur gezeigt.
+ */
+export function PickList({
+  rows,
+  marked,
+  name,
+  value,
+  kinds,
+  detail,
+  onAct,
+}: {
+  rows: readonly PickRow[];
+  /** Die mit den Pfeiltasten markierte Zeile. */
+  marked: number | null;
+  /** Der getippte Name – für „„X“ neu als …“. */
+  name: string;
+  /** Der gewählte Eintrag, wenn es einen gibt. */
+  value?: string | null | undefined;
+  /** Die Arten des Feldes – für den Hinweis, wenn ein Name nicht hineinpasst. */
+  kinds?: readonly EntityKind[] | undefined;
+  /** Zu jedem Treffer sagen, was er ist (beim „@“ im Text). */
+  detail?: boolean | undefined;
+  onAct: (action: EnterAction) => void;
+}) {
+  const data = useData();
+  /** Hält die markierte Zeile im Blick. */
+  const follow = (active: boolean) => (el: HTMLElement | null) => {
+    if (active) el?.scrollIntoView({ block: 'nearest' });
+  };
+  return (
+    <>
+      {rows.map((row, index) => {
+        const active = index === marked;
+        if (row.type === 'party')
+          return (
+            <MenuItem
+              key="party"
+              ref={follow(active)}
+              icon={<Users />}
+              onClick={() => onAct(rowAction(row))}
+              active={active || value === PARTY_ID}
+            >
+              Die Gruppe
+            </MenuItem>
+          );
+        if (row.type === 'entity') {
+          const { entity } = row;
+          const more =
+            entity.kind === 'place' && entity.place.parentId
+              ? placePath(data, entity.place.parentId)
+              : row.foreign || detail
+                ? entity.kind === 'person' && entity.person.role
+                  ? entity.person.role
+                  : KIND_LABEL[entity.kind]
+                : '';
+          return (
+            <MenuItem
+              key={entity.id}
+              ref={follow(active)}
+              icon={<KindIcon kind={entity.kind} />}
+              onClick={() => onAct(rowAction(row))}
+              active={active || entity.id === value}
+            >
+              {entity.name}
+              {more && <span className="wf-mute"> · {more}</span>}
+            </MenuItem>
+          );
+        }
+        if (row.type === 'taken')
+          return (
+            <div key={`taken:${row.entity.id}`} className="wf-picker__note">
+              „{row.entity.name}“ gibt es schon als {KIND_LABEL[row.entity.kind]}.
+              {kinds?.length ? ` Dieses Feld nimmt nur: ${kindNames(kinds)}.` : ''}
+            </div>
+          );
+        if (row.type === 'create')
+          return (
+            <MenuItem
+              key={`create:${row.kind}`}
+              ref={follow(active)}
+              icon={<KindIcon kind={row.kind} />}
+              onClick={() => onAct(rowAction(row))}
+              active={active}
+            >
+              <span className="wf-picker__new">
+                „{name}“ neu als {KIND_LABEL[row.kind]}
+              </span>
+            </MenuItem>
+          );
+        if (row.type === 'more')
+          return (
+            <MenuItem
+              key="more"
+              ref={follow(active)}
+              icon={<Plus />}
+              onClick={() => onAct(rowAction(row))}
+              active={active}
+            >
+              <span className="wf-picker__new">andere Art …</span>
+            </MenuItem>
+          );
+        return (
+          <MenuItem
+            key="legacy"
+            ref={follow(active)}
+            icon={<Plus />}
+            onClick={() => onAct(rowAction(row))}
+            active={active}
+          >
+            „{name}“ neu anlegen
+          </MenuItem>
+        );
+      })}
+    </>
+  );
+}
+
+const kindNames = (kinds: readonly EntityKind[]) =>
+  kinds.map((kind) => KIND_LABEL[kind]).join(', ');
+
 export interface EntityPickerProps {
   value: string | null;
   onChange: (id: string | null) => void;
-  /** Nur diese Arten anbieten. */
+  /** Diese Arten anbieten. Mit `create` heißt das: zuerst – wer genau so heißt, steht trotzdem da. */
   kinds?: EntityKind[];
   placeholder?: string;
   /** „Die Gruppe“ als Auswahl anbieten. */
@@ -216,12 +362,22 @@ export interface EntityPickerProps {
   allowClear?: boolean;
   /** IDs, die nicht angeboten werden. */
   exclude?: string[];
-  /** Erlaubt „Neu anlegen“; bekommt den getippten Namen und gibt die neue ID zurück. */
+  /**
+   * Der alte Weg zu „Neu anlegen“: bekommt den getippten Namen und gibt die neue ID zurück – die
+   * Art legt der Aufrufer fest. Neues nimmt `create`.
+   */
   onCreate?: (name: string) => string;
+  /**
+   * Fehlendes beim Wählen anlegen: Ohne genauen Treffer steht „„X“ neu als Person“ … da – zuerst
+   * die Arten des Feldes, dann jede andere. Es entsteht ein Platzhalter (`addFromWriting`).
+   */
+  create?: CreateOptions | undefined;
   autoFocus?: boolean;
+  /** Beim „Rückgängig“ eines hier angelegten Eintrags: ihn wieder aus dem Feld nehmen. */
+  onRevert?: ((id: string) => void) | undefined;
 }
 
-/** Sucht und wählt einen Eintrag der Weltdatenbank. */
+/** Sucht und wählt einen Eintrag der Weltdatenbank – und legt an, was fehlt. */
 export function EntityPicker({
   value,
   onChange,
@@ -231,27 +387,100 @@ export function EntityPicker({
   allowClear = true,
   exclude,
   onCreate,
+  create,
   autoFocus,
+  onRevert,
 }: EntityPickerProps) {
   const data = useData();
+  const write = useWriting();
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const results = useMemo(
+  /** Die mit den Pfeiltasten markierte Zeile. */
+  const [marked, setMarked] = useState<number | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  /** Das kleine Formular zum Anlegen ist offen – mit dieser Art. */
+  const [form, setForm] = useState<EntityKind | null>(null);
+  const rows = useMemo(
     () =>
       open
-        ? searchEntities(data, query, { kinds, limit: 40 }).filter((e) => !exclude?.includes(e.id))
+        ? pickRows(data, {
+            query,
+            kinds,
+            exclude,
+            allowParty,
+            create: !!create,
+            onlyKinds: create?.onlyKinds,
+            moreOpen,
+            legacy: !!onCreate,
+          })
         : [],
-    [data, query, kinds, exclude, open],
+    [data, query, kinds, exclude, allowParty, create, moreOpen, onCreate, open],
   );
   const selected = value && value !== PARTY_ID ? data.entities[value] : undefined;
-  const pick = (id: string | null) => {
-    onChange(id);
+  const name = query.replace(/\s+/g, ' ').trim();
+
+  // Für „Rückgängig“: Das Feld wird nur zurückgestellt, solange es noch da ist und unverändert.
+  const latest = useRef({ value, onChange, onRevert });
+  latest.current = { value, onChange, onRevert };
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const close = () => {
     setOpen(false);
     setQuery('');
+    setMarked(null);
+    setMoreOpen(false);
+    setForm(null);
+    // Der Fokus bleibt am Feld – sonst stünde er nach der Wahl im Leeren.
+    anchor.current?.focus();
   };
-  const name = query.trim();
-  const exact = results.some((e) => e.name.toLowerCase() === name.toLowerCase());
+  const pick = (id: string | null) => {
+    onChange(id);
+    close();
+  };
+  const act = (action: EnterAction) => {
+    if (action.type === 'pick') pick(action.id);
+    else if (action.type === 'party') pick(PARTY_ID);
+    else if (action.type === 'create') setForm(action.kind);
+    else if (action.type === 'more') setMoreOpen((before) => !before);
+    else if (action.type === 'legacy' && onCreate && name) pick(onCreate(name));
+  };
+  const submit = (request: WriteRequest) => {
+    const before = value;
+    const outcome = write(request, {
+      storyId: create?.storyId,
+      kinds,
+      onlyKinds: create?.onlyKinds,
+      revert: (entity) => {
+        if (!alive.current) return;
+        const now = latest.current;
+        if (now.onRevert) now.onRevert(entity.id);
+        else if (now.value === entity.id) now.onChange(before);
+      },
+    });
+    if (!outcome) return;
+    create?.onCreated?.(outcome.entity);
+    if (outcome.taken) pick(outcome.entity.id);
+    else close();
+  };
+  // Was die Eingabetaste gerade täte – als leiser Hinweis unter der Liste.
+  const onEnter = enterAction(rows, null, query);
+  const hasHits = rows.some((row) => row.type === 'entity');
+  const hint = !name
+    ? ''
+    : onEnter.type === 'create'
+      ? hasHits
+        ? `Eingabetaste legt „${name}“ neu an · ↑ ↓ wählt einen Treffer`
+        : `Eingabetaste legt „${name}“ neu an`
+      : onEnter.type === 'none' && hasHits
+        ? 'Mit ↑ ↓ markieren – die Eingabetaste nimmt nur den genauen Namen.'
+        : '';
 
   return (
     <div className="wf-picker">
@@ -260,7 +489,7 @@ export function EntityPicker({
         type="button"
         className="wf-picker__value"
         autoFocus={autoFocus}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? close() : setOpen(true))}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -290,46 +519,53 @@ export function EntityPicker({
           />
         )}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} width={340}>
-        <Input
-          className="wf-picker__search"
-          autoFocus
-          placeholder="Suchen …"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter') return;
-            e.preventDefault();
-            if (results[0]) pick(results[0].id);
-            else if (onCreate && name) pick(onCreate(name));
-          }}
-        />
-        <div className="wf-picker__list" role="listbox">
-          {allowParty && !query && (
-            <MenuItem icon={<Users />} onClick={() => pick(PARTY_ID)} active={value === PARTY_ID}>
-              Die Gruppe
-            </MenuItem>
-          )}
-          {results.map((entity) => (
-            <MenuItem
-              key={entity.id}
-              icon={<KindIcon kind={entity.kind} />}
-              onClick={() => pick(entity.id)}
-              active={entity.id === value}
-            >
-              {entity.name}
-              {entity.kind === 'place' && entity.place.parentId && (
-                <span className="wf-mute"> · {placePath(data, entity.place.parentId)}</span>
-              )}
-            </MenuItem>
-          ))}
-          {!results.length && !onCreate && <div className="wf-picker__empty">Nichts gefunden.</div>}
-          {onCreate && name && !exact && (
-            <MenuItem icon={<Plus />} onClick={() => pick(onCreate(name))}>
-              „{name}“ neu anlegen
-            </MenuItem>
-          )}
-        </div>
+      <Popover open={open} onClose={close} anchor={anchor} width={340}>
+        {form ? (
+          <CreateForm
+            name={name}
+            kind={form}
+            kinds={kinds}
+            onSubmit={submit}
+            onBack={() => setForm(null)}
+          />
+        ) : (
+          <>
+            <Input
+              className="wf-picker__search"
+              autoFocus
+              placeholder={create ? 'Suchen oder neuen Namen schreiben …' : 'Suchen …'}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setMarked(null);
+                setMoreOpen(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setMarked(moveMark(rows, marked, e.key === 'ArrowDown' ? 1 : -1));
+                  return;
+                }
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                act(enterAction(rows, marked, query));
+              }}
+            />
+            <div className="wf-picker__list" role="listbox">
+              <PickList
+                rows={rows}
+                marked={marked}
+                name={name}
+                value={value}
+                kinds={kinds}
+                onAct={act}
+              />
+              {!rows.length && <div className="wf-picker__empty">Nichts gefunden.</div>}
+            </div>
+            {hint && <div className="wf-picker__hint">{hint}</div>}
+          </>
+        )}
       </Popover>
     </div>
   );
@@ -342,14 +578,19 @@ export function EntityRefsEditor({
   kinds,
   placeholder = 'Eintrag hinzufügen …',
   onCreate,
+  create,
 }: {
   value: string[];
   onChange: (ids: string[]) => void;
   kinds?: EntityKind[];
   placeholder?: string;
   onCreate?: (name: string) => string;
+  /** Fehlendes beim Hinzufügen anlegen – mit Wahl der Art (siehe `EntityPicker`). */
+  create?: CreateOptions | undefined;
 }) {
   const data = useData();
+  const latest = useRef({ value, onChange });
+  latest.current = { value, onChange };
   return (
     <div className="wf-col" style={{ gap: 8 }}>
       {value.length > 0 && (
@@ -374,10 +615,15 @@ export function EntityRefsEditor({
       <EntityPicker
         value={null}
         onChange={(id) => id && onChange([...value, id])}
-        kinds={kinds}
         exclude={value}
         placeholder={placeholder}
-        onCreate={onCreate}
+        create={create}
+        onRevert={(id) => {
+          const now = latest.current;
+          if (now.value.includes(id)) now.onChange(now.value.filter((v) => v !== id));
+        }}
+        {...(kinds ? { kinds } : {})}
+        {...(onCreate ? { onCreate } : {})}
       />
     </div>
   );
@@ -403,7 +649,7 @@ export function EntityRow({
       <Portrait entity={entity} size={38} />
       <span className="wf-item__main">
         <span className="wf-item__name wf-clamp-1" style={{ display: 'block' }}>
-          {entity.name}
+          {entity.name} <StubMark entity={entity} />
         </span>
         <span className="wf-item__sub wf-clamp-1" style={{ display: 'block' }}>
           {sub ?? entity.tagline}

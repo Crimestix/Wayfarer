@@ -4,6 +4,7 @@
  * läuft hier in einem Zug.
  */
 import type { CampaignDb } from '../../data/db';
+import { storyAttached } from '../../domain/story';
 import {
   createClock,
   createStory,
@@ -88,6 +89,7 @@ export type StoryChange = Partial<
     | 'known'
     | 'closed'
     | 'inPlay'
+    | 'notMeant'
   >
 >;
 
@@ -127,6 +129,39 @@ export function patchStory(db: CampaignDb, id: string, change: StoryChange): voi
     if (clock && change.ownerId !== undefined && clock.ownerId === story.ownerId)
       db.patch('clocks', clock.id, { ownerId: change.ownerId });
   });
+}
+
+/**
+ * Nimmt einen Eintrag zu einer Geschichte: Er steht dann unter „Leute und Orte“ – ein Gefährte
+ * unter „Wen es persönlich betrifft“. Gehört er schon dazu (als Antreiber, über einen Hinweis,
+ * einen Einstieg …), geschieht nichts. Gelesen wird der gespeicherte Stand, nicht der gezeigte.
+ */
+export function attachToStory(db: CampaignDb, storyId: string, entityId: string): void {
+  const data = db.getSnapshot();
+  const story = data.stories[storyId];
+  const entity = data.entities[entityId];
+  if (!story || !entity || storyAttached(data, story).includes(entityId)) return;
+  if (entity.kind === 'character') tieHero(db, storyId, entityId);
+  else patchStory(db, storyId, { refs: [...story.refs, entityId] });
+}
+
+/** Nimmt einen Eintrag wieder von einer Geschichte – soweit er nur dazugenommen war. */
+export function detachFromStory(db: CampaignDb, storyId: string, entityId: string): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story) return;
+  if (story.refs.includes(entityId))
+    patchStory(db, storyId, { refs: story.refs.filter((ref) => ref !== entityId) });
+  if (story.heroes.some((hero) => hero.characterId === entityId)) untieHero(db, storyId, entityId);
+}
+
+/**
+ * „Nicht gemeint“: Ein Name aus dem Text des Blatts (die Kennung eines Eintrags oder ein
+ * unbekannter Name) soll dort nicht wieder vorgeschlagen werden.
+ */
+export function markNotMeant(db: CampaignDb, storyId: string, key: string): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story || !key || story.notMeant.includes(key)) return;
+  patchStory(db, storyId, { notMeant: [...story.notMeant, key] });
 }
 
 /**
