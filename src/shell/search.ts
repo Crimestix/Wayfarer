@@ -108,7 +108,7 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
     });
   }
   for (const story of Object.values(data.stories))
-    add(score(q, story.title, story.summary, story.stakes, story.memo), {
+    add(score(q, story.title, story.summary, story.needs, story.stakes, story.memo), {
       key: `story:${story.id}`,
       sort: 'story',
       label: story.title,

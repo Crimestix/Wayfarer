@@ -44,7 +44,7 @@ export function scenesHere(data: CampaignData): SceneHere[] {
   for (const story of Object.values(data.stories)) {
     if (story.closed) continue;
     for (const scene of story.scenes) {
-      if (!scene.placeId || !isNear(data, scene.placeId)) continue;
+      if (scene.done || !scene.placeId || !isNear(data, scene.placeId)) continue;
       const encounter = scene.encounterId ? data.encounters[scene.encounterId] : undefined;
       const text = scene.text.trim() || encounter?.name || '';
       if (!text) continue;

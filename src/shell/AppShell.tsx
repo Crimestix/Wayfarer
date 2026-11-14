@@ -25,6 +25,7 @@ import HandoutsPage from '../features/handouts';
 import OffenPage from '../features/offen';
 import FaedenPage from '../features/faeden';
 import StoryPage from '../features/faeden/StoryPage';
+import { noteLocation } from './trail';
 import GeschehenPage from '../features/geschehen';
 import KartenPage from '../features/karten';
 import ErkundungPage from '../features/erkundung';
@@ -377,6 +378,8 @@ function useShortcuts() {
 export function AppShell() {
   useShortcuts();
   const [location, navigate] = useLocation();
+  // Blätter führen dorthin zurück, woher man kam.
+  noteLocation(location);
   return (
     <div className="wf-app">
       <NavRail />

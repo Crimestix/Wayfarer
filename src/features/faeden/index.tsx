@@ -434,6 +434,7 @@ function Card({
   const data = useData();
   const now = data.state.now;
   const owner = card.story?.ownerId ? data.entities[card.story.ownerId] : undefined;
+  const parent = card.story?.parentId ? data.stories[card.story.parentId] : undefined;
   const repute = owner ? reputeOf(data, owner.id).party : null;
   const lone = card.story ? null : card.threads[0]!;
   const live = card.threads.filter(threadLive);
@@ -467,6 +468,7 @@ function Card({
         )}
       </span>
       <span className="wf-faden-card__title wf-clamp-2">{card.title}</span>
+      {parent && <span className="wf-faden-card__part wf-clamp-1">Teil von {parent.title}</span>}
       {owner && (
         <span className="wf-faden-card__owner">
           <span className="wf-clamp-1">Treibt an: {owner.name}</span>

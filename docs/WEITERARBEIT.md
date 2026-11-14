@@ -1720,6 +1720,28 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „0 von 3“ bei Hinweisen, „0 von 10“ bei Geheimnissen) – das gehört zum Umbau des Blatts.
   Erfundene Beispiele stehen noch in anderen Dialogen (Uhr, Ablauf, Karten, Wege, Läden). Eine
   neue Geschichte heißt „Neue Geschichte“, und der Name ist beim ersten Klick nicht markiert.
+- **Das Blatt der Geschichte, neu.** Fächer in der Reihenfolge des Denkens: Wer will was · Was
+  ihm noch fehlt (`story.needs`) · Wenn niemand eingreift (je Schritt „Woran merkt die Gruppe
+  das?“, `step.sign`; Schalter „Die Uhr steht (noch) / läuft“ – eine neue Uhr steht, bis man sie
+  laufen lässt) · Was auf dem Spiel steht · Beteiligte (jede Art, Rolle und „will hier …“ in
+  `story.roles`, darunter „Im Text genannt“ und die Verbindungen der Welt zwischen ihnen samt
+  Zeile zum Ziehen) · Wen es persönlich betrifft (mit Ziel und offenen Wünschen) · Einstiege ·
+  Fragen und Hinweise (neue Frage erst mit dem ersten Wort; lösen; lose Fäden, die passen
+  könnten, als Frage, Hinweis oder Einstieg hereinholen) · Schauplätze und Wege (Wegenetze der
+  Geschichte, `net.storyId`; Strecke gleich hinschreiben) · Szenen (abhaken, auch am
+  Spieltisch) · Wie es enden kann · Merkzettel · Teilgeschichten (`story.parentId`). Oben der
+  Stand (Keim, Spielbar, Rund) mit dem, was als Nächstes fehlt – anklickbar; am Rand der Rat in
+  der Reihenfolge der Fächer, jeder Punkt abwählbar; „Was sonst daran hängt“; der Zurück-Verweis
+  führt dorthin, woher man kam. Seiten der Welt zeigen „Kommt vor in“; das Wegenetz führt zurück
+  zur Geschichte. Felder sind so hoch wie ihr Inhalt, Sätze in Listen brechen um; die Zähler
+  („0 von 3“) sind Worten gewichen, der Name einer neuen Geschichte ist beim ersten Klick
+  markiert.
+- Offen: Wesen des Bestiariums lassen sich nicht als Beteiligte wählen (sie sind keine Einträge
+  der Welt; ein Tier oder eine Spezies der Welt geht). Auf dem Fadenbrett liegt eine
+  Teilgeschichte neben ihrer großen und trägt „Teil von …“ – zusammengeklappt wird nichts.
+  Punkte eines nur angehängten Wegenetzes hängen bewusst nicht an der Geschichte (sonst
+  überschwemmt ein großes Netz das Brett); ob sie es sollen, entscheidet der Spielleiter.
+  „Abend vorbereiten“ nutzt die neuen Felder (`grow`, `wrap`, `NewLine`) noch nicht.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

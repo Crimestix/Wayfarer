@@ -34,7 +34,9 @@ export function addStoryNet(
   const story = data.stories[storyId];
   if (!story) return null;
   const points: NetPoint[] = [];
-  for (const { place } of storyPlaces(data, story)) {
+  for (const { place, own } of storyPlaces(data, story)) {
+    // Punkte anderer Wegenetze der Geschichte kommen nicht von selbst mit.
+    if (!own) continue;
     const spot = freeSpot(points, points[points.length - 1]);
     points.push({ placeId: place.id, x: spot.x, y: spot.y });
   }
@@ -71,7 +73,8 @@ export function setNetStory(
 /**
  * Schreibt eine Strecke für eine Geschichte: in ihr Wegenetz (`netId`, sonst ihr erstes) – gibt
  * es noch keines, entsteht es dabei. Orte, die neu entstehen, sind Platzhalter dieser
- * Geschichte. `undo` nimmt alles zurück, auch ein dabei entstandenes Netz.
+ * Geschichte; alle Orte der Strecke gehören danach zu ihr (`story.refs`) – wer sie auf ihr Blatt
+ * schreibt, meint sie. `undo` nimmt alles zurück, auch ein dabei entstandenes Netz.
  */
 export function addStoryRoute(
   db: CampaignDb,
@@ -87,11 +90,17 @@ export function addStoryRoute(
     const fresh = known ? null : addStoryNet(db, storyId);
     const net = known ?? fresh!.net;
     const added = addRoutes(db, net.id, text);
+    const story = db.getSnapshot().stories[storyId]!;
+    const joined = added.placeIds.filter((id) => id !== story.ownerId && !story.refs.includes(id));
+    if (joined.length) db.patch('stories', storyId, { refs: [...story.refs, ...joined] });
     return {
       ...added,
       net,
       undo: () =>
         db.batch(() => {
+          const now = db.getSnapshot().stories[storyId];
+          if (now && joined.length)
+            db.patch('stories', storyId, { refs: now.refs.filter((id) => !joined.includes(id)) });
           added.undo();
           fresh?.undo();
         }),
@@ -235,6 +244,8 @@ export interface RoutesAdded {
   points: number;
   /** Wege, die neu entstanden sind. */
   ways: number;
+  /** Alle Orte der geschriebenen Strecken – neue wie vorhandene, jeder einmal. */
+  placeIds: string[];
   undo: () => void;
 }
 
@@ -247,7 +258,7 @@ export interface RoutesAdded {
 export function addRoutes(db: CampaignDb, netId: string, text: string): RoutesAdded {
   const before = db.getSnapshot();
   const net = before.nets[netId];
-  const out = { places: 0, points: 0, ways: 0 };
+  const out = { places: 0, points: 0, ways: 0, placeIds: [] as string[] };
   if (!net) return { ...out, undo: () => {} };
   const madePlaces: string[] = [];
   const madeWays: string[] = [];
@@ -257,6 +268,7 @@ export function addRoutes(db: CampaignDb, netId: string, text: string): RoutesAd
       for (const step of chain) {
         const { place, fresh } = placeFor(db, netId, step.name);
         if (fresh) madePlaces.push(place.id);
+        if (!out.placeIds.includes(place.id)) out.placeIds.push(place.id);
         const inNet = db.getSnapshot().nets[netId]!.points.some((p) => p.placeId === place.id);
         if (!inNet) {
           addPoint(db, netId, place.id, null, previous);

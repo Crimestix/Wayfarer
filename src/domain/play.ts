@@ -60,7 +60,7 @@ export interface PlayCard {
   events: Occurrence[];
   /** Gefährten, die sie persönlich betrifft – mit ihrem Grund. */
   heroes: { character: Character; why: string }[];
-  /** Szenen und Begegnungen, die bereitliegen – die sicheren zuerst. */
+  /** Szenen und Begegnungen, die bereitliegen – die sicheren zuerst, ohne schon gespielte. */
   scenes: StoryScene[];
   /** Beute, die für diese Geschichte bereitliegt. */
   loot: Loot[];
@@ -168,9 +168,9 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
     heroes: story
       ? heroesOf(data, story).map(({ hero, character }) => ({ character, why: hero.why }))
       : [],
-    scenes: [...(story?.scenes ?? [])].sort(
-      (a, b) => SCENE_ODDS.indexOf(a.odds) - SCENE_ODDS.indexOf(b.odds),
-    ),
+    scenes: (story?.scenes ?? [])
+      .filter((scene) => !scene.done)
+      .sort((a, b) => SCENE_ODDS.indexOf(a.odds) - SCENE_ODDS.indexOf(b.odds)),
     loot: story ? readyLoot(data, story.id) : [],
     notes: story
       ? Object.values(data.chronicle)

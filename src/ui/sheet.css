@@ -18,6 +18,16 @@
   width: 100%;
   max-width: 860px;
 }
+/* Auf schmalen Schirmen (1280 breit) bekommt das Blatt den Platz, den der Rand hergeben kann. */
+@media (max-width: 1380px) {
+  .wf-sheet {
+    grid-template-columns: minmax(0, 1fr) 290px;
+  }
+  .wf-sheet__main {
+    padding-right: var(--s-5);
+    padding-left: var(--s-5);
+  }
+}
 .wf-sheet__top {
   display: flex;
   flex-direction: column;
@@ -68,6 +78,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+/* Felder zum Schreiben sind so hoch wie das, was darin steht: Ein leeres bleibt eine Zeile. */
+.wf-textarea.wf-written {
+  min-height: 38px;
+  resize: none;
+  field-sizing: content;
 }
 .wf-sheet__head {
   display: flex;
@@ -151,6 +167,16 @@
   width: 100%;
 }
 
+/* Die leere Zeile am Ende einer Liste: ruhig, bis man hineinschreibt */
+.wf-sheet__new .wf-textarea {
+  border-style: dashed;
+  background: none;
+}
+.wf-sheet__new .wf-textarea:focus {
+  border-style: solid;
+  background: var(--bg-inset);
+}
+
 /* Zeilen zum Schreiben: Schritte, Hinweise, Einstiege, Szenen */
 .wf-sheet-list {
   display: flex;
@@ -211,7 +237,7 @@
 }
 .wf-sheet-advice li {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) 20px;
   gap: var(--s-2);
   align-items: start;
   color: var(--ink);
@@ -233,4 +259,59 @@
   display: block;
   color: var(--ink-mute);
   font-size: var(--text-sm);
+}
+.wf-sheet-advice li[data-off='true'] {
+  color: var(--ink-mute);
+}
+.wf-sheet-advice li[data-off='true'] svg {
+  color: var(--ink-faint);
+}
+.wf-sheet-advice__go,
+.wf-sheet-advice__back,
+.wf-sheet-advice__off {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-sheet-advice__go:hover,
+.wf-sheet-advice__go:focus-visible {
+  color: var(--gold-bright);
+  text-decoration: underline;
+}
+.wf-sheet-advice__back {
+  display: block;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.wf-sheet-advice__back:hover,
+.wf-sheet-advice__back:focus-visible {
+  color: var(--ink-soft);
+  text-decoration: underline;
+}
+/* „Brauche ich nicht“: ein ruhiges Kreuz am Punkt – es zeigt sich erst dort, bleibt aber erreichbar. */
+.wf-sheet-advice__off {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius);
+  opacity: 0;
+}
+.wf-sheet-advice .wf-sheet-advice__off svg {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  color: var(--ink-faint);
+}
+.wf-sheet-advice li:hover .wf-sheet-advice__off,
+.wf-sheet-advice li:focus-within .wf-sheet-advice__off {
+  opacity: 1;
+}
+.wf-sheet-advice__off:hover svg,
+.wf-sheet-advice__off:focus-visible svg {
+  color: var(--ink);
 }

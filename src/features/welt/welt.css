@@ -2478,6 +2478,25 @@
   margin-top: calc(-1 * var(--s-3));
 }
 
+/* „Kommt vor in“: die Geschichten eines Eintrags, mit seiner Rolle */
+.wf-welt-instories {
+  margin-top: var(--s-5);
+}
+.wf-welt-instories a.wf-welt-scheme__title {
+  text-decoration: none;
+}
+.wf-welt-instories .wf-welt-scheme {
+  padding: var(--s-2) 0;
+}
+.wf-welt-instories .wf-welt-scheme[data-closed='true'] .wf-welt-scheme__title {
+  color: var(--ink-mute);
+}
+.wf-welt-instories__wants {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
 /* ── Fraktionsnetz ──────────────────────────────────────────────────────── */
 .wf-welt-net {
   position: relative;

@@ -18,6 +18,8 @@ import { boardCards, boardLayout, storyNodes, storyTexts } from '../../domain/st
 import {
   castOf,
   castTies,
+  hintsNote,
+  lonelyLine,
   parentChoices,
   storiesOf,
   storyAncestors,
@@ -29,9 +31,11 @@ import {
 import { backLink, cameFrom, stepTrail } from '../../shell/trail';
 import { addRoutes, addStoryNet, addStoryRoute, setNetStory } from '../wegenetz/actions';
 import { relate } from '../welt/actions';
+import { createArticle } from '../wiki/actions';
 import {
   attachToStory,
   detachFromStory,
+  listInStory,
   moveThread,
   newStory,
   newSubStory,
@@ -126,6 +130,12 @@ describe('Beteiligte einer Geschichte', () => {
     expect(story().refs).toEqual([mira.id, grotto.id]);
     expect(story().roles[mira.id]).toEqual({ role: 'Zeugin', wants: 'Ihre Ruhe.' });
     expect(castOf(data(), story()).some((row) => row.entity.id === odo.id)).toBe(false);
+    // Wer nur über einen Hinweis dazugehört, lässt sich ausdrücklich in die Liste nehmen.
+    listInStory(db, pact.id, lando.id);
+    listInStory(db, pact.id, lando.id);
+    listInStory(db, pact.id, guild.id);
+    expect(story().refs).toEqual([mira.id, grotto.id, lando.id]);
+    expect(castOf(data(), story()).find((row) => row.entity.id === lando.id)!.listed).toBe(true);
   });
 
   it('Verbindungen: die Beziehungen der Welt zwischen den Beteiligten – und wer an niemandem hängt', async () => {
@@ -147,9 +157,25 @@ describe('Beteiligte einer Geschichte', () => {
       [['Lando Furtner', 'dient', 'Die Salzsieder']],
     );
     expect(lonely()).toEqual(['Mira Tannhaus']);
+    expect(lonelyLine(castOf(data(), story()))).toBe('Mira Tannhaus hängt an niemandem.');
     // Allein ist niemand einsam.
     const solo = newStory(db, { title: 'Miras Schweigen', ownerId: mira.id });
     expect(castOf(data(), solo).map((row) => row.lonely)).toEqual([false]);
+    expect(lonelyLine(castOf(data(), solo))).toBe('');
+  });
+
+  it('sagt in Worten, wer an niemandem hängt und wie eine Frage mit ihren Hinweisen dasteht', async () => {
+    const { db, data, mira, lando, guild } = await setup();
+    const pact = newStory(db, { title: 'Die Pacht der Grotte', ownerId: guild.id });
+    patchStory(db, pact.id, { refs: [mira.id, lando.id] });
+    expect(lonelyLine(castOf(data(), data().stories[pact.id]!))).toBe(
+      'Die Salzsieder, Mira Tannhaus und Lando Furtner hängen an niemandem.',
+    );
+    // Nie ein Bruch („1 von 3“): Bis drei ist es dünn, ab drei reicht es.
+    expect([0, 1, 2].map((count) => hintsNote(count).thin)).toEqual([true, true, true]);
+    expect(hintsNote(3)).toEqual({ text: 'Drei Hinweise – das reicht.', thin: false });
+    expect(hintsNote(5)).toEqual({ text: 'Das reicht.', thin: false });
+    for (const count of [0, 1, 2, 3, 5]) expect(hintsNote(count).text).not.toMatch(/\d/);
   });
 
   it('Schauplätze: die Orte der Beteiligten, Einstiege, Szenen und Hinweise – jeder einmal', async () => {
@@ -410,15 +436,22 @@ describe('Wegenetze einer Geschichte', () => {
       tunnel.id,
       named('Tiefer See')!.id,
     ]);
+    // Wer eine Strecke auf das Blatt schreibt, meint ihre Orte: Sie gehören zur Geschichte.
+    const lake = named('Tiefer See')!;
+    expect(data().stories[pact.id]!.refs).toEqual([grotto.id, tunnel.id, lake.id]);
+    expect(storyPlaces(data(), data().stories[pact.id]!).every((row) => row.own)).toBe(true);
     // Die zweite Strecke geht ins selbe Netz.
     const more = addStoryRoute(db, pact.id, 'Alter Stollen -> Blinder Schacht')!;
     expect(more.net.id).toBe(added.net.id);
+    expect(data().stories[pact.id]!.refs).toHaveLength(4);
     more.undo();
     expect(named('Blinder Schacht')).toBeUndefined();
+    expect(data().stories[pact.id]!.refs).toEqual([grotto.id, tunnel.id, lake.id]);
     expect(data().nets[added.net.id]).toBeDefined();
     // „Rückgängig“ der ersten nimmt auch das dabei entstandene Netz zurück.
     added.undo();
     expect(named('Alter Stollen')).toBeUndefined();
+    expect(data().stories[pact.id]!.refs).toEqual([grotto.id]);
     expect(data().nets[added.net.id]).toBeUndefined();
     expect(addStoryRoute(db, pact.id, '  ')).toBeNull();
     // In einem Netz ohne Geschichte entstehen gewöhnliche Orte.
@@ -426,6 +459,17 @@ describe('Wegenetze einer Geschichte', () => {
     setNetStory(db, net.id, null);
     addRoutes(db, net.id, 'Salzgrotte -> Krähenfels');
     expect(named('Krähenfels')).toMatchObject({ stub: false, fromStoryId: null });
+    // Ein angehängtes Netz bringt seine Punkte nur als Orte unterwegs mit – sie hängen nicht an
+    // der Geschichte und kommen nicht von selbst auf ein weiteres Netz.
+    setNetStory(db, net.id, pact.id);
+    const story = data().stories[pact.id]!;
+    const rows = storyPlaces(data(), story);
+    expect(rows.map((row) => [row.place.name, row.own, row.via])).toEqual([
+      ['Salzgrotte', true, ['cast', 'net']],
+      ['Krähenfels', false, ['net']],
+    ]);
+    expect(storyNodes(data(), story)).toEqual([grotto.id]);
+    expect(addStoryNet(db, pact.id)!.net.points.map((point) => point.placeId)).toEqual([grotto.id]);
   });
 });
 
@@ -455,6 +499,8 @@ describe('Der Weg zurück', () => {
       label: 'Mira Tannhaus',
     });
     expect(backLink(data(), `/geschichte/${pact.id}`).label).toBe('Die Pacht der Grotte');
+    const article = createArticle(db, { title: 'Das Salzrecht von Hohenfurt' })!;
+    expect(backLink(data(), `/wiki/${article.id}`).label).toBe('Das Salzrecht von Hohenfurt');
     expect(backLink(data(), '/welt/gibtsnicht')).toEqual(brett);
     expect(backLink(data(), '/einstellungen')).toEqual(brett);
   });

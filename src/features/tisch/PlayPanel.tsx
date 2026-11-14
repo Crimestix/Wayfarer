@@ -25,7 +25,7 @@ import { focusOn } from '../../shell/focus';
 import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
 import { RecapBox } from '../abend/RecapBox';
 import { useGiveLoot } from '../beute/useGive';
-import { newStory, setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
+import { newStory, setHintFound, setInPlay, setSceneDone, setStoryMemo } from '../faeden/actions';
 import { dismissRecap } from './commands';
 import { EveningBlock } from './EveningBlock';
 import { whenLabel } from './model';
@@ -283,7 +283,10 @@ function PlayStory({
               <i key={step.step.id} data-state={step.state} />
             ))}
           </span>
-          <span>{clockLine}</span>
+          <span>
+            {clockLine}
+            {next?.step.sign && <em> – Woran man es merkt: {next.step.sign}</em>}
+          </span>
         </div>
       )}
       {open && (
@@ -427,6 +430,26 @@ function PlayStory({
                     onClick={() => navigate(`/begegnungen/${scene.encounterId}`)}
                   >
                     Begegnung öffnen
+                  </button>
+                )}
+                {story && (
+                  <button
+                    type="button"
+                    className="wf-tisch-dazu__link"
+                    title="Die Szene ist gespielt – sie steht dann abgehakt auf dem Blatt der Geschichte"
+                    onClick={() => {
+                      setSceneDone(db, story.id, scene.id, true);
+                      toast({
+                        title: 'Szene gespielt',
+                        body: (scene.text || 'Begegnung').slice(0, 120),
+                        action: {
+                          label: 'Rückgängig',
+                          run: () => setSceneDone(db, story.id, scene.id, false),
+                        },
+                      });
+                    }}
+                  >
+                    Gespielt
                   </button>
                 )}
               </span>

@@ -413,3 +413,23 @@
   margin: var(--s-1) 0 0;
   font-size: var(--text-sm);
 }
+
+/* Das Netz gehört zu einer Geschichte: der Weg zurück auf ihr Blatt */
+.wf-netz-story {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  max-width: 100%;
+  color: var(--gold);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.wf-netz-story svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.wf-netz-story:hover {
+  color: var(--gold-bright);
+  text-decoration: underline;
+}

@@ -56,8 +56,8 @@ export default function WegenetzPage() {
         >
           Ein Wegenetz ist eine vorbereitete Strecke oder Gegend: Punkte, die Wege dazwischen und
           was an jedem Punkt und auf jedem Weg wartet – mit allen Abzweigungen. Du schreibst die
-          Strecke einfach hin („Tiefe Pforte -&gt; Salzgrotte -&gt; Schwarzer See“) oder setzt die
-          Punkte von Hand. Am Spieltisch geht die Gruppe die Wege dann mit einem Klick.
+          Strecke einfach hin („A -&gt; B (4 Std.) -&gt; C“) oder setzt die Punkte von Hand. Am
+          Spieltisch geht die Gruppe die Wege dann mit einem Klick.
         </EmptyState>
       </div>
     );

@@ -1,5 +1,6 @@
 /** Reiter „Überblick“ im Dossier: je Art das, was am Tisch zuerst gebraucht wird. */
 import { RoomsSection } from './RoomsSection';
+import { InStories } from './InStories';
 import { Schemes } from './Schemes';
 import { ShopSection } from '../laden/ShopSection';
 import { GroupKnows } from './GroupKnows';
@@ -138,6 +139,7 @@ export function OverviewTab(props: Props<WorldEntity>) {
     <>
       <FromArticle entity={props.entity} />
       <KindOverview {...props} />
+      <InStories entity={props.entity} />
     </>
   );
 }

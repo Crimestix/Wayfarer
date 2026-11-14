@@ -638,10 +638,10 @@
 
 /* ── Das Blatt einer Geschichte (Gerüst: ui/sheet.css) ──────────────────── */
 .wf-sheet-list__row--hint {
-  grid-template-columns: 22px minmax(0, 1fr) 170px 170px 30px;
+  grid-template-columns: 22px minmax(0, 1fr) 150px 150px 30px;
 }
 .wf-sheet-list__row--entry {
-  grid-template-columns: minmax(0, 1fr) 190px 170px 30px;
+  grid-template-columns: minmax(0, 1fr) 160px 150px 30px;
 }
 .wf-sheet-list__row--hero {
   grid-template-columns: 170px minmax(0, 1fr) 30px;
@@ -674,8 +674,24 @@
   width: auto;
   max-width: 100%;
 }
+/* Eine Szene: oben der Satz in voller Breite, darunter leise Ort, Gewissheit und Begegnung */
 .wf-sheet-list__row--scene {
-  grid-template-columns: minmax(0, 1fr) 130px 200px 30px 30px;
+  grid-template-columns: 22px minmax(0, 1fr) 30px;
+  row-gap: 4px;
+}
+.wf-faden-scene__more {
+  display: grid;
+  grid-column: 2 / 3;
+  grid-template-columns: minmax(0, 1fr) 130px minmax(0, 190px) auto;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-scene__more .wf-select,
+.wf-faden-scene__more .wf-picker__value {
+  min-height: 30px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--text-sm);
 }
 
 /* Eine Frage mit dem, was dahintersteckt, und ihren Hinweisen */
@@ -698,7 +714,7 @@
 }
 .wf-faden-frage__head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px 30px;
+  grid-template-columns: minmax(0, 1fr) 150px 30px 30px;
   gap: var(--s-2);
   align-items: center;
 }
@@ -734,8 +750,364 @@
   height: 13px;
 }
 
-/* Der Ort einer Szene: zweite Zeile unter dem Text */
-.wf-faden-scene-place {
-  grid-column: 1 / 2;
-  max-width: 360px;
+/* ── Das Blatt, neu: Stand, Uhr, Beteiligte, Verbindungen, lose Fäden, Schauplätze ── */
+
+/* Der Stand unter dem Namen: Keim, spielbar, rund – und was als Nächstes fehlt */
+.wf-faden-stand {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-faden-stand b {
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: help;
+}
+.wf-sheet__kicker a {
+  color: inherit;
+}
+.wf-sheet__kicker a:hover {
+  color: var(--gold-bright);
+}
+.wf-sheet__foot {
+  display: flex;
+  gap: var(--s-3);
+  justify-content: space-between;
+}
+
+/* Die Uhr: der Schalter und der Satz, seit wann */
+.wf-faden-uhr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  align-items: center;
+}
+.wf-faden-uhr__switch {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-faden-uhr__switch button {
+  padding: 4px var(--s-3);
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-faden-uhr__switch button:hover,
+.wf-faden-uhr__switch button:focus-visible {
+  color: var(--ink);
+}
+.wf-faden-uhr__switch button[aria-pressed='true'] {
+  background: var(--bg-3);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--line-strong);
+}
+.wf-faden-uhr__switch button + button[aria-pressed='true'] {
+  color: var(--ember);
+  box-shadow: inset 0 -2px 0 var(--ember);
+}
+.wf-faden-uhr__line {
+  flex: 1 1 240px;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* Ein Schritt: was eintritt, wann – und darunter, woran die Gruppe es merkt */
+.wf-faden-step {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto 64px auto 30px;
+  gap: 4px var(--s-2);
+  align-items: center;
+}
+.wf-faden-step__sign {
+  display: flex;
+  grid-column: 2 / 6;
+  gap: var(--s-3);
+  align-items: center;
+}
+.wf-faden-step__sign .wf-textarea {
+  min-height: 0;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  border-color: var(--line-faint);
+  background: none;
+  font-size: var(--text-sm);
+}
+.wf-faden-step__sign .wf-textarea:hover,
+.wf-faden-step__sign .wf-textarea:focus {
+  border-color: var(--line-strong);
+}
+.wf-faden-step__when {
+  flex: none;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-step[data-next='true'] .wf-faden-step__when {
+  color: var(--ember);
+}
+
+/* Beteiligte: Name, Rolle, „will hier …“ */
+.wf-faden-cast {
+  display: grid;
+  grid-template-columns: minmax(0, 210px) 150px minmax(0, 1fr) 30px;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-cast__name {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.wf-faden-cast__name svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--ink-mute);
+}
+.wf-faden-cast__name a {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+}
+.wf-faden-cast__name a:hover {
+  color: var(--gold-bright);
+}
+
+/* Verbindungen zwischen den Beteiligten */
+.wf-faden-ties,
+.wf-faden-fits {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-faden-frage__sub .wf-faden-link {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-faden-tie {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-tie__text em {
+  color: var(--gold);
+}
+.wf-faden-tie__text i {
+  color: var(--ink-mute);
+}
+.wf-faden-tie__text svg {
+  width: 13px;
+  height: 13px;
+  margin-left: 6px;
+  color: var(--ink-mute);
+  vertical-align: -2px;
+}
+.wf-faden-tie[data-ended='true'] .wf-faden-tie__text {
+  color: var(--ink-mute);
+}
+.wf-faden-tieform {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+/* Hinweise einer Frage */
+.wf-faden-frage__fine {
+  color: var(--moss);
+}
+.wf-faden-frage__thin,
+.wf-faden-frage__fine {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-faden-frage__new {
+  padding-left: 30px;
+}
+
+/* Lose Fäden, die passen könnten */
+.wf-faden-fit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--s-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 4px var(--s-3);
+  border-left: 3px solid var(--blood);
+}
+.wf-faden-fit__title {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.wf-faden-fit__title em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-fit__acts {
+  display: flex;
+  flex: none;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-fit__acts .wf-select {
+  width: 170px;
+  min-height: 0;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: var(--text-sm);
+}
+
+/* Schauplätze und Wege */
+.wf-faden-orte {
+  gap: var(--s-2);
+}
+.wf-faden-ort {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 1px var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--bg-1);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.wf-faden-ort a {
+  color: inherit;
+  text-decoration: none;
+}
+.wf-faden-ort[data-own='false'] {
+  border-style: dashed;
+  color: var(--ink-mute);
+}
+.wf-faden-ort:hover,
+.wf-faden-ort:focus-within {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+.wf-faden-ort__take {
+  display: grid;
+  place-items: center;
+  padding: 0 0 0 2px;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  cursor: pointer;
+}
+.wf-faden-ort__take:hover,
+.wf-faden-ort__take:focus-visible {
+  color: var(--gold-bright);
+}
+.wf-faden-ort svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-faden-netz {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto 30px;
+  gap: var(--s-3);
+  align-items: center;
+}
+.wf-faden-netz > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--gold);
+}
+.wf-faden-netz .wf-faden-link {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-faden-netz em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-netzwahl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-netzwahl .wf-select {
+  width: auto;
+  max-width: 100%;
+}
+.wf-faden-strecke {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-strecke .wf-select {
+  width: auto;
+  max-width: 240px;
+}
+
+/* Szenen: abgehakt wird ruhig */
+.wf-sheet-list__row--scene[data-done='true'] .wf-textarea {
+  color: var(--ink-mute);
+  text-decoration: line-through;
+}
+
+/* Teilgeschichten */
+.wf-faden-teil {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-faint);
+  color: var(--ink);
+  text-decoration: none;
+}
+.wf-faden-teil:hover .wf-faden-teil__name {
+  color: var(--gold-bright);
+}
+.wf-faden-teil__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-faden-teil__stand {
+  color: var(--gold);
+  font-size: var(--text-sm);
+}
+.wf-faden-teil em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-teil[data-closed='true'] {
+  color: var(--ink-mute);
+}
+
+/* Auf dem Brett: „Teil von …“ */
+.wf-faden-card__part {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  font-style: italic;
 }

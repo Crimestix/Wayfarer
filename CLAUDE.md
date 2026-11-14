@@ -196,12 +196,37 @@ nicht übernommen.
   Namens, sonst die mit den meisten errechneten Herbstmonaten; im Süden ein halbes Jahr versetzt.
 - Geschichten und Fäden (`stories/`, `threads/`): geschrieben vom Spielleiter (oder als
   Vorschlag des KI-Lesers angenommen), nie erzeugt. Eine Geschichte schreibt man auf ihrem
-  **Blatt** (`faeden/StoryPage`, `/geschichte/<id>`): worum es geht, was auf dem Spiel steht,
-  die Schritte ihrer Uhr, Fragen (Fäden) mit Hinweisen, Einstiege, Szenen und Begegnungen, Ende
-  und Belohnung – ohne „Speichern“, über `patchStory`, `setStorySteps`, `patchThread`. Was noch
-  fehlt, sagt `storyAdvice()` als Rat (drei Hinweise je Frage, `HINTS_WANTED`), nie als Pflicht.
+  **Blatt** (`faeden/StoryPage`, `/geschichte/<id>`; die Fächer in `StorySteps`, `StoryCast`,
+  `StoryLists`, `StoryThreads`, `StoryPlaces`), an dem man von oben nach unten entlang denkt
+  (`STORY_SECTIONS`): wer was will (`ownerId`, `summary`), was ihm noch fehlt (`needs`), wenn
+  niemand eingreift (Schritte der Uhr, je Schritt „Woran merkt die Gruppe das?“ – `step.sign`),
+  was auf dem Spiel steht, Beteiligte, wen es persönlich betrifft, Einstiege, Fragen und
+  Hinweise, Schauplätze und Wege, Szenen (abhakbar, `scene.done` – auch am Spieltisch über
+  `setSceneDone`; Gespieltes steht dort nicht mehr), Ende, Merkzettel. Jedes Fach ist freiwillig;
+  sein Satz ist eine Leitfrage zur Form, nie ein Inhalt, und Platzhaltertexte nennen nie etwas
+  aus einer Welt. Ohne „Speichern“, über `patchStory`, `setStorySteps`, `patchThread`; neue
+  Zeilen entstehen erst mit dem ersten Wort (`NewLine`) – nie leere Fragen anlegen.
+  **Beteiligte** sind `story.refs` (jede Art der Welt) mit Rolle und „will hier …“ in
+  `story.roles` (`setStoryRole`; die Rolle ist ein freies Wort, `ROLE_SUGGESTIONS` nur
+  Vorschläge) – gelesen über `castOf()`; die „Verbindungen“ darunter sind die Beziehungen der
+  Welt zwischen ihnen (`castTies`, gezogen über `relate`), nie etwas Eigenes. Lose Fäden, die
+  passen könnten, schlägt `threadFits()` vor; hereingeholt wird über `moveThread` (auch zum
+  Lösen), `threadToHint`, `threadToEntry` – alle mit Rückgängig. Schauplätze sagt
+  `storyPlaces()`; Wegenetze hängen über `net.storyId` an der Geschichte (`netsOfStory`,
+  `addStoryNet`, `setNetStory`, `addStoryRoute` – die Orte einer dort geschriebenen Strecke
+  gehören danach zu ihr, Punkte eines nur angehängten Netzes nicht: `own`). Große Geschichten:
+  `story.parentId` (`storyParts`, `parentChoices`, `newSubStory`; nie ein Kreis). Was sonst an
+  ihr hängt: `storyHangs()`; in welchen Geschichten ein Eintrag vorkommt: `storiesOf()`
+  („Kommt vor in“, `welt/InStories`). Alles in `domain/storySheet.ts`. Den **Stand** sagt
+  `storyStage()` (Keim, Spielbar, Rund – mit höchstens drei Dingen, die als Nächstes fehlen),
+  den Rat `storyAdvice()` in der Reihenfolge der Fächer, jeder Punkt abwählbar
+  (`story.adviceOff`, `setAdviceOff`) – nie als Pflicht, nie als Zähler („3 von 10“) oder
+  Balken; drei Hinweise je Frage (`HINTS_WANTED`, in Worten: `hintsNote`), ein nächster Schritt
+  reicht. Der Zurück-Verweis führt dorthin, woher man kam (`shell/trail.ts`: `backLink`).
   **Uhren gehören zu Geschichten** (Entscheidung des Spielleiters, 13. 11. 2026): Im Kalender
-  gibt es keine mehr. Eine Uhr entsteht mit dem ersten Schritt auf dem Blatt und geht mit der
+  gibt es keine mehr. Eine Uhr entsteht mit dem ersten Schritt auf dem Blatt – sie **steht
+  noch**, bis der Spielleiter sie laufen lässt (`runStoryClock`, Schalter auf dem Blatt; wie
+  sie steht, sagt `clockStand`) – und geht mit der
   Geschichte; `ClockDialog` ist nur noch zum Eingreifen da. Uhren ohne Geschichte aus früheren
   Ständen (`looseClocks`) werden über `storyFromClock` zu einer. Nähe zur Gruppe, Berührungen und Warnungen
   leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
@@ -296,6 +321,9 @@ nicht übernommen.
   schreiben („A -> B (4 Std.) -> C“, `parseRoutes`); Orte, die es gibt, werden genommen
   (`placeNamed`), nie doppelt angelegt. Was unterwegs wartet, steht am Weg (`path.onTheWay`,
   `path.encounterId`) und gehört zu `wayNotes()`. Was an einem Punkt hängt, sagt `hangingAt()`.
+  Ein Netz kann für eine Geschichte vorbereitet sein (`net.storyId`, `netsOfStory`): Orte, die
+  in ihm neu entstehen, sind dann Platzhalter dieser Geschichte; `removeStory` löst nur den
+  Bezug.
 - Blätter zum freien Auslegen (Wegenetz, Fadenbrett) nutzen `useBoard` aus `ui/board.ts`:
   verschieben, vergrößern, Stücke ziehen. Wo etwas auf dem Fadenbrett liegt, steht in
   `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
@@ -416,8 +444,12 @@ nicht übernommen.
   Ladungen ändern über `welt/magic.ts`; `rechargesDue()` bietet nach Morgengrauen oder Rast
   (Kurze nur, wenn der Text sie nennt) das Auffrischen an, gewürfelt wird mit `fairDie` und erst nach Bestätigung geschrieben.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
-  (`SheetSection`, `useDraftList`, `SheetAdvice`, `Written`): Geschrieben wird beim
-  Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.
+  (`SheetSection`, `useDraftList`, `SheetAdvice`, `Written`, `NewLine`): Geschrieben wird beim
+  Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht. `Written` mit `grow` (mehrzeilig)
+  oder `wrap` (ein Satz, der umbricht; die Eingabetaste schreibt) ist so hoch wie sein Inhalt –
+  leere Fächer bleiben eine Zeile. `NewLine` ist die leere Zeile am Ende einer Liste: Der
+  Eintrag entsteht mit dem ersten Wort. Ein Fach mit `id` lässt sich anspringen
+  (`focusSheetSection`) – so führen Stand und Rat zum Feld.
 - Anlegen beim Schreiben (Geschichte zuerst): Angelegt wird nur über `addFromWriting`
   (`features/welt/writing.ts`) – gibt es den Namen schon (`entryForTitle`: Name, Zweitname,
   Titel des Artikels), wird der vorhandene Eintrag genommen (`created: false`, `otherKind`), nie

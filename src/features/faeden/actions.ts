@@ -190,6 +190,20 @@ export function attachToStory(db: CampaignDb, storyId: string, entityId: string)
 }
 
 /**
+ * Nimmt einen Eintrag ausdrücklich unter die Beteiligten (`story.refs`) – auch einen, der bisher
+ * nur über einen Hinweis, einen Einstieg oder eine Szene dazugehörte. Ein Gefährte kommt unter
+ * „Wen es persönlich betrifft“; der Antreiber steht schon da.
+ */
+export function listInStory(db: CampaignDb, storyId: string, entityId: string): void {
+  const data = db.getSnapshot();
+  const story = data.stories[storyId];
+  const entity = data.entities[entityId];
+  if (!story || !entity || story.ownerId === entityId || story.refs.includes(entityId)) return;
+  if (entity.kind === 'character') tieHero(db, storyId, entityId);
+  else patchStory(db, storyId, { refs: [...story.refs, entityId] });
+}
+
+/**
  * Nimmt einen Eintrag wieder von einer Geschichte – soweit er nur dazugenommen war. Seine Rolle
  * geht mit. Gibt `undo` zurück.
  */

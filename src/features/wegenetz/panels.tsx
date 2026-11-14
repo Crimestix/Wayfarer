@@ -4,7 +4,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { BookOpen, Footprints, Link2, Trash2, Unlink } from 'lucide-react';
+import { ArrowLeft, BookOpen, Footprints, Link2, Trash2, Unlink } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
   hangingAt,
@@ -74,8 +74,10 @@ function Head({
 
 export function NetPanel({ net, view }: { net: Net; view: NetView }) {
   const db = useDb();
+  const data = useData();
   const [, navigate] = useLocation();
   const open = view.links.filter((link) => link.minutes === null).length;
+  const story = net.storyId ? data.stories[net.storyId] : undefined;
   const remove = () => {
     const undo = removeNet(db, net.id);
     navigate('/wegenetze');
@@ -100,6 +102,16 @@ export function NetPanel({ net, view }: { net: Net; view: NetView }) {
           {view.links.length === 1 ? '1 Weg' : `${view.links.length} Wege`}
           {open > 0 && ` · ${open === 1 ? 'bei einem' : `bei ${open}`} ist die Dauer offen`}
         </p>
+        {story && (
+          <Link
+            href={`/geschichte/${story.id}`}
+            className="wf-netz-story"
+            title="Dieses Wegenetz gehört zu einer Geschichte – ihr Blatt öffnen"
+          >
+            <ArrowLeft aria-hidden />
+            <span className="wf-clamp-1">Zur Geschichte „{story.title}“</span>
+          </Link>
+        )}
       </Head>
       <Field label="Name">
         <Written label="Name" value={net.name} onSave={(name) => patchNet(db, net.id, { name })} />
@@ -208,7 +220,7 @@ export function PointPanel({
       key: story.id,
       sort: 'Geschichte',
       name: story.title,
-      go: () => open('/faeden', { type: 'card', key: `story:${story.id}` }),
+      go: () => open(`/geschichte/${story.id}`),
     })),
     ...hanging.threads.map((thread) => ({
       key: thread.id,

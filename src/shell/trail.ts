@@ -49,10 +49,11 @@ const FALLBACK: BackLink = { href: '/faeden', label: 'Fadenbrett' };
 
 /**
  * Der Zurück-Verweis eines Blatts: dorthin, woher man kam, mit dem Namen der Seite – der Name
- * eines Eintrags, einer Geschichte, eines Wegenetzes. Unbekanntes führt zum Fadenbrett.
+ * eines Eintrags, eines Artikels, einer Geschichte, eines Wegenetzes. Unbekanntes führt zum
+ * Fadenbrett.
  */
 export function backLink(
-  data: Pick<CampaignData, 'entities' | 'stories' | 'nets'>,
+  data: Pick<CampaignData, 'entities' | 'stories' | 'nets' | 'articles'>,
   from: string | null,
 ): BackLink {
   if (!from) return FALLBACK;
@@ -67,6 +68,10 @@ export function backLink(
   if (area === 'geschichte') {
     const story = data.stories[id];
     return story ? { href: from, label: story.title } : FALLBACK;
+  }
+  if (area === 'wiki') {
+    const article = data.articles[id];
+    return article ? { href: from, label: article.title } : FALLBACK;
   }
   if (area === 'wegenetze') {
     const net = data.nets[id];

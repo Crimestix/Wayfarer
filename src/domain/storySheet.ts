@@ -7,6 +7,7 @@
  */
 import { clockView } from './clock';
 import { openPromises } from './derive';
+import { netsOfStory } from './net';
 import { namesIn } from './recognize';
 import { relationLabel } from './relations';
 import type {
@@ -156,7 +157,7 @@ export function castTies(data: CampaignData, story: Story): CastTie[] {
 // ── Schauplätze ────────────────────────────────────────────────────────────
 
 /** Woher ein Ort zur Geschichte gehört. */
-export type PlaceVia = 'cast' | 'entry' | 'scene' | 'hint' | 'clock';
+export type PlaceVia = 'cast' | 'entry' | 'scene' | 'hint' | 'clock' | 'net';
 
 export const PLACE_VIA_LABEL: Record<PlaceVia, string> = {
   cast: 'beteiligt',
@@ -164,16 +165,23 @@ export const PLACE_VIA_LABEL: Record<PlaceVia, string> = {
   scene: 'Szene',
   hint: 'Hinweis',
   clock: 'Uhr',
+  net: 'Wegenetz',
 };
 
 export interface StoryPlace {
   place: Place;
   via: PlaceVia[];
+  /**
+   * Der Ort gehört zur Geschichte (`storyNodes`). Sonst liegt er nur auf einem ihrer Wegenetze:
+   * ein Punkt unterwegs, an dem sie nicht hängt.
+   */
+  own: boolean;
 }
 
 /**
  * Die Orte einer Geschichte: die unter den Beteiligten und die ihrer Einstiege, Szenen und
- * Hinweise – jeder einmal, mit dem, woher er kommt.
+ * Hinweise – jeder einmal, mit dem, woher er kommt. Dahinter die übrigen Punkte ihrer Wegenetze:
+ * Orte unterwegs, die erst dazugehören, wenn der Spielleiter sie dazunimmt.
  */
 export function storyPlaces(data: CampaignData, story: Story): StoryPlace[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
@@ -181,8 +189,9 @@ export function storyPlaces(data: CampaignData, story: Story): StoryPlace[] {
   const add = (id: string | null | undefined, via: PlaceVia) => {
     const place = id ? data.entities[id] : undefined;
     if (place?.kind !== 'place') return;
-    const row = found.get(place.id) ?? { place, via: [] };
+    const row = found.get(place.id) ?? { place, via: [], own: false };
     if (!row.via.includes(via)) row.via.push(via);
+    if (via !== 'net') row.own = true;
     found.set(place.id, row);
   };
   add(story.ownerId, 'cast');
@@ -195,7 +204,10 @@ export function storyPlaces(data: CampaignData, story: Story): StoryPlace[] {
   }
   add(clock?.placeId, 'clock');
   for (const id of clock?.refs ?? []) add(id, 'clock');
-  return [...found.values()];
+  for (const net of netsOfStory(data, story.id))
+    for (const point of net.points) add(point.placeId, 'net');
+  // Was zur Geschichte gehört, zuerst – in der Reihenfolge, in der es dazukam.
+  return [...found.values()].sort((a, b) => Number(b.own) - Number(a.own));
 }
 
 // ── Lose Fäden, die passen könnten ─────────────────────────────────────────
@@ -425,4 +437,27 @@ export function storiesOf(data: CampaignData, entityId: string): StoryRoleOf[] {
       a.story.title.localeCompare(b.story.title, 'de') ||
       a.story.id.localeCompare(b.story.id),
   );
+}
+
+// ── Kleine Sätze des Blatts ────────────────────────────────────────────────
+
+/** „Mira hängt an niemandem.“ – leer, wenn alle verbunden sind. */
+export function lonelyLine(rows: readonly CastRow[]): string {
+  const names = rows.filter((row) => row.lonely).map((row) => row.entity.name);
+  if (!names.length) return '';
+  if (names.length === 1) return `${names[0]} hängt an niemandem.`;
+  return `${names.slice(0, -1).join(', ')} und ${names[names.length - 1]} hängen an niemandem.`;
+}
+
+/**
+ * Wie eine Frage mit ihren Hinweisen dasteht – in Worten, nie als Bruch: Einen Hinweis übersieht
+ * die Gruppe, einen versteht sie falsch; ab dreien reicht es.
+ */
+export function hintsNote(count: number): { text: string; thin: boolean } {
+  if (count <= 0)
+    return { text: 'Noch kein Hinweis – so findet die Gruppe die Antwort nicht.', thin: true };
+  if (count === 1)
+    return { text: 'Ein Hinweis – verpasst die Gruppe ihn, reißt die Frage ab.', thin: true };
+  if (count === 2) return { text: 'Zwei Hinweise – ein dritter trägt.', thin: true };
+  return { text: count === 3 ? 'Drei Hinweise – das reicht.' : 'Das reicht.', thin: false };
 }
