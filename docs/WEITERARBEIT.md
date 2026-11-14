@@ -1593,6 +1593,16 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „Außerdem im Buch“ nennt nur Einzelnes mit Namen und zählt, was über ein Thema darin steht –
   vorher standen ganze Themen Name für Name dort; ohne Thema heißt die Zeile „Im Buch“. Die Zeile
   der Themen heißt „Themen im Buch“; ein Schlagwort in anderer Schreibweise wird richtig gezeigt.
+- **Läden: Ausrüstung aus dem Regelwerk.** Die Ausrüstung des SRD 5.2.1 (254 Dinge mit Preis:
+  Waffen, Rüstungen, Munition, Abenteuerausrüstung, Kits, Werkzeuge, Instrumente, Reittiere,
+  Fuhrwerke, Schiffe, Essen und Unterkunft, Dienste, Richtwerte magischer Gegenstände) als
+  Nachschlagewerk (`domain/srd`), gelesen aus dem offiziellen PDF. Im Abschnitt „Laden“: „Aus dem
+  Regelwerk …“ (Gruppen anklicken, suchen, ankreuzen, Vorschlag nach Art des Ladens), Preis nach
+  dem Regelwerk für Zeilen und Gegenstände ohne Preis, „Als Gegenstand anlegen“; am Tisch findet
+  die Suche auch Nicht-Vorrätiges; die Preisliste ergänzt fehlende Preise (abwählbar). Quellen in
+  den Einstellungen. Offen: deutsche Namen sind eigene Übersetzungen (gegenlesen); Gewicht in kg
+  als Pfund ÷ 2; Seltenheit am Gegenstand gibt noch keinen Richtpreis. Geprüft in der Vorschau
+  bei 1440×900.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

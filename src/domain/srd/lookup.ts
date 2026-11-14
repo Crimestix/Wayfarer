@@ -34,6 +34,10 @@ export const srdItem = (id: string | null | undefined): SrdItem | undefined =>
 export const srdGroupLabel = (group: SrdGroup): string =>
   SRD_GROUPS.find((g) => g.id === group)?.label ?? '';
 
+/** Wie viele Gegenstände eine Gruppe hat. */
+export const srdGroupSize = (group: SrdGroup): number =>
+  SRD_EQUIPMENT.filter((item) => item.group === group).length;
+
 /** Volle Namen (deutsch, englisch) → Gegenstand; Namen ohne Zusatz nur, wenn sie eindeutig sind. */
 const FULL = new Map<string, SrdItem>();
 const SHORT = new Map<string, SrdItem[]>();

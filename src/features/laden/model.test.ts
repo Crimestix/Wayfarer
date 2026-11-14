@@ -12,6 +12,8 @@ import {
   basketTotal,
   inBasket,
   newKindOf,
+  ruleChoice,
+  ruleSections,
   sellerOf,
   setPrice,
   setQty,
@@ -135,5 +137,28 @@ describe('Aus dem Regelwerk in den Korb', () => {
       qty: 2,
       price: 22.5,
     });
+  });
+});
+
+describe('Das Nachschlagewerk durchsehen', () => {
+  it('zeigt die gewählten Gruppen, den Vorschlag und die Suche', () => {
+    const none = { groups: [], suggested: null, query: '' };
+    expect(ruleChoice(none)).toEqual([]);
+    expect(ruleChoice({ ...none, query: 'longsword' }).map((i) => i.id)).toEqual(['srd-longsword']);
+    const armor = ruleChoice({ ...none, groups: ['armor'] });
+    expect(armor).toHaveLength(13);
+    expect(ruleChoice({ ...none, groups: ['armor', 'ammunition'] })).toHaveLength(18);
+    expect(ruleChoice({ ...none, groups: ['armor'], query: 'ketten' }).map((i) => i.id)).toEqual([
+      'srd-chain-shirt',
+      'srd-chain-mail',
+    ]);
+    const suggested = [srdItem('srd-ale')!, srdItem('srd-bread')!];
+    expect(ruleChoice({ ...none, suggested }).map((i) => i.id)).toEqual(['srd-ale', 'srd-bread']);
+    expect(ruleSections(armor).map((s) => [s.sub, s.items.length])).toEqual([
+      ['Leichte Rüstung', 3],
+      ['Mittelschwere Rüstung', 5],
+      ['Schwere Rüstung', 4],
+      ['Schild', 1],
+    ]);
   });
 });

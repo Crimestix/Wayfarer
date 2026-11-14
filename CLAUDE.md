@@ -306,6 +306,18 @@ nicht übernommen.
   Natur am Ort nach Art des Ladens, Einordnungen) gelten erst nach Annahme. Am Spieltisch „Läden
   hier“ (`shopsHere`, Ort der Gruppe und Orte darin), überall `openShop`; im Festhalten öffnet
   „Handel“ den Laden.
+- Regelwerk-Ausrüstung (Entscheidung des Spielleiters, 14. 11. 2026): Die Ausrüstung des SRD
+  5.2.1 (CC BY 4.0) liegt als **Nachschlagewerk** in `src/domain/srd` (`equipment.ts`: Name
+  deutsch und englisch, Gruppe, Preis wie im SRD und in Gold, Gewicht; nachschlagen über
+  `srdMatch`, `srdSearch`, Ladenarten in `SHOP_KIND_RULES`). Nichts davon wird von selbst
+  angelegt: In einen Laden kommt es nur auf Wahl des Spielleiters („Aus dem Regelwerk“,
+  `addRuleItems` – Zeilen mit `stock.srdId`, keine Einträge der Welt; einzeln „Als Gegenstand
+  anlegen“, `stockLineToItem`). Ohne eigenen und ohne Listenpreis gilt der Preis des Regelwerks
+  mal Preisstufe (`stockRuleItem`, `listOrRulePrice`, angezeigt als „Preis nach dem Regelwerk“);
+  am Tisch findet die Suche auch, was nicht im Bestand ist (`ruleHits`). Die Namensnennung
+  (`SRD_ATTRIBUTION`, Einstellungen „Quellen“ und unter dem Nachschlagewerk) nie entfernen.
+  Monster-Werteblöcke aus dem SRD gehören nicht dazu; nie Preise raten oder Beschreibungen
+  übernehmen.
 - Bücher in der Welt (`item.book`, `domain/book.ts`, Abschnitt „Buch“ am Gegenstand): Ein Buch
   ist ein Gegenstand mit Verfasser; seine Seiten stellt `bookPages()` aus den Artikeln zusammen
   (`bookEntries()`: alles aus seinen Themen `selection.rules` – Art, Einordnung, Schlagwort,

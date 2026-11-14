@@ -13,6 +13,8 @@ import {
   filterRows,
   formatPrice,
   priceLevelLabel,
+  ruleHits,
+  rulePrice,
   sellables,
   shopTitle,
   shopsHere,
@@ -20,6 +22,7 @@ import {
 } from '../../domain/shop';
 import { normalize } from '../../domain/derive';
 import type { TradeDirection } from '../../domain/schema';
+import { SRD_ATTRIBUTION } from '../../domain/srd/lookup';
 import {
   Badge,
   Button,
@@ -38,6 +41,7 @@ import {
   addEntity,
   addFree,
   addRow,
+  addRuleItem,
   addSellable,
   basketProblem,
   basketTotal,
@@ -84,6 +88,11 @@ export function TradeDialog({
   const rows = useMemo(() => (shop ? stockRows(data, shop) : []), [data, shop]);
   const shown = useMemo(() => filterRows(rows, query), [rows, query]);
   const offers = useMemo(() => sellables(data, shop), [data, shop]);
+  // Was der Laden nicht führt, aber im Regelwerk steht – für den spontanen Kauf am Tisch.
+  const hits = useMemo(
+    () => (tab === 'buy' ? ruleHits(data, shop, query) : []),
+    [data, shop, query, tab],
+  );
   const q = normalize(query.trim());
   const shownOffers = q ? offers.filter((o) => normalize(o.entity.name).includes(q)) : offers;
   const traders = tradersOf(data);
@@ -99,6 +108,7 @@ export function TradeDialog({
     if (tab === 'buy') {
       const first = shown.find((row) => !row.soldOut);
       if (first) setBuy((b) => addRow(b, first));
+      else if (hits[0]) setBuy((b) => addRuleItem(b, hits[0]!, shop));
     } else {
       const offer = shownOffers[0];
       if (offer) setSell((b) => addSellable(b, offer));
@@ -217,7 +227,7 @@ export function TradeDialog({
               value={query}
               placeholder={
                 tab === 'buy'
-                  ? 'Ware suchen – Eingabe legt die erste in den Korb'
+                  ? 'Ware suchen, auch im Regelwerk – Eingabe legt die erste in den Korb'
                   : 'Gegenstand suchen – Eingabe legt den ersten in den Korb'
               }
               aria-label="Suchen"
@@ -270,6 +280,36 @@ export function TradeDialog({
                     </button>
                   );
                 })}
+              {hits.length > 0 && (
+                <div className="wf-laden-rulehits" aria-label="Aus dem Regelwerk">
+                  <div className="wf-laden-rulehits__head" title={SRD_ATTRIBUTION.en}>
+                    Aus dem Regelwerk – nicht im Bestand
+                  </div>
+                  {hits.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="listitem"
+                      className="wf-laden-ware wf-laden-ware--rule"
+                      onClick={() => setBuy((b) => addRuleItem(b, item, shop))}
+                      title={`${item.en} · Regelwerk ${formatPrice(item.price)}`}
+                    >
+                      <span className="wf-laden-ware__name">
+                        <b className="wf-clamp-1">{item.name}</b>
+                        <span className="wf-laden-ware__sub">
+                          {item.sub}
+                          {inBasket(buy, `srd:${item.id}`) > 0 &&
+                            ` · ${inBasket(buy, `srd:${item.id}`)} im Korb`}
+                        </span>
+                      </span>
+                      <span className="wf-laden-ware__price">
+                        {formatPrice(rulePrice(shop, item))}
+                      </span>
+                      <Plus aria-hidden className="wf-laden-ware__add" />
+                    </button>
+                  ))}
+                </div>
+              )}
               {tab === 'buy' && shop && !rows.length && (
                 <p className="wf-laden-empty">
                   Dieser Laden führt noch nichts. Den Bestand pflegst du auf der Seite des Ortes

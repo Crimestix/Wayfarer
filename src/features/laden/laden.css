@@ -311,3 +311,137 @@
   color: var(--ember);
   font-size: var(--text-sm);
 }
+
+/* Aus dem Regelwerk */
+.wf-laden-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-laden-rules__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+.wf-laden-rules__chip {
+  padding: 2px var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-laden-rules__chip:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.wf-laden-rules__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.wf-laden-rules__chip[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+  color: var(--ink);
+}
+.wf-laden-rules__chip--suggest {
+  border-style: dashed;
+}
+.wf-laden-rules__n {
+  color: var(--ink-mute);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.wf-laden-rules__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-laden-rules__bar > .wf-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.wf-laden-rules__list {
+  height: min(46vh, 420px);
+  overflow: auto;
+  padding: 0 var(--s-3) var(--s-2);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-laden-rules__sub {
+  position: sticky;
+  top: 0;
+  padding: var(--s-2) 0 var(--s-1);
+  background: var(--bg-inset);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-laden-rules__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 88px;
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: 2px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-laden-rules__name--have {
+  padding-left: calc(var(--s-4) + 2px);
+  color: var(--ink-mute);
+}
+.wf-laden-rules__facts {
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-laden-rules__price {
+  color: var(--gold-bright);
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.wf-laden-rules__row--have .wf-laden-rules__price {
+  color: var(--ink-faint);
+}
+.wf-laden-rules__count {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-laden-rules__credit,
+.wf-laden-credit {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+}
+
+/* Am Tisch: Treffer aus dem Regelwerk, leise unter dem Bestand */
+.wf-laden-rulehits__head {
+  padding: var(--s-2) var(--s-3) var(--s-1);
+  border-bottom: 1px solid var(--line-faint);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-laden-ware--rule .wf-laden-ware__name b {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.wf-laden-ware--rule .wf-laden-ware__price {
+  color: var(--gold);
+}
+.wf-laden-stock > .wf-laden-credit {
+  padding-top: var(--s-1);
+}
+.wf-laden-plan__price--rule {
+  color: var(--gold);
+  font-style: italic;
+}

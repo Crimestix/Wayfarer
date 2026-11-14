@@ -4,7 +4,17 @@
  * Vorschläge zum Annehmen und was der Laden zuletzt verkauft und angekauft hat (aus der Chronik).
  */
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ClipboardList, Plus, Settings2, Store, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  ClipboardList,
+  PackagePlus,
+  Plus,
+  Settings2,
+  Store,
+  X,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
 import { TRADE_KINDS } from '../../domain/priceList';
@@ -21,6 +31,7 @@ import {
   stockRows,
 } from '../../domain/shop';
 import { createEntity, type Entity, type Shop } from '../../domain/schema';
+import { SRD_ATTRIBUTION } from '../../domain/srd/lookup';
 import { openShop } from '../../shell/commands';
 import { useFocus } from '../../shell/focus';
 import {
@@ -40,9 +51,11 @@ import {
   newShop,
   patchStockLine,
   removeStockLine,
+  stockLineToItem,
 } from './actions';
 import { PriceInput, QtyInput } from './parts';
 import { PriceListDialog } from './PriceListDialog';
+import { RulesDialog } from './RulesDialog';
 import { ShopDialog } from './ShopDialog';
 import './laden.css';
 
@@ -142,6 +155,7 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
   const suggestions = useMemo(() => shopSuggestions(data, shop), [data, shop]);
   const trades = useMemo(() => shopTrades(data, shop.id), [data, shop.id]);
   const [pasting, setPasting] = useState(false);
+  const [rules, setRules] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const at = shopPlaceId(data, shop);
@@ -162,6 +176,17 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
   const addFromWorld = (id: string | null) => {
     const entity = id ? data.entities[id] : undefined;
     if (entity) addStockLines(db, shop.id, [{ entityId: entity.id, text: entity.name }]);
+  };
+  const makeItem = (lineId: string, name: string) => {
+    const result = stockLineToItem(db, shop.id, lineId);
+    if (result)
+      toast({
+        title: result.created ? `${name} ist jetzt ein Gegenstand` : `${name} verbunden`,
+        body: result.created
+          ? 'Mit dem Preis des Regelwerks als Listenpreis – zu finden unter „Welt“.'
+          : 'Den Eintrag gab es schon; die Zeile gehört jetzt zu ihm.',
+        action: { label: 'Rückgängig', run: result.undo },
+      });
   };
   const accept = () => {
     const undo = acceptShopSuggestions(db, shop.id, picked);
@@ -206,8 +231,11 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
                     row.category,
                     row.single && 'einzelnes Stück',
                     row.own
-                      ? row.listPrice !== null && `Liste ${formatPrice(row.listPrice)}`
-                      : row.listPrice === null && row.entity && 'ohne Listenpreis',
+                      ? row.listPrice !== null
+                        ? `Liste ${formatPrice(row.listPrice)}`
+                        : row.rule && `Regelwerk ${formatPrice(row.rule.price)}`
+                      : row.listPrice === null &&
+                        (row.rule ? 'Preis nach dem Regelwerk' : row.entity && 'ohne Listenpreis'),
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -225,6 +253,16 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
                 onChange={(qty) => patchStockLine(db, shop.id, row.line.id, { qty })}
               />
               <span className="wf-row" style={{ gap: 0 }}>
+                {!row.entity && (
+                  <IconButton
+                    label={`Als Gegenstand anlegen: ${row.name}`}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => makeItem(row.line.id, row.name)}
+                  >
+                    <PackagePlus />
+                  </IconButton>
+                )}
                 <IconButton
                   label={`Nach oben: ${row.name}`}
                   size="sm"
@@ -254,11 +292,17 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
               </span>
             </div>
           ))}
+          {rows.some((row) => row.rule) && (
+            <p className="wf-laden-credit" title={SRD_ATTRIBUTION.en}>
+              Preise nach dem Regelwerk: {SRD_ATTRIBUTION.short}
+            </p>
+          )}
         </div>
       ) : (
         <p className="wf-laden-empty">
-          Noch kein Bestand. Wähle Waren aus der Welt oder füge eine Preisliste ein – leerer Preis
-          heißt Listenpreis mal Preisstufe, leere Menge heißt: so viele man will.
+          Noch kein Bestand. Wähle Waren aus der Welt oder aus dem Regelwerk, oder füge eine
+          Preisliste ein – leerer Preis heißt Listenpreis mal Preisstufe, leere Menge heißt: so
+          viele man will.
         </p>
       )}
 
@@ -272,6 +316,9 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           exclude={shop.stock.map((line) => line.entityId).filter((id): id is string => !!id)}
           onCreate={(name) => db.put('entities', createEntity({ kind: 'item', name })).id}
         />
+        <Button size="sm" icon={<BookOpen />} onClick={() => setRules(true)}>
+          Aus dem Regelwerk …
+        </Button>
         <Button size="sm" icon={<ClipboardList />} onClick={() => setPasting(true)}>
           Preisliste einfügen …
         </Button>
@@ -326,6 +373,7 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
         </div>
       )}
       {pasting && <PriceListDialog shop={shop} onClose={() => setPasting(false)} />}
+      {rules && <RulesDialog shop={shop} onClose={() => setRules(false)} />}
     </div>
   );
 }

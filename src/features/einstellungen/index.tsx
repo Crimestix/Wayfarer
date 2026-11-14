@@ -14,9 +14,10 @@ import { ProblemsSection } from './ProblemsSection';
 import { AiSection } from './AiSection';
 import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
+import { SourcesSection } from './SourcesSection';
 import './einstellungen.css';
 
-const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 export default function Page() {
   const db = useDb();
@@ -128,6 +129,14 @@ export default function Page() {
             lead="Die Zeitrechnung der Welt zum Nachlesen: Monate, Wochentage, Zeitrechnungen und Monde."
           >
             <CalendarSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Quellen"
+            lead="Was Wayfarer an Regelwerk mitbringt – als Nachschlagewerk, nie als Inhalt deiner Welt – und woher es stammt."
+          >
+            <SourcesSection />
           </Section>
         </div>
       </div>

@@ -11,6 +11,7 @@ import {
   nameKey,
   parsePriceLines,
   planPriceLines,
+  withRulePrices,
   type TradeKind,
 } from '../../domain/priceList';
 import { formatPrice, listPrice } from '../../domain/shop';
@@ -33,8 +34,23 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
   /** Als was ein neuer Name angelegt wird, wenn der Spielleiter es ändert (sonst `newKindOf`). */
   const [kinds, setKinds] = useState<Record<number, TradeKind>>({});
   const kindOf = (p: (typeof plan)[number]) => kinds[p.line] ?? newKindOf(p);
+  /** Fehlende Preise nach dem Regelwerk ergänzen – der Spielleiter kann es abwählen. */
+  const [rulePrices, setRulePrices] = useState(true);
   const reading = useMemo(() => parsePriceLines(text), [text]);
-  const plan = useMemo(() => planPriceLines(data, reading.lines), [data, reading]);
+  const planned = useMemo(() => planPriceLines(data, reading.lines), [data, reading]);
+  // Hat der gemeinte Eintrag schon einen Listenpreis, bleibt er – der Regelpreis ergänzt nur.
+  const filled = useMemo(
+    () =>
+      withRulePrices(
+        planned,
+        (p) => listPrice(data.entities[choice[p.line] ?? p.entityId ?? '']) !== null,
+      ),
+    [planned, data, choice],
+  );
+  const plan = rulePrices ? filled : planned;
+  const fromRules = new Set(
+    filled.filter((p, i) => p.price !== planned[i]!.price).map((p) => p.line),
+  );
   const takes = (p: (typeof plan)[number]) => toggled[p.line] ?? !p.takenBy;
   const taken = plan.filter(takes);
   // Ein Name, der zweimal dasteht, wird nur einmal angelegt.
@@ -107,6 +123,12 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
             bleiben weg.
           </p>
         )}
+        {fromRules.size > 0 && (
+          <Checkbox checked={rulePrices} onChange={setRulePrices}>
+            Fehlende Preise nach dem Regelwerk ergänzen (
+            {fromRules.size === 1 ? '1 Zeile' : `${fromRules.size} Zeilen`}, kursiv)
+          </Checkbox>
+        )}
         {plan.length > 0 && (
           <div className="wf-laden-plan" aria-label="So würde es übernommen">
             {plan.map((p) => {
@@ -125,7 +147,17 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
                   <span className="wf-mute">
                     {[p.qty !== null && `${p.qty} Stück`, p.category].filter(Boolean).join(' · ')}
                   </span>
-                  <span className="wf-laden-plan__price">
+                  <span
+                    className={cx(
+                      'wf-laden-plan__price',
+                      rulePrices && fromRules.has(p.line) && 'wf-laden-plan__price--rule',
+                    )}
+                    title={
+                      fromRules.has(p.line)
+                        ? `Nach dem Regelwerk: ${p.rule?.name} (${p.rule?.en})`
+                        : undefined
+                    }
+                  >
                     {p.price === null ? '–' : formatPrice(p.price)}
                   </span>
                   {p.choices.length > 1 ? (

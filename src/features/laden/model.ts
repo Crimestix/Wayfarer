@@ -21,7 +21,7 @@ import {
   type TradeInput,
 } from '../../domain/shop';
 import type { Shop } from '../../domain/schema';
-import type { SrdItem } from '../../domain/srd/lookup';
+import { SRD_EQUIPMENT, srdSearch, type SrdGroup, type SrdItem } from '../../domain/srd/lookup';
 
 export interface BasketLine {
   key: string;
@@ -216,3 +216,40 @@ export function newKindOf(plan: Pick<PricePlan, 'name' | 'category'>): TradeKind
 /** Wer kaufen oder verkaufen kann: die Gruppe und die aktiven Gefährten. */
 export const tradersOf = (data: CampaignData) =>
   [...activeParty(data)].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+
+// ── Aus dem Regelwerk durchsehen ───────────────────────────────────────────
+
+export interface RuleView {
+  /** Gewählte Gruppen – mehrere zugleich. */
+  groups: readonly SrdGroup[];
+  /** Der Vorschlag nach der Art des Ladens ist gewählt (dessen Gegenstände). */
+  suggested: readonly SrdItem[] | null;
+  query: string;
+}
+
+/**
+ * Was im Nachschlagewerk gerade zu sehen ist: alles aus den gewählten Gruppen und dem Vorschlag,
+ * eingeschränkt auf die Suche (deutsch oder englisch). Ohne Wahl findet die Suche in allem; ohne
+ * Wahl und ohne Suche ist nichts zu sehen. In der Reihenfolge des Regelwerks.
+ */
+export function ruleChoice(view: RuleView): SrdItem[] {
+  const query = view.query.trim();
+  const chosen = view.groups.length > 0 || view.suggested !== null;
+  if (!chosen) return query ? srdSearch(query) : [];
+  const ids = new Set(view.suggested?.map((item) => item.id) ?? []);
+  const pool = SRD_EQUIPMENT.filter((item) => ids.has(item.id) || view.groups.includes(item.group));
+  if (!query) return pool;
+  const hits = new Set(srdSearch(query).map((item) => item.id));
+  return pool.filter((item) => hits.has(item.id));
+}
+
+/** Teilt eine Liste nach Unterteilung („Leichte Rüstung“, „Schild“) – in ihrer Reihenfolge. */
+export function ruleSections(items: readonly SrdItem[]): { sub: string; items: SrdItem[] }[] {
+  const out: { sub: string; items: SrdItem[] }[] = [];
+  for (const item of items) {
+    const section = out.find((s) => s.sub === item.sub);
+    if (section) section.items.push(item);
+    else out.push({ sub: item.sub, items: [item] });
+  }
+  return out;
+}

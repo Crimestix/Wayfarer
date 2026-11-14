@@ -618,3 +618,13 @@
   background: linear-gradient(90deg, var(--gold-deep), var(--gold));
   transition: width 0.2s var(--ease);
 }
+
+/* Quellen */
+.wf-einstellungen-credit {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--line);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
