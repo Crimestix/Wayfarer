@@ -3,6 +3,9 @@
  * die lesbare Beschreibung des Kalenders. Reine Funktionen ohne React.
  */
 import type { LoadProblem } from '../../data/db';
+import type { CampaignData } from '../../domain/schema';
+import { cleanSeasons, computedSeasons, seasonsFromComputed } from '../../domain/seasons';
+import { warmestMonth } from '../../domain/weatherZone';
 import {
   MINUTES_PER_DAY,
   formatYear,
@@ -161,6 +164,50 @@ export function monthRows(cal: CalendarDef, now: WorldTime): MonthRow[] {
     current: index === today.month,
   }));
 }
+
+export interface SeasonSettings {
+  /** Hat der Spielleiter die Jahreszeiten festgelegt? Sonst rechnet Wayfarer sie. */
+  own: boolean;
+  /** Die festgelegten Jahreszeiten, wie sie gespeichert sind (Namen auch leer). */
+  seasons: { name: string; months: number[] }[];
+  /** Je Monat: die festgelegte Jahreszeit (Stelle in `seasons`) und die errechnete. */
+  months: { index: number; season: number | null; computed: string }[];
+  /** Die errechneten Jahreszeiten in Worten: „Frühling: Tauwind, Grünbruch, Blüthain“. */
+  computedText: string[];
+}
+
+/**
+ * Was die Einstellungen der Jahreszeiten zeigen: die festgelegten oder die errechneten (um den
+ * wärmsten Monat, Nordhalbkugel) – je Monat beides, damit man vergleichen kann.
+ */
+export function seasonSettings(data: CampaignData): SeasonSettings {
+  const cal = data.campaign.calendar;
+  const count = cal.months.length;
+  const computed = computedSeasons(count, warmestMonth(data));
+  const seasons = cleanSeasons(cal.seasons, count);
+  return {
+    own: cal.seasons.length > 0,
+    seasons,
+    months: cal.months.map((_, index) => {
+      const own = seasons.findIndex((season) => season.months.includes(index));
+      return {
+        index,
+        season: own >= 0 ? own : null,
+        computed: computed.find((season) => season.months.includes(index))?.name ?? '',
+      };
+    }),
+    computedText: computed
+      .filter((season) => season.months.length)
+      .map(
+        (season) =>
+          `${season.name}: ${season.months.map((m) => cal.months[m]?.name ?? '').join(', ')}`,
+      ),
+  };
+}
+
+/** Der Ausgangspunkt zum Festlegen: die Jahreszeiten, wie Wayfarer sie errechnet. */
+export const adoptComputedSeasons = (data: CampaignData) =>
+  seasonsFromComputed(data.campaign.calendar.months.length, warmestMonth(data));
 
 /** „12 Monate · 365 Tage, im Schaltjahr 366 · Woche mit 7 Tagen“ */
 export function calendarSummary(cal: CalendarDef): string {

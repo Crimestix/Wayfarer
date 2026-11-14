@@ -353,12 +353,12 @@ export function moonEventsBetween(
 }
 
 /** Stellt einen Mond so, dass zum Zeitpunkt `at` Voll- bzw. Neumond ist. Der Kalender bleibt sonst gleich. */
-export function calibrateMoon(
-  cal: CalendarDef,
+export function calibrateMoon<C extends CalendarDef>(
+  cal: C,
   moonId: string,
   at: WorldTime,
   phase: 'full' | 'new',
-): CalendarDef {
+): C {
   return {
     ...cal,
     moons: cal.moons.map((moon) =>

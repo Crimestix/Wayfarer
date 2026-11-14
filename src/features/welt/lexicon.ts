@@ -9,8 +9,6 @@ import {
   HABITAT_LABEL,
   NATURE_KINDS,
   RARITY_LABEL,
-  SEASON_LABEL,
-  SEASONS,
   habitatKeysOf,
   isNatureKind,
   monthsOfChoice,
@@ -20,7 +18,7 @@ import {
   type HabitatKey,
   type NatureKind,
 } from '../../domain/nature';
-import { warmestMonth } from '../../domain/weatherZone';
+import { seasonsAt } from '../../domain/seasons';
 import type { CampaignData, Entity, NatureEntity, Place, Profession } from '../../domain/schema';
 import { linkedFrom } from './model';
 
@@ -139,8 +137,8 @@ function natureFilter(
   filter: LexiconFilter,
 ): (entity: NatureEntity) => boolean {
   const cal = data.campaign.calendar;
-  const warmest = warmestMonth(data);
-  const months = filter.season ? monthsOfChoice(cal, warmest, filter.season) : null;
+  const year = seasonsAt(data);
+  const months = filter.season ? monthsOfChoice(cal, year, filter.season) : null;
   // Die Gegend: wer dort Gegenden hat (darin oder darüber) – oder ohne Gegenden zum Ort passt.
   const region = filter.regionId ? data.entities[filter.regionId] : undefined;
   const regionIds =
@@ -162,7 +160,7 @@ function natureFilter(
     if (regionIds && !details.regionIds.some((id) => regionIds.has(id)) && !fits!.has(entity.id))
       return false;
     if (months) {
-      const when = readSeasons(cal, warmest, details.seasons).months;
+      const when = readSeasons(cal, year, details.seasons).months;
       if (when && ![...months].some((m) => when.has(m))) return false;
     }
     return true;
@@ -207,7 +205,10 @@ export function lexiconFacets(data: CampaignData, kind: LexiconKind): LexiconFac
       .map(([value, { label, ids }]) => ({ value, label, count: ids.size }))
       .sort((a, b) => a.label.localeCompare(b.label, 'de')),
     seasons: [
-      ...SEASONS.map((season) => ({ value: `s:${season}`, label: SEASON_LABEL[season] })),
+      ...seasonsAt(data).seasons.map((season) => ({
+        value: `s:${season.key}`,
+        label: season.name,
+      })),
       ...data.campaign.calendar.months.map((month, index) => ({
         value: `m:${index}`,
         label: month.name,

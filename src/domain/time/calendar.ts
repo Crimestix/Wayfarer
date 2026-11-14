@@ -35,6 +35,12 @@ export interface MoonDef {
   color: string;
 }
 
+/** Eine Jahreszeit, wie der Spielleiter sie festlegt: ihr Name und ihre Monate (0-basiert). */
+export interface SeasonDef {
+  name: string;
+  months: number[];
+}
+
 export interface CalendarDef {
   id: string;
   name: string;
@@ -47,6 +53,11 @@ export interface CalendarDef {
   /** Zeitrechnungen; die erste ist die Hauptanzeige. */
   eras: EraDef[];
   moons: MoonDef[];
+  /**
+   * Die Jahreszeiten des Spielleiters (`domain/seasons.ts`). Leer oder fehlend = Wayfarer rechnet
+   * vier gleiche Viertel um den wärmsten Monat.
+   */
+  seasons?: SeasonDef[];
 }
 
 /** Datum in absoluten Jahren. Monat 0-basiert, Tag 1-basiert. */

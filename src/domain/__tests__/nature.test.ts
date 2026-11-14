@@ -17,6 +17,7 @@ import {
   seasonOfMonth,
 } from '../nature';
 import { createEntity, type Entity, type NatureEntity } from '../schema';
+import { seasonYear } from '../seasons';
 import { ELARIS_CALENDAR } from '../time/elaris';
 
 /** Eine erfundene Gegend: die Nordmark mit dem Dunkelwald und Hohenfurt darin, dazu ein Sumpf. */
@@ -52,7 +53,8 @@ describe('Jahreszeiten', () => {
   });
 
   it('liest Jahreszeiten, Monate und Spannen aus dem Kalender', () => {
-    const read = (...words: string[]) => readSeasons(ELARIS_CALENDAR, 4, words);
+    const read = (...words: string[]) =>
+      readSeasons(ELARIS_CALENDAR, seasonYear(ELARIS_CALENDAR, 4), words);
     expect([...read('Herbst').months!].sort()).toEqual([6, 7, 8]);
     expect([...read('Blüthain bis Erntfall').months!].sort()).toEqual([2, 3, 4, 5]);
     expect([...read('Eisbruch–Tauwind').months!].sort((a, b) => a - b)).toEqual([0, 9, 10, 11]);
@@ -64,9 +66,13 @@ describe('Jahreszeiten', () => {
   });
 
   it('wählt eine Jahreszeit oder einen Monat für eine Sicht', () => {
-    expect([...monthsOfChoice(ELARIS_CALENDAR, 4, 's:winter')!]).toEqual([9, 10, 11]);
-    expect([...monthsOfChoice(ELARIS_CALENDAR, 4, 'm:7')!]).toEqual([7]);
-    expect(monthsOfChoice(ELARIS_CALENDAR, 4, '')).toBeNull();
+    expect([
+      ...monthsOfChoice(ELARIS_CALENDAR, seasonYear(ELARIS_CALENDAR, 4), 's:winter')!,
+    ]).toEqual([9, 10, 11]);
+    expect([...monthsOfChoice(ELARIS_CALENDAR, seasonYear(ELARIS_CALENDAR, 4), 'm:7')!]).toEqual([
+      7,
+    ]);
+    expect(monthsOfChoice(ELARIS_CALENDAR, seasonYear(ELARIS_CALENDAR, 4), '')).toBeNull();
   });
 });
 
@@ -116,13 +122,13 @@ describe('Was hier wächst und lebt', () => {
     nature('plant', 'Herbstling', { habitat: ['Wald'], seasons: ['Herbst'] });
     nature('plant', 'Lenzblatt', { habitat: ['Wald'], seasons: ['Tauwind', 'Grünbruch'] });
     // Der Grundstand beginnt im Tauwind: Frühling.
-    expect(seasonNow(data(), town.id).season).toBe('spring');
+    expect(seasonNow(data(), town.id).season?.key).toBe('spring');
     const now = natureHere(data(), town.id);
     expect(names(now)).toEqual(['Lenzblatt']);
     expect(now[0]!.seasonal).toBe('Tauwind, Grünbruch');
     // Ein halbes Jahr später.
     db.setState({ now: data().state.now + 200 * 24 * 60 });
-    expect(seasonNow(data(), town.id).season).toBe('autumn');
+    expect(seasonNow(data(), town.id).season?.key).toBe('autumn');
     expect(names(natureHere(data(), town.id))).toEqual(['Herbstling']);
   });
 

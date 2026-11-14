@@ -32,6 +32,8 @@ const ELARIS_BASE: Omit<CalendarDef, 'weekdayAnchor'> = {
     { id: 'caldus', name: 'Caldus', period: 32976, anchor: 32760, color: '#e8dbc0' },
     { id: 'damaros', name: 'Damaros', period: 59040, anchor: 48240, color: '#adb5a5' },
   ],
+  // Die Jahreszeiten legt der Spielleiter in den Einstellungen fest; bis dahin errechnet.
+  seasons: [],
 };
 
 /** Der wärmste Monat des Jahres: Hochbrand (0-basiert). Das Jahr beginnt mit der Schneeschmelze. */

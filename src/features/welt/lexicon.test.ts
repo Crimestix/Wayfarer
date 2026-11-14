@@ -95,6 +95,34 @@ describe('Lexikon der Pflanzen', () => {
     expect(facets.seasons[0]).toEqual({ value: 's:spring', label: 'Frühling' });
     expect(facets.seasons[4]).toEqual({ value: 'm:0', label: 'Tauwind' });
   });
+
+  it('nimmt die Jahreszeiten, die der Spielleiter festgelegt hat', async () => {
+    const { db } = await setup();
+    const cal = db.getSnapshot().campaign.calendar;
+    db.setCampaign({
+      calendar: {
+        ...cal,
+        seasons: [
+          { name: 'Regenzeit', months: [9, 10, 11, 0, 1] },
+          { name: 'Trockenzeit', months: [2, 3, 4, 5, 6, 7, 8] },
+        ],
+      },
+    });
+    const data = db.getSnapshot();
+    const facets = lexiconFacets(data, 'plant');
+    expect(facets.seasons.slice(0, 2)).toEqual([
+      { value: 's:own-0', label: 'Regenzeit' },
+      { value: 's:own-1', label: 'Trockenzeit' },
+    ]);
+    expect(facets.seasons[2]).toEqual({ value: 'm:0', label: 'Tauwind' });
+    // „Frühling“ (Monate 0–2) meint jetzt die Regenzeit: Das Mondkraut wächst darin.
+    const by = (season: string) =>
+      lexicon(data, 'plant', { ...NO_LEXICON_FILTER, season }).flatMap((g) =>
+        g.rows.map((r) => r.entity.name),
+      );
+    expect(by('s:own-0')).toContain('Mondkraut');
+    expect(by('s:own-1')).not.toContain('Mondkraut');
+  });
 });
 
 describe('Lexikon der Berufe', () => {

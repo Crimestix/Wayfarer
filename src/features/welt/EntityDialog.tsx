@@ -5,7 +5,8 @@ import { useLocation } from 'wouter';
 import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
-import { RARITY_LABEL, SEASON_LABEL, SEASONS, isNatureKind } from '../../domain/nature';
+import { RARITY_LABEL, isNatureKind } from '../../domain/nature';
+import { seasonsAt } from '../../domain/seasons';
 import { freshSeed } from '../../domain/random';
 import {
   PERSON_STATUS,
@@ -165,10 +166,10 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   const habitats = useMemo(() => habitatChoices(data), [data]);
   const seasons = useMemo(
     () => [
-      ...SEASONS.map((s) => SEASON_LABEL[s]),
+      ...seasonsAt(data).seasons.map((s) => s.name),
       ...data.campaign.calendar.months.map((m) => m.name),
     ],
-    [data.campaign.calendar],
+    [data],
   );
   const creatures = useMemo(
     () => Object.values(data.creatures).sort((a, b) => a.name.localeCompare(b.name, 'de')),

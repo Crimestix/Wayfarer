@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { CampaignDb } from '../../../data/db';
+import { elarisCampaign } from '../../../data/seed';
+import { MemoryStore } from '../../../data/store';
+import { setSeasons } from '../../kalender/actions';
 import { formatDateTime, moonPhase, toTime, type CalendarDef } from '../../../domain/time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../../domain/time/elaris';
 import {
+  adoptComputedSeasons,
   calendarSummary,
   cleanCampaignName,
   currentYearLength,
@@ -13,6 +18,7 @@ import {
   monthRows,
   moonCycleText,
   moonRows,
+  seasonSettings,
   weekdayRows,
 } from '../model';
 
@@ -179,5 +185,24 @@ describe('Kalender lesbar', () => {
     expect(formatDateTime(cal, rows[0]!.lastNew!)).toBe('16. Tauwind 701 AD, 13:12');
     // Vor dem ersten Neumond der Zeitrechnung gibt es keinen „letzten Neumond“.
     expect(moonRows(cal, 10)[0]!.lastNew).toBeNull();
+  });
+});
+
+describe('Jahreszeiten in den Einstellungen', () => {
+  it('zeigt die errechneten, bis der Spielleiter sie übernimmt und ändert', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const before = seasonSettings(db.getSnapshot());
+    expect(before.own).toBe(false);
+    expect(before.computedText[0]).toBe('Frühling: Tauwind, Grünbruch, Blüthain');
+    expect(before.months[4]).toEqual({ index: 4, season: null, computed: 'Sommer' });
+
+    setSeasons(db, adoptComputedSeasons(db.getSnapshot()));
+    const adopted = seasonSettings(db.getSnapshot());
+    expect(adopted.own).toBe(true);
+    expect(adopted.seasons.map((s) => s.name)).toEqual(['Frühling', 'Sommer', 'Herbst', 'Winter']);
+    expect(adopted.months[4]!.season).toBe(1);
+
+    setSeasons(db, []);
+    expect(seasonSettings(db.getSnapshot()).own).toBe(false);
   });
 });

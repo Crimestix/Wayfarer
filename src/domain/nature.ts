@@ -12,12 +12,12 @@
  * der Nordmark wächst nicht auf jedem Bergfeld der Nordmark.
  */
 import { byName, entitiesOfKind, placeAncestors } from './derive';
-import { warmestMonthAt } from './geoClimate';
 import { parseGold } from './loot';
 import { coastKm, placeChain, placeGeo, planetOf, reliefOf, terrainAt } from './planet';
 import type { Area, CampaignData, EntityKind, Hex, NatureEntity, Rarity, Terrain } from './schema';
-import { fromTime, type CalendarDef, type WorldTime } from './time/calendar';
-import { warmestMonth, weatherZone } from './weatherZone';
+import { readSeasons, seasonsAt } from './seasons';
+import { fromTime, type WorldTime } from './time/calendar';
+import { weatherZone } from './weatherZone';
 import type { ClimatePreset } from './weather';
 
 export const NATURE_KINDS = ['plant', 'animal', 'mineral'] as const;
@@ -315,142 +315,17 @@ export function placeHabitats(data: CampaignData, placeId: string | null): SpotH
 
 // ── Jahreszeiten ───────────────────────────────────────────────────────────
 
-export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
-export type Season = (typeof SEASONS)[number];
-
-export const SEASON_LABEL: Record<Season, string> = {
-  spring: 'Frühling',
-  summer: 'Sommer',
-  autumn: 'Herbst',
-  winter: 'Winter',
-};
-
-const SEASON_WORDS: Record<Season, string[]> = {
-  spring: ['fruhling', 'fruhjahr', 'lenz'],
-  summer: ['sommer', 'hochsommer', 'fruhsommer', 'spatsommer'],
-  autumn: ['herbst', 'spatherbst', 'fruhherbst'],
-  winter: ['winter', 'hochwinter', 'spatwinter'],
-};
-
-const ALWAYS = new Set(['immer', 'ganzjahrig', 'ganzesjahr', 'dasganzejahr', 'jederzeit']);
-
-/**
- * Die Jahreszeit eines Monats: Der wärmste Monat ist die Mitte des Sommers; jede Jahreszeit
- * dauert ein Viertel des Jahres. Bei zwölf Monaten: der wärmste mit seinen beiden Nachbarn.
- */
-export function seasonOfMonth(month: number, monthCount: number, warmest: number): Season {
-  const offset = (((month - warmest) % monthCount) + monthCount) % monthCount;
-  const shifted = (offset + monthCount / 12) % monthCount;
-  const quarter = Math.min(3, Math.floor(shifted / (monthCount / 4)));
-  return (['summer', 'autumn', 'winter', 'spring'] as const)[quarter] ?? 'summer';
-}
-
-/** Ein Wort als Monat des Kalenders (Index) oder null. */
-function monthOf(cal: CalendarDef, word: string): number | null {
-  const key = compact(word);
-  if (!key) return null;
-  const index = cal.months.findIndex((month) => compact(month.name) === key);
-  return index >= 0 ? index : null;
-}
-
-/** Die Monate von `from` bis `to`, auch über den Jahreswechsel. */
-function monthRange(from: number, to: number, count: number): number[] {
-  const out: number[] = [];
-  for (let m = from; ; m = (m + 1) % count) {
-    out.push(m);
-    if (m === to || out.length >= count) break;
-  }
-  return out;
-}
-
-export interface SeasonReading {
-  /** Die Monate (Index), in denen es vorkommt; null = immer. */
-  months: Set<number> | null;
-  /** Wörter, die Wayfarer nicht lesen konnte. */
-  unread: string[];
-}
-
-/**
- * Liest die Angaben „wann“: Jahreszeiten („Herbst“), Monate des Kalenders („Blüthain“) und
- * Spannen („Blüthain bis Erntfall“, „Sonnfeld–Nebelruh“). Nichts Lesbares heißt „immer“.
- */
-export function readSeasons(
-  cal: CalendarDef,
-  warmest: number,
-  entries: readonly string[],
-): SeasonReading {
-  const months = new Set<number>();
-  const unread: string[] = [];
-  const count = cal.months.length;
-  let always = false;
-  for (const entry of entries) {
-    const text = entry.trim();
-    if (!text) continue;
-    if (ALWAYS.has(compact(text))) {
-      always = true;
-      continue;
-    }
-    const range = text.split(/\s*(?:–|—|-|\bbis\b)\s*/i).filter(Boolean);
-    if (range.length === 2) {
-      const [from, to] = [monthOf(cal, range[0]!), monthOf(cal, range[1]!)];
-      if (from !== null && to !== null) {
-        for (const m of monthRange(from, to, count)) months.add(m);
-        continue;
-      }
-      const [a, b] = [seasonOfWord(range[0]!), seasonOfWord(range[1]!)];
-      if (a && b) {
-        const order = ['spring', 'summer', 'autumn', 'winter'];
-        for (let i = order.indexOf(a); ; i = (i + 1) % 4) {
-          addSeason(months, order[i] as Season, count, warmest);
-          if (order[i] === b) break;
-        }
-        continue;
-      }
-    }
-    const month = monthOf(cal, text);
-    if (month !== null) {
-      months.add(month);
-      continue;
-    }
-    const season = seasonOfWord(text);
-    if (season) {
-      addSeason(months, season, count, warmest);
-      continue;
-    }
-    unread.push(text);
-  }
-  return { months: always || months.size === 0 ? null : months, unread };
-}
-
-function seasonOfWord(text: string): Season | null {
-  const key = compact(text);
-  for (const season of SEASONS) if (SEASON_WORDS[season].includes(key)) return season;
-  return null;
-}
-
-function addSeason(into: Set<number>, season: Season, count: number, warmest: number) {
-  for (let m = 0; m < count; m++) if (seasonOfMonth(m, count, warmest) === season) into.add(m);
-}
-
-/** Der wärmste Monat an einem Ort – auf der Südhalbkugel ein halbes Jahr versetzt. */
-export function warmestMonthHere(data: CampaignData, placeId: string | null): number {
-  const lat = placeGeo(data, placeId)?.geo.lat ?? 0;
-  return warmestMonthAt(warmestMonth(data), data.campaign.calendar.months.length, lat);
-}
-
-/** Monat und Jahreszeit jetzt an einem Ort. */
-export function seasonNow(
-  data: CampaignData,
-  placeId: string | null,
-  now: WorldTime = data.state.now,
-): { month: number; season: Season } {
-  const cal = data.campaign.calendar;
-  const month = fromTime(cal, now).month;
-  return {
-    month,
-    season: seasonOfMonth(month, cal.months.length, warmestMonthHere(data, placeId)),
-  };
-}
+// Die Jahreszeiten stehen in `domain/seasons.ts`; hier nur weitergereicht, wo sie schon gelesen wurden.
+export {
+  SEASONS,
+  SEASON_LABEL,
+  monthsOfChoice,
+  readSeasons,
+  seasonNow,
+  seasonOfMonth,
+  type Season,
+  type SeasonReading,
+} from './seasons';
 
 // ── Was hier vorkommt ──────────────────────────────────────────────────────
 
@@ -510,7 +385,7 @@ export function natureAt(
     read.words.push(...own.words);
   }
   const cal = data.campaign.calendar;
-  const warmest = warmestMonthHere(data, spot.placeId);
+  const year = seasonsAt(data, spot.placeId);
   const month = fromTime(cal, now).month;
   /** Das Gelände steht fest: Ein bekannter Lebensraum muss passen, auch in der eigenen Gegend. */
   const firm = (spot.habitats?.length ?? 0) > 0;
@@ -547,7 +422,7 @@ export function natureAt(
         }
       }
       if (!reasons.length || (firm && known && !fitting)) continue;
-      const when = readSeasons(cal, warmest, details.seasons);
+      const when = readSeasons(cal, year, details.seasons);
       if (!spot.allYear && when.months && !when.months.has(month)) continue;
       out.push({ entity, reasons, seasonal: when.months ? details.seasons.join(', ') : '' });
     }
@@ -605,28 +480,6 @@ export function natureOnHex(
     { placeId, habitats: [...habitats], placeHabitats: hex.placeId !== null },
     now,
   );
-}
-
-/** Monat oder Jahreszeit als Auswahl für eine Sicht: „s:winter“ oder „m:3“. */
-export function monthsOfChoice(
-  cal: CalendarDef,
-  warmest: number,
-  choice: string,
-): Set<number> | null {
-  if (choice.startsWith('s:')) {
-    const season = choice.slice(2) as Season;
-    if (!SEASONS.includes(season)) return null;
-    const months = new Set<number>();
-    addSeason(months, season, cal.months.length, warmest);
-    return months;
-  }
-  if (choice.startsWith('m:')) {
-    const month = Number(choice.slice(2));
-    return Number.isInteger(month) && month >= 0 && month < cal.months.length
-      ? new Set([month])
-      : null;
-  }
-  return null;
 }
 
 /** Die Tiere, deren Kampfwerte dieses Wesen des Bestiariums sind. */

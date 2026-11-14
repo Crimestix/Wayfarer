@@ -45,6 +45,10 @@ export const CalendarSchema = z.object({
       color: z.string(),
     }),
   ),
+  /** Jahreszeiten des Spielleiters (`domain/seasons.ts`); leer = um den wärmsten Monat errechnet. */
+  seasons: z
+    .array(z.object({ name: z.string(), months: z.array(z.number().int().nonnegative()) }))
+    .default([]),
 });
 
 // ── Kampagne und Spielstand ────────────────────────────────────────────────
