@@ -12,6 +12,7 @@ import {
   createHandout,
   createGuess,
   createLoot,
+  createMount,
   createShop,
   createStock,
   createStory,
@@ -256,5 +257,23 @@ describe('Die Suche', () => {
       focus: { type: 'shop', id: shop.id },
     });
     expect(searchWorld(world.data(), 'räucheraal').map((h) => h.key)).toContain(`shop:${shop.id}`);
+  });
+
+  it('findet Reittiere, Fahrzeuge und Schiffe', async () => {
+    const world = await setup();
+    const boat = world.db.put(
+      'mounts',
+      createMount({ name: 'Seewind', kind: 'ship', condition: 'damaged', notes: 'Leck am Bug' }),
+    );
+    world.db.setState({ travelBy: boat.id });
+    expect(searchWorld(world.data(), 'seewind')[0]).toMatchObject({
+      key: `mount:${boat.id}`,
+      sort: 'mount',
+      sub: 'Schiff oder Boot · der Gruppe · beschädigt · damit reist die Gruppe',
+      href: '/gruppe',
+      focus: { type: 'mount', id: boat.id },
+      mountKind: 'ship',
+    });
+    expect(searchWorld(world.data(), 'leck').map((h) => h.key)).toContain(`mount:${boat.id}`);
   });
 });

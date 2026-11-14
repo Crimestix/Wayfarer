@@ -22,6 +22,7 @@ import {
   sortOfWay,
   type WaySort,
 } from '../../domain/wayState';
+import { partyTravel } from '../../domain/mounts';
 import { formatWayTime, routeBetween } from '../../domain/ways';
 import { openMoveParty } from '../../shell/commands';
 import { focusOn, type Focus } from '../../shell/focus';
@@ -48,6 +49,7 @@ const SORT_SHORT: Record<WaySort, string> = {
   trail: 'Pfade und Feldwege',
   swamp: 'Pfade durch Sumpf oder Moor',
   underground: 'Gänge unter der Erde',
+  water: 'Wasserwege',
 };
 
 function Head({
@@ -174,7 +176,8 @@ export function PointPanel({
   const place = point.place;
   const hanging = hangingAt(data, place.id);
   const party = data.state.placeId;
-  const route = party && !point.here ? routeBetween(data, party, place.id) : null;
+  const route =
+    party && !point.here ? routeBetween(data, party, place.id, partyTravel(data)) : null;
   const [next, setNext] = useState('');
   const [nextTime, setNextTime] = useState('');
   const minutes = parseDurationText(nextTime);

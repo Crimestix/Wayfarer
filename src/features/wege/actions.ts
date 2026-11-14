@@ -10,9 +10,10 @@ import {
   type TimeAdvanceResult,
 } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { routeMeans, describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
 import { createPath, type ChronicleEntry, type TravelPath } from '../../domain/schema';
-import { describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
 import { WAY_SORT_VALUES, sortOfWay, type WaySort } from '../../domain/wayState';
+import { tradeAt } from '../laden/actions';
 import { undoMove } from '../tisch/commands';
 
 export interface WayInput {
@@ -94,14 +95,19 @@ export function walk(db: CampaignDb, toId: string, minutes: number, note = ''): 
   });
 }
 
-/** Die Gruppe geht eine Route durchs Wegenetz: „über Marktplatz · 25 Min.“ steht in der Chronik. */
+/**
+ * Die Gruppe geht eine Route durchs Wegenetz: „über Marktplatz · mit Seewind · 25 Min.“ steht in
+ * der Chronik.
+ */
 export function walkRoute(db: CampaignDb, route: Route): WalkResult {
   const last = route.legs[route.legs.length - 1];
   if (!last) throw new Error('Die Route hat keinen Abschnitt.');
   const data = db.getSnapshot();
   const names = route.legs.map((leg) => leg.path.name).filter(Boolean);
+  const means = routeMeans(route).map((mount) => mount.name);
   const note = [
     describeVia(data, route) || (names.length === 1 ? `über ${names[0]}` : ''),
+    means.length ? `mit ${means.join(' und ')}` : '',
     route.minutes > 0 ? formatWayTime(route.minutes) : '',
   ]
     .filter(Boolean)
@@ -122,4 +128,73 @@ export function rememberWay(
   if (minutes <= 0 || fromId === toId) return null;
   if (directWay(db.getSnapshot(), fromId, toId)) return null;
   return saveWay(db, { fromId, toId, minutes });
+}
+
+export interface CrossingInput {
+  runId: string;
+  /** Die gebuchte Fahrt nach Fahrplan (`Crossing.next` aus `domain/crossing.ts`). */
+  departs: number;
+  arrives: number;
+  /** Was die Überfahrt kostet, frei; null = nichts bezahlt. */
+  price: number | null;
+  /** Wer bezahlt: ein Gefährte; null = die Gruppe. */
+  payerId: string | null;
+  /** Gleich mitfahren: Die Zeit bis zur Ankunft vergeht, dann ist die Gruppe am Ziel. */
+  ride: boolean;
+}
+
+export interface CrossingResult {
+  /** Der Handel in der Mitschrift (nur mit Preis). */
+  entry: ChronicleEntry | null;
+  walk: WalkResult | null;
+  undo: () => void;
+}
+
+/**
+ * Bucht eine Überfahrt mit einem Ablauf nach Fahrplan: Der Preis steht als Handel in der
+ * Mitschrift (`tradeAt`); mit `ride` fährt die Gruppe mit – bis zur Ankunft der Fahrt vergeht die
+ * Zeit (`walk`), Warten am Anleger eingeschlossen. Gibt `problem` zurück, wenn es den Ablauf
+ * nicht mehr gibt oder die Fahrt schon abgefahren ist.
+ */
+export function bookCrossing(
+  db: CampaignDb,
+  input: CrossingInput,
+): CrossingResult | { problem: string } {
+  const data = db.getSnapshot();
+  const run = data.runs[input.runId];
+  if (!run) return { problem: 'Diesen Ablauf gibt es nicht mehr.' };
+  const now = data.state.now;
+  if (input.ride && input.departs < now) return { problem: 'Diese Fahrt ist schon abgefahren.' };
+  const to = data.entities[run.toId]?.name ?? 'Unbekannt';
+  return db.batch(() => {
+    let entry: ChronicleEntry | null = null;
+    let undoTrade = () => {};
+    if (input.price !== null) {
+      const traded = tradeAt(db, {
+        direction: 'buy',
+        toId: input.payerId,
+        lines: [{ text: `Überfahrt nach ${to} (${run.name})`, price: Math.max(0, input.price) }],
+      });
+      if ('problem' in traded) return traded;
+      entry = traded.entry;
+      undoTrade = traded.undo;
+    }
+    const ride = input.ride
+      ? walk(
+          db,
+          run.toId,
+          input.arrives - now,
+          [`mit ${run.name}`, formatWayTime(input.arrives - input.departs)].join(' · '),
+        )
+      : null;
+    return {
+      entry,
+      walk: ride,
+      undo: () =>
+        db.batch(() => {
+          ride?.undo();
+          undoTrade();
+        }),
+    };
+  });
 }

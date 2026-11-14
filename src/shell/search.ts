@@ -1,17 +1,18 @@
 /**
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
  * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
- * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler und Läden (auch
- * nach ihren Waren). Reine Funktion –
+ * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler, Läden (auch
+ * nach ihren Waren) und Fortbewegungsmittel. Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
 import { HANDOUT_KIND_LABEL } from '../domain/handout';
 import { formatGold } from '../domain/loot';
+import { MOUNT_CONDITION_LABEL, MOUNT_KIND_LABEL, ownerText } from '../domain/mounts';
 import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
 import { scheduleText } from '../domain/runs';
 import { shopPlaceId, shopTitle } from '../domain/shop';
-import type { CampaignData, Entity } from '../domain/schema';
+import type { CampaignData, Entity, MountKind } from '../domain/schema';
 import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
 import { MINUTES_PER_DAY, dayIndexOf, formatDayMonth, startOfDay } from '../domain/time/calendar';
 import type { Focus } from './focus';
@@ -34,7 +35,8 @@ export type SearchSort =
   | 'bastion'
   | 'loot'
   | 'guess'
-  | 'shop';
+  | 'shop'
+  | 'mount';
 
 export interface SearchHit {
   key: string;
@@ -48,6 +50,8 @@ export interface SearchHit {
   href: string;
   /** Was diese Seite gleich zeigen soll. */
   focus?: Focus;
+  /** Bei einem Fortbewegungsmittel: Reittier, Fahrzeug oder Schiff – für das Symbol. */
+  mountKind?: MountKind;
 }
 
 /** 0 = genau der Name, 1 = beginnt so, 2 = kommt im Namen vor, 3 = nur im Beiwerk; 9 = kein Treffer. */
@@ -291,6 +295,24 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       ),
       href: home && data.entities[home] ? `/welt/${home}` : '/welt',
       focus: { type: 'shop', id: shop.id },
+    });
+  }
+
+  for (const mount of Object.values(data.mounts)) {
+    const entity = mount.entityId ? data.entities[mount.entityId] : undefined;
+    add(score(q, mount.name, mount.notes, entity?.name ?? ''), {
+      key: `mount:${mount.id}`,
+      sort: 'mount',
+      label: mount.name,
+      sub: sub(
+        MOUNT_KIND_LABEL[mount.kind],
+        ownerText(data, mount),
+        mount.condition !== 'ready' && MOUNT_CONDITION_LABEL[mount.condition],
+        data.state.travelBy === mount.id && 'damit reist die Gruppe',
+      ),
+      href: '/gruppe',
+      focus: { type: 'mount', id: mount.id },
+      mountKind: mount.kind,
     });
   }
 

@@ -17,12 +17,14 @@ import {
   signsAlong,
   walkAlong,
 } from '../../domain/mapDraw';
+import type { Going } from '../../domain/mounts';
 import type { CampaignData, GameMap, MapGround, MapLine, MapSign } from '../../domain/schema';
 import {
   describeVia,
   formatWayTime,
   routeBetween,
   routeDetour,
+  routeFit,
   routeNotes,
 } from '../../domain/ways';
 
@@ -181,9 +183,10 @@ export function routeText(
   data: Pick<CampaignData, 'entities' | 'paths' | 'maps'>,
   fromId: string | null | undefined,
   toId: string,
+  how: Going = 'normal',
 ): string | null {
   if (!fromId || fromId === toId) return null;
-  const route = routeBetween(data, fromId, toId);
+  const route = routeBetween(data, fromId, toId, how);
   if (!route) return null;
   const via = describeVia(data, route);
   const time =
@@ -201,10 +204,17 @@ export function routeWarnings(
   data: Pick<CampaignData, 'entities' | 'paths' | 'maps'>,
   fromId: string | null | undefined,
   toId: string,
+  how: Going = 'normal',
 ): { notes: string[]; barred: boolean; detour: string | null } {
-  const route = fromId && fromId !== toId ? routeBetween(data, fromId, toId) : null;
+  const route = fromId && fromId !== toId ? routeBetween(data, fromId, toId, how) : null;
+  // Passt das Mittel nicht zu einem Abschnitt, steht der Hinweis bei den übrigen.
+  const fit = route ? routeFit(route) : [];
   return route
-    ? { notes: routeNotes(data, route), barred: route.barred, detour: routeDetour(data, route) }
+    ? {
+        notes: [...fit, ...routeNotes(data, route)],
+        barred: route.barred,
+        detour: routeDetour(data, route),
+      }
     : { notes: [], barred: false, detour: null };
 }
 

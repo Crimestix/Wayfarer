@@ -8,8 +8,18 @@
  */
 import { placeAncestors } from './derive';
 import { signBars, signNote, signsAlong, walkAlong } from './mapDraw';
+import { ignoresGround, meansKmh, meansOnWay, travelOf, wayFit, type Going } from './mounts';
 import { wayCondition, type WayCondition } from './wayState';
-import type { CampaignData, GameMap, MapSign, Pace, Place, Terrain, TravelPath } from './schema';
+import type {
+  CampaignData,
+  GameMap,
+  MapSign,
+  Mount,
+  Pace,
+  Place,
+  Terrain,
+  TravelPath,
+} from './schema';
 
 type WayData = Pick<CampaignData, 'entities' | 'paths' | 'maps'>;
 
@@ -39,20 +49,26 @@ export function wayKm(data: WayData, path: TravelPath): number | null {
 }
 
 /**
- * Wie lange ein Weg dauert, in Minuten: der feste Aufwand, sonst Länge durch Tempo (in schwierigem
- * Gelände doppelt so lang). Null, wenn weder Dauer noch Länge bekannt ist.
+ * Wie lange ein Weg dauert, in Minuten: der feste Aufwand des Spielleiters (gilt immer), sonst
+ * Länge durch Tempo – zu Fuß oder mit dem Fortbewegungsmittel, wenn es den Weg trägt
+ * (`domain/mounts.ts`). In schwierigem Gelände doppelt so lang, außer für Schiffe und alles, was
+ * fliegt. Null, wenn weder Dauer noch Länge bekannt ist.
  */
-export function wayMinutes(data: WayData, path: TravelPath, pace: Pace = 'normal'): number | null {
+export function wayMinutes(data: WayData, path: TravelPath, how: Going = 'normal'): number | null {
   if (path.minutes !== null) return path.minutes;
+  const { pace } = travelOf(how);
+  const by = meansOnWay(how, path);
+  const kmh = (by && meansKmh(by, pace)) ?? WALK_KMH[pace];
+  const free = by !== null && ignoresGround(by);
   // Auf einer gezeichneten Karte: Stück für Stück nach dem Gelände, über das der Weg führt.
   const map = path.mapId ? data.maps[path.mapId] : undefined;
-  if (map?.kind === 'drawn' && path.points.length >= 2 && path.distanceKm === null) {
+  if (!free && map?.kind === 'drawn' && path.points.length >= 2 && path.distanceKm === null) {
     const walk = walkAlong(map, path.points, path.road === 'road');
-    if (walk) return Math.max(1, Math.round(walk.minutes * (WALK_KMH.normal / WALK_KMH[pace])));
+    if (walk) return Math.max(1, Math.round(walk.minutes * (WALK_KMH.normal / kmh)));
   }
   const km = wayKm(data, path);
   if (km === null) return null;
-  const hours = (km / WALK_KMH[pace]) * (DIFFICULT.has(path.terrain) ? 2 : 1);
+  const hours = (km / kmh) * (!free && DIFFICULT.has(path.terrain) ? 2 : 1);
   return Math.max(1, Math.round(hours * 60));
 }
 
@@ -71,6 +87,10 @@ export interface Way {
   barred: boolean;
   /** Was das Wetter aus dem Weg gemacht hat (`domain/wayState.ts`); null = unbekannt. */
   weather: WayCondition | null;
+  /** Womit der Weg gegangen wird: das Mittel der Gruppe, wenn es ihn trägt; null = zu Fuß. */
+  by: Mount | null;
+  /** Ein ruhiger Hinweis, wenn Mittel und Weg nicht zusammenpassen (`wayFit`) – nie ein Verbot. */
+  fit: string | null;
 }
 
 /**
@@ -113,8 +133,11 @@ export function wayNotes(
 
 const isPlace = (data: WayData, id: string): boolean => data.entities[id]?.kind === 'place';
 
-/** Die Wege, die von einem Ort abgehen – der kürzeste zuerst, unbekannte Dauer zuletzt. */
-export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'): Way[] {
+/**
+ * Die Wege, die von einem Ort abgehen – der kürzeste zuerst, unbekannte Dauer zuletzt. `how`: im
+ * Reisetempo zu Fuß oder mit einem Fortbewegungsmittel (`partyTravel`).
+ */
+export function waysFrom(data: WayData, placeId: string, how: Going = 'normal'): Way[] {
   const ways: Way[] = [];
   for (const path of Object.values(data.paths)) {
     if (path.fromId === path.toId) continue;
@@ -125,7 +148,8 @@ export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'):
     if (!isPlace(data, toId)) continue;
     const signs = waySigns(data, path, !forward);
     const weather = wayWeather(data, path);
-    const dry = wayMinutes(data, path, pace);
+    const dry = wayMinutes(data, path, how);
+    // Das Wetter wirkt auf Land; ein Schiff auf dem Wasser kümmert kein Schlamm.
     ways.push({
       path,
       fromId: placeId,
@@ -136,6 +160,8 @@ export function waysFrom(data: WayData, placeId: string, pace: Pace = 'normal'):
       signs,
       barred: signs.some(signBars) || weather?.state === 'lost',
       weather,
+      by: meansOnWay(how, path),
+      fit: wayFit(how, path),
     });
   }
   const name = (way: Way) => data.entities[way.toId]?.name ?? '';
@@ -166,7 +192,7 @@ export interface WaysAround {
 export function waysAround(
   data: WayData,
   placeId: string | null,
-  pace: Pace = 'normal',
+  how: Going = 'normal',
 ): WaysAround | null {
   const start = placeId ? data.entities[placeId] : undefined;
   if (start?.kind !== 'place') return null;
@@ -174,7 +200,7 @@ export function waysAround(
   const inside = new Set(chain.map((place) => place.id));
   let found: WaysAround | null = null;
   for (const place of chain) {
-    const ways = waysFrom(data, place.id, pace);
+    const ways = waysFrom(data, place.id, how);
     if (!ways.length) continue;
     if (!found) {
       found = { origin: place, ways, above: null };
@@ -215,7 +241,7 @@ const BARRED_WEIGHT = 52_560_000;
  * Dijkstra von einem Ort aus: über welchen Weg jeder erreichte Ort am schnellsten erreicht wird.
  * Hört auf, sobald `toId` feststeht; sonst ist danach alles Erreichbare bekannt.
  */
-function reach(data: WayData, fromId: string, toId: string, pace: Pace): Map<string, Way> {
+function reach(data: WayData, fromId: string, toId: string, how: Going): Map<string, Way> {
   const best = new Map<string, number>([[fromId, 0]]);
   const came = new Map<string, Way>();
   const open = new Set<string>([fromId]);
@@ -232,7 +258,7 @@ function reach(data: WayData, fromId: string, toId: string, pace: Pace): Map<str
     if (current === null || current === toId) break;
     open.delete(current);
     done.add(current);
-    for (const way of waysFrom(data, current, pace)) {
+    for (const way of waysFrom(data, current, how)) {
       if (done.has(way.toId)) continue;
       const cost =
         best.get(current)! + (way.minutes ?? UNKNOWN_WEIGHT) + (way.barred ? BARRED_WEIGHT : 0);
@@ -257,12 +283,15 @@ function reach(data: WayData, fromId: string, toId: string, pace: Pace): Map<str
  * zählen die Wege der Orte darüber – und am Ziel genügt es, den Ort zu erreichen, in dem es
  * liegt. Was Start und Ziel gemeinsam umschließt (dieselbe Stadt, dieselbe Gegend), ist dabei
  * kein Punkt auf dem Weg. Ein eingetragener Weg geht immer vor.
+ *
+ * Mit einem Fortbewegungsmittel (`how`) zählt dessen Tempo, wo es den Weg trägt – ein Schiff
+ * macht Wasserwege schnell, an Land geht die Gruppe zu Fuß.
  */
 export function routeBetween(
   data: WayData,
   fromId: string,
   toId: string,
-  pace: Pace = 'normal',
+  how: Going = 'normal',
 ): Route | null {
   if (fromId === toId || !isPlace(data, fromId) || !isPlace(data, toId)) return null;
   const up = (id: string) => [
@@ -274,7 +303,7 @@ export function routeBetween(
   const linked = new Set(Object.values(data.paths).flatMap((path) => [path.fromId, path.toId]));
   for (const start of starts) {
     if (start !== fromId && (shared.has(start) || !linked.has(start))) continue;
-    const came = reach(data, start, toId, pace);
+    const came = reach(data, start, toId, how);
     for (const end of ends) {
       if (end !== toId && shared.has(end)) continue;
       if (!came.has(end)) continue;
@@ -297,6 +326,19 @@ export function routeBetween(
 export function routeNotes(data: WayData, route: Route): string[] {
   return route.legs.flatMap((leg) => wayNotes(data, leg));
 }
+
+/**
+ * Wie Mittel und Route zusammenpassen, in Worten – jeder Hinweis einmal: „Seewind fährt nur auf
+ * dem Wasser – dieser Weg geht zu Fuß“. Leer, wenn alles passt.
+ */
+export function routeFit(route: Route): string[] {
+  return [...new Set(route.legs.flatMap((leg) => leg.fit ?? []))];
+}
+
+/** Die Mittel, mit denen eine Route (teilweise) gereist wird – jedes einmal. */
+export const routeMeans = (route: Route): Mount[] => [
+  ...new Map(route.legs.flatMap((leg) => (leg.by ? [[leg.by.id, leg.by] as const] : []))).values(),
+];
 
 /**
  * Warum eine Route einen Umweg nimmt: Der direkte Weg ist versperrt. In Worten – null, wenn es

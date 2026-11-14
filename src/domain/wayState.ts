@@ -35,11 +35,13 @@ const CLEAR: WayCondition = { state: 'clear', factor: 1, text: '' };
 
 /**
  * Der Boden eines Weges: `paved` = befestigt (eine Straße, eine Gasse in der Stadt); `wet` =
- * nasser Grund (Sumpf, Moor); `firm` = alles andere im Freien; `sheltered` = unter der Erde.
+ * nasser Grund (Sumpf, Moor); `firm` = alles andere im Freien; `sheltered` = unter der Erde;
+ * `water` = ein Wasserweg (Fluss, See, Meer) – Schlamm und Schnee gibt es dort nicht.
  */
-export type Soil = 'paved' | 'firm' | 'wet' | 'sheltered';
+export type Soil = 'paved' | 'firm' | 'wet' | 'sheltered' | 'water';
 
 export function soilOf(data: Pick<CampaignData, 'maps'>, path: TravelPath): Soil {
+  if (path.terrain === 'water') return 'water';
   const map = path.mapId ? data.maps[path.mapId] : undefined;
   if (path.terrain === 'underdark' || (map?.kind === 'drawn' && map.level === 'underground'))
     return 'sheltered';
@@ -67,7 +69,7 @@ export function soilOf(data: Pick<CampaignData, 'maps'>, path: TravelPath): Soil
  * Was für ein Weg das ist – so, wie der Spielleiter es sagt. Daraus folgt der Boden und damit,
  * was das Wetter mit dem Weg macht.
  */
-export const WAY_SORTS = ['street', 'road', 'trail', 'swamp', 'underground'] as const;
+export const WAY_SORTS = ['street', 'road', 'trail', 'swamp', 'underground', 'water'] as const;
 export type WaySort = (typeof WAY_SORTS)[number];
 
 export const WAY_SORT_LABEL: Record<WaySort, string> = {
@@ -76,6 +78,7 @@ export const WAY_SORT_LABEL: Record<WaySort, string> = {
   trail: 'Pfad oder Feldweg',
   swamp: 'Pfad durch Sumpf oder Moor',
   underground: 'Gang unter der Erde',
+  water: 'Wasserweg: Fluss, See oder Meer',
 };
 
 export const WAY_SORT_HINT: Record<WaySort, string> = {
@@ -84,6 +87,8 @@ export const WAY_SORT_HINT: Record<WaySort, string> = {
   trail: 'Verschlammt bei Starkregen, verschneit bei starkem Schnee – dann halbes Tempo.',
   swamp: 'Bei Starkregen nicht passierbar, danach noch tagelang verschlammt.',
   underground: 'Kein Wetter.',
+  water:
+    'Schiffe und Boote fahren hier; zu Fuß braucht es eine Überfahrt. Schlamm und Schnee gibt es nicht.',
 };
 
 export const WAY_SORT_VALUES: Record<WaySort, Pick<TravelPath, 'terrain' | 'road'>> = {
@@ -92,11 +97,13 @@ export const WAY_SORT_VALUES: Record<WaySort, Pick<TravelPath, 'terrain' | 'road
   trail: { terrain: 'grassland', road: 'trail' },
   swamp: { terrain: 'swamp', road: 'trail' },
   underground: { terrain: 'underdark', road: 'none' },
+  water: { terrain: 'water', road: 'none' },
 };
 
 /** Die Art eines Weges, abgelesen an Gelände und Befestigung. */
 export function sortOfWay(path: Pick<TravelPath, 'terrain' | 'road'>): WaySort {
   if (path.terrain === 'underdark') return 'underground';
+  if (path.terrain === 'water') return 'water';
   if (path.terrain === 'urban') return 'street';
   if (path.terrain === 'swamp') return 'swamp';
   return path.road === 'road' ? 'road' : 'trail';
@@ -144,7 +151,7 @@ export function wayCondition(
 
   const soil = soilOf(data, path);
   let result = CLEAR;
-  if (soil !== 'sheltered') {
+  if (soil !== 'sheltered' && soil !== 'water') {
     const zones = [weatherZone(data, path.fromId), weatherZone(data, path.toId)];
     const days = [0, 1, 2].map((back) =>
       fall(today - back < 0 ? [] : zones.map((zone) => zoneWeather(data, zone, today - back))),

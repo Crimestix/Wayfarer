@@ -29,6 +29,7 @@ import {
   type BoardCard,
 } from './story';
 import { MINUTES_PER_DAY, startOfDay } from './time/calendar';
+import { partyTravel } from './mounts';
 import { formatWayTime, routeBetween } from './ways';
 import { isEveryday, isNear } from './weight';
 
@@ -92,7 +93,7 @@ function whereText(data: CampaignData, card: BoardCard): string {
     ...new Set(card.nodes.map((id) => whereOf(data, id)).filter((id) => id !== null)),
   ];
   const minutes = places
-    .map((id) => routeBetween(data, party, id))
+    .map((id) => routeBetween(data, party, id, partyTravel(data)))
     .filter((route) => route !== null && route.minutes > 0)
     .map((route) => route!.minutes);
   if (minutes.length) return `${formatWayTime(Math.min(...minutes))} entfernt`;

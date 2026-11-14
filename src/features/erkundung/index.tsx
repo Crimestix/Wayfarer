@@ -38,6 +38,7 @@ import {
 import { CreateDialog } from './CreateDialog';
 import { terrainShares } from './generate';
 import { HexMap } from './HexMap';
+import { partyMeans } from '../../domain/mounts';
 import { STEP_PROBLEM, hexMinutes, hexOfPlace, routeTo, stepProblem } from './travel';
 import { TravelPanel } from './TravelPanel';
 import './erkundung.css';
@@ -159,7 +160,8 @@ function AreaView({ area }: { area: Area }) {
 
   // Reise: der schnellste Weg zum Ziel der Karte und der letzte Schritt (zum Zurücknehmen).
   const goal = hexOfPlace(area, area.toId);
-  const route = useMemo(() => (goal ? routeTo(area, goal) : null), [area, goal]);
+  const by = partyMeans(data);
+  const route = useMemo(() => (goal ? routeTo(area, goal, by) : null), [area, goal, by]);
   const [last, setLast] = useState<TravelResult | null>(null);
   const move = (coord: HexCoord) => {
     const result = travelTo(db, area.id, coord);
@@ -175,9 +177,9 @@ function AreaView({ area }: { area: Area }) {
     setLast(null);
   };
   /** Was ein Schritt auf das gewählte Feld kostet – oder warum er nicht geht. */
-  const problem = hex ? stepProblem(area, hex) : null;
+  const problem = hex ? stepProblem(area, hex, by) : null;
   const stepMinutes =
-    hex && area.party && !problem ? hexMinutes(area.hexKm, hex.terrain, area.party.pace) : null;
+    hex && area.party && !problem ? hexMinutes(area.hexKm, hex.terrain, area.party.pace, by) : null;
   const partyHere = !!hex && !!area.party && area.party.q === hex.q && area.party.r === hex.r;
 
   const reroll = async () => {

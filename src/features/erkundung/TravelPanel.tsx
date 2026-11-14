@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { Footprints, Flag, MapPin, TriangleAlert, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
+import { partyMeans } from '../../domain/mounts';
 import { PACES, type Area, type Pace } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
 import { formatClock, formatDuration } from '../../domain/time/calendar';
@@ -149,7 +150,9 @@ export function TravelPanel({
   const next = route?.steps[0];
   const nextHex = next ? area.hexes.find((hex) => hex.q === next.q && hex.r === next.r) : undefined;
   // Die Dauer des nächsten Schritts ergibt sich aus dem Gelände des Feldes.
-  const nextMinutes = nextHex ? hexMinutes(area.hexKm, nextHex.terrain, party.pace) : null;
+  const nextMinutes = nextHex
+    ? hexMinutes(area.hexKm, nextHex.terrain, party.pace, partyMeans(data))
+    : null;
   // Reicht der Tag noch, steht die Ankunftszeit da; sonst, wie viele Reisetage es werden.
   const arrival = !route
     ? ''

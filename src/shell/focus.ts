@@ -1,6 +1,6 @@
 /**
  * Eine Seite gezielt öffnen: Die Suche merkt vor, was dort gezeigt werden soll – eine Karte des
- * Fadenbretts, eine Uhr, ein Ablauf, ein Tag im Kalender, ein Handout, eine Bastion, eine Vermutung, ein Laden. Die Seite nimmt es, sobald sie offen
+ * Fadenbretts, eine Uhr, ein Ablauf, ein Tag im Kalender, ein Handout, eine Bastion, eine Vermutung, ein Laden, ein Fortbewegungsmittel. Die Seite nimmt es, sobald sie offen
  * ist; steht sie schon offen, springt sie sofort.
  */
 import { useEffect, useSyncExternalStore } from 'react';
@@ -16,6 +16,8 @@ export type Focus =
   | { type: 'guess'; id: string }
   /** Ein Laden – er öffnet sich auf der Seite seines Ortes oder Händlers. */
   | { type: 'shop'; id: string }
+  /** Ein Reittier, Fahrzeug oder Schiff – es öffnet sich auf der Gefährten-Seite zum Ändern. */
+  | { type: 'mount'; id: string }
   /** Ein Tag im Kalender (Tagesindex seit Beginn der Zeitrechnung). */
   | { type: 'day'; day: number };
 

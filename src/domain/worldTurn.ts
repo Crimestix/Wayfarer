@@ -16,6 +16,7 @@ import { deedsOf, schemeDrivers, schemesOf, type Deed, type Scheme } from './sch
 import { nearness, whereOf } from './story';
 import { MINUTES_PER_DAY, formatDayMonth } from './time/calendar';
 import { WAY_STATE_LABEL, wayCondition, type WayStateKind } from './wayState';
+import { partyTravel } from './mounts';
 import { formatWayTime, routeBetween } from './ways';
 
 /** 3 = am Ort der Gruppe, 2 = in ihrer Nähe oder es betrifft Bekannte, 1 = weit weg. */
@@ -146,7 +147,7 @@ export function turnWeight(
       return { weight: 2, why: 'in der Nähe der Gruppe' };
     // Sonst zählt der Weg: Was höchstens einen Tagesmarsch entfernt ist, ist nah.
     const minutes = places
-      .map((id) => routeBetween(data, party, id))
+      .map((id) => routeBetween(data, party, id, partyTravel(data)))
       .filter((route) => route !== null && !route.unknown && !route.barred)
       .map((route) => route!.minutes);
     const shortest = Math.min(...minutes);

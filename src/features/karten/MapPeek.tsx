@@ -7,6 +7,7 @@ import { useLocation } from 'wouter';
 import { BookOpen, Eye, Footprints, Maximize2, Minus, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { GROUNDS, markerOfPlace } from '../../domain/mapDraw';
+import { partyTravel } from '../../domain/mounts';
 import type { GameMap } from '../../domain/schema';
 import { openMoveParty } from '../../shell/commands';
 import { Button, IconButton, cx, entityHref } from '../../ui';
@@ -214,10 +215,12 @@ function PeekCard({
   const entity = marker.entityId ? data.entities[marker.entityId] : undefined;
   const isHere = marker.id === hereId;
   const route =
-    entity?.kind === 'place' && !isHere ? routeText(data, data.state.placeId, entity.id) : null;
+    entity?.kind === 'place' && !isHere
+      ? routeText(data, data.state.placeId, entity.id, partyTravel(data))
+      : null;
   const warnings =
     entity?.kind === 'place' && !isHere
-      ? routeWarnings(data, data.state.placeId, entity.id)
+      ? routeWarnings(data, data.state.placeId, entity.id, partyTravel(data))
       : { notes: [], barred: false, detour: null };
   return (
     <div className={box}>

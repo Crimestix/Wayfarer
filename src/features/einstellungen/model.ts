@@ -62,7 +62,7 @@ const FOLDER_LABEL: Record<string, string> = {
   maps: 'Karte',
   paths: 'Weg',
   journeys: 'Reise',
-  mounts: 'Reittier oder Fahrzeug',
+  mounts: 'Reittier, Fahrzeug oder Schiff',
   climates: 'Klimazone',
   weather: 'Tageswetter',
   areas: 'Erkundungsgebiet',

@@ -97,6 +97,8 @@ export const PlayStateSchema = z.object({
   netBoard: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
   /** Marschordnung: Reihen von vorn nach hinten, je Reihe die Gefährten (`gruppe/march.ts`). */
   march: z.array(z.array(id)).default([]),
+  /** Womit die Gruppe reist: ein Fortbewegungsmittel (`mounts`); null = zu Fuß. */
+  travelBy: id.nullable().default(null),
   /**
    * „Passt so“: Widersprüche, die der Spielleiter für richtig erklärt hat – je Punkt sein
    * Schlüssel aus `continuityIssues` (`domain/continuity.ts`).
@@ -1794,8 +1796,8 @@ export const NetSchema = z.object({
   name: z.string(),
   /** Worum es bei dieser Strecke geht – nur für die Spielleitung. */
   note: z.string().default(''),
-  /** Was für Wege hier neu entstehen: Gasse, Straße, Pfad, Sumpfpfad, Gang (`WaySort`). */
-  waySort: z.enum(['street', 'road', 'trail', 'swamp', 'underground']).default('trail'),
+  /** Was für Wege hier neu entstehen: Gasse, Straße, Pfad, Sumpfpfad, Gang, Wasserweg (`WaySort`). */
+  waySort: z.enum(['street', 'road', 'trail', 'swamp', 'underground', 'water']).default('trail'),
   points: z.array(NetPointSchema).default([]),
 });
 export type Net = z.infer<typeof NetSchema>;
@@ -1851,15 +1853,52 @@ export const JourneySchema = z.object({
 });
 export type Journey = z.infer<typeof JourneySchema>;
 
-/** Reittier oder Fahrzeug aus der kleinen Bibliothek der Kampagne. */
+/** Reittier, Fahrzeug (Kutsche, Wagen, Schlitten) oder Schiff (auch Boot, Floß, Kahn). */
+export const MOUNT_KINDS = ['mount', 'vehicle', 'ship'] as const;
+export type MountKind = (typeof MOUNT_KINDS)[number];
+
+/** Bereit, erschöpft (braucht Rast) oder beschädigt (braucht Ausbesserung) – nur Hinweise. */
+export const MOUNT_CONDITIONS = ['ready', 'tired', 'damaged'] as const;
+export type MountCondition = (typeof MOUNT_CONDITIONS)[number];
+
+/**
+ * Ein Fortbewegungsmittel: Reittier, Fahrzeug oder Schiff mit seinen Reisedaten
+ * (`domain/mounts.ts`). Sein Name und Artikel in der Welt sind optional über `entityId` – das
+ * Schiff „Seewind“ als Gegenstand, das Pferd als Tier. Womit die Gruppe reist, steht in
+ * `state.travelBy`.
+ */
 export const MountSchema = z.object({
   ...base,
-  kind: z.enum(['mount', 'vehicle']).default('mount'),
+  kind: z.enum(MOUNT_KINDS).default('mount'),
   name: z.string(),
-  /** Bewegungsrate in Fuß. */
+  /** Bewegungsrate in Fuß (Kampf). */
   speed: z.number().int().nonnegative().nullable().default(null),
   /** Traglast in Pfund. */
   capacity: z.number().nonnegative().nullable().default(null),
+  /** Wem es gehört: ein Gefährte, eine Person, eine Fraktion; null = die Gruppe. */
+  ownerId: id.nullable().default(null),
+  /** Der Eintrag der Welt dazu (Tier, Gegenstand), wenn es einen gibt. */
+  entityId: id.nullable().default(null),
+  /** Kampfwerte aus dem Bestiarium. */
+  creatureId: id.nullable().default(null),
+  /**
+   * Reisetempo in Meilen – je Stunde (`paceUnit: 'hour'`) oder je Reisetag von acht Stunden
+   * (`'day'`). null = so schnell wie die Gruppe zu Fuß (Regelwerk: Reittiere und Fuhrwerke
+   * reisen im Tempo der Gruppe).
+   */
+  pace: z.number().positive().nullable().default(null),
+  paceUnit: z.enum(['hour', 'day']).default('hour'),
+  /** Fliegt: Gelände und Wasser halten es nicht auf (Greif, Luftschiff). */
+  flies: z.boolean().default(false),
+  /** Plätze für Mitreisende. */
+  passengers: z.number().int().nonnegative().nullable().default(null),
+  /** Ladung in Tonnen (Schiffe; Reittiere und Fahrzeuge tragen `capacity` Pfund). */
+  cargo: z.number().nonnegative().nullable().default(null),
+  /** Nötige Besatzung. */
+  crew: z.number().int().nonnegative().nullable().default(null),
+  /** Unterhalt in Gold je Tag (Futter, Stall, Heuer); null = keiner eingetragen. */
+  upkeep: z.number().nonnegative().nullable().default(null),
+  condition: z.enum(MOUNT_CONDITIONS).default('ready'),
   /** Besonderheiten. */
   notes: z.string().default(''),
   /** Aus den Vorgaben des Regelwerks angelegt (sonst vom Spielleiter). */
@@ -2704,6 +2743,11 @@ export function createPath(
 ): TravelPath {
   const stamp = nowIso();
   return PathSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createMount(init: Partial<Mount> & { name: string }): Mount {
+  const stamp = nowIso();
+  return MountSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createTimer(

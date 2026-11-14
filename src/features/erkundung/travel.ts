@@ -7,8 +7,9 @@
  * wie schnell es höchstens vorangeht.
  */
 import { hexDistance, hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
+import { carries, ignoresGround, meansKmh, partyMeans } from '../../domain/mounts';
 import { rngOf, seedOf } from '../../domain/random';
-import type { Area, CampaignData, Hex, Pace, RollTable, Terrain } from '../../domain/schema';
+import type { Area, CampaignData, Hex, Mount, Pace, RollTable, Terrain } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { dayIndexOf } from '../../domain/time/calendar';
 
@@ -42,12 +43,30 @@ export function effectivePace(terrain: Terrain | null, pace: Pace): Pace | null 
   return PACE_ORDER[Math.min(PACE_ORDER.indexOf(pace), PACE_ORDER.indexOf(limit))]!;
 }
 
-/** Minuten, um ein Feld zu durchqueren, auf fünf Minuten gerundet; null = unpassierbar. */
-export function hexMinutes(hexKm: number, terrain: Terrain | null, pace: Pace): number | null {
+const round5 = (minutes: number) => Math.max(5, Math.round(minutes / 5) * 5);
+
+/**
+ * Minuten, um ein Feld zu durchqueren, auf fünf Minuten gerundet; null = unpassierbar. Mit einem
+ * Fortbewegungsmittel (`by`, `domain/mounts.ts`), wo es das Feld trägt: ein Schiff auf dem
+ * Wasser, Fliegendes überall (beide ohne Rücksicht aufs Gelände), ein Reittier mit eigenem Tempo
+ * an Land – dort begrenzt das Gelände weiter das Tempo.
+ */
+export function hexMinutes(
+  hexKm: number,
+  terrain: Terrain | null,
+  pace: Pace,
+  by: Mount | null = null,
+): number | null {
+  const used = by && carries(by, { terrain: terrain ?? 'grassland' }) ? by : null;
   const actual = effectivePace(terrain, pace);
+  if (used && ignoresGround(used)) {
+    // Ohne eingetragenes Tempo so schnell wie die Gruppe im normalen Tempo.
+    const kmh = meansKmh(used, pace) ?? DAY_KM.normal / TRAVEL_HOURS;
+    return round5((hexKm / kmh) * 60);
+  }
   if (!actual) return null;
-  const kmPerHour = DAY_KM[actual] / TRAVEL_HOURS;
-  return Math.max(5, Math.round(((hexKm / kmPerHour) * 60) / 5) * 5);
+  const kmPerHour = (used && meansKmh(used, actual)) ?? DAY_KM[actual] / TRAVEL_HOURS;
+  return round5((hexKm / kmPerHour) * 60);
 }
 
 const find = (area: Area, coord: HexCoord): Hex | undefined =>
@@ -59,16 +78,19 @@ export const STEP_PROBLEM: Record<StepProblem, string> = {
   'no-party': 'Die Gruppe steht noch nicht auf dieser Karte.',
   'not-adjacent': 'Das Feld grenzt nicht an das Feld der Gruppe.',
   'off-map': 'Dort endet die Karte.',
-  impassable: 'Wasser lässt sich zu Fuß nicht durchqueren.',
+  impassable: 'Wasser lässt sich zu Fuß nicht durchqueren – mit einem Schiff oder Boot schon.',
 };
 
-/** Warum die Gruppe ein Feld nicht in einem Schritt erreicht – oder null, wenn es geht. */
-export function stepProblem(area: Area, to: HexCoord): StepProblem | null {
+/**
+ * Warum die Gruppe ein Feld nicht in einem Schritt erreicht – oder null, wenn es geht. Mit einem
+ * Schiff (`by`) ist Wasser kein Hindernis.
+ */
+export function stepProblem(area: Area, to: HexCoord, by: Mount | null = null): StepProblem | null {
   if (!area.party) return 'no-party';
   const target = find(area, to);
   if (!target) return 'off-map';
   if (hexDistance(area.party, to) !== 1) return 'not-adjacent';
-  if (effectivePace(target.terrain, area.party.pace) === null) return 'impassable';
+  if (hexMinutes(area.hexKm, target.terrain, area.party.pace, by) === null) return 'impassable';
   return null;
 }
 
@@ -154,12 +176,14 @@ export function planStep(
   to: HexCoord,
   now: number,
 ): TravelStep | StepProblem {
-  const problem = stepProblem(area, to);
+  // Womit die Gruppe reist (`state.travelBy`) – ein Schiff trägt sie übers Wasser.
+  const by = partyMeans(data);
+  const problem = stepProblem(area, to, by);
   if (problem) return problem;
   const party = area.party!;
   const target = find(area, to)!;
-  const pace = effectivePace(target.terrain, party.pace)!;
-  const minutes = hexMinutes(area.hexKm, target.terrain, party.pace)!;
+  const pace = effectivePace(target.terrain, party.pace) ?? party.pace;
+  const minutes = hexMinutes(area.hexKm, target.terrain, party.pace, by)!;
   // Geht der Schritt über Mitternacht, zählt er zum Tag, an dem er endet.
   const arrival = now + minutes;
   const minutesToday =
@@ -208,7 +232,7 @@ export interface Route {
  * durch schnelles Gelände lieber als durch langsames. Null, wenn die Gruppe nicht auf der Karte
  * steht oder kein Weg hinführt; ein leerer Weg, wenn sie schon dort ist.
  */
-export function routeTo(area: Area, goal: HexCoord): Route | null {
+export function routeTo(area: Area, goal: HexCoord, by: Mount | null = null): Route | null {
   if (!area.party) return null;
   const byKey = new Map(area.hexes.map((hex) => [hexKey(hex), hex]));
   const goalKey = hexKey(goal);
@@ -233,7 +257,7 @@ export function routeTo(area: Area, goal: HexCoord): Route | null {
       const key = hexKey(coord);
       const hex = byKey.get(key);
       if (!hex || done.has(key)) continue;
-      const minutes = hexMinutes(area.hexKm, hex.terrain, area.party.pace);
+      const minutes = hexMinutes(area.hexKm, hex.terrain, area.party.pace, by);
       if (minutes === null) continue;
       const total = best + minutes;
       if (total < (cost.get(key) ?? Infinity)) {

@@ -46,7 +46,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   maps: ['Karte', 'Karten'],
   paths: ['Weg', 'Wege'],
   journeys: ['Reise', 'Reisen'],
-  mounts: ['Reittier oder Fahrzeug', 'Reittiere und Fahrzeuge'],
+  mounts: ['Reittier, Fahrzeug oder Schiff', 'Reittiere, Fahrzeuge und Schiffe'],
   climates: ['Klimazone', 'Klimazonen'],
   weather: ['Tageswetter', 'Tageswetter'],
   areas: ['Erkundungsgebiet', 'Erkundungsgebiete'],

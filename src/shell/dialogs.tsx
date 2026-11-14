@@ -17,6 +17,7 @@ import {
   Route as RouteIcon,
   Search,
   Skull,
+  Sailboat,
   Store,
   Swords,
   Tent,
@@ -90,6 +91,7 @@ import {
 } from '../domain/ways';
 import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
+import { MeansIcon } from '../features/fortbewegung/parts';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import { DowntimeDialog } from '../features/gruppe/DowntimeDialog';
 import { LootDialog } from '../features/beute/LootDialog';
@@ -1151,6 +1153,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   loot: <Coins />,
   guess: <Lightbulb />,
   shop: <Store />,
+  mount: <Sailboat />,
 };
 
 function searchHits(data: CampaignData, query: string): SearchHit[] {
@@ -1175,7 +1178,13 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
     label: hit.label,
     sub: hit.sub,
     href: hit.entity ? entityHref(hit.entity) : hit.href,
-    icon: hit.entity ? <KindIcon kind={hit.entity.kind} /> : SORT_ICON[hit.sort as 'article'],
+    icon: hit.entity ? (
+      <KindIcon kind={hit.entity.kind} />
+    ) : hit.mountKind ? (
+      <MeansIcon kind={hit.mountKind} />
+    ) : (
+      SORT_ICON[hit.sort as 'article']
+    ),
     focus: hit.focus,
   }));
   return q ? [...found, ...areas] : areas;

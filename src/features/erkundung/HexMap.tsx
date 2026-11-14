@@ -4,7 +4,8 @@ import { hexCenter, hexCorners, hexKey, hexNeighbors, type HexCoord } from '../.
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { areaLine } from './generate';
-import { effectivePace } from './travel';
+import { partyMeans } from '../../domain/mounts';
+import { hexMinutes } from './travel';
 
 /** Zeichen im Feld, je Gelände; gezeichnet in einem Feld der Größe 1 um den Ursprung. */
 const GLYPH: Record<Terrain, ReactNode> = {
@@ -157,6 +158,7 @@ export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
 
   // Die Gruppe auf der Karte: wo sie steht, woher sie kam, wohin sie als Nächstes kann.
   const party = area.party;
+  const by = partyMeans(data);
   const at = (hex: HexCoord) => {
     const c = hexCenter(hex, orientation);
     return `${(c.x * size).toFixed(1)},${(c.y * size).toFixed(1)}`;
@@ -168,7 +170,8 @@ export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
     ? hexNeighbors(party)
         .map((coord) => layout.cells.find((c) => c.hex.q === coord.q && c.hex.r === coord.r))
         .filter(
-          (cell): cell is Cell => !!cell && effectivePace(cell.hex.terrain, party.pace) !== null,
+          (cell): cell is Cell =>
+            !!cell && hexMinutes(area.hexKm, cell.hex.terrain, party.pace, by) !== null,
         )
     : [];
   const chosen = selected
