@@ -232,6 +232,8 @@ export interface RechargeRoll {
   gained: number;
   /** Die einzelnen Würfe; leer, wenn nicht gewürfelt wurde. */
   rolls: number[];
+  /** Was zu den Würfen dazukommt (oder abgeht). */
+  bonus: number;
   /** Der Ausdruck, der gewürfelt wurde: „1W6+1“; „alle“, wenn alle zurückkommen. */
   formula: string;
 }
@@ -250,14 +252,24 @@ export function rollRecharge(charges: Charges, die: Die): RechargeRoll | null {
       const rolls = Array.from({ length: Math.max(1, dice.count) }, () => die(dice.sides));
       const sum = rolls.reduce((a, b) => a + b, 0) + dice.bonus;
       const formula = `${Math.max(1, dice.count)}W${dice.sides}${dice.bonus ? (dice.bonus > 0 ? `+${dice.bonus}` : `${dice.bonus}`) : ''}`;
-      return { gained: Math.max(0, sum), rolls, formula };
+      return { gained: Math.max(0, sum), rolls, bonus: dice.bonus, formula };
     }
   }
   if (/\b(alle|vollständig|voll|komplett)\b/i.test(text))
-    return { gained: charges.max, rolls: [], formula: 'alle' };
+    return { gained: charges.max, rolls: [], bonus: 0, formula: 'alle' };
   const fixed = /^\s*(\d+)\b/.exec(text);
-  if (fixed) return { gained: Number(fixed[1]), rolls: [], formula: fixed[1]! };
+  if (fixed) return { gained: Number(fixed[1]), rolls: [], bonus: 0, formula: fixed[1]! };
   return null;
+}
+
+/** Ein Wurf in Worten: „1W6+1: 4 + 1 = 5“, „Alle Ladungen kommen zurück.“ */
+export function rollText(roll: RechargeRoll): string {
+  if (!roll.rolls.length)
+    return roll.formula === 'alle'
+      ? 'Alle Ladungen kommen zurück.'
+      : `${roll.gained} kommen zurück.`;
+  const bonus = roll.bonus ? ` ${roll.bonus > 0 ? '+' : '−'} ${Math.abs(roll.bonus)}` : '';
+  return `${roll.formula}: ${roll.rolls.join(' + ')}${bonus} = ${roll.gained}`;
 }
 
 /** Die Ladungen nach dem Auffrischen: höchstens bis zum Höchstwert; nichts mehr offen. */
@@ -275,6 +287,15 @@ export function stepCharges(charges: Charges, delta: number, now: WorldTime): Ch
   if (current === charges.current) return charges;
   if (current >= charges.max) return { ...charges, current, spentAt: null };
   return { ...charges, current, spentAt: delta < 0 ? (charges.spentAt ?? now) : charges.spentAt };
+}
+
+/**
+ * Ein neuer Höchstwert: Waren alle Ladungen da, sind es danach wieder alle; sonst bleibt der
+ * Stand (höchstens der neue Höchstwert).
+ */
+export function withMaxCharges(charges: Charges, max: number): Charges {
+  const full = charges.current >= charges.max;
+  return { ...charges, max, current: full ? max : Math.min(charges.current, max) };
 }
 
 /** Bei Morgengrauen – so rechnet Wayfarer, wenn die Welt keinen eigenen Sonnenaufgang kennt. */

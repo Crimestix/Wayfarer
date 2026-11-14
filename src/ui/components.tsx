@@ -250,6 +250,7 @@ export function Written({
   placeholder,
   label,
   className,
+  list,
 }: {
   value: string;
   onSave: (text: string) => void;
@@ -258,6 +259,8 @@ export function Written({
   /** Wofür das Feld ist – für Vorleseprogramme. */
   label: string;
   className?: string;
+  /** Vorschläge zum Auswählen (`<datalist>`), nur einzeilig. */
+  list?: string;
 }) {
   const [text, setText] = useState(value);
   // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
@@ -279,6 +282,7 @@ export function Written({
     <Input
       className={className}
       value={text}
+      list={list}
       aria-label={label}
       placeholder={placeholder}
       onChange={(event) => setText(event.target.value)}

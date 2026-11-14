@@ -1,11 +1,20 @@
 /** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useLocation } from 'wouter';
 import { ChevronRight, FilePlus2, Footprints, Plus, Search, Users, X } from 'lucide-react';
 import type { Article, Entity } from '../../domain/schema';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
+import { itemsByRarity } from '../../domain/magicItem';
 import {
   AttitudeBadge,
   Button,
@@ -577,7 +586,19 @@ export function Sidebar({
               )}
               {kind === 'place'
                 ? places
-                : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false))}
+                : kind === 'item' && filter === 'item'
+                  ? // Gegenstände nach Seltenheit – zum Finden; jeder steht in genau einer Gruppe.
+                    itemsByRarity(shown(entitiesOfKind(data, 'item'))).map((group) => (
+                      <Fragment key={group.label || 'alle'}>
+                        {group.label && (
+                          <div className="wf-welt-group">
+                            {group.label} <span>{group.items.length}</span>
+                          </div>
+                        )}
+                        {group.items.map((entity) => row(entity, false))}
+                      </Fragment>
+                    ))
+                  : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false))}
             </div>
           ))
         )}

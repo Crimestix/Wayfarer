@@ -17,8 +17,10 @@ import {
   rechargedCharges,
   rechargesDue,
   rollRecharge,
+  rollText,
   stepCharges,
   valueOf,
+  withMaxCharges,
 } from '../magicItem';
 import { isWideRarity, rarityOf } from '../market';
 import {
@@ -152,10 +154,12 @@ describe('Steckbrief', () => {
 describe('Ladungen', () => {
   it('würfelt den Ausdruck aus dem Text', () => {
     const roll = rollRecharge(charges({ current: 1 }), () => 4);
-    expect(roll).toEqual({ gained: 5, rolls: [4], formula: '1W6+1' });
+    expect(roll).toEqual({ gained: 5, rolls: [4], bonus: 1, formula: '1W6+1' });
+    expect(rollText(roll!)).toBe('1W6+1: 4 + 1 = 5');
     expect(rollRecharge(charges({ recharge: '2d4 nach einer langen Rast' }), () => 3)).toEqual({
       gained: 6,
       rolls: [3, 3],
+      bonus: 0,
       formula: '2W4',
     });
     expect(rollRecharge(charges({ recharge: 'alle bei Morgengrauen' }), () => 1)?.gained).toBe(7);
@@ -179,6 +183,10 @@ describe('Ladungen', () => {
       spentAt: null,
     });
     expect(chargesText(charges({ current: 3 }))).toBe('3 von 7 Ladungen, 1W6+1 bei Morgengrauen');
+    // Ein neuer Höchstwert füllt nur auf, wenn alle da waren.
+    expect(withMaxCharges(charges({ max: 1, current: 1 }), 7).current).toBe(7);
+    expect(withMaxCharges(charges({ current: 3 }), 10).current).toBe(3);
+    expect(withMaxCharges(charges({ current: 6 }), 4).current).toBe(4);
   });
 
   it('bietet das Auffrischen nach Morgengrauen für Gegenstände der Gruppe an', () => {

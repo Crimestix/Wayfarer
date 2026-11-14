@@ -19,7 +19,6 @@ import {
 } from '../../domain/crafting';
 import { priceText, readPrice } from '../../domain/nature';
 import {
-  RARITIES,
   createEntity,
   type Entity,
   type EntityKind,
@@ -27,7 +26,7 @@ import {
   type Item,
   type Recipe,
 } from '../../domain/schema';
-import { Button, Checkbox, EntityLink, Field, IconButton, Input, Select, Written } from '../../ui';
+import { Button, Checkbox, EntityLink, Field, IconButton, Input, Written } from '../../ui';
 import { patchDetails } from './actions';
 import { EntryRow, Hint, Picker, Section } from './parts';
 import './craft.css';
@@ -101,21 +100,25 @@ export function RecipeSection({ item }: { item: Item }) {
               onSave={(toolText) => save({ toolText: toolText.trim() })}
             />
           </Field>
-          <Field label="Magie">
-            <Select
-              value={recipe.rarity}
-              onChange={(e) => save({ rarity: e.target.value as Recipe['rarity'] })}
-            >
-              <option value="">Nicht magisch</option>
-              {RARITIES.map((rarity) => (
-                <option key={rarity} value={rarity}>
-                  Magisch, {MAGIC_RARITY_LABEL[rarity]} ({CRAFTING_RULES.magic[rarity].days} Tage,{' '}
-                  {CRAFTING_RULES.magic[rarity].gold.toLocaleString('de-DE')} GM)
-                </option>
-              ))}
-            </Select>
+          <Field
+            label="Magie"
+            hint={
+              item.item.magic
+                ? 'Seltenheit unter „Magie“'
+                : view.rarity
+                  ? 'aus einem älteren Rezept – unter „Magie“ übernehmen'
+                  : 'unter „Magie“ einschalten'
+            }
+          >
+            <div className="wf-welt-recipe__magic">
+              {view.rarity
+                ? `magisch, ${MAGIC_RARITY_LABEL[view.rarity]}`
+                : item.item.magic
+                  ? 'magisch, Seltenheit noch offen'
+                  : 'nicht magisch'}
+            </div>
           </Field>
-          {recipe.rarity === '' && (
+          {(view.rarity === '' || view.rarity === 'artifact') && (
             <Field
               label="Preis in Gold"
               hint={`Grundlage: ${CRAFTING_RULES.goldPerDay} Gold Wert je Arbeitstag`}
@@ -154,9 +157,11 @@ export function RecipeSection({ item }: { item: Item }) {
             />
           </Field>
         </div>
-        <Checkbox checked={recipe.consumable} onChange={(consumable) => save({ consumable })}>
-          Verbrauchsgut (Trank, Schriftrolle …): halbe Zeit, halbe Kosten
-        </Checkbox>
+        {!item.item.magic && (
+          <Checkbox checked={recipe.consumable} onChange={(consumable) => save({ consumable })}>
+            Verbrauchsgut (Trank, Schriftrolle …): halbe Zeit, halbe Kosten
+          </Checkbox>
+        )}
         <Ingredients ingredients={recipe.ingredients} itemId={item.id} onChange={setIngredients} />
       </div>
     </Section>

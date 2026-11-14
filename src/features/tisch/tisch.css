@@ -1687,3 +1687,11 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-rules__state[data-dirty='true'] {
   color: var(--gold);
 }
+
+/* Ladungen auffrischen unter „Sonst noch“ (RechargeOffers.tsx) */
+.wf-tisch-recharge__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}

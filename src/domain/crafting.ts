@@ -3,13 +3,14 @@
  * was man dafür braucht und wofür eine Pflanze, ein Gestein oder ein Tier gebraucht wird. Reine
  * Funktionen; das Rezept steht am Gegenstand (`item.recipe`).
  */
-import { MAGIC_RARITY_LABEL, isCraftRarity } from './magicItem';
+import { MAGIC_RARITY_LABEL, isCraftRarity, itemRarity } from './magicItem';
 import type {
   CampaignData,
   Entity,
   Ingredient,
   Item,
   Magic,
+  MagicRarity,
   Profession,
   Rarity,
   Recipe,
@@ -138,6 +139,8 @@ export interface RecipeView {
   tool: string;
   ingredients: IngredientView[];
   plan: CraftPlan;
+  /** Die Seltenheit, nach der gerechnet wird: die der Magie, sonst die eines älteren Rezepts. */
+  rarity: MagicRarity | '';
 }
 
 /** Das Werkzeug eines Rezepts: was im Rezept steht, sonst das Werkzeug des Berufs. */
@@ -162,6 +165,7 @@ export function recipeView(data: Pick<CampaignData, 'entities'>, item: Item): Re
       return { ingredient, entity, name: entity?.name ?? ingredient.text.trim() };
     }),
     plan: craftPlan(recipe, item.item.price, item.item.magic),
+    rarity: itemRarity(item),
   };
 }
 

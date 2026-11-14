@@ -16,6 +16,7 @@ import { FATE_LABEL, fateSinceLabel } from '../../domain/chronicleKinds';
 import { chronicleFor, entitiesOfKind, openPromises } from '../../domain/derive';
 import { partyCompanions, personasOf } from '../../domain/history';
 import { formatGold, lootLine, receivedBy } from '../../domain/loot';
+import { attunementOf } from '../../domain/magicItem';
 import { relationLabel } from '../../domain/relations';
 import type { Character } from '../../domain/schema';
 import { openAttitude, openQuickLog } from '../../shell/commands';
@@ -315,6 +316,7 @@ export function Detail({
   const beasts = partyCompanions(data, character.id);
   /** Zweite Gestalten: eigene Einträge, verbunden über „ist die zweite Gestalt von“. */
   const personas = personasOf(data, character.id);
+  const attuned = attunementOf(data, character.id);
   const fate =
     d.status === 'alive'
       ? null
@@ -409,6 +411,20 @@ export function Detail({
                       {beasts.map((beast) => (
                         <EntityLink key={beast.relationId} id={beast.entityId} />
                       ))}
+                    </dd>
+                  </>
+                )}
+                {attuned.count > 0 && (
+                  <>
+                    <dt>Eingestimmt</dt>
+                    <dd className="wf-gruppe-stack">
+                      <span>
+                        {attuned.count} von {attuned.limit}
+                      </span>
+                      {attuned.items.map((item) => (
+                        <EntityLink key={item.id} id={item.id} />
+                      ))}
+                      {attuned.hint && <div className="wf-field__hint">{attuned.hint}</div>}
                     </dd>
                   </>
                 )}

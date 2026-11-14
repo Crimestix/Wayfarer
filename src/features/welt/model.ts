@@ -22,7 +22,7 @@ import {
 } from '../../domain/derive';
 import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
 import { formatGold } from '../../domain/loot';
-import { magicTag, valueOf } from '../../domain/magicItem';
+import { emptyMagic, magicTag, valueOf } from '../../domain/magicItem';
 import {
   HABITAT_SUGGESTIONS,
   RARITY_LABEL,
@@ -1004,6 +1004,8 @@ export interface EntityDraft {
   seatId: string | null;
   // Gegenstand
   holderId: string | null;
+  /** Gegenstand: magisch (die Angaben dazu stehen dann auf seiner Seite unter „Magie“). */
+  magic: boolean;
   // Sprache
   scriptId: string | null;
   /** Pflanze, Tier, Gestein: Lebensräume, Gegenden, Jahreszeiten, Seltenheit, Preis als Text. */
@@ -1060,6 +1062,7 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     parentId: null,
     seatId: null,
     holderId: null,
+    magic: false,
     scriptId: null,
     habitat: [],
     regionIds: [],
@@ -1103,7 +1106,7 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
   }
   if (entity.kind === 'item') {
     const { price, holderId, category } = entity.item;
-    return { ...draft, holderId, category, price: priceText(price) };
+    return { ...draft, holderId, category, price: priceText(price), magic: !!entity.item.magic };
   }
   const details = (entity as unknown as Record<string, Partial<EntityDraft>>)[entity.kind];
   return { ...draft, ...details };
@@ -1208,9 +1211,16 @@ export function entityFromDraft(
     }
     case 'item': {
       const item = { holderId: draft.holderId, category, price: readPrice(draft.price) ?? null };
+      // Magisch machen ja – zurück nur auf der Seite unter „Magie“, wo nichts verloren geht.
+      const magic =
+        base?.kind === 'item' && base.item.magic
+          ? base.item.magic
+          : draft.magic
+            ? emptyMagic()
+            : null;
       return base?.kind === 'item'
-        ? { ...base, ...common, item: { ...base.item, ...item } }
-        : createEntity({ kind: 'item', ...common, item });
+        ? { ...base, ...common, item: { ...base.item, ...item, magic } }
+        : createEntity({ kind: 'item', ...common, item: { ...item, magic } });
     }
     case 'family': {
       const family = { seatId: draft.seatId, category };

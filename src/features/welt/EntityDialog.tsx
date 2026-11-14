@@ -562,10 +562,21 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               />
             </Field>
           )}
+          {draft.kind === 'item' && !existing && (
+            <Field label="Magie" hint="Seltenheit, Einstimmung und Ladungen dann auf seiner Seite.">
+              <Checkbox checked={draft.magic} onChange={(magic) => set({ magic })}>
+                magisch
+              </Checkbox>
+            </Field>
+          )}
           {draft.kind === 'item' && (
             <Field
               label="Wert"
-              hint="Listenpreis in Gold – „2,5“, „12 GM“ oder „5 Silber“. Läden rechnen damit."
+              hint={
+                draft.magic
+                  ? 'Listenpreis in Gold. Leer lassen: Läden nehmen den Richtwert nach Seltenheit.'
+                  : 'Listenpreis in Gold – „2,5“, „12 GM“ oder „5 Silber“. Läden rechnen damit.'
+              }
             >
               <Input
                 value={draft.price}

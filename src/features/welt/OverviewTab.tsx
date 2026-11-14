@@ -5,6 +5,7 @@ import { ShopSection } from '../laden/ShopSection';
 import { GroupKnows } from './GroupKnows';
 import { BookSection, BookSwitch } from './BookSection';
 import { ItemLife } from './ItemLife';
+import { MagicSection } from './MagicSection';
 import { MadeBy, RecipeSection, UsedIn } from './RecipeSection';
 import { tracksOf } from '../../domain/track';
 import { TrackCard } from '../fortschritt/TrackCard';
@@ -999,6 +1000,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
     <Columns
       main={
         <>
+          {item.item.magic && <MagicSection item={item} />}
           {life ? (
             <ItemLife item={item} />
           ) : (
@@ -1006,6 +1008,7 @@ function ItemOverview({ entity: item, onShowTab }: Props<Item>) {
           )}
           <NotesSection entity={item} />
           <BookSection item={item} />
+          {!item.item.magic && <MagicSection item={item} />}
           <RecipeSection item={item} />
           <SecretSection entity={item} />
           <GroupKnows entity={item} />

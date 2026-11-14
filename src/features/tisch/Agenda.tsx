@@ -23,6 +23,7 @@ import { openQuickLog } from '../../shell/commands';
 import { Button, EntityLinks, Panel, toast } from '../../ui';
 import { settleAgendaItem } from './commands';
 import { buildAgenda, type AgendaItem, type AgendaMark } from './model';
+import { RechargeOffers } from './RechargeOffers';
 
 /** So viele Tage voraus zeigt der Spieltisch Termine. */
 const DAYS_AHEAD = 7;
@@ -141,6 +142,7 @@ export function AgendaPanel() {
         </Link>
       }
     >
+      <RechargeOffers />
       {items.length === 0 ? (
         <div className="wf-tisch-agenda__empty">
           <p className="wf-tisch-hint">

@@ -150,3 +150,7 @@
   color: var(--ink-mute);
   font-size: var(--text-sm);
 }
+.wf-welt-recipe__magic {
+  padding: var(--s-1) 0;
+  color: var(--ink-soft);
+}

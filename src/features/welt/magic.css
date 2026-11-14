@@ -1,0 +1,76 @@
+/* Magie am Gegenstand (MagicSection.tsx) und Auffrischen (RechargeDialog.tsx) */
+.wf-welt-magic {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-welt-magic__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s-3) var(--s-4);
+  align-items: start;
+}
+.wf-welt-magic__grid .wf-field {
+  gap: var(--s-1);
+}
+.wf-welt-magic__charges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-welt-magic__count {
+  min-width: 2ch;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  text-align: center;
+}
+.wf-welt-magic__of {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-magic__max {
+  flex: 0 0 64px;
+}
+.wf-welt-magic__recharge {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.wf-welt-magic__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+}
+.wf-welt-magic__secret {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.wf-welt-recharge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-welt-recharge p {
+  margin: 0;
+}
+.wf-welt-recharge__now,
+.wf-welt-recharge__after {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-recharge__roll {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+.wf-welt-recharge__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+}
+.wf-welt-recharge__row .wf-field {
+  flex: 0 0 120px;
+}
