@@ -2,15 +2,17 @@
  * Am Artikel im Wiki: den KI-Leser den Text lesen lassen und seine Vorschläge annehmen oder
  * ablehnen. Jeder Vorschlag zeigt den Satz, aus dem er stammt.
  */
-import { useState, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { Link } from 'wouter';
 import { Sparkles } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { aiStatus, isDesktopApp } from '../../data/platform';
+import { threadByTitle, threadLike } from '../../domain/looseThreads';
 import type { AiHint, Article } from '../../domain/schema';
 import { primaryEra, type CalendarDef } from '../../domain/time/calendar';
 import { Input, Select, toast } from '../../ui';
 import { timeDraftOf, timeOfDraft, type TimeDraft } from '../chronik/model';
+import { StorySelect } from '../faeden/StorySelect';
 import { flushEdits } from '../wiki/editing';
 import { acceptAiHint, dismissAiHint, readArticle } from './actions';
 import {
@@ -165,9 +167,28 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
       : null;
   const secret = sort === 'secret';
   const lead = sort === 'lead';
+  /** Die Geschichte, an die ein Faden gleich kommt; null = er wird ein loser Faden. */
+  const [storyId, setStoryId] = useState<string | null>(null);
+  const leadText = typeof payload.text === 'string' ? payload.text : hint.line;
+  const like = useMemo(
+    () =>
+      threadLike(leadText, Array.isArray(hint.payload.refs) ? (hint.payload.refs as string[]) : []),
+    [leadText, hint.payload.refs],
+  );
+  const hasStories = Object.values(data.stories).some((story) => !story.closed);
   const accept = (as?: ThreadSort) => {
     const asLead = as === 'lead' || (as === undefined && lead);
-    const undo = acceptAiHint(db, article.id, hint.id, as, asLead ? undefined : chosen);
+    // Gibt es den Faden mit demselben Satz schon, entsteht kein zweiter.
+    const twin = asLead ? threadByTitle(data, leadText) : null;
+    const story = asLead && !twin && storyId ? data.stories[storyId] : undefined;
+    const undo = acceptAiHint(
+      db,
+      article.id,
+      hint.id,
+      as,
+      asLead ? undefined : chosen,
+      asLead ? storyId : null,
+    );
     if (!undo) {
       toast({
         title: 'Der Vorschlag lässt sich nicht eintragen',
@@ -177,20 +198,26 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
       return;
     }
     toast({
-      title: asLead
-        ? 'Als Faden eingetragen'
-        : secret
-          ? 'Als Geheimnis eingetragen'
-          : DONE_TITLE[hint.kind],
+      title: twin
+        ? 'Den Faden gibt es schon'
+        : asLead
+          ? 'Als Faden eingetragen'
+          : secret
+            ? 'Als Geheimnis eingetragen'
+            : DONE_TITLE[hint.kind],
       body: (
         <>
           <div>{asLead ? hint.line : line}</div>
           <div className="wf-mute">
-            {asLead
-              ? 'Zu finden auf dem Fadenbrett.'
-              : secret
-                ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
-                : DONE_WHERE[hint.kind]}
+            {twin
+              ? 'Es wurde kein zweiter angelegt.'
+              : story
+                ? `Zu finden als Frage der Geschichte „${story.title}“.`
+                : asLead
+                  ? 'Zu finden am Fadenbrett unter „Lose Fäden“.'
+                  : secret
+                    ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
+                    : DONE_WHERE[hint.kind]}
           </div>
         </>
       ),
@@ -219,7 +246,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
           onClick={() => accept()}
           title={
             lead
-              ? 'Wird ein Faden der Geschichte – eine Spur, der die Gruppe folgen kann. Zu sehen auf dem Fadenbrett.'
+              ? 'Wird ein Faden – eine Spur, der die Gruppe folgen kann. Ohne Geschichte steht er am Fadenbrett unter „Lose Fäden“.'
               : secret
                 ? 'Kommt ohne Datum ins Dossier der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
                 : WHERE[hint.kind]
@@ -232,7 +259,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
             type="button"
             className="wf-wiki-facts__act"
             onClick={() => accept('lead')}
-            title="Das ist eher eine Spur oder offene Frage der Geschichte: als Faden aufs Fadenbrett"
+            title="Das ist eher eine Spur oder offene Frage: als Faden ans Fadenbrett – unter „Lose Fäden“"
           >
             Als Faden
           </button>
@@ -241,6 +268,12 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
           Stimmt nicht
         </button>
       </div>
+      {lead && hasStories && (
+        <div className="wf-ki-when">
+          <span className="wf-ki-when__label">Gehört zur Geschichte</span>
+          <StorySelect thread={like} value={storyId} onChange={setStoryId} />
+        </div>
+      )}
       {when && draft && (
         <div className="wf-ki-when">
           <span className="wf-ki-when__label">Getroffen am</span>

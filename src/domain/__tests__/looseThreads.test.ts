@@ -4,6 +4,7 @@ import { emptyCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   filterLoose,
+  filterStoryChoices,
   looseThreads,
   storyChoices,
   storyFits,
@@ -323,7 +324,7 @@ describe('Die Liste der losen Fäden', () => {
 
 describe('Geschichten und Fäden zur Wahl', () => {
   it('stellt für mehrere Fäden die passenden Geschichten zuerst', async () => {
-    const { data, thread, story, mira, odo, grotto } = await setup();
+    const { db, data, thread, story, mira, odo, grotto, guild } = await setup();
     const pact = story('Die Pacht der Grotte', [mira.id, grotto.id]);
     const feud = story('Der Streit der Tannhaus', [odo.id]);
     const other = story('Aalfang');
@@ -352,6 +353,17 @@ describe('Geschichten und Fäden zur Wahl', () => {
     expect(storyChoices(data(), [light, warned])[0]!.reason).toBe(
       'alle nennen auch Mira Tannhaus und Salzgrotte',
     );
+    // Die Suche findet nach dem Namen der Geschichte und dem ihres Antreibers.
+    db.patch('stories', other.id, { ownerId: guild.id });
+    const all = storyChoices(data(), [light]);
+    expect(filterStoryChoices(data(), all, 'STREIT tannhaus').map((c) => c.story.id)).toEqual([
+      feud.id,
+    ]);
+    expect(filterStoryChoices(data(), all, 'salzsieder').map((c) => c.story.id)).toEqual([
+      other.id,
+    ]);
+    expect(filterStoryChoices(data(), all, '  ')).toHaveLength(3);
+    expect(filterStoryChoices(data(), all, 'gibtsnicht')).toEqual([]);
   });
 
   it('reiht Fäden überall gleich: lebendig, am Ort, in einer Geschichte, nach dem Satz', async () => {

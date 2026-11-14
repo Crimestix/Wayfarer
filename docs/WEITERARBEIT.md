@@ -1759,6 +1759,24 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Namen einer Person, entsteht ein gleichnamiger Ort (mit Hinweis) – ob das besser gar nicht
   geschehen soll, entscheidet der Spielleiter. Der Hinweis „Noch kein Hinweis …“ steht mit
   Warnzeichen schon an einer eben angelegten Frage.
+- **Lose Fäden aufräumen.** Lose Fäden liegen nicht mehr als Karten zwischen den Geschichten,
+  sondern in der Liste „Lose Fäden · n“ im Seitenteil des Bretts (`faeden/LooseDrawer`,
+  Rechnung in `domain/looseThreads.ts`): Satz, woran er hängt, woher (Session, Artikel,
+  Anlagetag), „passt zu …“ mit „Anhängen“; Suche; Kästchen und „alle“ mit „An Geschichte hängen
+  …“ (passende zuerst; einzeln auch als Hinweis oder Einstieg), „Neue Geschichte daraus …“
+  (Name vom Spielleiter), „Ruht“ (Später-Liste), „Erledigt“, „Löschen“ – alles mit Rückgängig;
+  Zeilen und Karten lassen sich auf eine Geschichte ziehen. Aufs Brett kommt ein loser Faden nur
+  bewusst (`thread.onBoard`), im Spiel oder wenn er dort aus früheren Ständen eine Stelle hat.
+  „Doppelt?“ meldet gleiche und fast gleiche Sätze (`threadTwins`) mit „Zusammenlegen“
+  (`mergeThreads`) und „Sind verschieden“. Nachtragen und KI-Leser legen keinen zweiten Faden
+  mit demselben Satz an (die Session wird Quelle) und lassen die Geschichte gleich wählen. Am
+  Spieltisch hat „Geschichte“ eine Suche und zeigt nie mehr eine endlose Liste.
+- Offen: Das Ziehen aus der Liste aufs Brett ist nur über nachgestellte Ereignisse geprüft (die
+  Fernsteuerung der Vorschau löst kein echtes Ziehen aus) – am Rechner einmal von Hand
+  probieren. Vorhandene Doppelte aus früherem Nachtragen räumt nichts von selbst auf; sie
+  stehen unter „Doppelt?“. Fast gleiche Sätze erkennt Wayfarer nur an Füllwörtern und Endungen,
+  nicht an Tippfehlern oder Umstellungen. „Hinweis gefunden“ und der Termin-Dialog wählen Fäden
+  weiter aus einer Auswahlliste (jetzt: am Ort zuerst), ohne Suche.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

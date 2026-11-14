@@ -10,7 +10,7 @@ import { Check, ChevronDown, ChevronRight, Plus, TriangleAlert, Waypoints, X } f
 import { logEntry, setPromiseOutcome } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { lootLine, lootRecipient } from '../../domain/loot';
-import { playView, type PlayCard } from '../../domain/play';
+import { playChoices, playView, type PlayCard } from '../../domain/play';
 import { tableRecap } from '../../domain/recap';
 import type { ChronicleEntry } from '../../domain/schema';
 import {
@@ -19,6 +19,7 @@ import {
   THREAD_STATE_LABEL,
   boardCards,
   untilText,
+  type BoardCard,
 } from '../../domain/story';
 import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
@@ -75,11 +76,25 @@ export function PlayPanel() {
   const add = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
   const [, navigate] = useLocation();
-  /** Was sich hereinnehmen lässt: alles Offene, das noch nicht im Spiel ist. */
-  const idle = useMemo(() => {
-    const playing = new Set(view.cards.map((play) => play.card.key));
-    return boardCards(data).filter((card) => !card.closed && !playing.has(card.key));
-  }, [data, view.cards]);
+  const [query, setQuery] = useState('');
+  /**
+   * Was sich hereinnehmen lässt: Geschichten und lose Fäden, die noch nicht im Spiel sind – was
+   * am Ort der Gruppe hängt zuerst, nie eine endlose Liste (`playChoices`).
+   */
+  const cards = useMemo(() => boardCards(data), [data]);
+  const choices = useMemo(() => playChoices(data, cards, query), [data, cards, query]);
+  const take = (card: BoardCard) => {
+    setAdding(false);
+    setQuery('');
+    setInPlay(db, card.key, true);
+  };
+  const choice = (card: BoardCard) => (
+    <MenuItem key={card.key} icon={<Waypoints />} onClick={() => take(card)}>
+      {card.title}
+      {card.nearness === 'here' && <span className="wf-mute"> · hängt an diesem Ort</span>}
+    </MenuItem>
+  );
+  const none = choices.stories.length + choices.threads.length === 0;
 
   return (
     <Panel
@@ -144,34 +159,66 @@ export function PlayPanel() {
               {card.title}
             </button>
           ))}
+          {view.offeredMore > 0 && (
+            <button
+              type="button"
+              title="Über „Geschichte“ suchen und ins Spiel nehmen"
+              onClick={() => setAdding(true)}
+            >
+              und {view.offeredMore} weitere lose Fäden …
+            </button>
+          )}
         </div>
       )}
       <Popover
         open={adding}
-        onClose={() => setAdding(false)}
+        onClose={() => {
+          setAdding(false);
+          setQuery('');
+        }}
         anchor={add}
         align="right"
-        width={340}
+        width={360}
+        className="wf-tisch-play__pick"
       >
-        {idle.length > 0 && <div className="wf-tisch-suggest__head">Ins Spiel nehmen</div>}
-        {idle.map((card) => (
-          <MenuItem
-            key={card.key}
-            icon={<Waypoints />}
-            onClick={() => {
-              setAdding(false);
-              setInPlay(db, card.key, true);
-            }}
-          >
-            {card.title}
-            <span className="wf-mute"> · {card.story ? 'Geschichte' : 'loser Faden'}</span>
-          </MenuItem>
-        ))}
-        {idle.length > 0 && <div className="wf-menu-sep" />}
+        {choices.search && (
+          <div className="wf-tisch-play__picksearch">
+            <Input
+              value={query}
+              autoFocus
+              placeholder="Suchen: Satz oder Name"
+              aria-label="Geschichten und lose Fäden durchsuchen"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        )}
+        {choices.stories.length > 0 && (
+          <div className="wf-tisch-suggest__head">Geschichte ins Spiel nehmen</div>
+        )}
+        {choices.stories.map(choice)}
+        {choices.moreStories > 0 && (
+          <div className="wf-tisch-play__pickmore">
+            und {choices.moreStories} weitere – tippe, um zu suchen
+          </div>
+        )}
+        {choices.threads.length > 0 && (
+          <div className="wf-tisch-suggest__head">Losen Faden ins Spiel nehmen</div>
+        )}
+        {choices.threads.map(choice)}
+        {choices.moreThreads > 0 && (
+          <div className="wf-tisch-play__pickmore">
+            und {choices.moreThreads} weitere – tippe, um zu suchen
+          </div>
+        )}
+        {none && query.trim() !== '' && (
+          <div className="wf-tisch-play__pickmore">Nichts heißt so.</div>
+        )}
+        {!none && <div className="wf-menu-sep" />}
         <MenuItem
           icon={<Plus />}
           onClick={() => {
             setAdding(false);
+            setQuery('');
             // Sie entsteht leer, ist gleich im Spiel und wird auf ihrem Blatt geschrieben.
             navigate(`/geschichte/${newStory(db, { inPlay: true }).id}`);
           }}

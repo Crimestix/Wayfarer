@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { useData, useDb } from '../../data/hooks';
+import { useDb } from '../../data/hooks';
 import { THREAD_STATE_HINT, THREAD_STATE_LABEL } from '../../domain/story';
 import {
   THREAD_STATES,
@@ -28,6 +28,7 @@ import {
   confirmDialog,
 } from '../../ui';
 import { removeThread, saveThread, type ThreadInput } from './actions';
+import { StorySelect } from './StorySelect';
 
 export function ThreadDialog({
   thread,
@@ -42,7 +43,6 @@ export function ThreadDialog({
   onSaved: (thread: Thread) => void;
 }) {
   const db = useDb();
-  const data = useData();
   const [form, setForm] = useState<ThreadInput>(() => ({
     title: thread?.title ?? '',
     truth: thread?.truth ?? '',
@@ -55,12 +55,11 @@ export function ThreadDialog({
   const set = (change: Partial<ThreadInput>) => setForm((before) => ({ ...before, ...change }));
   const setHint = (id: string, change: Partial<ThreadHint>) =>
     set({ hints: form.hints.map((hint) => (hint.id === id ? { ...hint, ...change } : hint)) });
-  const stories = Object.values(data.stories).sort((a, b) => a.title.localeCompare(b.title, 'de'));
   const remove = async () => {
     if (!thread) return;
     const ok = await confirmDialog({
       title: 'Diesen Faden löschen?',
-      body: `„${thread.title}“ verschwindet mit seinen Hinweisen vom Brett.`,
+      body: `„${thread.title}“ verschwindet mit seinen Hinweisen.`,
       confirmLabel: 'Löschen',
       danger: true,
     });
@@ -123,18 +122,11 @@ export function ThreadDialog({
             </Select>
           </Field>
           <Field label="Gehört zur Geschichte">
-            <Select
-              value={form.storyId ?? ''}
-              onChange={(event) => set({ storyId: event.target.value || null })}
-              aria-label="Geschichte"
-            >
-              <option value="">Loser Faden</option>
-              {stories.map((story) => (
-                <option key={story.id} value={story.id}>
-                  {story.title}
-                </option>
-              ))}
-            </Select>
+            <StorySelect
+              thread={form}
+              value={form.storyId}
+              onChange={(storyId) => set({ storyId })}
+            />
           </Field>
         </div>
         <Field label="Woran er hängt" hint="Personen, Orte, Fraktionen.">

@@ -339,6 +339,21 @@ export function storyChoices(data: CampaignData, threads: readonly ThreadLike[])
     .map(({ story, count, reason }) => ({ story, count, reason }));
 }
 
+/** Die Geschichten zur Wahl, die zu einer Suche passen: nach ihrem Namen und dem ihres Antreibers. */
+export function filterStoryChoices(
+  data: Pick<CampaignData, 'entities'>,
+  choices: readonly StoryChoice[],
+  query: string,
+): StoryChoice[] {
+  const words = normalize(query).split(/\s+/).filter(Boolean);
+  if (!words.length) return [...choices];
+  return choices.filter(({ story }) => {
+    const owner = story.ownerId ? data.entities[story.ownerId] : undefined;
+    const text = normalize(`${story.title} ${owner?.name ?? ''}`);
+    return words.every((word) => text.includes(word));
+  });
+}
+
 // ── Die Liste „Lose Fäden“ ─────────────────────────────────────────────────
 
 export interface LooseThread {

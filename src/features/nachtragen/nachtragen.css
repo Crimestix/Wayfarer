@@ -602,3 +602,9 @@
   height: 100%;
   background: var(--gold);
 }
+/* Ein ruhiger Hinweis am Vorschlag – etwa „gibt es schon“ */
+.wf-nachtragen-prop__note {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}

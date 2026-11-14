@@ -107,3 +107,7 @@
 .wf-ki-when__year {
   max-width: 6.5em;
 }
+.wf-ki-when > .wf-select {
+  width: auto;
+  max-width: 340px;
+}

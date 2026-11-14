@@ -334,6 +334,24 @@ nicht übernommen.
   `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
   werden nie gespeichert – sie folgen aus dem, woran eine Geschichte hängt (`pinToCard` heftet
   einen Namen an).
+- Lose Fäden (`domain/looseThreads.ts`, Liste `faeden/LooseDrawer` im Seitenteil des Bretts):
+  Ein Faden ohne Geschichte (`isLooseThread`) steht in der Liste, nicht zwischen den Geschichten.
+  Als Karte liegt er nur auf dem Brett, wenn der Spielleiter ihn hinlegt (`thread.onBoard`,
+  `setThreadOnBoard`; eine alte Stelle in `state.board` zählt) oder er im Spiel ist – gefragt
+  über `threadOnBoard` / `card.onBoard`; `boardCards` liefert weiter alle (der Spieltisch braucht
+  sie), `boardLayout` legt nur aus, was liegt. Die Liste liest `looseThreads()`: woran er hängt,
+  woher (`threadOrigin`: Sessions aus `thread.sessionIds` und angenommenen Vorschlägen, sonst
+  Artikel, sonst Anlagetag), wozu er passen könnte (`storyFits`, zur Wahl `storyChoices` – die
+  passenden zuerst), was am Ort der Gruppe hängt zuerst, Ruhendes als Später-Liste; Suche
+  `filterLoose`. Doppelte meldet `threadTwins()` – gleicher Schlüssel (`threadKey`) oder nur
+  Endungen verschieden, lieber nicht als falsch; „Sind verschieden“ merkt `state.twinsApart` –,
+  zusammengelegt wird nur über `mergeThreads`. Sammel-Befehle (`moveThreads`,
+  `storyFromThreads` – den Namen schreibt der Spielleiter –, `setThreadsState`, `removeThreads`)
+  stehen in `faeden/actions.ts`, alle mit Rückgängig. Wer einen Faden anlegt (Nachtragen,
+  KI-Leser), fragt vorher `threadByTitle` – gibt es den Satz schon, entsteht kein zweiter, die
+  Session wird nur Quelle (Edit `source`) – und bietet die Geschichte über `StorySelect` an
+  („keine“ ist die Vorgabe). Fäden zur Wahl: `threadsInOrder`; am Spieltisch `playChoices`
+  (nie eine endlose Liste, Suche).
 - Einen Abend vorbereiten (`preps/`, `domain/prep.ts`, `features/abend`, Reiter neben dem
   Fadenbrett): je Abend ein Blatt – starker Einstieg, mögliche Szenen, Geheimnisse (noch an
   keinem Ort festgemacht), Begegnungen, Beute. Das offene Blatt (`sessionId: null`) gilt dem

@@ -42,6 +42,7 @@ import {
   reviewProgress,
   safeProposals,
   sessionTimeProblem,
+  threadTwinNote,
   type ConsequenceKey,
   type NoteLineView,
   type ProposalChange,
@@ -572,6 +573,8 @@ function ProposalRow({
     (q) => q.state === 'open' && proposal.names.includes(q.key),
   );
   const tone = proposalTone(proposal.kind);
+  /** „Gibt es schon“: Annehmen legt keinen zweiten Faden an. */
+  const twin = isOpen ? threadTwinNote(data, proposal) : '';
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -621,6 +624,12 @@ function ProposalRow({
         {isOpen && openNames.length > 0 && (
           <div className="wf-nachtragen-prop__names">
             Wartet auf die Frage zu {openNames.map((q) => `„${q.name}“`).join(', ')} – oben.
+          </div>
+        )}
+        {twin && <div className="wf-nachtragen-prop__note">{twin}</div>}
+        {proposal.state === 'accepted' && proposal.edits.some((e) => e.kind === 'source') && (
+          <div className="wf-nachtragen-prop__note">
+            Den Faden gab es schon – die Session steht bei ihm als Quelle.
           </div>
         )}
         {proposal.stale && (

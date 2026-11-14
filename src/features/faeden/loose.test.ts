@@ -311,6 +311,22 @@ describe('Lose Fäden und das Brett', () => {
     undo();
     expect(data().threads[loose.id]).toMatchObject({ storyId: null, onBoard: true });
     expect(data().state.board[`thread:${loose.id}`]).toEqual({ x: 40, y: 40 });
+    // Auch über „Ändern“: Wer ihm dort eine Geschichte gibt, nimmt ihn vom Brett.
+    saveThread(
+      db,
+      {
+        title: 'Die fremde Münze',
+        truth: '',
+        state: 'open',
+        storyId: tale.id,
+        refs: [],
+        known: false,
+        hints: [],
+      },
+      loose.id,
+    );
+    expect(data().threads[loose.id]).toMatchObject({ storyId: tale.id, onBoard: false });
+    expect(data().state.board[`thread:${loose.id}`]).toBeUndefined();
   });
 });
 

@@ -699,7 +699,10 @@ export type ThreadInput = Pick<
 > &
   Partial<Pick<Thread, 'sessionIds' | 'articleId'>>;
 
-/** Legt einen Faden an oder ändert ihn. Hinweise ohne Text fallen weg. */
+/**
+ * Legt einen Faden an oder ändert ihn. Hinweise ohne Text fallen weg. Kommt er dabei an eine
+ * Geschichte, liegt er nicht mehr für sich auf dem Brett.
+ */
 export function saveThread(db: CampaignDb, input: ThreadInput, id?: string): Thread {
   const clean: ThreadInput = {
     ...input,
@@ -710,8 +713,13 @@ export function saveThread(db: CampaignDb, input: ThreadInput, id?: string): Thr
       .map((hint) => ({ ...hint, text: hint.text.trim() }))
       .filter((hint) => hint.text),
   };
-  if (id && db.getSnapshot().threads[id]) return db.patch('threads', id, clean);
-  return db.put('threads', createThread(clean));
+  const data = db.getSnapshot();
+  if (!id || !data.threads[id]) return db.put('threads', createThread(clean));
+  const bound = clean.storyId !== null && data.stories[clean.storyId] !== undefined;
+  return db.batch(() => {
+    if (bound) takeSpots(db, [id]);
+    return db.patch('threads', id, { ...clean, ...(bound ? { onBoard: false } : {}) });
+  });
 }
 
 /** Löscht einen Faden. Termine, die an ihm hingen, bleiben – ohne Faden. */

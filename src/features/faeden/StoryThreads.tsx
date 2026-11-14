@@ -115,7 +115,7 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
     if (undo)
       toast({
         title: 'Von der Geschichte gelöst',
-        body: `„${thread.title}“ liegt jetzt als loser Faden auf dem Brett.`,
+        body: `„${thread.title}“ steht jetzt am Fadenbrett unter „Lose Fäden“.`,
         action: { label: 'Rückgängig', run: undo },
       });
   };
@@ -305,7 +305,7 @@ function LooseFits({ story, questions }: { story: Story; questions: readonly Thr
       ))}
       {fits.length > FITS_SHOWN && (
         <p className="wf-sheet__none">
-          Und {fits.length - FITS_SHOWN} weitere – auf dem Fadenbrett liegen alle.
+          Und {fits.length - FITS_SHOWN} weitere – am Fadenbrett stehen alle unter „Lose Fäden“.
         </p>
       )}
     </div>

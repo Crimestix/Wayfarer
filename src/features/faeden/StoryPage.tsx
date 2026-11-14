@@ -170,7 +170,7 @@ function StorySheet({ story }: { story: Story }) {
   const remove = async () => {
     const ok = await confirmDialog({
       title: `„${story.title}“ löschen?`,
-      body: 'Die Geschichte verschwindet mit ihrer Uhr. Ihre Fragen bleiben als lose Fäden auf dem Brett, ihre Wegenetze und Teilgeschichten bleiben für sich; was schon eingetreten ist, steht weiter in der Chronik.',
+      body: 'Die Geschichte verschwindet mit ihrer Uhr. Ihre Fragen bleiben als lose Fäden am Fadenbrett, ihre Wegenetze und Teilgeschichten bleiben für sich; was schon eingetreten ist, steht weiter in der Chronik.',
       confirmLabel: 'Löschen',
       danger: true,
     });

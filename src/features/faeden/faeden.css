@@ -1111,3 +1111,297 @@
   font-size: var(--text-xs);
   font-style: italic;
 }
+
+/* ── Lose Fäden: die Liste neben dem Brett ───────────────────────────────── */
+
+/* Der Seitenteil: oben der Umschalter, darunter die gewählte Karte oder die Liste */
+.wf-faden-body[data-side='loose'] {
+  grid-template-columns: minmax(0, 1fr) 430px;
+}
+.wf-faden-sidecol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+  min-height: 0;
+}
+.wf-faden-sidecol > .wf-faden-side {
+  flex: 1;
+}
+.wf-faden-sidetabs {
+  display: flex;
+}
+.wf-faden-sidetabs > .wf-btn {
+  flex: 1;
+  justify-content: center;
+}
+.wf-faden-wall__none {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  width: min(420px, 80%);
+  margin: 0;
+  transform: translateX(-50%);
+  color: var(--ink-mute);
+  font-style: italic;
+  text-align: center;
+  pointer-events: none;
+}
+/* Ein loser Faden wird auf diese Geschichte gezogen */
+.wf-faden-card[data-drop='true'] {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 2px var(--gold-deep),
+    var(--shadow-float);
+}
+.wf-faden-card[data-lifted='true'] {
+  z-index: 2;
+  opacity: 0.88;
+}
+
+.wf-faden-loose {
+  gap: var(--s-2);
+}
+.wf-faden-loose__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.wf-faden-loose__search svg {
+  position: absolute;
+  left: var(--s-2);
+  width: 15px;
+  height: 15px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+.wf-faden-loose__search .wf-input {
+  padding-left: 30px;
+}
+/* Auswahl und Sammel-Handgriffe – bleibt beim Rollen oben stehen */
+.wf-faden-loose__bar {
+  position: sticky;
+  top: calc(-1 * var(--s-4));
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  align-items: center;
+  margin: 0 calc(-1 * var(--s-1));
+  padding: var(--s-2) var(--s-1);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+  font-size: var(--text-sm);
+}
+.wf-faden-loose__hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+.wf-faden-loose__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  width: 100%;
+}
+.wf-faden-loose__list {
+  display: flex;
+  flex-direction: column;
+}
+.wf-faden-loose__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  align-items: start;
+  padding: var(--s-2) var(--s-1) var(--s-2) var(--s-2);
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid transparent;
+}
+.wf-faden-loose__row[draggable='true'] {
+  cursor: grab;
+}
+/* Was am Ort der Gruppe hängt, trägt eine Messingkante – wie die Karten des Bretts. */
+.wf-faden-loose__row[data-near='here'] {
+  border-left-color: var(--gold);
+}
+.wf-faden-loose__row[data-on='true'] {
+  background: var(--gold-glow);
+}
+.wf-faden-loose__row[data-focus='true'] {
+  box-shadow: inset 0 0 0 1px var(--gold-deep);
+}
+.wf-faden-loose__row > .wf-check {
+  margin-top: 3px;
+}
+.wf-faden-loose__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wf-faden-loose__title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-faden-loose__title:hover {
+  color: var(--gold-bright);
+}
+.wf-faden-thread--dormant .wf-faden-loose__title {
+  color: var(--ink-soft);
+}
+.wf-faden-loose__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-faden-loose__meta b {
+  color: var(--gold);
+  font-weight: 400;
+}
+/* Der Trennpunkt steht hinter dem Stück – so beginnt keine Zeile mit ihm. */
+.wf-faden-loose__meta > *:not(:last-child)::after {
+  content: ' ·';
+  color: var(--ink-faint);
+}
+.wf-faden-loose__fit {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+.wf-faden-loose__fit .wf-faden-link {
+  flex: none;
+  font-style: normal;
+}
+.wf-faden-loose__more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding-top: var(--s-1);
+}
+.wf-faden-loose__more .wf-faden-block__truth,
+.wf-faden-loose__more .wf-faden-hint {
+  padding-left: 0;
+}
+.wf-faden-loose__more .wf-faden-hint {
+  padding-left: var(--s-3);
+  border-left: 1px solid var(--line);
+}
+.wf-faden-loose__more p {
+  font-size: var(--text-xs);
+}
+/* Später-Liste und Doppelte: eingeklappt, leise */
+.wf-faden-loose__rest summary,
+.wf-faden-twins summary {
+  padding: var(--s-2) 0;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.wf-faden-twins {
+  padding: 0 var(--s-3);
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-faden-twins summary {
+  color: var(--ember);
+}
+.wf-faden-twins__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-2) 0 var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-faden-twins__group ul,
+.wf-faden-attach__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.wf-faden-twins__group em {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-faden-twins__acts {
+  display: flex;
+  gap: var(--s-2);
+}
+
+/* Fenster: an eine Geschichte hängen, neue Geschichte daraus */
+.wf-faden-attach section {
+  display: flex;
+  flex-direction: column;
+}
+.wf-faden-attach__titles {
+  padding: var(--s-2) var(--s-3);
+  border-left: 3px solid var(--blood);
+  background: var(--bg-inset);
+  color: var(--ink-soft);
+}
+.wf-faden-attach__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-faden-attach__what {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.wf-faden-attach__what em {
+  color: var(--gold);
+}
+.wf-faden-attach__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-faden-attach__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-attach__acts .wf-select {
+  width: auto;
+  max-width: 190px;
+  min-height: 0;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: var(--text-sm);
+}
+
+.wf-faden-side__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}

@@ -1,15 +1,26 @@
 /**
- * Das Fadenbrett: eine Pinnwand. Geschichten und lose Fäden liegen als Karten darauf, daneben die
- * Personen, Orte und Fraktionen, an denen sie hängen – verbunden durch Fäden. Wo zwei Karten am
- * selben Namen hängen, berühren sich ihre Geschichten. Alles lässt sich frei legen; was der
- * Spielleiter nicht hingelegt hat, legt Wayfarer aus. Die Rechnung steht in `domain/story.ts`.
+ * Das Fadenbrett: eine Pinnwand. Geschichten liegen als Karten darauf, daneben die Personen, Orte
+ * und Fraktionen, an denen sie hängen – verbunden durch Fäden. Wo zwei Karten am selben Namen
+ * hängen, berühren sich ihre Geschichten. Alles lässt sich frei legen; was der Spielleiter nicht
+ * hingelegt hat, legt Wayfarer aus. Lose Fäden stehen in der Liste daneben (`LooseDrawer`) – aufs
+ * Brett kommt einer nur, wenn der Spielleiter ihn hinlegt oder ins Spiel nimmt; von dort (und aus
+ * der Liste) lässt er sich auf eine Geschichte ziehen. Die Rechnung steht in `domain/story.ts`
+ * und `domain/looseThreads.ts`.
  */
-import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type PointerEvent,
+} from 'react';
 import { useLocation } from 'wouter';
 import {
   Eye,
   EyeOff,
   LayoutGrid,
+  Link2,
   Maximize,
   Minus,
   Pencil,
@@ -18,6 +29,7 @@ import {
   Waypoints,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { looseThreads, threadTwins } from '../../domain/looseThreads';
 import {
   BOARD_CARD,
   ENTRY_STANDING_LABEL,
@@ -27,6 +39,7 @@ import {
   boardCards,
   boardLayout,
   entryFit,
+  isLooseThread,
   looseClocks,
   reputeOf,
   threadLive,
@@ -61,23 +74,33 @@ import {
 import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
+  moveThreads,
   newStory,
   pinToCard,
   placeOnBoard,
   setHintFound,
+  setThreadOnBoard,
   setThreadState,
   storyFromClock,
   tidyBoard,
 } from './actions';
 import { ThreadDialog } from './Dialogs';
+import { AttachDialog } from './LooseDialogs';
+import { LooseDrawer, THREAD_DRAG } from './LooseDrawer';
 import './faeden.css';
 
+/** Mit etwas Abstand zueinander, wenn mehrere Fäden auf einmal aufs Brett gezogen werden. */
+const DROP_STEP = 36;
+
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const count = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
 type OpenDialog =
   | { type: 'thread'; thread: Thread | null; storyId: string | null }
   /** Die Uhr einer Geschichte – `before`: welche Uhren es beim Öffnen schon gab. */
   | { type: 'clock'; clock: Clock | null; storyId: string; before: ReadonlySet<string> }
+  /** Lose Fäden an eine Geschichte hängen. */
+  | { type: 'attach'; ids: string[] }
   | null;
 
 export default function FaedenPage() {
@@ -87,17 +110,40 @@ export default function FaedenPage() {
   /** Die gewählte Karte (`story:…`, `thread:…`) oder der gewählte Name (`node:…`). */
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(null);
-  // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
-  useFocus(['card'], (focus) => setSelected(focus.key));
 
   const cards = useMemo(() => boardCards(data, view), [data, view]);
-  const links = useMemo(() => touches(cards), [cards]);
   // Auf dem Brett liegen die Geschichten – und die losen Fäden, die hingelegt wurden.
-  const open = cards.filter((card) => !card.closed && card.onBoard);
+  const open = useMemo(() => cards.filter((card) => !card.closed && card.onBoard), [cards]);
+  const links = useMemo(() => touches(open), [open]);
   const closed = cards.filter((card) => card.closed);
+  /** Die losen Fäden – sie stehen in der Liste neben dem Brett. */
+  const loose = useMemo(() => looseThreads(data, view, cards), [data, view, cards]);
+  const twins = useMemo(() => threadTwins(data), [data]);
+  const looseCount = loose.filter((row) => !row.resting).length;
   /** Uhren, die zu keiner Geschichte gehören – sie lassen sich zu einer machen. */
   const orphans = useMemo(() => looseClocks(data), [data]);
   const current = cards.find((card) => card.key === selected) ?? null;
+  /** Der Seitenteil: die gewählte Karte – oder die Liste der losen Fäden. */
+  const [side, setSide] = useState<'card' | 'loose'>(() => (loose.length ? 'loose' : 'card'));
+  /** Der lose Faden, der in der Liste gleich im Bild stehen soll. */
+  const [looseFocus, setLooseFocus] = useState<string | null>(null);
+  /**
+   * Wählt eine Karte. Ein loser Faden, der nicht auf dem Brett liegt, steht in der Liste – dort
+   * wird er gezeigt.
+   */
+  const select = (key: string | null) => {
+    const card = key ? cards.find((entry) => entry.key === key) : undefined;
+    if (card && !card.story && !card.closed && !card.onBoard) {
+      setLooseFocus(card.threads[0]!.id);
+      setSide('loose');
+      setSelected(null);
+      return;
+    }
+    setSelected(key);
+    if (key) setSide('card');
+  };
+  // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
+  useFocus(['card'], (focus) => select(focus.key));
 
   // Die Pinnwand: frei verschieben, vergrößern, Karten und Namen ziehen.
   const frame = useRef<HTMLDivElement>(null);
@@ -136,6 +182,13 @@ export default function FaedenPage() {
     );
   // Beim Öffnen liegt das Brett im Bild – aber nie so klein, dass man nichts mehr lesen kann.
   useLayoutEffect(() => showAll(0.62), []);
+  /** Eine Karte, die gerade aufs Brett kam: Sobald sie ausgelegt ist, rückt alles ins Bild. */
+  const [arriving, setArriving] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    if (!arriving || !layout.cards[arriving]) return;
+    showAll();
+    setArriving(null);
+  }, [arriving, layout]);
 
   /** Was zum Gewählten gehört – alles andere tritt zurück. */
   const related = useMemo(() => {
@@ -170,15 +223,101 @@ export default function FaedenPage() {
     }),
   );
 
-  /** Ziehen legt hin, ein Klick wählt. */
+  /** Die Geschichte, auf der ein gezogener loser Faden gerade liegt – dort würde er angehängt. */
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const truth = view === 'truth';
+  /** Die Geschichte unter einer Stelle des Bretts (Mitte der Oberkante einer gezogenen Karte). */
+  const storyUnder = (x: number, y: number, except: string): string | null =>
+    open.find((card) => {
+      const at = layout.cards[card.key];
+      return (
+        card.story !== null &&
+        card.key !== except &&
+        at !== undefined &&
+        Math.abs(x - at.x) < BOARD_CARD.width / 2 &&
+        y + 30 > at.y &&
+        y + 30 < at.y + BOARD_CARD.height
+      );
+    })?.key ?? null;
+  /**
+   * Hängt lose Fäden an eine Geschichte – mit Meldung und Rückgängig. Vom Brett aus ist danach
+   * die Geschichte gewählt; aus der Liste gezogen bleibt die Liste offen, für den nächsten.
+   */
+  const attach = (threadIds: readonly string[], storyKey: string, show: boolean) => {
+    const story = data.stories[storyKey.slice('story:'.length)];
+    const undo = story ? moveThreads(db, threadIds, story.id) : null;
+    if (!story || !undo) return;
+    const first = data.threads[threadIds[0]!];
+    if (show) select(storyKey);
+    toast({
+      title: 'An die Geschichte gehängt',
+      body:
+        threadIds.length === 1
+          ? `„${first?.title ?? ''}“ ist jetzt eine Frage von „${story.title}“.`
+          : `${threadIds.length} Fäden sind jetzt Fragen von „${story.title}“.`,
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
+  /** Ziehen legt hin, ein Klick wählt. Ein loser Faden, auf eine Geschichte gezogen, hängt an ihr. */
   const grab = (key: string, at: Spot) => (event: PointerEvent) => {
     event.stopPropagation();
+    const threadId = key.startsWith('thread:') ? key.slice('thread:'.length) : null;
+    const thread = threadId ? data.threads[threadId] : undefined;
+    const hangs = truth && thread !== undefined && isLooseThread(data, thread);
+    const target = (dx: number, dy: number) =>
+      hangs ? storyUnder(at.x + dx, at.y + dy, key) : null;
     wall.drag(event, {
-      onMove: (dx, dy) => setMoving({ key, x: at.x + dx, y: at.y + dy }),
+      onMove: (dx, dy) => {
+        setMoving({ key, x: at.x + dx, y: at.y + dy });
+        setDropOn(target(dx, dy));
+      },
       onEnd: (moved, dx, dy) => {
         setMoving(null);
-        if (moved) placeOnBoard(db, key, at.x + dx, at.y + dy);
-        else setSelected(key === selected ? null : key);
+        setDropOn(null);
+        const story = moved ? target(dx, dy) : null;
+        if (story && threadId) attach([threadId], story, true);
+        else if (moved) placeOnBoard(db, key, at.x + dx, at.y + dy);
+        else select(key === selected ? null : key);
+      },
+    });
+  };
+  /** Die Fäden, die gerade aus der Liste herübergezogen werden. */
+  const dragged = (event: DragEvent): boolean => event.dataTransfer.types.includes(THREAD_DRAG);
+  const cardUnder = (event: DragEvent): string | null => {
+    const key = (event.target as HTMLElement).closest<HTMLElement>('[data-card]')?.dataset.card;
+    return key?.startsWith('story:') ? key : null;
+  };
+  /** Aus der Liste aufs Brett: auf eine Geschichte = anhängen, sonst liegt er dort als Karte. */
+  const drop = (event: DragEvent) => {
+    if (!dragged(event)) return;
+    event.preventDefault();
+    setDropOn(null);
+    let ids: string[] = [];
+    try {
+      ids = (JSON.parse(event.dataTransfer.getData(THREAD_DRAG)) as string[]).filter(
+        (id) => data.threads[id] !== undefined,
+      );
+    } catch {
+      return;
+    }
+    if (!ids.length) return;
+    const story = cardUnder(event);
+    if (story) return attach(ids, story, false);
+    const at = wall.toBoard(event.clientX, event.clientY);
+    const undos = db.batch(() =>
+      ids.map((id, index) =>
+        setThreadOnBoard(db, id, true, {
+          x: at.x + index * DROP_STEP,
+          y: at.y + index * DROP_STEP,
+        }),
+      ),
+    );
+    toast({
+      title: ids.length === 1 ? 'Aufs Brett gelegt' : `${ids.length} Fäden aufs Brett gelegt`,
+      body: 'Als Karte – von dort lässt er sich weiter auf eine Geschichte ziehen.',
+      action: {
+        label: 'Rückgängig',
+        run: () => db.batch(() => [...undos].reverse().forEach((undo) => undo?.())),
       },
     });
   };
@@ -198,8 +337,8 @@ export default function FaedenPage() {
       <header className="wf-page__head wf-faden-head">
         <h1 className="wf-page__title">Fadenbrett</h1>
         <span className="wf-faden-head__sub">
-          {open.filter((card) => card.story).length} Geschichten ·{' '}
-          {open.reduce((sum, card) => sum + card.threads.filter(threadLive).length, 0)} Fäden
+          {count(open.filter((card) => card.story).length, 'Geschichte', 'Geschichten')} ·{' '}
+          {count(looseCount, 'loser Faden', 'lose Fäden')}
         </span>
         <span className="wf-grow" />
         <div className="wf-btn-group" role="group" aria-label="Sicht">
@@ -250,7 +389,7 @@ export default function FaedenPage() {
           </EmptyState>
         </div>
       ) : (
-        <div className="wf-faden-body">
+        <div className="wf-faden-body" data-side={side}>
           <div
             ref={frame}
             className="wf-faden-wall"
@@ -259,6 +398,14 @@ export default function FaedenPage() {
               // Die Karte liegt später dort, wo geklickt wurde.
               if (view === 'truth') write(wall.toBoard(event.clientX, event.clientY));
             }}
+            onDragOver={(event) => {
+              if (!truth || !dragged(event)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = 'move';
+              setDropOn(cardUnder(event));
+            }}
+            onDragLeave={() => setDropOn(null)}
+            onDrop={drop}
           >
             <div className="wf-faden-layer" style={{ transform: wall.transform }}>
               <svg className="wf-faden-strings" aria-hidden>
@@ -304,10 +451,19 @@ export default function FaedenPage() {
                   at={layout.cards[card.key]!}
                   selected={card.key === selected}
                   dim={related !== null && !related.has(card.key)}
+                  drop={card.key === dropOn}
+                  lifted={card.key === moving?.key}
                   onGrab={grab(card.key, layout.cards[card.key]!)}
                 />
               ))}
             </div>
+            {open.length === 0 && (
+              <p className="wf-faden-wall__none">
+                {truth
+                  ? 'Noch liegt nichts auf dem Brett. Eine Geschichte entsteht mit einem Doppelklick – oder aus losen Fäden der Liste.'
+                  : 'Von dem, was auf dem Brett liegt, kennt die Gruppe noch nichts.'}
+              </p>
+            )}
             <div className="wf-faden-tools" onPointerDown={(event) => event.stopPropagation()}>
               <IconButton label="Größer" size="sm" onClick={() => wall.zoom(1.25)}>
                 <Plus />
@@ -362,7 +518,7 @@ export default function FaedenPage() {
                       key={card.key}
                       type="button"
                       className="wf-faden-closed__row"
-                      onClick={() => setSelected(card.key)}
+                      onClick={() => select(card.key)}
                     >
                       {card.title}
                       <span>
@@ -374,18 +530,47 @@ export default function FaedenPage() {
               )}
             </div>
           </div>
-          {pin ? (
-            <PinSide pin={pin} cards={cards} onSelect={setSelected} />
-          ) : (
-            <Side
-              card={current}
-              view={view}
-              links={links}
-              cards={cards}
-              onSelect={setSelected}
-              onEdit={setDialog}
-            />
-          )}
+          <div className="wf-faden-sidecol">
+            <div className="wf-btn-group wf-faden-sidetabs" role="group" aria-label="Seitenteil">
+              <Button
+                size="sm"
+                aria-pressed={side === 'card'}
+                title="Alles zur gewählten Karte des Bretts"
+                onClick={() => setSide('card')}
+              >
+                Gewählte Karte
+              </Button>
+              <Button
+                size="sm"
+                aria-pressed={side === 'loose'}
+                title="Fäden, die zu keiner Geschichte gehören – zum Aufräumen und Verbinden"
+                onClick={() => setSide('loose')}
+              >
+                Lose Fäden · {looseCount}
+              </Button>
+            </div>
+            {side === 'loose' ? (
+              <LooseDrawer
+                rows={loose}
+                twins={twins}
+                view={view}
+                focusId={looseFocus}
+                onEdit={(thread) => setDialog({ type: 'thread', thread, storyId: thread.storyId })}
+                onShow={setArriving}
+              />
+            ) : pin ? (
+              <PinSide pin={pin} cards={cards} onSelect={select} />
+            ) : (
+              <Side
+                card={current}
+                view={view}
+                links={links}
+                cards={cards}
+                onSelect={select}
+                onEdit={setDialog}
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -396,8 +581,22 @@ export default function FaedenPage() {
           onClose={() => setDialog(null)}
           onSaved={(thread) => {
             setDialog(null);
-            setSelected(thread.storyId ? `story:${thread.storyId}` : `thread:${thread.id}`);
+            // Ein loser Faden steht in der Liste – dort wird er gezeigt, wenn er nicht auf dem
+            // Brett liegt.
+            if (thread.storyId) select(`story:${thread.storyId}`);
+            else if (thread.inPlay || thread.onBoard) select(`thread:${thread.id}`);
+            else {
+              setLooseFocus(thread.id);
+              setSide('loose');
+            }
           }}
+        />
+      )}
+      {dialog?.type === 'attach' && (
+        <AttachDialog
+          ids={dialog.ids}
+          onClose={() => setDialog(null)}
+          onDone={() => setDialog(null)}
         />
       )}
       {dialog?.type === 'clock' && (
@@ -424,12 +623,18 @@ function Card({
   at,
   selected,
   dim,
+  drop,
+  lifted,
   onGrab,
 }: {
   card: BoardCard;
   at: Spot;
   selected: boolean;
   dim: boolean;
+  /** Ein loser Faden wird gerade auf diese Geschichte gezogen. */
+  drop: boolean;
+  /** Die Karte wird gerade gezogen: Sie liegt über allen anderen. */
+  lifted: boolean;
   onGrab: (event: PointerEvent) => void;
 }) {
   const data = useData();
@@ -445,8 +650,11 @@ function Card({
       type="button"
       className={cx('wf-faden-card', !card.story && 'wf-faden-card--thread')}
       style={{ left: at.x, top: at.y }}
+      data-card={card.key}
       data-near={card.nearness}
       data-dim={dim}
+      data-drop={drop}
+      data-lifted={lifted}
       aria-pressed={selected}
       onPointerDown={onGrab}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -605,10 +813,16 @@ function Side({
           Karten und Namen legst du frei: einfach ziehen. Das Brett selbst ziehst du am leeren
           Grund, das Mausrad vergrößert, ein Doppelklick legt eine neue Geschichte an.
         </p>
+        <p className="wf-mute">
+          Fäden ohne Geschichte stehen unter „Lose Fäden“ – von dort hängst du sie an eine
+          Geschichte oder legst sie aufs Brett.
+        </p>
       </aside>
     );
 
   const story = card.story;
+  /** Der lose Faden dieser Karte – wie er gespeichert ist. */
+  const lone = story ? null : (data.threads[card.threads[0]?.id ?? ''] ?? null);
   const owner = story?.ownerId ? data.entities[story.ownerId] : undefined;
   const repute = owner ? reputeOf(data, owner.id) : { party: null, members: [] };
   const link = (id: string | null | undefined) => {
@@ -655,6 +869,41 @@ function Side({
         <p className="wf-faden-side__note">
           Sicht der Gruppe: nur, was sie kennt. Zum Ändern auf „Wahrheit“ wechseln.
         </p>
+      )}
+      {truth && lone && (
+        <div className="wf-faden-side__acts">
+          <Button
+            size="sm"
+            icon={<Link2 />}
+            title="Als Frage, Hinweis oder Einstieg – oder zieh die Karte auf eine Geschichte"
+            onClick={() => onEdit({ type: 'attach', ids: [lone.id] })}
+          >
+            An Geschichte hängen …
+          </Button>
+          {card.onBoard && !card.closed && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={lone.inPlay}
+              title={
+                lone.inPlay
+                  ? 'Er liegt auf dem Brett, solange er im Spiel ist.'
+                  : 'Er steht dann nur noch in der Liste „Lose Fäden“.'
+              }
+              onClick={() => {
+                const undo = setThreadOnBoard(db, lone.id, false);
+                if (undo)
+                  toast({
+                    title: 'Vom Brett genommen',
+                    body: `„${lone.title}“ steht nur noch in der Liste „Lose Fäden“.`,
+                    action: { label: 'Rückgängig', run: undo },
+                  });
+              }}
+            >
+              Vom Brett nehmen
+            </Button>
+          )}
+        </div>
       )}
 
       {truth && story && !card.clock && (

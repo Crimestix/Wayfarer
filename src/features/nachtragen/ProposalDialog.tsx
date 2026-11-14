@@ -1,7 +1,9 @@
 /**
  * „Ändern“ an einem Vorschlag beim Prüfen: dieselben Felder wie beim Festhalten (`RecordFields`),
  * dazu Text, Zeit, Genauigkeit und „Betrifft“ – bei Beute Inhalt, Gold, Empfänger und Herkunft,
- * bei einem Faden sein Satz. „Annehmen“ hält es so fest. Gerechnet wird in `review.ts`.
+ * bei einem Faden sein Satz, woran er hängt und die Geschichte, an die er gleich kommt (die
+ * passenden zuerst, „keine“ ist die Vorgabe). „Annehmen“ hält es so fest. Gerechnet wird in
+ * `review.ts`.
  */
 import { useMemo, useState } from 'react';
 import { useData } from '../../data/hooks';
@@ -28,12 +30,16 @@ import { RecordFields } from '../chronik/RecordFields';
 import { emptyRecordDraft, type RecordFieldsKind } from '../chronik/recordDraft';
 import { WorldTimeFields } from '../chronik/WorldTimeFields';
 import { parseGold } from '../../domain/loot';
+import { threadLike } from '../../domain/looseThreads';
+import { StorySelect } from '../faeden/StorySelect';
 import {
   checksOf,
   consequencesOf,
   draftOfProposal,
   editProblem,
   editedInput,
+  proposalThreadTitle,
+  threadTwinNote,
   type ConsequenceKey,
   type ProposalChange,
 } from './review';
@@ -293,10 +299,14 @@ function ThreadFields({
   onClose: () => void;
   onAccept: (change: ProposalChange) => void;
 }) {
-  const p = proposal.payload as { title?: string };
-  const [text, setText] = useState(p.title ?? proposal.text);
+  const data = useData();
+  const [text, setText] = useState(proposalThreadTitle(proposal));
   const [refs, setRefs] = useState<string[]>(proposal.refs);
+  const [storyId, setStoryId] = useState<string | null>(null);
   const problem = text.trim() ? '' : 'Der Faden braucht einen Satz.';
+  const like = useMemo(() => threadLike(text, refs), [text, refs]);
+  /** Gibt es ihn schon, entsteht kein zweiter – dann gibt es auch nichts anzuhängen. */
+  const twin = threadTwinNote(data, proposal, text);
   return (
     <Dialog
       open
@@ -306,7 +316,7 @@ function ThreadFields({
         <Footer
           problem={problem}
           onClose={onClose}
-          onAccept={() => onAccept({ thread: { title: text.trim(), refs } })}
+          onAccept={() => onAccept({ thread: { title: text.trim(), refs, storyId } })}
         />
       }
     >
@@ -314,9 +324,21 @@ function ThreadFields({
         <Field label="Der Faden in einem Satz">
           <Input value={text} onChange={(e) => setText(e.target.value)} data-autofocus />
         </Field>
-        <Field label="Hängt an">
-          <EntityRefsEditor value={refs} onChange={setRefs} />
-        </Field>
+        {twin ? (
+          <p className="wf-mute">{twin}</p>
+        ) : (
+          <>
+            <Field label="Hängt an">
+              <EntityRefsEditor value={refs} onChange={setRefs} />
+            </Field>
+            <Field
+              label="Gehört zur Geschichte"
+              hint="Ohne Geschichte steht er unter den losen Fäden am Fadenbrett."
+            >
+              <StorySelect thread={like} value={storyId} onChange={setStoryId} />
+            </Field>
+          </>
+        )}
       </div>
     </Dialog>
   );
