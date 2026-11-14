@@ -1,8 +1,11 @@
 /**
  * Befehle der Zeitleiste: welche Bahnen in welcher Reihenfolge stehen. Gemerkt im Spielstand
  * (`state.timelineLanes`); null heißt: Wayfarer wählt (`defaultLaneKeys` in `domain/timeline.ts`).
+ * Dazu die Zeitalter der Welt (`campaign.ages`, `domain/ages.ts`).
  */
 import type { CampaignDb } from '../../data/db';
+import { readAge, type AgeInput } from '../../domain/ages';
+import { newId } from '../../domain/schema';
 import { laneKeysOf } from '../../domain/timeline';
 
 const save = (db: CampaignDb, keys: string[]) => db.setState({ timelineLanes: keys });
@@ -34,4 +37,34 @@ export function moveLane(db: CampaignDb, key: string, by: -1 | 1): void {
 /** Wayfarer wählt wieder selbst. */
 export function resetLanes(db: CampaignDb): void {
   db.setState({ timelineLanes: null });
+}
+
+// ── Zeitalter ──────────────────────────────────────────────────────────────
+
+/**
+ * Legt ein Zeitalter an oder ändert es (`id`). Gibt den Grund zurück, wenn sich die Felder nicht
+ * lesen lassen – dann bleibt alles, wie es war.
+ */
+export function saveAge(
+  db: CampaignDb,
+  input: AgeInput,
+  id?: string,
+): { problem: string } | { id: string } {
+  const { campaign, state } = db.getSnapshot();
+  const read = readAge(campaign.calendar, input, state.now);
+  if ('problem' in read) return read;
+  const age = { id: id ?? newId(), ...read };
+  const exists = campaign.ages.some((other) => other.id === age.id);
+  db.setCampaign({
+    ages: exists
+      ? campaign.ages.map((other) => (other.id === age.id ? age : other))
+      : [...campaign.ages, age],
+  });
+  return { id: age.id };
+}
+
+/** Nimmt ein Zeitalter heraus. */
+export function removeAge(db: CampaignDb, id: string): void {
+  const { campaign } = db.getSnapshot();
+  db.setCampaign({ ages: campaign.ages.filter((age) => age.id !== id) });
 }

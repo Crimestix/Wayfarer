@@ -336,11 +336,12 @@ describe('Bahnen der Zeitleiste', () => {
     ]);
   });
 
-  it('wählt von selbst Gruppe, Termine, Geschichten mit Uhr und Fraktionen mit Vorhaben', async () => {
+  it('wählt von selbst Gruppe, Termine, Weltgeschichte, Geschichten mit Uhr und Fraktionen mit Vorhaben', async () => {
     const { db, data, scheme, guild, mira } = await setup();
     expect(defaultLaneKeys(data())).toEqual([
       'party',
       'events',
+      'history',
       `story:${scheme.id}`,
       `entity:${guild.id}`,
     ]);
@@ -369,16 +370,24 @@ describe('Achse', () => {
   const now = elarisCampaign().state.now;
   const view = (mpp: number, width = 1200): TimelineView => ({ from: now, mpp, width });
 
-  it('teilt je Zoomstufe von Stunden bis Jahrhunderten', () => {
+  it('teilt je Zoomstufe von Stunden bis Jahrtausenden', () => {
     expect(zoomUnit(cal, zoomPreset(cal, 'hour'))).toBe('hour');
     expect(zoomUnit(cal, zoomPreset(cal, 'day'))).toBe('day');
     expect(zoomUnit(cal, zoomPreset(cal, 'month'))).toBe('month');
     expect(zoomUnit(cal, zoomPreset(cal, 'year'))).toBe('year');
     expect(zoomUnit(cal, zoomPreset(cal, 'decade'))).toBe('decade');
     expect(zoomUnit(cal, zoomPreset(cal, 'century'))).toBe('century');
+    expect(zoomUnit(cal, zoomPreset(cal, 'millennium'))).toBe('millennium');
     const bounds = zoomBounds(cal);
     expect(zoomUnit(cal, bounds.min)).toBe('hour');
-    expect(zoomUnit(cal, bounds.max)).toBe('century');
+    expect(zoomUnit(cal, bounds.max)).toBe('millennium');
+    // Ganz herausgezoomt passen Jahrtausende ins Bild – mit wenigen Teilstrichen.
+    const wideView = { from: 0, mpp: bounds.max, width: 1400 };
+    const years = (wideView.width * wideView.mpp) / (365 * MINUTES_PER_DAY);
+    expect(years).toBeGreaterThan(30000);
+    const { ticks } = axisTicks(cal, wideView);
+    expect(ticks.length).toBeGreaterThan(2);
+    expect(ticks.length).toBeLessThan(40);
   });
 
   it('Stunden: Uhrzeiten, und am Tageswechsel Wochentag und Datum', () => {

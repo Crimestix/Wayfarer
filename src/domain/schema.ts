@@ -53,6 +53,21 @@ export const CalendarSchema = z.object({
 
 // ── Kampagne und Spielstand ────────────────────────────────────────────────
 
+/**
+ * Ein Zeitalter: ein Abschnitt der Weltgeschichte mit Namen, Beginn und Ende (null = bis heute).
+ * Beginn und Ende sind so genau, wie der Spielleiter sie kennt – meist ein Jahr.
+ */
+export const AgeSchema = z.object({
+  id,
+  name: z.string(),
+  from: z.object({ at: worldTime, precision: z.enum(['day', 'month', 'year']).default('year') }),
+  to: z
+    .object({ at: worldTime, precision: z.enum(['day', 'month', 'year']).default('year') })
+    .nullable()
+    .default(null),
+});
+export type Age = z.infer<typeof AgeSchema>;
+
 export const CampaignMetaSchema = z.object({
   id: z.literal('campaign'),
   schema: z.literal(1),
@@ -77,6 +92,11 @@ export const CampaignMetaSchema = z.object({
    * (`features/wiki/scaffold.ts`). Fehlt eine Art, gilt die Vorgabe; eine leere Liste = kein Gerüst.
    */
   factScaffolds: z.record(z.string(), z.array(z.string())).default({}),
+  /**
+   * Zeitalter der Welt, vom Spielleiter benannt (`domain/ages.ts`): als breite Bänder über der
+   * Zeitleiste. Leer = keine.
+   */
+  ages: z.array(AgeSchema).default([]),
   created: z.string().default(''),
   updated: z.string().default(''),
 });

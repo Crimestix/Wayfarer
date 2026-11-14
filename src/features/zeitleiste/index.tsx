@@ -97,6 +97,7 @@ const KIND_WORD: Record<TimelinePiece['kind'], string> = {
   life: 'Lebensdaten',
   entry: 'Eintrag der Chronik',
   event: 'Termin',
+  text: 'Im Text eines Artikels',
   rail: 'Laufzeit',
 };
 

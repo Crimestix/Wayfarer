@@ -55,6 +55,7 @@ import {
   type WorldTime,
 } from './time/calendar';
 import { eventWeight } from './weight';
+import { campaignStart, worldTextDates } from './worldHistory';
 
 const DAY = MINUTES_PER_DAY;
 
@@ -63,7 +64,7 @@ export const APPROX_DAYS = 3;
 
 // ── Stücke und Bahnen ──────────────────────────────────────────────────────
 
-export type LaneKind = 'party' | 'events' | 'story' | 'faction' | 'entity';
+export type LaneKind = 'party' | 'events' | 'history' | 'story' | 'faction' | 'entity';
 
 /** Wie genau ein Stück bekannt ist. `approx` = ungefähr (nachgetragen, nur die Reihenfolge …). */
 export type PiecePrecision = 'exact' | 'day' | 'month' | 'year' | 'approx';
@@ -71,10 +72,11 @@ export type PiecePrecision = 'exact' | 'day' | 'month' | 'year' | 'approx';
 /**
  * `stay` Aufenthalt der Gruppe, `visit` Besuch der Gruppe an einem Ort, `milestone` Meilenstein,
  * `step` Schritt einer Uhr, `life` Geburt, Gründung, Tod …, `entry` Eintrag der Chronik, `event`
- * Termin, `rail` die Laufzeit einer Uhr oder eines Lebens als feine Linie unter den Stücken.
+ * Termin, `text` ein Datum im Text eines Artikels, `rail` die Laufzeit einer Uhr oder eines Lebens
+ * als feine Linie unter den Stücken.
  */
 export type PieceKind =
-  'stay' | 'visit' | 'milestone' | 'step' | 'life' | 'entry' | 'event' | 'rail';
+  'stay' | 'visit' | 'milestone' | 'step' | 'life' | 'entry' | 'event' | 'text' | 'rail';
 
 /**
  * `future` steht noch aus, `prevented` hat die Gruppe verhindert, `blocked` die Uhr steht,
@@ -89,6 +91,7 @@ export type PieceLink =
   | { type: 'clock'; id: string }
   | { type: 'chronicle'; id: string }
   | { type: 'session'; id: string }
+  | { type: 'article'; id: string }
   | { type: 'event'; id: string; at: WorldTime };
 
 export interface TimelinePiece {
@@ -108,6 +111,8 @@ export interface TimelinePiece {
   /** 3 = trägt die Geschichte, 2 = wichtig, 1 = Beiwerk. Wer schwerer ist, behält die Schrift. */
   weight: 1 | 2 | 3;
   tone: PieceTone;
+  /** Woher es stammt, wenn das nicht die Bahn sagt: der Titel des Artikels, der Name des Eintrags. */
+  source?: string;
 }
 
 export interface TimelineLane {
@@ -514,6 +519,110 @@ function entityLane(data: CampaignData, entity: Entity): TimelineLane {
   };
 }
 
+/**
+ * Wie schwer die Lebensdaten eines Eintrags in der Geschichte der Welt wiegen: Fraktionen,
+ * Familien und Orte ohne Ort darüber tragen sie, Räume sind Beiwerk.
+ */
+function lifeWeight(entity: Entity): 1 | 2 | 3 {
+  if (isGroupKind(entity)) return 3;
+  if (entity.kind === 'place') return entity.place.room ? 1 : entity.place.parentId ? 2 : 3;
+  return 2;
+}
+
+/**
+ * Die Geschichte der Welt: was ein Datum hat, ohne dass die Gruppe dabei war – Gründung, Fall,
+ * Geburt und Tod (so genau, wie sie bekannt sind), Daten im Text der Artikel (mit ihrem Satz,
+ * wörtlich), Termine und Einträge vor der ersten Session.
+ */
+function historyLane(data: CampaignData): TimelineLane {
+  const cal = data.campaign.calendar;
+  const now = data.state.now;
+  const start = campaignStart(data);
+  const pieces: TimelinePiece[] = [];
+
+  for (const entity of Object.values(data.entities)) {
+    if (!entity.born && !entity.ended) continue;
+    const words = lifeWords(entity.kind);
+    const link: PieceLink = { type: 'entity', id: entity.id };
+    const weight = lifeWeight(entity);
+    const mark = (point: DatePoint, word: string, tone: PieceTone, key: string) =>
+      pieces.push(
+        piece(cal, {
+          key: `history:${key}:${entity.id}`,
+          kind: 'life',
+          from: point.at,
+          to: null,
+          precision: point.precision,
+          text: `${word}: ${entity.name}`,
+          link,
+          weight,
+          tone,
+        }),
+      );
+    if (entity.born)
+      mark(entity.born, words.start, entity.born.at > now ? 'future' : 'plain', 'born');
+    if (entity.ended) mark(entity.ended, words.end, 'end', 'ended');
+  }
+
+  for (const date of worldTextDates(data)) {
+    const article = data.articles[date.articleId];
+    pieces.push(
+      piece(cal, {
+        key: `history:text:${date.articleId}:${date.index}`,
+        kind: 'text',
+        from: date.at,
+        to: null,
+        precision: date.precision,
+        text: date.sentence,
+        link: { type: 'article', id: date.articleId },
+        weight: 2,
+        tone: date.at > now ? 'future' : 'plain',
+        source: article?.title ?? '',
+      }),
+    );
+  }
+
+  for (const event of Object.values(data.events)) {
+    if (event.repeat || event.at >= start) continue;
+    const weight = eventWeight(data, event);
+    if (weight === 'everyday') continue;
+    pieces.push(
+      piece(cal, {
+        key: `history:event:${event.id}`,
+        kind: 'event',
+        from: event.timed ? event.at : startOfDay(event.at),
+        to: event.durationDays ? event.at + event.durationDays * DAY : null,
+        precision: event.timed ? 'exact' : 'day',
+        text: event.title,
+        link: { type: 'event', id: event.id, at: event.at },
+        weight: weight === 'story' ? 3 : weight === 'main' ? 2 : 1,
+        tone: 'plain',
+      }),
+    );
+  }
+
+  for (const entry of Object.values(data.chronicle)) {
+    // Eingetretene Termine stehen schon als Termin da.
+    if (
+      entry.at >= start ||
+      (entry.kind === 'event' && entry.eventId && data.events[entry.eventId])
+    )
+      continue;
+    pieces.push(entryPiece(data, entry, ENTRY_WEIGHT[entry.kind] ?? 1, 'history'));
+  }
+
+  return {
+    key: 'history',
+    kind: 'history',
+    title: 'Geschichte der Welt',
+    sub: 'Lebensdaten, Daten im Text, Vorgeschichte',
+    image: null,
+    monogram: '',
+    link: null,
+    pieces: sortPieces(pieces),
+  };
+}
+
 /** So oft darf ein wiederkehrender Termin im Bild stehen – sonst ist er bei diesem Maßstab Rauschen. */
 export const MAX_REPEATS_IN_VIEW = 40;
 
@@ -681,7 +790,7 @@ const groups = (data: CampaignData) =>
 
 /**
  * Was Wayfarer zeigt, solange der Spielleiter nichts gewählt hat: die Gruppe, die Termine, die
- * Geschichten mit Uhr (im Spiel zuerst, zu Ende erzählte nicht) und die Fraktionen, die etwas
+ * Geschichte der Welt, die Geschichten mit Uhr (im Spiel zuerst, zu Ende erzählte nicht) und die Fraktionen, die etwas
  * vorhaben.
  */
 export function defaultLaneKeys(data: CampaignData): string[] {
@@ -694,12 +803,12 @@ export function defaultLaneKeys(data: CampaignData): string[] {
     .filter((entity) => drivers.has(entity.id) && entity.ended === null)
     .slice(0, DEFAULT_FACTIONS)
     .map((entity) => `entity:${entity.id}`);
-  return ['party', 'events', ...stories, ...factions];
+  return ['party', 'events', 'history', ...stories, ...factions];
 }
 
 /** Gibt es zu diesem Schlüssel (noch) etwas? */
 export function laneExists(data: CampaignData, key: string): boolean {
-  if (key === 'party' || key === 'events') return true;
+  if (key === 'party' || key === 'events' || key === 'history') return true;
   if (key.startsWith('story:')) {
     const story = data.stories[key.slice(6)];
     return !!story?.clockId && !!data.clocks[story.clockId];
@@ -719,6 +828,12 @@ export function laneChoices(data: CampaignData): LaneChoice[] {
   const out: LaneChoice[] = [
     { key: 'party', kind: 'party', title: 'Die Gruppe', sub: 'Abende, Orte, Meilensteine' },
     { key: 'events', kind: 'events', title: 'Termine', sub: 'Feste und Ereignisse' },
+    {
+      key: 'history',
+      kind: 'history',
+      title: 'Geschichte der Welt',
+      sub: 'Lebensdaten, Daten im Text, Vorgeschichte',
+    },
   ];
   for (const story of storiesWithClock(data))
     out.push({
@@ -741,6 +856,7 @@ export function laneChoices(data: CampaignData): LaneChoice[] {
 export function laneOf(data: CampaignData, key: string, window: TimeWindow): TimelineLane | null {
   if (key === 'party') return partyLane(data);
   if (key === 'events') return eventsLane(data, window);
+  if (key === 'history') return historyLane(data);
   if (key.startsWith('story:')) {
     const story = data.stories[key.slice(6)];
     return story ? storyLane(data, story) : null;
@@ -822,7 +938,7 @@ export function repeatWindow(view: TimelineView): TimeWindow {
   return { from, to: from + 4 * step, span: visible };
 }
 
-export type AxisUnit = 'hour' | 'day' | 'month' | 'year' | 'decade' | 'century';
+export type AxisUnit = 'hour' | 'day' | 'month' | 'year' | 'decade' | 'century' | 'millennium';
 
 export const AXIS_UNITS: readonly AxisUnit[] = [
   'hour',
@@ -831,6 +947,7 @@ export const AXIS_UNITS: readonly AxisUnit[] = [
   'year',
   'decade',
   'century',
+  'millennium',
 ];
 
 export const AXIS_UNIT_LABEL: Record<AxisUnit, string> = {
@@ -840,16 +957,23 @@ export const AXIS_UNIT_LABEL: Record<AxisUnit, string> = {
   year: 'Jahre',
   decade: 'Jahrzehnte',
   century: 'Jahrhunderte',
+  millennium: 'Jahrtausende',
 };
 
 /** Ein Jahr im Mittel, in Minuten – für den Maßstab, nie für ein Datum. */
 const meanYear = (cal: CalendarDef): number =>
   ((yearLength(cal, 1) * 3 + yearLength(cal, 4)) / 4) * DAY;
 
-/** Die Grenzen des Zoomens: von einer Stunde auf 240 Bildpunkten bis zwei Jahren je Bildpunkt. */
+/**
+ * Die Grenzen des Zoomens: von einer Stunde auf 240 Bildpunkten bis zu `MAX_YEARS_PER_PX` Jahren
+ * je Bildpunkt – so passen Jahrtausende der Weltgeschichte ins Bild.
+ */
 export function zoomBounds(cal: CalendarDef): { min: number; max: number } {
-  return { min: 0.25, max: meanYear(cal) * 2 };
+  return { min: 0.25, max: meanYear(cal) * MAX_YEARS_PER_PX };
 }
+
+/** So viele Jahre fasst ein Bildpunkt höchstens: gut 30 000 Jahre auf einem breiten Bild. */
+export const MAX_YEARS_PER_PX = 25;
 
 /** So breit ist eine Einheit beim Wählen einer Zoomstufe. */
 const PRESET_PX = 110;
@@ -870,6 +994,8 @@ export function zoomPreset(cal: CalendarDef, unit: AxisUnit): number {
       return (10 * year) / PRESET_PX;
     case 'century':
       return (100 * year) / PRESET_PX;
+    case 'millennium':
+      return (1000 * year) / PRESET_PX;
   }
 }
 
@@ -891,8 +1017,9 @@ function tickSteps(cal: CalendarDef): TickStep[] {
     if (cal.months.length % every === 0) out.push({ unit: 'month', every, length: every * month });
   for (const every of [1, 2, 5]) out.push({ unit: 'year', every, length: every * year });
   for (const every of [10, 20, 50]) out.push({ unit: 'decade', every, length: every * year });
-  for (const every of [100, 200, 500, 1000, 2000, 5000])
-    out.push({ unit: 'century', every, length: every * year });
+  for (const every of [100, 200, 500]) out.push({ unit: 'century', every, length: every * year });
+  for (const every of [1000, 2000, 5000, 10000])
+    out.push({ unit: 'millennium', every, length: every * year });
   return out;
 }
 
@@ -984,7 +1111,9 @@ function majorOf(step: TickStep): { unit: AxisUnit; every: number } {
     case 'decade':
       return { unit: 'century', every: 100 };
     case 'century':
-      return { unit: 'century', every: step.every >= 1000 ? step.every * 10 : 1000 };
+      return { unit: 'millennium', every: 1000 };
+    case 'millennium':
+      return { unit: 'millennium', every: step.every * 10 };
   }
 }
 
@@ -1279,6 +1408,59 @@ export function layoutLane(pieces: readonly TimelinePiece[], view: TimelineView)
     rails,
     items: items.sort((a, b) => a.row - b.row || a.x - b.x),
   };
+}
+
+/** Breite eines Fachs beim Ausdünnen, in Bildpunkten. */
+export const THIN_PX = 56;
+/** So viele Marken behält ein Fach in jedem Fall; mehr nur, wenn sie zu den schwersten gehören. */
+export const THIN_KEEP = 3;
+/** Mehr Marken behält ein Fach nie – sie stünden ohnehin als Bündel da. */
+export const THIN_MAX = 8;
+
+/**
+ * Dünnt eine dichte Bahn nach Gewicht aus: Die Zeit im Bild wird in Fächer von `THIN_PX`
+ * Bildpunkten geteilt (fest an der Weltzeit, damit beim Verschieben nichts springt). Liegen in
+ * einem Fach mehr als `THIN_KEEP` Marken, bleiben nur die schwersten – Leichteres erscheint beim
+ * Heranzoomen. Leisten und Laufzeiten bleiben immer. `hidden` = so viele Marken im Bild fehlen.
+ */
+export function thinPieces(
+  pieces: readonly TimelinePiece[],
+  view: TimelineView,
+): { pieces: TimelinePiece[]; hidden: number } {
+  const left = view.from - MARGIN_PX * view.mpp;
+  const right = view.from + (view.width + MARGIN_PX) * view.mpp;
+  const size = THIN_PX * view.mpp;
+  const bins = new Map<number, TimelinePiece[]>();
+  const kept: TimelinePiece[] = [];
+  for (const p of pieces) {
+    if (p.kind === 'rail' || isBar(p) || p.hi < left || p.lo > right) {
+      kept.push(p);
+      continue;
+    }
+    const bin = Math.floor(markAt(p) / size);
+    const list = bins.get(bin);
+    if (list) list.push(p);
+    else bins.set(bin, [p]);
+  }
+  let hidden = 0;
+  for (const list of bins.values()) {
+    if (list.length <= THIN_KEEP) {
+      kept.push(...list);
+      continue;
+    }
+    const heaviest = Math.max(...list.map((p) => p.weight));
+    const top = list.filter((p) => p.weight === heaviest).sort((a, b) => markAt(a) - markAt(b));
+    // Auch vom Schwersten höchstens `THIN_MAX` – gleichmäßig über das Fach verteilt.
+    const step = top.length / Math.min(top.length, THIN_MAX);
+    const chosen = new Set<TimelinePiece>();
+    for (let i = 0; i < top.length; i += step) chosen.add(top[Math.floor(i)]!);
+    const right = view.from + view.width * view.mpp;
+    for (const p of list) {
+      if (chosen.has(p)) kept.push(p);
+      else if (p.hi >= view.from && p.lo <= right) hidden++;
+    }
+  }
+  return { pieces: sortPieces(kept), hidden };
 }
 
 /** Bündelt Marken, die dichter als `CLUSTER_PX` liegen, ab drei Stück. */

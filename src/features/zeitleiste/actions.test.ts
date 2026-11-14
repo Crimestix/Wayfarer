@@ -4,7 +4,7 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { createEntity } from '../../domain/schema';
 import { defaultLaneKeys, laneKeysOf } from '../../domain/timeline';
-import { addLane, moveLane, removeLane, resetLanes } from './actions';
+import { addLane, moveLane, removeAge, removeLane, resetLanes, saveAge } from './actions';
 
 /** Erfundene Welt: Brann Eichwald und Burg Graufels kommen als Bahnen dazu. */
 async function setup() {
@@ -33,5 +33,23 @@ describe('Bahnen der Zeitleiste wählen', () => {
     resetLanes(db);
     expect(data().state.timelineLanes).toBeNull();
     expect(laneKeysOf(data())).toEqual(defaultLaneKeys(data()));
+  });
+});
+
+describe('Zeitalter festlegen', () => {
+  it('legt an, ändert und nimmt heraus – Unlesbares ändert nichts', async () => {
+    const { db, data } = await setup();
+    expect(data().campaign.ages).toEqual([]);
+    expect(saveAge(db, { name: 'Zeitalter der Asche', from: 'irgendwann', to: '' })).toMatchObject({
+      problem: expect.any(String),
+    });
+    expect(data().campaign.ages).toEqual([]);
+    const made = saveAge(db, { name: 'Zeitalter der Asche', from: '401', to: '650' });
+    if (!('id' in made)) throw new Error(made.problem);
+    expect(data().campaign.ages).toHaveLength(1);
+    saveAge(db, { name: 'Das Aschenzeitalter', from: '401', to: '' }, made.id);
+    expect(data().campaign.ages).toMatchObject([{ name: 'Das Aschenzeitalter', to: null }]);
+    removeAge(db, made.id);
+    expect(data().campaign.ages).toEqual([]);
   });
 });
