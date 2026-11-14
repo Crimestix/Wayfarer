@@ -221,7 +221,7 @@ export interface BookTopics {
   categories: TopicChoice[];
   /** Schlagworte der gewählten Art (ohne Art: aller) – des Eintrags oder seines Artikels. */
   tags: TopicChoice[];
-  /** Gegenden: Orte, unter denen andere Orte liegen – wie im Baum der Welt. */
+  /** Gegenden: alle Orte ohne Räume, als Baum wie in der Welt. */
   regions: PlaceChoice[];
   /** Ordner des Wikis: Artikel mit Artikeln darunter, in denen Einträge liegen – wie im Baum. */
   folders: FolderChoice[];
@@ -281,7 +281,10 @@ export function bookTopics(data: CampaignData, kind: EntityKind | null = null): 
   };
 }
 
-/** Orte mit Orten darunter, als Baum (Räume zählen nicht als Orte darunter). */
+/**
+ * Alle Orte als Baum, ohne Räume (sie gehören zu ihrem Ort). Auch ein Ort ohne Orte darunter ist
+ * eine Gegend: Im Dunkelwald wachsen Kräuter, in der Salzgrotte (nur mit Räumen) hausen Wesen.
+ */
 function regionChoices(data: CampaignData): PlaceChoice[] {
   const places = Object.values(data.entities).filter(
     (entity) => entity.kind === 'place' && !isRoom(data, entity),
@@ -302,7 +305,6 @@ function regionChoices(data: CampaignData): PlaceChoice[] {
     if (seen.has(place.id)) return;
     seen.add(place.id);
     const children = (kids.get(place.id) ?? []).sort(byName);
-    if (!children.length) return;
     out.push({ id: place.id, name: place.name, depth });
     for (const child of children) walk(child, depth + 1);
   };

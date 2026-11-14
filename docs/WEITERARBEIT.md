@@ -1588,6 +1588,11 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Regel wird beim ersten Schalten zu Themen). Was sonst im Buch steht, nennt „Außerdem im Buch“.
   Geprüft in der Vorschau bei 1440×900. Offen: Räume kommen nur einzeln hinein und stehen nicht
   in der Liste; Schlagworte nur als Auswahl, nicht als Chips.
+- **Gegengelesen: Bücher nach Themen.** Als Gegend lässt sich wieder jeder Ort wählen (auch der
+  Dunkelwald ohne Orte darunter, wie früher bei „Gegenden“), nicht nur Orte mit Orten darunter.
+  „Außerdem im Buch“ nennt nur Einzelnes mit Namen und zählt, was über ein Thema darin steht –
+  vorher standen ganze Themen Name für Name dort; ohne Thema heißt die Zeile „Im Buch“. Die Zeile
+  der Themen heißt „Themen im Buch“; ein Schlagwort in anderer Schreibweise wird richtig gezeigt.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

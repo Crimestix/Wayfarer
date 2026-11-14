@@ -93,8 +93,10 @@ export interface TopicListing {
   inBook: number;
   /** Nimmt das Buch alles aus diesem Thema – auch, was später dazukommt? */
   ruleOn: boolean;
-  /** Was im Buch steht, aber nicht zum Thema gehört. */
+  /** Was einzeln im Buch steht, aber nicht zum Thema gehört (ohne Thema: alles Einzelne). */
   elsewhere: Entity[];
+  /** So viele Einträge stehen außerhalb des Themas über ein Thema des Buches darin. */
+  elsewhereByRule: number;
 }
 
 const WITHOUT_CATEGORY = 'Ohne Einordnung';
@@ -117,14 +119,23 @@ export function topicListing(
   const ruleOn = !emptyTopic && bookRules(selection).some((rule) => sameTopic(rule, topic));
   const all = emptyTopic && !query.trim() ? [] : topicEntries(data, topic, item.id);
   const inTopic = new Set(all.map((entity) => entity.id));
-  const elsewhere = emptyTopic
-    ? []
-    : [...inBook]
-        .filter((id) => !inTopic.has(id))
-        .map((id) => data.entities[id]!)
-        .sort(byName);
+  // Was über ein Thema darin steht, nur gezählt – sonst stünden hier ganze Themen Name für Name.
+  const outside = [...inBook].filter((id) => !inTopic.has(id));
+  const elsewhere = outside
+    .filter((id) => !byRule.has(id))
+    .map((id) => data.entities[id]!)
+    .sort(byName);
+  const elsewhereByRule = outside.length - elsewhere.length;
   if (emptyTopic && !query.trim())
-    return { idle: true, groups: [], total: 0, inBook: 0, ruleOn, elsewhere };
+    return {
+      idle: true,
+      groups: [],
+      total: 0,
+      inBook: 0,
+      ruleOn,
+      elsewhere,
+      elsewhereByRule,
+    };
 
   const shown = all.filter((entity) => nameMatches(entity, query));
   // Nach Einordnung nur, wenn es welche gibt – Personen haben keine.
@@ -160,6 +171,7 @@ export function topicListing(
     inBook: shown.filter((entity) => inBook.has(entity.id)).length,
     ruleOn,
     elsewhere,
+    elsewhereByRule,
   };
 }
 

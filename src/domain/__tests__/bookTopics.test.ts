@@ -127,8 +127,12 @@ describe('Themen zum Durchsehen', () => {
   it('kennt Gegenden mit Orten darunter und Ordner mit Einträgen – wie in den Bäumen', async () => {
     const w = await setup();
     const { regions, folders } = bookTopics(w.data());
-    // Die Salzgrotte hat nur einen Raum darunter – sie ist keine Gegend zum Wählen.
-    expect(regions).toEqual([{ id: w.town.id, name: 'Hohenfurt', depth: 0 }]);
+    // Jeder Ort ist eine Gegend – auch die Salzgrotte mit nur einem Raum darunter; Räume nicht.
+    expect(regions).toEqual([
+      { id: w.castle.id, name: 'Burg Graufels', depth: 0 },
+      { id: w.town.id, name: 'Hohenfurt', depth: 0 },
+      { id: w.grotto.id, name: 'Salzgrotte', depth: 1 },
+    ]);
     expect(folders.map((f) => [f.title, f.path, f.count])).toEqual([
       ['Welt', [], 2],
       ['Kräuter', ['Welt'], 1],
@@ -223,7 +227,13 @@ describe('Ein Thema durchsehen', () => {
   it('zeigt ohne Thema und Suche nichts', async () => {
     const w = await setup();
     const listing = topicListing(w.data(), w.bookNow(), emptyTopic());
-    expect(listing).toMatchObject({ idle: true, total: 0, groups: [], elsewhere: [] });
+    expect(listing).toMatchObject({
+      idle: true,
+      total: 0,
+      groups: [],
+      elsewhere: [],
+      elsewhereByRule: 0,
+    });
   });
 
   it('gruppiert nach Einordnung, kreuzt an, was im Buch steht, und nennt den Rest', async () => {
@@ -251,6 +261,15 @@ describe('Ein Thema durchsehen', () => {
     ]);
     expect(listing).toMatchObject({ idle: false, total: 3, inBook: 2, ruleOn: false });
     expect(names(listing.elsewhere)).toEqual(['Krummzahn']);
+    // Außerhalb des Themas: einzeln Genommenes mit Namen, über ein Thema Genommenes nur gezählt.
+    const people = topicListing(w.data(), w.bookNow(), topic({ kind: 'person' }));
+    expect(names(people.elsewhere)).toEqual(['Moosling']);
+    expect(people.elsewhereByRule).toBe(1);
+    // Ohne Thema steht alles Einzelne darunter.
+    const idle = topicListing(w.data(), w.bookNow(), emptyTopic());
+    expect(idle.idle).toBe(true);
+    expect(names(idle.elsewhere)).toEqual(['Krummzahn', 'Moosling']);
+    expect(idle.elsewhereByRule).toBe(1);
     expect(
       topicListing(w.data(), w.bookNow(), topic({ kind: 'plant', category: 'KRAUT' })).ruleOn,
     ).toBe(true);

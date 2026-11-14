@@ -91,6 +91,8 @@ export function BookTopics({ item }: { item: BookItem }) {
         }
       : null,
   );
+  // Das Schlagwort so, wie es in der Auswahl steht – sonst passt „giftig“ nicht zu „Giftig“.
+  const tagValue = tagChoices.find((tag) => wordKey(tag) === wordKey(topic.tag)) ?? '';
   const categoryOn = (label: string) => wordKey(label) === wordKey(topic.category);
   const pad = (depth: number) => ' '.repeat(Math.min(depth, 6));
 
@@ -98,7 +100,7 @@ export function BookTopics({ item }: { item: BookItem }) {
     <div className="wf-welt-booktopic">
       {rules.length > 0 && (
         <div className="wf-welt-booktopic__line">
-          <span className="wf-welt-booksec__label">Ganz im Buch</span>
+          <span className="wf-welt-booksec__label">Themen im Buch</span>
           {rules.map((rule) => (
             <button
               key={`${rule.kind}|${rule.category}|${rule.tag}|${rule.regionId}|${rule.folderId}`}
@@ -152,7 +154,7 @@ export function BookTopics({ item }: { item: BookItem }) {
         <label className="wf-welt-booktopic__filter">
           <span className="wf-welt-booksec__label">Schlagwort</span>
           <Select
-            value={topic.tag}
+            value={tagValue}
             disabled={tagChoices.length === 0}
             onChange={(e) => choose({ tag: e.target.value })}
           >
@@ -297,9 +299,11 @@ export function BookTopics({ item }: { item: BookItem }) {
         </>
       )}
 
-      {listing.elsewhere.length > 0 && (
+      {(listing.elsewhere.length > 0 || listing.elsewhereByRule > 0) && (
         <div className="wf-welt-booktopic__line">
-          <span className="wf-welt-booksec__label">Außerdem im Buch</span>
+          <span className="wf-welt-booksec__label">
+            {listing.idle ? 'Im Buch' : 'Außerdem im Buch'}
+          </span>
           {elsewhere.map((entity) => (
             <span key={entity.id} className="wf-welt-booktopic__other">
               {entity.name}
@@ -317,6 +321,15 @@ export function BookTopics({ item }: { item: BookItem }) {
             <Button size="sm" variant="ghost" onClick={() => setShowElsewhere(true)}>
               {`und ${listing.elsewhere.length - elsewhere.length} weitere`}
             </Button>
+          )}
+          {listing.elsewhereByRule > 0 && (
+            <span className="wf-welt-booktopic__meta">
+              {listing.elsewhere.length > 0 ? 'und ' : ''}
+              {listing.elsewhereByRule === 1
+                ? '1 Eintrag'
+                : `${listing.elsewhereByRule} Einträge`}{' '}
+              aus {rules.length === 1 ? 'dem Thema' : 'den Themen'} oben
+            </span>
           )}
         </div>
       )}

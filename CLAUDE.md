@@ -313,8 +313,8 @@ nicht übernommen.
   ältere Regel aus `kinds`/`regionIds`/`categories` liest `legacyRules`). „Was darin steht“ ist
   ein Thema zum Durchsehen mit Kästchen (`bookTopics`, `topicEntries` in `domain/bookTopics.ts`,
   `topicListing`); angekreuzt wird nur über `setInBook`, ein Thema an- und abgeschaltet über
-  `setBookRule` (abschalten behält, was angekreuzt ist). Das gewählte Thema ist Ansicht, nie
-  Spielstand. Eine Seite ist Steckbrief und Wortlaut des Artikels ohne Geheimes
+  `setBookRule` (abschalten behält, was angekreuzt ist). Gegend ist jeder Ort außer Räumen.
+  Das gewählte Thema ist Ansicht, nie Spielstand. Eine Seite ist Steckbrief und Wortlaut des Artikels ohne Geheimes
   (`withoutSecrets`, `articleParts` in `domain/articleText.ts` – nie selbst Kästen zerlegen);
   überschrieben steht sie in den Worten des Verfassers (`book.pages`) und wächst nicht mehr mit.
   Wayfarer formuliert nie. Ein Eintrag mit verborgenem Artikel steht für die Leser nicht darin
