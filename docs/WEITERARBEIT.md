@@ -1649,6 +1649,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   statt acht Einträge. Das Zeichen der Regeln überlappte bei 1280 und 1440 den Kopf der
   Mitschrift – die Sessionnummer steht jetzt darunter. Eine Jahreszeit ohne Monate meint noch
   nichts (weder „Winter“ noch im Lexikon-Filter); Herausnehmen hat Rückgängig.
+- **Noch zu schreiben und Steckbrief-Gerüst.** Vierte Sicht in „Welt“ (`wikiGaps`,
+  `wiki/gaps.ts`): Verweise ins Leere je Titel mit Stellen, Einträge ohne Artikel, Stummel
+  (`STUB_WORDS`), Artikel ohne Verweis; auf der Übersicht „Noch zu schreiben: N“. Gerüste je Art
+  (`wiki/scaffold.ts`, `campaign.factScaffolds`, Einstellungen) beim Anlegen (Art wählbar,
+  abwählbar) und als leiser Hinweis am Artikel; leere Felder werden nie gelesen oder gezeigt.
+  Offen: Ein geleertes Feld nimmt Beziehungen zurück, die es selbst gestiftet hat (wie eine
+  gelöschte Zeile); der Kasten „Steckbrief“ im Editor fügt weiter nur „Art:“ ein.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

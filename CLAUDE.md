@@ -90,8 +90,8 @@ nicht übernommen.
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
-  `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“ und „Netz“, eine
-  Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
+  `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“, „Netz“ und „Noch zu
+  schreiben“, eine Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
   Artikel einem gehört – dort ist er der Reiter „Text“. Vor einem neuen Eintrag in der
   Navigation prüfen, ob er als Reiter oder als Teil der Welt passt (Entscheidung des
@@ -572,6 +572,15 @@ nicht übernommen.
   der Welt, der zu ihm gehört (`wiki/facts.ts`, `syncFacts`). Der Artikel gilt, wenn sich sein
   Wortlaut ändert; sonst bleibt, was von Hand geändert wurde (`entity.fromArticle`). Neue
   Bezeichnungen für Felder gehören in `VOCABULARY`, nicht in die Oberfläche.
+  Steckbrief-Gerüst (`wiki/scaffold.ts`): je Art leere Felder („> Geboren: “), Vorgabe oder
+  `campaign.factScaffolds` aus den Einstellungen (eigene Felder erlaubt, nur nicht ausgewertet).
+  Angelegt wird über `createArticleOfKind` (Art und Gerüst wählbar, abwählbar), nachgetragen über
+  `addScaffoldFields`; was fehlt, sagt `articleScaffoldGap` leise am Artikel. Ein leeres Feld
+  sagt nichts: nie gelesen (`articleFacts`, `articleParts`), nie gezeigt, löscht nie einen Wert.
+- Noch zu schreiben (`wikiGaps`, `wiki/gaps.ts`, Sicht in „Welt“): Verweise ins Leere je Titel
+  mit Stellen und Art aus dem Feld, Einträge ohne Artikel, kurze Artikel (`STUB_WORDS`) und
+  Artikel ohne Verweis – ohne Ordnerseiten, Vorlagen und Räume. Nur gezählt und gezeigt;
+  „Noch zu schreiben: N“ (`gapCount`) steht auf der Übersicht.
 - Erkennen ohne Klammern: Namen anderer Artikel im Text werden beim Lesen zu Verweisen
   (`wiki/names.ts`), Daten des Kalenders anklickbar (`domain/time/textDates.ts`), Sätze wie
   „Schwester von X“ zu Vorschlägen für Beziehungen (`wiki/sentences.ts`). Das sind Sichten auf
