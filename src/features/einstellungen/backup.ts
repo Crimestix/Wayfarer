@@ -70,6 +70,7 @@ const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   guesses: ['Vermutung', 'Vermutungen'],
   shops: ['Laden', 'Läden'],
   assortments: ['Ladenvorlage', 'Ladenvorlagen'],
+  versions: ['Frühere Fassung eines Artikels', 'Frühere Fassungen der Artikel'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

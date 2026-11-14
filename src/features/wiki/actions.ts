@@ -1,10 +1,12 @@
 /** Befehle des Bereichs „Wiki“. */
 import type { CampaignDb } from '../../data/db';
 import { kinInSentence } from '../../domain/kin';
+import { pruneVersions, shouldKeepVersion } from '../../domain/versions';
 import {
   ArticleSchema,
   createEntity,
   createRelation,
+  createVersion,
   newId,
   nowIso,
   type Article,
@@ -131,8 +133,46 @@ function putRelinked(db: CampaignDb, before: Articles): number {
   return changed.length;
 }
 
-/** Speichert den Text einer Seite. Ohne Änderung geschieht nichts. */
-export function savePageText(db: CampaignDb, articleId: string, docId: string, text: string): void {
+/**
+ * Legt den bisherigen Wortlaut einer Seite als frühere Fassung ab, wenn es an der Zeit ist
+ * (`shouldKeepVersion`), und dünnt die Fassungen des Artikels danach aus (`pruneVersions`).
+ */
+function keepVersion(
+  db: CampaignDb,
+  article: Article,
+  docId: string,
+  previousText: string,
+  force: boolean,
+): void {
+  const mine = Object.values(db.getSnapshot().versions).filter((v) => v.articleId === article.id);
+  const now = nowIso();
+  if (!shouldKeepVersion(mine, { docId, previousText, now, force })) return;
+  const version = db.put(
+    'versions',
+    createVersion({
+      articleId: article.id,
+      docId,
+      title: article.title,
+      text: previousText,
+      savedAt: now,
+      reason: force ? 'restore' : 'edit',
+    }),
+  );
+  for (const id of pruneVersions([...mine, version])) db.remove('versions', id);
+}
+
+/**
+ * Speichert den Text einer Seite. Ohne Änderung geschieht nichts. Der bisherige Wortlaut bleibt
+ * als frühere Fassung erhalten – höchstens eine je Seite und zehn Minuten; `restoring` (vor dem
+ * Zurückholen einer älteren Fassung) legt sie in jedem Fall ab.
+ */
+export function savePageText(
+  db: CampaignDb,
+  articleId: string,
+  docId: string,
+  text: string,
+  options: { restoring?: boolean } = {},
+): void {
   const articles = db.getSnapshot().articles;
   const current = articles[articleId];
   if (!current) return;
@@ -140,9 +180,12 @@ export function savePageText(db: CampaignDb, articleId: string, docId: string, t
   const doc = article.docs.find((d) => d.id === docId);
   if (!doc || doc.kind !== 'page') return;
   if (doc.text === text && article === current) return;
-  db.put('articles', {
-    ...article,
-    docs: article.docs.map((d) => (d.id === docId ? { ...d, text, nodes: [] } : d)),
+  db.batch(() => {
+    if (doc.text !== text) keepVersion(db, article, docId, doc.text, options.restoring === true);
+    db.put('articles', {
+      ...article,
+      docs: article.docs.map((d) => (d.id === docId ? { ...d, text, nodes: [] } : d)),
+    });
   });
 }
 
@@ -373,14 +416,28 @@ export function deleteArticle(db: CampaignDb, articleId: string): (() => void) |
   if (!article) return null;
   const children = Object.values(data.articles).filter((a) => a.parentId === articleId);
   const owners = Object.values(data.entities).filter((e) => e.lk?.resourceId === articleId);
-  db.batch(() => {
+  const firstPage = article.docs.find((d) => d.kind === 'page');
+  const trash = db.batch(() => {
     for (const child of children) db.put('articles', { ...child, parentId: article.parentId });
     for (const owner of owners) db.put('entities', { ...owner, lk: null });
     db.remove('articles', articleId);
+    // Der Artikel bleibt im Papierkorb, bis er wiederhergestellt oder endgültig entfernt wird.
+    return db.put(
+      'versions',
+      createVersion({
+        articleId,
+        title: article.title,
+        text: firstPage ? pageText(data.articles, article, firstPage) : '',
+        reason: 'delete',
+        article,
+        entityIds: owners.map((owner) => owner.id),
+      }),
+    );
   });
   return () =>
     db.batch(() => {
       const now = db.getSnapshot();
+      if (now.versions[trash.id]) db.remove('versions', trash.id);
       if (!now.articles[articleId]) db.put('articles', { ...article, rev: 0 });
       for (const child of children) {
         const current = now.articles[child.id];
@@ -392,6 +449,108 @@ export function deleteArticle(db: CampaignDb, articleId: string): (() => void) |
         if (current && current.lk === null) db.put('entities', { ...current, lk: owner.lk });
       }
     });
+}
+
+// ── Frühere Fassungen und Papierkorb ───────────────────────────────────────
+
+/**
+ * Holt eine frühere Fassung einer Seite zurück. Der heutige Wortlaut wird vorher selbst zu einer
+ * Fassung („vor dem Zurückholen“), geht also nie verloren. `undo` stellt den Text von vorhin wieder
+ * her, solange seither niemand weiterschrieb. Gibt `null` zurück, wenn es die Seite nicht mehr gibt
+ * oder sie schon so lautet.
+ */
+export function restoreVersion(db: CampaignDb, versionId: string): { undo: () => void } | null {
+  const data = db.getSnapshot();
+  const version = data.versions[versionId];
+  if (!version || version.reason === 'delete' || !version.docId) return null;
+  const article = data.articles[version.articleId];
+  const doc = article?.docs.find((d) => d.id === version.docId && d.kind === 'page');
+  if (!article || !doc) return null;
+  const before = pageText(data.articles, article, doc);
+  if (before === version.text) return null;
+  savePageText(db, article.id, doc.id, version.text, { restoring: true });
+  return {
+    undo: () => {
+      const now = db.getSnapshot().articles[article.id];
+      const page = now?.docs.find((d) => d.id === doc.id);
+      if (page?.text === version.text) savePageText(db, article.id, doc.id, before);
+    },
+  };
+}
+
+export type RestoreProblem = 'missing' | 'empty' | 'taken';
+
+/** Heißt schon ein anderer Artikel so (Titel oder Zweitname)? */
+export function titleTaken(articles: Articles, title: string): boolean {
+  const key = titleKey(title);
+  return Object.values(articles).some(
+    (a) => titleKey(a.title) === key || a.aliases.some((alias) => titleKey(alias) === key),
+  );
+}
+
+/**
+ * Stellt einen gelöschten Artikel aus dem Papierkorb wieder her – mit seiner Kennung, damit seine
+ * früheren Fassungen wieder zu ihm gehören, unter seinem alten Platz (gibt es den nicht mehr: ganz
+ * oben). Heißt inzwischen ein anderer Artikel so, braucht er einen anderen Titel (`title`), sonst
+ * kommt `'taken'` zurück. Einträge der Welt, deren Text er war und die seither keinen anderen haben,
+ * gehören wieder zu ihm; gleichnamige verbindet `linkTwins`. `undo` legt ihn zurück in den
+ * Papierkorb.
+ */
+export function restoreArticle(
+  db: CampaignDb,
+  versionId: string,
+  title?: string,
+): { article: Article; undo: () => void } | RestoreProblem {
+  const data = db.getSnapshot();
+  const version = data.versions[versionId];
+  const old = version?.reason === 'delete' ? version.article : null;
+  if (!version || !old || data.articles[version.articleId]) return 'missing';
+  const name = (title ?? old.title).replace(/\s+/g, ' ').trim();
+  if (!name) return 'empty';
+  if (titleTaken(data.articles, name)) return 'taken';
+  const before = data.articles;
+  const parentId = old.parentId && before[old.parentId] ? old.parentId : null;
+  const article = db.batch(() => {
+    const restored = db.put('articles', {
+      ...old,
+      title: name,
+      parentId,
+      order: parentId === old.parentId ? old.order : orderAfterLast(before, parentId),
+      rev: 0,
+    });
+    db.remove('versions', version.id);
+    putRelinked(db, before);
+    const now = db.getSnapshot();
+    for (const entityId of version.entityIds) {
+      const entity = now.entities[entityId];
+      if (entity && !entity.lk)
+        db.put('entities', { ...entity, lk: { resourceId: restored.id, title: restored.title } });
+    }
+    linkTwins(db);
+    return restored;
+  });
+  return {
+    article,
+    undo: () => {
+      if (db.getSnapshot().articles[article.id]) deleteArticle(db, article.id);
+    },
+  };
+}
+
+/**
+ * Entfernt einen gelöschten Artikel endgültig: seinen Platz im Papierkorb und alle seine früheren
+ * Fassungen. Nur, solange es den Artikel nicht wieder gibt. Gibt zurück, wie viele Fassungen
+ * entfernt wurden.
+ */
+export function purgeArticle(db: CampaignDb, versionId: string): number {
+  const data = db.getSnapshot();
+  const version = data.versions[versionId];
+  if (!version || version.reason !== 'delete' || data.articles[version.articleId]) return 0;
+  const gone = Object.values(data.versions).filter((v) => v.articleId === version.articleId);
+  db.batch(() => {
+    for (const v of gone) db.remove('versions', v.id);
+  });
+  return gone.length;
 }
 
 /** Fügt einem Artikel eine weitere Textseite hinzu und gibt ihre Kennung zurück. */

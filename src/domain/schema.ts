@@ -2541,6 +2541,35 @@ export const ShopTemplateSchema = z.object({
 });
 export type ShopTemplate = z.infer<typeof ShopTemplateSchema>;
 
+// ── Frühere Fassungen der Artikel ──────────────────────────────────────────
+
+export const VERSION_REASONS = ['edit', 'restore', 'delete'] as const;
+export type VersionReason = (typeof VERSION_REASONS)[number];
+
+/**
+ * Eine frühere Fassung einer Textseite (`domain/versions.ts`): der Wortlaut, wie er vor einer
+ * Änderung stand. `edit` entsteht beim Schreiben, `restore` vor dem Zurückholen einer älteren
+ * Fassung, `delete` beim Löschen des ganzen Artikels – sie ist sein Platz im Papierkorb und trägt
+ * den Artikel vollständig (`article`), damit er sich wiederherstellen lässt.
+ */
+export const ArticleVersionSchema = z.object({
+  ...base,
+  articleId: id,
+  /** Die Textseite, zu der der Wortlaut gehört; `null` bei `delete` (der ganze Artikel). */
+  docId: id.nullable().default(null),
+  /** Der Titel des Artikels zu der Zeit. */
+  title: z.string().default(''),
+  text: z.string().default(''),
+  /** Wann die Fassung abgelegt wurde – echte Uhrzeit (ISO), nicht die Weltzeit. */
+  savedAt: z.string().default(''),
+  reason: z.enum(VERSION_REASONS).default('edit'),
+  /** Nur bei `delete`: der Artikel, wie er vor dem Löschen war. */
+  article: ArticleSchema.nullable().default(null),
+  /** Nur bei `delete`: die Einträge der Welt, deren Text er war. */
+  entityIds: z.array(id).default([]),
+});
+export type ArticleVersion = z.infer<typeof ArticleVersionSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -2575,6 +2604,7 @@ export const COLLECTION_SCHEMAS = {
   guesses: GuessSchema,
   shops: ShopSchema,
   assortments: ShopTemplateSchema,
+  versions: ArticleVersionSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -2609,6 +2639,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'guesses',
   'shops',
   'assortments',
+  'versions',
 ];
 
 export type CollectionTypes = {
@@ -2735,6 +2766,19 @@ export function createShop(init: Partial<Shop> = {}): Shop {
 export function createShopTemplate(init: Partial<ShopTemplate> = {}): ShopTemplate {
   const stamp = nowIso();
   return ShopTemplateSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createVersion(
+  init: Partial<ArticleVersion> & { articleId: string },
+): ArticleVersion {
+  const stamp = nowIso();
+  return ArticleVersionSchema.parse({
+    id: newId(),
+    created: stamp,
+    updated: stamp,
+    savedAt: stamp,
+    ...init,
+  });
 }
 
 export function createTrack(init: Partial<Track> & { name: string }): Track {
