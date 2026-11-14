@@ -1,18 +1,23 @@
 /**
  * Der Laden am Tisch: links, was er führt (oder was die Gruppe verkaufen könnte), rechts der
  * Korb mit Menge, Preis, wer kauft und der Summe. Ein Klick legt in den Korb, „Kaufen“ hält
- * alles in einem Eintrag der Chronik fest (`tradeAt`). Gehandelt wird auch ohne Laden.
+ * alles in einem Eintrag der Chronik fest (`tradeAt`). Gehandelt wird auch ohne Laden – und
+ * jeder Laden kauft und verkauft alles (aus der Welt, dem Bestiarium, in Worten), mit eigenem
+ * Preis. Auf einem Handelsplatz steht „Verkaufen“ vorn; dort kann Wayfarer das Höchstgebot einer
+ * Versteigerung würfeln (`auctionFor`) – als Vorschlag.
  */
 import { useMemo, useState } from 'react';
-import { Minus, Plus, Store, X } from 'lucide-react';
+import { Gavel, Plus, Store, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
-import { parseCoins, TRADE_KINDS } from '../../domain/priceList';
+import { auctionDetail, demandText, isWanted, type AuctionBid } from '../../domain/market';
+import { parseCoins } from '../../domain/priceList';
 import {
   buyLevelLabel,
   filterRows,
   formatPrice,
   priceLevelLabel,
+  priceWithUnit,
   ruleHits,
   rulePrice,
   sellables,
@@ -21,13 +26,13 @@ import {
   stockRows,
 } from '../../domain/shop';
 import { normalize } from '../../domain/derive';
-import type { TradeDirection } from '../../domain/schema';
+import type { ShopDemand, TradeDirection } from '../../domain/schema';
 import { SRD_ATTRIBUTION } from '../../domain/srd/lookup';
 import {
   Badge,
   Button,
+  Checkbox,
   Dialog,
-  EntityPicker,
   Field,
   IconButton,
   Input,
@@ -36,16 +41,19 @@ import {
   cx,
   toast,
 } from '../../ui';
+import { fairDie } from '../bestiarium/model';
 import { tradeAt } from './actions';
 import {
-  addEntity,
   addFree,
   addRow,
   addRuleItem,
   addSellable,
+  addWare,
+  auctionFor,
   basketProblem,
   basketTotal,
   inBasket,
+  readQty,
   sellerOf,
   setPrice,
   setQty,
@@ -53,8 +61,13 @@ import {
   tradersOf,
   type BasketLine,
 } from './model';
-import { PriceInput } from './parts';
+import { PriceInput, UNIT_LIST_ID, UnitList } from './parts';
+import { WarePicker } from './WarePicker';
 import './laden.css';
+
+/** Gesucht oder nicht gefragt, in wenigen Worten: „gesucht +50 %“. */
+const demandHint = (demand: ShopDemand | null | undefined): string =>
+  demand ? `${isWanted(demand) ? 'gesucht' : 'nicht gefragt'} ${demandText(demand.factor)}` : '';
 
 export function TradeDialog({
   shopId,
@@ -74,6 +87,7 @@ export function TradeDialog({
   );
   const shop = chosen ? (data.shops[chosen] ?? null) : null;
   const [tab, setTab] = useState<TradeDirection>(direction);
+  const [auctions, setAuctions] = useState<Record<string, AuctionBid>>({});
   const [buy, setBuy] = useState<BasketLine[]>([]);
   const [sell, setSell] = useState<BasketLine[]>([]);
   const basket = tab === 'buy' ? buy : sell;
@@ -84,6 +98,7 @@ export function TradeDialog({
   const [note, setNote] = useState('');
   const [freeText, setFreeText] = useState('');
   const [freePrice, setFreePrice] = useState('');
+  const [freeUnit, setFreeUnit] = useState('');
 
   const rows = useMemo(() => (shop ? stockRows(data, shop) : []), [data, shop]);
   const shown = useMemo(() => filterRows(rows, query), [rows, query]);
@@ -117,9 +132,10 @@ export function TradeDialog({
   const addWritten = () => {
     const price = parseCoins(freePrice);
     if (!freeText.trim() || price === undefined) return;
-    setBasket((b) => addFree(b, freeText, price));
+    setBasket((b) => addFree(b, freeText, price, { shop, direction: tab, unit: freeUnit }));
     setFreeText('');
     setFreePrice('');
+    setFreeUnit('');
   };
   const switchShop = (next: string | null) => {
     setChosen(next);
@@ -127,7 +143,16 @@ export function TradeDialog({
     setBuy([]);
     setSell([]);
     setQuery('');
+    setAuctions({});
+    const market = next ? data.shops[next]?.market : false;
+    if (market) setTab('sell');
   };
+  const auction = (line: BasketLine, wide?: boolean) => {
+    const result = auctionFor(line, fairDie, wide);
+    if (result) setAuctions((now) => ({ ...now, [line.key]: result }));
+  };
+  const dropAuction = (key: string) =>
+    setAuctions((now) => Object.fromEntries(Object.entries(now).filter(([k]) => k !== key)));
 
   const save = () => {
     if (problem) return;
@@ -202,18 +227,26 @@ export function TradeDialog({
               {shop.keeperId && data.entities[shop.keeperId] && (
                 <span>{entityName(data, shop.keeperId)}</span>
               )}
+              {shop.market && <Badge tone="gold">Handelsplatz</Badge>}
               <Badge tone={shop.priceFactor > 1 ? 'ember' : shop.priceFactor < 1 ? 'moss' : 'gold'}>
                 {priceLevelLabel(shop.priceFactor)}
               </Badge>
               <span>kauft an für {buyLevelLabel(shop.buyFactor)}</span>
+              {shop.demand.map((line) => (
+                <span key={line.id} className="wf-laden-hint">
+                  {line.text} {demandText(line.factor)}
+                </span>
+              ))}
             </span>
           )}
         </div>
         <Tabs<TradeDirection>
-          tabs={[
-            { id: 'buy', label: 'Kaufen', count: buy.length || undefined },
-            { id: 'sell', label: 'Ankaufen', count: sell.length || undefined },
-          ]}
+          tabs={(shop?.market ? (['sell', 'buy'] as const) : (['buy', 'sell'] as const)).map(
+            (id) =>
+              id === 'buy'
+                ? { id, label: 'Kaufen', count: buy.length || undefined }
+                : { id, label: 'Verkaufen', count: sell.length || undefined },
+          )}
           value={tab}
           onChange={(next) => {
             setTab(next);
@@ -274,7 +307,7 @@ export function TradeDialog({
                         </span>
                       </span>
                       <span className="wf-laden-ware__price">
-                        {row.price === null ? 'Preis offen' : formatPrice(row.price)}
+                        {row.price === null ? 'Preis offen' : priceWithUnit(row.price, row.unit)}
                       </span>
                       <Plus aria-hidden className="wf-laden-ware__add" />
                     </button>
@@ -313,12 +346,12 @@ export function TradeDialog({
               {tab === 'buy' && shop && !rows.length && (
                 <p className="wf-laden-empty">
                   Dieser Laden führt noch nichts. Den Bestand pflegst du auf der Seite des Ortes
-                  oder Händlers – hier geht es auch mit „Aus der Welt“ oder in Worten.
+                  oder Händlers – hier geht alles auch so: aus allem wählen oder in Worten.
                 </p>
               )}
               {tab === 'buy' && !shop && (
                 <p className="wf-laden-empty">
-                  Ohne Laden: Wähle Waren aus der Welt oder schreibe sie mit Preis auf.
+                  Ohne Laden: Wähle Waren aus allem oder schreibe sie mit Preis auf.
                 </p>
               )}
               {tab === 'sell' &&
@@ -338,8 +371,13 @@ export function TradeDialog({
                     <span className="wf-laden-ware__name">
                       <b className="wf-clamp-1">{offer.entity.name}</b>
                       <span className="wf-laden-ware__sub">
-                        {offer.ownerId ? entityName(data, offer.ownerId) : 'die Gruppe'}
-                        {!offer.wanted && ' · kauft so etwas eigentlich nicht an'}
+                        {[
+                          offer.ownerId ? entityName(data, offer.ownerId) : 'die Gruppe',
+                          demandHint(offer.demand),
+                          !offer.wanted && 'kauft sonst lieber anderes',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </span>
                     </span>
                     <span className="wf-laden-ware__price">
@@ -350,21 +388,18 @@ export function TradeDialog({
                 ))}
               {tab === 'sell' && !offers.length && (
                 <p className="wf-laden-empty">
-                  Die Gruppe hat keine Gegenstände der Welt. Was sie verkauft, wählst du aus der
-                  Welt oder schreibst es mit Preis auf.
+                  Die Gruppe hat keine Gegenstände der Welt. Was sie verkauft – Beute, Felle, Salz,
+                  ein gefangenes Tier –, wählst du unten aus allem oder schreibst es mit Preis auf.
                 </p>
               )}
             </div>
             <div className="wf-laden-more">
-              <EntityPicker
-                value={null}
-                onChange={(id) => {
-                  const entity = id ? data.entities[id] : undefined;
-                  if (entity) setBasket((b) => addEntity(b, entity, shop, tab));
-                }}
-                kinds={[...TRADE_KINDS]}
-                placeholder="Aus der Welt …"
-                allowClear={false}
+              <WarePicker
+                placeholder="Aus allem – Welt, Bestiarium …"
+                onPick={(option) => setBasket((b) => addWare(b, data, option, shop, tab))}
+                onWords={(text) =>
+                  setBasket((b) => addFree(b, text, null, { shop, direction: tab }))
+                }
               />
               <div className="wf-laden-free">
                 <Input
@@ -376,6 +411,7 @@ export function TradeDialog({
                     if (event.key === 'Enter') addWritten();
                   }}
                 />
+
                 <Input
                   className="wf-laden-price"
                   value={freePrice}
@@ -387,6 +423,17 @@ export function TradeDialog({
                       : undefined
                   }
                   onChange={(event) => setFreePrice(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') addWritten();
+                  }}
+                />
+                <Input
+                  className="wf-laden-unit"
+                  value={freeUnit}
+                  list={UNIT_LIST_ID}
+                  placeholder="je Stück"
+                  aria-label="Einheit der Ware in Worten"
+                  onChange={(event) => setFreeUnit(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') addWritten();
                   }}
@@ -411,46 +458,87 @@ export function TradeDialog({
                   : 'Ein Klick auf einen Gegenstand legt ihn hierher.'}
               </p>
             )}
-            {basket.map((line) => (
-              <div key={line.key} className="wf-laden-line">
-                <span className="wf-laden-line__name wf-clamp-1" title={line.text}>
-                  {line.text}
-                </span>
-                <span className="wf-laden-qty">
-                  <IconButton
-                    label={`Eins weniger: ${line.text}`}
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setBasket((b) => setQty(b, line.key, line.qty - 1))}
-                  >
-                    <Minus />
-                  </IconButton>
-                  <span className="wf-laden-qty__n">{line.qty}</span>
-                  <IconButton
-                    label={`Eins mehr: ${line.text}`}
-                    size="sm"
-                    variant="ghost"
-                    disabled={line.max !== null && line.qty >= line.max}
-                    onClick={() => setBasket((b) => setQty(b, line.key, line.qty + 1))}
-                  >
-                    <Plus />
-                  </IconButton>
-                </span>
-                <PriceInput
-                  label={`Stückpreis: ${line.text}`}
-                  value={line.price}
-                  onChange={(price) => setBasket((b) => setPrice(b, line.key, price))}
-                />
-                <IconButton
-                  label={`Aus dem Korb: ${line.text}`}
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setBasket((b) => setQty(b, line.key, 0))}
-                >
-                  <X />
-                </IconButton>
-              </div>
-            ))}
+            {basket.map((line) => {
+              const bid = tab === 'sell' ? auctions[line.key] : undefined;
+              const sub = [
+                line.unit,
+                tab === 'sell' && demandHint(line.demand),
+                line.max !== null && line.max > 1 && `höchstens ${line.max}`,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <div key={line.key} className="wf-laden-entry">
+                  <div className="wf-laden-line">
+                    <span className="wf-laden-line__main">
+                      <span className="wf-clamp-1" title={line.text}>
+                        {line.text}
+                      </span>
+                      {sub && <span className="wf-laden-line__unit">{sub}</span>}
+                    </span>
+                    <QtyField
+                      line={line}
+                      onChange={(qty) => setBasket((b) => setQty(b, line.key, qty))}
+                    />
+                    <PriceInput
+                      label={`Preis ${line.unit || 'je Stück'}: ${line.text}`}
+                      value={line.price}
+                      onChange={(price) => setBasket((b) => setPrice(b, line.key, price))}
+                    />
+                    {tab === 'sell' && (
+                      <IconButton
+                        label={`Versteigern: ${line.text}`}
+                        size="sm"
+                        variant="ghost"
+                        disabled={(line.worth ?? line.price ?? 0) <= 0}
+                        onClick={() => auction(line, bid?.wide)}
+                      >
+                        <Gavel />
+                      </IconButton>
+                    )}
+                    <IconButton
+                      label={`Aus dem Korb: ${line.text}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setBasket((b) => setQty(b, line.key, 0));
+                        dropAuction(line.key);
+                      }}
+                    >
+                      <X />
+                    </IconButton>
+                  </div>
+                  {bid && (
+                    <div className="wf-laden-auction" aria-label={`Versteigerung: ${line.text}`}>
+                      <span>Höchstgebot</span>
+                      <span className="wf-laden-auction__bid">{formatPrice(bid.bid)}</span>
+                      <span className="wf-grow" />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setBasket((b) => setPrice(b, line.key, bid.bid));
+                          dropAuction(line.key);
+                        }}
+                      >
+                        Annehmen
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => auction(line, bid.wide)}>
+                        Neu würfeln
+                      </Button>
+                      <Checkbox checked={bid.wide} onChange={(wide) => auction(line, wide)}>
+                        selten
+                      </Checkbox>
+                      <span className="wf-laden-auction__why">
+                        {auctionDetail(bid)} · Rahmen {formatPrice(bid.low)} bis{' '}
+                        {formatPrice(bid.high)}
+                        {line.qty > 1 || line.unit ? ` · ${line.unit || 'je Stück'}` : ''} – oder
+                        nenne deinen eigenen Preis.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="wf-laden-sum">
               <span className="wf-caps">Summe</span>
               <span className="wf-laden-sum__value">{formatPrice(total)}</span>
@@ -483,6 +571,36 @@ export function TradeDialog({
           </div>
         </div>
       </div>
+      <UnitList />
     </Dialog>
+  );
+}
+
+/** Die Menge im Korb zum Tippen: „12“. Leer oder unlesbar bleibt es, wie es war; weg nur mit ×. */
+function QtyField({ line, onChange }: { line: BasketLine; onChange: (qty: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const read = readQty(text);
+    if (read !== null && read !== line.qty) onChange(read);
+    setText(null);
+  };
+  return (
+    <Input
+      className="wf-laden-line__qty"
+      inputMode="numeric"
+      value={text ?? String(line.qty)}
+      aria-label={`Menge: ${line.text}`}
+      title={line.max !== null ? `Menge – höchstens ${line.max}` : 'Menge'}
+      onChange={(event) => setText(event.target.value)}
+      onFocus={(event) => event.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }

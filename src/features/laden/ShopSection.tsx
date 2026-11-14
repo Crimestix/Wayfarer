@@ -1,14 +1,17 @@
 /**
- * Abschnitt „Laden“ auf der Seite eines Ortes, einer Person (Händler) oder Fraktion: Läden
- * anlegen und pflegen – Bestand aus der Welt oder als Preisliste, eigene Preise und Mengen,
- * Vorschläge zum Annehmen und was der Laden zuletzt verkauft und angekauft hat (aus der Chronik).
+ * Abschnitt „Laden“ auf der Seite eines Ortes, einer Person (Händler) oder Fraktion: Läden und
+ * Handelsplätze anlegen und pflegen – Bestand aus allem (Welt, Bestiarium, Regelwerk, Worte) oder
+ * als Preisliste, eigene Preise, Einheiten und Mengen, eine Liste nach Vorlage oder Vorschlag
+ * zum Ankreuzen, „als Vorlage merken“ und was der Laden zuletzt verkauft und angekauft hat.
  */
 import { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  BookMarked,
   BookOpen,
   ClipboardList,
+  ListChecks,
   PackagePlus,
   Plus,
   Settings2,
@@ -17,46 +20,41 @@ import {
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
-import { TRADE_KINDS } from '../../domain/priceList';
+import { demandText } from '../../domain/market';
 import {
   buyLevelLabel,
   formatPrice,
   looksLikeTrader,
   priceLevelLabel,
   shopPlaceId,
-  shopSuggestions,
   shopTitle,
   shopTrades,
   shopsOf,
   stockRows,
 } from '../../domain/shop';
+import { templateOfKind } from '../../domain/shopTemplate';
 import { createEntity, type Entity, type Shop } from '../../domain/schema';
 import { SRD_ATTRIBUTION } from '../../domain/srd/lookup';
 import { openShop } from '../../shell/commands';
 import { useFocus } from '../../shell/focus';
-import {
-  Button,
-  Checkbox,
-  ChronicleList,
-  EntityLink,
-  EntityPicker,
-  IconButton,
-  toast,
-} from '../../ui';
+import { Button, ChronicleList, EntityLink, IconButton, confirmDialog, toast } from '../../ui';
 import { Hint, Section } from '../welt/parts';
 import {
-  acceptShopSuggestions,
   addStockLines,
   moveStockLine,
   newShop,
   patchStockLine,
+  rememberAsTemplate,
   removeStockLine,
   stockLineToItem,
 } from './actions';
-import { PriceInput, QtyInput } from './parts';
+import { PriceInput, QtyInput, UnitInput, UnitList } from './parts';
 import { PriceListDialog } from './PriceListDialog';
+import { ProposeDialog } from './ProposeDialog';
 import { RulesDialog } from './RulesDialog';
 import { ShopDialog } from './ShopDialog';
+import { TemplatesDialog } from './TemplatesDialog';
+import { WarePicker } from './WarePicker';
 import './laden.css';
 
 /** Wie viele Geschäfte eines Ladens auf der Seite stehen; alle stehen in der Chronik. */
@@ -115,16 +113,27 @@ export function ShopSection({ entity }: { entity: Entity }) {
           }
         >
           {entity.kind === 'place'
-            ? 'Verkauft hier jemand etwas? Ein Laden mit Bestand und Preisen steht dann am Spieltisch bereit.'
+            ? 'Verkauft hier jemand etwas – oder kann die Gruppe hier verkaufen (Markt, Hafen, Auktionshaus)? Ein Laden mit Bestand und Preisen steht dann am Spieltisch bereit.'
             : `Verkauft ${entity.name} etwas? Ein Laden mit Bestand und Preisen steht dann am Spieltisch bereit.`}
         </Hint>
         {dialog}
       </Section>
     );
 
+  const markets = shops.filter((shop) => shop.market).length;
   return (
     <Section
-      title={shops.length === 1 ? 'Laden' : 'Läden'}
+      title={
+        markets === shops.length
+          ? shops.length === 1
+            ? 'Handelsplatz'
+            : 'Handelsplätze'
+          : markets
+            ? 'Läden und Handelsplätze'
+            : shops.length === 1
+              ? 'Laden'
+              : 'Läden'
+      }
       count={shops.length > 1 ? shops.length : undefined}
       action={
         <Button size="sm" variant="ghost" icon={<Plus />} onClick={create}>
@@ -152,30 +161,59 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
   const db = useDb();
   const data = useData();
   const rows = useMemo(() => stockRows(data, shop), [data, shop]);
-  const suggestions = useMemo(() => shopSuggestions(data, shop), [data, shop]);
   const trades = useMemo(() => shopTrades(data, shop.id), [data, shop.id]);
   const [pasting, setPasting] = useState(false);
   const [rules, setRules] = useState(false);
-  const [suggesting, setSuggesting] = useState(false);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [proposing, setProposing] = useState(false);
+  const [templates, setTemplates] = useState(false);
   const at = shopPlaceId(data, shop);
+  const kind = shop.kind.trim();
 
+  const wanted = shop.demand.filter((line) => line.factor >= 1);
+  const unwanted = shop.demand.filter((line) => line.factor < 1);
   const facts = [
-    shop.title.trim() && shop.kind.trim(),
+    shop.market && 'Handelsplatz',
+    shop.title.trim() && kind,
     shop.keeperId && shop.keeperId !== owner.id && data.entities[shop.keeperId]
       ? entityName(data, shop.keeperId)
       : '',
     at && at !== owner.id ? `in ${entityName(data, at)}` : '',
     priceLevelLabel(shop.priceFactor),
     `kauft an für ${buyLevelLabel(shop.buyFactor)}`,
-    shop.buys.length ? `kauft: ${shop.buys.join(', ')}` : '',
+    shop.buys.length ? `kauft gern: ${shop.buys.join(', ')}` : '',
+    wanted.length
+      ? `gesucht: ${wanted.map((l) => `${l.text} ${demandText(l.factor)}`).join(', ')}`
+      : '',
+    unwanted.length
+      ? `nicht gefragt: ${unwanted.map((l) => `${l.text} ${demandText(l.factor)}`).join(', ')}`
+      : '',
   ]
     .filter(Boolean)
     .join(' · ');
 
-  const addFromWorld = (id: string | null) => {
-    const entity = id ? data.entities[id] : undefined;
-    if (entity) addStockLines(db, shop.id, [{ entityId: entity.id, text: entity.name }]);
+  const stocked = shop.stock.flatMap((line) =>
+    [line.entityId, line.creatureId].filter((id): id is string => !!id),
+  );
+  const remember = async () => {
+    if (!kind) return;
+    const existing = templateOfKind(data, kind);
+    if (existing) {
+      const ok = await confirmDialog({
+        title: `Vorlage für „${existing.kind}“ ersetzen?`,
+        body: 'Die Liste der Vorlage wird der Bestand dieses Ladens. Läden, die schon danach gefüllt sind, bleiben, wie sie sind.',
+        confirmLabel: 'Vorlage ersetzen',
+      });
+      if (!ok) return;
+    }
+    const result = rememberAsTemplate(db, shop.id);
+    if (result)
+      toast({
+        title: result.replaced
+          ? `Vorlage für „${result.template.kind}“ ersetzt`
+          : `Vorlage für „${result.template.kind}“ gemerkt`,
+        body: 'Jeder Laden dieser Art kann sie unter „Liste vorschlagen“ übernehmen.',
+        action: { label: 'Rückgängig', run: result.undo },
+      });
   };
   const makeItem = (lineId: string, name: string) => {
     const result = stockLineToItem(db, shop.id, lineId);
@@ -197,16 +235,6 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
       action: { label: 'Rückgängig', run: result.undo },
     });
   };
-  const accept = () => {
-    const undo = acceptShopSuggestions(db, shop.id, picked);
-    setSuggesting(false);
-    setPicked([]);
-    if (undo)
-      toast({
-        title: picked.length === 1 ? '1 Ware im Bestand' : `${picked.length} Waren im Bestand`,
-        action: { label: 'Rückgängig', run: undo },
-      });
-  };
 
   return (
     <div className="wf-laden-shop">
@@ -216,8 +244,12 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           <Settings2 />
         </IconButton>
         <span className="wf-grow" />
-        <Button size="sm" icon={<Store />} onClick={() => openShop(shop.id)}>
-          Handeln
+        <Button
+          size="sm"
+          icon={<Store />}
+          onClick={() => openShop(shop.id, shop.market ? 'sell' : 'buy')}
+        >
+          {shop.market ? 'Verkaufen' : 'Handeln'}
         </Button>
       </div>
       <div className="wf-laden-shop__facts">{facts}</div>
@@ -228,79 +260,94 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           <div className="wf-laden-stockrow wf-laden-stockhead">
             <span>Ware</span>
             <span>Preis hier</span>
+            <span>Einheit</span>
             <span>Menge</span>
             <span />
           </div>
-          {rows.map((row, index) => (
-            <div key={row.line.id} className="wf-laden-stockrow">
-              <span className="wf-laden-stockrow__name">
-                {row.entity ? <EntityLink id={row.entity.id} /> : <span>{row.name}</span>}
-                <span className="wf-laden-stockrow__sub">
-                  {[
-                    row.category,
-                    row.single && 'einzelnes Stück',
-                    row.own
-                      ? row.listPrice !== null
-                        ? `Liste ${formatPrice(row.listPrice)}`
-                        : row.rule && `Regelwerk ${formatPrice(row.rule.price)}`
-                      : row.listPrice === null &&
-                        (row.rule ? 'Preis nach dem Regelwerk' : row.entity && 'ohne Listenpreis'),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+          {rows.map((row, index) => {
+            const sub = [
+              row.category,
+              row.single && 'einzelnes Stück',
+              row.own
+                ? row.listPrice !== null
+                  ? `Liste ${formatPrice(row.listPrice)}`
+                  : row.rule && `Regelwerk ${formatPrice(row.rule.price)}`
+                : row.listPrice === null &&
+                  (row.rule ? 'Preis nach dem Regelwerk' : row.entity && 'ohne Listenpreis'),
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <div key={row.line.id} className="wf-laden-stockrow">
+                <span className="wf-laden-stockrow__name">
+                  {row.entity ? (
+                    <EntityLink id={row.entity.id} />
+                  ) : (
+                    <span title={row.creature ? 'Wesen des Bestiariums' : undefined}>
+                      {row.name}
+                    </span>
+                  )}
+                  <span className="wf-laden-stockrow__sub" title={sub}>
+                    {sub}
+                  </span>
                 </span>
-              </span>
-              <PriceInput
-                label={`Preis hier: ${row.name}`}
-                value={row.line.price}
-                placeholder={row.price !== null ? formatPrice(row.price) : 'Preis'}
-                onChange={(price) => patchStockLine(db, shop.id, row.line.id, { price })}
-              />
-              <QtyInput
-                label={`Menge: ${row.name}`}
-                value={row.line.qty}
-                onChange={(qty) => patchStockLine(db, shop.id, row.line.id, { qty })}
-              />
-              <span className="wf-row" style={{ gap: 0 }}>
-                {!row.entity && (
+                <PriceInput
+                  label={`Preis hier: ${row.name}`}
+                  value={row.line.price}
+                  placeholder={row.price !== null ? formatPrice(row.price) : 'Preis'}
+                  onChange={(price) => patchStockLine(db, shop.id, row.line.id, { price })}
+                />
+                <UnitInput
+                  label={`Einheit: ${row.name}`}
+                  value={row.line.unit}
+                  onChange={(unit) => patchStockLine(db, shop.id, row.line.id, { unit })}
+                />
+                <QtyInput
+                  label={`Menge: ${row.name}`}
+                  value={row.line.qty}
+                  onChange={(qty) => patchStockLine(db, shop.id, row.line.id, { qty })}
+                />
+                <span className="wf-row" style={{ gap: 0 }}>
+                  {!row.entity && !row.creature && (
+                    <IconButton
+                      label={`Als Gegenstand anlegen: ${row.name}`}
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => makeItem(row.line.id, row.name)}
+                    >
+                      <PackagePlus />
+                    </IconButton>
+                  )}
                   <IconButton
-                    label={`Als Gegenstand anlegen: ${row.name}`}
+                    label={`Nach oben: ${row.name}`}
                     size="sm"
                     variant="ghost"
-                    onClick={() => makeItem(row.line.id, row.name)}
+                    disabled={index === 0}
+                    onClick={() => moveStockLine(db, shop.id, row.line.id, -1)}
                   >
-                    <PackagePlus />
+                    <ArrowUp />
                   </IconButton>
-                )}
-                <IconButton
-                  label={`Nach oben: ${row.name}`}
-                  size="sm"
-                  variant="ghost"
-                  disabled={index === 0}
-                  onClick={() => moveStockLine(db, shop.id, row.line.id, -1)}
-                >
-                  <ArrowUp />
-                </IconButton>
-                <IconButton
-                  label={`Nach unten: ${row.name}`}
-                  size="sm"
-                  variant="ghost"
-                  disabled={index === rows.length - 1}
-                  onClick={() => moveStockLine(db, shop.id, row.line.id, 1)}
-                >
-                  <ArrowDown />
-                </IconButton>
-                <IconButton
-                  label={`Aus dem Bestand: ${row.name}`}
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => removeStockLine(db, shop.id, row.line.id)}
-                >
-                  <X />
-                </IconButton>
-              </span>
-            </div>
-          ))}
+                  <IconButton
+                    label={`Nach unten: ${row.name}`}
+                    size="sm"
+                    variant="ghost"
+                    disabled={index === rows.length - 1}
+                    onClick={() => moveStockLine(db, shop.id, row.line.id, 1)}
+                  >
+                    <ArrowDown />
+                  </IconButton>
+                  <IconButton
+                    label={`Aus dem Bestand: ${row.name}`}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeStockLine(db, shop.id, row.line.id)}
+                  >
+                    <X />
+                  </IconButton>
+                </span>
+              </div>
+            );
+          })}
           {rows.some((row) => row.rule) && (
             <p className="wf-laden-credit" title={SRD_ATTRIBUTION.en}>
               Preise nach dem Regelwerk: {SRD_ATTRIBUTION.short}
@@ -309,71 +356,53 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
         </div>
       ) : (
         <p className="wf-laden-empty">
-          Noch kein Bestand. Wähle Waren aus der Welt oder aus dem Regelwerk, oder füge eine
-          Preisliste ein – leerer Preis heißt Listenpreis mal Preisstufe, leere Menge heißt: so
-          viele man will.
+          Noch kein Bestand. Ein Laden kann alles führen: Gegenstände, Tiere, Pflanzen, Gesteine,
+          Wesen des Bestiariums, Ausrüstung aus dem Regelwerk oder Waren in Worten. Leerer Preis
+          heißt Listenpreis mal Preisstufe, leere Menge heißt: so viele man will.
         </p>
       )}
 
       <div className="wf-laden-add">
-        <EntityPicker
-          value={null}
-          onChange={addFromWorld}
-          kinds={[...TRADE_KINDS]}
-          placeholder="Ware aus der Welt …"
-          allowClear={false}
-          exclude={shop.stock.map((line) => line.entityId).filter((id): id is string => !!id)}
-          onCreate={(name) => db.put('entities', createEntity({ kind: 'item', name })).id}
+        <WarePicker
+          placeholder="Ware hinzufügen – aus allem …"
+          exclude={stocked}
+          onPick={(option) =>
+            addStockLines(db, shop.id, [
+              { entityId: option.entityId, creatureId: option.creatureId, text: option.name },
+            ])
+          }
+          onWords={(text) => addStockLines(db, shop.id, [{ text }])}
+          onCreate={(name) => {
+            const made = db.put('entities', createEntity({ kind: 'item', name }));
+            addStockLines(db, shop.id, [{ entityId: made.id, text: made.name }]);
+          }}
         />
+        <Button size="sm" icon={<ListChecks />} onClick={() => setProposing(true)}>
+          Liste vorschlagen …
+        </Button>
         <Button size="sm" icon={<BookOpen />} onClick={() => setRules(true)}>
           Aus dem Regelwerk …
         </Button>
         <Button size="sm" icon={<ClipboardList />} onClick={() => setPasting(true)}>
           Preisliste einfügen …
         </Button>
-        {suggestions.length > 0 && !suggesting && (
-          <Button size="sm" variant="ghost" onClick={() => setSuggesting(true)}>
-            {suggestions.length === 1 ? '1 Vorschlag' : `${suggestions.length} Vorschläge`}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<BookMarked />}
+          disabled={!kind || !rows.length}
+          title={
+            !kind
+              ? 'Gib dem Laden erst eine Art (Laden bearbeiten).'
+              : !rows.length
+                ? 'Erst etwas in den Bestand nehmen.'
+                : 'Der Bestand wird die Liste für alle Läden dieser Art – zum Ankreuzen.'
+          }
+          onClick={remember}
+        >
+          {kind ? `Als Vorlage für „${kind}“ merken` : 'Als Vorlage merken'}
+        </Button>
       </div>
-
-      {suggesting && (
-        <div className="wf-laden-suggest" aria-label="Vorschläge für den Bestand">
-          <div className="wf-caps">Könnte passen – aus deinen Einträgen</div>
-          {suggestions.map((s) => (
-            <div key={s.entity.id} className="wf-laden-suggest__row">
-              <Checkbox
-                checked={picked.includes(s.entity.id)}
-                onChange={(on) =>
-                  setPicked((current) =>
-                    on ? [...current, s.entity.id] : current.filter((id) => id !== s.entity.id),
-                  )
-                }
-              >
-                {s.entity.name}
-              </Checkbox>
-              <span className="wf-laden-suggest__why">
-                {s.price === null ? 'ohne Listenpreis' : formatPrice(s.price)} · {s.reason}
-              </span>
-            </div>
-          ))}
-          <div className="wf-row">
-            <Button
-              size="sm"
-              onClick={() => {
-                setSuggesting(false);
-                setPicked([]);
-              }}
-            >
-              Schließen
-            </Button>
-            <Button size="sm" icon={<Plus />} disabled={!picked.length} onClick={accept}>
-              In den Bestand
-            </Button>
-          </div>
-        </div>
-      )}
 
       {trades.length > 0 && (
         <div>
@@ -381,8 +410,28 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
           <ChronicleList entries={trades.slice(0, TRADES_SHOWN)} showDate />
         </div>
       )}
+      <UnitList />
       {pasting && <PriceListDialog shop={shop} onClose={() => setPasting(false)} />}
       {rules && <RulesDialog shop={shop} onClose={() => setRules(false)} />}
+      {proposing && (
+        <ProposeDialog
+          shop={shop}
+          onClose={() => setProposing(false)}
+          onTemplates={() => {
+            setProposing(false);
+            setTemplates(true);
+          }}
+        />
+      )}
+      {templates && (
+        <TemplatesDialog
+          initialKind={kind}
+          onClose={() => {
+            setTemplates(false);
+            setProposing(true);
+          }}
+        />
+      )}
     </div>
   );
 }

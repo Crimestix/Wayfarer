@@ -1,6 +1,9 @@
-/** Einen Laden bearbeiten: Name, Art, Ort, Händler, Preisstufe, Ankauf, was er ankauft, Notizen. */
+/**
+ * Einen Laden bearbeiten: Name, Art (frei, mit Vorschlägen), Ort, Händler, Preisstufe, Ankauf,
+ * was er gern ankauft, ob er ein Handelsplatz ist – mit Gesuchtem und nicht Gefragtem –, Notizen.
+ */
 import { useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import { TRADE_KINDS, isTradeKind } from '../../domain/priceList';
@@ -11,12 +14,15 @@ import {
   readFactor,
   tradeCategory,
 } from '../../domain/shop';
-import type { Shop } from '../../domain/schema';
+import { demandText, looksLikeMarket, readDemandFactor } from '../../domain/market';
+import { newId, type Shop, type ShopDemand } from '../../domain/schema';
 import {
   Button,
+  Checkbox,
   Dialog,
   EntityPicker,
   Field,
+  IconButton,
   Input,
   Select,
   TextArea,
@@ -26,12 +32,13 @@ import {
 import { WordChips } from '../welt/parts';
 import { patchShop, removeShop } from './actions';
 
-/** Übliche Arten von Läden – zur Auswahl, frei überschreibbar. */
+/** Übliche Arten von Läden und Handelsplätzen – zur Auswahl, jedes andere Wort geht auch. */
 const SHOP_KINDS = [
   'Krämer',
   'Schmiede',
   'Waffenhändler',
   'Rüstungsschmied',
+  'Bogner',
   'Kräuterhändler',
   'Apotheke',
   'Alchemist',
@@ -41,10 +48,90 @@ const SHOP_KINDS = [
   'Bäcker',
   'Metzger',
   'Gasthaus',
-  'Marktstand',
-  'Fahrender Händler',
+  'Tierhändler',
+  'Haustierhändler',
   'Stall',
+  'Fahrender Händler',
+  'Marktstand',
+  'Markt',
+  'Hafen',
+  'Auktionshaus',
+  'Hehler',
 ] as const;
+
+/** Was ein Handelsplatz sucht oder nicht haben will – Zeilen mit Wort und Auf- oder Abschlag. */
+function DemandRows({
+  lines,
+  wanted,
+  onChange,
+}: {
+  lines: ShopDemand[];
+  wanted: boolean;
+  onChange: (lines: ShopDemand[]) => void;
+}) {
+  const [text, setText] = useState('');
+  const [factor, setFactor] = useState(wanted ? '+50 %' : '−30 %');
+  const read = readDemandFactor(factor);
+  const fits = read !== null && (wanted ? read >= 1 : read < 1);
+  const add = () => {
+    if (!text.trim() || !fits) return;
+    onChange([...lines, { id: newId(), text: text.trim(), factor: read }]);
+    setText('');
+  };
+  return (
+    <div className="wf-laden-demand">
+      {lines.map((line) => (
+        <span key={line.id} className="wf-laden-demand__chip">
+          {line.text} <b>{demandText(line.factor)}</b>
+          <IconButton
+            label={`Weg: ${line.text}`}
+            size="sm"
+            variant="ghost"
+            onClick={() => onChange(lines.filter((l) => l.id !== line.id))}
+          >
+            <X />
+          </IconButton>
+        </span>
+      ))}
+      <span className="wf-laden-demand__add">
+        <Input
+          value={text}
+          placeholder={wanted ? 'Salz, Pelz, Waffe …' : 'Holz, Getreide …'}
+          aria-label={wanted ? 'Gesucht: Ware' : 'Nicht gefragt: Ware'}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              add();
+            }
+          }}
+        />
+        <Input
+          className="wf-laden-price"
+          value={factor}
+          aria-label={wanted ? 'Gesucht: Aufschlag' : 'Nicht gefragt: Abschlag'}
+          aria-invalid={!fits || undefined}
+          title={wanted ? 'Aufschlag beim Ankauf, etwa +50 %' : 'Abschlag beim Ankauf, etwa −30 %'}
+          onChange={(event) => setFactor(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              add();
+            }
+          }}
+        />
+        <IconButton
+          label={wanted ? 'Gesucht hinzufügen' : 'Nicht gefragt hinzufügen'}
+          size="sm"
+          disabled={!text.trim() || !fits}
+          onClick={add}
+        >
+          <Plus />
+        </IconButton>
+      </span>
+    </div>
+  );
+}
 
 /** Ein Faktor als Wahl: eine Stufe oder „eigener“. */
 function FactorSelect({
@@ -113,6 +200,12 @@ export function ShopDialog({
   const data = useData();
   const [draft, setDraft] = useState(shop);
   const set = (change: Partial<Shop>) => setDraft((current) => ({ ...current, ...change }));
+  const kinds = useMemo(() => {
+    const words = new Set<string>(SHOP_KINDS);
+    for (const template of Object.values(data.assortments))
+      if (template.kind.trim()) words.add(template.kind.trim());
+    return [...words];
+  }, [data.assortments]);
   const categories = useMemo(() => {
     const words = new Set<string>(TRADE_KINDS.map((kind) => KIND_LABEL[kind]));
     for (const entity of Object.values(data.entities))
@@ -130,6 +223,8 @@ export function ShopDialog({
       buyFactor: draft.buyFactor,
       buys: draft.buys,
       notes: draft.notes.trim(),
+      market: draft.market,
+      demand: draft.demand,
     });
     onClose();
   };
@@ -154,8 +249,8 @@ export function ShopDialog({
     <Dialog
       open
       onClose={cancel}
-      title="Laden"
-      width={620}
+      title={draft.market ? 'Handelsplatz' : 'Laden'}
+      width={660}
       footer={
         <>
           <Button
@@ -186,11 +281,11 @@ export function ShopDialog({
           <Input
             list="wf-laden-kinds"
             value={draft.kind}
-            placeholder="Krämer, Schmiede …"
+            placeholder="Krämer, Schmiede, Hafen …"
             onChange={(event) => set({ kind: event.target.value })}
           />
           <datalist id="wf-laden-kinds">
-            {SHOP_KINDS.map((kind) => (
+            {kinds.map((kind) => (
               <option key={kind} value={kind} />
             ))}
           </datalist>
@@ -228,9 +323,52 @@ export function ShopDialog({
           />
         </Field>
         <Field
-          label="Kauft an"
+          label="Handelsplatz"
           className="wf-span-2"
-          hint="Einordnungen oder Arten, etwa „Kraut“, „Waffe“, „Pflanze“. Leer: alles."
+          hint={
+            !draft.market && looksLikeMarket(draft.kind, draft.title)
+              ? 'Klingt nach einem Ort, an dem die Gruppe verkaufen kann.'
+              : 'Markt, Hafen, Auktionshaus, Hehler: Am Tisch steht dort „Verkaufen“ vorn.'
+          }
+        >
+          <Checkbox checked={draft.market} onChange={(market) => set({ market })}>
+            Hier verkauft die Gruppe vor allem
+          </Checkbox>
+        </Field>
+        {(draft.market || draft.demand.length > 0) && (
+          <>
+            <Field
+              label="Gesucht"
+              className="wf-span-2"
+              hint="Nur ein Hinweis: Wofür es hier mehr gibt. Wort und Aufschlag, etwa „Salz +50 %“."
+            >
+              <DemandRows
+                wanted
+                lines={draft.demand.filter((line) => line.factor >= 1)}
+                onChange={(lines) =>
+                  set({ demand: [...lines, ...draft.demand.filter((line) => line.factor < 1)] })
+                }
+              />
+            </Field>
+            <Field
+              label="Nicht gefragt"
+              className="wf-span-2"
+              hint="Nur ein Hinweis: Wofür es hier weniger gibt, etwa „Holz −30 %“."
+            >
+              <DemandRows
+                wanted={false}
+                lines={draft.demand.filter((line) => line.factor < 1)}
+                onChange={(lines) =>
+                  set({ demand: [...draft.demand.filter((line) => line.factor >= 1), ...lines] })
+                }
+              />
+            </Field>
+          </>
+        )}
+        <Field
+          label="Kauft gern"
+          className="wf-span-2"
+          hint="Nur ein Hinweis, etwa „Kraut“, „Waffe“, „Pflanze“ – angekauft wird am Tisch alles."
         >
           <WordChips
             value={draft.buys}

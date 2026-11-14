@@ -1,8 +1,59 @@
-/** Kleine Eingaben der Läden: ein Preis in Münzen und eine Menge – beide schreiben beim Verlassen. */
+/**
+ * Kleine Eingaben der Läden: ein Preis in Münzen, eine Einheit und eine Menge – alle schreiben
+ * beim Verlassen.
+ */
 import { useState } from 'react';
 import { parseCoins } from '../../domain/priceList';
-import { formatPrice } from '../../domain/shop';
+import { UNIT_SUGGESTIONS, formatPrice, readUnit } from '../../domain/shop';
 import { Input } from '../../ui';
+
+/** Die Einheiten zur Auswahl – einmal je Ansicht, die Einheiten anbietet. */
+export const UNIT_LIST_ID = 'wf-laden-units';
+export function UnitList() {
+  return (
+    <datalist id={UNIT_LIST_ID}>
+      {UNIT_SUGGESTIONS.map((unit) => (
+        <option key={unit} value={unit} />
+      ))}
+    </datalist>
+  );
+}
+
+/** Eine Einheit zum Ändern: „Pfund“ wird „je Pfund“; leer = je Stück. */
+export function UnitInput({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (unit: string) => void;
+  label: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const read = readUnit(text);
+    if (read !== value) onChange(read);
+    setText(null);
+  };
+  return (
+    <Input
+      value={text ?? value}
+      list={UNIT_LIST_ID}
+      aria-label={label}
+      placeholder="je Stück"
+      title="Wofür der Preis gilt – „je Pfund“, „je Sack“; leer: je Stück"
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
 
 /** Ein Preis zum Ändern: liest „5 SM“, „1,5“, „2 GM 5 SM“; leer = kein Preis (null). */
 export function PriceInput({

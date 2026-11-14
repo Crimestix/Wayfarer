@@ -224,7 +224,7 @@
 }
 .wf-laden-stockrow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 72px auto;
+  grid-template-columns: minmax(0, 1fr) 80px 80px 48px auto;
   align-items: center;
   gap: var(--s-2);
   padding: var(--s-1) 0;
@@ -236,12 +236,19 @@
   min-width: 0;
 }
 .wf-laden-stockrow__sub {
+  overflow: hidden;
   color: var(--ink-mute);
   font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .wf-laden-stockrow .wf-input {
+  padding-inline: 6px;
   font-variant-numeric: lining-nums tabular-nums;
   text-align: right;
+}
+.wf-laden-stockrow .wf-input[list] {
+  text-align: left;
 }
 .wf-laden-stockhead {
   color: var(--ink-mute);
@@ -445,4 +452,198 @@
 .wf-laden-plan__price--rule {
   color: var(--gold);
   font-style: italic;
+}
+
+/* Eine Ware wählen: alles, nach Art gruppiert */
+.wf-laden-wares {
+  max-height: 340px;
+}
+.wf-laden-wares__head {
+  position: sticky;
+  top: 0;
+  padding: var(--s-2) var(--s-3) var(--s-1);
+  background: var(--bg-2);
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-laden-wares__name {
+  color: var(--ink);
+}
+
+/* Handelsplatz: gesucht und nicht gefragt */
+.wf-laden-demand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-2);
+}
+.wf-laden-demand__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 0 0 0 var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.wf-laden-demand__chip b {
+  color: var(--gold-bright);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.wf-laden-demand__add {
+  display: inline-flex;
+  flex: 1 1 260px;
+  align-items: center;
+  gap: var(--s-1);
+}
+.wf-laden-demand__add > .wf-input:first-child {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+/* Liste vorschlagen */
+.wf-laden-propose__head {
+  padding: var(--s-3) 0 0;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-laden-propose__sub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.wf-laden-propose__all {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-laden-propose__all:hover {
+  color: var(--gold-bright);
+}
+.wf-laden-propose__all:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.wf-laden-rules__list .wf-laden-rules__row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(88px, auto);
+}
+
+/* Vorlagen für Ladenarten */
+.wf-laden-templates {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--s-4);
+  min-height: 360px;
+}
+.wf-laden-templates__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+}
+.wf-laden-templates__item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-laden-templates__item:hover {
+  background: var(--bg-2);
+  color: var(--ink);
+}
+.wf-laden-templates__item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.wf-laden-templates__item--on {
+  border-color: var(--gold-deep);
+  background: var(--gold-glow);
+  color: var(--ink);
+}
+.wf-laden-templates__item b {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.wf-laden-templates__n {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-laden-templates__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-laden-templates__edit .wf-textarea {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Versteigern im Korb */
+.wf-laden-auction {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-1) var(--s-2);
+  margin: 0 0 var(--s-1);
+  padding: var(--s-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.wf-laden-auction__bid {
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.wf-laden-auction__why {
+  flex: 1 1 100%;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-laden-line__unit,
+.wf-laden-hint {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-laden-hint--wanted {
+  color: var(--moss);
+}
+.wf-laden-line__qty.wf-input {
+  width: 52px;
+  flex: none;
+  padding-inline: var(--s-1);
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: center;
+}
+.wf-laden-line__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-laden-entry {
+  display: flex;
+  flex-direction: column;
+}
+.wf-input.wf-laden-unit {
+  width: 92px;
+  flex: none;
 }

@@ -145,7 +145,9 @@ export function PriceListDialog({ shop, onClose }: { shop: Shop; onClose: () => 
                     <span className="wf-clamp-1">{p.name}</span>
                   </Checkbox>
                   <span className="wf-mute">
-                    {[p.qty !== null && `${p.qty} Stück`, p.category].filter(Boolean).join(' · ')}
+                    {[p.qty !== null && `${p.qty} da`, p.unit, p.category]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </span>
                   <span
                     className={cx(
