@@ -50,6 +50,14 @@ Weltwissen, Gruppe, Zeit und das, was tatsächlich am Tisch passiert, hängen zu
   einschränken.“): Arten, Einordnungen und Vorlagen helfen beim Finden und Vorschlagen, filtern
   aber nie etwas weg; am Tisch bleibt immer ein freier Weg (freie Zeile, eigener Wert, trotzdem
   tun).
+- **Geschichte zuerst** (Grundsatz des Spielleiters, 14. 11. 2026: „Man sollte nicht vorher
+  Worldbuilden müssen, um eine gute Geschichte zu schreiben, eher aus der Geschichte Worldbuilden
+  können, so wie man es braucht, und dann später finishen. Es sollte quasi alles von der
+  Geschichte ausgehen.“): Die Welt wächst aus der Geschichte. Wo der Spielleiter einen Eintrag
+  wählt oder einen Namen schreibt, den es noch nicht gibt, legt er ihn an Ort und Stelle als
+  **Platzhalter** an – Name, Art, höchstens ein Satz –, ohne die Seite zu verlassen; fertig
+  geschrieben wird später („Noch zu schreiben“). Kein Feld setzt voraus, dass die Welt schon
+  steht.
 - Leitbild (ausführlich in `docs/FUNKTIONSUMFANG.md`): ein starkes Werkzeug für die Spielleitung,
   das die Welt simuliert, durch die die Gruppe läuft (Zeit, Wetter, Reisen), möglichst viel selbst
   erkennt und ableitet statt abzufragen, und beim Leiten nicht stört.
@@ -77,7 +85,8 @@ nicht übernommen.
   `platform.ts` (Brücke zur Tauri-Seite), `seed.ts` (Elaris-Grundstand). Die erfundene Beispielwelt liegt nur noch als Testmaterial in
   `data/__fixtures__/demoWorld.ts` und darf in der App nicht auftauchen.
 - `src/ui/` – Designsystem: `tokens.css`, `base.css`, `ui.css`, Bausteine in `components.tsx`,
-  `entity.tsx`, `chronicle.tsx`, `moon.tsx`. Alles über `import { … } from '../../ui'`.
+  `entity.tsx`, `chronicle.tsx`, `moon.tsx`, `sheet.tsx`, `create.tsx`, `mention.tsx`, `names.tsx`.
+  Alles über `import { … } from '../../ui'`.
 - `src/shell/` – Gerüst: Navigation, Weltleiste, Dialoge. `commands.ts` enthält die Handgriffe, die
   jede Seite auslösen kann (`openQuickLog`, `openAttitude`, `openMoveParty`, `openSearch`,
   `openTimeDialog`). Die Suche (`search.ts`, `searchWorld`) findet alles, was der Spielleiter
@@ -407,8 +416,39 @@ nicht übernommen.
   Ladungen ändern über `welt/magic.ts`; `rechargesDue()` bietet nach Morgengrauen oder Rast
   (Kurze nur, wenn der Text sie nennt) das Auffrischen an, gewürfelt wird mit `fairDie` und erst nach Bestätigung geschrieben.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
-  (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
+  (`SheetSection`, `useDraftList`, `SheetAdvice`, `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.
+- Anlegen beim Schreiben (Geschichte zuerst): Angelegt wird nur über `addFromWriting`
+  (`features/welt/writing.ts`) – gibt es den Namen schon (`entryForTitle`: Name, Zweitname,
+  Titel des Artikels), wird der vorhandene Eintrag genommen (`created: false`, `otherKind`), nie
+  ein zweiter; sonst entsteht ein **Platzhalter** (`entity.stub`, `entity.fromStoryId`, der eine
+  Satz als `tagline`). Gefragt wird immer über `isStub()` (`domain/stub.ts`), nie über
+  `entity.stub`: Sobald Notizen, ein Geheimnis oder ein Artikel über ein leeres Gerüst hinaus
+  dastehen, gilt er von selbst als fertig; von Hand über `finishStub` („Fertig – kein Platzhalter
+  mehr“ auf der Seite). `stubRows()` speist die Gruppe „Platzhalter aus Geschichten“ in „Noch zu
+  schreiben“, `StubMark` ist das Zeichen in Listen.
+  Die Auswahl (`EntityPicker`, `EntityRefsEditor`; `create={{ storyId, onlyKinds }}`): Welche
+  Zeilen dastehen und was die Eingabetaste tut, entscheidet `domain/pick.ts` (`pickRows`,
+  `enterAction`) – ohne genauen Treffer „„X“ neu als …“, erst die Arten des Feldes, dann
+  „andere Art …“ mit allen übrigen (`CREATE_KINDS`, nie Gefährten); wer genau so heißt, steht
+  auch mit fremder Art zur Wahl, außer das Feld verträgt nur seine Arten (`onlyKinds`, etwa
+  „Wo?“ – dann nur ein Hinweis). Die Eingabetaste nimmt nur den genauen Namen oder die mit den
+  Pfeiltasten markierte Zeile, nie einen ähnlichen Treffer. Das kleine Formular (`CreateForm`)
+  und die Meldung mit „Rückgängig“ (`useWriting`) stehen in `ui/create.tsx` – die eine Stelle,
+  an der `src/ui` einen Befehl aus `features` ruft. `onCreate` ist der alte Weg (Art fest) und
+  bleibt nur für Bestehendes.
+  „@“ im Text: `useMention` (`ui/mention.tsx`, Regeln in `domain/mention.ts`) – genutzt von der
+  Mitschrift und von `Written` (`mention={{ storyId, near, onMention }}`); der Name steht danach
+  als gewöhnlicher Text da, das Blatt nimmt den Eintrag über `attachToStory` dazu. Namen im
+  geschriebenen Text: `writtenNames()` (`domain/written.ts`; bekannte über `namesIn`, unbekannte
+  über `unknownNames` in `domain/readNames.ts`, mit `clear` auch einmal Genanntes, wenn es
+  eindeutig ein Name ist) und der Baustein `NamesHint` – „Im Text genannt“ / „Noch unbekannt“,
+  je Name wegklickbar (`story.notMeant`, `markNotMeant`); nichts geschieht von selbst. Was auf
+  dem Blatt steht und wer dazugehört, sagen `storyTexts()` und `storyAttached()`.
+- Beziehungen als Befehl: `relate(db, { from, to, type, … })` und `unrelate`
+  (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
+  die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt
+  denselben Befehl; nie Beziehungen an ihm vorbei anlegen.
 - Spieltisch (`features/tisch`): drei Spalten – der Ort (wer hier ist, Wege, was hier ist), in
   der Mitte **„Im Spiel“** (`PlayPanel`), rechts Mitschrift und „Sonst noch“. Im Spiel ist, was
   der Spielleiter hereinnimmt (`story.inPlay`, bei losen Fäden `thread.inPlay`, gesetzt über

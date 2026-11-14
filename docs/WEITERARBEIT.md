@@ -1688,6 +1688,25 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
 - **Gegengelesen: Magische Gegenstände.** Alte Rezepte mit Seltenheit zählen überall als magisch (Liste, Suche, Preis gleich; `isMagicItem`), Steckbrief zieht die Rezept-Seltenheit mit um (`becomeMagic`); Laden-Bestand aus einer Ausrüstungszeile nimmt bei Magie den Richtwert; Bücher halten die Kopfzeile unerkannter Magie und Fluch-Zeilen aus dem Kasten (`playerBox`), Steckbrief-Bezeichnungen einmal (`MAGIC_FACT_LABELS`); „nach einer kurzen Rast“ wird nach Kurzer Rast angeboten.
 - Offen nach dem Gegenlesen: Den Fließtext eines Buches filtert Wayfarer nicht – wer dort Seltenheit oder Fluch schreibt, nimmt das in einen `> [!geheim]`-Kasten.
 
+### Geschichte zuerst 14. 11. 2026
+
+- **Anlegen beim Schreiben.** Grundsatz: Die Welt wächst aus der Geschichte. Platzhalter
+  (`entity.stub`, `fromStoryId`, `addFromWriting`, `isStub`, „Fertig – kein Platzhalter mehr“);
+  Auswahl mit „„X“ neu als …“ und Wahl der Art im Aufklappfeld (`EntityPicker` / `EntityRefsEditor`
+  mit `create`, Regeln in `domain/pick.ts`), die Eingabetaste nimmt nur noch den genauen Namen
+  oder die markierte Zeile; „@“ in den Textfeldern der Blätter (`useMention`, auch die
+  Mitschrift nutzt es jetzt und kann anlegen); „Im Text genannt / Noch unbekannt“ (`NamesHint`,
+  `writtenNames`); `relate` / `unrelate` als Befehl; „Noch zu schreiben“ beginnt mit
+  „Platzhalter aus Geschichten“. Eingehängt: Blatt der Geschichte (Antreiber als Person,
+  Fraktion oder Familie, Leute und Orte, Hinweise, Einstiege, Szenen, Textfelder), Faden-Dialog,
+  Anheften auf dem Fadenbrett, Ort der Szene auf „Abend vorbereiten“.
+- Offen: `NamesHint` und „@“ fehlen noch auf „Abend vorbereiten“ (kein Ort für „nicht gemeint“)
+  und in den Zeilen der Listen des Blatts (Schritte, Hinweise, Einstiege, Szenen sind einfache
+  Eingabefelder); die übrigen Auswahlfelder der App (Festhalten, Kalender, Läden …) nutzen noch
+  `onCreate` oder gar kein Anlegen. Orte mit Begleiter („zur Salzgrotte“) erkennt
+  `unknownNames` bewusst nicht als Namen. Die Prüfung „bleibt bei 3000 Einträgen schnell“
+  (`chronik/model.test.ts`) läuft auf einem ausgelasteten Rechner in die 5-Sekunden-Grenze.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)
