@@ -202,4 +202,12 @@ describe('Zeilenweiser Vergleich', () => {
     expect(parts.at(-1)).toEqual({ kind: 'gap', count: 7 });
     expect(parts.filter((p) => p.kind === 'same')).toHaveLength(4);
   });
+
+  it('zeigt kurze gleiche Strecken lieber, als sie zu kürzen', () => {
+    const parts = foldDiff(
+      lineDiff(['a', 'b', 'c', 'd'].join('\n'), ['a', 'b', 'c', 'D'].join('\n')),
+      2,
+    );
+    expect(parts.map((p) => p.kind)).toEqual(['same', 'same', 'same', 'removed', 'added']);
+  });
 });

@@ -862,3 +862,145 @@ button.wf-wiki-row__toggle:hover {
     display: none;
   }
 }
+
+/* Frühere Fassungen: links die Liste, rechts die gewählte Fassung. */
+.wf-wiki-versions {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--s-5);
+  min-height: min(60vh, 520px);
+}
+.wf-wiki-versions__list {
+  max-height: min(64vh, 560px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+}
+.wf-wiki-versions__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--s-2) var(--s-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-wiki-versions__row:hover {
+  background: var(--gold-glow);
+}
+.wf-wiki-versions__row--on {
+  border-left-color: var(--gold);
+  background: var(--gold-glow);
+  color: var(--ink);
+}
+.wf-wiki-versions__when {
+  font-size: var(--text-md);
+}
+.wf-wiki-versions__what {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-wiki-versions__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-top: 2px;
+}
+.wf-wiki-versions__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.wf-wiki-versions__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.wf-wiki-versions__stand {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-wiki-versions__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-wiki-versions__text {
+  max-height: min(56vh, 480px);
+  padding: var(--s-3) var(--s-4);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--ink-soft);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Zeilenweiser Unterschied: Zeichen, Strich und Farbe – nie nur Farbe. */
+.wf-wiki-diff {
+  max-height: min(52vh, 440px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  line-height: 1.45;
+}
+.wf-wiki-diff__line {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  padding: 1px var(--s-3) 1px 0;
+  color: var(--ink-mute);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wf-wiki-diff__mark {
+  text-align: center;
+  font-weight: 600;
+}
+.wf-wiki-diff__line[data-kind='added'] {
+  background: var(--moss-wash);
+  color: var(--ink);
+}
+.wf-wiki-diff__line[data-kind='added'] .wf-wiki-diff__mark {
+  color: var(--moss);
+}
+.wf-wiki-diff__line[data-kind='added'] ins {
+  text-decoration: underline;
+  text-decoration-color: var(--moss);
+  text-underline-offset: 3px;
+}
+.wf-wiki-diff__line[data-kind='removed'] {
+  background: var(--ember-wash);
+  color: var(--ink-soft);
+}
+.wf-wiki-diff__line[data-kind='removed'] .wf-wiki-diff__mark {
+  color: var(--ember);
+}
+.wf-wiki-diff__line[data-kind='removed'] del {
+  text-decoration: line-through;
+  text-decoration-color: var(--ember);
+}
+.wf-wiki-diff__gap {
+  padding: 2px var(--s-3) 2px 22px;
+  border-block: 1px dashed var(--line-faint);
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}

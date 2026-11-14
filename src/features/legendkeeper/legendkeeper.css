@@ -420,7 +420,8 @@
   .wf-lk-act__label {
     display: none;
   }
-  .wf-lk-head__actions .wf-btn {
+  /* Nur die Knöpfe im Kopf – nicht die in Fenstern, die aus dem Menü „Mehr“ aufgehen. */
+  .wf-lk-head__actions .wf-btn:not(.wf-dialog .wf-btn) {
     width: 30px;
     padding: 0;
   }

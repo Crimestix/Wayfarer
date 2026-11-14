@@ -20,6 +20,7 @@ import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, entryForTitle, planFacts, statedKind, twins } from './facts';
 import { addBlankFactLines } from './factLines';
+import { titleTaken } from './model';
 import { scaffoldOf, scaffoldText, withScaffold, type ScaffoldKind } from './scaffold';
 import type { RelationHint } from './sentences';
 import { articleAsText, linkIndex, pageText, relinked, titleKey } from './text';
@@ -479,14 +480,6 @@ export function restoreVersion(db: CampaignDb, versionId: string): { undo: () =>
 }
 
 export type RestoreProblem = 'missing' | 'empty' | 'taken';
-
-/** Heißt schon ein anderer Artikel so (Titel oder Zweitname)? */
-export function titleTaken(articles: Articles, title: string): boolean {
-  const key = titleKey(title);
-  return Object.values(articles).some(
-    (a) => titleKey(a.title) === key || a.aliases.some((alias) => titleKey(alias) === key),
-  );
-}
 
 /**
  * Stellt einen gelöschten Artikel aus dem Papierkorb wieder her – mit seiner Kennung, damit seine

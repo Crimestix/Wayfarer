@@ -1,7 +1,14 @@
 /** Das eigene Wiki: Baum, Pfad, Suche und Rückverweise. Reine Funktionen. */
-import type { Article, ArticleDoc, CampaignData, Entity } from '../../domain/schema';
+import type {
+  Article,
+  ArticleDoc,
+  ArticleVersion,
+  CampaignData,
+  Entity,
+} from '../../domain/schema';
+import { trashOf, versionRows, versionsOf, type VersionRow } from '../../domain/versions';
 import { nodeText, outlineOf, type ArticleNode, type OutlineEntry } from '../legendkeeper/model';
-import { articleNodes, linkIndex, pageNodes, titleKey } from './text';
+import { articleNodes, linkIndex, pageNodes, pageText, titleKey } from './text';
 
 /**
  * Der Inhalt eines Artikels ist im Spielstand nur als Liste von Objekten geprüft; ihre Form ist
@@ -415,4 +422,90 @@ export function articleSuggestions(articles: Articles, query: string, limit = 12
     )
     .slice(0, limit)
     .map((entry) => entry.article);
+}
+
+// ── Frühere Fassungen ──────────────────────────────────────────────────────
+
+export interface VersionEntry extends VersionRow {
+  /** Name der Seite, wenn der Artikel mehrere Textseiten hat. */
+  page: string | null;
+  /** Der heutige Text dieser Seite (leer, wenn es sie nicht mehr gibt). */
+  now: string;
+}
+
+/**
+ * Die früheren Fassungen eines Artikels für die Liste, neueste zuerst: wann, wie groß die
+ * Änderung danach war, ob die Seite heute noch so lautet.
+ */
+export function articleVersions(
+  data: Pick<CampaignData, 'versions' | 'articles'>,
+  article: Article,
+): VersionEntry[] {
+  const pages = article.docs.filter((doc) => doc.kind === 'page');
+  const textOf = (docId: string | null): string | null => {
+    const doc = pages.find((page) => page.id === docId);
+    return doc ? pageText(data.articles, article, doc) : null;
+  };
+  return versionRows(versionsOf(data, article.id), textOf).map((row) => {
+    const index = pages.findIndex((page) => page.id === row.version.docId);
+    return {
+      ...row,
+      page: pages.length > 1 && index >= 0 ? docTitle(pages[index]!, index) : null,
+      now: textOf(row.version.docId) ?? '',
+    };
+  });
+}
+
+/** „3 Zeilen neu, 1 entfernt“ – was nach einer Fassung geändert wurde. */
+export function changeLabel({ added, removed }: { added: number; removed: number }): string {
+  const lines = (n: number) => (n === 1 ? '1 Zeile' : `${n} Zeilen`);
+  if (!added && !removed) return 'keine Zeile geändert';
+  if (!removed) return `${lines(added)} neu`;
+  if (!added) return `${lines(removed)} entfernt`;
+  return `${lines(added)} neu, ${removed} entfernt`;
+}
+
+export interface TrashEntry {
+  version: ArticleVersion;
+  /** Der gelöschte Artikel, wie er war. */
+  article: Article;
+  /** Textseiten und Wörter darin – wie viel an ihm hängt. */
+  pages: number;
+  words: number;
+  /** Wie viele frühere Fassungen mit ihm zurückkämen. */
+  versions: number;
+  /** Heißt inzwischen ein anderer Artikel so? Dann braucht er beim Wiederherstellen einen Titel. */
+  taken: boolean;
+}
+
+/** Der Papierkorb für die Anzeige, zuletzt Gelöschtes zuerst. */
+export function trashEntries(data: Pick<CampaignData, 'versions' | 'articles'>): TrashEntry[] {
+  return trashOf(data).flatMap((version) => {
+    const article = version.article;
+    if (!article) return [];
+    const pages = article.docs.filter((doc) => doc.kind === 'page');
+    const words = pages
+      .map((doc) => pageText({ ...data.articles, [article.id]: article }, article, doc))
+      .join(' ')
+      .split(/\s+/)
+      .filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+    return [
+      {
+        version,
+        article,
+        pages: pages.length,
+        words,
+        versions: versionsOf(data, article.id).length,
+        taken: titleTaken(data.articles, article.title),
+      },
+    ];
+  });
+}
+
+/** Heißt schon ein Artikel so (Titel oder Zweitname)? */
+export function titleTaken(articles: Articles, title: string): boolean {
+  const key = titleKey(title);
+  return Object.values(articles).some(
+    (a) => titleKey(a.title) === key || a.aliases.some((alias) => titleKey(alias) === key),
+  );
 }

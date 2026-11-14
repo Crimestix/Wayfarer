@@ -12,6 +12,7 @@ import {
   restoreVersion,
   savePageText,
 } from './actions';
+import { articleVersions, changeLabel, titleTaken, trashEntries } from './model';
 
 let clock = new Date(2026, 10, 14, 10, 0).getTime();
 const later = (minutes: number) => {
@@ -167,5 +168,37 @@ describe('Papierkorb', () => {
     const [trash] = trashOf(db.getSnapshot());
     expect(purgeArticle(db, trash!.id)).toBe(2);
     expect(Object.values(db.getSnapshot().versions)).toEqual([]);
+  });
+});
+
+describe('Anzeige', () => {
+  it('nennt je Fassung die Änderung danach und ob die Seite heute so lautet', async () => {
+    const { db, article, write } = await setup();
+    write('Ein Dorf.\nAn der Furt.');
+    later(15);
+    write('Ein Dorf.');
+    const rows = articleVersions(db.getSnapshot(), db.getSnapshot().articles[article.id]!);
+    expect(rows.map((r) => [r.version.text, changeLabel(r.change), r.sameAsNow])).toEqual([
+      ['Ein Dorf.\nAn der Furt.', '1 Zeile entfernt', false],
+      ['Ein Dorf.', '1 Zeile neu', true],
+    ]);
+    expect(rows.every((r) => r.page === null && r.now === 'Ein Dorf.')).toBe(true);
+  });
+
+  it('beschreibt die Größe einer Änderung in Worten', () => {
+    expect(changeLabel({ added: 0, removed: 0 })).toBe('keine Zeile geändert');
+    expect(changeLabel({ added: 3, removed: 1 })).toBe('3 Zeilen neu, 1 entfernt');
+    expect(changeLabel({ added: 0, removed: 2 })).toBe('2 Zeilen entfernt');
+  });
+
+  it('zeigt im Papierkorb Wörter, Fassungen und ob der Titel vergeben ist', async () => {
+    const { db, article, write } = await setup();
+    write('Ein Dorf an der Furt.');
+    deleteArticle(db, article.id);
+    const [entry] = trashEntries(db.getSnapshot());
+    expect(entry).toMatchObject({ pages: 1, words: 5, versions: 1, taken: false });
+    createArticle(db, { title: 'hohenfurt' });
+    expect(trashEntries(db.getSnapshot())[0]!.taken).toBe(true);
+    expect(titleTaken(db.getSnapshot().articles, 'Salzgrotte')).toBe(false);
   });
 });

@@ -16,6 +16,7 @@ import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import { SourcesSection } from './SourcesSection';
 import { ScaffoldSection } from './ScaffoldSection';
+import { TrashSection } from './TrashSection';
 import { TableRulesSheet } from '../tisch/TableRules';
 import './einstellungen.css';
 
@@ -79,6 +80,14 @@ export default function Page() {
             lead="Welche Felder ein neuer Artikel je Art leer mitbekommt – Person, Ort, Fraktion und so weiter. Nur Feldnamen, nie ein Wert; ausgefüllt wird von dir."
           >
             <ScaffoldSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Papierkorb"
+            lead="Gelöschte Artikel mit allen Seiten. Sie bleiben hier, bis du sie wiederherstellst oder endgültig entfernst. Frühere Fassungen eines Artikels findest du an ihm selbst, im Menü „Mehr“."
+          >
+            <TrashSection />
           </Section>
 
           <Section

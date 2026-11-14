@@ -1672,6 +1672,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Marken (ein einzelnes schweres Stück verdrängt nicht mehr alle anderen); Zeitalter entfernen
   mit Rückgängig; vor dem ersten Abend kein heutiger Ort der Gruppe; ungefähre Einträge stehen
   als „ungefähr“; Abend mit `sessionLabel`, Namen mit Zahlen in natürlicher Reihenfolge.
+- **Frühere Fassungen und Papierkorb.** Neue Sammlung `versions`: Beim Schreiben bleibt der
+  vorige Wortlaut (eine je Seite und zehn Minuten, ausgedünnt auf 20 + eine je Tag, höchstens 60);
+  am Artikel „Mehr › Frühere Fassungen“ mit Vergleich zu heute (eigener zeilenweiser Vergleich)
+  und „Zurückholen“ mit Rückgängig; gelöschte Artikel liegen im Papierkorb der Einstellungen.
+  Offen: Eine gelöschte Seite (nicht der ganze Artikel) kommt nicht in den Papierkorb; die
+  Sicherung enthält alle Fassungen (bei 500 viel bearbeiteten Artikeln grob 5–30 MB, schlimmstenfalls
+  um 90 MB) – ob sie wahlweise ohne Fassungen gesichert werden soll, ist offen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

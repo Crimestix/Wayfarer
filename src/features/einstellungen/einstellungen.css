@@ -706,3 +706,65 @@
   font-size: var(--text-xs);
   font-style: italic;
 }
+
+/* Papierkorb: gelöschte Artikel, je Zeile Titel, Datum und Handgriffe. */
+.wf-einstellungen-trash {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-einstellungen-trash__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-4);
+  align-items: start;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-einstellungen-trash__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 0;
+}
+.wf-einstellungen-trash__title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wf-einstellungen-trash__meta {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-trash__note {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-einstellungen-trash__rename {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-width: 460px;
+  margin-top: var(--s-2);
+}
+.wf-einstellungen-trash__text {
+  max-height: 260px;
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-inset);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wf-einstellungen-trash__do {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}

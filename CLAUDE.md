@@ -135,7 +135,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`, `assortments/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`, `assortments/`, `versions/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -586,6 +586,14 @@ nicht übernommen.
   Ein Artikel und ein Eintrag gleichen Namens sind dasselbe Ding: `linkTwins()` verbindet sie
   von selbst (nur wenn eindeutig) – nie einen zweiten Eintrag für einen Namen anlegen, den es
   schon gibt.
+- Frühere Fassungen (`versions/`, `domain/versions.ts`): `savePageText` legt den Wortlaut vor
+  einer Änderung ab – höchstens eine je Seite und zehn Minuten (die erste bleibt: der Stand vor
+  dem Ansetzen); ausgedünnt über `pruneVersions` (die jüngsten 20, ältere eine je Tag, höchstens
+  60 je Artikel). `deleteArticle` legt den ganzen Artikel als Fassung `delete` in den Papierkorb
+  (`trashOf`, Einstellungen); zurück nur über `restoreVersion` / `restoreArticle` (gleiche
+  Kennung, Titel frei, Einträge und Verweise ziehen mit), weg nur über `purgeArticle`. Nie Text
+  an diesen Befehlen vorbei in `articles` schreiben, sonst fehlt die Fassung. Vergleich:
+  `lineDiff` / `foldDiff`. Nicht in der Suche.
 - Steckbrief und Welt: Die Zeilen „Feld: Wert“ im Steckbrief eines Artikels speisen den Eintrag
   der Welt, der zu ihm gehört (`wiki/facts.ts`, `syncFacts`). Der Artikel gilt, wenn sich sein
   Wortlaut ändert; sonst bleibt, was von Hand geändert wurde (`entity.fromArticle`). Neue

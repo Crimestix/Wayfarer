@@ -10,6 +10,7 @@ import {
   Ellipsis,
   FilePlus2,
   FolderInput,
+  History,
   PenLine,
   Plus,
   Tags,
@@ -45,6 +46,8 @@ import { ArticleIcon } from './icons';
 import { entryForTitle } from './facts';
 import { articlePath, articleSuggestions, childArticles } from './model';
 import { SCAFFOLD_KINDS, isScaffoldKind, scaffoldOf } from './scaffold';
+import { VersionsDialog } from './Versions';
+import { versionsOf } from '../../domain/versions';
 
 /** „Welt › Hohenfurt“ – wo ein Artikel im Baum steht. */
 function PathLine({ article }: { article: Article }) {
@@ -328,7 +331,8 @@ export function ArticleMenu({ article, onNewChild }: { article: Article; onNewCh
   const [, navigate] = useLocation();
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [dialog, setDialog] = useState<'move' | 'meta' | null>(null);
+  const [dialog, setDialog] = useState<'move' | 'meta' | 'versions' | null>(null);
+  const versions = versionsOf(data, article.id).length;
   const pick = (run: () => void) => () => {
     setOpen(false);
     run();
@@ -344,6 +348,7 @@ export function ArticleMenu({ article, onNewChild }: { article: Article; onNewCh
           ? ` ${children === 1 ? 'Der Unterartikel rückt' : `Die ${children} Unterartikel rücken`} eine Ebene nach oben.`
           : '',
         ' Verweise auf ihn bleiben als Name stehen.',
+        ' Der Artikel bleibt im Papierkorb (Einstellungen), bis du ihn dort endgültig entfernst.',
       ].join(''),
       confirmLabel: 'Löschen',
       danger: true,
@@ -388,6 +393,9 @@ export function ArticleMenu({ article, onNewChild }: { article: Article; onNewCh
         <MenuItem icon={<Tags />} onClick={pick(() => setDialog('meta'))}>
           Schlagworte und Zweitnamen …
         </MenuItem>
+        <MenuItem icon={<History />} onClick={pick(() => setDialog('versions'))}>
+          {versions ? `Frühere Fassungen (${versions}) …` : 'Frühere Fassungen …'}
+        </MenuItem>
         <div className="wf-menu-sep" />
         <MenuItem icon={<Trash2 />} onClick={pick(() => void remove())}>
           Artikel löschen
@@ -395,6 +403,9 @@ export function ArticleMenu({ article, onNewChild }: { article: Article; onNewCh
       </Popover>
       {dialog === 'move' && <MoveDialog article={article} onClose={() => setDialog(null)} />}
       {dialog === 'meta' && <MetaDialog article={article} onClose={() => setDialog(null)} />}
+      {dialog === 'versions' && (
+        <VersionsDialog article={article} onClose={() => setDialog(null)} />
+      )}
     </>
   );
 }

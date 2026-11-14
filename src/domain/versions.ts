@@ -190,7 +190,7 @@ export type DiffPart = DiffLine | { kind: 'gap'; count: number };
 
 /**
  * Kürzt lange gleiche Strecken eines Vergleichs: Um jede Änderung bleiben `context` Zeilen
- * stehen, dazwischen steht nur, wie viele Zeilen unverändert sind.
+ * stehen, dazwischen steht nur, wie viele Zeilen unverändert sind – ab drei Zeilen.
  */
 export function foldDiff(lines: readonly DiffLine[], context = 2): DiffPart[] {
   const near = new Array<boolean>(lines.length).fill(false);
@@ -204,15 +204,20 @@ export function foldDiff(lines: readonly DiffLine[], context = 2): DiffPart[] {
       near[k] = true;
   });
   const out: DiffPart[] = [];
-  let gap = 0;
+  let hidden: DiffLine[] = [];
+  // Eine Lücke lohnt erst ab drei Zeilen; kürzere stehen einfach da.
+  const close = () => {
+    if (hidden.length >= 3) out.push({ kind: 'gap', count: hidden.length });
+    else out.push(...hidden);
+    hidden = [];
+  };
   lines.forEach((line, index) => {
     if (line.kind !== 'same' || near[index]) {
-      if (gap) out.push({ kind: 'gap', count: gap });
-      gap = 0;
+      close();
       out.push(line);
-    } else gap++;
+    } else hidden.push(line);
   });
-  if (gap) out.push({ kind: 'gap', count: gap });
+  close();
   return out;
 }
 
