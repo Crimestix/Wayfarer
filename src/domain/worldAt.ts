@@ -17,7 +17,7 @@ import { agesAt, type AgeSpan } from './ages';
 import { clockView, type StepView } from './clock';
 import { activeParty, byTime, chronicleSorted, findRelation } from './derive';
 import { activeConditions, partyPlaceAt, sessionAt, sessionSpans, sortKeyOf } from './history';
-import { lifeFacts, type LifeFact } from './lifespan';
+import { endOf, lifeFacts, type LifeFact } from './lifespan';
 import { playerBook } from './playerBook';
 import {
   PARTY_ID,
@@ -33,6 +33,7 @@ import {
 } from './schema';
 import { holderAfter } from './shop';
 import type { WorldTime } from './time/calendar';
+import { campaignStart } from './worldHistory';
 
 // ── Rückrechnen ────────────────────────────────────────────────────────────
 
@@ -104,10 +105,11 @@ function holdersAt(data: CampaignData, at: WorldTime): Map<string, string | null
     if (!loot.given || loot.at === null) continue;
     if (loot.chronicleId) lootLines.add(loot.chronicleId);
     if (!loot.itemId) continue;
+    // Ohne Empfänger ging die Beute an die ganze Gruppe.
     push(changes, loot.itemId, {
       at: loot.at,
       order: data.chronicle[loot.chronicleId ?? '']?.created ?? loot.created,
-      value: loot.toId,
+      value: loot.toId ?? PARTY_ID,
       before: loot.holderBefore,
     });
   }
@@ -394,10 +396,8 @@ const thenAndNow = <T>(then: T, today: T): ThenAndNow<T> => ({
 
 export interface WorldOnLife {
   entity: Entity;
-  /** Alter, Bestehen, Ende – damals gerechnet. */
+  /** Alter oder wie lange es schon bestand – damals gerechnet. */
   facts: LifeFact[];
-  /** Damals schon gestorben, aufgelöst, zerstört. */
-  gone: boolean;
 }
 
 export interface WorldOnMember {
@@ -426,23 +426,30 @@ export interface WorldOn {
   ages: AgeSpan[];
   placeId: string | null;
   session: Session | null;
-  /** Die Gefährten (die heute aktiven) – Stufe, Schicksal, Zustände damals. */
+  /** Der Tag liegt vor dem ersten Abend – die Gruppe zog noch nicht gemeinsam. */
+  beforeCampaign: boolean;
+  /** Die Gefährten (die heute aktiven) – Stufe, Schicksal, Zustände damals. Vor dem ersten Abend leer. */
   party: WorldOnMember[];
-  /** Was Lebensdaten hat und damals schon bestand – Lebewesen zuerst. */
+  /** Was Lebensdaten hat und damals bestand – Lebewesen zuerst. */
   lives: WorldOnLife[];
   /** So viele Einträge mit Lebensdaten entstanden erst später. */
   notYet: number;
-  /** Personen und Gefährten, die damals nicht (mehr) am Leben oder verschollen waren. */
+  /** So viele waren damals schon gestorben, aufgelöst, vergangen. */
+  past: number;
+  /**
+   * Personen und Gefährten, die damals nicht (mehr) am Leben oder verschollen waren. Vor dem
+   * ersten Abend nur, was die Chronik belegt – ein von Hand gesetzter Stand hat keine Zeit.
+   */
   fates: { entity: Entity; status: ThenAndNow<PersonStatus> }[];
   /** Wo jemand damals war – nach den Einträgen der Art „Aufenthalt“. */
   whereabouts: { entity: Entity; placeId: ThenAndNow<string | null> }[];
-  /** Haltungen zur Gruppe damals. */
+  /** Haltungen zur Gruppe damals (vor dem ersten Abend nur, was die Chronik belegt). */
   attitudes: { entity: Entity; value: ThenAndNow<number | null> }[];
   /** Gegenstände, deren Besitzer sich mit der Zeit geändert hat – bei wem sie damals waren. */
   holders: { entity: Entity; holderId: ThenAndNow<string | null> }[];
   /** Uhren, die damals schon liefen. */
   clocks: WorldOnClock[];
-  /** Was die Gruppe damals wusste: je Abschnitt des Spielerbuchs die Zahl und die Namen. */
+  /** Was die Gruppe damals wusste: je Abschnitt des Spielerbuchs die Zahl und die Namen. Vor dem ersten Abend leer. */
   knew: { label: string; count: number; names: string[] }[];
   /** Die letzten Einträge der Chronik bis dahin, der jüngste zuerst. */
   recent: ChronicleEntry[];
@@ -478,37 +485,51 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
   const view = worldAt(data, t);
   const today = (id: string) => data.entities[id];
 
-  const party: WorldOnMember[] = activeParty(view).map((character) => {
-    const current = today(character.id);
-    return {
-      entity: character,
-      level: thenAndNow(
-        character.character.level,
-        current?.kind === 'character' ? current.character.level : character.character.level,
-      ),
-      status: thenAndNow(character.character.status, statusOfEntity(current) ?? 'alive'),
-      conditions: activeConditions(view, character.id).map((c) => c.entry.text.trim()),
-    };
-  });
+  const beforeCampaign = t < campaignStart(data);
+  const born = (entity: Entity) => !entity.born || entity.born.at <= t;
+  const party: WorldOnMember[] = (beforeCampaign ? [] : activeParty(view).filter(born)).map(
+    (character) => {
+      const current = today(character.id);
+      return {
+        entity: character,
+        level: thenAndNow(
+          character.character.level,
+          current?.kind === 'character' ? current.character.level : character.character.level,
+        ),
+        status: thenAndNow(character.character.status, statusOfEntity(current) ?? 'alive'),
+        conditions: activeConditions(view, character.id).map((c) => c.entry.text.trim()),
+      };
+    },
+  );
 
   const lives: WorldOnLife[] = [];
   let notYet = 0;
+  let past = 0;
   for (const entity of Object.values(view.entities)) {
     if (!entity.born && !entity.ended) continue;
-    if (entity.born && entity.born.at > t) {
+    if (!born(entity)) {
       notYet++;
       continue;
     }
+    // Ein Tod aus der Chronik zählt wie ein eingetragener (`endOf`).
+    const ended = endOf(view, entity);
+    if (ended && ended.at <= t) {
+      past++;
+      continue;
+    }
     const facts = lifeFacts(view, entity);
-    if (!facts.length) continue;
-    lives.push({ entity, facts, gone: !!entity.ended && entity.ended.at <= t });
+    if (facts.length) lives.push({ entity, facts });
   }
   lives.sort(
     (a, b) =>
-      Number(a.gone) - Number(b.gone) ||
       Number(!LIVING_KINDS.has(a.entity.kind)) - Number(!LIVING_KINDS.has(b.entity.kind)) ||
       a.entity.name.localeCompare(b.entity.name, 'de'),
   );
+
+  // Was nur von Hand gesetzt ist, hat keine Zeit: Es gilt erst ab dem ersten Abend als Stand
+  // der Welt. Davor zählt nur, was die Chronik belegt.
+  const sorts = sortsAround(chronicleSorted(data), t);
+  const known = (key: string) => !beforeCampaign || sorts.last.has(key) || sorts.next.has(key);
 
   const fates: WorldOn['fates'] = [];
   const whereabouts: WorldOn['whereabouts'] = [];
@@ -519,7 +540,7 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
     const status = statusOfEntity(entity);
     if (status === null) continue;
     const current = statusOfEntity(today(entity.id)) ?? status;
-    if (status !== 'alive' || current !== status)
+    if ((status !== 'alive' || current !== status) && known(`fate:${entity.id}`))
       fates.push({ entity, status: thenAndNow(status, current) });
     if (told.has(entity.id)) {
       const place = placeOfEntity(entity) ?? null;
@@ -537,6 +558,7 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
     if (!entity || findRelation(view, relation.from, PARTY_ID) !== relation) continue;
     const current = findRelation(data, relation.from, PARTY_ID)?.attitude ?? null;
     if (relation.attitude === null && current === null) continue;
+    if (!known(`attitude:${relation.from}:${PARTY_ID}`)) continue;
     attitudes.push({ entity, value: thenAndNow(relation.attitude, current) });
   }
 
@@ -546,11 +568,13 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
     const entity = view.entities[id];
     if (entity?.kind !== 'item') continue;
     const current = today(id);
+    // Nach einer Ausgabe an die Gruppe hat der Gegenstand keinen bestimmten Besitzer: die Gruppe.
+    const held = current?.kind === 'item' ? current.item.holderId : null;
     holders.push({
       entity,
       holderId: thenAndNow(
         entity.item.holderId,
-        current?.kind === 'item' ? current.item.holderId : null,
+        held ?? (moved.get(id) === PARTY_ID ? PARTY_ID : null),
       ),
     });
   }
@@ -571,8 +595,9 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
         a.clock.title.localeCompare(b.clock.title, 'de'),
     );
 
+  // Vor dem ersten Abend gab es die Gruppe noch nicht – also auch nichts, was sie wusste.
   const knew: WorldOn['knew'] = [];
-  for (const section of playerBook(view).sections) {
+  for (const section of beforeCampaign ? [] : playerBook(view).sections) {
     if (section.sort === 'things')
       knew.push({
         label: section.label,
@@ -599,8 +624,10 @@ export function worldOn(data: CampaignData, at: WorldTime): WorldOn {
     placeId: view.state.placeId,
     session: view.state.sessionId ? (view.sessions[view.state.sessionId] ?? null) : null,
     party,
+    beforeCampaign,
     lives,
     notYet,
+    past,
     fates: fates.sort(byEntityName),
     whereabouts: whereabouts.sort(byEntityName),
     attitudes: attitudes.sort(byEntityName),

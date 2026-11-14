@@ -17,6 +17,7 @@ import {
   createEntity,
   createGuess,
   createLoot,
+  createRelation,
   createSession,
   type CampaignData,
   type Entity,
@@ -316,22 +317,52 @@ describe('worldOn: was „Welt an einem Tag“ zeigt', () => {
     expect(worldOn(data, T4).party[0]!.conditions).toEqual([]);
   });
 
-  it('wer lebte und wie alt – nie genauer als bekannt', async () => {
-    const { db, mira, graufels, ilka } = await setup();
+  it('wer lebte und wie alt – nie genauer als bekannt; Vergangenes und Späteres nur gezählt', async () => {
+    const { db, mira, graufels, ilka, brann } = await setup();
     const data = db.getSnapshot();
     const on = worldOn(data, yearStart(year - 20) + 100 * DAY);
     const miraThen = on.lives.find((l) => l.entity.id === mira.id)!;
     expect(miraThen.facts[0]!.text).toBe('etwa 10 Jahre');
     const burg = on.lives.find((l) => l.entity.id === graufels.id)!;
-    expect(burg.gone).toBe(false);
     expect(burg.facts[0]!.text).toMatch(/^etwa 280 Jahre/);
     // Ilka war noch nicht geboren.
     expect(on.lives.some((l) => l.entity.id === ilka.id)).toBe(false);
     expect(on.notYet).toBe(1);
-    // Heute ist die Burg gefallen.
-    const today = worldOn(data, NOW).lives.find((l) => l.entity.id === graufels.id)!;
-    expect(today.gone).toBe(true);
+    expect(on.past).toBe(0);
+    // Heute ist die Burg gefallen – sie steht nicht mehr unter denen, die bestehen.
+    const today = worldOn(data, NOW);
+    expect(today.lives.some((l) => l.entity.id === graufels.id)).toBe(false);
+    expect(today.past).toBe(1);
     expect(lifeFacts(data, graufels).some((f) => f.label === 'Untergegangen')).toBe(true);
+    // Brann hat keine Lebensdaten – er steht unter den Schicksalen, nicht hier.
+    expect(today.lives.some((l) => l.entity.id === brann.id)).toBe(false);
+  });
+
+  it('vor dem ersten Abend zog die Gruppe noch nicht gemeinsam', async () => {
+    const { db } = await setup();
+    const data = db.getSnapshot();
+    const early = worldOn(data, T1 - 2 * DAY);
+    expect(early.beforeCampaign).toBe(true);
+    expect(early.party).toEqual([]);
+    expect(early.knew).toEqual([]);
+  });
+
+  it('von Hand Gesetztes ohne Eintrag gilt erst ab dem ersten Abend', async () => {
+    const { db, odo, ilka } = await setup();
+    const o = db.getSnapshot().entities[odo.id]!;
+    if (o.kind === 'person')
+      db.put('entities', { ...o, person: { ...o.person, status: 'missing' } });
+    db.put('relations', createRelation({ from: ilka.id, to: PARTY_ID, attitude: 2 }));
+    const data = db.getSnapshot();
+    const early = worldOn(data, T1 - 2 * DAY);
+    expect(early.fates.some((f) => f.entity.id === odo.id)).toBe(false);
+    expect(early.attitudes.some((a) => a.entity.id === ilka.id)).toBe(false);
+    // Mira hat Einträge: Vor dem ersten war ihre Haltung unbekannt.
+    expect(early.attitudes.map((a) => a.value.then)).toEqual([null]);
+    const later = worldOn(data, T2);
+    expect(later.fates.some((f) => f.entity.id === odo.id)).toBe(true);
+    expect(later.attitudes.find((a) => a.entity.id === ilka.id)?.value.then).toBe(2);
+    expect(worldOn(data, T2).beforeCampaign).toBe(false);
   });
 
   it('Schicksale, Haltungen, Besitzer: damals neben heute', async () => {

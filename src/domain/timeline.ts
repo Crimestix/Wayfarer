@@ -575,7 +575,8 @@ function historyLane(data: CampaignData): TimelineLane {
         precision: date.precision,
         text: date.sentence,
         link: { type: 'article', id: date.articleId },
-        weight: 2,
+        // Was der Spielleiter über die Geschichte geschrieben hat, trägt sie.
+        weight: 3,
         tone: date.at > now ? 'future' : 'plain',
         source: article?.title ?? '',
       }),
@@ -615,7 +616,7 @@ function historyLane(data: CampaignData): TimelineLane {
     key: 'history',
     kind: 'history',
     title: 'Geschichte der Welt',
-    sub: 'Lebensdaten, Daten im Text, Vorgeschichte',
+    sub: 'Was ein Datum hat',
     image: null,
     monogram: '',
     link: null,
@@ -1412,16 +1413,14 @@ export function layoutLane(pieces: readonly TimelinePiece[], view: TimelineView)
 
 /** Breite eines Fachs beim Ausdünnen, in Bildpunkten. */
 export const THIN_PX = 56;
-/** So viele Marken behält ein Fach in jedem Fall; mehr nur, wenn sie zu den schwersten gehören. */
+/** So viele Marken behält ein Fach höchstens – genug Platz für ihre Schrift. */
 export const THIN_KEEP = 3;
-/** Mehr Marken behält ein Fach nie – sie stünden ohnehin als Bündel da. */
-export const THIN_MAX = 8;
 
 /**
  * Dünnt eine dichte Bahn nach Gewicht aus: Die Zeit im Bild wird in Fächer von `THIN_PX`
  * Bildpunkten geteilt (fest an der Weltzeit, damit beim Verschieben nichts springt). Liegen in
- * einem Fach mehr als `THIN_KEEP` Marken, bleiben nur die schwersten – Leichteres erscheint beim
- * Heranzoomen. Leisten und Laufzeiten bleiben immer. `hidden` = so viele Marken im Bild fehlen.
+ * einem Fach mehr als `THIN_KEEP` Marken, bleiben nur die schwersten (und von ihnen höchstens
+ * `THIN_KEEP`, gleichmäßig verteilt) – der Rest erscheint beim Heranzoomen. Leisten und Laufzeiten bleiben immer. `hidden` = so viele Marken im Bild fehlen.
  */
 export function thinPieces(
   pieces: readonly TimelinePiece[],
@@ -1450,14 +1449,14 @@ export function thinPieces(
     }
     const heaviest = Math.max(...list.map((p) => p.weight));
     const top = list.filter((p) => p.weight === heaviest).sort((a, b) => markAt(a) - markAt(b));
-    // Auch vom Schwersten höchstens `THIN_MAX` – gleichmäßig über das Fach verteilt.
-    const step = top.length / Math.min(top.length, THIN_MAX);
+    // Auch vom Schwersten höchstens `THIN_KEEP` – gleichmäßig über das Fach verteilt.
+    const step = top.length / Math.min(top.length, THIN_KEEP);
     const chosen = new Set<TimelinePiece>();
     for (let i = 0; i < top.length; i += step) chosen.add(top[Math.floor(i)]!);
-    const right = view.from + view.width * view.mpp;
+    const edge = view.from + view.width * view.mpp;
     for (const p of list) {
       if (chosen.has(p)) kept.push(p);
-      else if (p.hi >= view.from && p.lo <= right) hidden++;
+      else if (p.hi >= view.from && p.lo <= edge) hidden++;
     }
   }
   return { pieces: sortPieces(kept), hidden };

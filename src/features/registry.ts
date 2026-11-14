@@ -145,6 +145,7 @@ export const AREAS: Area[] = [
     hint: 'Kalender, Chronik, Zeitleiste, Nachtragen, Weltgeschehen',
     icon: CalendarDays,
     tabs: TIME_TABS,
+    also: ['/damals'],
   },
   {
     path: '/faeden',

@@ -19,9 +19,12 @@ import {
 import { useLocation } from 'wouter';
 import {
   CalendarDays,
+  CalendarSearch,
   ChevronDown,
   ChevronUp,
   Crosshair,
+  Hourglass,
+  Layers,
   Maximize,
   Minus,
   Plus,
@@ -33,7 +36,8 @@ import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import type { ChronicleEntry } from '../../domain/schema';
 import { KIND_LABEL as ENTRY_KIND_LABEL } from '../../domain/chronicleKinds';
-import { dayIndexOf } from '../../domain/time/calendar';
+import { agesIn } from '../../domain/ages';
+import { dayIndexOf, formatDate, startOfDay } from '../../domain/time/calendar';
 import {
   AXIS_UNITS,
   AXIS_UNIT_LABEL,
@@ -51,7 +55,9 @@ import {
   panView,
   pieceWhen,
   repeatWindow,
+  thinPieces,
   timelineExtent,
+  atX,
   toX,
   zoomPreset,
   zoomUnit,
@@ -78,6 +84,7 @@ import {
 import { EntryDialog } from '../chronik/EntryDialog';
 import { showSessionInChronicle } from '../chronik/link';
 import { addLane, moveLane, removeLane, resetLanes } from './actions';
+import { AgeEditor } from './AgeEditor';
 import './zeitleiste.css';
 
 /** Breite der Köpfe links. */
@@ -85,6 +92,9 @@ const HEAD_W = 244;
 /** Höhe einer Reihe und Rand einer Bahn – wie in zeitleiste.css. */
 const ROW_H = 26;
 const LANE_PAD = 9;
+
+/** Ein halber Tag in Minuten – die Mitte eines Tages auf der Achse. */
+const MINUTES_HALF_DAY = 12 * 60;
 
 /** Wo die Zeitleiste stand, solange die App läuft. */
 const memory: { from: number | null; mpp: number | null } = { from: null, mpp: null };
@@ -126,6 +136,9 @@ export default function ZeitleistePage() {
   const [editing, setEditing] = useState<ChronicleEntry | null>(null);
   const [choosing, setChoosing] = useState(false);
   const chooser = useRef<HTMLButtonElement>(null);
+  /** Die Zeitalter zum Bearbeiten: offen, und welches gerade (null = ein neues). */
+  const [ages, setAges] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
+  const agesButton = useRef<HTMLButtonElement>(null);
   /** Ein Bündel, dessen Stücke zur selben Zeit liegen – zum Auswählen aufgeklappt. */
   const [listing, setListing] = useState<TimelinePiece[] | null>(null);
   const listAnchor = useRef<HTMLElement | null>(null);
@@ -282,6 +295,9 @@ export default function ZeitleistePage() {
         showSessionInChronicle(link.id);
         navigate('/chronik');
         return;
+      case 'article':
+        navigate(`/wiki/${link.id}`);
+        return;
       case 'event':
         focusOn({ type: 'day', day: dayIndexOf(link.at) });
         navigate('/kalender');
@@ -306,6 +322,7 @@ export default function ZeitleistePage() {
   const openLane = (lane: TimelineLane) => {
     if (lane.kind === 'party') navigate('/gruppe');
     else if (lane.kind === 'events') navigate('/kalender');
+    else if (lane.kind === 'history') navigate('/welt');
     else open(lane.link);
   };
 
@@ -334,7 +351,8 @@ export default function ZeitleistePage() {
           <h1 className="wf-page__title">Zeitleiste</h1>
           <p className="wf-page__lead">
             Was war und was kommt – Bahn für Bahn. Zoomen mit Strg/⌘ und Mausrad oder zwei Fingern,
-            Ziehen verschiebt, ein Klick öffnet.
+            Ziehen verschiebt, ein Klick öffnet – ein Klick auf die Achse zeigt die Welt an diesem
+            Tag.
           </p>
         </div>
         <span className="wf-grow" />
@@ -372,8 +390,33 @@ export default function ZeitleistePage() {
           >
             Bahnen
           </Button>
+          <Button
+            ref={agesButton}
+            size="sm"
+            icon={<Layers />}
+            aria-expanded={ages.open}
+            onClick={() => setAges((a) => ({ open: !a.open, id: null }))}
+          >
+            Zeitalter
+          </Button>
+          <Button size="sm" icon={<CalendarSearch />} onClick={() => navigate('/damals')}>
+            Welt an einem Tag
+          </Button>
         </div>
         <LaneChooser open={choosing} onClose={() => setChoosing(false)} anchor={chooser} />
+        <Popover
+          open={ages.open}
+          onClose={() => setAges({ open: false, id: null })}
+          anchor={agesButton}
+          align="right"
+          width={380}
+        >
+          <AgeEditor
+            editing={ages.id}
+            onEdit={(id) => setAges({ open: true, id })}
+            onClose={() => setAges({ open: false, id: null })}
+          />
+        </Popover>
       </header>
 
       <div className="wf-zeitleiste-frame wf-panel">
@@ -392,6 +435,8 @@ export default function ZeitleistePage() {
               lanes={lanes}
               bands={bands}
               now={now}
+              dragged={dragged}
+              onEditAge={(id) => setAges({ open: true, id })}
               onHover={setHover}
               onOpen={openItem}
               onOpenLane={openLane}
@@ -448,6 +493,8 @@ function Board({
   lanes,
   bands,
   now,
+  dragged,
+  onEditAge,
   onHover,
   onOpen,
   onOpenLane,
@@ -459,6 +506,8 @@ function Board({
   lanes: TimelineLane[];
   bands: ReturnType<typeof evenings>;
   now: number;
+  dragged: RefObject<boolean>;
+  onEditAge: (id: string) => void;
   onHover: (hover: Hover | null) => void;
   onOpen: (item: LaidPiece, element: HTMLElement) => void;
   onOpenLane: (lane: TimelineLane) => void;
@@ -467,22 +516,59 @@ function Board({
   onAdd: () => void;
 }) {
   const data = useData();
+  const [, navigate] = useLocation();
   const cal = data.campaign.calendar;
   const axis = useMemo(() => axisTicks(cal, view), [cal, view]);
   const where = axisContext(cal, view);
   const visibleBands = eveningsInView(bands, view);
+  const ages = agesIn(data, view.from, view.from + view.width * view.mpp);
   const nowX = toX(view, now);
   const showNow = nowX >= -2 && nowX <= view.width + 2;
+  /** Ein Tag, auf den auf der Achse geklickt wurde – für „Welt an diesem Tag“. */
+  const [picked, setPicked] = useState<number | null>(null);
+  const pickAnchor = useRef<HTMLSpanElement>(null);
+  const onRulerClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (dragged.current || (event.target as HTMLElement).closest('button')) return;
+    const x = event.clientX - event.currentTarget.getBoundingClientRect().left;
+    setPicked(startOfDay(Math.max(0, Math.round(atX(view, x)))));
+  };
+  // Die Marke steht in der Mitte des Tages und wandert beim Verschieben mit.
+  const pickX = picked === null ? 0 : toX(view, picked + MINUTES_HALF_DAY);
+  const pickVisible = picked !== null && pickX >= 0 && pickX <= view.width;
 
   return (
     <div className="wf-zeitleiste-board" style={{ ['--head-w' as string]: `${HEAD_W}px` }}>
       {/* Die Achse oben – bleibt beim Rollen stehen. */}
-      <div className="wf-zeitleiste-axis">
+      <div className="wf-zeitleiste-axis" data-ages={ages.length > 0 || undefined}>
         <div className="wf-zeitleiste-corner">
           {where && <span className="wf-zeitleiste-corner__where">{where}</span>}
           <span className="wf-caps">{AXIS_UNIT_LABEL[axis.unit]}</span>
         </div>
-        <div className="wf-zeitleiste-ruler" style={{ width: view.width }}>
+        <div
+          className="wf-zeitleiste-ruler"
+          style={{ width: view.width }}
+          onClick={onRulerClick}
+          title="Klicken: die Welt an diesem Tag"
+        >
+          {ages.map((span) => {
+            const x = Math.max(0, toX(view, span.from));
+            const end = span.to === null ? view.width : Math.min(view.width, toX(view, span.to));
+            const w = end - x;
+            if (w < 18) return null;
+            return (
+              <button
+                key={span.age.id}
+                type="button"
+                className="wf-zeitleiste-age-tag"
+                data-shade={span.shade}
+                style={{ transform: `translateX(${x}px)`, width: w }}
+                title={`${span.age.name} – ändern`}
+                onClick={() => onEditAge(span.age.id)}
+              >
+                <span className="wf-clamp-1">{span.age.name}</span>
+              </button>
+            );
+          })}
           {axis.ticks.map((tick) => {
             const x = toX(view, tick.at);
             return (
@@ -514,6 +600,14 @@ function Board({
               </span>
             );
           })}
+          {pickVisible && (
+            <span
+              ref={pickAnchor}
+              className="wf-zeitleiste-pick"
+              style={{ transform: `translateX(${pickX}px)` }}
+              aria-hidden
+            />
+          )}
           {showNow && (
             <span
               className="wf-zeitleiste-now-tag"
@@ -528,6 +622,19 @@ function Board({
       <div className="wf-zeitleiste-lanes">
         {/* Abende, Monatsgrenzen und „Jetzt“ liegen über allen Bahnen. */}
         <div className="wf-zeitleiste-veil" style={{ width: view.width }} aria-hidden>
+          {ages.map((span) => {
+            const x = Math.max(-2, toX(view, span.from));
+            const end =
+              span.to === null ? view.width + 2 : Math.min(view.width + 2, toX(view, span.to));
+            return (
+              <span
+                key={span.age.id}
+                className="wf-zeitleiste-age"
+                data-shade={span.shade}
+                style={{ transform: `translateX(${x}px)`, width: Math.max(0, end - x) }}
+              />
+            );
+          })}
           {axis.ticks.map((tick) => (
             <span
               key={tick.at}
@@ -579,6 +686,27 @@ function Board({
           </div>
         )}
       </div>
+      <Popover open={pickVisible} onClose={() => setPicked(null)} anchor={pickAnchor} width={260}>
+        {picked !== null && (
+          <div className="wf-zeitleiste-pickbox">
+            <span className="wf-zeitleiste-pickbox__day">{formatDate(cal, picked)}</span>
+            {picked > now ? (
+              <span className="wf-zeitleiste-pickbox__hint">
+                Dieser Tag liegt nach dem heutigen Tag der Welt – wie die Welt dann steht, weiß noch
+                niemand.
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                icon={<CalendarSearch />}
+                onClick={() => navigate(`/damals/${picked}`)}
+              >
+                Welt an diesem Tag
+              </Button>
+            )}
+          </div>
+        )}
+      </Popover>
     </div>
   );
 }
@@ -606,7 +734,16 @@ const Lane = memo(function Lane({
   onRemove: (key: string) => void;
   onMove: (key: string, by: -1 | 1) => void;
 }) {
-  const layout = useMemo(() => layoutLane(lane.pieces, view), [lane.pieces, view]);
+  // Die Geschichte der Welt kann Tausende Stücke tragen: weit herausgezoomt dünnt sie nach
+  // Gewicht aus.
+  const thin = useMemo(
+    () => (lane.kind === 'history' ? thinPieces(lane.pieces, view) : null),
+    [lane.kind, lane.pieces, view],
+  );
+  const layout = useMemo(
+    () => layoutLane(thin ? thin.pieces : lane.pieces, view),
+    [thin, lane.pieces, view],
+  );
   const height = LANE_PAD * 2 + layout.rows * ROW_H;
   const rowY = (row: number) => LANE_PAD + row * ROW_H + ROW_H / 2;
   const enter = (item: LaidPiece) => (event: ReactPointerEvent) =>
@@ -623,7 +760,9 @@ const Lane = memo(function Lane({
           title={`${lane.title} öffnen`}
         >
           <span className="wf-zeitleiste-head__title wf-clamp-1">{lane.title}</span>
-          <span className="wf-zeitleiste-head__sub wf-clamp-1">{lane.sub}</span>
+          <span className="wf-zeitleiste-head__sub wf-clamp-1">
+            {thin && thin.hidden > 0 ? `+${thin.hidden} beim Heranzoomen` : lane.sub}
+          </span>
         </button>
         <span className="wf-zeitleiste-head__tools">
           <IconButton
@@ -690,6 +829,8 @@ function Seal({ lane }: { lane: TimelineLane }) {
         <Users />
       ) : lane.kind === 'events' ? (
         <CalendarDays />
+      ) : lane.kind === 'history' ? (
+        <Hourglass />
       ) : (
         <span className="wf-zeitleiste-seal__mono">{lane.monogram}</span>
       )}
@@ -805,7 +946,11 @@ function Tip({ hover }: { hover: Hover }) {
       </div>
     );
   const entry = p.link?.type === 'chronicle' ? data.chronicle[p.link.id] : undefined;
-  const kind = entry ? ENTRY_KIND_LABEL[entry.kind] : KIND_WORD[p.kind];
+  const kind = entry
+    ? ENTRY_KIND_LABEL[entry.kind]
+    : p.kind === 'text' && p.source
+      ? `Im Text: ${p.source}`
+      : KIND_WORD[p.kind];
   const tone = TONE_WORD[p.tone];
   return (
     <div className="wf-zeitleiste-tip" data-tone={p.tone} style={{ left, top }} role="tooltip">
@@ -837,7 +982,7 @@ function LaneChooser({
   const toggle = (key: string, on: boolean) => (on ? addLane(db, key) : removeLane(db, key));
   const extra = keys.filter((key) => !choices.some((choice) => choice.key === key));
   const groups: { title: string; kinds: string[] }[] = [
-    { title: 'Immer zur Hand', kinds: ['party', 'events'] },
+    { title: 'Immer zur Hand', kinds: ['party', 'events', 'history'] },
     { title: 'Geschichten mit Uhr', kinds: ['story'] },
     { title: 'Fraktionen und Familien', kinds: ['faction'] },
   ];
