@@ -15,6 +15,7 @@ import { entitiesOfArticle } from '../wiki/model';
 import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
 import { Gallery } from './Gallery';
+import { GapsView } from './Gaps';
 import { Landing } from './Landing';
 import { isLexiconKind } from './lexicon';
 import { Lexicon } from './LexiconView';
@@ -80,6 +81,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           </EmptyState>
         ) : layout === 'net' ? (
           <FactionNetView />
+        ) : layout === 'gaps' ? (
+          <GapsView />
         ) : filter === 'person' ? (
           <Gallery />
         ) : filter !== 'all' && isLexiconKind(filter) ? (

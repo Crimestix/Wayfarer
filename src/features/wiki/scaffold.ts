@@ -6,8 +6,10 @@
  * Felder sind erlaubt – Wayfarer wertet sie dann nur nicht aus. Ein Gerüst ist ein Hinweis, nie
  * eine Pflicht: Was im Steckbrief fehlt, wird leise genannt, nie verlangt. Reine Funktionen.
  */
-import type { CampaignMeta, EntityKind } from '../../domain/schema';
-import { factField, type FactField } from './facts';
+import type { Article, CampaignData, CampaignMeta, EntityKind } from '../../domain/schema';
+import { steckbriefLabels } from './factLines';
+import { articleFacts, factField, statedKind, worldIndex, type FactField } from './facts';
+import { pageText } from './text';
 
 /** Arten, für die es ein Gerüst gibt – in der Reihenfolge der Einstellungen. */
 export const SCAFFOLD_KINDS = [
@@ -160,4 +162,29 @@ export function missingScaffold(
     if (field && fieldCount.get(field) === 1 && presentFields.has(field)) return false;
     return true;
   });
+}
+
+/** Schlüssel in `article.dismissedHints`: „Im Steckbrief fehlt noch …“ ist ausgeblendet. */
+export const SCAFFOLD_HINT = 'steckbrief-geruest';
+
+/**
+ * Was im Steckbrief eines Artikels nach dem Gerüst seiner Art noch fehlt. Die Art ist die seines
+ * Eintrags in der Welt, sonst die, die sein Steckbrief verrät. Null, wenn es nichts zu sagen gibt:
+ * keine Art, kein Gerüst, nichts fehlt, eine Vorlage – oder der Spielleiter hat es ausgeblendet.
+ */
+export function articleScaffoldGap(
+  data: CampaignData,
+  article: Article,
+): { kind: EntityKind; missing: string[] } | null {
+  if (article.template || article.dismissedHints.includes(SCAFFOLD_HINT)) return null;
+  const doc = article.docs.find((d) => d.kind === 'page');
+  if (!doc) return null;
+  const kind =
+    worldIndex(data).byArticle.get(article.id)?.[0]?.kind ??
+    statedKind(articleFacts(data.articles, article))?.kind ??
+    null;
+  if (!kind) return null;
+  const labels = steckbriefLabels(pageText(data.articles, article, doc));
+  const missing = missingScaffold(kind, labels, scaffoldOf(data.campaign, kind));
+  return missing.length ? { kind, missing } : null;
 }

@@ -47,10 +47,11 @@ export function useKindFilter(): KindFilter {
 }
 
 /**
- * Die Ansicht der Übersicht: nach Art, in den Ordnern – oder als Fraktionsnetz. Liegt hier, weil
- * auch die Bühne rechts sie braucht (das Netz zeigt sich dort). Gilt, solange die App läuft.
+ * Die Ansicht der Übersicht: nach Art, in den Ordnern, als Fraktionsnetz – oder was im Wiki noch
+ * zu schreiben ist. Liegt hier, weil auch die Bühne rechts sie braucht (Netz und „Noch zu
+ * schreiben“ zeigen sich dort). Gilt, solange die App läuft.
  */
-export type WorldLayout = 'kinds' | 'tree' | 'net';
+export type WorldLayout = 'kinds' | 'tree' | 'net' | 'gaps';
 
 let layout: WorldLayout = 'kinds';
 

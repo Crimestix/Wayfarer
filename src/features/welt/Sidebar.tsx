@@ -19,7 +19,7 @@ import {
   toast,
 } from '../../ui';
 import { MissingNamesHint } from '../import/NameSync';
-import { ArticleTree, useArticleHits } from '../wiki';
+import { ArticleTree, openForWriting, useArticleHits } from '../wiki';
 import { NewArticleDialog } from '../wiki/ArticleTools';
 import { ArticleIcon } from '../wiki/icons';
 import { adoptFamilies } from './actions';
@@ -35,6 +35,7 @@ import {
   useWorldView,
 } from './overview';
 import { NetIndex } from './NetIndex';
+import { GapsIndex, useGapCount } from './Gaps';
 import { scopeChoices, visibleIds } from './scope';
 import {
   WORLD_KINDS,
@@ -89,10 +90,13 @@ export function Sidebar({
   const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
-  // Drei Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird – oder als
-  // Netz der Fraktionen (das Bild steht rechts auf der Bühne).
+  // Vier Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird, als Netz der
+  // Fraktionen – oder was im Wiki noch zu schreiben ist (beides steht groß rechts auf der Bühne).
   const layout = useWorldLayout();
   const setLayout = setWorldLayout;
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const gapsCount = useGapCount();
   const [writing, setWriting] = useState<{ title: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -103,9 +107,9 @@ export function Sidebar({
     memory.query = query;
     memory.open = open;
   }, [query, open]);
-  // Ein Artikel ohne Eintrag steht nur in den Ordnern.
+  // Ein Artikel ohne Eintrag steht nur in den Ordnern – außer man kommt aus „Noch zu schreiben“.
   useEffect(() => {
-    if (articleId) setLayout('tree');
+    if (articleId && layoutRef.current !== 'gaps') setLayout('tree');
   }, [articleId]);
 
   // Der gewählte Eintrag soll in der Übersicht zu sehen sein.
@@ -383,6 +387,20 @@ export function Sidebar({
           >
             Netz
           </button>
+          <button
+            type="button"
+            role="tab"
+            className="wf-welt-layout__wide"
+            aria-selected={layout === 'gaps'}
+            title="Was im Wiki erwähnt wird, aber noch fehlt – und was noch kurz ist"
+            onClick={() => {
+              setLayout('gaps');
+              if (selected || articleId) navigate('/welt');
+            }}
+          >
+            Noch zu schreiben
+            {gapsCount > 0 && <span>{gapsCount}</span>}
+          </button>
         </div>
         {layout === 'kinds' && (
           <div className="wf-welt-filter" role="tablist" aria-label="Nach Art filtern">
@@ -440,6 +458,8 @@ export function Sidebar({
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {layout === 'net' ? (
           <NetIndex query={query} selectedId={selectedId} />
+        ) : layout === 'gaps' && !searching ? (
+          <GapsIndex selectedId={selectedId} articleId={currentArticle} />
         ) : searching ? (
           hits.length + textHits.length ? (
             <>
@@ -569,6 +589,7 @@ export function Sidebar({
           onClose={() => setWriting(null)}
           onCreated={(created) => {
             setWriting(null);
+            openForWriting();
             navigate(`/wiki/${created.id}`);
           }}
         />

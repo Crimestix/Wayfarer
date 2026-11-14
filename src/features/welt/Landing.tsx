@@ -1,6 +1,6 @@
 /** Einstieg in die Weltdatenbank, solange kein Eintrag gewählt ist. */
 import { Link } from 'wouter';
-import { ArrowRight, MapPin, Plus } from 'lucide-react';
+import { ArrowRight, Feather, MapPin, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import {
   KIND_LABEL,
@@ -12,7 +12,8 @@ import {
 import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
 import { openEntityDialog } from './editor';
-import { setKindFilter } from './overview';
+import { useGapCount } from './Gaps';
+import { setKindFilter, setWorldLayout } from './overview';
 import {
   WORLD_KINDS,
   castSubline,
@@ -35,6 +36,7 @@ export function Landing() {
   const current = place ? placeStatus(data, place.id).current : null;
   const stay = current ? describeVisit(data.campaign.calendar, data.state.now, current) : null;
   const present = cast ? [...cast.present, ...cast.away].slice(0, 6) : [];
+  const gaps = useGapCount();
   const presentTotal = cast ? cast.present.length + cast.away.length : 0;
 
   return (
@@ -47,6 +49,17 @@ export function Landing() {
             ? 'Noch ist hier nichts verzeichnet. Lege den ersten Ort an – alles Weitere findet dort seinen Platz.'
             : 'Wähle links einen Eintrag, um sein Dossier aufzuschlagen.'}
         </p>
+        {gaps > 0 && (
+          <button
+            type="button"
+            className="wf-welt-gapslink"
+            title="Was im Wiki erwähnt wird, aber noch fehlt – und was noch kurz ist"
+            onClick={() => setWorldLayout('gaps')}
+          >
+            <Feather />
+            Noch zu schreiben: {gaps}
+          </button>
+        )}
       </header>
 
       <div className="wf-welt-counts">

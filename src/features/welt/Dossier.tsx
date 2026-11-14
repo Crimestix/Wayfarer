@@ -12,6 +12,7 @@ import {
   AttitudeBadge,
   Badge,
   Button,
+  Checkbox,
   ChronicleList,
   EmptyState,
   IconButton,
@@ -23,8 +24,9 @@ import {
 } from '../../ui';
 import { LkArticlePanel } from '../legendkeeper';
 import { ContinuityNote } from '../offen/ContinuityItem';
-import { ArticlePage } from '../wiki';
-import { createArticle } from '../wiki/actions';
+import { ArticlePage, openForWriting } from '../wiki';
+import { createArticleOfKind } from '../wiki/actions';
+import { scaffoldOf } from '../wiki/scaffold';
 import { deleteEntityUndoable } from './actions';
 import { openEntityDialog } from './editor';
 import {
@@ -61,6 +63,9 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   const localArticle =
     entity.lk && data.articles[entity.lk.resourceId] ? entity.lk.resourceId : null;
   const log = () => openQuickLog({ refs: [entity.id] });
+  /** Ein neuer Artikel bekommt das Steckbrief-Gerüst seiner Art – abwählbar. */
+  const [withScaffold, setWithScaffold] = useState(true);
+  const scaffold = scaffoldOf(data.campaign, entity.kind);
 
   const remove = async () => {
     const notes = deletionNotes(deletionImpact(data, entity.id));
@@ -238,18 +243,29 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
               Zu „{entity.name}“ gibt es noch keinen Artikel. Schreib ihn hier – was im Steckbrief
               steht, liest Wayfarer in den Überblick.
             </p>
-            <Button
-              icon={<Feather />}
-              onClick={() => {
-                const article = createArticle(db, { title: entity.name });
-                if (article)
-                  db.patch('entities', entity.id, {
-                    lk: { resourceId: article.id, title: article.title },
+            <div className="wf-row-wrap" style={{ gap: 'var(--s-4)' }}>
+              <Button
+                icon={<Feather />}
+                onClick={() => {
+                  openForWriting();
+                  createArticleOfKind(db, {
+                    title: entity.name,
+                    kind: entity.kind,
+                    scaffold: withScaffold,
+                    entityId: entity.id,
                   });
-              }}
-            >
-              Artikel schreiben
-            </Button>
+                }}
+              >
+                Artikel schreiben
+              </Button>
+              {scaffold.length > 0 && (
+                <span title={`Leere Felder: ${scaffold.join(', ')}`}>
+                  <Checkbox checked={withScaffold} onChange={setWithScaffold}>
+                    mit Steckbrief-Gerüst
+                  </Checkbox>
+                </span>
+              )}
+            </div>
           </div>
         )}
         {tab === 'lk' && !localArticle && (

@@ -5,11 +5,11 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { createEntity, createRelation, type Entity } from '../../domain/schema';
 import {
-  SCAFFOLD_HINT,
   addScaffoldFields,
   createArticleOfKind,
   dismissHint,
   savePageText,
+  setFactScaffold,
   syncFacts,
 } from './actions';
 import { addBlankFactLines, setFactLine, steckbriefLabels } from './factLines';
@@ -17,6 +17,8 @@ import { articleFacts, factField } from './facts';
 import { splitPage } from './model';
 import {
   DEFAULT_SCAFFOLDS,
+  SCAFFOLD_HINT,
+  articleScaffoldGap,
   SCAFFOLD_KINDS,
   isOwnScaffold,
   missingScaffold,
@@ -272,10 +274,13 @@ describe('Artikel einer Art anlegen', () => {
   });
 
   it('nimmt das Gerüst des Spielleiters', async () => {
-    const { db, textOf } = await setup();
-    db.setCampaign({ factScaffolds: { place: ['Wappen', 'Liegt in'] } });
+    const { db, data, textOf } = await setup();
+    setFactScaffold(db, 'place', ['Wappen', 'Liegt in']);
+    expect(data().campaign.factScaffolds).toEqual({ place: ['Wappen', 'Liegt in'] });
     const result = createArticleOfKind(db, { title: 'Hohenfurt', kind: 'place', scaffold: true })!;
     expect(textOf(result.article.id)).toBe('> [!steckbrief]\n> Wappen: \n> Liegt in: \n\n');
+    setFactScaffold(db, 'place', null);
+    expect(data().campaign.factScaffolds).toEqual({});
   });
 
   it('verbindet einen Eintrag gleichen Namens, statt einen zweiten anzulegen', async () => {
@@ -292,6 +297,43 @@ describe('Artikel einer Art anlegen', () => {
     );
   });
 
+  it('wird der Artikel des genannten Eintrags, auch wenn der Name nicht eindeutig ist', async () => {
+    const { db, data, add } = await setup();
+    const first = add(createEntity({ kind: 'place', name: 'Furt' }));
+    add(createEntity({ kind: 'place', name: 'Furt' }));
+    const result = createArticleOfKind(db, {
+      title: 'Furt',
+      kind: 'place',
+      scaffold: true,
+      entityId: first.id,
+    })!;
+    expect(result.entity?.id).toBe(first.id);
+    expect(data().entities[first.id]!.lk?.resourceId).toBe(result.article.id);
+    expect(Object.values(data().entities).filter((e) => e.name === 'Furt')).toHaveLength(2);
+  });
+
+  it('nennt am Artikel, was nach dem Gerüst seiner Art fehlt – bis er ausgeblendet ist', async () => {
+    const { db, data } = await setup();
+    const free = createArticleOfKind(db, { title: 'Ohne Art', kind: null, scaffold: false })!;
+    expect(articleScaffoldGap(data(), data().articles[free.article.id]!)).toBeNull();
+    const result = createArticleOfKind(db, {
+      title: 'Mira Tannhaus',
+      kind: 'person',
+      scaffold: false,
+    })!;
+    savePageText(
+      db,
+      result.article.id,
+      result.article.docs[0]!.id,
+      '> [!steckbrief]\n> Volk: Mensch\n> Wohnort: \n',
+    );
+    const gap = articleScaffoldGap(data(), data().articles[result.article.id]!);
+    expect(gap?.kind).toBe('person');
+    expect(gap?.missing).toEqual(['Geboren', 'Herkunft', 'Beruf', 'Familie', 'Fraktion']);
+    addScaffoldFields(db, result.article.id, gap!.missing);
+    expect(articleScaffoldGap(data(), data().articles[result.article.id]!)).toBeNull();
+  });
+
   it('blendet den Hinweis je Artikel aus', async () => {
     const { db, data } = await setup();
     const result = createArticleOfKind(db, {
@@ -301,5 +343,6 @@ describe('Artikel einer Art anlegen', () => {
     })!;
     dismissHint(db, result.article.id, SCAFFOLD_HINT);
     expect(data().articles[result.article.id]!.dismissedHints).toEqual([SCAFFOLD_HINT]);
+    expect(articleScaffoldGap(data(), data().articles[result.article.id]!)).toBeNull();
   });
 });

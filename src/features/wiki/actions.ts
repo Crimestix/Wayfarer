@@ -18,7 +18,7 @@ import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, planFacts, statedKind, twins } from './facts';
 import { addBlankFactLines } from './factLines';
-import { scaffoldOf, scaffoldText } from './scaffold';
+import { scaffoldOf, scaffoldText, withScaffold, type ScaffoldKind } from './scaffold';
 import type { RelationHint } from './sentences';
 import { articleAsText, linkIndex, pageText, relinked, titleKey } from './text';
 
@@ -208,7 +208,14 @@ export function createArticle(
  */
 export function createArticleOfKind(
   db: CampaignDb,
-  input: { title: string; parentId?: string | null; kind: EntityKind | null; scaffold: boolean },
+  input: {
+    title: string;
+    parentId?: string | null;
+    kind: EntityKind | null;
+    scaffold: boolean;
+    /** Der Eintrag, dessen Artikel das wird (er hat noch keinen). */
+    entityId?: string;
+  },
 ): { article: Article; entity: Entity | null } | null {
   const { kind } = input;
   const labels = kind && input.scaffold ? scaffoldOf(db.getSnapshot().campaign, kind) : [];
@@ -222,13 +229,41 @@ export function createArticleOfKind(
     const owner = Object.values(db.getSnapshot().entities).find(
       (entity) => entity.lk?.resourceId === article.id,
     );
-    if (owner || !kind || kind === 'character') return { article, entity: owner ?? null };
+    if (owner) return { article, entity: owner };
+    const data = db.getSnapshot();
+    const meant = input.entityId ? data.entities[input.entityId] : undefined;
+    if (meant && !(meant.lk && data.articles[meant.lk.resourceId])) {
+      const linked = db.put('entities', {
+        ...meant,
+        lk: { resourceId: article.id, title: article.title },
+      });
+      return { article, entity: linked };
+    }
+    if (!kind || kind === 'character') return { article, entity: null };
     return { article, entity: adoptArticle(db, article, kind) };
   });
 }
 
-/** Schlüssel in `article.dismissedHints`: „Im Steckbrief fehlt noch …“ ist ausgeblendet. */
-export const SCAFFOLD_HINT = 'steckbrief-geruest';
+/**
+ * Setzt das Steckbrief-Gerüst einer Art (Einstellungen). `null` oder die Vorgabe selbst stellt die
+ * Vorgabe wieder her; eine leere Liste heißt: diese Art bekommt kein Gerüst.
+ */
+export function setFactScaffold(
+  db: CampaignDb,
+  kind: ScaffoldKind,
+  labels: readonly string[] | null,
+): void {
+  const current = db.getSnapshot().campaign.factScaffolds;
+  const next = withScaffold(current, kind, labels);
+  const same =
+    Object.keys(next).length === Object.keys(current).length &&
+    Object.entries(next).every(
+      ([key, list]) =>
+        current[key]?.length === list.length &&
+        list.every((label, i) => current[key]![i] === label),
+    );
+  if (!same) db.setCampaign({ factScaffolds: next });
+}
 
 /**
  * Fügt dem Steckbrief der ersten Textseite leere Felder hinzu (fehlt er, entsteht er oben). Der

@@ -387,6 +387,16 @@
   background: var(--bg-3);
   color: var(--gold-bright);
 }
+/* „Noch zu schreiben“ passt nicht mehr daneben: eine zweite Reihe über die ganze Breite. */
+.wf-welt-layout .wf-welt-layout__wide {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+}
+.wf-welt-layout__wide span {
+  margin-left: 6px;
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
 
 .wf-welt-stage {
   min-width: 0;
@@ -2785,6 +2795,176 @@
 }
 .wf-welt-netindex__hint {
   margin: var(--s-2) var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Noch zu schreiben */
+.wf-welt-gapslink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-3);
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid var(--gold-deep);
+  background: none;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-welt-gapslink:hover {
+  border-bottom-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+.wf-welt-gapslink svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-welt-gaps__index {
+  padding-bottom: var(--s-4);
+}
+.wf-welt-gaps__row {
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.wf-welt-gaps__more {
+  display: block;
+  padding: 4px var(--s-4) 4px 46px;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  font-style: italic;
+  text-align: left;
+}
+.wf-welt-gaps__more:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-gaps__none {
+  padding: var(--s-4);
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-welt-gaps .wf-welt-sec {
+  margin-top: var(--s-6);
+}
+.wf-welt-gaps .wf-welt-gaps__none {
+  margin-top: var(--s-6);
+  text-align: center;
+}
+.wf-welt-gaps .wf-wiki-more {
+  display: block;
+  margin: var(--s-1) 0 0;
+  text-align: left;
+}
+.wf-welt-gaps__lead {
+  max-width: 76ch;
+  margin: var(--s-1) 0 var(--s-3);
+  color: var(--ink-mute);
+}
+.wf-welt-gaps__list {
+  margin: 0 0 var(--s-2);
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-gaps__item {
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-gaps__line {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 38px;
+  padding: 4px 0;
+}
+.wf-welt-gaps__icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--gold-deep);
+}
+.wf-welt-gaps__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.wf-welt-gaps__create,
+.wf-welt-gaps__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  text-align: left;
+}
+.wf-welt-gaps__create:hover,
+.wf-welt-gaps__link:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-gaps__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+button.wf-welt-gaps__count:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-gaps__count svg {
+  width: 13px;
+  height: 13px;
+  transition: transform 0.15s ease;
+}
+.wf-welt-gaps__count .wf-welt-gaps__chev--open {
+  transform: rotate(90deg);
+}
+.wf-welt-gaps__count--none {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.wf-welt-gaps__kind {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-welt-gaps__spots {
+  margin: 0 0 var(--s-3);
+  padding: 0 0 0 28px;
+  list-style: none;
+}
+.wf-welt-gaps__spot {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  color: var(--ink-soft);
+}
+.wf-welt-gaps__spot:hover .wf-welt-gaps__where {
+  color: var(--gold-bright);
+}
+.wf-welt-gaps__where {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-welt-gaps__where span {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.wf-welt-gaps__snippet {
+  max-width: 90ch;
   color: var(--ink-mute);
   font-size: var(--text-sm);
   font-style: italic;

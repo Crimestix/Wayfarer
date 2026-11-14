@@ -16,7 +16,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import type { Article, ArticleDoc } from '../../domain/schema';
+import { KIND_LABEL } from '../../domain/derive';
+import type { Article, ArticleDoc, Entity, EntityKind } from '../../domain/schema';
 import {
   Button,
   Checkbox,
@@ -26,11 +27,12 @@ import {
   Input,
   MenuItem,
   Popover,
+  Select,
   confirmDialog,
   toast,
 } from '../../ui';
 import {
-  createArticle,
+  createArticleOfKind,
   deleteArticle,
   isWithin,
   moveArticle,
@@ -41,6 +43,7 @@ import {
 import { flushEdits } from './editing';
 import { ArticleIcon } from './icons';
 import { articlePath, articleSuggestions, childArticles } from './model';
+import { SCAFFOLD_KINDS, isScaffoldKind, scaffoldOf } from './scaffold';
 
 /** „Welt › Hohenfurt“ – wo ein Artikel im Baum steht. */
 function PathLine({ article }: { article: Article }) {
@@ -53,33 +56,53 @@ function PathLine({ article }: { article: Article }) {
   );
 }
 
-/** Neuen Artikel anlegen: Titel und wo er hingehört. */
+/** Neuen Artikel anlegen: Titel, Art, Steckbrief-Gerüst und wo er hingehört. */
 export function NewArticleDialog({
   parent,
   initialTitle = '',
+  kind: initialKind = null,
+  entity,
+  suggestParent,
   onClose,
   onCreated,
 }: {
   /** Vorgeschlagener Ort: unter diesem Artikel; null = ganz oben. */
   parent: Article | null;
   initialTitle?: string;
+  /** Vorgeschlagene Art; null = ein Artikel ohne Eintrag in der Welt. */
+  kind?: EntityKind | null;
+  /** Der Eintrag der Welt, dessen Artikel das wird – Titel und Art stehen dann fest. */
+  entity?: Entity;
+  /** Wo ein Artikel dieser Art hingehört – ändert sich mit der gewählten Art. */
+  suggestParent?: (kind: EntityKind | null) => Article | null;
   onClose: () => void;
   onCreated: (article: Article) => void;
 }) {
   const db = useDb();
-  const [title, setTitle] = useState(initialTitle);
-  const [under, setUnder] = useState(parent !== null);
+  const data = useData();
+  const [title, setTitle] = useState(entity?.name ?? initialTitle);
+  const [kind, setKind] = useState<EntityKind | null>(entity?.kind ?? initialKind);
+  const [withScaffold, setWithScaffold] = useState(true);
+  const place = suggestParent ? suggestParent(kind) : parent;
+  const [under, setUnder] = useState(true);
   const clean = title.replace(/\s+/g, ' ').trim();
+  const labels = kind ? scaffoldOf(data.campaign, kind) : [];
   const create = () => {
     flushEdits();
-    const article = createArticle(db, { title: clean, parentId: under ? parent?.id : null });
-    if (article) onCreated(article);
+    const created = createArticleOfKind(db, {
+      title: clean,
+      parentId: under ? place?.id : null,
+      kind,
+      scaffold: withScaffold,
+      ...(entity ? { entityId: entity.id } : {}),
+    });
+    if (created) onCreated(created.article);
   };
   return (
     <Dialog
       open
       onClose={onClose}
-      title="Neuer Artikel"
+      title={entity ? `Artikel zu „${entity.name}“` : 'Neuer Artikel'}
       width={520}
       footer={
         <>
@@ -98,21 +121,60 @@ export function NewArticleDialog({
           if (clean) create();
         }}
       >
-        <Field label="Titel">
-          <Input
-            value={title}
-            data-autofocus
-            placeholder="z. B. Das alte Zollhaus"
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </Field>
-        {parent && (
+        {!entity && (
+          <Field label="Titel">
+            <Input
+              value={title}
+              data-autofocus
+              placeholder="z. B. Das alte Zollhaus"
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
+        )}
+        {entity ? (
+          <p className="wf-mute">
+            Der Artikel wird der Text des Eintrags „{entity.name}“ ({KIND_LABEL[entity.kind]}).
+          </p>
+        ) : (
+          <Field
+            label="Art"
+            hint={
+              kind
+                ? `Steht dann auch als ${KIND_LABEL[kind]} in der Welt.`
+                : 'Nur ein Artikel – in die Welt aufnehmen lässt er sich jederzeit.'
+            }
+          >
+            <Select
+              value={kind ?? ''}
+              aria-label="Art"
+              onChange={(e) => setKind(isScaffoldKind(e.target.value) ? e.target.value : null)}
+            >
+              <option value="">Ohne Art</option>
+              {SCAFFOLD_KINDS.map((option) => (
+                <option key={option} value={option}>
+                  {KIND_LABEL[option]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {labels.length > 0 && (
+          <div className="wf-col" style={{ gap: 'var(--s-1)' }}>
+            <Checkbox checked={withScaffold} onChange={setWithScaffold}>
+              Steckbrief-Gerüst einfügen
+            </Checkbox>
+            <p className="wf-mute">
+              Leere Felder: {labels.join(', ')}. Ausfüllen, löschen oder ergänzen, wie es passt.
+            </p>
+          </div>
+        )}
+        {place && (
           <Checkbox checked={under} onChange={setUnder}>
-            Unter „{parent.title}“ ablegen
+            Unter „{place.title}“ ablegen
           </Checkbox>
         )}
         <p className="wf-mute">
-          {under && parent
+          {under && place
             ? 'Der Artikel erscheint im Baum unter diesem Artikel. Verschieben lässt er sich jederzeit.'
             : 'Der Artikel erscheint im Baum ganz oben. Verschieben lässt er sich jederzeit.'}
         </p>

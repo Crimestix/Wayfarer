@@ -3,7 +3,7 @@
  * selbst sind Bausteine der Seite „Welt“ (`features/welt`).
  */
 import { roomArticleIds } from '../../domain/rooms';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
   BookOpen,
@@ -45,11 +45,10 @@ import {
   entitiesOfArticle,
   searchArticles,
   searchIndex,
-  wantedArticles,
   type SearchIndexEntry,
   type TreeNode,
-  type WantedArticle,
 } from './model';
+import { ScaffoldHint } from './ScaffoldHint';
 import './wiki.css';
 
 /** Als was sich ein Artikel von Hand in die Welt aufnehmen lässt. */
@@ -70,6 +69,11 @@ const ADOPT_KINDS: EntityKind[] = [
 
 /** Was aufgeklappt ist und wonach gesucht wurde, bleibt beim Wechsel des Bereichs erhalten. */
 const memory = { open: new Set<string>(), query: '', mode: 'read' as WikiMode };
+
+/** Ein eben angelegter Artikel öffnet sich zum Schreiben, nicht zum Lesen. */
+export function openForWriting() {
+  if (memory.mode === 'read') memory.mode = 'live';
+}
 
 const MODES: { id: WikiMode; icon: ReactNode; hint: string }[] = [
   { id: 'read', icon: <BookOpen />, hint: 'Der fertige Artikel, wie am Tisch' },
@@ -223,72 +227,10 @@ function AdoptButton({ article }: { article: Article }) {
   );
 }
 
-const wantedCache = new WeakMap<object, WantedArticle[]>();
-const WANTED_SHOWN = 24;
-
-/** Titel, auf die verwiesen wird, die aber noch keinen Artikel haben. */
-function Wanted({
-  articles,
-  onCreate,
-}: {
-  articles: Record<string, Article>;
-  onCreate: (title: string, from: Article) => void;
-}) {
-  const [all, setAll] = useState(false);
-  const wanted = useMemo(() => {
-    let list = wantedCache.get(articles);
-    if (!list) {
-      list = wantedArticles(articles);
-      wantedCache.set(articles, list);
-    }
-    return list;
-  }, [articles]);
-  if (!wanted.length) return null;
-  const shown = all ? wanted : wanted.slice(0, WANTED_SHOWN);
-  return (
-    <section className="wf-wiki-wanted" aria-label="Erwähnt, aber noch nicht angelegt">
-      <h2 className="wf-lk-label">Erwähnt, aber noch nicht angelegt</h2>
-      <p className="wf-mute">
-        Auf diese Namen verweist dein Text, ohne dass es den Artikel gibt. Ein Klick legt ihn an.
-      </p>
-      <ul className="wf-wiki-wanted__list">
-        {shown.map((entry) => (
-          <li key={entry.title}>
-            <button
-              type="button"
-              className="wf-wiki-wanted__name"
-              title={`Artikel „${entry.title}“ anlegen`}
-              onClick={() => onCreate(entry.title, entry.from[0]!)}
-            >
-              <FilePlus2 aria-hidden />
-              {entry.title}
-            </button>
-            <span className="wf-wiki-wanted__from">
-              erwähnt in{' '}
-              {entry.from.slice(0, 3).map((article, index) => (
-                <Fragment key={article.id}>
-                  {index > 0 && ', '}
-                  <Link href={`/wiki/${article.id}`}>{article.title}</Link>
-                </Fragment>
-              ))}
-              {entry.from.length > 3 && ` und ${entry.from.length - 3} weiteren`}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {wanted.length > shown.length && (
-        <button type="button" className="wf-wiki-more" onClick={() => setAll(true)}>
-          und {wanted.length - shown.length} weitere
-        </button>
-      )}
-    </section>
-  );
-}
-
 /**
  * Die Artikel als Übersicht: die obersten Ordner als Regal, darunter was der KI-Leser und die
- * Steckbriefe vorschlagen und worauf verwiesen wird, ohne dass es einen Artikel gibt. Steht auf
- * der Startseite der Welt.
+ * Steckbriefe vorschlagen. Was noch zu schreiben ist, steht in der Sicht „Noch zu schreiben“
+ * (`welt/Gaps.tsx`). Steht auf der Startseite der Welt.
  */
 export function WikiStart() {
   const data = useData();
@@ -358,10 +300,6 @@ export function WikiStart() {
       </div>
       <AiOverview />
       <FactsOverview />
-      <Wanted
-        articles={articles}
-        onCreate={(title, from) => setCreating({ parent: from, title })}
-      />
       {dialog}
     </div>
   );
@@ -566,6 +504,7 @@ export function ArticlePage({
                 ))}
               </div>
             )}
+            <ScaffoldHint article={article} />
             <FactsHint article={article} />
             <AiPanel article={article} />
           </>

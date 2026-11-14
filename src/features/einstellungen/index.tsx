@@ -15,10 +15,11 @@ import { AiSection } from './AiSection';
 import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import { SourcesSection } from './SourcesSection';
+import { ScaffoldSection } from './ScaffoldSection';
 import { TableRulesSheet } from '../tisch/TableRules';
 import './einstellungen.css';
 
-const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
 export default function Page() {
   const db = useDb();
@@ -70,6 +71,14 @@ export default function Page() {
             lead="Hausregeln und Absprachen eurer Runde – am Spieltisch mit einem Klick auf die Schriftrolle im Kopf der Mitschrift zur Hand."
           >
             <TableRulesSheet />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Steckbrief-Gerüste"
+            lead="Welche Felder ein neuer Artikel je Art leer mitbekommt – Person, Ort, Fraktion und so weiter. Nur Feldnamen, nie ein Wert; ausgefüllt wird von dir."
+          >
+            <ScaffoldSection />
           </Section>
 
           <Section
