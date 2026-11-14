@@ -126,7 +126,7 @@ export default function Page() {
           <Section
             numeral={numeral()}
             title="Kalender"
-            lead="Die Zeitrechnung der Welt zum Nachlesen: Monate, Wochentage, Zeitrechnungen und Monde."
+            lead="Die Zeitrechnung der Welt: Monate, Wochentage, Zeitrechnungen und Monde zum Nachlesen, die Jahreszeiten zum Festlegen."
           >
             <CalendarSection />
           </Section>

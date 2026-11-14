@@ -483,6 +483,40 @@
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
+.wf-einstellungen-month__season {
+  grid-column: 2;
+  margin-top: var(--s-1);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-month__season .wf-select {
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-seasons__computed {
+  margin: var(--s-2) 0 var(--s-3);
+  padding-left: var(--s-4);
+  color: var(--ink-soft);
+}
+.wf-einstellungen-seasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: var(--s-3) 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-einstellungen-season {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) 1fr auto;
+  align-items: center;
+  gap: var(--s-3);
+}
+.wf-einstellungen-season__months {
+  font-size: var(--text-sm);
+}
 .wf-einstellungen-now {
   position: absolute;
   top: 8px;
