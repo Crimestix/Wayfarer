@@ -1636,6 +1636,14 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Fahrten zweizeilig. Im Laden ist ein Tier ohne Hinweis (Huhn, Ziege) nur angeboten, nicht vorab
   angekreuzt; „Fahrzeug“, „Zugtier“, „Lasttier“ werden erkannt. „Neu anlegen“ im Dialog nimmt einen
   vorhandenen Eintrag gleichen Namens; der Kasten steht auch ohne aktive Gefährten auf der Seite.
+- **Jahreszeiten, Letztes Mal, Regeln des Tisches.** `calendar.seasons` (Name + Monate, leer =
+  vier Viertel um den wärmsten Monat) wird in den Einstellungen des Kalenders je Monat gewählt
+  („Wie errechnet übernehmen“); alles liest über `seasonsAt` (`domain/seasons.ts`), „Herbst“
+  meint die eigene Jahreszeit mit den meisten Herbstmonaten. „Letztes Mal“ (`domain/recap.ts`)
+  steht am Spieltisch bis zum ersten Eintrag des Abends (wegklickbar, `state.recapDismissed`) und
+  auf „Abend vorbereiten“. `campaign.tableRules`: Blatt mit Hausregeln, am Spieltisch über das
+  Zeichen in der Mitschrift, in den Einstellungen, in der Suche. Offen: Die Wetter-Anzeige nennt
+  keine Jahreszeit (sie rechnet weiter fließend um den wärmsten Monat).
 
 ## 6. Bekannte Mängel und Aufräumliste
 

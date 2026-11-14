@@ -180,6 +180,11 @@ nicht übernommen.
   Oberfläche: Tägliches ist Alltag, Wöchentliches zählt nur am Ort der Gruppe, Einmaliges, Feste
   und alles an einem offenen Faden immer. Alltag wird geführt, aber nur am Tag gezeigt. Neue
   Listen von Terminen („Anstehend“, Meldungen) filtern mit `isEveryday()`.
+- Jahreszeiten: Der Spielleiter legt sie im Kalender fest (`calendar.seasons`, je Jahreszeit
+  Name und Monate, in den Einstellungen je Monat gewählt); leer = vier gleiche Viertel um den
+  wärmsten Monat. Gefragt wird immer über `seasonsAt()` (`domain/seasons.ts`) – nie selbst um
+  den wärmsten Monat rechnen. Die üblichen Wörter („Herbst“) meinen die eigene Jahreszeit dieses
+  Namens, sonst die mit den meisten errechneten Herbstmonaten; im Süden ein halbes Jahr versetzt.
 - Geschichten und Fäden (`stories/`, `threads/`): geschrieben vom Spielleiter (oder als
   Vorschlag des KI-Lesers angenommen), nie erzeugt. Eine Geschichte schreibt man auf ihrem
   **Blatt** (`faeden/StoryPage`, `/geschichte/<id>`): worum es geht, was auf dem Spiel steht,
@@ -297,7 +302,11 @@ nicht übernommen.
   oder Geschichte) kann an einen Ort geheftet sein (`scene.placeId`); am Spieltisch zeigt
   `scenesHere()` sie unter „Was hier passieren kann“, sobald die Gruppe dort ist. Unter „Starker
   Einstieg“ stehen die letzten Einträge der vorigen Session zum Übernehmen (`lastSessionLines`) –
-  Wayfarer bietet nur die eigenen Zeilen des Spielleiters an, es formuliert nichts. Was ein
+  Wayfarer bietet nur die eigenen Zeilen des Spielleiters an, es formuliert nichts. Darüber steht
+  „Letztes Mal“ (`recap()` in `domain/recap.ts`, gezeigt mit `RecapBox`): die gewichtigsten
+  Einträge der vorigen Session (`RECAP_WEIGHT`, Alltag fällt weg), wo die Gruppe steht, was offen
+  hängt, was ansteht – am Spieltisch über `tableRecap()`, bis im Abend etwas festgehalten oder es
+  weggeklickt ist (`state.recapDismissed`, `dismissRecap`). Was ein
   Gefährte will, steht bei ihm (`character.goal`). Welche Geschichte einen Gefährten persönlich
   betrifft, steht an der Geschichte (`story.heroes`, mit seinem Grund; gesetzt über `tieHero` /
   `untieHero`) – gelesen über `heroesOf()` und `storiesOfHero()`. Solche Gefährten zählen zu
@@ -395,6 +404,9 @@ nicht übernommen.
   `playView()` in `domain/play.ts`; neue Arten von „hängt daran“ dort eintragen, nicht in der
   Oberfläche. Eine Notiz kann zu einer Geschichte gehören (`chronicle.storyId`). Was bei einer
   Geschichte im Spiel steht, steht unter „Sonst noch“ nicht noch einmal (`playClaims`).
+  Die Regeln des Tisches (Hausregeln und Absprachen, `campaign.tableRules`, Markdown, nur vom
+  Spielleiter) öffnet das Zeichen in der Mitschrift (`TableRulesButton`, auch über die Suche,
+  `focusOn({ type: 'rules' })`); dasselbe Blatt steht in den Einstellungen.
 - Bastion (`bastions/`, `domain/bastion.ts`, Reiter „Bastion“ unter Gefährten; Regeln von 2024):
   Einrichtungen (`facilities`) mit Besitzer, Befehlen, Gefolgsleuten und Stand (bereit, beschädigt,
   wird repariert – Reparatur als Fortschrittsleiste über `startRepair`). Alle `turnDays` Tage ist
