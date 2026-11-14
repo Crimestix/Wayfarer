@@ -456,7 +456,9 @@ nicht übernommen.
   Sichtbares). Jedes Stück trägt nur Titel oder Text des Spielleiters und nie eine genauere Zeit
   als bekannt (`spreadOf`, `pieceWhen`). Welche Bahnen stehen, steht in `state.timelineLanes`
   (null = `defaultLaneKeys`); geändert über `zeitleiste/actions.ts`. Neue Arten von Stücken dort
-  eintragen, nie in der Oberfläche.
+  eintragen, nie in der Oberfläche. Wiederkehrende Termine rechnen im Fenster `repeatWindow`;
+  ob einer zu oft im Bild stünde, zählt am Bild (`span`). Ein Bündel, das Heranzoomen nicht
+  trennt (`clusterSpreads`), öffnet seine Stücke als Liste.
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

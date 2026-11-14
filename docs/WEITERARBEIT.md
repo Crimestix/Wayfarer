@@ -1574,6 +1574,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   sehr weitem Blick weg (über 40 Male im Bild); Bahnen lassen sich nur mit Pfeilen umordnen,
   nicht ziehen; auf dem Trackpad zoomt senkrechtes Wischen über den Bahnen (über den Köpfen
   rollt es).
+- **Gegengelesen: Zeitleiste.** Ein Bündel aus Einträgen derselben Minute (oder desselben Tags)
+  ließ sich nie öffnen – Heranzoomen trennt sie nicht; jetzt klappt es als Liste auf
+  (`clusterSpreads`, `cluster.members`). Monatliche Feste fielen schon bei „Monate“ weg, weil am
+  vier- bis achtfach breiteren Fenster gezählt wurde; gezählt wird jetzt am Bild
+  (`repeatWindow`, `span`). Überfällig sind alle offenen Schritte vor jetzt (nicht nur der
+  nächste, nie bei angehaltener Uhr) und Fristen mit Uhrzeit wie im Kalender; Abende ohne Titel
+  heißen „Session 3“ wie überall.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

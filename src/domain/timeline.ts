@@ -331,6 +331,8 @@ function clockPieces(
     }),
   );
   for (const s of view.steps) {
+    // Was schon fällig ist, tritt beim nächsten Vorstellen der Zeit ein (`dueSteps`) – jeder
+    // offene Schritt in der Vergangenheit ist überfällig, nicht nur der nächste.
     const tone: PieceTone =
       s.state === 'prevented'
         ? 'prevented'
@@ -338,7 +340,7 @@ function clockPieces(
           ? 'plain'
           : s.state === 'next' && view.blocked
             ? 'blocked'
-            : s.state === 'next' && s.at < now
+            : s.at < now && !view.paused
               ? 'overdue'
               : 'future';
     out.push(
@@ -522,8 +524,13 @@ function eventsLane(data: CampaignData, window: TimeWindow): TimelineLane {
   const pieces: TimelinePiece[] = [];
   const add = (event: CalendarEvent, at: WorldTime, key: string) => {
     const weight = eventWeight(data, event);
+    // Wie `overdueEvents`: Vorhaben und Fristen mit Uhrzeit sind überfällig, sobald sie verstrichen
+    // ist – ohne Uhrzeit erst am nächsten Tag.
     const overdue =
-      !event.repeat && !event.done && event.kind !== 'world' && dayIndexOf(at) < dayIndexOf(now);
+      !event.repeat &&
+      !event.done &&
+      event.kind !== 'world' &&
+      (event.timed ? at < now : dayIndexOf(at) < dayIndexOf(now));
     pieces.push(
       piece(cal, {
         key,
@@ -538,15 +545,17 @@ function eventsLane(data: CampaignData, window: TimeWindow): TimelineLane {
       }),
     );
   };
+  // Wie viel Zeit im Bild ist – ohne Angabe das ganze Fenster.
+  const span = Math.max(1, window.span ?? window.to - window.from);
   for (const event of Object.values(data.events)) {
     if (eventWeight(data, event) === 'everyday') continue;
     if (!event.repeat) {
       add(event, event.timed ? event.at : startOfDay(event.at), `events:${event.id}`);
       continue;
     }
-    const times = occurrencesIn(cal, event, window);
-    if (times.length > MAX_REPEATS_IN_VIEW) continue;
-    for (const at of times) add(event, at, `events:${event.id}:${at}`);
+    // Stünde er öfter als `MAX_REPEATS_IN_VIEW`-mal im Bild, ist er bei diesem Maßstab Rauschen.
+    if (span / repeatLength(cal, event.repeat) > MAX_REPEATS_IN_VIEW) continue;
+    for (const at of occurrencesIn(cal, event, window)) add(event, at, `events:${event.id}:${at}`);
   }
   return {
     key: 'events',
@@ -559,6 +568,23 @@ function eventsLane(data: CampaignData, window: TimeWindow): TimelineLane {
     pieces: sortPieces(pieces),
   };
 }
+
+/** Wie lange es ungefähr bis zum nächsten Mal dauert, in Minuten – für den Maßstab. */
+function repeatLength(cal: CalendarDef, repeat: NonNullable<CalendarEvent['repeat']>): number {
+  switch (repeat.unit) {
+    case 'day':
+      return repeat.every * DAY;
+    case 'week':
+      return repeat.every * cal.weekdays.length * DAY;
+    case 'month':
+      return (repeat.every * meanYear(cal)) / cal.months.length;
+    case 'year':
+      return repeat.every * meanYear(cal);
+  }
+}
+
+/** Mehr Male eines Termins rechnet die Zeitleiste in einem Fenster nie. */
+const REPEAT_LIMIT = 8 * MAX_REPEATS_IN_VIEW;
 
 /** Die Male eines wiederkehrenden Termins im Fenster – nach Tag, Woche, Monat oder Jahr. */
 function occurrencesIn(cal: CalendarDef, event: CalendarEvent, window: TimeWindow): WorldTime[] {
@@ -576,7 +602,7 @@ function occurrencesIn(cal: CalendarDef, event: CalendarEvent, window: TimeWindo
         : 0;
   if (fixed) {
     let at = base + Math.max(0, Math.ceil((from - base) / fixed)) * fixed;
-    for (; at <= window.to && out.length <= MAX_REPEATS_IN_VIEW; at += fixed)
+    for (; at <= window.to && out.length < REPEAT_LIMIT; at += fixed)
       if (!skipped.has(dayIndexOf(at))) out.push(at);
     return out;
   }
@@ -585,7 +611,7 @@ function occurrencesIn(cal: CalendarDef, event: CalendarEvent, window: TimeWindo
   const start = fromTime(cal, from);
   const gone = (start.year - b.year) * cal.months.length + start.month - b.month;
   let n = Math.max(0, Math.floor(gone / months) - 1);
-  for (let guard = 0; guard < 4 * MAX_REPEATS_IN_VIEW && out.length <= MAX_REPEATS_IN_VIEW; n++) {
+  for (let guard = 0; guard < REPEAT_LIMIT + 4 && out.length < REPEAT_LIMIT; n++) {
     guard++;
     const m = shiftMonth(cal, b.year, b.month, n * months);
     const days = monthDays(cal, m.year, m.month);
@@ -619,6 +645,12 @@ const sortPieces = (pieces: TimelinePiece[]) =>
 export interface TimeWindow {
   from: WorldTime;
   to: WorldTime;
+  /**
+   * Wie viel Zeit im Bild ist (Minuten). Das Fenster für wiederkehrende Termine ist breiter als
+   * das Bild (`repeatWindow`); ob ein Termin zu oft im Bild stünde, misst sich am Bild.
+   * Ohne Angabe: das ganze Fenster.
+   */
+  span?: number;
 }
 
 export interface LaneChoice {
@@ -742,7 +774,8 @@ export function evenings(data: CampaignData): Evening[] {
     key: `session:${span.session.id}`,
     sessionId: span.session.id,
     number: span.session.number,
-    title: span.session.title.trim() || `Abend ${span.session.number}`,
+    // Wie überall in Wayfarer: ohne eigenen Titel „Session 3“.
+    title: span.session.title.trim() || `Session ${span.session.number}`,
     from: span.from,
     to: Math.max(span.from, span.to ?? now),
     running: span.running,
@@ -776,6 +809,17 @@ export interface TimelineView {
   from: number;
   mpp: number;
   width: number;
+}
+
+/**
+ * Das Fenster für wiederkehrende Termine zu einem Bild: gestuft und breiter als das Bild, damit
+ * nicht jedes Verschieben neu rechnet; `span` ist die Zeit im Bild selbst.
+ */
+export function repeatWindow(view: TimelineView): TimeWindow {
+  const visible = Math.max(60, view.width * view.mpp);
+  const step = 2 ** Math.ceil(Math.log2(visible));
+  const from = Math.max(0, Math.floor(view.from / step) * step - step);
+  return { from, to: from + 4 * step, span: visible };
 }
 
 export type AxisUnit = 'hour' | 'day' | 'month' | 'year' | 'decade' | 'century';
@@ -1078,8 +1122,21 @@ export interface LaidPiece {
   row: number;
   /** Platz für die Beschriftung in Bildpunkten; 0 = sie weicht (nur beim Darüberfahren). */
   labelW: number;
-  /** Ein Bündel dicht beieinander liegender Marken – mit ihrer Zahl. */
-  cluster: { count: number; from: WorldTime; to: WorldTime } | null;
+  /** Ein Bündel dicht beieinander liegender Marken – mit ihrer Zahl und den Stücken darin. */
+  cluster: { count: number; from: WorldTime; to: WorldTime; members: TimelinePiece[] } | null;
+}
+
+/** Wo eine Marke steht: genau Bekanntes an seinem Zeitpunkt, Ungefähres in seiner Mitte. */
+const markAt = (p: TimelinePiece): number => (p.precision === 'exact' ? p.from : (p.lo + p.hi) / 2);
+
+/**
+ * Ob Heranzoomen ein Bündel auseinanderzieht. Stücke zur selben Zeit (mehrere Einträge in
+ * derselben Minute, am selben Tag) bleiben bei jedem Maßstab beieinander – die zeigt man als Liste.
+ */
+export function clusterSpreads(cal: CalendarDef, members: readonly TimelinePiece[]): boolean {
+  if (members.length < 2) return false;
+  const at = members.map(markAt);
+  return (Math.max(...at) - Math.min(...at)) / zoomBounds(cal).min >= CLUSTER_PX;
 }
 
 export interface LaneLayout {
@@ -1116,7 +1173,7 @@ export function layoutLane(pieces: readonly TimelinePiece[], view: TimelineView)
       bars.push({ ...base, x, w: Math.max(3, toX(view, p.to!) - x) });
     } else {
       // Ungefähres steht in der Mitte dessen, was es sein kann – ein Jahr in seiner Mitte.
-      const x = p.precision === 'exact' ? toX(view, p.from) : (lo + hi) / 2;
+      const x = toX(view, markAt(p));
       marks.push({ ...base, x, w: 0 });
     }
   }
@@ -1244,6 +1301,7 @@ function clusterMarks(marks: LaidPiece[]): LaidPiece[] {
           count: run.length,
           from: Math.min(...run.map((m) => m.piece.lo)),
           to: Math.max(...run.map((m) => m.piece.hi)),
+          members: sortPieces(run.map((m) => m.piece)),
         },
       });
     } else out.push(...run);

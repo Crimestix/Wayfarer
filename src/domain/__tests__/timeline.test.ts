@@ -3,6 +3,7 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { newScheme, newStory, setStorySteps } from '../../features/faeden/actions';
+import { pauseClock } from '../../data/actions';
 import {
   createChronicleEntry,
   createEntity,
@@ -17,6 +18,7 @@ import {
   axisContext,
   axisTicks,
   centerView,
+  clusterSpreads,
   defaultLaneKeys,
   evenings,
   fitView,
@@ -25,6 +27,7 @@ import {
   layoutLane,
   panView,
   pieceWhen,
+  repeatWindow,
   spreadOf,
   tickStep,
   timelineExtent,
@@ -256,14 +259,80 @@ describe('Bahnen der Zeitleiste', () => {
     expect(farLane!.pieces.map((p) => p.text)).not.toContain('Brückenfest');
   });
 
+  it('Termine: wie oft ein Fest im Bild stünde, misst sich am Bild, nicht am breiteren Fenster', async () => {
+    const { db, data, now, cal } = await setup();
+    // Ein Markt, der seit Jahrhunderten jeden Monat ist.
+    db.put(
+      'events',
+      createEvent({
+        title: 'Mondmarkt',
+        at: now - 300 * 365 * DAY,
+        repeat: { every: 1, unit: 'month' },
+      }),
+    );
+    const months = repeatWindow({ from: now, mpp: zoomPreset(cal, 'month'), width: 1300 });
+    // Das Fenster reicht weit über das Bild hinaus – dort stünde der Markt über 40-mal.
+    expect(months.to - months.from).toBeGreaterThan(4 * months.span!);
+    const [lane] = timelineLanes(data(), { keys: ['events'], window: months });
+    const markets = lane!.pieces.filter((p) => p.text === 'Mondmarkt');
+    expect(markets.length).toBeGreaterThan(MAX_REPEATS_IN_VIEW);
+    expect(markets.every((p) => p.from >= months.from && p.from <= months.to)).toBe(true);
+    // Bei Jahren stünde er über hundertmal im Bild: Er fällt weg.
+    const years = repeatWindow({ from: now, mpp: zoomPreset(cal, 'year'), width: 1300 });
+    const [far] = timelineLanes(data(), { keys: ['events'], window: years });
+    expect(far!.pieces.map((p) => p.text)).not.toContain('Mondmarkt');
+  });
+
+  it('Termine: eine Frist mit Uhrzeit ist überfällig, sobald sie verstrichen ist', async () => {
+    const { db, data, now } = await setup();
+    const timed = db.put(
+      'events',
+      createEvent({ title: 'Zins am Mittag', at: now - 60, timed: true, kind: 'deadline' }),
+    );
+    const daily = db.put(
+      'events',
+      createEvent({ title: 'Zins heute', at: now - 60, kind: 'deadline' }),
+    );
+    const [lane] = timelineLanes(data(), { keys: ['events'], window: wide(data()) });
+    const tone = (id: string) =>
+      lane!.pieces.find((p) => p.link?.type === 'event' && p.link.id === id)!.tone;
+    expect(tone(timed.id)).toBe('overdue');
+    // Ohne Uhrzeit gilt der ganze Tag – heute ist noch nichts versäumt.
+    expect(tone(daily.id)).toBe('plain');
+  });
+
+  it('eine Uhr: jeder offene Schritt in der Vergangenheit ist überfällig, angehalten keiner', async () => {
+    const { db, data, now } = await setup();
+    const story = newStory(db, { title: 'Die Furt bricht' });
+    setStorySteps(db, story.id, [
+      { id: 'a', text: 'Das Wasser steigt', days: 2 },
+      { id: 'b', text: 'Die Brücke wankt', days: 3 },
+      { id: 'c', text: 'Die Furt bricht', days: 20 },
+    ]);
+    const clockId = data().stories[story.id]!.clockId!;
+    db.patch('clocks', clockId, { start: now - 10 * DAY });
+    const tones = () =>
+      timelineLanes(data(), { keys: [`story:${story.id}`], window: wide(data()) })[0]!
+        .pieces.filter((p) => p.kind === 'step')
+        .map((p) => [p.text, p.tone]);
+    // Beide treten beim nächsten Vorstellen der Zeit ein – beide sind überfällig.
+    expect(tones()).toEqual([
+      ['Das Wasser steigt', 'overdue'],
+      ['Die Brücke wankt', 'overdue'],
+      ['Die Furt bricht', 'future'],
+    ]);
+    pauseClock(db, clockId);
+    expect(tones().map(([, tone]) => tone)).not.toContain('overdue');
+  });
+
   it('Abende als Bänder; die laufende Session reicht bis jetzt', async () => {
     const { db, data, now, session } = await setup();
     const running = db.put('sessions', createSession({ number: 4, startAt: now - DAY }));
     db.setState({ sessionId: running.id });
     const bands = evenings(data());
     expect(bands.map((b) => [b.sessionId, b.title, b.from, b.to, b.running])).toEqual([
-      [session.id, 'Abend 3', now - 5 * DAY, now - 4 * DAY, false],
-      [running.id, 'Abend 4', now - DAY, now, true],
+      [session.id, 'Session 3', now - 5 * DAY, now - 4 * DAY, false],
+      [running.id, 'Session 4', now - DAY, now, true],
     ]);
   });
 
@@ -427,6 +496,39 @@ describe('Auslegen einer Bahn', () => {
     const out = layoutLane(pieces, v);
     expect(out.items).toHaveLength(1);
     expect(out.items[0]!.cluster).toMatchObject({ count: 5, from: t0 + 400, to: t0 + 408 });
+  });
+
+  it('ein Bündel kennt seine Stücke; liegen sie zur selben Zeit, hilft kein Heranzoomen', () => {
+    const spread = [0, 2, 4, 6, 8].map((n) => mark(`m${n}`, t0 + 400 + n, `Eintrag ${n}`));
+    const apart = layoutLane(spread, v).items[0]!.cluster!;
+    expect(apart.members.map((p) => p.key)).toEqual(['m0', 'm2', 'm4', 'm6', 'm8']);
+    expect(clusterSpreads(cal, apart.members)).toBe(true);
+    // Drei Einträge in derselben Minute – festgehalten, ohne dass Zeit verging.
+    const same = ['x', 'y', 'z'].map((key) => mark(key, t0 + 400, `Eintrag ${key}`));
+    const together = layoutLane(same, { ...v, from: t0 + 300, mpp: zoomBounds(cal).min }).items;
+    expect(together).toHaveLength(1);
+    expect(clusterSpreads(cal, together[0]!.cluster!.members)).toBe(false);
+    // Am selben Tag, nur der Tag bekannt: auch das bleibt beisammen.
+    const days = [60, 300, 900].map((m) => {
+      const at = Math.floor(t0 / DAY) * DAY + m;
+      return {
+        ...mark(`d${m}`, at, 'Am Tag'),
+        precision: 'day' as const,
+        ...spreadOf(cal, at, 'day'),
+      };
+    });
+    expect(clusterSpreads(cal, days)).toBe(false);
+  });
+
+  it('das Fenster für wiederkehrende Termine umfasst immer das Bild', () => {
+    for (const mpp of [0.3, 13, 900, 40000, 900000])
+      for (const from of [0, t0 - 12345, t0, t0 + 987654]) {
+        const view = { from, mpp, width: 1100 };
+        const w = repeatWindow(view);
+        expect(w.from).toBeLessThanOrEqual(from);
+        expect(w.to).toBeGreaterThanOrEqual(from + view.width * mpp);
+        expect(w.span).toBe(view.width * mpp);
+      }
   });
 
   it('nur Sichtbares wird ausgelegt; Leisten tragen ihre Schrift in sich', () => {

@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
@@ -39,6 +40,7 @@ import {
   axisContext,
   axisTicks,
   centerView,
+  clusterSpreads,
   evenings,
   eveningsInView,
   fitView,
@@ -48,6 +50,7 @@ import {
   layoutLane,
   panView,
   pieceWhen,
+  repeatWindow,
   timelineExtent,
   toX,
   zoomPreset,
@@ -67,6 +70,7 @@ import {
   EmptyState,
   EntityPicker,
   IconButton,
+  MenuItem,
   Popover,
   cx,
   entityHref,
@@ -105,6 +109,9 @@ const TONE_WORD: Partial<Record<TimelinePiece['tone'], string>> = {
 
 type Hover = { item: LaidPiece; x: number; y: number };
 
+/** So viele Stücke eines Bündels nennt der Hinweis beim Darüberfahren. */
+const TIP_MEMBERS = 5;
+
 export default function ZeitleistePage() {
   const db = useDb();
   const data = useData();
@@ -118,6 +125,9 @@ export default function ZeitleistePage() {
   const [editing, setEditing] = useState<ChronicleEntry | null>(null);
   const [choosing, setChoosing] = useState(false);
   const chooser = useRef<HTMLButtonElement>(null);
+  /** Ein Bündel, dessen Stücke zur selben Zeit liegen – zum Auswählen aufgeklappt. */
+  const [listing, setListing] = useState<TimelinePiece[] | null>(null);
+  const listAnchor = useRef<HTMLElement | null>(null);
   const dragged = useRef(false);
   /** Beendet ein Ziehen, das noch läuft. */
   const endDrag = useRef<(() => void) | null>(null);
@@ -163,12 +173,12 @@ export default function ZeitleistePage() {
       ),
     [data, keys],
   );
-  const bucket = view ? windowBucket(view) : null;
+  const bucket = view ? repeatWindow(view) : null;
   const eventsLane = useMemo(
     () => (bucket && keys.includes('events') ? laneOf(data, 'events', bucket) : null),
     // Das Fenster ist gestuft: Es ändert sich erst, wenn das Bild weit genug gewandert ist.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, keys, bucket?.from, bucket?.to],
+    [data, keys, bucket?.from, bucket?.to, bucket?.span],
   );
   const lanes = useMemo(
     () =>
@@ -271,10 +281,16 @@ export default function ZeitleistePage() {
         return;
     }
   };
-  const openItem = (item: LaidPiece) => {
+  const openItem = (item: LaidPiece, element: HTMLElement) => {
     if (dragged.current || !view) return;
     if (item.cluster) {
       setHover(null);
+      // Liegen die Stücke zur selben Zeit, hilft kein Heranzoomen: Sie stehen zur Wahl.
+      if (!clusterSpreads(cal, item.cluster.members)) {
+        listAnchor.current = element;
+        setListing(item.cluster.members);
+        return;
+      }
       setView(fitView(cal, view, { from: item.cluster.from, to: item.cluster.to }));
       return;
     }
@@ -389,19 +405,33 @@ export default function ZeitleistePage() {
         </div>
       </div>
 
-      {hover && view && <Tip hover={hover} />}
+      {hover && view && !listing && <Tip hover={hover} />}
+      <Popover
+        open={listing !== null}
+        onClose={() => setListing(null)}
+        anchor={listAnchor}
+        width={320}
+      >
+        <div className="wf-zeitleiste-list">
+          {listing?.map((piece) => (
+            <MenuItem
+              key={piece.key}
+              onClick={() => {
+                setListing(null);
+                open(piece.link);
+              }}
+            >
+              <span className="wf-zeitleiste-list__text wf-clamp-1">{piece.text}</span>
+              <span className="wf-zeitleiste-list__when">{pieceWhen(cal, piece)}</span>
+            </MenuItem>
+          ))}
+        </div>
+      </Popover>
       {editing && (
         <EntryDialog request={{ mode: 'edit', entry: editing }} onClose={() => setEditing(null)} />
       )}
     </div>
   );
-}
-
-/** Ein Fenster für wiederkehrende Termine, gestuft – damit nicht jedes Verschieben neu rechnet. */
-function windowBucket(view: TimelineView): { from: number; to: number } {
-  const span = Math.pow(2, Math.ceil(Math.log2(Math.max(60, view.width * view.mpp))));
-  const from = Math.floor(view.from / span) * span - span;
-  return { from: Math.max(0, from), to: from + 4 * span };
 }
 
 // ── Die Bühne ──────────────────────────────────────────────────────────────
@@ -423,7 +453,7 @@ function Board({
   bands: ReturnType<typeof evenings>;
   now: number;
   onHover: (hover: Hover | null) => void;
-  onOpen: (item: LaidPiece) => void;
+  onOpen: (item: LaidPiece, element: HTMLElement) => void;
   onOpenLane: (lane: TimelineLane) => void;
   onRemove: (key: string) => void;
   onMove: (key: string, by: -1 | 1) => void;
@@ -564,7 +594,7 @@ const Lane = memo(function Lane({
   first: boolean;
   last: boolean;
   onHover: (hover: Hover | null) => void;
-  onOpen: (item: LaidPiece) => void;
+  onOpen: (item: LaidPiece, element: HTMLElement) => void;
   onOpenLane: (lane: TimelineLane) => void;
   onRemove: (key: string) => void;
   onMove: (key: string, by: -1 | 1) => void;
@@ -630,7 +660,7 @@ const Lane = memo(function Lane({
             y={rowY(item.row)}
             onEnter={enter(item)}
             onLeave={() => onHover(null)}
-            onOpen={() => onOpen(item)}
+            onOpen={(element) => onOpen(item, element)}
           />
         ))}
         {lane.pieces.length === 0 && (
@@ -671,7 +701,7 @@ function Piece({
   y: number;
   onEnter: (event: ReactPointerEvent) => void;
   onLeave: () => void;
-  onOpen: () => void;
+  onOpen: (element: HTMLElement) => void;
 }) {
   const p = item.piece;
   const spread = item.w === 0 && item.hi - item.lo > 6;
@@ -682,7 +712,7 @@ function Piece({
     'data-soft': p.precision !== 'exact' || undefined,
     onPointerEnter: onEnter,
     onPointerLeave: onLeave,
-    onClick: onOpen,
+    onClick: (event: ReactMouseEvent<HTMLButtonElement>) => onOpen(event.currentTarget),
   };
   if (item.w > 0)
     return (
@@ -737,8 +767,10 @@ function Tip({ hover }: { hover: Hover }) {
   const cal = data.campaign.calendar;
   const { item } = hover;
   const p = item.piece;
+  // Ungefähre Höhe des Hinweises – ein Bündel nennt bis zu `TIP_MEMBERS` Stücke mehr.
+  const tall = item.cluster ? 96 + 20 * Math.min(item.cluster.count, TIP_MEMBERS + 1) : 110;
   const left = Math.min(hover.x + 16, window.innerWidth - 340);
-  const top = hover.y + 18 > window.innerHeight - 120 ? hover.y - 110 : hover.y + 18;
+  const top = hover.y + 18 + tall > window.innerHeight ? hover.y - tall - 8 : hover.y + 18;
   if (item.cluster)
     return (
       <div className="wf-zeitleiste-tip" style={{ left, top }} role="tooltip">
@@ -748,7 +780,21 @@ function Tip({ hover }: { hover: Hover }) {
         <span className="wf-zeitleiste-tip__when">
           {pieceWhen(cal, { from: item.cluster.from, to: item.cluster.to, precision: 'day' })}
         </span>
-        <span className="wf-zeitleiste-tip__hint">Klicken zum Heranzoomen</span>
+        {item.cluster.members.slice(0, TIP_MEMBERS).map((piece) => (
+          <span key={piece.key} className="wf-zeitleiste-tip__member wf-clamp-1">
+            {piece.text}
+          </span>
+        ))}
+        {item.cluster.count > TIP_MEMBERS && (
+          <span className="wf-zeitleiste-tip__member">
+            und {item.cluster.count - TIP_MEMBERS} weitere
+          </span>
+        )}
+        <span className="wf-zeitleiste-tip__hint">
+          {clusterSpreads(cal, item.cluster.members)
+            ? 'Klicken zum Heranzoomen'
+            : 'Zur selben Zeit – klicken zum Auswählen'}
+        </span>
       </div>
     );
   const entry = p.link?.type === 'chronicle' ? data.chronicle[p.link.id] : undefined;
@@ -827,7 +873,7 @@ function LaneChooser({
             onChange={(id) => id && addLane(db, `entity:${id}`)}
           />
         </div>
-        {data.state.timelineLanes !== null && (
+        {data.state.timelineLanes != null && (
           <Button size="sm" onClick={() => resetLanes(db)}>
             Wie Wayfarer es wählt
           </Button>
