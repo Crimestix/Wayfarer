@@ -7,7 +7,7 @@
  * Mehrere Gefährten an einem Vorhaben teilen sich die Arbeit: Je Tag zählt jeder Helfer einen
  * Arbeitstag. Reine Funktionen; geschrieben wird über `features/gruppe/downtime.ts`.
  */
-import { craftPlan } from './crafting';
+import { itemCraftPlan } from './crafting';
 import type { CampaignData, DowntimeActivity, Item, Track } from './schema';
 import { trackMax } from './track';
 
@@ -51,7 +51,7 @@ export function projectName(
 
 /** Arbeitstage, die ein neues Herstellen nach dem Rezept braucht; null = lässt sich nicht rechnen. */
 export function craftDays(item: Item | null | undefined): number | null {
-  return item?.item.recipe ? craftPlan(item.item.recipe, item.item.price).days : null;
+  return item ? (itemCraftPlan(item)?.days ?? null) : null;
 }
 
 /** Ein Vorhaben, das erst mit der freien Zeit entsteht. */

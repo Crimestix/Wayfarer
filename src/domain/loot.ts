@@ -5,6 +5,7 @@
  * Tisch mit einem Klick ausgeben. Geschrieben wird alles vom Spielleiter. Reine Funktionen.
  */
 import { activeParty, sessionsSorted } from './derive';
+import { magicTag, valueOf } from './magicItem';
 import type { CampaignData, Character, Loot, Session } from './schema';
 
 /** „20 GM“ – Gold in Goldmünzen, ohne Nachkommastellen, wo keine sind. */
@@ -22,6 +23,22 @@ export function lootLine(data: Pick<CampaignData, 'entities'>, loot: Loot): stri
     what,
     item && what !== item && !what.includes(item) ? item : '',
     loot.gold > 0 ? formatGold(loot.gold) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Was der Gegenstand der Welt einer Beute wert ist – für die Spielleitung: „magisch · selten ·
+ * Wert 4.000 GM (Richtwert nach Seltenheit)“. '' = kein Gegenstand oder nichts bekannt.
+ */
+export function lootWorth(data: Pick<CampaignData, 'entities'>, loot: Loot): string {
+  const item = loot.itemId ? data.entities[loot.itemId] : undefined;
+  if (!item) return '';
+  const value = valueOf(item);
+  return [
+    magicTag(item),
+    value && `Wert ${formatGold(value.gold)}${value.note ? ` (${value.note})` : ''}`,
   ]
     .filter(Boolean)
     .join(' · ');

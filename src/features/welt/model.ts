@@ -22,6 +22,7 @@ import {
 } from '../../domain/derive';
 import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
 import { formatGold } from '../../domain/loot';
+import { magicTag, valueOf } from '../../domain/magicItem';
 import {
   HABITAT_SUGGESTIONS,
   RARITY_LABEL,
@@ -314,7 +315,7 @@ export function entitySubline(data: CampaignData, entity: Entity): string {
       if (entity.family.seatId) parts.push(entityName(data, entity.family.seatId));
       break;
     case 'item':
-      parts.push(entity.item.category);
+      parts.push(entity.item.category, magicTag(entity));
       if (entity.item.holderId) parts.push(entityName(data, entity.item.holderId));
       break;
     case 'language':
@@ -446,7 +447,15 @@ function kindFacts(data: CampaignData, entity: Entity): Fact[] {
         facts.push({ label: 'Befindet sich bei', ids: [entity.item.holderId] });
       else facts.push({ label: 'Verbleib', text: 'unbekannt' });
       text('Art', entity.item.category);
-      if (entity.item.price !== null) text('Wert', formatGold(entity.item.price));
+      if (entity.item.magic) text('Magie', magicTag(entity));
+      {
+        const value = valueOf(entity);
+        if (value)
+          text(
+            'Wert',
+            [formatGold(value.gold), value.note && `(${value.note})`].filter(Boolean).join(' '),
+          );
+      }
       break;
     case 'topic':
       text('Art', entity.topic.category);

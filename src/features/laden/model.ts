@@ -2,7 +2,13 @@
  * Der Korb im Laden: was am Tisch gekauft oder verkauft werden soll, bevor es festgehalten wird.
  * Reine Funktionen; festgehalten wird über `tradeAt` (`actions.ts`).
  */
-import type { CampaignData, Entity, Rarity, ShopDemand, TradeDirection } from '../../domain/schema';
+import type {
+  CampaignData,
+  Entity,
+  MagicRarity,
+  ShopDemand,
+  TradeDirection,
+} from '../../domain/schema';
 import {
   auctionBid,
   buyShareOf,
@@ -61,7 +67,7 @@ export interface BasketLine {
   /** Der Wert (Listenpreis oder Preis nach dem Regelwerk) – Grundlage beim Versteigern. */
   worth?: number | null;
   /** Seltenheit – beim Versteigern wird Seltenes breiter geboten. */
-  rarity?: Rarity | '';
+  rarity?: MagicRarity | '';
   /** Was der Handelsplatz dazu sagt (beim Verkauf): gesucht oder nicht gefragt. */
   demand?: ShopDemand | null;
 }

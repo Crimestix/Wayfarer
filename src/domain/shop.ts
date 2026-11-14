@@ -20,6 +20,7 @@ import {
   searchEntities,
 } from './derive';
 import { formatGold } from './loot';
+import { RARITY_VALUE_LABEL, rarityRuleItem } from './magicItem';
 import { buyShare, demandOf, demandThingOf, isBeastType, plainWord } from './market';
 import { isNature, natureHere, natureOf, type NatureKind } from './nature';
 import { isTradeKind, nameKey, roundGold, TRADE_KINDS } from './priceList';
@@ -52,13 +53,18 @@ export function listPrice(entity: Entity | undefined | null): number | null {
 
 /**
  * Der Gegenstand des Regelwerks (SRD 5.2.1), dessen Preis für einen Eintrag ohne Listenpreis gilt:
- * der gleichen Namens (deutsch oder englisch, `srdMatch`). null, wenn der Eintrag einen eigenen
- * Listenpreis hat oder kein Name passt.
+ * bei einem magischen Gegenstand der Richtwert nach Seltenheit (`rarityRuleItem`, wie `valueOf`),
+ * sonst der gleichen Namens (deutsch oder englisch, `srdMatch`). null, wenn der Eintrag einen
+ * eigenen Listenpreis hat oder nichts passt.
  */
 export function ruleItemOf(entity: Entity | undefined | null): SrdItem | null {
   if (!entity || !isTradeKind(entity.kind) || listPrice(entity) !== null) return null;
-  return srdMatch(entity.name);
+  return (entity.kind === 'item' ? rarityRuleItem(entity) : null) ?? srdMatch(entity.name);
 }
+
+/** Wie ein Preis aus dem Nachschlagewerk heißt: „Richtwert nach Seltenheit“ oder „Regelwerk“. */
+export const ruleLabel = (rule: SrdItem): string =>
+  rule.group === 'magic' ? RARITY_VALUE_LABEL : 'Regelwerk';
 
 /** Der Listenpreis – sonst der Preis nach dem Regelwerk (`ruleItemOf`). null = keiner. */
 export function listOrRulePrice(entity: Entity | undefined | null): number | null {

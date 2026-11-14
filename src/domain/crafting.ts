@@ -3,7 +3,17 @@
  * was man dafür braucht und wofür eine Pflanze, ein Gestein oder ein Tier gebraucht wird. Reine
  * Funktionen; das Rezept steht am Gegenstand (`item.recipe`).
  */
-import type { CampaignData, Entity, Ingredient, Item, Profession, Rarity, Recipe } from './schema';
+import { MAGIC_RARITY_LABEL, isCraftRarity } from './magicItem';
+import type {
+  CampaignData,
+  Entity,
+  Ingredient,
+  Item,
+  Magic,
+  Profession,
+  Rarity,
+  Recipe,
+} from './schema';
 import { RecipeSchema } from './schema';
 
 /**
@@ -29,14 +39,8 @@ export const CRAFTING_RULES = {
   } satisfies Record<Rarity, { days: number; gold: number }>,
 } as const;
 
-/** Die Seltenheit eines magischen Gegenstands, wie sie die Regeln nennen. */
-export const MAGIC_RARITY_LABEL: Record<Rarity, string> = {
-  common: 'gewöhnlich',
-  uncommon: 'ungewöhnlich',
-  rare: 'selten',
-  'very-rare': 'sehr selten',
-  legendary: 'legendär',
-};
+/** Die Seltenheit eines magischen Gegenstands, wie sie die Regeln nennen (`domain/magicItem.ts`). */
+export { MAGIC_RARITY_LABEL };
 
 /** Ein leeres Rezept mit allen Vorgaben. */
 export const emptyRecipe = (): Recipe => RecipeSchema.parse({});
@@ -63,15 +67,30 @@ const gold = (value: number) => Math.round(value * 100) / 100;
 
 /**
  * Dauer und Kosten eines Rezepts: was im Rezept steht, sonst nach den Regeln. Ohne eigenen Preis
- * im Rezept gilt der Listenpreis des Gegenstands (`listPrice`).
+ * im Rezept gilt der Listenpreis des Gegenstands (`listPrice`). Ist der Gegenstand magisch
+ * (`magic`), gelten Seltenheit und Verbrauchsgut der Magie – die Seltenheit steht nur dort; die
+ * des Rezepts gilt nur noch für ältere Stände ohne Magie.
  */
-export function craftPlan(recipe: Recipe, listPrice: number | null = null): CraftPlan {
+export function craftPlan(
+  recipe: Recipe,
+  listPrice: number | null = null,
+  magic: Pick<Magic, 'rarity' | 'consumable'> | null = null,
+): CraftPlan {
   if (recipe.price === null && listPrice !== null) recipe = { ...recipe, price: listPrice };
+  if (magic)
+    recipe = {
+      ...recipe,
+      rarity: isCraftRarity(magic.rarity) ? magic.rarity : '',
+      consumable: magic.consumable,
+    };
+  const artifact = magic?.rarity === 'artifact';
   const share = recipe.consumable ? CRAFTING_RULES.consumableShare : 1;
   let ruleDays: number | null = null;
   let ruleCost: number | null = null;
   let basis = '';
-  if (recipe.rarity) {
+  if (artifact) {
+    basis = 'Artefakt – die Regeln nennen dafür keine Dauer und keine Kosten';
+  } else if (recipe.rarity) {
     const row = CRAFTING_RULES.magic[recipe.rarity];
     ruleDays = wholeDays(row.days * share);
     ruleCost = gold(row.gold * share);
@@ -89,8 +108,13 @@ export function craftPlan(recipe: Recipe, listPrice: number | null = null): Craf
     daysFrom: recipe.days !== null ? 'recipe' : ruleDays !== null ? 'rules' : 'missing',
     costFrom: recipe.cost !== null ? 'recipe' : ruleCost !== null ? 'rules' : 'missing',
     basis,
-    magic: recipe.rarity !== '',
+    magic: magic !== null || recipe.rarity !== '',
   };
+}
+
+/** Dauer und Kosten für einen Gegenstand mit Rezept – mit Listenpreis und Magie; null ohne Rezept. */
+export function itemCraftPlan(item: Item): CraftPlan | null {
+  return item.item.recipe ? craftPlan(item.item.recipe, item.item.price, item.item.magic) : null;
 }
 
 /** Wie viele Tage es dauert, wenn mehrere mit passendem Werkzeug zusammen arbeiten. */
@@ -137,7 +161,7 @@ export function recipeView(data: Pick<CampaignData, 'entities'>, item: Item): Re
       const entity = (ingredient.entityId && data.entities[ingredient.entityId]) || null;
       return { ingredient, entity, name: entity?.name ?? ingredient.text.trim() };
     }),
-    plan: craftPlan(recipe, item.item.price),
+    plan: craftPlan(recipe, item.item.price, item.item.magic),
   };
 }
 

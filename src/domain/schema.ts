@@ -430,6 +430,54 @@ export const BookSchema = z.object({
 });
 export type Book = z.infer<typeof BookSchema>;
 
+/** Die Seltenheit eines magischen Gegenstands: die Stufen der Regeln und dazu das Artefakt. */
+export const MAGIC_RARITIES = [...RARITIES, 'artifact'] as const;
+export type MagicRarity = (typeof MAGIC_RARITIES)[number];
+
+/** Ladungen eines magischen Gegenstands. */
+export const ChargesSchema = z.object({
+  max: z.number().int().nonnegative().default(1),
+  current: z.number().int().nonnegative().default(1),
+  /** Wie sie wiederkommen, in Worten: „1W6+1 bei Morgengrauen“. */
+  recharge: z.string().default(''),
+  /**
+   * Wann zuletzt eine Ladung verbraucht (oder das Auffrischen verschoben) wurde – ab dann bietet
+   * Wayfarer nach Morgengrauen oder einer Langen Rast das Auffrischen an. null = nichts offen.
+   */
+  spentAt: worldTime.nullable().default(null),
+});
+export type Charges = z.infer<typeof ChargesSchema>;
+
+/**
+ * Was einen Gegenstand magisch macht (`domain/magicItem.ts`). Wirkung und Beschreibung stehen als
+ * Text im Artikel; hier nur, womit Wayfarer rechnet.
+ */
+export const MagicSchema = z.object({
+  /** '' = noch nicht festgelegt. */
+  rarity: z.enum(['', ...MAGIC_RARITIES]).default(''),
+  /** Art in Worten: Waffe, Ring, Trank, Wundersamer Gegenstand … */
+  type: z.string().default(''),
+  attunement: z
+    .object({
+      required: z.boolean().default(false),
+      /** Wer sich einstimmen kann, in Worten: „durch einen Zauberwirker“; '' = jeder. */
+      by: z.string().default(''),
+    })
+    .prefault({}),
+  /** Auf wen der Gegenstand eingestimmt ist – ein Gefährte oder eine Person. */
+  attunedTo: id.nullable().default(null),
+  charges: ChargesSchema.nullable().default(null),
+  /** Verbrauchsgut (Trank, Schriftrolle …): wird beim Gebrauch verbraucht. */
+  consumable: z.boolean().default(false),
+  /** Verbraucht – aufgebraucht oder zerstört. */
+  spent: z.boolean().default(false),
+  /** Verflucht – weiß nur die Spielleitung. */
+  cursed: z.boolean().default(false),
+  /** Die Gruppe hat erkannt, was er kann: Erst dann stehen Seltenheit, Art und Ladungen für sie da. */
+  identified: z.boolean().default(false),
+});
+export type Magic = z.infer<typeof MagicSchema>;
+
 const ItemDetails = z.object({
   /** Wo oder bei wem der Gegenstand ist. */
   holderId: id.nullable().default(null),
@@ -446,6 +494,8 @@ const ItemDetails = z.object({
   book: BookSchema.nullable().default(null),
   /** Listenpreis in Goldmünzen – was er gewöhnlich kostet (`domain/shop.ts`); null = nicht angegeben. */
   price: z.number().nonnegative().nullable().default(null),
+  /** Ein magischer Gegenstand (`domain/magicItem.ts`); null = nicht magisch. */
+  magic: MagicSchema.nullable().default(null),
 });
 
 const TopicDetails = z.object({

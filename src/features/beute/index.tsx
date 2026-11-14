@@ -7,7 +7,14 @@ import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { ClipboardCopy, Coins, HandCoins, Pencil, Plus, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { formatGold, lootBook, lootLine, lootRecipient, receivedText } from '../../domain/loot';
+import {
+  formatGold,
+  lootBook,
+  lootLine,
+  lootRecipient,
+  lootWorth,
+  receivedText,
+} from '../../domain/loot';
 import type { Loot } from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
 import { Button, EmptyState, IconButton, Panel, entityHref, toast } from '../../ui';
@@ -190,6 +197,7 @@ function Row({
   const data = useData();
   const story = loot.storyId ? data.stories[loot.storyId] : undefined;
   const place = loot.placeId ? data.entities[loot.placeId] : undefined;
+  const worth = lootWorth(data, loot);
   return (
     <div className="wf-beute-row">
       <div className="wf-beute-row__main">
@@ -202,6 +210,7 @@ function Row({
           {place && <span>{place.name}</span>}
           {loot.source && <span>{loot.source}</span>}
           {story && <span>{story.title}</span>}
+          {worth && <span>{worth}</span>}
         </div>
       </div>
       {action}

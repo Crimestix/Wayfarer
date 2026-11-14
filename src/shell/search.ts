@@ -8,6 +8,7 @@
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
 import { HANDOUT_KIND_LABEL } from '../domain/handout';
 import { formatGold } from '../domain/loot';
+import { magicTag } from '../domain/magicItem';
 import { MOUNT_CONDITION_LABEL, MOUNT_KIND_LABEL, ownerText } from '../domain/mounts';
 import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
 import { scheduleText } from '../domain/runs';
@@ -82,7 +83,8 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       key: entity.id,
       sort: 'entity',
       label: entity.name,
-      sub: sub(KIND_LABEL[entity.kind], entity.tagline),
+      // Bei Gegenständen „magisch · selten“ – zum Finden am Tisch.
+      sub: sub(KIND_LABEL[entity.kind], magicTag(entity), entity.tagline),
       entity,
       href: '',
     }),

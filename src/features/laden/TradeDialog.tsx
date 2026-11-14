@@ -23,6 +23,7 @@ import {
   sellables,
   shopTitle,
   shopsHere,
+  ruleLabel,
   stockRows,
 } from '../../domain/shop';
 import { normalize } from '../../domain/derive';
@@ -318,7 +319,9 @@ export function TradeDialog({
                           ? 'Eigener Preis dieses Ladens'
                           : row.listPrice !== null
                             ? `Listenpreis ${formatPrice(row.listPrice)}`
-                            : undefined
+                            : row.rule
+                              ? `${ruleLabel(row.rule)} ${formatPrice(row.rule.price)}`
+                              : undefined
                       }
                     >
                       <span className="wf-laden-ware__name">

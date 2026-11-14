@@ -194,6 +194,7 @@ describe('Lebenslauf eines Gegenstands', () => {
         recipe: null,
         book: null,
         price: null,
+        magic: null,
       },
     });
     expect(holdersOf(data(), compass.id).at(-1)).toMatchObject({

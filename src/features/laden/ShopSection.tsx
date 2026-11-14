@@ -31,6 +31,7 @@ import {
   shopTitle,
   shopTrades,
   shopsOf,
+  ruleLabel,
   stockRows,
 } from '../../domain/shop';
 import { templateOfKind } from '../../domain/shopTemplate';
@@ -283,9 +284,13 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
               row.own
                 ? row.listPrice !== null
                   ? `Liste ${formatPrice(row.listPrice)}`
-                  : row.rule && `Regelwerk ${formatPrice(row.rule.price)}`
+                  : row.rule && `${ruleLabel(row.rule)} ${formatPrice(row.rule.price)}`
                 : row.listPrice === null &&
-                  (row.rule ? 'Preis nach dem Regelwerk' : row.entity && 'ohne Listenpreis'),
+                  (row.rule
+                    ? row.rule.group === 'magic'
+                      ? ruleLabel(row.rule)
+                      : 'Preis nach dem Regelwerk'
+                    : row.entity && 'ohne Listenpreis'),
             ]
               .filter(Boolean)
               .join(' · ');

@@ -8,7 +8,8 @@
 import { KIND_LABEL, normalize } from './derive';
 import { isNature, natureOf } from './nature';
 import { roundGold } from './priceList';
-import type { Entity, Rarity, Shop, ShopDemand } from './schema';
+import { itemRarity } from './magicItem';
+import type { Entity, MagicRarity, Shop, ShopDemand } from './schema';
 
 /** Kleinbuchstaben ohne Akzente, „ß“ als „ss“, alles andere als Leerzeichen. */
 export const plainWord = (text: string): string =>
@@ -183,14 +184,14 @@ export const isBeastType = (type: string): boolean =>
 export type Die = (sides: number) => number;
 
 /** Seltenes wird breiter geboten: von selten an. */
-export const isWideRarity = (rarity: Rarity | '' | null | undefined): boolean =>
-  rarity === 'rare' || rarity === 'very-rare' || rarity === 'legendary';
+export const isWideRarity = (rarity: MagicRarity | '' | null | undefined): boolean =>
+  rarity === 'rare' || rarity === 'very-rare' || rarity === 'legendary' || rarity === 'artifact';
 
 /** Die Seltenheit eines Eintrags: Pflanze, Tier, Gestein – oder ein magischer Gegenstand. */
-export function rarityOf(entity: Entity | null | undefined): Rarity | '' {
+export function rarityOf(entity: Entity | null | undefined): MagicRarity | '' {
   if (!entity) return '';
   if (isNature(entity)) return natureOf(entity).rarity;
-  if (entity.kind === 'item') return entity.item.recipe?.rarity ?? '';
+  if (entity.kind === 'item') return itemRarity(entity);
   return '';
 }
 
