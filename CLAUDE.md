@@ -81,7 +81,7 @@ nicht übernommen.
   `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Nachtragen und Weltgeschehen; „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Zeitleiste, Nachtragen und Weltgeschehen; „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
@@ -447,6 +447,16 @@ nicht übernommen.
   Spielleiter hinlegt, steht in `state.netBoard` (`welt/netActions.ts`: `placeInNet`, `tidyNet`).
   Welche Übersicht gilt, sagt `useWorldLayout()` (`welt/overview.ts`). „Alles zeigen“ zeigt
   wirklich alles; die Schrift bleibt dabei auf dem Schirm gleich groß (`LABELS_FLOOR`).
+- Zeitleiste (Reiter unter Zeit, `/zeitleiste`, `features/zeitleiste`): Bahnen untereinander –
+  die Gruppe (Aufenthalte, Meilensteine), Geschichten mit Uhr, Fraktionen (Vorhaben,
+  Veränderungen), Personen und Orte (Lebensdaten, Besuche, Einträge), Termine nach
+  `eventWeight` (Alltag nie). Gerechnet in `domain/timeline.ts`: `timelineLanes`/`laneOf`,
+  Abende als Bänder (`evenings`), Achse je Zoomstufe aus der Kalender-Engine (`axisTicks`,
+  `zoomPreset`, `axisContext`), Auslegen mit weichender Schrift und Bündeln (`layoutLane`, nur
+  Sichtbares). Jedes Stück trägt nur Titel oder Text des Spielleiters und nie eine genauere Zeit
+  als bekannt (`spreadOf`, `pieceWhen`). Welche Bahnen stehen, steht in `state.timelineLanes`
+  (null = `defaultLaneKeys`); geändert über `zeitleiste/actions.ts`. Neue Arten von Stücken dort
+  eintragen, nie in der Oberfläche.
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

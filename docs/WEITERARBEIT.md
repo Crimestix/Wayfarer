@@ -1565,6 +1565,15 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Netz zeigte bei vielen Fraktionen nur einen Ausschnitt; jetzt passt alles ins Bild, und Namen
   und Unterzeilen fallen nie unter `--text-2xs`. Die Reiter „Nach Art | Ordner | Netz“ brechen
   bei 1280×800 nicht mehr um.
+- **Zeitleiste in Bahnen.** Neuer Reiter unter Zeit (`/zeitleiste`): Gruppe, Geschichten mit
+  Uhr, Fraktionen, gewählte Personen und Orte, Termine – Abende als Bänder, „Jetzt“ als
+  Messinglinie, Zoomen von Stunden bis Jahrhunderten, Ziehen, „Zum Jetzt“, „Alles zeigen“; ein
+  Klick öffnet Eintrag, Blatt, Kalendertag oder Eintrag der Chronik. Rechnung in
+  `domain/timeline.ts`, Auswahl der Bahnen in `state.timelineLanes`. Geprüft in der Vorschau bei
+  1440×900 mit einer erfundenen Welt (130 Einträge). Offen: Wiederkehrende Termine fallen bei
+  sehr weitem Blick weg (über 40 Male im Bild); Bahnen lassen sich nur mit Pfeilen umordnen,
+  nicht ziehen; auf dem Trackpad zoomt senkrechtes Wischen über den Bahnen (über den Köpfen
+  rollt es).
 
 ## 6. Bekannte Mängel und Aufräumliste
 

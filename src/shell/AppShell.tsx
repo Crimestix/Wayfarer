@@ -37,6 +37,7 @@ import SpielerbuchPage from '../features/spielerbuch';
 import GruppePage from '../features/gruppe';
 import KalenderPage from '../features/kalender';
 import NachtragenPage from '../features/nachtragen';
+import ZeitleistePage from '../features/zeitleiste';
 import { LkNameSync } from '../features/import/NameSync';
 import { TwinSync } from '../features/wiki/TwinSync';
 import {
@@ -108,6 +109,7 @@ const ZeitKalender = timePage(KalenderPage);
 const ZeitChronik = timePage(ChronikPage);
 const ZeitGeschehen = timePage(GeschehenPage);
 const ZeitNachtragen = timePage(NachtragenPage);
+const ZeitZeitleiste = timePage(ZeitleistePage);
 const KartenAtlas = mapPage(AtlasPage);
 const KartenKarten = mapPage(KartenPage);
 const KartenHex = mapPage(ErkundungPage);
@@ -385,6 +387,7 @@ export function AppShell() {
             <Route path="/wiki/:id?" component={WikiRoute} />
             <Route path="/chronik" component={ZeitChronik} />
             <Route path="/nachtragen/:id?" component={ZeitNachtragen} />
+            <Route path="/zeitleiste" component={ZeitZeitleiste} />
             <Route path="/geschehen" component={ZeitGeschehen} />
             <Route path="/kalender" component={ZeitKalender} />
             <Route path="/gruppe/:id?" component={GruppeGefaehrten} />

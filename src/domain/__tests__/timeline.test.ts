@@ -14,6 +14,7 @@ import { MINUTES_PER_DAY, formatYear, fromTime, toTime, type CalendarDef } from 
 import {
   APPROX_DAYS,
   MAX_REPEATS_IN_VIEW,
+  axisContext,
   axisTicks,
   centerView,
   defaultLaneKeys,
@@ -337,6 +338,15 @@ describe('Achse', () => {
     const centuries = axisTicks(cal, view(zoomPreset(cal, 'century'), 2000)).ticks;
     expect(centuries.every((t) => Number(t.label) % 100 === 0)).toBe(true);
     expect(centuries.find((t) => t.major)?.major).toMatch(/000 AD$/);
+  });
+
+  it('sagt, wo man ist, auch wenn keine Grenze im Bild liegt', () => {
+    const hours = { from: now, mpp: zoomPreset(cal, 'hour'), width: 600 };
+    expect(axisContext(cal, hours)).toMatch(/17\. Tauwind 701 AD$/);
+    expect(axisContext(cal, { ...hours, mpp: zoomPreset(cal, 'day') })).toMatch(
+      /^(Tauwind|Grünbruch) 701 AD$/,
+    );
+    expect(axisContext(cal, { ...hours, mpp: zoomPreset(cal, 'decade') })).toBeNull();
   });
 
   it('Teilstriche liegen nie dichter als lesbar', () => {

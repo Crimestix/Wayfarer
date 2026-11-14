@@ -3,6 +3,7 @@ import {
   BookOpen,
   BookUser,
   CalendarDays,
+  ChartNoAxesGantt,
   Castle,
   Coins,
   Flame,
@@ -47,6 +48,12 @@ export interface Area {
 export const TIME_TABS: readonly AreaTab[] = [
   { path: '/kalender', label: 'Kalender', hint: 'Zeit, Termine, Monde', icon: CalendarDays },
   { path: '/chronik', label: 'Chronik', hint: 'Was geschehen ist', icon: BookOpen },
+  {
+    path: '/zeitleiste',
+    label: 'Zeitleiste',
+    hint: 'Was war und was kommt – in Bahnen',
+    icon: ChartNoAxesGantt,
+  },
   {
     path: '/nachtragen',
     label: 'Nachtragen',
@@ -135,7 +142,7 @@ export const AREAS: Area[] = [
   {
     path: '/kalender',
     label: 'Zeit',
-    hint: 'Kalender, Chronik, Nachtragen, Weltgeschehen',
+    hint: 'Kalender, Chronik, Zeitleiste, Nachtragen, Weltgeschehen',
     icon: CalendarDays,
     tabs: TIME_TABS,
   },

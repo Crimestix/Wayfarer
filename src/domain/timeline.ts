@@ -284,7 +284,7 @@ function partyLane(data: CampaignData): TimelineLane {
         precision: entry.precision === 'exact' ? 'exact' : CHRONICLE_PRECISION[entry.precision],
         text: entityName(data, placeId),
         link: { type: 'entity', id: placeId },
-        weight: 2,
+        weight: 3,
         tone: entry.at > now ? 'future' : 'plain',
       }),
     );
@@ -488,7 +488,7 @@ function entityLane(data: CampaignData, entity: Entity): TimelineLane {
           precision: 'exact',
           text: 'Die Gruppe ist hier',
           link: { type: 'entity', id: entity.id },
-          weight: 2,
+          weight: 3,
           tone: 'plain',
         }),
       );
@@ -995,6 +995,17 @@ export function axisTicks(
   };
 }
 
+/**
+ * Wo man ist, wenn keine Grenze im Bild liegt: bei Stunden der Tag, bei Tagen Monat und Jahr, bei
+ * Monaten das Jahr – gemessen an der Mitte des Bildes. null bei Jahren und mehr (die Achse sagt es).
+ */
+export function axisContext(cal: CalendarDef, view: TimelineView): string | null {
+  const unit = tickStep(cal, view.mpp).unit;
+  if (unit !== 'hour' && unit !== 'day' && unit !== 'month') return null;
+  const middle = Math.max(0, Math.round(view.from + (view.width / 2) * view.mpp));
+  return majorLabel(cal, middle, unit);
+}
+
 /** Wo ein Zeitpunkt im Bild liegt, in Bildpunkten vom linken Rand. */
 export const toX = (view: TimelineView, t: number): number => (t - view.from) / view.mpp;
 
@@ -1042,7 +1053,7 @@ export function fitView(cal: CalendarDef, view: TimelineView, window: TimeWindow
 // ── Auslegen einer Bahn ────────────────────────────────────────────────────
 
 /** Ungefähre Breite eines Zeichens der Beschriftung in Bildpunkten (Crimson Pro, klein). */
-export const CHAR_PX = 6.4;
+export const CHAR_PX = 7;
 /** Halbe Breite einer Marke und Abstand bis zur Schrift. */
 export const MARK_HALF = 7;
 const LABEL_GAP = 5;
@@ -1078,7 +1089,8 @@ export interface LaneLayout {
 }
 
 const isBar = (p: TimelinePiece) => p.to !== null && p.to > p.from;
-const textPx = (text: string) => Math.ceil(text.length * CHAR_PX);
+/** Breite einer Beschriftung samt ihrem Polster (4 Bildpunkte je Seite). */
+const textPx = (text: string) => Math.ceil(text.length * CHAR_PX) + 8;
 
 /**
  * Legt die Stücke einer Bahn im Bild aus: Leisten und Marken in Reihen, so dass nichts
@@ -1102,12 +1114,22 @@ export function layoutLane(pieces: readonly TimelinePiece[], view: TimelineView)
     } else if (isBar(p)) {
       const x = toX(view, p.from);
       bars.push({ ...base, x, w: Math.max(3, toX(view, p.to!) - x) });
-    } else marks.push({ ...base, x: toX(view, p.from), w: 0 });
+    } else {
+      // Ungefähres steht in der Mitte dessen, was es sein kann – ein Jahr in seiner Mitte.
+      const x = p.precision === 'exact' ? toX(view, p.from) : (lo + hi) / 2;
+      marks.push({ ...base, x, w: 0 });
+    }
   }
   marks = clusterMarks(marks);
 
+  // Schweres zuerst; bei gleichem Gewicht die Leisten vor den Marken, damit Abschnitte wie die
+  // Aufenthalte der Gruppe in einer Reihe bleiben.
   const items = [...bars, ...marks].sort(
-    (a, b) => b.piece.weight - a.piece.weight || a.x - b.x || a.key.localeCompare(b.key),
+    (a, b) =>
+      b.piece.weight - a.piece.weight ||
+      Number(b.w > 0) - Number(a.w > 0) ||
+      a.x - b.x ||
+      a.key.localeCompare(b.key),
   );
   /** Belegte Stücke je Reihe; `label` = ab hier ist es nur Schrift einer Marke (die weichen kann). */
   type Span = { a: number; b: number; item: LaidPiece; label: number };
