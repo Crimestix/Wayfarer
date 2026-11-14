@@ -394,6 +394,15 @@ nicht übernommen.
   mit `entry.holder` fest – wer den Besitzer anderswo setzt, ruft es mit auf; `giveLoot` hat
   schon seine Zeile und braucht es nicht. Zeiten nie genauer zeigen, als sie bekannt sind
   (`itemEventWhen`, `holdingSpan` mit `fromPrecision` / `toPrecision`).
+- Magische Gegenstände (`item.magic`, null = nicht magisch; `domain/magicItem.ts`): Seltenheit
+  (mit Artefakt), Art, Einstimmung, eingestimmt auf, Ladungen, Verbrauchsgut, verbraucht,
+  verflucht, erkannt. Die Seltenheit steht nur dort – Herstellung liest sie über `craftPlan(…,
+  magic)`, alte `recipe.rarity` bleibt lesbar (`itemRarity`). Wert immer über `valueOf()` bzw.
+  `listOrRulePrice()` (eigener Preis, sonst „Richtwert nach Seltenheit“, `rarityRuleItem`).
+  Für Spieler nur `playerMagicLine()` / `playerFacts()`: nie der Fluch, Seltenheit, Art und
+  Ladungen nur, wenn erkannt. Einstimmungen zählt `attunementOf()` – über drei nur ein Hinweis.
+  Ladungen ändern über `welt/magic.ts`; `rechargesDue()` bietet nach Morgengrauen oder Langer
+  Rast das Auffrischen an, gewürfelt wird mit `fairDie` und erst nach Bestätigung geschrieben.
 - Blätter zum Schreiben (Geschichte, Abend) nutzen die Bausteine aus `ui/sheet.tsx`
   (`SheetSection`, `useDraftList`, `SheetAdvice`, dazu `Written`): Geschrieben wird beim
   Verlassen eines Feldes, ein „Speichern“ gibt es dort nicht.

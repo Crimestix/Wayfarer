@@ -1683,6 +1683,8 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   nehmen sich die Tagesfassung nicht mehr weg); Wiederherstellen aus dem Papierkorb auch unter
   vergebenem Titel (Hinweis statt Sperre, wie beim Anlegen) und mit den Unterartikeln, die beim
   Löschen nach oben rückten (`childIds`); Rückfrage beim Löschen nennt den Papierkorb zuerst.
+- **Magische Gegenstände.** `item.magic` (Seltenheit bis Artefakt, Art, Einstimmung, eingestimmt auf, Ladungen mit „Auffrischen“ per `fairDie`, verbraucht, verflucht, erkannt); ohne Preis gilt der Richtwert nach Seltenheit (`valueOf`, Verbrauchsgüter halb, außer Zauberschriftrollen) in Läden, Beute-Buch und Seite; Steckbrief speist die Felder; Spielerbuch und Bücher nie mit Fluch, Magie nur erkannt; „Eingestimmt: 2 von 3“ am Gefährten; nach Morgengrauen/Langer Rast leise „Ladungen auffrischen“ unter „Sonst noch“.
+- Offen: Morgengrauen gilt fest um 6 Uhr (kein Sonnenaufgang je Ort); Artefakte haben keinen Richtwert und keine Herstellungsregel; die Seltenheit alter Rezepte zieht erst mit dem Schalter „Magischer Gegenstand“ in die Magie um.
 
 ## 6. Bekannte Mängel und Aufräumliste
 
