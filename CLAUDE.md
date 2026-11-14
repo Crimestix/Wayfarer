@@ -574,7 +574,8 @@ nicht übernommen.
   Bezeichnungen für Felder gehören in `VOCABULARY`, nicht in die Oberfläche.
   Steckbrief-Gerüst (`wiki/scaffold.ts`): je Art leere Felder („> Geboren: “), Vorgabe oder
   `campaign.factScaffolds` aus den Einstellungen (eigene Felder erlaubt, nur nicht ausgewertet).
-  Angelegt wird über `createArticleOfKind` (Art und Gerüst wählbar, abwählbar), nachgetragen über
+  Angelegt wird über `createArticleOfKind` (Art und Gerüst wählbar, abwählbar; gehört der Titel
+  schon einem Eintrag, sagt `entryForTitle`, ob er verbunden wird – nie ein zweiter), nachgetragen über
   `addScaffoldFields`; was fehlt, sagt `articleScaffoldGap` leise am Artikel. Ein leeres Feld
   sagt nichts: nie gelesen (`articleFacts`, `articleParts`), nie gezeigt, löscht nie einen Wert.
 - Noch zu schreiben (`wikiGaps`, `wiki/gaps.ts`, Sicht in „Welt“): Verweise ins Leere je Titel

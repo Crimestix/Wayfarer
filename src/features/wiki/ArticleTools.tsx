@@ -42,6 +42,7 @@ import {
 } from './actions';
 import { flushEdits } from './editing';
 import { ArticleIcon } from './icons';
+import { entryForTitle } from './facts';
 import { articlePath, articleSuggestions, childArticles } from './model';
 import { SCAFFOLD_KINDS, isScaffoldKind, scaffoldOf } from './scaffold';
 
@@ -87,6 +88,15 @@ export function NewArticleDialog({
   const [under, setUnder] = useState(true);
   const clean = title.replace(/\s+/g, ' ').trim();
   const labels = kind ? scaffoldOf(data.campaign, kind) : [];
+  /** Gehört der Titel schon einem Eintrag der Welt? Dann entsteht kein zweiter. */
+  const named = entity ? null : entryForTitle(data, clean);
+  const kindHint = !named
+    ? kind
+      ? `Steht dann auch als ${KIND_LABEL[kind]} in der Welt.`
+      : 'Nur ein Artikel – in die Welt aufnehmen lässt er sich jederzeit.'
+    : 'free' in named
+      ? `Wird der Text des Eintrags „${named.free.name}“ (${KIND_LABEL[named.free.kind]}).`
+      : `„${named.taken.name}“ steht schon in der Welt (${KIND_LABEL[named.taken.kind]}) – der Artikel wird kein zweiter Eintrag.`;
   const create = () => {
     flushEdits();
     const created = createArticleOfKind(db, {
@@ -136,14 +146,7 @@ export function NewArticleDialog({
             Der Artikel wird der Text des Eintrags „{entity.name}“ ({KIND_LABEL[entity.kind]}).
           </p>
         ) : (
-          <Field
-            label="Art"
-            hint={
-              kind
-                ? `Steht dann auch als ${KIND_LABEL[kind]} in der Welt.`
-                : 'Nur ein Artikel – in die Welt aufnehmen lässt er sich jederzeit.'
-            }
-          >
+          <Field label="Art" hint={kindHint}>
             <Select
               value={kind ?? ''}
               aria-label="Art"

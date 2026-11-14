@@ -1656,6 +1656,11 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   abwählbar) und als leiser Hinweis am Artikel; leere Felder werden nie gelesen oder gezeigt.
   Offen: Ein geleertes Feld nimmt Beziehungen zurück, die es selbst gestiftet hat (wie eine
   gelöschte Zeile); der Kasten „Steckbrief“ im Editor fügt weiter nur „Art:“ ein.
+- **Gegengelesen: Noch zu schreiben und Steckbrief-Gerüst.** Anlegen mit Art legt keinen zweiten
+  Eintrag mehr an, wenn der Titel schon einem gehört (auch als Zweitname; `entryForTitle`), und
+  lässt Verknüpfungen zu LegendKeeper stehen; der Dialog sagt das vorher. „Im Steckbrief fehlt
+  noch“ zählt auch Felder aus einem zweiten Kasten. Die Rechnung hängt nur noch an Artikeln und
+  Einträgen (Zeit und Chronik rechnen sie nicht neu).
 
 ## 6. Bekannte Mängel und Aufräumliste
 

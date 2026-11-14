@@ -312,6 +312,83 @@ describe('Artikel einer Art anlegen', () => {
     expect(Object.values(data().entities).filter((e) => e.name === 'Furt')).toHaveLength(2);
   });
 
+  it('legt nie einen zweiten Eintrag für einen Namen an, den es schon gibt', async () => {
+    const { db, data, add } = await setup();
+    // „Brann“ ist der Zweitname eines Eintrags, der schon einen Artikel hat.
+    const brann = createArticleOfKind(db, {
+      title: 'Brann Eichwald',
+      kind: 'person',
+      scaffold: false,
+    })!;
+    db.patch('entities', brann.entity!.id, { aliases: ['Brann'] });
+    const count = () => Object.keys(data().entities).length;
+    let before = count();
+    const second = createArticleOfKind(db, { title: 'Brann', kind: 'person', scaffold: true })!;
+    expect(second.entity).toBeNull();
+    expect(count()).toBe(before);
+    expect(data().entities[brann.entity!.id]!.lk?.resourceId).toBe(brann.article.id);
+    // Ein Eintrag mit Zweitnamen und ohne Artikel bekommt den neuen Artikel.
+    const grotte = add(createEntity({ kind: 'place', name: 'Salzgrotte am Fluss' }));
+    db.patch('entities', grotte.id, { aliases: ['Salzgrotte'] });
+    before = count();
+    const linked = createArticleOfKind(db, { title: 'Salzgrotte', kind: 'place', scaffold: true })!;
+    expect(linked.entity?.id).toBe(grotte.id);
+    expect(data().entities[grotte.id]!.lk?.resourceId).toBe(linked.article.id);
+    expect(count()).toBe(before);
+    // Ein Eintrag, der mit LegendKeeper verknüpft ist, behält seine Verknüpfung.
+    const ilka = add(
+      createEntity({
+        kind: 'person',
+        name: 'Ilka Sturmfels',
+        lk: { resourceId: 'lk-ilka', title: 'Ilka Sturmfels' },
+      }),
+    );
+    before = count();
+    const kept = createArticleOfKind(db, {
+      title: 'Ilka Sturmfels',
+      kind: 'person',
+      scaffold: true,
+    })!;
+    expect(kept.entity).toBeNull();
+    expect(data().entities[ilka.id]!.lk?.resourceId).toBe('lk-ilka');
+    expect(count()).toBe(before);
+  });
+
+  it('der genannte Eintrag geht vor, auch wenn ein gleichnamiger von selbst verbunden würde', async () => {
+    const { db, data, add } = await setup();
+    // Der genannte ist mit LegendKeeper verknüpft; ein zweiter gleichen Namens ist frei.
+    const meant = add(
+      createEntity({ kind: 'place', name: 'Furt', lk: { resourceId: 'lk-furt', title: 'Furt' } }),
+    );
+    const other = add(createEntity({ kind: 'place', name: 'Furt' }));
+    const result = createArticleOfKind(db, {
+      title: 'Furt',
+      kind: 'place',
+      scaffold: false,
+      entityId: meant.id,
+    })!;
+    expect(result.entity?.id).toBe(meant.id);
+    expect(data().entities[meant.id]!.lk?.resourceId).toBe(result.article.id);
+    expect(data().entities[other.id]!.lk).toBeFalsy();
+  });
+
+  it('zählt Felder aus einem zweiten Kasten als vorhanden', async () => {
+    const { db, data } = await setup();
+    const result = createArticleOfKind(db, {
+      title: 'Odo Tannhaus',
+      kind: 'person',
+      scaffold: false,
+    })!;
+    savePageText(
+      db,
+      result.article.id,
+      result.article.docs[0]!.id,
+      '> [!steckbrief]\n> Volk: Mensch\n\nOdo hütet die Furt.\n\n> [!infobox]\n> Beruf: Fährmann\n> Wohnort: Hohenfurt\n',
+    );
+    const gap = articleScaffoldGap(data(), data().articles[result.article.id]!);
+    expect(gap?.missing).toEqual(['Geboren', 'Herkunft', 'Familie', 'Fraktion']);
+  });
+
   it('nennt am Artikel, was nach dem Gerüst seiner Art fehlt – bis er ausgeblendet ist', async () => {
     const { db, data } = await setup();
     const free = createArticleOfKind(db, { title: 'Ohne Art', kind: null, scaffold: false })!;

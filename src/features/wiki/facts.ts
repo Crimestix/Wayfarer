@@ -885,6 +885,37 @@ export function statedKind(facts: Fact[]): { kind: EntityKind; category: string 
 
 // ── Zwillinge: Artikel und Eintrag gleichen Namens ─────────────────────────
 
+/**
+ * Wem ein Name in der Welt schon gehört – für einen neuen Artikel dieses Titels. `free`: genau
+ * ein Eintrag trägt diesen Namen (oder Zweitnamen) und ist mit nichts verknüpft – der neue Artikel
+ * wird sein Text. `taken`: der Name gehört schon einem Eintrag (mit Artikel, mit Verknüpfung oder
+ * mehrdeutig) – ein zweiter Eintrag gleichen Namens entsteht nie. null: der Name ist frei. Nur
+ * gleiche Namen, nie
+ * ähnliche („Aalfischer“ ist nicht „Die Aalfischer“).
+ */
+export function entryForTitle(
+  data: Pick<CampaignData, 'entities' | 'articles'>,
+  title: string,
+): { free: Entity } | { taken: Entity } | null {
+  const key = titleKey(title);
+  if (!key) return null;
+  const same = (name: string) => titleKey(name) === key;
+  const named = Object.values(data.entities)
+    .filter((entity) => {
+      const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
+      return (
+        same(entity.name) ||
+        entity.aliases.some(same) ||
+        (article !== undefined && (same(article.title) || article.aliases.some(same)))
+      );
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (!named.length) return null;
+  // Ein Eintrag mit Verknüpfung (auch zu LegendKeeper) behält sie – er wird nur von Hand verbunden.
+  if (named.length === 1 && !named[0]!.lk) return { free: named[0]! };
+  return { taken: named[0]! };
+}
+
 export interface Twin {
   article: Article;
   entity: Entity;

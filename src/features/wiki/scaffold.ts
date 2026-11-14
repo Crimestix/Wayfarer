@@ -184,7 +184,12 @@ export function articleScaffoldGap(
     statedKind(articleFacts(data.articles, article))?.kind ??
     null;
   if (!kind) return null;
-  const labels = steckbriefLabels(pageText(data.articles, article, doc));
+  // Die Felder des Steckbriefs, auch leere – dazu alles, was anderswo im Artikel als Feld steht
+  // (ein zweiter Kasten, eine weitere Seite): Was schon dasteht, fehlt nicht.
+  const labels = [
+    ...steckbriefLabels(pageText(data.articles, article, doc)),
+    ...articleFacts(data.articles, article).map((fact) => fact.label),
+  ];
   const missing = missingScaffold(kind, labels, scaffoldOf(data.campaign, kind));
   return missing.length ? { kind, missing } : null;
 }

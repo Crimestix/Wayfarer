@@ -8,7 +8,7 @@ import { Link, useLocation } from 'wouter';
 import { ChevronRight, FilePlus2, Feather } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
-import type { Article, CampaignData, Entity, EntityKind } from '../../domain/schema';
+import type { Article, Entity, EntityKind } from '../../domain/schema';
 import { Button, KindIcon, cx } from '../../ui';
 import { openForWriting } from '../wiki';
 import { NewArticleDialog } from '../wiki/ArticleTools';
@@ -19,25 +19,34 @@ import {
   wikiGaps,
   type GapMention,
   type MissingTitle,
+  type WikiData,
   type WikiGaps,
 } from '../wiki/gaps';
 import { ArticleIcon } from '../wiki/icons';
 import { Section } from './parts';
 
-const gapsCache = new WeakMap<CampaignData, WikiGaps>();
+const gapsCache = new WeakMap<object, WeakMap<object, WikiGaps>>();
 
-/** Was im Wiki noch zu schreiben ist – einmal je Stand des Spielstands gerechnet. */
+/** Je Stand der Artikel und Einträge einmal gerechnet – Zeit, Wetter und Chronik ändern nichts daran. */
+function gapsOf(data: WikiData): WikiGaps {
+  let byEntities = gapsCache.get(data.articles);
+  if (!byEntities) {
+    byEntities = new WeakMap();
+    gapsCache.set(data.articles, byEntities);
+  }
+  let gaps = byEntities.get(data.entities);
+  if (!gaps) {
+    gaps = wikiGaps(data);
+    byEntities.set(data.entities, gaps);
+  }
+  return gaps;
+}
+
+/** Was im Wiki noch zu schreiben ist. */
 export function useWikiGaps(): WikiGaps {
   // Nachgezogen, nicht im Takt des Tippens: Gerechnet wird über alle Artikel.
-  const data = useDeferredValue(useData());
-  return useMemo(() => {
-    let gaps = gapsCache.get(data);
-    if (!gaps) {
-      gaps = wikiGaps(data);
-      gapsCache.set(data, gaps);
-    }
-    return gaps;
-  }, [data]);
+  const { articles, entities } = useDeferredValue(useData());
+  return useMemo(() => gapsOf({ articles, entities }), [articles, entities]);
 }
 
 /** Die Zahl für „Noch zu schreiben: 12“. */

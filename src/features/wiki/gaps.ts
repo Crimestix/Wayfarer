@@ -20,6 +20,8 @@ import { backlinks } from './model';
 import { linkIndex, pageText, titleKey } from './text';
 
 type Articles = CampaignData['articles'];
+/** Mehr als Artikel und Einträge braucht die Rechnung nicht – so gilt sie über Zeit und Zustand hinweg. */
+export type WikiData = Pick<CampaignData, 'articles' | 'entities'>;
 
 /** Unter so vielen Wörtern Fließtext (ohne Steckbrief) gilt ein Artikel als Stummel. */
 export const STUB_WORDS = 30;
@@ -108,7 +110,7 @@ interface Found {
 }
 
 /** Sammelt alle Verweise, die ins Leere führen – je Titel, mit Stellen und Art aus dem Feld. */
-function collectWanted(data: CampaignData): Map<string, Found> {
+function collectWanted(data: WikiData): Map<string, Found> {
   const articles = data.articles;
   const index = linkIndex(articles);
   const world = worldIndex(data);
@@ -191,9 +193,9 @@ function articleWords(articles: Articles, article: Article): number {
 
 /**
  * Was im Wiki noch zu schreiben ist. Gerechnet über alle Artikel; die Oberfläche merkt sich das
- * Ergebnis je Stand des Spielstands.
+ * Ergebnis je Stand der Artikel und Einträge.
  */
-export function wikiGaps(data: CampaignData): WikiGaps {
+export function wikiGaps(data: WikiData): WikiGaps {
   const articles = data.articles;
   const world = worldIndex(data);
   const wanted = collectWanted(data);

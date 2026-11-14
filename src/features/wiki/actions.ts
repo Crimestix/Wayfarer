@@ -16,7 +16,7 @@ import {
 import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
-import { articleFacts, planFacts, statedKind, twins } from './facts';
+import { articleFacts, entryForTitle, planFacts, statedKind, twins } from './facts';
 import { addBlankFactLines } from './factLines';
 import { scaffoldOf, scaffoldText, withScaffold, type ScaffoldKind } from './scaffold';
 import type { RelationHint } from './sentences';
@@ -203,8 +203,9 @@ export function createArticle(
 /**
  * Legt einen Artikel einer Art an: auf Wunsch mit dem Steckbrief-Gerüst dieser Art (leere Felder,
  * `scaffold.ts`) und als Eintrag dieser Art in der Welt. Steht dort schon ein Eintrag dieses Namens
- * ohne Artikel, wird er verbunden statt ein zweiter angelegt. Ohne Art ist es ein gewöhnlicher
- * Artikel. Gibt den Artikel und seinen Eintrag zurück.
+ * ohne Artikel, wird er verbunden statt ein zweiter angelegt; gehört der Name schon einem Eintrag
+ * mit Artikel, bleibt es beim Artikel (`entryForTitle`). Ohne Art ist es ein gewöhnlicher Artikel.
+ * Gibt den Artikel und seinen Eintrag zurück.
  */
 export function createArticleOfKind(
   db: CampaignDb,
@@ -219,6 +220,7 @@ export function createArticleOfKind(
 ): { article: Article; entity: Entity | null } | null {
   const { kind } = input;
   const labels = kind && input.scaffold ? scaffoldOf(db.getSnapshot().campaign, kind) : [];
+  const before = db.getSnapshot().entities;
   return db.batch(() => {
     const article = createArticle(db, {
       title: input.title,
@@ -226,20 +228,32 @@ export function createArticleOfKind(
       text: scaffoldText(labels),
     });
     if (!article) return null;
-    const owner = Object.values(db.getSnapshot().entities).find(
+    const data = db.getSnapshot();
+    const owner = Object.values(data.entities).find(
       (entity) => entity.lk?.resourceId === article.id,
     );
-    if (owner) return { article, entity: owner };
-    const data = db.getSnapshot();
     const meant = input.entityId ? data.entities[input.entityId] : undefined;
-    if (meant && !(meant.lk && data.articles[meant.lk.resourceId])) {
+    if (meant && meant.id !== owner?.id && !(meant.lk && data.articles[meant.lk.resourceId])) {
+      // Der genannte Eintrag geht vor – auch wenn ein gleichnamiger von selbst verbunden wurde.
+      if (owner && before[owner.id]) db.put('entities', before[owner.id]!);
       const linked = db.put('entities', {
         ...meant,
         lk: { resourceId: article.id, title: article.title },
       });
       return { article, entity: linked };
     }
-    if (!kind || kind === 'character') return { article, entity: null };
+    if (owner) return { article, entity: owner };
+    // Gehört der Name schon einem Eintrag, entsteht kein zweiter: Ein freier wird verbunden.
+    const named = entryForTitle(data, article.title);
+    if (named && 'free' in named)
+      return {
+        article,
+        entity: db.put('entities', {
+          ...named.free,
+          lk: { resourceId: article.id, title: article.title },
+        }),
+      };
+    if (named || !kind || kind === 'character') return { article, entity: null };
     return { article, entity: adoptArticle(db, article, kind) };
   });
 }

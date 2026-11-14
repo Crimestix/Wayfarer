@@ -26,6 +26,7 @@ import { LkArticlePanel } from '../legendkeeper';
 import { ContinuityNote } from '../offen/ContinuityItem';
 import { ArticlePage, openForWriting } from '../wiki';
 import { createArticleOfKind } from '../wiki/actions';
+import { flushEdits } from '../wiki/editing';
 import { scaffoldOf } from '../wiki/scaffold';
 import { deleteEntityUndoable } from './actions';
 import { openEntityDialog } from './editor';
@@ -247,6 +248,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
               <Button
                 icon={<Feather />}
                 onClick={() => {
+                  flushEdits();
                   openForWriting();
                   createArticleOfKind(db, {
                     title: entity.name,
