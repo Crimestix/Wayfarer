@@ -18,6 +18,7 @@ import {
   readyEncounters,
   type PrepView,
 } from '../../domain/prep';
+import { recap as recapOf } from '../../domain/recap';
 import { newId, type PrepScene, type PrepSecret } from '../../domain/schema';
 import { storiesOfHero, storyClock, untilText } from '../../domain/story';
 import {
@@ -41,6 +42,7 @@ import { patchCharacter } from '../gruppe/actions';
 import { LootList } from '../beute/LootList';
 import { addToStart, newStoryForHero, patchPrep } from './actions';
 import { lastLinesView } from './model';
+import { RecapBox } from './RecapBox';
 import './abend.css';
 
 /** Der Eintrag im Auswahlfeld, der eine neue Geschichte anlegt. */
@@ -89,6 +91,8 @@ function PrepSheet({ view }: { view: PrepView }) {
                 .join(' und ')}.`}
           </p>
         </header>
+
+        <LastTime number={view.number} />
 
         <Companions />
 
@@ -154,6 +158,14 @@ function PrepSheet({ view }: { view: PrepView }) {
 }
 
 // ── Wo es zuletzt aufhörte ─────────────────────────────────────────────────
+
+/** „Letztes Mal“: derselbe Rückblick wie am Spieltisch – auf den Abend vor diesem Blatt. */
+function LastTime({ number }: { number: number }) {
+  const data = useData();
+  const recap = useMemo(() => recapOf(data, number), [data, number]);
+  if (!recap) return null;
+  return <RecapBox recap={recap} className="wf-abend-recap--sheet" />;
+}
 
 /** Die letzten Einträge der Chronik vom letzten Abend – mit einem Klick in den Einstieg. */
 function LastLines({ start }: { start: string }) {

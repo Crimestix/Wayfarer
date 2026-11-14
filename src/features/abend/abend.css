@@ -167,3 +167,102 @@
   grid-column: 2 / 3;
   max-width: 360px;
 }
+
+/* Letztes Mal: der Rückblick auf den vorigen Abend (auch am Spieltisch) */
+.wf-abend-recap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-left: 2px solid var(--gold-deep);
+  background: linear-gradient(90deg, var(--gold-glow), transparent 70%);
+}
+.wf-abend-recap__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-height: 26px;
+}
+.wf-abend-recap__told {
+  margin: 0;
+  color: var(--ink-soft);
+  font-style: italic;
+  white-space: pre-line;
+}
+.wf-abend-recap__none {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-abend-recap__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-abend-recap__line {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: var(--s-2);
+  align-items: baseline;
+}
+.wf-abend-recap__kind,
+.wf-abend-recap__facts dt {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.wf-abend-recap__text {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  white-space: pre-line;
+}
+.wf-abend-recap__secret {
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  color: var(--ink-faint);
+  vertical-align: -1px;
+}
+.wf-abend-recap__more {
+  align-self: flex-start;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-abend-recap__facts {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 4px var(--s-2);
+  align-items: baseline;
+  margin: var(--s-1) 0 0;
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-abend-recap__facts dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+.wf-abend-recap__ahead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-abend-recap__when {
+  color: var(--gold);
+}
+.wf-abend-recap--sheet {
+  margin: var(--s-2) 0 var(--s-4);
+}

@@ -4,8 +4,9 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { lastSessionLines } from '../../domain/prep';
-import { createEntity } from '../../domain/schema';
-import { lastLinesView, startLineOf } from './model';
+import { recap } from '../../domain/recap';
+import { createEntity, createEvent } from '../../domain/schema';
+import { lastLinesView, recapView, startLineOf } from './model';
 
 async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
@@ -50,5 +51,44 @@ describe('Wo es zuletzt aufhörte – als Zeilen', () => {
     const view = lastLinesView(data(), lastSessionLines(data()), '');
     expect(view.lines).toEqual([]);
     expect(view.empty).toMatch(/^Zu Session \d+ steht nichts in der Chronik\.$/);
+  });
+});
+
+describe('Letztes Mal – als Zeilen', () => {
+  it('zeigt Einträge wörtlich, wo die Gruppe steht, was offen ist und was ansteht', async () => {
+    const { db, data } = await setup();
+    const mark = db.put('entities', createEntity({ kind: 'place', name: 'Nordmark' }));
+    const town = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Hohenfurt', place: { parentId: mark.id } } as never),
+    );
+    for (const id of Object.keys(data().events)) db.remove('events', id);
+    startSession(db, { title: 'Das leere Boot' });
+    logEntry(db, { kind: 'promise', text: 'Odo Tannhaus zahlt die Fähre.' });
+    setTime(db, data().state.now + 30);
+    moveParty(db, town.id);
+    endSession(db);
+    db.put(
+      'events',
+      createEvent({ title: 'Markt in Hohenfurt', at: data().state.now + 2 * 24 * 60 }),
+    );
+    const view = recapView(data(), recap(data())!);
+    expect(view.title).toBe('Letztes Mal – Session 1 – Das leere Boot');
+    expect(view.lines.map((line) => [line.kind, line.line])).toEqual([
+      ['Abmachung', 'Odo Tannhaus zahlt die Fähre.'],
+      ['Ortswechsel', 'Ankunft: Hohenfurt'],
+    ]);
+    expect(view.where).toEqual({ id: town.id, name: 'Hohenfurt', path: 'Nordmark › Hohenfurt' });
+    expect(view.open).toBe('1 offen: 1× Abmachung');
+    expect(view.ahead).toEqual([
+      {
+        key: expect.any(String),
+        when: 'in 2 Tagen',
+        title: 'Markt in Hohenfurt',
+        sub: 'Termin',
+        storyId: null,
+      },
+    ]);
+    expect(view.empty).toBe('');
   });
 });

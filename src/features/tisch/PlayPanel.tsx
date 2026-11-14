@@ -11,6 +11,7 @@ import { logEntry, setPromiseOutcome } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
 import { lootLine, lootRecipient } from '../../domain/loot';
 import { playView, type PlayCard } from '../../domain/play';
+import { tableRecap } from '../../domain/recap';
 import type { ChronicleEntry } from '../../domain/schema';
 import {
   ENTRY_STANDING_LABEL,
@@ -22,8 +23,10 @@ import {
 import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
 import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
+import { RecapBox } from '../abend/RecapBox';
 import { useGiveLoot } from '../beute/useGive';
 import { newStory, setHintFound, setInPlay, setStoryMemo } from '../faeden/actions';
+import { dismissRecap } from './commands';
 import { EveningBlock } from './EveningBlock';
 import { whenLabel } from './model';
 
@@ -37,6 +40,31 @@ const memoRows = (memo: string) =>
         memo.split('\n').reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / 42)), 0),
       )
     : 2;
+
+/**
+ * „Letztes Mal“ zu Beginn des Abends: steht da, bis im neuen Abend etwas festgehalten ist oder
+ * der Spielleiter es wegklickt (`domain/recap.ts`).
+ */
+function TableRecap() {
+  const db = useDb();
+  const data = useData();
+  const recap = useMemo(() => tableRecap(data), [data]);
+  if (!recap) return null;
+  return (
+    <RecapBox
+      recap={recap}
+      className="wf-tisch-recap"
+      onDismiss={() => {
+        dismissRecap(db);
+        toast({
+          title: '„Letztes Mal“ ausgeblendet',
+          body: 'Für diesen Abend. Unter „Abend vorbereiten“ steht der Rückblick weiter.',
+          action: { label: 'Rückgängig', run: () => dismissRecap(db, true) },
+        });
+      }}
+    />
+  );
+}
 
 export function PlayPanel() {
   const db = useDb();
@@ -82,6 +110,7 @@ export function PlayPanel() {
         </>
       }
     >
+      <TableRecap />
       <EveningBlock />
       {view.cards.length === 0 && (
         <p className="wf-tisch-play__none">

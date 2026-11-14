@@ -562,6 +562,9 @@ button.wf-tisch-story__title:enabled:hover b {
   border-left-color: var(--ember);
   background: linear-gradient(90deg, var(--ember-wash), transparent 70%);
 }
+.wf-tisch-recap {
+  border-bottom: 1px solid var(--line-faint);
+}
 .wf-tisch-abend--blank {
   display: flex;
   flex-wrap: wrap;
