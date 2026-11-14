@@ -198,24 +198,42 @@ a.wf-fort-row__name:hover {
 /* Überfahrten am Spieltisch */
 
 .wf-fort-crossings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-1) var(--s-4);
-  align-items: center;
-  padding: var(--s-1) var(--s-4);
+  padding: var(--s-1) var(--s-5);
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
 
-.wf-fort-crossing {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--s-2);
+/* Je Fahrt zwei Zeilen – wohin, und womit und wann –, „Überfahrt …“ daneben. */
+.wf-fort-crossings__list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-1);
   min-width: 0;
+}
+
+.wf-fort-crossing {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.wf-fort-crossing__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
 }
 
 .wf-fort-crossing__when {
   color: var(--ink-mute);
+}
+
+.wf-fort-crossing__book {
+  flex: none;
+  white-space: nowrap;
 }
 
 .wf-fort-prices {
@@ -248,7 +266,7 @@ a.wf-fort-row__name:hover {
 }
 
 .wf-fort-travel__button {
-  flex: 0 1 auto;
-  max-width: 130px;
-  min-width: 0;
+  flex: none;
+  gap: 3px;
+  padding: 0 7px;
 }

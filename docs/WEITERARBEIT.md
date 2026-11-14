@@ -1630,6 +1630,12 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   beim Weiterziehen und auf der Hexkarte, Angebot beim Kauf im Laden (Werte aus dem SRD),
   „Fahrten“ am Spieltisch mit „Überfahrt …“ (buchen und mitfahren). Offen: Abläufe rechnen ihre
   Fahrzeit weiter zu Fuß (ein Träger als Fortbewegungsmittel fehlt); `journeys` bleibt ungenutzt.
+- **Gegengelesen: Fortbewegung.** „Fahrten“ am Spieltisch zeigen aus einer Stadt ohne Wege nicht
+  mehr alle Häfen der Gegend (nur ein Ort ohne Orte darin, auch ein Raum, gilt als Teil des Ortes
+  darüber); der Umschalter bei den Wegen ist nur noch ein Zeichen, damit die Ziele lesbar bleiben;
+  Fahrten zweizeilig. Im Laden ist ein Tier ohne Hinweis (Huhn, Ziege) nur angeboten, nicht vorab
+  angekreuzt; „Fahrzeug“, „Zugtier“, „Lasttier“ werden erkannt. „Neu anlegen“ im Dialog nimmt einen
+  vorhandenen Eintrag gleichen Namens; der Kasten steht auch ohne aktive Gefährten auf der Seite.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

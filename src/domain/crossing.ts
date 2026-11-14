@@ -9,7 +9,7 @@
  */
 import { placeAncestors, placeSubtreeIds } from './derive';
 import { runStatus, type Trip } from './runs';
-import type { CampaignData, Run } from './schema';
+import type { CampaignData, Place, Run } from './schema';
 import { srdItem } from './srd/lookup';
 import {
   MINUTES_PER_DAY,
@@ -19,7 +19,6 @@ import {
   formatDuration,
   type CalendarDef,
 } from './time/calendar';
-import { waysAround } from './ways';
 
 export interface Crossing {
   run: Run;
@@ -32,21 +31,30 @@ export interface Crossing {
 }
 
 /**
- * Die Abläufe, die vom Ort der Gruppe abfahren – auch vom Ort darüber und von Orten darin. Wie
- * bei den Wegen (`waysAround`) zählt der Ort, von dem die Gruppe aufbricht: Wer im Gasthaus sitzt,
- * bricht von der Stadt auf und erreicht ihren Hafen. Die nächste Abfahrt zuerst; was gerade nicht
- * fährt, zuletzt.
+ * Die Abläufe, die vom Ort der Gruppe abfahren – auch vom Ort darüber und von Orten darin. Wer im
+ * Gasthaus sitzt (oder in einem seiner Räume), bricht von der Stadt auf und erreicht ihren Hafen;
+ * wer in der Stadt steht, sieht ihre Häfen – nicht gleich alle Häfen der ganzen Gegend. Die
+ * nächste Abfahrt zuerst; was gerade nicht fährt, zuletzt.
  */
 export function crossingsHere(data: CampaignData): Crossing[] {
   const placeId = data.state.placeId;
   const place = placeId ? data.entities[placeId] : undefined;
   if (!placeId || place?.kind !== 'place') return [];
-  // Höchstens eine Stufe hinauf: Wer in der Stadt steht, nicht gleich in der ganzen Gegend.
-  const start = waysAround(data, placeId)?.origin.id ?? place.place.parentId ?? placeId;
-  const origin = start === place.place.parentId ? start : placeId;
+  // Ein Raum gehört zu seinem Haus; ein Ort ohne eigene Orte darin (Gasthaus, Markt) zu dem Ort,
+  // in dem er liegt – höchstens eine Stufe hinauf.
+  const parentOf = (p: Place): Place | null => {
+    const up = p.place.parentId ? data.entities[p.place.parentId] : undefined;
+    return up?.kind === 'place' ? up : null;
+  };
+  let base: Place = place;
+  for (let up = parentOf(base), i = 0; base.place.room && up && i < 20; up = parentOf(base), i++)
+    base = up;
+  const leaf = !Object.values(data.entities).some(
+    (e) => e.kind === 'place' && e.place.parentId === base.id && !e.place.room,
+  );
+  const origin = (leaf && parentOf(base)) || base;
   const near = new Set([
-    ...placeSubtreeIds(data, placeId),
-    ...placeSubtreeIds(data, origin),
+    ...placeSubtreeIds(data, origin.id),
     ...placeAncestors(data, placeId).map((up) => up.id),
   ]);
   return Object.values(data.runs)

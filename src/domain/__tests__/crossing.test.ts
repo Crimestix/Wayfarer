@@ -62,6 +62,40 @@ describe('Überfahrten', () => {
     expect(first!.next!.arrives - first!.next!.departs).toBe(180);
   });
 
+  it('aus der Stadt nur ihre Häfen, nie alle der Gegend – aus einem Raum die seines Hauses', async () => {
+    const { db, data, town, inn } = await setup();
+    // Hohenfurt liegt in der Nordmark; von Brückwacht, auch in der Nordmark, fährt ein Floß.
+    const mark = db.put('entities', createEntity({ kind: 'place', name: 'Nordmark' })) as Place;
+    db.patch('entities', town.id, { place: { ...town.place, parentId: mark.id } });
+    const bridge = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Brückwacht', place: { parentId: mark.id } }),
+    ) as Place;
+    saveRun(db, {
+      name: 'Floß',
+      fromId: bridge.id,
+      toId: inn.id,
+      start: data().state.now,
+      every: { every: 1, unit: 'day' },
+      carrier: '',
+      operatorId: null,
+      stoppedAt: null,
+      stopReason: '',
+      note: '',
+    });
+    // Kein Weg geht von Hohenfurt selbst ab – auch dann bleibt es bei der Stadt.
+    for (const path of Object.values(data().paths))
+      if (path.toId === town.id || path.fromId === town.id) db.remove('paths', path.id);
+    db.setState({ placeId: town.id });
+    expect(crossingsHere(data()).map((c) => c.run.name)).toEqual(['Aalfähre']);
+    const cellar = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Keller', place: { parentId: inn.id, room: true } }),
+    ) as Place;
+    db.setState({ placeId: cellar.id });
+    expect(crossingsHere(data()).map((c) => c.run.name)).toEqual(['Aalfähre']);
+  });
+
   it('sagt, wann es losgeht', async () => {
     const { data } = await setup();
     const cal = data().campaign.calendar;

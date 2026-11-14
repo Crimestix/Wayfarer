@@ -15,7 +15,7 @@ import {
   type Die,
 } from '../../domain/market';
 import { activeParty } from '../../domain/derive';
-import { meansFromWare } from '../../domain/mounts';
+import { meansFromWare, meansKindFromWords } from '../../domain/mounts';
 import {
   baseName,
   isTradeKind,
@@ -381,6 +381,11 @@ export interface MeansOffer {
   key: string;
   qty: number;
   values: NonNullable<ReturnType<typeof meansFromWare>>;
+  /**
+   * Vorab angekreuzt: Regelwerk, Einordnung oder Name sagen es klar. Ein Tier ohne solchen
+   * Hinweis (Huhn, Ziege) steht nur zum Ankreuzen da – nicht jedes Tier ist ein Reittier.
+   */
+  checked: boolean;
 }
 
 /**
@@ -398,10 +403,16 @@ export function meansInBasket(
     const srdId = line.key.startsWith('srd:') ? line.key.slice(4) : (stock?.srdId ?? null);
     const values = meansFromWare(data, { entityId: line.entityId, text: line.text, srdId });
     if (!values) return [];
+    const entity = line.entityId ? data.entities[line.entityId] : undefined;
+    const checked =
+      entity?.kind !== 'animal' ||
+      values.builtIn === true ||
+      meansKindFromWords(entity.animal.category, values.name) !== null;
     return [
       {
         key: line.key,
         qty: line.qty,
+        checked,
         values: stock?.creatureId ? { ...values, creatureId: stock.creatureId } : values,
       },
     ];

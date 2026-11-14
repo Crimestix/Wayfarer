@@ -252,6 +252,28 @@ describe('Reittiere und Schiffe im Korb', () => {
     expect(offers[0]!.values).toMatchObject({ capacity: 480, builtIn: true });
     expect(offers[2]!.values).toMatchObject({ creatureId: 'c1', capacity: 225 });
     expect(offers[3]!.values.entityId).toBe(seewind.id);
+    expect(offers.every((offer) => offer.checked)).toBe(true);
+  });
+
+  it('kreuzt ein Tier nur vorab an, wenn es klar ein Reit- oder Zugtier ist', () => {
+    const goat = createEntity({ kind: 'animal', name: 'Ziege', animal: { category: 'Nutztier' } });
+    const ox = createEntity({ kind: 'animal', name: 'Bruno', animal: { category: 'Zugtier' } });
+    const data = { entities: { [goat.id]: goat, [ox.id]: ox } };
+    const lineOf = (entityId: string, text: string) => ({
+      key: `e:${entityId}`,
+      entityId,
+      stockId: null,
+      text,
+      qty: 1,
+      price: 10,
+      max: null,
+    });
+    const offers = meansInBasket(data, null, [lineOf(goat.id, 'Ziege'), lineOf(ox.id, 'Bruno')]);
+    // Angeboten wird beides – nie etwas weggefiltert –, vorab angekreuzt nur das Zugtier.
+    expect(offers.map((o) => [o.values.name, o.values.kind, o.checked])).toEqual([
+      ['Ziege', 'mount', false],
+      ['Bruno', 'mount', true],
+    ]);
   });
 });
 

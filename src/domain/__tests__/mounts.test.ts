@@ -346,6 +346,15 @@ describe('Aus einem Kauf', () => {
     expect(meansFromWare(data, { entityId: blanket.id })).toBeNull();
     expect(meansFromWare(data, { text: 'Ochsenkarren' })).toMatchObject({ kind: 'vehicle' });
     expect(meansFromWare(data, { text: 'Laterne' })).toBeNull();
+    // Was der Dialog für ein neues Fahrzeug anlegt, erkennt der Laden wieder.
+    const coach = createEntity({
+      kind: 'item',
+      name: 'Die Goldene',
+      item: { category: 'Fahrzeug' },
+    });
+    expect(
+      meansFromWare({ entities: { [coach.id]: coach } }, { entityId: coach.id }),
+    ).toMatchObject({ kind: 'vehicle', entityId: coach.id });
   });
 });
 

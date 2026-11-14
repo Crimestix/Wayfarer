@@ -4,7 +4,7 @@
  * und auf der Hexkarte; ändert `state.travelBy`.
  */
 import { useMemo, useRef, useState } from 'react';
-import { Footprints } from 'lucide-react';
+import { ChevronDown, Footprints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { MOUNT_KIND_LABEL, meansGroups, partyMeans } from '../../domain/mounts';
 import { MenuItem, Popover, Select } from '../../ui';
@@ -41,10 +41,12 @@ export function TravelBy({
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
+          aria-label={`${label}: ${by ? by.name : 'zu Fuß'}`}
           title={`${label}: ${by ? by.name : 'zu Fuß'} – die Dauer der Wege folgt dem Tempo`}
         >
+          {/* Nur das Zeichen: In der schmalen Spalte bleibt der Platz den Zielen der Wege. */}
           <TravelIcon by={by} />
-          <span className="wf-clamp-1">{by ? by.name : 'Zu Fuß'}</span>
+          <ChevronDown />
         </button>
         <Popover
           open={open}

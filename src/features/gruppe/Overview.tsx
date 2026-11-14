@@ -352,10 +352,14 @@ export function Overview({
                 <SpotlightPanel />
               </>
             ) : (
-              <EmptyState icon={<Swords />} title="Im Augenblick ist niemand dabei">
-                Alle Gefährten stehen unter „Nicht dabei“. Nimm jemanden wieder auf, damit er hier
-                mit seinen Werten erscheint.
-              </EmptyState>
+              <>
+                <EmptyState icon={<Swords />} title="Im Augenblick ist niemand dabei">
+                  Alle Gefährten stehen unter „Nicht dabei“. Nimm jemanden wieder auf, damit er hier
+                  mit seinen Werten erscheint.
+                </EmptyState>
+                {/* Pferde und Schiffe bleiben auch dann zu finden und zu ändern. */}
+                <MeansPanel />
+              </>
             )}
             {resting.length > 0 && (
               <section className="wf-gruppe-bench">

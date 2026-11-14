@@ -262,11 +262,18 @@ const WORDS: readonly [MountKind, RegExp][] = [
     'ship',
     /(schiff|boot|kahn|floß|floss|galeere|kogge|barke|fähre|faehre|jolle|karavelle|kutter|segler|zille)$/,
   ],
-  ['vehicle', /(kutsche|wagen|karren|karre|schlitten|fuhrwerk|droschke|sänfte)$/],
-  ['mount', /(pferd|pony|maultier|esel|kamel|ross|elefant|reittier|mastiff|greif)$/],
+  ['vehicle', /(kutsche|wagen|karren|karre|schlitten|fuhrwerk|droschke|sänfte|fahrzeug)$/],
+  [
+    'mount',
+    /(pferd|pony|maultier|esel|kamel|ross|elefant|reittier|zugtier|lasttier|packtier|saumtier|mastiff|greif)$/,
+  ],
 ];
 
-function kindFromWords(...texts: string[]): MountKind | null {
+/**
+ * Was Wörter über ein Fortbewegungsmittel verraten: „Ruderboot“ ist ein Schiff, „Ochsenkarren“
+ * ein Fahrzeug, eine Einordnung „Reittier“ ein Reittier – null, wenn nichts darauf hindeutet.
+ */
+export function meansKindFromWords(...texts: string[]): MountKind | null {
   for (const text of texts) {
     const words = text
       .toLocaleLowerCase('de')
@@ -320,8 +327,8 @@ export function meansFromWare(
     };
   }
   if (entity?.kind === 'animal')
-    return { name, kind: kindFromWords(entity.animal.category, name) ?? 'mount', entityId };
+    return { name, kind: meansKindFromWords(entity.animal.category, name) ?? 'mount', entityId };
   const category = entity?.kind === 'item' ? entity.item.category : '';
-  const kind = kindFromWords(category, name);
+  const kind = meansKindFromWords(category, name);
   return kind ? { name, kind, entityId } : null;
 }

@@ -32,6 +32,7 @@ import {
   TextArea,
   toast,
 } from '../../ui';
+import { wareNamed } from '../../domain/shop';
 import { removeMeans, saveMeans, travelWith } from './actions';
 import { meansDraft, meansInputOf, type MeansDraft } from './model';
 
@@ -83,8 +84,10 @@ export function MeansDialog({
         action: { label: 'Rückgängig', run: undo },
       });
   };
-  // Ein neuer Eintrag der Welt: ein Tier (es lebt) oder ein Gegenstand (gemacht).
+  // Ein neuer Eintrag der Welt: ein Tier (es lebt) oder ein Gegenstand (gemacht). Gibt es den
+  // Namen schon (auch unter anderer Art oder zweitem Namen), wird der vorhandene genommen.
   const createTwin = (name: string) =>
+    wareNamed(data, name)?.entityId ??
     db.put(
       'entities',
       draft.kind === 'mount'

@@ -102,8 +102,9 @@ export function TradeDialog({
   const [freeText, setFreeText] = useState('');
   const [freePrice, setFreePrice] = useState('');
   const [freeUnit, setFreeUnit] = useState('');
-  // Reittiere, Fahrzeuge und Schiffe im Korb: beim Kauf eintragen – außer, was abgewählt ist.
-  const [skipMeans, setSkipMeans] = useState<ReadonlySet<string>>(new Set());
+  // Reittiere, Fahrzeuge und Schiffe im Korb: beim Kauf eintragen – vorab angekreuzt, was klar
+  // eines ist (`MeansOffer.checked`); von Hand geändert gilt, was der Spielleiter gewählt hat.
+  const [pickedMeans, setPickedMeans] = useState<Readonly<Record<string, boolean>>>({});
 
   const rows = useMemo(() => (shop ? stockRows(data, shop) : []), [data, shop]);
   const shown = useMemo(() => filterRows(rows, query), [rows, query]);
@@ -172,7 +173,7 @@ export function TradeDialog({
     }
     // Gekaufte Reittiere, Fahrzeuge und Schiffe gehören danach dem, der gekauft hat.
     const means = meansOffers
-      .filter((offer) => !skipMeans.has(offer.key))
+      .filter((offer) => pickedMeans[offer.key] ?? offer.checked)
       .flatMap((offer) =>
         Array.from({ length: offer.qty }, () => ({ ...offer.values, ownerId: who })),
       );
@@ -592,15 +593,8 @@ export function TradeDialog({
                 {meansOffers.map((offer) => (
                   <Checkbox
                     key={offer.key}
-                    checked={!skipMeans.has(offer.key)}
-                    onChange={(on) =>
-                      setSkipMeans((now) => {
-                        const next = new Set(now);
-                        if (on) next.delete(offer.key);
-                        else next.add(offer.key);
-                        return next;
-                      })
-                    }
+                    checked={pickedMeans[offer.key] ?? offer.checked}
+                    onChange={(on) => setPickedMeans((now) => ({ ...now, [offer.key]: on }))}
                   >
                     {offer.qty > 1 ? `${offer.qty}× ` : ''}
                     {offer.values.name} als {MOUNT_KIND_LABEL[offer.values.kind]}{' '}

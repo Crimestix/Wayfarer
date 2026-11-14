@@ -238,8 +238,10 @@ nicht übernommen.
   Fuß, und `wayFit` gibt einen ruhigen Hinweis, nie ein Verbot. Zustand, Rast und Unterhalt
   („seit dem letzten Abend“, `upkeepSince`) sind nur Hinweise; abgezogen wird nichts. Gekauftes
   aus dem Laden bietet `meansInBasket` zum Eintragen an. Überfahrten mit Abläufen nach Fahrplan
-  (`crossingsHere`) bucht `bookCrossing` (`features/wege/actions.ts`): Handel mit freiem Preis,
-  dann `walk` bis zur Ankunft der Fahrt – nie Zeit von Hand rechnen.
+  (`crossingsHere` – vom Ort der Gruppe, darin und darüber; ein Ort ohne Orte darin zählt zum
+  Ort, in dem er liegt) bucht `bookCrossing` (`features/wege/actions.ts`): Handel mit freiem
+  Preis, dann `walk` bis zur Ankunft der Fahrt – nie Zeit von Hand rechnen. Im Laden angeboten
+  wird alles, was ein Mittel sein könnte; vorab angekreuzt nur, was es klar ist (`checked`).
 - Nachtragen (`features/nachtragen`, Reiter unter Zeit): Notizdateien werden in Sessions
   getrennt (`splitSessions`) und eingeordnet (`placeSessions` – nie nach „jetzt“, nie nach der
   ersten vorhandenen Session; Zwischenzeiten aus `gaps.ts`). Übernommen wird nur über
