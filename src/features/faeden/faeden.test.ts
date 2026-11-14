@@ -45,6 +45,7 @@ import {
   patchThread,
   pinToCard,
   placeOnBoard,
+  setThreadOnBoard,
   removeStory,
   removeThread,
   saveStory,
@@ -247,7 +248,12 @@ describe('Die Pinnwand', () => {
     const { db, data, story, thread, market, harbour, mira, fishers } = await setup();
     const toll = story('Der Zoll wird verdoppelt', { ownerId: fishers.id, refs: [harbour.id] });
     const bell = story('Die stumme Glocke', { refs: [market.id, harbour.id] });
-    thread('Wer bezahlt den Aalwächter?', { refs: [mira.id] });
+    const watcher = thread('Wer bezahlt den Aalwächter?', { refs: [mira.id] });
+    // Ein loser Faden liegt erst auf dem Brett, wenn der Spielleiter ihn hinlegt.
+    expect(Object.keys(boardLayout(boardCards(data())).cards).sort()).toEqual(
+      [`story:${toll.id}`, `story:${bell.id}`].sort(),
+    );
+    setThreadOnBoard(db, watcher.id, true);
     let layout = boardLayout(boardCards(data()), data().state.board);
     expect(Object.keys(layout.cards).sort()).toEqual(
       boardCards(data())
@@ -302,6 +308,7 @@ describe('Die Pinnwand', () => {
     const { db, data, story, thread, mira, odo } = await setup();
     const toll = story('Der Zoll wird verdoppelt');
     const loose = thread('Das Licht auf der Aalinsel');
+    setThreadOnBoard(db, loose.id, true);
     pinToCard(db, `story:${toll.id}`, mira.id);
     pinToCard(db, `story:${toll.id}`, mira.id);
     pinToCard(db, `thread:${loose.id}`, odo.id);

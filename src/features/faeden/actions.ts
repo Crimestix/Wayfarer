@@ -5,7 +5,8 @@
  */
 import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
-import { storyAttached } from '../../domain/story';
+import { threadKey, threadSessionIds } from '../../domain/looseThreads';
+import { isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
 import {
   createClock,
@@ -410,9 +411,34 @@ export function patchThread(db: CampaignDb, id: string, change: ThreadChange): v
   });
 }
 
+const spotKey = (threadId: string) => `thread:${threadId}`;
+
+/** Nimmt die Stellen dieser Fäden vom Brett und gibt zurück, wie sie wiederkommen. */
+function takeSpots(db: CampaignDb, threadIds: readonly string[]): () => void {
+  const board = db.getSnapshot().state.board;
+  const taken = threadIds.filter((id) => board[spotKey(id)] !== undefined);
+  if (!taken.length) return () => {};
+  const keys = new Set(taken.map(spotKey));
+  db.setState({
+    board: Object.fromEntries(Object.entries(board).filter(([key]) => !keys.has(key))),
+  });
+  return () => {
+    const now = db.getSnapshot().state.board;
+    const back = taken.filter((id) => now[spotKey(id)] === undefined);
+    if (back.length)
+      db.setState({
+        board: {
+          ...now,
+          ...Object.fromEntries(back.map((id) => [spotKey(id), board[spotKey(id)]!])),
+        },
+      });
+  };
+}
+
 /**
  * Hängt einen Faden an eine Geschichte (er wird eine ihrer Fragen) oder löst ihn von ihr (er
- * wird ein loser Faden auf dem Brett). Gibt `undo` zurück – null, wenn sich nichts ändert.
+ * wird ein loser Faden und steht in der Liste neben dem Brett). Als Frage liegt er nicht mehr
+ * für sich auf dem Brett. Gibt `undo` zurück – null, wenn sich nichts ändert.
  */
 export function moveThread(
   db: CampaignDb,
@@ -424,12 +450,20 @@ export function moveThread(
   if (!thread || (storyId !== null && !data.stories[storyId])) return null;
   const before = thread.storyId;
   if (before === storyId) return null;
-  db.patch('threads', threadId, { storyId });
-  return () => {
-    const now = db.getSnapshot();
-    if (now.threads[threadId]?.storyId !== storyId) return;
-    db.patch('threads', threadId, { storyId: before && now.stories[before] ? before : null });
-  };
+  const restoreSpot = db.batch(() => {
+    db.patch('threads', threadId, { storyId, ...(storyId !== null ? { onBoard: false } : {}) });
+    return storyId !== null ? takeSpots(db, [threadId]) : () => {};
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot();
+      if (now.threads[threadId]?.storyId !== storyId) return;
+      db.patch('threads', threadId, {
+        storyId: before && now.stories[before] ? before : null,
+        onBoard: thread.onBoard,
+      });
+      restoreSpot();
+    });
 }
 
 /** Der erste Ort und die erste Person, Fraktion oder Familie, an denen ein Faden hängt. */
@@ -577,11 +611,62 @@ export function placeOnBoard(db: CampaignDb, key: string, x: number, y: number):
   db.setState({ board: { ...board, [key]: { x: Math.round(x), y: Math.round(y) } } });
 }
 
-/** Räumt das Brett auf: Wayfarer legt alles neu aus. `undo` legt es zurück, wie es war. */
+/**
+ * Räumt das Brett auf: Wayfarer legt alles neu aus. Lose Fäden, die dort eine Stelle hatten,
+ * bleiben auf dem Brett. `undo` legt es zurück, wie es war.
+ */
 export function tidyBoard(db: CampaignDb): () => void {
-  const before = db.getSnapshot().state.board;
-  db.setState({ board: {} });
-  return () => db.setState({ board: before });
+  const data = db.getSnapshot();
+  const before = data.state.board;
+  const kept = Object.values(data.threads).filter(
+    (thread) =>
+      isLooseThread(data, thread) && !thread.onBoard && before[spotKey(thread.id)] !== undefined,
+  );
+  db.batch(() => {
+    for (const thread of kept) db.patch('threads', thread.id, { onBoard: true });
+    db.setState({ board: {} });
+  });
+  return () =>
+    db.batch(() => {
+      db.setState({ board: before });
+      for (const thread of kept)
+        if (db.getSnapshot().threads[thread.id]) db.patch('threads', thread.id, { onBoard: false });
+    });
+}
+
+/**
+ * Legt einen losen Faden als Karte aufs Brett (`at` = wohin) oder nimmt ihn wieder herunter – dann
+ * steht er nur noch in der Liste. Ein Faden im Spiel liegt immer auf dem Brett. Gibt `undo`
+ * zurück – null, wenn sich nichts ändert.
+ */
+export function setThreadOnBoard(
+  db: CampaignDb,
+  threadId: string,
+  on: boolean,
+  at?: { x: number; y: number },
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  if (!thread) return null;
+  const spot = data.state.board[spotKey(threadId)];
+  const was = thread.onBoard || spot !== undefined;
+  if (was === on && !(on && at)) return null;
+  const restoreSpot = db.batch(() => {
+    if (thread.onBoard !== on) db.patch('threads', threadId, { onBoard: on });
+    if (!on) return takeSpots(db, [threadId]);
+    if (at) placeOnBoard(db, spotKey(threadId), at.x, at.y);
+    return () => {
+      if (!at) return;
+      const { [spotKey(threadId)]: _placed, ...rest } = db.getSnapshot().state.board;
+      db.setState({ board: spot ? { ...rest, [spotKey(threadId)]: spot } : rest });
+    };
+  });
+  return () =>
+    db.batch(() => {
+      if (db.getSnapshot().threads[threadId])
+        db.patch('threads', threadId, { onBoard: thread.onBoard });
+      restoreSpot();
+    });
 }
 
 /**
@@ -611,7 +696,8 @@ export function unpinFromCard(db: CampaignDb, cardKey: string, entityId: string)
 export type ThreadInput = Pick<
   Thread,
   'title' | 'truth' | 'state' | 'storyId' | 'refs' | 'known' | 'hints'
->;
+> &
+  Partial<Pick<Thread, 'sessionIds' | 'articleId'>>;
 
 /** Legt einen Faden an oder ändert ihn. Hinweise ohne Text fallen weg. */
 export function saveThread(db: CampaignDb, input: ThreadInput, id?: string): Thread {
@@ -639,6 +725,218 @@ export function removeThread(db: CampaignDb, id: string): void {
 
 export function setThreadState(db: CampaignDb, id: string, state: ThreadState): void {
   if (db.getSnapshot().threads[id]) db.patch('threads', id, { state });
+}
+
+// ── Lose Fäden aufräumen ───────────────────────────────────────────────────
+
+const existing = (db: CampaignDb, ids: readonly string[]): Thread[] => {
+  const threads = db.getSnapshot().threads;
+  return [...new Set(ids)]
+    .map((id) => threads[id])
+    .filter((thread): thread is Thread => thread !== undefined);
+};
+
+/** Setzt den Zustand mehrerer Fäden in einem Zug („Ruht“, „Erledigt“). Gibt `undo` zurück. */
+export function setThreadsState(
+  db: CampaignDb,
+  ids: readonly string[],
+  state: ThreadState,
+): (() => void) | null {
+  const changed = existing(db, ids).filter((thread) => thread.state !== state);
+  if (!changed.length) return null;
+  db.batch(() => {
+    for (const thread of changed) db.patch('threads', thread.id, { state });
+  });
+  return () =>
+    db.batch(() => {
+      for (const thread of changed)
+        if (db.getSnapshot().threads[thread.id]?.state === state)
+          db.patch('threads', thread.id, { state: thread.state });
+    });
+}
+
+/** Hängt mehrere Fäden an eine Geschichte – jeder wird eine ihrer Fragen. Gibt `undo` zurück. */
+export function moveThreads(
+  db: CampaignDb,
+  ids: readonly string[],
+  storyId: string,
+): (() => void) | null {
+  if (!db.getSnapshot().stories[storyId]) return null;
+  const undos = db.batch(() =>
+    existing(db, ids)
+      .map((thread) => moveThread(db, thread.id, storyId))
+      .filter((undo): undo is () => void => undo !== null),
+  );
+  if (!undos.length) return null;
+  return () => db.batch(() => [...undos].reverse().forEach((undo) => undo()));
+}
+
+/** Löscht mehrere Fäden. Ihre Termine bleiben – ohne Faden. Gibt `undo` zurück. */
+export function removeThreads(db: CampaignDb, ids: readonly string[]): (() => void) | null {
+  const threads = existing(db, ids);
+  if (!threads.length) return null;
+  const undos = db.batch(() => [
+    takeSpots(
+      db,
+      threads.map((thread) => thread.id),
+    ),
+    ...threads.map((thread) => takeThread(db, thread, null)),
+  ]);
+  return () => db.batch(() => [...undos].reverse().forEach((undo) => undo()));
+}
+
+/**
+ * Macht aus losen Fäden eine Geschichte: Sie entsteht mit dem Namen, den der Spielleiter
+ * geschrieben hat (ohne Namen als „Neue Geschichte“), die Fäden werden ihre Fragen, und woran
+ * sie hängen, gehört zu den Beteiligten. Alles Weitere schreibt er auf ihrem Blatt. `undo` löst
+ * die Fäden wieder und nimmt die Geschichte weg.
+ */
+export function storyFromThreads(
+  db: CampaignDb,
+  ids: readonly string[],
+  title: string,
+): { story: Story; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const threads = existing(db, ids);
+  if (!threads.length) return null;
+  return db.batch(() => {
+    const refs = [...new Set(threads.flatMap((thread) => thread.refs))].filter(
+      (id) => data.entities[id] !== undefined,
+    );
+    const story = newStory(db, { title: title.trim() || 'Neue Geschichte', refs });
+    const undo = moveThreads(
+      db,
+      threads.map((thread) => thread.id),
+      story.id,
+    );
+    return {
+      story,
+      undo: () =>
+        db.batch(() => {
+          undo?.();
+          if (db.getSnapshot().stories[story.id]) removeStory(db, story.id);
+        }),
+    };
+  });
+}
+
+const ALIVE: ThreadState[] = ['active', 'open', 'dormant'];
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Legt Fäden zusammen, die dasselbe sagen: `keepId` bleibt und bekommt von den anderen, was ihm
+ * fehlt – Hinweise (gleiche nur einmal; gefunden bleibt gefunden), woran sie hängen, was
+ * dahintersteckt (Verschiedenes untereinander), die Sessions, aus denen sie stammen, ihre
+ * Termine und gefundenen Hinweise der Chronik. Kennt die Gruppe einen, kennt sie ihn; ist einer
+ * im Spiel oder weiter (aktiv vor offen vor ruhend), gilt das. Gehört keiner zu einer Geschichte
+ * außer einem der anderen, kommt er zu dessen Geschichte. Die anderen sind danach weg. Gibt
+ * `undo` zurück – null, wenn es nichts zusammenzulegen gibt.
+ */
+export function mergeThreads(
+  db: CampaignDb,
+  keepId: string,
+  otherIds: readonly string[],
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const keep = data.threads[keepId];
+  const others = existing(
+    db,
+    otherIds.filter((id) => id !== keepId),
+  );
+  if (!keep || !others.length) return null;
+
+  const hintKey = (hint: Thread['hints'][number]) =>
+    `${threadKey(hint.text)}|${hint.placeId ?? ''}|${hint.sourceId ?? ''}`;
+  const hints = keep.hints.map((hint) => ({ ...hint }));
+  /** Hinweise der anderen, die es beim Bleibenden schon gab: ihre Kennung dort. */
+  const hintMoved = new Map<string, string>();
+  for (const other of others)
+    for (const hint of other.hints) {
+      const twin = hints.find((entry) => hintKey(entry) === hintKey(hint));
+      if (!twin) hints.push({ ...hint });
+      else {
+        hintMoved.set(hint.id, twin.id);
+        twin.found = twin.found || hint.found;
+      }
+    }
+  const truths: string[] = [];
+  for (const text of [keep.truth, ...others.map((other) => other.truth)]) {
+    const clean = text.trim();
+    if (clean && !truths.some((entry) => threadKey(entry) === threadKey(clean))) truths.push(clean);
+  }
+  const all = [keep, ...others];
+  const story = all.find((thread) => !isLooseThread(data, thread))?.storyId ?? null;
+  const loose = isLooseThread(data, keep) && story === null;
+  const merged = {
+    hints,
+    truth: truths.join('\n'),
+    refs: [...new Set(all.flatMap((thread) => thread.refs))],
+    known: all.some((thread) => thread.known),
+    inPlay: all.some((thread) => thread.inPlay),
+    state: threadLive(keep)
+      ? (ALIVE.find((state) => all.some((thread) => thread.state === state)) ?? keep.state)
+      : keep.state,
+    storyId: isLooseThread(data, keep) ? story : keep.storyId,
+    onBoard:
+      loose &&
+      all.some((thread) => thread.onBoard || data.state.board[spotKey(thread.id)] !== undefined),
+    sessionIds: [...new Set(all.flatMap((thread) => threadSessionIds(data, thread)))],
+    articleId: all.find((thread) => thread.articleId)?.articleId ?? null,
+  } satisfies Partial<Thread>;
+  const before = Object.fromEntries(
+    (Object.keys(merged) as (keyof typeof merged)[]).map((key) => [key, keep[key]]),
+  ) as Partial<Thread>;
+
+  const gone = new Set(others.map((other) => other.id));
+  const clues = Object.values(data.chronicle).filter(
+    (entry) => entry.clue?.threadId && gone.has(entry.clue.threadId),
+  );
+  const undos = db.batch(() => {
+    db.patch('threads', keepId, merged);
+    for (const entry of clues)
+      db.patch('chronicle', entry.id, {
+        clue: {
+          ...entry.clue!,
+          threadId: keepId,
+          hintId: entry.clue!.hintId
+            ? (hintMoved.get(entry.clue!.hintId) ?? entry.clue!.hintId)
+            : null,
+        },
+      });
+    return [
+      takeSpots(
+        db,
+        others.map((other) => other.id),
+      ),
+      ...others.map((other) => takeThread(db, other, keepId)),
+    ];
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot();
+      const kept = now.threads[keepId];
+      // Nur zurück, was noch so dasteht, wie das Zusammenlegen es hinterließ.
+      if (kept) {
+        const back: Partial<Thread> = {};
+        for (const key of Object.keys(merged) as (keyof typeof merged)[])
+          if (same(kept[key], merged[key])) Object.assign(back, { [key]: before[key] });
+        if (Object.keys(back).length) db.patch('threads', keepId, back);
+      }
+      for (const entry of clues)
+        if (now.chronicle[entry.id]?.clue?.threadId === keepId)
+          db.patch('chronicle', entry.id, { clue: entry.clue });
+      [...undos].reverse().forEach((undo) => undo());
+    });
+}
+
+/** „Sind verschieden“: Diese Gruppe meldet `threadTwins` nicht mehr. Gibt `undo` zurück. */
+export function markTwinsApart(db: CampaignDb, key: string): () => void {
+  const before = db.getSnapshot().state.twinsApart;
+  if (!before.includes(key)) db.setState({ twinsApart: [...before, key] });
+  return () =>
+    db.setState({
+      twinsApart: db.getSnapshot().state.twinsApart.filter((entry) => entry !== key),
+    });
 }
 
 /**

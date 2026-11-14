@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { normalize } from '../../domain/derive';
+import { threadKey } from '../../domain/looseThreads';
 import { RELATION_TYPES, relationType } from '../../domain/relations';
 import {
   newId,
@@ -722,10 +723,11 @@ export function suggest(data: CampaignData, article: Article, reading: Reading):
   );
   // Der Eintrag der Welt, den dieser Artikel beschreibt – dorthin gehört ein Geheimnis im Zweifel.
   const owner = Object.values(data.entities).find((entity) => entity.lk?.resourceId === article.id);
-  const leads = new Set(Object.values(data.threads).map((entry) => normalize(entry.title)));
+  // Einen Faden, den es mit demselben Satz schon gibt, schlägt der Leser nicht noch einmal vor.
+  const leads = new Set(Object.values(data.threads).map((entry) => threadKey(entry.title)));
   for (const thread of reading.threads) {
     const text = thread.text.trim();
-    if (!text || open.has(normalize(text)) || leads.has(normalize(text))) continue;
+    if (!text || open.has(normalize(text)) || leads.has(threadKey(text))) continue;
     const place = findEntity(index, thread.place, ['place']);
     const sort = threadSort(text, thread.sort);
     const refs = refsOf(thread.who);

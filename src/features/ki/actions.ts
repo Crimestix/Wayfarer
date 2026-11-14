@@ -16,6 +16,7 @@ import {
   type Article,
   type CampaignData,
 } from '../../domain/schema';
+import { threadByTitle } from '../../domain/looseThreads';
 import type { WorldTime } from '../../domain/time/calendar';
 import { articlePath } from '../wiki/model';
 import {
@@ -129,7 +130,9 @@ function setState(db: CampaignDb, articleId: string, hintId: string, state: AiHi
  * `as` legt fest, was ein offener Punkt sein soll – sonst gilt, was der Leser sagt. `date` ist
  * der Tag, an dem eine Abmachung getroffen wurde, wie der Spielleiter ihn setzt (null = ohne
  * Tag); fehlt er, gilt der Tag aus dem Vorschlag. Eine Abmachung steht in der Chronik an ihrem
- * Tag – nie in der Zukunft, und ohne Tag vor dem Beginn der Mitschrift (`promiseWhen`). Gibt
+ * Tag – nie in der Zukunft, und ohne Tag vor dem Beginn der Mitschrift (`promiseWhen`).
+ * `storyId` ist die Geschichte, an die ein Faden gleich kommt (sonst ist er lose); einen Faden,
+ * den es mit demselben Satz schon gibt (`threadByTitle`), legt es nicht noch einmal an. Gibt
  * `undo` zurück – oder null, wenn der Vorschlag nicht (mehr) zu gebrauchen ist.
  */
 export function acceptAiHint(
@@ -138,6 +141,7 @@ export function acceptAiHint(
   hintId: string,
   as?: ThreadSort,
   date?: WorldTime | null,
+  storyId: string | null = null,
 ): (() => void) | null {
   const data = db.getSnapshot();
   const hint = data.articles[articleId]?.aiHints.find((entry) => entry.id === hintId);
@@ -167,7 +171,13 @@ export function acceptAiHint(
       if (!draft.success) return null;
       const sort = as ?? threadSort(draft.data.text, draft.data.sort);
       if (sort === 'lead') {
-        // Eine Spur, eine offene Frage: ein Faden der Geschichte – er hängt an den Genannten.
+        // Gibt es den Faden mit diesem Satz schon, entsteht kein zweiter.
+        if (threadByTitle(data, draft.data.text)) {
+          setState(db, articleId, hintId, 'accepted');
+          return () => setState(db, articleId, hintId, 'open');
+        }
+        // Eine Spur, eine offene Frage: ein Faden der Geschichte – er hängt an den Genannten und
+        // kommt, wenn der Spielleiter eine gewählt hat, gleich an seine Geschichte.
         const thread = db.put(
           'threads',
           createThread({
@@ -176,6 +186,7 @@ export function acceptAiHint(
               (id): id is string => id !== null && exists(id),
             ),
             articleId,
+            storyId: storyId && data.stories[storyId] ? storyId : null,
           }),
         );
         setState(db, articleId, hintId, 'accepted');

@@ -92,7 +92,8 @@ export default function FaedenPage() {
 
   const cards = useMemo(() => boardCards(data, view), [data, view]);
   const links = useMemo(() => touches(cards), [cards]);
-  const open = cards.filter((card) => !card.closed);
+  // Auf dem Brett liegen die Geschichten – und die losen Fäden, die hingelegt wurden.
+  const open = cards.filter((card) => !card.closed && card.onBoard);
   const closed = cards.filter((card) => card.closed);
   /** Uhren, die zu keiner Geschichte gehören – sie lassen sich zu einer machen. */
   const orphans = useMemo(() => looseClocks(data), [data]);

@@ -15,6 +15,7 @@ import {
   type Session,
   type SessionReading,
 } from '../../domain/schema';
+import { threadByTitle } from '../../domain/looseThreads';
 import type { WorldTime } from '../../domain/time/calendar';
 import { giveLootAt, removeLoot } from '../beute/actions';
 import { WRITINGS_FOLDER, deleteRecorded, recordFiled } from '../chronik/actions';
@@ -63,13 +64,21 @@ function revertEdits(db: CampaignDb, edits: readonly Edit[]): void {
       editArticle(db, edit.targetId, (text) =>
         removeHappenedLine(text, { line: edit.line, made: edit.made }),
       );
-    else {
+    else if (edit.kind === 'source') {
+      // Die Session stand als Quelle an einem Faden, den es schon gab – sie geht wieder weg.
+      const thread = db.getSnapshot().threads[edit.targetId];
+      if (edit.made && thread?.sessionIds.includes(edit.line))
+        db.patch('threads', thread.id, {
+          sessionIds: thread.sessionIds.filter((id) => id !== edit.line),
+        });
+    } else if (edit.kind === 'alias') {
       const entity = db.getSnapshot().entities[edit.targetId];
       if (entity?.aliases.includes(edit.line))
         db.patch('entities', entity.id, {
           aliases: entity.aliases.filter((a) => a !== edit.line),
         });
     }
+    // `story` merkt nur, an welche Geschichte ein neuer Faden kam (`undoAccepted`).
   }
 }
 
@@ -171,9 +180,15 @@ function writeArticles(
   }
 }
 
-/** Schreibt Beute und Fäden; Einträge der Chronik kommen gesammelt über `recordAll`. */
+/**
+ * Schreibt Beute und Fäden; Einträge der Chronik kommen gesammelt über `recordAll`. Einen Faden,
+ * den es mit demselben Satz schon gibt, legt es nicht noch einmal an: Die Session kommt bei ihm
+ * als Quelle dazu (`source`). Ein neuer Faden weiß, aus welcher Session er stammt, und kommt
+ * gleich an die gewählte Geschichte (`story`).
+ */
 function applyOther(
   db: CampaignDb,
+  session: Session,
   plan: Exclude<AcceptPlan, { kind: 'record' }>,
 ): Applied | { problem: string } {
   if (plan.kind === 'loot') {
@@ -181,16 +196,36 @@ function applyOther(
     if ('problem' in result) return result;
     return { created: [{ collection: 'loot', id: result.loot.id }], edits: [], notes: [] };
   }
+  const data = db.getSnapshot();
+  const twin = threadByTitle(data, plan.thread.title);
+  if (twin) {
+    const made = !twin.sessionIds.includes(session.id);
+    if (made) db.patch('threads', twin.id, { sessionIds: [...twin.sessionIds, session.id] });
+    return {
+      created: [],
+      edits: [{ kind: 'source', targetId: twin.id, line: session.id, before: null, made }],
+      notes: [`Den Faden „${twin.title}“ gibt es schon – es wurde kein zweiter angelegt.`],
+    };
+  }
+  const storyId =
+    plan.thread.storyId && data.stories[plan.thread.storyId] ? plan.thread.storyId : null;
   const thread = saveThread(db, {
     title: plan.thread.title,
     truth: '',
     state: 'open',
-    storyId: null,
+    storyId,
     refs: plan.thread.refs,
     known: true,
     hints: [],
+    sessionIds: [session.id],
   });
-  return { created: [{ collection: 'threads', id: thread.id }], edits: [], notes: [] };
+  return {
+    created: [{ collection: 'threads', id: thread.id }],
+    edits: storyId
+      ? [{ kind: 'story', targetId: thread.id, line: storyId, before: null, made: false }]
+      : [],
+    notes: [],
+  };
 }
 
 interface Planned {
@@ -249,12 +284,14 @@ function applyAll(
     }
     for (const { proposal, plan } of planned) {
       if (plan.kind === 'record') continue;
-      const applied = applyOther(db, plan);
+      const applied = applyOther(db, session, plan);
       if ('problem' in applied) return fail(applied.problem);
-      const made = applied.created[0]!.id;
-      undos.push(
-        plan.kind === 'loot' ? () => void removeLoot(db, made) : () => removeThread(db, made),
-      );
+      undos.push(() => {
+        revertEdits(db, applied.edits);
+        for (const made of applied.created)
+          if (made.collection === 'loot') removeLoot(db, made.id);
+          else if (made.collection === 'threads') removeThread(db, made.id);
+      });
       out.set(proposal.id, applied);
     }
     // Artikel zuletzt, wenn alle Einträge stehen – damit „gilt heute“ stimmt.
@@ -417,12 +454,14 @@ export function undoAccepted(
         else if (c.collection === 'threads') {
           const thread = db.getSnapshot().threads[c.id];
           if (!thread) continue;
-          // Weitergeschrieben: Hinweise, Wahrheit, an eine Geschichte gehängt, ins Spiel
-          // genommen oder sein Stand geändert – dann bleibt er.
+          // Weitergeschrieben: Hinweise, Wahrheit, an eine (andere) Geschichte gehängt, ins
+          // Spiel genommen oder sein Stand geändert – dann bleibt er.
+          const givenStory =
+            proposal.edits.find((e) => e.kind === 'story' && e.targetId === c.id)?.line ?? null;
           const untouched =
             !thread.hints.length &&
             !thread.truth.trim() &&
-            thread.storyId === null &&
+            (thread.storyId === null || thread.storyId === givenStory) &&
             !thread.inPlay &&
             thread.state === 'open';
           if (untouched) removeThread(db, c.id);

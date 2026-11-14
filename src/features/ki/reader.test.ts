@@ -7,6 +7,7 @@ import {
   createChronicleEntry,
   createEntity,
   createSession,
+  createStory,
   type Article,
 } from '../../domain/schema';
 import { MINUTES_PER_DAY, fromTime, toTime } from '../../domain/time/calendar';
@@ -479,6 +480,27 @@ describe('KI-Leser: lesen, vorschlagen, annehmen', () => {
       body: apiReply(reading),
     }));
     expect(again.added).toBe(1);
+    // Die Spur kommt gleich an die gewählte Geschichte – eine, die es nicht gibt, zählt nicht.
+    const tale = db.put('stories', createStory({ title: 'Die Wölfe im Norden' }));
+    const [fresh] = db.getSnapshot().articles.seeschwalbe!.aiHints;
+    const bound = acceptAiHint(db, 'seeschwalbe', fresh!.id, undefined, undefined, tale.id)!;
+    expect(threads().find((thread) => thread.title === trail)!.storyId).toBe(tale.id);
+    bound();
+    acceptAiHint(db, 'seeschwalbe', fresh!.id, undefined, undefined, 'gibtsnicht');
+    expect(threads().find((thread) => thread.title === trail)!.storyId).toBeNull();
+    // Gibt es den Faden mit demselben Satz inzwischen, entsteht beim Annehmen kein zweiter.
+    db.patch('articles', 'seeschwalbe', {
+      aiHints: db
+        .getSnapshot()
+        .articles.seeschwalbe!.aiHints.map((hint) => ({ ...hint, state: 'open' as const })),
+    });
+    const count = threads().length;
+    const twin = acceptAiHint(db, 'seeschwalbe', fresh!.id)!;
+    expect(threads()).toHaveLength(count);
+    expect(db.getSnapshot().articles.seeschwalbe!.aiHints[0]!.state).toBe('accepted');
+    twin();
+    expect(threads()).toHaveLength(count);
+    expect(db.getSnapshot().articles.seeschwalbe!.aiHints[0]!.state).toBe('open');
     // Ältere Vorschläge nennen die Art nicht: Dann entscheiden die Worte.
     expect(threadSort('Die Spuren führen nach Südwesten; die Quelle ist noch unbekannt')).toBe(
       'lead',

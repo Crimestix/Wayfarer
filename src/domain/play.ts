@@ -5,7 +5,7 @@
  * was zuletzt zu ihnen notiert wurde. Welche Geschichten im Spiel sind, entscheidet der
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
-import { occurrencesOf, openPromises, type Occurrence } from './derive';
+import { normalize, occurrencesOf, openPromises, type Occurrence } from './derive';
 import { readyLoot } from './loot';
 import { SCENE_ODDS } from './schema';
 import type {
@@ -72,9 +72,17 @@ export interface PlayCard {
 
 export interface PlayView {
   cards: PlayCard[];
-  /** Was den Ort der Gruppe berührt, aber nicht im Spiel ist – zum Hereinnehmen. */
+  /**
+   * Was den Ort der Gruppe berührt, aber nicht im Spiel ist – zum Hereinnehmen: alle Geschichten,
+   * von den losen Fäden nur die ersten.
+   */
   offered: BoardCard[];
+  /** Lose Fäden am Ort, die darüber hinaus zur Wahl stünden. */
+  offeredMore: number;
 }
+
+/** Mehr lose Fäden bietet der Spieltisch am Ort nicht von selbst an. */
+export const OFFERED_THREADS = 3;
 
 /** So weit voraus zählt ein Termin zu dem, was ansteht. */
 const AHEAD_DAYS = 30;
@@ -193,6 +201,8 @@ export function playView(data: CampaignData): PlayView {
   const cards = boardCards(data);
   const next = (card: BoardCard) =>
     card.clock?.next && !card.clock.paused ? card.clock.next.at : Number.MAX_SAFE_INTEGER;
+  const here = cards.filter((card) => !card.closed && !inPlay(card) && card.nearness === 'here');
+  const looseHere = here.filter((card) => !card.story);
   return {
     cards: cards
       .filter(inPlay)
@@ -203,7 +213,62 @@ export function playView(data: CampaignData): PlayView {
           a.title.localeCompare(b.title, 'de'),
       )
       .map((card) => playCard(data, card)),
-    offered: cards.filter((card) => !card.closed && !inPlay(card) && card.nearness === 'here'),
+    offered: [...here.filter((card) => card.story), ...looseHere.slice(0, OFFERED_THREADS)],
+    offeredMore: Math.max(0, looseHere.length - OFFERED_THREADS),
+  };
+}
+
+/** So viele Geschichten und lose Fäden stehen ohne Suche zur Wahl – mit Suche so viele Treffer. */
+export const CHOICE_STORIES = 8;
+export const CHOICE_THREADS = 5;
+export const CHOICE_FOUND = 12;
+
+export interface PlayChoices {
+  /** Geschichten, die sich ins Spiel nehmen lassen – was am Ort der Gruppe hängt zuerst. */
+  stories: BoardCard[];
+  /** Lose Fäden, in derselben Reihung. */
+  threads: BoardCard[];
+  /** Wie viele darüber hinaus zur Wahl stünden. */
+  moreStories: number;
+  moreThreads: number;
+  /** Es gibt mehr, als auf einmal dasteht: Dann hilft die Suche. */
+  search: boolean;
+}
+
+/**
+ * Was sich ins Spiel nehmen lässt: alles Offene, das noch nicht im Spiel ist – Geschichten und
+ * lose Fäden getrennt, je in der Reihung des Bretts (was am Ort der Gruppe hängt zuerst). Nie
+ * eine endlose Liste: Ohne Suche stehen nur die ersten da; die Suche findet nach dem Satz und
+ * nach den Namen, an denen etwas hängt.
+ */
+export function playChoices(
+  data: Pick<CampaignData, 'entities'>,
+  cards: readonly BoardCard[],
+  query = '',
+): PlayChoices {
+  const idle = cards.filter((card) => !card.closed && !inPlay(card));
+  const words = normalize(query).split(/\s+/).filter(Boolean);
+  const matches = (card: BoardCard) => {
+    if (!words.length) return true;
+    const text = normalize(
+      [card.title, ...card.nodes.map((id) => data.entities[id]?.name ?? '')].join(' '),
+    );
+    return words.every((word) => text.includes(word));
+  };
+  const found = idle.filter(matches);
+  const stories = found.filter((card) => card.story);
+  const threads = found.filter((card) => !card.story);
+  const [storyLimit, threadLimit] = words.length
+    ? [CHOICE_FOUND, CHOICE_FOUND]
+    : [CHOICE_STORIES, CHOICE_THREADS];
+  return {
+    stories: stories.slice(0, storyLimit),
+    threads: threads.slice(0, threadLimit),
+    moreStories: Math.max(0, stories.length - storyLimit),
+    moreThreads: Math.max(0, threads.length - threadLimit),
+    search:
+      idle.filter((card) => card.story).length > CHOICE_STORIES ||
+      idle.filter((card) => !card.story).length > CHOICE_THREADS,
   };
 }
 

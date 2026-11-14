@@ -16,7 +16,13 @@ import {
   type ThreadHint,
   type ThreadState,
 } from '../../domain/schema';
-import { THREAD_STATE_HINT, THREAD_STATE_LABEL, threadLive, threadsOf } from '../../domain/story';
+import {
+  THREAD_STATE_HINT,
+  THREAD_STATE_LABEL,
+  isLooseThread,
+  threadLive,
+  threadsOf,
+} from '../../domain/story';
 import { hintsNote, threadFits, type ThreadFit } from '../../domain/storySheet';
 import {
   Button,
@@ -231,7 +237,7 @@ function LooseFits({ story, questions }: { story: Story; questions: readonly Thr
   const [, navigate] = useLocation();
   const fits = threadFits(data, story);
   const loose = Object.values(data.threads).filter(
-    (thread) => !(thread.storyId && data.stories[thread.storyId]) && threadLive(thread),
+    (thread) => isLooseThread(data, thread) && threadLive(thread),
   ).length;
   if (!loose) return null;
   const done = (title: string, body: string, undo: (() => void) | null) => {

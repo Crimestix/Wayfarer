@@ -125,6 +125,11 @@ export const PlayStateSchema = z.object({
    */
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
   /**
+   * „Sind verschieden“: Gruppen von Fäden mit fast gleichem Satz, die der Spielleiter nicht
+   * zusammenlegen will – je Gruppe ihr Schlüssel aus `threadTwins` (`domain/looseThreads.ts`).
+   */
+  twinsApart: z.array(z.string()).default([]),
+  /**
    * Das Fraktionsnetz in „Welt“: wo der Spielleiter Fraktionen, Familien, Personen und die Gruppe
    * (`party`) hingelegt hat – je Kennung die Stelle. Was fehlt, legt `factionNet()` aus.
    */
@@ -1098,12 +1103,14 @@ export const ReadProposalSchema = z.object({
    * Was das Annehmen an Vorhandenem geändert hat, zum Zurücknehmen: eine Zeile im Steckbrief
    * (`fact`, `before` = die Zeile davor), eine Zeile unter „Was geschah“ (`happened`) – beide im
    * Artikel `targetId` – oder ein zweiter Name am Eintrag `targetId` (`alias`). `made` = der
-   * Steckbrief bzw. Abschnitt entstand dabei erst.
+   * Steckbrief bzw. Abschnitt entstand dabei erst. Bei einem Faden: `source` = den Faden
+   * `targetId` gab es schon, die Session (`line`) kam nur als Quelle dazu; `story` = der neue
+   * Faden `targetId` kam gleich an die Geschichte `line`.
    */
   edits: z
     .array(
       z.object({
-        kind: z.enum(['fact', 'happened', 'alias']),
+        kind: z.enum(['fact', 'happened', 'alias', 'source', 'story']),
         targetId: id,
         line: z.string(),
         before: z.string().nullable().default(null),
@@ -1277,9 +1284,16 @@ export const ThreadSchema = z.object({
   known: z.boolean().default(true),
   /** Ein loser Faden steht am Spieltisch unter „Im Spiel“ (`domain/play.ts`). */
   inPlay: z.boolean().default(false),
+  /**
+   * Ein loser Faden liegt als Karte auf dem Brett – der Spielleiter hat ihn hingelegt. Sonst
+   * steht er nur in der Liste „Lose Fäden“ (`threadOnBoard` in `domain/story.ts`).
+   */
+  onBoard: z.boolean().default(false),
   hints: z.array(ThreadHintSchema).default([]),
   /** Der Artikel, aus dem er stammt. */
   articleId: id.nullable().default(null),
+  /** Die nachgetragenen Sessions, in deren Notizen er steht (`threadOrigin`). */
+  sessionIds: z.array(id).default([]),
 });
 export type Thread = z.infer<typeof ThreadSchema>;
 

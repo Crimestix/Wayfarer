@@ -8,6 +8,7 @@
 import { recordProblem } from '../../data/record';
 import { KIND_LABEL, isJob, type RecordInput, type RecordKind } from '../../domain/chronicleKinds';
 import { promiseOutcome, type PromiseOutcome } from '../../domain/derive';
+import { threadsInOrder } from '../../domain/looseThreads';
 import type { DeliveryOffer, Recognized } from '../../domain/recognize';
 import {
   PARTY_ID,
@@ -726,19 +727,16 @@ export interface ClueChoice {
   hints: { id: string; text: string; found: boolean }[];
 }
 
-/** Fäden zum Wählen bei „Hinweis gefunden“: offene zuerst, dann nach Titel. */
+/**
+ * Fäden zum Wählen bei „Hinweis gefunden“ – in der Reihung, in der Fäden überall zur Wahl stehen
+ * (`threadsInOrder`): offene zuerst, darin was am Ort der Gruppe hängt, dann nach dem Satz.
+ */
 export function clueChoices(data: CampaignData): ClueChoice[] {
-  const closed = (state: string) => state === 'solved' || state === 'lost';
-  return Object.values(data.threads)
-    .sort(
-      (a, b) =>
-        Number(closed(a.state)) - Number(closed(b.state)) || a.title.localeCompare(b.title, 'de'),
-    )
-    .map((thread) => ({
-      threadId: thread.id,
-      title: thread.title,
-      hints: thread.hints.map((hint) => ({ id: hint.id, text: hint.text, found: hint.found })),
-    }));
+  return threadsInOrder(data).map((thread) => ({
+    threadId: thread.id,
+    title: thread.title,
+    hints: thread.hints.map((hint) => ({ id: hint.id, text: hint.text, found: hint.found })),
+  }));
 }
 
 /**

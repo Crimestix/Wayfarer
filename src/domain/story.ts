@@ -55,8 +55,25 @@ const unique = (ids: readonly (string | null | undefined)[], data: StoryData): s
   ...new Set(ids.filter((id): id is string => !!id && data.entities[id] !== undefined)),
 ];
 
+/** Ein loser Faden: Er gehört zu keiner Geschichte – oder zu einer, die es nicht mehr gibt. */
+export const isLooseThread = (
+  data: Pick<CampaignData, 'stories'>,
+  thread: Pick<Thread, 'storyId'>,
+): boolean => !(thread.storyId && data.stories[thread.storyId]);
+
+/**
+ * Liegt ein loser Faden als Karte auf dem Brett? Nur, wenn der Spielleiter ihn hingelegt hat
+ * (`thread.onBoard` – oder er hat dort aus früheren Ständen eine Stelle) oder wenn er im Spiel
+ * ist. Alle anderen stehen in der Liste „Lose Fäden“ (`domain/looseThreads.ts`).
+ */
+export const threadOnBoard = (
+  data: Pick<CampaignData, 'state'>,
+  thread: Pick<Thread, 'id' | 'inPlay' | 'onBoard'>,
+): boolean =>
+  thread.inPlay || thread.onBoard || data.state.board[`thread:${thread.id}`] !== undefined;
+
 /** Woran ein Faden hängt: seine Personen, Orte und Fraktionen – und wo seine Hinweise liegen. */
-export function threadNodes(data: StoryData, thread: Thread): string[] {
+export function threadNodes(data: StoryData, thread: Pick<Thread, 'refs' | 'hints'>): string[] {
   return unique(
     [...thread.refs, ...thread.hints.flatMap((hint) => [hint.placeId, hint.sourceId])],
     data,
@@ -227,6 +244,11 @@ export interface BoardCard {
   /** Abgeschlossen: Die Geschichte ist zu Ende, der lose Faden gelöst oder verloren. */
   closed: boolean;
   /**
+   * Liegt auf dem Brett. Eine Geschichte immer; ein loser Faden nur, wenn der Spielleiter ihn
+   * hingelegt hat oder er im Spiel ist (`threadOnBoard`) – sonst steht er in der Liste daneben.
+   */
+  onBoard: boolean;
+  /**
    * Die große Geschichte, zu der diese gehört – null, wenn sie für sich steht. In der Sicht der
    * Gruppe nur, wenn sie von der großen weiß: Sonst verriete die Marke deren Namen.
    */
@@ -241,7 +263,8 @@ const NEAR_ORDER: Nearness[] = ['here', 'reachable', 'far'];
 /**
  * Die Karten des Fadenbretts – das Nahe zuerst, Abgeschlossenes zuletzt. In der Sicht der Gruppe
  * bleiben nur die Fäden, die sie kennt; eine Geschichte, von der sie nichts weiß, zerfällt in
- * ihre bekannten Fäden, und Hinweise, die sie nicht hat, zählen nicht mit.
+ * ihre bekannten Fäden, und Hinweise, die sie nicht hat, zählen nicht mit. Lose Fäden sind alle
+ * dabei (der Spieltisch braucht sie); welche davon auf dem Brett liegen, sagt `card.onBoard`.
  */
 export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCard[] {
   const party = view === 'party';
@@ -273,6 +296,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       pace: party && clock?.clock.secret ? 'none' : pace,
       clock: party && clock?.clock.secret ? null : clock,
       closed: story.closed,
+      onBoard: true,
       partOf: parent && (!party || parent.known) ? parent : null,
     });
   }
@@ -294,6 +318,8 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       pace: 'none',
       clock: null,
       closed: !threadLive(thread),
+      // Die Frage einer Geschichte, von der die Gruppe nichts weiß, liegt für sie auf dem Brett.
+      onBoard: !isLooseThread(data, thread) || threadOnBoard(data, thread),
       partOf: null,
     });
   }
@@ -673,13 +699,19 @@ function withParts(cards: readonly BoardCard[]): BoardCard[] {
  * Wo alles auf dem Brett liegt: Was der Spielleiter hingelegt hat (`placed`), bleibt dort; alles
  * andere legt Wayfarer aus – die Karten in Reihen (das Nahe zuerst, Teilgeschichten bei ihrer
  * großen), die Namen einer Karte darunter, und ein Name, an dem mehrere Karten hängen, zwischen
- * sie. Nichts liegt aufeinander. Abgeschlossenes liegt nicht auf dem Brett.
+ * sie. Nichts liegt aufeinander. Abgeschlossenes liegt nicht auf dem Brett, und von den losen
+ * Fäden nur, was der Spielleiter hingelegt hat oder was im Spiel ist (`card.onBoard`) – hinter
+ * den Geschichten, damit ein Faden, der aufs Brett kommt, keine Geschichte verschiebt.
  */
 export function boardLayout(
   cards: readonly BoardCard[],
   placed: Readonly<Record<string, Spot>> = {},
 ): BoardLayout {
-  const open = withParts(cards.filter((card) => !card.closed));
+  const lying = cards.filter((card) => !card.closed && card.onBoard);
+  const open = withParts([
+    ...lying.filter((card) => card.story),
+    ...lying.filter((card) => !card.story),
+  ]);
   const spots: Record<string, Spot> = {};
   open.forEach((card, index) => {
     spots[card.key] = placed[card.key] ?? {

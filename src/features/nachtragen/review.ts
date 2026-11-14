@@ -7,6 +7,7 @@
 import { FATE_LABEL, type RecordInput } from '../../domain/chronicleKinds';
 import { activeParty, entityName } from '../../domain/derive';
 import { placeForEntry } from '../../domain/history';
+import { threadByTitle } from '../../domain/looseThreads';
 import type { Recognized, RecognizedPayload } from '../../domain/recognize';
 import type {
   CampaignData,
@@ -474,8 +475,8 @@ export interface ProposalChange {
   input?: RecordInput;
   /** Beute, wie sie in „Ändern“ steht. */
   loot?: LootInput;
-  /** Ein Faden, wie er in „Ändern“ steht. */
-  thread?: { title: string; refs: string[] };
+  /** Ein Faden, wie er in „Ändern“ steht – `storyId`: die Geschichte, an die er gleich kommt. */
+  thread?: { title: string; refs: string[]; storyId?: string | null };
   checks?: Partial<Record<ConsequenceKey, boolean>>;
 }
 
@@ -488,7 +489,7 @@ export type AcceptPlan =
       aliases: { entityId: string; name: string }[];
     }
   | { kind: 'loot'; loot: LootInput; when: LootWhen }
-  | { kind: 'thread'; thread: { title: string; refs: string[] } };
+  | { kind: 'thread'; thread: { title: string; refs: string[]; storyId: string | null } };
 
 /** Warum sich ein Vorschlag nicht ohne „Ändern“ annehmen lässt. */
 const NEEDS: Partial<Record<ReadProposalKind, string>> = {
@@ -534,7 +535,15 @@ export function planAccept(
       refs: proposal.refs,
     };
     if (!thread.title.trim()) return { problem: 'Der Faden braucht einen Satz.' };
-    return { kind: 'thread', thread };
+    const storyId = change.thread?.storyId ?? null;
+    return {
+      kind: 'thread',
+      thread: {
+        title: thread.title,
+        refs: thread.refs,
+        storyId: storyId && data.stories[storyId] ? storyId : null,
+      },
+    };
   }
   if (proposal.kind === 'loot') {
     const loot: LootInput = change.loot ?? {
@@ -593,6 +602,26 @@ export function planAccept(
       ? p.aliases.filter((a) => !!data.entities[a.entityId] && a.name.trim())
       : [];
   return { kind: 'record', inputs, checks, aliases };
+}
+
+/** Der Satz, mit dem ein vorgeschlagener Faden angelegt würde. */
+export function proposalThreadTitle(proposal: ReadProposal): string {
+  const title = asPayload(proposal).title;
+  return (typeof title === 'string' && title) || proposal.text;
+}
+
+/**
+ * „Gibt es schon“: Zu einem vorgeschlagenen Faden gibt es bereits einen mit demselben Satz
+ * (`threadByTitle`) – dann legt das Annehmen keinen zweiten an, sondern vermerkt nur die Session
+ * als Quelle. Leer, wenn es keinen gibt oder der Vorschlag kein Faden ist.
+ */
+export function threadTwinNote(data: CampaignData, proposal: ReadProposal, title?: string): string {
+  if (proposal.kind !== 'thread') return '';
+  const twin = threadByTitle(data, title ?? proposalThreadTitle(proposal));
+  if (!twin) return '';
+  const story = twin.storyId ? data.stories[twin.storyId] : undefined;
+  const where = story ? `als Frage der Geschichte „${story.title}“` : 'als losen Faden';
+  return `Diesen Faden gibt es schon – ${where}. Annehmen legt keinen zweiten an; die Session wird bei ihm als Quelle vermerkt.`;
 }
 
 /** Ein Vorschlag als Erkanntes – so, wie ihn das Festhalten kennt. */

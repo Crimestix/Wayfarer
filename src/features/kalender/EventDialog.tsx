@@ -35,6 +35,7 @@ import {
   toast,
 } from '../../ui';
 import type { EventWeightChoice } from '../../domain/schema';
+import { threadsInOrder } from '../../domain/looseThreads';
 import { threadLive } from '../../domain/story';
 import { weightReason } from '../../domain/weight';
 import {
@@ -122,12 +123,11 @@ export function EventDialog({ event, day, onClose, onSaved }: EventDialogProps) 
         : '',
     [data, dated],
   );
+  // In der Reihung, in der Fäden überall zur Wahl stehen: was am Ort der Gruppe hängt, zuerst.
   const threads = useMemo(
     () =>
-      Object.values(data.threads)
-        .filter((thread) => threadLive(thread) || thread.id === form.threadId)
-        .sort((a, b) => a.title.localeCompare(b.title, 'de')),
-    [data.threads, form.threadId],
+      threadsInOrder(data).filter((thread) => threadLive(thread) || thread.id === form.threadId),
+    [data, form.threadId],
   );
 
   const save = () => {

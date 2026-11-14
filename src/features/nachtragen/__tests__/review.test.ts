@@ -7,7 +7,13 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../../data/db';
 import { MemoryStore } from '../../../data/store';
 import { recordEntry } from '../../../data/record';
-import { createSession, type ReadProposal, type Session } from '../../../domain/schema';
+import { threadOrigin } from '../../../domain/looseThreads';
+import {
+  createSession,
+  createStory,
+  type ReadProposal,
+  type Session,
+} from '../../../domain/schema';
 import { createArticle, savePageText } from '../../wiki/actions';
 import { pageText } from '../../wiki/text';
 import { storeReading } from '../readActions';
@@ -23,6 +29,7 @@ import {
   reviewProgress,
   reviewState,
   sessionTimeProblem,
+  threadTwinNote,
 } from '../review';
 import {
   acceptProposal,
@@ -263,6 +270,88 @@ describe('Annehmen und zurücknehmen', () => {
     const { notes } = undoAccepted(db, session().id, [hook.id]);
     expect(notes[0]).toContain('bleibt');
     expect(db.getSnapshot().threads[id]).toBeDefined();
+  });
+
+  it('legt denselben Faden aus einer zweiten Session nicht noch einmal an – sie wird nur Quelle', async () => {
+    const { db, session, proposal } = await setup();
+    const s2 = noted(
+      2,
+      'Die Gruppe rastete.\nOffene Fragen:\n- der Schlüssel der Grotte?\n- Wer bezahlt die Krähenbande?',
+      at(6, 1, 701, 9),
+      at(6, 1, 701, 22),
+    );
+    db.put('sessions', s2);
+    storeReading(db, s2.id, READ_AT);
+    const later = () => db.getSnapshot().sessions[s2.id]!;
+    const again = later().reading!.proposals.find(
+      (p) => p.kind === 'thread' && p.text.toLowerCase().includes('schlüssel'),
+    )!;
+    // Solange es ihn nicht gibt, sagt der Vorschlag nichts.
+    expect(threadTwinNote(db.getSnapshot(), again)).toBe('');
+    const hook = proposal((p) => p.kind === 'thread');
+    acceptProposal(db, session().id, hook.id);
+    const id = proposal((p) => p.id === hook.id).created[0]!.id;
+    expect(db.getSnapshot().threads[id]!.sessionIds).toEqual([session().id]);
+    expect(threadTwinNote(db.getSnapshot(), again)).toContain('gibt es schon – als losen Faden');
+
+    const result = acceptProposal(db, s2.id, again.id);
+    if ('problem' in result) throw new Error(result.problem);
+    expect(result.notes[0]).toContain('gibt es schon');
+    expect(Object.keys(db.getSnapshot().threads)).toEqual([id]);
+    expect(db.getSnapshot().threads[id]!.sessionIds).toEqual([session().id, s2.id]);
+    const accepted = later().reading!.proposals.find((p) => p.id === again.id)!;
+    expect(accepted).toMatchObject({ state: 'accepted', created: [] });
+    expect(accepted.edits).toEqual([
+      { kind: 'source', targetId: id, line: s2.id, before: null, made: true },
+    ]);
+    expect(
+      threadOrigin(db.getSnapshot(), db.getSnapshot().threads[id]!).sessions.map((s) => s.number),
+    ).toEqual([1, 2]);
+    // Zurückgenommen ist nur die Quelle weg – der Faden der ersten Session bleibt.
+    result.undo();
+    expect(db.getSnapshot().threads[id]!.sessionIds).toEqual([session().id]);
+    expect(later().reading!.proposals.find((p) => p.id === again.id)!.state).toBe('open');
+    // „Alle sicheren annehmen“ legt auch dann nur den einen an, der noch fehlt.
+    const all = acceptProposals(
+      db,
+      s2.id,
+      later()
+        .reading!.proposals.filter((p) => p.kind === 'thread')
+        .map((p) => ({ id: p.id })),
+    );
+    expect(all.failed).toEqual([]);
+    expect(
+      Object.values(db.getSnapshot().threads)
+        .map((t) => t.title)
+        .sort(),
+    ).toEqual(['Der Schlüssel der Grotte', 'Wer bezahlt die Krähenbande?']);
+  });
+
+  it('hängt einen Faden beim Annehmen gleich an die gewählte Geschichte', async () => {
+    const { db, session, proposal } = await setup();
+    const tale = db.put('stories', createStory({ title: 'Die Grotte' }));
+    const hook = proposal((p) => p.kind === 'thread');
+    expect(planAccept(db.getSnapshot(), session(), hook)).toMatchObject({
+      kind: 'thread',
+      thread: { storyId: null },
+    });
+    acceptProposal(db, session().id, hook.id, {
+      thread: { title: 'Der Schlüssel der Grotte', refs: [], storyId: tale.id },
+    });
+    const id = proposal((p) => p.id === hook.id).created[0]!.id;
+    expect(db.getSnapshot().threads[id]).toMatchObject({ storyId: tale.id, known: true });
+    // Nur angehängt ist nicht weitergeschrieben: Zurücknehmen nimmt ihn wieder weg.
+    expect(undoAccepted(db, session().id, [hook.id]).notes).toEqual([]);
+    expect(db.getSnapshot().threads[id]).toBeUndefined();
+    // Eine Geschichte, die es nicht gibt, gilt als „keine“.
+    acceptProposal(db, session().id, hook.id, {
+      thread: { title: 'Der Schlüssel der Grotte', refs: [], storyId: 'gibtsnicht' },
+    });
+    const loose = proposal((p) => p.id === hook.id).created[0]!.id;
+    expect(db.getSnapshot().threads[loose]!.storyId).toBeNull();
+    // An eine andere Geschichte gehängt: Dann bleibt er.
+    db.patch('threads', loose, { storyId: tale.id });
+    expect(undoAccepted(db, session().id, [hook.id]).notes[0]).toContain('bleibt');
   });
 
   it('legt ein Schriftstück als Artikel ab – und nimmt Artikel und Ordner zurück', async () => {

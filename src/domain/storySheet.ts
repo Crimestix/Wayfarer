@@ -22,6 +22,7 @@ import type {
   Thread,
 } from './schema';
 import {
+  isLooseThread,
   storyClock,
   storyNodes,
   storyStage,
@@ -220,12 +221,37 @@ export interface ThreadFit {
   reason: string;
 }
 
-/** „nennt auch A“, „nennt auch A und B“, „nennt auch A, B und 2 weitere“. */
-function sharedReason(shared: readonly Entity[]): string {
+/** „A“, „A und B“, „A, B und 2 weitere“. */
+export function namesLine(shared: readonly Entity[]): string {
   const names = shared.map((entity) => entity.name);
-  if (names.length === 1) return `nennt auch ${names[0]}`;
-  if (names.length === 2) return `nennt auch ${names[0]} und ${names[1]}`;
-  return `nennt auch ${names[0]}, ${names[1]} und ${names.length - 2} weitere`;
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length === 2) return `${names[0]} und ${names[1]}`;
+  return `${names[0]}, ${names[1]} und ${names.length - 2} weitere`;
+}
+
+/** „nennt auch A“, „nennt auch A und B“, „nennt auch A, B und 2 weitere“. */
+export const sharedReason = (shared: readonly Entity[]): string =>
+  `nennt auch ${namesLine(shared)}`;
+
+/**
+ * Die Namen, die ein Faden mit einer Geschichte gemeinsam hat (`nodes` = woran sie hängt): woran
+ * er selbst hängt und wen sein Satz, seine Antwort und seine Hinweise nennen – nach Namen.
+ */
+export function sharedNames(
+  data: CampaignData,
+  thread: Pick<Thread, 'title' | 'truth' | 'refs' | 'hints'>,
+  nodes: ReadonlySet<string>,
+): Entity[] {
+  if (!nodes.size) return [];
+  const ids = new Set(threadNodes(data, thread));
+  const known = [...nodes];
+  for (const text of [thread.title, thread.truth, ...thread.hints.map((hint) => hint.text)])
+    for (const hit of namesIn(data, text, known)) if (hit.id) ids.add(hit.id);
+  return [...ids]
+    .filter((id) => nodes.has(id))
+    .map((id) => data.entities[id])
+    .filter((entity): entity is Entity => entity !== undefined)
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 /**
@@ -238,15 +264,8 @@ export function threadFits(data: CampaignData, story: Story): ThreadFit[] {
   if (!nodes.size) return [];
   const fits: ThreadFit[] = [];
   for (const thread of Object.values(data.threads)) {
-    if ((thread.storyId && data.stories[thread.storyId]) || !threadLive(thread)) continue;
-    const ids = new Set(threadNodes(data, thread));
-    for (const text of [thread.title, thread.truth, ...thread.hints.map((hint) => hint.text)])
-      for (const hit of namesIn(data, text, [...nodes])) if (hit.id) ids.add(hit.id);
-    const shared = [...ids]
-      .filter((id) => nodes.has(id))
-      .map((id) => data.entities[id])
-      .filter((entity): entity is Entity => entity !== undefined)
-      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    if (!isLooseThread(data, thread) || !threadLive(thread)) continue;
+    const shared = sharedNames(data, thread, nodes);
     if (shared.length) fits.push({ thread, shared, reason: sharedReason(shared) });
   }
   return fits.sort(
