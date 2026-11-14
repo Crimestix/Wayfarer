@@ -1,0 +1,254 @@
+/* Fortbewegung: Reittiere, Fahrzeuge und Schiffe */
+
+.wf-fort-panel {
+  flex: none;
+}
+
+.wf-fort-empty {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+
+.wf-fort-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2) var(--s-4);
+}
+
+.wf-fort-group + .wf-fort-group {
+  margin-top: var(--s-2);
+}
+
+.wf-fort-group__label {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wf-fort-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto auto;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-1) 0;
+}
+
+.wf-fort-row + .wf-fort-row {
+  border-top: 1px dashed var(--line-faint);
+}
+
+.wf-fort-row__icon {
+  display: inline-flex;
+  color: var(--ink-mute);
+}
+
+.wf-fort-row--riding .wf-fort-row__icon {
+  color: var(--gold);
+}
+
+.wf-fort-row__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.wf-fort-row__main {
+  min-width: 0;
+}
+
+.wf-fort-row__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.wf-fort-row__name {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.wf-fort-row__name:hover {
+  color: var(--gold-bright);
+}
+
+.wf-fort-row__kind {
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-fort-row__facts {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-fort-row__condition {
+  width: auto;
+  min-width: 110px;
+  font-size: var(--text-sm);
+}
+
+.wf-fort-row__condition--off {
+  color: var(--ember);
+}
+
+.wf-fort-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-5);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--line-faint);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.wf-fort-foot__upkeep {
+  color: var(--ink-mute);
+}
+
+.wf-fort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wf-fort-link:hover {
+  color: var(--gold-bright);
+}
+
+.wf-fort-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Dialog */
+
+.wf-fort-problem {
+  color: var(--blood-bright);
+  font-size: var(--text-sm);
+}
+
+.wf-fort-number {
+  width: 110px;
+  flex: none;
+}
+
+.wf-fort-numbers {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--s-3);
+}
+
+.wf-fort-checks {
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding-bottom: var(--s-1);
+}
+
+/* Womit gereist wird – am Spieltisch, beim Weiterziehen, auf der Hexkarte */
+
+.wf-fort-travel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--ink-mute);
+}
+
+.wf-fort-travel svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.wf-fort-travel select {
+  width: auto;
+  max-width: 180px;
+  height: 26px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--text-sm);
+}
+
+.wf-fort-hint {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+
+/* Überfahrten am Spieltisch */
+
+.wf-fort-crossings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  align-items: center;
+  padding: var(--s-1) var(--s-4);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.wf-fort-crossing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.wf-fort-crossing__when {
+  color: var(--ink-mute);
+}
+
+.wf-fort-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+  margin-top: var(--s-1);
+}
+
+.wf-fort-trip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-1) var(--s-3);
+  margin: 0;
+}
+
+.wf-fort-trip dt {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.9;
+}
+
+.wf-fort-trip dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.wf-fort-travel__button {
+  flex: 0 1 auto;
+  max-width: 130px;
+  min-width: 0;
+}

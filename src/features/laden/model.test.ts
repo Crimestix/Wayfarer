@@ -22,6 +22,7 @@ import {
   auctionFor,
   readQty,
   setUnit,
+  meansInBasket,
 } from './model';
 import type { Die } from '../../domain/market';
 
@@ -196,6 +197,61 @@ describe('Aus dem Regelwerk in den Korb', () => {
       qty: 2,
       price: 22.5,
     });
+  });
+});
+
+describe('Reittiere und Schiffe im Korb', () => {
+  it('erkennt sie aus dem Regelwerk, der Welt und dem Bestand', () => {
+    const shop = createShop({
+      stock: [
+        {
+          id: 's1',
+          entityId: null,
+          text: 'Pony',
+          price: null,
+          qty: null,
+          srdId: 'srd-pony',
+          creatureId: 'c1',
+          unit: '',
+        },
+      ],
+    });
+    const seewind = createEntity({ kind: 'item', name: 'Seewind', item: { category: 'Schiff' } });
+    const data = { entities: { [seewind.id]: seewind } };
+    let basket = addRuleItem([], srdItem('srd-riding-horse')!, shop);
+    basket = addRuleItem(basket, srdItem('srd-rope')!, shop);
+    basket = addFree(basket, 'Ochsenkarren', 12, { shop, direction: 'buy' });
+    basket = [
+      ...basket,
+      {
+        key: 'stock:s1',
+        entityId: null,
+        stockId: 's1',
+        text: 'Pony',
+        qty: 2,
+        price: 30,
+        max: null,
+      },
+      {
+        key: 'e',
+        entityId: seewind.id,
+        stockId: null,
+        text: 'Seewind',
+        qty: 1,
+        price: 900,
+        max: 1,
+      },
+    ];
+    const offers = meansInBasket(data, shop, basket);
+    expect(offers.map((o) => [o.values.name, o.values.kind, o.qty])).toEqual([
+      ['Reitpferd', 'mount', 1],
+      ['Ochsenkarren', 'vehicle', 1],
+      ['Pony', 'mount', 2],
+      ['Seewind', 'ship', 1],
+    ]);
+    expect(offers[0]!.values).toMatchObject({ capacity: 480, builtIn: true });
+    expect(offers[2]!.values).toMatchObject({ creatureId: 'c1', capacity: 225 });
+    expect(offers[3]!.values.entityId).toBe(seewind.id);
   });
 });
 

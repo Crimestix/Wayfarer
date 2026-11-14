@@ -647,3 +647,12 @@
   width: 92px;
   flex: none;
 }
+/* Gekaufte Reittiere, Fahrzeuge und Schiffe gleich eintragen (`meansInBasket`). */
+.wf-laden-means {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) 0;
+  border-top: 1px solid var(--line-faint);
+  font-size: var(--text-sm);
+}

@@ -62,6 +62,7 @@ import { ScenesHere } from './ScenesHere';
 import { StocksHere } from './StocksHere';
 import { ShopsHere } from '../laden/ShopsHere';
 import { shopsHere } from '../../domain/shop';
+import { CrossingRow } from '../fortbewegung/CrossingRow';
 import { WayRow } from './WayRow';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
@@ -470,6 +471,7 @@ export function PlacePanel({ place }: { place: Place }) {
 
       {(nearby.parent || nearby.children.length > 0) && <Ways nearby={nearby} onGo={go} />}
       <WayRow placeId={place.id} />
+      <CrossingRow />
 
       <div className="wf-tisch-place__body">
         {changes.length > 0 && (

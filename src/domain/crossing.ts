@@ -11,7 +11,14 @@ import { placeAncestors, placeSubtreeIds } from './derive';
 import { runStatus, type Trip } from './runs';
 import type { CampaignData, Run } from './schema';
 import { srdItem } from './srd/lookup';
-import { MINUTES_PER_DAY } from './time/calendar';
+import {
+  MINUTES_PER_DAY,
+  dayIndexOf,
+  formatClock,
+  formatDayMonth,
+  formatDuration,
+  type CalendarDef,
+} from './time/calendar';
 import { waysAround } from './ways';
 
 export interface Crossing {
@@ -83,4 +90,16 @@ export function passagePrices(trip: Pick<Trip, 'departs' | 'arrives'>): PassageP
     const item = srdItem(id);
     return item ? [{ label: label!, gold: Math.round(item.price * days * 100) / 100 }] : [];
   });
+}
+
+/**
+ * Wann eine Fahrt abgeht, in Worten: „heute 14:00 (in 3 Std.)“, „morgen 06:00“, „17. Tauwind,
+ * 06:00 (in 4 Tagen)“.
+ */
+export function departureText(cal: CalendarDef, now: number, departs: number): string {
+  const days = dayIndexOf(departs) - dayIndexOf(now);
+  const clock = formatClock(departs);
+  if (days <= 0) return `heute ${clock} (in ${formatDuration(Math.max(0, departs - now))})`;
+  if (days === 1) return `morgen ${clock}`;
+  return `${formatDayMonth(cal, departs)}, ${clock} (in ${days} Tagen)`;
 }

@@ -15,6 +15,7 @@ import {
   type Die,
 } from '../../domain/market';
 import { activeParty } from '../../domain/derive';
+import { meansFromWare } from '../../domain/mounts';
 import {
   baseName,
   isTradeKind,
@@ -371,4 +372,38 @@ export function ruleSections(items: readonly SrdItem[]): { sub: string; items: S
     else out.push({ sub: item.sub, items: [item] });
   }
   return out;
+}
+
+// ── Reittiere, Fahrzeuge und Schiffe aus dem Korb ──────────────────────────
+
+/** Eine Zeile des Korbs, die ein Fortbewegungsmittel ist – und womit es eingetragen würde. */
+export interface MeansOffer {
+  key: string;
+  qty: number;
+  values: NonNullable<ReturnType<typeof meansFromWare>>;
+}
+
+/**
+ * Was im Korb ein Reittier, ein Fahrzeug oder ein Schiff ist (`meansFromWare`): aus dem
+ * Regelwerk, ein Tier der Welt, ein Gegenstand mit passender Einordnung. Beim Kauf bietet der
+ * Laden an, es bei den Reittieren und Fahrzeugen einzutragen – nur ein Angebot.
+ */
+export function meansInBasket(
+  data: Pick<CampaignData, 'entities'>,
+  shop: Shop | null,
+  basket: readonly BasketLine[],
+): MeansOffer[] {
+  return basket.flatMap((line) => {
+    const stock = line.stockId ? shop?.stock.find((s) => s.id === line.stockId) : undefined;
+    const srdId = line.key.startsWith('srd:') ? line.key.slice(4) : (stock?.srdId ?? null);
+    const values = meansFromWare(data, { entityId: line.entityId, text: line.text, srdId });
+    if (!values) return [];
+    return [
+      {
+        key: line.key,
+        qty: line.qty,
+        values: stock?.creatureId ? { ...values, creatureId: stock.creatureId } : values,
+      },
+    ];
+  });
 }

@@ -15,6 +15,7 @@ import { describeWeather, temperatureLabel } from '../../domain/weather';
 import { weatherAt } from '../../domain/weatherZone';
 import { openMoveParty } from '../../shell/commands';
 import { Button, Panel, Select } from '../../ui';
+import { TravelBy } from '../fortbewegung/TravelBy';
 import { WeatherIcon } from '../wetter/WeatherChip';
 import { placeParty, setTravelPace, type TravelResult } from './actions';
 import {
@@ -203,6 +204,13 @@ export function TravelPanel({
               </option>
             ))}
           </Select>
+
+          {Object.keys(data.mounts).length > 0 && (
+            <>
+              <span className="wf-erk-travel__label">Womit</span>
+              <TravelBy />
+            </>
+          )}
 
           <span className="wf-erk-travel__label">Heute</span>
           <span data-alert={march ? true : undefined}>

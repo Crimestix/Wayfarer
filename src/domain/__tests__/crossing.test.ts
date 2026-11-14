@@ -4,7 +4,7 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { saveRun } from '../../features/geschehen/actions';
 import { bookCrossing, saveWay } from '../../features/wege/actions';
-import { crossingsHere, passagePrices, tripDays } from '../crossing';
+import { crossingsHere, departureText, passagePrices, tripDays } from '../crossing';
 import { createEntity, type Place } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
 
@@ -60,6 +60,16 @@ describe('Überfahrten', () => {
     expect(first!.run.toId).toBe(grotto.id);
     expect(first!.next!.departs).toBe(now + DAY + 60);
     expect(first!.next!.arrives - first!.next!.departs).toBe(180);
+  });
+
+  it('sagt, wann es losgeht', async () => {
+    const { data } = await setup();
+    const cal = data().campaign.calendar;
+    const midnight = Math.floor(data().state.now / DAY) * DAY;
+    const at = (hour: number) => midnight + hour * 60;
+    expect(departureText(cal, at(8), at(11))).toBe('heute 11:00 (in 3 Std.)');
+    expect(departureText(cal, at(8), at(24 + 6))).toBe('morgen 06:00');
+    expect(departureText(cal, at(8), at(4 * 24 + 6))).toMatch(/^\d+\. .+, 06:00 \(in 4 Tagen\)$/);
   });
 
   it('nennt die Preise des Regelwerks je angefangenem Tag', () => {

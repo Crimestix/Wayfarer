@@ -123,6 +123,9 @@ nicht übernommen.
   `laden` (Läden und Handelsplätze: Handel am Tisch, Abschnitt „Laden“ auf Seiten, Vorlagen
   für Ladenarten; die Rechnung steht in `domain/shop.ts`, `domain/market.ts` und
   `domain/shopTemplate.ts`, das Lesen von Preislisten in `domain/priceList.ts`),
+  `fortbewegung` (Reittiere, Fahrzeuge, Schiffe: Kasten auf der Gefährten-Seite, Umschalter
+  `TravelBy`, Überfahrten am Spieltisch; die Rechnung steht in `domain/mounts.ts` und
+  `domain/crossing.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -222,6 +225,21 @@ nicht übernommen.
   Dauer bei trockenem Wetter. Wer im Viertel steht, steht auch in der Stadt: `routeBetween`
   nimmt die Wege der Orte darüber, wenn vom Ort selbst keiner zum Ziel führt, und lässt am Ziel
   den Ort gelten, in dem es liegt – angekommen ist die Gruppe bei `route.toId`.
+- Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
+  den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
+  Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und
+  Artikel in der Welt hängen optional über `entityId` daran (das Schiff als Gegenstand, das Pferd
+  als Tier), Kampfwerte über `creatureId`. Womit die Gruppe reist, steht in `state.travelBy`
+  (null = zu Fuß); Wege, Routen und Hexkarten nehmen es über `partyTravel` / `partyMeans` als
+  `how` mit (`waysFrom`, `routeBetween`, `hexMinutes`). Feste Minuten eines Weges gelten immer;
+  ohne eigenes Tempo reisen Reittiere und Fuhrwerke im Tempo der Gruppe (Regelwerk). Ein
+  Wasserweg ist `terrain: 'water'` (Art „Wasserweg“, kein Schlamm und Schnee): Schiffe tragen
+  nur dort, alles andere nur an Land, Fliegendes überall – passt es nicht, geht der Abschnitt zu
+  Fuß, und `wayFit` gibt einen ruhigen Hinweis, nie ein Verbot. Zustand, Rast und Unterhalt
+  („seit dem letzten Abend“, `upkeepSince`) sind nur Hinweise; abgezogen wird nichts. Gekauftes
+  aus dem Laden bietet `meansInBasket` zum Eintragen an. Überfahrten mit Abläufen nach Fahrplan
+  (`crossingsHere`) bucht `bookCrossing` (`features/wege/actions.ts`): Handel mit freiem Preis,
+  dann `walk` bis zur Ankunft der Fahrt – nie Zeit von Hand rechnen.
 - Nachtragen (`features/nachtragen`, Reiter unter Zeit): Notizdateien werden in Sessions
   getrennt (`splitSessions`) und eingeordnet (`placeSessions` – nie nach „jetzt“, nie nach der
   ersten vorhandenen Session; Zwischenzeiten aus `gaps.ts`). Übernommen wird nur über

@@ -1623,6 +1623,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   anlegen“ legt keinen zweiten Eintrag gleichen Namens an; Vorlagen werden auch beim Schließen
   mit Escape geschrieben; Tiere des Bestiariums gelten auf Handelsplätzen als Handelsgut; Zeilen
   des Bestands haben mehr Platz für den Namen (Verschieben und Anlegen im Menü „Mehr“).
+- **Fortbewegung: Reittiere, Fahrzeuge, Schiffe.** `mounts` hat Art Schiff, Besitzer, Eintrag der
+  Welt, Kampfwerte, Tempo (je Stunde oder am Tag), Plätze, Ladung, Besatzung, Unterhalt, Zustand;
+  `state.travelBy` wählt, womit gereist wird – Wege, Routen und Hexkarten rechnen damit, neue
+  Wegart „Wasserweg“. Kasten auf der Gefährten-Seite, Umschalter bei den Wegen am Spieltisch,
+  beim Weiterziehen und auf der Hexkarte, Angebot beim Kauf im Laden (Werte aus dem SRD),
+  „Fahrten“ am Spieltisch mit „Überfahrt …“ (buchen und mitfahren). Offen: Abläufe rechnen ihre
+  Fahrzeit weiter zu Fuß (ein Träger als Fortbewegungsmittel fehlt); `journeys` bleibt ungenutzt.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

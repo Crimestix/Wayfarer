@@ -42,6 +42,8 @@ import {
   toast,
 } from '../../ui';
 import { fairDie } from '../bestiarium/model';
+import { MOUNT_KIND_LABEL } from '../../domain/mounts';
+import { addMeans } from '../fortbewegung/actions';
 import { tradeAt } from './actions';
 import {
   addFree,
@@ -50,6 +52,7 @@ import {
   addSellable,
   addWare,
   auctionFor,
+  meansInBasket,
   basketProblem,
   basketTotal,
   inBasket,
@@ -99,6 +102,8 @@ export function TradeDialog({
   const [freeText, setFreeText] = useState('');
   const [freePrice, setFreePrice] = useState('');
   const [freeUnit, setFreeUnit] = useState('');
+  // Reittiere, Fahrzeuge und Schiffe im Korb: beim Kauf eintragen – außer, was abgewählt ist.
+  const [skipMeans, setSkipMeans] = useState<ReadonlySet<string>>(new Set());
 
   const rows = useMemo(() => (shop ? stockRows(data, shop) : []), [data, shop]);
   const shown = useMemo(() => filterRows(rows, query), [rows, query]);
@@ -114,6 +119,10 @@ export function TradeDialog({
   // Wer verkauft: von Hand gewählt (auch „die Gruppe“), sonst der Besitzer der gewählten Stücke.
   const who = tab === 'buy' ? buyer : seller !== undefined ? seller : (sellerOf(sell) ?? null);
   const total = basketTotal(basket);
+  const meansOffers = useMemo(
+    () => (tab === 'buy' ? meansInBasket(data, shop, buy) : []),
+    [data, shop, buy, tab],
+  );
   const problem = basketProblem(basket, tab);
   const otherShops = Object.values(data.shops)
     .filter((s) => !here.includes(s))
@@ -161,11 +170,28 @@ export function TradeDialog({
       toast({ title: 'Nicht festgehalten', body: result.problem, tone: 'danger' });
       return;
     }
+    // Gekaufte Reittiere, Fahrzeuge und Schiffe gehören danach dem, der gekauft hat.
+    const means = meansOffers
+      .filter((offer) => !skipMeans.has(offer.key))
+      .flatMap((offer) =>
+        Array.from({ length: offer.qty }, () => ({ ...offer.values, ownerId: who })),
+      );
+    const added = means.length ? addMeans(db, means) : null;
     onClose();
     toast({
       title: tab === 'buy' ? 'Gekauft' : 'Verkauft',
-      body: `${tab === 'buy' ? 'Bezahlt' : 'Erhalten'}: ${formatPrice(result.entry.trade!.total)} – steht in der Mitschrift.`,
-      action: { label: 'Rückgängig', run: result.undo },
+      body: `${tab === 'buy' ? 'Bezahlt' : 'Erhalten'}: ${formatPrice(result.entry.trade!.total)} – steht in der Mitschrift.${
+        added?.mounts.length
+          ? ` ${[...new Set(added.mounts.map((m) => m.name))].join(', ')} steht jetzt bei den Reittieren, Fahrzeugen und Schiffen.`
+          : ''
+      }`,
+      action: {
+        label: 'Rückgängig',
+        run: () => {
+          added?.undo();
+          result.undo();
+        },
+      },
     });
   };
 
@@ -561,6 +587,28 @@ export function TradeDialog({
                 ))}
               </Select>
             </Field>
+            {meansOffers.length > 0 && (
+              <div className="wf-laden-means" aria-label="Reittiere, Fahrzeuge und Schiffe">
+                {meansOffers.map((offer) => (
+                  <Checkbox
+                    key={offer.key}
+                    checked={!skipMeans.has(offer.key)}
+                    onChange={(on) =>
+                      setSkipMeans((now) => {
+                        const next = new Set(now);
+                        if (on) next.delete(offer.key);
+                        else next.add(offer.key);
+                        return next;
+                      })
+                    }
+                  >
+                    {offer.qty > 1 ? `${offer.qty}× ` : ''}
+                    {offer.values.name} als {MOUNT_KIND_LABEL[offer.values.kind]}{' '}
+                    {who ? `von ${entityName(data, who)}` : 'der Gruppe'} eintragen
+                  </Checkbox>
+                ))}
+              </div>
+            )}
             <Field label="Anmerkung" hint="Für die Chronik, wenn du magst.">
               <Input
                 value={note}

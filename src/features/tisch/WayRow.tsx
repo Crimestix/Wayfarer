@@ -1,14 +1,14 @@
 /**
  * „Wege“: die Verbindungen, die vom Ort der Gruppe abgehen – das Wegenetz zum Durchklicken. Ein
- * Klick geht den Weg: Die Zeit vergeht, die Gruppe kommt an. Die Rechnung steht in
- * `domain/ways.ts`.
+ * Klick geht den Weg: Die Zeit vergeht, die Gruppe kommt an. Womit gereist wird (zu Fuß, Pferd,
+ * Schiff), wählt der Umschalter am Ende; die Dauer folgt dem Mittel. Die Rechnung steht in
+ * `domain/ways.ts` und `domain/mounts.ts`.
  */
 import { useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   CloudRain,
   EyeOff,
-  Footprints,
   Lock,
   Pencil,
   Plus,
@@ -16,11 +16,14 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { partyTravel, travelNotes } from '../../domain/mounts';
 import type { TravelPath } from '../../domain/schema';
 import { formatWayTime, wayNotes, waysAround, type Way } from '../../domain/ways';
 import { openMoveParty } from '../../shell/commands';
 import { walkAndReport } from '../../shell/dialogs';
 import { MenuItem, Popover } from '../../ui';
+import { TravelIcon } from '../fortbewegung/parts';
+import { TravelBy } from '../fortbewegung/TravelBy';
 import { walk } from '../wege/actions';
 import { WayDialog } from '../wege/WayDialog';
 
@@ -33,7 +36,8 @@ const SHOWN = 5;
 export function WayRow({ placeId }: { placeId: string }) {
   const db = useDb();
   const data = useData();
-  const around = useMemo(() => waysAround(data, placeId), [data, placeId]);
+  const travel = useMemo(() => partyTravel(data), [data]);
+  const around = useMemo(() => waysAround(data, placeId, travel), [data, placeId, travel]);
   const more = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TravelPath | 'new' | null>(null);
@@ -51,7 +55,13 @@ export function WayRow({ placeId }: { placeId: string }) {
       return;
     }
     const name = way.path.name ? `über ${way.path.name}` : '';
-    const note = [name, way.minutes ? formatWayTime(way.minutes) : ''].filter(Boolean).join(' · ');
+    const note = [
+      name,
+      way.by ? `mit ${way.by.name}` : '',
+      way.minutes ? formatWayTime(way.minutes) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
     walkAndReport(db, () => walk(db, way.toId, way.minutes ?? 0, note));
   };
   const label = (way: Way) => data.entities[way.toId]?.name ?? 'Unbekannter Ort';
@@ -64,7 +74,11 @@ export function WayRow({ placeId }: { placeId: string }) {
         ? 'Der Weg ist gerade nicht passierbar.'
         : way.minutes === null
           ? 'Dauer unbekannt: Die Zeit bleibt stehen.'
-          : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
+          : way.by
+            ? `Die Gruppe reist mit ${way.by.name}: ${formatWayTime(way.minutes)} vergehen.`
+            : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
+      way.fit ? `${way.fit}.` : '',
+      ...(way.by ? travelNotes(travel, way.minutes ?? 0).map((note) => `${note}.`) : []),
       way.path.conditions,
       ...wayNotes(data, way).map((note) => `${note}.`),
       way.path.secret ? 'Die Gruppe kennt diesen Weg noch nicht.' : '',
@@ -87,7 +101,7 @@ export function WayRow({ placeId }: { placeId: string }) {
               onClick={() => go(way)}
               title={hint(way)}
             >
-              <Footprints />
+              <TravelIcon by={way.by} />
               <span className="wf-clamp-1">{label(way)}</span>
               <span className="wf-tisch-way__time">
                 {way.minutes === null ? '?' : formatWayTime(way.minutes)}
@@ -102,6 +116,7 @@ export function WayRow({ placeId }: { placeId: string }) {
                 <CloudRain className="wf-tisch-way__flag" aria-hidden />
               )}
               {(way.path.conditions ||
+                way.fit ||
                 prepared(way) ||
                 way.signs.some((sign) => sign.kind === 'trap' && sign.armed)) && (
                 <TriangleAlert className="wf-tisch-way__flag" aria-hidden />
@@ -128,6 +143,7 @@ export function WayRow({ placeId }: { placeId: string }) {
           {ways.length > SHOWN ? `+ ${ways.length - SHOWN} weitere` : 'Wege …'}
           <ChevronDown />
         </button>
+        <TravelBy compact />
       </nav>
       <Popover
         open={open}

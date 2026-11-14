@@ -10,6 +10,7 @@ import { openDowntime, openRest } from '../../shell/commands';
 import { patchCharacter } from './actions';
 import type { EditFocus } from './EditDialog';
 import { SpotlightPanel } from './HeroArc';
+import { MeansPanel } from '../fortbewegung/MeansPanel';
 import { OnTheRoad } from './OnTheRoad';
 import {
   classLine,
@@ -337,6 +338,7 @@ export function Overview({
               <>
                 <SummaryBand summary={summary} />
                 <OnTheRoad />
+                <MeansPanel />
                 <div className="wf-gruppe-grid" data-count={Math.min(active.length, 6)}>
                   {active.map((c) => (
                     <CharacterCard

@@ -86,12 +86,16 @@ import {
   formatWayTime,
   routeBetween,
   routeDetour,
+  routeFit,
+  routeMeans,
   routeNotes,
   suggestedKm,
 } from '../domain/ways';
 import { rememberWay, walk, type WalkResult } from '../features/wege/actions';
 import { DurationField } from '../features/wege/DurationField';
 import { MeansIcon } from '../features/fortbewegung/parts';
+import { TravelBy } from '../features/fortbewegung/TravelBy';
+import { meansKmh, partyTravel, travelNotes } from '../domain/mounts';
 import { RestDialog } from '../features/gruppe/RestDialog';
 import { DowntimeDialog } from '../features/gruppe/DowntimeDialog';
 import { LootDialog } from '../features/beute/LootDialog';
@@ -811,12 +815,15 @@ function MovePartyDialog({ preset }: { preset?: string }) {
   const [text, setText] = useState('');
   const here = data.state.placeId;
   // Kennt das Wegenetz eine Route, ist ihre Dauer die Vorgabe; sonst wählt der Spielleiter.
+  // Womit die Gruppe reist (zu Fuß, Pferd, Schiff), zählt mit (`domain/mounts.ts`).
+  const travel = useMemo(() => partyTravel(data), [data]);
   const route = useMemo(
-    () => (here && placeId ? routeBetween(data, here, placeId) : null),
-    [data, here, placeId],
+    () => (here && placeId ? routeBetween(data, here, placeId, travel) : null),
+    [data, here, placeId, travel],
   );
   const km = here && placeId && !route ? suggestedKm(data, here, placeId) : null;
-  const suggested = km === null ? null : Math.max(1, Math.round((km / WALK_KMH.normal) * 60));
+  const kmh = (travel.by && meansKmh(travel.by)) ?? WALK_KMH.normal;
+  const suggested = km === null ? null : Math.max(1, Math.round((km / kmh) * 60));
   const [chosen, setChosen] = useState<number | null>(null);
   const [passTime, setPassTime] = useState(true);
   const [remember, setRemember] = useState(true);
@@ -828,9 +835,11 @@ function MovePartyDialog({ preset }: { preset?: string }) {
       moveParty(db, placeId, text);
       return;
     }
+    const means = route ? routeMeans(route) : travel.by ? [travel.by] : [];
     const note = [
       text.trim(),
       route ? describeVia(data, route) : '',
+      means.length ? `mit ${means.map((mount) => mount.name).join(' und ')}` : '',
       minutes > 0 ? formatWayTime(minutes) : '',
     ]
       .filter(Boolean)
@@ -877,6 +886,14 @@ function MovePartyDialog({ preset }: { preset?: string }) {
             onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
           />
         </Field>
+        {Object.keys(data.mounts).length > 0 && (
+          <Field
+            label="Womit"
+            hint="Die Dauer folgt dem Tempo – feste Zeiten eines Weges gelten immer."
+          >
+            <TravelBy />
+          </Field>
+        )}
         {moving && route && (
           <>
             <div className="wf-wege-route">
@@ -915,6 +932,11 @@ function MovePartyDialog({ preset }: { preset?: string }) {
                     Unterwegs: {note}.
                   </div>
                 ))}
+                {[...routeFit(route), ...travelNotes(travel, route.minutes)].map((note) => (
+                  <div key={note} className="wf-wege-route__sub">
+                    {note}.
+                  </div>
+                ))}
               </div>
             </div>
             {route.minutes > 0 && (
@@ -929,7 +951,7 @@ function MovePartyDialog({ preset }: { preset?: string }) {
             label="Wie lange dauert der Weg?"
             hint={
               suggested !== null
-                ? `Nach der Karte etwa ${formatWayTime(suggested)} zu Fuß.`
+                ? `Nach der Karte etwa ${formatWayTime(suggested)} ${travel.by && meansKmh(travel.by) ? `mit ${travel.by.name}` : 'zu Fuß'}.`
                 : 'Die Zeit vergeht mit dem Weg: Termine treten ein, Lichter brennen herunter.'
             }
           >
