@@ -114,3 +114,9 @@ export function dismissRecap(db: CampaignDb, show = false): void {
   if (!sessionId) return;
   db.setState({ recapDismissed: show ? null : sessionId });
 }
+
+/** Schreibt die Regeln des Tisches (Hausregeln und Absprachen der Runde) – nur, wenn sie sich ändern. */
+export function setTableRules(db: CampaignDb, text: string): void {
+  if (db.getSnapshot().campaign.tableRules === text) return;
+  db.setCampaign({ tableRules: text });
+}

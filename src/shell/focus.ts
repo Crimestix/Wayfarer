@@ -19,7 +19,9 @@ export type Focus =
   /** Ein Reittier, Fahrzeug oder Schiff – es öffnet sich auf der Gefährten-Seite zum Ändern. */
   | { type: 'mount'; id: string }
   /** Ein Tag im Kalender (Tagesindex seit Beginn der Zeitrechnung). */
-  | { type: 'day'; day: number };
+  | { type: 'day'; day: number }
+  /** Die Regeln des Tisches – sie öffnen sich am Spieltisch. */
+  | { type: 'rules' };
 
 let pending: Focus | null = null;
 const listeners = new Set<() => void>();

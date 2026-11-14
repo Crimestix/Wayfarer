@@ -276,4 +276,26 @@ describe('Die Suche', () => {
     });
     expect(searchWorld(world.data(), 'leck').map((h) => h.key)).toContain(`mount:${boat.id}`);
   });
+
+  it('findet die Regeln des Tisches über ihren Namen und über eine Zeile daraus', async () => {
+    const world = await setup();
+    expect(searchWorld(world.data(), 'kritisch').map((h) => h.key)).not.toContain('rules');
+    world.db.setCampaign({
+      tableRules: [
+        '## Würfel',
+        '',
+        '- Kritische Treffer: doppelte Würfel',
+        '- Kein Nachwürfeln',
+      ].join('\n'),
+    });
+    expect(searchWorld(world.data(), 'kritisch').find((h) => h.key === 'rules')).toEqual({
+      key: 'rules',
+      sort: 'rules',
+      label: 'Regeln des Tisches',
+      sub: 'Hausregeln und Absprachen · Kritische Treffer: doppelte Würfel',
+      href: '/',
+      focus: { type: 'rules' },
+    });
+    expect(searchWorld(world.data(), 'regeln des')[0]?.key).toBe('rules');
+  });
 });

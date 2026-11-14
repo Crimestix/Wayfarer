@@ -2,7 +2,7 @@
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
  * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
  * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler, Läden (auch
- * nach ihren Waren) und Fortbewegungsmittel. Reine Funktion –
+ * nach ihren Waren), Fortbewegungsmittel und die Regeln des Tisches. Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
@@ -12,6 +12,7 @@ import { MOUNT_CONDITION_LABEL, MOUNT_KIND_LABEL, ownerText } from '../domain/mo
 import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
 import { scheduleText } from '../domain/runs';
 import { shopPlaceId, shopTitle } from '../domain/shop';
+import { TABLE_RULES_TITLE, rulesLine } from '../domain/tableRules';
 import type { CampaignData, Entity, MountKind } from '../domain/schema';
 import { THREAD_STATE_LABEL, storyOfClock } from '../domain/story';
 import { MINUTES_PER_DAY, dayIndexOf, formatDayMonth, startOfDay } from '../domain/time/calendar';
@@ -36,7 +37,8 @@ export type SearchSort =
   | 'loot'
   | 'guess'
   | 'shop'
-  | 'mount';
+  | 'mount'
+  | 'rules';
 
 export interface SearchHit {
   key: string;
@@ -315,6 +317,18 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       mountKind: mount.kind,
     });
   }
+
+  // Die Regeln des Tisches: ein Blatt – gefunden über seinen Namen oder eine Zeile daraus.
+  const rules = data.campaign.tableRules;
+  const ruleLine = rulesLine(rules, query);
+  add(score(q, TABLE_RULES_TITLE, ruleLine ?? ''), {
+    key: 'rules',
+    sort: 'rules',
+    label: TABLE_RULES_TITLE,
+    sub: sub('Hausregeln und Absprachen', ruleLine ?? undefined),
+    href: '/',
+    focus: { type: 'rules' },
+  });
 
   rest.sort((a, b) => a.score - b.score || a.hit.label.localeCompare(b.hit.label, 'de'));
   // Was genau so heißt wie gesucht, steht ganz oben – auch vor den Einträgen der Welt.

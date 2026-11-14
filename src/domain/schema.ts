@@ -67,6 +67,11 @@ export const CampaignMetaSchema = z.object({
   customConditions: z
     .array(z.object({ name: z.string().min(1), rule: z.string().default('') }))
     .default([]),
+  /**
+   * Regeln des Tisches: Hausregeln und Absprachen der Runde, Markdown wie die Artikel – vom
+   * Spielleiter geschrieben (`domain/tableRules.ts`).
+   */
+  tableRules: z.string().default(''),
   created: z.string().default(''),
   updated: z.string().default(''),
 });
