@@ -212,6 +212,7 @@ function Thing({ thing, ...view }: ViewProps & { thing: BookThing }) {
       <Link href={href} className="wf-spielerbuch-thing__name">
         {thing.name}
       </Link>
+      {thing.magic && <div className="wf-spielerbuch-thing__magic">{thing.magic}</div>}
       {thing.lines.length > 0 && (
         <ul className="wf-spielerbuch-thing__lines">
           {older > 0 && (

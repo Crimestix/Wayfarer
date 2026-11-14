@@ -66,6 +66,7 @@ export function playerBookText(
       case 'things':
         for (const thing of section.things) {
           block.push(thing.name);
+          if (thing.magic) block.push(bullet(thing.magic));
           for (const entry of thing.lines) block.push(bullet(bookLine(data, entry, audience)));
           for (const guess of thing.guesses) block.push(bullet(guessLine(guess, audience)));
         }

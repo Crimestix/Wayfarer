@@ -19,6 +19,7 @@ import {
   type BookTopic,
 } from './bookTopics';
 import { formatDatePoint } from './lifespan';
+import { playerFacts } from './magicItem';
 import {
   BookSchema,
   ENTITY_KINDS,
@@ -310,7 +311,8 @@ export function bookPage(data: CampaignData, item: BookItem, entity: Entity): Bo
     title: entity.name,
     kind: entity.kind,
     group: groupOf(data, book.order, entity),
-    facts: parts.facts,
+    // Kein Fluch und keine unerkannte Magie im Buch (`playerFacts`).
+    facts: playerFacts(entity, parts.facts),
     box: parts.box,
     text: parts.body,
     own,

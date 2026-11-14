@@ -16,12 +16,15 @@ import {
   playerBook,
   type BookSection,
 } from '../playerBook';
+import { emptyMagic } from '../magicItem';
 import {
+  PARTY_ID,
   createChronicleEntry,
   createEntity,
   createLoot,
   createStory,
   type ChronicleEntry,
+  type Item,
 } from '../schema';
 
 /** Hohenfurt mit Hafen, die Salzgrotte, Burg Graufels; Mira, Odo, Krummzahn – erfunden. */
@@ -315,5 +318,45 @@ describe('Spielerbuch – Randfälle', () => {
     const data = db.getSnapshot();
     expect(playerBook(data)).toEqual({ sections: [], guessCount: 0, openGuesses: 0 });
     expect(playerBookText(data, 'players')).toContain('Noch steht nichts darin.');
+  });
+});
+
+describe('Spielerbuch – magische Gegenstände', () => {
+  it('nennt die Magie erst, wenn die Gruppe sie erkannt hat, und nie den Fluch', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const ring = db.put(
+      'entities',
+      createEntity({
+        kind: 'item',
+        name: 'Ring des Brann Eichwald',
+        item: {
+          holderId: PARTY_ID,
+          magic: {
+            ...emptyMagic(),
+            rarity: 'rare',
+            type: 'Ring',
+            cursed: true,
+            charges: { max: 3, current: 1, recharge: 'alle bei Morgengrauen', spentAt: null },
+          },
+        },
+      }),
+    ) as Item;
+    const things = () =>
+      playerBook(db.getSnapshot()).sections.flatMap((s) => (s.sort === 'things' ? s.things : []));
+    expect(things().find((t) => t.id === ring.id)?.magic).toBe('');
+    expect(knowledgeOf(db.getSnapshot(), ring.id)).toMatchObject({ magic: '', cursed: true });
+    let text = playerBookText(db.getSnapshot(), 'players');
+    expect(text).toContain('Ring des Brann Eichwald');
+    expect(text).not.toMatch(/selten|fluch|verflucht|Ladung/i);
+
+    db.put('entities', {
+      ...ring,
+      item: { ...ring.item, magic: { ...ring.item.magic!, identified: true } },
+    });
+    const magic = things().find((t) => t.id === ring.id)?.magic;
+    expect(magic).toBe('magisch · selten · Ring · 1 von 3 Ladungen, alle bei Morgengrauen');
+    text = playerBookText(db.getSnapshot(), 'players');
+    expect(text).toContain('magisch · selten · Ring');
+    expect(text).not.toMatch(/fluch|verflucht/i);
   });
 });

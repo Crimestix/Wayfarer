@@ -26,7 +26,9 @@ export function GroupKnows({ entity }: { entity: Entity }) {
     k.known.length > 0 ||
     k.books.length > 0 ||
     k.guesses.length > 0 ||
-    k.secretCount > 0;
+    k.secretCount > 0 ||
+    k.magic !== '' ||
+    k.cursed;
   const dialogs = dialog && (
     <GuessDialog
       guess={dialog.guess}
@@ -49,12 +51,13 @@ export function GroupKnows({ entity }: { entity: Entity }) {
     >
       <div className="wf-welt-knows">
         {/* Weiß die Gruppe nur aus einem Buch etwas, steht das für sich. */}
-        {(k.known.length > 0 || k.books.length === 0) && (
+        {(k.known.length > 0 || k.magic !== '' || k.books.length === 0) && (
           <div className="wf-welt-knows__layer">
             <div className="wf-welt-knows__head">
               <BookUser />
               <span className="wf-caps">Weiß die Gruppe</span>
             </div>
+            {k.magic && <div className="wf-welt-knows__magic">{k.magic}</div>}
             {k.known.length > 0 ? (
               <ul className="wf-welt-knows__lines">
                 {olderKnown > 0 && (
@@ -68,7 +71,7 @@ export function GroupKnows({ entity }: { entity: Entity }) {
                   </li>
                 ))}
               </ul>
-            ) : (
+            ) : k.magic ? null : (
               <div className="wf-welt-knows__more">
                 {k.inBook
                   ? 'Die Gruppe kennt den Eintrag – mehr steht für sie noch nicht fest.'
@@ -120,12 +123,15 @@ export function GroupKnows({ entity }: { entity: Entity }) {
           </div>
         )}
 
-        {k.secretLines.length > 0 && (
+        {(k.secretLines.length > 0 || k.cursed) && (
           <div className="wf-welt-knows__layer wf-welt-knows__layer--secret">
             <div className="wf-welt-knows__head">
               <EyeOff />
               <span className="wf-caps">Nur du</span>
             </div>
+            {k.cursed && (
+              <div className="wf-welt-knows__magic">Verflucht – steht nie im Spielerbuch.</div>
+            )}
             <ul className="wf-welt-knows__lines">
               {olderSecret > 0 && (
                 <li className="wf-welt-knows__more">

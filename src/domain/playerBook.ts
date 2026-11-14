@@ -8,6 +8,7 @@
  * Irrtümern des Verfassers. Reine Funktionen.
  */
 import { booksAbout, groupBooks, readablePages, type BookKnowledge } from './book';
+import { magicOf, playerMagicLine } from './magicItem';
 import {
   byName,
   chronicleFor,
@@ -91,6 +92,11 @@ export interface BookThing {
   name: string;
   /** Art des Eintrags der Welt; `story` bei einer Geschichte. */
   kind: EntityKind | 'story';
+  /**
+   * Was die Gruppe von der Magie eines Gegenstands weiß – nur, wenn sie ihn erkannt hat
+   * (`playerMagicLine`); nie der Fluch. '' = nichts.
+   */
+  magic: string;
   /** Die letzten Zeilen der Chronik, die die Gruppe kennt – älteste zuerst. */
   lines: ChronicleEntry[];
   /** So viele Zeilen gibt es insgesamt. */
@@ -247,6 +253,7 @@ export function playerBook(data: CampaignData): PlayerBook {
         id: thingId,
         name: story ? story.title : (entity?.name ?? ''),
         kind: story ? 'story' : entity!.kind,
+        magic: story ? '' : playerMagicLine(entity),
         lines: lines.slice(-LINES_PER_THING),
         lineCount: lines.length,
         guesses: guesses.filter((guess) => guess.refs.includes(thingId)),
@@ -314,6 +321,8 @@ export interface Knowledge {
   inBook: boolean;
   /** Weiß die Gruppe: die letzten Zeilen für die Spieler, älteste zuerst. */
   known: ChronicleEntry[];
+  /** Weiß die Gruppe von der Magie (erkannt; nie der Fluch). '' = nichts. */
+  magic: string;
   knownCount: number;
   /**
    * Weiß die Gruppe aus einem Buch, das sie hat: die Seite zu diesem Eintrag in der Fassung des
@@ -324,6 +333,8 @@ export interface Knowledge {
   guesses: Guess[];
   /** Nur du: das Geheimnis des Eintrags … */
   secret: string;
+  /** … ob er verflucht ist … */
+  cursed: boolean;
   /** … und die geheimen Zeilen der Chronik, älteste zuerst. */
   secretLines: ChronicleEntry[];
   secretCount: number;
@@ -344,6 +355,8 @@ export function knowledgeOf(
   const guesses = guessesAbout(data, entityId);
   const secretText = entity?.secret.trim() ?? '';
   const books = booksAbout(data, entityId);
+  const magic = playerMagicLine(entity);
+  const cursed = magicOf(entity)?.cursed ?? false;
   return {
     inBook:
       bookIds(data).has(entityId) ||
@@ -351,11 +364,20 @@ export function knowledgeOf(
       books.length > 0,
     known: known.slice(-limit),
     knownCount: known.length,
+    magic,
     books,
     guesses,
     secret: secretText,
+    cursed,
     secretLines: secret.slice(-limit),
     secretCount: secret.length,
-    empty: !known.length && !books.length && !guesses.length && !secret.length && !secretText,
+    empty:
+      !known.length &&
+      !books.length &&
+      !guesses.length &&
+      !secret.length &&
+      !secretText &&
+      !magic &&
+      !cursed,
   };
 }

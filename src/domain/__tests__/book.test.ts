@@ -16,6 +16,7 @@ import {
   pagePlainText,
 } from '../book';
 import { replaceLink } from '../derive';
+import { emptyMagic } from '../magicItem';
 import { knowledgeOf, playerBook } from '../playerBook';
 import {
   ArticleSchema,
@@ -444,5 +445,48 @@ describe('Bücher im Spielerbuch', () => {
         },
       ],
     });
+  });
+});
+
+describe('Magische Gegenstände im Buch', () => {
+  it('nennt keinen Fluch und Magie nur, wenn die Gruppe sie erkannt hat', async () => {
+    const w = await setup();
+    const ringText = [
+      '> [!steckbrief]',
+      '> Art: Ring',
+      '> Seltenheit: selten',
+      '> Ladungen: 3',
+      '> Fluch: bindet den Träger an die Salzgrotte',
+      '',
+      'Ein Ring aus Grottensalz.',
+    ].join('\n');
+    const article = w.db.put(
+      'articles',
+      ArticleSchema.parse({
+        id: 'art-ring',
+        title: 'Salzring',
+        docs: [{ id: 'doc-ring', text: ringText }],
+      }),
+    );
+    const ring = w.db.put(
+      'entities',
+      createEntity({
+        kind: 'item',
+        name: 'Salzring',
+        lk: { resourceId: article.id, title: article.title },
+        item: { magic: { ...emptyMagic(), rarity: 'rare', cursed: true } },
+      }),
+    ) as Item;
+    w.setBook({ selection: { ...emptyBook().selection, include: [ring.id] } });
+    const page = () => bookPages(w.data(), w.bookNow()).find((p) => p.entityId === ring.id)!;
+    expect(page().facts.map((f) => f.label)).toEqual(['Art']);
+    expect(pagePlainText(page())).not.toMatch(/fluch|selten/i);
+
+    w.db.put('entities', {
+      ...ring,
+      item: { ...ring.item, magic: { ...ring.item.magic!, identified: true } },
+    });
+    expect(page().facts.map((f) => f.label)).toEqual(['Art', 'Seltenheit', 'Ladungen']);
+    expect(pagePlainText(page())).not.toMatch(/fluch/i);
   });
 });
