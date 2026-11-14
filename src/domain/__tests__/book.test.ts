@@ -5,7 +5,6 @@ import { MemoryStore } from '../../data/store';
 import { articleParts, plainMarkdown, withoutSecrets } from '../articleText';
 import {
   articleWording,
-  bookCategoryChoices,
   bookEntries,
   bookGroups,
   bookPages,
@@ -241,14 +240,6 @@ describe('Welche Einträge im Buch stehen', () => {
     expect(bookEntries(w.data(), w.bookNow())).toEqual([]);
     w.setBook({ selection: { ...emptyBook().selection, include: [w.ore.id] } });
     expect(names(bookEntries(w.data(), w.bookNow()))).toEqual(['Eisenerz']);
-  });
-
-  it('kennt die Einordnungen der gewählten Arten', async () => {
-    const w = await setup();
-    expect(bookCategoryChoices(w.data(), (w.bookNow() as Item).item.book!)).toEqual([
-      'Kraut',
-      'Pilz',
-    ]);
   });
 
   it('ist kein Buch, wenn der Gegenstand keines ist', async () => {

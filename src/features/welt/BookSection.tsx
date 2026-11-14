@@ -10,15 +10,13 @@ import { BookOpen, PenLine, Printer, RotateCcw, ScrollText, X } from 'lucide-rea
 import { useData, useDb } from '../../data/hooks';
 import {
   BOOK_ORDER_LABEL,
-  bookCategoryChoices,
   bookView,
   isReadable,
   type BookPageView,
   type BookView,
 } from '../../domain/book';
-import { KIND_LABEL_PLURAL } from '../../domain/derive';
 import { datePointText, readDatePoint } from '../../domain/lifespan';
-import { BOOK_ORDERS, ENTITY_KINDS, type BookOrder, type Item } from '../../domain/schema';
+import { BOOK_ORDERS, type BookOrder, type Item } from '../../domain/schema';
 import { focusOn } from '../../shell/focus';
 import {
   Button,
@@ -35,14 +33,12 @@ import {
 } from '../../ui';
 import { usePrint } from '../handouts/print';
 import {
-  leaveOut,
   pageToHandout,
   patchBook,
   patchSelection,
   resetBookPage,
+  setInBook,
   setIsBook,
-  toggleBookCategory,
-  toggleBookKind,
   writeBookPage,
 } from './book';
 import { BookPaper } from './BookPaper';
@@ -88,7 +84,6 @@ export function BookSection({ item }: { item: Item }) {
   const data = useData();
   const book = item.item.book;
   const view = useMemo(() => bookView(data, item), [data, item]);
-  const categories = useMemo(() => (book ? bookCategoryChoices(data, book) : []), [data, book]);
   const [reading, setReading] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const { print, layer } = usePrint();
@@ -186,52 +181,7 @@ export function BookSection({ item }: { item: Item }) {
           </Field>
         </div>
 
-        <Field
-          label="Was darin steht"
-          hint="Arten, Gegenden und Einordnungen gelten zusammen; was du offen lässt, schränkt nicht ein."
-        >
-          <div className="wf-welt-booksec__chips" aria-label="Arten">
-            {ENTITY_KINDS.map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                className="wf-welt-booksec__chip"
-                aria-pressed={selection.kinds.includes(kind)}
-                onClick={() => toggleBookKind(db, item.id, kind)}
-              >
-                {KIND_LABEL_PLURAL[kind]}
-              </button>
-            ))}
-          </div>
-        </Field>
-        {categories.length > 0 && (
-          <Field label="Einordnungen">
-            <div className="wf-welt-booksec__chips" aria-label="Einordnungen">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className="wf-welt-booksec__chip"
-                  aria-pressed={selection.categories.some(
-                    (c) => c.toLocaleLowerCase('de') === category.toLocaleLowerCase('de'),
-                  )}
-                  onClick={() => toggleBookCategory(db, item.id, category)}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </Field>
-        )}
         <div className="wf-welt-booksec__grid">
-          <Field label="Gegenden" hint="Mit allem, was dort liegt und dazugehört.">
-            <EntityRefsEditor
-              value={selection.regionIds}
-              onChange={(regionIds) => patchSelection(db, item.id, { regionIds })}
-              kinds={['place']}
-              placeholder="Gegend hinzufügen …"
-            />
-          </Field>
           <Field label="Einzeln dazu">
             <EntityRefsEditor
               value={selection.include}
@@ -401,7 +351,7 @@ function PageRow({ item, view, page }: { item: Item; view: BookView; page: BookP
           label="Aus dem Buch nehmen"
           size="sm"
           variant="ghost"
-          onClick={() => leaveOut(db, item.id, page.entityId)}
+          onClick={() => setInBook(db, item.id, [page.entityId], false)}
         >
           <X />
         </IconButton>

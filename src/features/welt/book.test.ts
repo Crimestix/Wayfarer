@@ -5,15 +5,15 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { bookEntries, bookPages, bookView } from '../../domain/book';
 import { ArticleSchema, createEntity, type Item } from '../../domain/schema';
+import { emptyTopic } from '../../domain/bookTopics';
 import {
-  leaveOut,
   pageToHandout,
   patchSelection,
   readBookPage,
   resetBookPage,
+  setBookRule,
+  setInBook,
   setIsBook,
-  toggleBookCategory,
-  toggleBookKind,
   writeBookPage,
 } from './book';
 
@@ -52,17 +52,14 @@ describe('Befehle für Bücher', () => {
     const w = await setup();
     setIsBook(w.db, w.book.id, true);
     expect(w.item().item.book).not.toBeNull();
-    toggleBookKind(w.db, w.book.id, 'plant');
-    toggleBookCategory(w.db, w.book.id, 'kraut');
-    toggleBookCategory(w.db, w.book.id, 'Pilz');
-    toggleBookCategory(w.db, w.book.id, 'PILZ');
-    expect(w.item().item.book!.selection).toMatchObject({
-      kinds: ['plant'],
-      categories: ['kraut'],
-    });
+    const kraut = { ...emptyTopic(), kind: 'plant' as const, category: 'kraut' };
+    setBookRule(w.db, w.book.id, kraut, true);
+    setBookRule(w.db, w.book.id, { ...kraut, category: ' KRAUT ' }, true);
+    expect(w.item().item.book!.selection.rules).toEqual([kraut]);
     expect(bookEntries(w.db.getSnapshot(), w.item()).map((e) => e.name)).toEqual(['Feuerkraut']);
-    toggleBookKind(w.db, w.book.id, 'plant');
-    expect(w.item().item.book!.selection.kinds).toEqual([]);
+    setBookRule(w.db, w.book.id, kraut, false);
+    expect(w.item().item.book!.selection.rules).toEqual([]);
+    expect(bookEntries(w.db.getSnapshot(), w.item())).toEqual([]);
   });
 
   it('schreibt eine Seite in den Worten des Verfassers und setzt sie zurück', async () => {
@@ -92,8 +89,8 @@ describe('Befehle für Bücher', () => {
     expect(w.db.getSnapshot().handouts[handout.id]?.text).toBe(
       'Feuerkraut\n\nFundort: Hohenfurt\n\nBrennt.',
     );
-    leaveOut(w.db, w.book.id, w.herb.id);
-    expect(w.item().item.book!.selection).toMatchObject({ include: [], exclude: [w.herb.id] });
+    setInBook(w.db, w.book.id, [w.herb.id], false);
+    expect(w.item().item.book!.selection).toMatchObject({ include: [], exclude: [] });
     expect(bookEntries(w.db.getSnapshot(), w.item())).toEqual([]);
   });
 
@@ -122,5 +119,78 @@ describe('Befehle für Bücher', () => {
     deleteEntity(w.db, w.brann.id);
     expect(w.item().item.book).toMatchObject({ authorId: null, authorText: 'Brann Eichwald' });
     expect(bookView(w.db.getSnapshot(), w.item())!.author).toBe('Brann Eichwald');
+  });
+});
+
+describe('Ankreuzen beim Durchsehen', () => {
+  /** Dazu: Moosling (Pilz) in Hohenfurt, Graudistel (Kraut) anderswo, Krummzahn in Hohenfurt. */
+  async function world() {
+    const w = await setup();
+    setIsBook(w.db, w.book.id, true);
+    const put = (init: Parameters<typeof createEntity>[0]) =>
+      w.db.put('entities', createEntity(init));
+    const moss = put({
+      kind: 'plant',
+      name: 'Moosling',
+      plant: { category: 'Pilz', regionIds: [w.town.id] },
+    });
+    const thistle = put({ kind: 'plant', name: 'Graudistel', plant: { category: 'Kraut' } });
+    const krummzahn = put({ kind: 'person', name: 'Krummzahn', person: { placeId: w.town.id } });
+    const names = () => bookEntries(w.db.getSnapshot(), w.item()).map((e) => e.name);
+    const selection = () => w.item().item.book!.selection;
+    return { ...w, moss, thistle, krummzahn, names, selection };
+  }
+  const plants = { ...emptyTopic(), kind: 'plant' as const };
+
+  it('nimmt Angekreuztes einzeln dazu und Abgewähltes wieder heraus', async () => {
+    const w = await world();
+    setInBook(w.db, w.book.id, [w.herb.id, w.krummzahn.id, w.book.id], true);
+    expect(w.selection().include.sort()).toEqual([w.herb.id, w.krummzahn.id].sort());
+    expect(w.names()).toEqual(['Feuerkraut', 'Krummzahn']);
+    setInBook(w.db, w.book.id, [w.krummzahn.id], false);
+    expect(w.selection()).toMatchObject({ include: [w.herb.id], exclude: [] });
+  });
+
+  it('lässt über ein Thema Genommenes nur über „weg“ heraus – und nimmt es ohne „dazu“ zurück', async () => {
+    const w = await world();
+    setBookRule(w.db, w.book.id, plants, true);
+    expect(w.names()).toEqual(['Feuerkraut', 'Graudistel', 'Moosling']);
+    setInBook(w.db, w.book.id, [w.moss.id], false);
+    expect(w.selection()).toMatchObject({ include: [], exclude: [w.moss.id] });
+    expect(w.names()).toEqual(['Feuerkraut', 'Graudistel']);
+    setInBook(w.db, w.book.id, [w.moss.id], true);
+    expect(w.selection()).toMatchObject({ include: [], exclude: [] });
+    // Alle und keine: in einem Zug.
+    setInBook(w.db, w.book.id, [w.herb.id, w.thistle.id, w.moss.id], false);
+    expect(w.names()).toEqual([]);
+    expect(w.selection().exclude).toHaveLength(3);
+  });
+
+  it('nimmt mit dem Thema auch, was später dazukommt – und behält Einzelnes beim Abschalten', async () => {
+    const w = await world();
+    setInBook(w.db, w.book.id, [w.krummzahn.id], true);
+    setBookRule(w.db, w.book.id, plants, true);
+    w.db.put('entities', createEntity({ kind: 'plant', name: 'Eisenhut' }));
+    expect(w.names()).toEqual(['Eisenhut', 'Feuerkraut', 'Graudistel', 'Krummzahn', 'Moosling']);
+    setBookRule(w.db, w.book.id, plants, false);
+    expect(w.names()).toEqual(['Krummzahn']);
+  });
+
+  it('macht aus der älteren Regel Themen, die sich einzeln abschalten lassen', async () => {
+    const w = await world();
+    patchSelection(w.db, w.book.id, { kinds: ['plant', 'person'], regionIds: [w.town.id] });
+    expect(w.names()).toEqual(['Feuerkraut', 'Krummzahn', 'Moosling']);
+    setBookRule(w.db, w.book.id, { ...emptyTopic(), kind: 'person', regionId: w.town.id }, false);
+    expect(w.selection()).toMatchObject({ kinds: [], regionIds: [], categories: [] });
+    expect(w.selection().rules).toEqual([{ ...plants, regionId: w.town.id }]);
+    expect(w.names()).toEqual(['Feuerkraut', 'Moosling']);
+  });
+
+  it('lässt ein Thema fallen, wenn seine Gegend gelöscht wird', async () => {
+    const w = await world();
+    setBookRule(w.db, w.book.id, { ...plants, regionId: w.town.id }, true);
+    setBookRule(w.db, w.book.id, { ...emptyTopic(), kind: 'person' }, true);
+    deleteEntity(w.db, w.town.id);
+    expect(w.selection().rules).toEqual([{ ...emptyTopic(), kind: 'person' }]);
   });
 });

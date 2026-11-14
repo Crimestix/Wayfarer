@@ -324,8 +324,29 @@ export type Recipe = z.infer<typeof RecipeSchema>;
 export const BOOK_ORDERS = ['alpha', 'region', 'category'] as const;
 export type BookOrder = (typeof BOOK_ORDERS)[number];
 
+/**
+ * Ein Thema der Welt, nach dem man Einträge zusammensucht: eine Art, eine Einordnung, ein
+ * Schlagwort, eine Gegend, ein Ordner des Wikis. Alle gesetzten Angaben gelten zusammen; was leer
+ * bleibt, schränkt nicht ein (`domain/bookTopics.ts`).
+ */
+export const BookTopicSchema = z.object({
+  kind: z.enum(ENTITY_KINDS).nullable().default(null),
+  /** Einordnung („Kraut“), ohne Groß- und Kleinschreibung verglichen; '' = jede. */
+  category: z.string().default(''),
+  /** Schlagwort des Eintrags oder seines Artikels; '' = jedes. */
+  tag: z.string().default(''),
+  /** Ort mit allem, was darunter liegt und dazugehört. */
+  regionId: id.nullable().default(null),
+  /** Artikel des Wikis, unter dem der Artikel des Eintrags liegt (oder der es selbst ist). */
+  folderId: id.nullable().default(null),
+});
+export type BookTopic = z.infer<typeof BookTopicSchema>;
+
 /** Welche Einträge der Welt in einem Buch stehen. Leere Listen schränken nicht ein. */
 export const BookSelectionSchema = z.object({
+  /** Themen, aus denen alles im Buch steht – auch, was später dazukommt. */
+  rules: z.array(BookTopicSchema).default([]),
+  // Ältere Form: eine einzige Regel aus Arten, Gegenden und Einordnungen (`legacyRules`).
   kinds: z.array(z.enum(ENTITY_KINDS)).default([]),
   /** Orte und Gegenden – mit allem, was darunter liegt und dazugehört. */
   regionIds: z.array(id).default([]),

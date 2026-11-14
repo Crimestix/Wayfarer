@@ -6,7 +6,14 @@
  */
 import type { CampaignDb } from '../../data/db';
 import { emptyBook, pageHandout, type BookPageView, type BookView } from '../../domain/book';
-import type { Book, BookSelection, CampaignData, EntityKind, Handout } from '../../domain/schema';
+import {
+  bookRules,
+  isEmptyTopic,
+  ruleMembers,
+  sameTopic,
+  type BookTopic,
+} from '../../domain/bookTopics';
+import type { Book, BookSelection, CampaignData, Handout } from '../../domain/schema';
 import { saveHandout } from '../handouts/actions';
 import type { ArticleNode, Inline } from '../legendkeeper/model';
 import { parseInline, parseMarkdown } from '../wiki/markdown';
@@ -43,42 +50,46 @@ export function patchSelection(
   if (book) patchBook(db, itemId, { selection: { ...book.selection, ...change } });
 }
 
-/** Eine Art dazu oder weg. */
-export function toggleBookKind(db: CampaignDb, itemId: string, kind: EntityKind): void {
+/**
+ * Nimmt Einträge ins Buch oder heraus – die Kästchen beim Durchsehen. Dazu: Was über ein Thema
+ * ohnehin darin stünde, verliert nur sein „weg“; alles andere kommt unter „dazu“. Heraus: Es
+ * verliert sein „dazu“; steht es über ein Thema darin, kommt es unter „weg“. Seine überschriebene
+ * Seite bleibt gemerkt, falls es wieder dazukommt.
+ */
+export function setInBook(db: CampaignDb, itemId: string, entityIds: string[], on: boolean): void {
   const book = current(db, itemId);
   if (!book) return;
-  const kinds = book.selection.kinds.includes(kind)
-    ? book.selection.kinds.filter((k) => k !== kind)
-    : [...book.selection.kinds, kind];
-  patchSelection(db, itemId, { kinds });
-}
-
-const same = (a: string, b: string) =>
-  a.trim().toLocaleLowerCase('de') === b.trim().toLocaleLowerCase('de');
-
-/** Eine Einordnung dazu oder weg. */
-export function toggleBookCategory(db: CampaignDb, itemId: string, category: string): void {
-  const book = current(db, itemId);
-  if (!book || !category.trim()) return;
-  const has = book.selection.categories.some((c) => same(c, category));
-  patchSelection(db, itemId, {
-    categories: has
-      ? book.selection.categories.filter((c) => !same(c, category))
-      : [...book.selection.categories, category.trim()],
-  });
+  const data = db.getSnapshot();
+  const byRule = ruleMembers(data, book.selection, itemId);
+  const ids = new Set(entityIds.filter((id) => id !== itemId && data.entities[id]));
+  if (!ids.size) return;
+  const include = new Set(book.selection.include);
+  const exclude = new Set(book.selection.exclude);
+  for (const id of ids) {
+    if (on) {
+      exclude.delete(id);
+      if (!byRule.has(id)) include.add(id);
+    } else {
+      include.delete(id);
+      if (byRule.has(id)) exclude.add(id);
+    }
+  }
+  patchSelection(db, itemId, { include: [...include], exclude: [...exclude] });
 }
 
 /**
- * Lässt einen Eintrag aus dem Buch weg: Er kommt unter „weg“ und fällt aus „dazu“. Seine
- * überschriebene Seite bleibt gemerkt, falls er wieder dazukommt.
+ * Nimmt alles aus einem Thema ins Buch – auch, was später dazukommt – oder nicht mehr. Die ältere
+ * Regel aus Arten, Gegenden und Einordnungen wird dabei zu Themen (`legacyRules`), damit jedes
+ * Thema für sich an- und abschaltbar ist. Einzeln Angekreuztes bleibt, wie es ist.
  */
-export function leaveOut(db: CampaignDb, itemId: string, entityId: string): void {
+export function setBookRule(db: CampaignDb, itemId: string, topic: BookTopic, on: boolean): void {
   const book = current(db, itemId);
-  if (!book) return;
-  patchSelection(db, itemId, {
-    include: book.selection.include.filter((id) => id !== entityId),
-    exclude: [...new Set([...book.selection.exclude, entityId])],
-  });
+  if (!book || isEmptyTopic(topic)) return;
+  const now = bookRules(book.selection);
+  if (now.some((rule) => sameTopic(rule, topic)) === on) return;
+  const rules = now.filter((rule) => !sameTopic(rule, topic));
+  if (on) rules.push({ ...topic, category: topic.category.trim(), tag: topic.tag.trim() });
+  patchSelection(db, itemId, { rules, kinds: [], regionIds: [], categories: [] });
 }
 
 /**

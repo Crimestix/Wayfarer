@@ -9,10 +9,19 @@
  */
 import { articleParts, plainMarkdown, withoutSecrets, type ArticleFact } from './articleText';
 import { KIND_LABEL_PLURAL, byName, entityCategory, entityName } from './derive';
+import {
+  bookRules,
+  isEmptyTopic,
+  nameMatches,
+  ruleMembers,
+  sameTopic,
+  topicEntries,
+  type BookTopic,
+} from './bookTopics';
 import { formatDatePoint } from './lifespan';
-import { scopeMembers } from './scope';
 import {
   BookSchema,
+  ENTITY_KINDS,
   PARTY_ID,
   type Book,
   type BookOrder,
@@ -40,61 +49,116 @@ export type BookItem = Item & { item: { book: Book } };
 export const isBook = (entity: Entity | undefined): entity is BookItem =>
   entity?.kind === 'item' && entity.item.book !== null;
 
-const key = (word: string) =>
-  word.normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('de');
-
 // ── Auswahl ────────────────────────────────────────────────────────────────
 
-/** Schränkt die Auswahl überhaupt ein? Ohne Art, Gegend und Einordnung zählt nur „dazu“. */
-const narrows = (book: Book) =>
-  book.selection.kinds.length > 0 ||
-  book.selection.regionIds.length > 0 ||
-  book.selection.categories.length > 0;
-
 /**
- * Die Einträge, die im Buch stehen – nach Namen. Ein Eintrag passt, wenn er zu jeder gesetzten
- * Bedingung passt: eine der Arten, in einer der Gegenden (mit allem, was dort liegt und dazugehört,
- * `scopeMembers`), eine der Einordnungen. Dazu kommen die einzeln dazugenommenen, weg fallen die
- * einzeln weggenommenen. Das Buch selbst steht nie darin.
+ * Die Einträge, die im Buch stehen – nach Namen: alles aus den Themen des Buches (`bookRules`,
+ * ohne Räume), dazu die einzeln dazugenommenen, ohne die einzeln weggenommenen. Das Buch selbst
+ * steht nie darin.
  */
 export function bookEntries(data: CampaignData, item: Entity): Entity[] {
   if (!isBook(item)) return [];
-  const { book } = item.item;
-  const { kinds, regionIds, categories, include, exclude } = book.selection;
-  const out = new Set<string>();
-  if (narrows(book)) {
-    let region: Set<string> | null = null;
-    for (const regionId of regionIds) {
-      if (data.entities[regionId]?.kind !== 'place') continue;
-      region ??= new Set();
-      for (const id of scopeMembers(data, regionId)) region.add(id);
-    }
-    // Gegenden, die es nicht mehr gibt, lassen nichts übrig.
-    if (regionIds.length && !region) region = new Set();
-    const wanted = new Set(categories.map(key).filter(Boolean));
-    for (const entity of Object.values(data.entities)) {
-      if (kinds.length && !kinds.includes(entity.kind)) continue;
-      if (region && !region.has(entity.id)) continue;
-      if (wanted.size && !wanted.has(key(entityCategory(entity)))) continue;
-      out.add(entity.id);
-    }
-  }
-  for (const id of include) if (data.entities[id]) out.add(id);
-  for (const id of exclude) out.delete(id);
+  const { selection } = item.item.book;
+  const out = ruleMembers(data, selection, item.id);
+  for (const id of selection.include) if (data.entities[id]) out.add(id);
+  for (const id of selection.exclude) out.delete(id);
   out.delete(item.id);
   return [...out].map((id) => data.entities[id]!).sort(byName);
 }
 
-/** Einordnungen, die sich zur Wahl anbieten: die der gewählten Arten (ohne Art: aller) und die schon gewählten. */
-export function bookCategoryChoices(data: CampaignData, book: Book): string[] {
-  const seen = new Map<string, string>();
-  for (const word of book.selection.categories) if (word.trim()) seen.set(key(word), word.trim());
-  for (const entity of Object.values(data.entities)) {
-    if (book.selection.kinds.length && !book.selection.kinds.includes(entity.kind)) continue;
-    const word = entityCategory(entity).trim();
-    if (word && !seen.has(key(word))) seen.set(key(word), word);
+// ── Durchsehen: ein Thema mit Kästchen ─────────────────────────────────────
+
+/** Ein Eintrag beim Durchsehen. */
+export interface TopicRow {
+  entity: Entity;
+  /** Steht im Buch. */
+  inBook: boolean;
+  /** Steht über ein Thema des Buches darin (und nicht nur einzeln). */
+  byRule: boolean;
+  /** Sein Artikel ist vor den Spielern verborgen – im Buch fehlt die Seite. */
+  withheld: boolean;
+}
+
+export interface TopicRowGroup {
+  label: string;
+  rows: TopicRow[];
+}
+
+export interface TopicListing {
+  /** Weder Thema noch Suche – es gibt nichts zu zeigen. */
+  idle: boolean;
+  groups: TopicRowGroup[];
+  /** So viele Einträge zeigt die Liste, so viele davon stehen im Buch. */
+  total: number;
+  inBook: number;
+  /** Nimmt das Buch alles aus diesem Thema – auch, was später dazukommt? */
+  ruleOn: boolean;
+  /** Was im Buch steht, aber nicht zum Thema gehört. */
+  elsewhere: Entity[];
+}
+
+const WITHOUT_CATEGORY = 'Ohne Einordnung';
+
+/**
+ * Ein Thema zum Durchsehen: seine Einträge (mit der Suche nach Namen eingegrenzt), jeweils ob sie
+ * im Buch stehen – nach Einordnung, wenn eine Art gewählt ist, sonst nach Art. Dazu, was sonst
+ * noch im Buch steht.
+ */
+export function topicListing(
+  data: CampaignData,
+  item: BookItem,
+  topic: BookTopic,
+  query = '',
+): TopicListing {
+  const { selection } = item.item.book;
+  const emptyTopic = isEmptyTopic(topic);
+  const inBook = new Set(bookEntries(data, item).map((entity) => entity.id));
+  const byRule = ruleMembers(data, selection, item.id);
+  const ruleOn = !emptyTopic && bookRules(selection).some((rule) => sameTopic(rule, topic));
+  const all = emptyTopic && !query.trim() ? [] : topicEntries(data, topic, item.id);
+  const inTopic = new Set(all.map((entity) => entity.id));
+  const elsewhere = emptyTopic
+    ? []
+    : [...inBook]
+        .filter((id) => !inTopic.has(id))
+        .map((id) => data.entities[id]!)
+        .sort(byName);
+  if (emptyTopic && !query.trim())
+    return { idle: true, groups: [], total: 0, inBook: 0, ruleOn, elsewhere };
+
+  const shown = all.filter((entity) => nameMatches(entity, query));
+  const groups = new Map<string, TopicRow[]>();
+  for (const entity of shown) {
+    const label = topic.kind
+      ? entityCategory(entity).trim() || WITHOUT_CATEGORY
+      : KIND_LABEL_PLURAL[entity.kind];
+    const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
+    const row: TopicRow = {
+      entity,
+      inBook: inBook.has(entity.id),
+      byRule: byRule.has(entity.id),
+      withheld: !!article?.hidden && !article.template,
+    };
+    const list = groups.get(label);
+    if (list) list.push(row);
+    else groups.set(label, [row]);
   }
-  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'de'));
+  const kindOrder = (label: string) =>
+    ENTITY_KINDS.findIndex((kind) => KIND_LABEL_PLURAL[kind] === label);
+  const sorted = [...groups.entries()].sort(([a], [b]) =>
+    topic.kind
+      ? Number(a === WITHOUT_CATEGORY) - Number(b === WITHOUT_CATEGORY) ||
+        a.localeCompare(b, 'de', { numeric: true })
+      : kindOrder(a) - kindOrder(b),
+  );
+  return {
+    idle: false,
+    groups: sorted.map(([label, rows]) => ({ label, rows })),
+    total: shown.length,
+    inBook: shown.filter((entity) => inBook.has(entity.id)).length,
+    ruleOn,
+    elsewhere,
+  };
 }
 
 // ── Seiten ─────────────────────────────────────────────────────────────────
