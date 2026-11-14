@@ -86,7 +86,7 @@ nicht übernommen.
   `focus.ts` (`focusOn`, `useFocus`).
 - **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
   Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Zeitleiste, Nachtragen und Weltgeschehen; „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
+  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Zeitleiste, Nachtragen und Weltgeschehen (dazu ohne Reiter „Welt an einem Tag“, `/damals`); „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
   Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
   Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
   Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
@@ -532,6 +532,23 @@ nicht übernommen.
   eintragen, nie in der Oberfläche. Wiederkehrende Termine rechnen im Fenster `repeatWindow`;
   ob einer zu oft im Bild stünde, zählt am Bild (`span`). Ein Bündel, das Heranzoomen nicht
   trennt (`clusterSpreads`), öffnet seine Stücke als Liste.
+  Die Bahn „Geschichte der Welt“ (`history`) sammelt, was ohne die Gruppe ein Datum hat:
+  Lebensdaten, Daten im Text der Artikel – nur mit Jahr, ohne Steckbrief, als ihr Satz wörtlich
+  (`worldTextDates`, `sentenceAround` in `domain/worldHistory.ts`) – und Termine und Einträge vor
+  dem ersten Abend (`campaignStart`). Weit herausgezoomt dünnt sie nach Gewicht aus
+  (`thinPieces`); der Zoom reicht bis Jahrtausende. Zeitalter (`campaign.ages`, `domain/ages.ts`:
+  `agesSorted`, `agesAt`, `readAge`) liegen als Bänder über allen Bahnen und werden in der
+  Zeitleiste angelegt (`saveAge`, `removeAge`) – Wayfarer erfindet keine.
+- Welt an einem Tag (`/damals/<Weltzeit>`, `zeitleiste/WorldAtPage.tsx`, auch per Klick auf die
+  Achse der Zeitleiste): nur lesen. `worldAt(data, at)` (`domain/worldAt.ts`) gibt den
+  Spielstand zu einem Zeitpunkt – Chronik bis dahin, `state.now`, Ort der Gruppe
+  (`partyPlaceAt`), laufender Abend (`sessionAt`) – und rechnet gespeicherte Wirkungen zurück:
+  der jüngste Eintrag seiner Sorte bis dahin, sonst das `before` des ersten späteren (Schicksal,
+  Aufenthalt, Haltung, Stufe, Ziel, Beziehungen, Besitzer, erstes Treffen, Hinweise, aufgedeckte
+  Geheimnisse und Namen, Beute, Handouts, Vermutungen, Schritte der Uhren). Alle Ableitungen
+  rechnen darauf unverändert; neue gespeicherte Wirkungen dort zurückrechnen. `worldOn` fasst für
+  die Seite zusammen; ein Tag zählt bis zu seinem Ende (`dayEnd`). Von Hand Gesetztes ohne
+  Eintrag hat keine Zeit: Vor dem ersten Abend zeigt die Seite nur, was die Chronik belegt.
 - Gezeichnete Karten: Eine Karte mit `kind: 'drawn'` ist kein Bild, sondern Formen –
   Pinselstriche Gelände (`strokes`, der spätere liegt oben), Linien (`lines`: Straße, Pfad,
   Fluss, Grenze) und Punkte (`markers`). Was an einer Stelle ist, fragt man über `groundAt()`,

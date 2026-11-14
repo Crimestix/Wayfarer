@@ -1661,6 +1661,13 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   lässt Verknüpfungen zu LegendKeeper stehen; der Dialog sagt das vorher. „Im Steckbrief fehlt
   noch“ zählt auch Felder aus einem zweiten Kasten. Die Rechnung hängt nur noch an Artikeln und
   Einträgen (Zeit und Chronik rechnen sie nicht neu).
+- **Weltgeschichte und Welt an einem Tag.** Zeitleiste: Bahn „Geschichte der Welt“ (Lebensdaten,
+  Sätze mit Datum aus den Artikeln, Vorgeschichte vor dem ersten Abend), dünnt nach Gewicht aus,
+  Zoom bis Jahrtausende; Zeitalter (`campaign.ages`) als Bänder, angelegt in der Zeitleiste.
+  „Welt an einem Tag“ (`/damals`, Klick auf die Achse): `worldAt` rechnet den Spielstand samt
+  gespeicherter Wirkungen zurück. Offen: Ob eine Abmachung damals schon erledigt war, ob eine
+  Geschichte schon im Spiel oder zu Ende war, wer damals zur Gruppe gehörte (`active`), Stände von
+  Fortschrittsleisten und Läden – das alles hat keine Zeit und bleibt, wie es heute ist.
 
 ## 6. Bekannte Mängel und Aufräumliste
 
