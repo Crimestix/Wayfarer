@@ -398,6 +398,8 @@ function infoboxChildren(nodes: ArticleNode[]): ArticleNode[] {
     }
     const rows: FactRow[] = [];
     let allFacts = true;
+    /** Felder ohne Wert („Geboren:“, etwa aus dem Steckbrief-Gerüst): noch nicht ausgefüllt. */
+    let blank = 0;
     for (const line of lines) {
       const first = line[0];
       const match =
@@ -407,7 +409,11 @@ function infoboxChildren(nodes: ArticleNode[]): ArticleNode[] {
       const value: Inline[] = match
         ? [...(match[2] ? [{ ...first, text: match[2] } as Inline] : []), ...line.slice(1)]
         : [];
-      if (!match || !hasContent(value)) {
+      if (match && !hasContent(value) && match[1]!.trim()) {
+        blank++;
+        continue;
+      }
+      if (!match) {
         allFacts = false;
         break;
       }
@@ -417,6 +423,9 @@ function infoboxChildren(nodes: ArticleNode[]): ArticleNode[] {
       if (prose.length) endProse();
       out.push({ type: 'facts', title, rows });
       title = undefined;
+    } else if (allFacts && blank > 0) {
+      // Nur leere Felder: Sie stehen im Text bereit, gezeigt wird noch nichts.
+      continue;
     } else prose.push(node);
   }
   endProse();

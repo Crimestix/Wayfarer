@@ -43,7 +43,7 @@ const personCache = new WeakMap<Article, boolean>();
 
 /** Steckbriefzeilen, die nur bei einer Person stehen. */
 const PERSON_LINE =
-  /^>\s*(?:(?:Art|Typ)\s*:\s*(?:Person|NSC|NPC|Figur|Charakter)\b|(?:Spezies|Volk|Rasse)\s*:\s*\S)/imu;
+  /^>[ \t]*(?:(?:Art|Typ)[ \t]*:[ \t]*(?:Person|NSC|NPC|Figur|Charakter)\b|(?:Spezies|Volk|Rasse)[ \t]*:[ \t]*\S)/imu;
 
 /**
  * Beschreibt der Artikel eine Person? Am Symbol, an den Schlagworten oder an seinem Steckbrief

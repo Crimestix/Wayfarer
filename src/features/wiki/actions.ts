@@ -17,8 +17,10 @@ import type { ImportSections } from '../import/v157';
 import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, planFacts, statedKind, twins } from './facts';
+import { addBlankFactLines } from './factLines';
+import { scaffoldOf, scaffoldText } from './scaffold';
 import type { RelationHint } from './sentences';
-import { articleAsText, linkIndex, relinked, titleKey } from './text';
+import { articleAsText, linkIndex, pageText, relinked, titleKey } from './text';
 
 export interface AppliedLkImport {
   at: string;
@@ -196,6 +198,60 @@ export function createArticle(
     linkTwins(db);
     return article;
   });
+}
+
+/**
+ * Legt einen Artikel einer Art an: auf Wunsch mit dem Steckbrief-Gerüst dieser Art (leere Felder,
+ * `scaffold.ts`) und als Eintrag dieser Art in der Welt. Steht dort schon ein Eintrag dieses Namens
+ * ohne Artikel, wird er verbunden statt ein zweiter angelegt. Ohne Art ist es ein gewöhnlicher
+ * Artikel. Gibt den Artikel und seinen Eintrag zurück.
+ */
+export function createArticleOfKind(
+  db: CampaignDb,
+  input: { title: string; parentId?: string | null; kind: EntityKind | null; scaffold: boolean },
+): { article: Article; entity: Entity | null } | null {
+  const { kind } = input;
+  const labels = kind && input.scaffold ? scaffoldOf(db.getSnapshot().campaign, kind) : [];
+  return db.batch(() => {
+    const article = createArticle(db, {
+      title: input.title,
+      parentId: input.parentId ?? null,
+      text: scaffoldText(labels),
+    });
+    if (!article) return null;
+    const owner = Object.values(db.getSnapshot().entities).find(
+      (entity) => entity.lk?.resourceId === article.id,
+    );
+    if (owner || !kind || kind === 'character') return { article, entity: owner ?? null };
+    return { article, entity: adoptArticle(db, article, kind) };
+  });
+}
+
+/** Schlüssel in `article.dismissedHints`: „Im Steckbrief fehlt noch …“ ist ausgeblendet. */
+export const SCAFFOLD_HINT = 'steckbrief-geruest';
+
+/**
+ * Fügt dem Steckbrief der ersten Textseite leere Felder hinzu (fehlt er, entsteht er oben). Der
+ * übrige Text bleibt. Gibt `undo` zurück – es nimmt die Zeilen zurück, solange niemand weiterschrieb.
+ */
+export function addScaffoldFields(
+  db: CampaignDb,
+  articleId: string,
+  labels: readonly string[],
+): (() => void) | null {
+  const articles = db.getSnapshot().articles;
+  const article = articles[articleId];
+  const doc = article?.docs.find((d) => d.kind === 'page');
+  if (!article || !doc) return null;
+  const before = pageText(articles, article, doc);
+  const after = addBlankFactLines(before, labels);
+  if (after === before) return null;
+  savePageText(db, articleId, doc.id, after);
+  return () => {
+    const now = db.getSnapshot().articles[articleId];
+    const page = now?.docs.find((d) => d.id === doc.id);
+    if (page?.text === after) savePageText(db, articleId, doc.id, before);
+  };
 }
 
 export type RenameProblem = 'empty' | 'missing';

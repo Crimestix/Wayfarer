@@ -72,6 +72,11 @@ export const CampaignMetaSchema = z.object({
    * Spielleiter geschrieben (`domain/tableRules.ts`).
    */
   tableRules: z.string().default(''),
+  /**
+   * Steckbrief-Gerüste des Spielleiters: je Art die Felder, die ein neuer Artikel leer bekommt
+   * (`features/wiki/scaffold.ts`). Fehlt eine Art, gilt die Vorgabe; eine leere Liste = kein Gerüst.
+   */
+  factScaffolds: z.record(z.string(), z.array(z.string())).default({}),
   created: z.string().default(''),
   updated: z.string().default(''),
 });

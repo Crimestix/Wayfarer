@@ -107,6 +107,8 @@ export interface ArticleFact {
 
 /** Feld und Wert – das Feld ohne Auszeichnung, höchstens 60 Zeichen. */
 const FACT = /^([^:\n*_`![\]>#][^:\n[\]`]{0,59}):[ \t]+(\S.*)$/;
+/** Ein Feld ohne Wert: „Geboren:“. */
+const BLANK_FACT = /^[^:\n*_`![\]>#][^:\n[\]`]{0,59}:[ \t]*$/;
 /** Eine Zeile nur aus Fettdruck: die Überschrift eines Abschnitts im Steckbrief. */
 const BOLD_TITLE = /^\*\*[^*]+\*\*\s*$/;
 const IMAGE = /^!\[/;
@@ -144,7 +146,8 @@ export function articleParts(text: string): ArticleParts {
       }
       const fact = FACT.exec(line);
       if (fact) facts.push({ label: fact[1]!.trim(), value: fact[2]!.trim() });
-      else box.push(line);
+      // Ein Feld ohne Wert (aus dem Steckbrief-Gerüst) ist noch nicht ausgefüllt – nichts zu zeigen.
+      else if (!BLANK_FACT.test(line)) box.push(line);
     }
     body.push('');
   }

@@ -120,7 +120,10 @@ export function splitPage(
   doc: ArticleDoc | undefined,
 ): { side: ArticleNode[]; body: ArticleNode[]; outline: OutlineEntry[] } {
   const nodes = doc?.kind === 'page' ? pageNodes(articles, article, doc) : [];
-  const side = nodes.filter((node) => node.type === 'infobox' && node.beside);
+  // Ein Steckbrief, in dem noch nichts ausgefüllt ist, steht nicht als leerer Kasten da.
+  const side = nodes.filter(
+    (node) => node.type === 'infobox' && node.beside && node.children.length > 0,
+  );
   const body = nodes.filter((node) => !(node.type === 'infobox' && node.beside));
   return { side, body, outline: outlineOf(body) };
 }

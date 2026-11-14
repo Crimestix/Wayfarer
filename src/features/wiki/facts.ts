@@ -806,13 +806,20 @@ const TARGET_KINDS: Partial<Record<FactField, readonly EntityKind[]>> = {
   profession: ['profession'],
 };
 
-/** Liest die Zeilen eines Steckbriefs für einen Eintrag dieser Art. Jedes Feld zählt einmal. */
+/** Welche Arten von Einträgen ein Feld meint („Wohnort“ einen Ort); leer = keine bestimmte. */
+export const targetKinds = (field: FactField): readonly EntityKind[] => TARGET_KINDS[field] ?? [];
+
+/**
+ * Liest die Zeilen eines Steckbriefs für einen Eintrag dieser Art. Jedes Feld zählt einmal – außer
+ * der Zugehörigkeit, die unter mehreren Bezeichnungen stehen kann.
+ */
 export function readFacts(index: WorldIndex, facts: Fact[], kind: EntityKind): Reading[] {
   const out: Reading[] = [];
   const seen = new Set<FactField>();
   for (const fact of facts) {
     const field = factField(kind, fact.label);
-    if (!field || seen.has(field)) continue;
+    // Zugehörigkeit darf mehrfach stehen: „Familie: …“ und „Fraktion: …“ zählen beide.
+    if (!field || (seen.has(field) && field !== 'membership')) continue;
     seen.add(field);
     const base = {
       field,

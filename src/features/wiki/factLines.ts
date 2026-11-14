@@ -106,7 +106,8 @@ export function setFactLine(
     let end = i;
     while (end + 1 <= box.last && !BLANK_QUOTED.test(lines[end + 1]!)) end++;
     let facts = true;
-    for (let k = i; k <= end; k++) if (!FACT.exec(lines[k]!)?.[2]?.trim()) facts = false;
+    // Auch leere Felder aus dem Steckbrief-Gerüst gehören zu den Feldern.
+    for (let k = i; k <= end; k++) if (!FACT.test(lines[k]!)) facts = false;
     if (facts) {
       at = end;
       break;
@@ -249,5 +250,66 @@ export function removeHappenedLine(text: string, edit: { line: string; made: boo
       lines.splice(start, after.end - start);
     }
   }
+  return lines.join('\n');
+}
+
+/**
+ * Die Bezeichnungen aller Felder im ersten Steckbrief – auch der leeren („Geboren:“), in ihrer
+ * Reihenfolge. Leer, wenn es keinen Steckbrief gibt.
+ */
+export function steckbriefLabels(text: string): string[] {
+  const lines = splitLines(text);
+  const box = findBox(lines);
+  if (!box) return [];
+  const out: string[] = [];
+  for (let i = box.head + 1; i <= box.last; i++) {
+    const match = FACT.exec(lines[i]!);
+    if (match) out.push(match[1]!.trim());
+  }
+  return out;
+}
+
+/**
+ * Fügt dem Steckbrief leere Felder hinzu („> Geboren: “) – hinter die Felder, die schon dastehen,
+ * sonst ans Ende des Steckbriefs. Gibt es keinen, entsteht er ganz oben. Felder, die schon dastehen
+ * (gleiche Bezeichnung), kommen nicht doppelt. Der übrige Text bleibt Zeichen für Zeichen.
+ */
+export function addBlankFactLines(text: string, labels: readonly string[]): string {
+  const have = new Set(steckbriefLabels(text).map((label) => label.toLocaleLowerCase('de')));
+  const wanted: string[] = [];
+  for (const raw of labels) {
+    const label = oneLine(raw).replace(/:+$/, '').trim();
+    const key = label.toLocaleLowerCase('de');
+    if (!label || have.has(key)) continue;
+    have.add(key);
+    wanted.push(`> ${label}: `);
+  }
+  if (!wanted.length) return text;
+  const lines = splitLines(text);
+  const box = findBox(lines);
+  if (!box) {
+    const rest = text.replace(/^\s*\n/, '');
+    const head = ['> [!steckbrief]', ...wanted].join('\n');
+    return rest.trim() ? `${head}\n\n${rest}` : `${head}\n`;
+  }
+  // Hinter die letzte Zeile eines Absatzes, der nur aus Feldern besteht.
+  let at = -1;
+  let i = box.head + 1;
+  while (i <= box.last) {
+    if (BLANK_QUOTED.test(lines[i]!)) {
+      i++;
+      continue;
+    }
+    let end = i;
+    while (end + 1 <= box.last && !BLANK_QUOTED.test(lines[end + 1]!)) end++;
+    let facts = true;
+    for (let k = i; k <= end; k++) if (!FACT.test(lines[k]!)) facts = false;
+    if (facts) at = end;
+    i = end + 1;
+  }
+  if (at >= 0) lines.splice(at + 1, 0, ...wanted);
+  else if (box.last === box.head || BLANK_QUOTED.test(lines[box.last]!))
+    lines.splice(box.last + 1, 0, ...wanted);
+  else lines.splice(box.last + 1, 0, '>', ...wanted);
   return lines.join('\n');
 }
