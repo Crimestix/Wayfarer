@@ -137,16 +137,39 @@ describe('Papierkorb', () => {
     expect(trashOf(db.getSnapshot())).toHaveLength(1);
   });
 
-  it('verlangt einen anderen Titel, wenn der alte inzwischen vergeben ist', async () => {
+  it('nimmt auf Wunsch einen anderen Titel – ein vergebener hindert nicht', async () => {
     const { db, article } = await setup();
     deleteArticle(db, article.id);
     createArticle(db, { title: 'Hohenfurt' });
     const [trash] = trashOf(db.getSnapshot());
-    expect(restoreArticle(db, trash!.id)).toBe('taken');
     expect(restoreArticle(db, trash!.id, '  ')).toBe('empty');
-    const back = restoreArticle(db, trash!.id, 'Hohenfurt (alt)');
+    const same = restoreArticle(db, trash!.id);
+    if (typeof same === 'string') throw new Error(same);
+    expect(same.article.title).toBe('Hohenfurt');
+    same.undo();
+    const [again] = trashOf(db.getSnapshot());
+    const back = restoreArticle(db, again!.id, 'Hohenfurt (alt)');
     if (typeof back === 'string') throw new Error(back);
     expect(back.article.title).toBe('Hohenfurt (alt)');
+  });
+
+  it('holt Unterartikel zurück, die beim Löschen nach oben rückten', async () => {
+    const { db } = await setup();
+    const burg = createArticle(db, { title: 'Burg Graufels' })!;
+    const hall = createArticle(db, { title: 'Rittersaal', parentId: burg.id })!;
+    const cellar = createArticle(db, { title: 'Weinkeller', parentId: burg.id })!;
+    deleteArticle(db, burg.id);
+    // Der Weinkeller wurde seither woanders hingehängt – er bleibt dort.
+    const salz = createArticle(db, { title: 'Salzgrotte' })!;
+    db.put('articles', { ...db.getSnapshot().articles[cellar.id]!, parentId: salz.id });
+    const trash = trashOf(db.getSnapshot()).find((v) => v.articleId === burg.id)!;
+    const back = restoreArticle(db, trash.id);
+    if (typeof back === 'string') throw new Error(back);
+    const data = db.getSnapshot();
+    expect(data.articles[hall.id]!.parentId).toBe(burg.id);
+    expect(data.articles[cellar.id]!.parentId).toBe(salz.id);
+    back.undo();
+    expect(db.getSnapshot().articles[hall.id]!.parentId).toBeNull();
   });
 
   it('legt einen Artikel ganz oben ab, wenn sein Platz nicht mehr da ist', async () => {

@@ -1679,6 +1679,10 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Offen: Eine gelöschte Seite (nicht der ganze Artikel) kommt nicht in den Papierkorb; die
   Sicherung enthält alle Fassungen (bei 500 viel bearbeiteten Artikeln grob 5–30 MB, schlimmstenfalls
   um 90 MB) – ob sie wahlweise ohne Fassungen gesichert werden soll, ist offen.
+- **Gegengelesen: Frühere Fassungen.** Ausdünnen je Seite und Tag (zwei Seiten eines Artikels
+  nehmen sich die Tagesfassung nicht mehr weg); Wiederherstellen aus dem Papierkorb auch unter
+  vergebenem Titel (Hinweis statt Sperre, wie beim Anlegen) und mit den Unterartikeln, die beim
+  Löschen nach oben rückten (`childIds`); Rückfrage beim Löschen nennt den Papierkorb zuerst.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

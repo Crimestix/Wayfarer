@@ -588,10 +588,11 @@ nicht übernommen.
   schon gibt.
 - Frühere Fassungen (`versions/`, `domain/versions.ts`): `savePageText` legt den Wortlaut vor
   einer Änderung ab – höchstens eine je Seite und zehn Minuten (die erste bleibt: der Stand vor
-  dem Ansetzen); ausgedünnt über `pruneVersions` (die jüngsten 20, ältere eine je Tag, höchstens
-  60 je Artikel). `deleteArticle` legt den ganzen Artikel als Fassung `delete` in den Papierkorb
-  (`trashOf`, Einstellungen); zurück nur über `restoreVersion` / `restoreArticle` (gleiche
-  Kennung, Titel frei, Einträge und Verweise ziehen mit), weg nur über `purgeArticle`. Nie Text
+  dem Ansetzen); ausgedünnt über `pruneVersions` (die jüngsten 20, ältere eine je Seite und Tag,
+  höchstens 60 je Artikel). `deleteArticle` legt den ganzen Artikel als Fassung `delete` in den
+  Papierkorb (`trashOf`, Einstellungen); zurück nur über `restoreVersion` / `restoreArticle`
+  (gleiche Kennung, Unterartikel, Einträge und Verweise ziehen mit; ein vergebener Titel ist nur
+  ein Hinweis, `titleTaken` – nie ein Hindernis), weg nur über `purgeArticle`. Nie Text
   an diesen Befehlen vorbei in `articles` schreiben, sonst fehlt die Fassung. Vergleich:
   `lineDiff` / `foldDiff`. Nicht in der Suche.
 - Steckbrief und Welt: Die Zeilen „Feld: Wert“ im Steckbrief eines Artikels speisen den Eintrag

@@ -2567,6 +2567,8 @@ export const ArticleVersionSchema = z.object({
   article: ArticleSchema.nullable().default(null),
   /** Nur bei `delete`: die Einträge der Welt, deren Text er war. */
   entityIds: z.array(id).default([]),
+  /** Nur bei `delete`: die Unterartikel, die beim Löschen eine Ebene nach oben rückten. */
+  childIds: z.array(id).default([]),
 });
 export type ArticleVersion = z.infer<typeof ArticleVersionSchema>;
 

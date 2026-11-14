@@ -343,12 +343,11 @@ export function ArticleMenu({ article, onNewChild }: { article: Article; onNewCh
     const ok = await confirmDialog({
       title: `„${article.title}“ löschen?`,
       body: [
-        'Der Artikel mit all seinen Seiten wird entfernt.',
+        'Der Artikel kommt mit all seinen Seiten in den Papierkorb (Einstellungen) und lässt sich dort wiederherstellen.',
         children
-          ? ` ${children === 1 ? 'Der Unterartikel rückt' : `Die ${children} Unterartikel rücken`} eine Ebene nach oben.`
+          ? ` ${children === 1 ? 'Der Unterartikel rückt' : `Die ${children} Unterartikel rücken`} so lange eine Ebene nach oben.`
           : '',
         ' Verweise auf ihn bleiben als Name stehen.',
-        ' Der Artikel bleibt im Papierkorb (Einstellungen), bis du ihn dort endgültig entfernst.',
       ].join(''),
       confirmLabel: 'Löschen',
       danger: true,

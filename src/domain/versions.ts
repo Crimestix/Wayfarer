@@ -56,8 +56,9 @@ export function shouldKeepVersion(
 
 /**
  * Dünnt die Fassungen eines Artikels aus und gibt die Kennungen zurück, die wegfallen: Die
- * jüngsten 20 bleiben; von den älteren bleibt je Tag nur die letzte des Tages; insgesamt höchstens
- * 60 – darüber fallen die ältesten weg. Fassungen im Papierkorb (`delete`) zählen nicht mit.
+ * jüngsten 20 bleiben; von den älteren bleibt je Seite und Tag nur die letzte des Tages – die
+ * Seiten eines Artikels nehmen sich dabei nichts weg; insgesamt höchstens 60 – darüber fallen die
+ * ältesten weg. Fassungen im Papierkorb (`delete`) zählen nicht mit.
  */
 export function pruneVersions(versions: readonly ArticleVersion[]): string[] {
   const sorted = versions.filter((v) => v.reason !== 'delete').sort(newestFirst);
@@ -69,7 +70,7 @@ export function pruneVersions(versions: readonly ArticleVersion[]): string[] {
       keep.push(version);
       return;
     }
-    const day = versionDay(version.savedAt);
+    const day = `${version.docId ?? ''}|${versionDay(version.savedAt)}`;
     if (days.has(day)) drop.push(version.id);
     else {
       days.add(day);

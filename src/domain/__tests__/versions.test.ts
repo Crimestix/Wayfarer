@@ -76,6 +76,17 @@ describe('Ausdünnen', () => {
     expect(drop.size).toBe(6);
   });
 
+  it('je Seite eine je Tag – zwei Seiten nehmen sich nichts weg', () => {
+    const recent = Array.from({ length: KEEP_RECENT }, (_, i) =>
+      version({ savedAt: at(14, 0, i * 30) }),
+    );
+    const first = version({ savedAt: at(10, 18) });
+    const second = version({ savedAt: at(10, 9), docId: 'zweite' });
+    const earlier = version({ savedAt: at(10, 8), docId: 'zweite' });
+    const drop = pruneVersions([...recent, first, second, earlier]);
+    expect(drop).toEqual([earlier.id]);
+  });
+
   it(`nie mehr als ${KEEP_MOST} – die ältesten fallen weg`, () => {
     const daily = Array.from({ length: 90 }, (_, i) =>
       version({ savedAt: new Date(2026, 0, 1 + i, 12).toISOString() }),

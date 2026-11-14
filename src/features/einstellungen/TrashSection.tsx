@@ -18,13 +18,13 @@ function TrashRow({ entry }: { entry: TrashEntry }) {
   const db = useDb();
   const [, navigate] = useLocation();
   const [look, setLook] = useState(false);
-  /** Der neue Titel, wenn der alte inzwischen vergeben ist; `null`: noch nicht gefragt. */
+  /** Ein anderer Titel fürs Wiederherstellen; `null`: unter dem alten. */
   const [title, setTitle] = useState<string | null>(null);
   const { article, version } = entry;
 
   const restore = (name?: string) => {
     const result = restoreArticle(db, version.id, name);
-    if (result === 'taken' || result === 'empty') {
+    if (result === 'empty') {
       setTitle(name ?? article.title);
       return;
     }
@@ -68,8 +68,11 @@ function TrashRow({ entry }: { entry: TrashEntry }) {
         </div>
         {entry.taken && title === null && (
           <div className="wf-einstellungen-trash__note">
-            Ein anderer Artikel heißt inzwischen auch so – beim Wiederherstellen braucht er einen
-            anderen Titel.
+            Ein anderer Artikel heißt inzwischen auch so. Verweise mit diesem Namen bleiben bei ihm
+            – magst du einen anderen Titel wählen?{' '}
+            <Button size="sm" variant="ghost" onClick={() => setTitle(article.title)}>
+              Anderer Titel …
+            </Button>
           </div>
         )}
         {title !== null && (
@@ -82,7 +85,7 @@ function TrashRow({ entry }: { entry: TrashEntry }) {
           >
             <Field
               label="Titel beim Wiederherstellen"
-              hint="Dieser Titel ist vergeben. Unter welchem soll der Artikel zurückkommen?"
+              hint="Unter welchem Titel soll der Artikel zurückkommen?"
             >
               <Input value={title} data-autofocus onChange={(e) => setTitle(e.target.value)} />
             </Field>

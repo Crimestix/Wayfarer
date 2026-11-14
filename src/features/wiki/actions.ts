@@ -20,7 +20,6 @@ import { adoptFamilies, type FamilyAdoption } from '../welt/actions';
 import type { LkImportPlan } from './apply';
 import { articleFacts, entryForTitle, planFacts, statedKind, twins } from './facts';
 import { addBlankFactLines } from './factLines';
-import { titleTaken } from './model';
 import { scaffoldOf, scaffoldText, withScaffold, type ScaffoldKind } from './scaffold';
 import type { RelationHint } from './sentences';
 import { articleAsText, linkIndex, pageText, relinked, titleKey } from './text';
@@ -432,6 +431,7 @@ export function deleteArticle(db: CampaignDb, articleId: string): (() => void) |
         reason: 'delete',
         article,
         entityIds: owners.map((owner) => owner.id),
+        childIds: children.map((child) => child.id),
       }),
     );
   });
@@ -479,15 +479,17 @@ export function restoreVersion(db: CampaignDb, versionId: string): { undo: () =>
   };
 }
 
-export type RestoreProblem = 'missing' | 'empty' | 'taken';
+export type RestoreProblem = 'missing' | 'empty';
 
 /**
  * Stellt einen gelöschten Artikel aus dem Papierkorb wieder her – mit seiner Kennung, damit seine
  * früheren Fassungen wieder zu ihm gehören, unter seinem alten Platz (gibt es den nicht mehr: ganz
- * oben). Heißt inzwischen ein anderer Artikel so, braucht er einen anderen Titel (`title`), sonst
- * kommt `'taken'` zurück. Einträge der Welt, deren Text er war und die seither keinen anderen haben,
- * gehören wieder zu ihm; gleichnamige verbindet `linkTwins`. `undo` legt ihn zurück in den
- * Papierkorb.
+ * oben). Mit `title` kommt er unter einem anderen Titel zurück; heißt inzwischen ein anderer
+ * Artikel so, ist das nur ein Hinweis der Oberfläche (`titleTaken`) – wie beim Anlegen bleiben die
+ * bisherigen Verweise dann bei dem anderen. Unterartikel, die beim Löschen nach oben rückten und
+ * seither dort stehen, kommen wieder unter ihn. Einträge der Welt, deren Text er war und die
+ * seither keinen anderen haben, gehören wieder zu ihm; gleichnamige verbindet `linkTwins`. `undo`
+ * legt ihn zurück in den Papierkorb.
  */
 export function restoreArticle(
   db: CampaignDb,
@@ -500,7 +502,6 @@ export function restoreArticle(
   if (!version || !old || data.articles[version.articleId]) return 'missing';
   const name = (title ?? old.title).replace(/\s+/g, ' ').trim();
   if (!name) return 'empty';
-  if (titleTaken(data.articles, name)) return 'taken';
   const before = data.articles;
   const parentId = old.parentId && before[old.parentId] ? old.parentId : null;
   const article = db.batch(() => {
@@ -512,6 +513,11 @@ export function restoreArticle(
       rev: 0,
     });
     db.remove('versions', version.id);
+    for (const childId of version.childIds) {
+      const child = db.getSnapshot().articles[childId];
+      if (child && child.parentId === old.parentId)
+        db.put('articles', { ...child, parentId: restored.id });
+    }
     putRelinked(db, before);
     const now = db.getSnapshot();
     for (const entityId of version.entityIds) {
