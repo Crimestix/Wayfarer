@@ -6,6 +6,12 @@
  * wird genannt.
  */
 import { lifeWords, readDatePoint } from '../../domain/lifespan';
+import {
+  emptyMagic,
+  magicRarityFromText,
+  readAttunement,
+  readCharges,
+} from '../../domain/magicItem';
 import { rarityFromText, readPrice } from '../../domain/nature';
 import {
   PERSON_STATUS,
@@ -13,6 +19,7 @@ import {
   type CampaignData,
   type Entity,
   type EntityKind,
+  type Magic,
   type PersonStatus,
   type Relation,
 } from '../../domain/schema';
@@ -113,7 +120,10 @@ export type FactField =
   | 'rarity'
   | 'price'
   | 'tool'
-  | 'profession';
+  | 'profession'
+  | 'magicType'
+  | 'attunement'
+  | 'charges';
 
 export const FIELD_LABEL: Record<FactField, string> = {
   kind: 'Art',
@@ -138,6 +148,9 @@ export const FIELD_LABEL: Record<FactField, string> = {
   price: 'Wert',
   tool: 'Werkzeug',
   profession: 'Beruf',
+  magicType: 'Art des magischen Gegenstands',
+  attunement: 'Einstimmung',
+  charges: 'Ladungen',
 };
 
 /** Lebensdaten im Steckbrief – für alle Arten; was sie bei welcher Art heißen, steht in `lifeWords`. */
@@ -280,6 +293,11 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
     kind: KIND,
     owner: [...OWNER, 'Träger', 'Trägerin', 'Aufbewahrungsort', 'Ort'],
     price: ['Preis', 'Wert', 'Marktwert', 'Kosten', 'Listenpreis'],
+    // Magische Gegenstände (`domain/magicItem.ts`): Eine dieser Zeilen macht ihn magisch.
+    rarity: ['Seltenheit'],
+    magicType: ['Art des magischen Gegenstands', 'Magische Art'],
+    attunement: ['Einstimmung', 'Erfordert Einstimmung', 'Einstimmung erforderlich'],
+    charges: ['Ladungen', 'Ladung'],
   },
   species: { kind: KIND },
   language: { kind: KIND },
@@ -834,7 +852,7 @@ export function readFacts(index: WorldIndex, facts: Fact[], kind: EntityKind): R
       const status = statusFromText(fact.text);
       if (status) out.push({ ...base, value: status });
     } else if (field === 'rarity') {
-      const rarity = rarityFromText(fact.text);
+      const rarity = kind === 'item' ? magicRarityFromText(fact.text) : rarityFromText(fact.text);
       if (rarity) out.push({ ...base, value: rarity });
     } else if (field === 'kind') {
       const read = kindFromText(fact.text);
@@ -1038,6 +1056,10 @@ const SHARE_LABEL: Record<string, string> = {
   rarity: FIELD_LABEL.rarity,
   price: FIELD_LABEL.price,
   tool: FIELD_LABEL.tool,
+  'magic.rarity': FIELD_LABEL.rarity,
+  'magic.type': FIELD_LABEL.magicType,
+  'magic.attunement': FIELD_LABEL.attunement,
+  'magic.charges': FIELD_LABEL.charges,
 };
 
 /**
@@ -1097,6 +1119,26 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
     if (sameValue(details[key], value)) return;
     next = { ...next, [group]: { ...details, [key]: value } } as Entity;
     changes.push(`${FIELD_LABEL[as]}: ${shown}`);
+  };
+  /**
+   * Setzt eine Angabe der Magie (`item.magic`); ein Gegenstand ohne Magie wird dabei magisch.
+   * `same` vergleicht, was als gleich gilt (bei Ladungen etwa nicht der jetzige Stand).
+   */
+  const setMagic = <K extends keyof Magic>(
+    reading: Reading,
+    key: K,
+    value: Magic[K],
+    shown: string,
+    same: (a: Magic[K], b: Magic[K]) => boolean = (a, b) => JSON.stringify(a) === JSON.stringify(b),
+  ) => {
+    const mark = `magic.${key}`;
+    stated[mark] = reading.text;
+    if (entity.fromArticle[mark] === reading.text || next.kind !== 'item') return;
+    const current = next.item.magic;
+    if (current && same(current[key], value)) return;
+    const magic = { ...(current ?? emptyMagic()), [key]: value };
+    next = { ...next, item: { ...next.item, magic } };
+    changes.push(`${FIELD_LABEL[reading.field]}: ${shown}`);
   };
   const first = (reading: Reading) => reading.entities.find((e) => e.id !== entity.id);
   const has = (field: FactField) => readings.some((r) => r.field === field && r.entities.length);
@@ -1181,8 +1223,38 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
         break;
       }
       case 'rarity':
-        if (reading.value) set(reading, 'rarity', reading.value, reading.text);
+        if (!reading.value) break;
+        if (entity.kind === 'item')
+          setMagic(reading, 'rarity', reading.value as Magic['rarity'], reading.text);
+        else set(reading, 'rarity', reading.value, reading.text);
         break;
+      case 'magicType':
+        setMagic(reading, 'type', reading.text.slice(0, 80), reading.text.slice(0, 80));
+        break;
+      case 'attunement': {
+        const attunement = readAttunement(reading.text);
+        if (attunement) setMagic(reading, 'attunement', attunement, reading.text);
+        break;
+      }
+      case 'charges': {
+        const read = readCharges(reading.text);
+        if (!read || next.kind !== 'item') break;
+        const before = next.item.magic?.charges ?? null;
+        setMagic(
+          reading,
+          'charges',
+          {
+            max: read.max,
+            current: before ? Math.min(before.current, read.max) : read.max,
+            recharge: read.recharge,
+            spentAt: before?.spentAt ?? null,
+          },
+          reading.text,
+          // Der jetzige Stand gehört dem Tisch, nicht dem Steckbrief.
+          (a, b) => !!a && !!b && a.max === b.max && a.recharge === b.recharge,
+        );
+        break;
+      }
       case 'price': {
         const price = readPrice(reading.text);
         if (typeof price === 'number') set(reading, 'price', price, reading.text);

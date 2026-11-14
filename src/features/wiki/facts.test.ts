@@ -519,3 +519,71 @@ describe('Steckbrief: Pflanzen, Tiere, Gesteine und Berufe', () => {
     expect(pendingFacts(data()).missing).toEqual([]);
   });
 });
+
+describe('Steckbrief eines magischen Gegenstands', () => {
+  it('speist Seltenheit, Art, Einstimmung und Ladungen in die Magie', async () => {
+    const { db, data, entity } = await setup();
+    const staff = createArticle(db, {
+      title: 'Stab der Salzgrotte',
+      text: [
+        '> [!steckbrief]',
+        '> Art: Stab',
+        '> Seltenheit: selten',
+        '> Art des magischen Gegenstands: Stab',
+        '> Einstimmung: erfordert Einstimmung durch einen Zauberwirker',
+        '> Ladungen: 7 Ladungen, 1W6+1 bei Morgengrauen',
+      ].join('\n'),
+    })!;
+    syncFacts(db);
+    const item = entity('Stab der Salzgrotte', 'item');
+    expect(item.item.magic).toMatchObject({
+      rarity: 'rare',
+      type: 'Stab',
+      attunement: { required: true, by: 'durch einen Zauberwirker' },
+      charges: { max: 7, current: 7, recharge: '1W6+1 bei Morgengrauen' },
+      identified: false,
+      cursed: false,
+    });
+    expect(articleShare(item).fields).toEqual(
+      expect.arrayContaining([
+        'Seltenheit',
+        'Art des magischen Gegenstands',
+        'Einstimmung',
+        'Ladungen',
+      ]),
+    );
+
+    // Am Tisch verbraucht: Der Stand bleibt, auch wenn der Steckbrief neu gelesen wird.
+    const magic = item.item.magic!;
+    db.patch('entities', item.id, {
+      item: { ...item.item, magic: { ...magic, charges: { ...magic.charges!, current: 2 } } },
+    });
+    syncFacts(db);
+    expect(entity('Stab der Salzgrotte', 'item').item.magic?.charges?.current).toBe(2);
+
+    // Mehr Ladungen im Text: neuer Höchstwert, der Stand bleibt.
+    savePageText(
+      db,
+      staff.id,
+      data().articles[staff.id]!.docs[0]!.id,
+      '> [!steckbrief]\n> Art: Stab\n> Seltenheit: sehr selten\n> Ladungen: 10 (alle bei Morgengrauen)',
+    );
+    syncFacts(db);
+    expect(entity('Stab der Salzgrotte', 'item').item.magic).toMatchObject({
+      rarity: 'very-rare',
+      charges: { max: 10, current: 2, recharge: 'alle bei Morgengrauen' },
+    });
+  });
+
+  it('macht einen gewöhnlichen Gegenstand nicht von selbst magisch', async () => {
+    const { db, entity } = await setup();
+    createArticle(db, {
+      title: 'Seil der Furt',
+      text: '> [!steckbrief]\n> Art: Gegenstand\n> Preis: 1 GM',
+    });
+    syncFacts(db);
+    expect(entity('Seil der Furt', 'item').item).toMatchObject({ magic: null, price: 1 });
+    expect(factField('item', 'Seltenheit')).toBe('rarity');
+    expect(factField('item', 'Ladungen')).toBe('charges');
+  });
+});

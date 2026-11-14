@@ -83,7 +83,7 @@ export function magicRarityFromText(text: string): MagicRarity | null {
   if (/^(sehr selten|very rare)/.test(value)) return 'very-rare';
   if (/^(legendar|legendary)/.test(value)) return 'legendary';
   if (/^(ungewohnlich|uncommon)/.test(value)) return 'uncommon';
-  if (/^(selten|rare)/.test(value)) return 'rare';
+  if (/^(selten|rare)\b/.test(value)) return 'rare';
   if (/^(gewohnlich|common)/.test(value)) return 'common';
   return null;
 }
@@ -172,7 +172,7 @@ export function playerMagicLine(entity: Entity | null | undefined): string {
 
 /** Bezeichnungen im Steckbrief, die von der Magie erzählen (Seltenheit, Art, Einstimmung, Ladungen). */
 const MAGIC_FACT =
-  /^(seltenheit|art des magischen gegenstands|magische art|gegenstandsart|einstimmung.*|erfordert einstimmung|ladung|ladungen)$/i;
+  /^(seltenheit|art des magischen gegenstands|magische art|einstimmung.*|erfordert einstimmung|ladung|ladungen)$/i;
 /** Bezeichnungen, die von einem Fluch erzählen – nie für die Spieler. */
 const CURSE_FACT = /^(fluch|verflucht|flüche)$/i;
 

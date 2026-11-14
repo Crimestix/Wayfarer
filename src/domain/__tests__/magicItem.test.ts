@@ -124,6 +124,7 @@ describe('Steckbrief', () => {
   it('liest Seltenheit, Einstimmung und Ladungen', () => {
     expect(magicRarityFromText('Sehr selten')).toBe('very-rare');
     expect(magicRarityFromText('Artefakt')).toBe('artifact');
+    expect(magicRarityFromText('selten (W100)')).toBe('rare');
     expect(magicRarityFromText('gewöhnlich')).toBe('common');
     expect(magicRarityFromText('irgendwie')).toBeNull();
 
