@@ -23,6 +23,12 @@ import { SRD_ATTRIBUTION } from '../srd/attribution';
 import { SRD_EQUIPMENT, SRD_GROUPS, srdCostToGold } from '../srd/equipment';
 import { srdForShopKind, srdItem, srdMatch, srdSearch, srdWeightText } from '../srd/lookup';
 
+/** Das Ergebnis von „Als Gegenstand anlegen“, wenn etwas angelegt oder verbunden wurde. */
+const made_ = (result: ReturnType<typeof stockLineToItem>) => {
+  if (!result || 'takenBy' in result) throw new Error('nicht angelegt');
+  return result;
+};
+
 const byId = (id: string) => {
   const item = srdItem(id);
   if (!item) throw new Error(`fehlt: ${id}`);
@@ -132,6 +138,9 @@ describe('Nachschlagen', () => {
       true,
     );
     expect(srdForShopKind('', '  ').items).toEqual([]);
+    // „Fähre“ ist ein Hafen, „erfahren“ nicht.
+    expect(srdForShopKind('Fähre').labels).toEqual(['Hafen']);
+    expect(srdForShopKind('Erfahrene Klingen').labels).toEqual(['Waffen']);
   });
 
   it('zeigt Gewichte wie die deutschen Regelbücher', () => {
@@ -236,14 +245,14 @@ describe('Läden mit dem Regelwerk', () => {
     const { db, shop } = await setup();
     addRuleItems(db, shop.id, ['srd-longsword', 'srd-riding-horse']);
     const [sword, horse] = db.getSnapshot().shops[shop.id]!.stock;
-    const made = stockLineToItem(db, shop.id, sword!.id)!;
-    expect(made.created).toBe(true);
+    const made = made_(stockLineToItem(db, shop.id, sword!.id));
+    expect(made).toMatchObject({ created: true, rule: true });
     const entity = db.getSnapshot().entities[made.entityId]!;
     expect(entity).toMatchObject({ kind: 'item', name: 'Langschwert' });
     expect(entity.kind === 'item' && entity.item.price).toBe(15);
     expect(db.getSnapshot().shops[shop.id]!.stock[0]!.entityId).toBe(made.entityId);
     // Ein Reittier wird ein Tier.
-    const pony = stockLineToItem(db, shop.id, horse!.id)!;
+    const pony = made_(stockLineToItem(db, shop.id, horse!.id));
     expect(db.getSnapshot().entities[pony.entityId]!.kind).toBe('animal');
     // Gibt es den Namen schon, wird er genommen.
     pony.undo();
@@ -252,6 +261,34 @@ describe('Läden mit dem Regelwerk', () => {
     const existing = db.put('entities', createEntity({ kind: 'item', name: 'Langschwert' }));
     const linked = stockLineToItem(db, shop.id, sword!.id)!;
     expect(linked).toMatchObject({ created: false, entityId: existing.id });
+  });
+
+  it('legt keinen zweiten Eintrag an, wenn eine Person den Namen trägt – nimmt aber ein Tier', async () => {
+    const { db, shop } = await setup();
+    addRuleItems(db, shop.id, ['srd-pike', 'srd-mastiff']);
+    const [pike, dog] = db.getSnapshot().shops[shop.id]!.stock;
+    db.put('entities', createEntity({ kind: 'person', name: 'Pike' }));
+    const count = Object.keys(db.getSnapshot().entities).length;
+    expect(stockLineToItem(db, shop.id, pike!.id)).toEqual({ takenBy: 'Pike (Person)' });
+    expect(Object.keys(db.getSnapshot().entities)).toHaveLength(count);
+    expect(db.getSnapshot().shops[shop.id]!.stock[0]!.entityId).toBeNull();
+    // Ein Tier gleichen Namens ist ein Eintrag zum Handeln: Es wird genommen, nicht verdoppelt.
+    const mastiff = db.put('entities', createEntity({ kind: 'animal', name: 'Mastiff' }));
+    expect(stockLineToItem(db, shop.id, dog!.id)).toMatchObject({
+      created: false,
+      entityId: mastiff.id,
+    });
+    // Eine Zeile ohne Regelwerk wird ein Gegenstand ohne Listenpreis; der Preis im Laden bleibt.
+    db.patch('shops', shop.id, {
+      stock: [
+        ...db.getSnapshot().shops[shop.id]!.stock,
+        { id: 'wurst', entityId: null, text: 'Räucherwurst', price: 0.05, qty: null, srdId: null },
+      ],
+    });
+    const wurst = made_(stockLineToItem(db, shop.id, 'wurst'));
+    expect(wurst).toMatchObject({ created: true, rule: false });
+    const item = db.getSnapshot().entities[wurst.entityId]!;
+    expect(item.kind === 'item' && item.item.price).toBeNull();
   });
 
   it('ergänzt in der Preisliste fehlende Preise nach dem Regelwerk', async () => {

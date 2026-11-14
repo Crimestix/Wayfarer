@@ -179,14 +179,23 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
   };
   const makeItem = (lineId: string, name: string) => {
     const result = stockLineToItem(db, shop.id, lineId);
-    if (result)
+    if (!result) return;
+    if ('takenBy' in result) {
       toast({
-        title: result.created ? `${name} ist jetzt ein Gegenstand` : `${name} verbunden`,
-        body: result.created
-          ? 'Mit dem Preis des Regelwerks als Listenpreis – zu finden unter „Welt“.'
-          : 'Den Eintrag gab es schon; die Zeile gehört jetzt zu ihm.',
-        action: { label: 'Rückgängig', run: result.undo },
+        title: `${name} nicht angelegt`,
+        body: `Den Namen trägt schon ${result.takenBy}. Benenne die Zeile um, dann geht es.`,
       });
+      return;
+    }
+    toast({
+      title: result.created ? `${name} ist jetzt ein Gegenstand` : `${name} verbunden`,
+      body: result.created
+        ? result.rule
+          ? 'Mit dem Preis des Regelwerks als Listenpreis – zu finden unter „Welt“.'
+          : 'Zu finden unter „Welt“; der Preis hier im Laden bleibt.'
+        : 'Den Eintrag gab es schon; die Zeile gehört jetzt zu ihm.',
+      action: { label: 'Rückgängig', run: result.undo },
+    });
   };
   const accept = () => {
     const undo = acceptShopSuggestions(db, shop.id, picked);

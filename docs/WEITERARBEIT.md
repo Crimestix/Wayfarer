@@ -1603,6 +1603,10 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   den Einstellungen. Offen: deutsche Namen sind eigene Übersetzungen (gegenlesen); Gewicht in kg
   als Pfund ÷ 2; Seltenheit am Gegenstand gibt noch keinen Richtpreis. Geprüft in der Vorschau
   bei 1440×900.
+- **Gegengelesen: Läden und Regelwerk.** Über 60 Preise gegen das PDF geprüft – alle stimmen.
+  „Als Gegenstand anlegen“ nimmt jetzt auch Pflanzen, Gesteine und Tiere gleichen Namens und legt
+  nichts an, wenn eine Person oder ein Ort den Namen trägt; Gruppe „Kits“ heißt „Pakete und
+  Ausrüstungen“; „Fähre“ statt „erfahren“ als Hafen; das Fenster passt bei 1280×800 ohne Rollen.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

@@ -14,7 +14,7 @@ export const SRD_GROUPS = [
   { id: 'armor', label: 'Rüstungen und Schilde' },
   { id: 'ammunition', label: 'Munition' },
   { id: 'gear', label: 'Abenteuerausrüstung' },
-  { id: 'kits', label: 'Kits und Pakete' },
+  { id: 'kits', label: 'Pakete und Ausrüstungen' },
   { id: 'tools', label: 'Werkzeuge' },
   { id: 'instruments', label: 'Instrumente und Spiele' },
   { id: 'mounts', label: 'Reittiere und Tiere' },
@@ -288,7 +288,7 @@ const SECTIONS: readonly { group: SrdGroup; sub: string; rows: readonly Row[] }[
       ['reliquary', 'Reliquiar (heiliges Symbol)', 'Reliquary (Holy Symbol)', '5 GP', 2],
     ],
   },
-  // ── Kits und Pakete ─────────────────────────────────────────────────────
+  // ── Pakete und Ausrüstungen (Packs, Kits) ────────────────────────────────
   {
     group: 'kits',
     sub: 'Ausrüstungspaket',
@@ -304,7 +304,7 @@ const SECTIONS: readonly { group: SrdGroup; sub: string; rows: readonly Row[] }[
   },
   {
     group: 'kits',
-    sub: 'Kit',
+    sub: 'Ausrüstung für Fertigkeiten',
     rows: [
       ['climbers-kit', 'Kletterausrüstung', "Climber's Kit", '25 GP', 12],
       ['disguise-kit', 'Verkleidungsausrüstung', 'Disguise Kit', '25 GP', 3],

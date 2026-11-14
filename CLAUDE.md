@@ -312,7 +312,8 @@ nicht übernommen.
   `srdMatch`, `srdSearch`, Ladenarten in `SHOP_KIND_RULES`). Nichts davon wird von selbst
   angelegt: In einen Laden kommt es nur auf Wahl des Spielleiters („Aus dem Regelwerk“,
   `addRuleItems` – Zeilen mit `stock.srdId`, keine Einträge der Welt; einzeln „Als Gegenstand
-  anlegen“, `stockLineToItem`). Ohne eigenen und ohne Listenpreis gilt der Preis des Regelwerks
+  anlegen“, `stockLineToItem` – nimmt einen Eintrag gleichen Namens, trägt eine Person oder ein
+  Ort den Namen, entsteht nichts). Ohne eigenen und ohne Listenpreis gilt der Preis des Regelwerks
   mal Preisstufe (`stockRuleItem`, `listOrRulePrice`, angezeigt als „Preis nach dem Regelwerk“);
   am Tisch findet die Suche auch, was nicht im Bestand ist (`ruleHits`). Die Namensnennung
   (`SRD_ATTRIBUTION`, Einstellungen „Quellen“ und unter dem Nachschlagewerk) nie entfernen.

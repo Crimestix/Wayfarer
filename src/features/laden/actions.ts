@@ -6,7 +6,8 @@
  */
 import type { CampaignDb } from '../../data/db';
 import { recordEntry, type RecordResult } from '../../data/record';
-import { nameKey, type PricePlan, type TradeKind } from '../../domain/priceList';
+import { KIND_LABEL } from '../../domain/derive';
+import { isTradeKind, nameKey, type PricePlan, type TradeKind } from '../../domain/priceList';
 import {
   listPrice,
   stockLine,
@@ -146,14 +147,18 @@ export function addRuleItems(
  * „Als Gegenstand anlegen“: macht aus einer Zeile des Regelwerks einen Eintrag der Welt – nur auf
  * ausdrücklichen Wunsch des Spielleiters. Gibt es schon einen Eintrag dieses Namens, wird er
  * genommen (nie ein zweiter); sonst entsteht ein Gegenstand (Reittiere: ein Tier) mit dem Preis
- * des Regelwerks als Listenpreis und der Unterteilung als Einordnung. Gibt die Kennung des
- * Eintrags zurück und was es rückgängig macht; null, wenn die Zeile nicht passt.
+ * des Regelwerks als Listenpreis und der Unterteilung als Einordnung. Trägt schon ein Eintrag
+ * anderer Art den Namen (eine Person, ein Ort …), entsteht nichts (`takenBy`). Gibt die Kennung
+ * des Eintrags zurück und was es rückgängig macht; null, wenn die Zeile nicht passt.
  */
 export function stockLineToItem(
   db: CampaignDb,
   shopId: string,
   lineId: string,
-): { entityId: string; created: boolean; undo: () => void } | null {
+):
+  | { entityId: string; created: boolean; rule: boolean; undo: () => void }
+  | { takenBy: string }
+  | null {
   const data = db.getSnapshot();
   const shop = data.shops[shopId];
   const line = shop?.stock.find((s) => s.id === lineId);
@@ -162,11 +167,16 @@ export function stockLineToItem(
   const name = line.text.trim() || rule?.name || '';
   if (!name) return null;
   const key = nameKey(name);
-  const twin = Object.values(data.entities).find(
-    (entity) =>
-      (entity.kind === 'item' || entity.kind === 'animal') &&
-      [entity.name, ...entity.aliases].some((n) => nameKey(n) === key),
+  const same = Object.values(data.entities).filter((entity) =>
+    [entity.name, ...entity.aliases].some((n) => nameKey(n) === key),
   );
+  // Gegenstand vor Pflanze, Gestein und Tier – wie bei der Preisliste.
+  const twin =
+    same.find((entity) => entity.kind === 'item') ??
+    same.find((entity) => isTradeKind(entity.kind));
+  // Trägt eine Person, ein Ort … den Namen, entsteht kein zweiter Eintrag gleichen Namens.
+  const other = same.find((entity) => !isTradeKind(entity.kind));
+  if (!twin && other) return { takenBy: `${other.name} (${KIND_LABEL[other.kind]})` };
   let entityId = twin?.id ?? '';
   db.batch(() => {
     if (!twin) {
@@ -187,6 +197,7 @@ export function stockLineToItem(
   return {
     entityId,
     created: !twin,
+    rule: !twin && rule !== null,
     // Löst die Zeile wieder vom Eintrag – auch wenn der Laden seither anders geändert wurde.
     undo: () =>
       db.batch(() => {

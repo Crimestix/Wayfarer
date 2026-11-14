@@ -174,7 +174,7 @@ export function RulesDialog({ shop, onClose }: { shop: Shop; onClose: () => void
                   const facts = [
                     item.en,
                     srdWeightText(item.lb),
-                    factor !== 1 && `Liste ${formatPrice(item.price)}`,
+                    factor !== 1 && `Regelwerk ${formatPrice(item.price)}`,
                   ]
                     .filter(Boolean)
                     .join(' · ');

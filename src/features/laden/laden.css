@@ -364,7 +364,8 @@
   min-width: 0;
 }
 .wf-laden-rules__list {
-  height: min(46vh, 420px);
+  /* Bei 1280 × 800 stehen die Gruppen in drei Zeilen – dann bleibt die Liste kürzer. */
+  height: clamp(200px, 100vh - 480px, 414px);
   overflow: auto;
   padding: 0 var(--s-3) var(--s-2);
   border: 1px solid var(--line-faint);

@@ -309,7 +309,8 @@ export const SHOP_KIND_RULES: readonly {
   },
   {
     label: 'Hafen',
-    stems: ['hafen', 'werft', 'schiff', 'boot', 'fahrmann', 'faehre', 'fahre', 'seefahr'],
+    stems: ['hafen', 'werft', 'schiff', 'boot', 'fahrmann', 'fahrhaus', 'seefahr'],
+    words: ['fahre'],
     groups: ['ships'],
     ids: [
       'srd-rope',
