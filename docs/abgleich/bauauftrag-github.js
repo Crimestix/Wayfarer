@@ -1,5 +1,5 @@
-// ANGEHALTEN am 15. 11. 2026: Dieser Auftrag baut den Abgleich ÜBER GITHUB. Der Spielleiter erwägt
-// stattdessen einen eigenen Server bei Hetzner – siehe docs/UEBERGABE.md. Vor dem Start anpassen.
+// 15. 11. 2026: Der Spielleiter hat sich für GITHUB entschieden (nicht Hetzner). Die Schritte laufen
+// einzeln als Agenten aus dem Chat, mit diesen Texten als Vorlage.
 export const meta = {
   name: 'abgleich-bauen',
   description: 'Abgleich des Spielstands über GitHub bauen: (A) Fachlogik und Rust-Seite mit Tests, (B) Oberfläche und Unterlagen – je Teil bauen und gegenlesen',

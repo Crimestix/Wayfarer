@@ -61,7 +61,13 @@ abgleichen.
   `src/domain/__tests__/dataVersion.test.ts` (Fingerabdruck der Schemata). Das gilt für jeden
   Speicherort und ist gesichert.
 
-### Die offene Entscheidung: Hetzner statt GitHub
+### Entschieden (15. 11., nachmittags): GitHub
+
+Der Spielleiter hat sich für **GitHub** entschieden, nicht für Hetzner. Gebaut wird nach
+`abgleich-entwurf-fertig.md`; die Empfehlungen aus dessen Abschnitt 7 gelten, bis er widerspricht.
+Der Rest dieses Abschnitts ist nur noch Vorgeschichte.
+
+### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
 KI-Agentur. Meine Einschätzung, die er schon kennt:
