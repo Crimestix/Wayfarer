@@ -29,6 +29,21 @@ Daneben, wenn es passt: Abgleich echt erproben (`docs/abgleich/ANLEITUNG-PROBE.m
 Sicherung vor einem Abend prüfen, einfacher aktualisieren auf dem Mac, Aufräumliste in
 `docs/WEITERARBEIT.md`, am Ende ein Gegenlesen der ganzen App und Tag `v1.0.0`.
 
+## Weitere Wünsche vom 16. 11. (nach der Session)
+
+- **Haltung je Gefährte** (Quenthel mag Neil nicht, liebt Tomlin) – gebaut 16. 11.
+- **Zwei Gefährten, ein Körper** (Corrin/Corrina: zwei Charaktere, Körper mit Trefferpunkten,
+  Zuständen, Ort gemeinsam) – gebaut 16. 11.
+- **Wiki und Worldbuilding** („muss perfekt sein, im Vordergrund“): Konzept `docs/KONZEPT-WIKI.md`,
+  angenommen; Schritt 1 (die Seite) in Arbeit.
+- **Ein Laden ist ein Ort.** Auf der Seite des Ortes, der der Laden ist (Dolgrins Schmiede), ist
+  der Laden der Hauptteil; die Stadt darüber zeigt keinen Laden-Teil.
+- **Läden mit Zeiten** (eigener Schritt, Konzept erst besprechen): Der Basar von Menzoberranzan
+  hat einen wechselnden Markt – „Ich brauche nicht die, die aktuell nicht da sind.“ Läden und
+  Bestand mit dem Kalender verbinden (Markttage, fahrende Händler: wann sie da sind). Ansatz:
+  Anwesenheit eines Ladens über Termine/Abläufe (`events`, `runs`), am Tisch nur die
+  anwesenden vorn, die anderen zugeklappt „gerade nicht da (wieder ab …)“ – nie weggefiltert.
+
 ## Arbeitsweise
 
 - Je Station zuerst eine **erfundene Probe-Welt** im gleichen Aufbau (Marsch durchs Unterreich,
