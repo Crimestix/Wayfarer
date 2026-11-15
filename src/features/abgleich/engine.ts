@@ -100,6 +100,11 @@ export interface SyncEngine {
   pushSoon(): void;
   /** Fenster bekommt den Fokus, wird sichtbar, Rechner wacht auf. */
   wake(): void;
+  /**
+   * Führt `work` aus, während kein Lauf unterwegs ist und keiner beginnt (wartet auf einen
+   * laufenden). Für alles, was den gemeinsamen Stand von außen ändert (`syncBeforeRestore`).
+   */
+  hold<T>(work: () => Promise<T>): Promise<T>;
 }
 
 /** Wartezeiten (ms). */
@@ -178,6 +183,8 @@ export function createSyncEngine(
   let retryKey = false;
   let started = false;
   let failures = 0;
+  /** Kein Netz oder Pause von GitHub: Von selbst wird vorher nicht wieder gefragt. */
+  let notBefore = 0;
   let lastLook = 0;
   let lastRun = 0;
   let firstChange: number | null = null;
@@ -188,13 +195,31 @@ export function createSyncEngine(
   let pendings = new Map<string, Pending>();
   let lastLocal = new Map<string, Sha>();
 
+  /**
+   * Braucht es den Spielleiter wegen einer Antwort von GitHub (Schlüssel, Recht, Ablage weg),
+   * fragt der Ablauf von selbst nicht wieder – 401 nie wiederholen. Erst ein ausdrücklicher Lauf.
+   */
+  const blocked = () => {
+    const { phase, needs } = view.get();
+    const why = needs?.why;
+    return phase === 'needsYou' && (why === 'key' || why === 'denied' || why === 'missing');
+  };
+
+  /** Ein Lauf von selbst (Takt, Speichern, Fokus …): nie vor `notBefore`, nie, wenn gesperrt. */
   const schedule = (ms: number, mode: 'full' | 'push' = 'full') => {
-    if (!started) return;
+    if (!started || blocked()) return;
+    const wait = Math.max(ms, notBefore - timers.now());
     if (timer !== null) timers.clear(timer);
     timer = timers.set(() => {
       timer = null;
       void run(mode);
-    }, ms);
+    }, wait);
+  };
+  const auto = (mode: 'full' | 'push' = 'full') => {
+    if (blocked()) return;
+    if (timers.now() >= notBefore) void run(mode);
+    // Die Wartezeit läuft schon (der Versuch danach ist geplant) – nichts vorziehen.
+    else if (timer === null) schedule(0, mode);
   };
 
   const needs = (why: NeedsWhy, detail?: string) =>
@@ -228,6 +253,28 @@ export function createSyncEngine(
     }
   }
 
+  /**
+   * Arbeit, während kein Lauf unterwegs ist: wartet auf einen laufenden und hält neue an (sie
+   * folgen danach). Die Rust-Seite liest und schreibt `stand.json` – was gleichzeitig daneben
+   * gemerkt würde (eine eingespielte Sicherung, eine Entscheidung), ginge sonst verloren.
+   */
+  async function exclusive<T>(work: () => Promise<T>): Promise<T> {
+    while (running) await running;
+    let release: () => void = () => undefined;
+    running = new Promise<void>((resolve) => (release = resolve));
+    try {
+      return await work();
+    } finally {
+      running = null;
+      release();
+      if (again) {
+        const next = again;
+        again = null;
+        void run(next);
+      }
+    }
+  }
+
   async function runOnce(mode: 'full' | 'push'): Promise<void> {
     const before = view.get();
     view.set({ phase: 'running' });
@@ -249,6 +296,7 @@ export function createSyncEngine(
         const result = await tryOnce(mode);
         if (result !== 'again') {
           failures = 0;
+          notBefore = 0;
           return;
         }
       }
@@ -270,6 +318,7 @@ export function createSyncEngine(
       case 'server': {
         const delay = TIMING.backoff[Math.min(failures, TIMING.backoff.length - 1)]!;
         failures++;
+        notBefore = timers.now() + delay;
         view.set({
           phase: 'offline',
           offline: { why: failure.kind === 'offline' ? 'net' : 'server' },
@@ -279,6 +328,7 @@ export function createSyncEngine(
       }
       case 'limit': {
         const wait = Math.max(60, failure.retryAfter ?? 60) * 1000;
+        notBefore = timers.now() + wait;
         view.set({
           phase: 'offline',
           offline: { why: 'limit', until: new Date(timers.now() + wait).toISOString() },
@@ -463,8 +513,10 @@ export function createSyncEngine(
             if (!remoteSha || content == null || !checkIncoming(step.path, content).ok) {
               const d = decisionFor(step.path, remoteSha);
               if (d?.choice === 'local' && remoteSha && local.has(step.path)) {
-                // „Fassung von hier hochladen“: Die unlesbare Fassung dort gilt als gesehen.
+                // „Fassung von hier hochladen“: Die unlesbare Fassung dort gilt als gesehen und
+                // liegt danach beiseite (sie wird in der Ablage gleich ersetzt).
                 baseMarks.push({ path: step.path, sha: remoteSha });
+                if (fetched.has(remoteSha)) keep.push({ path: step.path, sha: remoteSha });
                 decidedDone.push(step.path);
                 decisionUsed = true;
               } else conflict(step, 'whole', { why: 'unreadable' });
@@ -485,6 +537,7 @@ export function createSyncEngine(
               const d = decisionFor(step.path, remoteSha);
               if (d?.choice === 'local' && remoteSha) {
                 baseMarks.push({ path: step.path, sha: remoteSha });
+                if (fetched.has(remoteSha)) keep.push({ path: step.path, sha: remoteSha });
                 decidedDone.push(step.path);
                 decisionUsed = true;
               } else conflict(step, 'whole', { why: 'unreadable' });
@@ -503,8 +556,14 @@ export function createSyncEngine(
             const choose: Choose | undefined = d
               ? { side: d.choice === 'local' ? 'local' : 'remote', at: d.fields ?? [] }
               : undefined;
-            const merged = mergeFile(step.path, baseText, localText, remoteText, choose, nowIso());
-            if (d) {
+            let merged = mergeFile(step.path, baseText, localText, remoteText, choose, nowIso());
+            // Eine Entscheidung gilt nur, wenn der Eintrag mit ihr ganz zusammengeht. Bleibt ein
+            // Widerspruch (hier hat sich inzwischen eine weitere strittige Angabe geändert), gilt
+            // nichts von ihr – auch nicht die Folgen einer Weltzeit –, und die Karte zeigt alles.
+            const applies = !!d && (merged.kind === 'merged' || merged.kind === 'take');
+            if (d && !applies)
+              merged = mergeFile(step.path, baseText, localText, remoteText, undefined, nowIso());
+            if (d && applies) {
               decidedDone.push(step.path);
               decisionUsed = true;
               if (step.path === 'state.json' && d.fields?.some((f) => f[0] === 'now')) {
@@ -525,12 +584,13 @@ export function createSyncEngine(
                 expect: local.get(step.path) ?? null,
                 base: remoteSha,
               });
-              if (d?.choice === 'local') keep.push({ path: step.path, sha: remoteSha });
+              if (applies && d?.choice === 'local') keep.push({ path: step.path, sha: remoteSha });
             } else if (merged.kind === 'take') {
               if (merged.side === 'remote') pullWrite(step.path, remoteSha, remoteText);
               else {
                 baseMarks.push({ path: step.path, sha: remoteSha });
-                if (d?.choice === 'local') keep.push({ path: step.path, sha: remoteSha });
+                if (applies && d?.choice === 'local')
+                  keep.push({ path: step.path, sha: remoteSha });
               }
             } else if (merged.kind === 'clash') {
               const isTime = merged.fields.some((f) => f.group === 'time');
@@ -771,7 +831,9 @@ export function createSyncEngine(
       const localText = disk.get(f.path);
       if (baseText == null || localText === undefined) continue;
       const filled = fillStrippedFile(baseText, localText);
-      if (!filled) continue;
+      // Was sich nicht sauber ergänzen lässt, bleibt, wie es ist – sonst lehnte `takeRemote`
+      // alles ab, und kein Lauf käme je über diese Stelle hinaus.
+      if (!filled || !checkIncoming(f.path, filled).ok) continue;
       files.push({ path: f.path, content: filled });
       writes.push({ path: f.path, content: filled, expect: f.sha, base: base[f.path]! });
     }
@@ -810,7 +872,7 @@ export function createSyncEngine(
       if (opts.drafts!.has()) return;
       draftsOff?.();
       draftsOff = null;
-      void run('full');
+      auto('full');
     });
     schedule(TIMING.retry);
   }
@@ -821,6 +883,14 @@ export function createSyncEngine(
     choice: 'upload' | 'localWins' | 'remoteWins',
     given?: SyncLink,
   ): Promise<void> {
+    if (await exclusive(() => firstSyncAlone(choice, given))) await run('full');
+  }
+
+  /** Der erste Abgleich ohne gleichzeitigen Lauf. Ergebnis: danach gleich abgleichen? */
+  async function firstSyncAlone(
+    choice: 'upload' | 'localWins' | 'remoteWins',
+    given?: SyncLink,
+  ): Promise<boolean> {
     const st = await port.state(root, dataVersion);
     const link = given ?? st.link;
     if (!link) throw new SyncFailure('input', 'Der Abgleich ist noch nicht eingerichtet.');
@@ -834,8 +904,14 @@ export function createSyncEngine(
     const scan = await port.scan(root, true, undefined, given);
     const remote = scan.remote;
     if (!remote) throw new SyncFailure('server', 'Die Ablage wurde nicht gelesen.');
-    if (remote.kind === 'foreign') return needs('foreign');
-    if (!remote.isPrivate) return needs('public');
+    if (remote.kind === 'foreign') {
+      needs('foreign');
+      return false;
+    }
+    if (!remote.isPrivate) {
+      needs('public');
+      return false;
+    }
     const local = toMap(scan.local);
     const remoteMap = toMap(remote.files);
     const cmp = compareWithoutBase(local, remoteMap);
@@ -898,7 +974,7 @@ export function createSyncEngine(
         // Die Datenbank ist geschlossen; beim Neuladen bringt `openCampaign` es zu Ende.
         opts.reload?.();
       }
-      return;
+      return false;
     } else {
       // Der Stand dieses Rechners gilt: Was dort anders ist, liegt danach hier beiseite.
       const aside = [...cmp.different, ...cmp.onlyRemote];
@@ -928,7 +1004,7 @@ export function createSyncEngine(
     }
     await port.mark({ root, synced: true });
     view.set({ phase: 'synced', needs: null, firstSync: null });
-    await run('full');
+    return true;
   }
 
   // ── Entscheidungen ────────────────────────────────────────────────────────
@@ -955,11 +1031,13 @@ export function createSyncEngine(
         fields: p.kind === 'fields' || p.kind === 'time' ? p.fields : null,
       };
     }
-    await port.mark({
-      root,
-      ...(Object.keys(decided).length ? { decided } : {}),
-      ...(baseMarks.length ? { base: baseMarks } : {}),
-    });
+    await exclusive(() =>
+      port.mark({
+        root,
+        ...(Object.keys(decided).length ? { decided } : {}),
+        ...(baseMarks.length ? { base: baseMarks } : {}),
+      }),
+    );
     await run('full');
   }
 
@@ -984,12 +1062,12 @@ export function createSyncEngine(
         const next = db.getSnapshot().state.sessionId;
         const ended = sessionId !== null && next === null;
         sessionId = next;
-        if (ended && !applying) void run('full');
+        if (ended && !applying) auto('full');
       }),
     );
     const tick = () => {
       every = timers.set(() => {
-        void run('full');
+        auto('full');
         tick();
       }, TIMING.every);
     };
@@ -1020,12 +1098,15 @@ export function createSyncEngine(
     decide,
     firstSync,
     async confirmMove(isMine) {
-      const st = await port.state(root, dataVersion);
-      if (!st.link) return;
-      if (isMine) await port.link(root, { ...st.link, root }, true);
-      else await port.link(root, null);
-      view.set({ phase: isMine ? 'synced' : 'off', needs: null });
-      if (isMine) await run('full');
+      const changed = await exclusive(async () => {
+        const st = await port.state(root, dataVersion);
+        if (!st.link) return false;
+        if (isMine) await port.link(root, { ...st.link, root }, true);
+        else await port.link(root, null);
+        view.set({ phase: isMine ? 'synced' : 'off', needs: null });
+        return true;
+      });
+      if (changed && isMine) await run('full');
     },
     async beforeClose() {
       view.set({ closing: true });
@@ -1038,15 +1119,16 @@ export function createSyncEngine(
     pushSoon() {
       if (!view.get().due) return;
       const wait = lastRun + TIMING.pushGap - timers.now();
-      if (wait <= 0) void run('push');
-      else schedule(wait, 'push');
+      if (wait <= 0) auto('push');
+      else if (timers.now() >= notBefore) schedule(wait, 'push');
     },
     wake() {
       if (timers.now() - lastLook > TIMING.look) {
         if (view.get().needs?.why === 'keychain') return;
-        void run('full');
+        auto('full');
       }
     },
+    hold: exclusive,
   };
 }
 

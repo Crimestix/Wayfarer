@@ -16,6 +16,7 @@ import {
 } from '../../../domain/schema';
 import { isSyncedPath } from '../../../domain/sync';
 import { fetchIntoEmptyFolder } from '../engine';
+import { setActiveSync, syncBeforeRestore } from '../index';
 import { FakeRepo, gitSha, machine, markerText, settle, type Machine } from './fake';
 
 const text = (v: unknown) => JSON.stringify(v, null, 1) + '\n';
@@ -744,5 +745,192 @@ describe('Auslöser', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/** Wartet, bis der Lauf beim Start fertig ist (WebCrypto braucht echte Zeit). */
+async function idle(m: Machine) {
+  await settle();
+  for (let i = 0; i < 100 && m.engine.view.get().phase === 'running'; i++) await settle();
+}
+
+describe('Gegengelesen', () => {
+  it('Sicherung einspielen wartet, bis ein laufender Abgleich fertig ist; nichts geht still hinüber', async () => {
+    const { repo, pc } = await twoMachines();
+    setActiveSync({ engine: pc.engine, port: pc.port, root: '/Windows-PC' });
+    try {
+      // Ein Lauf schaut gerade in die Ablage (das dauert) …
+      let open: () => void = () => undefined;
+      pc.port.scanGate = () => new Promise<void>((resolve) => (open = resolve));
+      const running = pc.engine.syncNow();
+      await settle();
+      // … und genau jetzt wird eine Sicherung eingespielt.
+      const restoring = syncBeforeRestore();
+      await settle();
+      expect(pc.port.calls).not.toContain('mark:dropBase');
+      pc.port.scanGate = null;
+      open();
+      await running;
+      await restoring;
+      expect(pc.port.calls.at(-1)).toBe('mark:dropBase');
+      const now = pc.db.getSnapshot();
+      const someone = firstOf(pc);
+      const backup = {
+        ...now,
+        entities: { ...now.entities, [someone.id]: { ...someone, tagline: 'aus der Sicherung' } },
+      };
+      const head = repo.head;
+      pc.db.replaceAll(backup);
+      await pc.engine.syncNow();
+      expect(repo.head).toBe(head);
+      expect(pc.engine.view.get().needs?.why).toBe('firstSync');
+    } finally {
+      setActiveSync(null);
+    }
+  });
+
+  it('GitHub bittet um eine Pause → auch Speichern fragt vorher nicht wieder', async () => {
+    const { repo, mac } = await twoMachines();
+    mac.engine.start();
+    await idle(mac);
+    repo.failNext('limit', 600);
+    await mac.engine.syncNow();
+    expect(mac.engine.view.get().offline?.why).toBe('limit');
+    const before = repo.log.length;
+    for (let i = 0; i < 6; i++) {
+      mac.db.patch('entities', firstOf(mac).id, { tagline: `Notiz ${i}` });
+      await mac.db.flush();
+      await mac.timers.advance(60_000);
+    }
+    mac.engine.wake();
+    mac.engine.pushSoon();
+    await settle();
+    expect(repo.log.length).toBe(before);
+    await mac.timers.advance(5 * 60_000);
+    expect(repo.log.length).toBeGreaterThan(before);
+    expect(mac.engine.view.get().phase).toBe('synced');
+    mac.engine.stop();
+  });
+
+  it('Schlüssel ungültig → Speichern, Fokus und Takt fragen nicht wieder; „Jetzt abgleichen“ schon', async () => {
+    const { repo, mac } = await twoMachines();
+    mac.engine.start();
+    await idle(mac);
+    repo.failNext('key');
+    await mac.engine.syncNow();
+    expect(mac.engine.view.get().needs?.why).toBe('key');
+    const before = repo.log.length;
+    mac.db.patch('entities', firstOf(mac).id, { tagline: 'am Tisch' });
+    await mac.db.flush();
+    await mac.timers.advance(61_000);
+    mac.engine.wake();
+    mac.engine.pushSoon();
+    await settle();
+    await mac.timers.advance(11 * 60_000);
+    expect(repo.log.length).toBe(before);
+    await mac.engine.syncNow();
+    expect(repo.log.length).toBeGreaterThan(before);
+    expect(mac.engine.view.get().phase).toBe('synced');
+    mac.engine.stop();
+  });
+
+  it('eine Entscheidung zur Weltzeit gilt erst, wenn der Eintrag wirklich zusammengeht', async () => {
+    const { pc, mac } = await twoMachines();
+    const now = pc.db.getSnapshot().state.now;
+    pc.db.put('events', createEvent({ title: 'Markt in Hohenfurt', at: now + 24 * 60 }));
+    await pc.engine.syncNow();
+    await mac.engine.syncNow();
+    const [a, b] = people(pc, 'place').filter((p) => p.id !== pc.db.getSnapshot().state.placeId);
+    advanceTime(pc.db, now + 60);
+    pc.db.setState({ placeId: a!.id });
+    advanceTime(mac.db, now + 3 * 24 * 60);
+    await pc.engine.syncNow();
+    await mac.engine.syncNow();
+    expect(mac.engine.view.get().conflicts).toMatchObject([{ path: 'state.json', kind: 'time' }]);
+    const marketId = Object.values(mac.db.getSnapshot().events).find(
+      (e) => e.title === 'Markt in Hohenfurt',
+    )!.id;
+    // Am Mac ist der Markt eingetreten: Seine Zeile steht in der Chronik.
+    const market = () => ({
+      done: Object.values(mac.db.getSnapshot().chronicle).some((c) => c.eventId === marketId),
+    });
+    expect(market().done).toBe(true);
+    // Zwischen Dialog und Entscheidung ändert sich hier eine weitere strittige Angabe.
+    mac.db.setState({ placeId: b!.id });
+    await mac.engine.decide({ 'state.json': 'remote' });
+    // Der Eintrag geht nicht zusammen: Nichts von der Wahl darf schon gelten.
+    expect(mac.db.getSnapshot().state.now).toBe(now + 3 * 24 * 60);
+    expect(market().done).toBe(true);
+    expect(mac.engine.view.get().reopened).toBeNull();
+    const card = mac.engine.view.get().conflicts.find((c) => c.path === 'state.json')!;
+    expect(card.fields.map((f) => f.at[0]).sort()).toEqual(['now', 'placeId']);
+    // Die neue Wahl gilt für beides.
+    await mac.engine.decide({ 'state.json': 'remote' });
+    expect(mac.db.getSnapshot().state).toMatchObject({ now: now + 60, placeId: a!.id });
+    expect(market().done).toBe(false);
+    await pc.engine.syncNow();
+    expect(synced(pc)).toEqual(synced(mac));
+  });
+
+  it('„Fassung von hier hochladen“ legt die unlesbare Fassung von dort beiseite', async () => {
+    const { repo, pc, mac } = await twoMachines();
+    const id = firstOf(pc).id;
+    const path = `entities/${id}.json`;
+    const broken = '{"id":"' + id + '","kind":"person","name":42}\n';
+    repo.commitAs('Windows-PC', { [path]: broken });
+    await mac.engine.syncNow();
+    await mac.engine.decide({ [path]: 'local' });
+    expect(JSON.parse(repo.text(path)!).name).toBe(firstOf(mac).name);
+    const aside = await mac.port.asideList();
+    expect(aside[0]).toMatchObject({ reason: 'entscheidung', entries: [{ side: 'dort', path }] });
+    expect(await mac.port.asideRead('/MacBook', aside[0]!.run, 'dort', path)).toBe(broken);
+  });
+
+  it('nach dem Aktualisieren: eine Datei, die sich nicht ergänzen lässt, hält den Abgleich nicht an', async () => {
+    const { repo, pc, mac } = await twoMachines();
+    const entry = pc.db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'promise',
+        at: 1,
+        text: 'Brann hilft beim Markt',
+        promise: { due: null, done: false, failed: false },
+      }),
+    );
+    await pc.engine.syncNow();
+    await mac.engine.syncNow();
+    const path = `chronicle/${entry.id}.json`;
+    const here = JSON.parse(mac.store.files.get(path)!);
+    expect(here.promise).toBeTruthy();
+    // Der gemeinsame Stand trägt eine Angabe, die dieses Programm nicht lesen kann; hier fehlt sie.
+    const odd = { ...here, text: 'älter', promise: { ...here.promise, sort: 'unbekannt' } };
+    const oddSha = repo.putBlob(text(odd));
+    await mac.port.mark({ root: '/MacBook', base: [{ path, sha: oddSha }], olderEdits: true });
+    pc.db.patch('entities', firstOf(pc).id, { tagline: 'kommt trotzdem an' });
+    await pc.engine.syncNow();
+    await mac.engine.syncNow();
+    expect(entity(mac, firstOf(pc).id)!.tagline).toBe('kommt trotzdem an');
+    expect(mac.port.stand!.olderEdits).toBe(false);
+  });
+
+  it('Dauerarbeit ohne 30 s Ruhe: spätestens fünf Minuten nach der ersten Änderung', async () => {
+    const { mac } = await twoMachines();
+    mac.engine.start();
+    await idle(mac);
+    const scans = () => mac.port.calls.filter((c) => c === 'scan').length;
+    const n = scans();
+    const write = async (i: number) => {
+      mac.db.patch('entities', firstOf(mac).id, { tagline: `Mitschrift ${i}` });
+      await mac.db.flush();
+      await mac.timers.advance(20_000);
+    };
+    // Alle 20 s ein Wort – nie 30 s Ruhe.
+    for (let i = 0; i < 14; i++) await write(i);
+    expect(scans()).toBe(n);
+    await write(14);
+    expect(scans()).toBe(n + 1);
+    await write(15);
+    expect(scans()).toBe(n + 1);
+    mac.engine.stop();
   });
 });

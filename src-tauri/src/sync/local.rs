@@ -450,6 +450,18 @@ pub fn write_stand(root: &Path, stand: &Stand) -> Result<(), SyncError> {
     write_json(&current, stand)
 }
 
+/// Merkt, was in der Ablage gesehen wurde – auf dem Stand, der **jetzt** in der Datei steht.
+/// Ein Blick in die Ablage dauert; was währenddessen gemerkt wurde (eine Entscheidung, eine
+/// eingespielte Sicherung), darf er nie mit dem vorher Gelesenen überschreiben.
+pub fn remember_seen(root: &Path, seen: Option<Seen>, max_version: u32) -> Result<(), SyncError> {
+    let Some(mut stand) = read_stand(root) else {
+        return Ok(());
+    };
+    stand.seen = seen;
+    stand.max_version = stand.max_version.max(max_version);
+    write_stand(root, &stand)
+}
+
 // ── Merkzettel und Eingang ───────────────────────────────────────────────────
 
 pub fn read_note(root: &Path) -> Result<Option<Note>, SyncError> {

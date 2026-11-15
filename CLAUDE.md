@@ -166,7 +166,11 @@ nicht übernommen.
     Ordner legen. Angewendet wird nur ohne offenen Entwurf: Ein Feld, Formular, Editor oder Dialog,
     das Eingaben hält, meldet sich über `useHoldDraft`/`holdDraft` (`ui/drafts.ts`) an.
   - Wer den ganzen Stand austauscht (Sicherung, alte Version, Neu beginnen), ruft vorher
-    `syncBeforeRestore()`; ohne gemeinsamen Stand wird nie still gelöscht oder gemischt.
+    `syncBeforeRestore()`; ohne gemeinsamen Stand wird nie still gelöscht oder gemischt. Was
+    `.abgleich/stand.json` von außerhalb eines Laufs ändert, tut es über `engine.hold` – nie
+    neben einem laufenden Abgleich.
+  - Von selbst (Takt, Speichern, Fokus) fragt der Ablauf GitHub nie vor Ablauf einer Wartezeit
+    (kein Netz, Pause) und nach 401/403/404 gar nicht mehr – erst auf ausdrücklichen Wunsch.
   - **Wer das Schema ändert, erhöht `DATA_VERSION` und setzt `DATA_SHAPE`** (der Test erzwingt es);
     ein älteres Programm holt dann weiter, lädt aber erst nach dem Aktualisieren hoch. Ein neues
     Feld in `state.json`/`campaign.json`: Regel in `STATE_RULES`/`CAMPAIGN_RULES` prüfen.

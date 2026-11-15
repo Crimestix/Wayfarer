@@ -46,6 +46,9 @@ pub struct Repo {
     pub push_in_before_patch: Option<BTreeMap<String, String>>,
     /// Nach so vielen Anfragen wird die Verbindung abgebrochen (einmal).
     pub drop_after: Option<usize>,
+    /// Läuft bei jeder Anfrage mit „METHODE pfad“ – so schreibt „gleichzeitig“ etwas anderes.
+    #[allow(clippy::type_complexity)]
+    pub on_request: Option<Box<dyn FnMut(&str) + Send>>,
     counter: u64,
 }
 
@@ -187,6 +190,9 @@ fn handle(mut stream: TcpStream, repo: Arc<Mutex<Repo>>, port: u16) {
         }
     }
     let line = format!("{method} {path}");
+    if let Some(hook) = repo.on_request.as_mut() {
+        hook(&line);
+    }
     if let Some(i) = repo.forced.iter().position(|f| line.contains(&f.contains)) {
         let forced = repo.forced.remove(i).unwrap();
         let headers = forced.headers.clone();

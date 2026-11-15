@@ -481,7 +481,9 @@ pub async fn scan(
         let api = sync.api(sync.key(retry_key)?, &link)?;
         let scanned = scan_remote(sync, &api, &mut stand).await?;
         if let Some(s) = stand.as_ref() {
-            local::write_stand(&root, s)?;
+            // Nur das Gesehene nachtragen – auf dem jetzigen Stand der Datei.
+            local::remember_seen(&root, s.seen.clone(), s.max_version)?;
+            stand = local::read_stand(&root);
         }
         Some(scanned)
     } else {
@@ -673,8 +675,10 @@ pub async fn push<R: Runtime>(
         }
     }
     let api = sync.api(sync.key(false)?, &link)?;
-    let mut stand = local::read_stand(&root);
+    let stand = local::read_stand(&root);
     let seen = stand.as_ref().and_then(|s| s.seen.clone());
+    // Gab es schon einen gemeinsamen Stand? (Ohne: das erste Hochladen legt ihn an.)
+    let had_base = stand.as_ref().is_some_and(|s| s.files.is_some());
     // 2. Leere Ablage: eröffnen.
     let first = input.head.is_none() || seen.is_none();
     let (head, mut base_tree) = match &input.head {
@@ -823,14 +827,19 @@ pub async fn push<R: Runtime>(
     let commit = api.post_commit(&message, &base_tree, &head).await?;
     pause(sync.gap()).await;
     api.switch(&commit).await?;
-    // 7. Erst jetzt der gemeinsame Stand.
-    let s = stand.get_or_insert_with(Stand::default);
-    let base = s.files.get_or_insert_with(BTreeMap::new);
-    for (path, text) in &contents {
-        base.insert(path.clone(), local::blob_sha(text.as_bytes()));
-    }
-    for path in &deletes {
-        base.remove(path);
+    // 7. Erst jetzt der gemeinsame Stand – auf dem, was jetzt in der Datei steht: Was während
+    // des Hochladens gemerkt wurde (Entscheidung, eingespielte Sicherung), bleibt. Wurde der
+    // gemeinsame Stand inzwischen verworfen, entsteht kein Teil davon neu.
+    let mut fresh = local::read_stand(&root).unwrap_or_default();
+    let s = &mut fresh;
+    if s.files.is_some() || !had_base {
+        let base = s.files.get_or_insert_with(BTreeMap::new);
+        for (path, text) in &contents {
+            base.insert(path.clone(), local::blob_sha(text.as_bytes()));
+        }
+        for path in &deletes {
+            base.remove(path);
+        }
     }
     s.repo = Some(format!("{}/{}", link.owner, link.repo));
     s.branch = Some(link.branch.clone());

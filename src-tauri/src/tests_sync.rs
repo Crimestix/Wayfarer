@@ -10,7 +10,7 @@ use tauri::{Manager, WebviewWindow};
 use tempfile::TempDir;
 
 use crate::keys::KeyState;
-use crate::sync::local::{blob_sha, scan_local, write_link};
+use crate::sync::local::{blob_sha, mark, read_stand, scan_local, write_link, Decision, MarkInput};
 use crate::sync::testserver::{self, Forced};
 use crate::sync::Sync;
 use crate::tests::{app, invoke, window};
@@ -704,6 +704,90 @@ fn foreign_and_public_repositories_are_never_written() {
         .log
         .iter()
         .any(|(l, _)| l.starts_with("PATCH")));
+}
+
+/// Läuft einmal, sobald eine Anfrage `contains` enthält: merkt im Ordner gleichzeitig etwas
+/// (wie eine eingespielte Sicherung oder eine Entscheidung, während der Abgleich im Netz ist).
+fn meanwhile(server: &testserver::Server, contains: &'static str, root: &str, input: MarkInput) {
+    let root = std::path::PathBuf::from(root);
+    let mut input = Some(input);
+    server.repo.lock().unwrap().on_request = Some(Box::new(move |line: &str| {
+        if line.contains(contains) {
+            if let Some(input) = input.take() {
+                mark(&root, input).unwrap();
+            }
+        }
+    }));
+}
+
+#[test]
+fn reading_the_repository_never_undoes_what_was_noted_meanwhile() {
+    let (_app, main, server) = online();
+    let dir = TempDir::new().unwrap();
+    let root = linked_with_head(&main, &dir);
+    assert!(read_stand(dir.path()).unwrap().files.is_some());
+    // Während der Blick in die Ablage unterwegs ist, wird eine Sicherung eingespielt.
+    meanwhile(
+        &server,
+        "/git/ref/heads/",
+        &root,
+        MarkInput {
+            drop_base: Some(true),
+            ..MarkInput::default()
+        },
+    );
+    let scan = invoke(&main, "sync_scan", json!({ "root": root, "remote": true })).unwrap();
+    let stand = read_stand(dir.path()).unwrap();
+    assert!(stand.files.is_none(), "der gemeinsame Stand ist wieder da");
+    assert!(stand.restored);
+    assert_eq!(scan["base"], Value::Null);
+    assert!(stand.seen.is_some());
+}
+
+#[test]
+fn uploading_never_undoes_what_was_noted_meanwhile() {
+    let (_app, main, server) = online();
+    let dir = TempDir::new().unwrap();
+    let root = linked_with_head(&main, &dir);
+    let scan = invoke(&main, "sync_scan", json!({ "root": root, "remote": true })).unwrap();
+    let changed = "{\"id\":\"e0\",\"name\":\"Tannhaus\"}\n";
+    std::fs::write(dir.path().join("entities/e0.json"), changed).unwrap();
+    // Während des Hochladens: eine Entscheidung und eine eingespielte Sicherung.
+    meanwhile(
+        &server,
+        "POST /repos/spielleiter/spielstand-elaris/git/commits",
+        &root,
+        MarkInput {
+            drop_base: Some(true),
+            decided: Some(BTreeMap::from([(
+                "stories/x.json".to_string(),
+                Some(Decision {
+                    choice: "local".into(),
+                    remote: None,
+                    fields: None,
+                }),
+            )])),
+            ..MarkInput::default()
+        },
+    );
+    invoke(
+        &main,
+        "sync_push",
+        json!({ "root": root, "head": scan["remote"]["head"], "tree": scan["remote"]["tree"],
+                "changes": [{ "path": "entities/e0.json", "sha": blob_sha(changed.as_bytes()) }],
+                "dataVersion": 1, "dataShape": "abc", "counts": { "changed": 1, "added": 0, "removed": 0 } }),
+    )
+    .unwrap();
+    let stand = read_stand(dir.path()).unwrap();
+    assert!(
+        stand.files.is_none(),
+        "ein Teil des gemeinsamen Stands ist entstanden"
+    );
+    assert!(stand.decided.contains_key("stories/x.json"));
+    assert_eq!(
+        stand.seen.unwrap().files["entities/e0.json"],
+        blob_sha(changed.as_bytes())
+    );
 }
 
 /// Probe gegen GitHub – nur von Hand, nur mit einer Wegwerf-Ablage, nie bei den Prüfungen:

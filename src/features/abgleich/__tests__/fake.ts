@@ -57,20 +57,25 @@ export class FakeRepo {
   isPrivate = true;
   /** Protokoll aller Anfragen (Art). */
   readonly log: string[] = [];
-  private failures: SyncErrorKind[] = [];
+  private failures: { kind: SyncErrorKind; retryAfter: number | null }[] = [];
   private counter = 0;
   /** Wird unmittelbar vor dem Umschalten aufgerufen (ein anderer schiebt ein). */
   beforeSwitch: (() => void) | null = null;
 
-  /** Die nächste Anfrage scheitert mit dieser Art. */
-  failNext(kind: SyncErrorKind) {
-    this.failures.push(kind);
+  /** Die nächste Anfrage scheitert mit dieser Art (bei „limit“ mit Wartezeit in Sekunden). */
+  failNext(kind: SyncErrorKind, retryAfter: number | null = null) {
+    this.failures.push({ kind, retryAfter });
   }
 
   request(what: string) {
     this.log.push(what);
-    const kind = this.failures.shift();
-    if (kind) throw new SyncFailure(kind, `Störung (${kind}) bei ${what}`);
+    const failure = this.failures.shift();
+    if (failure)
+      throw new SyncFailure(
+        failure.kind,
+        `Störung (${failure.kind}) bei ${what}`,
+        failure.retryAfter,
+      );
   }
 
   files(commit: string | null): Map<string, string> {
@@ -219,6 +224,8 @@ export class MemoryPort implements SyncPort {
   frozen = new Map<string, 'case' | 'encoding' | 'size' | 'locked'>();
   private crash: CrashPoint | null = null;
   readonly calls: string[] = [];
+  /** Ein Blick in die Ablage, der dauert: `scan` wartet darauf, bevor er etwas tut. */
+  scanGate: (() => Promise<void>) | null = null;
 
   constructor(
     readonly repo: FakeRepo,
@@ -437,6 +444,7 @@ export class MemoryPort implements SyncPort {
     link?: SyncLink,
   ): Promise<SyncScan> {
     this.calls.push(remote ? 'scan' : 'scan-local');
+    if (remote && this.scanGate) await this.scanGate();
     let settled = 0;
     // (a) Ein liegender Merkzettel wird abgeschlossen, ohne zu schreiben.
     if (this.note && this.note.kind === 'run') {
@@ -620,6 +628,7 @@ export class MemoryPort implements SyncPort {
     const target = input.link ?? this.verbindung;
     if (!target) throw new SyncFailure('input', 'Der Abgleich ist nicht eingerichtet.');
     if (!this.repo.isPrivate) throw new SyncFailure('denied', 'Die Ablage ist öffentlich.');
+    const hadBase = !!this.load().files;
     // 1. Jede Datei roh lesen und gegen den Plan prüfen – eine Abweichung, und nichts geht hoch.
     const texts = new Map<string, string>();
     for (const c of input.changes) {
@@ -668,7 +677,8 @@ export class MemoryPort implements SyncPort {
     }
     this.writeStand({
       ...stand,
-      files: base,
+      // Wie die Rust-Seite: Ein inzwischen verworfener gemeinsamer Stand entsteht nicht neu.
+      files: stand.files || !hadBase ? base : null,
       repo: `${target.owner}/${target.repo}`,
       maxVersion: Math.max(stand.maxVersion, marker.datenstand),
       seen: {
@@ -684,7 +694,7 @@ export class MemoryPort implements SyncPort {
   }
 
   async mark(input: MarkInput) {
-    this.calls.push('mark');
+    this.calls.push(input.dropBase ? 'mark:dropBase' : 'mark');
     const stand = this.load();
     const next: Stand = { ...stand, decided: { ...stand.decided } };
     if (input.base) {

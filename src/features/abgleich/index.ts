@@ -52,7 +52,11 @@ export function setActiveSync(next: { engine: SyncEngine; port: SyncPort; root: 
  */
 export async function syncBeforeRestore(): Promise<void> {
   if (!active) return;
-  const st = await active.port.state(active.root, DATA_VERSION);
-  if (!st.link) return;
-  await active.port.mark({ root: active.root, dropBase: true });
+  const { engine, port, root } = active;
+  // Nie neben einem laufenden Abgleich: Er schriebe sonst den alten gemeinsamen Stand zurück.
+  await engine.hold(async () => {
+    const st = await port.state(root, DATA_VERSION);
+    if (!st.link) return;
+    await port.mark({ root, dropBase: true });
+  });
 }
