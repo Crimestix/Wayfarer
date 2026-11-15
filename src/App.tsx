@@ -94,12 +94,20 @@ export function App() {
     window.addEventListener('blur', away);
     window.addEventListener('focus', back);
     document.addEventListener('visibilitychange', visibility);
+    // Rechner aufgewacht: Ein 30-s-Takt, der über zwei Minuten ausblieb, heißt „Deckel war zu“.
+    let tick = Date.now();
+    const clock = window.setInterval(() => {
+      const now = Date.now();
+      if (now - tick > 120_000) back();
+      tick = now;
+    }, 30_000);
     return () => {
       offClosing();
       offSyncClose();
       window.removeEventListener('blur', away);
       window.removeEventListener('focus', back);
       document.removeEventListener('visibilitychange', visibility);
+      window.clearInterval(clock);
       stopSync();
       window.removeEventListener('beforeunload', flush);
       window.removeEventListener('blur', flush);

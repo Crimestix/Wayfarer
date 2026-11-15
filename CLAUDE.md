@@ -149,9 +149,32 @@ nicht übernommen.
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
-- Mac und Windows teilen sich den Spielstand über ein privates GitHub-Repository (Entscheidung des
-  Spielleiters; er nutzt kein Cloud-Laufwerk). Der Abgleich ist Teil der zweiten Welle, siehe
-  `docs/WEITERARBEIT.md`. Bis dahin: Sicherung herunterladen / einspielen.
+- **Abgleich** (Mac und Windows teilen sich den Spielstand über eine eigene private Ablage bei
+  GitHub – nie das Code-Repository; Entscheidung des Spielleiters, Entwurf
+  `docs/abgleich/abgleich-entwurf-fertig.md`). TypeScript entscheidet, Rust trägt: Plan und
+  Zusammenführen stehen rein in `domain/sync.ts` (`planSync`, `isSyncedPath`, `blobSha`) und
+  `domain/syncMerge.ts` (`mergeFile`, `STATE_RULES`, `CAMPAIGN_RULES`, `checkIncoming`,
+  `fillStripped`), der Ablauf in `features/abgleich/engine.ts` (Bote `port.ts`, Stand `state.ts`,
+  Attrappe `__tests__/fake.ts`), Netz/Schlüsselbund/`.abgleich/` in `src-tauri/src/sync/` und
+  `keys.rs`; Vertrag in `data/platform.ts`, Vorlagen beider Seiten in `src-tauri/src/sync/contract/`.
+  Nie umgehen:
+  - Abgeglichen wird nur nach Muster (`isSyncedPath` = `is_synced_path`); `.abgleich/`, `media/`
+    und der Zugangsschlüssel nie.
+  - Eine Kampagne öffnet man nur über `openCampaign` – es bringt einen unterbrochenen Abgleich zu
+    Ende (`sync_recover`, die einzige Stelle, an der Rust Dateien des Spielstands schreibt).
+  - Übernommenes nur über `db.takeRemote` (alles oder nichts); nie Dateien am Programm vorbei in den
+    Ordner legen. Angewendet wird nur ohne offenen Entwurf: Ein Feld, Formular, Editor oder Dialog,
+    das Eingaben hält, meldet sich über `useHoldDraft`/`holdDraft` (`ui/drafts.ts`) an.
+  - Wer den ganzen Stand austauscht (Sicherung, alte Version, Neu beginnen), ruft vorher
+    `syncBeforeRestore()`; ohne gemeinsamen Stand wird nie still gelöscht oder gemischt.
+  - **Wer das Schema ändert, erhöht `DATA_VERSION` und setzt `DATA_SHAPE`** (der Test erzwingt es);
+    ein älteres Programm holt dann weiter, lädt aber erst nach dem Aktualisieren hoch. Ein neues
+    Feld in `state.json`/`campaign.json`: Regel in `STATE_RULES`/`CAMPAIGN_RULES` prüfen.
+  - Hochladen schaltet nur ohne `force` um; weicht eine Datei vom Plan ab, geht nichts hoch.
+  - Ein Widerspruch hält nur seinen Eintrag an; am Tisch nie ein Dialog, nur das Zeichen.
+  - Sichtbar nie „Repository“ (außer in der Anleitung), „Token“, „Commit“, Dateipfade.
+  - Prüfen nur gegen die Attrappe bzw. den Gegenpart (`sync/testserver.rs`); die Probe gegen
+    GitHub (`cargo test probe -- --ignored`) nur von Hand mit einer Wegwerf-Ablage.
 - Weltzeit = ganze Minuten seit Beginn des absoluten Jahres 1 (bei Elaris: kosmisches Jahr, JF).
   Der Kalender ist Daten (`CalendarDef`), nie fest im Code.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.
