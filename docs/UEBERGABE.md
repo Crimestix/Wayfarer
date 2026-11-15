@@ -67,6 +67,14 @@ Der Spielleiter hat sich für **GitHub** entschieden, nicht für Hetzner. Gebaut
 `abgleich-entwurf-fertig.md`; die Empfehlungen aus dessen Abschnitt 7 gelten, bis er widerspricht.
 Der Rest dieses Abschnitts ist nur noch Vorgeschichte.
 
+**Stand abends 15. 11.:** Abschnitt A (Fachlogik, Rust) und B (Oberfläche) sind gebaut und je
+gegengelesen (bis `4449aa5`; 2400 Tests, cargo 94). Windows-Installer 0.1.3 liegt lokal unter
+`src-tauri	argeteleaseundle
+sis\`. Kein Tag `v0.1.3` gesetzt – erst, wenn die Probe am
+Windows-PC sauber lief (spart Mac-Minuten bei GitHub). Der Spielleiter macht die Probe nach
+`docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
+echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
