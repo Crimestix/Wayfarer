@@ -1700,8 +1700,9 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „Platzhalter aus Geschichten“. Eingehängt: Blatt der Geschichte (Antreiber als Person,
   Fraktion oder Familie, Leute und Orte, Hinweise, Einstiege, Szenen, Textfelder), Faden-Dialog,
   Anheften auf dem Fadenbrett, Ort der Szene auf „Abend vorbereiten“.
-- Offen: `NamesHint` und „@“ fehlen noch auf „Abend vorbereiten“ (kein Ort für „nicht gemeint“)
-  und in den Zeilen der Listen des Blatts (Schritte, Hinweise, Einstiege, Szenen sind einfache
+- Offen: `NamesHint` und „@“ fehlten auf „Abend vorbereiten“ (inzwischen da, siehe „Abend
+  vorbereiten, neu“) und fehlen in den Zeilen
+ der Listen des Blatts (Schritte, Hinweise, Einstiege, Szenen sind einfache
   Eingabefelder); die übrigen Auswahlfelder der App (Festhalten, Kalender, Läden …) nutzen noch
   `onCreate` oder gar kein Anlegen. Orte mit Begleiter („zur Salzgrotte“) erkennt
   `unknownNames` bewusst nicht als Namen.
@@ -1787,8 +1788,30 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   „und 1 weiterer loser Faden“, „auch zu 1 weiteren Geschichte“ (`fitsLine`), drei Namen werden
   genannt statt „und 1 weitere“; „gibt es schon“ nennt den vorhandenen Satz und ob er
   abgeschlossen ist.
+- **Abend vorbereiten, neu.** Das Blatt führt von oben nach unten und sagt, wo man anfängt
+  („Fang hier an“): Wo wir stehen (Rückblick, was offen hängt, „Was die Gruppe vorhat“) · Die
+  Gefährten · Geschichten im Spiel (je Geschichte eine Karte: nächster Schritt mit Datum und
+  Zeichen, Zuletzt, Fragen mit fehlenden Hinweisen, Einstiege, Szenen, Begegnungen, Beute – an
+  jedem Stück „auf den Abend legen“) · Starker Einstieg · Mögliche Szenen · Geheimnisse · Orte ·
+  Personen (mit erzeugten „Namen für den Notfall“) · Begegnungen · Beute. Jedes Fach einklappbar,
+  eines offen, „reicht“ statt Zählern, „heute nicht nötig“. Abend und Geschichte sind verknüpft
+  (Szene ↔ Szene, Geheimnis ↔ Hinweis, abgehakt wird beides). Läuft ein Abend, gibt es zwei
+  Reiter („Dieser Abend (läuft)“, „Nächster Abend“); Übriges (auch Einstieg, Begegnungen,
+  Gedanken zur Beute) wartet oben als „Vom letzten Abend übrig“ auf „weiter“ / „fallen lassen“ /
+  „zurück zur Geschichte“. Behoben: verlorenes Blatt bei laufender Session, doppelte Kennungen
+  übernommener Geheimnisse (Haken auf dem alten Blatt, Auswahl doppelt), fortgesetzte Session,
+  Eingabetaste ohne Schreibmarke, erfundener Platzhalter im Einstieg. Dazu: Blatt früherer
+  Abende in der Chronik, eine Seite zum Drucken, Suche über die Blätter, kürzerer Block am
+  Spieltisch.
+- Offen: Der Ausdruck ist in der Vorschau nur als Ebene geprüft, nicht auf Papier. Auf dem Blatt
+  der Geschichte steht nur, was auf dem Abend liegt – „auf den Abend legen“ gibt es dort (noch)
+  nicht. Wird eine fortgesetzte Session ein zweites Mal beendet, kommt Neues von ihrem Blatt
+  nicht mehr von selbst aufs nächste. Ob eine Begegnung „ausgetragen“ ist, liest Wayfarer daran,
+  dass ein Exemplar Trefferpunkte verloren hat. „Welches Blatt zuerst“ richtet sich nach dem
+  Datum der laufenden Session (von gestern → der nächste Abend).
 
 ## 6. Bekannte Mängel und Aufräumliste
+
 
 ### Rundgang am 12. 11. 2026 (ganze App, gefüllte erfundene Welt, 1440 × 900)
 

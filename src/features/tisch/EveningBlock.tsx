@@ -1,6 +1,9 @@
 /**
  * „Dieser Abend“ am Spieltisch: was auf dem Blatt des Abends bereitliegt – der starke Einstieg,
- * mögliche Szenen und Geheimnisse zum Abhaken, Begegnungen, Beute. Geschrieben wird es unter
+ * mögliche Szenen und Geheimnisse zum Abhaken, Begegnungen, Beute. Kurz gehalten: Ist der
+ * Einstieg gespielt, klappt der Block zu; Szenen mit Ort stehen links beim Ort („Was hier
+ * passieren kann“), Szenen einer Geschichte im Spiel bei ihrer Geschichte. Was aus einer
+ * Geschichte kam, ist mit dem Haken auch dort gespielt oder gefunden. Geschrieben wird es unter
  * „Abend vorbereiten“ (`features/abend`); die Rechnung steht in `domain/prep.ts`.
  */
 import { useMemo, useState } from 'react';
@@ -16,7 +19,7 @@ import {
   readyEncounters,
 } from '../../domain/prep';
 import { cx, toast } from '../../ui';
-import { setSceneDone, setSecretRevealed } from '../abend/actions';
+import { setSceneDone, setSecretRevealed, setStartDone } from '../abend/actions';
 import { LootDialog } from '../beute/LootDialog';
 import { useGiveLoot } from '../beute/useGive';
 
@@ -27,9 +30,18 @@ export function EveningBlock() {
   const data = useData();
   const [, navigate] = useLocation();
   const view = useMemo(() => prepView(data), [data]);
-  const [open, setOpen] = useState(true);
   const { content } = view;
-  const scenes = openScenes(content);
+  const start = content.start.trim();
+  /** Von Hand auf- oder zugeklappt – sonst offen, solange der Einstieg noch nicht gespielt ist. */
+  const [chosen, setOpen] = useState<boolean | null>(null);
+  const open = chosen ?? (start !== '' && !content.startDone);
+  const all = openScenes(content);
+  // Szenen mit Ort stehen links beim Ort, Szenen einer Geschichte im Spiel bei ihrer Geschichte.
+  const scenes = all.filter((scene) => {
+    const story = scene.from ? data.stories[scene.from.storyId] : undefined;
+    return !scene.placeId && !(story?.inPlay && !story.closed);
+  });
+  const elsewhere = all.length - scenes.length;
   const secrets = openSecrets(content);
   const encounters = readyEncounters(data, content);
   /** Beute, die bereitliegt und zu keiner Geschichte im Spiel gehört – die steht dort. */
@@ -51,7 +63,8 @@ export function EveningBlock() {
     );
 
   const brief = [
-    scenes.length > 0 && count(scenes.length, 'Szene', 'Szenen'),
+    start !== '' && (content.startDone ? 'Einstieg gespielt' : 'Einstieg'),
+    all.length > 0 && count(all.length, 'Szene', 'Szenen'),
     secrets.length > 0 && count(secrets.length, 'Geheimnis', 'Geheimnisse'),
     encounters.length > 0 && count(encounters.length, 'Begegnung', 'Begegnungen'),
     loot.length > 0 && `${loot.length}× Beute`,
@@ -64,6 +77,15 @@ export function EveningBlock() {
       title: 'Szene gespielt',
       body: text.slice(0, 120),
       action: { label: 'Rückgängig', run: () => setSceneDone(db, id, false) },
+    });
+  };
+  const began = () => {
+    setStartDone(db, true);
+    setOpen(null);
+    toast({
+      title: 'Einstieg gespielt',
+      body: 'Der Abend läuft – das Blatt klappt zu.',
+      action: { label: 'Rückgängig', run: () => setStartDone(db, false) },
     });
   };
   const revealed = (id: string, text: string) => {
@@ -82,6 +104,7 @@ export function EveningBlock() {
         className="wf-tisch-gesch__head"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
+        title={view.session ? undefined : 'Noch läuft kein Abend – das Blatt ist vorbereitet'}
       >
         {open ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
         <span className="wf-tisch-gesch__title">Dieser Abend</span>
@@ -92,12 +115,21 @@ export function EveningBlock() {
       {!open && brief && <div className="wf-tisch-gesch__brief">{brief}</div>}
       {open && (
         <div className="wf-tisch-dazu">
-          {content.start.trim() && (
+          {start && !content.startDone && (
             <>
               <span className="wf-tisch-dazu__label" data-here>
                 Einstieg
               </span>
-              <div className="wf-tisch-dazu__row wf-tisch-abend__text">{content.start.trim()}</div>
+              <div className="wf-tisch-dazu__row">
+                <button
+                  type="button"
+                  className="wf-chron__check"
+                  title="Gespielt – der Block klappt zu"
+                  aria-label="Einstieg gespielt"
+                  onClick={began}
+                />
+                <span className="wf-tisch-abend__text">{start}</span>
+              </div>
             </>
           )}
           {scenes.map((scene) => (
@@ -109,9 +141,27 @@ export function EveningBlock() {
                 aria-label={`Gespielt: ${scene.text}`}
                 onClick={() => played(scene.id, scene.text)}
               />
-              <span>{scene.text}</span>
+              <span>
+                {scene.text}
+                {scene.storyId && data.stories[scene.storyId] && (
+                  <em> – {data.stories[scene.storyId]!.title}</em>
+                )}
+              </span>
             </Line>
           ))}
+          {elsewhere > 0 && (
+            <>
+              <span className="wf-tisch-dazu__label" />
+              <div className="wf-tisch-dazu__row">
+                <em>
+                  {elsewhere === 1
+                    ? 'Eine weitere Szene steht'
+                    : `${elsewhere} weitere Szenen stehen`}{' '}
+                  bei ihrem Ort oder ihrer Geschichte.
+                </em>
+              </div>
+            </>
+          )}
           {secrets.map((secret) => (
             <Line key={secret.id} label="Geheimnis">
               <button

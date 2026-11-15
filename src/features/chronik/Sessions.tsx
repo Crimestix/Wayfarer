@@ -7,6 +7,7 @@ import {
   Copy,
   Feather,
   History,
+  NotebookPen,
   Play,
   ScrollText,
   Trash2,
@@ -21,6 +22,8 @@ import {
 } from '../../data/actions';
 import { useData, useDb, useSaveStatus } from '../../data/hooks';
 import { chronicleSorted } from '../../domain/derive';
+import { prepOfSession } from '../../domain/prep';
+
 import type { ChronicleEntry } from '../../domain/schema';
 import { formatDateTime, formatDuration } from '../../domain/time/calendar';
 import { openQuickLog } from '../../shell/commands';
@@ -177,12 +180,15 @@ function SessionDetail({
   resumable,
   onEdit,
   onBackfill,
+  onSheet,
 }: {
   span: SessionSpan;
   /** Die Session ist beendet, lässt sich aber fortsetzen. */
   resumable: boolean;
   onEdit: (entry: ChronicleEntry) => void;
   onBackfill: (sessionId: string) => void;
+  /** Das Blatt dieses Abends zum Nachlesen öffnen. */
+  onSheet: (sessionId: string) => void;
 }) {
   const db = useDb();
   const data = useData();
@@ -197,6 +203,7 @@ function SessionDetail({
     if (exists()) db.patch('sessions', session.id, { notes: value });
   });
   const [summary, setSummary] = useState<string | null>(null);
+  const hasSheet = useMemo(() => prepOfSession(data, session.id) !== null, [data, session.id]);
 
   // Titel und Notizen wachsen mit ihrem Text.
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -343,6 +350,29 @@ function SessionDetail({
               <dt>Festgehalten</dt>
               <dd>{entryCount(span.entryCount)}</dd>
             </div>
+            {hasSheet && (
+              <div>
+                <dt>Vorbereitet</dt>
+                <dd>
+                  {span.running ? (
+                    <Link href="/abend" className="wf-chronik-source">
+                      <NotebookPen aria-hidden />
+                      Blatt des Abends öffnen
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="wf-chronik-source"
+                      title="Was für diesen Abend vorbereitet war – und was davon gespielt und aufgedeckt wurde"
+                      onClick={() => onSheet(session.id)}
+                    >
+                      <NotebookPen aria-hidden />
+                      Blatt des Abends ansehen
+                    </button>
+                  )}
+                </dd>
+              </div>
+            )}
             {session.source && (
               <div>
                 <dt>Nachgetragen</dt>
@@ -540,11 +570,14 @@ export function Sessions({
   onSelect,
   onEdit,
   onBackfill,
+  onSheet,
 }: {
   selectedId: string | null;
   onSelect: (sessionId: string) => void;
   onEdit: (entry: ChronicleEntry) => void;
   onBackfill: (sessionId: string) => void;
+  /** Das Blatt eines Abends zum Nachlesen öffnen. */
+  onSheet: (sessionId: string) => void;
 }) {
   const db = useDb();
   const data = useData();
@@ -681,6 +714,7 @@ export function Sessions({
           resumable={selected.session.id === resumableId}
           onEdit={onEdit}
           onBackfill={onBackfill}
+          onSheet={onSheet}
         />
       )}
     </div>

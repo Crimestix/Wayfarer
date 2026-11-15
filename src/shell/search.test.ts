@@ -315,20 +315,20 @@ describe('Die Suche', () => {
       label: 'Ein leeres Boot treibt heran.',
       sub: `Abend-Blatt · Session ${db.getSnapshot().sessions[running]!.number} (läuft)`,
       href: '/abend',
-      focus: { type: 'prep', sessionId: running },
+      focus: { type: 'prep', which: 'now' },
     });
     patchPrep(db, { secrets: [secretOfText('Der Zöllner hat zwei Kassen')] }, 'next');
     expect(searchWorld(world.data(), 'kassen').find((h) => h.sort === 'prep')).toMatchObject({
       sub: 'Abend-Blatt · nächster Abend',
       href: '/abend',
-      focus: { type: 'prep', sessionId: null },
+      focus: { type: 'prep', which: 'next' },
     });
     // Ein früherer Abend: Sein Blatt liegt bei der Session in der Chronik.
     startSession(db);
     expect(searchWorld(world.data(), 'leeres boot').find((h) => h.sort === 'prep')).toMatchObject({
       key: `prep:${sheet.id}`,
       href: '/chronik',
-      focus: { type: 'prep', sessionId: running },
+      focus: { type: 'sheet', sessionId: running },
     });
   });
 });

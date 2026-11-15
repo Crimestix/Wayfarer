@@ -356,8 +356,9 @@ describe('Angebote für das Blatt', () => {
       refs: [odo.id, mira.id],
     });
     expect(personOffers(data(), content()).map((offer) => [offer.entity.name, offer.why])).toEqual([
-      ['Lando Furtner', 'am Ort der Gruppe'],
+      ['Lando Furtner', 'Der Griff nach dem Zoll · treibt sie an'],
       ['Ilka Sturmfels', 'Der Griff nach dem Zoll · Zeugin'],
+
       ['Odo Tannhaus', 'offene Abmachung'],
     ]);
     setOnSheet(db, 'personIds', lando.id, true);

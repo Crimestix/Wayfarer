@@ -24,6 +24,7 @@ export function NamesHint({
   onRemove,
   storyId,
   kinds,
+  known,
   className,
 }: {
   /** Was auf dem Blatt geschrieben steht. */
@@ -42,6 +43,8 @@ export function NamesHint({
   storyId?: string | null | undefined;
   /** Die Arten, die das Anlegen zuerst anbietet. */
   kinds?: readonly EntityKind[] | undefined;
+  /** Welche Arten als „im Text genannt“ gelten – ohne Angabe Leute, Orte, Gruppen und Dinge. */
+  known?: readonly EntityKind[] | undefined;
   className?: string | undefined;
 }) {
   const data = useData();
@@ -78,10 +81,10 @@ export function NamesHint({
   const attachedKey = attached.join(',');
   const ignoredKey = ignored.join('\u0000');
   const names = useMemo(
-    () => writtenNames(data, texts, attached, ignored),
+    () => writtenNames(data, texts, attached, ignored, known),
     // Gemeint ist der Inhalt der Listen, nicht ihre Identität.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [data, textKey, attachedKey, ignoredKey],
+    [data, textKey, attachedKey, ignoredKey, known?.join(',')],
   );
   if (!names.known.length && !names.unknown.length) return null;
   return (

@@ -60,7 +60,7 @@ export function ScenesHere() {
             <span className="wf-tisch-scene__text">{scene.text}</span>
           </div>
           <div className="wf-tisch-scene__meta">
-            {scene.from === 'prep' ? (
+            {scene.from === 'prep' && !scene.storyId ? (
               <span>vom Abend-Blatt</span>
             ) : (
               <button

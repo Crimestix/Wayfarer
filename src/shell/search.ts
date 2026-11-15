@@ -343,7 +343,10 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
           : 'nächster Abend',
       ),
       href: current ? '/abend' : '/chronik',
-      focus: { type: 'prep', sessionId: session?.id ?? null },
+      focus:
+        session && !current
+          ? { type: 'sheet', sessionId: session.id }
+          : { type: 'prep', which: session ? 'now' : 'next' },
     });
   }
 

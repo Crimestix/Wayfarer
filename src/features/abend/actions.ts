@@ -373,7 +373,26 @@ export function setOnSheet(
   );
 }
 
+/**
+ * Nimmt einen Eintrag zum Blatt: ein Ort zu den Orten, eine Person, Fraktion oder Familie zu den
+ * Personen. Anderes (ein Gegenstand, ein Gefährte) gehört nicht auf diese Listen.
+ */
+export function attachToSheet(db: CampaignDb, entityId: string, which?: PrepWhich): void {
+  const entity = db.getSnapshot().entities[entityId];
+  if (!entity) return;
+  if (entity.kind === 'place') setOnSheet(db, 'placeIds', entityId, true, which);
+  else if (['person', 'faction', 'family'].includes(entity.kind))
+    setOnSheet(db, 'personIds', entityId, true, which);
+}
+
+/** Nimmt einen Eintrag wieder von den Orten und Personen des Blatts. */
+export function detachFromSheet(db: CampaignDb, entityId: string, which?: PrepWhich): void {
+  setOnSheet(db, 'placeIds', entityId, false, which);
+  setOnSheet(db, 'personIds', entityId, false, which);
+}
+
 /** „Nicht gemeint“: Ein Name aus dem Text des Blatts soll dort nicht wieder vorgeschlagen werden. */
+
 export function markNotMeant(db: CampaignDb, key: string, which?: PrepWhich): void {
   const content = prepView(db.getSnapshot(), which).content;
   if (!key || content.notMeant.includes(key)) return;

@@ -3,11 +3,13 @@
  * Grund, daneben sein Ziel und seine offenen Wünsche), „Einstiege“ und „Szenen und Begegnungen“
  * (zum Abhaken). Neue Zeilen entstehen mit dem ersten Wort.
  */
+import { useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Swords, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entitiesOfKind } from '../../domain/derive';
 import { openWishes } from '../../domain/heroArc';
+import { scenesOnEvening } from '../../domain/prepOffers';
 import {
   ENTRY_STANDINGS,
   SCENE_ODDS,
@@ -208,6 +210,7 @@ export function StoryScenes({ story }: { story: Story }) {
   const encounters = Object.values(data.encounters).sort((a, b) =>
     a.name.localeCompare(b.name, 'de'),
   );
+  const onEvening = useMemo(() => scenesOnEvening(data, story.id), [data, story.id]);
   const prepare = (scene: StoryScene) => {
     const encounter = newEncounter(db, scene.text.trim().slice(0, 60) || story.title);
     list.set(scene.id, { encounterId: encounter.id });
@@ -293,8 +296,18 @@ export function StoryScenes({ story }: { story: Story }) {
               </IconButton>
             )}
           </div>
+          {onEvening.has(scene.id) && (
+            <Link
+              href="/abend"
+              className="wf-faden-abend"
+              title="Diese Szene liegt auf dem Blatt des Abends – abgehakt wird beides zusammen"
+            >
+              liegt auf dem Abend-Blatt
+            </Link>
+          )}
         </div>
       ))}
+
       <NewLine
         label="Neue Szene"
         placeholder={story.scenes.length ? 'Eine weitere Szene' : 'Was liegt bereit?'}

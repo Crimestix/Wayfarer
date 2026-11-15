@@ -5,7 +5,8 @@
  * zu dieser Geschichte passen könnten (`threadFits`) – als Frage, als Hinweis oder als Einstieg
  * hereinzuholen. Gefundene Hinweise und beantwortete Fragen bleiben getrennt.
  */
-import { useLocation } from 'wouter';
+import { useMemo } from 'react';
+import { Link, useLocation } from 'wouter';
 import { Trash2, TriangleAlert, Unlink, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
@@ -23,6 +24,7 @@ import {
   threadLive,
   threadsOf,
 } from '../../domain/story';
+import { eveningSecretsOf, hintsOnEvening } from '../../domain/prepOffers';
 import { hintsNote, threadFits, type ThreadFit } from '../../domain/storySheet';
 import {
   Button,
@@ -59,6 +61,8 @@ export function StoryThreads({ story }: { story: Story }) {
   const data = useData();
   const mention = useStoryMention(story);
   const threads = threadsOf(data, story.id);
+  /** Geheimnisse des Abends, die zu dieser Geschichte gehören – ohne die, die ein Hinweis sind. */
+  const ready = useMemo(() => eveningSecretsOf(data, story.id), [data, story.id]);
   return (
     <SheetSection
       id="threads"
@@ -84,6 +88,25 @@ export function StoryThreads({ story }: { story: Story }) {
           })
         }
       />
+      {ready.length > 0 && (
+        <div className="wf-faden-fits">
+          <div className="wf-faden-frage__sub">
+            <span>Für den Abend bereit</span>
+            <Link href="/abend" className="wf-faden-link">
+              Abend vorbereiten …
+            </Link>
+          </div>
+          {ready.map(({ secret, which }) => (
+            <span key={secret.id} className="wf-faden-bereit">
+              {secret.text}
+              <em>
+                {' '}
+                – Geheimnis auf dem Blatt für {which === 'now' ? 'diesen' : 'den nächsten'} Abend
+              </em>
+            </span>
+          ))}
+        </div>
+      )}
       <LooseFits story={story} questions={threads.filter(threadLive)} />
     </SheetSection>
   );
@@ -91,6 +114,8 @@ export function StoryThreads({ story }: { story: Story }) {
 
 function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
   const db = useDb();
+  const data = useData();
+  const onEvening = useMemo(() => hintsOnEvening(data), [data]);
   const mention = useStoryMention(story);
   const patch = (change: Parameters<typeof patchThread>[2]) => patchThread(db, thread.id, change);
   const hints = useDraftList<ThreadHint>(
@@ -206,6 +231,15 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
             >
               <X />
             </IconButton>
+            {onEvening.has(`${thread.id}:${hint.id}`) && (
+              <Link
+                href="/abend"
+                className="wf-faden-abend"
+                title="Dieser Hinweis liegt als Geheimnis auf dem Blatt des Abends – aufgedeckt heißt hier gefunden"
+              >
+                liegt auf dem Abend-Blatt
+              </Link>
+            )}
           </div>
         ))}
         <NewLine

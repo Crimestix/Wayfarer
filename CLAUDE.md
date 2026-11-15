@@ -126,7 +126,9 @@ nicht übernommen.
   `domain/net.ts`),
   `faeden` (das Fadenbrett: eine Pinnwand aus Geschichten, losen Fäden und den Namen, an denen
   sie hängen; die Rechnung steht in `domain/story.ts`),
-  `abend` (den nächsten Abend vorbereiten; die Rechnung steht in `domain/prep.ts`),
+  `abend` (einen Abend vorbereiten; die Rechnung steht in `domain/prep.ts` und
+  `domain/prepOffers.ts`),
+
   `nachtragen` (alte Sessions aus Notizdateien: lesen, trennen, in die Weltzeit legen,
   übernehmen),
   `laden` (Läden und Handelsplätze: Handel am Tisch, Abschnitt „Laden“ auf Seiten, Vorlagen
@@ -357,16 +359,38 @@ nicht übernommen.
   angenommene Notizen nennen, bleibt er (`otherSources`). In der Sicht der Gruppe ist die
   Herkunft nur der Abend. Suche und Auswahl der Liste gehören der Seite (`faeden/index.tsx`),
   damit sie einen Blick auf eine Karte überstehen.
-- Einen Abend vorbereiten (`preps/`, `domain/prep.ts`, `features/abend`, Reiter neben dem
-  Fadenbrett): je Abend ein Blatt – starker Einstieg, mögliche Szenen, Geheimnisse (noch an
-  keinem Ort festgemacht), Begegnungen, Beute. Das offene Blatt (`sessionId: null`) gilt dem
-  kommenden Abend; `startSession` hängt es an die Session. Was nicht gespielt und nicht
-  aufgedeckt wurde, wandert über `carryOver()` auf das nächste Blatt – nie von Hand kopieren.
-  Gelesen wird über `prepView()`, geschrieben über `features/abend/actions.ts` (`patchPrep`
-  legt das Blatt mit dem ersten Wort an). Was fehlt, sagt `prepAdvice()` als Rat. Eine Szene (Abend
+- Einen Abend vorbereiten (`preps/`, `domain/prep.ts`, `domain/prepOffers.ts`, `features/abend`,
+  Reiter neben dem Fadenbrett): je Abend ein Blatt, geführt von oben nach unten
+  (`PREP_SECTIONS`): Wo wir stehen (`prep.plan`), Die Gefährten, Geschichten im Spiel, Starker
+  Einstieg, Mögliche Szenen, Geheimnisse (noch an keinem Ort festgemacht), Orte
+  (`prep.placeIds`), Personen (`prep.personIds`, dazu erzeugte „Namen für den Notfall“:
+  `spareNames`, stabil je Blatt über `prep.namesRound`), Begegnungen, Beute. Jedes Fach ist
+  freiwillig, einklappbar (`Fach`) und abwählbar („heute nicht nötig“, `prep.skipped`); wie es
+  steht, sagt `prepStand()` – „reicht“ statt Zählern, mitgezählt wird, was bei den Geschichten
+  im Spiel bereitliegt (`readyAtStories`); der nächste sinnvolle Schritt ist `prepNext()`
+  („Fang hier an“). **Zwei Blätter:** Läuft ein Abend, gibt es seines (`now`) und das offene für
+  den nächsten (`next`, `sessionId: null`); `startSession` hängt das offene an. Gelesen wird
+  über `prepView(data, which)` – nie `prep.scenes` direkt: Die Haken gelten erst nach
+  `resolveContent`. **Abend und Geschichte sind eine Welt:** Eine Szene der Geschichte liegt
+  über `takeStoryScene` auf dem Abend (`scene.from`), ein Hinweis über `takeHint`
+  (`secret.hint`) – abgehakt oder aufgedeckt wird beides zusammen, in beide Richtungen (auch
+  beim Festhalten: `reveal.hint`). Was die Karten der Geschichten, der Einstieg, Szenen, Orte,
+  Personen und Begegnungen anbieten, steht in `prepOffers.ts` – immer der Wortlaut des
+  Spielleiters, nichts landet ohne Klick auf dem Blatt. **Übriges:** Was nicht gespielt, nicht
+  aufgedeckt, nicht ausgetragen wurde (auch Einstieg und Gedanken zur Beute), kommt beim Lesen
+  auf das nächste Blatt (`leftOf`, `mergeLeft`, `carriedFrom`) und wartet dort als „Vom letzten
+  Abend übrig“ (`prep.pending`, `leftoverLines`), bis der Spielleiter entscheidet (`settleLeftover`:
+  weiter, fallen lassen, zurück zur Geschichte) – nie von Hand kopieren. Übernommenes behält
+  seine Kennung: ein Geheimnis immer über `findPrepSecret` / `allSecrets` suchen (das jüngste
+  Blatt zählt). Geschrieben wird über `features/abend/actions.ts` (`patchPrep` legt das Blatt
+  mit dem ersten Wort an). Frühere Blätter sind von der Session in der Chronik aus zu lesen
+  (`PrepSheetDialog`), dasselbe schlichte Blatt wird gedruckt (`PrepPaper`); die Suche findet,
+  was auf Blättern steht. Am Spieltisch klappt „Dieser Abend“ zu, sobald der Einstieg gespielt
+  ist (`prep.startDone`); Szenen mit Ort stehen nur links. Eine Szene (Abend
   oder Geschichte) kann an einen Ort geheftet sein (`scene.placeId`); am Spieltisch zeigt
   `scenesHere()` sie unter „Was hier passieren kann“, sobald die Gruppe dort ist. Unter „Starker
-  Einstieg“ stehen die letzten Einträge der vorigen Session zum Übernehmen (`lastSessionLines`) –
+  Einstieg“ stehen die letzten Einträge der vorigen Session zum Übernehmen (`lastSessionLines`)
+  und eben eingetretene Schritte und Termine (`startOffers`) –
   Wayfarer bietet nur die eigenen Zeilen des Spielleiters an, es formuliert nichts. Darüber steht
   „Letztes Mal“ (`recap()` in `domain/recap.ts`, gezeigt mit `RecapBox`): die gewichtigsten
   Einträge der vorigen Session (`RECAP_WEIGHT`, Alltag fällt weg), wo die Gruppe steht, was offen

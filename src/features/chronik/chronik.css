@@ -792,6 +792,13 @@ textarea.wf-chronik-summary {
   color: var(--gold);
   border-bottom: 1px dotted var(--gold-deep);
 }
+button.wf-chronik-source {
+  padding: 0;
+  border-width: 0 0 1px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
 .wf-chronik-source:hover {
   color: var(--gold-bright);
 }

@@ -1405,3 +1405,27 @@
   flex-wrap: wrap;
   gap: var(--s-2);
 }
+
+/* Was von dieser Geschichte gerade auf dem Blatt des Abends liegt */
+.wf-faden-abend {
+  grid-column: 2 / -1;
+  justify-self: start;
+  margin-top: -2px;
+  color: var(--ember);
+  font-size: var(--text-sm);
+  font-style: italic;
+  text-decoration: none;
+}
+.wf-faden-abend:hover {
+  color: var(--gold-bright);
+  text-decoration: underline;
+}
+.wf-faden-bereit {
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--ember);
+  color: var(--ink-soft);
+}
+.wf-faden-bereit em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

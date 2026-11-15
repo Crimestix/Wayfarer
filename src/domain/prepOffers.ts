@@ -435,7 +435,7 @@ export function scenesOnEvening(data: CampaignData, storyId: string): Set<string
 
 /** So viele Orte und Personen bietet das Blatt auf einmal an. */
 export const PLACE_OFFERS = 10;
-export const PERSON_OFFERS = 10;
+export const PERSON_OFFERS = 8;
 
 export interface PlaceOffer {
   place: Place;
@@ -512,9 +512,10 @@ export interface PersonOffer {
 }
 
 /**
- * Wer dem Abend begegnen kann: wer am Ort der Gruppe und an den Orten der Szenen ist, wer die
- * Geschichten im Spiel antreibt und an ihnen beteiligt ist, und wem die Gruppe noch etwas
- * schuldet (offene Abmachungen). Nur Personen und Gruppen von Personen.
+ * Wer dem Abend begegnen kann: wer die Geschichten im Spiel antreibt und an ihnen beteiligt ist,
+ * wem die Gruppe noch etwas schuldet (offene Abmachungen) und wer am Ort der Gruppe und an den
+ * Orten der Szenen ist – in dieser Reihenfolge. Nur Personen und Gruppen von Personen.
+
  */
 export function personOffers(data: CampaignData, content: PrepContent): PersonOffer[] {
   const taken = new Set(content.personIds);
@@ -526,6 +527,15 @@ export function personOffers(data: CampaignData, content: PrepContent): PersonOf
     if (taken.has(entity.id) || offers.has(entity.id)) return;
     offers.set(entity.id, { entity, why });
   };
+  // Wer die Geschichten trägt, zuerst – dann, wem die Gruppe etwas schuldet, dann wer einfach da ist.
+  for (const story of storiesInPlay(data)) {
+    add(story.ownerId, `${story.title} · treibt sie an`);
+    for (const id of story.refs) {
+      const role = story.roles[id]?.role.trim();
+      add(id, role ? `${story.title} · ${role}` : story.title);
+    }
+  }
+  for (const entry of openPromises(data)) for (const id of entry.refs) add(id, 'offene Abmachung');
   const party = data.state.placeId;
   if (party)
     for (const person of placeCast(data, party).present) add(person.id, 'am Ort der Gruppe');
@@ -535,14 +545,6 @@ export function personOffers(data: CampaignData, content: PrepContent): PersonOf
     for (const person of placeCast(data, place.id).present)
       add(person.id, `in ${place.name} – Ort einer Szene`);
   }
-  for (const story of storiesInPlay(data)) {
-    add(story.ownerId, `${story.title} · treibt sie an`);
-    for (const id of story.refs) {
-      const role = story.roles[id]?.role.trim();
-      add(id, role ? `${story.title} · ${role}` : story.title);
-    }
-  }
-  for (const entry of openPromises(data)) for (const id of entry.refs) add(id, 'offene Abmachung');
   const mates = new Set(activeParty(data).map((character) => character.id));
   return [...offers.values()]
     .filter((offer) => !mates.has(offer.entity.id))

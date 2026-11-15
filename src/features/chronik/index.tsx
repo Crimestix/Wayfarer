@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { History } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import type { ChronicleEntry } from '../../domain/schema';
+import { useFocus } from '../../shell/focus';
 import { Button, Tabs } from '../../ui';
+import { PrepSheetDialog } from '../abend/PrepPaper';
 import { EntryDialog, type EntryDialogRequest } from './EntryDialog';
 import { Sessions } from './Sessions';
 import { Verlauf } from './Verlauf';
@@ -25,6 +27,15 @@ export default function ChronikPage() {
   const [newestFirst, setNewestFirst] = useState(remembered.newestFirst);
   const [sessionId, setSessionId] = useState(remembered.sessionId);
   const [dialog, setDialog] = useState<(EntryDialogRequest & { key: number }) | null>(null);
+  /** Der Abend, dessen Blatt zum Nachlesen offen ist. */
+  const [sheetOf, setSheetOf] = useState<string | null>(null);
+  // Die Suche hat eine Zeile auf dem Blatt eines früheren Abends gefunden.
+  useFocus(['sheet'], (focus) => {
+    setSessionId(focus.sessionId);
+
+    setView('sessions');
+    setSheetOf(focus.sessionId);
+  });
 
   useEffect(() => {
     Object.assign(remembered, { view, filter, newestFirst, sessionId });
@@ -98,10 +109,12 @@ export default function ChronikPage() {
             onSelect={setSessionId}
             onEdit={edit}
             onBackfill={backfill}
+            onSheet={setSheetOf}
           />
         )}
       </div>
       {dialog && <EntryDialog key={dialog.key} request={dialog} onClose={() => setDialog(null)} />}
+      {sheetOf && <PrepSheetDialog sessionId={sheetOf} onClose={() => setSheetOf(null)} />}
     </div>
   );
 }

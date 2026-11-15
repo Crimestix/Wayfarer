@@ -22,11 +22,10 @@ export type Focus =
   | { type: 'day'; day: number }
   /** Die Regeln des Tisches – sie öffnen sich am Spieltisch. */
   | { type: 'rules' }
-  /**
-   * Das Blatt eines Abends: null = das offene für den nächsten Abend, die laufende Session = das
-   * des laufenden; ein früherer Abend öffnet sein Blatt in der Chronik zum Nachlesen.
-   */
-  | { type: 'prep'; sessionId: string | null };
+  /** „Abend vorbereiten“: das Blatt des laufenden Abends oder das offene für den nächsten. */
+  | { type: 'prep'; which: 'now' | 'next' }
+  /** Das Blatt eines früheren Abends – es öffnet sich in der Chronik zum Nachlesen. */
+  | { type: 'sheet'; sessionId: string };
 
 let pending: Focus | null = null;
 const listeners = new Set<() => void>();
