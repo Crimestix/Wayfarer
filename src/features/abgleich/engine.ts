@@ -251,7 +251,10 @@ export function createSyncEngine(
   async function run(mode: 'full' | 'push'): Promise<void> {
     if (running) {
       again = again === 'full' || mode === 'full' ? 'full' : 'push';
-      return running;
+      // Erst fertig, wenn auch der gewünschte Lauf gelaufen ist – nicht schon mit dem laufenden.
+      // Der erste Aufrufer startet ihn gleich nach dem laufenden; `running` zeigt dann auf ihn.
+      while (running) await running;
+      return;
     }
     running = (async () => {
       try {
