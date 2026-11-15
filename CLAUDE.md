@@ -136,9 +136,12 @@ nicht übernommen.
   `fortbewegung` (Reittiere, Fahrzeuge, Schiffe: Kasten auf der Gefährten-Seite, Umschalter
   `TravelBy`, Überfahrten am Spieltisch; die Rechnung steht in `domain/mounts.ts` und
   `domain/crossing.ts`),
+  `abgleich` (der eingebaute Abgleich mit einer privaten Ablage bei GitHub: Ablauf `engine.ts`,
+  Bote `port.ts`, Zustand `state.ts`, Worte `model.ts`, Oberfläche in Einstellungen, Leiste und
+  Startbildschirm; die Rechnung steht in `domain/sync.ts` und `domain/syncMerge.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
-  LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Schlüsselbund, Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
+  LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Abgleich (`sync/`), Schlüsselbund (`keys.rs`), Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
 
 ## Daten
 
@@ -155,7 +158,7 @@ nicht übernommen.
   Zusammenführen stehen rein in `domain/sync.ts` (`planSync`, `isSyncedPath`, `blobSha`) und
   `domain/syncMerge.ts` (`mergeFile`, `STATE_RULES`, `CAMPAIGN_RULES`, `checkIncoming`,
   `fillStripped`), der Ablauf in `features/abgleich/engine.ts` (Bote `port.ts`, Stand `state.ts`,
-  Attrappe `__tests__/fake.ts`), Netz/Schlüsselbund/`.abgleich/` in `src-tauri/src/sync/` und
+  Attrappe `fake.ts`), Netz/Schlüsselbund/`.abgleich/` in `src-tauri/src/sync/` und
   `keys.rs`; Vertrag in `data/platform.ts`, Vorlagen beider Seiten in `src-tauri/src/sync/contract/`.
   Nie umgehen:
   - Abgeglichen wird nur nach Muster (`isSyncedPath` = `is_synced_path`); `.abgleich/`, `media/`
@@ -179,6 +182,15 @@ nicht übernommen.
   - Sichtbar nie „Repository“ (außer in der Anleitung), „Token“, „Commit“, Dateipfade.
   - Prüfen nur gegen die Attrappe bzw. den Gegenpart (`sync/testserver.rs`); die Probe gegen
     GitHub (`cargo test probe -- --ignored`) nur von Hand mit einer Wegwerf-Ablage.
+  - **Oberfläche:** Worte und Zustände nur aus `features/abgleich/model.ts` (Zeichen `signOf`,
+    Störungen `needsInfo`, Karten `conflictCards` mit `FIELD_LABELS`, Frage `firstSyncText`,
+    Schlüsselprüfung `probeOutcome`) – Komponenten rechnen nicht. Einstellungen → Abgleich
+    (`SyncSection`, Einrichten `Setup`, `AsideList`, Frage bei Kopie), Zeichen unter „Gespeichert“
+    und ruhige Zeile (`SyncSign.tsx`, vier Zustände, nie rot), Dialoge `ConflictDialog` (öffnet
+    nur über `openDecide` nach frischem Lauf) und `FirstSyncDialog`, Startbildschirm
+    (`FetchPanel`, „Fortsetzen“). Nichts davon öffnet sich von selbst. Den laufenden Ablauf gibt
+    `activeSync()`, die Umgebung `syncEnv()`. Eine neue Art „braucht dich“ bekommt Titel, Satz
+    und Handgriff in `needsInfo`.
 - Weltzeit = ganze Minuten seit Beginn des absoluten Jahres 1 (bei Elaris: kosmisches Jahr, JF).
   Der Kalender ist Daten (`CalendarDef`), nie fest im Code.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.
@@ -846,6 +858,11 @@ nicht wie ein Admin-Dashboard.
 ## Befehle
 
 - `npm run dev` – Vorschau im Browser auf Port 1420 (Elaris-Grundstand, Speicherung im Browser;
-  `?reset` vor dem `#` setzt die Vorschau zurück).
+  `?reset` vor dem `#` setzt die Vorschau zurück). Probe des Abgleichs gegen die Attrappe, nur im
+  Arbeitsspeicher: `?abgleich` (leere Ablage), `?abgleich=eingerichtet`, `?abgleich&welcome`
+  (Startbildschirm des zweiten Rechners); eine Tafel unten links spielt den anderen Rechner.
+- `cd src-tauri && cargo test probe -- --ignored` – Probe des Abgleichs gegen GitHub, nur von Hand
+  und nur mit einer Wegwerf-Ablage (Schlüssel in `WAYFARER_PROBE_KEY`, Ablage in
+  `WAYFARER_PROBE_REPO`).
 - `npm run typecheck`, `npm test`, `npm run build`.
 - `npm run tauri dev` / `npm run tauri build` – installierte App.

@@ -165,8 +165,8 @@ Datenmodell an (`src/domain/schema.ts` + Tests), danach starten die Bereiche.
 | F | Wetter | Klimazonen pflegen, Tageswetter in Weltleiste, Spieltisch und Kalender, Regelfolgen 2024 (extreme Kälte/Hitze, starker Wind, starker Niederschlag, Nebel), von Hand setzbar | 4.1 |
 | G | Rast, Lager, Wachen | kurze und lange Rast nach 2024 (lange Rast: 8 h, davon mind. 6 h Schlaf, Unterbrechung, eine je 24 h, −1 Erschöpfung), Wachplan mit passiver Wahrnehmung, Schlaf bestätigen; für Gruppe oder Teilgruppe; Konzentration und Zauber als Timer | 4.1 |
 | H | Exploration | Erkundungsgebiete auf der echten Karte, Hexcrawl: Orientierung, Reisezeit, Entdeckungen, Begegnungen aus den eigenen Tabellen, frei abbiegen, „Bis zur nächsten Entscheidung“, Entdecktes bleibt erhalten | D, E, F |
-| I | Abgleich über GitHub | Spielstand in einem privaten GitHub-Repository (Entscheidung des Spielleiters, kein Cloud-Laufwerk); Rust-Seite über die GitHub-API (Bäume/Blobs, kein libgit2), Zugangsschlüssel im Schlüsselbund, Abgleich beim Öffnen, nach Änderungen und beim Schließen; Dreiwegevergleich je Datei mit gespeichertem gemeinsamem Stand; Konflikte zur Entscheidung anzeigen | – |
-| J | Testspielstand | Kopie der Kampagne zum Ausprobieren, unübersehbar gekennzeichnet, mit einem Klick verwerfen | – |
+| I | Abgleich über GitHub ✅ | gebaut am 15. 11. 2026 – siehe „Abgleich über GitHub 15. 11. 2026“ am Ende von Abschnitt 5; Entwurf `docs/abgleich/abgleich-entwurf-fertig.md` | – |
+| J | Testspielstand | Kopie der Kampagne zum Ausprobieren, unübersehbar gekennzeichnet, mit einem Klick verwerfen. Hinweis: Eine Kopie des Kampagnenordners gleicht nie von selbst ab – Wayfarer fragt (Entwurf 1.15), die Vorgabe ist „Nicht abgleichen – das ist eine Kopie“ | – |
 | K | D&D-Beyond-Werte | Werte aus dem D&D-Beyond-Link eines Charakters holen (öffentlicher Charakter), über die Rust-Seite; Werte kennzeichnen, von Hand überschreibbar | – |
 
 **Stand A (10. 11. 2026):** Die fünf neuen Arten stehen in Übersicht, Einstieg, Suche und
@@ -327,10 +327,9 @@ geprüft (Holen, Anhalten, Anzeige); **auf macOS noch nicht**. Gemessen: 481 Bil
 etwa drei Minuten.
 - Die Sicherungsdatei enthält die geholten Bilder nicht; auf einem zweiten Rechner holt man sie
   neu (solange der Ursprung besteht) oder kopiert den Ordner `media`.
-- **Vor einer Kündigung von LegendKeeper** müssen die Bilder auf **beiden** Rechnern geholt sein
-  – oder der Ordner `media` wird mit dem Spielstand abgeglichen. Für den Abgleich über GitHub
-  (Bereich I) ist er mit 1,35 GB zu groß; dafür braucht es kleinere Fassungen der Bilder oder
-  einen anderen Weg.
+- **Vor einer Kündigung von LegendKeeper** müssen die Bilder auf **beiden** Rechnern geholt sein.
+  Der Abgleich überträgt Bilder bewusst nicht (1,35 GB; Entscheidung 15. 11. 2026); der Baustein
+  „Bilder auf diesen Rechner holen“ steht deshalb auch in Einstellungen → Abgleich.
 - Offen: kleine Vorschaubilder für Listen (jetzt werden die großen Bilder erst beim Hinsehen
   geladen), ein Bild von Hand ersetzen, Aufräumen nicht mehr gebrauchter Dateien.
 
@@ -1132,9 +1131,10 @@ LegendKeeper-Einordnung mit selbstständigem Erkennen von Orten und Lage (C).
 
 **Desktop**
 18. macOS: die neueste Version, die auf dem M1 läuft – Voraussetzung (macOS 12) erfüllt.
-19. **Das Repository ist öffentlich.** Folgen: GitHub Actions kostet keine Freiminuten. Es darf
-    **nie** ein Spielstand, ein Backup, ein Schlüssel oder sonst etwas Privates hineingeraten.
-    Der Abgleich des Spielstands (Bereich I) braucht ein **eigenes, privates** Repository.
+19. ~~Das Repository ist öffentlich.~~ Überholt: Das Code-Repository ist seit 12. 11. privat. Es
+    darf trotzdem **nie** ein Spielstand, ein Backup oder ein Schlüssel hineingeraten. Der
+    Spielstand hat eine **eigene** private Ablage (`spielstand-elaris`); eine Ablage mit fremdem
+    Inhalt – etwa das Code-Repository – lehnt der Abgleich ab (`foreign`).
 20. Warnungen beim ersten Start sind in Ordnung – keine Signierung nötig.
 
 ### Wegenetze und Fadenbrett als Pinnwand (13. 11. 2026) – gebaut
@@ -1835,6 +1835,70 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   übrig“, was auf dem Blatt des letzten Abends nie abgehakt wurde (auch sein Einstieg). Der
   Beiwerk-NSC in „Welt“ (`suggestNpc`) vergibt weiter gern Nachnamen vom Ort.
 
+### Abgleich über GitHub 15. 11. 2026
+
+Entscheidung des Spielleiters: Abgleich über eine eigene private Ablage bei GitHub; alle
+Empfehlungen aus Abschnitt 7 des Entwurfs (`docs/abgleich/abgleich-entwurf-fertig.md`) gelten,
+Name der Ablage `spielstand-elaris`.
+
+**Gebaut** (Abschnitt A: Fachlogik, Datenbank, Rust, Ablauf; Abschnitt B: Oberfläche, Texte):
+
+- Fachlogik `domain/sync.ts`, `domain/syncMerge.ts`; Ablauf `features/abgleich/engine.ts` mit
+  Bote, Stand, Attrappe (`fake.ts`, auch für die Vorschau); Rust `src-tauri/src/sync/`
+  (17 Befehle, Schlüsselbund einmal je Start, `.abgleich/` im Kampagnenordner, unter Windows
+  versteckt, Schließen höchstens 12 s). `sync_state`/`sync_scan` melden `restored` (nach einer
+  eingespielten Sicherung fragt 1.9 „Du hast hier einen ganzen Stand eingespielt“).
+- Einstellungen → **Abgleich** (nach „Kampagne“): Einrichten in fünf Schritten mit Vorab-Wahl
+  „erster Rechner / schon eingerichtet“ und Wiedereinstieg mit hinterlegtem Schlüssel; erster
+  Abgleich nur mit ausdrücklicher Richtung (leer → hochladen, gleich → fertig, verschieden →
+  „Zwei Spielstände – welcher gilt?“, neuere Version → nur „Der Stand aus der Ablage gilt“);
+  „Jetzt abgleichen“, „Beiseitegelegte Fassungen“ (Ansehen, Zurückholen, Alle zurückholen,
+  Diese löschen, „Auch Ersetztes zeigen“), „Zugangsschlüssel ersetzen“, Bilder als Baustein,
+  „Abgleich trennen“ (mit Haken für den Schlüssel), Frage bei kopiertem/verschobenem Ordner.
+- Zeichen unter „Gespeichert“ (vier Zustände plus „nicht verbunden“, nie rot, echter Knopf),
+  ruhige Zeile „Vom … kommt Neues (N Einträge) – gleich da.“, Tafel beim Schließen.
+- Dialog „Abgleich: Das entscheidest du“ (öffnet nur auf Klick, nach frischem Lauf; Karten in
+  Worten, „Text kopieren“, Weltzeit nach Inhalt, Gelöscht gegen geändert mit Vorwahl, sehr viel
+  auf einmal, nur als Ganzes, unlesbare Fassung).
+- Startbildschirm: „Spielstand vom anderen Rechner holen“ (neuer, leerer Ordner; Holen mit
+  Fortschritt; danach „Spielstand geholt“ mit „Zu den Bildern“), „Fortsetzen“ bzw. „Holen
+  fortsetzen“ nach einem unterbrochenen Abgleich (statt still einen halben Stand zu öffnen);
+  „Neu beginnen“ und „alte Version übernehmen“ sind gesperrt, wenn schon Teile eines
+  Spielstands im Ordner liegen. „Sicherung einspielen“ zeigt „Wird vorbereitet …“, solange ein
+  laufender Abgleich abgewartet wird.
+- Probe in der Vorschau: `npm run dev`, dann `?abgleich`, `?abgleich=eingerichtet` oder
+  `?abgleich&welcome` – zwei Rechner gegen die Attrappe im Arbeitsspeicher, eine Tafel unten
+  links spielt den anderen Rechner (ändern, Widerspruch, Zeit, Löschen, kein Netz, Schlüssel
+  gelöscht, Kopie, neuere Version). Durchgespielt bei 1440 × 900 und 1280 × 800.
+
+**Nur der Spielleiter kann prüfen** (Entwurf 6.3; zuerst mit Testordner und Wegwerf-Ablage):
+
+1. Die Probe gegen GitHub (`cd src-tauri`, `WAYFARER_PROBE_KEY=… WAYFARER_PROBE_REPO=konto/wegwerf
+   cargo test probe -- --ignored`) – nie mit der echten Ablage.
+2. GitHubs echte Seiten: Beschriftungen in der Anleitung, Vorbelegung der Knöpfe („Seite bei
+   GitHub öffnen“), „Metadata“, Warnung bei „No expiration“, Passwortabfrage.
+3. Schlüssel einfügen → wird genau die Ablage gefunden und groß genannt? Hochladen, Dauer,
+   Fortschritt; im Browser: privat, Dateien da.
+4. Zweiter Ordner: „Spielstand vom anderen Rechner holen“, mittendrin abbrechen und fortsetzen.
+5. Hin und her, Netz trennen, Widerspruch entscheiden, Beiseitegelegtes zurückholen; Ordner
+   kopieren und die Kopie öffnen (Frage 1.15); Schließen mit und ohne Netz (Tafel, 12 s).
+6. Danach im Testordner „Abgleich trennen“ **mit** „Auch den Zugangsschlüssel entfernen“.
+7. **MacBook** (Wayfarer lief dort nie): Paket installieren, Schlüsselbund-Frage beim ersten Mal
+   und nach einem neuen Paket, Holen, Bilder, ein Abend mit und ohne Netz, Deckel zu.
+8. Erst dann echt: vorher „Sicherung herunterladen“, Einrichtung am Windows-PC mit dem echten
+   Kampagnenordner; Zahl der Einträge und Dauer notieren.
+
+**Offene Fragen:**
+
+- Fragt der Mac-Schlüsselbund nach jedem neuen Paket? Dann ein gleichbleibendes, selbst erzeugtes
+  Zertifikat für das Mac-Paket (Entwurf 7, Punkt 8).
+- GitHubs Seiten sind nur aus der Dokumentation bekannt; weichen Beschriftungen ab, die Texte in
+  `features/abgleich/model.ts` anpassen.
+- Die Probe der Vorschau zeigt bei der Frage „Kopie oder verschoben“ als neuen Ort den alten (die
+  Attrappe kennt keinen echten Ort); in der App kommt der Ort von der Rust-Seite.
+- Die Tafel beim Schließen und „Sofort schließen“ ließen sich in der Vorschau nicht zeigen (kein
+  Fenster der App); nur in der installierten App prüfbar.
+
 ## 6. Bekannte Mängel und Aufräumliste
 
 
@@ -1883,3 +1947,8 @@ mit Inhalt, der Editor, der KI-Leser und die installierte App.
 - Die Hauptdatei des Clients ist groß (Warnung beim Bauen); Bereiche bei Bedarf nachladen.
 - `wiki/editor/helpers.ts` wiederholt `splitTarget` und die Zeilenmuster aus `wiki/markdown.ts`
   (der Editor entstand getrennt) – zusammenführen.
+- Abgleich: drei Schlüsselbund-Bausteine (LegendKeeper, Claude, GitHub) zusammenlegen; Verweise
+  nach dem Holen gezielt aufräumen statt `repairReferences` über `replaceAll`; stabile Signatur
+  des Mac-Pakets (siehe oben); die Liste der Probe gegen GitHub nach dem ersten echten Lauf
+  nachziehen. Die Namen der Rechner stehen als „vom <Name>“ in den Texten – bei einem frei
+  gewählten weiblichen Namen klingt das schief.

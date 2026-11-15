@@ -11,8 +11,8 @@ hängen darin zusammen:
 - Die **Chronik** hält fest, was geschieht; die **Weltzeit** läuft nur, wenn du sie vorstellst.
 
 Wayfarer ist ein installiertes Programm für **macOS und Windows**. Den Spielstand zwischen Mac und
-Windows gleicht Wayfarer künftig selbst über ein privates GitHub-Repository ab (in Arbeit); bis
-dahin geht es über „Sicherung herunterladen“ und „Sicherung einspielen“.
+Windows gleicht Wayfarer selbst ab – über eine eigene, private Ablage bei GitHub (siehe
+[Abgleich](#abgleich-zwischen-windows-pc-und-macbook)).
 
 ---
 
@@ -101,9 +101,9 @@ Wayfarer, bis die letzte Änderung geschrieben ist. Gelingt das nicht, fragt Way
 die Änderungen stillschweigend zu verlieren; nach einem Fehler versucht Wayfarer alle paar Sekunden
 von selbst erneut zu speichern.
 
-**Mac und Windows:** Der eingebaute Abgleich über GitHub ist in Arbeit. Bis dahin: am einen Rechner
-**Einstellungen → Sicherung herunterladen**, am anderen **Einstellungen → Sicherung einspielen**.
-Immer nur an einem Rechner gleichzeitig weiterspielen.
+**Mac und Windows:** Denselben Spielstand auf beiden Rechnern hält der eingebaute Abgleich (nächster
+Abschnitt). Ohne ihn geht es weiter über **Sicherung herunterladen** am einen und **Sicherung
+einspielen** am anderen Rechner.
 
 **Bitte die Dateien im Ordner nicht von Hand ändern, umbenennen oder verschieben.** Liegt dort eine
 Datei, die Wayfarer nicht lesen kann, rührt Wayfarer sie nicht an und zeigt sie unter
@@ -117,6 +117,65 @@ Datei, die Wayfarer nicht lesen kann, rührt Wayfarer sie nicht an und zeigt sie
   erneut. Bleibt die Meldung unter Windows dauerhaft stehen, ist in der Windows-Sicherheit
   vermutlich der „Überwachte Ordnerzugriff“ aktiv. Dort Wayfarer als zugelassene App eintragen oder
   den Kampagnenordner an einen anderen Ort legen.
+
+---
+
+## Abgleich zwischen Windows-PC und MacBook
+
+Wayfarer gleicht den Kampagnenordner selbst mit einer **privaten Ablage bei GitHub** ab (bei GitHub
+heißt so eine Ablage „Repository“). Du brauchst dafür nur ein kostenloses Konto bei GitHub – kein
+weiteres Programm. Abgeglichen wird von selbst: beim Öffnen, kurz nach Änderungen und beim
+Schließen. **Bilder** (Ordner „media“) reisen nicht mit; hole sie auf jedem Rechner einmal über
+„Bilder auf diesen Rechner holen“ – bevor du LegendKeeper kündigst.
+
+**Einrichten (einmal, etwa zehn Minuten) – am Rechner mit der Kampagne:**
+
+1. Vorher **Einstellungen → Sicherung herunterladen** (nur zur Sicherheit).
+2. **Einstellungen → Abgleich → Abgleich einrichten** → „Das ist mein erster Rechner mit Abgleich“.
+3. Wayfarer führt Schritt für Schritt durch GitHubs Seiten: eine **private** Ablage anlegen
+   (Vorschlag: `spielstand-elaris`), dann einen **Zugangsschlüssel nur für diese eine Ablage**
+   erzeugen („Fine-grained personal access token“, „Contents: Read and write“, „No expiration“).
+   Die Knöpfe „Seite bei GitHub öffnen“ füllen das Nötige schon aus.
+4. Den Schlüssel einfügen und **„Speichern und prüfen“**. Er liegt danach im Schlüsselbund deines
+   Systems, nie im Kampagnenordner.
+5. **„Spielstand hochladen“** – fertig. Unten links unter „Gespeichert“ steht jetzt „Abgeglichen“.
+
+**Am zweiten Rechner (zum Beispiel am MacBook):**
+
+1. Wayfarer installieren und starten → **„Spielstand vom anderen Rechner holen“**.
+2. Einen **neuen, leeren Ordner** anlegen und wählen.
+3. Einen **eigenen Zugangsschlüssel für diesen Rechner** erzeugen (der vom ersten Rechner wird
+   nirgends mehr angezeigt) – die Anleitung steht im Fenster. Auf dem Mac fragt der Schlüsselbund
+   nach deinem Anmeldepasswort: „Immer erlauben“ wählen.
+4. **„In diesen Ordner holen“**. Danach öffnet sich die Kampagne; die Bilder holst du über die
+   Meldung „Zu den Bildern“.
+
+Spielst du am Tisch ohne Netz, öffne Wayfarer vorher einmal mit Netz, bis „Abgeglichen“ steht.
+
+**Das Zeichen unten links** (unter „Gespeichert“):
+
+- **Abgeglichen** – alles gleich. Ein Klick gleicht sofort ab.
+- **Gleicht ab …** – läuft gerade.
+- **Kein Netz** – alles ist auf diesem Rechner gespeichert; abgeglichen wird, sobald wieder Netz
+  da ist.
+- **Abgleich braucht dich** – nur du kannst es lösen. Wayfarer öffnet am Tisch nie von selbst ein
+  Fenster; klicke, wenn du Zeit hast:
+  - *Einträge warten auf deine Entscheidung:* Beide Rechner haben dieselbe Angabe verschieden
+    geändert. Ein Klick zeigt die Einträge in Worten; wähle je Eintrag eine Fassung und
+    „Anwenden und abgleichen“. Die nicht gewählte Fassung geht nicht verloren – sie liegt unter
+    Einstellungen → Abgleich → „Beiseitegelegte Fassungen“ und lässt sich zurückholen. Bis du
+    entscheidest, wartet nur dieser eine Eintrag; alles andere wird weiter abgeglichen.
+  - *Der Zugangsschlüssel gilt nicht mehr:* Einstellungen → Abgleich → „Zugangsschlüssel
+    ersetzen“; bei GitHub einen neuen erzeugen und einfügen.
+  - *Wayfarer ist auf diesem Rechner älter:* Der andere Rechner hat eine neuere Version. Dieser
+    holt weiter, lädt aber nichts hoch, bis du Wayfarer hier aktualisiert hast.
+  - *Dieser Ordner ist eine Kopie oder wurde verschoben:* Bei einer Kopie (Sicherung, Ordner zum
+    Ausprobieren) „Nicht abgleichen“ wählen, sonst „Das ist jetzt mein Kampagnenordner“.
+  - *Zwei Spielstände – welcher gilt?* (etwa nach „Sicherung einspielen“): Wähle, welcher Stand
+    gilt. Was dabei ersetzt wird, legt Wayfarer vorher beiseite.
+
+**Trennen:** Einstellungen → Abgleich → „Abgleich trennen“. Der Spielstand bleibt hier und in der
+Ablage, wie er ist. Die Ablage selbst löschst du bei GitHub („Delete this repository“).
 
 ---
 
