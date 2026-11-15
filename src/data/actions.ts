@@ -5,6 +5,7 @@
 import { attitudeModeChoice, type AttitudeMode } from '../domain/attitudeSetting';
 import { clockView, dueSteps, type ClockOccurrence } from '../domain/clock';
 import {
+  entityName,
   findRelation,
   linksTo,
   occurrencesBetween,
@@ -13,6 +14,17 @@ import {
   type PromiseOutcome,
 } from '../domain/derive';
 import { neighboursOfSort } from '../domain/history';
+import {
+  detach,
+  fireFrom,
+  frontOf,
+  groupsToSplit,
+  isSplit,
+  isWholeLed,
+  ledMembers,
+  settleGroups,
+  syncedGroups,
+} from '../domain/party';
 import { carriedChange, prepView, resolveContent } from '../domain/prep';
 import {
   PARTY_ID,
@@ -20,9 +32,12 @@ import {
   createPrep,
   createRelation,
   createSession,
+  newId,
   type ChronicleEntry,
   type ChronicleKind,
   type Clock,
+  type PartyGroup,
+  type PlayState,
   type Relation,
   type Session,
   type Timer,
@@ -55,22 +70,46 @@ export interface ClockBlock {
  * Lässt Weltzeit vergehen. Eingetretene Termine kommen in die Chronik, abgelaufene Timer
  * werden beendet, fällige Schritte der Uhren treten ein und stehen als Veränderung in der
  * Chronik. Der Sprung lässt sich mit undoTimeAdvance zurücknehmen.
+ *
+ * Getrennte Wege: Es rückt die Uhr der geleiteten Teilgruppe vor. Von selbst tritt nur ein, was
+ * hinter der vordersten Uhr liegt (`fireFrom`) – was eine andere Teilgruppe schon erreicht hat,
+ * ist längst eingetreten und tritt nie doppelt ein.
  */
 export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
   const data = db.getSnapshot();
   const from = data.state.now;
   if (!Number.isSafeInteger(to) || to <= from)
     throw new Error('Der neue Zeitpunkt muss nach der aktuellen Weltzeit liegen.');
-  const occurred = occurrencesBetween(data, from + 1, to).filter(
+  return db.batch(() => {
+    const result = fireWorld(db, from, fireFrom(data, from), to);
+    db.setState({ now: to, previousNow: from });
+    return result;
+  });
+}
+
+/**
+ * Lässt eintreten, was zwischen `start` (ausschließlich) und `to` von selbst geschieht: Termine,
+ * Schritte der Uhren, abgelaufene Timer. `from` ist nur für die Meldung. Liegt `to` nicht hinter
+ * `start`, geschieht nichts – so tritt nichts zweimal ein.
+ */
+function fireWorld(
+  db: CampaignDb,
+  from: WorldTime,
+  start: WorldTime,
+  to: WorldTime,
+): TimeAdvanceResult {
+  const data = db.getSnapshot();
+  if (to <= start) return { from, to, occurred: [], expired: [], steps: [], blocked: [] };
+  const occurred = occurrencesBetween(data, start + 1, to).filter(
     (o) => !(o.event.done && !o.event.repeat),
   );
-  const expired = Object.values(data.timers).filter((t) => !t.done && t.end > from && t.end <= to);
+  const expired = Object.values(data.timers).filter((t) => !t.done && t.end > start && t.end <= to);
   // Ein Schritt, der an einem Ablauf hängt, tritt nur ein, wenn der Ablauf nicht ausgeblieben
   // ist. Sonst bleibt die Uhr dort stehen: blockiert. Sie plant nie von selbst um.
   const steps: ClockOccurrence[] = [];
   const blocked: ClockBlock[] = [];
   for (const clock of Object.values(data.clocks))
-    for (const occurrence of dueSteps(clock, from, to)) {
+    for (const occurrence of dueSteps(clock, start, to)) {
       const run = occurrence.step.runId ? data.runs[occurrence.step.runId] : undefined;
       const failure = run ? runFailure(data, run, occurrence.at) : null;
       if (failure) {
@@ -118,19 +157,22 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
         db.patch('events', o.event.id, { done: true });
     }
     for (const timer of expired) db.patch('timers', timer.id, { done: true });
-    db.setState({ now: to, previousNow: from });
   });
   return { from, to, occurred, expired, steps, blocked };
 }
 
-/** Nimmt den letzten Zeitsprung samt seiner automatischen Folgen zurück. */
+/**
+ * Nimmt den letzten Zeitsprung samt seiner automatischen Folgen zurück. Bei getrennter Gruppe
+ * nur, was dieser Sprung über die vorderste Uhr der anderen hinaus ausgelöst hat.
+ */
 export function undoTimeAdvance(db: CampaignDb): boolean {
   const data = db.getSnapshot();
   const back = data.state.previousNow;
   if (back === null || back >= data.state.now) return false;
   const now = data.state.now;
+  const start = fireFrom(data, back);
   db.batch(() => {
-    reopenBetween(db, back, now);
+    if (now > start) reopenBetween(db, start, now);
     db.setState({ now: back, previousNow: null });
   });
   return true;
@@ -358,11 +400,22 @@ export function setTime(db: CampaignDb, to: WorldTime): void {
   db.setState({ now: to, previousNow: null });
 }
 
-/** Die Gruppe wechselt den Ort. Der Wechsel steht in der Chronik; daraus entstehen die Besuche. */
-export function moveParty(db: CampaignDb, toId: string | null, text = ''): ChronicleEntry | null {
+/**
+ * Die Gruppe wechselt den Ort. Der Wechsel steht in der Chronik; daraus entstehen die Besuche.
+ * Getrennte Wege: Es zieht die geleitete Teilgruppe (`who` leer oder genau sie); zieht nur ein
+ * Teil von ihr, trennt er sich und steht als eigene Teilgruppe am Ziel (`sendOff`).
+ */
+export function moveParty(
+  db: CampaignDb,
+  toId: string | null,
+  text = '',
+  who: readonly string[] = [],
+): ChronicleEntry | null {
   const data = db.getSnapshot();
+  if (!isWholeLed(data, who)) return sendOff(db, who, toId, 0, text).entry;
   const fromId = data.state.placeId;
   if (fromId === toId) return null;
+  const movers = isSplit(data) ? ledMembers(data) : [];
   return db.batch(() => {
     const entry = db.put(
       'chronicle',
@@ -373,11 +426,344 @@ export function moveParty(db: CampaignDb, toId: string | null, text = ''): Chron
         text,
         placeId: toId,
         refs: [toId, fromId].filter((id): id is string => !!id),
-        travel: { fromId, toId },
+        travel: movers.length ? { fromId, toId, who: movers } : { fromId, toId },
       }),
     );
     db.setState({ placeId: toId });
     return entry;
+  });
+}
+
+// ── Getrennte Wege ─────────────────────────────────────────────────────────
+
+/** Der Stand der Teilgruppen vor einem Handgriff – für „Rückgängig“. */
+interface PartyBefore {
+  state: Pick<PlayState, 'now' | 'previousNow' | 'placeId' | 'groups' | 'leadId'>;
+  front: WorldTime;
+}
+
+function partyBefore(db: CampaignDb): PartyBefore {
+  const { now, previousNow, placeId, groups, leadId } = db.getSnapshot().state;
+  return { state: { now, previousNow, placeId, groups, leadId }, front: frontOf(db.getSnapshot()) };
+}
+
+/**
+ * „Rückgängig“ für einen Handgriff an den Teilgruppen: Seine Einträge gehen, was er über die
+ * vorderste Uhr hinaus ausgelöst hat, steht wieder aus, und die Teilgruppen stehen wie vorher.
+ */
+function partyUndo(db: CampaignDb, before: PartyBefore, created: string[]): () => void {
+  return () =>
+    db.batch(() => {
+      for (const id of created) if (db.getSnapshot().chronicle[id]) db.remove('chronicle', id);
+      const front = frontOf(db.getSnapshot());
+      if (front > before.front) reopenBetween(db, before.front, front);
+      db.setState(before.state);
+    });
+}
+
+const noAdvance = (at: WorldTime): TimeAdvanceResult => ({
+  from: at,
+  to: at,
+  occurred: [],
+  expired: [],
+  steps: [],
+  blocked: [],
+});
+
+export interface PartyResult {
+  /** Was über die vorderste Uhr hinaus von selbst eingetreten ist. */
+  advance: TimeAdvanceResult;
+  /** Die neuen Einträge der Chronik (Ortswechsel, Tätigkeiten). */
+  entries: ChronicleEntry[];
+  undo: () => void;
+}
+
+/** Eine Zeile im Dialog „Wer macht was?“. */
+export interface PartyRow {
+  memberIds: string[];
+  /** Wo; Vorgabe: der Ort der geleiteten Teilgruppe. */
+  placeId?: string | null;
+  /** Was, in den Worten des Spielleiters; leer = nichts Bestimmtes. */
+  text?: string;
+  /** Wie lange in Minuten; 0 = keine Dauer (die Teilgruppe bleibt in der Zeit). */
+  minutes?: number;
+}
+
+/**
+ * Trennt die geleitete Teilgruppe (oder die ganze Gruppe): Jede Zeile wird eine eigene
+ * Teilgruppe. Ein anderer Ort ist ein Ortswechsel; eine Dauer ist eine Tätigkeit (Eintrag der Art
+ * „Freie Zeit“ mit Minuten und ihrem Wortlaut je Gefährte), und die Uhr dieser Teilgruppe rückt
+ * um die Dauer vor – was dabei die vorderste Uhr überholt, tritt ein. Wer in keiner Zeile steht,
+ * bleibt. Ohne Dauer steht der Wortlaut als Notiz da. Wayfarer schreibt keinen Text.
+ */
+export function splitParty(db: CampaignDb, rows: PartyRow[]): PartyResult | { problem: string } {
+  const data = db.getSnapshot();
+  const { groups: start, leadId } = groupsToSplit(data);
+  const led = start.find((group) => group.id === leadId)!;
+  const used = new Set<string>();
+  if (!rows.length) return { problem: 'Wer macht was? Es fehlt eine Zeile.' };
+  for (const row of rows) {
+    if (!row.memberIds.length) return { problem: 'Jede Zeile braucht mindestens einen Gefährten.' };
+    for (const id of row.memberIds) {
+      if (!led.memberIds.includes(id))
+        return { problem: `${entityName(data, id)} ist gerade nicht bei der geleiteten Gruppe.` };
+      if (used.has(id)) return { problem: `${entityName(data, id)} steht in zwei Zeilen.` };
+      used.add(id);
+    }
+  }
+  const before = partyBefore(db);
+  const at = data.state.now;
+  const sessionId = data.state.sessionId;
+  return db.batch(() => {
+    let groups = start;
+    const entries: ChronicleEntry[] = [];
+    const fresh: PartyGroup[] = [];
+    for (const row of rows) {
+      const who = [...row.memberIds];
+      const placeId = row.placeId === undefined ? led.placeId : row.placeId;
+      const minutes = Math.max(0, Math.round(row.minutes ?? 0));
+      const text = (row.text ?? '').trim();
+      if (placeId !== led.placeId)
+        entries.push(
+          db.put(
+            'chronicle',
+            createChronicleEntry({
+              kind: 'travel',
+              at,
+              sessionId,
+              placeId,
+              refs: [placeId, led.placeId, ...who].filter((id): id is string => !!id),
+              travel: { fromId: led.placeId, toId: placeId, who },
+              party: who,
+            }),
+          ),
+        );
+      let doing: PartyGroup['doing'] = null;
+      if (minutes > 0) {
+        const entry = db.put(
+          'chronicle',
+          createChronicleEntry({
+            kind: 'downtime',
+            at,
+            sessionId,
+            placeId,
+            refs: who,
+            downtime: {
+              days: 0,
+              minutes,
+              activities: who.map((characterId) => ({ characterId, text })),
+            },
+            party: who,
+          }),
+        );
+        entries.push(entry);
+        doing = { entryId: entry.id, from: at, until: at + minutes };
+      } else if (text)
+        entries.push(
+          db.put(
+            'chronicle',
+            createChronicleEntry({
+              kind: 'note',
+              at,
+              sessionId,
+              placeId,
+              text,
+              refs: who,
+              party: who,
+            }),
+          ),
+        );
+      const group: PartyGroup = { id: newId(), memberIds: who, placeId, now: at + minutes, doing };
+      fresh.push(group);
+      groups = detach(groups, group);
+    }
+    const until = Math.max(at, ...fresh.map((group) => group.now));
+    const advance = fireWorld(db, at, before.front, until);
+    // Bleibt von der geleiteten niemand, geht das Spiel bei der größten neuen ohne Dauer weiter.
+    const stays = groups.find((group) => group.id === leadId)?.memberIds.length;
+    const idle = fresh
+      .filter((group) => group.now === at)
+      .sort((a, b) => b.memberIds.length - a.memberIds.length)[0];
+    const next = stays ? leadId : (idle?.id ?? null);
+    db.setState({ ...settleGroups(groups, next, data.state), previousNow: null });
+    return {
+      advance,
+      entries,
+      undo: partyUndo(
+        db,
+        before,
+        entries.map((e) => e.id),
+      ),
+    };
+  });
+}
+
+/**
+ * Ein Teil der geleiteten Teilgruppe geht an einen Ort: Er trennt sich, seine Uhr rückt um den
+ * Weg vor, dann steht er am Ziel (der Ortswechsel zur Ankunftszeit). Die geleitete bleibt in ihrer
+ * Zeit. Was die vorderste Uhr dabei überholt, tritt ein.
+ */
+export function sendOff(
+  db: CampaignDb,
+  who: readonly string[],
+  toId: string | null,
+  minutes: number,
+  text = '',
+): PartyResult & { entry: ChronicleEntry | null } {
+  const data = db.getSnapshot();
+  const { groups: start, leadId } = groupsToSplit(data);
+  const led = start.find((group) => group.id === leadId)!;
+  const movers = who.filter((id) => led.memberIds.includes(id));
+  const before = partyBefore(db);
+  const at = data.state.now;
+  const length = Math.max(0, Math.round(minutes));
+  return db.batch(() => {
+    const entry =
+      toId === led.placeId
+        ? null
+        : db.put(
+            'chronicle',
+            createChronicleEntry({
+              kind: 'travel',
+              at: at + length,
+              sessionId: data.state.sessionId,
+              text,
+              placeId: toId,
+              refs: [toId, led.placeId, ...movers].filter((id): id is string => !!id),
+              travel: { fromId: led.placeId, toId, who: movers },
+              party: movers,
+            }),
+          );
+    const group: PartyGroup = {
+      id: newId(),
+      memberIds: movers,
+      placeId: toId,
+      now: at + length,
+      doing: entry && length > 0 ? { entryId: entry.id, from: at, until: at + length } : null,
+    };
+    const advance = fireWorld(db, at, before.front, at + length);
+    db.setState({
+      ...settleGroups(detach(start, group), leadId, data.state),
+      previousNow: null,
+    });
+    const entries = entry ? [entry] : [];
+    return {
+      advance,
+      entries,
+      entry,
+      undo: partyUndo(
+        db,
+        before,
+        entries.map((e) => e.id),
+      ),
+    };
+  });
+}
+
+/**
+ * Leitet eine andere Teilgruppe: Ort und Zeit am Tisch werden ihre. Nichts steht in der Chronik,
+ * nichts tritt ein und nichts wird zurückgenommen – die Uhren bleiben, wie sie sind.
+ */
+export function leadGroup(db: CampaignDb, groupId: string): void {
+  const data = db.getSnapshot();
+  if (!isSplit(data) || data.state.leadId === groupId) return;
+  const groups = syncedGroups(data.state);
+  const target = groups.find((group) => group.id === groupId);
+  if (!target) return;
+  db.setState({
+    groups,
+    leadId: target.id,
+    now: target.now,
+    placeId: target.placeId,
+    previousNow: null,
+  });
+}
+
+/**
+ * Holt eine zurückliegende Teilgruppe auf eine spätere Zeit nach – nur auf Klick, nie von selbst.
+ * Was sie dabei tat, schreibt der Spielleiter, wenn er will. Was die vorderste Uhr dabei
+ * überholt, tritt ein (sonst nichts).
+ */
+export function catchUp(db: CampaignDb, groupId: string, to: WorldTime): PartyResult | null {
+  const data = db.getSnapshot();
+  const group = syncedGroups(data.state).find((g) => g.id === groupId);
+  if (!group || !Number.isSafeInteger(to) || to <= group.now) return null;
+  const before = partyBefore(db);
+  return db.batch(() => {
+    const advance = fireWorld(db, group.now, fireFrom(data, group.now, group.id), to);
+    if (group.id === data.state.leadId) db.setState({ now: to, previousNow: null });
+    else
+      db.setState({
+        groups: data.state.groups.map((g) => (g.id === group.id ? { ...g, now: to } : g)),
+      });
+    return { advance, entries: [], undo: partyUndo(db, before, []) };
+  });
+}
+
+/**
+ * Führt Teilgruppen zusammen – nur auf Klick. Die zurückliegenden werden auf die Zeit der
+ * vordersten unter ihnen gezogen (dabei tritt nichts ein: Die Welt war schon dort). Wer an einem
+ * anderen Ort steht, zieht zum Ort von `intoId` (Vorgabe: die geleitete, sonst die erste) – ein
+ * Ortswechsel ohne Text. Bleibt eine Teilgruppe, ist die Gruppe wieder zusammen.
+ */
+export function mergeGroups(
+  db: CampaignDb,
+  groupIds: readonly string[],
+  intoId?: string,
+): PartyResult | null {
+  const data = db.getSnapshot();
+  const groups = syncedGroups(data.state);
+  const chosen = groups.filter((group) => groupIds.includes(group.id));
+  if (chosen.length < 2) return null;
+  const target =
+    chosen.find((group) => group.id === intoId) ??
+    chosen.find((group) => group.id === data.state.leadId) ??
+    chosen[0]!;
+  const at = Math.max(...chosen.map((group) => group.now));
+  const before = partyBefore(db);
+  return db.batch(() => {
+    const entries: ChronicleEntry[] = [];
+    for (const group of chosen)
+      if (group !== target && group.placeId !== target.placeId)
+        entries.push(
+          db.put(
+            'chronicle',
+            createChronicleEntry({
+              kind: 'travel',
+              at,
+              sessionId: data.state.sessionId,
+              placeId: target.placeId,
+              refs: [target.placeId, group.placeId, ...group.memberIds].filter(
+                (id): id is string => !!id,
+              ),
+              travel: { fromId: group.placeId, toId: target.placeId, who: group.memberIds },
+              party: group.memberIds,
+            }),
+          ),
+        );
+    const merged: PartyGroup = {
+      ...target,
+      memberIds: chosen.flatMap((group) => group.memberIds),
+      now: at,
+      doing: null,
+    };
+    const rest = groups
+      .filter((group) => !chosen.includes(group) || group === target)
+      .map((group) => (group === target ? merged : group));
+    const leadInside = chosen.some((group) => group.id === data.state.leadId);
+    db.setState({
+      ...settleGroups(rest, leadInside ? merged.id : data.state.leadId, data.state),
+      previousNow: null,
+    });
+    return {
+      advance: noAdvance(at),
+      entries,
+      undo: partyUndo(
+        db,
+        before,
+        entries.map((e) => e.id),
+      ),
+    };
   });
 }
 

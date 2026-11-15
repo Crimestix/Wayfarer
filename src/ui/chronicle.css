@@ -190,6 +190,14 @@
 .wf-chron__story {
   color: var(--gold);
 }
+/* Getrennte Wege: wer dabei war; Einträge anderer Teilgruppen stehen schwach in der Mitschrift. */
+.wf-chron__party {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.wf-chron--other {
+  opacity: 0.55;
+}
 .wf-chron--done .wf-chron__text {
   color: var(--ink-mute);
   text-decoration: line-through;

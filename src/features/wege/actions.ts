@@ -6,9 +6,11 @@
 import {
   advanceTime,
   moveParty,
+  sendOff,
   undoTimeAdvance,
   type TimeAdvanceResult,
 } from '../../data/actions';
+import { isSplit, isWholeLed } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
 import { routeMeans, describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
 import { createPath, type ChronicleEntry, type TravelPath } from '../../domain/schema';
@@ -77,12 +79,43 @@ export interface WalkResult {
 /**
  * Die Gruppe geht zu einem Ort: Erst vergeht die Zeit des Weges, dann kommt sie an. `note` steht
  * am Ortswechsel in der Chronik.
+ *
+ * Getrennte Wege: `who` sagt, wer geht (Vorgabe: die geleitete Teilgruppe). Geht nur ein Teil
+ * von ihr, trennt er sich – nur seine Uhr rückt um den Weg vor, die anderen bleiben in ihrer Zeit
+ * (`sendOff`). Bei getrennter Gruppe merkt sich die geleitete ihren Weg, damit die anderen zu
+ * ihrer Zeit „unterwegs nach …“ sehen.
  */
-export function walk(db: CampaignDb, toId: string, minutes: number, note = ''): WalkResult {
+export function walk(
+  db: CampaignDb,
+  toId: string,
+  minutes: number,
+  note = '',
+  who: readonly string[] = [],
+): WalkResult {
   const length = Math.max(0, Math.round(minutes));
+  const data = db.getSnapshot();
+  if (!isWholeLed(data, who)) {
+    const sent = sendOff(db, who, toId, length, note);
+    return {
+      advance: sent.advance.occurred.length || sent.advance.steps.length ? sent.advance : null,
+      entry: sent.entry,
+      minutes: length,
+      undo: sent.undo,
+    };
+  }
   return db.batch(() => {
-    const advance = length > 0 ? advanceTime(db, db.getSnapshot().state.now + length) : null;
+    const start = db.getSnapshot().state.now;
+    const advance = length > 0 ? advanceTime(db, start + length) : null;
     const entry = moveParty(db, toId, note);
+    const state = db.getSnapshot().state;
+    if (entry && length > 0 && isSplit(db.getSnapshot()))
+      db.setState({
+        groups: state.groups.map((group) =>
+          group.id === state.leadId
+            ? { ...group, doing: { entryId: entry.id, from: start, until: start + length } }
+            : group,
+        ),
+      });
     return {
       advance,
       entry,

@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { CornerDownLeft, Feather, Play, Trash2, X } from 'lucide-react';
 import { logEntry, startSession } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
+import { isSplit } from '../../domain/party';
 import type { Recognized } from '../../domain/recognize';
 import type { CampaignData, ChronicleEntry } from '../../domain/schema';
 import {
@@ -618,7 +619,10 @@ export function JournalPanel() {
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
-  const log = useMemo(() => journal(data), [data]);
+  // Getrennte Wege: alles vom Abend mit Marke, Fremdes schwach – oder nur die geleitete Teilgruppe.
+  const split = isSplit(data);
+  const [onlyLed, setOnlyLed] = useState(false);
+  const log = useMemo(() => journal(data, 60, split && onlyLed), [data, split, onlyLed]);
   const groups = useMemo(
     () => groupByDay(cal, data.state.now, log.entries),
     [cal, data.state.now, log.entries],
@@ -684,6 +688,28 @@ export function JournalPanel() {
         onSubmit={(text, refs) => logEntry(db, { text, refs })}
         onQuick={runQuick}
       />
+      {split && (
+        <div className="wf-tisch-journal__filter">
+          <span className="wf-btn-group" role="group" aria-label="Welche Einträge">
+            <Button
+              size="sm"
+              aria-pressed={!onlyLed}
+              title="Alles vom Abend; was andere Teilgruppen betrifft, steht schwach"
+              onClick={() => setOnlyLed(false)}
+            >
+              Alle Teilgruppen
+            </Button>
+            <Button
+              size="sm"
+              aria-pressed={onlyLed}
+              title="Nur, was die geleitete Teilgruppe (und die ganze Gruppe) betrifft"
+              onClick={() => setOnlyLed(true)}
+            >
+              Nur diese
+            </Button>
+          </span>
+        </div>
+      )}
       <div className="wf-tisch-journal__log" ref={logBox}>
         {groups.length === 0 ? (
           <EmptyState
@@ -707,6 +733,7 @@ export function JournalPanel() {
                 <ChronicleList
                   entries={group.entries}
                   hideRefs={hidden}
+                  faintOthers={split}
                   onEdit={(entry) => setEditingId(entry.id)}
                 />
               </section>

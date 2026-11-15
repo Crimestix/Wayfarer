@@ -18,6 +18,7 @@ import {
   sessionForEntry,
   statusOf,
 } from '../domain/history';
+import { isSplit, ledMembers, placeOfWho, touches, whoOf, withPlace } from '../domain/party';
 import { findPrepSecret, hintOf, secretSheets } from '../domain/prep';
 import { RELATION_TYPES } from '../domain/relations';
 import { holderAfter, planTrade, stockAfter } from '../domain/shop';
@@ -146,15 +147,19 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       const toId = input.travel.toId;
       if (toId !== null && !isKind(data, toId, 'place'))
         return { problem: 'Das Ziel ist kein Ort.' };
-      const { previous, next } = neighboursOfSort(data, probe({ travel: { fromId: null, toId } }));
+      // Getrennte Wege: Wer zieht, sagt `who`; sonst die geleitete Teilgruppe (leer = alle).
+      const who = input.travel.who ?? (isSplit(data) ? ledMembers(data) : []);
+      const travelOf = (fromId: string | null) =>
+        who.length ? { fromId, toId, who } : { fromId, toId };
+      const { previous, next } = neighboursOfSort(data, probe({ travel: travelOf(null) }));
       const fromId =
         at === now && !next
-          ? data.state.placeId
+          ? placeOfWho(data, who)
           : previous
             ? previous.travel!.toId
             : next
               ? next.travel!.fromId
-              : data.state.placeId;
+              : placeOfWho(data, who);
       if (fromId === toId)
         return {
           problem: toId
@@ -167,7 +172,7 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
         };
       placeId = toId;
       refs = [...new Set([...[toId, fromId].filter((id): id is string => !!id), ...refs])];
-      return { entry: probe({ placeId, refs, travel: { fromId, toId }, ...rest() }) };
+      return { entry: probe({ placeId, refs, travel: travelOf(fromId), ...rest() }) };
     }
     case 'attitude': {
       const a = input.attitude;
@@ -559,7 +564,7 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
   const next = neighboursOfSort(data, entry).next;
   switch (entry.kind) {
     case 'travel':
-      if (newest && entry.travel) db.setState({ placeId: entry.travel.toId });
+      if (newest && entry.travel) db.setState(withPlace(data, whoOf(entry), entry.travel.toId));
       return;
     case 'attitude': {
       const a = entry.attitude;
@@ -838,8 +843,13 @@ function travelOrderProblem(data: CampaignData, ids: string[]): string {
     .sort((a, b) => a.at - b.at || a.created.localeCompare(b.created) || a.id.localeCompare(b.id));
   const touched = new Set(ids);
   for (let i = 1; i < travels.length; i++) {
-    const previous = travels[i - 1]!;
     const current = travels[i]!;
+    // Bei getrennter Gruppe zählt der Ortswechsel davor, an dem dieselben Gefährten beteiligt waren.
+    const previous = travels
+      .slice(0, i)
+      .filter((other) => touches(whoOf(other), whoOf(current)))
+      .at(-1);
+    if (!previous) continue;
     if (!touched.has(previous.id) && !touched.has(current.id)) continue;
     const fromId = current.travel!.fromId;
     if (fromId !== null && fromId !== previous.travel!.toId)
@@ -853,7 +863,9 @@ export function effectHolds(data: CampaignData, entry: ChronicleEntry): boolean 
   switch (entry.kind) {
     case 'travel':
       return (
-        !!entry.travel && isNewestOfSort(data, entry) && data.state.placeId === entry.travel.toId
+        !!entry.travel &&
+        isNewestOfSort(data, entry) &&
+        placeOfWho(data, whoOf(entry)) === entry.travel.toId
       );
     case 'attitude': {
       const relation = entry.attitude
@@ -954,7 +966,7 @@ class Changes {
     before: unknown;
     afterRev: number | null;
   }[] = [];
-  private place: { before: string | null; after: string | null } | null = null;
+  private place: { before: Partial<PlayState>; after: Partial<PlayState> } | null = null;
 
   constructor(private readonly db: CampaignDb) {}
 
@@ -979,9 +991,17 @@ class Changes {
     this.db.remove(collection, id);
   }
 
-  setPlace(placeId: PlayState['placeId']) {
-    this.place = { before: this.db.getSnapshot().state.placeId, after: placeId };
-    this.db.setState({ placeId });
+  /** Setzt den Ort der Gruppe – bei getrennter Gruppe den der Teilgruppe von `who`. */
+  setPlace(placeId: PlayState['placeId'], who: readonly string[] = []) {
+    const state = this.db.getSnapshot().state;
+    const after = withPlace(this.db.getSnapshot(), who, placeId);
+    const before: Partial<PlayState> =
+      'groups' in after ? { groups: state.groups } : { placeId: state.placeId };
+    this.db.setState(after);
+    this.place = {
+      before,
+      after: 'groups' in after ? { groups: this.db.getSnapshot().state.groups } : after,
+    };
   }
 
   /** Nach dem Ändern aufrufen: merkt sich den Stand danach. */
@@ -1004,8 +1024,14 @@ class Changes {
         if (doc.before === undefined) db.remove(doc.collection, doc.id);
         else db.put(doc.collection, doc.before as CollectionTypes[typeof doc.collection]);
       }
-      if (this.place && db.getSnapshot().state.placeId === this.place.after)
-        db.setState({ placeId: this.place.before });
+      const state = db.getSnapshot().state;
+      if (
+        this.place &&
+        Object.entries(this.place.after).every(
+          ([key, value]) => state[key as keyof PlayState] === value,
+        )
+      )
+        db.setState(this.place.before);
     });
   }
 }
@@ -1029,7 +1055,7 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
     switch (entry.kind) {
       case 'travel': {
         const fromId = entry.travel?.fromId ?? null;
-        if (holds) changes.setPlace(fromId && data.entities[fromId] ? fromId : null);
+        if (holds) changes.setPlace(fromId && data.entities[fromId] ? fromId : null, whoOf(entry));
         // Der nächste Ortswechsel bricht dann dort auf, wo die Gruppe vorher war.
         const after = next?.travel;
         if (next && after && entry.travel && after.fromId === entry.travel.toId)

@@ -1,5 +1,6 @@
 /** Befehle des Bereichs „Gefährten“. Alles, was mehrere Dokumente ändert, läuft hierüber. */
-import { logEntry, setAttitude } from '../../data/actions';
+import { logEntry, mergeGroups, sendOff, setAttitude } from '../../data/actions';
+import { groupOf, ledMembers } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
 import type { AttitudeMode } from '../../domain/attitudeSetting';
 import { entityName, findRelation } from '../../domain/derive';
@@ -86,8 +87,10 @@ export interface PlaceChangeResult {
 }
 
 /**
- * Ein Gefährte trennt sich von der Gruppe (placeId) oder stößt wieder zu ihr (null).
- * Das steht als Notiz in der Chronik.
+ * Ein Gefährte trennt sich von der Gruppe (placeId) oder stößt wieder zu ihr (null). Getrennte
+ * Wege: Er wird eine Teilgruppe aus einer Person mit eigener Uhr (`sendOff`, ein Ortswechsel mit
+ * ihm allein); zurück führt seine Teilgruppe mit der geleiteten zusammen (`mergeGroups`). Ein
+ * Aufenthalt aus früheren Ständen (`character.placeId`) wird wie bisher zurückgesetzt.
  */
 export function moveCharacter(
   db: CampaignDb,
@@ -95,25 +98,43 @@ export function moveCharacter(
   placeId: string | null,
 ): PlaceChangeResult | null {
   const current = getCharacter(db, id);
-  if (!current || current.character.placeId === placeId) return null;
-  const before = current.character.placeId;
+  if (!current) return null;
   const data = db.getSnapshot();
-  const text = placeChangeText(db, current.name, placeId);
-  const entry = db.batch(() => {
-    patchCharacter(db, id, { placeId });
-    return logEntry(db, {
-      text,
-      refs: [id, placeId ?? before].filter((ref): ref is string => !!ref),
-      placeId: placeId ?? data.state.placeId,
+  const before = current.character.placeId;
+  if (before !== null) {
+    // Aus einem früheren Stand: zuerst der alte Aufenthalt, wie bisher mit Notiz.
+    const text = placeChangeText(db, current.name, placeId);
+    const entry = db.batch(() => {
+      patchCharacter(db, id, { placeId });
+      return logEntry(db, {
+        text,
+        refs: [id, placeId ?? before].filter((ref): ref is string => !!ref),
+        placeId: placeId ?? data.state.placeId,
+      });
     });
-  });
+    return {
+      text,
+      undo: () =>
+        db.batch(() => {
+          patchCharacter(db, id, { placeId: before });
+          db.remove('chronicle', entry.id);
+        }),
+    };
+  }
+  const group = groupOf(data, id);
+  if (placeId === null) {
+    if (!group || group.led || !data.state.leadId) return null;
+    const result = mergeGroups(db, [group.id, data.state.leadId]);
+    return result
+      ? { text: `${current.name} ist wieder bei der Gruppe.`, undo: result.undo }
+      : null;
+  }
+  if (group && !group.led) return null;
+  if (ledMembers(data).length < 2) return null;
+  const result = sendOff(db, [id], placeId, 0);
   return {
-    text,
-    undo: () =>
-      db.batch(() => {
-        patchCharacter(db, id, { placeId: before });
-        db.remove('chronicle', entry.id);
-      }),
+    text: `${current.name} ist für sich unterwegs: ${entityName(data, placeId)} – eine eigene Teilgruppe.`,
+    undo: result.undo,
   };
 }
 

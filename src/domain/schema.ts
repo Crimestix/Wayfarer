@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 3;
-export const DATA_SHAPE = '29ad0ca094e40bb3';
+export const DATA_VERSION = 4;
+export const DATA_SHAPE = '82a3a961c342fe03';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -111,6 +111,29 @@ export const CampaignMetaSchema = z.object({
 });
 export type CampaignMeta = z.infer<typeof CampaignMetaSchema>;
 
+/**
+ * Eine Teilgruppe, solange die Gruppe getrennt ist (`domain/party.ts`): wer dabei ist, wo sie ist
+ * und ihre eigene Uhr. Für die geleitete Teilgruppe gelten `state.placeId` und `state.now` – ihre
+ * Felder hier sind nur der Stand beim letzten Umschalten.
+ */
+export const PartyGroupSchema = z.object({
+  id,
+  /** Aktive Gefährten (und Begleiter), die zu dieser Teilgruppe gehören. */
+  memberIds: z.array(id).default([]),
+  placeId: id.nullable().default(null),
+  /** Die Zeit dieser Teilgruppe – ihre eigene Uhr. */
+  now: worldTime,
+  /**
+   * Woran sie zuletzt war: eine Tätigkeit oder ein Weg mit Beginn und Ende (ihr Eintrag in der
+   * Chronik). Aus Sicht der anderen zu deren Zeit: „bis 16:20“ oder „fertig seit …“.
+   */
+  doing: z
+    .object({ entryId: id.nullable().default(null), from: worldTime, until: worldTime })
+    .nullable()
+    .default(null),
+});
+export type PartyGroup = z.infer<typeof PartyGroupSchema>;
+
 export const PlayStateSchema = z.object({
   id: z.literal('state'),
   rev: base.rev,
@@ -118,8 +141,15 @@ export const PlayStateSchema = z.object({
   now: worldTime,
   /** Weltzeit vor dem letzten Zeitsprung (für „rückgängig“), sonst null. */
   previousNow: worldTime.nullable().default(null),
-  /** Aufenthaltsort der Gruppe. */
+  /** Aufenthaltsort der Gruppe – bei getrennter Gruppe der der geleiteten Teilgruppe. */
   placeId: id.nullable().default(null),
+  /**
+   * Getrennte Wege: die Teilgruppen mit eigener Uhr (`domain/party.ts`). Leer = alle zusammen.
+   * `now` und `placeId` oben sind dann die der geleiteten Teilgruppe (`leadId`).
+   */
+  groups: z.array(PartyGroupSchema).default([]),
+  /** Die geleitete Teilgruppe; null = keine Trennung. */
+  leadId: id.nullable().default(null),
   /** Laufende Session. */
   sessionId: id.nullable().default(null),
   /**
@@ -787,8 +817,14 @@ export const ChronicleEntrySchema = z.object({
   placeId: id.nullable().default(null),
   /** Beteiligte oder betroffene Einträge der Weltdatenbank. */
   refs: z.array(id).default([]),
-  /** kind = travel: Ortswechsel der Gruppe. */
-  travel: z.object({ fromId: id.nullable(), toId: id.nullable() }).nullable().default(null),
+  /**
+   * kind = travel: Ortswechsel der Gruppe. `who` = wer gezogen ist, solange die Gruppe getrennt
+   * ist; leer = die ganze Gruppe (`domain/party.ts`).
+   */
+  travel: z
+    .object({ fromId: id.nullable(), toId: id.nullable(), who: z.array(id).optional() })
+    .nullable()
+    .default(null),
   /** kind = attitude: Haltungsänderung. */
   attitude: z
     .object({
@@ -818,6 +854,11 @@ export const ChronicleEntrySchema = z.object({
   eventId: id.nullable().default(null),
   /** Die Geschichte, zu der der Eintrag gehört – am Spieltisch zu ihr notiert. */
   storyId: id.nullable().default(null),
+  /**
+   * Wer dabei war: die Mitglieder der geleiteten Teilgruppe, solange die Gruppe getrennt ist
+   * (von selbst gesetzt wie die Session, `partyStamp`); leer = die ganze Gruppe.
+   */
+  party: z.array(id).default([]),
   /** Der Eintrag stammt von einer Uhr: ihr Schritt ist eingetreten oder wurde verhindert. */
   clockId: id.nullable().default(null),
   stepId: id.nullable().default(null),
@@ -985,6 +1026,11 @@ export const ChronicleEntrySchema = z.object({
   downtime: z
     .object({
       days: z.number().int().nonnegative().default(0),
+      /**
+       * Eine Tätigkeit einer Teilgruppe mit Dauer in Minuten („in der Bibliothek, 3 Std.“);
+       * fehlt = Tage der freien Zeit wie oben.
+       */
+      minutes: z.number().int().positive().optional(),
       activities: z.array(z.object({ characterId: id, text: z.string().default('') })).default([]),
     })
     .nullable()

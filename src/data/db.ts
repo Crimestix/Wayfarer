@@ -24,6 +24,7 @@ import {
   type CollectionTypes,
   type PlayState,
 } from '../domain/schema';
+import { partyStamp } from '../domain/party';
 import { NEVER_DELETED, isSyncedPath } from '../domain/sync';
 import { checkIncoming } from '../domain/syncMerge';
 import type { CampaignStore, StoredFile } from './store';
@@ -185,6 +186,12 @@ export class CampaignDb {
   /** Legt ein Dokument an oder ersetzt es. Gibt die gespeicherte Fassung zurück. */
   put<C extends CollectionName>(collection: C, doc: CollectionTypes[C]): CollectionTypes[C] {
     this.assertOpen();
+    // Getrennte Wege: Ein neuer Eintrag der Chronik merkt sich, wer dabei war – wie die Session.
+    if (collection === 'chronicle' && !(doc.id in this.data.chronicle)) {
+      const entry = doc as CollectionTypes['chronicle'];
+      const party = partyStamp(this.data, entry);
+      if (party !== entry.party) doc = { ...entry, party } as CollectionTypes[C];
+    }
     const stamped = { ...doc, rev: doc.rev + 1, updated: nowIso() } as CollectionTypes[C];
     const valid = COLLECTION_SCHEMAS[collection].parse(stamped) as CollectionTypes[C];
     this.data = { ...this.data, [collection]: { ...this.data[collection], [valid.id]: valid } };

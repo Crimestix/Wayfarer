@@ -548,8 +548,13 @@ export function activeParty(data: CampaignData): Character[] {
   return entitiesOfKind(data, 'character').filter((c) => c.character.active);
 }
 
-/** Wo ein Gefährte gerade ist: eigener Aufenthaltsort oder der der Gruppe. */
+/**
+ * Wo ein Gefährte gerade ist: bei getrennter Gruppe der Ort seiner Teilgruppe (`domain/party.ts`),
+ * sonst sein eigener Aufenthaltsort oder der der Gruppe.
+ */
 export function characterPlaceId(data: CampaignData, character: Character): string | null {
+  const group = data.state.groups.find((g) => g.memberIds.includes(character.id));
+  if (group) return group.id === data.state.leadId ? data.state.placeId : group.placeId;
   return character.character.placeId ?? data.state.placeId;
 }
 

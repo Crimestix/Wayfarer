@@ -18,7 +18,13 @@ import {
   type PromiseSort,
   type RumorTruth,
 } from './schema';
-import { formatDate, formatDayMonth, fromTime, type WorldTime } from './time/calendar';
+import {
+  formatDate,
+  formatDayMonth,
+  formatDuration,
+  fromTime,
+  type WorldTime,
+} from './time/calendar';
 
 /** Arten, die der Spielleiter festhält – alle außer dem automatisch eingetretenen Termin. */
 export type RecordKind = Exclude<ChronicleKind, 'event'>;
@@ -49,7 +55,8 @@ export interface RecordInput {
   backfilled?: boolean;
   precision?: ChroniclePrecision;
 
-  travel?: { toId: string | null };
+  /** `who`: wer zieht, solange die Gruppe getrennt ist (Vorgabe: die geleitete Teilgruppe). */
+  travel?: { toId: string | null; who?: string[] };
   attitude?: { fromId: string; toId: string; value: number | null };
   /** `sort: 'job'` = ein Auftrag an die Gruppe (Auftraggeber ist refs[0]). */
   promise?: { due?: WorldTime | null; outcome?: PromiseOutcome; sort?: PromiseSort };
@@ -488,6 +495,8 @@ export function recordHeadline(data: CampaignData, entry: ChronicleEntry): strin
     }
     case 'downtime': {
       const days = entry.downtime?.days ?? 0;
+      // Eine Tätigkeit einer Teilgruppe (getrennte Wege) zählt Minuten.
+      if (entry.downtime?.minutes) return `Freie Zeit: ${formatDuration(entry.downtime.minutes)}`;
       return days > 0 ? `Freie Zeit: ${daysLabel(days)}` : 'Freie Zeit';
     }
     case 'transformation':

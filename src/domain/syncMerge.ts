@@ -36,7 +36,11 @@ export interface MergeRules {
 }
 
 export const STATE_RULES: MergeRules = {
-  groups: [{ name: 'time', fields: ['now', 'previousNow'] }],
+  groups: [
+    { name: 'time', fields: ['now', 'previousNow'] },
+    // Getrennte Wege: Ort, Teilgruppen und geleitete Teilgruppe gelten nur zusammen.
+    { name: 'party', fields: ['placeId', 'groups', 'leadId'] },
+  ],
   sets: ['watch', 'continuityOk', 'twinsApart', 'inView', 'dismissed'],
   newerWins: ['board', 'netBoard', 'timelineLanes', 'nameMemory', 'recapDismissed'],
   whole: ['march'],

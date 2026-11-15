@@ -1,6 +1,7 @@
 /** Kleine Bausteine des Bereichs „Gefährten“: Erschöpfung, Zustände, Aufenthaltsort, Werte. */
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ExternalLink, MapPin, Plus, Users, X } from 'lucide-react';
+import { groupOf } from '../../domain/party';
 import { useData, useDb } from '../../data/hooks';
 import { entityName, placePath } from '../../domain/derive';
 import { createEntity, type Character } from '../../domain/schema';
@@ -312,7 +313,9 @@ export function LocationControl({
   const data = useData();
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const own = character.character.placeId;
+  // Getrennte Wege: Wer in einer anderen Teilgruppe ist, steht an deren Ort.
+  const group = groupOf(data, character.id);
+  const own = character.character.placeId ?? (group && !group.led ? group.placeId : null);
   const partyPlace = data.state.placeId;
   const move = (placeId: string | null) => {
     closeToAnchor(anchor.current, setOpen);

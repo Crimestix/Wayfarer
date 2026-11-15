@@ -7,7 +7,9 @@ import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { FATE_LABEL } from '../../domain/chronicleKinds';
 import { cx, entityHref } from '../../ui';
+import { isSplit } from '../../domain/party';
 import { setExhaustion } from './commands';
+import { PartyGroupBar, SplitButton } from './PartyGroups';
 import {
   MAX_EXHAUSTION,
   companions,
@@ -166,8 +168,12 @@ function Mate({ companion }: { companion: Companion }) {
 export function CompanionStrip() {
   const data = useData();
   const list = useMemo(() => companions(data), [data]);
+  const split = isSplit(data);
   return (
-    <section className="wf-tisch-party" aria-label="Gefährten">
+    <section
+      className={cx('wf-tisch-party', split && 'wf-tisch-party--split')}
+      aria-label="Gefährten"
+    >
       <Link href="/gruppe" className="wf-tisch-party__label" title="Zur Gruppe">
         <span>Gefährten</span>
       </Link>
@@ -183,10 +189,24 @@ export function CompanionStrip() {
           </Link>
         </div>
       ) : (
-        <div className="wf-tisch-party__list" style={{ '--mates': list.length } as CSSProperties}>
-          {list.map((companion) => (
-            <Mate key={companion.character.id} companion={companion} />
-          ))}
+        <div className="wf-tisch-party__main">
+          {/* Getrennte Wege: der Umschalter der Teilgruppen über den Gefährten. */}
+          {split && <PartyGroupBar />}
+          <div className="wf-tisch-party__row">
+            <div
+              className="wf-tisch-party__list"
+              style={{ '--mates': list.length } as CSSProperties}
+            >
+              {list.map((companion) => (
+                <Mate key={companion.character.id} companion={companion} />
+              ))}
+            </div>
+            {!split && list.length > 1 && (
+              <div className="wf-tisch-party__split">
+                <SplitButton />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

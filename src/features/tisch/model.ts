@@ -4,10 +4,21 @@
  */
 import { spellTitle } from './spells';
 import { bastionsDue, nextTurnAt, turnsDue } from '../../domain/bastion';
+import {
+  isSplit,
+  ledMembers,
+  partyGroups,
+  touches,
+  whoOf,
+  type OverviewRow,
+} from '../../domain/party';
+import { formatWayTime } from '../../domain/ways';
 import { openClocks } from '../../domain/clock';
 import {
   activeParty,
   attitudeToParty,
+  characterPlaceId,
+  entityName,
   mateAttitudeText,
   mateAttitudes,
   byName,
@@ -659,9 +670,13 @@ export interface Journal {
 }
 
 /** Verlauf der laufenden Session; ohne Session die letzten Einträge der Chronik. */
-export function journal(data: CampaignData, limit = 60): Journal {
+export function journal(data: CampaignData, limit = 60, onlyLed = false): Journal {
   const session = currentSession(data);
-  const all = chronicleSorted(data).filter((e) => !session || e.sessionId === session.id);
+  // Getrennte Wege: „nur diese“ zeigt, was die geleitete Teilgruppe betrifft (und die ganze Gruppe).
+  const led = onlyLed ? ledMembers(data) : [];
+  const all = chronicleSorted(data).filter(
+    (e) => (!session || e.sessionId === session.id) && (!onlyLed || touches(whoOf(e), led)),
+  );
   return { session, entries: all.slice(-limit).reverse(), total: all.length };
 }
 
@@ -783,12 +798,16 @@ export interface Companion {
   astray: boolean;
 }
 
-/** Die aktive Gruppe mit dem Hinweis, wer gerade woanders ist. */
+/**
+ * Die aktive Gruppe mit dem Hinweis, wer gerade woanders ist. Bei getrennter Gruppe ist abseits,
+ * wer nicht zur geleiteten Teilgruppe gehört – am Ort seiner Teilgruppe.
+ */
 export function companions(data: CampaignData): Companion[] {
+  const led = isSplit(data) ? new Set(ledMembers(data)) : null;
   return activeParty(data).map((character) => {
-    const own = character.character.placeId;
-    const apart = own !== null && own !== data.state.placeId;
-    const place = apart ? data.entities[own] : undefined;
+    const own = led ? characterPlaceId(data, character) : character.character.placeId;
+    const apart = led ? !led.has(character.id) : own !== null && own !== data.state.placeId;
+    const place = apart && own ? data.entities[own] : undefined;
     return {
       character,
       sheet: sheetLink(character.character.sheetUrl),
@@ -796,4 +815,67 @@ export function companions(data: CampaignData): Companion[] {
       astray: apart && place?.kind !== 'place',
     };
   });
+}
+
+// ── Getrennte Wege ─────────────────────────────────────────────────────────
+
+/** Eine Zeit kurz: „16:20“ am selben Tag wie `now`, sonst „4. Tauwind 02:00“. */
+export function shortWhen(cal: CalendarDef, at: WorldTime, now: WorldTime): string {
+  return dayIndexOf(at) === dayIndexOf(now)
+    ? formatClock(at)
+    : `${formatDayMonth(cal, at)} ${formatClock(at)}`;
+}
+
+/** Wie eine Teilgruppe aus Sicht der geleiteten steht, in Worten. */
+export function standingText(cal: CalendarDef, row: OverviewRow, now: WorldTime): string {
+  const s = row.standing;
+  const when = (at: WorldTime) => shortWhen(cal, at, now);
+  switch (s.kind) {
+    case 'led':
+      return `geleitet · ${when(row.group.now)}`;
+    case 'busy':
+      return `${row.doing || 'beschäftigt'} – bis ${when(s.until)}`;
+    case 'ahead':
+      return `${formatWayTime(s.by)} voraus`;
+    case 'behind':
+      return s.doneSince !== null
+        ? `fertig seit ${when(s.doneSince)} · ${formatWayTime(s.by)} zurück`
+        : `${formatWayTime(s.by)} zurück`;
+    case 'same':
+      return s.doneSince !== null ? `fertig seit ${when(s.doneSince)}` : 'zur selben Zeit';
+  }
+}
+
+/** Was „Nachholen“ anbietet: zurückliegende auf die Zeit der geleiteten, die geleitete auf spätere. */
+export interface CatchUpOffer {
+  groupId: string;
+  to: WorldTime;
+  label: string;
+}
+
+export function catchUpOffers(data: CampaignData): CatchUpOffer[] {
+  const cal = data.campaign.calendar;
+  const now = data.state.now;
+  const groups = partyGroups(data);
+  const names = (ids: string[]) => ids.map((id) => entityName(data, id)).join(', ');
+  const led = groups.find((group) => group.led);
+  if (!led) return [];
+  const behind = groups
+    .filter((group) => !group.led && group.now < now)
+    .map((group) => ({
+      groupId: group.id,
+      to: now,
+      label: `${names(group.memberIds)} bis ${shortWhen(cal, now, now)}`,
+    }));
+  const ahead = [...new Set(groups.filter((g) => g.now > now).map((g) => g.now))]
+    .sort((a, b) => a - b)
+    .map((to) => ({
+      groupId: led.id,
+      to,
+      label: `${names(led.memberIds)} bis ${shortWhen(cal, to, now)} (${groups
+        .filter((g) => g.now === to)
+        .map((g) => names(g.memberIds))
+        .join('; ')})`,
+    }));
+  return [...behind, ...ahead];
 }

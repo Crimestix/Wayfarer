@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { groupOf, isSplit } from '../../../domain/party';
 import { CampaignDb } from '../../../data/db';
 import { demoCampaign } from '../../../data/__fixtures__/demoWorld';
 import { MemoryStore } from '../../../data/store';
@@ -44,27 +45,32 @@ describe('Gefährten am Tisch', () => {
     expect(hero(db, 'Tomlin').character.conditions).toEqual(['Blind']);
   });
 
-  it('hält fest, wenn sich ein Gefährte von der Gruppe trennt, und nimmt es zurück', async () => {
+  it('ein Gefährte geht für sich: eine Teilgruppe aus einer Person, zurück und rückgängig', async () => {
     const { db } = await demoDb();
     const neil = hero(db, 'Neil');
     const hafen = byName(db, 'Dornhafen');
     const before = Object.keys(db.getSnapshot().chronicle).length;
     const result = moveCharacter(db, neil.id, hafen.id)!;
-    expect(hero(db, 'Neil').character.placeId).toBe(hafen.id);
+    // Kein Aufenthalt am Gefährten mehr, sondern eine Teilgruppe mit eigener Uhr.
+    expect(hero(db, 'Neil').character.placeId).toBeNull();
+    expect(groupOf(db.getSnapshot(), neil.id)).toMatchObject({
+      memberIds: [neil.id],
+      placeId: hafen.id,
+    });
     const entries = chronicleFor(db.getSnapshot(), neil.id);
     expect(entries).toHaveLength(1);
-    expect(entries[0]!.text).toBe('Neil ist abseits der Gruppe unterwegs: Dornhafen.');
-    expect(entries[0]!.refs).toEqual([neil.id, hafen.id]);
-    expect(entries[0]!.placeId).toBe(hafen.id);
+    expect(entries[0]!.kind).toBe('travel');
+    expect(entries[0]!.text).toBe('');
+    expect(entries[0]!.travel?.who).toEqual([neil.id]);
     expect(moveCharacter(db, neil.id, hafen.id)).toBeNull();
 
     const back = moveCharacter(db, neil.id, null)!;
     expect(back.text).toBe('Neil ist wieder bei der Gruppe.');
-    expect(hero(db, 'Neil').character.placeId).toBeNull();
+    expect(isSplit(db.getSnapshot())).toBe(false);
     back.undo();
-    expect(hero(db, 'Neil').character.placeId).toBe(hafen.id);
+    expect(groupOf(db.getSnapshot(), neil.id)?.placeId).toBe(hafen.id);
     result.undo();
-    expect(hero(db, 'Neil').character.placeId).toBeNull();
+    expect(isSplit(db.getSnapshot())).toBe(false);
     expect(Object.keys(db.getSnapshot().chronicle)).toHaveLength(before);
   });
 });

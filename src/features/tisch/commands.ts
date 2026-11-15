@@ -6,6 +6,7 @@ import { logEntry, setPromiseOutcome } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { dropLootLine } from '../beute/actions';
 import { entityName } from '../../domain/derive';
+import { placeOfWho, touches, whoOf, withPlace } from '../../domain/party';
 import { createTimer, type ChronicleEntry, type Timer } from '../../domain/schema';
 import { formatDuration } from '../../domain/time/calendar';
 import { concentrationOf } from './spells';
@@ -19,18 +20,20 @@ export function undoMove(db: CampaignDb, entryId: string): boolean {
   const data = db.getSnapshot();
   const entry = data.chronicle[entryId];
   if (!entry || entry.kind !== 'travel' || !entry.travel) return false;
-  if (data.state.placeId !== entry.travel.toId) return false;
+  const who = whoOf(entry);
+  if (placeOfWho(data, who) !== entry.travel.toId) return false;
   const later = Object.values(data.chronicle).some(
     (other) =>
       other.id !== entry.id &&
       other.kind === 'travel' &&
+      touches(whoOf(other), who) &&
       (other.at > entry.at || (other.at === entry.at && other.created > entry.created)),
   );
   if (later) return false;
   const fromId = entry.travel.fromId;
   db.batch(() => {
     db.remove('chronicle', entry.id);
-    db.setState({ placeId: fromId && data.entities[fromId] ? fromId : null });
+    db.setState(withPlace(data, who, fromId && data.entities[fromId] ? fromId : null));
   });
   return true;
 }

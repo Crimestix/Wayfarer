@@ -681,6 +681,14 @@ export function valueWords(
   const cal = ctx.data?.campaign.calendar;
   if (group === 'time' && isObj(value) && typeof value.now === 'number' && cal)
     return formatDateTime(cal, value.now);
+  // Getrennte Wege: der Ort der Gruppe, dazu wie viele Teilgruppen es gibt.
+  if (group === 'party' && isObj(value)) {
+    const place = typeof value.placeId === 'string' ? nameOfId(value.placeId, ctx.data) : null;
+    const count = Array.isArray(value.groups) ? value.groups.length : 0;
+    return [place ? `„${place}“` : 'kein Ort', count ? `getrennt in ${count} Teilgruppen` : '']
+      .filter(Boolean)
+      .join(', ');
+  }
   if (value === undefined) return 'nicht vorhanden';
   if (value === null) return 'leer';
   if (typeof value === 'boolean') return value ? 'ja' : 'nein';

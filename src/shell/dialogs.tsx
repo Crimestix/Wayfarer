@@ -44,6 +44,7 @@ import {
   signedAttitude,
 } from '../domain/derive';
 import { placeForEntry, sessionForEntry } from '../domain/history';
+import { ledMembers } from '../domain/party';
 import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
 import { attitudeModeChoice, attitudeTargets, type AttitudeMode } from '../domain/attitudeSetting';
@@ -59,8 +60,10 @@ import {
   absoluteYear,
   dayIndexOf,
   displayYear,
+  formatClock,
   formatDate,
   formatDateTime,
+  formatDayMonth,
   formatDuration,
   fromTime,
   isValidDate,
@@ -200,14 +203,21 @@ export function advanceAndReport(db: CampaignDb, to: WorldTime) {
  * Die Gruppe geht einen Weg: Die Zeit vergeht, sie kommt an – eine Meldung nennt beides, und
  * „Rückgängig“ nimmt beides zurück.
  */
-export function walkAndReport(db: CampaignDb, go: () => WalkResult) {
+export function walkAndReport(
+  db: CampaignDb,
+  go: () => WalkResult,
+  /** Getrennte Wege: Geht nur ein Teil, wer – die geleitete Teilgruppe bleibt. */
+  goers?: string,
+  toId?: string,
+) {
   try {
     const result = go();
     const data = db.getSnapshot();
-    const name = entityName(data, data.state.placeId);
+    const name = entityName(data, goers ? (toId ?? null) : data.state.placeId);
     toast({
-      title:
-        result.minutes > 0
+      title: goers
+        ? `${goers} ${result.minutes > 0 ? `um ${formatClock(data.state.now + result.minutes)} ` : ''}in ${name} – eigene Teilgruppe`
+        : result.minutes > 0
           ? `Angekommen: ${name} – ${formatWayTime(result.minutes)} unterwegs`
           : `Angekommen: ${name}`,
       body:
@@ -904,11 +914,16 @@ function MovePartyDialog({
   const [remember, setRemember] = useState(true);
   const minutes = route ? (passTime ? route.minutes : 0) : (chosen ?? suggested ?? 0);
   const moving = placeId !== null && here !== null && placeId !== here;
+  // Getrennte Wege: Wer geht? Vorgabe: alle, die gerade geleitet werden.
+  const mates = useMemo(() => ledMembers(data), [data]);
+  const [goers, setGoers] = useState<string[]>(mates);
+  const part = goers.length > 0 && goers.length < mates.length;
+  const arrival = data.state.now + minutes;
   const save = () => {
     closeShellRequest();
     onSaved?.();
     if (!placeId) {
-      moveParty(db, placeId, text);
+      moveParty(db, placeId, text, part ? goers : []);
       return;
     }
     const means = route ? routeMeans(route) : travel.by ? [travel.by] : [];
@@ -920,10 +935,15 @@ function MovePartyDialog({
     ]
       .filter(Boolean)
       .join(' · ');
-    walkAndReport(db, () => {
-      if (!route && remember && here && minutes > 0) rememberWay(db, here, placeId, minutes);
-      return walk(db, placeId, minutes, note);
-    });
+    walkAndReport(
+      db,
+      () => {
+        if (!route && remember && here && minutes > 0) rememberWay(db, here, placeId, minutes);
+        return walk(db, placeId, minutes, note, part ? goers : []);
+      },
+      part ? goers.map((id) => entityName(data, id)).join(', ') : undefined,
+      placeId,
+    );
   };
   return (
     <Dialog
@@ -937,7 +957,7 @@ function MovePartyDialog({
           <Button
             variant="primary"
             onClick={save}
-            disabled={placeId === data.state.placeId}
+            disabled={placeId === data.state.placeId || goers.length === 0}
             data-autofocus={preset ? true : undefined}
           >
             Ort wechseln
@@ -962,6 +982,38 @@ function MovePartyDialog({
             onCreate={(name) => db.put('entities', createEntity({ kind: 'place', name })).id}
           />
         </Field>
+        {mates.length > 1 && (
+          <Field
+            label="Wer geht?"
+            hint={
+              part
+                ? 'Die anderen bleiben hier in ihrer Zeit; wer geht, wird eine eigene Teilgruppe mit eigener Uhr.'
+                : 'Alle, die du gerade leitest.'
+            }
+          >
+            <div
+              className="wf-btn-group"
+              role="group"
+              aria-label="Wer geht?"
+              style={{ flexWrap: 'wrap' }}
+            >
+              {mates.map((id) => (
+                <Button
+                  key={id}
+                  size="sm"
+                  aria-pressed={goers.includes(id)}
+                  onClick={() =>
+                    setGoers((list) =>
+                      list.includes(id) ? list.filter((other) => other !== id) : [...list, id],
+                    )
+                  }
+                >
+                  {entityName(data, id)}
+                </Button>
+              ))}
+            </div>
+          </Field>
+        )}
         {Object.keys(data.mounts).length > 0 && (
           <Field
             label="Womit"
@@ -969,6 +1021,15 @@ function MovePartyDialog({
           >
             <TravelBy />
           </Field>
+        )}
+        {moving && minutes > 0 && (
+          <div className="wf-mute" style={{ fontSize: 'var(--text-sm)' }}>
+            Ankunft {formatClock(arrival)}
+            {dayIndexOf(arrival) !== dayIndexOf(data.state.now) &&
+              ` am ${formatDayMonth(data.campaign.calendar, arrival)}`}{' '}
+            · auf demselben Weg zurück etwa um {formatClock(arrival + minutes)}
+            {part && ' · die anderen bleiben bei ' + formatClock(data.state.now)}
+          </div>
         )}
         {moving && route && (
           <>

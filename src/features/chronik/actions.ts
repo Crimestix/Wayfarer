@@ -81,6 +81,7 @@ export function revisionPatch(
     };
   if (entry.kind === 'downtime' && input.downtime)
     change.downtime = {
+      ...(entry.downtime?.minutes ? { minutes: entry.downtime.minutes } : {}),
       days: input.downtime.days,
       activities: (input.downtime.activities ?? [])
         .map((a) => ({ characterId: a.characterId, text: a.text.trim() }))

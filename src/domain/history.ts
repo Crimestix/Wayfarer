@@ -7,6 +7,7 @@
  * der jüngste seiner Sorte für dasselbe Ding ist (`isNewestOfSort`).
  */
 import { byTime, chronicleSorted, normalize, sessionsSorted } from './derive';
+import { isSplit, ledMembers, placeOfWho, touches, whoOf } from './party';
 import {
   PARTY_ID,
   type CampaignData,
@@ -79,20 +80,29 @@ const travels = (data: CampaignData) =>
 /**
  * Wo die Gruppe zur Zeit `at` war – aus den Ortswechseln der Chronik abgeleitet: das Ziel des
  * letzten Ortswechsels bis `at`. Gab es davor keinen, der Ausgangsort des nächsten; gibt es gar
- * keinen, der heutige Ort.
+ * keinen, der heutige Ort. Mit `who` (getrennte Wege) nur die Ortswechsel, an denen einer von
+ * ihnen beteiligt war (`touches`).
  */
-export function partyPlaceAt(data: CampaignData, at: WorldTime): string | null {
-  const all = travels(data);
+export function partyPlaceAt(
+  data: CampaignData,
+  at: WorldTime,
+  who: readonly string[] = [],
+): string | null {
+  const all = travels(data).filter((entry) => touches(whoOf(entry), who));
   let last: ChronicleEntry | null = null;
   for (const entry of all) if (entry.at <= at) last = entry;
   if (last) return last.travel!.toId;
   const next = all.find((entry) => entry.at > at);
-  return next ? next.travel!.fromId : data.state.placeId;
+  return next ? next.travel!.fromId : placeOfWho(data, who);
 }
 
-/** Der Ort für einen neuen Eintrag zur Zeit `at`: jetzt der Ort der Gruppe, früher der damalige. */
+/**
+ * Der Ort für einen neuen Eintrag zur Zeit `at`: jetzt der Ort der Gruppe, früher der damalige –
+ * bei getrennter Gruppe der der geleiteten Teilgruppe.
+ */
 export function placeForEntry(data: CampaignData, at: WorldTime): string | null {
-  return at === data.state.now ? data.state.placeId : partyPlaceAt(data, at);
+  if (at === data.state.now) return data.state.placeId;
+  return partyPlaceAt(data, at, isSplit(data) ? ledMembers(data) : []);
 }
 
 // ── Sorten: der jüngste Eintrag zählt ──────────────────────────────────────
@@ -142,7 +152,11 @@ export function neighboursOfSort(
   data: CampaignData,
   entry: ChronicleEntry,
 ): { previous: ChronicleEntry | null; next: ChronicleEntry | null } {
-  const others = sameSort(data, entry).filter((other) => other.id !== entry.id);
+  // Ortswechsel bei getrennter Gruppe: nur die, an denen einer derselben Gefährten beteiligt war.
+  const others = sameSort(data, entry).filter(
+    (other) =>
+      other.id !== entry.id && (entry.kind !== 'travel' || touches(whoOf(other), whoOf(entry))),
+  );
   let previous: ChronicleEntry | null = null;
   let next: ChronicleEntry | null = null;
   for (const other of others) {

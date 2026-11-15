@@ -52,6 +52,7 @@ import {
 } from '../domain/chronicleKinds';
 import { PROMISE_OUTCOME_LABEL, promiseOutcome } from '../domain/derive';
 import { activeConditions, conditionEnding } from '../domain/history';
+import { entryGroupMark, whoOf } from '../domain/party';
 import { looseAfterPin } from '../domain/looseEnds';
 import { relationLabel } from '../domain/relations';
 import { useData, useDb } from '../data/hooks';
@@ -65,6 +66,7 @@ import {
   formatClock,
   formatDate,
   formatDayMonth,
+  formatDuration,
   formatRelative,
   fromTime,
 } from '../domain/time/calendar';
@@ -160,6 +162,11 @@ export interface ChronicleItemProps {
   hideRefs?: string[];
   /** Zeigt einen Stift zum Bearbeiten. */
   onEdit?: (entry: ChronicleEntry) => void;
+  /**
+   * Getrennte Wege: Einträge anderer Teilgruppen als der geleiteten schwach zeigen (Mitschrift).
+   * Die Marke, wer dabei war, steht immer da.
+   */
+  faintOthers?: boolean;
 }
 
 /** Verweise ohne den Ort des Geschehens, nur solche, die es noch gibt. */
@@ -363,7 +370,11 @@ function headlineOf(
     }
     case 'downtime':
       return {
-        node: entry.downtime?.days ? `Freie Zeit: ${daysLabel(entry.downtime.days)}` : 'Freie Zeit',
+        node: entry.downtime?.minutes
+          ? `Freie Zeit: ${formatDuration(entry.downtime.minutes)}`
+          : entry.downtime?.days
+            ? `Freie Zeit: ${daysLabel(entry.downtime.days)}`
+            : 'Freie Zeit',
         ids: (entry.downtime?.activities ?? []).map((a) => a.characterId),
       };
     case 'transformation': {
@@ -465,7 +476,13 @@ function ConditionState({ entry }: { entry: ChronicleEntry }) {
   );
 }
 
-export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: ChronicleItemProps) {
+export function ChronicleItem({
+  entry,
+  showDate,
+  hideRefs = [],
+  onEdit,
+  faintOthers,
+}: ChronicleItemProps) {
   const db = useDb();
   const data = useData();
   const cal = data.campaign.calendar;
@@ -486,6 +503,8 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
   const overdue = promise && !promise.done && promise.due !== null && promise.due < data.state.now;
   const conditionStart = entry.kind === 'condition' && !!entry.condition && !entry.condition.ended;
   const pinned = entry.loose === 'open';
+  // Getrennte Wege: wer dabei war (`entry.party`, bei Ortswechseln `travel.who`).
+  const party = whoOf(entry).length ? entryGroupMark(data, entry) : null;
 
   return (
     <article
@@ -495,6 +514,7 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
         promise?.done && 'wf-chron--done',
         outcome === 'failed' && 'wf-chron--failed',
         entry.kind === 'rumor' && entry.rumor?.truth === 'false' && 'wf-chron--disproved',
+        faintOthers && party && !party.mine && 'wf-chron--other',
       )}
     >
       <div className="wf-chron__mark" title={chronicleEntryLabel(entry)}>
@@ -505,6 +525,11 @@ export function ChronicleItem({ entry, showDate, hideRefs = [], onEdit }: Chroni
           {showDate && <span>{formatDate(cal, entry.at)}</span>}
           <span className="wf-num">{formatClock(entry.at)}</span>
           {entry.kind !== 'note' && <span>{chronicleEntryLabel(entry)}</span>}
+          {party && (
+            <span className="wf-chron__party" title="Wer dabei war (getrennte Wege)">
+              {party.names.join(', ')}
+            </span>
+          )}
           {pinned && <span className="wf-chron__loose">hängt offen</span>}
           {isApproximate(entry) && (
             <span title="Der Zeitpunkt ist nur ungefähr bekannt">ungefähr</span>
