@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { FolderOpen, Scroll, Sparkles } from 'lucide-react';
 import { CampaignDb, CampaignMissingError } from '../data/db';
+import { openCampaign } from '../data/openCampaign';
 import { FolderStore, pickFolder, setConfig } from '../data/platform';
 import { elarisCampaign } from '../data/seed';
 import type { CampaignData } from '../domain/schema';
@@ -43,7 +44,7 @@ export function Welcome({
       if (!picked) return;
       setDir(picked);
       try {
-        const db = await CampaignDb.open(new FolderStore(picked));
+        const db = await openCampaign(picked);
         await setConfig({ campaignDir: picked });
         onOpen(db);
       } catch (e) {

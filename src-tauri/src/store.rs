@@ -61,7 +61,7 @@ fn lexically_clean(path: &Path) -> PathBuf {
 }
 
 fn unreachable_root(root: &str) -> String {
-    format!("Der Kampagnenordner „{root}“ ist nicht erreichbar. Ist das Cloud-Laufwerk verbunden?")
+    format!("Der Kampagnenordner „{root}“ ist nicht erreichbar. Ist das Laufwerk verbunden?")
 }
 
 /// Unter Windows reservierte Gerätenamen – auch mit Endung nicht als Dateiname erlaubt.
@@ -172,7 +172,7 @@ fn patiently<T>(mut work: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     }
 }
 
-fn read_patiently(path: &Path) -> io::Result<Vec<u8>> {
+pub(crate) fn read_patiently(path: &Path) -> io::Result<Vec<u8>> {
     patiently(|| fs::read(path))
 }
 

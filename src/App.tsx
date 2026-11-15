@@ -4,11 +4,15 @@ import { useHashLocation } from 'wouter/use-hash-location';
 import { CampaignDb, CampaignMissingError } from './data/db';
 import { DbContext } from './data/hooks';
 import { loadLocalMedia } from './data/media';
-import { FolderStore, getConfig, isDesktopApp, onAppClosing } from './data/platform';
+import { openCampaign } from './data/openCampaign';
+import { getConfig, isDesktopApp, onAppClosing, onAppClosingAfterSave } from './data/platform';
 import { elarisCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
 import { AppShell } from './shell/AppShell';
 import { Welcome } from './shell/Welcome';
+import { startSync, stopSync } from './features/abgleich';
+import { flushEdits } from './features/wiki/editing';
+import { draftRegister } from './ui/drafts';
 
 type Phase =
   { kind: 'loading' } | { kind: 'welcome'; error?: string } | { kind: 'ready'; db: CampaignDb };
@@ -26,7 +30,7 @@ async function boot(): Promise<Phase> {
     const { campaignDir } = await getConfig();
     if (!campaignDir) return { kind: 'welcome' };
     try {
-      return { kind: 'ready', db: await CampaignDb.open(new FolderStore(campaignDir)) };
+      return { kind: 'ready', db: await openCampaign(campaignDir) };
     } catch (error) {
       return {
         kind: 'welcome',
@@ -77,8 +81,26 @@ export function App() {
       await db.flush();
       return !db.hasUnsavedChanges();
     });
+    // Abgleich (nur installierte App, nur mit Verbindung für diesen Ordner; sonst tut er nichts).
+    const sync = startSync(db, {
+      beforeScan: flushEdits,
+      drafts: draftRegister,
+      reload: () => window.location.reload(),
+    });
+    const offSyncClose = sync ? onAppClosingAfterSave(() => sync.beforeClose()) : () => undefined;
+    const away = () => sync?.pushSoon();
+    const back = () => sync?.wake();
+    const visibility = () => (document.hidden ? away() : back());
+    window.addEventListener('blur', away);
+    window.addEventListener('focus', back);
+    document.addEventListener('visibilitychange', visibility);
     return () => {
       offClosing();
+      offSyncClose();
+      window.removeEventListener('blur', away);
+      window.removeEventListener('focus', back);
+      document.removeEventListener('visibilitychange', visibility);
+      stopSync();
       window.removeEventListener('beforeunload', flush);
       window.removeEventListener('blur', flush);
       // Nicht schließen: Die Kampagne bleibt geöffnet, solange die App läuft. React führt diesen

@@ -1,0 +1,16 @@
+{
+  "root": "<root>",
+  "head": null,
+  "tree": null,
+  "changes": [{ "path": "state.json", "sha": "ce013625030ba8dba906f756967f9e9ca394464a" }],
+  "dataVersion": 1,
+  "dataShape": "01cf2a3e8beb749a",
+  "counts": { "changed": 0, "added": 1, "removed": 0 },
+  "link": {
+    "owner": "spielleiter",
+    "repo": "spielstand-elaris",
+    "branch": "main",
+    "device": "Windows-PC",
+    "root": "<root>"
+  }
+}

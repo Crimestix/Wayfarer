@@ -19,20 +19,20 @@ const LOCAL_URL: &str = if cfg!(windows) {
     "tauri://localhost"
 };
 
-fn app() -> tauri::App<MockRuntime> {
+pub(crate) fn app() -> tauri::App<MockRuntime> {
     crate::wayfarer(mock_builder())
         .build(crate::context())
         .expect("App für Tests")
 }
 
-fn window(app: &tauri::App<MockRuntime>, label: &str) -> WebviewWindow<MockRuntime> {
+pub(crate) fn window(app: &tauri::App<MockRuntime>, label: &str) -> WebviewWindow<MockRuntime> {
     WebviewWindowBuilder::new(app, label, Default::default())
         .build()
         .unwrap()
 }
 
 /// Ruft einen Befehl auf, wie `invoke(cmd, args)` es in der Oberfläche tut.
-fn invoke(webview: &WebviewWindow<MockRuntime>, cmd: &str, args: Value) -> Result<Value, Value> {
+pub(crate) fn invoke(webview: &WebviewWindow<MockRuntime>, cmd: &str, args: Value) -> Result<Value, Value> {
     get_ipc_response(
         webview,
         InvokeRequest {
@@ -254,6 +254,11 @@ fn only_the_main_window_may_call_commands() {
         "config_get",
         "lk_status",
         "lk_get",
+        "sync_state",
+        "sync_scan",
+        "sync_push",
+        "sync_recover",
+        "sync_set_key",
     ] {
         let err = invoke(
             &other,

@@ -1,5 +1,6 @@
 //! Überwachung des Kampagnenordners: meldet der Oberfläche, wenn sich JSON-Dateien ändern –
-//! etwa weil das Cloud-Laufwerk den Spielstand des anderen Rechners abgleicht.
+//! etwa weil ein anderes Programm dort schreibt. (Was der Abgleich holt, schreibt die Datenbank
+//! selbst; `.abgleich/` übergeht die Überwachung, wie alles mit Punkt.)
 //!
 //! Die Meldungen werden entprellt: viele Änderungen kurz hintereinander ergeben eine Meldung
 //! mit allen betroffenen Pfaden. Eigene Schreibvorgänge werden mitgemeldet; die Oberfläche
@@ -217,7 +218,7 @@ mod tests {
     fn reports_files_of_a_folder_that_appears_at_once() {
         let dir = TempDir::new().unwrap();
         let (_watch, rx) = watch(&dir);
-        // So gleicht ein Cloud-Laufwerk ab: Ordner und Dateien erscheinen in einem Zug.
+        // So legen manche Programme Dateien ab: Ordner und Dateien erscheinen in einem Zug.
         let staging = TempDir::new().unwrap();
         fs::create_dir(staging.path().join("entities")).unwrap();
         fs::write(staging.path().join("entities/a.json"), "{}").unwrap();

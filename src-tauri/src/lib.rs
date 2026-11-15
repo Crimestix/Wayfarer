@@ -1,9 +1,11 @@
 //! Rust-Seite von Wayfarer: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
-//! LegendKeeper-Abruf und Schlüsselbund. Die Befehle sind der Vertrag mit der Oberfläche;
+//! LegendKeeper-Abruf, Schlüsselbund und Abgleich mit einer privaten Ablage bei GitHub. Die Befehle sind der Vertrag mit der Oberfläche;
 //! er steht in `src/data/platform.ts`.
 
 mod config;
 mod ai;
+mod keys;
+mod sync;
 mod legendkeeper;
 mod links;
 mod media;
@@ -26,7 +28,7 @@ use store::StoredFile;
 use watch::WatchState;
 use window::{CloseAnswer, Closing, MAIN_WINDOW};
 
-/// Führt Dateiarbeit abseits der Oberfläche aus, damit ein träges Cloud-Laufwerk nichts blockiert.
+/// Führt Dateiarbeit abseits der Oberfläche aus, damit ein träges Laufwerk nichts blockiert.
 async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
@@ -311,6 +313,7 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         .manage(LegendKeeper::default())
         .manage(Ai::default())
         .manage(Closing::default())
+        .manage(sync::Sync::default())
         .invoke_handler(tauri::generate_handler![
             config_get,
             config_set,
@@ -330,6 +333,23 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             media_list,
             media_fetch,
             app_close,
+            sync::sync_state,
+            sync::sync_set_key,
+            sync::sync_clear_key,
+            sync::sync_probe,
+            sync::sync_link,
+            sync::sync_recover,
+            sync::sync_scan,
+            sync::sync_fetch,
+            sync::sync_apply_begin,
+            sync::sync_apply_end,
+            sync::sync_apply_abort,
+            sync::sync_push,
+            sync::sync_mark,
+            sync::sync_aside_list,
+            sync::sync_aside_read,
+            sync::sync_aside_put,
+            sync::sync_aside_drop,
         ])
 }
 
@@ -349,6 +369,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_sync;
 
 /// Der Kontext der App (Einstellungen, Symbole, Berechtigungen). Das Makro darf im ganzen Paket
 /// nur einmal vorkommen: Auf macOS legt es ein Symbol an, das ein zweites Mal den Bau abbricht.

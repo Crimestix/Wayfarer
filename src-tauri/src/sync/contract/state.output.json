@@ -1,0 +1,18 @@
+{
+  "key": "yes",
+  "link": {
+    "owner": "spielleiter",
+    "repo": "spielstand-elaris",
+    "branch": "main",
+    "device": "Windows-PC",
+    "root": "<root>"
+  },
+  "moved": false,
+  "hasBase": true,
+  "pending": null,
+  "older": false,
+  "syncedAt": "2026-11-15T21:40:03Z",
+  "device": null,
+  "pushedAt": null,
+  "aside": 0
+}

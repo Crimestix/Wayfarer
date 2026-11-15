@@ -10,6 +10,11 @@
 //!
 //! Meldet sich die Oberfläche gar nicht (nicht geladen, hängt), schließt das Fenster nach
 //! kurzer Frist von selbst.
+//!
+//! Ist gespeichert und lädt der Abgleich noch hoch, meldet die Oberfläche `"syncing"`. Dann
+//! schließt das Fenster spätestens nach 12 Sekunden – die Frist wacht hier, nicht in der
+//! Webansicht (deren Zeitgeber werden in einem verborgenen Fenster gedrosselt). Ein zweiter
+//! Klick auf Schließen schließt in dieser Zeit sofort.
 
 use std::fs;
 use std::path::Path;
@@ -27,6 +32,8 @@ pub const CLOSE_REQUESTED_EVENT: &str = "close-requested";
 
 /// So lange hat die Oberfläche Zeit, sich auf „close-requested“ zu melden.
 const ANSWER_GRACE: Duration = Duration::from_millis(1500);
+/// So lange darf der Abgleich beim Schließen noch hochladen.
+pub const SYNC_GRACE: Duration = Duration::from_secs(12);
 
 // ── Schließen ────────────────────────────────────────────────────────────────
 
@@ -41,6 +48,8 @@ pub enum ClosePhase {
     Saving,
     /// Es läuft eine Rückfrage an den Menschen.
     Asking,
+    /// Gespeichert; der Abgleich lädt noch hoch (mit laufender Nummer der Frist).
+    Syncing(u64),
 }
 
 /// Was die Oberfläche auf „close-requested“ antwortet.
@@ -48,6 +57,7 @@ pub enum ClosePhase {
 #[serde(rename_all = "lowercase")]
 pub enum CloseAnswer {
     Saving,
+    Syncing,
     Saved,
     Unsaved,
 }
@@ -67,6 +77,8 @@ pub enum CloseStep {
     /// „close-requested“ senden und die Frist mit dieser Nummer starten.
     AskFrontend(u64),
     AskHuman(Question),
+    /// Die Frist für den Abgleich mit dieser Nummer starten.
+    SyncDeadline(u64),
     CloseNow,
 }
 
@@ -79,6 +91,8 @@ pub fn on_close_request(phase: ClosePhase, next_ticket: u64) -> (ClosePhase, Clo
         ),
         // Ungeduld während des Speicherns: nicht einfach schließen, sondern nachfragen.
         ClosePhase::Saving => (ClosePhase::Asking, CloseStep::AskHuman(Question::StillSaving)),
+        // Gespeichert ist schon; der Abgleich holt beim nächsten Öffnen nach.
+        ClosePhase::Syncing(_) => (ClosePhase::Open, CloseStep::CloseNow),
         ClosePhase::Requested(_) | ClosePhase::Asking => (phase, CloseStep::Nothing),
     }
 }
@@ -87,6 +101,14 @@ pub fn on_close_request(phase: ClosePhase, next_ticket: u64) -> (ClosePhase, Clo
 pub fn on_answer(phase: ClosePhase, answer: CloseAnswer) -> (ClosePhase, CloseStep) {
     match (phase, answer) {
         (ClosePhase::Requested(_), CloseAnswer::Saving) => (ClosePhase::Saving, CloseStep::Nothing),
+        // Die Nummer der Frist vergibt `advance`.
+        (ClosePhase::Requested(_) | ClosePhase::Saving, CloseAnswer::Syncing) => {
+            (ClosePhase::Syncing(0), CloseStep::Nothing)
+        }
+        (ClosePhase::Syncing(_), CloseAnswer::Saved) => (ClosePhase::Open, CloseStep::CloseNow),
+        (ClosePhase::Syncing(_), CloseAnswer::Unsaved) => {
+            (ClosePhase::Asking, CloseStep::AskHuman(Question::Unsaved))
+        }
         (ClosePhase::Requested(_) | ClosePhase::Saving, CloseAnswer::Saved) => {
             (ClosePhase::Open, CloseStep::CloseNow)
         }
@@ -102,6 +124,14 @@ pub fn on_answer(phase: ClosePhase, answer: CloseAnswer) -> (ClosePhase, CloseSt
 pub fn on_grace_over(phase: ClosePhase, ticket: u64) -> (ClosePhase, CloseStep) {
     match phase {
         ClosePhase::Requested(current) if current == ticket => (ClosePhase::Open, CloseStep::CloseNow),
+        _ => (phase, CloseStep::Nothing),
+    }
+}
+
+/// Die Frist für den Abgleich ist abgelaufen: schließen, gleich wie weit er ist.
+pub fn on_sync_over(phase: ClosePhase, ticket: u64) -> (ClosePhase, CloseStep) {
+    match phase {
+        ClosePhase::Syncing(current) if current == ticket => (ClosePhase::Open, CloseStep::CloseNow),
         _ => (phase, CloseStep::Nothing),
     }
 }
@@ -137,9 +167,14 @@ fn advance<R: Runtime>(
             // Lieber schließen als ein Fenster, das sich nie mehr schließen lässt.
             return close_now(window);
         };
-        let (phase, step) = decide(progress.phase, progress.tickets + 1);
+        let (mut phase, mut step) = decide(progress.phase, progress.tickets + 1);
         if let CloseStep::AskFrontend(ticket) = step {
             progress.tickets = ticket;
+        }
+        if phase == ClosePhase::Syncing(0) {
+            progress.tickets += 1;
+            phase = ClosePhase::Syncing(progress.tickets);
+            step = CloseStep::SyncDeadline(progress.tickets);
         }
         progress.phase = phase;
         step
@@ -152,6 +187,13 @@ fn advance<R: Runtime>(
             std::thread::spawn(move || {
                 std::thread::sleep(ANSWER_GRACE);
                 advance(&window, &|phase, _| on_grace_over(phase, ticket));
+            });
+        }
+        CloseStep::SyncDeadline(ticket) => {
+            let window = window.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(SYNC_GRACE);
+                advance(&window, &|phase, _| on_sync_over(phase, ticket));
             });
         }
         CloseStep::AskHuman(question) => ask_human(window, question),
@@ -402,9 +444,36 @@ mod tests {
     }
 
     #[test]
+    fn syncing_after_saving_has_its_own_deadline() {
+        let (phase, _) = on_answer(ClosePhase::Saving, CloseAnswer::Syncing);
+        assert_eq!(phase, ClosePhase::Syncing(0));
+        let phase = ClosePhase::Syncing(4);
+        // Der Abgleich ist fertig → schließen.
+        assert_eq!(
+            on_answer(phase, CloseAnswer::Saved),
+            (ClosePhase::Open, CloseStep::CloseNow)
+        );
+        // Die eigene Frist schließt, eine fremde nicht; die Frist der ersten Antwort auch nicht.
+        assert_eq!(on_sync_over(phase, 3), (phase, CloseStep::Nothing));
+        assert_eq!(on_grace_over(phase, 4), (phase, CloseStep::Nothing));
+        assert_eq!(on_sync_over(phase, 4), (ClosePhase::Open, CloseStep::CloseNow));
+        // Ein zweiter Klick schließt sofort – ohne Rückfrage.
+        assert_eq!(
+            on_close_request(phase, 9),
+            (ClosePhase::Open, CloseStep::CloseNow)
+        );
+        // Nie „ungespeichert“ wegen des Abgleichs – nur, wenn das Speichern scheiterte.
+        assert_eq!(
+            on_answer(phase, CloseAnswer::Unsaved),
+            (ClosePhase::Asking, CloseStep::AskHuman(Question::Unsaved))
+        );
+    }
+
+    #[test]
     fn answers_use_the_agreed_words() {
         for (text, answer) in [
             ("\"saving\"", CloseAnswer::Saving),
+            ("\"syncing\"", CloseAnswer::Syncing),
             ("\"saved\"", CloseAnswer::Saved),
             ("\"unsaved\"", CloseAnswer::Unsaved),
         ] {

@@ -1,0 +1,11 @@
+{
+  "root": "<root>",
+  "kind": "run",
+  "head": "1111111111111111111111111111111111111111",
+  "reason": "abgleich",
+  "writes": [
+    { "path": "entities/tannhaus.json", "expect": null, "base": "2222222222222222222222222222222222222222", "content": "{\"id\":\"tannhaus\"}\n" }
+  ],
+  "deletes": [],
+  "keep": []
+}

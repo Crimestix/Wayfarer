@@ -1,5 +1,5 @@
 //! Einstellungen der App auf diesem Rechner – bewusst NICHT im Kampagnenordner, denn jeder
-//! Rechner hat seinen eigenen Pfad zum Cloud-Laufwerk.
+//! Rechner hat seinen eigenen Pfad zum Kampagnenordner.
 
 use std::fs;
 use std::path::Path;

@@ -19,6 +19,23 @@ const COMMANDS: &[&str] = &[
     "media_list",
     "media_fetch",
     "app_close",
+    "sync_state",
+    "sync_set_key",
+    "sync_clear_key",
+    "sync_probe",
+    "sync_link",
+    "sync_recover",
+    "sync_scan",
+    "sync_fetch",
+    "sync_apply_begin",
+    "sync_apply_end",
+    "sync_apply_abort",
+    "sync_push",
+    "sync_mark",
+    "sync_aside_list",
+    "sync_aside_read",
+    "sync_aside_put",
+    "sync_aside_drop",
 ];
 
 fn main() {

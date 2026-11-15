@@ -1,0 +1,20 @@
+{
+  "link": {
+    "owner": "spielleiter",
+    "repo": "spielstand-elaris",
+    "branch": "main",
+    "device": "Windows-PC",
+    "root": "<root>"
+  },
+  "base": { "state.json": "ce013625030ba8dba906f756967f9e9ca394464a" },
+  "decided": {
+    "stories/salzgrotte.json": { "choice": "local", "remote": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", "fields": [["summary"]] },
+    "*mass:deleteHere:0123456789abcdef": { "choice": "ok", "remote": null, "fields": null }
+  },
+  "local": [{ "path": "state.json", "sha": "ce013625030ba8dba906f756967f9e9ca394464a", "size": 6 }],
+  "frozen": [],
+  "settled": 0,
+  "maxVersion": 0,
+  "olderEdits": false,
+  "remote": null
+}

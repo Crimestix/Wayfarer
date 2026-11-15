@@ -36,6 +36,14 @@ url = "2"
 open = "5"
 # Unter Windows gewöhnliche Pfade (C:\…) statt der \\?\-Schreibweise
 dunce = "1"
+# Abgleich: Git-Blob-Kennung (SHA-1, nur als Kennung) und das Archiv der Ablage (tar.gz)
+ring = "0.17"
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+# Abgleich: den Ordner .abgleich unter Windows als „versteckt“ markieren
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [dev-dependencies]
 tempfile = "3"
