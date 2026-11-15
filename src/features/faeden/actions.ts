@@ -5,6 +5,7 @@
  */
 import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import { isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
@@ -14,6 +15,8 @@ import {
   createThread,
   newId,
   type CalendarEvent,
+  type Entity,
+  type EntityKind,
   type Story,
   type StoryRole,
   type StoryScene,
@@ -567,6 +570,109 @@ export function threadToEntry(
         });
       restore();
     });
+}
+
+/**
+ * Was ein Faden außer seinem Satz trägt: Hinweise gehen nur mit ihm. Hat er welche, bleibt er
+ * als Frage der Geschichte stehen (nichts geht verloren); sonst ist er danach weg.
+ */
+function settleThread(db: CampaignDb, thread: Thread, storyId: string): () => void {
+  if (thread.hints.length > 0) return moveThread(db, thread.id, storyId) ?? (() => {});
+  return takeThread(db, thread, null);
+}
+
+/**
+ * Macht aus einem losen Faden eine Szene der Geschichte: Sein Satz wird ihr Text (mit dem, was
+ * dahintersteckt), sein erster Ort ihr „Wo“. Gibt `undo` zurück – null, wenn es Faden oder
+ * Geschichte nicht gibt.
+ */
+export function threadToScene(
+  db: CampaignDb,
+  threadId: string,
+  storyId: string,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  const story = data.stories[storyId];
+  if (!thread || !story) return null;
+  const sceneId = newId();
+  const truth = thread.truth.trim();
+  const restore = db.batch(() => {
+    db.patch('stories', storyId, {
+      scenes: [
+        ...story.scenes,
+        {
+          id: sceneId,
+          text: truth ? `${thread.title} – ${truth}` : thread.title,
+          encounterId: null,
+          odds: 'maybe' as const,
+          placeId: threadAnchors(db, thread).placeId,
+          done: false,
+        },
+      ],
+    });
+    return settleThread(db, thread, storyId);
+  });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot().stories[storyId];
+      if (now)
+        db.patch('stories', storyId, {
+          scenes: now.scenes.filter((scene) => scene.id !== sceneId),
+        });
+      restore();
+    });
+}
+
+/** Wen oder was ein Faden als Beteiligten meint: einen Eintrag – oder seinen Satz als neuen. */
+export type CastPick = { entityId: string } | { kind: EntityKind };
+
+/**
+ * Ein loser Faden ist ein Name, der zur Geschichte gehört („Kriegslager der Duergar“): Der
+ * Eintrag kommt zu ihren Beteiligten (`attachToStory`); gibt es ihn noch nicht, entsteht er als
+ * Platzhalter der Geschichte (`addFromWriting` – nie ein zweiter für einen Namen). Was hinter dem
+ * Faden steckt, kommt in das Geheimnis eines neuen Eintrags. Gibt `undo` zurück.
+ */
+export function threadToCast(
+  db: CampaignDb,
+  threadId: string,
+  storyId: string,
+  pick: CastPick,
+): { undo: () => void; entity: Entity; created: boolean } | null {
+  const data = db.getSnapshot();
+  const thread = data.threads[threadId];
+  const story = data.stories[storyId];
+  if (!thread || !story) return null;
+  return db.batch(() => {
+    const made =
+      'entityId' in pick
+        ? data.entities[pick.entityId]
+          ? { entity: data.entities[pick.entityId]!, created: false, undo: () => {} }
+          : null
+        : addFromWriting(db, { name: thread.title, kind: pick.kind, storyId });
+    if (!made) return null;
+    const { entity, created } = made;
+    const truth = thread.truth.trim();
+    if (created && truth) db.patch('entities', entity.id, { secret: truth });
+    const before = db.getSnapshot().stories[storyId]!;
+    attachToStory(db, storyId, entity.id);
+    const restore = settleThread(db, thread, storyId);
+    return {
+      entity,
+      created,
+      undo: () =>
+        db.batch(() => {
+          const now = db.getSnapshot().stories[storyId];
+          if (now)
+            db.patch('stories', storyId, {
+              refs: before.refs,
+              heroes: before.heroes,
+            });
+          restore();
+          made.undo();
+        }),
+    };
+  });
 }
 
 /**

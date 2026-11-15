@@ -4,6 +4,7 @@
  * entsteht mit dem ersten Wort – nach der Eingabetaste steht die Schreibmarke gleich in der
  * nächsten. Darunter, was sich dazunehmen lässt: immer die eigenen Worte des Spielleiters.
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Swords, X } from 'lucide-react';
@@ -22,6 +23,7 @@ import type { PrepScene, PrepSecret } from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
 import {
   Checkbox,
+  DismissButton,
   EntityPicker,
   IconButton,
   NamesHint,
@@ -104,6 +106,7 @@ export function StartBody() {
           {fresh.map((offer) => (
             <OfferRow
               key={offer.key}
+              dismissKey={SUGGESTION.prep('start', offer.key)}
               label={offer.kind === 'step' ? 'Schritt' : 'Termin'}
               text={offer.line}
               sub={[offer.sub, formatDayMonth(cal, offer.at)].filter(Boolean).join(' · ')}
@@ -262,6 +265,7 @@ export function ScenesBody() {
           {offers.map((offer) => (
             <OfferRow
               key={offer.key}
+              dismissKey={SUGGESTION.prep('scene', offer.key)}
               text={offer.scene.text}
               sub={offer.sub}
               action="dazunehmen"
@@ -404,6 +408,7 @@ export function SecretsBody() {
               >
                 ansehen
               </Link>
+              <DismissButton suggestionKey={SUGGESTION.prep('know', entry.key)} what="Eintrag" />
             </div>
           ))}
         </div>

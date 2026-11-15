@@ -7,7 +7,8 @@ import { useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import type { ProfessionSuggestion } from '../../domain/professions';
-import { Button, Checkbox, toast } from '../../ui';
+import { Button, Checkbox, DismissButton, toast } from '../../ui';
+import { SUGGESTION } from '../../domain/dismiss';
 import { acceptProfessions, worldProfessionSuggestions, type ProfessionPick } from './professions';
 import './craft.css';
 
@@ -136,6 +137,10 @@ export function ProfessionSuggestions() {
                       .filter(Boolean)
                       .join(' · ')}
                   </span>
+                  <DismissButton
+                    suggestionKey={SUGGESTION.profession(s.name)}
+                    what={`Beruf „${s.name}“`}
+                  />
                   {s.people.length > 0 && (
                     <ul className="wf-welt-profsug__people">
                       {s.people.map((person) => (

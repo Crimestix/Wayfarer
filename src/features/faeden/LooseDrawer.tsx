@@ -6,6 +6,7 @@
  * aufs Brett legen, ins Spiel nehmen. Zeilen lassen sich auf eine Geschichte des Bretts ziehen.
  * Oben, was es wohl doppelt gibt. Die Rechnung steht in `domain/looseThreads.ts`.
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import {
   Check,
@@ -31,11 +32,10 @@ import {
 import type { Thread } from '../../domain/schema';
 import { THREAD_STATE_LABEL, type BoardView } from '../../domain/story';
 import { namesLine } from '../../domain/storySheet';
-import { Button, IconButton, Input, MenuItem, Popover, cx, toast } from '../../ui';
+import { Button, DismissButton, IconButton, Input, MenuItem, Popover, cx, toast } from '../../ui';
 import {
   markTwinsApart,
   mergeThreads,
-  moveThread,
   removeThreads,
   setInPlay,
   setThreadOnBoard,
@@ -138,12 +138,6 @@ export function LooseDrawer({
       `${what(ids)} ${ids.length === 1 ? 'ist' : 'sind'} weg. Termine, die daran hingen, bleiben.`,
       removeThreads(db, ids),
     );
-  const attachFit = (row: LooseThread, fit: StoryFit) =>
-    done(
-      'An die Geschichte gehängt',
-      `„${row.thread.title}“ ist jetzt eine Frage von „${fit.story.title}“.`,
-      moveThread(db, row.thread.id, fit.story.id),
-    );
   const lay = (row: LooseThread) => {
     const on = !(row.thread.onBoard || data.state.board[`thread:${row.thread.id}`] !== undefined);
     const undo = setThreadOnBoard(db, row.thread.id, on);
@@ -194,7 +188,8 @@ export function LooseDrawer({
       focused={focusId === row.thread.id}
       onPick={(on) => pick(row.thread.id, on)}
       onOpen={() => setOpened(opened === row.thread.id ? null : row.thread.id)}
-      onAttach={(fit) => attachFit(row, fit)}
+      // Wie er dazugehört, wählt der Spielleiter: als Ort, Person, Szene, Frage … – nie still als Frage.
+      onAttach={() => setDialog({ type: 'attach', ids: [row.thread.id] })}
       onDrag={drag(row)}
       onMenu={(anchor) => {
         menuAnchor.current = anchor;
@@ -454,9 +449,18 @@ function LooseRow({
         {fit && (
           <div className="wf-faden-loose__fit">
             <span>{fitsLine(row.fits)}</span>
+            <DismissButton
+              suggestionKey={SUGGESTION.fit(thread.id, fit.story.id)}
+              what={`„passt zu ${fit.story.title}“`}
+            />
             {truth && (
-              <button type="button" className="wf-faden-link" onClick={() => onAttach(fit)}>
-                Anhängen
+              <button
+                type="button"
+                className="wf-faden-link"
+                title="Wählen, wie er dazugehört: als Ort, Person, Szene, Frage …"
+                onClick={() => onAttach(fit)}
+              >
+                Anhängen …
               </button>
             )}
           </div>
@@ -530,7 +534,8 @@ function RowMenu({
   return (
     <>
       <MenuItem icon={<Link2 />} onClick={run(onAttach)}>
-        An Geschichte hängen …<span className="wf-mute"> als Frage, Hinweis oder Einstieg</span>
+        An Geschichte hängen …
+        <span className="wf-mute"> als Ort, Person, Szene, Frage, Hinweis oder Einstieg</span>
       </MenuItem>
       <MenuItem icon={<Plus />} onClick={run(onNew)}>
         Neue Geschichte daraus …

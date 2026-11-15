@@ -491,6 +491,24 @@ export function dropAttitudeSettings(db: CampaignDb, entryIds: string[]): () => 
     });
 }
 
+/** Klickt einen Vorschlag weg (`domain/dismiss.ts`). Gibt „Rückgängig“ zurück. */
+export function dismissSuggestion(db: CampaignDb, key: string): () => void {
+  const current = db.getSnapshot().state.dismissed;
+  if (current.includes(key)) return () => {};
+  db.setState({ dismissed: [...current, key] });
+  return () =>
+    db.setState({ dismissed: db.getSnapshot().state.dismissed.filter((other) => other !== key) });
+}
+
+/** Holt weggeklickte Vorschläge zurück – eine Sorte („fit“) oder alle. Gibt „Rückgängig“ zurück. */
+export function restoreSuggestions(db: CampaignDb, sort?: string): () => void {
+  const before = db.getSnapshot().state.dismissed;
+  db.setState({
+    dismissed: sort ? before.filter((key) => key.split(':')[0] !== sort) : [],
+  });
+  return () => db.setState({ dismissed: before });
+}
+
 /** Hakt eine Abmachung als eingelöst ab oder öffnet sie wieder. */
 export function setPromiseDone(db: CampaignDb, entryId: string, done: boolean): void {
   setPromiseOutcome(db, entryId, done ? 'kept' : 'open');

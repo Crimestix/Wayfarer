@@ -2,9 +2,11 @@
  * „Fragen und Hinweise“ auf dem Blatt einer Geschichte: Jede Frage ist ein Faden mit dem, was
  * dahintersteckt, und ihren Hinweisen. Eine neue Frage entsteht mit dem ersten Wort; eine Frage
  * lässt sich von der Geschichte lösen (sie wird ein loser Faden). Darunter die losen Fäden, die
- * zu dieser Geschichte passen könnten (`threadFits`) – als Frage, als Hinweis oder als Einstieg
+ * zu dieser Geschichte passen könnten (`threadFits`) – als Ort, Person …, Szene, Frage, Hinweis
+ * oder Einstieg (`ThreadTake`)
  * hereinzuholen. Gefundene Hinweise und beantwortete Fragen bleiben getrennt.
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Trash2, TriangleAlert, Unlink, X } from 'lucide-react';
@@ -25,11 +27,11 @@ import {
   threadsOf,
 } from '../../domain/story';
 import { eveningSecretsOf, hintsOnEvening } from '../../domain/prepOffers';
-import { hintsNote, threadFits, type ThreadFit } from '../../domain/storySheet';
+import { hintsNote, threadFits } from '../../domain/storySheet';
 import { focusOn } from '../../shell/focus';
 import {
-  Button,
   Checkbox,
+  DismissButton,
   EntityPicker,
   IconButton,
   NewLine,
@@ -41,15 +43,9 @@ import {
   toast,
   useDraftList,
 } from '../../ui';
-import {
-  moveThread,
-  patchThread,
-  removeThread,
-  saveThread,
-  threadToEntry,
-  threadToHint,
-} from './actions';
+import { moveThread, patchThread, removeThread, saveThread } from './actions';
 import { useStoryMention } from './storyMention';
+import { ThreadTake } from './ThreadTake';
 
 /** Wie die Zeile für einen neuen Hinweis heißt – so findet sie auch der Rat am Rand. */
 export const newHintLabel = (title: string): string => `Neuer Hinweis zu „${title}“`;
@@ -274,7 +270,6 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
 
 /** Lose Fäden, die zu dieser Geschichte passen könnten – zum Hereinholen. */
 function LooseFits({ story, questions }: { story: Story; questions: readonly Thread[] }) {
-  const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
   const fits = threadFits(data, story);
@@ -285,24 +280,6 @@ function LooseFits({ story, questions }: { story: Story; questions: readonly Thr
   const done = (title: string, body: string, undo: (() => void) | null) => {
     if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
   };
-  const asQuestion = ({ thread }: ThreadFit) =>
-    done(
-      'Als Frage übernommen',
-      `„${thread.title}“ gehört jetzt zu dieser Geschichte.`,
-      moveThread(db, thread.id, story.id),
-    );
-  const asHint = ({ thread }: ThreadFit, questionId: string) =>
-    done(
-      'Als Hinweis übernommen',
-      `„${thread.title}“ ist jetzt ein Hinweis zu „${data.threads[questionId]?.title ?? ''}“. Den losen Faden gibt es nicht mehr.`,
-      threadToHint(db, thread.id, questionId),
-    );
-  const asEntry = ({ thread }: ThreadFit) =>
-    done(
-      'Als Einstieg übernommen',
-      `„${thread.title}“ ist jetzt ein Einstieg. Den losen Faden gibt es nicht mehr.`,
-      threadToEntry(db, thread.id, story.id),
-    );
   return (
     <div className="wf-faden-fits">
       <div className="wf-faden-frage__sub">
@@ -322,26 +299,11 @@ function LooseFits({ story, questions }: { story: Story; questions: readonly Thr
             {fit.thread.title} <em>– {fit.reason}</em>
           </span>
           <span className="wf-faden-fit__acts">
-            <Button size="sm" onClick={() => asQuestion(fit)}>
-              als Frage übernehmen
-            </Button>
-            {questions.length > 0 && (
-              <Select
-                value=""
-                aria-label={`„${fit.thread.title}“ als Hinweis zu einer Frage übernehmen`}
-                onChange={(event) => event.target.value && asHint(fit, event.target.value)}
-              >
-                <option value="">als Hinweis zu …</option>
-                {questions.map((question) => (
-                  <option key={question.id} value={question.id}>
-                    {question.title}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Button size="sm" variant="ghost" onClick={() => asEntry(fit)}>
-              als Einstieg
-            </Button>
+            <ThreadTake thread={fit.thread} story={story} questions={questions} onDone={done} />
+            <DismissButton
+              suggestionKey={SUGGESTION.fit(fit.thread.id, story.id)}
+              what={`„${fit.thread.title}“ als passender Faden`}
+            />
           </span>
         </div>
       ))}

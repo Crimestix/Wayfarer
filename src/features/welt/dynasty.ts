@@ -3,6 +3,7 @@
  * gehört, statt dass jede Familie von Hand angelegt und jede Person einzeln zugeordnet wird.
  * Reine Funktionen; das Anlegen selbst steht in actions.ts (`adoptFamilies`).
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { byName, normalize } from '../../domain/derive';
 import type { CampaignData, Entity, Person } from '../../domain/schema';
 
@@ -183,4 +184,16 @@ export function describePlan(data: CampaignData, plan: FamilyPlan): string {
   } else if (plan.join.length > 1)
     parts.push(`${plan.join.length} Personen vorhandenen Familien zugeordnet`);
   return parts.join(' · ');
+}
+
+/**
+ * Der Schlüssel des Vorschlags „Familien aus Nachnamen anlegen“: die Namen und Zuordnungen, die
+ * er gerade anbietet. Wird er weggeklickt, bleibt er weg, bis etwas Neues dazukommt.
+ */
+export function familyPlanKey(plan: FamilyPlan): string {
+  const parts = [
+    ...plan.create.map((family) => family.name),
+    ...plan.join.map((join) => `${join.personId}>${join.familyId}`),
+  ].sort();
+  return SUGGESTION.family(parts.join('|'));
 }

@@ -3,6 +3,7 @@
  * hier kommen die Artikel des Wikis dazu, und hier wird angelegt und verbunden – nur, was der
  * Spielleiter ausgewählt hat. Nie still.
  */
+import { SUGGESTION, withoutDismissed } from '../../domain/dismiss';
 import type { CampaignDb } from '../../data/db';
 import {
   professionSuggestions,
@@ -38,7 +39,13 @@ export function writtenSources(data: Pick<CampaignData, 'entities' | 'articles'>
 
 /** Die Vorschläge für die Welt: Einträge und Artikel zusammen. */
 export function worldProfessionSuggestions(data: CampaignData): ProfessionSuggestions {
-  return professionSuggestions(data, writtenSources(data));
+  const all = professionSuggestions(data, writtenSources(data));
+  // Weggeklickte Berufe („passt nicht“) bleiben weg.
+  const keyOf = (s: { name: string }) => SUGGESTION.profession(s.name);
+  return {
+    found: withoutDismissed(data, all.found, keyOf),
+    more: withoutDismissed(data, all.more, keyOf),
+  };
 }
 
 export interface ProfessionPick {

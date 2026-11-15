@@ -589,6 +589,20 @@ nicht übernommen.
   (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
   die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt
   denselben Befehl; nie Beziehungen an ihm vorbei anlegen.
+- Vorschläge wegklicken (Rückmeldung des Spielleiters, 15. 11. 2026: „Man muss im Generellen
+  Vorschläge dismissen und ausblenden können“): Jeder Vorschlag hat ein „×“ (`DismissButton`,
+  `ui/dismiss.tsx`); sein Schlüssel kommt aus `SUGGESTION` (`domain/dismiss.ts`) und steht in
+  `state.dismissed` (`dismissSuggestion`, mit Rückgängig). Gefiltert wird in der Rechnung, die
+  den Vorschlag macht (`withoutDismissed`, `isDismissed` – etwa `threadFits`, `storyFits`,
+  `playView().offered`, die Angebote in `prepOffers.ts`, `roomCandidates`,
+  `worldProfessionSuggestions`, `familyPlanKey`), nie nur in der Oberfläche. Zurückgeholt wird in
+  den Einstellungen („Ausgeblendete Vorschläge“, `restoreSuggestions`). Ein neuer Vorschlag
+  bekommt Schlüssel, Filter und „×“; eine neue Sorte ihre Worte in `SUGGESTION_SORTS`.
+- Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
+  am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
+  `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein
+  Geheimnis), als Szene (`threadToScene`), als Frage, Hinweis oder Einstieg. Hat ein Faden
+  Hinweise, bleibt er zusätzlich als Frage stehen; alles mit Rückgängig.
 - Haltung festlegen oder ändern (Rückmeldung des Spielleiters, 15. 11. 2026: nicht jede
   gesetzte Haltung ist Geschichte): `setAttitude(…, mode)` – `'change'` steht mit Datum in der
   Chronik, `'given'` („War schon so“) trägt nur ein. „War schon so“ geht nur, solange die

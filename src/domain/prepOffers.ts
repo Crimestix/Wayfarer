@@ -5,6 +5,7 @@
  * der Spielleiter geschrieben hat, wörtlich – Wayfarer formuliert nichts, und nichts landet ohne
  * Klick auf dem Blatt. Reine Funktionen; die Blätter selbst stehen in `domain/prep.ts`.
  */
+import { SUGGESTION, withoutDismissed } from './dismiss';
 import { activeParty, openPromises, placeCast, placePath } from './derive';
 import { LOOSE_REASON_SHORT, looseEnds, looseEndsHere } from './looseEnds';
 import { readyLoot } from './loot';
@@ -282,7 +283,9 @@ export function startOffers(
       });
     }
   }
-  return offers.sort((a, b) => b.at - a.at || a.key.localeCompare(b.key)).slice(0, START_OFFERS);
+  return withoutDismissed(data, offers, (offer) => SUGGESTION.prep('start', offer.key))
+    .sort((a, b) => b.at - a.at || a.key.localeCompare(b.key))
+    .slice(0, START_OFFERS);
 }
 
 // ── Mögliche Szenen ────────────────────────────────────────────────────────
@@ -348,7 +351,10 @@ export function sceneOffers(data: CampaignData, content: PrepContent): SceneOffe
       encounterId: null,
       from: null,
     });
-  return offers.slice(0, SCENE_OFFERS);
+  return withoutDismissed(data, offers, (offer) => SUGGESTION.prep('scene', offer.key)).slice(
+    0,
+    SCENE_OFFERS,
+  );
 }
 
 // ── Geheimnisse ────────────────────────────────────────────────────────────
@@ -385,7 +391,9 @@ export function wantToKnow(data: CampaignData): WantToKnow[] {
       text: end.entry.text.trim(),
       at: end.entry.at,
     }));
-  return [...guesses, ...rumors]
+  return withoutDismissed(data, [...guesses, ...rumors], (item) =>
+    SUGGESTION.prep('know', item.key),
+  )
     .sort((a, b) => b.at - a.at || a.key.localeCompare(b.key))
     .slice(0, WANT_TO_KNOW)
     .map(({ key, kind, text }) => ({ key, kind, text }));
@@ -475,7 +483,9 @@ export function placeOffers(data: CampaignData, content: PrepContent): PlaceOffe
         row.place.id,
         `${story.title} · ${row.via.map((via) => PLACE_VIA_LABEL[via]).join(', ')}`,
       );
-  return [...offers.values()].slice(0, PLACE_OFFERS);
+  return withoutDismissed(data, [...offers.values()], (offer) =>
+    SUGGESTION.prep('place', offer.place.id),
+  ).slice(0, PLACE_OFFERS);
 }
 
 export interface PlaceRow {
@@ -545,7 +555,9 @@ export function personOffers(data: CampaignData, content: PrepContent): PersonOf
       add(person.id, `in ${place.name} – Ort einer Szene`);
   }
   const mates = new Set(activeParty(data).map((character) => character.id));
-  return [...offers.values()]
+  return withoutDismissed(data, [...offers.values()], (offer) =>
+    SUGGESTION.prep('person', offer.entity.id),
+  )
     .filter((offer) => !mates.has(offer.entity.id))
     .slice(0, PERSON_OFFERS);
 }
@@ -601,7 +613,9 @@ export function encounterOffers(data: CampaignData, content: PrepContent): Encou
     }
   for (const encounter of Object.values(data.encounters))
     if (isNear(data, encounter.placeId)) add(encounter.id, 'am Ort der Gruppe');
-  return [...offers.values()];
+  return withoutDismissed(data, [...offers.values()], (offer) =>
+    SUGGESTION.prep('encounter', offer.encounter.id),
+  );
 }
 
 /** Baue und Horte dort, wo die Gruppe ist – aus ihnen lässt sich im Bestiarium eine Begegnung stellen. */

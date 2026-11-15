@@ -2,6 +2,7 @@
  * Räume: Orte, die zu einem Ort darüber gehören (Festung, Verlies, Haus) und deshalb nicht einzeln
  * in der Welt und im Wiki stehen, sondern auf der Seite des Ortes darüber. Reine Funktionen.
  */
+import { SUGGESTION } from './dismiss';
 import type { CampaignData, Entity, Place } from './schema';
 
 /** So viel Text zeigt ein aufgeklappter Raum; der Rest steht auf seiner Seite. */
@@ -59,7 +60,12 @@ export function roomArticleIds(data: Pick<CampaignData, 'entities'>): Set<string
 const ROOM_WORDS = /(raum|räume|kammer|halle|zelle|gewölbe|gruft|kerker|stube|saal|keller)/i;
 
 /** Orte unter diesem Ort, die wie Räume aussehen, aber noch keine sind – zum einmaligen Umwandeln. */
-export function roomCandidates(data: Pick<CampaignData, 'entities'>, placeId: string): Place[] {
+export function roomCandidates(
+  data: Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'state'>>,
+  placeId: string,
+): Place[] {
+  // „Passt nicht“ am Ort weggeklickt: kein Vorschlag mehr für ihn.
+  if (data.state?.dismissed.includes(SUGGESTION.room(placeId))) return [];
   return Object.values(data.entities).filter(
     (entity): entity is Place =>
       entity.kind === 'place' &&

@@ -4,6 +4,7 @@
  * Spielleiter; was den Ort berührt und noch fehlt, bietet Wayfarer unten an. Die Rechnung steht
  * in `domain/play.ts`.
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Check, ChevronDown, ChevronRight, Plus, TriangleAlert, Waypoints, X } from 'lucide-react';
@@ -23,7 +24,18 @@ import {
 } from '../../domain/story';
 import { formatClock, formatDayMonth } from '../../domain/time/calendar';
 import { focusOn } from '../../shell/focus';
-import { Button, EntityLink, Input, MenuItem, Panel, Popover, TextArea, cx, toast } from '../../ui';
+import {
+  Button,
+  DismissButton,
+  EntityLink,
+  Input,
+  MenuItem,
+  Panel,
+  Popover,
+  TextArea,
+  cx,
+  toast,
+} from '../../ui';
 import { RecapBox } from '../abend/RecapBox';
 import { useGiveLoot } from '../beute/useGive';
 import { newStory, setHintFound, setInPlay, setSceneDone, setStoryMemo } from '../faeden/actions';
@@ -154,15 +166,20 @@ export function PlayPanel() {
         <div className="wf-tisch-play__offer">
           Berührt diesen Ort, ist aber nicht im Spiel:
           {view.offered.map((card) => (
-            <button
-              key={card.key}
-              type="button"
-              title="Ins Spiel nehmen"
-              onClick={() => setInPlay(db, card.key, true)}
-            >
-              <Plus aria-hidden />
-              {card.title}
-            </button>
+            <span key={card.key} className="wf-tisch-play__offered">
+              <button
+                type="button"
+                title="Ins Spiel nehmen"
+                onClick={() => setInPlay(db, card.key, true)}
+              >
+                <Plus aria-hidden />
+                {card.title}
+              </button>
+              <DismissButton
+                suggestionKey={SUGGESTION.here(card.key, data.state.placeId ?? '')}
+                what={`„${card.title}“ hier`}
+              />
+            </span>
           ))}
           {view.offeredMore > 0 && (
             <button

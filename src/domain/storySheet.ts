@@ -5,6 +5,7 @@
  * welchen Geschichten ein Eintrag der Welt vorkommt. Alles abgeleitet aus dem, was der
  * Spielleiter geschrieben und verbunden hat; nichts davon wird gespeichert. Reine Funktionen.
  */
+import { SUGGESTION, isDismissed } from './dismiss';
 import { clockView } from './clock';
 import { openPromises } from './derive';
 import { netsOfStory } from './net';
@@ -266,6 +267,7 @@ export function threadFits(data: CampaignData, story: Story): ThreadFit[] {
   const fits: ThreadFit[] = [];
   for (const thread of Object.values(data.threads)) {
     if (!isLooseThread(data, thread) || !threadLive(thread)) continue;
+    if (isDismissed(data, SUGGESTION.fit(thread.id, story.id))) continue;
     const shared = sharedNames(data, thread, nodes);
     if (shared.length) fits.push({ thread, shared, reason: sharedReason(shared) });
   }

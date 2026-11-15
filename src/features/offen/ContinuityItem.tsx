@@ -51,6 +51,7 @@ export function ContinuityItem({ issue }: { issue: Issue }) {
 
 /** Ein kleiner Hinweis auf der Seite eines Eintrags, wenn es zu ihm einen Widerspruch gibt. */
 export function ContinuityNote({ entityId }: { entityId: string }) {
+  const db = useDb();
   const data = useData();
   const issues = useMemo(() => issuesAbout(continuityIssues(data), entityId), [data, entityId]);
   if (!issues.length) return null;
@@ -62,7 +63,25 @@ export function ContinuityNote({ entityId }: { entityId: string }) {
       <Puzzle className="wf-offen-note__icon" aria-hidden />
       <div className="wf-offen-note__body">
         {shown.map((issue) => (
-          <p key={issue.key}>{issue.text}</p>
+          <p key={issue.key} className="wf-offen-note__line">
+            <span>{issue.text}</span>
+            <button
+              type="button"
+              className="wf-offen-note__ok"
+              title="Stimmt so – nicht mehr anzeigen"
+              onClick={() => {
+                const undo = markContinuityOk(db, issue.key);
+                toast({
+                  title: 'Passt so',
+                  body: issue.text.slice(0, 120),
+                  action: { label: 'Rückgängig', run: undo },
+                });
+              }}
+            >
+              <Check aria-hidden />
+              Passt so
+            </button>
+          </p>
         ))}
         <Link href="/offen" className="wf-offen-note__more">
           {more > 0

@@ -4,6 +4,7 @@
  * entsteht hier als Platzhalter. Die „Namen für den Notfall“ sind erzeugt – als solche erkennbar,
  * stabil je Blatt und erst ein Eintrag der Welt, wenn der Spielleiter einen anlegt.
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useMemo } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Dices, Plus, Swords, X } from 'lucide-react';
@@ -89,6 +90,7 @@ export function PlacesBody() {
           {offers.map((offer) => (
             <OfferRow
               key={offer.place.id}
+              dismissKey={SUGGESTION.prep('place', offer.place.id)}
               text={offer.place.name}
               sub={offer.why}
               action="dazunehmen"
@@ -167,6 +169,7 @@ export function PeopleBody() {
           {offers.map((offer) => (
             <OfferRow
               key={offer.entity.id}
+              dismissKey={SUGGESTION.prep('person', offer.entity.id)}
               text={offer.entity.name}
               sub={offer.why}
               action="dazunehmen"
@@ -296,6 +299,7 @@ export function EncountersBody() {
           {offers.map((offer) => (
             <OfferRow
               key={offer.encounter.id}
+              dismissKey={SUGGESTION.prep('encounter', offer.encounter.id)}
               text={offer.encounter.name}
               sub={offer.why}
               action="bereitlegen"

@@ -2019,3 +2019,17 @@ button.wf-tisch-cast__who:focus-visible {
   color: var(--ink-faint);
   transform: translateY(2px);
 }
+
+/* „Berührt diesen Ort“: je Vorschlag ein leises „×“ */
+.wf-tisch-play__offered {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.wf-tisch-play__offer .wf-dismiss {
+  border: 0;
+  color: var(--ink-faint);
+}
+.wf-tisch-play__offer .wf-dismiss:hover {
+  color: var(--gold-bright);
+}

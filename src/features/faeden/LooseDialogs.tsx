@@ -1,6 +1,7 @@
 /**
  * Die beiden Fenster der Liste „Lose Fäden“: Fäden an eine Geschichte hängen (die passenden
- * Geschichten zuerst; ein einzelner Faden auch als Hinweis zu einer Frage oder als Einstieg) und
+ * Geschichten zuerst; ein einzelner Faden so, wie er gemeint ist – als Ort, Person …, Szene,
+ * Frage, Hinweis oder Einstieg, `ThreadTake`) und
  * eine neue Geschichte aus Fäden machen – ihren Namen schreibt der Spielleiter.
  */
 import { useMemo, useState } from 'react';
@@ -9,8 +10,9 @@ import { useData, useDb } from '../../data/hooks';
 import { filterStoryChoices, storyChoices, type StoryChoice } from '../../domain/looseThreads';
 import type { Story, Thread } from '../../domain/schema';
 import { threadLive, threadsOf } from '../../domain/story';
-import { Button, Dialog, Field, Input, Select, toast } from '../../ui';
-import { moveThreads, storyFromThreads, threadToEntry, threadToHint } from './actions';
+import { Button, Dialog, Field, Input, toast } from '../../ui';
+import { moveThreads, storyFromThreads } from './actions';
+import { ThreadTake } from './ThreadTake';
 
 /** Ab so vielen Geschichten hilft ein Suchfeld. */
 const SEARCH_FROM = 8;
@@ -57,19 +59,6 @@ export function AttachDialog({
         story.id,
       ),
     );
-  const asHint = (thread: Thread, questionId: string) =>
-    done(
-      'Als Hinweis übernommen',
-      `„${thread.title}“ ist jetzt ein Hinweis zu „${data.threads[questionId]?.title ?? ''}“. Den losen Faden gibt es nicht mehr.`,
-      threadToHint(db, thread.id, questionId),
-    );
-  const asEntry = (thread: Thread, story: Story) =>
-    done(
-      'Als Einstieg übernommen',
-      `„${thread.title}“ ist jetzt ein Einstieg von „${story.title}“. Den losen Faden gibt es nicht mehr.`,
-      threadToEntry(db, thread.id, story.id),
-    );
-
   const row = ({ story, reason }: StoryChoice) => {
     const owner = story.ownerId ? data.entities[story.ownerId] : undefined;
     const questions = single ? threadsOf(data, story.id).filter(threadLive) : [];
@@ -81,26 +70,11 @@ export function AttachDialog({
           {!reason && owner && <span className="wf-mute">Treibt an: {owner.name}</span>}
         </div>
         <div className="wf-faden-attach__acts">
-          <Button size="sm" onClick={() => asQuestions(story)}>
-            {single ? 'als Frage' : 'als Fragen'}
-          </Button>
-          {single && questions.length > 0 && (
-            <Select
-              value=""
-              aria-label={`Als Hinweis zu einer Frage von „${story.title}“ übernehmen`}
-              onChange={(event) => event.target.value && asHint(single, event.target.value)}
-            >
-              <option value="">als Hinweis zu …</option>
-              {questions.map((question) => (
-                <option key={question.id} value={question.id}>
-                  {question.title}
-                </option>
-              ))}
-            </Select>
-          )}
-          {single && (
-            <Button size="sm" variant="ghost" onClick={() => asEntry(single, story)}>
-              als Einstieg
+          {single ? (
+            <ThreadTake thread={single} story={story} questions={questions} onDone={done} />
+          ) : (
+            <Button size="sm" onClick={() => asQuestions(story)}>
+              als Fragen
             </Button>
           )}
         </div>

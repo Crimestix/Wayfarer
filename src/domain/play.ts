@@ -5,6 +5,7 @@
  * was zuletzt zu ihnen notiert wurde. Welche Geschichten im Spiel sind, entscheidet der
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
+import { SUGGESTION, isDismissed } from './dismiss';
 import { normalize, occurrencesOf, openPromises, type Occurrence } from './derive';
 import { looseOrder } from './looseThreads';
 import { readyLoot } from './loot';
@@ -202,7 +203,15 @@ export function playView(data: CampaignData): PlayView {
   const cards = boardCards(data);
   const next = (card: BoardCard) =>
     card.clock?.next && !card.clock.paused ? card.clock.next.at : Number.MAX_SAFE_INTEGER;
-  const here = cards.filter((card) => !card.closed && !inPlay(card) && card.nearness === 'here');
+  const placeId = data.state.placeId ?? '';
+  // Weggeklickt („passt hier nicht“) – gilt für diesen Ort.
+  const here = cards.filter(
+    (card) =>
+      !card.closed &&
+      !inPlay(card) &&
+      card.nearness === 'here' &&
+      !isDismissed(data, SUGGESTION.here(card.key, placeId)),
+  );
   // Was ruht, hat der Spielleiter für später weggelegt: Es drängt sich am Tisch nicht auf.
   const looseHere = looseCards(here).filter((card) => card.threads[0]?.state !== 'dormant');
   return {

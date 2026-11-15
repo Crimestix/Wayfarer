@@ -868,3 +868,6 @@ button.wf-abend-story__toggle:hover .wf-abend-name {
 .wf-print-layer .wf-abend-paper section {
   break-inside: avoid;
 }
+.wf-abend-offer .wf-dismiss {
+  align-self: center;
+}

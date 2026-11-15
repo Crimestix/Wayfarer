@@ -1,4 +1,5 @@
 /** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
+import { isDismissed } from '../../domain/dismiss';
 import {
   Fragment,
   useEffect,
@@ -19,6 +20,7 @@ import {
   AttitudeBadge,
   Button,
   Checkbox,
+  DismissButton,
   EmptyState,
   IconButton,
   Input,
@@ -33,7 +35,7 @@ import { ArticleTree, openForWriting, useArticleHits } from '../wiki';
 import { NewArticleDialog } from '../wiki/ArticleTools';
 import { ArticleIcon } from '../wiki/icons';
 import { adoptFamilies } from './actions';
-import { planFamilies } from './dynasty';
+import { familyPlanKey, planFamilies } from './dynasty';
 import { openEntityDialog } from './editor';
 import {
   getKindFilter,
@@ -183,6 +185,9 @@ export function Sidebar({
     () => (filter === 'family' ? planFamilies(data) : null),
     [data, filter],
   );
+  // Weggeklickt bleibt der Vorschlag weg, bis neue Nachnamen dazukommen.
+  const familyKey = familyPlan ? familyPlanKey(familyPlan) : '';
+  const familyDismissed = familyKey !== '' && isDismissed(data, familyKey);
   const pendingFamilies = familyPlan ? familyPlan.create.length : 0;
   const pendingJoins = familyPlan ? familyPlan.join.length : 0;
   const familyHint =
@@ -460,11 +465,14 @@ export function Sidebar({
       </div>
 
       <MissingNamesHint />
-      {layout !== 'net' && filter === 'family' && familyHint && (
-        <button type="button" className="wf-welt-derive" onClick={deriveFamilies}>
-          <Users />
-          <span>{familyHint}</span>
-        </button>
+      {layout !== 'net' && filter === 'family' && familyHint && !familyDismissed && (
+        <div className="wf-welt-derive-row">
+          <button type="button" className="wf-welt-derive" onClick={deriveFamilies}>
+            <Users />
+            <span>{familyHint}</span>
+          </button>
+          <DismissButton suggestionKey={familyKey} what="Familien aus Nachnamen" />
+        </div>
       )}
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {layout === 'net' ? (

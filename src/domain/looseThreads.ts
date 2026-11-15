@@ -5,6 +5,7 @@
  * Fäden, die es wohl doppelt gibt, und die Reihung, in der Fäden überall zur Wahl stehen (was am
  * Ort der Gruppe hängt, zuerst). Alles abgeleitet, nichts gespeichert. Reine Funktionen.
  */
+import { SUGGESTION, isDismissed } from './dismiss';
 import { normalize } from './derive';
 import type { CampaignData, Entity, Session, Story, Thread } from './schema';
 import {
@@ -290,7 +291,10 @@ const byFit = (a: { shared: Entity[]; story: Story }, b: { shared: Entity[]; sto
 
 function fitsOf(data: CampaignData, thread: ThreadLike, stories: StoryIndexEntry[]): StoryFit[] {
   const fits: StoryFit[] = [];
+  const id = 'id' in thread && typeof thread.id === 'string' ? thread.id : null;
   for (const { story, nodes } of stories) {
+    // Weggeklickt: „passt nicht“ – der Spielleiter hat es entschieden.
+    if (id && isDismissed(data, SUGGESTION.fit(id, story.id))) continue;
     const shared = sharedNames(data, thread, nodes);
     if (shared.length) fits.push({ story, shared, reason: sharedReason(shared) });
   }

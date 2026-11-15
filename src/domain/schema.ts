@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 2;
-export const DATA_SHAPE = '3715a836e56ce9ee';
+export const DATA_VERSION = 3;
+export const DATA_SHAPE = '29ad0ca094e40bb3';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -173,6 +173,11 @@ export const PlayStateSchema = z.object({
    * (`features/tisch/peek.ts`). Ordnet nur, schränkt nichts ein.
    */
   inView: z.array(id).default([]),
+  /**
+   * Vorschläge, die der Spielleiter weggeklickt hat – je Vorschlag sein Schlüssel
+   * (`domain/dismiss.ts`). Sie bleiben weg, bis er sie in den Einstellungen zurückholt.
+   */
+  dismissed: z.array(z.string()).default([]),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

@@ -6,7 +6,7 @@
 import type { ReactNode } from 'react';
 import { Check, ChevronDown, ChevronRight } from 'lucide-react';
 import type { PrepStand } from '../../domain/prep';
-import { cx } from '../../ui';
+import { DismissButton, cx } from '../../ui';
 
 /** Die Kennung, unter der `focusSheetSection` ein Fach findet. */
 export const fachId = (key: string) => `wf-sheet-sec-${key}`;
@@ -110,6 +110,7 @@ export function OfferRow({
   action,
   onTake,
   title,
+  dismissKey,
 }: {
   /** Ein kurzes Etikett vorn („Szene“, „Hinweis“) – kann fehlen. */
   label?: string | undefined;
@@ -122,6 +123,8 @@ export function OfferRow({
   action: string;
   onTake: () => void;
   title?: string | undefined;
+  /** Schlüssel zum Wegklicken („passt nicht“, `SUGGESTION.prep`) – ohne ihn kein „×“. */
+  dismissKey?: string | undefined;
 }) {
   return (
     <div className={cx('wf-abend-offer', taken && 'wf-abend-offer--taken')}>
@@ -140,6 +143,7 @@ export function OfferRow({
           {action}
         </button>
       )}
+      {dismissKey && !taken && <DismissButton suggestionKey={dismissKey} what="Angebot" />}
     </div>
   );
 }

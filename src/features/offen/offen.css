@@ -92,3 +92,34 @@
   color: var(--gold);
   font-size: var(--text-xs);
 }
+
+/* „Passt so“ auch im Hinweis auf der Seite eines Eintrags */
+.wf-offen-note__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+.wf-offen-note__line > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.wf-offen-note__ok {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.wf-offen-note__ok svg {
+  width: 12px;
+  height: 12px;
+}
+.wf-offen-note__ok:hover {
+  color: var(--gold-bright);
+}

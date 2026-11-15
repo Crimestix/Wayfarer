@@ -8,3 +8,4 @@ export * from './create';
 export * from './mention';
 export * from './names';
 export { useHoldDraft } from './drafts';
+export { DismissButton } from './dismiss';

@@ -17,6 +17,7 @@ import { WikiImportSection } from './WikiImportSection';
 import { SourcesSection } from './SourcesSection';
 import { ScaffoldSection } from './ScaffoldSection';
 import { TrashSection } from './TrashSection';
+import { DismissedSection } from './DismissedSection';
 import { TableRulesSheet } from '../tisch/TableRules';
 import { SyncSection } from '../abgleich/SyncSection';
 import { SECTION_LEAD } from '../abgleich/model';
@@ -106,6 +107,14 @@ export default function Page() {
             lead="Gelöschte Artikel mit allen Seiten. Sie bleiben hier, bis du sie wiederherstellst oder endgültig entfernst. Frühere Fassungen eines Artikels findest du an ihm selbst, im Menü „Mehr“."
           >
             <TrashSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Ausgeblendete Vorschläge"
+            lead="Was du an Vorschlägen mit „×“ weggeklickt hast. Es bleibt weg, bis du es hier zurückholst."
+          >
+            <DismissedSection />
           </Section>
 
           <Section

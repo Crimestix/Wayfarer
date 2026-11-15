@@ -1074,3 +1074,29 @@ button.wf-item:hover,
 .wf-memory__show:hover {
   text-decoration: underline;
 }
+
+/* Das „×“ an einem Vorschlag (DismissButton) */
+.wf-dismiss {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.wf-dismiss svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-dismiss:hover,
+.wf-dismiss:focus-visible {
+  color: var(--gold-bright);
+  background: var(--gold-glow);
+  outline: none;
+}

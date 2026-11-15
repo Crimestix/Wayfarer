@@ -2,13 +2,14 @@
  * „Räume“ auf der Seite eines Ortes: Name, eine Zeile, Stand – aufklappbar mit den Notizen. Räume
  * stehen nicht einzeln in der Welt und im Wiki (`domain/rooms.ts`).
  */
+import { SUGGESTION } from '../../domain/dismiss';
 import { useState } from 'react';
 import { Link } from 'wouter';
 import { ChevronDown, ChevronRight, DoorOpen, Footprints, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { roomCandidates, roomText, roomsOf } from '../../domain/rooms';
 import type { Place } from '../../domain/schema';
-import { Badge, Button, Input, TextArea, cx, entityHref, toast } from '../../ui';
+import { Badge, Button, DismissButton, Input, TextArea, cx, entityHref, toast } from '../../ui';
 import { addRooms, setRoomState, setRooms } from './rooms';
 import { Hint, Section } from './parts';
 
@@ -88,6 +89,7 @@ export function RoomsSection({ place }: { place: Place }) {
           <Button size="sm" onClick={convert}>
             Als Räume führen
           </Button>
+          <DismissButton suggestionKey={SUGGESTION.room(place.id)} what="Vorschlag „Räume“" />
         </div>
       )}
       {adding && (
