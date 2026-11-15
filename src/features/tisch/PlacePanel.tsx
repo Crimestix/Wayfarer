@@ -1,7 +1,7 @@
 /** Hauptfläche des Spieltischs: der Ort der Gruppe mit allem, was dort eine Rolle spielt. */
 import { natureHere } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'wouter';
 import {
   BookOpen,
@@ -19,10 +19,11 @@ import {
   MapPin,
   Route as RouteIcon,
   ScrollText,
+  Search,
   Sparkles,
   User,
 } from 'lucide-react';
-import { useData } from '../../data/hooks';
+import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { placePath, placeStatus } from '../../domain/derive';
 import { netsOfPlace } from '../../domain/net';
@@ -45,9 +46,21 @@ import {
   SectionTitle,
   cx,
   entityHref,
+  toast,
 } from '../../ui';
+import { clearInView } from './commands';
+import {
+  CAST_SEARCH_FROM,
+  castMatches,
+  castSections,
+  closePeek,
+  inViewIds,
+  openPeek,
+  usePeek,
+} from './peek';
 import {
   absenceMinutes,
+  castRowOf,
   castView,
   changesFresh,
   earlierHere,
@@ -93,20 +106,41 @@ function useMediaQuery(query: string): boolean {
   );
 }
 
-function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
+function CastLine({
+  row,
+  away,
+  order,
+}: {
+  row: CastRow;
+  away?: boolean;
+  /** Die Reihenfolge, in der der Kurzblick mit ↑ ↓ blättert. */
+  order: string[];
+}) {
   const { entity } = row;
+  const peek = usePeek();
+  const line = useRef<HTMLDivElement>(null);
+  const open = peek.id === entity.id;
+  // Beim Blättern im Kurzblick bleibt die Zeile in der Liste sichtbar.
+  useEffect(() => {
+    if (open) line.current?.scrollIntoView({ block: 'nearest' });
+  }, [open]);
   return (
     <div
+      ref={line}
       className={cx(
         'wf-tisch-cast',
         row.unmet && 'wf-tisch-cast--unmet',
         away && 'wf-tisch-cast--away',
       )}
     >
-      <Link
-        href={entityHref(entity)}
+      <button
+        type="button"
         className="wf-tisch-cast__who"
-        title={[entity.name, row.role, row.where, row.tagline].filter(Boolean).join(' · ')}
+        aria-pressed={open}
+        title={[entity.name, row.role, row.where, row.tagline, 'Klick: Kurzblick']
+          .filter(Boolean)
+          .join(' · ')}
+        onClick={() => (open ? closePeek() : openPeek(entity.id, order))}
       >
         <Portrait entity={entity} size={38} />
         <span className="wf-tisch-cast__main">
@@ -152,7 +186,7 @@ function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
             )}
           </span>
         </span>
-      </Link>
+      </button>
       {row.tagline && (
         <span className="wf-tisch-cast__tagline" title={row.tagline}>
           {row.tagline}
@@ -180,17 +214,78 @@ function CastLine({ row, away }: { row: CastRow; away?: boolean }) {
   );
 }
 
-function CastGroup({ title, rows, away }: { title?: string; rows: CastRow[]; away?: boolean }) {
+function CastGroup({
+  title,
+  rows,
+  away,
+  order,
+  sections,
+}: {
+  title?: string;
+  rows: CastRow[];
+  away?: boolean;
+  order: string[];
+  /** An großen Orten: Zwischenüberschriften nach den Orten darin. */
+  sections?: boolean;
+}) {
   if (!rows.length) return null;
+  const parts = sections ? castSections(rows) : [{ title: null, rows }];
   return (
     <div className="wf-tisch-castgroup">
       {title && <div className="wf-tisch-subtitle">{title}</div>}
+      {parts.map((part) => (
+        <div key={part.title ?? ''} className="wf-tisch-castpart">
+          {part.title && <div className="wf-tisch-castpart__title">{part.title}</div>}
+          <div className="wf-tisch-castlist">
+            {part.rows.map((row) => (
+              <CastLine key={row.entity.id} row={row} away={away} order={order} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** „Im Blick“: wen der Spielleiter gerade braucht – von überall, über „Wer hier ist“. */
+function InView({ order }: { order: string[] }) {
+  const db = useDb();
+  const data = useData();
+  const rows = useMemo(
+    () =>
+      inViewIds(data)
+        .map((id) => castRowOf(data, id))
+        .filter((row): row is CastRow => row !== null),
+    [data],
+  );
+  if (!rows.length) return null;
+  return (
+    <section className="wf-col wf-tisch-inview" aria-label="Im Blick">
+      <SectionTitle>
+        Im Blick
+        <span className="wf-tisch-count">{rows.length}</span>
+        <span className="wf-grow" />
+        <button
+          type="button"
+          className="wf-tisch-inview__clear"
+          title="Alle aus „Im Blick“ nehmen – etwa, wenn die Szene vorbei ist"
+          onClick={() => {
+            const undo = clearInView(db);
+            toast({
+              title: '„Im Blick“ ist leer',
+              action: { label: 'Rückgängig', run: undo },
+            });
+          }}
+        >
+          leeren
+        </button>
+      </SectionTitle>
       <div className="wf-tisch-castlist">
         {rows.map((row) => (
-          <CastLine key={row.entity.id} row={row} away={away} />
+          <CastLine key={row.entity.id} row={row} order={order} />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -348,8 +443,41 @@ export function PlacePanel({ place }: { place: Place }) {
   // Wer hier wohnt und von dem nichts anderes bekannt ist, ist vermutlich da – nur wer
   // nachweislich woanders ist (oder wessen Schicksal ungewiss ist), gilt als fort. Tote und
   // Verschollene stehen für sich (`cast.lost`).
-  const atHome = cast.away.filter((row) => row.whereId === null && !row.fate);
-  const gone = cast.away.filter((row) => row.whereId !== null || row.fate);
+  const atHomeAll = cast.away.filter((row) => row.whereId === null && !row.fate);
+  const goneAll = cast.away.filter((row) => row.whereId !== null || row.fate);
+  // Große Orte (Menzoberranzan …): ein Suchfeld und Abschnitte nach den Orten darin. Die Suche
+  // grenzt nur die Ansicht ein – nichts wird weggenommen.
+  const crowded = cast.present.length + atHomeAll.length >= CAST_SEARCH_FROM;
+  const [query, setQuery] = useState('');
+  const q = crowded ? query : '';
+  const pick = (rows: CastRow[]) => rows.filter((row) => castMatches(row, q));
+  const present = pick(cast.present);
+  const atHome = pick(atHomeAll);
+  const gone = pick(goneAll);
+  const factions = pick(cast.factions);
+  const lost = pick(cast.lost);
+  const items = pick(cast.items);
+  const linked = pick(cast.linked);
+  const inView = inViewIds(data);
+  // ↑ ↓ im Kurzblick: erst „Im Blick“, dann die Liste, wie sie dasteht.
+  const order = [
+    ...new Set([
+      ...inView,
+      ...[...present, ...atHome, ...factions, ...gone, ...lost, ...items, ...linked].map(
+        (row) => row.entity.id,
+      ),
+    ]),
+  ];
+  const hidden = q.trim()
+    ? cast.total -
+      (present.length +
+        atHome.length +
+        factions.length +
+        gone.length +
+        lost.length +
+        items.length +
+        linked.length)
+    : 0;
 
   // Aus dem Wiki: der Artikel zum Ort und die Karten, auf denen die Gruppe steht.
   const article = articleOf(data, place);
@@ -530,15 +658,42 @@ export function PlacePanel({ place }: { place: Place }) {
           </div>
         )}
 
+        {bare && <InView order={order} />}
         {!bare && (
           <div className="wf-tisch-cols">
+            <InView order={order} />
             <section className="wf-col" aria-label="Wer hier ist">
               <SectionTitle>
                 Wer hier ist
-                {cast.present.length + atHome.length > 0 && (
-                  <span className="wf-tisch-count">{cast.present.length + atHome.length}</span>
+                {cast.present.length + atHomeAll.length > 0 && (
+                  <span className="wf-tisch-count">{cast.present.length + atHomeAll.length}</span>
                 )}
               </SectionTitle>
+              {crowded && (
+                <div className="wf-tisch-castsearch">
+                  <Search aria-hidden />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape' && query) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuery('');
+                      } else if (e.key === 'Enter' && order[0]) {
+                        e.preventDefault();
+                        openPeek(order.find((id) => !inView.includes(id)) ?? order[0], order);
+                      }
+                    }}
+                    placeholder="Namen, Rolle oder Ort tippen …"
+                    aria-label="Wer hier ist – suchen"
+                  />
+                  {hidden > 0 && (
+                    <span className="wf-tisch-castsearch__more">{hidden} ausgeblendet</span>
+                  )}
+                </div>
+              )}
               {cast.total === 0 ? (
                 <p className="wf-tisch-hint">
                   Hier ist noch niemand eingetragen. Wer in der Welt diesen Ort als Aufenthalt oder
@@ -546,21 +701,27 @@ export function PlacePanel({ place }: { place: Place }) {
                 </p>
               ) : (
                 <>
-                  {cast.present.length + atHome.length === 0 && (
+                  {cast.present.length + atHomeAll.length === 0 && (
                     <p className="wf-tisch-hint">
                       Gerade hält sich hier niemand auf, den du eingetragen hast.
                     </p>
                   )}
-                  <CastGroup rows={cast.present} />
+                  <CastGroup rows={present} order={order} sections={crowded} />
                   <CastGroup
-                    title={cast.present.length > 0 ? 'Hier zu Hause' : undefined}
+                    title={present.length > 0 ? 'Hier zu Hause' : undefined}
                     rows={atHome}
+                    order={order}
                   />
-                  <CastGroup title="Fraktionen mit Sitz hier" rows={cast.factions} />
-                  <CastGroup title="Hier zu Hause, aber fort" rows={gone} away />
-                  <CastGroup title="Tot oder verschollen" rows={cast.lost} away />
-                  <CastGroup title="Gegenstände hier" rows={cast.items} />
-                  <CastGroup title="Mit dem Ort verbunden" rows={cast.linked} />
+                  <CastGroup title="Fraktionen mit Sitz hier" rows={factions} order={order} />
+                  <CastGroup title="Hier zu Hause, aber fort" rows={gone} away order={order} />
+                  <CastGroup title="Tot oder verschollen" rows={lost} away order={order} />
+                  <CastGroup title="Gegenstände hier" rows={items} order={order} />
+                  <CastGroup title="Mit dem Ort verbunden" rows={linked} order={order} />
+                  {q.trim() &&
+                    hidden > 0 &&
+                    present.length + atHome.length + factions.length === 0 && (
+                      <p className="wf-tisch-hint">Niemand hier passt zu „{query.trim()}“.</p>
+                    )}
                 </>
               )}
             </section>

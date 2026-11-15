@@ -33,9 +33,10 @@ import {
   type PickRow,
 } from '../domain/pick';
 import { ATTITUDES, attitudeLevel, attitudeToken, RULES_ATTITUDE_LABEL } from '../domain/relations';
+import type { AttitudeMode } from '../domain/attitudeSetting';
 import { PARTY_ID, type Entity, type EntityKind } from '../domain/schema';
 import { isStub } from '../domain/stub';
-import { Input, MenuItem, Popover, cx } from './components';
+import { Button, Input, MenuItem, Popover, cx } from './components';
 import { CreateForm, useWriting, type CreateOptions, type WriteRequest } from './create';
 
 const KIND_ICONS: Record<EntityKind, typeof User> = {
@@ -163,6 +164,55 @@ export function AttitudeBadge({ value, label = true }: { value: number | null; l
       <i className="wf-attitude__gem" />
       {label && text}
     </span>
+  );
+}
+
+/**
+ * Wie eine Haltung gesetzt wird: als Änderung im Spiel (steht mit Datum in der Chronik) oder
+ * „War schon so“ – nur eingetragen, ohne Eintrag. Die Rechnung steht in
+ * `domain/attitudeSetting.ts`; geht „War schon so“ nicht, steht nur ein Satz da.
+ */
+export function AttitudeModePick({
+  value,
+  onChange,
+  givenPossible,
+}: {
+  value: AttitudeMode;
+  onChange: (mode: AttitudeMode) => void;
+  givenPossible: boolean;
+}) {
+  if (!givenPossible)
+    return (
+      <div className="wf-mute" style={{ fontSize: 'var(--text-sm)' }}>
+        Die Änderung steht mit Datum in der Chronik.
+      </div>
+    );
+  return (
+    <div className="wf-col" style={{ gap: 'var(--s-1)' }}>
+      <div className="wf-btn-group" role="group" aria-label="Was ist das?">
+        <Button
+          size="sm"
+          aria-pressed={value === 'change'}
+          onClick={() => onChange('change')}
+          title="Die Haltung hat sich im Spiel geändert – steht mit Datum in der Chronik."
+        >
+          Hat sich im Spiel geändert
+        </Button>
+        <Button
+          size="sm"
+          aria-pressed={value === 'given'}
+          onClick={() => onChange('given')}
+          title="So stand es schon immer – nur eintragen, ohne Eintrag in der Chronik."
+        >
+          War schon so
+        </Button>
+      </div>
+      <div className="wf-mute" style={{ fontSize: 'var(--text-sm)' }}>
+        {value === 'change'
+          ? 'Steht mit Datum in der Chronik.'
+          : 'Wird nur eingetragen, ohne Eintrag in der Chronik.'}
+      </div>
+    </div>
   );
 }
 

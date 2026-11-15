@@ -6,6 +6,8 @@ import type { ChronicleEntry } from '../../domain/schema';
 import { useFocus } from '../../shell/focus';
 import { Button, Tabs } from '../../ui';
 import { PrepSheetDialog } from '../abend/PrepPaper';
+import { attitudeSettings } from '../../domain/attitudeSetting';
+import { AttitudeCleanupDialog } from './AttitudeCleanup';
 import { EntryDialog, type EntryDialogRequest } from './EntryDialog';
 import { Sessions } from './Sessions';
 import { Verlauf } from './Verlauf';
@@ -29,6 +31,8 @@ export default function ChronikPage() {
   const [dialog, setDialog] = useState<(EntryDialogRequest & { key: number }) | null>(null);
   /** Der Abend, dessen Blatt zum Nachlesen offen ist. */
   const [sheetOf, setSheetOf] = useState<string | null>(null);
+  const [cleanup, setCleanup] = useState(false);
+  const settings = useMemo(() => attitudeSettings(data).length, [data]);
   // Die Suche hat eine Zeile auf dem Blatt eines früheren Abends gefunden.
   useFocus(['sheet'], (focus) => {
     setSessionId(focus.sessionId);
@@ -83,6 +87,15 @@ export default function ChronikPage() {
           onChange={setView}
         />
         <span className="wf-grow" />
+        {settings > 0 && (
+          <Button
+            variant="ghost"
+            onClick={() => setCleanup(true)}
+            title="Einträge, die eine Haltung nur zum ersten Mal festgelegt haben, aus der Chronik nehmen – die Haltung bleibt"
+          >
+            Festgelegte Haltungen ({settings})
+          </Button>
+        )}
         <Button
           icon={<History />}
           onClick={() => backfill()}
@@ -113,6 +126,7 @@ export default function ChronikPage() {
         )}
       </div>
       {dialog && <EntryDialog key={dialog.key} request={dialog} onClose={() => setDialog(null)} />}
+      {cleanup && <AttitudeCleanupDialog onClose={() => setCleanup(false)} />}
       {sheetOf && <PrepSheetDialog sessionId={sheetOf} onClose={() => setSheetOf(null)} />}
     </div>
   );

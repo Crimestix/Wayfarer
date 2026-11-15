@@ -2,6 +2,7 @@
  * Befehle, die mehrere Dokumente zusammen ändern. Die Oberfläche ruft diese Funktionen auf,
  * statt Zeit, Ort, Beziehungen und Chronik einzeln zu verändern – so bleiben sie stimmig.
  */
+import { attitudeModeChoice, type AttitudeMode } from '../domain/attitudeSetting';
 import { clockView, dueSteps, type ClockOccurrence } from '../domain/clock';
 import {
   findRelation,
@@ -11,6 +12,7 @@ import {
   type Occurrence,
   type PromiseOutcome,
 } from '../domain/derive';
+import { neighboursOfSort } from '../domain/history';
 import { carriedChange, prepView, resolveContent } from '../domain/prep';
 import {
   PARTY_ID,
@@ -418,6 +420,9 @@ export function logEntry(db: CampaignDb, input: LogInput): ChronicleEntry {
 /**
  * Setzt die Haltung von `fromId` gegenüber `toId` (Entity-ID oder PARTY_ID) und hält die
  * Änderung mit Grund in der Chronik fest. Legt die Beziehung an, falls es sie noch nicht gibt.
+ * Mit `mode: 'given'` („War schon so“) wird nur die Haltung eingetragen, ohne Eintrag in der
+ * Chronik – das geht nur, solange die Chronik zu diesem Paar nichts erzählt
+ * (`attitudeModeChoice`); sonst bleibt es eine Änderung.
  */
 export function setAttitude(
   db: CampaignDb,
@@ -425,15 +430,17 @@ export function setAttitude(
   toId: string,
   value: number | null,
   reason = '',
+  mode: AttitudeMode = 'change',
 ): Relation {
   const data = db.getSnapshot();
   const existing = findRelation(data, fromId, toId);
   const before = existing?.attitude ?? null;
+  const quiet = mode === 'given' && attitudeModeChoice(data, fromId, toId).givenPossible;
   return db.batch(() => {
     const relation = existing
       ? db.patch('relations', existing.id, { attitude: value })
       : db.put('relations', createRelation({ from: fromId, to: toId, attitude: value }));
-    if (before !== value || reason.trim()) {
+    if (!quiet && (before !== value || reason.trim())) {
       db.put(
         'chronicle',
         createChronicleEntry({
@@ -449,6 +456,39 @@ export function setAttitude(
     }
     return relation;
   });
+}
+
+/**
+ * Nimmt einen Eintrag aus der Chronik, der eine Haltung nur festgelegt hat (`attitudeSettings`):
+ * Die Haltung bleibt, wie sie ist; sie galt dann schon immer. Ein späterer Eintrag zum selben
+ * Paar beginnt danach bei ihr. Gibt „Rückgängig“ zurück.
+ */
+export function dropAttitudeSettings(db: CampaignDb, entryIds: string[]): () => void {
+  const removed: ChronicleEntry[] = [];
+  const patched: { id: string; before: number | null }[] = [];
+  db.batch(() => {
+    for (const id of entryIds) {
+      const entry = db.getSnapshot().chronicle[id];
+      if (!entry?.attitude) continue;
+      const { next } = neighboursOfSort(db.getSnapshot(), entry);
+      if (next?.attitude) {
+        patched.push({ id: next.id, before: next.attitude.before });
+        db.patch('chronicle', next.id, {
+          attitude: { ...next.attitude, before: entry.attitude.after },
+        });
+      }
+      removed.push(entry);
+      db.remove('chronicle', entry.id);
+    }
+  });
+  return () =>
+    db.batch(() => {
+      for (const entry of removed) db.put('chronicle', entry);
+      for (const { id, before } of patched) {
+        const entry = db.getSnapshot().chronicle[id];
+        if (entry?.attitude) db.patch('chronicle', id, { attitude: { ...entry.attitude, before } });
+      }
+    });
 }
 
 /** Hakt eine Abmachung als eingelöst ab oder öffnet sie wieder. */

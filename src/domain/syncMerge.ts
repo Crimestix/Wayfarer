@@ -37,7 +37,7 @@ export interface MergeRules {
 
 export const STATE_RULES: MergeRules = {
   groups: [{ name: 'time', fields: ['now', 'previousNow'] }],
-  sets: ['watch', 'continuityOk', 'twinsApart'],
+  sets: ['watch', 'continuityOk', 'twinsApart', 'inView'],
   newerWins: ['board', 'netBoard', 'timelineLanes', 'nameMemory', 'recapDismissed'],
   whole: ['march'],
 };

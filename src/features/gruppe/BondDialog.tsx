@@ -2,11 +2,13 @@
 import { useId, useState, type KeyboardEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { attitudeModeChoice, type AttitudeMode } from '../../domain/attitudeSetting';
 import { entityName, findRelation } from '../../domain/derive';
 import { RELATION_TYPES, relationLabel } from '../../domain/relations';
 import { createEntity, type Character } from '../../domain/schema';
 import {
   AttitudeBadge,
+  AttitudeModePick,
   AttitudeScale,
   Button,
   Checkbox,
@@ -44,6 +46,13 @@ export function BondDialog({
   const [ended, setEnded] = useState(initial?.ended ?? false);
 
   const existing = fromId ? findRelation(data, fromId, character.id) : undefined;
+  // „War schon so“: die Haltung ohne Eintrag in der Chronik (`attitudeModeChoice`).
+  const [pickedMode, setMode] = useState<AttitudeMode | null>(null);
+  const modeChoice = fromId ? attitudeModeChoice(data, fromId, character.id) : null;
+  const mode: AttitudeMode = modeChoice?.givenPossible
+    ? (pickedMode ?? modeChoice.preset)
+    : 'change';
+  const attitudeChanged = (existing?.attitude ?? null) !== attitude;
   const editing = initialFromId !== null && initial !== undefined;
 
   // Wird ein Gegenüber gewählt, zu dem es schon eine Beziehung gibt, zeigt der Dialog deren Stand.
@@ -62,7 +71,17 @@ export function BondDialog({
   const ok = fromId !== null && (type !== 'custom' || label.trim() !== '');
   const save = () => {
     if (!ok || !fromId) return;
-    saveBond(db, { fromId, characterId: character.id, type, label, attitude, note, secret, ended });
+    saveBond(db, {
+      fromId,
+      characterId: character.id,
+      type,
+      label,
+      attitude,
+      note,
+      secret,
+      ended,
+      mode,
+    });
     onClose();
   };
   const remove = async () => {
@@ -176,14 +195,23 @@ export function BondDialog({
         <Field
           label={`Haltung gegenüber ${character.name}`}
           hint={
-            (existing?.attitude ?? null) !== attitude
-              ? 'Die Änderung steht mit Datum in der Chronik.'
+            attitudeChanged
+              ? undefined
               : 'Ein Klick auf die gewählte Stufe setzt sie auf „unbekannt“ zurück.'
           }
         >
-          <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
-            <AttitudeScale value={attitude} onChange={setAttitude} />
-            <AttitudeBadge value={attitude} />
+          <div className="wf-col" style={{ gap: 'var(--s-2)' }}>
+            <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
+              <AttitudeScale value={attitude} onChange={setAttitude} />
+              <AttitudeBadge value={attitude} />
+            </div>
+            {attitudeChanged && (
+              <AttitudeModePick
+                value={mode}
+                onChange={setMode}
+                givenPossible={!!modeChoice?.givenPossible}
+              />
+            )}
           </div>
         </Field>
         <Field label="Anmerkung">

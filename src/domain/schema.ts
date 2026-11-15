@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 1;
-export const DATA_SHAPE = '01cf2a3e8beb749a';
+export const DATA_VERSION = 2;
+export const DATA_SHAPE = '3715a836e56ce9ee';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -167,6 +167,12 @@ export const PlayStateSchema = z.object({
    * hat (`domain/recap.ts`); null = keiner.
    */
   recapDismissed: id.nullable().default(null),
+  /**
+   * „Im Blick“ am Spieltisch: Personen (und andere Einträge), die der Spielleiter gerade braucht
+   * – sie stehen über „Wer hier ist“ und lassen sich im Kurzblick durchblättern
+   * (`features/tisch/peek.ts`). Ordnet nur, schränkt nichts ein.
+   */
+  inView: z.array(id).default([]),
   updated: z.string().default(''),
 });
 export type PlayState = z.infer<typeof PlayStateSchema>;

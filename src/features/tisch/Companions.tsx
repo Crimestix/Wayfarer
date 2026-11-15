@@ -1,7 +1,8 @@
 /** Die Gefährten als schmale Leiste am unteren Rand: Zustand der Gruppe auf einen Blick. */
 import { useMemo, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link } from 'wouter';
-import { ExternalLink, Eye, MapPin, Swords } from 'lucide-react';
+import { ExternalLink, Eye, Feather, MapPin, Swords } from 'lucide-react';
+import { nameIntoJournal } from './journalInsert';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { FATE_LABEL } from '../../domain/chronicleKinds';
@@ -88,6 +89,15 @@ function Mate({ companion }: { companion: Companion }) {
         >
           {character.name}
         </Link>
+        <button
+          type="button"
+          className="wf-tisch-mate__write"
+          title={`${character.name} in die Mitschrift setzen – wer hat was getan?`}
+          aria-label={`${character.name} in die Mitschrift setzen`}
+          onClick={() => nameIntoJournal({ id: character.id, name: character.name })}
+        >
+          <Feather aria-hidden />
+        </button>
         <div className="wf-tisch-mate__stats">
           <div
             className="wf-tisch-pips"

@@ -4,10 +4,12 @@ import { Link } from 'wouter';
 import { EyeOff, Pencil, Plus, Users, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, entityName, findRelation } from '../../domain/derive';
+import { attitudeModeChoice, type AttitudeMode } from '../../domain/attitudeSetting';
 import { RELATION_TYPES, attitudeLabel } from '../../domain/relations';
 import { PARTY_ID, type Relation } from '../../domain/schema';
 import {
   AttitudeBadge,
+  AttitudeModePick,
   AttitudeScale,
   Badge,
   Button,
@@ -257,6 +259,12 @@ function RelationDialog({
   const otherName = otherId ? entityName(data, otherId) : 'das Gegenüber';
   const towardsParty = toId === PARTY_ID;
   const attitudeChanged = draft.attitude !== (existing?.attitude ?? null);
+  // „War schon so“: die Haltung zur Gruppe ohne Eintrag in der Chronik (`attitudeModeChoice`).
+  const [pickedMode, setMode] = useState<AttitudeMode | null>(null);
+  const modeChoice = towardsParty && fromId ? attitudeModeChoice(data, fromId, toId) : null;
+  const mode: AttitudeMode = modeChoice?.givenPossible
+    ? (pickedMode ?? modeChoice.preset)
+    : 'change';
   const labelMissing = (d: RelationDraft) => d.type === 'custom' && !d.label.trim();
   const problem = !otherId
     ? 'Wähle zuerst, mit wem die Beziehung besteht.'
@@ -297,7 +305,8 @@ function RelationDialog({
           secret: next.secret,
           ended: next.ended,
           attitude: next.attitude,
-          reason,
+          reason: mode === 'given' ? '' : reason,
+          mode,
         });
       }
     });
@@ -453,7 +462,12 @@ function RelationDialog({
                   </span>
                 </div>
               </Field>
-              {towardsParty && attitudeChanged && (
+              {towardsParty && attitudeChanged && modeChoice?.givenPossible && (
+                <div className="wf-span-2">
+                  <AttitudeModePick value={mode} onChange={setMode} givenPossible />
+                </div>
+              )}
+              {towardsParty && attitudeChanged && mode === 'change' && (
                 <Field
                   label="Grund der Änderung"
                   hint="Steht mit Datum im Verlauf der Haltung und in der Chronik."

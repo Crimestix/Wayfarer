@@ -1,6 +1,7 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
 import { deleteEntity, moveParty, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import type { AttitudeMode } from '../../domain/attitudeSetting';
 import { recordEntry } from '../../data/record';
 import { entityName, findRelation, linksTo } from '../../domain/derive';
 import { holderWord } from '../../domain/itemHistory';
@@ -68,6 +69,8 @@ export interface RelateInput {
   attitude?: number | null | undefined;
   /** Warum sich die Haltung zur Gruppe ändert – steht im Verlauf. */
   reason?: string | undefined;
+  /** „War schon so“: die Haltung zur Gruppe ohne Eintrag in der Chronik (`setAttitude`). */
+  mode?: AttitudeMode | undefined;
 }
 
 export interface RelateResult {
@@ -110,7 +113,7 @@ export function relate(db: CampaignDb, input: RelateInput): RelateResult | null 
       input.attitude !== undefined &&
       input.attitude !== (existing?.attitude ?? null)
     )
-      return setAttitude(db, from, to, input.attitude, input.reason ?? '');
+      return setAttitude(db, from, to, input.attitude, input.reason ?? '', input.mode);
     return saved;
   });
   const logged = Object.keys(db.getSnapshot().chronicle).filter((id) => !before.chronicle[id]);

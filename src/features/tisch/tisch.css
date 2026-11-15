@@ -1129,6 +1129,66 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-composer__refs .wf-tisch-composer__hint {
   margin-top: 0;
 }
+/* Die Mitschrift kann alles: gewählte Art, erkannte Arten, Kurzwahl mit „/“ */
+.wf-tisch-composer__kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 6px 0 0;
+  padding: 1px 6px 1px 8px;
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+  font: inherit;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wf-tisch-composer__kind svg {
+  width: 12px;
+  height: 12px;
+}
+.wf-tisch-quick {
+  display: flex;
+  align-items: center;
+  gap: 4px var(--s-2);
+  height: 26px;
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.wf-tisch-quick .wf-tisch-composer__hint {
+  flex: none;
+  margin-top: 0;
+}
+.wf-tisch-quick__chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 8px;
+  border: 1px dashed var(--gold-deep);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-tisch-quick__chip:hover,
+.wf-tisch-quick__chip:focus-visible {
+  border-style: solid;
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  outline: none;
+}
+.wf-tisch-slash {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
 .wf-tisch-journal__log {
   flex: 1 1 auto;
   min-height: 0;
@@ -1383,6 +1443,7 @@ button.wf-tisch-story__title:enabled:hover b {
   font-style: normal;
 }
 .wf-tisch-mate {
+  position: relative;
   container-type: inline-size;
   display: flex;
   align-items: center;
@@ -1446,6 +1507,34 @@ button.wf-tisch-story__title:enabled:hover b {
 }
 .wf-tisch-mate__name:hover {
   color: var(--gold-bright);
+}
+/* Name in die Mitschrift setzen */
+.wf-tisch-mate__write {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-tisch-mate__write svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-tisch-mate:hover .wf-tisch-mate__write,
+.wf-tisch-mate__write:focus-visible {
+  color: var(--gold);
+}
+.wf-tisch-mate__write:hover {
+  color: var(--gold-bright);
+  background: var(--gold-glow);
 }
 .wf-tisch-mate__stats {
   display: flex;
@@ -1713,4 +1802,220 @@ button.wf-tisch-story__title:enabled:hover b {
   color: var(--ink-mute);
   font-size: var(--text-xs);
   font-style: italic;
+}
+
+/* Wer hier ist: Ein Klick öffnet den Kurzblick (Knopf statt Verweis) */
+button.wf-tisch-cast__who {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.wf-tisch-cast__who:hover .wf-tisch-cast__name,
+button.wf-tisch-cast__who[aria-pressed='true'] .wf-tisch-cast__name {
+  color: var(--gold-bright);
+}
+button.wf-tisch-cast__who:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 2px;
+}
+.wf-tisch-cast:has(.wf-tisch-cast__who[aria-pressed='true']) {
+  background: var(--gold-glow);
+}
+
+/* Große Orte: Suchfeld und Abschnitte nach den Orten darin */
+.wf-tisch-castsearch {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 4px var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+}
+.wf-tisch-castsearch:focus-within {
+  border-color: var(--gold);
+}
+.wf-tisch-castsearch svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-faint);
+}
+.wf-tisch-castsearch input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+}
+.wf-tisch-castsearch input:focus {
+  outline: none;
+}
+.wf-tisch-castsearch input::placeholder {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-tisch-castsearch__more {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+.wf-tisch-castpart + .wf-tisch-castpart {
+  margin-top: var(--s-2);
+}
+.wf-tisch-castpart__title {
+  margin: 0 0 2px;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* Im Blick */
+.wf-tisch-inview .wf-section-title,
+.wf-tisch-inview > :first-child {
+  display: flex;
+  align-items: center;
+}
+.wf-tisch-inview__clear {
+  padding: 0 4px;
+  font-family: var(--font-body);
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.wf-tisch-inview__clear:hover {
+  color: var(--gold-bright);
+}
+
+/* Kurzblick in der Mitte */
+.wf-tisch-peek {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  outline: none;
+}
+.wf-tisch-peek > .wf-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.wf-tisch-peek__title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+.wf-tisch-peek__keys {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+.wf-tisch-peek__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  height: 100%;
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  overflow-y: auto;
+}
+.wf-tisch-peek__head {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+}
+.wf-tisch-peek__who {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+}
+.wf-tisch-peek__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.1;
+}
+.wf-tisch-peek__tagline {
+  margin: 0;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.wf-tisch-peek__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-tisch-peek__memory {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  list-style: none;
+  color: var(--ink-soft);
+}
+.wf-tisch-peek__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-tisch-peek__list li {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+}
+.wf-tisch-peek__list svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--gold);
+  transform: translateY(2px);
+}
+.wf-tisch-peek__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px var(--s-4);
+  margin: 0;
+}
+.wf-tisch-peek__facts > div {
+  display: contents;
+}
+.wf-tisch-peek__facts dt {
+  color: var(--ink-mute);
+}
+.wf-tisch-peek__facts dd {
+  margin: 0;
+}
+.wf-tisch-peek__secret {
+  display: flex;
+  gap: var(--s-2);
+  align-items: baseline;
+  color: var(--ink-soft);
+}
+.wf-tisch-peek__secret svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-faint);
+  transform: translateY(2px);
 }

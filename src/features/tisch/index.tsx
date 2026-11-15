@@ -3,26 +3,30 @@
  * Mitte die Geschichten, die gerade im Spiel sind, mit allem, was an ihnen hängt. Rechts die
  * Mitschrift und was sonst noch ansteht; unten die Gefährten.
  */
+import { useEffect } from 'react';
 import { useData } from '../../data/hooks';
 import { AgendaPanel } from './Agenda';
 import { CompanionStrip } from './Companions';
 import { JournalPanel } from './Journal';
 import { partyPlace } from './model';
 import { NoPlace, PlacePanel } from './PlacePanel';
+import { closePeek, usePeek } from './peek';
+import { PeekPanel } from './PeekPanel';
 import { PlayPanel } from './PlayPanel';
 import './tisch.css';
 
 export default function TischPage() {
   const data = useData();
   const place = partyPlace(data);
+  // Der Kurzblick steht in der Mitte, solange er offen ist; wer den Spieltisch verlässt, schließt ihn.
+  const peek = usePeek();
+  useEffect(() => closePeek, []);
   return (
     <div className="wf-tisch">
       <div className="wf-tisch__place">
         {place ? <PlacePanel key={place.id} place={place} /> : <NoPlace />}
       </div>
-      <div className="wf-tisch__play">
-        <PlayPanel />
-      </div>
+      <div className="wf-tisch__play">{peek.id ? <PeekPanel /> : <PlayPanel />}</div>
       <div className="wf-tisch__side">
         <JournalPanel />
         <AgendaPanel />

@@ -589,6 +589,14 @@ nicht übernommen.
   (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
   die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt
   denselben Befehl; nie Beziehungen an ihm vorbei anlegen.
+- Haltung festlegen oder ändern (Rückmeldung des Spielleiters, 15. 11. 2026: nicht jede
+  gesetzte Haltung ist Geschichte): `setAttitude(…, mode)` – `'change'` steht mit Datum in der
+  Chronik, `'given'` („War schon so“) trägt nur ein. „War schon so“ geht nur, solange die
+  Chronik zu dem Paar nichts erzählt; vorgewählt ist es ohne bisherige Haltung
+  (`attitudeModeChoice`, `domain/attitudeSetting.ts`, Baustein `AttitudeModePick` in allen drei
+  Fenstern, die Haltungen setzen). Bloße Festlegungen alter Stände (`attitudeSettings`) nimmt
+  „Festgelegte Haltungen“ in der Chronik heraus (`dropAttitudeSettings`: die Haltung bleibt,
+  ein späterer Eintrag beginnt bei ihr; mit Rückgängig) – nie von selbst.
 - Spieltisch (`features/tisch`): drei Spalten – der Ort (wer hier ist, Wege, was hier ist), in
   der Mitte **„Im Spiel“** (`PlayPanel`), rechts Mitschrift und „Sonst noch“. Im Spiel ist, was
   der Spielleiter hereinnimmt (`story.inPlay`, bei losen Fäden `thread.inPlay`, gesetzt über
@@ -600,6 +608,21 @@ nicht übernommen.
   Die Regeln des Tisches (Hausregeln und Absprachen, `campaign.tableRules`, Markdown, nur vom
   Spielleiter) öffnet das Zeichen in der Mitschrift (`TableRulesButton`, auch über die Suche,
   `focusOn({ type: 'rules' })`); dasselbe Blatt steht in den Einstellungen.
+  **Die Mitschrift kann alles, was die Chronik kann** (`tisch/quick.ts`): „/“ am Zeilenanfang
+  wählt die Art (`QUICK_OPTIONS`, `quickMatches`; dazu „Zauber“), was `recognizeEntry` im Satz
+  erkennt, steht als Knopf darunter (Tab springt hin). Ortswechsel, Rast, freie Zeit, Handel,
+  Beute und Zauber öffnen ihren Handgriff (`routeOf` – der Ortswechsel geht über
+  `openMoveParty`, nie an der Zeit des Weges vorbei); alles andere hält `quickPlan` ohne
+  Rückfrage fest, wenn nichts fehlt, sonst öffnet „Festhalten“ mit Art und Text. Die Zeile
+  leert sich erst, wenn festgehalten ist (`onSaved`). Eine Notiz lässt sich nachträglich
+  umwandeln („Als andere Art …“, `replaces`). Ein Klick auf die Feder eines Gefährten setzt
+  seinen Namen in die Zeile (`nameIntoJournal`). Zauber sind Wirkungen der Art `spell`
+  (`castSpell`, `SpellDialog`, `tisch/spells.ts`): ein neuer Konzentrationszauber beendet die
+  Konzentration desselben Wirkers. **Kurzblick** (`tisch/peek.ts`, `PeekPanel`): Ein Klick in
+  „Wer hier ist“ zeigt die Person in der Mitte statt „Im Spiel“, ↑ ↓ blättert, Escape schließt.
+  „Im Blick“ (`state.inView`, `toggleInView`) steht über „Wer hier ist“; ab `CAST_SEARCH_FROM`
+  Personen bekommt die Liste ein Suchfeld und Abschnitte nach den Orten darin
+  (`castMatches`, `castSections`) – beides ordnet nur.
 - Bastion (`bastions/`, `domain/bastion.ts`, Reiter „Bastion“ unter Gefährten; Regeln von 2024):
   Einrichtungen (`facilities`) mit Besitzer, Befehlen, Gefolgsleuten und Stand (bereit, beschädigt,
   wird repariert – Reparatur als Fortschrittsleiste über `startRepair`). Alle `turnDays` Tage ist

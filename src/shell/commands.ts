@@ -4,11 +4,37 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { ChronicleKind } from '../domain/schema';
+import type { WorldTime } from '../domain/time/calendar';
+import type { RecordPart } from '../features/chronik/recordDraft';
 
 export interface QuickLogRequest {
   kind?: Extract<ChronicleKind, 'note' | 'promise' | 'change'>;
   refs?: string[];
   text?: string;
+  /** Vorgewählte Arten mit Angaben (aus der Mitschrift); gehen vor `kind`. */
+  parts?: RecordPart[];
+  /** Gleich Beute, Vermutung oder Handel öffnen. */
+  own?: 'loot' | 'guess' | 'trade';
+  /** Zeitpunkt, wenn er vor jetzt liegt (eine Notiz nachträglich umwandeln). */
+  at?: WorldTime;
+  /** Die Notiz, an deren Stelle der neue Eintrag tritt – sie verschwindet beim Festhalten. */
+  replaces?: string;
+  /** Nach dem Festhalten (etwa: die Zeile der Mitschrift leeren). */
+  onSaved?: () => void;
+}
+
+export interface MoveRequest {
+  placeId?: string;
+  /** Was die Mitschrift dazu schon geschrieben hat. */
+  text?: string;
+  onSaved?: () => void;
+}
+
+export interface SpellRequest {
+  /** Was in der Mitschrift stand („Unsichtbarkeit“). */
+  text?: string;
+  refs?: string[];
+  onSaved?: () => void;
 }
 
 export interface AttitudeRequest {
@@ -20,7 +46,8 @@ export interface AttitudeRequest {
 export type ShellRequest =
   | { type: 'log'; request: QuickLogRequest }
   | { type: 'attitude'; request: AttitudeRequest }
-  | { type: 'move'; placeId?: string }
+  | { type: 'move'; placeId?: string; text?: string; onSaved?: () => void }
+  | { type: 'spell'; request: SpellRequest }
   | { type: 'search' }
   | { type: 'time' }
   | { type: 'rest'; kind: 'short' | 'long' }
@@ -44,8 +71,9 @@ export const openAttitude = (request: AttitudeRequest) => set({ type: 'attitude'
  * Öffnet die Ortswahl für die Gruppe, auf Wunsch mit einem vorgeschlagenen Ort. Die Gruppe zieht
  * erst um, wenn der Spielleiter das bestätigt – ein bloßer Klick auf einen Ort versetzt sie nie.
  */
-export const openMoveParty = (preset: { placeId?: string } = {}) =>
-  set({ type: 'move', placeId: preset.placeId });
+export const openMoveParty = (preset: MoveRequest = {}) => set({ type: 'move', ...preset });
+/** Öffnet „Zauber“: wer wirkt was, wie lange, mit Konzentration. */
+export const openSpell = (request: SpellRequest = {}) => set({ type: 'spell', request });
 /** Öffnet die Suche. */
 export const openSearch = () => set({ type: 'search' });
 /** Öffnet „Zeit vergehen lassen“ mit freier Dauer oder Zieldatum. */

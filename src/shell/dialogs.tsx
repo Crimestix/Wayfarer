@@ -40,6 +40,7 @@ import { entityName, findRelation, placePath, sessionsSorted } from '../domain/d
 import { placeForEntry, sessionForEntry } from '../domain/history';
 import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
+import { attitudeModeChoice, type AttitudeMode } from '../domain/attitudeSetting';
 import {
   PARTY_ID,
   createEntity,
@@ -64,6 +65,7 @@ import {
 } from '../domain/time/calendar';
 import { AREAS } from '../features/registry';
 import {
+  AttitudeModePick,
   AttitudeScale,
   Button,
   Checkbox,
@@ -103,6 +105,7 @@ import { DowntimeDialog } from '../features/gruppe/DowntimeDialog';
 import { LootDialog } from '../features/beute/LootDialog';
 import { GuessDialog } from '../features/spielerbuch/GuessDialog';
 import { TradeDialog } from '../features/laden/TradeDialog';
+import { SpellDialog } from '../features/tisch/SpellDialog';
 import { RecordFields } from '../features/chronik/RecordFields';
 import { WorldTimeFields } from '../features/chronik/WorldTimeFields';
 import {
@@ -112,6 +115,7 @@ import {
   timeDraftOf,
   timeOfDraft,
 } from '../features/chronik/model';
+import { deleteRecorded } from '../features/chronik/actions';
 import { recordFiled } from '../features/chronik/actions';
 import {
   deliveryEvent,
@@ -393,22 +397,24 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const [text, setText] = useState(request.text ?? '');
   const [refs, setRefs] = useState<string[]>(request.refs ?? []);
   const [parts, setParts] = useState<RecordPart[]>(() => {
+    if (request.parts?.length) return request.parts;
     const choice = request.kind ?? 'note';
     return [partOf(choice, prefillFromRefs(data, choice, emptyRecordDraft(), request.refs ?? []))];
   });
   const [secret, setSecret] = useState(false);
-  const [earlier, setEarlier] = useState(false);
-  const [time, setTimeDraft] = useState(() => timeDraftOf(cal, now));
+  const earlierAt = request.at !== undefined && request.at < now ? request.at : null;
+  const [earlier, setEarlier] = useState(earlierAt !== null);
+  const [time, setTimeDraft] = useState(() => timeDraftOf(cal, earlierAt ?? now));
   const [approx, setApprox] = useState(false);
   /** 'auto' = nach der Zeit, '' = keine Session, sonst die gewählte. */
   const [sessionChoice, setSessionChoice] = useState('auto');
   /** undefined = Ort der Gruppe zu dieser Zeit. */
   const [placeChoice, setPlaceChoice] = useState<string | null | undefined>(undefined);
-  const [loot, setLoot] = useState(false);
+  const [loot, setLoot] = useState(request.own === 'loot');
   /** „Handel“ gewählt: Der Laden öffnet sich – dort wird zusammengestellt, was gekauft wird. */
-  const [trading, setTrading] = useState(false);
+  const [trading, setTrading] = useState(request.own === 'trade');
   /** „Vermutung“ gewählt: Text und „Betrifft“ gehen ins Spielerbuch, nicht in die Chronik. */
-  const [guessing, setGuessing] = useState(false);
+  const [guessing, setGuessing] = useState(request.own === 'guess');
   /** Bestellung oder Lieferung „in 3 Tagen“ zusätzlich als Termin eintragen. */
   const [asEvent, setAsEvent] = useState(false);
   const recognized = useRecognized(data, text, refs);
@@ -481,6 +487,12 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
       return;
     }
     const { entries } = result;
+    // Eine umgewandelte Notiz tritt ab: Der neue Eintrag steht an ihrer Stelle.
+    const replaced =
+      request.replaces && db.getSnapshot().chronicle[request.replaces]?.kind === 'note'
+        ? deleteRecorded(db, request.replaces)
+        : null;
+    request.onSaved?.();
     // Die Lieferung als Termin: ein Vorhaben am Tag, an dem es so weit ist.
     const event =
       asEvent && planned
@@ -500,6 +512,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
         if (event && db.getSnapshot().events[event.id]?.rev === event.rev)
           db.remove('events', event.id);
         result.undo();
+        replaced?.();
       });
     closeShellRequest();
     const after = db.getSnapshot();
@@ -761,20 +774,27 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
   const before = findRelation(data, request.fromId, toId)?.attitude ?? null;
   const [value, setValue] = useState<number | null>(before);
   const [reason, setReason] = useState('');
+  const [choice] = useState(() => attitudeModeChoice(data, request.fromId, toId));
+  const [mode, setMode] = useState<AttitudeMode>(choice.preset);
+  const given = mode === 'given' && choice.givenPossible;
   const save = () => {
-    setAttitude(db, request.fromId, toId, value, reason);
+    setAttitude(db, request.fromId, toId, value, given ? '' : reason, given ? 'given' : 'change');
     closeShellRequest();
   };
   return (
     <Dialog
       open
       onClose={closeShellRequest}
-      title="Haltung ändern"
+      title={before === null ? 'Haltung' : 'Haltung ändern'}
       width={520}
       footer={
         <>
           <Button onClick={closeShellRequest}>Abbrechen</Button>
-          <Button variant="primary" onClick={save} disabled={value === before && !reason.trim()}>
+          <Button
+            variant="primary"
+            onClick={save}
+            disabled={value === before && (given || !reason.trim())}
+          >
             Übernehmen
           </Button>
         </>
@@ -792,17 +812,20 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
             Bisher: {attitudeLabel(before)}
           </div>
         )}
-        <Field label="Grund" hint="Steht mit Datum im Verlauf der Beziehung.">
-          <TextArea
-            autoFocus
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            style={{ minHeight: 70 }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
-            }}
-          />
-        </Field>
+        <AttitudeModePick value={mode} onChange={setMode} givenPossible={choice.givenPossible} />
+        {!given && (
+          <Field label="Grund" hint="Steht mit Datum im Verlauf der Beziehung.">
+            <TextArea
+              autoFocus
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              style={{ minHeight: 70 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
+              }}
+            />
+          </Field>
+        )}
       </div>
     </Dialog>
   );
@@ -810,11 +833,19 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
 
 // ── Ort wechseln ───────────────────────────────────────────────────────────
 
-function MovePartyDialog({ preset }: { preset?: string }) {
+function MovePartyDialog({
+  preset,
+  presetText,
+  onSaved,
+}: {
+  preset?: string;
+  presetText?: string;
+  onSaved?: () => void;
+}) {
   const db = useDb();
   const data = useData();
   const [placeId, setPlaceId] = useState<string | null>(preset ?? null);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(presetText ?? '');
   const here = data.state.placeId;
   // Kennt das Wegenetz eine Route, ist ihre Dauer die Vorgabe; sonst wählt der Spielleiter.
   // Womit die Gruppe reist (zu Fuß, Pferd, Schiff), zählt mit (`domain/mounts.ts`).
@@ -833,6 +864,7 @@ function MovePartyDialog({ preset }: { preset?: string }) {
   const moving = placeId !== null && here !== null && placeId !== here;
   const save = () => {
     closeShellRequest();
+    onSaved?.();
     if (!placeId) {
       moveParty(db, placeId, text);
       return;
@@ -1284,7 +1316,15 @@ export function ShellDialogs() {
     case 'attitude':
       return <AttitudeDialog request={request.request} />;
     case 'move':
-      return <MovePartyDialog preset={request.placeId} />;
+      return (
+        <MovePartyDialog
+          preset={request.placeId}
+          presetText={request.text}
+          onSaved={request.onSaved}
+        />
+      );
+    case 'spell':
+      return <SpellDialog request={request.request} />;
     case 'time':
       return <TimeDialog />;
     case 'rest':

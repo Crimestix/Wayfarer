@@ -2,6 +2,7 @@
  * Fachlogik des Spieltischs – reine Funktionen: Aufenthalt am Ort, Besetzung, Anstehendes,
  * Mitschrift, Verweise mit „@“ und die Leiste der Gefährten. Die Oberfläche zeigt nur an.
  */
+import { spellTitle } from './spells';
 import { bastionsDue, nextTurnAt, turnsDue } from '../../domain/bastion';
 import { openClocks } from '../../domain/clock';
 import {
@@ -10,6 +11,7 @@ import {
   byName,
   chronicleFor,
   chronicleSorted,
+  KIND_LABEL,
   currentSession,
   occurrencesBetween,
   openPromises,
@@ -174,6 +176,46 @@ function personRow(
 }
 
 /** Die Besetzung eines Ortes, fertig für die Anzeige: wer hier ist, wer fehlt, wer dazugehört. */
+/**
+ * Eine Zeile wie in „Wer hier ist“ für einen beliebigen Eintrag – für „Im Blick“, wo Personen
+ * von überall stehen können: wo sie sind, ihre Haltung, offene Abmachungen.
+ */
+export function castRowOf(data: CampaignData, id: string): CastRow | null {
+  const entity = data.entities[id];
+  if (!entity) return null;
+  const nameOf = (placeId: string | null) =>
+    placeId ? (data.entities[placeId]?.name ?? null) : null;
+  if (entity.kind === 'person')
+    return personRow(data, entity, nameOf(entity.person.placeId), entity.person.placeId);
+  if (entity.kind === 'faction') {
+    const role = entity.faction.category || entity.tagline;
+    return {
+      entity,
+      attitude: attitudeToParty(data, id),
+      role,
+      where: nameOf(entity.faction.seatId),
+      whereId: entity.faction.seatId,
+      fate: null,
+      unmet: false,
+      hasAttitude: true,
+      tagline: role === entity.tagline ? '' : entity.tagline,
+      promises: promisesFor(data, id),
+    };
+  }
+  return {
+    entity,
+    attitude: null,
+    role: KIND_LABEL[entity.kind],
+    where: null,
+    whereId: null,
+    fate: null,
+    unmet: false,
+    hasAttitude: entity.kind === 'family',
+    tagline: entity.tagline,
+    promises: promisesFor(data, id),
+  };
+}
+
 export function castView(data: CampaignData, placeId: string): CastView {
   const cast = placeCast(data, placeId);
   const placeName = (id: string | null) => (id ? (data.entities[id]?.name ?? null) : null);
@@ -519,8 +561,11 @@ export function buildAgenda(data: CampaignData, days = 7): AgendaItem[] {
       key: `timer:${timer.id}`,
       source: 'timer',
       id: timer.id,
-      title: timer.label,
-      label: TIMER_KIND_LABEL[timer.kind],
+      title: timer.kind === 'spell' ? spellTitle(data, timer) : timer.label,
+      label:
+        timer.kind === 'spell' && timer.concentration
+          ? 'Zauber mit Konzentration'
+          : TIMER_KIND_LABEL[timer.kind],
       mark: timer.kind,
       at: timer.end,
       tone: dayIndexOf(timer.end) === dayIndexOf(now) ? 'today' : 'later',

@@ -2,10 +2,13 @@
  * Handgriffe des Spieltischs, die den Spielstand ändern. Die Oberfläche ruft nur diese Funktionen
  * und die Befehle aus data/actions auf.
  */
-import { setPromiseOutcome } from '../../data/actions';
+import { logEntry, setPromiseOutcome } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { dropLootLine } from '../beute/actions';
-import type { ChronicleEntry } from '../../domain/schema';
+import { entityName } from '../../domain/derive';
+import { createTimer, type ChronicleEntry, type Timer } from '../../domain/schema';
+import { formatDuration } from '../../domain/time/calendar';
+import { concentrationOf } from './spells';
 import { MAX_EXHAUSTION, type AgendaItem } from './model';
 
 /**
@@ -119,4 +122,84 @@ export function dismissRecap(db: CampaignDb, show = false): void {
 export function setTableRules(db: CampaignDb, text: string): void {
   if (db.getSnapshot().campaign.tableRules === text) return;
   db.setCampaign({ tableRules: text });
+}
+
+export interface CastInput {
+  /** Wer zaubert (Gefährte oder Person); null = nicht gesagt. */
+  casterId: string | null;
+  /** Der Zauber, frei geschrieben. */
+  label: string;
+  minutes: number;
+  concentration: boolean;
+  /** Wen er betrifft – kommt mit dem Wirker in die Zeile der Mitschrift. */
+  refs?: string[];
+}
+
+/**
+ * Ein Zauber wird gewirkt: Er läuft als Wirkung bis zu seinem Ende, und die Mitschrift bekommt
+ * eine Zeile. Ein neuer Konzentrationszauber beendet die Konzentration, die der Wirker gerade
+ * hält. Gibt den Zauber, die beendeten und „Rückgängig“ zurück.
+ */
+export function castSpell(
+  db: CampaignDb,
+  input: CastInput,
+): { timer: Timer; ended: Timer[]; undo: () => void } {
+  const data = db.getSnapshot();
+  const now = data.state.now;
+  const label = input.label.trim();
+  const minutes = Math.max(1, Math.round(input.minutes));
+  const ended = input.concentration ? concentrationOf(data, input.casterId) : [];
+  const refs = [...new Set([...(input.casterId ? [input.casterId] : []), ...(input.refs ?? [])])];
+  const line = [
+    input.casterId ? `${entityName(data, input.casterId)} wirkt ${label}` : `Zauber: ${label}`,
+    input.concentration ? 'Konzentration' : '',
+    formatDuration(minutes),
+    ...ended.map((timer) => `${timer.label} endet`),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const result = db.batch(() => {
+    for (const timer of ended) db.patch('timers', timer.id, { done: true });
+    const timer = db.put(
+      'timers',
+      createTimer({
+        label,
+        kind: 'spell',
+        start: now,
+        end: now + minutes,
+        casterId: input.casterId,
+        concentration: input.concentration,
+        refs,
+      }),
+    );
+    const entry = logEntry(db, { text: line, refs });
+    return { timer, entry };
+  });
+  return {
+    timer: result.timer,
+    ended,
+    undo: () =>
+      db.batch(() => {
+        const after = db.getSnapshot();
+        if (after.timers[result.timer.id]) db.remove('timers', result.timer.id);
+        if (after.chronicle[result.entry.id]) db.remove('chronicle', result.entry.id);
+        for (const timer of ended)
+          if (db.getSnapshot().timers[timer.id]) db.patch('timers', timer.id, { done: false });
+      }),
+  };
+}
+
+/** Nimmt einen Eintrag „Im Blick“ auf oder wieder heraus (`state.inView`). */
+export function toggleInView(db: CampaignDb, id: string): boolean {
+  const current = db.getSnapshot().state.inView;
+  const on = !current.includes(id);
+  db.setState({ inView: on ? [...current, id] : current.filter((other) => other !== id) });
+  return on;
+}
+
+/** Leert „Im Blick“ – etwa, wenn die Szene vorbei ist. Gibt „Rückgängig“ zurück. */
+export function clearInView(db: CampaignDb): () => void {
+  const before = db.getSnapshot().state.inView;
+  db.setState({ inView: [] });
+  return () => db.setState({ inView: before });
 }

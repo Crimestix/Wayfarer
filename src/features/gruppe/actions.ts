@@ -1,6 +1,7 @@
 /** Befehle des Bereichs „Gefährten“. Alles, was mehrere Dokumente ändert, läuft hierüber. */
 import { logEntry, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
+import type { AttitudeMode } from '../../domain/attitudeSetting';
 import { entityName, findRelation } from '../../domain/derive';
 import { createEntity, createRelation, type Character, type Relation } from '../../domain/schema';
 import {
@@ -167,6 +168,8 @@ export interface BondInput {
   note: string;
   secret: boolean;
   ended: boolean;
+  /** „War schon so“: die Haltung ohne Eintrag in der Chronik (`setAttitude`). */
+  mode?: AttitudeMode;
 }
 
 /**
@@ -184,7 +187,14 @@ export function saveBond(db: CampaignDb, input: BondInput): Relation {
   };
   return db.batch(() => {
     if ((existing?.attitude ?? null) !== input.attitude) {
-      const relation = setAttitude(db, input.fromId, input.characterId, input.attitude);
+      const relation = setAttitude(
+        db,
+        input.fromId,
+        input.characterId,
+        input.attitude,
+        '',
+        input.mode,
+      );
       return db.patch('relations', relation.id, fields);
     }
     if (existing) return db.patch('relations', existing.id, fields);
