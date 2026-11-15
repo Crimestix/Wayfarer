@@ -36,7 +36,7 @@ export type BackupFile = {
   state: PlayState;
 } & { [C in CollectionName]: CollectionTypes[C][] };
 
-const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
+export const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string]> = {
   entities: ['Eintrag der Welt', 'Einträge der Welt'],
   relations: ['Beziehung', 'Beziehungen'],
   chronicle: ['Chronikeintrag', 'Chronikeinträge'],

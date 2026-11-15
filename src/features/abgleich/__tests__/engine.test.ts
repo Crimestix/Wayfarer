@@ -937,3 +937,86 @@ describe('Gegengelesen', () => {
     mac.engine.stop();
   });
 });
+
+describe('Handgriffe der Oberfläche', () => {
+  it('Schlüsselbund: „Noch einmal versuchen“ liest den Schlüssel neu', async () => {
+    const { mac } = await twoMachines();
+    mac.port.key = 'denied';
+    await mac.engine.syncNow();
+    expect(mac.engine.view.get().needs?.why).toBe('keychain');
+    mac.port.key = 'yes';
+    await mac.engine.retryKeychain();
+    expect(mac.engine.view.get().phase).toBe('synced');
+  });
+
+  it('Vergleich vor dem ersten Abgleich ändert nichts', async () => {
+    const repo = new FakeRepo();
+    const pc = await machine(repo, 'Windows-PC', demoCampaign());
+    const empty = await pc.engine.compareFirst(pc.link);
+    expect(empty.remoteEmpty).toBe(true);
+    expect(pc.port.verbindung).toBeNull();
+    await pc.engine.firstSync('upload', pc.link);
+    // Ein anderer Spielstand (die erfundene Welt vergibt jedes Mal neue Kennungen).
+    const other = await machine(repo, 'Laptop', demoCampaign());
+    const cmp = await other.engine.compareFirst(other.link);
+    expect(cmp.remoteEmpty).toBe(false);
+    expect(cmp.onlyLocal.length).toBeGreaterThan(0);
+    expect(cmp.onlyRemote.length).toBeGreaterThan(0);
+    expect(other.port.verbindung).toBeNull();
+    expect(other.port.stand?.files ?? null).toBeNull();
+  });
+
+  it('ein älteres Programm bringt die Ablage beim ersten Abgleich nie auf seinen Stand', async () => {
+    const { repo, pc } = await twoMachines();
+    repo.commitAs('MacBook', {}, { datenstand: DATA_VERSION + 1, gestalt: 'neu', geraete: {} });
+    const other = await machine(repo, 'Laptop', demoCampaign());
+    other.db.patch('entities', firstOf(other).id, { tagline: 'anders' });
+    await other.db.flush();
+    const head = repo.head;
+    await expect(other.engine.firstSync('localWins', other.link)).rejects.toMatchObject({
+      kind: 'input',
+    });
+    expect(repo.head).toBe(head);
+    expect(pc.port.verbindung).not.toBeNull();
+  });
+
+  it('Trennen: Verbindung weg, Spielstand bleibt; mit Haken auch der Schlüssel', async () => {
+    const { repo, mac } = await twoMachines();
+    const files = synced(mac);
+    const head = repo.head;
+    await mac.engine.disconnect(false);
+    expect(mac.port.verbindung).toBeNull();
+    expect(mac.port.key).toBe('yes');
+    expect(mac.engine.view.get().phase).toBe('unlinked');
+    expect(synced(mac)).toEqual(files);
+    expect(repo.head).toBe(head);
+    await mac.engine.disconnect(true);
+    expect(mac.port.key).toBe('no');
+    expect(mac.engine.view.get().phase).toBe('off');
+  });
+
+  it('Beiseitegelegtes zurückholen: die heutige Fassung liegt danach ihrerseits beiseite', async () => {
+    const { pc, mac } = await twoMachines();
+    const id = firstOf(pc).id;
+    pc.db.patch('entities', id, { tagline: 'vom PC' });
+    mac.db.patch('entities', id, { tagline: 'vom Mac' });
+    await pc.db.flush();
+    await mac.db.flush();
+    await pc.engine.syncNow();
+    await mac.engine.syncNow();
+    const card = mac.engine.view.get().conflicts[0]!;
+    await mac.engine.decide({ [card.id]: 'remote' });
+    expect(entity(mac, id)!.tagline).toBe('vom PC');
+    const runs = await mac.port.asideList();
+    const decision = runs.find((r) => r.reason === 'entscheidung')!;
+    expect(decision.entries.map((e) => e.side)).toEqual(['hier']);
+    const n = await mac.engine.restoreAside(decision.run);
+    expect(n).toBe(1);
+    expect(entity(mac, id)!.tagline).toBe('vom Mac');
+    const after = await mac.port.asideList();
+    expect(after[0]!.reason).toBe('zurueckholen');
+    await mac.engine.syncNow();
+    await pc.engine.syncNow();
+    expect(entity(pc, id)!.tagline).toBe('vom Mac');
+  });
+});

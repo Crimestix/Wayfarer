@@ -44,6 +44,7 @@ import type { SyncPort } from './port';
 import {
   INITIAL_VIEW,
   createViewStore,
+  type FirstSyncInfo,
   type NeedsWhy,
   type RawConflict,
   type SyncView,
@@ -105,6 +106,21 @@ export interface SyncEngine {
    * laufenden). Für alles, was den gemeinsamen Stand von außen ändert (`syncBeforeRestore`).
    */
   hold<T>(work: () => Promise<T>): Promise<T>;
+  /** „Noch einmal versuchen“, nachdem der Schlüsselbund den Schlüssel verweigert hat. */
+  retryKeychain(): Promise<void>;
+  /**
+   * Einrichten, Schritt 5: Was liegt in der gewählten Ablage, verglichen mit hier? Ändert nichts
+   * (kein gemeinsamer Stand, keine Verbindung).
+   */
+  compareFirst(link: SyncLink): Promise<FirstSyncInfo & { older: boolean }>;
+  /** „Abgleich trennen“: Verbindung weg, Spielstand bleibt; auf Wunsch auch den Schlüssel. */
+  disconnect(removeKey: boolean): Promise<void>;
+  /**
+   * Beiseitegelegte Fassungen zurückholen (alle eines Laufs oder die genannten). Die heutigen
+   * Fassungen werden vorher ihrerseits beiseitegelegt. Eine gewöhnliche Änderung, die danach
+   * abgeglichen wird. Ergebnis: wie viele zurückgeholt wurden.
+   */
+  restoreAside(run: number, only?: { side: 'hier' | 'dort'; path: string }[]): Promise<number>;
 }
 
 /** Wartezeiten (ms). */
@@ -915,6 +931,15 @@ export function createSyncEngine(
     const local = toMap(scan.local);
     const remoteMap = toMap(remote.files);
     const cmp = compareWithoutBase(local, remoteMap);
+    // Ein älteres Programm bringt die Ablage nie auf seinen Stand (es kennte nicht alle Felder).
+    const olderHere =
+      (remote.marker?.datenstand ?? 0) > dataVersion || scan.maxVersion > dataVersion;
+    const differs = cmp.different.length + cmp.onlyLocal.length + cmp.onlyRemote.length > 0;
+    if (olderHere && differs && choice !== 'remoteWins')
+      throw new SyncFailure(
+        'input',
+        'Die Ablage stammt von einer neueren Version. Hier gilt nur „Der Stand aus der Ablage gilt“.',
+      );
     const linkIt = async () => {
       if (given || !st.link) await port.link(root, { ...link, root });
     };
@@ -1003,8 +1028,83 @@ export function createSyncEngine(
       await linkIt();
     }
     await port.mark({ root, synced: true });
-    view.set({ phase: 'synced', needs: null, firstSync: null });
+    view.set({ phase: 'synced', needs: null, firstSync: null, progress: null });
     return true;
+  }
+
+  async function compareFirst(link: SyncLink): Promise<FirstSyncInfo & { older: boolean }> {
+    return exclusive(async () => {
+      opts.beforeScan?.();
+      await db.flush();
+      const scan = await port.scan(root, true, undefined, link);
+      const remote = scan.remote;
+      if (!remote) throw new SyncFailure('server', 'Die Ablage wurde nicht gelesen.');
+      const cmp = compareWithoutBase(toMap(scan.local), toMap(remote.files));
+      return {
+        same: cmp.same.length,
+        onlyLocal: cmp.onlyLocal,
+        onlyRemote: cmp.onlyRemote,
+        different: cmp.different,
+        remoteEmpty: remote.kind === 'empty' || remote.kind === 'fresh',
+        restored: scan.restored,
+        older: (remote.marker?.datenstand ?? 0) > dataVersion || scan.maxVersion > dataVersion,
+      };
+    });
+  }
+
+  async function disconnect(removeKey: boolean): Promise<void> {
+    await exclusive(async () => {
+      await port.link(root, null);
+      if (removeKey) await port.clearKey();
+    });
+    pendings = new Map();
+    view.set({
+      ...INITIAL_VIEW,
+      phase: removeKey ? 'off' : 'unlinked',
+    });
+  }
+
+  async function restoreAside(
+    run: number,
+    only?: { side: 'hier' | 'dort'; path: string }[],
+  ): Promise<number> {
+    const count = await exclusive(async () => {
+      const found = (await port.asideList(root)).find((r) => r.run === run);
+      if (!found) return 0;
+      const wanted = found.entries.filter(
+        (e) => !only || only.some((o) => o.side === e.side && o.path === e.path),
+      );
+      // Je Pfad die eine Fassung (bei beiden Seiten gilt die von hier).
+      const byPath = new Map<string, { side: 'hier' | 'dort'; path: string }>();
+      for (const e of wanted) if (!byPath.has(e.path) || e.side === 'hier') byPath.set(e.path, e);
+      if (!byPath.size) return 0;
+      const files: RemoteFile[] = [];
+      for (const e of byPath.values())
+        files.push({ path: e.path, content: await port.asideRead(root, run, e.side, e.path) });
+      opts.beforeScan?.();
+      await db.flush();
+      if (db.hasUnsavedChanges())
+        throw new SyncFailure(
+          'local',
+          'Gerade lässt sich nicht speichern. Bitte gleich noch einmal.',
+        );
+      const disk = db.diskSnapshot();
+      const present = files.map((f) => f.path).filter((p) => disk.has(p));
+      if (present.length) await port.asidePut(root, present, 'zurueckholen');
+      const taken = db.takeRemote(files, disk);
+      if (!taken.ok)
+        throw new SyncFailure(
+          'local',
+          taken.invalid.length
+            ? 'Diese Fassung passt nicht mehr zu diesem Spielstand.'
+            : 'Gerade wird an diesem Eintrag geschrieben. Bitte gleich noch einmal.',
+        );
+      await db.flush();
+      return files.length;
+    });
+    // Eine gewöhnliche Änderung: Sie wird gleich abgeglichen.
+    if (count) onLocalChange();
+    return count;
   }
 
   // ── Entscheidungen ────────────────────────────────────────────────────────
@@ -1129,6 +1229,13 @@ export function createSyncEngine(
       }
     },
     hold: exclusive,
+    async retryKeychain() {
+      retryKey = true;
+      await run('full');
+    },
+    compareFirst,
+    disconnect,
+    restoreAside,
   };
 }
 
