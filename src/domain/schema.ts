@@ -7,6 +7,15 @@ import { z } from 'zod';
 /** Pseudo-ID für „die Gruppe als Ganzes“ in Beziehungen. */
 export const PARTY_ID = 'party';
 
+/**
+ * Datenstand für den Abgleich (`domain/sync.ts`): steigt bei jeder Änderung der Gestalt der
+ * Schemata. Ein Rechner mit kleinerer Zahl holt weiter, lädt aber nichts hoch, damit er keine
+ * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
+ * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
+ */
+export const DATA_VERSION = 1;
+export const DATA_SHAPE = '01cf2a3e8beb749a';
+
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
 
