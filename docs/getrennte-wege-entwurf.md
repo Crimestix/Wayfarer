@@ -1,7 +1,7 @@
 # Getrennte Wege – Entwurf (Station 1 von Version 1.0)
 
-Stand 16. 11. 2026, nur gelesen, nichts gebaut. Wartet auf die Entscheidungen des Spielleiters
-(unten). Plan: `docs/VERSION-1.md`.
+Stand 16. 11. 2026. Schritt 1 ist gebaut (unten „Stand nach Schritt 1“). Plan:
+`docs/VERSION-1.md`.
 
 ## Befund
 
@@ -112,3 +112,54 @@ Neil nicht, ist aber in Tomlin verliebt.“ Daten können das schon (`setAttitud
   Haltung zur Gruppe die abweichenden zu einzelnen Gefährten („Tomlin +5 · Neil −3“), knapp.
 - Mitschrift/Festhalten: Haltung zu einem Gefährten wie zur Gruppe festhaltbar.
 Klein, kommt vor den Teilgruppen.
+
+## Klarstellung des Spielleiters (16. 11. 2026): Tätigkeiten in der Stadt zuerst
+
+Seine Worte: „Die Gruppe teilt sich ja auch nicht auf in der Menge, dass sie sagen ‚wir gehen jetzt
+nach Segenbruch und 2 von uns gehen die nächsten 3 Tage woanders hin'. Es ist eher innerhalb einer
+Stadt, dass mehrere Leute gleichzeitig Dinge erledigen. Der eine geht shoppen, der andere in die
+Bibliothek für 3 Stunden, Tomlin kopiert in der Burg 3 Spells, das dauert 12 Stunden, usw.“
+
+Folgen: Der erste Fall ist eine **Tätigkeit mit Dauer an einem Ort in der Stadt**. Dialog
+„Wer macht was?“ mit Zeilen: Wer, Wo (Vorgabe hier, auch ein Ort darin), Was (freie Zeile, sein
+Wortlaut), Wie lange. Eine Tätigkeit wirkt auf die eigene Uhr wie eine Reise. Am Spieltisch der
+Überblick „Wer macht was – bis wann“ (nach Ende geordnet, wann alle frei sind); ist eine Tätigkeit
+vorbei, nur ruhig „fertig seit …“. Reisen bleiben über dieselbe Logik möglich.
+
+## Stand nach Schritt 1 (16. 11. 2026)
+
+Gebaut (Commits „Haltung je Gefährte …“, „Getrennte Wege, Schritt 1 …“, „Zwei Gefährten, ein
+Körper …“):
+- Daten (DATA_VERSION 5): `state.groups` (`memberIds`, `placeId`, `now`, `doing`), `state.leadId`,
+  `travel.who`, `entry.party`, `downtime.minutes`; `character.bodyWith`/`resting`. Abgleich: Ort,
+  Teilgruppen und geleitete Teilgruppe als eine Gruppe in `STATE_RULES`.
+- Regel der vordersten Uhr (`frontOf`, `fireFrom`) in `advanceTime`, `undoTimeAdvance` und allen
+  Befehlen; mit Tests (`domain/__tests__/party.test.ts`).
+- Befehle `splitParty`, `sendOff`, `leadGroup`, `catchUp`, `mergeGroups`, `moveParty`/`walk` mit
+  `who`; „Abseits“ (`moveCharacter`) als Teilgruppe aus einer Person, ohne Satz von Wayfarer.
+- Spieltisch: Umschalter über der Gefährten-Leiste (je Teilgruppe Mitglieder, Ort, Tätigkeit bzw.
+  Stand, „alle frei …“), „Wer macht was …“, „Nachholen …“, „Zusammenführen …“; Ortswechsel-Dialog
+  mit „Wer geht?“ und Ankunft/Rückweg vorab; Mitschrift mit Marke, Fremdes schwach, „Alle
+  Teilgruppen / Nur diese“.
+
+Abweichungen vom Entwurf:
+- Die vorderste Uhr ist kein eigenes Feld, sondern das Späteste der Uhren (`frontOf`) – so kann sie
+  nicht auseinanderlaufen.
+- Eine Tätigkeit ist ein Eintrag der vorhandenen Art „Freie Zeit“ mit Minuten (je Gefährte sein
+  Wortlaut), keine neue Art. Ohne Dauer steht der Wortlaut als Notiz da.
+- Mitglieder sind in Schritt 1 nur Gefährten; NSC-Begleiter ziehen noch nicht mit.
+- Kein Alt+1…4, keine Marke „getrennt (2)“ in der Weltleiste.
+- Zusammenführen an verschiedenen Orten ist erlaubt (nie einschränken): wer woanders steht, zieht
+  ohne Text zum Ort der geleiteten Teilgruppe.
+
+Offen für Schritt 2:
+- Besuche und „seitdem verändert“ (`partyStays`, `visitsTo`, `placeStatus`) lesen alle
+  Ortswechsel als einen Weg der ganzen Gruppe – nach dem Zusammenführen zählt die Ankunft der
+  anderen als neuer Besuch.
+- `worldAt`, Zeitleiste (Bahn je Teilgruppe), Rückblick, Abend, `looseEnds` (`placeAtEntry`),
+  Kontinuität, Spielerbuch, Weltgeschehen, Karten (wo die Gruppe steht) über alle Teilgruppen.
+- Kalender und Uhren zeigen „anstehend“ von der Zeit der geleiteten aus; was die vorderste Uhr
+  schon ausgelöst hat, steht dann als eingetreten, obwohl die geleitete noch davor ist.
+- Licht, Rast, Begegnungen, Marsch über `ledMembers`; NSC-Begleiter mit ihrem Besitzer.
+- Alte `character.placeId` (abseits aus früheren Ständen) wird noch nicht als Teilgruppe gelesen;
+  ein Klick „zurück zur Gruppe“ setzt ihn wie bisher zurück.

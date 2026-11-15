@@ -706,6 +706,28 @@ nicht übernommen.
   (`entry.loose = 'open'`, die Nadel an jedem Eintrag). „Erledigt“ setzt `loose = 'settled'`.
   Am Spieltisch steht unter „Was hier passieren kann“, was am Ort der Gruppe offen hängt
   (`looseEndsHere`, ohne Abmachungen). Neue Arten offener Punkte dort eintragen (`looseReason`).
+- Getrennte Wege (`domain/party.ts`, Befehle in `data/actions.ts`): Die Gruppe teilt sich in
+  Teilgruppen (`state.groups`: Mitglieder, Ort, eigene Uhr `now`, woran sie ist `doing`);
+  geleitet wird eine (`state.leadId`), für sie gelten `state.placeId` und `state.now` – so
+  rechnen alle Leser für sie zu ihrer Zeit. Leer = alle zusammen, wie bisher. Der häufigste Fall
+  ist eine Tätigkeit mit Dauer in der Stadt: `splitParty` („Wer macht was?“: wer, wo, was in den
+  Worten des Spielleiters, wie lange – eine Zeile „Freie Zeit“ mit `downtime.minutes`); dazu
+  `sendOff` / `walk(…, who)` / `moveParty(…, who)`, `leadGroup` (Umschalten, schreibt nichts),
+  `catchUp` (Nachholen, nur auf Klick), `mergeGroups` (nur auf Klick). Die wichtigste Regel:
+  **die vorderste Uhr** (`frontOf`, `fireFrom`) – Termine, Schritte der Uhren und Lichter treten
+  genau einmal ein, wenn sie erreicht wird; nie doppelt, nie beim Vorrücken einer
+  zurückliegenden Teilgruppe, nie rückgängig beim Umschalten. Nie `state.now` an `advanceTime`
+  bzw. diesen Befehlen vorbei vorstellen. Ortswechsel tragen `travel.who`, alle Einträge
+  `entry.party` (von selbst in `db.put`, `partyStamp`); welcher Ortswechsel zählt, sagt
+  `touches` (in `neighboursOfSort`, `partyPlaceAt(…, who)`, `memberPlaceAt`), den Ort setzt
+  `withPlace`. „Abseits“ ist eine Teilgruppe aus einer Person. Wie andere zur Zeit der
+  geleiteten stehen (beschäftigt bis, voraus, zurück, fertig seit): `groupStanding`,
+  `partyOverview`. Leser über alle Teilgruppen (Abend, Rückblick, Zeitleiste, `worldAt`, Karten,
+  Besuche) sind Schritt 2 (`docs/getrennte-wege-entwurf.md`).
+- Zwei Gefährten, ein Körper (`domain/body.ts`, `character.bodyWith` / `character.resting`):
+  zwei eigene Gefährten, immer genau einer hat die Kontrolle; wer ruht, fehlt in `activeParty`.
+  Schaden, Zustände, Erschöpfung, Teilgruppe, Marsch und Wirkungen gehören dem Körper und ziehen
+  beim Wechsel mit (`switchPlan`); gewechselt wird nur über `switchBody` – nie in der Chronik.
 - Marschordnung: Reihen von vorn nach hinten in `state.march`; gelesen über `marchRows()`
   (`gruppe/march.ts`) – wer nicht dabei ist, fällt weg, Neue gehen hinten mit. Der Kasten
   „Unterwegs“ auf der Gefährten-Seite zeigt dazu Dunkelsicht, Lichter (`timer.refs`) und das Gold.
