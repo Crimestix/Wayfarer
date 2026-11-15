@@ -1,4 +1,5 @@
 /** Hauptfläche des Spieltischs: der Ort der Gruppe mit allem, was dort eine Rolle spielt. */
+import { entryHeadline } from '../chronik/model';
 import { natureHere } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -428,7 +429,10 @@ export function PlacePanel({ place }: { place: Place }) {
   // zum Aufklappen. Von Hand auf- oder zugeklappt gilt je Aufenthalt.
   const stayKey = `${place.id}:${status.current?.from ?? ''}`;
   const [choice, setChoice] = useState(foldChoice);
-  const folded = choice?.stay === stayKey ? choice.folded : !changesFresh(status, now);
+  // Eine Zeile mit dem Neuesten genügt: „Wer hier ist“ soll ohne Rollen zu sehen sein. Wer mehr
+  // will, klappt auf – das gilt dann für diesen Aufenthalt.
+  const folded = choice?.stay === stayKey ? choice.folded : true;
+  const fresh = changesFresh(status, now);
   const setFolded = (next: boolean) => {
     foldChoice = { stay: stayKey, folded: next };
     setChoice(foldChoice);
@@ -623,6 +627,17 @@ export function PlacePanel({ place }: { place: Place }) {
                 {folded ? <ChevronDown /> : <ChevronUp />}
               </IconButton>
             </header>
+            {folded && (
+              <button
+                type="button"
+                className={cx('wf-tisch-since__teaser', fresh && 'wf-tisch-since__teaser--fresh')}
+                onClick={() => setFolded(false)}
+                title="Alle Veränderungen zeigen"
+              >
+                {entryHeadline(data, changes[changes.length - 1]!) ||
+                  changes[changes.length - 1]!.text}
+              </button>
+            )}
             {!folded && (
               <>
                 <ChronicleList entries={shownChanges} showDate hideRefs={[place.id]} />

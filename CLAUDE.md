@@ -640,7 +640,10 @@ nicht übernommen.
   „Wer hier ist“ zeigt die Person in der Mitte statt „Im Spiel“, ↑ ↓ blättert, Escape schließt.
   „Im Blick“ (`state.inView`, `toggleInView`) steht über „Wer hier ist“; ab `CAST_SEARCH_FROM`
   Personen bekommt die Liste ein Suchfeld und Abschnitte nach den Orten darin
-  (`castMatches`, `castSections`) – beides ordnet nur.
+  (`castMatches`, `castSections`) – beides ordnet nur. „Seit eurem letzten Besuch“ steht
+  eingeklappt als eine Zeile mit dem Neuesten (aufklappen gilt für den Aufenthalt), damit „Wer
+  hier ist“ ohne Rollen zu sehen ist; die Spalte der Mitschrift ist so breit wie die des Ortes
+  (Rundgang 15. 11. 2026, vom Spielleiter angenommen).
 - Bastion (`bastions/`, `domain/bastion.ts`, Reiter „Bastion“ unter Gefährten; Regeln von 2024):
   Einrichtungen (`facilities`) mit Besitzer, Befehlen, Gefolgsleuten und Stand (bereit, beschädigt,
   wird repariert – Reparatur als Fortschrittsleiste über `startRepair`). Alle `turnDays` Tage ist

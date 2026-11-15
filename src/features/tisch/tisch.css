@@ -3,7 +3,8 @@
 
 .wf-tisch {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.2fr) minmax(0, 0.78fr);
+  /* Die Mitschrift ist das Werkzeug des Abends: Ihre Spalte ist so breit wie die des Ortes. */
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr) minmax(0, 0.95fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--s-4);
   height: 100%;
@@ -1236,7 +1237,7 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-agenda {
   flex: 0 1 auto;
   /* Die Mitschrift ist das Werkzeug des Abends: Sie bekommt den größeren Teil der Spalte. */
-  max-height: 38%;
+  max-height: 32%;
   min-height: 0;
 }
 .wf-tisch-agenda__overdue {
@@ -1692,7 +1693,7 @@ button.wf-tisch-story__title:enabled:hover b {
     padding-bottom: 6px;
   }
   .wf-tisch-agenda {
-    max-height: 36%;
+    max-height: 30%;
   }
 }
 
@@ -2038,4 +2039,29 @@ button.wf-tisch-cast__who:focus-visible {
 .wf-tisch-cast__sub .wf-tisch-cast__tag {
   margin-right: 5px;
   font-size: var(--text-2xs);
+}
+
+/* „Seit eurem letzten Besuch“ eingeklappt: das Neueste als eine Zeile */
+.wf-tisch-since__teaser {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 0 0 0 22px;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-style: italic;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wf-tisch-since__teaser:hover {
+  color: var(--gold-bright);
+}
+.wf-tisch-since__teaser--fresh {
+  color: var(--ink);
 }
