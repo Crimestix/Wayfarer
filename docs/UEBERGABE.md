@@ -68,10 +68,10 @@ Der Spielleiter hat sich für **GitHub** entschieden, nicht für Hetzner. Gebaut
 Der Rest dieses Abschnitts ist nur noch Vorgeschichte.
 
 **Stand abends 15. 11.:** Abschnitt A (Fachlogik, Rust) und B (Oberfläche) sind gebaut und je
-gegengelesen (bis `4449aa5`; 2400 Tests, cargo 94). Windows-Installer 0.1.3 liegt lokal unter
-`src-tauri	argeteleaseundle
-sis\`. Kein Tag `v0.1.3` gesetzt – erst, wenn die Probe am
-Windows-PC sauber lief (spart Mac-Minuten bei GitHub). Der Spielleiter macht die Probe nach
+gegengelesen (bis `4449aa5`; 2400 Tests, cargo 94). Tag `v0.1.3` steht auf `6800a02` (gesetzt aus
+der Nebensitzung zur Rückmeldung vom 15. 11.; enthält Abgleich und neue Mitschrift, nicht die
+kleine Reparatur `a9d9853`). Für die Probe die Pakete von GitHub nehmen – der vorher lokal gebaute
+Windows-Installer 0.1.3 ist älter. Der Spielleiter macht die Probe nach
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
