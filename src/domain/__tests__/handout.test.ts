@@ -6,6 +6,7 @@ import { MemoryStore } from '../../data/store';
 import { patchPrep } from '../../features/abend/actions';
 import { giveHandout, saveHandout } from '../../features/handouts/actions';
 import { handoutSources, paragraphs, prepHintCards, sealMark } from '../handout';
+import { secretOfText } from '../prep';
 import { newId } from '../schema';
 
 describe('Handouts', () => {
@@ -37,8 +38,10 @@ describe('Handouts', () => {
           storyId: null,
           revealed: false,
           revealedAt: null,
+          hint: null,
+          carried: 0,
         },
-        { id: newId(), text: 'Schon bekannt.', storyId: null, revealed: true, revealedAt: null },
+        { ...secretOfText('Schon bekannt.'), revealed: true },
       ],
     });
     expect(prepHintCards(db.getSnapshot()).map((card) => card.text)).toEqual([

@@ -383,6 +383,8 @@ describe('Festhalten: der jüngste Eintrag zählt', () => {
             storyId: null,
             revealed: false,
             revealedAt: null,
+            hint: null,
+            carried: 0,
           },
         ],
       }),

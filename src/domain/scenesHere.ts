@@ -3,7 +3,7 @@
  * Szene an einen Ort geheftet ist, steht am Spieltisch, sobald die Gruppe dort (oder in einem Ort
  * darüber bzw. darunter) ist. Gespielte Szenen und abgeschlossene Geschichten fallen weg.
  */
-import { prepView } from './prep';
+import { prepView, sceneOnSheet } from './prep';
 import type { CampaignData, SceneOdds } from './schema';
 import { isNear } from './weight';
 
@@ -27,24 +27,31 @@ const ODDS_ORDER: SceneOdds[] = ['sure', 'maybe', 'unlikely'];
 export function scenesHere(data: CampaignData): SceneHere[] {
   if (!data.state.placeId) return [];
   const out: SceneHere[] = [];
-  for (const scene of prepView(data).content.scenes)
-    if (!scene.done && scene.text.trim() && scene.placeId && isNear(data, scene.placeId))
+  const { content } = prepView(data);
+  for (const scene of content.scenes)
+    if (!scene.done && scene.text.trim() && scene.placeId && isNear(data, scene.placeId)) {
+      const story = scene.storyId ? data.stories[scene.storyId] : undefined;
       out.push({
         key: `prep:${scene.id}`,
         text: scene.text.trim(),
         placeId: scene.placeId,
         from: 'prep',
         sceneId: scene.id,
-        storyId: null,
-        storyTitle: '',
-        storyInPlay: false,
-        encounterId: null,
+        storyId: story?.id ?? null,
+        storyTitle: story?.title ?? '',
+        storyInPlay: !!story?.inPlay && !story.closed,
+        encounterId:
+          scene.encounterId && data.encounters[scene.encounterId] ? scene.encounterId : null,
         odds: 'maybe',
       });
+    }
   for (const story of Object.values(data.stories)) {
     if (story.closed) continue;
     for (const scene of story.scenes) {
       if (scene.done || !scene.placeId || !isNear(data, scene.placeId)) continue;
+      // Liegt sie auf dem Blatt des Abends, steht sie dort schon – abhakbar.
+      if (sceneOnSheet(content, story.id, scene.id)) continue;
+
       const encounter = scene.encounterId ? data.encounters[scene.encounterId] : undefined;
       const text = scene.text.trim() || encounter?.name || '';
       if (!text) continue;

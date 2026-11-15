@@ -16,6 +16,7 @@ import {
   Repeat,
   Route as RouteIcon,
   Search,
+  NotebookPen,
   ScrollText,
   Skull,
   Sailboat,
@@ -1177,6 +1178,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   guess: <Lightbulb />,
   shop: <Store />,
   mount: <Sailboat />,
+  prep: <NotebookPen />,
   rules: <ScrollText />,
 };
 

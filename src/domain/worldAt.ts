@@ -300,8 +300,11 @@ export function worldAt(data: CampaignData, at: WorldTime): CampaignData {
   const threads: Docs<'threads'> = { ...data.threads };
   const firstFind = new Set<string>();
   for (const entry of later) {
-    const c = entry.kind === 'clue' ? entry.clue : null;
+    // Auch ein aufgedecktes Geheimnis kann ein Hinweis gewesen sein (`reveal.hint`).
+    const c =
+      entry.kind === 'clue' ? entry.clue : entry.kind === 'reveal' ? entry.reveal?.hint : null;
     if (!c?.before || !c.threadId) continue;
+
     const thread = threads[c.threadId];
     if (!thread) continue;
     const hints = thread.hints.map((hint) =>

@@ -1,29 +1,66 @@
 import { describe, expect, it } from 'vitest';
-import { endSession, logEntry, moveParty, setTime, startSession } from '../../data/actions';
+import {
+  endSession,
+  logEntry,
+  moveParty,
+  resumeSession,
+  setTime,
+  startSession,
+} from '../../data/actions';
 import { CampaignDb } from '../../data/db';
+import { recordEntry, removeRecorded } from '../../data/record';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   addToStart,
   ensurePrep,
+  keepAllLeftovers,
   newStoryForHero,
   patchPrep,
+  removeSecret,
+  setOnSheet,
   setSceneDone,
   setSecretRevealed,
+  setSkipped,
+  setStartDone,
+  settleLeftover,
+  takeHint,
+  takeStoryScene,
 } from '../../features/abend/actions';
-import { newStory, tieHero } from '../../features/faeden/actions';
+import { secretChoices } from '../../features/chronik/recordDraft';
 import {
-  SECRETS_WANTED,
+  newStory,
+  patchStory,
+  saveThread,
+  setHintFound,
+  setSceneDone as setStorySceneDone,
+  tieHero,
+} from '../../features/faeden/actions';
+import {
+  SECRETS_ENOUGH,
+  allSecrets,
   appendLine,
+  carriedNote,
   currentPrep,
+  findPrepSecret,
   hasLine,
   lastSessionLines,
+  leftoverLines,
   openScenes,
   openSecrets,
+  planLines,
   prepAdvice,
   prepHasContent,
+  prepNext,
+  prepStand,
   prepView,
   readyEncounters,
+  sceneOfText,
+  secretOfText,
+  sheetOf,
+  stepLine,
+  suggestedWhich,
+  withoutLines,
 } from '../prep';
 import {
   createEvent,
@@ -41,18 +78,10 @@ async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
   endSession(db);
   const data = () => db.getSnapshot();
-  const scene = (text: string, done = false): PrepScene => ({
-    id: newId(),
-    text,
-    done,
-    placeId: null,
-  });
+  const scene = (text: string, done = false): PrepScene => ({ ...sceneOfText(text), done });
   const secret = (text: string, revealed = false): PrepSecret => ({
-    id: newId(),
-    text,
-    storyId: null,
+    ...secretOfText(text),
     revealed,
-    revealedAt: null,
   });
   const highest = () => Math.max(0, ...Object.values(data().sessions).map((s) => s.number));
   return { db, data, scene, secret, highest };
@@ -64,6 +93,7 @@ describe('Das Blatt eines Abends', () => {
     let view = prepView(data());
     expect(view.prep).toBeNull();
     expect(view.session).toBeNull();
+    expect(view.which).toBe('next');
     expect(view.number).toBe(highest() + 1);
     expect(prepHasContent(data(), view.content)).toBe(false);
 
@@ -84,7 +114,7 @@ describe('Das Blatt eines Abends', () => {
     expect(Object.keys(data().preps)).toHaveLength(1);
   });
 
-  it('gehört zur Session, sobald sie beginnt – und was offen bleibt, wandert weiter', async () => {
+  it('gehört zur Session, sobald sie beginnt – und was offen bleibt, wartet auf dem nächsten Blatt', async () => {
     const { db, data, scene, secret } = await setup();
     const [played, waiting] = [scene('Der Fährmann verlangt Salz'), scene('Die Krähen legen an')];
     const [told, kept] = [
@@ -95,13 +125,17 @@ describe('Das Blatt eines Abends', () => {
       start: 'Ein leeres Boot treibt aus dem Nebel.',
       scenes: [played, waiting],
       secrets: [told, kept],
-      treasure: 'Ein Kompass',
     });
     const session = startSession(db);
     expect(currentPrep(data())?.sessionId).toBe(session.id);
-    expect(prepView(data())).toMatchObject({ number: session.number, session: { id: session.id } });
+    expect(prepView(data())).toMatchObject({
+      which: 'now',
+      number: session.number,
+      session: { id: session.id },
+    });
 
-    // Am Tisch: eine Szene gespielt, ein Geheimnis aufgedeckt.
+    // Am Tisch: der Einstieg und eine Szene gespielt, ein Geheimnis aufgedeckt.
+    setStartDone(db, true);
     setSceneDone(db, played.id, true);
     setSecretRevealed(db, told.id, true);
     const during = prepView(data()).content;
@@ -112,28 +146,216 @@ describe('Das Blatt eines Abends', () => {
     expect(openSecrets(prepView(data()).content)).toHaveLength(2);
     setSecretRevealed(db, told.id, true);
 
-    // Der Abend ist vorbei: Das neue Blatt beginnt mit dem, was offen blieb – nicht mit dem
-    // Einstieg und der Beute des alten.
+    // Der Abend ist vorbei: Auf dem neuen Blatt wartet, was offen blieb – nicht der gespielte
+    // Einstieg. Es steht als „übrig“ da, bis es angesehen ist.
     endSession(db);
     const next = prepView(data());
     expect(next.prep).toBeNull();
     expect(next.number).toBe(session.number + 1);
-    expect(next.carried).toEqual({ scenes: 1, secrets: 1 });
-    expect(next.content).toMatchObject({ start: '', treasure: '' });
-    expect(next.content.scenes.map((entry) => entry.text)).toEqual(['Die Krähen legen an']);
+    expect(next.content.start).toBe('');
+    expect(next.content.scenes.map((entry) => [entry.text, entry.carried])).toEqual([
+      ['Die Krähen legen an', 1],
+    ]);
+    expect(leftoverLines(data(), next.content).map((line) => [line.kind, line.text])).toEqual([
+      ['scene', 'Die Krähen legen an'],
+      ['secret', 'Das Boot gehört Mira'],
+    ]);
     // Das alte Blatt bleibt bei seiner Session.
     const fresh = ensurePrep(db);
     expect(fresh.sessionId).toBeNull();
     expect(fresh.secrets.map((entry) => entry.text)).toEqual(['Das Boot gehört Mira']);
+    expect(fresh.pending).toHaveLength(2);
     expect(Object.keys(data().preps)).toHaveLength(2);
+    // Ein zweites Mal kommt nichts herüber.
+    expect(prepView(data()).dueFrom).toBeNull();
+    patchPrep(db, { plan: 'Zur Salzgrotte.' });
+    expect(prepView(data()).content.scenes).toHaveLength(1);
   });
 
-  it('wer mitten im Abend zu schreiben beginnt, meint diesen Abend', async () => {
+  it('läuft ein Abend, gibt es zwei Blätter: dieses und das nächste', async () => {
     const { db, data, scene } = await setup();
     const session = startSession(db);
-    expect(prepView(data())).toMatchObject({ prep: null, number: session.number });
+    expect(prepView(data())).toMatchObject({ prep: null, which: 'now', number: session.number });
+    // Wer mitten im Abend auf „Dieser Abend“ schreibt, meint diesen Abend.
     patchPrep(db, { scenes: [scene('Die Krähen legen an')] });
     expect(currentPrep(data())?.sessionId).toBe(session.id);
+    // Das Blatt für den nächsten lässt sich trotzdem anlegen und beschreiben.
+    patchPrep(
+      db,
+      { start: 'Glocken läuten Sturm.', scenes: [scene('Der Zöllner flieht')] },
+      'next',
+    );
+    const next = prepView(data(), 'next');
+    expect(next).toMatchObject({ which: 'next', session: null, number: session.number + 1 });
+    expect(next.prep?.sessionId).toBeNull();
+    // Solange der Abend läuft, ist für das nächste Blatt noch nichts übrig.
+    expect(next.content.scenes.map((entry) => entry.text)).toEqual(['Der Zöllner flieht']);
+    expect(sheetOf(data(), 'now')?.scenes.map((entry) => entry.text)).toEqual([
+      'Die Krähen legen an',
+    ]);
+
+    // Der nächste Abend beginnt: Das offene Blatt gehört jetzt zu ihm – mit seinem Einstieg; was
+    // vom alten Abend offen blieb, kommt dazu und wartet.
+    const second = startSession(db);
+    const view = prepView(data());
+    expect(view.prep?.sessionId).toBe(second.id);
+    expect(view.content.start).toBe('Glocken läuten Sturm.');
+    expect(view.content.scenes.map((entry) => entry.text)).toEqual([
+      'Der Zöllner flieht',
+      'Die Krähen legen an',
+    ]);
+    expect(leftoverLines(data(), view.content).map((line) => line.text)).toEqual([
+      'Die Krähen legen an',
+    ]);
+  });
+
+  it('nichts geht verloren, wenn der nächste Abend ohne offenes Blatt beginnt', async () => {
+    const { db, data, scene, secret } = await setup();
+    startSession(db);
+    // Die Session lief weiter (sie endet nur von Hand) – geschrieben wurde auf ihr Blatt.
+    const ambush = db.put('encounters', createEncounter({ name: 'Hinterhalt am Steg' }));
+    const fought = db.put(
+      'encounters',
+      createEncounter({
+        name: 'Schlägerei im Krug',
+        foes: [
+          {
+            id: newId(),
+            creatureId: newId(),
+            name: 'Raufbold 1',
+            hp: 3,
+            note: '',
+            stockId: null,
+            booked: false,
+          },
+        ],
+      }),
+    );
+    patchPrep(db, {
+      start: 'Ein leeres Boot treibt aus dem Nebel.',
+      scenes: [scene('Die Krähen legen an')],
+      secrets: [secret('Das Boot gehört Mira')],
+      encounterIds: [ambush.id, fought.id],
+      treasure: 'Ein Kompass, der nach unten zeigt',
+    });
+    const second = startSession(db);
+    const view = prepView(data());
+    expect(view).toMatchObject({ prep: null, which: 'now', number: second.number });
+    expect(view.content.start).toBe('Ein leeres Boot treibt aus dem Nebel.');
+    expect(view.content.treasure).toBe('Ein Kompass, der nach unten zeigt');
+    // Die ausgetragene Begegnung bleibt beim alten Abend.
+    expect(readyEncounters(data(), view.content).map((entry) => entry.name)).toEqual([
+      'Hinterhalt am Steg',
+    ]);
+    expect(leftoverLines(data(), view.content).map((line) => line.kind)).toEqual([
+      'start',
+      'scene',
+      'secret',
+      'encounter',
+      'treasure',
+    ]);
+    // Das erste Wort legt das Blatt mit allem an.
+    patchPrep(db, { plan: 'Dem Boot nach.' });
+    const saved = currentPrep(data())!;
+    expect(saved.sessionId).toBe(second.id);
+    expect(saved).toMatchObject({
+      start: 'Ein leeres Boot treibt aus dem Nebel.',
+      encounterIds: [ambush.id],
+      treasure: 'Ein Kompass, der nach unten zeigt',
+    });
+  });
+
+  it('über Übriges wird entschieden: weiter oder fallen lassen – mit Rückgängig', async () => {
+    const { db, data, scene, secret } = await setup();
+    const [crows, toll] = [scene('Die Krähen legen an'), scene('Der Zöllner flieht')];
+    patchPrep(db, {
+      start: 'Ein leeres Boot treibt aus dem Nebel.',
+      scenes: [crows, toll],
+      secrets: [secret('Das Boot gehört Mira')],
+      treasure: 'Ein Kompass',
+    });
+    startSession(db);
+    endSession(db);
+    patchPrep(db, { treasure: 'Für Corrin: ein Brief' });
+    let content = prepView(data()).content;
+    // Wer die Beute selbst anfasst, hat sie angesehen.
+    expect(leftoverLines(data(), content).map((line) => line.kind)).toEqual([
+      'start',
+      'scene',
+      'scene',
+      'secret',
+    ]);
+    settleLeftover(db, `scene:${crows.id}`, 'keep');
+    const undo = settleLeftover(db, `scene:${toll.id}`, 'drop');
+    settleLeftover(db, 'start', 'drop');
+    content = prepView(data()).content;
+    expect(content.scenes.map((entry) => entry.text)).toEqual(['Die Krähen legen an']);
+    expect(content.start).toBe('');
+    expect(leftoverLines(data(), content).map((line) => line.kind)).toEqual(['secret']);
+    undo();
+    expect(prepView(data()).content.scenes.map((entry) => entry.text)).toEqual([
+      'Die Krähen legen an',
+      'Der Zöllner flieht',
+    ]);
+    keepAllLeftovers(db);
+    expect(leftoverLines(data(), prepView(data()).content)).toEqual([]);
+    // Bleibt es noch einen Abend liegen, sagt das Blatt, zum wievielten Mal.
+    startSession(db);
+    endSession(db);
+    const again = prepView(data()).content;
+    expect(again.scenes.map((entry) => entry.carried)).toEqual([2, 2]);
+    expect(carriedNote(2)).toBe('zum zweiten Mal dabei');
+    expect(carriedNote(3)).toBe('zum dritten Mal dabei');
+    expect(carriedNote(1)).toBe('');
+    expect(withoutLines('Für Corrin: ein Brief\nEin Kompass', 'Ein Kompass')).toBe(
+      'Für Corrin: ein Brief',
+    );
+  });
+
+  it('ein übernommenes Geheimnis zählt auf dem jüngsten Blatt – und steht nur einmal zur Wahl', async () => {
+    const { db, data, secret } = await setup();
+    const kept = secret('Das Boot gehört Mira');
+    patchPrep(db, { secrets: [kept] });
+    const first = startSession(db);
+    endSession(db);
+    const fresh = ensurePrep(db);
+    // Dieselbe Kennung steht jetzt auf zwei Blättern.
+    const old = Object.values(data().preps).find((prep) => prep.sessionId === first.id)!;
+    expect(old.secrets[0]!.id).toBe(fresh.secrets[0]!.id);
+    expect(findPrepSecret(data(), kept.id)?.prep.id).toBe(fresh.id);
+    expect(allSecrets(data()).map((entry) => entry.id)).toEqual([kept.id]);
+    expect(secretChoices(data())).toEqual([{ id: kept.id, text: 'Das Boot gehört Mira' }]);
+    // „Aufgedeckt“ beim Festhalten setzt den Haken auf dem neuen Blatt.
+    const reveal = recordEntry(db, { kind: 'reveal', reveal: { prepSecretId: kept.id } });
+    if ('problem' in reveal) throw new Error(reveal.problem);
+    expect(data().preps[fresh.id]!.secrets[0]!.revealed).toBe(true);
+    expect(data().preps[old.id]!.secrets[0]!.revealed).toBe(false);
+    expect(openSecrets(prepView(data()).content)).toEqual([]);
+    expect(secretChoices(data())).toEqual([]);
+    removeRecorded(db, reveal.entry.id);
+    expect(openSecrets(prepView(data()).content)).toHaveLength(1);
+  });
+
+  it('eine fortgesetzte Session: Was dort doch noch gespielt wird, steht nicht mehr auf dem nächsten Blatt', async () => {
+    const { db, data, scene, secret } = await setup();
+    const crows = scene('Die Krähen legen an');
+    const boat = secret('Das Boot gehört Mira');
+    patchPrep(db, { scenes: [crows], secrets: [boat] });
+    const first = startSession(db);
+    endSession(db);
+    // Das nächste Blatt ist schon angelegt – mit dem, was übrig war.
+    patchPrep(db, { plan: 'Zur Salzgrotte.' });
+    resumeSession(db, first.id);
+    expect(prepView(data())).toMatchObject({ which: 'now', session: { id: first.id } });
+    setSceneDone(db, crows.id, true);
+    setSecretRevealed(db, boat.id, true);
+    const next = prepView(data(), 'next').content;
+    expect(openScenes(next)).toEqual([]);
+    expect(openSecrets(next)).toEqual([]);
+    expect(leftoverLines(data(), next)).toEqual([]);
+    endSession(db);
+    expect(openScenes(prepView(data()).content)).toEqual([]);
+    expect(Object.keys(data().preps)).toHaveLength(2);
   });
 
   it('legt Begegnungen bereit und hängt Geheimnisse an Geschichten – nur an solche, die es gibt', async () => {
@@ -158,53 +380,274 @@ describe('Das Blatt eines Abends', () => {
     expect(readyEncounters(data(), prepView(data()).content)).toEqual([]);
   });
 
-  it('sagt, was dem Abend noch fehlt – als Rat', async () => {
+  it('schlägt das Blatt vor, an dem wohl gearbeitet wird', async () => {
+    const { db, data } = await setup();
+    expect(suggestedWhich(data(), '2026-11-15')).toBe('next');
+    startSession(db, { realDate: '2026-11-15' });
+    expect(suggestedWhich(data(), '2026-11-15')).toBe('now');
+    // Der Abend von gestern läuft noch (er endet nur von Hand): Vorbereitet wird der nächste.
+    expect(suggestedWhich(data(), '2026-11-16')).toBe('next');
+  });
+});
+
+describe('Abend und Geschichte sind eine Welt', () => {
+  async function world() {
+    const base = await setup();
+    const { db, data } = base;
+    const story = newStory(db, { title: 'Der Griff nach dem Zoll', inPlay: true });
+    patchStory(db, story.id, {
+      scenes: [
+        {
+          id: 'sz1',
+          text: 'Der Zöllner zählt nachts das Geld',
+          encounterId: null,
+          odds: 'maybe',
+          placeId: null,
+        },
+        { id: 'sz2', text: 'Die Krähen legen an', encounterId: null, odds: 'sure', placeId: null },
+      ],
+    });
+    const thread = saveThread(db, {
+      title: 'Wer nimmt das Zollgeld?',
+      truth: 'Der Zöllner selbst.',
+      state: 'open',
+      storyId: story.id,
+      refs: [],
+      known: false,
+      hints: [
+        { id: 'h1', text: 'Die Kasse hat zwei Böden', placeId: null, sourceId: null, found: false },
+        { id: 'h2', text: 'Lando zahlt nie', placeId: null, sourceId: null, found: false },
+      ],
+    });
+    const storyNow = () => data().stories[story.id]!;
+    const threadNow = () => data().threads[thread.id]!;
+    return { ...base, story, thread, storyNow, threadNow };
+  }
+
+  it('eine Szene der Geschichte liegt auf dem Abend – abgehakt wird beides zusammen', async () => {
+    const { db, data, story, storyNow } = await world();
+    const undo = takeStoryScene(db, story.id, 'sz1');
+    expect(undo).not.toBeNull();
+    // Ein zweites Mal kommt sie nicht aufs Blatt.
+    expect(takeStoryScene(db, story.id, 'sz1')).toBeNull();
+    const scene = prepView(data()).content.scenes[0]!;
+    expect(scene).toMatchObject({
+      text: 'Der Zöllner zählt nachts das Geld',
+      storyId: story.id,
+      from: { storyId: story.id, sceneId: 'sz1' },
+      done: false,
+    });
+    setSceneDone(db, scene.id, true);
+    expect(storyNow().scenes.find((entry) => entry.id === 'sz1')?.done).toBe(true);
+    // Umgekehrt: In der Geschichte zurückgenommen, ist sie auch auf dem Abend wieder offen.
+    setStorySceneDone(db, story.id, 'sz1', false);
+    expect(openScenes(prepView(data()).content)).toHaveLength(1);
+    setStorySceneDone(db, story.id, 'sz1', true);
+    expect(openScenes(prepView(data()).content)).toHaveLength(0);
+    // Vom Blatt genommen, bleibt sie in der Geschichte.
+    undo!();
+    expect(prepView(data()).content.scenes).toEqual([]);
+    expect(storyNow().scenes).toHaveLength(2);
+  });
+
+  it('ein Hinweis wird ein Geheimnis des Abends – aufgedeckt heißt gefunden und umgekehrt', async () => {
+    const { db, data, story, thread, threadNow } = await world();
+    takeHint(db, thread.id, 'h1');
+    expect(takeHint(db, thread.id, 'h1')).toBeNull();
+    const secret = prepView(data()).content.secrets[0]!;
+    expect(secret).toMatchObject({
+      text: 'Die Kasse hat zwei Böden',
+      storyId: story.id,
+      hint: { threadId: thread.id, hintId: 'h1' },
+      revealed: false,
+    });
+    setSecretRevealed(db, secret.id, true);
+    expect(threadNow().hints[0]!.found).toBe(true);
+    expect(threadNow()).toMatchObject({ known: true, state: 'active' });
+    setHintFound(db, thread.id, 'h1', false);
+    expect(openSecrets(prepView(data()).content)).toHaveLength(1);
+    setHintFound(db, thread.id, 'h1', true);
+    expect(openSecrets(prepView(data()).content)).toHaveLength(0);
+    // Ein gefundener Hinweis bleibt nicht übrig.
+    startSession(db);
+    endSession(db);
+    expect(prepView(data()).content.secrets).toEqual([]);
+    removeSecret(db, secret.id);
+    expect(threadNow().hints).toHaveLength(2);
+  });
+
+  it('„Aufgedeckt“ beim Festhalten findet den Hinweis – und Löschen nimmt beides zurück', async () => {
+    const { db, data, thread, threadNow } = await world();
+    takeHint(db, thread.id, 'h2');
+    const secret = prepView(data()).content.secrets[0]!;
+    const reveal = recordEntry(db, { kind: 'reveal', reveal: { prepSecretId: secret.id } });
+    if ('problem' in reveal) throw new Error(reveal.problem);
+    expect(threadNow().hints[1]!.found).toBe(true);
+    expect(threadNow().state).toBe('active');
+    expect(openSecrets(prepView(data()).content)).toEqual([]);
+    removeRecorded(db, reveal.entry.id);
+    expect(threadNow().hints[1]!.found).toBe(false);
+    expect(threadNow()).toMatchObject({ known: false, state: 'open' });
+    expect(openSecrets(prepView(data()).content)).toHaveLength(1);
+  });
+
+  it('was übrig bleibt und aus einer Geschichte kam, kann dorthin zurück', async () => {
+    const { db, data, story, thread, storyNow } = await world();
+    takeStoryScene(db, story.id, 'sz2');
+    takeHint(db, thread.id, 'h1');
+    startSession(db);
+    endSession(db);
+    const lines = leftoverLines(data(), prepView(data()).content);
+    expect(lines.map((line) => [line.kind, line.backTo?.id])).toEqual([
+      ['scene', story.id],
+      ['secret', story.id],
+    ]);
+    settleLeftover(db, lines[0]!.key, 'drop');
+    expect(prepView(data()).content.scenes).toEqual([]);
+    expect(storyNow().scenes.map((entry) => entry.id)).toEqual(['sz1', 'sz2']);
+  });
+
+  it('ein Schritt der Uhr in einer Zeile – wörtlich, mit dem, woran die Gruppe es merkt', () => {
+    expect(stepLine({ text: 'Der Zoll wird verdoppelt', sign: 'Händler packen ein' })).toBe(
+      'Der Zoll wird verdoppelt – Händler packen ein',
+    );
+    expect(stepLine({ text: 'Der Zoll wird verdoppelt', sign: '' })).toBe(
+      'Der Zoll wird verdoppelt',
+    );
+  });
+});
+
+describe('Stand und Rat', () => {
+  it('führt in der Reihenfolge der Fächer – als Rat, mit „reicht“ statt Zählern', async () => {
     const { db, data, scene, secret } = await setup();
     for (const entity of Object.values(data().entities))
       if (entity.kind === 'character') db.remove('entities', entity.id);
+    const stand = () => prepStand(data(), prepView(data()).content);
     const open = () =>
       prepAdvice(data(), prepView(data()).content)
-        .filter((entry) => !entry.done)
+        .filter((entry) => !entry.done && !entry.off)
         .map((entry) => entry.key);
     expect(open()).toEqual([
-      'goals',
-      'hooks',
-      'start',
+      'where',
+      'party',
       'stories',
+      'start',
       'scenes',
       'secrets',
-      'encounter',
-      'treasure',
+      'places',
+      'people',
+      'encounters',
+      'loot',
     ]);
+    // Der nächste sinnvolle Schritt steht zuerst.
+    expect(prepNext(stand())?.key).toBe('where');
+    patchPrep(db, { plan: 'Die Gruppe will dem leeren Boot nach.' });
+    expect(prepNext(stand())?.key).toBe('party');
+
     const mate = db.put(
       'entities',
       createEntity({ kind: 'character', name: 'Corrin', character: { goal: '' } }),
     );
-    expect(prepAdvice(data(), prepView(data()).content)[0]!.why).toBe('Fehlt bei Corrin.');
-    if (mate.kind === 'character')
-      db.put('entities', {
-        ...mate,
-        character: { ...mate.character, goal: 'Will seine Schwester finden.' },
-      });
-    const story = newStory(db, { inPlay: true });
-    expect(prepAdvice(data(), prepView(data()).content)[1]).toMatchObject({
-      key: 'hooks',
-      done: false,
-      why: 'Keine Geschichte im Spiel betrifft Corrin.',
+    const party = () => stand().find((entry) => entry.key === 'party')!;
+    expect(party()).toMatchObject({
+      enough: false,
+      note: 'Für Corrin steht noch nichts auf dem Blatt.',
     });
+    // Nicht jeder braucht eine Geschichte: Es genügt, dass sein Name irgendwo auf dem Blatt steht.
+    patchPrep(db, { scenes: [scene('Corrin erkennt das Siegel auf dem Boot')] });
+    expect(party().enough).toBe(true);
+    expect(party().note).toContain('Was Corrin will, steht noch nicht da.');
+    patchPrep(db, { scenes: [] });
+    const story = newStory(db, { inPlay: true });
+    expect(party().enough).toBe(false);
     tieHero(db, story.id, mate.id, 'Seine Schwester ist verschwunden.');
+    expect(party().enough).toBe(true);
+
     const ambush = db.put('encounters', createEncounter({ name: 'Hinterhalt am Steg' }));
+    const place = db.put('entities', createEntity({ kind: 'place', name: 'Nebelsteg' }));
+    const ferryman = db.put('entities', createEntity({ kind: 'person', name: 'Lando Furtner' }));
     patchPrep(db, {
       start: 'Ein leeres Boot treibt aus dem Nebel.',
       scenes: [scene('Eins'), scene('Zwei'), scene('Drei')],
-      secrets: Array.from({ length: SECRETS_WANTED - 1 }, (_, i) => secret(`Geheimnis ${i + 1}`)),
+      secrets: Array.from({ length: SECRETS_ENOUGH - 1 }, (_, i) => secret(`Geheimnis ${i + 1}`)),
       encounterIds: [ambush.id],
       treasure: 'Ein Kompass',
     });
+    setOnSheet(db, 'placeIds', place.id, true);
+    setOnSheet(db, 'personIds', ferryman.id, true);
     expect(open()).toEqual(['secrets']);
-    expect(
-      prepAdvice(data(), prepView(data()).content).find((entry) => entry.key === 'secrets')!.why,
-    ).toContain(`${SECRETS_WANTED - 1} von ${SECRETS_WANTED}`);
+    const secrets = stand().find((entry) => entry.key === 'secrets')!;
+    // Kein Zähler gegen ein Soll.
+    expect(secrets.note).not.toMatch(/\d+ von \d+/);
+    expect(secrets.note).toContain('Ein Anfang');
+    // „Heute nicht nötig“ – das Fach zählt nicht mehr als offen.
+    setSkipped(db, 'secrets', true);
+    expect(open()).toEqual([]);
+    expect(prepNext(stand())).toBeNull();
+    setSkipped(db, 'secrets', false);
+    expect(open()).toEqual(['secrets']);
+  });
+
+  it('zählt mit, was bei den Geschichten im Spiel bereitliegt', async () => {
+    const { db, data } = await setup();
+    const story = newStory(db, { title: 'Der Griff nach dem Zoll', inPlay: true });
+    const ambush = db.put('encounters', createEncounter({ name: 'Hinterhalt am Steg' }));
+    patchStory(db, story.id, {
+      scenes: ['Eins', 'Zwei', 'Drei'].map((text, index) => ({
+        id: `sz${index}`,
+        text,
+        encounterId: index === 0 ? ambush.id : null,
+        odds: 'maybe' as const,
+        placeId: null,
+      })),
+    });
+    saveThread(db, {
+      title: 'Wer nimmt das Zollgeld?',
+      truth: '',
+      state: 'open',
+      storyId: story.id,
+      refs: [],
+      known: false,
+      hints: ['a', 'b', 'c', 'd', 'e'].map((text) => ({
+        id: text,
+        text: `Hinweis ${text}`,
+        placeId: null,
+        sourceId: null,
+        found: false,
+      })),
+    });
+    const of = (key: string) =>
+      prepStand(data(), prepView(data()).content).find((entry) => entry.key === key)!;
+    // Wer von der Geschichte aus plant, hat schon vorbereitet.
+    expect(of('scenes')).toMatchObject({ enough: true });
+    expect(of('scenes').note).toContain('bei den Geschichten im Spiel');
+    expect(of('secrets').enough).toBe(true);
+    expect(of('encounters').enough).toBe(true);
+    // Auf den Abend gelegt, zählt es nicht doppelt.
+    takeStoryScene(db, story.id, 'sz0');
+    expect(of('scenes').brief).toBe('3 Szenen');
+    // Nicht im Spiel: Dann liegt es dem Abend nicht bereit.
+    patchStory(db, story.id, { inPlay: false });
+    expect(of('secrets').enough).toBe(false);
+  });
+
+  it('bietet an, was die Gruppe zuletzt entschieden und sich gewünscht hat – wörtlich', async () => {
+    const { db, data } = await setup();
+    const session = startSession(db);
+    const mate = Object.values(data().entities).find((entity) => entity.kind === 'character')!;
+    recordEntry(db, { kind: 'decision', text: 'Wir fahren dem Boot nach.' });
+    recordEntry(db, { kind: 'note', text: 'Nur eine Notiz.' });
+    recordEntry(db, {
+      kind: 'wish',
+      text: 'Ich will den Zöllner zur Rede stellen.',
+      wish: { characterId: mate.id },
+    });
+    endSession(db);
+    expect(planLines(data(), session.number + 1).map((entry) => entry.text)).toEqual([
+      'Wir fahren dem Boot nach.',
+      'Ich will den Zöllner zur Rede stellen.',
+    ]);
+    expect(planLines(data(), session.number)).not.toContain('Wir fahren dem Boot nach.');
   });
 });
 

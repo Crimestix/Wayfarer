@@ -18,6 +18,7 @@ import {
   sessionForEntry,
   statusOf,
 } from '../domain/history';
+import { findPrepSecret, hintOf } from '../domain/prep';
 import { RELATION_TYPES } from '../domain/relations';
 import { holderAfter, planTrade, stockAfter } from '../domain/shop';
 import {
@@ -375,6 +376,9 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       const secret = prepSecretId ? findPrepSecret(data, prepSecretId)?.secret : undefined;
       if (prepSecretId && !secret) return { problem: 'Dieses Geheimnis gibt es nicht mehr.' };
       if (storyId === undefined) storyId = secret?.storyId ?? null;
+      // Ein Geheimnis, das der Hinweis einer Frage ist: Aufgedeckt heißt gefunden.
+      const linked = secret ? hintOf(data, secret) : null;
+      const known = linked ? linked.hint.found : !!secret?.revealed;
       let alias: { entityId: string; name: string; added: boolean } | null = null;
       if (input.reveal?.alias) {
         const { entityId } = input.reveal.alias;
@@ -391,7 +395,19 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
           text: text || secret?.text || '',
           placeId,
           refs,
-          reveal: { prepSecretId, applied: !!secret && !secret.revealed, alias },
+          reveal: {
+            prepSecretId,
+            applied: !!secret && !known,
+            alias,
+            hint:
+              linked && !linked.hint.found
+                ? {
+                    threadId: linked.thread.id,
+                    hintId: linked.hint.id,
+                    before: { known: linked.thread.known, state: linked.thread.state },
+                  }
+                : null,
+          },
           ...rest(),
         }),
       };
@@ -521,14 +537,6 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
   }
 }
 
-function findPrepSecret(data: CampaignData, secretId: string) {
-  for (const prep of Object.values(data.preps)) {
-    const secret = prep.secrets.find((s) => s.id === secretId);
-    if (secret) return { prep, secret };
-  }
-  return null;
-}
-
 /** Was gegen einen Eintrag spricht – leer, wenn er sich festhalten lässt. Für die Anzeige im Dialog. */
 export function recordProblem(data: CampaignData, input: RecordInput): string {
   const prepared = prepare(data, input, true);
@@ -641,6 +649,16 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
             : secret,
         ),
       });
+      // War es der Hinweis einer Frage, hat die Gruppe ihn jetzt – wie bei „Hinweis gefunden“.
+      const thread = r.hint ? data.threads[r.hint.threadId] : undefined;
+      if (r.hint && thread)
+        db.patch('threads', thread.id, {
+          hints: thread.hints.map((hint) =>
+            hint.id === r.hint!.hintId ? { ...hint, found: true } : hint,
+          ),
+          known: true,
+          state: thread.state === 'open' ? 'active' : thread.state,
+        });
       return;
     }
     case 'companion': {
@@ -1132,6 +1150,20 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
               : secret,
           ),
         });
+        // Der Hinweis dahinter ist dann auch nicht mehr gefunden – der Faden steht wie zuvor.
+        const h = entry.reveal?.hint;
+        const thread = h ? data.threads[h.threadId] : undefined;
+        if (h && thread) {
+          const hints = thread.hints.map((hint) =>
+            hint.id === h.hintId ? { ...hint, found: false } : hint,
+          );
+          const stateAfter = h.before.state === 'open' ? 'active' : h.before.state;
+          changes.patch('threads', thread.id, {
+            hints,
+            known: h.before.known || hints.some((hint) => hint.found),
+            state: thread.state === stateAfter ? h.before.state : thread.state,
+          });
+        }
         break;
       }
       case 'companion': {

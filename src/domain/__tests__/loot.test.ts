@@ -175,7 +175,8 @@ describe('Das Beute-Buch', () => {
   it('zeigt Beute dort, wo sie hingehört: bei der Geschichte im Spiel, sonst beim Abend', async () => {
     const { db, data, mira, loot } = await setup();
     const advice = () =>
-      prepAdvice(data(), prepView(data()).content).find((item) => item.key === 'treasure');
+      prepAdvice(data(), prepView(data()).content).find((item) => item.key === 'loot');
+
     expect(advice()?.done).toBe(false);
     const story = newStory(db);
     const purse = loot({ text: 'Ein Beutel fremder Münzen', gold: 20 });

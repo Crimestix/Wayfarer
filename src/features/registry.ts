@@ -81,7 +81,8 @@ export const STORY_TABS: readonly AreaTab[] = [
   {
     path: '/abend',
     label: 'Abend vorbereiten',
-    hint: 'Einstieg, Szenen, Geheimnisse, Begegnungen, Beute',
+    hint: 'Wo wir stehen, Einstieg, Szenen, Geheimnisse, Orte, Personen',
+
     icon: NotebookPen,
   },
   {

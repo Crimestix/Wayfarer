@@ -2,7 +2,9 @@
  * Die Suche über alles, was der Spielleiter angelegt hat: Einträge der Welt, Artikel, Geschichten
  * und Fäden, Uhren, Abläufe, Termine, Wesen, Begegnungen, Bestände, Karten, Fortschrittsleisten,
  * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler, Läden (auch
- * nach ihren Waren), Fortbewegungsmittel und die Regeln des Tisches. Reine Funktion –
+ * nach ihren Waren), Fortbewegungsmittel, die Blätter der Abende (nach dem, was darauf steht) und
+ * die Regeln des Tisches. Reine Funktion –
+
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';
@@ -11,6 +13,7 @@ import { formatGold } from '../domain/loot';
 import { magicTag } from '../domain/magicItem';
 import { MOUNT_CONDITION_LABEL, MOUNT_KIND_LABEL, ownerText } from '../domain/mounts';
 import { GUESS_TRUTH_LABEL } from '../domain/playerBook';
+import { prepTexts, prepsNewestFirst } from '../domain/prep';
 import { scheduleText } from '../domain/runs';
 import { shopPlaceId, shopTitle } from '../domain/shop';
 import { TABLE_RULES_TITLE, rulesLine } from '../domain/tableRules';
@@ -39,6 +42,7 @@ export type SearchSort =
   | 'guess'
   | 'shop'
   | 'mount'
+  | 'prep'
   | 'rules';
 
 export interface SearchHit {
@@ -317,6 +321,29 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       href: '/gruppe',
       focus: { type: 'mount', id: mount.id },
       mountKind: mount.kind,
+    });
+  }
+
+  // Die Blätter der Abende: gefunden über eine Zeile, die darauf steht – je Blatt ein Treffer.
+  for (const prep of prepsNewestFirst(data)) {
+    const session = prep.sessionId ? data.sessions[prep.sessionId] : undefined;
+    if (prep.sessionId && !session) continue;
+    const lines = prepTexts(prep).flatMap((text) => text.split(/\r?\n/));
+    const line = lines.find((row) => normalize(row).includes(q));
+    if (!line) continue;
+    const current = !session || session.id === data.state.sessionId;
+    add(3, {
+      key: `prep:${prep.id}`,
+      sort: 'prep',
+      label: line.trim(),
+      sub: sub(
+        'Abend-Blatt',
+        session
+          ? `Session ${session.number}${session.id === data.state.sessionId ? ' (läuft)' : ''}`
+          : 'nächster Abend',
+      ),
+      href: current ? '/abend' : '/chronik',
+      focus: { type: 'prep', sessionId: session?.id ?? null },
     });
   }
 

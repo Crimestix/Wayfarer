@@ -3,14 +3,16 @@
  * die Kurzfassungen der Chronik nutzt (`chronik/model.ts`) – auch „Letztes Mal“, das ebenso am
  * Spieltisch steht. Reine Funktionen.
  */
-import { placePath } from '../../domain/derive';
+import { normalize, placePath } from '../../domain/derive';
 import { LOOSE_REASON_SHORT } from '../../domain/looseEnds';
 import type { LastSessionLines } from '../../domain/prep';
 import { hasLine } from '../../domain/prep';
+import { seedOf } from '../../domain/random';
 import type { Recap } from '../../domain/recap';
 import type { CampaignData, ChronicleEntry } from '../../domain/schema';
 import { KIND_SHORT, entryHeadline, sessionLabel } from '../chronik/model';
 import { whenLabel } from '../tisch/model';
+import { suggestNpc } from '../welt/npc';
 
 /**
  * Ein Eintrag der Chronik als Zeile für den Einstieg – so, wie er dort steht: Geschriebenes
@@ -68,6 +70,65 @@ export function lastLinesView(
     lines,
     empty: lines.length ? '' : `Zu ${label} steht nichts in der Chronik.`,
   };
+}
+
+/**
+ * Zeilen der Chronik zum wörtlichen Übernehmen in ein Feld des Blatts (etwa „Was die Gruppe
+ * vorhat“): je Eintrag seine Art und sein Wortlaut – und ob er schon im Feld steht.
+ */
+export function takeLines(
+  data: CampaignData,
+  entries: readonly ChronicleEntry[],
+  field: string,
+): LastLine[] {
+  return entries
+    .map((entry) => ({
+      id: entry.id,
+      kind: KIND_SHORT[entry.kind],
+      line: startLineOf(data, entry),
+    }))
+    .filter((entry) => entry.line)
+    .map((entry) => ({ ...entry, taken: hasLine(field, entry.line) }));
+}
+
+// ── Namen für den Notfall ──────────────────────────────────────────────────
+
+/** So viele erzeugte Namen liegen auf einem Blatt bereit. */
+export const SPARE_NAMES = 6;
+
+export interface SpareName {
+  /** Der erzeugte Name – klingt wie die Namen der Welt, ist aber keiner von ihnen. */
+  name: string;
+  /** Eine Tätigkeit, die zum Ort der Gruppe passt. */
+  role: string;
+}
+
+/**
+ * „Namen für den Notfall“: eine Handvoll erzeugter Namen für Beiwerk-Personen – Namen lassen
+ * sich am Tisch schlecht erfinden. Erzeugt nach festen Regeln (`suggestNpc`): Dasselbe Blatt
+ * zeigt dieselben Namen, bis der Spielleiter neu würfelt (`round`). Keiner heißt wie ein Eintrag
+ * der Welt; für die Geschichte Wichtiges entsteht hier nicht.
+ */
+export function spareNames(
+  data: CampaignData,
+  number: number,
+  round: number,
+  count: number = SPARE_NAMES,
+): SpareName[] {
+  const taken = new Set(Object.values(data.entities).map((entity) => normalize(entity.name)));
+  const names: SpareName[] = [];
+  for (let attempt = 0; names.length < count && attempt < count * 6; attempt++) {
+    const npc = suggestNpc(
+      data,
+      { placeId: data.state.placeId },
+      seedOf('abend-namen', number, round, attempt),
+    );
+    const key = normalize(npc.name);
+    if (taken.has(key)) continue;
+    taken.add(key);
+    names.push({ name: npc.name, role: npc.role });
+  }
+  return names;
 }
 
 // ── Letztes Mal ────────────────────────────────────────────────────────────

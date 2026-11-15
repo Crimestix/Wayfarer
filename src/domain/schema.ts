@@ -928,6 +928,18 @@ export const ChronicleEntrySchema = z.object({
     .object({
       prepSecretId: id.nullable().default(null),
       applied: z.boolean().default(false),
+      /**
+       * Das Geheimnis war der Hinweis einer Frage: Der Eintrag hat ihn gefunden; `before` = Stand
+       * des Fadens davor (wie bei `clue`).
+       */
+      hint: z
+        .object({
+          threadId: id,
+          hintId: id,
+          before: z.object({ known: z.boolean(), state: z.enum(THREAD_STATES) }),
+        })
+        .nullable()
+        .default(null),
       alias: z
         .object({ entityId: id, name: z.string(), added: z.boolean().default(false) })
         .nullable()
@@ -1352,6 +1364,17 @@ export const PrepSceneSchema = z.object({
   done: z.boolean().default(false),
   /** Wo die Szene spielen kann – am Spieltisch erscheint sie, sobald die Gruppe dort ist. */
   placeId: id.nullable().default(null),
+  /** Die Geschichte, zu der sie gehört – wenn sie zu einer gehört. */
+  storyId: id.nullable().default(null),
+  /** Die vorbereitete Begegnung dazu, wenn es eine gibt. */
+  encounterId: id.nullable().default(null),
+  /**
+   * Die Szene einer Geschichte, die hier auf den Abend gelegt wurde: Abgehakt wird beides
+   * zusammen (`resolveContent` in `domain/prep.ts`). null = nur auf diesem Blatt geschrieben.
+   */
+  from: z.object({ storyId: id, sceneId: id }).nullable().default(null),
+  /** Von wie vielen früheren Abenden sie übrig geblieben ist; 0 = hier geschrieben. */
+  carried: z.number().int().nonnegative().default(0),
 });
 export type PrepScene = z.infer<typeof PrepSceneSchema>;
 
@@ -1367,6 +1390,13 @@ export const PrepSecretSchema = z.object({
   /** Die Gruppe hat es erfahren. */
   revealed: z.boolean().default(false),
   revealedAt: worldTime.nullable().default(null),
+  /**
+   * Der Hinweis einer Frage, der hier auf den Abend gelegt wurde: „Aufgedeckt“ heißt „gefunden“
+   * und umgekehrt (`resolveContent` in `domain/prep.ts`). null = nur auf diesem Blatt geschrieben.
+   */
+  hint: z.object({ threadId: id, hintId: id }).nullable().default(null),
+  /** Von wie vielen früheren Abenden es übrig geblieben ist; 0 = hier geschrieben. */
+  carried: z.number().int().nonnegative().default(0),
 });
 export type PrepSecret = z.infer<typeof PrepSecretSchema>;
 
@@ -1385,6 +1415,27 @@ export const PrepSchema = z.object({
   encounterIds: z.array(id).default([]),
   /** Beute, die der Abend bringen kann. */
   treasure: z.string().default(''),
+  /** Was die Gruppe vorhat – in den Worten des Spielleiters (oder aus der Chronik übernommen). */
+  plan: z.string().default(''),
+  /** Der Einstieg ist gespielt – am Spieltisch abgehakt. */
+  startDone: z.boolean().default(false),
+  /** Orte, die der Abend brauchen kann – Verweise, kein Abschreiben. */
+  placeIds: z.array(id).default([]),
+  /** Personen, die der Abend brauchen kann. */
+  personIds: z.array(id).default([]),
+  /** Fächer, die der Spielleiter für diesen Abend abgewählt hat („heute nicht nötig“). */
+  skipped: z.array(z.string()).default([]),
+  /**
+   * Was vom letzten Abend herübergekommen und noch nicht angesehen ist: `scene:<id>`,
+   * `secret:<id>`, `encounter:<id>`, `start`, `treasure` (`leftoverLines` in `domain/prep.ts`).
+   */
+  pending: z.array(z.string()).default([]),
+  /** Die Blätter früherer Abende, deren Übriges dieses Blatt schon übernommen hat. */
+  carriedFrom: z.array(id).default([]),
+  /** Wie oft die „Namen für den Notfall“ neu gewürfelt wurden – der Ausgangswert bleibt stabil. */
+  namesRound: z.number().int().nonnegative().default(0),
+  /** Namen aus dem Text des Blatts, die der Spielleiter weggeklickt hat („nicht gemeint“). */
+  notMeant: z.array(z.string()).default([]),
 });
 export type Prep = z.infer<typeof PrepSchema>;
 

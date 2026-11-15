@@ -35,7 +35,9 @@ export interface WritingResult {
 /**
  * Nimmt einen eben angelegten Eintrag aus den Blättern, in die er seither gewählt wurde: aus
  * Geschichten (Antreiber, Beteiligte, Ort eines Einstiegs oder einer Szene), ihren Uhren,
- * Fäden (Namen, „Wo?“ und „Wer weiß es?“ der Hinweise) und Abenden (Ort einer Szene). Sonst
+ * Fäden (Namen, „Wo?“ und „Wer weiß es?“ der Hinweise) und Abenden (Ort einer Szene, Orte und
+ * Personen des Abends). Sonst
+
  * bliebe dort nach „Rückgängig“ ein „Gelöschter Eintrag“ stehen. Der geschriebene Text bleibt.
  */
 function takeFromSheets(db: CampaignDb, entityId: string): void {
@@ -74,6 +76,9 @@ function takeFromSheets(db: CampaignDb, entityId: string): void {
   for (const prep of Object.values(data.preps)) {
     const change: Partial<Prep> = {};
     if (placed(prep.scenes)) change.scenes = unplaced(prep.scenes);
+    if (prep.placeIds.includes(entityId)) change.placeIds = prep.placeIds.filter(other);
+    if (prep.personIds.includes(entityId)) change.personIds = prep.personIds.filter(other);
+
     if (Object.keys(change).length) db.patch('preps', prep.id, change);
   }
 }

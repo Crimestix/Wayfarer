@@ -5,6 +5,7 @@ import { MemoryStore } from '../../data/store';
 import { patchPrep, setSceneDone } from '../../features/abend/actions';
 import { newStory, patchStory } from '../../features/faeden/actions';
 import { scenesHere } from '../scenesHere';
+import { sceneOfText } from '../prep';
 import { createEntity, newId } from '../schema';
 
 /** Hohenfurt mit dem Markt darin, und die Salzgrotte – erfunden. */
@@ -26,9 +27,9 @@ describe('Szenen am Ort der Gruppe', () => {
     const there = newId();
     patchPrep(db, {
       scenes: [
-        { id: here, text: 'Ein leeres Boot treibt heran', done: false, placeId: market.id },
-        { id: there, text: 'Steinschlag', done: false, placeId: grotto.id },
-        { id: newId(), text: 'Ohne Ort', done: false, placeId: null },
+        { ...sceneOfText('Ein leeres Boot treibt heran', { placeId: market.id }), id: here },
+        { ...sceneOfText('Steinschlag', { placeId: grotto.id }), id: there },
+        sceneOfText('Ohne Ort'),
       ],
     });
     const story = newStory(db);

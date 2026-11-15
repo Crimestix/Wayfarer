@@ -10,16 +10,17 @@ import { Check, CornerDownLeft, Flame, Plus, Swords, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import {
-  SECRETS_WANTED,
+  EMPTY_PREP,
   lastSessionLines,
-  openSecrets,
   prepAdvice,
   prepView,
   readyEncounters,
+  sceneOfText,
+  secretOfText,
   type PrepView,
 } from '../../domain/prep';
 import { recap as recapOf } from '../../domain/recap';
-import { newId, type PrepScene, type PrepSecret } from '../../domain/schema';
+import type { PrepScene, PrepSecret } from '../../domain/schema';
 import { storiesOfHero, storyClock, untilText } from '../../domain/story';
 import {
   Button,
@@ -78,17 +79,6 @@ function PrepSheet({ view }: { view: PrepView }) {
             {view.session
               ? 'Dieses Blatt gehört zum laufenden Abend. Am Spieltisch hakst du ab, was gespielt und aufgedeckt wurde.'
               : 'Was hier steht, liegt am Spieltisch bereit, sobald der Abend beginnt.'}
-            {view.carried.scenes + view.carried.secrets > 0 &&
-              ` Vom letzten Abend übrig: ${[
-                view.carried.secrets > 0 &&
-                  (view.carried.secrets === 1
-                    ? '1 Geheimnis'
-                    : `${view.carried.secrets} Geheimnisse`),
-                view.carried.scenes > 0 &&
-                  (view.carried.scenes === 1 ? '1 Szene' : `${view.carried.scenes} Szenen`),
-              ]
-                .filter(Boolean)
-                .join(' und ')}.`}
           </p>
         </header>
 
@@ -375,11 +365,7 @@ function Scenes({ scenes }: { scenes: PrepScene[] }) {
       title="Mögliche Szenen"
       hint="Ein, zwei Sätze je Szene. Sie sind ein Angebot – sei bereit, sie wegzuwerfen."
       action={
-        <Button
-          size="sm"
-          icon={<Plus />}
-          onClick={() => list.add({ id: newId(), text: '', done: false, placeId: null })}
-        >
+        <Button size="sm" icon={<Plus />} onClick={() => list.add(sceneOfText(''))}>
           Szene
         </Button>
       }
@@ -436,22 +422,15 @@ function Secrets({ secrets }: { secrets: PrepSecret[] }) {
   const stories = Object.values(data.stories)
     .filter((story) => !story.closed)
     .sort((a, b) => a.title.localeCompare(b.title, 'de'));
-  const ready = openSecrets({ ...EMPTY_LISTS, secrets }).length;
-  const add = () =>
-    list.add({ id: newId(), text: '', storyId: null, revealed: false, revealedAt: null });
+  const add = () => list.add(secretOfText(''));
   return (
     <SheetSection
       title="Geheimnisse und Hinweise"
       hint="Was die Gruppe erfahren könnte – noch an keinem Ort und keiner Person festgemacht. Wo sie es findet, entscheidest du am Tisch. Was offen bleibt, wandert in den nächsten Abend."
       action={
-        <>
-          <span className={cx('wf-abend-count', ready < SECRETS_WANTED && 'wf-abend-count--low')}>
-            {ready} von {SECRETS_WANTED}
-          </span>
-          <Button size="sm" icon={<Plus />} onClick={add}>
-            Geheimnis
-          </Button>
-        </>
+        <Button size="sm" icon={<Plus />} onClick={add}>
+          Geheimnis
+        </Button>
       }
     >
       {list.items.length === 0 && <p className="wf-sheet__none">Noch kein Geheimnis.</p>}
@@ -514,15 +493,14 @@ function Secrets({ secrets }: { secrets: PrepSecret[] }) {
   );
 }
 
-const EMPTY_LISTS = { start: '', scenes: [], secrets: [], encounterIds: [], treasure: '' };
-
 // ── Begegnungen ────────────────────────────────────────────────────────────
 
 function Encounters({ ids }: { ids: string[] }) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
-  const ready = readyEncounters(data, { ...EMPTY_LISTS, encounterIds: ids });
+  const ready = readyEncounters(data, { ...EMPTY_PREP, encounterIds: ids });
+
   const others = Object.values(data.encounters)
     .filter((encounter) => !ids.includes(encounter.id))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));

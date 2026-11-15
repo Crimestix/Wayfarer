@@ -6,7 +6,7 @@ import { MemoryStore } from '../../data/store';
 import { lastSessionLines } from '../../domain/prep';
 import { recap } from '../../domain/recap';
 import { createEntity, createEvent } from '../../domain/schema';
-import { lastLinesView, recapView, startLineOf } from './model';
+import { SPARE_NAMES, lastLinesView, recapView, spareNames, startLineOf } from './model';
 
 async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
@@ -90,5 +90,23 @@ describe('Letztes Mal – als Zeilen', () => {
       },
     ]);
     expect(view.empty).toBe('');
+  });
+});
+
+describe('Namen für den Notfall', () => {
+  it('bleiben je Blatt dieselben, bis neu gewürfelt wird – und keiner heißt wie ein Eintrag', async () => {
+    const { db, data } = await setup();
+    for (const name of ['Mira Tannhaus', 'Odo Tannhaus', 'Lando Furtner', 'Brann Eichwald'])
+      db.put('entities', createEntity({ kind: 'person', name }));
+    const first = spareNames(data(), 13, 0);
+    expect(first).toHaveLength(SPARE_NAMES);
+    expect(spareNames(data(), 13, 0)).toEqual(first);
+    expect(new Set(first.map((entry) => entry.name)).size).toBe(SPARE_NAMES);
+    const known = new Set(Object.values(data().entities).map((entity) => entity.name));
+    expect(first.some((entry) => known.has(entry.name))).toBe(false);
+    expect(first.every((entry) => entry.role !== '')).toBe(true);
+    // Neu würfeln und ein anderes Blatt geben andere Namen.
+    expect(spareNames(data(), 13, 1)).not.toEqual(first);
+    expect(spareNames(data(), 14, 0)).not.toEqual(first);
   });
 });

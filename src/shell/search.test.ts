@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { startSession } from '../data/actions';
 import { CampaignDb } from '../data/db';
 import { elarisCampaign } from '../data/seed';
 import { MemoryStore } from '../data/store';
@@ -19,7 +20,10 @@ import {
   createThread,
   createTrack,
 } from '../domain/schema';
+import { currentPrep, secretOfText } from '../domain/prep';
 import { MINUTES_PER_DAY, dayIndexOf } from '../domain/time/calendar';
+import { patchPrep } from '../features/abend/actions';
+
 import { saveRun } from '../features/geschehen/actions';
 import { createArticle } from '../features/wiki/actions';
 import { searchWorld } from './search';
@@ -297,5 +301,34 @@ describe('Die Suche', () => {
       focus: { type: 'rules' },
     });
     expect(searchWorld(world.data(), 'regeln des')[0]?.key).toBe('rules');
+  });
+
+  it('findet, was auf den Blättern der Abende steht – das laufende, das nächste und ein früheres', async () => {
+    const world = await setup();
+    const { db } = world;
+    const running = db.getSnapshot().state.sessionId!;
+    patchPrep(db, { start: 'Glocken läuten Sturm.\nEin leeres Boot treibt heran.' });
+    const sheet = currentPrep(db.getSnapshot())!;
+    expect(searchWorld(world.data(), 'leeres boot').find((h) => h.sort === 'prep')).toEqual({
+      key: `prep:${sheet.id}`,
+      sort: 'prep',
+      label: 'Ein leeres Boot treibt heran.',
+      sub: `Abend-Blatt · Session ${db.getSnapshot().sessions[running]!.number} (läuft)`,
+      href: '/abend',
+      focus: { type: 'prep', sessionId: running },
+    });
+    patchPrep(db, { secrets: [secretOfText('Der Zöllner hat zwei Kassen')] }, 'next');
+    expect(searchWorld(world.data(), 'kassen').find((h) => h.sort === 'prep')).toMatchObject({
+      sub: 'Abend-Blatt · nächster Abend',
+      href: '/abend',
+      focus: { type: 'prep', sessionId: null },
+    });
+    // Ein früherer Abend: Sein Blatt liegt bei der Session in der Chronik.
+    startSession(db);
+    expect(searchWorld(world.data(), 'leeres boot').find((h) => h.sort === 'prep')).toMatchObject({
+      key: `prep:${sheet.id}`,
+      href: '/chronik',
+      focus: { type: 'prep', sessionId: running },
+    });
   });
 });

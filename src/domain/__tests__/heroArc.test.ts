@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
+import { activeParty } from '../derive';
+
 import { emptyCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
@@ -241,20 +243,35 @@ describe('Rampenlicht', () => {
   });
 
   it('erscheint als Rat beim Vorbereiten des Abends', async () => {
-    const { mira, lando, add, data, sessions } = await evenings();
+    const { db, mira, lando, add, data, sessions } = await evenings();
     const [, , s3, s4] = sessions.map((session) => session.id);
     add({ sessionId: s4!, refs: [mira.id] });
     add({ sessionId: s4!, refs: [lando.id] });
     // Ein Abend allein sagt noch nichts.
-    expect(prepAdvice(data(), prepView(data()).content).some((a) => a.key === 'spotlight')).toBe(
-      false,
-    );
+    const party = () =>
+      prepAdvice(data(), prepView(data()).content).find((entry) => entry.key === 'party')!;
+    // Ein Abend allein sagt noch nichts.
+    expect(spotlightHint(data())).toBeNull();
     add({ sessionId: s3!, refs: [mira.id, lando.id] });
-    const advice = prepAdvice(data(), prepView(data()).content).find(
-      (entry) => entry.key === 'spotlight',
+    const hint = spotlightHint(data())!;
+    expect(hint).toContain('Brann Eichwald');
+    expect(party().why).not.toContain(hint);
+    // Ein ruhiger Satz bei den Gefährten – erst, wenn für jeden etwas auf dem Blatt steht, und
+    // nie als eigener offener Punkt.
+    db.put(
+      'stories',
+      createStory({
+        title: 'Der Griff nach dem Zoll',
+        inPlay: true,
+        heroes: activeParty(data()).map((character) => ({
+          id: character.id,
+          characterId: character.id,
+          why: '',
+        })),
+      }),
     );
-    expect(advice).toMatchObject({ done: false });
-    expect(advice!.why).toContain('Brann Eichwald');
+    expect(party()).toMatchObject({ done: true });
+    expect(party().why).toContain(hint);
   });
 
   it('spricht die Zahl der Abende aus', () => {

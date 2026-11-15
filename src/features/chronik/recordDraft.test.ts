@@ -3,7 +3,9 @@ import { CampaignDb } from '../../data/db';
 import { recordEntries, recordEntry } from '../../data/record';
 import { emptyCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
+import { secretOfText } from '../../domain/prep';
 import { recognizeEntry } from '../../domain/recognize';
+
 import { PARTY_ID, createEntity, createPrep, createThread, type Entity } from '../../domain/schema';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
 import {
@@ -319,9 +321,11 @@ describe('Auswahllisten', () => {
             storyId: null,
             revealed: false,
             revealedAt: null,
+            hint: null,
+            carried: 0,
           },
-          { id: 's2', text: 'Mira kennt den Weg', storyId: null, revealed: true, revealedAt: NOW },
-          { id: 's3', text: '  ', storyId: null, revealed: false, revealedAt: null },
+          { ...secretOfText('Mira kennt den Weg'), id: 's2', revealed: true, revealedAt: NOW },
+          { ...secretOfText('  '), id: 's3' },
         ],
       }),
     );

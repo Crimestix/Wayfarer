@@ -421,7 +421,9 @@ export function startSession(
       }),
     );
     db.setState({ sessionId: session.id });
-    // Was für den kommenden Abend vorbereitet wurde, ist jetzt das Blatt dieses Abends.
+    // Was für den kommenden Abend vorbereitet wurde, ist jetzt das Blatt dieses Abends. Was vom
+    // Abend davor übrig ist, kommt beim Lesen dazu (`prepView`) – auch ohne offenes Blatt.
+
     const prep = Object.values(db.getSnapshot().preps).find((entry) => entry.sessionId === null);
     if (prep) db.patch('preps', prep.id, { sessionId: session.id });
     return session;

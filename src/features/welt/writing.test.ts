@@ -4,6 +4,8 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { findRelation } from '../../domain/derive';
+import { sceneOfText } from '../../domain/prep';
+
 import {
   PARTY_ID,
   createClock,
@@ -168,7 +170,7 @@ describe('Anlegen beim Schreiben', () => {
     const prep = db.put(
       'preps',
       createPrep({
-        scenes: [{ id: newId(), text: 'Ankunft', done: false, placeId: grotte.entity.id }],
+        scenes: [sceneOfText('Ankunft', { placeId: grotte.entity.id })],
       }),
     );
 
