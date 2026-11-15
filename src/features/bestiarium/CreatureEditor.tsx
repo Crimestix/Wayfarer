@@ -61,6 +61,7 @@ import {
   TextArea,
   confirmDialog,
   cx,
+  useHoldDraft,
 } from '../../ui';
 import { addToWorld, linkAnimalCreature, saveCreature } from './actions';
 import {
@@ -196,6 +197,8 @@ function Editor({
   const done = useRef(false);
 
   const dirty = draftsDiffer(draft, baseline);
+  // Der Entwurf weicht ab: Der Abgleich übernimmt nichts, bis er gespeichert oder verworfen ist.
+  useHoldDraft(dirty, 'creature');
   const inherits = draftInherits(draft);
   const parent = useMemo(
     () => (inherits && draft.parentId ? resolveCreature(data.creatures, draft.parentId) : null),

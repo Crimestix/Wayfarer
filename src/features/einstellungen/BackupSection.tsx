@@ -15,6 +15,7 @@ import {
 import { errorText, readJsonFile, saveBackupFile } from './files';
 import { ActionRow, Notice, useFilePicker } from './parts';
 import { PartsLine, ReplaceDialog } from './ReplaceDialog';
+import { syncBeforeRestore } from '../abgleich';
 
 const MAX_LISTED = 6;
 
@@ -59,8 +60,16 @@ export function BackupSection() {
     }
   });
 
-  const apply = () => {
+  const apply = async () => {
     if (!pending) return;
+    // Der gemeinsame Stand des Abgleichs gilt danach nicht mehr: Der nächste Abgleich fragt,
+    // welcher Stand gilt, statt den eingespielten still zu verteilen.
+    try {
+      await syncBeforeRestore();
+    } catch (e) {
+      toast({ title: 'Abgleich nicht vorbereitet', body: errorText(e), tone: 'danger' });
+      return;
+    }
     db.replaceAll(pending.result.data);
     setPending(null);
     toast({

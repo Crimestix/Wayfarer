@@ -7,3 +7,4 @@ export * from './memory';
 export * from './create';
 export * from './mention';
 export * from './names';
+export { useHoldDraft } from './drafts';

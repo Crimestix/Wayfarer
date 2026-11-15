@@ -10,6 +10,7 @@ import { Button, Dialog, Field, Input, toast } from '../../ui';
 import { errorText } from './files';
 import { CAMPAIGN_NAME_MAX, cleanCampaignName, isInsideFolder } from './model';
 import { ActionRow, Notice } from './parts';
+import { syncBeforeRestore } from '../abgleich';
 
 function NameField() {
   const db = useDb();
@@ -209,8 +210,16 @@ export function CampaignSection() {
     const demo = elarisCampaign();
     return formatDate(demo.campaign.calendar, demo.state.now);
   }, []);
-  const resetDemo = () => {
+  const resetDemo = async () => {
     setResetOpen(false);
+    // Der gemeinsame Stand des Abgleichs gilt danach nicht mehr: Der nächste Abgleich fragt,
+    // welcher Stand gilt, statt den eingespielten still zu verteilen.
+    try {
+      await syncBeforeRestore();
+    } catch (e) {
+      toast({ title: 'Abgleich nicht vorbereitet', body: errorText(e), tone: 'danger' });
+      return;
+    }
     db.replaceAll(elarisCampaign());
     toast({ title: 'Vorschau zurückgesetzt' });
   };

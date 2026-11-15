@@ -16,6 +16,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { X } from 'lucide-react';
+import { useHoldDraft } from './drafts';
 
 export const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(' ');
@@ -307,6 +308,8 @@ export function Dialog({
   guard = true,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // Solange ein Dialog offen ist, übernimmt der Abgleich nichts vom anderen Rechner.
+  useHoldDraft(open, 'dialog');
   /** Im Dialog wurde etwas eingegeben, das beim Schließen verloren ginge. */
   const dirty = useRef(false);
   useEffect(() => {

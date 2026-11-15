@@ -26,6 +26,7 @@ import { formatRealTime, summarize } from './backup';
 import { errorText, readJsonFile } from './files';
 import { ActionRow, Notice, useFilePicker } from './parts';
 import { ReplaceDialog } from './ReplaceDialog';
+import { syncBeforeRestore } from '../abgleich';
 
 interface Picked {
   result: ImportResult;
@@ -236,8 +237,16 @@ export function LegacySection() {
     }
   });
 
-  const apply = () => {
+  const apply = async () => {
     if (!pending) return;
+    // Der gemeinsame Stand des Abgleichs gilt danach nicht mehr: Der nächste Abgleich fragt,
+    // welcher Stand gilt, statt den eingespielten still zu verteilen.
+    try {
+      await syncBeforeRestore();
+    } catch (e) {
+      toast({ title: 'Abgleich nicht vorbereitet', body: errorText(e), tone: 'danger' });
+      return;
+    }
     db.replaceAll(pending.result.data);
     rememberImport(pending.result, pending.fileName);
     // Familien aus den Nachnamen der übernommenen Personen – ohne Nachfrage, mit Rücknahme.

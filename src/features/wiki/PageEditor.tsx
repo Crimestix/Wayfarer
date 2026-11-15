@@ -22,7 +22,7 @@ import {
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import type { Article, ArticleDoc } from '../../domain/schema';
-import { MenuItem, Popover } from '../../ui';
+import { MenuItem, Popover, useHoldDraft } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { savePageText } from './actions';
 import { applyFacts } from './FactsHint';
@@ -117,6 +117,8 @@ export default function PageEditor({
   const [initial, setInitial] = useState(stored);
   const [revision, setRevision] = useState(0);
   const [dirty, setDirty] = useState(false);
+  // Ungeschriebener Text: Der Abgleich wartet mit dem Übernehmen, bis er geschrieben ist.
+  useHoldDraft(dirty, 'page');
   const [boxes, setBoxes] = useState(false);
   const boxAnchor = useRef<HTMLButtonElement>(null);
 

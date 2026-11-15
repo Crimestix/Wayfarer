@@ -7,6 +7,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, Circle, Minus, X } from 'lucide-react';
 import { Input, TextArea } from './components';
+import { useHoldDraft } from './drafts';
 import { useMention, type MentionOptions } from './mention';
 import './sheet.css';
 
@@ -70,6 +71,8 @@ export function Written({
   const [text, setText] = useState(value);
   // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
   useEffect(() => setText(value), [value]);
+  // Ungeschriebener Text: Der Abgleich wartet mit dem Übernehmen, bis er geschrieben ist.
+  useHoldDraft(text !== value, 'written');
   const input = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const commit = () => {
