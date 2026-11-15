@@ -957,6 +957,15 @@ button.wf-tisch-story__title:enabled:hover b {
 .wf-tisch-cast__fate {
   color: var(--blood-bright);
 }
+/* Haltung zu einzelnen Gefährten, wo sie von der zur Gruppe abweicht – knapp, in der Farbe des Arkanen wie die Haltung in der Chronik. */
+.wf-tisch-cast__mates {
+  color: var(--arcane);
+  font-variant-numeric: tabular-nums;
+}
+.wf-tisch-peek__actions .wf-tisch-cast__mates {
+  align-self: center;
+  font-size: var(--text-sm);
+}
 .wf-tisch-cast__sub {
   display: block;
   font-size: var(--text-sm);

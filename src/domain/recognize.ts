@@ -1112,7 +1112,7 @@ function knowledgeRules(ctx: Context, out: Draft[]) {
 }
 
 const ATTITUDE = words(
-  'hasst|hasste|hassen|ist wütend|war wütend|sind wütend|wütend auf|zornig|verabscheut|misstraut|misstraute|vertraut|vertraute|mag uns|liebt|ist dankbar|sind dankbar|dankbar|feindselig|freundlich gesinnt|beleidigt|verärgert',
+  'verliebt in|hasst|hasste|hassen|ist wütend|war wütend|sind wütend|wütend auf|zornig|verabscheut|misstraut|misstraute|vertraut|vertraute|mag uns|liebt|ist dankbar|sind dankbar|dankbar|feindselig|freundlich gesinnt|beleidigt|verärgert',
 );
 
 function attitudeRules(ctx: Context, out: Draft[]) {

@@ -339,6 +339,15 @@ describe('Erkennen: zwischen Leuten', () => {
       only(recognizeEntry(w.data, 'Lando ist wütend auf Mira Tannhaus.'), 'attitude')[0]?.payload
         .attitude,
     ).toEqual({ fromId: w.lando.id, toId: w.mira.id, value: null });
+    // Zu einem einzelnen Gefährten, nicht zur ganzen Gruppe.
+    expect(
+      only(recognizeEntry(w.data, 'Mira Tannhaus ist verliebt in Brann Eichwald.'), 'attitude')[0]
+        ?.payload.attitude,
+    ).toEqual({ fromId: w.mira.id, toId: w.brann.id, value: null });
+    expect(
+      only(recognizeEntry(w.data, 'Krummzahn verabscheut Ilka Sturmfels.'), 'attitude')[0]?.payload
+        .attitude,
+    ).toEqual({ fromId: w.krummzahn.id, toId: w.ilka.id, value: null });
   });
 
   it('Wer was weiß', () => {

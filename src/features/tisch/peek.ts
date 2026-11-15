@@ -7,7 +7,14 @@
  */
 import { useSyncExternalStore } from 'react';
 import { articleParts, type ArticleFact } from '../../domain/articleText';
-import { attitudeToParty, chronicleFor, openPromises, relationPairs } from '../../domain/derive';
+import {
+  attitudeToParty,
+  chronicleFor,
+  mateAttitudeText,
+  mateAttitudes,
+  openPromises,
+  relationPairs,
+} from '../../domain/derive';
 import { memoryOf, type MemoryFact } from '../../domain/memory';
 import { relationLabel } from '../../domain/relations';
 import { PARTY_ID, type CampaignData, type ChronicleEntry, type Entity } from '../../domain/schema';
@@ -26,6 +33,8 @@ export interface PeekView {
   /** Das Wichtigste in Kürze (wie unter der Mitschrift): Schicksal, Haltung, wo, zuletzt … */
   memory: MemoryFact[];
   attitude: number | null;
+  /** Abweichende Haltungen zu einzelnen Gefährten, knapp: „Tomlin +5 · Neil −3“; sonst leer. */
+  mates: string;
   /** Lässt sich eine Haltung zur Gruppe festlegen? */
   hasAttitude: boolean;
   promises: ChronicleEntry[];
@@ -64,6 +73,7 @@ export function peekView(data: CampaignData, id: string): PeekView | null {
         fact.kind !== 'tagline' && !(fact.kind === 'attitude' && ATTITUDE_KINDS.has(entity.kind)),
     ),
     attitude: attitudeToParty(data, id),
+    mates: ATTITUDE_KINDS.has(entity.kind) ? mateAttitudeText(mateAttitudes(data, id)) : '',
     hasAttitude: ATTITUDE_KINDS.has(entity.kind),
     promises: openPromises(data, id),
     facts: text ? articleParts(text).facts.slice(0, PEEK_FACTS) : [],

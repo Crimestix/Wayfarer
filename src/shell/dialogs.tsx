@@ -36,11 +36,17 @@ import {
   isOwnDialogChoice,
   type RecordChoice,
 } from '../domain/chronicleKinds';
-import { entityName, findRelation, placePath, sessionsSorted } from '../domain/derive';
+import {
+  entityName,
+  findRelation,
+  placePath,
+  sessionsSorted,
+  signedAttitude,
+} from '../domain/derive';
 import { placeForEntry, sessionForEntry } from '../domain/history';
 import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
-import { attitudeModeChoice, type AttitudeMode } from '../domain/attitudeSetting';
+import { attitudeModeChoice, attitudeTargets, type AttitudeMode } from '../domain/attitudeSetting';
 import {
   PARTY_ID,
   createEntity,
@@ -770,13 +776,23 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
 function AttitudeDialog({ request }: { request: AttitudeRequest }) {
   const db = useDb();
   const data = useData();
-  const toId = request.toId ?? PARTY_ID;
+  // Gegenüber: die Gruppe oder ein einzelner Gefährte (`attitudeTargets`); Vorgabe die Gruppe.
+  const [targets] = useState(() => attitudeTargets(data, request.fromId, request.toId));
+  const [toId, setToId] = useState(request.toId ?? PARTY_ID);
   const before = findRelation(data, request.fromId, toId)?.attitude ?? null;
   const [value, setValue] = useState<number | null>(before);
   const [reason, setReason] = useState('');
-  const [choice] = useState(() => attitudeModeChoice(data, request.fromId, toId));
+  const [choice, setChoice] = useState(() => attitudeModeChoice(data, request.fromId, toId));
   const [mode, setMode] = useState<AttitudeMode>(choice.preset);
   const given = mode === 'given' && choice.givenPossible;
+  const pickTarget = (id: string) => {
+    if (id === toId) return;
+    const next = attitudeModeChoice(data, request.fromId, id);
+    setToId(id);
+    setValue(findRelation(data, request.fromId, id)?.attitude ?? null);
+    setChoice(next);
+    setMode(next.preset);
+  };
   const save = () => {
     setAttitude(db, request.fromId, toId, value, given ? '' : reason, given ? 'given' : 'change');
     closeShellRequest();
@@ -806,6 +822,32 @@ function AttitudeDialog({ request }: { request: AttitudeRequest }) {
           <ArrowRight width={16} height={16} className="wf-mute" />
           <span className="wf-display">{entityName(data, toId)}</span>
         </div>
+        {targets.length > 1 && (
+          <Field
+            label="Gegenüber"
+            hint="Zur ganzen Gruppe oder zu einem Gefährten – etwa wenn jemand Neil nicht mag, Tomlin aber schon."
+          >
+            <div
+              className="wf-btn-group"
+              role="group"
+              aria-label="Gegenüber"
+              style={{ flexWrap: 'wrap' }}
+            >
+              {targets.map((target) => (
+                <Button
+                  key={target.id}
+                  size="sm"
+                  aria-pressed={toId === target.id}
+                  title={`Bisher: ${attitudeLabel(target.value)}`}
+                  onClick={() => pickTarget(target.id)}
+                >
+                  {target.id === PARTY_ID ? 'zur Gruppe' : `zu ${target.name}`}
+                  {target.value !== null && ` ${signedAttitude(target.value)}`}
+                </Button>
+              ))}
+            </div>
+          </Field>
+        )}
         <AttitudeScale value={value} onChange={setValue} />
         {value !== before && (
           <div className="wf-mute" style={{ fontSize: 'var(--text-sm)' }}>

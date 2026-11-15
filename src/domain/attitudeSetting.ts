@@ -3,8 +3,8 @@
  * jemanden seit Langem und trägt der Spielleiter nur nach, wie er zu ihr steht, gehört das nicht
  * als heutige Änderung in die Chronik („War schon so“). Erst was sich im Spiel ändert, steht dort.
  */
-import { attitudeHistory, byTime, findRelation } from './derive';
-import type { CampaignData, ChronicleEntry } from './schema';
+import { activeParty, attitudeHistory, byTime, findRelation } from './derive';
+import { PARTY_ID, type CampaignData, type ChronicleEntry } from './schema';
 
 /** Wie eine Haltung gesetzt wird: als Änderung im Spiel (Chronik) oder als schon bestehend. */
 export type AttitudeMode = 'change' | 'given';
@@ -48,4 +48,35 @@ export function attitudeSettings(data: CampaignData): ChronicleEntry[] {
         entry.attitude!.before === null && entry.attitude!.after !== null && !entry.text.trim(),
     )
     .sort((a, b) => byTime(b, a));
+}
+
+/** Ein Gegenüber zur Wahl im Haltungs-Dialog: die Gruppe oder ein einzelner Gefährte. */
+export interface AttitudeTarget {
+  id: string;
+  name: string;
+  /** Die Haltung zu ihm bisher; null = keine. */
+  value: number | null;
+}
+
+/**
+ * Gegenüber wem eine Haltung im Dialog gesetzt werden kann: die Gruppe und jeder aktive
+ * Gefährte („mag Neil nicht, ist aber in Tomlin verliebt“). Steht schon ein anderes Gegenüber
+ * fest (etwa von der Seite eines Gefährten aus ein anderer Eintrag), gibt es keine Wahl: leer.
+ */
+export function attitudeTargets(
+  data: CampaignData,
+  fromId: string,
+  presetToId: string | undefined,
+): AttitudeTarget[] {
+  const mates = activeParty(data).filter((mate) => mate.id !== fromId);
+  if (!mates.length) return [];
+  if (presetToId && presetToId !== PARTY_ID && !mates.some((mate) => mate.id === presetToId))
+    return [];
+  const valueTo = (toId: string) => findRelation(data, fromId, toId)?.attitude ?? null;
+  return [
+    { id: PARTY_ID, name: 'Gruppe', value: valueTo(PARTY_ID) },
+    ...mates
+      .map((mate) => ({ id: mate.id, name: mate.name, value: valueTo(mate.id) }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+  ];
 }

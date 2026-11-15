@@ -135,6 +135,14 @@ export function PeekPanel() {
                     <AttitudeBadge value={view.attitude} />
                   </button>
                 )}
+                {view.mates && (
+                  <span
+                    className="wf-tisch-cast__mates"
+                    title="Haltung zu einzelnen Gefährten, wo sie von der zur Gruppe abweicht"
+                  >
+                    {view.mates}
+                  </span>
+                )}
                 <Button
                   size="sm"
                   icon={inView ? <PinOff /> : <Pin />}

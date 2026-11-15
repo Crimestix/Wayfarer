@@ -7,6 +7,8 @@
 import { FATE_LABEL } from './chronicleKinds';
 import {
   attitudeToParty,
+  mateAttitudeText,
+  mateAttitudes,
   chronicleSorted,
   entityName,
   openPromises,
@@ -131,9 +133,14 @@ function attitudeFact(data: CampaignData, id: string): MemoryFact | null {
   const kind = data.entities[id]?.kind;
   if (kind !== 'person' && kind !== 'faction') return null;
   const value = attitudeToParty(data, id);
-  return value === null
-    ? null
-    : { kind: 'attitude', text: attitudeLabel(value).toLocaleLowerCase('de') };
+  // Abweichende Haltungen zu einzelnen Gefährten stehen knapp dahinter („Tomlin +5 · Neil −3“).
+  const text = [
+    value === null ? '' : attitudeLabel(value).toLocaleLowerCase('de'),
+    mateAttitudeText(mateAttitudes(data, id)),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return text ? { kind: 'attitude', text } : null;
 }
 
 function whereFact(data: CampaignData, id: string, gone: boolean): MemoryFact | null {

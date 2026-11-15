@@ -500,6 +500,37 @@ export function attitudeToParty(data: CampaignData, entityId: string): number | 
   return findRelation(data, entityId, PARTY_ID)?.attitude ?? null;
 }
 
+/** Eine Haltung zu einem einzelnen Gefährten, die von der zur Gruppe abweicht. */
+export interface MateAttitude {
+  id: string;
+  name: string;
+  value: number;
+}
+
+/**
+ * Die Haltungen von `fromId` zu einzelnen aktiven Gefährten, die von seiner Haltung zur Gruppe
+ * abweichen („mag Neil nicht, ist aber in Tomlin verliebt“) – nach dem Namen. Gleiche Haltungen
+ * stehen nicht da: Sie sagen nichts über die zur Gruppe hinaus.
+ */
+export function mateAttitudes(data: CampaignData, fromId: string): MateAttitude[] {
+  const toParty = attitudeToParty(data, fromId);
+  return activeParty(data)
+    .filter((mate) => mate.id !== fromId)
+    .flatMap((mate) => {
+      const value = findRelation(data, fromId, mate.id)?.attitude ?? null;
+      return value === null || value === toParty ? [] : [{ id: mate.id, name: mate.name, value }];
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+/** Eine Stufe der Haltung als Zahl mit Vorzeichen: „+5“, „−3“, „±0“. */
+export const signedAttitude = (value: number): string =>
+  value > 0 ? `+${value}` : value < 0 ? `−${-value}` : '±0';
+
+/** Abweichende Haltungen knapp in einer Zeile: „Tomlin +5 · Neil −3“; leer, wenn keine. */
+export const mateAttitudeText = (mates: readonly MateAttitude[]): string =>
+  mates.map((mate) => `${mate.name} ${signedAttitude(mate.value)}`).join(' · ');
+
 /** Verlauf der Haltung von `fromId` gegenüber `toId`, älteste zuerst. */
 export function attitudeHistory(
   data: CampaignData,

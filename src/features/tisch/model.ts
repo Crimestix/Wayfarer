@@ -8,6 +8,8 @@ import { openClocks } from '../../domain/clock';
 import {
   activeParty,
   attitudeToParty,
+  mateAttitudeText,
+  mateAttitudes,
   byName,
   chronicleFor,
   chronicleSorted,
@@ -120,6 +122,8 @@ export interface CastRow {
   entity: Person | Faction | Entity;
   /** Haltung zur Gruppe; null = unbekannt. Nur bei Personen und Fraktionen von Belang. */
   attitude: number | null;
+  /** Abweichende Haltungen zu einzelnen Gefährten, knapp: „Tomlin +5 · Neil −3“; sonst leer. */
+  mates: string;
   /** Unterzeile: Rolle, Art oder Beziehung zum Ort. */
   role: string;
   /** Genauer Aufenthalt (Ort darunter) oder, bei Abwesenden, wo sie jetzt sind. */
@@ -164,6 +168,7 @@ function personRow(
   return {
     entity: person,
     attitude: attitudeToParty(data, person.id),
+    mates: mateAttitudeText(mateAttitudes(data, person.id)),
     role,
     where,
     whereId,
@@ -192,6 +197,7 @@ export function castRowOf(data: CampaignData, id: string): CastRow | null {
     return {
       entity,
       attitude: attitudeToParty(data, id),
+      mates: mateAttitudeText(mateAttitudes(data, id)),
       role,
       where: nameOf(entity.faction.seatId),
       whereId: entity.faction.seatId,
@@ -205,6 +211,7 @@ export function castRowOf(data: CampaignData, id: string): CastRow | null {
   return {
     entity,
     attitude: null,
+    mates: '',
     role: KIND_LABEL[entity.kind],
     where: null,
     whereId: null,
@@ -258,6 +265,7 @@ export function castView(data: CampaignData, placeId: string): CastView {
     return {
       entity: f,
       attitude: attitudeToParty(data, f.id),
+      mates: mateAttitudeText(mateAttitudes(data, f.id)),
       role,
       where: exact ? null : placeName(f.faction.seatId),
       whereId: exact ? null : f.faction.seatId,
@@ -285,6 +293,7 @@ export function castView(data: CampaignData, placeId: string): CastView {
       return {
         entity: item,
         attitude: null,
+        mates: '',
         role,
         where: exact ? null : placeName(item.item.holderId),
         whereId: exact ? null : item.item.holderId,
@@ -305,6 +314,7 @@ export function castView(data: CampaignData, placeId: string): CastView {
       return {
         entity,
         attitude: hasAttitude ? attitudeToParty(data, entity.id) : null,
+        mates: hasAttitude ? mateAttitudeText(mateAttitudes(data, entity.id)) : '',
         role: `${label} ${placeName(placeId) ?? ''}`.trim(),
         where: null,
         whereId: null,

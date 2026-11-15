@@ -21,6 +21,7 @@ import { useMemo, type ReactNode } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { FATE_LABEL, FIGHT_OUTCOME_LABEL, RUMOR_TRUTH_LABEL } from '../../domain/chronicleKinds';
 import { PROMISE_OUTCOME_LABEL, activeParty } from '../../domain/derive';
+import { attitudeTargets } from '../../domain/attitudeSetting';
 import { activeConditions } from '../../domain/history';
 import { RELATION_TYPES } from '../../domain/relations';
 import {
@@ -34,6 +35,7 @@ import {
 import type { WorldTime } from '../../domain/time/calendar';
 import {
   AttitudeScale,
+  Button,
   Checkbox,
   EntityPicker,
   EntityRefsEditor,
@@ -107,6 +109,11 @@ export function RecordFields({
     </Field>
   );
   const party = useMemo(() => (kind === 'downtime' ? activeParty(data) : []), [kind, data]);
+  // Haltung zur Gruppe oder zu einem einzelnen Gefährten – mit einem Klick (`attitudeTargets`).
+  const mates = useMemo(
+    () => (kind === 'attitude' && draft.whoId ? attitudeTargets(data, draft.whoId, undefined) : []),
+    [kind, data, draft.whoId],
+  );
   const article = draft.articleId ? data.articles[draft.articleId] : undefined;
 
   let fields: ReactNode = null;
@@ -142,6 +149,25 @@ export function RecordFields({
               allowClear={false}
             />
           </Field>
+          {kind === 'attitude' && mates.length > 1 && (
+            <div
+              className="wf-btn-group wf-span-2"
+              role="group"
+              aria-label="Gegenüber: Gruppe oder ein Gefährte"
+              style={{ flexWrap: 'wrap' }}
+            >
+              {mates.map((target) => (
+                <Button
+                  key={target.id}
+                  size="sm"
+                  aria-pressed={(draft.towardId ?? PARTY_ID) === target.id}
+                  onClick={() => set({ towardId: target.id === PARTY_ID ? null : target.id })}
+                >
+                  {target.id === PARTY_ID ? 'zur Gruppe' : `zu ${target.name}`}
+                </Button>
+              ))}
+            </div>
+          )}
           <Field label="Neue Haltung" className="wf-span-2">
             <AttitudeScale value={draft.attitude} onChange={(attitude) => set({ attitude })} />
           </Field>

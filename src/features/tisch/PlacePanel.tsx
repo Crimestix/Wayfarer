@@ -138,7 +138,7 @@ function CastLine({
         type="button"
         className="wf-tisch-cast__who"
         aria-pressed={open}
-        title={[entity.name, row.role, row.where, row.tagline, 'Klick: Kurzblick']
+        title={[entity.name, row.mates, row.role, row.where, row.tagline, 'Klick: Kurzblick']
           .filter(Boolean)
           .join(' · ')}
         onClick={() => (open ? closePeek() : openPeek(entity.id, order))}
@@ -170,6 +170,15 @@ function CastLine({
                 title="Die Gruppe hat diese Person noch nicht getroffen."
               >
                 fremd
+              </span>
+            )}
+            {row.mates && (
+              <span
+                className="wf-tisch-cast__mates"
+                title="Haltung zu einzelnen Gefährten, wo sie von der zur Gruppe abweicht"
+              >
+                {row.mates}
+                {(row.role || row.fate || row.where) && ' · '}
               </span>
             )}
             {row.role}
