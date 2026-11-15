@@ -16,5 +16,6 @@
   "settled": 0,
   "maxVersion": 0,
   "olderEdits": false,
+  "restored": false,
   "remote": null
 }

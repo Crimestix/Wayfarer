@@ -1037,6 +1037,10 @@ pub fn mark(root: &Path, input: MarkInput) -> Result<(), SyncError> {
         stand.restored = true;
     }
     if input.synced == Some(true) {
+        // Ein gelungener Abgleich mit gemeinsamem Stand: Der eingespielte Stand ist erledigt.
+        if stand.files.is_some() {
+            stand.restored = false;
+        }
         stand.synced_at = Some(now_iso());
         inbox_clear(root)?;
         prune_aside(root)?;
@@ -1547,6 +1551,30 @@ mod tests {
         let stand = read_stand(&root).unwrap();
         assert!(stand.files.is_none());
         assert!(stand.restored);
+        // Ohne gemeinsamen Stand bleibt die Angabe auch nach einem Lauf stehen …
+        mark(
+            &root,
+            MarkInput {
+                synced: Some(true),
+                ..MarkInput::default()
+            },
+        )
+        .unwrap();
+        assert!(read_stand(&root).unwrap().restored);
+        // … und ist erledigt, sobald der erste Abgleich wieder einen gemeinsamen Stand hat.
+        mark(
+            &root,
+            MarkInput {
+                base: Some(vec![BaseMark {
+                    path: "state.json".into(),
+                    sha: Some("a".into()),
+                }]),
+                synced: Some(true),
+                ..MarkInput::default()
+            },
+        )
+        .unwrap();
+        assert!(!read_stand(&root).unwrap().restored);
     }
 
     #[test]

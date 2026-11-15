@@ -302,6 +302,8 @@ export interface SyncStateInfo {
   device: string | null;
   pushedAt: string | null;
   aside: number;
+  /** Hier wurde ein ganzer Stand eingespielt (Sicherung, Neuanfang) – Frage 1.9. */
+  restored: boolean;
 }
 export interface RepoInfo {
   owner: string;
@@ -350,6 +352,8 @@ export interface SyncScan {
   settled: number;
   maxVersion: number;
   olderEdits: boolean;
+  /** Hier wurde ein ganzer Stand eingespielt (Sicherung, Neuanfang) – Frage 1.9. */
+  restored: boolean;
   remote: RemoteScan | null;
 }
 export interface FetchItem {

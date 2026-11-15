@@ -523,8 +523,11 @@ describe('Ganzer Stand und Kopien', () => {
     expect(repo.head).toBe(head);
     expect(pc.engine.view.get().needs?.why).toBe('firstSync');
     expect(pc.engine.view.get().firstSync?.different.length).toBeGreaterThan(0);
+    // Die Frage 1.9 sagt, dass hier ein ganzer Stand eingespielt wurde.
+    expect(pc.engine.view.get().firstSync?.restored).toBe(true);
     await pc.engine.firstSync('localWins');
     expect(inRepo(repo)).toEqual(synced(pc));
+    expect((await pc.port.state('/Windows-PC', 1)).restored).toBe(false);
     const aside = await pc.port.asideList();
     expect(aside[0]!.reason).toBe('erster-abgleich');
     // Am Mac fehlen danach viele Einträge auf einmal: erst nach „Stimmt“.

@@ -301,6 +301,7 @@ export class MemoryPort implements SyncPort {
       device: s?.seen?.device ?? null,
       pushedAt: s?.seen?.pushedAt ?? null,
       aside: this.beiseite.size,
+      restored: !!s?.restored,
     };
   }
   async setKey(key: string) {
@@ -526,6 +527,7 @@ export class MemoryPort implements SyncPort {
       settled,
       maxVersion: stand?.maxVersion ?? 0,
       olderEdits: stand?.olderEdits ?? false,
+      restored: stand?.restored ?? false,
       remote: remoteScan,
     };
   }
@@ -716,6 +718,8 @@ export class MemoryPort implements SyncPort {
       next.restored = true;
     }
     if (input.synced) {
+      // Wie die Rust-Seite: Mit gemeinsamem Stand ist der eingespielte Stand erledigt.
+      if (next.files) next.restored = false;
       next.syncedAt = new Date().toISOString();
       if (!this.note) this.eingang.clear();
       // Ausdünnen: die 50 jüngsten gewöhnlichen Läufe bleiben, Entscheidungen immer.

@@ -83,6 +83,7 @@ fn commands_without_network_follow_the_templates() {
     );
     assert_eq!(state["moved"], json!(false));
     assert_eq!(state["key"], json!("no"));
+    assert_eq!(state["restored"], json!(false));
 
     let scan = invoke(&main, "sync_scan", json!({ "root": root, "remote": false })).unwrap();
     assert!(same_shape(&scan, &template("scan.output.json", &root)), "{scan}");
@@ -741,6 +742,9 @@ fn reading_the_repository_never_undoes_what_was_noted_meanwhile() {
     assert!(stand.files.is_none(), "der gemeinsame Stand ist wieder da");
     assert!(stand.restored);
     assert_eq!(scan["base"], Value::Null);
+    assert_eq!(scan["restored"], json!(true), "Frage 1.9 braucht die Angabe");
+    let state = invoke(&main, "sync_state", json!({ "root": root, "dataVersion": 1 })).unwrap();
+    assert_eq!(state["restored"], json!(true));
     assert!(stand.seen.is_some());
 }
 

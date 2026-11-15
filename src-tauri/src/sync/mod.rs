@@ -256,6 +256,8 @@ pub struct StateInfo {
     device: Option<String>,
     pushed_at: Option<String>,
     aside: usize,
+    /// Hier wurde ein ganzer Stand eingespielt (Sicherung, Neuanfang) – Frage 1.9.
+    restored: bool,
 }
 
 pub fn state(sync: &Sync, root: &str, data_version: u32) -> Result<StateInfo> {
@@ -288,6 +290,7 @@ pub fn state(sync: &Sync, root: &str, data_version: u32) -> Result<StateInfo> {
         device: stand.as_ref().and_then(|s| s.seen.as_ref()?.device.clone()),
         pushed_at: stand.as_ref().and_then(|s| s.seen.as_ref()?.pushed_at.clone()),
         aside: local::aside_list(&root).len(),
+        restored: stand.as_ref().is_some_and(|s| s.restored),
     })
 }
 
@@ -337,6 +340,8 @@ pub struct Scan {
     settled: usize,
     max_version: u32,
     older_edits: bool,
+    /// Hier wurde ein ganzer Stand eingespielt (Sicherung, Neuanfang) – Frage 1.9.
+    restored: bool,
     remote: Option<RemoteScan>,
 }
 
@@ -499,6 +504,7 @@ pub async fn scan(
         settled,
         max_version: stand.max_version,
         older_edits: stand.older_edits,
+        restored: stand.restored,
         remote,
     })
 }

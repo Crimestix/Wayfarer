@@ -55,6 +55,7 @@ const state = z.strictObject({
   device: z.string().nullable(),
   pushedAt: z.string().nullable(),
   aside: z.number(),
+  restored: z.boolean(),
 }) satisfies z.ZodType<SyncStateInfo>;
 
 const scan = z.strictObject({
@@ -68,6 +69,7 @@ const scan = z.strictObject({
   settled: z.number(),
   maxVersion: z.number(),
   olderEdits: z.boolean(),
+  restored: z.boolean(),
   remote: z
     .strictObject({
       live: z.boolean(),

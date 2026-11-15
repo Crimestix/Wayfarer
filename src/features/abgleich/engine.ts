@@ -400,7 +400,7 @@ export function createSyncEngine(
           onlyRemote: cmp.onlyRemote,
           different: cmp.different,
           remoteEmpty: remote.kind === 'empty' || remote.kind === 'fresh',
-          restored: false,
+          restored: scan.restored,
         },
       });
       return 'stop';
