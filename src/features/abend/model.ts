@@ -12,7 +12,8 @@ import type { Recap } from '../../domain/recap';
 import type { CampaignData, ChronicleEntry } from '../../domain/schema';
 import { KIND_SHORT, entryHeadline, sessionLabel } from '../chronik/model';
 import { whenLabel } from '../tisch/model';
-import { suggestNpc } from '../welt/npc';
+import { surnameOf } from '../welt/dynasty';
+import { nameCorpus, suggestNpc } from '../welt/npc';
 
 /**
  * Ein Eintrag der Chronik als Zeile für den Einstieg – so, wie er dort steht: Geschriebenes
@@ -97,17 +98,24 @@ export function takeLines(
 export const SPARE_NAMES = 6;
 
 export interface SpareName {
-  /** Der erzeugte Name – klingt wie die Namen der Welt, ist aber keiner von ihnen. */
+  /** Der erzeugte Name – keiner, den es in der Welt schon gibt. */
   name: string;
   /** Eine Tätigkeit, die zum Ort der Gruppe passt. */
   role: string;
+  /**
+   * Aus dem Klang der Namen der Welt gelernt – sonst aus allgemeinen Silben, solange die Welt
+   * noch zu wenige Namen hat (`CORPUS_MIN`).
+   */
+  learned: boolean;
 }
 
 /**
  * „Namen für den Notfall“: eine Handvoll erzeugter Namen für Beiwerk-Personen – Namen lassen
  * sich am Tisch schlecht erfinden. Erzeugt nach festen Regeln (`suggestNpc`): Dasselbe Blatt
  * zeigt dieselben Namen, bis der Spielleiter neu würfelt (`round`). Keiner heißt wie ein Eintrag
- * der Welt; für die Geschichte Wichtiges entsteht hier nicht.
+ * der Welt, und keiner trägt den Nachnamen einer Person, die es schon gibt: Am Tisch sähe das
+ * nach Verwandtschaft aus – und wer mit wem verwandt ist, entscheidet der Spielleiter. Für die
+ * Geschichte Wichtiges entsteht hier nicht.
  */
 export function spareNames(
   data: CampaignData,
@@ -116,8 +124,9 @@ export function spareNames(
   count: number = SPARE_NAMES,
 ): SpareName[] {
   const taken = new Set(Object.values(data.entities).map((entity) => normalize(entity.name)));
+  const families = new Set(nameCorpus(data).family.map((name) => normalize(name)));
   const names: SpareName[] = [];
-  for (let attempt = 0; names.length < count && attempt < count * 6; attempt++) {
+  for (let attempt = 0; names.length < count && attempt < count * 12; attempt++) {
     const npc = suggestNpc(
       data,
       { placeId: data.state.placeId },
@@ -125,8 +134,10 @@ export function spareNames(
     );
     const key = normalize(npc.name);
     if (taken.has(key)) continue;
+    const surname = surnameOf(npc.name);
+    if (surname && families.has(normalize(surname.text))) continue;
     taken.add(key);
-    names.push({ name: npc.name, role: npc.role });
+    names.push({ name: npc.name, role: npc.role, learned: npc.nameSource === 'world' });
   }
   return names;
 }

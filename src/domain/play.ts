@@ -287,7 +287,8 @@ export function playChoices(
 
 /**
  * Was die Geschichten im Spiel schon zeigen – als Schlüssel `promise:<id>`, `event:<id>`,
- * `clock:<id>`. So steht unter „Sonst noch“ nichts ein zweites Mal.
+ * `clock:<id>`, `hint:<Faden>:<Hinweis>`. So steht unter „Sonst noch“ und unter „Dieser Abend“
+ * nichts ein zweites Mal.
  */
 export function playClaims(view: PlayView): Set<string> {
   const claims = new Set<string>();
@@ -295,6 +296,7 @@ export function playClaims(view: PlayView): Set<string> {
     for (const entry of play.promises) claims.add(`promise:${entry.id}`);
     for (const occurrence of play.events) claims.add(`event:${occurrence.event.id}`);
     if (play.card.clock) claims.add(`clock:${play.card.clock.clock.id}`);
+    for (const { thread, hint } of play.hints) claims.add(`hint:${thread.id}:${hint.id}`);
   }
   return claims;
 }

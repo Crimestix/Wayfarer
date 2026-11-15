@@ -11,9 +11,11 @@ import {
   type Occurrence,
   type PromiseOutcome,
 } from '../domain/derive';
+import { carriedChange, prepView, resolveContent } from '../domain/prep';
 import {
   PARTY_ID,
   createChronicleEntry,
+  createPrep,
   createRelation,
   createSession,
   type ChronicleEntry,
@@ -421,11 +423,18 @@ export function startSession(
       }),
     );
     db.setState({ sessionId: session.id });
-    // Was für den kommenden Abend vorbereitet wurde, ist jetzt das Blatt dieses Abends. Was vom
-    // Abend davor übrig ist, kommt beim Lesen dazu (`prepView`) – auch ohne offenes Blatt.
-
+    // Was für den kommenden Abend vorbereitet wurde, ist jetzt das Blatt dieses Abends.
     const prep = Object.values(db.getSnapshot().preps).find((entry) => entry.sessionId === null);
     if (prep) db.patch('preps', prep.id, { sessionId: session.id });
+    // Was vom Abend davor übrig ist, steht ab jetzt fest auf diesem Blatt – auch ohne offenes
+    // Blatt. Sonst ginge es verloren, wenn an diesem Abend niemand das Blatt anfasst: Der Abend
+    // danach sähe nur noch, was hier gespeichert ist.
+    const view = prepView(db.getSnapshot(), 'now');
+    if (view.dueFrom) {
+      if (view.prep) db.patch('preps', view.prep.id, carriedChange(view.content));
+      else if (view.content.pending.length > 0)
+        db.put('preps', createPrep({ ...view.content, sessionId: session.id }));
+    }
     return session;
   });
 }
@@ -470,6 +479,17 @@ export function endSession(db: CampaignDb): void {
   if (!id) return;
   db.batch(() => {
     if (data.sessions[id]) db.patch('sessions', id, { endAt: data.state.now });
+    // Das Blatt des Abends hält fest, was bis zu seinem Ende gespielt und aufgedeckt war – auch,
+    // was bei der Geschichte selbst abgehakt wurde (am Spieltisch stehen ihre Szenen und Hinweise
+    // bei ihr). Sonst hieße es beim Nachlesen „an diesem Abend nicht gespielt“.
+    const sheet = Object.values(data.preps).find((prep) => prep.sessionId === id);
+    const settled = sheet ? resolveContent(data, sheet) : null;
+    if (sheet && settled && settled !== sheet)
+      db.patch('preps', sheet.id, {
+        scenes: settled.scenes,
+        secrets: settled.secrets,
+        pending: settled.pending,
+      });
     db.setState({ sessionId: null });
   });
 }
@@ -547,15 +567,25 @@ export function skipOccurrence(db: CampaignDb, eventId: string, day: number, ski
 
 /**
  * Löscht eine Session. Was in ihr festgehalten wurde, bleibt in der Chronik, gehört dann aber
- * zu keiner Session mehr. Läuft die Session gerade, endet sie damit.
+ * zu keiner Session mehr. Läuft die Session gerade, endet sie damit. War sie der jüngste Abend
+ * (etwa versehentlich begonnen), ist ihr Blatt wieder das offene für den kommenden Abend – was
+ * vorbereitet war, verschwindet nicht mit ihr.
  */
 export function deleteSession(db: CampaignDb, sessionId: string): void {
   const data = db.getSnapshot();
-  if (!data.sessions[sessionId]) return;
+  const session = data.sessions[sessionId];
+  if (!session) return;
   db.batch(() => {
     for (const entry of Object.values(data.chronicle))
       if (entry.sessionId === sessionId) db.patch('chronicle', entry.id, { sessionId: null });
     if (data.state.sessionId === sessionId) db.setState({ sessionId: null });
+    const preps = Object.values(data.preps);
+    const sheet = preps.find((prep) => prep.sessionId === sessionId);
+    const latest = Object.values(data.sessions).every(
+      (other) => other.id === sessionId || other.number < session.number,
+    );
+    if (sheet && latest && !preps.some((prep) => prep.sessionId === null))
+      db.patch('preps', sheet.id, { sessionId: null });
     db.remove('sessions', sessionId);
   });
 }

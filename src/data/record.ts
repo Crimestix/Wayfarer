@@ -18,7 +18,7 @@ import {
   sessionForEntry,
   statusOf,
 } from '../domain/history';
-import { findPrepSecret, hintOf } from '../domain/prep';
+import { findPrepSecret, hintOf, secretSheets } from '../domain/prep';
 import { RELATION_TYPES } from '../domain/relations';
 import { holderAfter, planTrade, stockAfter } from '../domain/shop';
 import {
@@ -37,6 +37,7 @@ import {
   type CollectionTypes,
   type PersonStatus,
   type PlayState,
+  type Prep,
   type RumorTruth,
 } from '../domain/schema';
 import { formatDateTime } from '../domain/time/calendar';
@@ -640,15 +641,18 @@ function applyEffect(db: CampaignDb, entry: ChronicleEntry): void {
           db.patch('entities', entity.id, { aliases: [...entity.aliases, alias.name] });
       }
       if (!r?.applied || !r.prepSecretId) return;
-      const found = findPrepSecret(data, r.prepSecretId);
-      if (!found) return;
-      db.patch('preps', found.prep.id, {
-        secrets: found.prep.secrets.map((secret) =>
-          secret.id === r.prepSecretId
-            ? { ...secret, revealed: true, revealedAt: entry.at }
-            : secret,
-        ),
-      });
+      // Auf jedem Blatt, auf dem es gerade zählt: Wird eine beendete Session fortgesetzt, steht
+      // ein übernommenes Geheimnis auf ihrem Blatt und auf dem offenen für den nächsten Abend.
+      const sheets = secretSheets(data, r.prepSecretId);
+      if (!sheets.length) return;
+      for (const { prep } of sheets)
+        db.patch('preps', prep.id, {
+          secrets: prep.secrets.map((secret) =>
+            secret.id === r.prepSecretId
+              ? { ...secret, revealed: true, revealedAt: entry.at }
+              : secret,
+          ),
+        });
       // War es der Hinweis einer Frage, hat die Gruppe ihn jetzt – wie bei „Hinweis gefunden“.
       const thread = r.hint ? data.threads[r.hint.threadId] : undefined;
       if (r.hint && thread)
@@ -721,12 +725,23 @@ function aliasHolds(data: CampaignData, entry: ChronicleEntry): boolean {
   return !!data.entities[alias.entityId]?.aliases.some((n) => sameName(n, alias.name));
 }
 
-/** Ist das Geheimnis vom Abend-Blatt noch so aufgedeckt, wie es dieser Eintrag tat? */
-function secretHolds(data: CampaignData, entry: ChronicleEntry): boolean {
+/**
+ * Die Blätter, auf denen das Geheimnis noch so aufgedeckt ist, wie es dieser Eintrag tat – auch
+ * wenn der Abend inzwischen vorbei ist und das Blatt nicht mehr das laufende ist.
+ */
+function revealedSheets(data: CampaignData, entry: ChronicleEntry): Prep[] {
   const r = entry.reveal;
-  const found = r?.applied && r.prepSecretId ? findPrepSecret(data, r.prepSecretId) : null;
-  return !!found && found.secret.revealed && found.secret.revealedAt === entry.at;
+  if (!r?.applied || !r.prepSecretId) return [];
+  return Object.values(data.preps).filter((prep) =>
+    prep.secrets.some(
+      (secret) => secret.id === r.prepSecretId && secret.revealed && secret.revealedAt === entry.at,
+    ),
+  );
 }
+
+/** Ist das Geheimnis vom Abend-Blatt noch so aufgedeckt, wie es dieser Eintrag tat? */
+const secretHolds = (data: CampaignData, entry: ChronicleEntry): boolean =>
+  revealedSheets(data, entry).length > 0;
 
 function setWhereabouts(db: CampaignDb, id: string, placeId: string | null): void {
   const entity = db.getSnapshot().entities[id];
@@ -1139,17 +1154,16 @@ export function removeRecorded(db: CampaignDb, entryId: string): (() => void) | 
           changes.patch('entities', entity.id, {
             aliases: entity.aliases.filter((n) => !sameName(n, alias.name)),
           });
-        const found = entry.reveal?.prepSecretId
-          ? findPrepSecret(data, entry.reveal.prepSecretId)
-          : null;
-        if (!secretHolds(data, entry) || !found) break;
-        changes.patch('preps', found.prep.id, {
-          secrets: found.prep.secrets.map((secret) =>
-            secret.id === found.secret.id
-              ? { ...secret, revealed: false, revealedAt: null }
-              : secret,
-          ),
-        });
+        const sheets = revealedSheets(data, entry);
+        if (!sheets.length) break;
+        for (const prep of sheets)
+          changes.patch('preps', prep.id, {
+            secrets: prep.secrets.map((secret) =>
+              secret.id === entry.reveal?.prepSecretId
+                ? { ...secret, revealed: false, revealedAt: null }
+                : secret,
+            ),
+          });
         // Der Hinweis dahinter ist dann auch nicht mehr gefunden – der Faden steht wie zuvor.
         const h = entry.reveal?.hint;
         const thread = h ? data.threads[h.threadId] : undefined;

@@ -10,6 +10,7 @@
 import type { CampaignDb } from '../../data/db';
 import {
   appendLine,
+  carriedChange,
   defaultWhich,
   hintOf,
   hintOnSheet,
@@ -19,6 +20,7 @@ import {
   secretFromHint,
   settleLeft,
   storySceneOf,
+  unsettleLeft,
   type PrepContent,
   type PrepSection,
   type PrepWhich,
@@ -66,17 +68,7 @@ export function ensurePrep(db: CampaignDb, which?: PrepWhich): Prep {
   const view = prepView(db.getSnapshot(), which);
   if (view.prep && !view.dueFrom) return view.prep;
   const { content } = view;
-  if (view.prep)
-    return db.patch('preps', view.prep.id, {
-      scenes: content.scenes,
-      secrets: content.secrets,
-      encounterIds: content.encounterIds,
-      start: content.start,
-      startDone: content.startDone,
-      treasure: content.treasure,
-      pending: content.pending,
-      carriedFrom: content.carriedFrom,
-    });
+  if (view.prep) return db.patch('preps', view.prep.id, carriedChange(content));
   return db.put('preps', createPrep({ ...content, sessionId: view.session?.id ?? null }));
 }
 
@@ -316,16 +308,10 @@ export function settleLeftover(
     const change = settleLeft(content, key, how, source);
     // Am Blatt vorbei: Die Entscheidung ist kein Anfassen von Einstieg oder Beute.
     db.patch('preps', prep.id, change);
+    // Zurückgenommen wird nur diese eine Entscheidung – nicht, was danach noch geschah.
     return () => {
-      if (db.getSnapshot().preps[prep.id])
-        db.patch('preps', prep.id, {
-          scenes: before.scenes,
-          secrets: before.secrets,
-          encounterIds: before.encounterIds,
-          start: before.start,
-          treasure: before.treasure,
-          pending: before.pending,
-        });
+      const now = db.getSnapshot().preps[prep.id];
+      if (now) db.patch('preps', prep.id, unsettleLeft(now, before, key));
     };
   });
 }
@@ -392,7 +378,6 @@ export function detachFromSheet(db: CampaignDb, entityId: string, which?: PrepWh
 }
 
 /** „Nicht gemeint“: Ein Name aus dem Text des Blatts soll dort nicht wieder vorgeschlagen werden. */
-
 export function markNotMeant(db: CampaignDb, key: string, which?: PrepWhich): void {
   const content = prepView(db.getSnapshot(), which).content;
   if (!key || content.notMeant.includes(key)) return;

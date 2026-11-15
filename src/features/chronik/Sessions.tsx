@@ -23,10 +23,10 @@ import {
 import { useData, useDb, useSaveStatus } from '../../data/hooks';
 import { chronicleSorted } from '../../domain/derive';
 import { prepOfSession } from '../../domain/prep';
-
 import type { ChronicleEntry } from '../../domain/schema';
 import { formatDateTime, formatDuration } from '../../domain/time/calendar';
 import { openQuickLog } from '../../shell/commands';
+import { focusOn } from '../../shell/focus';
 import {
   Button,
   Dialog,
@@ -355,7 +355,12 @@ function SessionDetail({
                 <dt>Vorbereitet</dt>
                 <dd>
                   {span.running ? (
-                    <Link href="/abend" className="wf-chronik-source">
+                    <Link
+                      href="/abend"
+                      className="wf-chronik-source"
+                      // Das Blatt dieses Abends – nicht das für den nächsten.
+                      onClick={() => focusOn({ type: 'prep', which: 'now' })}
+                    >
                       <NotebookPen aria-hidden />
                       Blatt des Abends öffnen
                     </Link>

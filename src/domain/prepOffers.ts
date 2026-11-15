@@ -515,7 +515,6 @@ export interface PersonOffer {
  * Wer dem Abend begegnen kann: wer die Geschichten im Spiel antreibt und an ihnen beteiligt ist,
  * wem die Gruppe noch etwas schuldet (offene Abmachungen) und wer am Ort der Gruppe und an den
  * Orten der Szenen ist – in dieser Reihenfolge. Nur Personen und Gruppen von Personen.
-
  */
 export function personOffers(data: CampaignData, content: PrepContent): PersonOffer[] {
   const taken = new Set(content.personIds);

@@ -188,8 +188,10 @@ export function PeopleBody() {
           </button>
         </OfferHead>
         <p className="wf-abend-spare__hint">
-          Von Wayfarer erzeugt – für Leute am Rand, die plötzlich einen Namen brauchen. Sie klingen
-          wie die Namen deiner Welt und gehören erst dazu, wenn du einen anlegst.
+          Von Wayfarer erzeugt – für Leute am Rand, die plötzlich einen Namen brauchen.{' '}
+          {spare.some((entry) => entry.learned)
+            ? 'Sie klingen wie die Namen deiner Welt und gehören erst dazu, wenn du einen anlegst.'
+            : 'Zur Welt gehören sie erst, wenn du einen anlegst; je mehr Personen sie hat, desto mehr klingen neue Namen nach ihr.'}
         </p>
         <div className="wf-abend-spare__list">
           {spare.map((entry) => (

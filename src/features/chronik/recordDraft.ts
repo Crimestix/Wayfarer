@@ -9,8 +9,7 @@ import { recordProblem } from '../../data/record';
 import { KIND_LABEL, isJob, type RecordInput, type RecordKind } from '../../domain/chronicleKinds';
 import { promiseOutcome, type PromiseOutcome } from '../../domain/derive';
 import { threadsInOrder } from '../../domain/looseThreads';
-import { allSecrets } from '../../domain/prep';
-
+import { allSecrets, liveSecrets } from '../../domain/prep';
 import type { DeliveryOffer, Recognized } from '../../domain/recognize';
 import {
   PARTY_ID,
@@ -749,8 +748,14 @@ export function secretChoices(
   data: CampaignData,
   keepId: string | null = null,
 ): { id: string; text: string }[] {
-  // Jedes Geheimnis einmal: Was auf ein späteres Blatt herüberkam, zählt dort (`allSecrets`).
-  return allSecrets(data)
+  // Jedes Geheimnis einmal, und nur, was gerade zählt: das Blatt des laufenden Abends und das
+  // für den nächsten (`liveSecrets`) – nicht, was auf einem früheren Blatt liegen blieb.
+  const live = liveSecrets(data);
+  const kept =
+    keepId && !live.some((secret) => secret.id === keepId)
+      ? allSecrets(data).filter((secret) => secret.id === keepId)
+      : [];
+  return [...live, ...kept]
     .filter((secret) => (!secret.revealed || secret.id === keepId) && secret.text.trim())
     .map((secret) => ({ id: secret.id, text: secret.text }));
 }

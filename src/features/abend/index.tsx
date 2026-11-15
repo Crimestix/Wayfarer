@@ -62,6 +62,15 @@ export default function AbendPage() {
   // Läuft ein Abend von gestern noch, wird fast immer schon der nächste vorbereitet.
   const [asked, setAsked] = useState<PrepWhich>(() => suggestedWhich(data, today()));
   useFocus(['prep'], (focus) => setAsked(focus.which));
+  // Beginnt oder endet ein Abend, während die Seite offen ist, zeigt sie das Blatt, an dem jetzt
+  // gearbeitet wird: Wer gerade „Neue Session beginnen“ gewählt hat, sieht das eben vorbereitete
+  // Blatt als „Dieser Abend“ – nicht ein leeres für den übernächsten.
+  const runningId = data.state.sessionId;
+  const [seenRunning, setSeenRunning] = useState(runningId);
+  if (seenRunning !== runningId) {
+    setSeenRunning(runningId);
+    setAsked(suggestedWhich(data, today()));
+  }
 
   const view = useMemo(() => prepView(data, asked), [data, asked]);
   // Wechselt das Blatt (eine Session beginnt oder endet, der andere Reiter), beginnen die Felder

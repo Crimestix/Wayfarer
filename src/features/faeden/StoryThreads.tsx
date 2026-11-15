@@ -26,6 +26,7 @@ import {
 } from '../../domain/story';
 import { eveningSecretsOf, hintsOnEvening } from '../../domain/prepOffers';
 import { hintsNote, threadFits, type ThreadFit } from '../../domain/storySheet';
+import { focusOn } from '../../shell/focus';
 import {
   Button,
   Checkbox,
@@ -101,7 +102,14 @@ export function StoryThreads({ story }: { story: Story }) {
               {secret.text}
               <em>
                 {' '}
-                – Geheimnis auf dem Blatt für {which === 'now' ? 'diesen' : 'den nächsten'} Abend
+                –{' '}
+                <Link
+                  href="/abend"
+                  className="wf-faden-link"
+                  onClick={() => focusOn({ type: 'prep', which })}
+                >
+                  Geheimnis auf dem Blatt für {which === 'now' ? 'diesen' : 'den nächsten'} Abend
+                </Link>
               </em>
             </span>
           ))}

@@ -323,9 +323,12 @@ describe('Die Suche', () => {
       href: '/abend',
       focus: { type: 'prep', which: 'next' },
     });
-    // Ein früherer Abend: Sein Blatt liegt bei der Session in der Chronik.
+    // Ein früherer Abend: Sein Blatt liegt bei der Session in der Chronik. Der Einstieg wurde
+    // nicht gespielt – er steht auch auf dem Blatt des neuen Abends, und das zuerst.
     startSession(db);
-    expect(searchWorld(world.data(), 'leeres boot').find((h) => h.sort === 'prep')).toMatchObject({
+    const hits = searchWorld(world.data(), 'leeres boot').filter((h) => h.sort === 'prep');
+    expect(hits.map((h) => h.href)).toEqual(['/abend', '/chronik']);
+    expect(hits[1]).toMatchObject({
       key: `prep:${sheet.id}`,
       href: '/chronik',
       focus: { type: 'sheet', sessionId: running },

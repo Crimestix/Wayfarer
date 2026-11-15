@@ -2,7 +2,8 @@
  * „Dieser Abend“ am Spieltisch: was auf dem Blatt des Abends bereitliegt – der starke Einstieg,
  * mögliche Szenen und Geheimnisse zum Abhaken, Begegnungen, Beute. Kurz gehalten: Ist der
  * Einstieg gespielt, klappt der Block zu; Szenen mit Ort stehen links beim Ort („Was hier
- * passieren kann“), Szenen einer Geschichte im Spiel bei ihrer Geschichte. Was aus einer
+ * passieren kann“), Szenen einer Geschichte im Spiel bei ihrer Geschichte – ebenso Hinweise, die
+ * dort schon als „liegt hier“ stehen (`playClaims`). Was aus einer
  * Geschichte kam, ist mit dem Haken auch dort gespielt oder gefunden. Geschrieben wird es unter
  * „Abend vorbereiten“ (`features/abend`); die Rechnung steht in `domain/prep.ts`.
  */
@@ -11,6 +12,7 @@ import { Link, useLocation } from 'wouter';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { eveningLoot, lootLine, lootRecipient } from '../../domain/loot';
+import { playClaims, playView } from '../../domain/play';
 import {
   openScenes,
   openSecrets,
@@ -42,7 +44,13 @@ export function EveningBlock() {
     return !scene.placeId && !(story?.inPlay && !story.closed);
   });
   const elsewhere = all.length - scenes.length;
-  const secrets = openSecrets(content);
+  // Ein Hinweis, der bei seiner Geschichte im Spiel schon als „liegt hier“ steht, steht nur dort.
+  const claimed = useMemo(() => playClaims(playView(data)), [data]);
+  const allSecrets = openSecrets(content);
+  const secrets = allSecrets.filter(
+    (secret) => !(secret.hint && claimed.has(`hint:${secret.hint.threadId}:${secret.hint.hintId}`)),
+  );
+  const hintsElsewhere = allSecrets.length - secrets.length;
   const encounters = readyEncounters(data, content);
   /** Beute, die bereitliegt und zu keiner Geschichte im Spiel gehört – die steht dort. */
   const loot = eveningLoot(data);
@@ -65,9 +73,9 @@ export function EveningBlock() {
   const brief = [
     start !== '' && (content.startDone ? 'Einstieg gespielt' : 'Einstieg'),
     all.length > 0 && count(all.length, 'Szene', 'Szenen'),
-    secrets.length > 0 && count(secrets.length, 'Geheimnis', 'Geheimnisse'),
+    allSecrets.length > 0 && count(allSecrets.length, 'Geheimnis', 'Geheimnisse'),
     encounters.length > 0 && count(encounters.length, 'Begegnung', 'Begegnungen'),
-    loot.length > 0 && `${loot.length}× Beute`,
+    loot.length > 0 ? `${loot.length}× Beute` : content.treasure.trim() !== '' && 'Beute',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -179,6 +187,18 @@ export function EveningBlock() {
               </span>
             </Line>
           ))}
+          {hintsElsewhere > 0 && (
+            <>
+              <span className="wf-tisch-dazu__label" />
+              <div className="wf-tisch-dazu__row">
+                <em>
+                  {hintsElsewhere === 1
+                    ? 'Ein Hinweis liegt hier – er steht bei seiner Geschichte im Spiel.'
+                    : `${hintsElsewhere} Hinweise liegen hier – sie stehen bei ihrer Geschichte im Spiel.`}
+                </em>
+              </div>
+            </>
+          )}
           {encounters.map((encounter) => (
             <Line key={encounter.id} label="Begegnung">
               <span>

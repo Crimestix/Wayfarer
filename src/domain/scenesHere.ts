@@ -51,7 +51,6 @@ export function scenesHere(data: CampaignData): SceneHere[] {
       if (scene.done || !scene.placeId || !isNear(data, scene.placeId)) continue;
       // Liegt sie auf dem Blatt des Abends, steht sie dort schon – abhakbar.
       if (sceneOnSheet(content, story.id, scene.id)) continue;
-
       const encounter = scene.encounterId ? data.encounters[scene.encounterId] : undefined;
       const text = scene.text.trim() || encounter?.name || '';
       if (!text) continue;

@@ -746,7 +746,7 @@ button.wf-abend-story__toggle:hover .wf-abend-name {
 }
 .wf-abend-recap__line {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: 124px minmax(0, 1fr);
   gap: var(--s-2);
   align-items: baseline;
 }
@@ -780,7 +780,7 @@ button.wf-abend-story__toggle:hover .wf-abend-name {
 }
 .wf-abend-recap__facts {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
+  grid-template-columns: 124px minmax(0, 1fr);
   gap: 4px var(--s-2);
   align-items: baseline;
   margin: var(--s-1) 0 0;

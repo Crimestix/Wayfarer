@@ -105,6 +105,10 @@ describe('Namen für den Notfall', () => {
     const known = new Set(Object.values(data().entities).map((entity) => entity.name));
     expect(first.some((entry) => known.has(entry.name))).toBe(false);
     expect(first.every((entry) => entry.role !== '')).toBe(true);
+    // Keiner sieht nach Verwandtschaft mit jemandem aus, den es schon gibt.
+    for (const round of [0, 1, 2, 3])
+      for (const entry of spareNames(data(), 13, round))
+        expect(entry.name).not.toMatch(/ (Tannhaus|Furtner|Eichwald)$/);
     // Neu würfeln und ein anderes Blatt geben andere Namen.
     expect(spareNames(data(), 13, 1)).not.toEqual(first);
     expect(spareNames(data(), 14, 0)).not.toEqual(first);

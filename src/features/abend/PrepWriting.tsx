@@ -192,7 +192,6 @@ export function ScenesBody() {
                 onChange={(placeId) => update(scene.id, { placeId })}
                 kinds={['place']}
                 placeholder="Wo?"
-
                 create={{ storyId: scene.storyId, onlyKinds: true }}
               />
               {scene.from && story ? (

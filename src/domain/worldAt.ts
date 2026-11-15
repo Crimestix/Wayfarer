@@ -304,7 +304,6 @@ export function worldAt(data: CampaignData, at: WorldTime): CampaignData {
     const c =
       entry.kind === 'clue' ? entry.clue : entry.kind === 'reveal' ? entry.reveal?.hint : null;
     if (!c?.before || !c.threadId) continue;
-
     const thread = threads[c.threadId];
     if (!thread) continue;
     const hints = thread.hints.map((hint) =>

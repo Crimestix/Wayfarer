@@ -381,8 +381,18 @@ export function leftOf(data: CampaignData, source: Prep): Leftover {
 export function mergeLeft<T extends PrepContent>(content: T, left: Leftover, sourceId: string): T {
   const sceneIds = new Set(content.scenes.map((scene) => scene.id));
   const secretIds = new Set(content.secrets.map((secret) => secret.id));
-  const scenes = left.scenes.filter((scene) => !sceneIds.has(scene.id));
-  const secrets = left.secrets.filter((secret) => !secretIds.has(secret.id));
+  // Auch nicht, was aus einer Geschichte kam und von dort schon auf dieses Blatt gelegt wurde –
+  // etwa auf das Blatt für den nächsten Abend, während der letzte noch lief.
+  const scenes = left.scenes.filter(
+    (scene) =>
+      !sceneIds.has(scene.id) &&
+      !(scene.from && sceneOnSheet(content, scene.from.storyId, scene.from.sceneId)),
+  );
+  const secrets = left.secrets.filter(
+    (secret) =>
+      !secretIds.has(secret.id) &&
+      !(secret.hint && hintOnSheet(content, secret.hint.threadId, secret.hint.hintId)),
+  );
   const encounterIds = left.encounterIds.filter((id) => !content.encounterIds.includes(id));
   const start = !content.start.trim() && left.start !== '';
   const treasure = left.treasure !== '' && !hasLine(content.treasure, left.treasure);
@@ -416,6 +426,33 @@ export function carryOver(data: CampaignData, which: PrepWhich = defaultWhich(da
   const source = carrySource(data, which);
   return source ? mergeLeft(EMPTY_PREP, leftOf(data, source), source.id) : EMPTY_PREP;
 }
+
+/**
+ * Was sich an einem Blatt ändert, wenn es das Übrige des letzten Abends aufnimmt – zum Speichern
+ * (`ensurePrep`, `startSession`). Alles andere auf dem Blatt bleibt, wie es ist.
+ */
+export const carriedChange = (
+  content: PrepContent,
+): Pick<
+  PrepContent,
+  | 'scenes'
+  | 'secrets'
+  | 'encounterIds'
+  | 'start'
+  | 'startDone'
+  | 'treasure'
+  | 'pending'
+  | 'carriedFrom'
+> => ({
+  scenes: content.scenes,
+  secrets: content.secrets,
+  encounterIds: content.encounterIds,
+  start: content.start,
+  startDone: content.startDone,
+  treasure: content.treasure,
+  pending: content.pending,
+  carriedFrom: content.carriedFrom,
+});
 
 /** Das Blatt eines Abends zum Anzeigen – auch bevor das erste Wort darauf steht. */
 export function prepView(data: CampaignData, asked?: PrepWhich): PrepView {
@@ -561,16 +598,93 @@ export function settleLeft(
   return { pending };
 }
 
-/** Das Geheimnis mit dieser Kennung – auf dem jüngsten Blatt, das es trägt. */
+/**
+ * Nimmt eine Entscheidung über etwas Übriges zurück – nur sie: Was seither sonst auf dem Blatt
+ * geschah (eine zweite Entscheidung, ein neues Wort), bleibt. `before` ist das Blatt vor der
+ * Entscheidung. Eine Szene, ein Geheimnis kommt an seine alte Stelle; Zeilen, die aus Einstieg
+ * oder Beute herausgenommen wurden, kommen darunter wieder dazu.
+ */
+export function unsettleLeft(
+  now: PrepContent,
+  before: PrepContent,
+  key: string,
+): Partial<PrepContent> {
+  /** Setzt ein Stück an seine alte Stelle zurück – wenn es fehlt. */
+  const back = <T>(list: readonly T[], old: readonly T[], same: (entry: T) => boolean): T[] => {
+    const index = old.findIndex(same);
+    if (index < 0 || list.some(same)) return [...list];
+    const out = [...list];
+    out.splice(Math.min(index, out.length), 0, old[index]!);
+    return out;
+  };
+  const lines = (text: string, old: string) =>
+    text.trim() ? old.split(/\r?\n/).reduce((sum, row) => appendLine(sum, row), text) : old;
+  const pending = back(now.pending, before.pending, (entry) => entry === key);
+  const [sort, id] = key.split(':');
+  if (key === 'start') return { pending, start: lines(now.start, before.start) };
+  if (key === 'treasure') return { pending, treasure: lines(now.treasure, before.treasure) };
+  if (sort === 'scene')
+    return { pending, scenes: back(now.scenes, before.scenes, (scene) => scene.id === id) };
+  if (sort === 'secret')
+    return { pending, secrets: back(now.secrets, before.secrets, (secret) => secret.id === id) };
+  if (sort === 'encounter')
+    return {
+      pending,
+      encounterIds: back(now.encounterIds, before.encounterIds, (entry) => entry === id),
+    };
+  return { pending };
+}
+
+/**
+ * Die Blätter, auf denen ein Geheimnis gerade zählt: das des laufenden Abends und das offene für
+ * den nächsten – ein übernommenes Geheimnis steht mit derselben Kennung auf beiden, sobald eine
+ * beendete Session fortgesetzt wird. Das laufende zuerst. Trägt es keines der beiden, das jüngste
+ * Blatt, auf dem es steht. Frühere Blätter bleiben, wie der Abend sie hinterlassen hat.
+ */
+export function secretSheets(
+  data: Pick<CampaignData, 'preps' | 'sessions' | 'state'>,
+  secretId: string,
+): { prep: Prep; secret: PrepSecret }[] {
+  const all = prepsNewestFirst(data).flatMap((prep) => {
+    const secret = prep.secrets.find((entry) => entry.id === secretId);
+    return secret ? [{ prep, secret }] : [];
+  });
+  const running = data.state.sessionId;
+  const live = all.filter(
+    ({ prep }) => prep.sessionId === null || (running !== null && prep.sessionId === running),
+  );
+  if (!live.length) return all.slice(0, 1);
+  return live.sort((a, b) => Number(a.prep.sessionId === null) - Number(b.prep.sessionId === null));
+}
+
+/**
+ * Das Geheimnis mit dieser Kennung – auf dem Blatt, auf dem es gerade zählt: dem des laufenden
+ * Abends, sonst dem jüngsten, das es trägt (`secretSheets`).
+ */
 export function findPrepSecret(
-  data: Pick<CampaignData, 'preps' | 'sessions'>,
+  data: Pick<CampaignData, 'preps' | 'sessions' | 'state'>,
   secretId: string,
 ): { prep: Prep; secret: PrepSecret } | null {
-  for (const prep of prepsNewestFirst(data)) {
-    const secret = prep.secrets.find((entry) => entry.id === secretId);
-    if (secret) return { prep, secret };
-  }
-  return null;
+  return secretSheets(data, secretId)[0] ?? null;
+}
+
+/**
+ * Die Geheimnisse, die gerade zählen: auf dem Blatt des laufenden Abends und auf dem offenen für
+ * den nächsten – jedes einmal, das laufende Blatt zuerst, samt dem, was vom letzten Abend übrig
+ * ist. Was auf einem früheren Blatt liegen blieb und fallen gelassen wurde, gehört nicht dazu:
+ * Sonst sammelte sich in der Auswahl beim Festhalten an, was längst verworfen ist.
+ */
+export function liveSecrets(data: CampaignData): PrepSecret[] {
+  const sheets: PrepWhich[] = currentSession(data) ? ['now', 'next'] : ['next'];
+  const seen = new Set<string>();
+  const out: PrepSecret[] = [];
+  for (const which of sheets)
+    for (const secret of prepView(data, which).content.secrets) {
+      if (seen.has(secret.id)) continue;
+      seen.add(secret.id);
+      out.push(secret);
+    }
+  return out;
 }
 
 /**
@@ -965,7 +1079,7 @@ export function prepStand(data: CampaignData, content: PrepContent): PrepStand[]
           ? 'Noch keins. Ein Vorrat, aus dem du am Tisch schöpfst.'
           : secrets < SECRETS_ENOUGH
             ? 'Ein Anfang – ein Vorrat von fünf bis zehn trägt einen Abend; die Hälfte fällt meist.'
-            : 'Reicht für einen Abend – mehr als zehn brauchst du nie.') +
+            : 'Reicht für einen Abend – mehr als zehn braucht es selten.') +
         there(own.secrets, atStories.hints, 'Ein Hinweis', 'Die Hinweise'),
       brief: secrets ? count(secrets, 'Geheimnis', 'Geheimnisse') : '',
     },
@@ -989,12 +1103,15 @@ export function prepStand(data: CampaignData, content: PrepContent): PrepStand[]
       key: 'encounters',
       enough: encounters > 0,
       note:
-        (encounters
+        own.encounters > 0
           ? 'Liegt bereit – am Tisch nur noch öffnen.'
-          : 'Noch keine. Zusammengestellt wird im Bestiarium.') +
-        (own.encounters === 0 && atStories.encounters > 0
-          ? ' Sie hängt an einer Szene einer Geschichte im Spiel.'
-          : ''),
+          : atStories.encounters > 0
+            ? `Auf dem Blatt liegt keine – ${
+                atStories.encounters === 1 ? 'eine hängt' : `${atStories.encounters} hängen`
+              } an Szenen der Geschichten im Spiel und ${
+                atStories.encounters === 1 ? 'steht' : 'stehen'
+              } am Tisch dort bereit.`
+            : 'Noch keine. Zusammengestellt wird im Bestiarium.',
       brief: encounters ? count(encounters, 'Begegnung', 'Begegnungen') : '',
     },
     {

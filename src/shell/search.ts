@@ -4,7 +4,6 @@
  * Handouts, Bastionen (mit ihren Einrichtungen), Beute, Vermutungen der Spieler, Läden (auch
  * nach ihren Waren), Fortbewegungsmittel, die Blätter der Abende (nach dem, was darauf steht) und
  * die Regeln des Tisches. Reine Funktion –
-
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
 import { KIND_LABEL, normalize, occurrencesOf, searchEntities } from '../domain/derive';

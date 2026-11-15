@@ -128,7 +128,6 @@ nicht übernommen.
   sie hängen; die Rechnung steht in `domain/story.ts`),
   `abend` (einen Abend vorbereiten; die Rechnung steht in `domain/prep.ts` und
   `domain/prepOffers.ts`),
-
   `nachtragen` (alte Sessions aus Notizdateien: lesen, trennen, in die Weltzeit legen,
   übernehmen),
   `laden` (Läden und Handelsplätze: Handel am Tisch, Abschnitt „Laden“ auf Seiten, Vorlagen
@@ -364,7 +363,8 @@ nicht übernommen.
   (`PREP_SECTIONS`): Wo wir stehen (`prep.plan`), Die Gefährten, Geschichten im Spiel, Starker
   Einstieg, Mögliche Szenen, Geheimnisse (noch an keinem Ort festgemacht), Orte
   (`prep.placeIds`), Personen (`prep.personIds`, dazu erzeugte „Namen für den Notfall“:
-  `spareNames`, stabil je Blatt über `prep.namesRound`), Begegnungen, Beute. Jedes Fach ist
+  `spareNames`, stabil je Blatt über `prep.namesRound`, nie mit dem Nachnamen einer Person, die
+  es schon gibt – das sähe nach Verwandtschaft aus), Begegnungen, Beute. Jedes Fach ist
   freiwillig, einklappbar (`Fach`) und abwählbar („heute nicht nötig“, `prep.skipped`); wie es
   steht, sagt `prepStand()` – „reicht“ statt Zählern, mitgezählt wird, was bei den Geschichten
   im Spiel bereitliegt (`readyAtStories`); der nächste sinnvolle Schritt ist `prepNext()`
@@ -380,13 +380,22 @@ nicht übernommen.
   aufgedeckt, nicht ausgetragen wurde (auch Einstieg und Gedanken zur Beute), kommt beim Lesen
   auf das nächste Blatt (`leftOf`, `mergeLeft`, `carriedFrom`) und wartet dort als „Vom letzten
   Abend übrig“ (`prep.pending`, `leftoverLines`), bis der Spielleiter entscheidet (`settleLeftover`:
-  weiter, fallen lassen, zurück zur Geschichte) – nie von Hand kopieren. Übernommenes behält
-  seine Kennung: ein Geheimnis immer über `findPrepSecret` / `allSecrets` suchen (das jüngste
-  Blatt zählt). Geschrieben wird über `features/abend/actions.ts` (`patchPrep` legt das Blatt
-  mit dem ersten Wort an). Frühere Blätter sind von der Session in der Chronik aus zu lesen
-  (`PrepSheetDialog`), dasselbe schlichte Blatt wird gedruckt (`PrepPaper`); die Suche findet,
+  weiter, fallen lassen, zurück zur Geschichte; „Rückgängig“ nimmt nur die eine Entscheidung
+  zurück, `unsettleLeft`) – nie von Hand kopieren. Fest gespeichert wird es
+  mit dem ersten Wort und spätestens, wenn der Abend beginnt (`startSession`, `carriedChange`) –
+  ein Blatt mit Session hat das Übrige seines Vorgängers immer schon aufgenommen, sonst risse die
+  Kette. Übernommenes behält seine Kennung: ein Geheimnis immer über `findPrepSecret` /
+  `allSecrets` suchen; aufgedeckt wird es auf jedem Blatt, auf dem es gerade zählt
+  (`secretSheets`: das des laufenden Abends und das offene). Zur Wahl beim Festhalten steht nur,
+  was gerade zählt (`liveSecrets`) – nicht, was auf einem früheren Blatt liegen blieb.
+  `endSession` schreibt auf das Blatt des Abends, was bis dahin gespielt und aufgedeckt war (auch
+  bei der Geschichte Abgehaktes) – so steht es beim Nachlesen. `deleteSession` gibt das Blatt des
+  jüngsten Abends wieder frei. Geschrieben wird über `features/abend/actions.ts` (`patchPrep`
+  legt das Blatt mit dem ersten Wort an). Frühere Blätter sind von der Session in der Chronik
+  aus zu lesen (`PrepSheetDialog`), dasselbe schlichte Blatt wird gedruckt (`PrepPaper`); die Suche findet,
   was auf Blättern steht. Am Spieltisch klappt „Dieser Abend“ zu, sobald der Einstieg gespielt
-  ist (`prep.startDone`); Szenen mit Ort stehen nur links. Eine Szene (Abend
+  ist (`prep.startDone`); Szenen mit Ort stehen nur links, Szenen einer Geschichte im Spiel und
+  Hinweise, die dort als „liegt hier“ stehen, nur bei ihr (`playClaims`). Eine Szene (Abend
   oder Geschichte) kann an einen Ort geheftet sein (`scene.placeId`); am Spieltisch zeigt
   `scenesHere()` sie unter „Was hier passieren kann“, sobald die Gruppe dort ist. Unter „Starker
   Einstieg“ stehen die letzten Einträge der vorigen Session zum Übernehmen (`lastSessionLines`)

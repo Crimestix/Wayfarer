@@ -32,7 +32,6 @@ export default function ChronikPage() {
   // Die Suche hat eine Zeile auf dem Blatt eines früheren Abends gefunden.
   useFocus(['sheet'], (focus) => {
     setSessionId(focus.sessionId);
-
     setView('sessions');
     setSheetOf(focus.sessionId);
   });

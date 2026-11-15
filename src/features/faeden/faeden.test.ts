@@ -737,6 +737,10 @@ describe('Im Spiel', () => {
     const claims = playClaims(playView(data()));
     expect(claims.has(`promise:${promise.id}`)).toBe(true);
     expect([...claims].filter((key) => key.startsWith('event:'))).toHaveLength(2);
+    // Auch der Hinweis, der hier liegt – auf dem Blatt des Abends steht er dann nicht noch einmal.
+    expect([...claims].filter((key) => key.startsWith('hint:'))).toEqual([
+      `hint:${who.id}:${play!.hints[0]!.hint.id}`,
+    ]);
   });
 });
 

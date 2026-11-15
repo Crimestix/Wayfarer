@@ -1701,8 +1701,8 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   Fraktion oder Familie, Leute und Orte, Hinweise, Einstiege, Szenen, Textfelder), Faden-Dialog,
   Anheften auf dem Fadenbrett, Ort der Szene auf „Abend vorbereiten“.
 - Offen: `NamesHint` und „@“ fehlten auf „Abend vorbereiten“ (inzwischen da, siehe „Abend
-  vorbereiten, neu“) und fehlen in den Zeilen
- der Listen des Blatts (Schritte, Hinweise, Einstiege, Szenen sind einfache
+  vorbereiten, neu“) und fehlen in den Zeilen der Listen des Blatts der Geschichte (Schritte,
+  Hinweise, Einstiege, Szenen sind einfache
   Eingabefelder); die übrigen Auswahlfelder der App (Festhalten, Kalender, Läden …) nutzen noch
   `onCreate` oder gar kein Anlegen. Orte mit Begleiter („zur Salzgrotte“) erkennt
   `unknownNames` bewusst nicht als Namen.
@@ -1809,6 +1809,31 @@ einlesen, 3 eine Session prüfen (mit „Was geschah“ in den Artikeln), 4 KI-L
   nicht mehr von selbst aufs nächste. Ob eine Begegnung „ausgetragen“ ist, liest Wayfarer daran,
   dass ein Exemplar Trefferpunkte verloren hat. „Welches Blatt zuerst“ richtet sich nach dem
   Datum der laufenden Session (von gestern → der nächste Abend).
+- **Gegengelesen: Abend vorbereiten neu.** Übriges ging doch noch verloren, wenn an einem Abend
+  niemand sein Blatt anfasste (es stand nur beim Lesen da; der Abend danach sah es nicht mehr) –
+  `startSession` speichert es jetzt fest. Bei fortgesetzter Session setzte „Aufgedeckt“ beim
+  Festhalten den Haken nur auf dem nächsten Blatt, am Spieltisch blieb das Geheimnis stehen
+  (`secretSheets`; Löschen nimmt es überall zurück). Lag eine Szene oder ein Hinweis einer
+  Geschichte schon auf dem nächsten Blatt, kam sie vom laufenden ein zweites Mal herüber. Wer auf
+  der Seite „Neue Session beginnen“ wählte, sah ein leeres Blatt für den übernächsten Abend statt
+  des eben vorbereiteten. Eine versehentlich begonnene Session zu löschen nahm ihr Blatt mit
+  (`deleteSession` gibt es wieder frei). Dazu Wortlaute (Einzahl, Begegnungen an Szenen, der Satz
+  zu den erzeugten Namen stimmt auch für eine Welt mit wenigen Personen).
+  Zweiter Durchgang: „Rückgängig“ bei „fallen lassen“ stellte das ganze Blatt von vorher wieder
+  her – zwei Meldungen in falscher Reihenfolge zurückgenommen, und das erste Stück war wieder weg
+  (`unsettleLeft` nimmt nur die eine Entscheidung zurück). Was am Tisch bei der Geschichte
+  abgehakt wurde (dort stehen ihre Szenen und Hinweise), hieß beim Nachlesen des Blatts „an
+  diesem Abend nicht gespielt“ – `endSession` hält den Stand jetzt auf dem Blatt fest. Fallen
+  gelassene Geheimnisse blieben beim Festhalten („Aufgedeckt“) für immer zur Wahl (`liveSecrets`).
+  „Namen für den Notfall“ tragen keinen Nachnamen mehr, den es in der Welt schon gibt (fünf von
+  sechs hießen in der Testwelt wie die Familien der Geschichte). Am Spieltisch stehen Hinweise,
+  die bei ihrer Geschichte im Spiel „hier liegen“, nur noch dort. „Blatt des Abends öffnen“ in
+  der Chronik führt zum Blatt dieses Abends, nicht zum nächsten. Die Spalte der Art im Rückblick
+  war für „Spielerwunsch“ zu schmal.
+- Offen: Ohne geschriebenen Einstieg ist „Dieser Abend“ am Spieltisch von Anfang an eingeklappt.
+  Bei einem Spielstand von vor dem Umbau steht beim ersten Öffnen einmalig „Vom letzten Abend
+  übrig“, was auf dem Blatt des letzten Abends nie abgehakt wurde (auch sein Einstieg). Der
+  Beiwerk-NSC in „Welt“ (`suggestNpc`) vergibt weiter gern Nachnamen vom Ort.
 
 ## 6. Bekannte Mängel und Aufräumliste
 

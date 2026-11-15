@@ -106,7 +106,10 @@ function StoryCard({
     : '';
   const brief = [
     next ? `${when}: ${next.step.text}` : card.clock.pace === 'done' ? 'Alles ist geschehen.' : '',
-    card.ready > 0 && `${card.ready} lassen sich auf den Abend legen`,
+    card.ready > 0 &&
+      (card.ready === 1
+        ? 'Eines lässt sich auf den Abend legen'
+        : `${card.ready} lassen sich auf den Abend legen`),
   ]
     .filter(Boolean)
     .join(' · ');
