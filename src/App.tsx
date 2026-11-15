@@ -4,18 +4,24 @@ import { useHashLocation } from 'wouter/use-hash-location';
 import { CampaignDb, CampaignMissingError } from './data/db';
 import { DbContext } from './data/hooks';
 import { loadLocalMedia } from './data/media';
-import { openCampaign } from './data/openCampaign';
+import { SyncInterruptedError, openCampaign } from './data/openCampaign';
 import { getConfig, isDesktopApp, onAppClosing, onAppClosingAfterSave } from './data/platform';
 import { elarisCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
 import { AppShell } from './shell/AppShell';
-import { Welcome } from './shell/Welcome';
+import { Welcome, type WelcomeEnv } from './shell/Welcome';
 import { startSync, stopSync } from './features/abgleich';
+import type { Probe } from './features/abgleich/probe';
 import { flushEdits } from './features/wiki/editing';
 import { draftRegister } from './ui/drafts';
 
 type Phase =
-  { kind: 'loading' } | { kind: 'welcome'; error?: string } | { kind: 'ready'; db: CampaignDb };
+  | { kind: 'loading' }
+  | { kind: 'welcome'; error?: string; interruptedDir?: string; env?: WelcomeEnv }
+  | { kind: 'ready'; db: CampaignDb };
+
+/** Probe des Abgleichs in der Vorschau (`?abgleich`, nur während der Entwicklung). */
+let probe: Probe | null = null;
 
 /** Öffnet die Kampagne: in der installierten App aus dem Ordner, im Browser den Elaris-Grundstand. */
 /**
@@ -32,6 +38,9 @@ async function boot(): Promise<Phase> {
     try {
       return { kind: 'ready', db: await openCampaign(campaignDir) };
     } catch (error) {
+      // Ein unterbrochener Abgleich: nie still einen halben Stand öffnen – „Fortsetzen“ anbieten.
+      if (error instanceof SyncInterruptedError)
+        return { kind: 'welcome', interruptedDir: campaignDir };
       return {
         kind: 'welcome',
         error:
@@ -42,6 +51,12 @@ async function boot(): Promise<Phase> {
     }
   }
   const params = new URLSearchParams(location.search);
+  if (import.meta.env.DEV && params.has('abgleich')) {
+    const { startProbe } = await import('./features/abgleich/probe');
+    probe = await startProbe(params.has('welcome'), params.get('abgleich') === 'eingerichtet');
+    if (probe.welcome) return { kind: 'welcome', env: probe.welcome };
+    return { kind: 'ready', db: await probe.reopen() };
+  }
   if (params.has('welcome')) return { kind: 'welcome' };
   const store = new BrowserStore();
   if (params.has('reset')) store.clear();
@@ -85,7 +100,14 @@ export function App() {
     const sync = startSync(db, {
       beforeScan: flushEdits,
       drafts: draftRegister,
-      reload: () => window.location.reload(),
+      // Nach „Der Stand aus der Ablage gilt“: neu laden; `openCampaign` bringt es zu Ende.
+      reload: probe
+        ? () => {
+            const current = probe!;
+            setPhase({ kind: 'loading' });
+            void current.reopen().then((next) => setPhase({ kind: 'ready', db: next }));
+          }
+        : () => window.location.reload(),
     });
     const offSyncClose = sync ? onAppClosingAfterSave(() => sync.beforeClose()) : () => undefined;
     const away = () => sync?.pushSoon();
@@ -119,11 +141,20 @@ export function App() {
 
   if (phase.kind === 'loading') return null;
   if (phase.kind === 'welcome')
-    return <Welcome initialError={phase.error} onOpen={(db) => setPhase({ kind: 'ready', db })} />;
+    return (
+      <Welcome
+        initialError={phase.error}
+        interruptedDir={phase.interruptedDir}
+        env={phase.env}
+        onOpen={(db) => setPhase({ kind: 'ready', db })}
+      />
+    );
+  const ProbePanel = probe?.Panel;
   return (
     <DbContext.Provider value={phase.db}>
       <Router hook={useHashLocation}>
         <AppShell />
+        {ProbePanel && <ProbePanel />}
       </Router>
     </DbContext.Provider>
   );

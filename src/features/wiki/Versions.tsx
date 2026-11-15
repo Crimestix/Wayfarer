@@ -15,11 +15,22 @@ import { flushEdits } from './editing';
 import { articleVersions, changeLabel, type VersionEntry } from './model';
 
 /** Der Unterschied einer Fassung zum heutigen Text, Zeile für Zeile. */
-export function DiffView({ parts }: { parts: DiffPart[] }) {
+export function DiffView({
+  parts,
+  marks = { added: 'erst heute', removed: 'nur damals' },
+  same = 'Kein Unterschied – die Seite lautet heute genau so.',
+  label = 'Unterschied zum heutigen Text',
+}: {
+  parts: DiffPart[];
+  /** Was ein „+“ und ein „−“ bedeuten (für Screenreader). */
+  marks?: { added: string; removed: string };
+  same?: string;
+  label?: string;
+}) {
   if (!parts.some((part) => part.kind === 'added' || part.kind === 'removed'))
-    return <p className="wf-mute">Kein Unterschied – die Seite lautet heute genau so.</p>;
+    return <p className="wf-mute">{same}</p>;
   return (
-    <div className="wf-wiki-diff" aria-label="Unterschied zum heutigen Text">
+    <div className="wf-wiki-diff" aria-label={label}>
       {parts.map((part, index) =>
         part.kind === 'gap' ? (
           <div key={index} className="wf-wiki-diff__gap">
@@ -31,9 +42,9 @@ export function DiffView({ parts }: { parts: DiffPart[] }) {
               className="wf-wiki-diff__mark"
               aria-label={
                 part.kind === 'added'
-                  ? 'erst heute'
+                  ? marks.added
                   : part.kind === 'removed'
-                    ? 'nur damals'
+                    ? marks.removed
                     : undefined
               }
             >

@@ -146,9 +146,10 @@ export function other(device: string | null | undefined): OtherWords {
 }
 
 /** Der andere Rechner aus Sicht dieses Rechners (nie dieser selbst). */
-export function otherDevice(view: Pick<SyncView, 'other' | 'link'>): string | null {
+export function otherDevice(view: Pick<SyncView, 'other' | 'link' | 'peer'>): string | null {
   const device = view.other.device;
-  return device && device !== view.link?.device ? device : null;
+  if (device && device !== view.link?.device) return device;
+  return view.peer && view.peer !== view.link?.device ? view.peer : null;
 }
 
 // ── Das Zeichen in der Leiste ────────────────────────────────────────────────
@@ -416,6 +417,7 @@ export function movedText(last: SyncView['last']): string {
 
 /** Rückmeldung nach „Jetzt abgleichen“ (1.5). */
 export function resultLine(view: SyncView, now: Date): string {
+  const sentence = (text: string) => (/[.…]$/.test(text) ? text : `${text}.`);
   switch (view.phase) {
     case 'synced': {
       const moved = movedText(view.last);
@@ -424,7 +426,7 @@ export function resultLine(view: SyncView, now: Date): string {
     case 'offline':
       return offlineText(view);
     case 'needsYou':
-      return needsInfo(view, now)?.title ?? 'Der Abgleich braucht dich.';
+      return sentence(needsInfo(view, now)?.title ?? 'Der Abgleich braucht dich');
     default:
       return '';
   }
@@ -475,6 +477,12 @@ export function reopenedText(summary: SettleSummary | null): string | null {
       `zusammengelegt: ${summary.merged === 1 ? '1 Termin' : `${summary.merged} Termine`}`,
     );
   return parts.length ? parts.join(' · ') : null;
+}
+
+/** Wie weit ein Fortschritt ist (0 bis 1) – null ohne Fortschritt. */
+export function progressShare(progress: SyncView['progress']): number | null {
+  if (!progress || progress.total <= 0) return null;
+  return Math.min(1, Math.max(0, progress.done / progress.total));
 }
 
 /** Fortschritt in Worten: „Lade hoch … 1 200 von 3 480 Einträgen“. */
@@ -645,6 +653,10 @@ const TIME_FIELDS = new Set(['now', 'previousNow', 'at', 'startedAt', 'endedAt',
 
 export interface WordsContext {
   data: CampaignData | null;
+  /** So heißt dieser Rechner – er ist nie „der andere“. */
+  self?: string | null;
+  /** So heißt der andere Rechner, wenn bekannt (Marke der Ablage). */
+  peer?: string | null;
 }
 
 /** Ein Wert in Worten – oder null, wenn er sich nicht lesbar zeigen lässt. */
@@ -819,7 +831,9 @@ export function conflictCards(
 }
 
 export function conflictCard(c: RawConflict, ctx: WordsContext): ConflictCard {
-  const dev = other(c.remote.device);
+  const dev = other(
+    c.remote.device && c.remote.device !== ctx.self ? c.remote.device : (ctx.peer ?? null),
+  );
   const doc = c.local.json ?? c.remote.json;
   const heading = entryLabel(c.path, doc, ctx.data);
   const base: ConflictCard = {
@@ -1212,7 +1226,11 @@ export function asideEntryText(
   device: string | null,
 ): string {
   const kind = kindWord(entry.path, json);
-  const name = ownName(json) ?? (entry.title && entry.title !== entry.path ? entry.title : null);
+  // Die Rust-Seite merkt sich „<ordner>: <Name>“ aus der beiseitegelegten Fassung selbst.
+  const fromTitle = entry.title.includes(': ')
+    ? entry.title.slice(entry.title.indexOf(': ') + 2)
+    : '';
+  const name = fromTitle.trim() || ownName(json);
   const label = name ? `${kind} „${name}“` : kind;
   return `${label} (${entry.side === 'hier' ? 'Fassung von hier' : `Fassung ${other(device).from}`})`;
 }
@@ -1266,8 +1284,9 @@ export const STEP2_POINTS = [
   'Klicke unten auf „Create repository“.',
 ];
 
-export const SECOND_MACHINE =
-  'Den Schlüssel vom anderen Rechner kannst du nicht noch einmal verwenden – er wird nirgends angezeigt. Erzeuge hier einen eigenen (zwei Minuten). Melde dich dazu im Browser dieses Rechners mit demselben GitHub-Konto an; GitHub fragt dabei vielleicht noch einmal nach Passwort oder Code.';
+export const SECOND_LOGIN =
+  'Melde dich dazu im Browser dieses Rechners mit demselben GitHub-Konto an; GitHub fragt dabei vielleicht noch einmal nach Passwort oder Code.';
+export const SECOND_MACHINE = `Den Schlüssel vom anderen Rechner kannst du nicht noch einmal verwenden – er wird nirgends angezeigt. Erzeuge hier einen eigenen (zwei Minuten). ${SECOND_LOGIN}`;
 
 export const STEP3_LEAD =
   'Der Zugangsschlüssel ist eine lange Zeichenfolge, mit der Wayfarer – und nur Wayfarer – in genau diese eine Ablage schreiben darf. Bei GitHub heißt er „Fine-grained personal access token“. Der Knopf öffnet die Seite; Name, Laufzeit und die nötige Erlaubnis sind schon ausgefüllt.';
@@ -1287,8 +1306,17 @@ export const KEY_HINT =
 export const MAC_KEYCHAIN =
   'Dein Mac fragt gleich nach deinem Anmeldepasswort, damit Wayfarer den Schlüssel im Schlüsselbund ablegen darf. Wähle „Immer erlauben“. Nach jeder neuen Version von Wayfarer fragt er einmal wieder.';
 
-export function step5Empty(name: string, worldTime: string, parts: string): string {
-  return `Die Ablage ist noch leer. Wayfarer lädt jetzt den Spielstand dieses Rechners hoch: ${name} · ${worldTime}${parts ? ` · ${parts}` : ''}. Das kann ein paar Minuten dauern; der Balken zeigt, wie weit es ist. Bilder im Ordner „media“ reisen nicht mit.`;
+/** Schritt 5 a – der fette Teil (Name und Weltzeit) steht für sich. */
+export function step5Empty(
+  name: string,
+  worldTime: string,
+  parts: string,
+): { before: string; strong: string; after: string } {
+  return {
+    before: 'Die Ablage ist noch leer. Wayfarer lädt jetzt den Spielstand dieses Rechners hoch: ',
+    strong: `${name} · ${worldTime}`,
+    after: `${parts ? ` · ${parts}` : ''}. Das kann ein paar Minuten dauern; der Balken zeigt, wie weit es ist. Bilder im Ordner „media“ reisen nicht mit.`,
+  };
 }
 export const STEP5_WRONG_REPO =
   'Hast du den Abgleich am anderen Rechner schon eingerichtet, ist das die falsche Ablage – dort müsste dein Spielstand schon liegen.';

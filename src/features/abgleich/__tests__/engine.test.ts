@@ -719,7 +719,8 @@ describe('Auslöser', () => {
     await mac.timers.advance(21_000);
     const heads = repo.head;
     mac.engine.pushSoon();
-    await settle();
+    // Unter Last (alle Tests zugleich) braucht WebCrypto länger als ein `settle`.
+    for (let i = 0; i < 40 && repo.head === heads; i++) await settle();
     expect(repo.head).not.toBe(heads);
     mac.engine.stop();
   });

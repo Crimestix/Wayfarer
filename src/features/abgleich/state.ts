@@ -79,6 +79,8 @@ export interface SyncView {
   older: boolean;
   /** Der andere Rechner braucht die neue Version (sein Name). */
   otherNeedsUpdate: string | null;
+  /** So heißt der andere Rechner laut Marke der Ablage (null = keiner bekannt). */
+  peer: string | null;
   reopened: SettleSummary | null;
   firstSync: FirstSyncInfo | null;
 }
@@ -100,6 +102,7 @@ export const INITIAL_VIEW: SyncView = {
   closing: false,
   older: false,
   otherNeedsUpdate: null,
+  peer: null,
   reopened: null,
   firstSync: null,
 };

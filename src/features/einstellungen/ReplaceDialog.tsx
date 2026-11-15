@@ -61,8 +61,11 @@ export function ReplaceDialog({
   /** Bericht oder Hinweise zum neuen Stand. */
   children?: ReactNode;
   confirmLabel: string;
-  /** Tauscht den Stand aus. Darf werfen; die Meldung erscheint im Dialog. */
-  onConfirm: () => void;
+  /**
+   * Tauscht den Stand aus. Darf werfen; die Meldung erscheint im Dialog. Ein laufender Abgleich
+   * wird vorher abgewartet – solange steht „Wird vorbereitet …“ am Knopf.
+   */
+  onConfirm: () => void | Promise<void>;
   width?: number;
 }) {
   const db = useDb();
@@ -71,6 +74,7 @@ export function ReplaceDialog({
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -78,12 +82,19 @@ export function ReplaceDialog({
     setError('');
   }, [open]);
 
-  const confirm = () => {
+  const confirm = async () => {
+    if (preparing) return;
     setError('');
     try {
-      onConfirm();
+      const done = onConfirm();
+      if (done instanceof Promise) {
+        setPreparing(true);
+        await done;
+      }
     } catch (e) {
       setError(errorText(e));
+    } finally {
+      setPreparing(false);
     }
   };
 
@@ -92,7 +103,7 @@ export function ReplaceDialog({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        confirm();
+        void confirm();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -126,8 +137,8 @@ export function ReplaceDialog({
         <>
           <span className="wf-einstellungen-keyhint">Strg + Eingabe ersetzt · Esc bricht ab</span>
           <Button onClick={onClose}>Abbrechen</Button>
-          <Button variant="danger" onClick={confirm}>
-            {confirmLabel}
+          <Button variant="danger" onClick={() => void confirm()} disabled={preparing}>
+            {preparing ? 'Wird vorbereitet …' : confirmLabel}
           </Button>
         </>
       }

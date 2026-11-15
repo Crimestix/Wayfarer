@@ -41,6 +41,8 @@ import NachtragenPage from '../features/nachtragen';
 import ZeitleistePage from '../features/zeitleiste';
 import WorldAtPage from '../features/zeitleiste/WorldAtPage';
 import { LkNameSync } from '../features/import/NameSync';
+import { ConflictDialog } from '../features/abgleich/ConflictDialog';
+import { ClosingPanel, IncomingLine, SyncSign } from '../features/abgleich/SyncSign';
 import { TwinSync } from '../features/wiki/TwinSync';
 import {
   AREAS,
@@ -169,6 +171,7 @@ function NavRail() {
               ? 'Speichert …'
               : 'Speichern fehlgeschlagen'}
         </div>
+        <SyncSign />
       </div>
     </nav>
   );
@@ -385,6 +388,7 @@ export function AppShell() {
       <NavRail />
       <WorldBar />
       <main className="wf-main">
+        <IncomingLine />
         <ErrorBoundary resetKey={location} onLeave={() => navigate('/')}>
           <Switch>
             <Route path="/" component={TischPage} />
@@ -423,6 +427,8 @@ export function AppShell() {
       <ShellDialogs />
       <LkNameSync />
       <TwinSync />
+      <ConflictDialog />
+      <ClosingPanel />
       <ConfirmHost />
       <Toaster />
     </div>

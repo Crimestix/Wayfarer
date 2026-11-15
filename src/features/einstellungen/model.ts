@@ -92,7 +92,7 @@ const FOLDER_LABEL: Record<string, string> = {
   versions: 'Frühere Fassung eines Artikels',
 };
 
-/** Typische Namenszusätze, die Cloud-Laufwerke an Konfliktkopien hängen. */
+/** Typische Namenszusätze, die Cloud-Laufwerke und Kopierprogramme an Konfliktkopien hängen. */
 const CONFLICT_NAME =
   /konflikt|conflict|\(\d+\)\.json$| - kopie| copy|-[A-Z0-9]{4,}-[A-Z0-9-]+\.json$|\s\d+\.json$/i;
 
@@ -105,7 +105,7 @@ export function explainProblem(problem: LoadProblem): ExplainedProblem {
       ...base,
       kind: 'conflict',
       reason:
-        'Vermutlich eine Konfliktkopie: Der Dateiname passt nicht zum Inhalt oder trägt einen Zusatz des Cloud-Laufwerks.',
+        'Vermutlich eine Konfliktkopie: Der Dateiname passt nicht zum Inhalt oder trägt einen Zusatz wie „(1)“ oder „Kopie“.',
     };
   if (
     /JSON|Unexpected|Unterminated|Expected .* in|end of data|Unlesbar/i.test(problem.message) &&
@@ -127,7 +127,7 @@ export function explainProblem(problem: LoadProblem): ExplainedProblem {
 
 /**
  * Alle Ladeprobleme, je Datei einmal und nach Pfad sortiert. Meldet die Dateiüberwachung eine
- * unlesbare Datei mehrfach (etwa während das Cloud-Laufwerk abgleicht), zählt die letzte Meldung.
+ * unlesbare Datei mehrfach (etwa während ein anderes Programm sie schreibt), zählt die letzte Meldung.
  */
 export function explainProblems(problems: readonly LoadProblem[]): ExplainedProblem[] {
   const byPath = new Map<string, LoadProblem>();

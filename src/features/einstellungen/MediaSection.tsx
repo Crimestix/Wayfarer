@@ -11,7 +11,8 @@ import { campaignImages, fetchImages, formatBytes, type FetchProgress } from '..
 import { Button } from '../../ui';
 import { ActionRow, Notice } from './parts';
 
-export function MediaSection() {
+/** `primary`: Der Knopf darf Messing tragen (nicht, wenn die Ansicht schon einen hat). */
+export function MediaSection({ primary = true }: { primary?: boolean } = {}) {
   const db = useDb();
   const data = useData();
   const images = useMemo(() => campaignImages(data), [data]);
@@ -66,7 +67,7 @@ export function MediaSection() {
             ) : (
               <Button
                 icon={<Download />}
-                variant={missing.length ? 'primary' : 'default'}
+                variant={missing.length && primary ? 'primary' : 'default'}
                 onClick={start}
                 disabled={!desktop || missing.length === 0}
               >

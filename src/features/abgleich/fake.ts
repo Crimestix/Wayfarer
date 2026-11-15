@@ -213,6 +213,20 @@ ${listing}`);
 export const markerText = (m: Marker) =>
   JSON.stringify({ format: 'wayfarer-abgleich', ...m }) + '\n';
 
+/** Wie die Rust-Seite (`title_of`): „<ordner>: <Name>“ aus der Fassung selbst. */
+function titleOf(path: string, text: string): string {
+  const folder = path.split('/')[0]!.replace(/\.json$/, '');
+  try {
+    const v = JSON.parse(text) as Record<string, unknown>;
+    const name = ['name', 'title', 'text']
+      .map((k) => v[k])
+      .find((x): x is string => typeof x === 'string' && x !== '');
+    return name ? `${folder}: ${[...name].slice(0, 80).join('')}` : folder;
+  } catch {
+    return folder;
+  }
+}
+
 const kindOf = (files: Map<string, string>, marker: Marker | null): RemoteKind => {
   if (!files.size) return 'empty';
   if (marker) return 'wayfarer';
@@ -628,7 +642,7 @@ export class MemoryPort implements SyncPort {
     const entries: AsideRun['entries'] = [];
     const aside = (side: 'hier' | 'dort', path: string, text: string) => {
       texts.set(`${side}/${path}`, text);
-      entries.push({ side, path, sha: gitSha(text), title: path });
+      entries.push({ side, path, sha: gitSha(text), title: titleOf(path, text) });
     };
     const writes: Note['writes'] = input.writes.map((w: ApplyWrite) => {
       const here = this.store.files.get(w.path);
@@ -811,7 +825,7 @@ export class MemoryPort implements SyncPort {
       const text = this.store.files.get(path);
       if (text === undefined) return [];
       texts.set(`hier/${path}`, text);
-      return [{ side: 'hier' as const, path, sha: gitSha(text), title: path }];
+      return [{ side: 'hier' as const, path, sha: gitSha(text), title: titleOf(path, text) }];
     });
     this.beiseite.set(run, { run, at: new Date().toISOString(), reason, entries, texts });
     this.writeStand({ ...stand, runNo: run });

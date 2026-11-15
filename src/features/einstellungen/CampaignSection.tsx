@@ -1,6 +1,6 @@
-/** Abschnitt „Kampagne“: Name, Ablageort, Ordner wechseln bzw. Hinweis auf die Browser-Vorschau. */
+/** Abschnitt „Kampagne“: Name, Kampagnenordner, Ordner wechseln bzw. Hinweis auf die Browser-Vorschau. */
 import { useEffect, useMemo, useState } from 'react';
-import { Cloud, FlaskConical, FolderOpen, RotateCcw } from 'lucide-react';
+import { FlaskConical, FolderOpen, RotateCcw } from 'lucide-react';
 import { CampaignDb, CampaignMissingError } from '../../data/db';
 import { useData, useDb } from '../../data/hooks';
 import { FolderStore, isDesktopApp, pickFolder, setConfig } from '../../data/platform';
@@ -229,21 +229,14 @@ export function CampaignSection() {
       <NameField />
 
       <div className="wf-field">
-        <div className="wf-field__label">Ablageort</div>
+        <div className="wf-field__label">Kampagnenordner</div>
         <div className="wf-einstellungen-location">
           <span className="wf-einstellungen-path">{db.store.location}</span>
         </div>
       </div>
 
       {desktop ? (
-        <>
-          <FolderSwitch />
-          <Notice icon={<Cloud />} title="Ein Spielstand auf Mac und Windows">
-            Der Abgleich zwischen deinen Rechnern über GitHub folgt in einer der nächsten Versionen.
-            Bis dahin: hier „Sicherung herunterladen“, am anderen Rechner „Sicherung einspielen“ –
-            und immer nur an einem Rechner zur selben Zeit weiterspielen.
-          </Notice>
-        </>
+        <FolderSwitch />
       ) : (
         <Notice
           icon={<FlaskConical />}

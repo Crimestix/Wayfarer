@@ -1,4 +1,4 @@
-/** Einstellungen: Kampagne, Sicherung, Übernahme aus der alten Version und aus LegendKeeper, Kalender. */
+/** Einstellungen: Kampagne, Abgleich, Sicherung, Übernahme aus der alten Version und aus LegendKeeper, Kalender. */
 import { BookOpen } from 'lucide-react';
 import { useDb } from '../../data/hooks';
 import { isDesktopApp } from '../../data/platform';
@@ -18,9 +18,11 @@ import { SourcesSection } from './SourcesSection';
 import { ScaffoldSection } from './ScaffoldSection';
 import { TrashSection } from './TrashSection';
 import { TableRulesSheet } from '../tisch/TableRules';
+import { SyncSection } from '../abgleich/SyncSection';
+import { SECTION_LEAD } from '../abgleich/model';
 import './einstellungen.css';
 
-const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII'];
 
 export default function Page() {
   const db = useDb();
@@ -64,6 +66,22 @@ export default function Page() {
             }
           >
             <CampaignSection />
+          </Section>
+
+          <Section numeral={numeral()} title="Abgleich" lead={SECTION_LEAD}>
+            <Boundary
+              fallback={
+                <EmptyState
+                  icon={<BookOpen />}
+                  title="Der Abgleich lässt sich gerade nicht anzeigen"
+                >
+                  Die übrigen Einstellungen sind davon nicht betroffen. Dein Spielstand ist auf
+                  diesem Rechner gespeichert; ein Neustart von Wayfarer hilft meistens.
+                </EmptyState>
+              }
+            >
+              <SyncSection />
+            </Boundary>
           </Section>
 
           <Section

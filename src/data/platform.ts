@@ -241,6 +241,10 @@ export function onAppClosingAfterSave(handler: () => Promise<void>): () => void 
   };
 }
 
+/** „Sofort schließen“ während der Abgleich beim Schließen noch hochlädt (Tafel 1.6). */
+export const closeNow = () =>
+  isDesktopApp() ? invoke<void>('app_close', { state: 'saved' }) : Promise.resolve();
+
 /** So lange darf der Abgleich beim Schließen noch hochladen. */
 export const CLOSE_SYNC_MS = 12_000;
 

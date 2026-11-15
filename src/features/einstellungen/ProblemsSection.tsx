@@ -45,20 +45,21 @@ export function ProblemsSection() {
       <div className="wf-einstellungen-help">
         {conflicts && (
           <p>
-            <strong>Konfliktkopien:</strong> Ändern zwei Rechner dieselbe Datei, bevor das
-            Cloud-Laufwerk abgeglichen hat, legt es eine zweite Datei daneben – oft mit einem Zusatz
-            wie „(Konflikt)“, „(1)“ oder dem Namen des Rechners. Wayfarer lädt solche Dateien nicht
-            und überschreibt oder löscht sie nie. Schließe Wayfarer und suche die Datei im
-            Kampagnenordner: Ist die Kopie die ältere Fassung, kannst du sie löschen. Ist sie die
-            neuere, benenne sie auf den Namen der Datei ohne Zusatz um und ersetze diese damit.
+            <strong>Konfliktkopien:</strong> Wurde der Kampagnenordner von Hand kopiert oder liegt
+            er in einem Cloud-Laufwerk, entsteht manchmal eine zweite Datei daneben – oft mit einem
+            Zusatz wie „(Konflikt)“, „(1)“ oder dem Namen des Rechners. Wayfarer lädt solche Dateien
+            nicht und überschreibt oder löscht sie nie; der eigene Abgleich lässt sie aus. Schließe
+            Wayfarer und suche die Datei im Kampagnenordner: Ist die Kopie die ältere Fassung,
+            kannst du sie löschen. Ist sie die neuere, benenne sie auf den Namen der Datei ohne
+            Zusatz um und ersetze diese damit.
           </p>
         )}
         {others && (
           <p>
-            <strong>Beschädigte oder unerwartete Dateien:</strong> Oft ist das Cloud-Laufwerk noch
-            nicht fertig mit dem Abgleich – dann hilft es, kurz zu warten und Wayfarer neu zu
-            starten. Bleibt die Meldung, lässt sich die Datei meist über den Versionsverlauf des
-            Cloud-Laufwerks wiederherstellen. Wayfarer überschreibt sie nicht.
+            <strong>Beschädigte oder unerwartete Dateien:</strong> Oft schreibt gerade noch ein
+            anderes Programm an der Datei – dann hilft es, kurz zu warten und Wayfarer neu zu
+            starten. Bleibt die Meldung, hilft eine Sicherung. Wayfarer überschreibt die Datei
+            nicht, und der Abgleich lässt sie aus, bis sie wieder lesbar ist.
           </p>
         )}
         <p>

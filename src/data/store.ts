@@ -1,6 +1,7 @@
 /**
- * Ablage einer Kampagne: ein Ordner voller JSON-Dateien. Der Ordner darf in einem
- * Cloud-Laufwerk liegen; so teilen sich mehrere Rechner denselben Spielstand.
+ * Ablage einer Kampagne: ein Ordner voller JSON-Dateien (der Kampagnenordner). Mehrere Rechner
+ * teilen sich den Spielstand über den eingebauten Abgleich (`features/abgleich`), nie über ein
+ * Cloud-Laufwerk.
  * Die App kennt nur diese Schnittstelle, nicht das Dateisystem.
  */
 export interface StoredFile {

@@ -403,7 +403,10 @@ export function createSyncEngine(
           ([device, v]) => device !== scan.link?.device && v < dataVersion,
         )
       : undefined;
-    view.set({ older, otherNeedsUpdate: otherOld ? otherOld[0] : null });
+    const peer = marker
+      ? (Object.keys(marker.geraete).find((device) => device !== scan.link?.device) ?? null)
+      : null;
+    view.set({ older, otherNeedsUpdate: otherOld ? otherOld[0] : null, peer });
     if (!scan.base) {
       const local = toMap(scan.local);
       const cmp = compareWithoutBase(local, toMap(remote.files));
@@ -1203,7 +1206,12 @@ export function createSyncEngine(
         if (!st.link) return false;
         if (isMine) await port.link(root, { ...st.link, root }, true);
         else await port.link(root, null);
-        view.set({ phase: isMine ? 'synced' : 'off', needs: null });
+        // Eine Kopie mit Schlüssel auf diesem Rechner: „Abgleich nicht verbunden“.
+        view.set({
+          phase: isMine ? 'synced' : st.key === 'yes' ? 'unlinked' : 'off',
+          needs: null,
+          ...(isMine ? {} : { link: null, conflicts: [] }),
+        });
         return true;
       });
       if (changed && isMine) await run('full');
