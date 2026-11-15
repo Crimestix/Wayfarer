@@ -145,6 +145,18 @@ export function other(device: string | null | undefined): OtherWords {
   return { name, from: `vom ${name}`, at: `am ${name}`, At: `Am ${name}`, From: `Vom ${name}` };
 }
 
+/**
+ * Ein Rechner am Satzanfang mit dem richtigen Artikel: „Das MacBook“, „Der Windows-PC“, sonst
+ * „Der Rechner „Name““ (bei einem frei gewählten Namen ist das Geschlecht unbekannt).
+ */
+export function deviceSubject(device: string | null | undefined): string {
+  const name = device?.trim();
+  if (!name) return 'Der andere Rechner';
+  if (name === 'MacBook') return 'Das MacBook';
+  if (name === 'Windows-PC') return 'Der Windows-PC';
+  return `Der Rechner „${name}“`;
+}
+
 /** Der andere Rechner aus Sicht dieses Rechners (nie dieser selbst). */
 export function otherDevice(view: Pick<SyncView, 'other' | 'link' | 'peer'>): string | null {
   const device = view.other.device;
@@ -279,7 +291,6 @@ const repoName = (link: SyncLink | null) => (link ? `${link.owner}/${link.repo}`
 export function needsInfo(view: SyncView, now: Date): NeedsInfo | null {
   const why: NeedsWhy | undefined = view.needs?.why;
   if (!why) return null;
-  const dev = other(otherDevice(view));
   switch (why) {
     case 'conflicts': {
       const n = view.conflicts.length;
@@ -362,7 +373,8 @@ export function needsInfo(view: SyncView, now: Date): NeedsInfo | null {
     case 'version':
       return {
         title: 'Wayfarer ist auf diesem Rechner älter',
-        text: `${dev.name === 'Anderer Rechner' ? 'Der andere Rechner' : `Der ${dev.name}`} arbeitet mit einer neueren Version. Dieser Rechner holt weiter, was von dort kommt, lädt aber nichts hoch, bis du Wayfarer hier aktualisiert hast. Was du hier änderst, bleibt sicher auf diesem Rechner und wird danach abgeglichen. Die neue Version für den Mac liegt bei GitHub unter „Releases“.`,
+        // Gilt auf beiden Rechnern – die neue Version liegt für Mac und Windows am selben Ort.
+        text: `${deviceSubject(otherDevice(view))} arbeitet mit einer neueren Version. Dieser Rechner holt weiter, was von dort kommt, lädt aber nichts hoch, bis du Wayfarer hier aktualisiert hast. Was du hier änderst, bleibt sicher auf diesem Rechner und wird danach abgeglichen. Die neue Version liegt bei GitHub unter „Releases“.`,
         action: 'releases',
         button: 'Seite öffnen',
       };
@@ -818,8 +830,25 @@ function stampsOf(conflict: RawConflict, dev: OtherWords): string | null {
 
 /** Ein paar Beispiele für „sehr viel auf einmal“. */
 function examples(paths: readonly string[], data: CampaignData | null): string {
-  const shown = paths.slice(0, 3).map((p) => entryLabel(p, null, data));
-  return shown.length ? ` (zum Beispiel: ${shown.join(', ')}${paths.length > 3 ? ' …' : ''})` : '';
+  const named = paths.filter((p) => ownName(docOf(data, p)));
+  if (named.length) {
+    const shown = named.slice(0, 3).map((p) => entryLabel(p, null, data));
+    return ` (zum Beispiel: ${shown.join(', ')}${paths.length > shown.length ? ' …' : ''})`;
+  }
+  // Was hier fehlt, hat hier keinen Namen mehr – nie dreimal „Eintrag der Welt“: nach Art gezählt.
+  const byKind = new Map<CollectionName | null, number>();
+  for (const p of paths) {
+    const { collection } = pathParts(p);
+    const key = isCollection(collection) ? collection : null;
+    byKind.set(key, (byKind.get(key) ?? 0) + 1);
+  }
+  const plural = (c: CollectionName | null, n: number) =>
+    c ? COLLECTION_LABEL[c][n === 1 ? 0 : 1] : n === 1 ? 'Eintrag' : 'Einträge';
+  if (byKind.size === 1) {
+    const [c, n] = [...byKind][0]!;
+    return c ? ` (alles ${plural(c, n)})` : '';
+  }
+  return ` (${[...byKind].map(([c, n]) => `${numberText(n)} ${plural(c, n)}`).join(', ')})`;
 }
 
 /** Aus den Rückfragen des Ablaufs werden Karten in Worten. */
@@ -957,6 +986,16 @@ export function conflictCard(c: RawConflict, ctx: WordsContext): ConflictCard {
     case 'whole':
       return whole(c.why);
   }
+}
+
+/**
+ * Die Einleitung des Dialogs. „An beiden Rechnern geändert“ stimmt nicht, wenn nur „Sehr viel
+ * auf einmal“ wartet – das hat ein Rechner allein getan.
+ */
+export function decideLead(cards: readonly Pick<ConflictCard, 'kind'>[]): string {
+  if (cards.length && cards.every((c) => c.kind === 'mass'))
+    return 'Seit dem letzten Abgleich hat sich sehr viel auf einmal geändert. Damit nichts aus Versehen verloren geht, fragt Wayfarer nach. Bis du entscheidest, bleiben diese Einträge auf jedem Rechner, wie sie sind; alles andere wird abgeglichen.';
+  return 'Diese Einträge wurden an beiden Rechnern geändert. Was sich nicht widerspricht, hat Wayfarer schon zusammengeführt. Bis du entscheidest, bleibt auf jedem Rechner seine Fassung dieser Einträge; alles andere wird abgeglichen.';
 }
 
 /** Der Fuß des Dialogs ist bedienbar, sobald mindestens eine Karte eine Wahl hat. */
@@ -1290,9 +1329,19 @@ export const SECOND_MACHINE = `Den Schlüssel vom anderen Rechner kannst du nich
 
 export const STEP3_LEAD =
   'Der Zugangsschlüssel ist eine lange Zeichenfolge, mit der Wayfarer – und nur Wayfarer – in genau diese eine Ablage schreiben darf. Bei GitHub heißt er „Fine-grained personal access token“. Der Knopf öffnet die Seite; Name, Laufzeit und die nötige Erlaubnis sind schon ausgefüllt.';
-export function step3Points(second: boolean): string[] {
+/**
+ * Die Punkte zu GitHubs Seite (Schritt 3). `repo`: Der Schlüssel wird für eine schon verbundene
+ * Ablage ersetzt – dann steht ihr Name da, nie „die Ablage aus Schritt 2“ (die Schritte sieht man
+ * beim Ersetzen nicht).
+ */
+export function step3Points(second: boolean, repo?: string): string[] {
+  const which = repo
+    ? `deine Ablage ${repo}`
+    : second
+      ? 'die Ablage, die du am anderen Rechner angelegt hast'
+      : 'die Ablage aus Schritt 2';
   return [
-    `Bei „Repository access“ wähle „Only select repositories“ und im Feld darunter ${second ? 'die Ablage, die du am anderen Rechner angelegt hast' : 'die Ablage aus Schritt 2'}. Liegt dort auch eine Ablage namens „Wayfarer“, ist das nicht die richtige.`,
+    `Bei „Repository access“ wähle „Only select repositories“ und im Feld darunter ${which}. Liegt dort auch eine Ablage namens „Wayfarer“, ist das nicht die richtige.`,
     'Prüfe unter „Permissions“ → „Repository permissions“, dass bei „Contents“ „Read and write“ steht. „Metadata“ setzt GitHub von selbst dazu – lass es stehen.',
     'Bei „Expiration“ steht „No expiration“: Der Schlüssel läuft nicht ab. GitHub warnt davor; das darfst du übergehen. Löschen kannst du ihn bei GitHub jederzeit.',
     'Klicke unten auf „Generate token“ (fragt GitHub noch einmal nach Passwort oder Code, ist das normal) und kopiere die Zeichenfolge, die GitHub dir zeigt. Sie beginnt mit github_pat_ und wird nur dieses eine Mal angezeigt.',
@@ -1337,10 +1386,7 @@ export const otherMachineName = (device: string) =>
 export const NEWER_HERE =
   'Diese Version speichert mehr als die vorige. Das MacBook holt weiter, kann aber erst wieder hochladen, wenn dort dieselbe Version läuft.';
 export function newerHereText(device: string): string {
-  return NEWER_HERE.replace(
-    'Das MacBook',
-    device === 'MacBook' ? 'Das MacBook' : `Der Rechner „${device}“`,
-  );
+  return NEWER_HERE.replace('Das MacBook', deviceSubject(device));
 }
 
 export const DISCONNECT_TITLE = 'Abgleich auf diesem Rechner trennen?';

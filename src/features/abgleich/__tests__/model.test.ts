@@ -168,6 +168,18 @@ describe('Störungen in Worten', () => {
         NOW,
       )!.text.startsWith('Der Windows-PC arbeitet mit einer neueren Version.'),
     ).toBe(true);
+    // Ist der Windows-PC der ältere: „Das MacBook“, und kein Hinweis auf „den Mac“.
+    const olderPc = needsInfo(
+      view({
+        phase: 'needsYou',
+        needs: { why: 'version' },
+        other: { device: 'MacBook', pushedAt: null },
+        link: { owner: 'a', repo: 'b', branch: 'main', device: 'Windows-PC', root: '/x' },
+      }),
+      NOW,
+    )!.text;
+    expect(olderPc.startsWith('Das MacBook arbeitet mit einer neueren Version.')).toBe(true);
+    expect(olderPc).not.toContain('für den Mac');
     const first = view({
       phase: 'needsYou',
       needs: { why: 'firstSync' },
@@ -403,12 +415,51 @@ describe('Karten im Dialog', () => {
       },
       { data },
     );
-    expect(
-      mass.lead!.startsWith(
-        'Seit dem letzten Abgleich fehlen hier 240 Einträge (zum Beispiel: Termin',
-      ),
-    ).toBe(true);
+    // Was hier fehlt, hat hier keinen Namen mehr: nach Art gezählt, nie „Termin, Termin, Termin“.
+    expect(mass.lead).toBe('Seit dem letzten Abgleich fehlen hier 240 Einträge (alles Termine).');
     expect(mass.options.map((o) => o.choice)).toEqual(['ok', 'back']);
+    const mixed = conflictCard(
+      {
+        id: '*mass:deleteHere:2',
+        path: 'events/a.json',
+        kind: 'mass',
+        local: { json: null, at: null },
+        remote: { json: null, at: null, device: 'MacBook' },
+        fields: [],
+        mass: {
+          kind: 'deleteHere',
+          paths: [
+            ...Array.from({ length: 20 }, (_, i) => `entities/x${i}.json`),
+            'chronicle/c1.json',
+            'chronicle/c2.json',
+          ],
+          key: 'k2',
+        },
+      },
+      { data },
+    );
+    expect(mixed.lead).toBe(
+      'Seit dem letzten Abgleich fehlen hier 22 Einträge (20 Einträge der Welt, 2 Chronikeinträge).',
+    );
+    // Was es hier noch gibt, steht mit Namen da.
+    const there = conflictCard(
+      {
+        id: '*mass:deleteThere:3',
+        path: `entities/${person.id}.json`,
+        kind: 'mass',
+        local: { json: null, at: null },
+        remote: { json: null, at: null, device: 'MacBook' },
+        fields: [],
+        mass: { kind: 'deleteThere', paths: [`entities/${person.id}.json`], key: 'k3' },
+      },
+      { data },
+    );
+    expect(there.lead).toBe(
+      `Am MacBook wurden 1 Eintrag entfernt (zum Beispiel: Person „${person.name}“).`,
+    );
+    expect(model.decideLead([mass, mixed])).toContain('sehr viel auf einmal');
+    expect(model.decideLead([mass, there])).toContain('sehr viel auf einmal');
+    expect(model.decideLead([{ kind: 'fields' }, mass])).toContain('an beiden Rechnern geändert');
     const unreadable = conflictCard(
       {
         id: 'stories/st1.json',
@@ -563,6 +614,23 @@ describe('Wörter', () => {
     const plain = texts.map((t) => t.replace(/„[^“]*“/g, ''));
     for (const t of plain)
       expect(t).not.toMatch(/\b(Commit|Push|Pull|Merge|Token|Sync|Branch|Hash)\b/i);
+  });
+
+  it('Rechner am Satzanfang mit dem richtigen Artikel', () => {
+    expect(model.deviceSubject('MacBook')).toBe('Das MacBook');
+    expect(model.deviceSubject('Windows-PC')).toBe('Der Windows-PC');
+    expect(model.deviceSubject('Laptop')).toBe('Der Rechner „Laptop“');
+    expect(model.deviceSubject(null)).toBe('Der andere Rechner');
+    expect(model.newerHereText('MacBook').startsWith('Diese Version speichert mehr')).toBe(true);
+    expect(model.newerHereText('Windows-PC')).toContain('Der Windows-PC holt weiter');
+  });
+
+  it('Anleitung zum Schlüssel: beim Ersetzen steht die verbundene Ablage, nicht „Schritt 2“', () => {
+    expect(model.step3Points(false)[0]).toContain('die Ablage aus Schritt 2');
+    expect(model.step3Points(true)[0]).toContain('am anderen Rechner angelegt');
+    const replace = model.step3Points(false, 'spielleiter/spielstand-elaris')[0]!;
+    expect(replace).toContain('deine Ablage spielleiter/spielstand-elaris');
+    expect(replace).not.toContain('Schritt');
   });
 
   it('die Kennungen der Attrappe sind die von Git', () => {

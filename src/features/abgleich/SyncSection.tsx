@@ -99,7 +99,12 @@ function KeyReplace({ onDone, primary }: { onDone: () => void; primary: boolean 
   const link = view.link;
   return (
     <div className="wf-abgleich-box">
-      <KeyGuide device={link.device} second={false} showTail={false} />
+      <KeyGuide
+        device={link.device}
+        second={false}
+        showTail={false}
+        repo={`${link.owner}/${link.repo}`}
+      />
       <KeyForm
         port={sync.port}
         primary={primary}

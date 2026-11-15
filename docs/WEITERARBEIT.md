@@ -1869,7 +1869,8 @@ Name der Ablage `spielstand-elaris`.
 - Probe in der Vorschau: `npm run dev`, dann `?abgleich`, `?abgleich=eingerichtet` oder
   `?abgleich&welcome` – zwei Rechner gegen die Attrappe im Arbeitsspeicher, eine Tafel unten
   links spielt den anderen Rechner (ändern, Widerspruch, Zeit, Löschen, kein Netz, Schlüssel
-  gelöscht, Kopie, neuere Version). Durchgespielt bei 1440 × 900 und 1280 × 800.
+  gelöscht, Kopie, neuere Version, hier sehr viel löschen). Durchgespielt bei 1440 × 900 und
+  1280 × 800.
 
 **Nur der Spielleiter kann prüfen** (Entwurf 6.3; zuerst mit Testordner und Wegwerf-Ablage):
 

@@ -173,9 +173,17 @@ Spielst du am Tisch ohne Netz, öffne Wayfarer vorher einmal mit Netz, bis „Ab
     Ausprobieren) „Nicht abgleichen“ wählen, sonst „Das ist jetzt mein Kampagnenordner“.
   - *Zwei Spielstände – welcher gilt?* (etwa nach „Sicherung einspielen“): Wähle, welcher Stand
     gilt. Was dabei ersetzt wird, legt Wayfarer vorher beiseite.
+  - *Sehr viel auf einmal:* Fehlen seit dem letzten Abgleich sehr viele Einträge (oder hast du
+    sehr viel geändert), fragt Wayfarer nach, bevor es das in die Ablage gibt: „Stimmt – so in
+    die Ablage“ oder „Stimmt nicht – aus der Ablage zurückholen“.
+- **Abgleich nicht verbunden** – auf diesem Rechner liegt ein Zugangsschlüssel, aber dieser
+  Kampagnenordner gleicht nicht ab (etwa nach „Abgleich trennen“ oder in einer Kopie). Ein Klick
+  führt zu Einstellungen → Abgleich.
 
 **Trennen:** Einstellungen → Abgleich → „Abgleich trennen“. Der Spielstand bleibt hier und in der
-Ablage, wie er ist. Die Ablage selbst löschst du bei GitHub („Delete this repository“).
+Ablage, wie er ist. Mit dem Haken „Auch den Zugangsschlüssel von diesem Rechner entfernen“
+verschwindet auch das Zeichen unten links. Die Ablage selbst löschst du bei GitHub („Delete this
+repository“).
 
 ---
 

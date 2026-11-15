@@ -77,8 +77,11 @@ export function KeyGuide({
   second,
   showTail = true,
   loginOnly = false,
+  repo,
 }: {
   device: string;
+  /** Beim Ersetzen: die verbundene Ablage („Besitzer/Name“) statt „die Ablage aus Schritt 2“. */
+  repo?: string;
   /** Zweiter Rechner: vorab der Satz „Den Schlüssel vom anderen Rechner …“. */
   second: boolean;
   showTail?: boolean;
@@ -90,7 +93,7 @@ export function KeyGuide({
       {second && <p className="wf-soft">{loginOnly ? SECOND_LOGIN : SECOND_MACHINE}</p>}
       <p className="wf-soft">{STEP3_LEAD}</p>
       <ol className="wf-abgleich-points">
-        {step3Points(second).map((point) => (
+        {step3Points(second, repo).map((point) => (
           <li key={point}>{point}</li>
         ))}
       </ol>

@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { useData } from '../../data/hooks';
+import { toSyncFailure } from '../../data/platform';
 import { foldDiff, lineDiff } from '../../domain/versions';
 import { Button, Dialog, toast } from '../../ui';
 import { DiffView } from '../wiki/Versions';
@@ -14,7 +15,9 @@ import { activeSync, useSync } from './index';
 import {
   canApply,
   conflictCards,
+  decideLead,
   decidedToast,
+  keyErrorText,
   other,
   type CardRow,
   type ConflictCard,
@@ -138,11 +141,8 @@ export function ConflictDialog() {
       await sync.engine.decide(chosen);
       toast(decidedToast(Object.keys(chosen).length));
     } catch (e) {
-      toast({
-        title: 'Nicht abgeglichen',
-        body: e instanceof Error ? e.message : String(e),
-        tone: 'danger',
-      });
+      // In Worten wie überall im Abgleich – nie die rohe Meldung der Rust-Seite.
+      toast({ title: 'Nicht abgeglichen', body: keyErrorText(toSyncFailure(e)), tone: 'danger' });
     }
   };
 
@@ -163,11 +163,7 @@ export function ConflictDialog() {
       }
     >
       <div className="wf-abgleich-decide">
-        <p className="wf-soft">
-          Diese Einträge wurden an beiden Rechnern geändert. Was sich nicht widerspricht, hat
-          Wayfarer schon zusammengeführt. Bis du entscheidest, bleibt auf jedem Rechner seine
-          Fassung dieser Einträge; alles andere wird abgeglichen.
-        </p>
+        <p className="wf-soft">{decideLead(cards)}</p>
         {cards.map((card) => (
           <Card
             key={card.id}

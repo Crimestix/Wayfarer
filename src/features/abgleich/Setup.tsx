@@ -142,17 +142,18 @@ export function Setup({ onClose }: { onClose: () => void }) {
 
   const nav = (prev: Step | null, next: Step | null, nextOk = true) => (
     <div className="wf-abgleich-setup__nav">
-      <Button variant="ghost" onClick={onClose}>
+      {/* Während hochgeladen wird, bleibt die Folge stehen – sonst liefe der Abgleich unsichtbar weiter. */}
+      <Button variant="ghost" disabled={busy} onClick={onClose}>
         Abbrechen
       </Button>
       <span className="wf-grow" />
       {prev !== null && (
-        <Button icon={<ArrowLeft />} onClick={() => setStep(prev)}>
+        <Button icon={<ArrowLeft />} disabled={busy} onClick={() => setStep(prev)}>
           Zurück
         </Button>
       )}
       {next !== null && (
-        <Button icon={<ArrowRight />} disabled={!nextOk} onClick={() => setStep(next)}>
+        <Button icon={<ArrowRight />} disabled={!nextOk || busy} onClick={() => setStep(next)}>
           Weiter
         </Button>
       )}

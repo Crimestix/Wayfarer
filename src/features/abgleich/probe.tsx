@@ -30,8 +30,9 @@ import { DATA_SHAPE, DATA_VERSION } from '../../domain/schema';
 import type { WelcomeEnv } from '../../shell/Welcome';
 import { createSyncEngine, fetchIntoEmptyFolder, type SyncEngine } from './engine';
 import { FakeRepo, MemoryPort } from './fake';
-import { setProbeEnv, type SyncEnv } from './index';
+import { activeSync, setProbeEnv, type SyncEnv } from './index';
 import type { SyncPort } from './port';
+import './probe.css';
 
 /** Ein Ordner im Speicher, der einen eigenen Ort trägt (die Attrappe erkennt daran Kopien). */
 class ProbeStore extends MemoryStore {
@@ -344,6 +345,27 @@ export async function startProbe(welcome: boolean, ready = false): Promise<Probe
             })}
           >
             {name} löscht einen Termin, der hier geändert ist
+          </button>
+          <button
+            type="button"
+            onClick={act('Hier sehr viel löschen', async () => {
+              const o = needOther();
+              // Erst 25 Einträge auf beiden Seiten, dann fehlen sie hier alle („Sehr viel auf
+              // einmal“). Löscht der andere Rechner so viel, fragt er selbst – dort, nicht hier.
+              const model = person(o.db);
+              const ids = Array.from({ length: 25 }, (_, i) => `probe-viel-${i + 1}`);
+              for (const [i, id] of ids.entries())
+                o.db.put('entities', { ...model, id, name: `Probe ${i + 1}` });
+              await o.db.flush();
+              await o.engine.syncNow();
+              const engine = activeSync()?.engine;
+              await engine?.syncNow();
+              for (const id of ids) if (db.getSnapshot().entities[id]) db.remove('entities', id);
+              await db.flush();
+              await engine?.syncNow();
+            })}
+          >
+            Hier sehr viel löschen
           </button>
           <button
             type="button"
