@@ -5,8 +5,11 @@
  * Regeln:
  * - Jede Änderung läuft über put / remove / setState / setCampaign (oder die Befehle in actions.ts).
  * - Ungültige oder fremde Dateien werden nie überschrieben, nur gemeldet.
- * - Änderungen von außen (anderes Gerät) werden übernommen, solange hier nichts Ungespeichertes
- *   für dieselbe Datei wartet.
+ * - Änderungen von außen werden übernommen, solange hier nichts Ungespeichertes für dieselbe
+ *   Datei wartet.
+ * - Was der Abgleich vom anderen Rechner bringt, kommt nur über `takeRemote` herein: wörtlich, in
+ *   einem Schritt, alles oder nichts.
+ * - Nach `close()` wird nichts mehr angenommen und nichts mehr geschrieben.
  */
 import {
   COLLECTION_NAMES,
@@ -21,6 +24,8 @@ import {
   type CollectionTypes,
   type PlayState,
 } from '../domain/schema';
+import { NEVER_DELETED, isSyncedPath } from '../domain/sync';
+import { checkIncoming } from '../domain/syncMerge';
 import type { CampaignStore, StoredFile } from './store';
 
 export type SaveStatus = 'saved' | 'saving' | 'error';
@@ -29,6 +34,23 @@ export interface LoadProblem {
   path: string;
   message: string;
 }
+
+/** Eine Datei vom anderen Rechner (Abgleich); `content: null` = dort gelöscht. */
+export interface RemoteFile {
+  path: string;
+  content: string | null;
+}
+
+/** Ergebnis von `takeRemote`: Bei `ok: false` ist nichts geändert. */
+export interface TakeResult {
+  ok: boolean;
+  /** Hier wartet für diesen Pfad etwas, oder die Platte steht nicht mehr wie im Abbild. */
+  busy: string[];
+  /** Ungültig: Schema, Kennung ≠ Dateiname, fremder Pfad oder Löschen von campaign/state. */
+  invalid: string[];
+}
+
+const CLOSED = 'Die Kampagne wird gerade neu geladen.';
 
 /** Die Ablage enthält noch keine Kampagne. */
 export class CampaignMissingError extends Error {
@@ -59,6 +81,8 @@ export class CampaignDb {
   private status: SaveStatus = 'saved';
   private lastError = '';
   private unwatch: (() => void) | null = null;
+  private changes = 0;
+  private closed = false;
   /** Dateien, die beim Laden nicht gelesen werden konnten. */
   problems: LoadProblem[] = [];
 
@@ -160,6 +184,7 @@ export class CampaignDb {
 
   /** Legt ein Dokument an oder ersetzt es. Gibt die gespeicherte Fassung zurück. */
   put<C extends CollectionName>(collection: C, doc: CollectionTypes[C]): CollectionTypes[C] {
+    this.assertOpen();
     const stamped = { ...doc, rev: doc.rev + 1, updated: nowIso() } as CollectionTypes[C];
     const valid = COLLECTION_SCHEMAS[collection].parse(stamped) as CollectionTypes[C];
     this.data = { ...this.data, [collection]: { ...this.data[collection], [valid.id]: valid } };
@@ -179,6 +204,7 @@ export class CampaignDb {
   }
 
   remove(collection: CollectionName, id: string): void {
+    this.assertOpen();
     if (!(id in this.data[collection])) return;
     const next = { ...this.data[collection] } as Record<string, unknown>;
     delete next[id];
@@ -187,6 +213,7 @@ export class CampaignDb {
   }
 
   setState(change: Partial<Omit<PlayState, 'id'>>): void {
+    this.assertOpen();
     const state = PlayStateSchema.parse({
       ...this.data.state,
       ...change,
@@ -198,6 +225,7 @@ export class CampaignDb {
   }
 
   setCampaign(change: Partial<Omit<CampaignMeta, 'id' | 'schema'>>): void {
+    this.assertOpen();
     const campaign = CampaignMetaSchema.parse({
       ...this.data.campaign,
       ...change,
@@ -215,6 +243,7 @@ export class CampaignDb {
    * der bisherige Stand unangetastet. Dateien, die beim Laden unlesbar waren, bleiben liegen.
    */
   replaceAll(next: CampaignData): void {
+    this.assertOpen();
     const campaign = CampaignMetaSchema.parse(next.campaign);
     const state = PlayStateSchema.parse(next.state);
     const unreadable = new Set(this.problems.map((p) => p.path));
@@ -246,6 +275,7 @@ export class CampaignDb {
     this.pending.set(CAMPAIGN_PATH, serialize(campaign));
     this.pending.set(STATE_PATH, serialize(state));
     this.data = { campaign, state, ...collections } as unknown as CampaignData;
+    this.changes++;
     this.setStatus('saving');
     this.notify();
     if (this.flushTimer) clearTimeout(this.flushTimer);
@@ -263,7 +293,61 @@ export class CampaignDb {
     }
   }
 
+  /**
+   * Übernimmt Dateien vom anderen Rechner (Abgleich) – wörtlich, in einem Schritt, alles oder
+   * nichts. `disk` ist das Abbild (`diskSnapshot`), gegen das der Abgleich geplant hat: Wartet
+   * für einen Pfad noch etwas, oder steht auf der Platte inzwischen etwas anderes, wird nichts
+   * übernommen (`busy`). Ebenso, wenn eine Datei nicht durchs Schema kommt (`invalid`).
+   * Geschrieben wird der gelieferte Text selbst – so bleiben Felder, die dieses Programm nicht kennt.
+   */
+  takeRemote(files: readonly RemoteFile[], disk: ReadonlyMap<string, string>): TakeResult {
+    this.assertOpen();
+    const busy: string[] = [];
+    const invalid: string[] = [];
+    for (const { path, content } of files) {
+      if (
+        !isSyncedPath(path) ||
+        (content === null && (NEVER_DELETED as readonly string[]).includes(path)) ||
+        (content !== null && !checkIncoming(path, content).ok)
+      ) {
+        invalid.push(path);
+        continue;
+      }
+      if (
+        this.pending.has(path) ||
+        (this.lastWritten.get(path) ?? null) !== (disk.get(path) ?? null)
+      )
+        busy.push(path);
+    }
+    if (busy.length || invalid.length) return { ok: false, busy, invalid };
+    for (const { path, content } of files) {
+      this.applyExternal(path, content);
+      this.pending.set(path, content);
+    }
+    this.changes++;
+    this.setStatus('saving');
+    this.notify();
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => void this.flush(), 250);
+    return { ok: true, busy, invalid };
+  }
+
+  /** Zählt jede Änderung im Speicher – der Abgleich merkt so, ob während seines Laufs etwas geschah. */
+  changeMark(): number {
+    return this.changes;
+  }
+
+  /** Was zuletzt auf der Platte stand bzw. geschrieben wurde: Pfad → Text. */
+  diskSnapshot(): ReadonlyMap<string, string> {
+    return new Map(this.lastWritten);
+  }
+
+  private assertOpen() {
+    if (this.closed) throw new Error(CLOSED);
+  }
+
   private enqueue(path: string, content: string | null) {
+    this.changes++;
     this.pending.set(path, content);
     this.setStatus('saving');
     this.notify();
@@ -291,6 +375,7 @@ export class CampaignDb {
 
   /** Schreibt alle wartenden Änderungen. Fehler bleiben in der Warteschlange. */
   async flush(): Promise<void> {
+    if (this.closed) return;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -332,13 +417,20 @@ export class CampaignDb {
     let changed = false;
     for (const path of paths) {
       if (this.pending.has(path)) continue;
+      const before = this.lastWritten.get(path);
       const content = await this.store.read(path);
+      // Während des Lesens wurde dieselbe Datei geschrieben oder wartet wieder: Dann gilt der
+      // Speicher, nicht das, was unterwegs gelesen wurde.
+      if (this.pending.has(path) || this.lastWritten.get(path) !== before) continue;
       if (content === (this.lastWritten.get(path) ?? null)) continue;
       if (content === null) this.lastWritten.delete(path);
       else this.lastWritten.set(path, content);
       changed = this.applyExternal(path, content) || changed;
     }
-    if (changed) this.notify();
+    if (changed) {
+      this.changes++;
+      this.notify();
+    }
   }
 
   private applyExternal(path: string, content: string | null): boolean {
@@ -372,7 +464,9 @@ export class CampaignDb {
     return true;
   }
 
+  /** Schließt die Kampagne: Danach wird nichts mehr angenommen und nichts mehr geschrieben. */
   close() {
+    this.closed = true;
     this.unwatch?.();
     this.unwatch = null;
     if (this.flushTimer) clearTimeout(this.flushTimer);

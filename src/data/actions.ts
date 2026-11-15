@@ -128,42 +128,103 @@ export function undoTimeAdvance(db: CampaignDb): boolean {
   if (back === null || back >= data.state.now) return false;
   const now = data.state.now;
   db.batch(() => {
+    reopenBetween(db, back, now);
+    db.setState({ now: back, previousNow: null });
+  });
+  return true;
+}
+
+export interface Reopened {
+  events: number;
+  steps: number;
+  timers: number;
+}
+
+/**
+ * Öffnet wieder, was in der Zeit nach `back` bis einschließlich `upto` von selbst eingetreten
+ * war: Termine (samt ihrer Chronikzeilen), Timer, Schritte von Uhren (samt ihrer Zeilen) und
+ * Blockaden. Was der Spielleiter selbst festgehalten hat, bleibt. Die Weltzeit stellt es nicht.
+ */
+export function reopenBetween(db: CampaignDb, back: WorldTime, upto: WorldTime): Reopened {
+  const data = db.getSnapshot();
+  const count: Reopened = { events: 0, steps: 0, timers: 0 };
+  db.batch(() => {
     for (const entry of Object.values(data.chronicle)) {
-      if (entry.kind !== 'event' || entry.at <= back || entry.at > now) continue;
+      if (entry.kind !== 'event' || entry.at <= back || entry.at > upto) continue;
       db.remove('chronicle', entry.id);
+      count.events++;
       const event = entry.eventId ? data.events[entry.eventId] : undefined;
       if (event?.done && event.kind === 'world' && !event.repeat)
         db.patch('events', event.id, { done: false });
     }
     for (const timer of Object.values(data.timers))
-      if (timer.done && timer.end > back && timer.end <= now)
+      if (timer.done && timer.end > back && timer.end <= upto) {
         db.patch('timers', timer.id, { done: false });
+        count.timers++;
+      }
     // Schritte der Uhren, die in dieser Zeit eingetreten sind, stehen wieder aus.
     for (const clock of Object.values(data.clocks)) {
       const reopened = clock.steps.map((step) =>
-        step.at !== null && !step.skipped && step.at > back && step.at <= now
+        step.at !== null && !step.skipped && step.at > back && step.at <= upto
           ? { ...step, at: null }
           : step,
       );
-      if (reopened.some((step, index) => step !== clock.steps[index]))
-        db.patch('clocks', clock.id, { steps: reopened });
+      const changed = reopened.filter((step, index) => step !== clock.steps[index]).length;
+      count.steps += changed;
+      if (changed) db.patch('clocks', clock.id, { steps: reopened });
       // Was in dieser Zeit blockiert wurde, läuft wieder.
       if (
         clock.blocked &&
         clock.pausedAt !== null &&
         clock.pausedAt > back &&
-        clock.pausedAt <= now
+        clock.pausedAt <= upto
       )
         db.patch('clocks', clock.id, { pausedAt: null, blocked: '' });
     }
     for (const entry of Object.values(data.chronicle))
-      if (entry.clockId && entry.kind === 'change' && entry.at > back && entry.at <= now) {
+      if (entry.clockId && entry.kind === 'change' && entry.at > back && entry.at <= upto) {
         const step = data.clocks[entry.clockId]?.steps.find((s) => s.id === entry.stepId);
         if (!step?.skipped) db.remove('chronicle', entry.id);
       }
-    db.setState({ now: back, previousNow: null });
   });
-  return true;
+  return count;
+}
+
+export interface SettleSummary {
+  reopened: Reopened;
+  /** Doppelt eingetretene Zeilen, die zusammengelegt wurden. */
+  merged: number;
+}
+
+/**
+ * Nach der Wahl der Weltzeit beim Abgleich (beide Rechner hatten Zeit vergehen lassen): Lag die
+ * andere Weltzeit später, steht wieder aus, was zwischen der gewählten und der anderen eingetreten
+ * war. Danach werden doppelt eingetretene Zeilen zusammengelegt (gleicher Termin und gleiche
+ * Zeit, gleiche Uhr und gleicher Schritt) – es bleibt die mit der kleineren Kennung. Was der
+ * Spielleiter selbst festgehalten hat, bleibt immer.
+ */
+export function settleTime(db: CampaignDb, chosen: WorldTime, other: WorldTime): SettleSummary {
+  let reopened: Reopened = { events: 0, steps: 0, timers: 0 };
+  let merged = 0;
+  db.batch(() => {
+    if (other > chosen) reopened = reopenBetween(db, chosen, other);
+    const seen = new Map<string, string>();
+    const entries = Object.values(db.getSnapshot().chronicle).sort((a, b) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    );
+    for (const entry of entries) {
+      let key: string | null = null;
+      if (entry.kind === 'event' && entry.eventId) key = `event:${entry.eventId}:${entry.at}`;
+      else if (entry.kind === 'change' && entry.clockId && entry.stepId)
+        key = `step:${entry.clockId}:${entry.stepId}`;
+      if (!key) continue;
+      if (seen.has(key)) {
+        db.remove('chronicle', entry.id);
+        merged++;
+      } else seen.set(key, entry.id);
+    }
+  });
+  return { reopened, merged };
 }
 
 // ── Uhren ──────────────────────────────────────────────────────────────────
