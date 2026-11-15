@@ -146,14 +146,6 @@ function CastLine({
         <span className="wf-tisch-cast__main">
           <span className="wf-tisch-cast__title">
             <span className="wf-tisch-cast__name wf-clamp-1">{entity.name}</span>
-            {row.unmet && (
-              <span
-                className="wf-tisch-cast__tag"
-                title="Die Gruppe hat diese Person noch nicht getroffen."
-              >
-                fremd
-              </span>
-            )}
             {row.promises.length > 0 && (
               <span
                 className="wf-tisch-cast__promise"
@@ -170,6 +162,15 @@ function CastLine({
             )}
           </span>
           <span className="wf-tisch-cast__sub wf-clamp-1">
+            {/* „fremd“ steht in der Unterzeile – in der Zeile des Namens nähme es ihm den Platz. */}
+            {row.unmet && (
+              <span
+                className="wf-tisch-cast__tag"
+                title="Die Gruppe hat diese Person noch nicht getroffen."
+              >
+                fremd
+              </span>
+            )}
             {row.role}
             {row.fate && (
               <>
@@ -199,7 +200,8 @@ function CastLine({
           aria-label={`Haltung von ${entity.name} zur Gruppe ändern`}
           onClick={() => openAttitude({ fromId: entity.id })}
         >
-          <AttitudeBadge value={row.attitude} />
+          {/* Ohne Haltung nur das Zeichen – „Unbekannt“ als Wort kostet den Namen Platz. */}
+          <AttitudeBadge value={row.attitude} label={row.attitude !== null} />
         </button>
       )}
       <IconButton

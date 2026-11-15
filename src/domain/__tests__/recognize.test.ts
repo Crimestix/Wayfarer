@@ -265,6 +265,13 @@ describe('Erkennen: am Tisch', () => {
     expect(
       only(recognizeEntry(w.data, 'Die Krähenbande hat uns besiegt.'), 'fight')[0]?.payload.fight,
     ).toEqual({ outcome: 'lost' });
+    // „Die Gruppe besiegt …“ – die Gruppe handelt selbst (Rundgang 15. 11. 2026).
+    const outcome = (text: string) =>
+      only(recognizeEntry(w.data, text), 'fight')[0]?.payload.fight?.outcome;
+    expect(outcome('Die Gruppe besiegt den Grubenschleicher.')).toBe('won');
+    expect(outcome('Die Krähenbande hat die Gruppe besiegt.')).toBe('lost');
+    expect(outcome('Die Gruppe wurde von der Krähenbande besiegt.')).toBe('lost');
+    expect(outcome('Wir wurden im Kampf besiegt.')).toBe('lost');
   });
 
   it('ein Tier der Welt ist ein Gegner wie eine Spezies', () => {

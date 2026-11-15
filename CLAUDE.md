@@ -630,7 +630,11 @@ nicht übernommen.
   Rückfrage fest, wenn nichts fehlt, sonst öffnet „Festhalten“ mit Art und Text. Die Zeile
   leert sich erst, wenn festgehalten ist (`onSaved`). Eine Notiz lässt sich nachträglich
   umwandeln („Als andere Art …“, `replaces`). Ein Klick auf die Feder eines Gefährten setzt
-  seinen Namen in die Zeile (`nameIntoJournal`). Zauber sind Wirkungen der Art `spell`
+  seinen Namen in die Zeile (`nameIntoJournal`). Die Knöpfe unter der Zeile liefert
+  `quickSuggestions` – was `recognizeEntry` erkennt und „Begegnung: …“ für genannte Personen,
+  die die Gruppe noch nicht kennt; bei Haltung, Schicksal … ist ein Gefährte nur „Wer“, wenn
+  sonst niemand passt. „/beute“ füllt Gold und Empfänger vor (`lootPreset`), „/ort“ lässt die
+  Anmerkung leer, wenn nur der Ort dasteht (`moveNote`). Zauber sind Wirkungen der Art `spell`
   (`castSpell`, `SpellDialog`, `tisch/spells.ts`): ein neuer Konzentrationszauber beendet die
   Konzentration desselben Wirkers. **Kurzblick** (`tisch/peek.ts`, `PeekPanel`): Ein Klick in
   „Wer hier ist“ zeigt die Person in der Mitte statt „Im Spiel“, ↑ ↓ blättert, Escape schließt.

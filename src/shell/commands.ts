@@ -15,6 +15,8 @@ export interface QuickLogRequest {
   parts?: RecordPart[];
   /** Gleich Beute, Vermutung oder Handel öffnen. */
   own?: 'loot' | 'guess' | 'trade';
+  /** Bei Beute: was die Mitschrift schon sagt. */
+  loot?: { text: string; gold: number | null; toId: string | null };
   /** Zeitpunkt, wenn er vor jetzt liegt (eine Notiz nachträglich umwandeln). */
   at?: WorldTime;
   /** Die Notiz, an deren Stelle der neue Eintrag tritt – sie verschwindet beim Festhalten. */

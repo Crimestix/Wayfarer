@@ -86,7 +86,11 @@ export function inViewIds(data: CampaignData): string[] {
 /** Ab so vielen Personen bekommt „Wer hier ist“ ein Suchfeld und Abschnitte nach Orten. */
 export const CAST_SEARCH_FROM = 12;
 
-const fold = (text: string) => text.toLocaleLowerCase('de').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const fold = (text: string) =>
+  text
+    .toLocaleLowerCase('de')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
 /** Passt eine Zeile zum Suchwort? Name, Rolle, Kurzbeschreibung und Ort zählen. */
 export function castMatches(row: CastRow, query: string): boolean {

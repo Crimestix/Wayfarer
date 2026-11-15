@@ -535,7 +535,7 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
     });
   };
 
-  if (loot) return <LootDialog give onClose={closeShellRequest} />;
+  if (loot) return <LootDialog give preset={request.loot} onClose={closeShellRequest} />;
   if (trading) return <TradeDialog shopId={null} onClose={closeShellRequest} />;
   if (guessing)
     return (

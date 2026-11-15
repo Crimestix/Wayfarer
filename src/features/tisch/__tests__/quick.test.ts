@@ -5,12 +5,17 @@ import { MemoryStore } from '../../../data/store';
 import { entitiesOfKind, runningTimers } from '../../../domain/derive';
 import { recognizeEntry } from '../../../domain/recognize';
 import { castSpell } from '../commands';
+import { recordFiled } from '../../chronik/actions';
+import { createEntity } from '../../../domain/schema';
 import {
   QUICK_OPTIONS,
+  lootPreset,
+  moveNote,
   placeIn,
   quickChoiceOf,
   quickMatches,
   quickPlan,
+  quickSuggestions,
   restKindIn,
   routeOf,
   slashOf,
@@ -162,5 +167,71 @@ describe('Zauber aus dem Satz', () => {
     expect(spellLabelFrom('Corrin wirkt Unsichtbarkeit', 'Corrin')).toBe('Unsichtbarkeit');
     expect(spellLabelFrom('corrin: Segen', 'Corrin')).toBe('Segen');
     expect(spellLabelFrom('Feuerball', null)).toBe('Feuerball');
+  });
+});
+
+describe('Stolpersteine aus dem Rundgang', () => {
+  it('nimmt bei „Wessen Haltung“ nicht den Gefährten, der nur handelt', async () => {
+    const db = await demoDb();
+    const data = db.getSnapshot();
+    const voss = named(db, 'person', 'Hauptmann Voss');
+    const corrin = entitiesOfKind(data, 'character')[0]!;
+    const plan = quickPlan(
+      data,
+      { text: `Hauptmann Voss ist jetzt freundlich, weil ${corrin.name} ihm half`, refs: [] },
+      { choice: 'attitude' },
+    );
+    expect(plan.parts[0]!.draft.whoId).toBe(voss.id);
+  });
+
+  it('lässt die Anmerkung eines Ortswechsels leer, wenn nur der Ort im Satz steht', async () => {
+    const db = await demoDb();
+    const data = db.getSnapshot();
+    const hafen = named(db, 'place', 'Dornhafen').id;
+    expect(moveNote(data, 'Dornhafen', hafen)).toBe('');
+    expect(moveNote(data, 'weiter nach Dornhafen.', hafen)).toBe('');
+    expect(moveNote(data, 'nach Dornhafen, die Wache folgt', hafen)).toBe(
+      'nach Dornhafen, die Wache folgt',
+    );
+    expect(moveNote(data, 'irgendwohin', null)).toBe('irgendwohin');
+  });
+});
+
+describe('Aus der ganzen Session', () => {
+  it('„/beute 30 Gold für …“ füllt Gold und Empfänger vor', async () => {
+    const db = await demoDb();
+    const data = db.getSnapshot();
+    const mate = entitiesOfKind(data, 'character')[0]!;
+    expect(lootPreset(data, `Beutel der Söldner, 30 Gold für ${mate.name}`, [])).toEqual({
+      text: `Beutel der Söldner, für ${mate.name}`,
+      gold: 30,
+      toId: mate.id,
+    });
+    expect(lootPreset(data, 'ein alter Kompass', [])).toEqual({
+      text: 'ein alter Kompass',
+      gold: null,
+      toId: null,
+    });
+  });
+
+  it('bietet „Begegnung“ an, wenn die Gruppe jemanden noch nicht kennt – und hält sie fest', async () => {
+    const db = await demoDb();
+    const stranger = db.put(
+      'entities',
+      createEntity({ kind: 'person', name: 'Ilvara Schattenhand', person: { met: false } }),
+    );
+    const text = 'Ilvara Schattenhand bittet die Gruppe um Hilfe';
+    const offers = quickSuggestions(db.getSnapshot(), text, []);
+    const meeting = offers.find((item) => item.kind === 'meeting')!;
+    expect(meeting.label).toBe('Begegnung: Ilvara Schattenhand');
+    const plan = quickPlan(db.getSnapshot(), { text, refs: [] }, { recognized: meeting });
+    expect(plan.direct).not.toBeNull();
+    recordFiled(db, plan.direct!);
+    const after = db.getSnapshot().entities[stranger.id]!;
+    expect(after.kind === 'person' && after.person.met).toBe(true);
+    // Danach kein Angebot mehr.
+    expect(quickSuggestions(db.getSnapshot(), text, []).some((i) => i.kind === 'meeting')).toBe(
+      false,
+    );
   });
 });

@@ -4,7 +4,7 @@ import { Link } from 'wouter';
 import { CornerDownLeft, Feather, Play, Trash2, X } from 'lucide-react';
 import { logEntry, startSession } from '../../data/actions';
 import { useData, useDb } from '../../data/hooks';
-import { recognizeEntry, type Recognized } from '../../domain/recognize';
+import type { Recognized } from '../../domain/recognize';
 import type { CampaignData, ChronicleEntry } from '../../domain/schema';
 import {
   Button,
@@ -39,11 +39,14 @@ import { TableRulesButton } from './TableRules';
 import { groupByDay, journal, keptMentions, mentionSuggestions, type Mention } from './model';
 import { onJournalName, withName } from './journalInsert';
 import {
+  lootPreset,
+  moveNote,
   namedIn,
   placeIn,
   quickChoiceOf,
   quickMatches,
   quickPlan,
+  quickSuggestions,
   restKindIn,
   routeOf,
   slashOf,
@@ -78,7 +81,7 @@ function useRecognizedLater(data: CampaignData, text: string, refs: string[]): R
       return;
     }
     const timer = setTimeout(
-      () => setFound(recognizeEntry(data, text, { refs: key ? key.split(',') : [] })),
+      () => setFound(quickSuggestions(data, text, key ? key.split(',') : [])),
       RECOGNIZE_DELAY,
     );
     return () => clearTimeout(timer);
@@ -262,22 +265,23 @@ export function MentionInput({
 
   return (
     <div className="wf-tisch-composer">
+      {/* Die gewählte Art steht über dem Feld – daneben nähme sie der schmalen Spalte die Breite. */}
+      {chosen && (
+        <button
+          type="button"
+          className="wf-tisch-composer__kind"
+          title="Art wieder wegnehmen – dann wird es eine Notiz"
+          onClick={() => {
+            setChosen(null);
+            field.current?.focus();
+          }}
+        >
+          {chosen.label}
+          <X aria-label="Art wegnehmen" />
+        </button>
+      )}
       <div className="wf-tisch-composer__box" ref={box}>
         <Feather className="wf-tisch-composer__quill" aria-hidden />
-        {chosen && (
-          <button
-            type="button"
-            className="wf-tisch-composer__kind"
-            title="Art wieder wegnehmen – dann wird es eine Notiz"
-            onClick={() => {
-              setChosen(null);
-              field.current?.focus();
-            }}
-          >
-            {chosen.label}
-            <X aria-label="Art wegnehmen" />
-          </button>
-        )}
         <textarea
           ref={field}
           rows={1}
@@ -443,7 +447,11 @@ function useQuickRun() {
           action.type === 'recognized'
             ? (action.item.payload.travel?.toId ?? null)
             : placeIn(data, text, refs);
-        openMoveParty({ placeId: toId ?? undefined, text, onSaved: clear });
+        openMoveParty({
+          placeId: toId ?? undefined,
+          text: moveNote(data, text, toId),
+          onSaved: clear,
+        });
         return;
       }
       case 'rest': {
@@ -464,7 +472,7 @@ function useQuickRun() {
         clear();
         return;
       case 'loot':
-        openQuickLog({ own: 'loot' });
+        openQuickLog({ own: 'loot', loot: lootPreset(data, text, refs) });
         clear();
         return;
       case 'guess':
@@ -682,8 +690,8 @@ export function JournalPanel() {
             icon={<Feather />}
             title={log.session ? 'Die Seite ist noch leer' : 'Noch nichts festgehalten'}
           >
-            Schreib oben in einem Satz auf, was gerade geschieht. Ortswechsel, geänderte Haltungen
-            und eingetretene Termine tragen sich von selbst ein.
+            Schreib oben in einem Satz auf, was gerade geschieht. Mit „/“ am Anfang wählst du die
+            Art – Ortswechsel, Haltung, Beute, Zauber und alles andere der Chronik.
           </EmptyState>
         ) : (
           <>

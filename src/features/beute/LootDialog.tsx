@@ -15,6 +15,7 @@ export function LootDialog({
   loot,
   give,
   storyId,
+  preset,
   onClose,
 }: {
   /** Vorhandener Eintrag zum Ändern; sonst entsteht ein neuer. */
@@ -23,14 +24,22 @@ export function LootDialog({
   give?: boolean;
   /** Für einen neuen Eintrag: die Geschichte, zu der er gehört. */
   storyId?: string | null;
+  /** Für einen neuen Eintrag: was die Mitschrift schon sagt („/beute 30 Gold für Mira“). */
+  preset?: { text: string; gold: number | null; toId: string | null };
   onClose: () => void;
 }) {
   const db = useDb();
   const data = useData();
-  const [text, setText] = useState(loot?.text ?? '');
-  const [gold, setGold] = useState(loot?.gold ? loot.gold.toLocaleString('de-DE') : '');
+  const [text, setText] = useState(loot?.text ?? preset?.text ?? '');
+  const [gold, setGold] = useState(
+    loot?.gold
+      ? loot.gold.toLocaleString('de-DE')
+      : preset?.gold
+        ? preset.gold.toLocaleString('de-DE')
+        : '',
+  );
   const [itemId, setItemId] = useState<string | null>(loot?.itemId ?? null);
-  const [toId, setToId] = useState<string | null>(loot?.toId ?? null);
+  const [toId, setToId] = useState<string | null>(loot?.toId ?? preset?.toId ?? null);
   const [source, setSource] = useState(loot?.source ?? '');
   const [story, setStory] = useState<string | null>(loot?.storyId ?? storyId ?? null);
 

@@ -87,7 +87,11 @@ function choiceLabel(choice: RecordChoice): string {
   }
 }
 
-const fold = (text: string) => text.toLocaleLowerCase('de').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const fold = (text: string) =>
+  text
+    .toLocaleLowerCase('de')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
 /**
  * Eine Zeile, die mit „/“ beginnt: das Kürzel dahinter und der Rest. `typing` = es steht noch
@@ -228,13 +232,92 @@ export function quickPlan(
     } else parts = [partOf(pick.choice, emptyRecordDraft())];
   }
   const allRefs = [...new Set([...refs, ...extra])];
-  parts = parts.map((part) => ({
-    ...part,
-    draft: prefillFromRefs(data, part.choice, part.draft, allRefs),
-  }));
+  // In der Mitschrift handeln meist die Gefährten („weil Corrin ihm geholfen hat“) – gemeint ist
+  // der andere. Passt ohne Gefährten genau einer, ist er es; sonst bleibt das Feld leer.
+  const others = allRefs.filter((id) => data.entities[id]?.kind !== 'character');
+  parts = parts.map((part) => {
+    const first = prefillFromRefs(data, part.choice, part.draft, allRefs);
+    return {
+      ...part,
+      draft: first.whoId ? first : prefillFromRefs(data, part.choice, part.draft, others),
+    };
+  });
   const common = { text: input.text, refs: allRefs, secret: false };
   const check = recordCheck(data, parts, common);
   return check.problem
     ? { direct: null, parts, refs: allRefs }
     : { direct: recordInputs(parts, common, data.state.now), parts, refs: allRefs };
+}
+
+/** Füllwörter eines Ortswechsels, die ohne Ort nichts sagen („nach“, „weiter zum“). */
+const MOVE_FILLER =
+  /^(?:(?:wir|sie|die gruppe|gehen|geht|ziehen|zieht|reisen|reist|laufen|weiter|nach|zum|zur|zu|in|ins|richtung|hinüber|rüber|hin|zurück)\s*)*$/i;
+
+/**
+ * Was vom Satz eines Ortswechsels als Anmerkung bleibt: ohne den Namen des Ziels und ohne bloße
+ * Füllwörter. „/ort Fischkai“ hat keine Anmerkung, „rüber zum Raben, die Wache folgt“ schon.
+ */
+export function moveNote(data: CampaignData, text: string, placeId: string | null): string {
+  const clean = text.trim();
+  const name = placeId ? (data.entities[placeId]?.name ?? '') : '';
+  if (!name) return clean;
+  const at = clean.toLocaleLowerCase('de').indexOf(name.toLocaleLowerCase('de'));
+  const rest = at < 0 ? clean : `${clean.slice(0, at)} ${clean.slice(at + name.length)}`;
+  const words = rest
+    .replace(/[.,;:!]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return MOVE_FILLER.test(words) ? '' : clean;
+}
+
+/**
+ * Was „/beute …“ schon sagt: Gold („30 Gold“, „30 GM“, „30 Goldstücke“) und, wenn genau ein
+ * Gefährte genannt ist, wer es bekommt. Der Rest des Satzes ist „Was“. Nie geraten: Ohne Zahl
+ * kein Gold, ohne eindeutigen Gefährten die Gruppe.
+ */
+export function lootPreset(
+  data: CampaignData,
+  text: string,
+  refs: readonly string[],
+): { text: string; gold: number | null; toId: string | null } {
+  const match = /(\d+(?:[.,]\d+)?)\s*(?:Gold(?:stücke|münzen)?|GM)\b/i.exec(text);
+  const gold = match ? Number(match[1]!.replace(',', '.')) : null;
+  const rest = (match ? text.replace(match[0], ' ') : text)
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s,:–-]+|[\s,:–-]+$/g, '')
+    .trim();
+  const mates = namedIn(data, text, refs).filter((id) => data.entities[id]?.kind === 'character');
+  return {
+    text: rest,
+    gold: gold && Number.isFinite(gold) ? gold : null,
+    toId: mates.length === 1 ? mates[0]! : null,
+  };
+}
+
+/**
+ * Was unter der Zeile der Mitschrift als Knopf steht: was `recognizeEntry` im Satz erkennt –
+ * und für jede genannte Person, die die Gruppe noch nicht getroffen hat, „Begegnung: …“. Wer
+ * mit der Gruppe spricht, ist ihr danach bekannt; der Spielleiter entscheidet mit einem Klick.
+ */
+export function quickSuggestions(
+  data: CampaignData,
+  text: string,
+  refs: readonly string[],
+): Recognized[] {
+  if (!text.trim()) return [];
+  const found = recognizeEntry(data, text, { refs: [...refs] });
+  const met = new Set(found.filter((item) => item.kind === 'meeting').flatMap((item) => item.refs));
+  const strangers = namedIn(data, text, refs).filter((id) => {
+    const entity = data.entities[id];
+    return entity?.kind === 'person' && !entity.person.met && !met.has(id);
+  });
+  const meetings: Recognized[] = strangers.map((id) => ({
+    kind: 'meeting',
+    label: `Begegnung: ${data.entities[id]!.name}`,
+    payload: {},
+    refs: [id],
+    from: text.length,
+    to: text.length,
+  }));
+  return [...found, ...meetings];
 }

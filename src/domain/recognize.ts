@@ -781,6 +781,13 @@ const FIGHT = words(
   'kämpfen|kämpft|kämpfte|kämpften|gekämpft|Kampf|Gefecht|angegriffen|greift .{0,40}an|griff .{0,40}an|griffen .{0,40}an|überfallen|Überfall|besiegt|besiegen|besiegten|geflohen|flieht|fliehen|floh|flohen|Flucht|Waffenruhe|Waffenstillstand',
 );
 
+/**
+ * Die Gruppe ist besiegt worden: „hat uns besiegt“, „hat die Gruppe besiegt“, „die Gruppe wurde
+ * … besiegt“. „Die Gruppe besiegt die Söldner“ ist das Gegenteil – dort handelt sie selbst.
+ */
+const PARTY_BEATEN =
+  /(?:^|[^\p{L}])(?:uns|(?:hat|haben|hatte|hatten)\s+die\s+Gruppe)\s+(?:\p{L}+\s+){0,3}besiegt(?![\p{L}])|(?:^|[^\p{L}])die\s+Gruppe\s+(?:wird|wurde|ist)\s+(?:\p{L}+\s+){0,4}besiegt(?![\p{L}])|(?:^|[^\p{L}])(?:wir\s+wurden|wurden\s+wir)\s+(?:\p{L}+\s+){0,4}besiegt(?![\p{L}])/iu;
+
 function fightRules(ctx: Context, out: Draft[]) {
   const text = ctx.sentence.text;
   const found = cues(text, FIGHT).filter(
@@ -826,7 +833,7 @@ function fightRules(ctx: Context, out: Draft[]) {
     );
   let outcome: FightOutcome = 'open';
   if (words('Waffenruhe|Waffenstillstand').test(text)) outcome = 'truce';
-  else if (words('uns besiegt|die Gruppe besiegt|unterlegen|verloren|verlieren').test(text))
+  else if (PARTY_BEATEN.test(text) || words('unterlegen|verloren|verlieren').test(text))
     outcome = 'lost';
   else if (partyDoes(FLED)) outcome = 'fled';
   else if (
