@@ -1579,3 +1579,25 @@
   margin: var(--s-1) 0 0;
   padding-left: var(--s-4);
 }
+
+/* Zwei Gefährten, ein Körper: der Name dessen, der übernimmt – ein Klick wechselt. */
+.wf-gruppe-body-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-gruppe-body-switch:hover {
+  border-color: var(--line-strong);
+  color: var(--gold-bright);
+}
+.wf-gruppe-body-switch svg {
+  width: 12px;
+  height: 12px;
+}

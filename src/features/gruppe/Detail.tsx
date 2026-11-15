@@ -50,6 +50,7 @@ import {
   ConditionToggles,
   ExhaustionControl,
   HpControl,
+  BodyControl,
   LocationControl,
   SheetLink,
   StatBand,
@@ -464,6 +465,10 @@ export function Detail({
                 <dt>Aufenthalt</dt>
                 <dd>
                   <LocationControl character={character} roomy />
+                </dd>
+                <dt>Körper</dt>
+                <dd>
+                  <BodyControl character={character} />
                 </dd>
               </dl>
             </Panel>

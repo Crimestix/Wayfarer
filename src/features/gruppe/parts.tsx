@@ -1,19 +1,24 @@
 /** Kleine Bausteine des Bereichs „Gefährten“: Erschöpfung, Zustände, Aufenthaltsort, Werte. */
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { ExternalLink, MapPin, Plus, Users, X } from 'lucide-react';
+import { ExternalLink, MapPin, Plus, Repeat2, Users, X } from 'lucide-react';
+import { bodyPartner } from '../../domain/body';
+import './gruppe.css';
 import { groupOf } from '../../domain/party';
 import { useData, useDb } from '../../data/hooks';
-import { entityName, placePath } from '../../domain/derive';
+import { entitiesOfKind, entityName, placePath } from '../../domain/derive';
 import { createEntity, type Character } from '../../domain/schema';
-import { EntityPicker, MenuItem, Popover, cx, toast } from '../../ui';
+import { Button, EntityPicker, MenuItem, Popover, Select, cx, toast } from '../../ui';
 import {
   addOwnCondition,
   changeHp,
   clickExhaustion,
+  linkBody,
   moveCharacter,
   patchCharacter,
   removeOwnCondition,
+  switchBody,
   toggleCharacterCondition,
+  unlinkBody,
 } from './actions';
 import {
   CONDITIONS,
@@ -557,5 +562,103 @@ export function SheetLink({
       {children}
       <ExternalLink />
     </a>
+  );
+}
+
+// ── Zwei Gefährten, ein Körper ─────────────────────────────────────────────
+
+/**
+ * Ein Klick wechselt, wer den Körper kontrolliert – ohne Nachfrage, nichts in der Chronik; ein
+ * ruhiges „Rückgängig“. Zeigt den Namen dessen, der danach die Kontrolle hat.
+ */
+export function BodySwitch({ character }: { character: Character }) {
+  const db = useDb();
+  const data = useData();
+  const other = bodyPartner(data, character.id);
+  if (!other) return null;
+  const next = character.character.resting ? character : other;
+  return (
+    <button
+      type="button"
+      className="wf-gruppe-body-switch"
+      title={`${next.name} übernimmt den Körper – Schaden, Zustände und Erschöpfung bleiben`}
+      onClick={() => {
+        const undo = switchBody(db, character.id);
+        if (undo)
+          toast({
+            title: `${next.name} hat jetzt die Kontrolle`,
+            action: { label: 'Rückgängig', run: undo },
+          });
+      }}
+    >
+      <Repeat2 aria-hidden />
+      {next.name}
+    </button>
+  );
+}
+
+/** Auf der Seite des Gefährten: mit wem er sich einen Körper teilt – verbinden, wechseln, lösen. */
+export function BodyControl({ character }: { character: Character }) {
+  const db = useDb();
+  const data = useData();
+  const other = bodyPartner(data, character.id);
+  if (other) {
+    const resting = character.character.resting;
+    return (
+      <span className="wf-row" style={{ flexWrap: 'wrap', gap: 'var(--s-2)' }}>
+        <span>
+          Ein Körper mit {other.name} –{' '}
+          {resting
+            ? `${other.name} hat die Kontrolle, ${character.name} ruht`
+            : `${character.name} hat die Kontrolle`}
+          .
+        </span>
+        <BodySwitch character={character} />
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            unlinkBody(db, character.id);
+            toast({
+              title: 'Verbindung gelöst',
+              action: {
+                label: 'Rückgängig',
+                run: () => linkBody(db, character.id, other.id, resting ? other.id : character.id),
+              },
+            });
+          }}
+        >
+          Lösen
+        </Button>
+      </span>
+    );
+  }
+  const choices = entitiesOfKind(data, 'character').filter(
+    (c) => c.id !== character.id && !c.character.bodyWith,
+  );
+  if (!choices.length) return <span className="wf-mute">Ein eigener Körper.</span>;
+  return (
+    <Select
+      value=""
+      aria-label="Teilt sich einen Körper mit"
+      onChange={(e) => {
+        const id = e.target.value;
+        if (!id) return;
+        const undo = linkBody(db, character.id, id);
+        if (undo)
+          toast({
+            title: `Ein Körper: ${character.name} und ${entityName(data, id)}`,
+            body: `${character.name} hat die Kontrolle; ein Klick auf den Namen wechselt.`,
+            action: { label: 'Rückgängig', run: undo },
+          });
+      }}
+    >
+      <option value="">Ein eigener Körper</option>
+      {choices.map((c) => (
+        <option key={c.id} value={c.id}>
+          Teilt sich den Körper mit {c.name}
+        </option>
+      ))}
+    </Select>
   );
 }

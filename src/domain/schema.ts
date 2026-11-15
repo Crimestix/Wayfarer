@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 4;
-export const DATA_SHAPE = '82a3a961c342fe03';
+export const DATA_VERSION = 5;
+export const DATA_SHAPE = '14d83823bccc9700';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -381,6 +381,13 @@ const CharacterDetails = z.object({
    * gekennzeichnet. Gesetzt über Einträge der Art „Schicksal“ (`data/record.ts`).
    */
   status: z.enum(PERSON_STATUS).default('alive'),
+  /**
+   * Zwei Gefährten, ein Körper (`domain/body.ts`): der andere Gefährte, mit dem er sich den
+   * Körper teilt; null = keiner. Beide tragen die Kennung des anderen.
+   */
+  bodyWith: id.nullable().default(null),
+  /** Er ruht im Körper – der andere hat gerade die Kontrolle (nur mit `bodyWith`). */
+  resting: z.boolean().default(false),
 });
 
 /**

@@ -19,6 +19,7 @@ import {
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
 import { openAttitude } from '../../shell/commands';
+import { BodySwitch } from '../gruppe/parts';
 import {
   AttitudeBadge,
   Button,
@@ -135,6 +136,7 @@ export function PeekPanel() {
                     <AttitudeBadge value={view.attitude} />
                   </button>
                 )}
+                {entity.kind === 'character' && <BodySwitch character={entity} />}
                 {view.mates && (
                   <span
                     className="wf-tisch-cast__mates"

@@ -815,6 +815,9 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
         sheetUrl: sheetUrl ? (sheetHref(sheetUrl) ?? sheetUrl) : '',
         goal: draft.goal.trim(),
         status: draft.status ?? 'alive',
+        // Ein Körper mit einem anderen wird auf der Seite verbunden, nicht im Dialog (`saveCharacter` behält ihn).
+        bodyWith: null,
+        resting: false,
       },
     },
   };

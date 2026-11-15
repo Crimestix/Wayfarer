@@ -544,8 +544,14 @@ export function attitudeHistory(
 
 // ── Gruppe ─────────────────────────────────────────────────────────────────
 
+/**
+ * Die aktiven Gefährten, die gerade da sind. Wer mit einem anderen einen Körper teilt und gerade
+ * ruht (`character.resting`, `domain/body.ts`), zählt nicht – der andere hat die Kontrolle.
+ */
 export function activeParty(data: CampaignData): Character[] {
-  return entitiesOfKind(data, 'character').filter((c) => c.character.active);
+  return entitiesOfKind(data, 'character').filter(
+    (c) => c.character.active && !(c.character.resting && c.character.bodyWith),
+  );
 }
 
 /**

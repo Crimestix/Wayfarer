@@ -1,5 +1,6 @@
 /** Befehle des Bereichs „Gefährten“. Alles, was mehrere Dokumente ändert, läuft hierüber. */
 import { logEntry, mergeGroups, sendOff, setAttitude } from '../../data/actions';
+import { switchPlan } from '../../domain/body';
 import { groupOf, ledMembers } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
 import type { AttitudeMode } from '../../domain/attitudeSetting';
@@ -25,6 +26,61 @@ export function patchCharacter(db: CampaignDb, id: string, change: Partial<Detai
   const current = getCharacter(db, id);
   if (!current) return;
   db.put('entities', { ...current, character: { ...current.character, ...change } });
+}
+
+// ── Zwei Gefährten, ein Körper (`domain/body.ts`) ─────────────────────────
+
+/**
+ * Wechselt, wer den Körper kontrolliert: Schaden, Zustände, Erschöpfung, Platz in Teilgruppe und
+ * Marschordnung und Wirkungen am Körper gehen mit. Keine Nachfrage, nichts in der Chronik. Gibt
+ * „Rückgängig“ zurück (ein zweiter Wechsel); null, wenn es keinen Partner gibt.
+ */
+export function switchBody(db: CampaignDb, characterId: string): (() => void) | null {
+  const plan = switchPlan(db.getSnapshot(), characterId);
+  if (!plan) return null;
+  db.batch(() => {
+    patchCharacter(db, plan.fromId, plan.from);
+    patchCharacter(db, plan.toId, plan.to);
+    db.setState(plan.state);
+    for (const timer of plan.timers)
+      db.patch('timers', timer.id, { refs: timer.refs, participants: timer.participants });
+  });
+  return () => {
+    switchBody(db, plan.toId);
+  };
+}
+
+/**
+ * Verbindet zwei Gefährten zu einem Körper; `controlId` hat die Kontrolle (Vorgabe: der erste).
+ * Bestehende Verbindungen beider werden gelöst. Gibt „Rückgängig“ zurück.
+ */
+export function linkBody(db: CampaignDb, a: string, b: string, controlId = a): (() => void) | null {
+  const first = getCharacter(db, a);
+  const second = getCharacter(db, b);
+  if (!first || !second || a === b) return null;
+  const before = [first, second];
+  db.batch(() => {
+    for (const id of [a, b]) unlinkBody(db, id);
+    patchCharacter(db, a, { bodyWith: b, resting: controlId !== a });
+    patchCharacter(db, b, { bodyWith: a, resting: controlId !== b });
+  });
+  return () =>
+    db.batch(() => {
+      for (const entity of before) db.put('entities', entity);
+    });
+}
+
+/** Löst die Verbindung: Beide sind danach eigene Gefährten, keiner ruht mehr. */
+export function unlinkBody(db: CampaignDb, characterId: string): void {
+  const self = getCharacter(db, characterId);
+  const otherId = self?.character.bodyWith;
+  if (!self || !otherId) return;
+  db.batch(() => {
+    patchCharacter(db, characterId, { bodyWith: null, resting: false });
+    const other = getCharacter(db, otherId);
+    if (other?.character.bodyWith === characterId)
+      patchCharacter(db, otherId, { bodyWith: null, resting: false });
+  });
 }
 
 /** Klick auf eine Erschöpfungsmarke. */
@@ -154,7 +210,11 @@ export function saveCharacter(
         name: value.name,
         tagline: value.tagline,
         image: value.image,
-        character: value.character,
+        character: {
+          ...value.character,
+          bodyWith: current.character.bodyWith,
+          resting: current.character.resting,
+        },
       });
       // Trennen und Zurückkehren steht immer in der Chronik – auch wenn es im Dialog geschieht.
       if (before !== after)

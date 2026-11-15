@@ -7,7 +7,9 @@ import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { FATE_LABEL } from '../../domain/chronicleKinds';
 import { cx, entityHref } from '../../ui';
+import { restingIn } from '../../domain/body';
 import { isSplit } from '../../domain/party';
+import { BodySwitch } from '../gruppe/parts';
 import { setExhaustion } from './commands';
 import { PartyGroupBar, SplitButton } from './PartyGroups';
 import {
@@ -25,6 +27,7 @@ function Mate({ companion }: { companion: Companion }) {
   const { character, elsewhere, astray, sheet } = companion;
   const c = character.character;
   const apart = elsewhere !== null || astray;
+  const resting = restingIn(useData(), character.id);
   const whereabouts = elsewhere ? elsewhere.name : 'nicht bei der Gruppe';
   /** Tot, verschollen …: Der Gefährte bleibt in der Leiste, aber gekennzeichnet. */
   const fate = c.status === 'alive' ? null : FATE_LABEL[c.status];
@@ -137,6 +140,12 @@ function Mate({ companion }: { companion: Companion }) {
             {c.passivePerception ?? '–'}
           </span>
         </div>
+        {/* Zwei Gefährten, ein Körper: wer gerade ruht, steht leise dabei – ein Klick wechselt. */}
+        {resting && (
+          <div className="wf-tisch-mate__body">
+            ruht: <BodySwitch character={character} />
+          </div>
+        )}
         {(fate || apart || c.conditions.length > 0) && (
           <div
             className="wf-tisch-mate__notes wf-clamp-1"

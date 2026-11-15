@@ -1443,6 +1443,11 @@ button.wf-tisch-story__title:enabled:hover b {
   padding: 0 var(--s-2);
   border-left: 1px solid var(--line-faint);
 }
+.wf-tisch-mate__body {
+  font-size: var(--text-2xs);
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
 .wf-tisch-groups {
   display: flex;
   align-items: center;
