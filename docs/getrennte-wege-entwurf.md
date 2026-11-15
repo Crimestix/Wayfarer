@@ -68,10 +68,47 @@ Marke der Teilgruppe, Fremdes schwach, Umschalter „nur diese / alle“.
    (Bahn je Teilgruppe), `continuity`, Licht/Sicht/Rast/Begegnungen/Marsch über die Mitglieder,
    Karten, Welt-Dossier, Weltleiste; `moveCharacter` auf Teilgruppen umstellen.
 
-## Entscheidungen des Spielleiters
+## Entscheidungen des Spielleiters (16. 11. 2026)
 
-1. Eine Weltzeit für alle (Empfehlung) – oder je Teilgruppe eine eigene (großer Umbau).
-2. Am selben Ort sind Teilgruppen nicht von selbst wieder zusammen – erst auf Klick
-   (Empfehlung; am selben Ort ein Hinweis mit Knopf).
-3. Mitschrift: alles vom Abend mit Marke, Fremdes schwach, Umschalter „nur diese“ (Empfehlung).
-4. „Abseits“ auf der Gefährten-Seite wird eine Teilgruppe aus einer Person (Empfehlung).
+1. **Jede Teilgruppe hat ihre eigene Uhr** (seine Worte: „Wenn sich die Gruppe trennt, muss die
+   Zeit für sie individuell vergehen.“ Hauptfragen am Tisch: „Wann kommen wir an?“, „Wann bin
+   ich wieder da?“). Das ersetzt „eine Weltzeit für alle“ oben.
+2. Am selben Ort erst auf Klick wieder zusammen (wie empfohlen).
+3. Mitschrift zeigt alles vom Abend mit Marke, Fremdes schwach, Umschalter „nur diese“.
+4. „Abseits“ wird eine Teilgruppe aus einer Person.
+
+### Eigene Uhr je Teilgruppe – Modell (ersetzt „Eine Weltzeit für alle“)
+
+- Jede Teilgruppe hat ihre Zeit (`group.now`). Ist die Gruppe nicht getrennt, gilt `state.now`
+  wie heute. `state.now` ist immer die Zeit der geleiteten Teilgruppe (wie `placeId`) – so bleiben
+  Leser unverändert und rechnen Wetter, Licht, Wer-ist-wo für die geleitete Teilgruppe zu ihrer
+  Zeit.
+- **Die vorderste Uhr** (`state.front` o. ä.) ist die Weltzeit für alles, was von selbst
+  geschieht: Termine, Schritte der Uhren, Abläufe treten **genau einmal** ein, wenn die vorderste
+  Uhr sie erreicht – nie erneut, wenn eine zurückliegende Teilgruppe vorrückt, nie rückgängig
+  beim Umschalten. Das ist die wichtigste Regel; mit Tests absichern.
+- **Reisen:** Geht eine Teilgruppe (`walk(…, who)`), rückt nur ihre Uhr bis zur Ankunft vor (wie
+  heute: erst Zeit, dann ankommen) – die anderen bleiben in ihrer Zeit. Aus Sicht einer
+  Teilgruppe zu ihrer Zeit T ist eine andere: **unterwegs** (ihre letzte Reise umspannt T: „unterwegs
+  nach X, Ankunft 16:20“), **voraus** („schon bei 17:40“) oder **zurück** („1 Std. 20 Min.
+  zurück“). „Wann kommen wir an?“ zeigt der Ortswechsel-Dialog vor dem Losgehen (Ankunft, Rückweg,
+  wann bei den anderen).
+- **Nachholen:** „bis HH:MM nachholen“ zieht eine zurückliegende Teilgruppe auf eine Zeit vor –
+  nur auf Klick, nie von selbst; was sie dabei tat, schreibt der Spielleiter nur, wenn er will.
+- **Festhalten und Mitschrift** bekommen die Zeit der geleiteten Teilgruppe (`entry.at`) und
+  `entry.party`; Festhalten in der Vergangenheit trägt (`isNewestOfSort`).
+- **Zusammenführen:** am selben Ort; die zurückliegende wird auf die Zeit der anderen gezogen.
+- Widersprüche zwischen den Zeiten meldet nur „Passt nicht zusammen“ (`continuity.ts`), leise.
+- `worldAt`, Zeitleiste, Rückblick und Abend kommen in Schritt 2.
+
+## Dazu: Haltung je Gefährte (Gespräch)
+
+Seine Worte: „Nicht jeder NSC ist begeistert von Neil, könnte Tomlin aber lieben. Quenthel … mag
+Neil nicht, ist aber in Tomlin verliebt.“ Daten können das schon (`setAttitude(fromId, toId)`,
+`data/actions.ts:427`; Gefährten-Seite `gruppe/Detail.tsx:246`). Es fehlt am Tisch:
+- Der Haltungs-Dialog (`shell/dialogs.tsx` ~773) setzt aus Spieltisch/Kurzblick immer die Gruppe
+  (`PARTY_ID`); er braucht die Wahl „zur Gruppe / zu <Gefährte>“ (Umschalter, Vorgabe Gruppe).
+- Person am Tisch (Kurzblick, „Wer hier ist“, Gedächtnis beim Tippen `memoryOf`) zeigt neben der
+  Haltung zur Gruppe die abweichenden zu einzelnen Gefährten („Tomlin +5 · Neil −3“), knapp.
+- Mitschrift/Festhalten: Haltung zu einem Gefährten wie zur Gruppe festhaltbar.
+Klein, kommt vor den Teilgruppen.
