@@ -1,7 +1,7 @@
 <title>Fäden an Fäden</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <!--
-  Vorschlag vom 16. 11. 2026 – kein Teil der App. Wie ein Faden an einem Faden hängen kann
+  Vorschlag vom 16. 11. 2026 – kein Teil der App. Wie Fäden ein Netz bilden
   (Beispiel des Spielleiters: Vorzagath und Duskryns Arena). Alles in Klammern steht für den
   Wortlaut des Spielleiters; Wayfarer erfindet nichts davon.
 -->
@@ -84,86 +84,155 @@
 </style>
 
 <div class="wrap">
-  <div class="caps">Vorschlag · 16. 11.</div>
+  <div class="caps">Vorschlag · 16. 11. · zweite Fassung</div>
   <h1 style="margin-top:10px">Fäden an Fäden</h1>
   <div class="stack" style="margin-top:16px">
-    <p class="lead">Vorzagath ist die große Geschichte. Duskryns Arena ist ein Faden darin, weil ein Ort daran hängt, und an der Arena hängen wieder Hinweise und eigene Fäden. Heute kann ein Faden nur Hinweise tragen. Alles andere muss direkt an die Geschichte, und dann liegt alles flach nebeneinander.</p>
-    <p class="mute">Gebaut ist noch nichts. Unten steht der Vorschlag als Bild. Alles in Klammern steht für deinen eigenen Wortlaut, Wayfarer erfindet davon nichts.</p>
+    <p class="lead">Kein Baum, sondern ein Netz: Jeder Faden kann mit jedem anderen verbunden sein, Faden für Faden. Duskryns Arena gehört zu Vorzagath, ist aber zugleich mit Fäden verbunden, die woanders hingehören. Aus diesen Verbindungen entsteht auf dem Brett das Spinnennetz.</p>
+    <p class="mute">Gebaut ist noch nichts. Alles in Klammern steht für deinen eigenen Wortlaut, Wayfarer erfindet davon nichts.</p>
   </div>
 
   <h2>Der Gedanke</h2>
   <ol class="steps">
-    <li><p><b class="gold">Ein Faden kann an einem Faden hängen</b>, so tief du willst, aber nie im Kreis. Er gehört damit von selbst zur selben Geschichte wie der Faden, an dem er hängt.</p></li>
-    <li><p><b class="gold">Der Ort zieht alles mit.</b> Ist die Gruppe in der Arena, steht am Spieltisch bei Vorzagath der Faden „Duskryns Arena“ mit allem, was daran hängt, und nicht verstreut zwischen den übrigen Fäden der Geschichte.</p></li>
-    <li><p><b class="gold">Umhängen geht in alle Richtungen</b>, mit Rückgängig: einen Faden an einen anderen hängen, ihn wieder direkt an die Geschichte hängen oder ganz lösen. Was an ihm hängt, geht mit.</p></li>
-    <li><p><b class="gold">Nichts wird von selbst erledigt.</b> Sind alle Fäden unter der Arena beantwortet, sagt Wayfarer das leise. Den Haken an die Arena setzt du.</p></li>
+    <li><p><b class="gold">Faden an Faden.</b> Du verbindest zwei Fäden, egal ob sie zur selben Geschichte gehören, zu verschiedenen oder zu keiner. Eine Verbindung darf ein Wort tragen („führt zu“, „wer dahintersteckt“), muss aber nicht.</p></li>
+    <li><p><b class="gold">Ein Hinweis kann zu einem Faden führen.</b> Ein Hinweis in der Arena zeigt auf einen anderen Faden. Findet die Gruppe ihn, weiß Wayfarer, wohin die Spur jetzt geht. So wird aus den Hinweisen ein Weg durchs Netz.</p></li>
+    <li><p><b class="gold">Jeder Faden gehört höchstens zu einer Geschichte.</b> Die Verbindungen gehen quer durch. Hängen Fäden zweier Geschichten zusammen, zeigt das Brett auch die Geschichten als verbunden, abgeleitet und nie von Hand gezogen.</p></li>
+    <li><p><b class="gold">Nichts geschieht von selbst.</b> Wayfarer schlägt höchstens vor, was zusammenpassen könnte, etwa Fäden mit demselben Ort oder derselben Person. Verbinden tust du.</p></li>
   </ol>
 
-  <h2>So sähe es aus</h2>
+  <h2>So sähe das Brett aus</h2>
   <div class="stage">
-    <p class="stage-note">Links das Blatt der Geschichte (Fach „Fragen und Hinweise“), in der Mitte der Spieltisch, wenn die Gruppe in der Arena steht, rechts das Fadenbrett.</p>
-    <div class="three">
+    <p class="stage-note">Eine Geschichte lässt sich aufklappen: Dann hängen ihre Fäden als Knoten an ihr. Verbundene Fäden halten Schnüre zusammen, Namen hängen an den Fäden, die sie betreffen.</p>
+    <svg viewBox="0 0 940 470" width="940" height="470" role="img" aria-label="Fadenbrett als Netz: Vorzagath mit Duskryns Arena und verbundenen Fäden">
+      <defs>
+        <style>
+          .s { stroke: #8b6c34; stroke-width: 1.4; fill: none; }
+          .s.tie { stroke: #c9a35b; stroke-width: 2; }
+          .s.lead { stroke: #c9a35b; stroke-width: 1.6; stroke-dasharray: 5 4; }
+          .s.name { stroke: #5a4830; stroke-dasharray: 2 4; }
+          .s.derived { stroke: #43362a; stroke-width: 6; opacity: .5; }
+          .cardbox { fill: #1d1814; stroke: #5a4830; }
+          .cardbox.story { fill: #211b16; stroke: #8b6c34; }
+          .knot { fill: #1a1614; stroke: #c9a35b; stroke-width: 1.5; }
+          .knot.other { stroke: #a09278; }
+          .pin { fill: #131010; stroke: #43362a; }
+          .tt { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; fill: #e9dfc9; }
+          .ts { font-family: 'Crimson Pro', Georgia, serif; fill: #c8bca3; }
+          .tm { font-family: 'Crimson Pro', Georgia, serif; fill: #a09278; font-style: italic; }
+          .tc { font-family: 'Cinzel', Georgia, serif; fill: #a09278; letter-spacing: .12em; }
+          .dia { fill: none; stroke: #c9a35b; }
+          .dia.found { fill: #c9a35b; }
+        </style>
+      </defs>
+
+      <!-- abgeleitete Verbindung der beiden Geschichten -->
+      <path class="s derived" d="M190 70 C 420 20, 560 20, 760 80"/>
+      <text class="tm" x="430" y="30" font-size="13" text-anchor="middle">verbunden über einen Faden (abgeleitet)</text>
+
+      <!-- Geschichte Vorzagath -->
+      <rect class="cardbox story" x="60" y="52" width="220" height="62"/>
+      <text class="tc" x="74" y="73" font-size="10">Geschichte</text>
+      <text class="tt" x="74" y="100" font-size="24">Vorzagath</text>
+
+      <!-- Fäden von Vorzagath als Knoten -->
+      <path class="s" d="M170 114 L 300 210"/>
+      <path class="s" d="M130 114 L 110 300"/>
+
+      <circle class="knot" cx="320" cy="225" r="9"/>
+      <text class="tt" x="336" y="222" font-size="20">Duskryns Arena</text>
+      <g transform="translate(338 236)">
+        <path class="dia found" d="M5 0 L10 5 L5 10 L0 5 Z"/>
+        <path class="dia" d="M19 0 L24 5 L19 10 L14 5 Z"/>
+        <path class="dia" d="M33 0 L38 5 L33 10 L28 5 Z"/>
+        <text class="ts" x="46" y="9" font-size="13">3 Hinweise</text>
+      </g>
+
+      <circle class="knot" cx="110" cy="310" r="8"/>
+      <text class="ts" x="64" y="338" font-size="15">(ein anderer Faden</text>
+      <text class="ts" x="64" y="356" font-size="15">von Vorzagath)</text>
+
+      <!-- Fäden an der Arena -->
+      <path class="s tie" d="M320 234 L 250 390"/>
+      <circle class="knot" cx="246" cy="398" r="8"/>
+      <text class="ts" x="234" y="403" font-size="15" text-anchor="end">(ein Faden, der in der Arena beginnt)</text>
+
+      <path class="s tie" d="M329 228 L 470 330"/>
+      <text class="tm" x="410" y="268" font-size="13">(„wer dahintersteckt“)</text>
+      <circle class="knot other" cx="478" cy="336" r="8"/>
+      <text class="ts" x="494" y="341" font-size="15">(ein loser Faden)</text>
+
+      <!-- Hinweis führt zu Faden der anderen Geschichte -->
+      <path class="s lead" d="M440 246 C 560 244, 650 210, 700 192"/>
+      <text class="tm" x="545" y="186" font-size="13">ein Hinweis führt hierher</text>
+
+      <!-- zweite Geschichte -->
+      <rect class="cardbox story" x="680" y="52" width="220" height="62"/>
+      <text class="tc" x="694" y="73" font-size="10">Geschichte</text>
+      <text class="tt" x="694" y="100" font-size="22">(eine andere)</text>
+      <path class="s" d="M790 114 L 712 182"/>
+      <circle class="knot" cx="708" cy="188" r="8"/>
+      <text class="ts" x="724" y="193" font-size="15">(ihr Faden)</text>
+
+      <!-- Namen -->
+      <path class="s name" d="M320 234 L 380 420"/>
+      <rect class="pin" x="350" y="420" width="150" height="30"/>
+      <text class="ts" x="362" y="440" font-size="14">⌂ Duskryns Arena (Ort)</text>
+
+      <path class="s name" d="M478 344 L 600 420"/>
+      <path class="s name" d="M708 196 L 640 420"/>
+      <rect class="pin" x="560" y="420" width="150" height="30"/>
+      <text class="ts" x="572" y="440" font-size="14">☺ (eine Person)</text>
+    </svg>
+  </div>
+
+  <h2>Und an den anderen Stellen</h2>
+  <div class="stage">
+    <div class="three" style="grid-template-columns: 320px 320px 280px">
       <div class="panel">
         <div class="ptitle">Blatt · Fragen und Hinweise</div>
-        <div class="story">Vorzagath</div>
-        <ul class="tree">
-          <li>
-            <div class="node"><span class="t">Duskryns Arena</span><span class="mark place">Ort</span></div>
-            <ul class="tree">
-              <li class="hint found">(ein Hinweis, den die Gruppe schon hat)</li>
-              <li class="hint">(ein Hinweis, der dort noch wartet)</li>
-              <li>
-                <div class="node"><span class="t small">(ein Faden, der in der Arena beginnt)</span></div>
-                <ul class="tree"><li class="hint">(sein Hinweis)</li></ul>
-              </li>
-              <li><div class="node"><span class="t small">(noch ein Faden dort)</span></div></li>
-              <li class="add">+ Faden hier dran · + Hinweis</li>
-            </ul>
-          </li>
-          <li><div class="node"><span class="t">(ein anderer Faden der Geschichte)</span></div></li>
-          <li class="add mute">+ neue Frage</li>
+        <div class="story" style="font-size:1.35rem">Vorzagath</div>
+        <div class="node"><span class="t">Duskryns Arena</span><span class="mark place">Ort</span></div>
+        <ul class="tree" style="margin-top:8px">
+          <li class="hint found">(ein Hinweis, den die Gruppe hat)</li>
+          <li class="hint">(ein Hinweis) <span class="gold">→ (ihr Faden)</span></li>
+          <li class="hint">(noch ein Hinweis)</li>
+        </ul>
+        <p class="caps" style="margin-top:12px">Verbunden mit</p>
+        <ul class="tree" style="margin-top:6px">
+          <li class="ts">(ein Faden, der in der Arena beginnt)</li>
+          <li class="ts">(ein loser Faden) · <span class="w">wer dahintersteckt</span></li>
+          <li class="add">+ verbinden …</li>
         </ul>
       </div>
-
       <div class="panel">
-        <div class="ptitle">Spieltisch · Im Spiel</div>
+        <div class="ptitle">Spieltisch · in der Arena</div>
         <div class="story" style="font-size:1.35rem">Vorzagath</div>
         <div class="node" style="margin-bottom:8px"><span class="mark here">Liegt hier</span><span class="t">Duskryns Arena</span></div>
-        <ul class="tree" style="margin-left:4px">
-          <li class="hint">(ein Hinweis, der dort noch wartet)</li>
-          <li>
-            <div class="node"><span class="t small">(ein Faden, der in der Arena beginnt)</span></div>
-            <ul class="tree"><li class="hint">(sein Hinweis)</li></ul>
-          </li>
-          <li><div class="node"><span class="t small">(noch ein Faden dort)</span></div></li>
+        <ul class="tree">
+          <li class="hint">(ein Hinweis) <span class="gold">→ (ihr Faden)</span></li>
+          <li class="hint">(noch ein Hinweis)</li>
         </ul>
-        <p class="w" style="margin-top:12px;font-size:.92rem">Gefundene Hinweise stehen nicht mehr da. Was nicht an der Arena hängt, bleibt eingeklappt darunter: „2 weitere Fäden bei Vorzagath“.</p>
+        <p class="caps" style="margin-top:12px">Ein Schritt weiter</p>
+        <ul class="tree" style="margin-top:6px">
+          <li class="ts">(ein Faden, der in der Arena beginnt)</li>
+          <li class="ts">(ein loser Faden)</li>
+        </ul>
+        <p class="w" style="margin-top:10px;font-size:.92rem">Nur der eine Schritt, nie das ganze Netz – am Tisch soll man mit einem Blick finden.</p>
       </div>
-
       <div class="panel">
-        <div class="ptitle">Fadenbrett</div>
-        <div class="card" style="margin-top:10px"><h4>Vorzagath</h4><div class="row">Antreiber, Uhr, Beteiligte …</div></div>
-        <div class="string"></div>
-        <div class="card sub"><h4>Duskryns Arena</h4><div class="row">2 Hinweise offen · 2 Fäden</div></div>
-        <p class="w" style="margin-top:12px;font-size:.92rem">Ein Faden, an dem etwas hängt, darf als eigene Karte an seiner Geschichte liegen. Nur wenn du ihn hinlegst, so wie heute die losen Fäden.</p>
+        <div class="ptitle">Hinweis gefunden</div>
+        <p class="ts" style="margin-top:8px">Hakst du „(ein Hinweis)“ ab, sagt Wayfarer leise:</p>
+        <p class="gold" style="margin-top:8px;font-family:var(--font-display);font-size:1.15rem">Die Spur führt jetzt zu „(ihr Faden)“.</p>
+        <p class="w" style="margin-top:10px;font-size:.92rem">Mehr nicht. Ins Spiel nimmst du den Faden selbst.</p>
       </div>
     </div>
   </div>
 
-  <h2>Oder eine Teilgeschichte?</h2>
-  <p style="margin-top:14px;color:var(--ink-soft)">Wayfarer kann schon heute Geschichten in Geschichten legen. Das passt aber nicht immer:</p>
-  <div class="vs">
-    <div><h3>Faden an Faden</h3><p>Eine Spur mit Unterspuren: eine Frage, ein Ort, Hinweise. Kein eigener Antreiber, keine eigene Uhr. So, wie du die Arena beschreibst.</p></div>
-    <div><h3>Teilgeschichte</h3><p>Ein eigener Strang mit jemandem, der etwas will, eigener Uhr, eigenen Szenen und einem eigenen Stand. Gut, wenn in der Arena selbst etwas läuft, auch ohne die Gruppe.</p></div>
-  </div>
-  <p class="mute" style="margin-top:12px">Wächst ein Faden später zu mehr heran, soll „Zur Teilgeschichte machen“ ihn mit allem, was daran hängt, umziehen. Und umgekehrt.</p>
-
   <h2>Fragen an dich</h2>
   <div class="q">
-    <div><b>1. Passt „Faden an Faden“ für die Arena?</b><span>Oder ist sie eher eine Teilgeschichte von Vorzagath?</span></div>
-    <div><b>2. Wie tief?</b><span>Mein Vorschlag: beliebig tief, eingerückt gezeigt. Wahrscheinlich reichen in der Praxis zwei bis drei Ebenen.</span></div>
-    <div><b>3. Was ist mit den losen Fäden?</b><span>Sollen auch lose Fäden ohne Geschichte aneinander hängen können? Mein Vorschlag: ja, dann wandern sie gemeinsam in eine Geschichte.</span></div>
-    <div><b>4. Am Spieltisch</b><span>Wenn die Gruppe am Ort eines Fadens steht: Soll er bei der Geschichte nach oben rücken, mit allem darunter? Ins Spiel nimmst du ihn weiterhin selbst.</span></div>
+    <div><b>1. Ist das das Netz, das du meinst?</b><span>Fäden quer verbunden, dazu Hinweise, die zu einem Faden führen.</span></div>
+    <div><b>2. Brett: Fäden als eigene Knoten</b><span>Mein Vorschlag: Eine Geschichte klappst du auf, dann hängen ihre Fäden an ihr. Fäden mit Verbindungen nach außen stehen immer da, sonst sähe man das Netz nicht.</span></div>
+    <div><b>3. Ein Wort an der Verbindung</b><span>Freiwillig, frei geschrieben, so wie die Rollen auf dem Blatt. Oder lieber ganz ohne?</span></div>
+    <div><b>4. Wie weit am Spieltisch?</b><span>Mein Vorschlag: der Faden am Ort und genau ein Schritt weiter. Das ganze Netz gibt es nur auf dem Brett.</span></div>
   </div>
-  <footer>Vorschlag aus der Sitzung vom 16. 11. 2026 · nichts davon ist gebaut.</footer>
+  <footer>Vorschlag aus der Sitzung vom 16. 11. 2026 · zweite Fassung nach „Es soll so ein Spinnennetz werden“ · nichts davon ist gebaut.</footer>
 </div>
