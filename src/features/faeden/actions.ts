@@ -9,6 +9,7 @@ import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import { isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
+import { isTied } from '../../domain/threadWeb';
 import {
   createClock,
   createStory,
@@ -935,6 +936,28 @@ export function storyFromThreads(
 }
 
 const ALIVE: ThreadState[] = ['active', 'open', 'dormant'];
+
+/**
+ * Die Verbindungen mehrerer Fäden zusammen, als stünden sie an `selfId`: jede nur einmal (das
+ * erste Wort, das dasteht, gilt), nie zu sich selbst oder zu `skip`; Verbindungen zu `gone`
+ * zeigen danach auf `into`.
+ */
+function mergedTies(
+  threads: readonly Thread[],
+  selfId: string,
+  skip: ReadonlySet<string>,
+  gone: ReadonlySet<string> = new Set(),
+  into = selfId,
+): Thread['ties'] {
+  const out = new Map<string, string>();
+  for (const thread of threads)
+    for (const tie of thread.ties) {
+      const id = gone.has(tie.id) ? into : tie.id;
+      if (id === selfId || skip.has(id)) continue;
+      if (!out.get(id)) out.set(id, tie.word);
+    }
+  return [...out].map(([id, word]) => ({ id, word }));
+}
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
@@ -996,6 +1019,7 @@ export function mergeThreads(
       all.some((thread) => thread.onBoard || data.state.board[spotKey(thread.id)] !== undefined),
     sessionIds: [...new Set(all.flatMap((thread) => threadSessionIds(data, thread)))],
     articleId: all.find((thread) => thread.articleId)?.articleId ?? null,
+    ties: mergedTies(all, keepId, new Set(others.map((other) => other.id))),
   } satisfies Partial<Thread>;
   const before = Object.fromEntries(
     (Object.keys(merged) as (keyof typeof merged)[]).map((key) => [key, keep[key]]),
@@ -1005,8 +1029,23 @@ export function mergeThreads(
   const clues = Object.values(data.chronicle).filter(
     (entry) => entry.clue?.threadId && gone.has(entry.clue.threadId),
   );
+  // Was an den anderen hing (Verbindung, Hinweis führt zu), hängt danach am Bleibenden.
+  const pointing = Object.values(data.threads).filter(
+    (thread) =>
+      !gone.has(thread.id) &&
+      thread.id !== keepId &&
+      (thread.ties.some((tie) => gone.has(tie.id)) ||
+        thread.hints.some((hint) => hint.leadsTo && gone.has(hint.leadsTo))),
+  );
   const undos = db.batch(() => {
     db.patch('threads', keepId, merged);
+    for (const thread of pointing)
+      db.patch('threads', thread.id, {
+        ties: mergedTies([thread], thread.id, new Set(), gone, keepId),
+        hints: thread.hints.map((hint) =>
+          hint.leadsTo && gone.has(hint.leadsTo) ? { ...hint, leadsTo: keepId } : hint,
+        ),
+      });
     for (const entry of clues)
       db.patch('chronicle', entry.id, {
         clue: {
@@ -1039,6 +1078,9 @@ export function mergeThreads(
       for (const entry of clues)
         if (now.chronicle[entry.id]?.clue?.threadId === keepId)
           db.patch('chronicle', entry.id, { clue: entry.clue });
+      for (const thread of pointing)
+        if (now.threads[thread.id])
+          db.patch('threads', thread.id, { ties: thread.ties, hints: thread.hints });
       [...undos].reverse().forEach((undo) => undo());
     });
 }
@@ -1066,4 +1108,174 @@ export function setHintFound(db: CampaignDb, threadId: string, hintId: string, f
     known: thread.known || found,
     state: found && thread.state === 'open' ? 'active' : thread.state,
   });
+}
+
+// ── Das Netz der Fäden ─────────────────────────────────────────────────────
+
+/**
+ * Verbindet zwei Fäden – gleich, zu welcher Geschichte sie gehören. Die Verbindung steht am
+ * ersten; gibt es sie schon (auch am anderen), bekommt sie nur das neue Wort, wenn eins da ist.
+ * Gibt `undo` zurück – null, wenn sich nichts ändert.
+ */
+export function tieThreads(
+  db: CampaignDb,
+  aId: string,
+  bId: string,
+  word = '',
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const [a, b] = [data.threads[aId], data.threads[bId]];
+  if (!a || !b || aId === bId) return null;
+  const clean = word.trim();
+  if (isTied(data, aId, bId)) return clean ? setTieWord(db, aId, bId, clean) : null;
+  db.patch('threads', aId, { ties: [...a.ties, { id: bId, word: clean }] });
+  return () => {
+    const now = db.getSnapshot().threads[aId];
+    if (now) db.patch('threads', aId, { ties: now.ties.filter((tie) => tie.id !== bId) });
+  };
+}
+
+/** Löst die Verbindung zweier Fäden – an welchem der beiden sie auch steht. Gibt `undo` zurück. */
+export function untieThreads(db: CampaignDb, aId: string, bId: string): (() => void) | null {
+  const data = db.getSnapshot();
+  const holders = [data.threads[aId], data.threads[bId]].filter(
+    (thread): thread is Thread =>
+      thread !== undefined && thread.ties.some((tie) => tie.id === (thread.id === aId ? bId : aId)),
+  );
+  if (!holders.length) return null;
+  db.batch(() => {
+    for (const thread of holders) {
+      const other = thread.id === aId ? bId : aId;
+      db.patch('threads', thread.id, { ties: thread.ties.filter((tie) => tie.id !== other) });
+    }
+  });
+  return () =>
+    db.batch(() => {
+      for (const thread of holders)
+        if (db.getSnapshot().threads[thread.id])
+          db.patch('threads', thread.id, { ties: thread.ties });
+    });
+}
+
+/** Ändert das Wort einer Verbindung. Gibt `undo` zurück – null, wenn es sie nicht gibt. */
+export function setTieWord(
+  db: CampaignDb,
+  aId: string,
+  bId: string,
+  word: string,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const holder = [data.threads[aId], data.threads[bId]].find(
+    (thread) => thread?.ties.some((tie) => tie.id === (thread.id === aId ? bId : aId)) === true,
+  );
+  if (!holder) return null;
+  const other = holder.id === aId ? bId : aId;
+  const clean = word.trim();
+  if (holder.ties.find((tie) => tie.id === other)?.word === clean) return null;
+  db.patch('threads', holder.id, {
+    ties: holder.ties.map((tie) => (tie.id === other ? { ...tie, word: clean } : tie)),
+  });
+  return () => {
+    if (db.getSnapshot().threads[holder.id]) db.patch('threads', holder.id, { ties: holder.ties });
+  };
+}
+
+/** Klappt eine Geschichte auf dem Brett auf (ihre Fäden als Knoten) oder zu. */
+export function setStoryUnfolded(db: CampaignDb, storyId: string, unfolded: boolean): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (story && story.unfolded !== unfolded) db.patch('stories', storyId, { unfolded });
+}
+
+/** Was eine auf dem Brett gezogene Schnur bewirkt hat – oder warum sie nichts bewirkt. */
+export type BoardConnect =
+  | { done: true; title: string; body: string; undo: () => void }
+  /** Zwei Namen: Das ist eine Beziehung der Welt – sie wird im Fenster dafür eingetragen. */
+  | { done: false; relate: { fromId: string; toId: string } }
+  /** Nichts geschehen; `note` sagt warum (leer = ins Leere gezogen). */
+  | { done: false; note: string };
+
+/** Die Kennung des Fadens hinter einem Schlüssel des Bretts (`knot:`, `thread:`), sonst null. */
+export const threadOfKey = (key: string): string | null =>
+  key.startsWith('knot:') || key.startsWith('thread:') ? key.slice(key.indexOf(':') + 1) : null;
+
+/**
+ * Eine Schnur, frei auf dem Brett gezogen, von `fromKey` nach `toKey` (`story:`, `thread:`,
+ * `knot:`, `node:`): Faden an Faden verbindet; ein Name an einem Faden oder einer Geschichte
+ * hängt dort an; ein loser Faden an einer Geschichte wird ihre Frage. Zwei Namen sind eine
+ * Beziehung der Welt – dafür öffnet sich das Fenster. Alles mit Rückgängig.
+ */
+export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): BoardConnect {
+  const data = db.getSnapshot();
+  const none: BoardConnect = { done: false, note: '' };
+  if (fromKey === toKey) return none;
+  const title = (key: string): string => {
+    const threadId = threadOfKey(key);
+    if (threadId) return data.threads[threadId]?.title ?? '';
+    if (key.startsWith('story:')) return data.stories[key.slice(6)]?.title ?? '';
+    return data.entities[key.slice(5)]?.name ?? '';
+  };
+  const [fromThread, toThread] = [threadOfKey(fromKey), threadOfKey(toKey)];
+  if (fromThread && toThread) {
+    if (fromThread === toThread) return none;
+    if (isTied(data, fromThread, toThread))
+      return {
+        done: false,
+        note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.`,
+      };
+    const undo = tieThreads(db, fromThread, toThread);
+    return undo
+      ? {
+          done: true,
+          title: 'Fäden verbunden',
+          body: `„${title(fromKey)}“ – „${title(toKey)}“`,
+          undo,
+        }
+      : none;
+  }
+  const nodeKey = [fromKey, toKey].find((key) => key.startsWith('node:'));
+  const otherKey = nodeKey === fromKey ? toKey : fromKey;
+  if (nodeKey && otherKey.startsWith('node:'))
+    return { done: false, relate: { fromId: fromKey.slice(5), toId: toKey.slice(5) } };
+  if (nodeKey) {
+    const entityId = nodeKey.slice(5);
+    const threadId = threadOfKey(otherKey);
+    const cardKey = threadId ? `thread:${threadId}` : otherKey;
+    const [sort, id] = cardKey.split(':') as [string, string];
+    const doc = sort === 'story' ? data.stories[id] : data.threads[id];
+    if (!doc || !data.entities[entityId]) return none;
+    if (doc.refs.includes(entityId))
+      return { done: false, note: `${title(nodeKey)} hängt schon an „${title(otherKey)}“.` };
+    pinToCard(db, cardKey, entityId);
+    return {
+      done: true,
+      title: 'Angeheftet',
+      body: `${title(nodeKey)} hängt jetzt an „${title(otherKey)}“.`,
+      undo: () => unpinFromCard(db, cardKey, entityId),
+    };
+  }
+  const storyKey = [fromKey, toKey].find((key) => key.startsWith('story:'));
+  const threadKeyOf = [fromKey, toKey].find((key) => threadOfKey(key) !== null);
+  if (storyKey && threadKeyOf) {
+    const thread = data.threads[threadOfKey(threadKeyOf)!];
+    const storyId = storyKey.slice(6);
+    if (!thread || !data.stories[storyId] || thread.storyId === storyId) return none;
+    if (!isLooseThread(data, thread))
+      return {
+        done: false,
+        note: `„${thread.title}“ gehört zu „${data.stories[thread.storyId!]!.title}“. Klapp „${title(storyKey)}“ auf und zieh die Schnur von Faden zu Faden.`,
+      };
+    const undo = moveThread(db, thread.id, storyId);
+    return undo
+      ? {
+          done: true,
+          title: 'An die Geschichte gehängt',
+          body: `„${thread.title}“ ist jetzt eine Frage von „${title(storyKey)}“.`,
+          undo,
+        }
+      : none;
+  }
+  return {
+    done: false,
+    note: 'Geschichten verbinden sich über ihre Fäden: Klapp sie auf und zieh die Schnur von Faden zu Faden.',
+  };
 }

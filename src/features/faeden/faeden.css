@@ -638,7 +638,7 @@
 
 /* ── Das Blatt einer Geschichte (Gerüst: ui/sheet.css) ──────────────────── */
 .wf-sheet-list__row--hint {
-  grid-template-columns: 22px minmax(0, 1fr) 150px 150px 30px;
+  grid-template-columns: 22px minmax(0, 1fr) 150px 150px 30px 30px;
 }
 .wf-sheet-list__row--entry {
   grid-template-columns: minmax(0, 1fr) 160px 150px 30px;
@@ -1428,4 +1428,224 @@
 .wf-faden-bereit em {
   color: var(--ink-mute);
   font-size: var(--text-sm);
+}
+
+/* ── Das Netz der Fäden: Verbunden mit, Hinweis führt zu ─────────────────── */
+.wf-faden-leadbtn svg {
+  color: var(--ink-faint);
+}
+.wf-faden-leadbtn--on svg {
+  color: var(--gold);
+}
+/* „führt zu …“ unter einem Hinweis */
+.wf-faden-lead {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: -2px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-faden-lead svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--gold);
+}
+.wf-faden-choice {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  font-size: var(--text-sm);
+}
+.wf-faden-lead .wf-faden-choice {
+  flex: 0 1 340px;
+}
+.wf-faden-web {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px dashed var(--line-faint);
+}
+.wf-faden-web > .wf-faden-choice {
+  align-self: flex-start;
+  width: min(100%, 360px);
+}
+.wf-faden-web__row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  align-items: center;
+}
+.wf-faden-web__row > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--gold);
+}
+.wf-faden-web__knot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin-left: 2px;
+  border: 1.5px solid var(--gold);
+  border-radius: 50%;
+}
+.wf-faden-web__title {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-faden-web__via {
+  grid-column: 3 / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-faden-web__word {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-faden-web__fit {
+  border-left-color: var(--gold-deep);
+}
+
+/* ── Das Netz auf dem Brett: Knoten, Schnüre, Griffe ─────────────────────── */
+/* Von der Geschichte zu ihren Knoten: kurz und gerade */
+.wf-faden-strings path[data-knot] {
+  stroke: var(--gold-deep);
+  stroke-width: 1.4;
+  opacity: 0.75;
+}
+/* Faden an Faden: eine feste Schnur aus Messing */
+.wf-faden-strings path[data-web='tie'] {
+  stroke: var(--gold);
+  stroke-width: 2;
+  opacity: 0.9;
+}
+/* Ein Hinweis führt zu einem Faden: gestrichelt */
+.wf-faden-strings path[data-web='lead'] {
+  stroke: var(--gold);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 5;
+  opacity: 0.85;
+}
+/* Die Schnur, die gerade gezogen wird */
+.wf-faden-strings path[data-linking] {
+  stroke: var(--gold-bright);
+  stroke-width: 2;
+  stroke-dasharray: 3 4;
+  opacity: 1;
+}
+.wf-faden-strings path[data-web][data-dim='true'],
+.wf-faden-strings path[data-knot][data-dim='true'] {
+  opacity: 0.16;
+}
+
+/* Ein Faden als Knoten: Kreis und Satz */
+.wf-faden-knot {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 210px;
+  padding: 3px 10px 3px 6px;
+  transform: translate(0, -50%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: grab;
+}
+.wf-faden-knot > i {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--gold);
+  border-radius: 50%;
+  background: var(--bg-2);
+}
+.wf-faden-knot[data-state='active'] > i {
+  background: var(--gold-deep);
+}
+.wf-faden-knot[data-state='dormant'] {
+  color: var(--ink-mute);
+}
+.wf-faden-knot:hover,
+.wf-faden-knot[aria-pressed='true'] {
+  border-color: var(--gold);
+}
+.wf-faden-knot[aria-pressed='true'] {
+  box-shadow: 0 0 0 3px var(--gold-glow);
+}
+.wf-faden-knot[data-dim='true'] {
+  opacity: 0.3;
+}
+
+/* Das Wort einer Verbindung, mitten auf der Schnur */
+.wf-faden-webword {
+  position: absolute;
+  max-width: 180px;
+  padding: 0 6px;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+  background: var(--bg-0);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.wf-faden-webword[data-dim='true'] {
+  opacity: 0.25;
+}
+
+/* Der Griff, an dem man eine Schnur zieht */
+.wf-faden-handle {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin-left: 2px;
+  border: 1.5px solid var(--gold-deep);
+  border-radius: 50%;
+  background: var(--bg-0);
+  cursor: crosshair;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+.wf-faden-pin:hover .wf-faden-handle,
+.wf-faden-knot:hover .wf-faden-handle,
+.wf-faden-card:hover .wf-faden-handle,
+.wf-faden-knot[aria-pressed='true'] .wf-faden-handle,
+.wf-faden-card[aria-pressed='true'] .wf-faden-handle,
+.wf-faden-pin[aria-pressed='true'] .wf-faden-handle {
+  opacity: 1;
+}
+.wf-faden-handle:hover {
+  border-color: var(--gold-bright);
+  background: var(--gold-deep);
+}
+.wf-faden-handle--card {
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  transform: translateY(-50%);
 }

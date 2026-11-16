@@ -36,16 +36,19 @@ import { Picker } from './parts';
 export function RelationQuick({
   self,
   asMember = false,
+  otherId: presetOther = null,
   onClose,
 }: {
   self: Entity;
   /** Ein Mitglied eintragen: Personen und Gefährten zuerst, „hat als Mitglied“ als Vorgabe. */
   asMember?: boolean;
+  /** Mit wem – schon gewählt (etwa eine Schnur zwischen zwei Namen auf dem Fadenbrett). */
+  otherId?: string | null;
   onClose: () => void;
 }) {
   const db = useDb();
   const data = useData();
-  const [otherId, setOtherId] = useState<string | null>(null);
+  const [otherId, setOtherId] = useState<string | null>(presetOther);
   const [choiceId, setChoiceId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');

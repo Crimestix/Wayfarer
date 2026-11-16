@@ -7,9 +7,9 @@
  * hereinzuholen. Gefundene Hinweise und beantwortete Fragen bleiben getrennt.
  */
 import { SUGGESTION } from '../../domain/dismiss';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Trash2, TriangleAlert, Unlink, X } from 'lucide-react';
+import { ArrowRight, Trash2, TriangleAlert, Unlink, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
   THREAD_STATES,
@@ -46,6 +46,8 @@ import {
 import { moveThread, patchThread, removeThread, saveThread } from './actions';
 import { useStoryMention } from './storyMention';
 import { ThreadTake } from './ThreadTake';
+import { ThreadChoice, ThreadWeb } from './WebParts';
+import { leadOf } from '../../domain/threadWeb';
 
 /** Wie die Zeile für einen neuen Hinweis heißt – so findet sie auch der Rat am Rand. */
 export const newHintLabel = (title: string): string => `Neuer Hinweis zu „${title}“`;
@@ -130,6 +132,14 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
   const note = threadLive(thread)
     ? hintsNote(thread.hints.filter((hint) => hint.text.trim()).length)
     : null;
+  /** Der Hinweis, für den gerade gewählt wird, wohin er führt. */
+  const [leading, setLeading] = useState<string | null>(null);
+  const found = (hint: ThreadHint, isFound: boolean) => {
+    hints.set(hint.id, { found: isFound });
+    const target = isFound ? leadOf(data, hint, thread.id) : null;
+    if (target)
+      toast({ title: 'Hinweis gefunden', body: `Die Spur führt jetzt zu „${target.title}“.` });
+  };
   const remove = async () => {
     const ok = await confirmDialog({
       title: `„${thread.title}“ löschen?`,
@@ -203,7 +213,7 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
         </div>
         {hints.items.map((hint) => (
           <div key={hint.id} className="wf-sheet-list__row wf-sheet-list__row--hint">
-            <Checkbox checked={hint.found} onChange={(found) => hints.set(hint.id, { found })}>
+            <Checkbox checked={hint.found} onChange={(isFound) => found(hint, isFound)}>
               <span className="wf-sheet-list__sr">Die Gruppe hat den Hinweis</span>
             </Checkbox>
             <Written
@@ -228,6 +238,20 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
               create={{ storyId: story.id }}
             />
             <IconButton
+              label={
+                hint.leadsTo
+                  ? 'Führt zu einem Faden – ändern'
+                  : 'Führt zu einem Faden: Wo geht die Spur weiter?'
+              }
+              size="sm"
+              variant="ghost"
+              className={cx('wf-faden-leadbtn', hint.leadsTo && 'wf-faden-leadbtn--on')}
+              aria-pressed={leading === hint.id || !!hint.leadsTo}
+              onClick={() => setLeading(leading === hint.id ? null : hint.id)}
+            >
+              <ArrowRight />
+            </IconButton>
+            <IconButton
               label="Hinweis entfernen"
               size="sm"
               variant="ghost"
@@ -235,6 +259,22 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
             >
               <X />
             </IconButton>
+            {(hint.leadsTo || leading === hint.id) && (
+              <div className="wf-faden-lead">
+                <ArrowRight aria-hidden />
+                <span>führt zu</span>
+                <ThreadChoice
+                  value={hint.leadsTo && data.threads[hint.leadsTo] ? hint.leadsTo : null}
+                  exclude={[thread.id]}
+                  label={`Wohin der Hinweis „${hint.text}“ führt`}
+                  empty="keinem Faden"
+                  onChange={(leadsTo) => {
+                    hints.set(hint.id, { leadsTo });
+                    setLeading(null);
+                  }}
+                />
+              </div>
+            )}
             {onEvening.has(`${thread.id}:${hint.id}`) && (
               <Link
                 href="/abend"
@@ -264,6 +304,7 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
           Die Gruppe kennt diese Frage
         </Checkbox>
       </div>
+      <ThreadWeb thread={thread} />
     </div>
   );
 }

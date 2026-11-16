@@ -97,7 +97,12 @@ export function threadsOf(data: StoryData, storyId: string | null): Thread[] {
  * Woran eine Geschichte hängt: wer sie antreibt, wer und was dazugehört, wo ihre Uhr spielt, wo
  * ihre Einstiege und Szenen liegen – und alles, woran ihre Fäden hängen.
  */
-export function storyNodes(data: StoryData, story: Story): string[] {
+export function storyNodes(
+  data: StoryData,
+  story: Story,
+  /** Fäden, deren Namen hier nicht mitzählen – sie hängen auf dem Brett an ihrem eigenen Knoten. */
+  skip?: ReadonlySet<string>,
+): string[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
   return unique(
     [
@@ -110,7 +115,9 @@ export function storyNodes(data: StoryData, story: Story): string[] {
       ...(clock?.refs ?? []),
       ...story.entries.map((entry) => entry.placeId),
       ...story.scenes.map((scene) => scene.placeId),
-      ...threadsOf(data, story.id).flatMap((thread) => threadNodes(data, thread)),
+      ...threadsOf(data, story.id)
+        .filter((thread) => !skip?.has(thread.id))
+        .flatMap((thread) => threadNodes(data, thread)),
     ],
     data,
   );
@@ -656,13 +663,24 @@ export interface BoardPin {
 export interface BoardLayout {
   /** Je Karte die Stelle: Mitte ihrer Oberkante. */
   cards: Record<string, Spot>;
+  /** Je Faden als Knoten (`knot:<id>`) die Stelle: sein Kreis links, auf halber Höhe. */
+  knots: Record<string, Spot>;
   pins: BoardPin[];
+}
+
+/** Ein Faden als Knoten an seiner Geschichte – was das Auslegen von ihm wissen muss. */
+export interface KnotToLay {
+  key: string;
+  cardKey: string;
+  nodes: readonly string[];
 }
 
 /** Breite und ungefähre Höhe einer Karte auf dem Brett. */
 export const BOARD_CARD = { width: 250, height: 170 } as const;
 /** Platz, den ein Name auf dem Brett braucht. */
 export const BOARD_PIN = { width: 150, height: 34 } as const;
+/** Platz, den ein Faden als Knoten braucht – und der Abstand der Knoten untereinander. */
+export const BOARD_KNOT = { width: 210, height: 30, step: 40 } as const;
 const CELL = { width: 440, height: 380 } as const;
 const PER_ROW = 3;
 const PINS_PER_ROW = 2;
@@ -706,17 +724,33 @@ function withParts(cards: readonly BoardCard[]): BoardCard[] {
 export function boardLayout(
   cards: readonly BoardCard[],
   placed: Readonly<Record<string, Spot>> = {},
+  /** Fäden als Knoten (`boardWeb` in `domain/threadWeb.ts`): Sie hängen unter ihrer Karte. */
+  knotsToLay: readonly KnotToLay[] = [],
 ): BoardLayout {
   const lying = cards.filter((card) => !card.closed && card.onBoard);
   const open = withParts([
     ...lying.filter((card) => card.story),
     ...lying.filter((card) => !card.story),
   ]);
+  const knotsOf = new Map<string, KnotToLay[]>();
+  for (const knot of knotsToLay)
+    knotsOf.set(knot.cardKey, [...(knotsOf.get(knot.cardKey) ?? []), knot]);
+  // Eine Reihe ist so hoch, wie ihre längste Liste von Knoten es verlangt.
+  const rowTop: number[] = [0];
+  for (let row = 0; row * PER_ROW < open.length; row++) {
+    const most = Math.max(
+      0,
+      ...open
+        .slice(row * PER_ROW, row * PER_ROW + PER_ROW)
+        .map((card) => knotsOf.get(card.key)?.length ?? 0),
+    );
+    rowTop.push(rowTop[row]! + CELL.height + most * BOARD_KNOT.step);
+  }
   const spots: Record<string, Spot> = {};
   open.forEach((card, index) => {
     spots[card.key] = placed[card.key] ?? {
       x: (index % PER_ROW) * CELL.width,
-      y: Math.floor(index / PER_ROW) * CELL.height,
+      y: rowTop[Math.floor(index / PER_ROW)]!,
     };
   });
   // Die Karten sind Hindernisse – ihre Mitte liegt eine halbe Höhe unter der Oberkante.
@@ -726,6 +760,24 @@ export function boardLayout(
     w: BOARD_CARD.width + 20,
     h: BOARD_CARD.height + 20,
   }));
+  // Die Knoten einer Karte: untereinander gleich unter ihr – sie sind Hindernisse für die Namen.
+  const knots: Record<string, Spot> = {};
+  for (const [cardKey, list] of knotsOf) {
+    const card = spots[cardKey];
+    if (!card) continue;
+    list.forEach((knot, index) => {
+      knots[knot.key] = placed[knot.key] ?? {
+        x: card.x,
+        y: card.y + BOARD_CARD.height + 34 + index * BOARD_KNOT.step,
+      };
+      taken.push({
+        x: knots[knot.key]!.x + BOARD_KNOT.width / 2,
+        y: knots[knot.key]!.y,
+        w: BOARD_KNOT.width + 10,
+        h: BOARD_KNOT.height + 8,
+      });
+    });
+  }
   const pinBox = (spot: Spot): Box => ({ ...spot, w: BOARD_PIN.width, h: BOARD_PIN.height });
   /** Rückt eine Stelle so lange nach unten, bis dort nichts liegt. */
   const settle = (spot: Spot): Spot => {
@@ -738,6 +790,11 @@ export function boardLayout(
   const owners = new Map<string, string[]>();
   for (const card of open)
     for (const id of card.nodes) owners.set(id, [...(owners.get(id) ?? []), card.key]);
+  for (const knot of knotsToLay)
+    if (knots[knot.key])
+      for (const id of knot.nodes) owners.set(id, [...(owners.get(id) ?? []), knot.key]);
+  /** Die Stelle, an der ein Name hängt: Oberkante einer Karte oder Mitte eines Knotens. */
+  const anchor = (key: string): Spot => spots[key] ?? knots[key]!;
   const pins: BoardPin[] = [];
   const own = new Map<string, number>();
   const add = (id: string, keys: string[], wish: Spot) => {
@@ -751,7 +808,7 @@ export function boardLayout(
   // Dann, was mehrere Karten verbindet – in ihre Mitte.
   for (const [id, keys] of owners) {
     if (placed[`node:${id}`] || keys.length < 2) continue;
-    const at = keys.map((key) => spots[key]!);
+    const at = keys.map(anchor);
     add(id, keys, {
       x: at.reduce((sum, spot) => sum + spot.x, 0) / at.length,
       y: at.reduce((sum, spot) => sum + spot.y, 0) / at.length + BOARD_CARD.height / 2,
@@ -760,16 +817,48 @@ export function boardLayout(
   // Zuletzt die eigenen Namen jeder Karte: in Reihen unter ihr.
   for (const [id, keys] of owners) {
     if (placed[`node:${id}`] || keys.length !== 1) continue;
-    const card = spots[keys[0]!]!;
     const index = own.get(keys[0]!) ?? 0;
     own.set(keys[0]!, index + 1);
+    const card = spots[keys[0]!];
+    if (!card) {
+      // Ein Name eines Knotens: gleich daneben, nach rechts.
+      const knot = knots[keys[0]!]!;
+      add(id, keys, {
+        x: knot.x + BOARD_KNOT.width + 20 + BOARD_PIN.width / 2 + index * (BOARD_PIN.width + 6),
+        y: knot.y,
+      });
+      continue;
+    }
     add(id, keys, {
       x: card.x + ((index % PINS_PER_ROW) - (PINS_PER_ROW - 1) / 2) * (BOARD_PIN.width + 6),
       y:
         card.y + BOARD_CARD.height + 46 + Math.floor(index / PINS_PER_ROW) * (BOARD_PIN.height + 6),
     });
   }
-  return { cards: spots, pins };
+  return { cards: spots, knots, pins };
+}
+
+/**
+ * Was an einer Stelle des Bretts liegt – für eine frei gezogene Schnur: erst ein Name, dann ein
+ * Knoten, dann eine Karte (was oben liegt, gewinnt). Null, wenn dort nichts ist.
+ */
+export function hitOnBoard(layout: BoardLayout, at: Spot): string | null {
+  const within = (center: Spot, w: number, h: number) =>
+    Math.abs(at.x - center.x) <= w / 2 && Math.abs(at.y - center.y) <= h / 2;
+  const pin = layout.pins.find((entry) => within(entry, BOARD_PIN.width, BOARD_PIN.height + 6));
+  if (pin) return pin.key;
+  const knot = Object.entries(layout.knots).find(([, spot]) =>
+    within(
+      { x: spot.x + BOARD_KNOT.width / 2, y: spot.y },
+      BOARD_KNOT.width,
+      BOARD_KNOT.height + 6,
+    ),
+  );
+  if (knot) return knot[0];
+  const card = Object.entries(layout.cards).find(([, spot]) =>
+    within({ x: spot.x, y: spot.y + BOARD_CARD.height / 2 }, BOARD_CARD.width, BOARD_CARD.height),
+  );
+  return card ? card[0] : null;
 }
 
 /** „über den Hafen“, „über Mira und den Hafen“ – der Grund einer Berührung in Worten. */

@@ -20,6 +20,8 @@ export const SUGGESTION = {
   family: (name: string) => `family:${name.trim().toLocaleLowerCase('de')}`,
   /** Abend vorbereiten: was die Karten der Geschichten und der Welt anbieten. */
   prep: (sort: string, id: string) => `prep:${sort}:${id}`,
+  /** Zwei Fäden könnten zusammengehören (gleicher Ort, gleicher Name) – gleich in welcher Folge. */
+  tie: (a: string, b: string) => `tie:${[a, b].sort().join(':')}`,
 } as const;
 
 export function isDismissed(data: Pick<CampaignData, 'state'>, key: string): boolean {
@@ -45,6 +47,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   profession: 'Berufe aus dem Text',
   family: 'Familien aus Nachnamen',
   prep: 'Angebote beim Vorbereiten eines Abends',
+  tie: 'Fäden, die sich verbinden ließen',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */

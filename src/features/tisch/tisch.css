@@ -2193,3 +2193,15 @@ button.wf-tisch-cast__who:focus-visible {
 .wf-tisch-since__teaser--fresh {
   color: var(--ink);
 }
+
+/* Ein Faden am Ort: was im Netz einen Schritt weiter liegt */
+.wf-tisch-dazu__onward {
+  display: flex;
+  flex-direction: column;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-tisch-dazu__onward em {
+  color: var(--ink-mute);
+}

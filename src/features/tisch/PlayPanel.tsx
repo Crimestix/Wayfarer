@@ -39,6 +39,7 @@ import {
 import { RecapBox } from '../abend/RecapBox';
 import { useGiveLoot } from '../beute/useGive';
 import { newStory, setHintFound, setInPlay, setSceneDone, setStoryMemo } from '../faeden/actions';
+import { leadNote } from '../../domain/threadWeb';
 import { dismissRecap } from './commands';
 import { EveningBlock } from './EveningBlock';
 import { whenLabel } from './model';
@@ -302,9 +303,11 @@ function PlayStory({
   };
   const found = (threadId: string, hintId: string, text: string) => {
     setHintFound(db, threadId, hintId, true);
+    // Führt der Hinweis zu einem Faden, sagt die Meldung, wohin die Spur jetzt geht.
+    const lead = leadNote(db.getSnapshot(), threadId, hintId);
     toast({
       title: 'Hinweis gefunden',
-      body: text.slice(0, 120),
+      body: lead ? `${text.slice(0, 90)} – ${lead}` : text.slice(0, 120),
       action: { label: 'Rückgängig', run: () => setHintFound(db, threadId, hintId, false) },
     });
   };
@@ -422,8 +425,8 @@ function PlayStory({
               </span>
             </Row>
           )}
-          {play.threads.map(({ thread, found: have, warning }) => (
-            <Row key={thread.id} label="Faden">
+          {play.threads.map(({ thread, found: have, warning, here, next: onward }) => (
+            <Row key={thread.id} label={here ? 'Faden hier' : 'Faden'} here={here}>
               <span title={warning ?? undefined}>
                 {thread.title}
                 <em>
@@ -432,6 +435,21 @@ function PlayStory({
                   {thread.hints.length > 0 && `, ${have} von ${thread.hints.length} Hinweisen`}
                 </em>
                 {warning && <TriangleAlert className="wf-tisch-dazu__warn" aria-label={warning} />}
+                {onward.length > 0 && (
+                  <span className="wf-tisch-dazu__onward">
+                    {onward.map((step) => (
+                      <span key={step.thread.id}>
+                        {step.step === 'ledFrom' ? '←' : '→'} {step.thread.title}
+                        {step.word && (
+                          <em>
+                            {' '}
+                            – {step.step === 'tie' ? step.word : `Hinweis: ${step.word}`}
+                          </em>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </span>
             </Row>
           ))}

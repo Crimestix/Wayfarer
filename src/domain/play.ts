@@ -6,6 +6,7 @@
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
 import { SUGGESTION, isDismissed } from './dismiss';
+import { neighboursOf, type WebNeighbour } from './threadWeb';
 import { normalize, occurrencesOf, openPromises, personPlace, type Occurrence } from './derive';
 import { looseOrder } from './looseThreads';
 import { readyLoot } from './loot';
@@ -26,6 +27,7 @@ import {
   entryFit,
   heroesOf,
   threadLive,
+  threadNodes,
   threadWarning,
   whereOf,
   type BoardCard,
@@ -41,6 +43,13 @@ export interface PlayThread {
   found: number;
   /** Warnung, wenn die Gruppe ihn nicht finden kann oder er an einem einzigen Hinweis hängt. */
   warning: string | null;
+  /** Er hängt am Ort der Gruppe (eine Person, ein Ort, ein Hinweis hier). */
+  here: boolean;
+  /**
+   * Bei einem Faden am Ort: was im Netz einen Schritt weiter liegt (`neighboursOf`) – nie mehr
+   * als dieser eine Schritt, das ganze Netz steht nur auf dem Brett.
+   */
+  next: WebNeighbour[];
 }
 
 /** Eine Geschichte (oder ein loser Faden) im Spiel, mit allem, was an ihr hängt. */
@@ -164,11 +173,22 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
             isNear(data, personPlace(data, entity))) ||
             (entity.kind === 'faction' && isNear(data, entity.faction.seatId))),
       ),
-    threads: card.threads.filter(threadLive).map((thread) => ({
-      thread,
-      found: thread.hints.filter((hint) => hint.found).length,
-      warning: threadWarning(thread),
-    })),
+    threads: card.threads
+      .filter(threadLive)
+      .map((thread) => {
+        const near = threadNodes(data, thread).some((id) => here(id));
+        return {
+          thread,
+          found: thread.hints.filter((hint) => hint.found).length,
+          warning: threadWarning(thread),
+          here: near,
+          next: near
+            ? neighboursOf(data, thread.id).filter((entry) => threadLive(entry.thread))
+            : [],
+        };
+      })
+      // Was hier hängt, zuerst – sonst in der Reihung der Geschichte.
+      .sort((a, b) => Number(b.here) - Number(a.here)),
     promises: openPromises(data).filter(
       (entry) =>
         (story !== null && entry.storyId === story.id) ||

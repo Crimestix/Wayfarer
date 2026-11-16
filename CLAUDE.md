@@ -620,6 +620,19 @@ nicht übernommen.
   `worldProfessionSuggestions`, `familyPlanKey`), nie nur in der Oberfläche. Zurückgeholt wird in
   den Einstellungen („Ausgeblendete Vorschläge“, `restoreSuggestions`). Ein neuer Vorschlag
   bekommt Schlüssel, Filter und „×“; eine neue Sorte ihre Worte in `SUGGESTION_SORTS`.
+- Das Netz der Fäden (`domain/threadWeb.ts`, Wunsch des Spielleiters 16. 11. 2026: „Faden für
+  Faden, so ein Spinnennetz“): Fäden verbinden sich quer über Geschichten (`thread.ties`, gilt in
+  beide Richtungen, freies Wort; gelesen nur über `tiesOf`/`isTied`, geändert über `tieThreads`,
+  `untieThreads`, `setTieWord`), ein Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadOf`,
+  Meldung beim Finden `leadNote`/`findHint`). Einen Schritt weiter sagt `neighboursOf`; am
+  Spieltisch nur dieser eine Schritt bei Fäden am Ort (`PlayThread.next`). Vorschläge zum
+  Verbinden (`tieFits`, gleicher Name) mit „×“ (`SUGGESTION.tie`). Auf dem Brett hängen Fäden als
+  Knoten an ihrer Geschichte (`boardWeb`: aufgeklappt über `story.unfolded` / `setStoryUnfolded`,
+  quer Verbundenes immer; Stellen `knot:<id>` in `state.board`); ihre Namen hängen am Knoten.
+  Schnüre zieht der Spielleiter frei am Griff (`connectOnBoard`, Ziel über `hitOnBoard`): Faden an
+  Faden verbindet, Name an Faden/Geschichte heftet an, loser Faden an Geschichte wird ihre Frage,
+  zwei Namen öffnen das Fenster für eine Beziehung – alles mit Rückgängig. `mergeThreads` nimmt
+  Verbindungen und „führt zu“ mit. Verbindungen zwischen Geschichten bleiben abgeleitet.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
   `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein

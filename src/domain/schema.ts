@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 6;
-export const DATA_SHAPE = '38516798b5c34ea9';
+export const DATA_VERSION = 7;
+export const DATA_SHAPE = '0a199dd3e2ca301a';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -159,7 +159,7 @@ export const PlayStateSchema = z.object({
   watch: z.array(id).default([]),
   /**
    * Das Fadenbrett: wo der Spielleiter Karten und Namen hingelegt hat. Schlüssel sind
-   * `story:<id>`, `thread:<id>` und `node:<id>`; was hier fehlt, legt Wayfarer selbst aus
+   * `story:<id>`, `thread:<id>`, `knot:<id>` (Faden als Knoten) und `node:<id>`; was hier fehlt, legt Wayfarer selbst aus
    * (`boardLayout` in `domain/story.ts`).
    */
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
@@ -1354,6 +1354,11 @@ export const ThreadHintSchema = z.object({
   placeId: id.nullable().default(null),
   sourceId: id.nullable().default(null),
   found: z.boolean().default(false),
+  /**
+   * Der Faden, zu dem dieser Hinweis führt – findet die Gruppe ihn, geht die Spur dort weiter
+   * (`domain/threadWeb.ts`). Leer = er führt nirgendwohin.
+   */
+  leadsTo: id.nullable().optional(),
 });
 export type ThreadHint = z.infer<typeof ThreadHintSchema>;
 
@@ -1385,6 +1390,12 @@ export const ThreadSchema = z.object({
   articleId: id.nullable().default(null),
   /** Die nachgetragenen Sessions, in deren Notizen er steht (`threadOrigin`). */
   sessionIds: z.array(id).default([]),
+  /**
+   * Fäden, mit denen dieser verbunden ist – das Netz der Fäden, quer über Geschichten. Eine
+   * Verbindung gilt in beide Richtungen und steht nur an einem der beiden; gelesen wird immer
+   * über `tiesOf` (`domain/threadWeb.ts`). `word` sagt, was sie verbindet – frei, darf leer sein.
+   */
+  ties: z.array(z.object({ id, word: z.string().default('') })).default([]),
 });
 export type Thread = z.infer<typeof ThreadSchema>;
 
@@ -1601,6 +1612,8 @@ export const StorySchema = z.object({
   closed: z.boolean().default(false),
   /** Steht am Spieltisch unter „Im Spiel“ – der Spielleiter nimmt sie herein und heraus. */
   inPlay: z.boolean().default(false),
+  /** Auf dem Fadenbrett aufgeklappt: Ihre Fäden hängen als eigene Knoten an ihr. */
+  unfolded: z.boolean().default(false),
   /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
   memo: z.string().default(''),
   /**

@@ -1,0 +1,256 @@
+/**
+ * Das Netz der Fäden: Faden an Faden, Hinweise, die zu einem Faden führen, Knoten und Schnüre auf
+ * dem Brett, frei gezogene Schnüre. Erfundene Welt (Hohenfurt, Salzgrotte, Mira Tannhaus).
+ */
+import { describe, expect, it } from 'vitest';
+import { CampaignDb } from '../../data/db';
+import { elarisCampaign } from '../../data/seed';
+import { MemoryStore } from '../../data/store';
+import { playView } from '../../domain/play';
+import { createEntity, newId, type Place } from '../../domain/schema';
+import { boardCards, boardLayout } from '../../domain/story';
+import { boardWeb, isTied, leadNote, neighboursOf, tieFits, tiesOf } from '../../domain/threadWeb';
+import { dismissSuggestion } from '../../data/actions';
+import { SUGGESTION } from '../../domain/dismiss';
+import {
+  connectOnBoard,
+  mergeThreads,
+  newStory,
+  saveThread,
+  setInPlay,
+  setStoryUnfolded,
+  setTieWord,
+  tieThreads,
+  untieThreads,
+  type ThreadInput,
+} from './actions';
+
+async function setup() {
+  const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+  const place = (name: string, parentId: string | null = null) =>
+    db.put('entities', createEntity({ kind: 'place', name, place: { parentId } })) as Place;
+  const town = place('Hohenfurt');
+  const arena = place('Salzgrotte', town.id);
+  const mira = db.put('entities', createEntity({ kind: 'person', name: 'Mira Tannhaus' }));
+  const thread = (title: string, more: Partial<ThreadInput> = {}) =>
+    saveThread(db, {
+      title,
+      truth: '',
+      state: 'open',
+      storyId: null,
+      refs: [],
+      known: false,
+      hints: [],
+      ...more,
+    });
+  return { db, data: () => db.getSnapshot(), town, arena, mira, thread };
+}
+
+describe('Faden an Faden', () => {
+  it('verbindet in beide Richtungen, nur einmal, mit Wort und Rückgängig', async () => {
+    const { db, data, thread } = await setup();
+    const a = thread('Wer füllt die Grotte?');
+    const b = thread('Woher kommt das Salz?');
+    const undo = tieThreads(db, a.id, b.id, 'wer dahintersteckt')!;
+    expect(isTied(data(), b.id, a.id)).toBe(true);
+    expect(tiesOf(data(), b.id)).toMatchObject([
+      { thread: { id: a.id }, word: 'wer dahintersteckt' },
+    ]);
+    // Noch einmal – auch von der anderen Seite – entsteht keine zweite Verbindung.
+    expect(tieThreads(db, b.id, a.id)).toBeNull();
+    expect(data().threads[b.id]!.ties).toEqual([]);
+    setTieWord(db, b.id, a.id, 'Geld');
+    expect(tiesOf(data(), a.id)[0]!.word).toBe('Geld');
+    undo();
+    expect(isTied(data(), a.id, b.id)).toBe(false);
+  });
+
+  it('löst eine Verbindung von beiden Seiten und nimmt das Lösen zurück', async () => {
+    const { db, data, thread } = await setup();
+    const a = thread('A');
+    const b = thread('B');
+    tieThreads(db, a.id, b.id);
+    const undo = untieThreads(db, b.id, a.id)!;
+    expect(isTied(data(), a.id, b.id)).toBe(false);
+    undo();
+    expect(isTied(data(), a.id, b.id)).toBe(true);
+  });
+
+  it('kennt einen Schritt weiter: Verbindung, Hinweis führt hin, Hinweis kommt her', async () => {
+    const { db, data, thread } = await setup();
+    const c = thread('Wer bezahlt die Kämpfe?');
+    const b = thread('Der verschwundene Kämpfer');
+    const a = thread('Die Arena', {
+      hints: [
+        {
+          id: newId(),
+          text: 'Ein Schuldschein',
+          placeId: null,
+          sourceId: null,
+          found: false,
+          leadsTo: c.id,
+        },
+      ],
+    });
+    const d = thread('Die alte Wette', {
+      hints: [
+        {
+          id: newId(),
+          text: 'Ein Wettzettel',
+          placeId: null,
+          sourceId: null,
+          found: false,
+          leadsTo: a.id,
+        },
+      ],
+    });
+    tieThreads(db, a.id, b.id);
+    const steps = neighboursOf(data(), a.id);
+    expect(steps.map((entry) => [entry.thread.title, entry.step])).toEqual([
+      ['Der verschwundene Kämpfer', 'tie'],
+      ['Wer bezahlt die Kämpfe?', 'leads'],
+      ['Die alte Wette', 'ledFrom'],
+    ]);
+    expect(leadNote(data(), a.id, a.hints[0]!.id)).toBe(
+      'Die Spur führt jetzt zu „Wer bezahlt die Kämpfe?“.',
+    );
+    expect(leadNote(data(), d.id, 'gibt-es-nicht')).toBeNull();
+  });
+
+  it('schlägt Fäden am selben Ort vor – nie verbundene, nie weggeklickte', async () => {
+    const { db, data, arena, thread } = await setup();
+    const a = thread('A', { refs: [arena.id] });
+    const b = thread('B', { refs: [arena.id] });
+    const c = thread('C', { refs: [arena.id] });
+    thread('D');
+    expect(tieFits(data(), a.id).map((fit) => fit.thread.title)).toEqual(['B', 'C']);
+    expect(tieFits(data(), a.id)[0]!.reason).toBe('gleicher Ort: Salzgrotte');
+    tieThreads(db, a.id, b.id);
+    dismissSuggestion(db, SUGGESTION.tie(c.id, a.id));
+    expect(tieFits(data(), a.id)).toEqual([]);
+  });
+
+  it('legt Verbindungen beim Zusammenlegen auf den bleibenden Faden', async () => {
+    const { db, data, thread } = await setup();
+    const keep = thread('Wer füllt die Grotte?');
+    const twin = thread('Wer füllt die Grotte');
+    const other = thread('Das Salz', {
+      hints: [
+        {
+          id: newId(),
+          text: 'Spur',
+          placeId: null,
+          sourceId: null,
+          found: false,
+          leadsTo: twin.id,
+        },
+      ],
+    });
+    const far = thread('Der Hafen');
+    tieThreads(db, twin.id, far.id, 'Schiffe');
+    tieThreads(db, other.id, twin.id);
+    const undo = mergeThreads(db, keep.id, [twin.id])!;
+    expect(tiesOf(data(), keep.id).map((tie) => [tie.thread.title, tie.word])).toEqual([
+      ['Das Salz', ''],
+      ['Der Hafen', 'Schiffe'],
+    ]);
+    expect(data().threads[other.id]!.hints[0]!.leadsTo).toBe(keep.id);
+    undo();
+    expect(data().threads[other.id]!.hints[0]!.leadsTo).toBe(twin.id);
+    expect(isTied(data(), twin.id, far.id)).toBe(true);
+  });
+});
+
+describe('Das Netz auf dem Brett', () => {
+  it('zeigt Fäden als Knoten, wenn die Geschichte aufgeklappt oder quer verbunden ist', async () => {
+    const { db, data, arena, mira, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    const other = newStory(db, { title: 'Der Salzhandel' });
+    const a = thread('Wer kämpft dort?', { storyId: story.id, refs: [arena.id] });
+    thread('Wer verliert?', { storyId: story.id });
+    const b = thread('Wer kauft?', { storyId: other.id, refs: [mira.id] });
+    let web = boardWeb(data(), boardCards(data()));
+    expect(web.knots).toEqual([]);
+    tieThreads(db, a.id, b.id);
+    web = boardWeb(data(), boardCards(data()));
+    expect(web.knots.map((knot) => knot.thread.title).sort()).toEqual([
+      'Wer kauft?',
+      'Wer kämpft dort?',
+    ]);
+    expect(web.strings).toMatchObject([{ kind: 'tie', a: `knot:${a.id}`, b: `knot:${b.id}` }]);
+    // Die Salzgrotte hängt jetzt am Knoten, nicht mehr an der Karte.
+    const card = web.cards.find((entry) => entry.key === `story:${story.id}`)!;
+    expect(card.nodes).not.toContain(arena.id);
+    expect(web.knots.find((knot) => knot.thread.id === a.id)!.nodes).toEqual([arena.id]);
+    setStoryUnfolded(db, story.id, true);
+    web = boardWeb(data(), boardCards(data()));
+    expect(web.knots).toHaveLength(3);
+    const layout = boardLayout(web.cards, {}, web.knots);
+    expect(Object.keys(layout.knots)).toHaveLength(3);
+    const pin = layout.pins.find((entry) => entry.id === arena.id)!;
+    expect(pin.cards).toEqual([`knot:${a.id}`]);
+  });
+
+  it('zeigt der Gruppe nur, was sie kennt', async () => {
+    const { db, data, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena', known: true });
+    const a = thread('Bekannt', { storyId: story.id, known: true });
+    const b = thread('Geheim', { storyId: story.id });
+    const c = thread('Lose und bekannt', { known: true });
+    tieThreads(db, a.id, b.id);
+    tieThreads(db, a.id, c.id);
+    const party = boardWeb(data(), boardCards(data(), 'party'), 'party');
+    // Der lose Faden liegt nicht auf dem Brett: Er hält keine Schnur.
+    expect(party.strings).toEqual([]);
+    expect(party.knots).toEqual([]);
+  });
+
+  it('zieht Schnüre frei: Faden an Faden, Name an Faden, loser Faden an Geschichte', async () => {
+    const { db, data, mira, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    const other = newStory(db, { title: 'Der Salzhandel' });
+    const a = thread('A', { storyId: story.id });
+    const b = thread('B', { storyId: other.id });
+    const loose = thread('Lose');
+    const tied = connectOnBoard(db, `knot:${a.id}`, `knot:${b.id}`);
+    expect(tied).toMatchObject({ done: true, title: 'Fäden verbunden' });
+    expect(connectOnBoard(db, `knot:${b.id}`, `knot:${a.id}`)).toMatchObject({ done: false });
+    const pinned = connectOnBoard(db, `node:${mira.id}`, `knot:${a.id}`);
+    expect(pinned).toMatchObject({ done: true });
+    expect(data().threads[a.id]!.refs).toEqual([mira.id]);
+    if (pinned.done) pinned.undo();
+    expect(data().threads[a.id]!.refs).toEqual([]);
+    const moved = connectOnBoard(db, `thread:${loose.id}`, `story:${story.id}`);
+    expect(moved).toMatchObject({ done: true });
+    expect(data().threads[loose.id]!.storyId).toBe(story.id);
+    // Ein Faden einer anderen Geschichte wechselt nicht still die Geschichte.
+    expect(connectOnBoard(db, `knot:${b.id}`, `story:${story.id}`)).toMatchObject({ done: false });
+    expect(connectOnBoard(db, `story:${story.id}`, `story:${other.id}`)).toMatchObject({
+      done: false,
+    });
+    expect(connectOnBoard(db, `node:${mira.id}`, `node:${story.id}`)).toMatchObject({
+      relate: { fromId: mira.id },
+    });
+  });
+});
+
+describe('Am Spieltisch', () => {
+  it('zeigt bei Fäden am Ort, was einen Schritt weiter liegt', async () => {
+    const { db, arena, thread } = await setup();
+    db.setState({ placeId: arena.id });
+    const story = newStory(db, { title: 'Die Arena' });
+    const far = thread('Wer bezahlt?');
+    const here = thread('Die Kämpfe', { storyId: story.id, refs: [arena.id] });
+    const away = thread('Anderswo', { storyId: story.id });
+    tieThreads(db, here.id, far.id, 'Geld');
+    setInPlay(db, `story:${story.id}`, true);
+    const card = playView(db.getSnapshot()).cards[0]!;
+    expect(card.threads.map((entry) => [entry.thread.title, entry.here])).toEqual([
+      ['Die Kämpfe', true],
+      ['Anderswo', false],
+    ]);
+    expect(card.threads[0]!.next).toMatchObject([{ thread: { id: far.id }, word: 'Geld' }]);
+    expect(card.threads[1]!.next).toEqual([]);
+    void away;
+  });
+});
