@@ -85,7 +85,10 @@ Vergangenheit, Galerie für jede Art, Familien in Fraktionen, „Wen die Gruppe 
 Mac und Windows beide auf 0.1.7.
 **Danach: Tag `v0.1.8` auf `b3f44dc` (16. 11.)** – jede Schnur auf dem Fadenbrett lässt sich
 lösen (auch Namen über Hinweis, Uhr, Szene), Fäden im Seitenteil lösen, Gelöstes und Erledigtes
-verschwindet vom Brett. DATA_VERSION bleibt 11. Der Spielleiter macht die Probe nach
+verschwindet vom Brett. DATA_VERSION bleibt 11.
+**Danach: Tag `v0.1.9` auf `29d1050` (16. 11.)** – freie Schnüre zwischen Namen (sofort, ohne
+Fenster; Beziehung per Klick auf die Schnur), Suche an einer Schnur ins Leere. **DATA_VERSION 12**
+– Mac und Windows beide auf 0.1.9. Der Spielleiter macht die Probe nach
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
