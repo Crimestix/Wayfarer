@@ -136,7 +136,7 @@ const LIVING: EntityKind[] = ['person', 'character'];
 /** Welche Einträge im Feld „Wer“ (`whoId`) einer Art stehen dürfen. */
 export const WHO_KINDS: Partial<Record<RecordFieldsKind, EntityKind[]>> = {
   attitude: PEOPLE,
-  repute: ['faction'],
+  repute: ['faction', 'family'],
   bond: PEOPLE,
   quote: PEOPLE,
   rumor: PEOPLE,

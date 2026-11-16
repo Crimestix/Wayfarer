@@ -40,6 +40,7 @@ import { BookSection, BookSwitch } from './BookSection';
 import { openEntityDialog } from './editor';
 import { FactBox } from './FactBox';
 import { FamilyTree } from './FamilyTree';
+import { HouseTwinNote } from './HouseTwinNote';
 import { GroupKnows } from './GroupKnows';
 import { InStories } from './InStories';
 import { ItemLife } from './ItemLife';
@@ -374,6 +375,9 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       </header>
 
       <ContinuityNote entityId={entity.id} />
+      {(entity.kind === 'faction' || entity.kind === 'family') && (
+        <HouseTwinNote entityId={entity.id} />
+      )}
 
       <div className="wf-welt-tabs wf-welt-tabs--quiet">
         <Tabs<PageTab>

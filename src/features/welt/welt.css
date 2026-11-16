@@ -3604,3 +3604,42 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-gallery__past .wf-welt-gallery__grid {
   margin-top: var(--s-3);
 }
+
+/* Ein Haus, zweimal angelegt: ruhiger Hinweis unter dem Kopf der Seite. */
+.wf-welt-housenote {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
+  margin-top: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-housenote__icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+.wf-welt-housenote__text {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+/* Auf der Seite eines Hauses: wer ihm dient, unter der Familie. */
+.wf-welt-service {
+  margin-top: var(--s-4);
+}
+.wf-welt-service__head {
+  margin-bottom: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-welt-service__head span {
+  color: var(--ink-faint);
+}

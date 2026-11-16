@@ -589,6 +589,16 @@ nicht übernommen.
   eindeutig ein Name ist) und der Baustein `NamesHint` – „Im Text genannt“ / „Noch unbekannt“,
   je Name wegklickbar (`story.notMeant`, `markNotMeant`); nichts geschieht von selbst. Was auf
   dem Blatt steht und wer dazugehört, sagen `storyTexts()` und `storyAttached()`.
+- Häuser (Entscheidung des Spielleiters, 16. 11. 2026: „Das Haus Orvyndra ist die Familie
+  Orvyndra. Angestellte gehören da ja irgendwie zu.“): Ein Adelshaus ist **ein** Eintrag der Art
+  Familie – sie kann alles, was eine Fraktion kann (Sitz, Haltung, Vorhaben, Netz, Händler, Ruf).
+  Die Seite trennt die Leute über `houseMembers` (`welt/house.ts`) in „Familie“ (Name des Hauses,
+  „verwandt mit“, verwandt mit jemandem aus der Familie) und „Im Dienst des Hauses“ (dient,
+  angestellt, arbeitet dort, ohne Verwandtschaft) – erkannt, nie gespeichert. Fraktion und
+  Familie gleichen Namens („Haus Orvyndra“ / „Orvyndra“) meldet `houseTwins` als Vorschlag
+  (`SUGGESTION.house`, „×“); zusammengelegt wird nur auf Klick über `mergeHouse` (es bleibt die
+  Familie unter dem Namen des Hauses, alle Verweise ziehen über `rewireId` mit, mit Rückgängig).
+  Wo bisher nur `faction` stand (Händler, Ruf, Besitzer), gehört `family` dazu.
 - Beziehungen als Befehl: `relate(db, { from, to, type, … })` und `unrelate`
   (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
   die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt

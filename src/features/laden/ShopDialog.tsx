@@ -302,8 +302,8 @@ export function ShopDialog({
           <EntityPicker
             value={draft.keeperId}
             onChange={(keeperId) => set({ keeperId })}
-            kinds={['person', 'faction']}
-            placeholder="Person oder Fraktion …"
+            kinds={['person', 'faction', 'family']}
+            placeholder="Person, Fraktion oder Haus …"
           />
         </Field>
         <Field label="Preise" hint="Im Verhältnis zum Listenpreis der Waren.">

@@ -27,7 +27,8 @@ const PARTICLES = words(
   'von vom van de du del della di da zu zur zum af av of la le ten ter el al ibn bin mac',
 );
 /** Wörter, unter denen Familien und Häuser geführt werden. */
-const FAMILY_WORDS = /^(haus|familie|sippe|clan|dynastie|geschlecht|house|family)\s+/i;
+/** „Haus“, „Familie“, „Sippe“ … vor dem Namen eines Hauses. */
+export const FAMILY_WORDS = /^(haus|familie|sippe|clan|dynastie|geschlecht|house|family)\s+/i;
 
 /** Schlagwort an Familien, die Wayfarer aus Nachnamen angelegt hat – so bleiben sie erkennbar. */
 export const DERIVED_FAMILY_TAG = 'aus Nachnamen';

@@ -195,6 +195,8 @@ export function shopPlaceId(data: Pick<CampaignData, 'entities'>, shop: Shop): s
     return keeper.person.placeId ?? keeper.person.homeId;
   }
   if (keeper?.kind === 'faction') return keeper.faction.seatId;
+  // Ein Haus (Familie) handelt von seinem Stammsitz aus.
+  if (keeper?.kind === 'family') return keeper.family.seatId;
   return null;
 }
 

@@ -256,7 +256,12 @@ function netGraph(data: NetData): { nodes: Map<string, NetNode>; edges: NetEdge[
       entity.id,
       entity.kind === 'faction'
         ? node(entity, 'faction', NET.faction, entity.faction.category || 'Fraktion')
-        : node(entity, 'family', NET.family, 'Familie'),
+        : node(
+            entity,
+            'family',
+            NET.family,
+            (entity.kind === 'family' && entity.family.category) || 'Familie',
+          ),
     );
   }
 

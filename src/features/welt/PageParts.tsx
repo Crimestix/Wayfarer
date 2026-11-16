@@ -76,13 +76,13 @@ import {
 import { TrackCard } from '../fortschritt/TrackCard';
 import { movePartyTo, patchDetails } from './actions';
 import { openEntityDialog } from './editor';
+import { houseMembers } from './house';
 import {
   CAST_PREVIEW,
   PERSON_STATUS_LABEL,
   castSubline,
   describeVisit,
   formatShortDate,
-  groupMembers,
   itemsHeldBy,
   languagesInScript,
   linkedFrom,
@@ -93,6 +93,7 @@ import {
   speciesMembers,
   upcomingFor,
   workersAt,
+  type Member,
 } from './model';
 import { ADD_LABEL, type AddKey } from './page';
 import { shopToOwnPlace } from './pageActions';
@@ -893,13 +894,32 @@ export function SeatSection({ group, inBox }: { group: Faction | Family; inBox: 
 /** Mitglieder einer Fraktion oder Familie, mit Haltung zur Gruppe. */
 export function MemberList({ group }: { group: Faction | Family }) {
   const data = useData();
-  const members = groupMembers(data, group.id);
+  const { family, service, split } = houseMembers(data, group);
   const attitudes = partyAttitudes(data);
   const [adding, setAdding] = useState(false);
+  const rows = (members: Member[]) => (
+    <div className="wf-welt-rows wf-welt-rows--grid">
+      {members.map((member) => (
+        <EntryRow
+          key={member.entity.id}
+          entity={member.entity}
+          sub={[
+            member.label,
+            member.entity.kind === 'person' && member.entity.person.role,
+            member.entity.kind === 'person' && entityName(data, personPlace(data, member.entity)),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          attitude={shownAttitude(member.entity.kind, attitudes.get(member.entity.id))}
+        />
+      ))}
+    </div>
+  );
+  const total = family.length + service.length;
   return (
     <Section
-      title="Mitglieder"
-      count={members.length || undefined}
+      title={split ? 'Familie' : 'Mitglieder'}
+      count={(split ? family.length : total) || undefined}
       action={
         <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setAdding(true)}>
           Mitglied
@@ -907,30 +927,34 @@ export function MemberList({ group }: { group: Faction | Family }) {
       }
     >
       {adding && <RelationQuick self={group} asMember onClose={() => setAdding(false)} />}
-      {members.length ? (
-        <div className="wf-welt-rows wf-welt-rows--grid">
-          {members.map((member) => (
-            <EntryRow
-              key={member.entity.id}
-              entity={member.entity}
-              sub={[
-                member.label,
-                member.entity.kind === 'person' && member.entity.person.role,
-                member.entity.kind === 'person' &&
-                  entityName(data, personPlace(data, member.entity)),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              attitude={shownAttitude(member.entity.kind, attitudes.get(member.entity.id))}
-            />
-          ))}
-        </div>
+      {!split ? (
+        total ? (
+          rows(service)
+        ) : (
+          <p className="wf-welt-quiet">
+            Noch keine. Wer zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, steht
+            hier.
+          </p>
+        )
       ) : (
-        <p className="wf-welt-quiet">
-          {group.kind === 'faction'
-            ? 'Noch keine. Wer zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, steht hier.'
-            : 'Noch niemand. Wer zu dieser Familie gehört oder sie führt, steht hier.'}
-        </p>
+        <>
+          {family.length ? (
+            rows(family)
+          ) : (
+            <p className="wf-welt-quiet">
+              Noch niemand aus der Familie. Wer den Namen des Hauses trägt oder mit der Familie
+              verwandt ist, steht hier.
+            </p>
+          )}
+          {service.length > 0 && (
+            <div className="wf-welt-service">
+              <div className="wf-welt-service__head">
+                Im Dienst des Hauses <span>{service.length}</span>
+              </div>
+              {rows(service)}
+            </div>
+          )}
+        </>
       )}
     </Section>
   );

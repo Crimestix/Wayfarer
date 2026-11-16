@@ -148,7 +148,7 @@ export function BondDialog({
             <EntityPicker
               value={fromId}
               onChange={pick}
-              kinds={['person', 'faction']}
+              kinds={['person', 'faction', 'family']}
               exclude={[character.id]}
               autoFocus
               placeholder="Person oder Fraktion wählen oder neu anlegen …"

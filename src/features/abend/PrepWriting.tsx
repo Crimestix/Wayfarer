@@ -62,7 +62,7 @@ function SheetNames({ texts }: { texts: readonly string[] }) {
       attached={attached}
       ignored={content.notMeant}
       known={['person', 'place', 'faction', 'family']}
-      kinds={['person', 'place', 'faction']}
+      kinds={['person', 'place', 'faction', 'family']}
       onAdd={(entityId) => attachToSheet(db, entityId, which)}
       onIgnore={(key) => markNotMeant(db, key, which)}
       onRemove={(entityId) => detachFromSheet(db, entityId, which)}

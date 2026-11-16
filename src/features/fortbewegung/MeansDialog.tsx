@@ -144,7 +144,7 @@ export function MeansDialog({
           <EntityPicker
             value={draft.ownerId ?? PARTY_ID}
             onChange={(id) => set({ ownerId: id === PARTY_ID ? null : id })}
-            kinds={['character', 'person', 'faction']}
+            kinds={['character', 'person', 'faction', 'family']}
             allowParty
             placeholder="Der Gruppe"
           />

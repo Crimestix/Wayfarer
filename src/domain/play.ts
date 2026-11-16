@@ -171,7 +171,8 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
             entity.person.status !== 'dead' &&
             entity.person.status !== 'missing' &&
             isNear(data, personPlace(data, entity))) ||
-            (entity.kind === 'faction' && isNear(data, entity.faction.seatId))),
+            (entity.kind === 'faction' && isNear(data, entity.faction.seatId)) ||
+            (entity.kind === 'family' && isNear(data, entity.family.seatId))),
       ),
     threads: card.threads
       .filter(threadLive)
