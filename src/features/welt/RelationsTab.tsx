@@ -5,7 +5,7 @@ import { EyeOff, Pencil, Plus, Users, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, entityName, findRelation } from '../../domain/derive';
 import { attitudeModeChoice, type AttitudeMode } from '../../domain/attitudeSetting';
-import { RELATION_TYPES, attitudeLabel } from '../../domain/relations';
+import { attitudeLabel, holdsAttitude, relationType, typeOrder } from '../../domain/relations';
 import { PARTY_ID, type Relation } from '../../domain/schema';
 import {
   AttitudeBadge,
@@ -34,6 +34,8 @@ import {
   canRelateFrom,
   entitySubline,
   relationDrafts,
+  relationKind,
+  relationPresets,
   relationRows,
   relationSentence,
   savesDirection,
@@ -44,8 +46,7 @@ import {
 } from './model';
 
 import { KinSection } from './KinSection';
-
-const TYPE_GROUPS = [...new Set(RELATION_TYPES.map((t) => t.group))];
+import { RelationQuick } from './RelationQuick';
 
 export function RelationsTab({
   entity,
@@ -57,12 +58,17 @@ export function RelationsTab({
 }) {
   const data = useData();
   const rows = relationRows(data, entity.id);
-  /** null = geschlossen; '' = neue Beziehung; sonst die ID des Gegenübers. */
-  const [editing, setEditing] = useState<string | null>(startNew ? '' : null);
-  const [asMember, setAsMember] = useState(startNew === 'member');
+  // Haltungsspalten nur, wenn irgendwo eine Haltung eingetragen ist.
+  const withAttitude = rows.some(
+    (r) => (r.outgoing?.attitude ?? null) !== null || (r.incoming?.attitude ?? null) !== null,
+  );
+  /** null = geschlossen; sonst die ID des Gegenübers, dessen Beziehung bearbeitet wird. */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** Neu eintragen geht über den schlanken Dialog (`RelationQuick`). */
+  const [adding, setAdding] = useState<RelationIntent | null>(startNew ?? null);
   const edit = (otherId: string) => {
-    setAsMember(false);
-    setEditing(otherId);
+    if (otherId) setEditing(otherId);
+    else setAdding('relation');
   };
 
   return (
@@ -77,27 +83,39 @@ export function RelationsTab({
         </Button>
       </div>
       {rows.length ? (
-        <div className="wf-welt-rel__table" role="table">
+        <div
+          className={cx('wf-welt-rel__table', !withAttitude && 'wf-welt-rel__table--plain')}
+          role="table"
+        >
           <div className="wf-welt-rel__row wf-welt-rel__row--head" role="row">
             <span role="columnheader">Gegenüber</span>
-            <span
-              role="columnheader"
-              className="wf-clamp-2"
-              title={`Haltung von ${entity.name} gegenüber dem anderen`}
-            >
-              Haltung von {entity.name}
-            </span>
-            <span
-              role="columnheader"
-              className="wf-clamp-2"
-              title={`Haltung des anderen gegenüber ${entity.name}`}
-            >
-              Haltung zu {entity.name}
-            </span>
+            {withAttitude && (
+              <>
+                <span
+                  role="columnheader"
+                  className="wf-clamp-2"
+                  title={`Haltung von ${entity.name} gegenüber dem anderen`}
+                >
+                  Haltung von {entity.name}
+                </span>
+                <span
+                  role="columnheader"
+                  className="wf-clamp-2"
+                  title={`Haltung des anderen gegenüber ${entity.name}`}
+                >
+                  Haltung zu {entity.name}
+                </span>
+              </>
+            )}
             <span />
           </div>
           {rows.map((row) => (
-            <RelationLine key={row.otherId} row={row} onEdit={() => edit(row.otherId)} />
+            <RelationLine
+              key={row.otherId}
+              row={row}
+              withAttitude={withAttitude}
+              onEdit={() => edit(row.otherId)}
+            />
           ))}
         </div>
       ) : (
@@ -118,19 +136,32 @@ export function RelationsTab({
         <RelationDialog
           key={editing}
           self={entity}
-          otherId={editing || null}
-          asMember={asMember && !editing}
+          otherId={editing}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {adding !== null && (
+        <RelationQuick
+          self={entity}
+          asMember={adding === 'member'}
+          onClose={() => setAdding(null)}
         />
       )}
     </div>
   );
 }
 
-function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void }) {
+function RelationLine({
+  row,
+  withAttitude,
+  onEdit,
+}: {
+  row: RelationRow;
+  withAttitude: boolean;
+  onEdit: () => void;
+}) {
   const data = useData();
   const isParty = row.otherId === PARTY_ID;
-  const symmetric = row.label === row.inverseLabel;
   return (
     <div className={cx('wf-welt-rel__row', row.ended && 'wf-welt-rel__row--ended')} role="row">
       <div className="wf-welt-rel__who" role="cell">
@@ -147,9 +178,6 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
             title={row.freeText ? row.label : undefined}
           >
             <span className="wf-welt-rel__main">{row.label}</span>
-            {!symmetric && !isParty && (
-              <span className="wf-welt-rel__inverse"> · umgekehrt: {row.inverseLabel}</span>
-            )}
           </div>
           <div className="wf-welt-rel__name">
             {row.entity ? (
@@ -188,20 +216,24 @@ function RelationLine({ row, onEdit }: { row: RelationRow; onEdit: () => void })
           )}
         </div>
       </div>
-      <div role="cell">
-        {row.outgoing ? (
-          <AttitudeBadge value={row.outgoing.attitude} />
-        ) : (
-          <span className="wf-welt-rel__none">–</span>
-        )}
-      </div>
-      <div role="cell">
-        {row.incoming ? (
-          <AttitudeBadge value={row.incoming.attitude} />
-        ) : (
-          <span className="wf-welt-rel__none">–</span>
-        )}
-      </div>
+      {withAttitude && (
+        <>
+          <div role="cell">
+            {row.outgoing && row.outgoing.attitude !== null ? (
+              <AttitudeBadge value={row.outgoing.attitude} />
+            ) : (
+              <span className="wf-welt-rel__none">–</span>
+            )}
+          </div>
+          <div role="cell">
+            {row.incoming && row.incoming.attitude !== null ? (
+              <AttitudeBadge value={row.incoming.attitude} />
+            ) : (
+              <span className="wf-welt-rel__none">–</span>
+            )}
+          </div>
+        </>
+      )}
       <div role="cell">
         <IconButton
           label={`Beziehung zu ${row.name} bearbeiten`}
@@ -241,8 +273,15 @@ function RelationDialog({
         ? findRelation(data, self.id, other)
         : findRelation(data, other, self.id);
   const [drafts, setDrafts] = useState<Record<Direction, RelationDraft>>(() =>
-    relationDrafts(stored(initialOther, 'out'), stored(initialOther, 'in')),
+    relationDrafts(
+      stored(initialOther, 'out'),
+      stored(initialOther, 'in'),
+      false,
+      relationPresets(data, self.id, initialOther),
+    ),
   );
+  /** Haltung bei einem, der keine haben kann: aufgeklappt über „Haltung trotzdem eintragen“. */
+  const [attitudeOpen, setAttitudeOpen] = useState(false);
   const [dir, setDir] = useState<Direction>(() =>
     startDirection(stored(initialOther, 'out'), stored(initialOther, 'in')),
   );
@@ -279,8 +318,14 @@ function RelationDialog({
     setDir(
       id && canRelateFrom(id) ? startDirection(outgoing, incoming, asMember ? 'in' : 'out') : 'out',
     );
-    setDrafts(relationDrafts(outgoing, incoming, asMember));
+    setDrafts(relationDrafts(outgoing, incoming, asMember, relationPresets(data, self.id, id)));
+    setAttitudeOpen(false);
   };
+  const presets = relationPresets(data, self.id, otherId);
+  const order = typeOrder(relationKind(data, fromId), relationKind(data, toId));
+  const fromHolds = holdsAttitude(relationKind(data, fromId));
+  const showScale =
+    fromHolds || attitudeOpen || draft.attitude !== null || (existing?.attitude ?? null) !== null;
 
   const save = () => {
     setTried(true);
@@ -294,7 +339,8 @@ function RelationDialog({
         const current = stored(otherId, d);
         const next = drafts[d];
         // Eine Richtung, die es nicht gibt und die niemand angefasst hat, bleibt leer.
-        if (!savesDirection(next, current, { active: d === dir, pairExists })) continue;
+        if (!savesDirection(next, current, { active: d === dir, pairExists, preset: presets[d] }))
+          continue;
         // Je Richtung eine Beziehung; die Haltung zur Gruppe steht dabei im Verlauf (`relate`).
         relate(db, {
           from,
@@ -371,13 +417,17 @@ function RelationDialog({
                 <Picker
                   value={otherId}
                   onChange={pickOther}
-                  allowParty={!asMember}
+                  allowParty={asMember ? false : holdsAttitude(self.kind) ? true : 'named'}
                   kinds={asMember ? ['person', 'character'] : undefined}
                   exclude={[self.id]}
                   autoFocus
                   openOnMount
                   placeholder={
-                    asMember ? 'Person oder Gefährte …' : 'Person, Ort, Fraktion … oder die Gruppe'
+                    asMember
+                      ? 'Person oder Gefährte …'
+                      : holdsAttitude(self.kind)
+                        ? 'Person, Ort, Fraktion … oder die Gruppe'
+                        : 'Ort, Person, Fraktion …'
                   }
                 />
               </div>
@@ -413,15 +463,23 @@ function RelationDialog({
             <div className="wf-form-grid">
               <Field label="Art der Beziehung">
                 <Select value={draft.type} onChange={(e) => set({ type: e.target.value })}>
-                  {TYPE_GROUPS.map((group) => (
-                    <optgroup key={group} label={group}>
-                      {RELATION_TYPES.filter((t) => t.group === group).map((t) => (
-                        <option key={t.key} value={t.key}>
-                          {t.key === 'custom' ? 'Eigene Bezeichnung …' : t.label}
+                  {order.fitting.length > 0 && (
+                    <optgroup label="Passend">
+                      {order.fitting.map((key) => (
+                        <option key={key} value={key}>
+                          {relationType(key).label}
                         </option>
                       ))}
                     </optgroup>
-                  ))}
+                  )}
+                  <optgroup label="Weitere">
+                    {order.more.map((key) => (
+                      <option key={key} value={key}>
+                        {relationType(key).label}
+                      </option>
+                    ))}
+                    <option value="custom">Eigene Bezeichnung …</option>
+                  </optgroup>
                 </Select>
               </Field>
               {draft.type === 'custom' ? (
@@ -445,23 +503,37 @@ function RelationDialog({
                 })}
                 .
               </div>
-              <Field
-                label={`Haltung von ${entityName(data, fromId)} gegenüber ${towardsParty ? 'der Gruppe' : entityName(data, toId)}`}
-                className="wf-span-2"
-              >
-                <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
-                  <AttitudeScale
-                    value={draft.attitude}
-                    onChange={(attitude) => set({ attitude })}
-                  />
-                  <span>
-                    <AttitudeBadge value={draft.attitude} />
-                    {existing && attitudeChanged && (
-                      <span className="wf-mute"> · bisher {attitudeLabel(existing.attitude)}</span>
-                    )}
-                  </span>
-                </div>
-              </Field>
+              {!showScale && (
+                <button
+                  type="button"
+                  className="wf-welt-linkish wf-span-2"
+                  onClick={() => setAttitudeOpen(true)}
+                >
+                  Haltung trotzdem eintragen
+                </button>
+              )}
+              {showScale && (
+                <Field
+                  label={`Haltung von ${entityName(data, fromId)} gegenüber ${towardsParty ? 'der Gruppe' : entityName(data, toId)}`}
+                  className="wf-span-2"
+                >
+                  <div className="wf-row" style={{ gap: 'var(--s-4)' }}>
+                    <AttitudeScale
+                      value={draft.attitude}
+                      onChange={(attitude) => set({ attitude })}
+                    />
+                    <span>
+                      <AttitudeBadge value={draft.attitude} />
+                      {existing && attitudeChanged && (
+                        <span className="wf-mute">
+                          {' '}
+                          · bisher {attitudeLabel(existing.attitude)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </Field>
+              )}
               {towardsParty && attitudeChanged && modeChoice?.givenPossible && (
                 <div className="wf-span-2">
                   <AttitudeModePick value={mode} onChange={setMode} givenPossible />

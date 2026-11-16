@@ -41,7 +41,7 @@ import {
   type PlaceStatus,
 } from '../../domain/derive';
 import { isEveryday } from '../../domain/weight';
-import { relationLabel } from '../../domain/relations';
+import { relationLabel, showsAttitude } from '../../domain/relations';
 import type {
   CalendarEvent,
   CampaignData,
@@ -219,16 +219,19 @@ export function castRowOf(data: CampaignData, id: string): CastRow | null {
       promises: promisesFor(data, id),
     };
   }
+  // Haltung nach der einen Regel: Familien immer, alles andere nur, wenn eine eingetragen ist.
+  const attitude = attitudeToParty(data, id);
+  const hasAttitude = showsAttitude(entity.kind, attitude);
   return {
     entity,
-    attitude: null,
-    mates: '',
+    attitude: hasAttitude ? attitude : null,
+    mates: hasAttitude ? mateAttitudeText(mateAttitudes(data, id)) : '',
     role: KIND_LABEL[entity.kind],
     where: null,
     whereId: null,
     fate: null,
     unmet: false,
-    hasAttitude: entity.kind === 'family',
+    hasAttitude,
     tagline: entity.tagline,
     promises: promisesFor(data, id),
   };
@@ -321,7 +324,7 @@ export function castView(data: CampaignData, placeId: string): CastView {
     .map(({ entity, relation, perspective }): CastRow => {
       // Aus Sicht des Eintrags gesprochen: „herrscht über Dornhafen“.
       const label = relationLabel(relation, perspective === 'to' ? 'from' : 'to');
-      const hasAttitude = entity.kind === 'person' || entity.kind === 'faction';
+      const hasAttitude = showsAttitude(entity.kind, attitudeToParty(data, entity.id));
       return {
         entity,
         attitude: hasAttitude ? attitudeToParty(data, entity.id) : null,

@@ -71,6 +71,16 @@ describe('Zeilen der Auswahl', () => {
     ]);
   });
 
+  it('bietet die Gruppe mit „named“ nur an, wenn man nach ihr sucht', () => {
+    const w = world();
+    const rows = (query: string) =>
+      names(pickRows(w.data, { query, kinds: ['place'], allowParty: 'named' }));
+    expect(rows('')).not.toContain('party');
+    expect(rows('Grup')).toContain('party');
+    expect(rows('die gruppe')).toContain('party');
+    expect(rows('Hohen')).not.toContain('party');
+  });
+
   it('bietet ohne genauen Treffer „neu als …“ an: erst die Arten des Feldes, dann „andere Art“', () => {
     const w = world();
     const rows = pickRows(w.data, { query: 'Lando', kinds: ['person', 'faction'], create: true });

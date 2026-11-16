@@ -406,8 +406,8 @@ export interface EntityPickerProps {
   /** Diese Arten anbieten. Mit `create` heißt das: zuerst – wer genau so heißt, steht trotzdem da. */
   kinds?: EntityKind[];
   placeholder?: string;
-  /** „Die Gruppe“ als Auswahl anbieten. */
-  allowParty?: boolean;
+  /** „Die Gruppe“ als Auswahl anbieten – mit `'named'` nur, wer nach ihr sucht. */
+  allowParty?: boolean | 'named';
   /** Auswahl darf geleert werden (Vorgabe: ja). */
   allowClear?: boolean;
   /** IDs, die nicht angeboten werden. */

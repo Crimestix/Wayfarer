@@ -123,6 +123,8 @@ const QUIET_TYPES = new Set([
   'resides',
   'owns',
   'rules',
+  'borders',
+  'seat-of',
 ]);
 
 const TONE_RANK: Record<NetTone, number> = { foe: 4, friend: 3, tense: 2, bond: 1, plain: 0 };

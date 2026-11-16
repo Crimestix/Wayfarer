@@ -34,7 +34,7 @@ import {
 } from '../../domain/derive';
 import { whereaboutsSince } from '../../domain/history';
 import { creatureOfAnimal } from '../../domain/nature';
-import { RULES_ATTITUDE_LABEL, attitudeLevel } from '../../domain/relations';
+import { RULES_ATTITUDE_LABEL, attitudeLevel, shownAttitude } from '../../domain/relations';
 import {
   PARTY_ID,
   PERSON_STATUS,
@@ -96,6 +96,7 @@ import {
 import { ADD_LABEL, type AddKey } from './page';
 import { shopToOwnPlace } from './pageActions';
 import { AttitudePips, EntryRow, Hint, Picker, Section, UpcomingList, attitudeVar } from './parts';
+import { RelationQuick } from './RelationQuick';
 
 /** Reiter der Seite – nur noch für Seltenes. */
 export type PageTab = 'page' | 'relations' | 'tree' | 'chronicle';
@@ -237,11 +238,7 @@ export function CastSection({ place }: { place: Place }) {
                   key={link.relation.id}
                   entity={link.entity}
                   sub={linkedSubline(data, place.id, link)}
-                  attitude={
-                    link.entity.kind === 'person' || link.entity.kind === 'faction'
-                      ? attitude(link.entity.id)
-                      : undefined
-                  }
+                  attitude={shownAttitude(link.entity.kind, attitude(link.entity.id))}
                 />
               ))}
             </CastGroup>
@@ -554,7 +551,7 @@ export function Upcoming({ entity }: { entity: Entity }) {
  * Haltung zur Gruppe und, wo sie abweicht, zu einzelnen Gefährten – mit dem Verlauf auf Klick.
  * Das Erste, was man am Tisch über eine Person wissen will.
  */
-export function AttitudeNow({ entity }: { entity: Person | Faction }) {
+export function AttitudeNow({ entity }: { entity: Entity }) {
   const data = useData();
   const [trail, setTrail] = useState(false);
   const value = attitudeToParty(data, entity.id);
@@ -702,7 +699,10 @@ export function RecentChronicle({ entity, onShowTab }: { entity: Entity; onShowT
   );
 }
 
-/** Beziehungen knapp: „führt Haus Duskryn“ – alle und zum Ändern im Reiter „Beziehungen“. */
+/**
+ * Beziehungen knapp: „führt Haus Duskryn“ – „+ Beziehung“ öffnet den schlanken Dialog
+ * (`RelationQuick`), alle und zum Ändern stehen im Reiter „Beziehungen“.
+ */
 export function Connections({
   entity,
   onShowTab,
@@ -716,6 +716,7 @@ export function Connections({
   skip?: string[];
 }) {
   const data = useData();
+  const [adding, setAdding] = useState(false);
   const rows = relationRows(data, entity.id).filter(
     (r) => r.otherId !== PARTY_ID && !r.ended && r.entity && !skip.includes(r.otherId),
   );
@@ -725,16 +726,12 @@ export function Connections({
       title={title}
       count={rows.length || undefined}
       action={
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<Plus />}
-          onClick={() => onShowTab('relations', 'relation')}
-        >
+        <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setAdding(true)}>
           Beziehung
         </Button>
       }
     >
+      {adding && <RelationQuick self={entity} onClose={() => setAdding(false)} />}
       {shown.length ? (
         <ul className="wf-welt-ties">
           {shown.map((row) => (
@@ -893,25 +890,22 @@ export function SeatSection({ group, inBox }: { group: Faction | Family; inBox: 
 }
 
 /** Mitglieder einer Fraktion oder Familie, mit Haltung zur Gruppe. */
-export function MemberList({ group, onShowTab }: { group: Faction | Family; onShowTab: ShowTab }) {
+export function MemberList({ group }: { group: Faction | Family }) {
   const data = useData();
   const members = groupMembers(data, group.id);
   const attitudes = partyAttitudes(data);
+  const [adding, setAdding] = useState(false);
   return (
     <Section
       title="Mitglieder"
       count={members.length || undefined}
       action={
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={<Plus />}
-          onClick={() => onShowTab('relations', 'member')}
-        >
+        <Button size="sm" variant="ghost" icon={<Plus />} onClick={() => setAdding(true)}>
           Mitglied
         </Button>
       }
     >
+      {adding && <RelationQuick self={group} asMember onClose={() => setAdding(false)} />}
       {members.length ? (
         <div className="wf-welt-rows wf-welt-rows--grid">
           {members.map((member) => (
@@ -925,11 +919,7 @@ export function MemberList({ group, onShowTab }: { group: Faction | Family; onSh
               ]
                 .filter(Boolean)
                 .join(' · ')}
-              attitude={
-                member.entity.kind === 'person'
-                  ? (attitudes.get(member.entity.id) ?? null)
-                  : undefined
-              }
+              attitude={shownAttitude(member.entity.kind, attitudes.get(member.entity.id))}
             />
           ))}
         </div>
@@ -1018,7 +1008,7 @@ export function KnowledgePeople({ entity }: { entity: KnowledgeEntity }) {
             <EntryRow
               key={person.id}
               entity={person}
-              attitude={person.kind === 'person' ? (attitudes.get(person.id) ?? null) : undefined}
+              attitude={shownAttitude(person.kind, attitudes.get(person.id))}
             />
           ))}
         </div>

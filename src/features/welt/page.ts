@@ -4,8 +4,9 @@
  * zum Verstehen – die Gestalt folgt der Art, nie als Filter: Alles Weitere bleibt über
  * „Hinzufügen“ erreichbar. Reine Funktionen; geschrieben wird über `pageActions.ts`.
  */
-import { entityCategory, openPromises, placeChildren } from '../../domain/derive';
+import { attitudeToParty, entityCategory, openPromises, placeChildren } from '../../domain/derive';
 import { creatureOfAnimal } from '../../domain/nature';
+import { showsAttitude } from '../../domain/relations';
 import { roomCandidates, roomsOf } from '../../domain/rooms';
 import { schemesOf } from '../../domain/schemes';
 import type { CampaignData, Entity, EntityKind, Place, Shop } from '../../domain/schema';
@@ -300,7 +301,7 @@ export function pagePlan(
     case 'faction':
     case 'family':
       main.push('members', 'belongings');
-      if (entity.kind === 'faction') side.push('attitude');
+      side.push('attitude');
       maybe('scheme', schemes, () => side.push('schemes'));
       side.push('seat');
       if (promises) side.push('promises');
@@ -335,6 +336,10 @@ export function pagePlan(
     case 'topic':
       break;
   }
+
+  // Haltung haben Wesen und Gruppen; bei allem anderen steht sie nur, wenn sie eingetragen ist.
+  if (!side.includes('attitude') && showsAttitude(entity.kind, attitudeToParty(data, entity.id)))
+    side.unshift('attitude');
 
   if (!options.hasText || entity.notes.trim()) main.push('notes');
   if (!options.hasText || entity.secret.trim()) main.push('secret');

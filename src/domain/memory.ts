@@ -19,7 +19,7 @@ import { entryEntityIds, sessionAt, statusOf } from './history';
 import { holderWord, holdersOf } from './itemHistory';
 import { lifeWords } from './lifespan';
 import { namesIn } from './recognize';
-import { attitudeLabel } from './relations';
+import { attitudeLabel, showsAttitude } from './relations';
 import { PARTY_ID, type CampaignData, type ChronicleEntry, type EntityKind } from './schema';
 import { dayIndexOf, type WorldTime } from './time/calendar';
 
@@ -130,9 +130,9 @@ function fateFact(data: CampaignData, id: string): MemoryFact | null {
 }
 
 function attitudeFact(data: CampaignData, id: string): MemoryFact | null {
-  const kind = data.entities[id]?.kind;
-  if (kind !== 'person' && kind !== 'faction') return null;
   const value = attitudeToParty(data, id);
+  // Wer eine Haltung haben kann – bei allen anderen nur, wenn sie trotzdem eingetragen ist.
+  if (!showsAttitude(data.entities[id]?.kind, value)) return null;
   // Abweichende Haltungen zu einzelnen Gefährten stehen knapp dahinter („Tomlin +5 · Neil −3“).
   const text = [
     value === null ? '' : attitudeLabel(value).toLocaleLowerCase('de'),

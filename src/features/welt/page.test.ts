@@ -4,7 +4,9 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
+  PARTY_ID,
   createEntity,
+  createRelation,
   createShop,
   type Entity,
   type Item,
@@ -177,6 +179,17 @@ describe('Gestalt je Art', () => {
     expect(plan.main).toEqual(['box', 'belongings', 'notes', 'secret', 'text']);
     expect(plan.side.slice(0, 2)).toEqual(['whereabouts', 'attitude']);
     expect(plan.add).toEqual(['shop', 'scheme', 'promise']);
+  });
+
+  it('Haltung bei Familien immer, bei Orten nur, wenn eine eingetragen ist', async () => {
+    const { db, put, stadt } = await setup();
+    const family = put(createEntity({ kind: 'family', name: 'Haus Reifschlag' }));
+    expect(pagePlan(db.getSnapshot(), family as never, { hasText: false }).side).toContain(
+      'attitude',
+    );
+    expect(pagePlan(db.getSnapshot(), stadt, { hasText: false }).side).not.toContain('attitude');
+    db.put('relations', createRelation({ from: stadt.id, to: PARTY_ID, attitude: -2 }));
+    expect(pagePlan(db.getSnapshot(), stadt, { hasText: false }).side[0]).toBe('attitude');
   });
 
   it('ein schlichter Gegenstand zeigt keine leeren Kästen – sie warten unter „Hinzufügen“', async () => {

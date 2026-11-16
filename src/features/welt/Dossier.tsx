@@ -187,9 +187,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       </>
     ),
     members: () =>
-      (entity.kind === 'faction' || entity.kind === 'family') && (
-        <MemberList group={entity} onShowTab={setTab} />
-      ),
+      (entity.kind === 'faction' || entity.kind === 'family') && <MemberList group={entity} />,
     people: () =>
       (entity.kind === 'species' ||
         entity.kind === 'language' ||
@@ -234,8 +232,8 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
       ),
     whereabouts: () =>
       entity.kind === 'person' && <Whereabouts person={entity} homeInBox={covers.has('home')} />,
-    attitude: () =>
-      (entity.kind === 'person' || entity.kind === 'faction') && <AttitudeNow entity={entity} />,
+    // Wann die Haltung dasteht, sagt `pagePlan` nach der einen Regel (`showsAttitude`).
+    attitude: () => <AttitudeNow entity={entity} />,
     schemes: () => <Schemes entity={entity} />,
     promises: () => <Promises entity={entity} />,
     seat: () =>

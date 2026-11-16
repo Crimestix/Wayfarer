@@ -12,6 +12,7 @@ import {
 import { Link, useLocation } from 'wouter';
 import { ChevronRight, FilePlus2, Footprints, Plus, Search, Users, X } from 'lucide-react';
 import type { Article, Entity } from '../../domain/schema';
+import { showsAttitude } from '../../domain/relations';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
@@ -267,7 +268,7 @@ export function Sidebar({
             .join(' · ') || entity.tagline}
         </span>
       </span>
-      {(entity.kind === 'person' || entity.kind === 'faction') && (
+      {showsAttitude(entity.kind, attitudes.get(entity.id) ?? null) && (
         <AttitudeBadge value={attitudes.get(entity.id) ?? null} label={false} />
       )}
     </Link>

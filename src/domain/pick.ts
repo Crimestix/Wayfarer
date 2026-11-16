@@ -70,7 +70,11 @@ export interface PickInput {
   /** Die Arten des Feldes: zuerst gesucht und zuerst zum Anlegen angeboten. */
   kinds?: readonly EntityKind[] | undefined;
   exclude?: readonly string[] | undefined;
-  allowParty?: boolean | undefined;
+  /**
+   * „Die Gruppe“ anbieten: `true` – oben, solange nichts getippt ist; `'named'` – nur, wer nach
+   * ihr sucht („Gruppe“), etwa bei einem Ort, der von selbst keine Haltung zur Gruppe hat.
+   */
+  allowParty?: boolean | 'named' | undefined;
   /** Fehlendes lässt sich anlegen – mit Wahl der Art. */
   create?: boolean | undefined;
   /** Das Feld verträgt nur seine Arten (ein Ort bei „Wo?“). */
@@ -84,6 +88,9 @@ export interface PickInput {
   hits?: readonly Entity[] | undefined;
 }
 
+/** Wonach man sucht, wenn man die Gruppe meint. */
+const PARTY_WORDS = ['die gruppe', 'gruppe'];
+
 /** Die Zeilen der Auswahl, von oben nach unten. */
 export function pickRows(data: CampaignData, input: PickInput): PickRow[] {
   const name = input.query.replace(/\s+/g, ' ').trim();
@@ -91,7 +98,9 @@ export function pickRows(data: CampaignData, input: PickInput): PickRow[] {
   const kinds = input.kinds?.length ? input.kinds : undefined;
   const excluded = (id: string) => input.exclude?.includes(id) ?? false;
   const rows: PickRow[] = [];
-  if (input.allowParty && !name) rows.push({ type: 'party' });
+  if (input.allowParty === true && !name) rows.push({ type: 'party' });
+  else if (input.allowParty && name && PARTY_WORDS.some((word) => word.startsWith(key)))
+    rows.push({ type: 'party' });
 
   const hits =
     input.hits ??

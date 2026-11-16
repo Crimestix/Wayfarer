@@ -33,7 +33,7 @@ import {
   readPrice,
 } from '../../domain/nature';
 import { isRoom } from '../../domain/rooms';
-import { relationLabel, relationType } from '../../domain/relations';
+import { presetType, relationLabel, relationType } from '../../domain/relations';
 import {
   PARTY_ID,
   createEntity,
@@ -811,9 +811,13 @@ export interface RelationDraft {
   ended: boolean;
 }
 
-export function relationDraft(relation?: Relation | null): RelationDraft {
+/**
+ * Entwurf einer Richtung. Ohne gespeicherte Beziehung gilt die Vorgabe des Paares (`preset`,
+ * `presetType`) – „kennt“ nur, wenn nichts anderes angegeben ist.
+ */
+export function relationDraft(relation?: Relation | null, preset = 'knows'): RelationDraft {
   return {
-    type: relation?.type ?? 'knows',
+    type: relation?.type ?? preset,
     label: relation?.label ?? '',
     attitude: relation?.attitude ?? null,
     note: relation?.note ?? '',
@@ -823,8 +827,12 @@ export function relationDraft(relation?: Relation | null): RelationDraft {
 }
 
 /** Hat der Entwurf gegenüber der gespeicherten Beziehung (oder der Vorgabe) etwas geändert? */
-export function relationDraftChanged(draft: RelationDraft, relation?: Relation | null): boolean {
-  const base = relationDraft(relation);
+export function relationDraftChanged(
+  draft: RelationDraft,
+  relation?: Relation | null,
+  preset?: string,
+): boolean {
+  const base = relationDraft(relation, preset);
   return (
     draft.type !== base.type ||
     draft.label.trim() !== base.label.trim() ||
@@ -844,9 +852,9 @@ export function relationDraftChanged(draft: RelationDraft, relation?: Relation |
 export function savesDirection(
   draft: RelationDraft,
   current: Relation | null | undefined,
-  context: { active: boolean; pairExists: boolean },
+  context: { active: boolean; pairExists: boolean; preset?: string },
 ): boolean {
-  if (relationDraftChanged(draft, current)) return true;
+  if (relationDraftChanged(draft, current, context.preset)) return true;
   return !current && context.active && !context.pairExists;
 }
 
@@ -873,12 +881,31 @@ export function relationDrafts(
   outgoing: Relation | null | undefined,
   incoming: Relation | null | undefined,
   asMember = false,
+  presets: { out: string; in: string } = { out: 'knows', in: 'knows' },
 ): Record<'out' | 'in', RelationDraft> {
   const fresh = !outgoing && !incoming;
   return {
-    out: relationDraft(outgoing),
-    in: fresh && asMember ? { ...relationDraft(), type: 'member' } : relationDraft(incoming),
+    out: relationDraft(outgoing, presets.out),
+    in:
+      fresh && asMember
+        ? { ...relationDraft(), type: 'member' }
+        : relationDraft(incoming, presets.in),
   };
+}
+
+/** Die Art eines Gegenübers für die Regeln der Beziehungen: die Gruppe ist `'party'`. */
+export const relationKind = (data: CampaignData, id: string | null): string =>
+  id === PARTY_ID ? 'party' : ((id && data.entities[id]?.kind) ?? '');
+
+/** Die Vorgaben beider Richtungen zwischen `selfId` und `otherId` (`presetType`). */
+export function relationPresets(
+  data: CampaignData,
+  selfId: string,
+  otherId: string | null,
+): { out: string; in: string } {
+  const self = relationKind(data, selfId);
+  const other = relationKind(data, otherId);
+  return { out: presetType(self, other), in: presetType(other, self) };
 }
 
 /** Die Gruppe kann nur Ziel einer Beziehung sein, nie ihr Ausgangspunkt. */

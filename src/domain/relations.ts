@@ -32,13 +32,19 @@ export const RELATION_TYPES: RelationType[] = [
   { key: 'member', label: 'gehört zu', inverse: 'hat als Mitglied', group: 'Rangordnung' },
   { key: 'employs', label: 'beschäftigt', inverse: 'arbeitet für', group: 'Rangordnung' },
   { key: 'rules', label: 'herrscht über', inverse: 'wird beherrscht von', group: 'Ort und Besitz' },
+  /** Ein Ort, an dem jemand wirkt (früher „ist verbunden mit“) – vom Ort aus „ist wichtig für“. */
+  { key: 'resides', label: 'wirkt in', inverse: 'ist wichtig für', group: 'Ort und Besitz' },
+  { key: 'owns', label: 'besitzt', inverse: 'gehört', group: 'Ort und Besitz' },
+  /** Zwei Orte (oder Gegenden), die aneinanderstoßen. */
+  { key: 'borders', label: 'grenzt an', inverse: 'grenzt an', group: 'Ort und Besitz' },
   {
-    key: 'resides',
-    label: 'ist verbunden mit',
-    inverse: 'ist wichtig für',
+    key: 'trades',
+    label: 'treibt Handel mit',
+    inverse: 'treibt Handel mit',
     group: 'Ort und Besitz',
   },
-  { key: 'owns', label: 'besitzt', inverse: 'gehört', group: 'Ort und Besitz' },
+  /** Ein weiterer Sitz neben dem Feld „Sitz“ der Fraktion oder Familie. */
+  { key: 'seat-of', label: 'ist Sitz von', inverse: 'hat seinen Sitz in', group: 'Ort und Besitz' },
   { key: 'speaks', label: 'spricht', inverse: 'wird gesprochen von', group: 'Wissen und Können' },
   { key: 'writes', label: 'schreibt', inverse: 'wird geschrieben von', group: 'Wissen und Können' },
   {
@@ -62,6 +68,195 @@ export const RELATION_TYPES: RelationType[] = [
 ];
 
 const byKey = new Map(RELATION_TYPES.map((t) => [t.key, t]));
+
+// ── Beziehungen nach Art ───────────────────────────────────────────────────
+
+/**
+ * Wer eine Haltung haben kann – zur Gruppe, zu Gefährten, zu anderen: wer fühlt und entscheidet.
+ * Ein Ort, ein Schwert, eine Sprache hat keine; dort bleibt die Haltung zugeklappt.
+ */
+const ATTITUDE_HOLDERS: ReadonlySet<string> = new Set(['person', 'faction', 'family', 'character']);
+
+/** Kann ein Eintrag dieser Art (oder die Gruppe, `'party'`) eine Haltung haben? */
+export function holdsAttitude(kind: string | null | undefined): boolean {
+  return kind === 'party' || (!!kind && ATTITUDE_HOLDERS.has(kind));
+}
+
+/**
+ * Steht bei diesem Eintrag eine Haltung da? Bei allen, die eine haben können, immer (auch
+ * „Unbekannt“); bei allen anderen nur, wenn der Spielleiter trotzdem eine eingetragen hat –
+ * Eingetragenes verschwindet nie.
+ */
+export function showsAttitude(kind: string | null | undefined, value: number | null): boolean {
+  return holdsAttitude(kind) || value !== null;
+}
+
+/** Die Haltung für eine Zeile: der Wert, wenn sie dasteht, sonst `undefined` (= keine Anzeige). */
+export function shownAttitude(
+  kind: string | null | undefined,
+  value: number | null | undefined,
+): number | null | undefined {
+  const v = value ?? null;
+  return showsAttitude(kind, v) ? v : undefined;
+}
+
+/** Eine Wahl im Dialog, gelesen von „diesem“ Eintrag aus: „beherrscht von“ ist `rules` rückwärts. */
+export interface RelationChoice {
+  /** `rules`, rückwärts `~rules`. */
+  id: string;
+  type: string;
+  /** Die Beziehung geht vom Gegenüber aus (gespeichert mit `from` = Gegenüber). */
+  reverse: boolean;
+  /** Von diesem Eintrag aus gelesen: „wird beherrscht von“. */
+  label: string;
+}
+
+type KindClass = 'being' | 'group' | 'place' | 'party' | 'item' | 'animal' | 'other';
+
+const classOf = (kind: string): KindClass =>
+  kind === 'person' || kind === 'character'
+    ? 'being'
+    : kind === 'faction' || kind === 'family'
+      ? 'group'
+      : kind === 'place' || kind === 'party' || kind === 'item' || kind === 'animal'
+        ? kind
+        : 'other';
+
+/** Was zwischen Wesen und Wissen passt: wer eine Sprache spricht, eine Fähigkeit hat … */
+const KNOWLEDGE: Record<string, string[]> = {
+  language: ['speaks'],
+  script: ['writes'],
+  ability: ['has-ability'],
+  profession: ['practises'],
+};
+
+const PERSON_TIES = [
+  'friend',
+  'lover',
+  'family',
+  'enemy',
+  'rival',
+  'serves',
+  '~serves',
+  'mentor',
+  '~mentor',
+  'ally',
+  'knows',
+  'owes',
+  'fears',
+  'seeks',
+  'employs',
+  '~employs',
+];
+
+/**
+ * Passende Beziehungen je Paar, von `self` aus gelesen, in sinnvoller Reihenfolge – die erste ist
+ * die Vorgabe. Nur eine Ordnung: Alle übrigen stehen unter „Weitere“, dazu die eigene Bezeichnung.
+ */
+function fittingIds(self: string, other: string): string[] {
+  const a = classOf(self);
+  const b = classOf(other);
+  if (b === 'party')
+    return a === 'being' || a === 'group'
+      ? ['knows', 'ally', 'serves', 'employs', 'owes', 'seeks', 'fears', 'enemy']
+      : [];
+  if (a === 'place' && b === 'place')
+    return ['borders', 'trades', '~rules', 'rules', '~owns', 'owns'];
+  if (a === 'place' && b === 'group') return ['~rules', '~owns', 'seat-of', '~resides', 'trades'];
+  if (a === 'place' && b === 'being') return ['~resides', '~rules', '~owns', 'seat-of'];
+  if (a === 'group' && b === 'place') return ['rules', 'owns', '~seat-of', 'resides', 'trades'];
+  if (a === 'being' && b === 'place') return ['resides', 'rules', 'owns', '~seat-of'];
+  if (a === 'being' && b === 'being')
+    return self === 'character' || other === 'character'
+      ? [...PERSON_TIES, self === 'character' ? '~persona' : 'persona']
+      : PERSON_TIES;
+  if (a === 'being' && b === 'group')
+    return ['member', 'leads', 'serves', '~employs', 'ally', 'enemy', 'owes', 'knows', 'seeks'];
+  if (a === 'group' && b === 'being')
+    return ['~member', '~leads', '~serves', 'employs', 'ally', 'enemy', 'seeks', 'knows'];
+  if (a === 'group' && b === 'group')
+    return ['ally', 'enemy', 'rival', 'trades', 'member', '~member', 'rules', '~rules', 'serves'];
+  if ((a === 'being' || a === 'group') && b === 'item') return ['owns', 'seeks', 'fears'];
+  if (a === 'item' && (b === 'being' || b === 'group' || b === 'place')) return ['~owns', '~seeks'];
+  if (a === 'place' && b === 'item') return ['owns'];
+  if ((a === 'being' || a === 'group') && b === 'animal')
+    return ['~companion', 'owns', 'fears', 'seeks'];
+  if (a === 'animal' && (b === 'being' || b === 'group')) return ['companion', '~owns', 'fears'];
+  if (a === 'being' && KNOWLEDGE[other]) return KNOWLEDGE[other];
+  if (KNOWLEDGE[self] && b === 'being') return KNOWLEDGE[self].map((key) => `~${key}`);
+  return [];
+}
+
+function choiceOf(id: string): RelationChoice | null {
+  const reverse = id.startsWith('~');
+  const type = byKey.get(reverse ? id.slice(1) : id);
+  if (!type || type.key === 'custom') return null;
+  // Was in beide Richtungen gleich heißt („grenzt an“), gibt es nur vorwärts.
+  if (reverse && type.label === type.inverse) return null;
+  return { id, type: type.key, reverse, label: reverse ? type.inverse : type.label };
+}
+
+const CUSTOM: RelationChoice = {
+  id: 'custom',
+  type: 'custom',
+  reverse: false,
+  label: 'eigene Bezeichnung',
+};
+
+export interface RelationChoices {
+  /** Was zu diesem Paar passt – die erste ist die Vorgabe. */
+  fitting: RelationChoice[];
+  /** Alles Übrige, vorwärts gelesen. Nie weggefiltert. */
+  more: RelationChoice[];
+  /** Die Vorgabe: die erste passende, sonst die eigene Bezeichnung (nie „Ort kennt Person“). */
+  preset: RelationChoice;
+  /** Zwei Orte: „liegt in“ ist keine Beziehung, sondern das Feld „Liegt in“ (der Ort darüber). */
+  inPlaceField: boolean;
+}
+
+/**
+ * Die Beziehungen zur Wahl zwischen zwei Arten (`'party'` für die Gruppe), von `self` aus.
+ * Passendes zuerst, alles andere unter „Weitere“ – nie eingeschränkt.
+ */
+export function relationChoices(self: string, other: string): RelationChoices {
+  const fitting = fittingIds(self, other)
+    .map(choiceOf)
+    .filter((c): c is RelationChoice => c !== null);
+  const taken = new Set(fitting.filter((c) => !c.reverse).map((c) => c.type));
+  const more = RELATION_TYPES.filter((t) => t.key !== 'custom' && !taken.has(t.key)).map((t) =>
+    choiceOf(t.key)!,
+  );
+  return {
+    fitting,
+    more,
+    preset: fitting[0] ?? CUSTOM,
+    inPlaceField: self === 'place' && other === 'place',
+  };
+}
+
+/** Eine Wahl zurück aus ihrer Kennung („~rules“, „custom“). */
+export function choiceById(id: string): RelationChoice {
+  return choiceOf(id) ?? CUSTOM;
+}
+
+/**
+ * Die Arten in der Reihenfolge für eine Richtung (`from` → `to`): was vorwärts passt zuerst,
+ * dann alles andere – für den ausführlichen Dialog, der je Richtung schreibt.
+ */
+export function typeOrder(fromKind: string, toKind: string): { fitting: string[]; more: string[] } {
+  const fitting = relationChoices(fromKind, toKind)
+    .fitting.filter((c) => !c.reverse)
+    .map((c) => c.type);
+  return {
+    fitting,
+    more: RELATION_TYPES.map((t) => t.key).filter((k) => k !== 'custom' && !fitting.includes(k)),
+  };
+}
+
+/** Die Vorgabe für eine neue Richtung `from` → `to`: die erste vorwärts passende, sonst eigene. */
+export function presetType(fromKind: string, toKind: string): string {
+  return typeOrder(fromKind, toKind).fitting[0] ?? 'custom';
+}
 
 export function relationType(key: string): RelationType {
   return byKey.get(key) ?? byKey.get('custom')!;

@@ -1513,6 +1513,28 @@
   font-weight: 600;
 }
 
+/* Ohne eingetragene Haltung: keine leeren Haltungsspalten. */
+.wf-welt-rel__table--plain .wf-welt-rel__row {
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+
+/* Der schlanke Dialog „+ Beziehung“: ein Satz von diesem Ding aus. */
+.wf-welt-quickrel {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(180px, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: var(--s-3);
+  padding: 8px var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--gold-glow);
+}
+.wf-welt-quickrel__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  max-width: 160px;
+}
+
 /* ── Dialog „Eintrag bearbeiten“ ────────────────────────────────────────── */
 .wf-welt-form {
   gap: var(--s-4);

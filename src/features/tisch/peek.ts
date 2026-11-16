@@ -16,7 +16,7 @@ import {
   relationPairs,
 } from '../../domain/derive';
 import { memoryOf, type MemoryFact } from '../../domain/memory';
-import { relationLabel } from '../../domain/relations';
+import { relationLabel, showsAttitude } from '../../domain/relations';
 import { PARTY_ID, type CampaignData, type ChronicleEntry, type Entity } from '../../domain/schema';
 import type { CastRow } from './model';
 import { articleOf } from './wiki';
@@ -48,8 +48,6 @@ export interface PeekView {
   recent: ChronicleEntry[];
 }
 
-const ATTITUDE_KINDS = new Set(['person', 'faction', 'family']);
-
 export function peekView(data: CampaignData, id: string): PeekView | null {
   const entity = data.entities[id];
   if (!entity) return null;
@@ -65,16 +63,17 @@ export function peekView(data: CampaignData, id: string): PeekView | null {
       return { otherId: pair.otherId, text: `${label} ${name}` };
     });
   const recent = chronicleFor(data, id).slice(-PEEK_ENTRIES).reverse();
+  const attitude = attitudeToParty(data, id);
+  const hasAttitude = showsAttitude(entity.kind, attitude);
   return {
     entity,
     // Kurzbeschreibung und Haltung stehen schon unter dem Namen.
     memory: memoryOf(data, id).filter(
-      (fact) =>
-        fact.kind !== 'tagline' && !(fact.kind === 'attitude' && ATTITUDE_KINDS.has(entity.kind)),
+      (fact) => fact.kind !== 'tagline' && !(fact.kind === 'attitude' && hasAttitude),
     ),
-    attitude: attitudeToParty(data, id),
-    mates: ATTITUDE_KINDS.has(entity.kind) ? mateAttitudeText(mateAttitudes(data, id)) : '',
-    hasAttitude: ATTITUDE_KINDS.has(entity.kind),
+    attitude,
+    mates: hasAttitude ? mateAttitudeText(mateAttitudes(data, id)) : '',
+    hasAttitude,
     promises: openPromises(data, id),
     facts: text ? articleParts(text).facts.slice(0, PEEK_FACTS) : [],
     ties,
