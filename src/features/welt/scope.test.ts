@@ -121,9 +121,9 @@ describe('Bereich der Welt', () => {
     // Besucht ist der Ort samt allem darüber – nicht, was daneben liegt.
     const visited = visitedPlaces(data);
     expect(names(data, visited)).toEqual(['Der Speicher', 'Hafenviertel', 'Hohenfurt']);
-    expect(isKnown(named(data, 'Zum Krummen Aal'), visited)).toBe(false);
-    expect(isKnown(named(data, 'Mira Tannhaus'), visited)).toBe(false);
-    expect(isKnown(named(data, 'Die Aalfischer'), visited)).toBe(true);
+    expect(isKnown(data, named(data, 'Zum Krummen Aal'), visited)).toBe(false);
+    expect(isKnown(data, named(data, 'Mira Tannhaus'), visited)).toBe(false);
+    expect(isKnown(data, named(data, 'Die Aalfischer'), visited)).toBe(true);
   });
 
   it('grenzt Zählung, Baum und Suche ein', async () => {

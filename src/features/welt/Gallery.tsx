@@ -9,6 +9,7 @@ import { Link } from 'wouter';
 import { Eye, EyeOff, Plus, Search, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entityName } from '../../domain/derive';
+import { hasStance, knowsPerson } from '../../domain/known';
 import { showsAttitude } from '../../domain/relations';
 import {
   AttitudeBadge,
@@ -104,7 +105,7 @@ export function Gallery({ kind }: { kind: WorldKind }) {
     [data, kind],
   );
   const total = all.length;
-  const knownCount = withKnown ? all.filter((e) => isKnown(e, visited)).length : 0;
+  const knownCount = withKnown ? all.filter((e) => isKnown(data, e, visited)).length : 0;
   const filtered = filter.query.trim() !== '' || placeId !== null || known !== 'all';
   const plural = KIND_LABEL_PLURAL[kind];
   const create = () =>
@@ -134,7 +135,7 @@ export function Gallery({ kind }: { kind: WorldKind }) {
       key={entity.id}
       entity={entity}
       attitude={attitudes.get(entity.id) ?? null}
-      unknown={withKnown && !isKnown(entity, visited)}
+      unknown={withKnown && !isKnown(data, entity, visited)}
     />
   );
 
@@ -302,14 +303,18 @@ function GalleryCard({
             <IconButton
               size="sm"
               variant="ghost"
+              // Wer eine Haltung zur Gruppe hat, ist ihr bekannt – das Auge sagt es nur.
+              disabled={hasStance(data, entity.id)}
               label={
-                entity.person.met
-                  ? 'Als der Gruppe unbekannt markieren'
-                  : 'Als der Gruppe bekannt markieren'
+                hasStance(data, entity.id)
+                  ? 'Der Gruppe bekannt – die Person hat eine Haltung zu ihr'
+                  : entity.person.met
+                    ? 'Als der Gruppe unbekannt markieren'
+                    : 'Als der Gruppe bekannt markieren'
               }
               onClick={() => patchDetails(db, entity, { met: !entity.person.met })}
             >
-              {entity.person.met ? <Eye /> : <EyeOff />}
+              {knowsPerson(data, entity) ? <Eye /> : <EyeOff />}
             </IconButton>
           )}
         </div>

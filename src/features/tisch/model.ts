@@ -185,7 +185,7 @@ function personRow(
     where,
     whereId,
     fate: STATUS_NOTE[person.person.status],
-    unmet: !person.person.met,
+    unmet: isUnmetPerson(data, person),
     hasAttitude: true,
     tagline: role === person.tagline ? '' : person.tagline,
     promises: promisesFor(data, person.id),
@@ -328,7 +328,7 @@ export function castView(data: CampaignData, placeId: string): CastView {
         where: null,
         whereId: null,
         fate: entity.kind === 'person' ? STATUS_NOTE[entity.person.status] : null,
-        unmet: entity.kind === 'person' && !entity.person.met,
+        unmet: isUnmetPerson(data, entity),
         hasAttitude,
         tagline: entity.tagline,
         promises: hasAttitude ? promisesFor(data, entity.id) : [],
@@ -732,6 +732,7 @@ export {
   type Mention,
   type MentionRange,
 } from '../../domain/mention';
+import { isUnmetPerson } from '../../domain/known';
 
 /**
  * Vorschläge für einen Verweis. Ohne Suchwort zuerst, wer und was am Ort der Gruppe ist –

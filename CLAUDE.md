@@ -667,6 +667,11 @@ nicht übernommen.
   `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein
   Geheimnis), als Szene (`threadToScene`), als Frage, Hinweis oder Einstieg. Hat ein Faden
   Hinweise, bleibt er zusätzlich als Frage stehen; alles mit Rückgängig.
+- Wen die Gruppe kennt (Rückmeldung des Spielleiters, 16. 11. 2026: „Wenn eine Person eine
+  Haltung gegenüber der Gruppe hat, kennt die Gruppe diese Person natürlich“): getroffen
+  (`person.met`) oder mit einer Haltung zur Gruppe oder zu einem Gefährten. Gefragt wird immer
+  über `knowsPerson` / `isUnmetPerson` / `hasStance` (`domain/known.ts`), nie über `person.met`
+  direkt; mit Haltung ist „bekannt“ nicht abwählbar, nur angezeigt.
 - Haltung festlegen oder ändern (Rückmeldung des Spielleiters, 15. 11. 2026: nicht jede
   gesetzte Haltung ist Geschichte): `setAttitude(…, mode)` – `'change'` steht mit Datum in der
   Chronik, `'given'` („War schon so“) trägt nur ein. „War schon so“ geht nur, solange die

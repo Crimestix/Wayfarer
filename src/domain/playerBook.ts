@@ -28,6 +28,7 @@ import {
   type GuessTruth,
   type Handout,
 } from './schema';
+import { isUnmetPerson, knowsPerson } from './known';
 
 /** Wie eine Vermutung ausgegangen ist – nur für die Spielleitung. */
 export const GUESS_TRUTH_LABEL: Record<GuessTruth, string> = {
@@ -53,7 +54,7 @@ export function isForPlayers(data: CampaignData, entry: ChronicleEntry): boolean
   }
   return !entry.refs.some((id) => {
     const entity = data.entities[id];
-    return entity?.kind === 'person' && !entity.person.met;
+    return isUnmetPerson(data, entity);
   });
 }
 
@@ -181,7 +182,7 @@ function knownThings(
   for (const entity of Object.values(data.entities).sort(byName)) {
     switch (entity.kind) {
       case 'person':
-        if (entity.person.met) ids.people.push(entity.id);
+        if (knowsPerson(data, entity)) ids.people.push(entity.id);
         break;
       case 'place':
         // Räume stehen auf der Seite ihres Ortes, nicht einzeln.

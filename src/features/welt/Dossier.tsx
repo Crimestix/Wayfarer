@@ -88,6 +88,7 @@ import { RelationsTab } from './RelationsTab';
 import { RoomsSection } from './RoomsSection';
 import { Schemes } from './Schemes';
 import { finishStub } from './writing';
+import { isUnmetPerson } from '../../domain/known';
 
 export function Dossier({ entity }: { entity: WorldEntity }) {
   const db = useDb();
@@ -293,7 +294,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
                 Die Gruppe ist hier
               </Badge>
             )}
-            {entity.kind === 'person' && !entity.person.met && (
+            {isUnmetPerson(data, entity) && (
               <Badge icon={<EyeOff />} title="Die Gruppe ist dieser Person noch nicht begegnet.">
                 Der Gruppe unbekannt
               </Badge>

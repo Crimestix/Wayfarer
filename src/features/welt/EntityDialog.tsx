@@ -60,6 +60,7 @@ import {
   type EntityDraft,
   type WorldKind,
 } from './model';
+import { hasStance } from '../../domain/known';
 
 /**
  * Je Art ein Satz, der keinen Zweifel lässt. Faustregel: gewachsen = Pflanze, lebt = Tier, aus dem
@@ -466,9 +467,16 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               </Field>
               <Field label="Bekanntheit">
                 <div className="wf-welt-form__check">
-                  <Checkbox checked={draft.met} onChange={(met) => set({ met })}>
-                    Die Gruppe kennt diese Person
-                  </Checkbox>
+                  {existing && hasStance(data, existing.id) ? (
+                    // Wer eine Haltung zur Gruppe hat, ist ihr bekannt – das steht nur da.
+                    <span className="wf-welt-quiet">
+                      Die Gruppe kennt diese Person – sie hat eine Haltung zu ihr.
+                    </span>
+                  ) : (
+                    <Checkbox checked={draft.met} onChange={(met) => set({ met })}>
+                      Die Gruppe kennt diese Person
+                    </Checkbox>
+                  )}
                 </div>
               </Field>
               <Field label="Sprachen">

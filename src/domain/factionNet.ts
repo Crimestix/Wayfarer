@@ -12,6 +12,7 @@
 import { seedOf, rngOf } from './random';
 import { attitudeLabel, relationLabel } from './relations';
 import { PARTY_ID, type CampaignData, type Entity, type Relation } from './schema';
+import { knowsPerson } from './known';
 
 export type NetMode = 'factions' | 'people' | 'feuds';
 
@@ -375,7 +376,8 @@ function netGraph(data: NetData): { nodes: Map<string, NetNode>; edges: NetEdge[
     person.orbit = primary?.groupId ?? null;
     person.leader = leader;
     person.attitude = personAttitude.get(id) ?? null;
-    person.weight = (leader ? 3 : 0) + 2 * (links.get(id) ?? 0) + (entity.person.met ? 1 : 0);
+    person.weight =
+      (leader ? 3 : 0) + 2 * (links.get(id) ?? 0) + (knowsPerson(data, entity) ? 1 : 0);
     persons.push(person);
   }
   // Höchstens so viele um eine Fraktion – wer nur dazugehört und sonst nichts, fällt zuerst weg.

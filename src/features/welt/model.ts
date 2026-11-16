@@ -63,6 +63,7 @@ import {
   type CalendarDef,
   type WorldTime,
 } from '../../domain/time/calendar';
+import { knowsPerson } from '../../domain/known';
 
 // ── Arten ──────────────────────────────────────────────────────────────────
 
@@ -820,7 +821,7 @@ export function galleryPeople(data: CampaignData, filter: GalleryFilter): Person
   return pool
     .filter(
       (p) =>
-        (filter.known === 'all' || p.person.met === (filter.known === 'known')) &&
+        (filter.known === 'all' || knowsPerson(data, p) === (filter.known === 'known')) &&
         (ids === null ||
           inPlace(personPlace(data, p)) ||
           inPlace(p.person.homeId) ||

@@ -5,6 +5,7 @@
 import { placeAncestors, partyStays } from '../../domain/derive';
 import { scopeMembers } from '../../domain/scope';
 import type { CampaignData, Entity, Place } from '../../domain/schema';
+import { knowsPerson } from '../../domain/known';
 
 export { scopeMembers };
 
@@ -38,8 +39,12 @@ export function visitedPlaces(data: CampaignData): Set<string> {
  * Kennt die Gruppe diesen Eintrag? Personen: getroffen. Orte: besucht. Alles andere gilt als
  * bekannt – dafür führt Wayfarer kein eigenes Merkmal.
  */
-export function isKnown(entity: Entity, visited: ReadonlySet<string>): boolean {
-  if (entity.kind === 'person') return entity.person.met;
+export function isKnown(
+  data: Pick<CampaignData, 'entities' | 'relations'>,
+  entity: Entity,
+  visited: ReadonlySet<string>,
+): boolean {
+  if (entity.kind === 'person') return knowsPerson(data, entity);
   if (entity.kind === 'place') return visited.has(entity.id);
   return true;
 }
@@ -62,7 +67,7 @@ export function visibleIds(data: CampaignData, view: WorldView): Set<string> | n
   const out = new Set<string>();
   for (const entity of Object.values(data.entities)) {
     if (scope && !scope.has(entity.id)) continue;
-    if (visited && !isKnown(entity, visited)) continue;
+    if (visited && !isKnown(data, entity, visited)) continue;
     out.add(entity.id);
   }
   return out;

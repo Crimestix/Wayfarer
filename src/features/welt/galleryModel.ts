@@ -42,7 +42,7 @@ export function galleryEntries(
     .filter(isWorldEntity)
     .filter((entity) => entity.kind === kind)
     .filter((entity) => !scope || (scope.has(entity.id) && entity.id !== filter.placeId))
-    .filter((entity) => !visited || isKnown(entity, visited) === (filter.known === 'known'))
+    .filter((entity) => !visited || isKnown(data, entity, visited) === (filter.known === 'known'))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 

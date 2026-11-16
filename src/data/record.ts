@@ -43,6 +43,7 @@ import {
 } from '../domain/schema';
 import { formatDateTime } from '../domain/time/calendar';
 import type { CampaignDb } from './db';
+import { isUnmetPerson } from '../domain/known';
 
 // ── Eingabe ────────────────────────────────────────────────────────────────
 
@@ -219,7 +220,7 @@ function prepare(data: CampaignData, input: RecordInput, strictOrder: boolean): 
       if (!refs.length) return { problem: 'Wen hat die Gruppe getroffen?' };
       const firstMet = refs.filter((id) => {
         const entity = data.entities[id];
-        return entity?.kind === 'person' && !entity.person.met;
+        return isUnmetPerson(data, entity);
       });
       return { entry: probe({ placeId, refs, meeting: { firstMet }, ...rest() }) };
     }

@@ -19,6 +19,7 @@ import {
   type RecordFieldsKind,
   type RecordPart,
 } from '../chronik/recordDraft';
+import { isUnmetPerson } from '../../domain/known';
 
 /** Eine Art der Kurzwahl: alle Wahlen des Festhaltens und dazu „Zauber“. */
 export type QuickChoice = RecordChoice | 'spell';
@@ -309,7 +310,7 @@ export function quickSuggestions(
   const met = new Set(found.filter((item) => item.kind === 'meeting').flatMap((item) => item.refs));
   const strangers = namedIn(data, text, refs).filter((id) => {
     const entity = data.entities[id];
-    return entity?.kind === 'person' && !entity.person.met && !met.has(id);
+    return isUnmetPerson(data, entity) && !met.has(id);
   });
   const meetings: Recognized[] = strangers.map((id) => ({
     kind: 'meeting',

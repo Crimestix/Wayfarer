@@ -18,6 +18,7 @@ import { MINUTES_PER_DAY, formatDayMonth } from './time/calendar';
 import { WAY_STATE_LABEL, wayCondition, type WayStateKind } from './wayState';
 import { partyTravel } from './mounts';
 import { formatWayTime, routeBetween } from './ways';
+import { knowsPerson } from './known';
 
 /** 3 = am Ort der Gruppe, 2 = in ihrer Nähe oder es betrifft Bekannte, 1 = weit weg. */
 export type TurnWeight = 1 | 2 | 3;
@@ -126,7 +127,7 @@ export function turnWeight(
   for (const id of ids) {
     const entity = data.entities[id];
     if (!entity) continue;
-    if (entity.kind === 'person' && entity.person.met)
+    if (entity.kind === 'person' && knowsPerson(data, entity))
       return { weight: 2, why: `betrifft ${entity.name} – die Gruppe kennt die Person` };
     if (
       (entity.kind === 'faction' || entity.kind === 'family') &&
