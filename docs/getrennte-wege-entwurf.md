@@ -161,5 +161,8 @@ Offen für Schritt 2:
 - Kalender und Uhren zeigen „anstehend“ von der Zeit der geleiteten aus; was die vorderste Uhr
   schon ausgelöst hat, steht dann als eingetreten, obwohl die geleitete noch davor ist.
 - Licht, Rast, Begegnungen, Marsch über `ledMembers`; NSC-Begleiter mit ihrem Besitzer.
+- „Zeit zurücknehmen“ (`undoTimeAdvance`) öffnet nur, was hinter der vordersten Uhr eingetreten
+  ist; was dabei nachträglich davor eintrat (erst später angelegt), bleibt eingetreten – nie
+  doppelt, aber nicht zurückgenommen. Die Rückgängig-Knöpfe der Teilgruppen nehmen es genau zurück.
 - Alte `character.placeId` (abseits aus früheren Ständen) wird noch nicht als Teilgruppe gelesen;
   ein Klick „zurück zur Gruppe“ setzt ihn wie bisher zurück.

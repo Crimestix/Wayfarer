@@ -32,14 +32,33 @@ export interface MergeRules {
   /** Nur als Ganzes vergleichen (kein Hineinsteigen). */
   whole?: string[];
   /** Felder, die nur zusammen gelten (state.json: `now` + `previousNow` = Weltzeit). */
-  groups?: { name: string; fields: string[] }[];
+  groups?: MergeGroup[];
+}
+
+export interface MergeGroup {
+  name: string;
+  fields: string[];
+  /**
+   * Gilt `when` für eine der drei Fassungen, gehört diese Gruppe zur Gruppe `group` – beide
+   * werden dann zusammen gewählt (getrennte Wege: `now` ist die Zeit der geleiteten Teilgruppe).
+   */
+  joins?: { group: string; when: (side: JsonObject) => boolean };
 }
 
 export const STATE_RULES: MergeRules = {
   groups: [
     { name: 'time', fields: ['now', 'previousNow'] },
-    // Getrennte Wege: Ort, Teilgruppen und geleitete Teilgruppe gelten nur zusammen.
-    { name: 'party', fields: ['placeId', 'groups', 'leadId'] },
+    // Getrennte Wege: Ort, Teilgruppen und geleitete Teilgruppe gelten nur zusammen – und, ist
+    // die Gruppe getrennt, auch nur mit der Weltzeit: `now` und `placeId` sind dann die der
+    // geleiteten Teilgruppe, die Zeit der einen gehört nie zur anderen.
+    {
+      name: 'party',
+      fields: ['placeId', 'groups', 'leadId'],
+      joins: {
+        group: 'time',
+        when: (side) => Array.isArray(side.groups) && side.groups.length > 0,
+      },
+    },
   ],
   sets: ['watch', 'continuityOk', 'twinsApart', 'inView', 'dismissed'],
   newerWins: ['board', 'netBoard', 'timelineLanes', 'nameMemory', 'recapDismissed'],
@@ -249,6 +268,23 @@ const stampOf = (value: Json, field: string): string | number | null => {
   return typeof v === 'string' || typeof v === 'number' ? v : null;
 };
 
+/** Die Gruppen dieser Zusammenführung: eine Gruppe mit `joins` geht, wenn es gilt, in ihrer auf. */
+function joinedGroups(
+  groups: readonly MergeGroup[],
+  sides: readonly (JsonObject | undefined)[],
+): { name: string; fields: string[] }[] {
+  const out = groups.map((g) => ({ name: g.name, fields: [...g.fields] }));
+  for (const g of groups) {
+    if (!g.joins || !sides.some((side) => side && g.joins!.when(side))) continue;
+    const target = out.find((o) => o.name === g.joins!.group);
+    const self = out.findIndex((o) => o.name === g.name);
+    if (!target || self < 0) continue;
+    target.fields.push(...out[self]!.fields);
+    out.splice(self, 1);
+  }
+  return out;
+}
+
 /**
  * Führt drei Fassungen zusammen. Ergebnis: der Wert (`rev = max + 1`, `updated = now`) und die
  * Widersprüche, die übrig bleiben. Bei einem Widerspruch steht im Wert vorerst die Fassung von hier.
@@ -273,11 +309,12 @@ export function mergeJson(
     String(stampOf(local, 'updated') ?? '') > String(stampOf(remote, 'updated') ?? '')
       ? 'local'
       : 'remote';
+  const groups = joinedGroups(rules.groups ?? [], [b, l, r]);
   const special = new Set([
     ...(rules.sets ?? []),
     ...(rules.newerWins ?? []),
     ...(rules.whole ?? []),
-    ...(rules.groups ?? []).flatMap((g) => g.fields),
+    ...groups.flatMap((g) => g.fields),
   ]);
   const out: JsonObject = {};
   const keys = [...new Set([...Object.keys(l), ...Object.keys(r)])];
@@ -301,7 +338,7 @@ export function mergeJson(
     else merged = clash(ctx, [key], l[key], r[key]);
     if (merged !== undefined) out[key] = merged;
   }
-  for (const group of rules.groups ?? []) {
+  for (const group of groups) {
     const pick = (o: JsonObject | undefined) => {
       if (!o) return undefined;
       const part: JsonObject = {};

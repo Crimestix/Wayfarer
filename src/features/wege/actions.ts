@@ -13,7 +13,12 @@ import {
 import { isSplit, isWholeLed } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
 import { routeMeans, describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
-import { createPath, type ChronicleEntry, type TravelPath } from '../../domain/schema';
+import {
+  createPath,
+  type ChronicleEntry,
+  type PartyGroup,
+  type TravelPath,
+} from '../../domain/schema';
 import { WAY_SORT_VALUES, sortOfWay, type WaySort } from '../../domain/wayState';
 import { tradeAt } from '../laden/actions';
 import { undoMove } from '../tisch/commands';
@@ -108,22 +113,27 @@ export function walk(
     const advance = length > 0 ? advanceTime(db, start + length) : null;
     const entry = moveParty(db, toId, note);
     const state = db.getSnapshot().state;
-    if (entry && length > 0 && isSplit(db.getSnapshot()))
+    const leadId = state.leadId;
+    const doingBefore = state.groups.find((group) => group.id === leadId)?.doing ?? null;
+    const setDoing = (doing: PartyGroup['doing']) =>
       db.setState({
-        groups: state.groups.map((group) =>
-          group.id === state.leadId
-            ? { ...group, doing: { entryId: entry.id, from: start, until: start + length } }
-            : group,
-        ),
+        groups: db
+          .getSnapshot()
+          .state.groups.map((group) => (group.id === leadId ? { ...group, doing } : group)),
       });
+    const marked = !!entry && length > 0 && isSplit(db.getSnapshot());
+    if (marked) setDoing({ entryId: entry.id, from: start, until: start + length });
     return {
       advance,
       entry,
       minutes: length,
-      undo: () => {
-        if (entry) undoMove(db, entry.id);
-        if (advance) undoTimeAdvance(db);
-      },
+      undo: () =>
+        db.batch(() => {
+          if (entry) undoMove(db, entry.id);
+          if (advance) undoTimeAdvance(db);
+          // Getrennte Wege: Ohne den Weg ist sie auch nicht mehr „unterwegs“.
+          if (marked) setDoing(doingBefore);
+        }),
     };
   });
 }

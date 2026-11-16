@@ -1,7 +1,7 @@
 /** Befehle des Bereichs „Gefährten“. Alles, was mehrere Dokumente ändert, läuft hierüber. */
 import { logEntry, mergeGroups, sendOff, setAttitude } from '../../data/actions';
 import { switchPlan } from '../../domain/body';
-import { groupOf, ledMembers } from '../../domain/party';
+import { groupOf, isSplit, ledMembers, settleGroups, syncedGroups } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
 import type { AttitudeMode } from '../../domain/attitudeSetting';
 import { entityName, findRelation } from '../../domain/derive';
@@ -59,27 +59,67 @@ export function linkBody(db: CampaignDb, a: string, b: string, controlId = a): (
   const second = getCharacter(db, b);
   if (!first || !second || a === b) return null;
   const before = [first, second];
+  const state = db.getSnapshot().state;
+  const party = {
+    groups: state.groups,
+    leadId: state.leadId,
+    now: state.now,
+    placeId: state.placeId,
+  };
   db.batch(() => {
     for (const id of [a, b]) unlinkBody(db, id);
     patchCharacter(db, a, { bodyWith: b, resting: controlId !== a });
     patchCharacter(db, b, { bodyWith: a, resting: controlId !== b });
+    // Getrennte Wege: Der Körper steht dort, wo der steht, der die Kontrolle hat.
+    const restingId = controlId === a ? b : a;
+    const data = db.getSnapshot();
+    if (isSplit(data))
+      db.setState(
+        settleGroups(
+          syncedGroups(data.state).map((group) => ({
+            ...group,
+            memberIds: group.memberIds.filter((id) => id !== restingId),
+          })),
+          data.state.leadId,
+          data.state,
+        ),
+      );
   });
   return () =>
     db.batch(() => {
       for (const entity of before) db.put('entities', entity);
+      if (party.groups.length) db.setState(party);
     });
 }
 
-/** Löst die Verbindung: Beide sind danach eigene Gefährten, keiner ruht mehr. */
+/**
+ * Löst die Verbindung: Beide sind danach eigene Gefährten, keiner ruht mehr. Getrennte Wege: Wer
+ * geruht hat, steht danach in der Teilgruppe dessen, der die Kontrolle hatte.
+ */
 export function unlinkBody(db: CampaignDb, characterId: string): void {
   const self = getCharacter(db, characterId);
   const otherId = self?.character.bodyWith;
   if (!self || !otherId) return;
+  const data = db.getSnapshot();
+  const [controlId, restingId] = self.character.resting
+    ? [otherId, characterId]
+    : [characterId, otherId];
+  const home = isSplit(data) ? groupOf(data, controlId) : null;
   db.batch(() => {
     patchCharacter(db, characterId, { bodyWith: null, resting: false });
     const other = getCharacter(db, otherId);
     if (other?.character.bodyWith === characterId)
       patchCharacter(db, otherId, { bodyWith: null, resting: false });
+    if (home)
+      db.setState({
+        groups: db.getSnapshot().state.groups.map((group) => ({
+          ...group,
+          memberIds:
+            group.id === home.id
+              ? [...new Set([...group.memberIds, restingId])]
+              : group.memberIds.filter((id) => id !== restingId),
+        })),
+      });
   });
 }
 

@@ -932,7 +932,8 @@ button.wf-item:hover,
   position: fixed;
   z-index: 100;
   right: var(--s-5);
-  bottom: var(--s-5);
+  /* Am Spieltisch über der Leiste der Gefährten (`useToastsAbove` in tisch/Companions.tsx). */
+  bottom: calc(var(--s-5) + var(--wf-toast-lift, 0px));
   display: flex;
   flex-direction: column;
   gap: var(--s-2);

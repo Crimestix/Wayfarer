@@ -56,6 +56,16 @@ export async function settle() {
   for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 8));
 }
 
+/**
+ * Wartet auf ein Ergebnis statt auf eine feste Zeit: bis `ready()` gilt, höchstens `ms` lang
+ * (unter Volllast braucht WebCrypto länger als ein `settle`). Danach prüft der Test wie sonst –
+ * gilt es nicht, schlägt seine Prüfung fehl.
+ */
+export async function until(ready: () => boolean, ms = 4000) {
+  const end = Date.now() + ms;
+  while (!ready() && Date.now() < end) await new Promise((r) => setTimeout(r, 5));
+}
+
 // ── Ein Rechner ──────────────────────────────────────────────────────────────
 
 export interface Machine {

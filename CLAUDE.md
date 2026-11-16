@@ -716,8 +716,13 @@ nicht übernommen.
   `catchUp` (Nachholen, nur auf Klick), `mergeGroups` (nur auf Klick). Die wichtigste Regel:
   **die vorderste Uhr** (`frontOf`, `fireFrom`) – Termine, Schritte der Uhren und Lichter treten
   genau einmal ein, wenn sie erreicht wird; nie doppelt, nie beim Vorrücken einer
-  zurückliegenden Teilgruppe, nie rückgängig beim Umschalten. Nie `state.now` an `advanceTime`
-  bzw. diesen Befehlen vorbei vorstellen. Ortswechsel tragen `travel.who`, alle Einträge
+  zurückliegenden Teilgruppe, nie rückgängig beim Umschalten. Was erst angelegt wird, nachdem
+  die vorderste Uhr seine Zeit überholt hat (Termin, Fackel, Uhr), tritt ein, wenn die vorrückende
+  Teilgruppe es erreicht (`fireWorld`: nur, was noch aussteht). Nie `state.now` an `advanceTime`
+  bzw. diesen Befehlen vorbei vorstellen. Wer zu welcher Teilgruppe gehört, sagt
+  `presentGroups` (Ruhende und Inaktive fehlen, wer in keiner steht, geht mit der geleiteten). Im
+  Abgleich gelten Weltzeit und Teilgruppen nur zusammen, sobald eine Fassung getrennt ist
+  (`joins` in `STATE_RULES`); `settleTime` öffnet erst hinter der vordersten Uhr. Ortswechsel tragen `travel.who`, alle Einträge
   `entry.party` (von selbst in `db.put`, `partyStamp`); welcher Ortswechsel zählt, sagt
   `touches` (in `neighboursOfSort`, `partyPlaceAt(…, who)`, `memberPlaceAt`), den Ort setzt
   `withPlace`. „Abseits“ ist eine Teilgruppe aus einer Person. Wie andere zur Zeit der

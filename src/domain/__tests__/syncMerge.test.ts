@@ -93,6 +93,36 @@ describe('state.json', () => {
     expect(clashes).toMatchObject([{ at: ['travelBy'], local: 'pferd', remote: 'kahn' }]);
   });
 
+  it('getrennte Gruppe: Weltzeit und geleitete Teilgruppe gelten nur zusammen', () => {
+    // Zwei Teilgruppen; die Zeit am Tisch (`now`) ist die der geleiteten.
+    const groups = (leadNow: number) => [
+      { id: 'g1', memberIds: ['arn'], placeId: 'hohenfurt', now: leadNow, doing: null },
+      { id: 'g2', memberIds: ['bela'], placeId: 'archiv', now: 4000, doing: null },
+    ];
+    const base = state({ groups: groups(1000), leadId: 'g1' });
+    // PC schaltet auf Bela um (ihre Zeit gilt jetzt am Tisch), Mac lässt bei Arn Zeit vergehen.
+    const pc = state({ groups: groups(1000), leadId: 'g2', now: 4000, placeId: 'archiv' });
+    const mac = state({ groups: groups(1000), leadId: 'g1', now: 2000, previousNow: 1000 });
+    const { clashes } = mergeJson(base, pc, mac, STATE_RULES, undefined, NOW);
+    // Nie Belas Teilgruppe mit Arns Zeit: ein Widerspruch der Weltzeit, der alles zusammen wählt.
+    expect(clashes).toHaveLength(1);
+    expect(clashes[0]).toMatchObject({ at: ['now'], group: 'time' });
+    const chosen = mergeJson(base, pc, mac, STATE_RULES, { side: 'remote', at: [['now']] }, NOW);
+    expect(chosen.clashes).toEqual([]);
+    expect(chosen.value).toMatchObject({ now: 2000, leadId: 'g1', placeId: 'hohenfurt' });
+    // Zusammen (keine Teilgruppen) bleibt es wie bisher: Ort hier, Zeit dort, keine Rückfrage.
+    const together = mergeJson(
+      state(),
+      state({ placeId: 'archiv' }),
+      state({ now: 2000, previousNow: 1000 }),
+      STATE_RULES,
+      undefined,
+      NOW,
+    );
+    expect(together.clashes).toEqual([]);
+    expect(together.value).toMatchObject({ now: 2000, placeId: 'archiv' });
+  });
+
   it('Mengen und dieselbe Karte auf beiden Seiten → jüngeres updated', () => {
     const base = state({ watch: ['a', 'b'] });
     const pc = state({

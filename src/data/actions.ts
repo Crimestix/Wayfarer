@@ -22,6 +22,7 @@ import {
   isSplit,
   isWholeLed,
   ledMembers,
+  presentGroups,
   settleGroups,
   syncedGroups,
 } from '../domain/party';
@@ -89,8 +90,12 @@ export function advanceTime(db: CampaignDb, to: WorldTime): TimeAdvanceResult {
 
 /**
  * Lässt eintreten, was zwischen `start` (ausschließlich) und `to` von selbst geschieht: Termine,
- * Schritte der Uhren, abgelaufene Timer. `from` ist nur für die Meldung. Liegt `to` nicht hinter
- * `start`, geschieht nichts – so tritt nichts zweimal ein.
+ * Schritte der Uhren, abgelaufene Timer. So tritt nichts zweimal ein.
+ *
+ * Getrennte Wege: `from` ist die Zeit der Teilgruppe, die vorrückt, `start` die vorderste Uhr
+ * (`fireFrom`). Dazwischen tritt nur ein, was noch aussteht – was erst angelegt wurde, nachdem die
+ * vorderste Uhr seine Zeit schon überholt hatte (ein Termin, eine Fackel, eine Uhr). Sonst träte
+ * es nie ein. Zusammen ist `from` = `start`.
  */
 function fireWorld(
   db: CampaignDb,
@@ -99,17 +104,34 @@ function fireWorld(
   to: WorldTime,
 ): TimeAdvanceResult {
   const data = db.getSnapshot();
-  if (to <= start) return { from, to, occurred: [], expired: [], steps: [], blocked: [] };
-  const occurred = occurrencesBetween(data, start + 1, to).filter(
-    (o) => !(o.event.done && !o.event.repeat),
+  if (to <= from) return { from, to, occurred: [], expired: [], steps: [], blocked: [] };
+  const fired = new Set(
+    Object.values(data.chronicle)
+      .filter((entry) => entry.kind === 'event' && entry.eventId)
+      .map((entry) => `${entry.eventId}:${entry.at}`),
   );
-  const expired = Object.values(data.timers).filter((t) => !t.done && t.end > start && t.end <= to);
+  // Wiederkehrendes hat keine Zeile und kein Häkchen – es zählt nur hinter der vordersten Uhr.
+  const late =
+    start > from
+      ? occurrencesBetween(data, from + 1, Math.min(start, to)).filter(
+          (o) => !o.event.repeat && !o.event.done && !fired.has(`${o.event.id}:${o.at}`),
+        )
+      : [];
+  const occurred = [
+    ...late,
+    ...(to > start
+      ? occurrencesBetween(data, start + 1, to).filter((o) => !(o.event.done && !o.event.repeat))
+      : []),
+  ];
+  // Ein Timer, der aussteht, ist nie abgelaufen – auch wenn die vorderste Uhr schon darüber ist.
+  const expired = Object.values(data.timers).filter((t) => !t.done && t.end > from && t.end <= to);
   // Ein Schritt, der an einem Ablauf hängt, tritt nur ein, wenn der Ablauf nicht ausgeblieben
   // ist. Sonst bleibt die Uhr dort stehen: blockiert. Sie plant nie von selbst um.
   const steps: ClockOccurrence[] = [];
   const blocked: ClockBlock[] = [];
+  // Schritte, die schon eingetreten sind, tragen ihre Zeit – es bleibt nur, was aussteht.
   for (const clock of Object.values(data.clocks))
-    for (const occurrence of dueSteps(clock, start, to)) {
+    for (const occurrence of dueSteps(clock, from, to)) {
       const run = occurrence.step.runId ? data.runs[occurrence.step.runId] : undefined;
       const failure = run ? runFailure(data, run, occurrence.at) : null;
       if (failure) {
@@ -250,8 +272,11 @@ export interface SettleSummary {
 export function settleTime(db: CampaignDb, chosen: WorldTime, other: WorldTime): SettleSummary {
   let reopened: Reopened = { events: 0, steps: 0, timers: 0 };
   let merged = 0;
+  // Getrennte Wege: Eingetreten ist hier alles bis zur vordersten Uhr, nicht nur bis zur Zeit der
+  // geleiteten Teilgruppe (`chosen`). `other` ist die vorderste Uhr des anderen Rechners.
+  const front = Math.max(chosen, frontOf(db.getSnapshot()));
   db.batch(() => {
-    if (other > chosen) reopened = reopenBetween(db, chosen, other);
+    if (other > front) reopened = reopenBetween(db, front, other);
     const seen = new Map<string, string>();
     const entries = Object.values(db.getSnapshot().chronicle).sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
@@ -450,25 +475,51 @@ function partyBefore(db: CampaignDb): PartyBefore {
 /**
  * „Rückgängig“ für einen Handgriff an den Teilgruppen: Seine Einträge gehen, was er über die
  * vorderste Uhr hinaus ausgelöst hat, steht wieder aus, und die Teilgruppen stehen wie vorher.
+ * Was er hinter der vordersten Uhr nachträglich ausgelöst hat (`fireWorld`), steht ebenso
+ * wieder aus – genau das, nichts, was die vorderste Uhr schon vorher erreicht hatte.
  */
-function partyUndo(db: CampaignDb, before: PartyBefore, created: string[]): () => void {
+function partyUndo(
+  db: CampaignDb,
+  before: PartyBefore,
+  created: string[],
+  advance?: TimeAdvanceResult,
+): () => void {
   return () =>
     db.batch(() => {
       for (const id of created) if (db.getSnapshot().chronicle[id]) db.remove('chronicle', id);
+      if (advance) reopenLate(db, advance, before.front);
       const front = frontOf(db.getSnapshot());
       if (front > before.front) reopenBetween(db, before.front, front);
       db.setState(before.state);
     });
 }
 
-const noAdvance = (at: WorldTime): TimeAdvanceResult => ({
-  from: at,
-  to: at,
-  occurred: [],
-  expired: [],
-  steps: [],
-  blocked: [],
-});
+/** Öffnet genau wieder, was ein Vorrücken bis einschließlich `upto` ausgelöst hat. */
+function reopenLate(db: CampaignDb, advance: TimeAdvanceResult, upto: WorldTime): void {
+  const data = db.getSnapshot();
+  for (const o of advance.occurred) {
+    if (o.at > upto || o.event.repeat) continue;
+    for (const entry of Object.values(data.chronicle))
+      if (entry.kind === 'event' && entry.eventId === o.event.id && entry.at === o.at)
+        db.remove('chronicle', entry.id);
+    const event = db.getSnapshot().events[o.event.id];
+    if (event?.done && event.kind === 'world') db.patch('events', event.id, { done: false });
+  }
+  for (const timer of advance.expired)
+    if (timer.end <= upto && db.getSnapshot().timers[timer.id]?.done)
+      db.patch('timers', timer.id, { done: false });
+  for (const s of advance.steps) {
+    if (s.at > upto) continue;
+    const clock = db.getSnapshot().clocks[s.clock.id];
+    if (clock)
+      db.patch('clocks', clock.id, {
+        steps: clock.steps.map((step) => (step.id === s.step.id ? { ...step, at: null } : step)),
+      });
+    for (const entry of Object.values(data.chronicle))
+      if (entry.clockId === s.clock.id && entry.stepId === s.step.id && entry.kind === 'change')
+        db.remove('chronicle', entry.id);
+  }
+}
 
 export interface PartyResult {
   /** Was über die vorderste Uhr hinaus von selbst eingetreten ist. */
@@ -593,6 +644,7 @@ export function splitParty(db: CampaignDb, rows: PartyRow[]): PartyResult | { pr
         db,
         before,
         entries.map((e) => e.id),
+        advance,
       ),
     };
   });
@@ -655,6 +707,7 @@ export function sendOff(
         db,
         before,
         entries.map((e) => e.id),
+        advance,
       ),
     };
   });
@@ -667,7 +720,7 @@ export function sendOff(
 export function leadGroup(db: CampaignDb, groupId: string): void {
   const data = db.getSnapshot();
   if (!isSplit(data) || data.state.leadId === groupId) return;
-  const groups = syncedGroups(data.state);
+  const groups = presentGroups(data);
   const target = groups.find((group) => group.id === groupId);
   if (!target) return;
   db.setState({
@@ -696,13 +749,14 @@ export function catchUp(db: CampaignDb, groupId: string, to: WorldTime): PartyRe
       db.setState({
         groups: data.state.groups.map((g) => (g.id === group.id ? { ...g, now: to } : g)),
       });
-    return { advance, entries: [], undo: partyUndo(db, before, []) };
+    return { advance, entries: [], undo: partyUndo(db, before, [], advance) };
   });
 }
 
 /**
  * Führt Teilgruppen zusammen – nur auf Klick. Die zurückliegenden werden auf die Zeit der
- * vordersten unter ihnen gezogen (dabei tritt nichts ein: Die Welt war schon dort). Wer an einem
+ * vordersten unter ihnen gezogen (dabei tritt nichts ein: Die Welt war schon dort – außer, was
+ * erst nachträglich hinter der vordersten Uhr angelegt wurde, `fireWorld`). Wer an einem
  * anderen Ort steht, zieht zum Ort von `intoId` (Vorgabe: die geleitete, sonst die erste) – ein
  * Ortswechsel ohne Text. Bleibt eine Teilgruppe, ist die Gruppe wieder zusammen.
  */
@@ -712,7 +766,7 @@ export function mergeGroups(
   intoId?: string,
 ): PartyResult | null {
   const data = db.getSnapshot();
-  const groups = syncedGroups(data.state);
+  const groups = presentGroups(data);
   const chosen = groups.filter((group) => groupIds.includes(group.id));
   if (chosen.length < 2) return null;
   const target =
@@ -722,6 +776,7 @@ export function mergeGroups(
   const at = Math.max(...chosen.map((group) => group.now));
   const before = partyBefore(db);
   return db.batch(() => {
+    const advance = fireWorld(db, Math.min(...chosen.map((group) => group.now)), before.front, at);
     const entries: ChronicleEntry[] = [];
     for (const group of chosen)
       if (group !== target && group.placeId !== target.placeId)
@@ -756,12 +811,13 @@ export function mergeGroups(
       previousNow: null,
     });
     return {
-      advance: noAdvance(at),
+      advance,
       entries,
       undo: partyUndo(
         db,
         before,
         entries.map((e) => e.id),
+        advance,
       ),
     };
   });

@@ -6,6 +6,7 @@ import {
   logEntry,
   mergeGroups,
   moveParty,
+  settleTime,
   splitParty,
   undoTimeAdvance,
 } from '../../data/actions';
@@ -26,7 +27,7 @@ import {
   partyGroups,
   partyOverview,
 } from '../party';
-import { createClock, createEntity, createEvent, PlayStateSchema } from '../schema';
+import { createClock, createEntity, createEvent, createTimer, PlayStateSchema } from '../schema';
 
 const HOUR = 60;
 
@@ -229,6 +230,66 @@ describe('Getrennte Wege: Teilgruppen mit eigener Uhr', () => {
     expect(w.db.getSnapshot().state.now).toBe(w.t0);
   });
 
+  it('was erst hinter der vordersten Uhr angelegt wird, tritt trotzdem genau einmal ein', async () => {
+    const w = await setup();
+    cityDay(w);
+    // Cyd ist 12 Stunden voraus. Erst jetzt legt der Spielleiter für Dorn (geleitet) einen Termin
+    // in zwei Stunden an und entzündet eine Fackel für eine Stunde.
+    const meeting = w.db.put(
+      'events',
+      createEvent({ title: 'Treffen am Brunnen', at: w.t0 + 2 * HOUR, timed: true, kind: 'plan' }),
+    );
+    const torch = w.db.put(
+      'timers',
+      createTimer({ label: 'Fackel', kind: 'light', start: w.t0, end: w.t0 + HOUR }),
+    );
+    const result = advanceTime(w.db, w.t0 + 4 * HOUR);
+    expect(result.occurred.map((o) => o.event.id)).toEqual([meeting.id]);
+    expect(result.expired.map((t) => t.id)).toEqual([torch.id]);
+    expect(eventLines(w.db, meeting.id)).toBe(1);
+    expect(w.db.getSnapshot().timers[torch.id]!.done).toBe(true);
+    // Rückt danach eine andere zurückliegende Teilgruppe darüber, tritt nichts ein zweites Mal ein.
+    const arn = groupOf(w.db.getSnapshot(), w.arn.id)!;
+    const later = catchUp(w.db, arn.id, w.t0 + 5 * HOUR)!;
+    expect(later.advance.occurred).toEqual([]);
+    expect(eventLines(w.db, meeting.id)).toBe(1);
+    // Rückgängig des Nachholens lässt stehen, was Dorn erreicht hat.
+    later.undo();
+    expect(eventLines(w.db, meeting.id)).toBe(1);
+  });
+
+  it('Rückgängig des Trennens nimmt auch zurück, was erst danach eingetreten ist', async () => {
+    const w = await setup();
+    cityDay(w);
+    const dorn = groupOf(w.db.getSnapshot(), w.dorn.id)!;
+    const meeting = w.db.put(
+      'events',
+      createEvent({ title: 'Treffen am Brunnen', at: w.t0 + 2 * HOUR, timed: true, kind: 'plan' }),
+    );
+    // Dorn trennt sich weiter: Er geht für 3 Stunden ins Archiv – dabei tritt das Treffen ein.
+    const again = splitParty(w.db, [{ memberIds: [w.dorn.id], text: 'sucht', minutes: 3 * HOUR }]);
+    if ('problem' in again) throw new Error(again.problem);
+    expect(again.advance.occurred.map((o) => o.event.id)).toEqual([meeting.id]);
+    expect(eventLines(w.db, meeting.id)).toBe(1);
+    again.undo();
+    expect(eventLines(w.db, meeting.id)).toBe(0);
+    expect(groupOf(w.db.getSnapshot(), w.dorn.id)?.id).toBe(dorn.id);
+  });
+
+  it('Abgleich: die Wahl der Weltzeit öffnet nichts, was die vorderste Uhr hier erreicht hat', async () => {
+    const w = await setup();
+    const bell = w.db.put(
+      'events',
+      createEvent({ title: 'Die Glocke schlägt', at: w.t0 + HOUR / 2, timed: true, kind: 'world' }),
+    );
+    cityDay(w);
+    expect(eventLines(w.db, bell.id)).toBe(1);
+    // Gewählt ist dieser Stand (Dorn geleitet, t0); der andere Rechner stand eine Stunde weiter.
+    settleTime(w.db, w.t0, w.t0 + HOUR);
+    expect(eventLines(w.db, bell.id)).toBe(1);
+    expect(w.db.getSnapshot().events[bell.id]!.done).toBe(true);
+  });
+
   it('reist eine Teilgruppe, rückt nur ihre Uhr vor – die andere bleibt', async () => {
     const w = await setup();
     // Arn und Bela gehen 3 Stunden zur Burg, Cyd und Dorn bleiben (geleitet).
@@ -249,6 +310,18 @@ describe('Getrennte Wege: Teilgruppen mit eigener Uhr', () => {
     walk(w.db, w.market.id, 20);
     expect(w.db.getSnapshot().state).toMatchObject({ now: w.t0 + 20, placeId: w.market.id });
     expect(groupOf(w.db.getSnapshot(), w.arn.id)?.now).toBe(w.t0 + 3 * HOUR);
+  });
+
+  it('Rückgängig eines Weges der geleiteten Teilgruppe nimmt auch „unterwegs“ zurück', async () => {
+    const w = await setup();
+    cityDay(w);
+    const dorn = groupOf(w.db.getSnapshot(), w.dorn.id)!;
+    const went = walk(w.db, w.market.id, 20);
+    expect(groupOf(w.db.getSnapshot(), w.dorn.id)?.doing).toMatchObject({ until: w.t0 + 20 });
+    went.undo();
+    const back = w.db.getSnapshot();
+    expect(back.state).toMatchObject({ now: w.t0, placeId: w.city.id });
+    expect(groupOf(back, w.dorn.id)?.doing).toEqual(dorn.doing);
   });
 
   it('Festhalten bekommt die Zeit und die Mitglieder der geleiteten Teilgruppe', async () => {

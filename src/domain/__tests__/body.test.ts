@@ -7,7 +7,7 @@ import { linkBody, saveCharacter, switchBody, unlinkBody } from '../../features/
 import { takeRest } from '../../features/gruppe/rest';
 import { bodyPartner, hpAfterSwitch, isResting, restingIn } from '../body';
 import { activeParty } from '../derive';
-import { groupOf } from '../party';
+import { groupOf, ledMembers } from '../party';
 import { createEntity, createTimer, type Character } from '../schema';
 
 /** Erfunden: Ilo und Ila teilen sich einen Körper; dazu Brom und Sef. */
@@ -111,5 +111,47 @@ describe('Zwei Gefährten, ein Körper', () => {
     expect(char(db, ilo.id).character).toMatchObject({ bodyWith: null, resting: false });
     expect(char(db, ila.id).character).toMatchObject({ bodyWith: null, resting: false });
     expect(activeParty(db.getSnapshot())).toHaveLength(4);
+  });
+  it('getrennt verbunden: wer ruht, gehört keiner Teilgruppe an, und ein Wechsel doppelt niemanden', async () => {
+    const { db, ilo, ila, brom, sef } = await setup();
+    unlinkBody(db, ilo.id);
+    // Getrennt: Brom geht für eine Stunde wachen; Ilo, Ila und Sef bleiben (geleitet).
+    splitParty(db, [{ memberIds: [brom.id], minutes: 60, text: 'wacht am Tor' }]);
+    db.setState({ march: [[ilo.id, ila.id], [sef.id]] });
+    linkBody(db, ilo.id, ila.id);
+    expect(ledMembers(db.getSnapshot()).sort()).toEqual([ilo.id, sef.id].sort());
+    switchBody(db, ilo.id);
+    const data = db.getSnapshot();
+    expect(ledMembers(data).sort()).toEqual([ila.id, sef.id].sort());
+    expect(data.state.march).toEqual([[ila.id], [sef.id]]);
+    expect(groupOf(data, ilo.id)).toBeNull();
+  });
+
+  it('Lösen in einer Teilgruppe: beide bleiben in ihr', async () => {
+    const { db, ilo, ila, brom } = await setup();
+    // Ilo (mit Ila im Körper) geht für zwei Stunden ins Archiv, Brom und Sef bleiben (geleitet).
+    splitParty(db, [{ memberIds: [ilo.id], minutes: 120, text: 'liest' }]);
+    unlinkBody(db, ilo.id);
+    const data = db.getSnapshot();
+    expect(groupOf(data, ila.id)?.id).toBe(groupOf(data, ilo.id)?.id);
+    expect(ledMembers(data)).not.toContain(ila.id);
+    expect(ledMembers(data)).toContain(brom.id);
+  });
+
+  it('wer während der Trennung dazukommt, geht mit der geleiteten Teilgruppe', async () => {
+    const { db, brom, sef } = await setup();
+    splitParty(db, [{ memberIds: [brom.id], minutes: 60, text: 'wacht am Tor' }]);
+    const neu = db.put(
+      'entities',
+      createEntity({ kind: 'character', name: 'Tavi', character: { hpMax: 9, hp: 9 } } as never),
+    );
+    const data = db.getSnapshot();
+    expect(ledMembers(data)).toContain(neu.id);
+    expect(groupOf(data, neu.id)?.led).toBe(true);
+    // … und lässt sich von dort aus wie jeder andere losschicken.
+    const sent = splitParty(db, [
+      { memberIds: [neu.id, sef.id], minutes: 30, text: 'holt Wasser' },
+    ]);
+    expect('problem' in sent).toBe(false);
   });
 });

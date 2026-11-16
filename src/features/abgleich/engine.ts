@@ -23,7 +23,8 @@ import {
   type SyncLink,
   type SyncScan,
 } from '../../data/platform';
-import { DATA_SHAPE, DATA_VERSION } from '../../domain/schema';
+import { frontOf } from '../../domain/party';
+import { DATA_SHAPE, DATA_VERSION, PlayStateSchema } from '../../domain/schema';
 import {
   blobSha,
   compareWithoutBase,
@@ -152,6 +153,12 @@ interface Pending {
   fields: string[][] | null;
   massKind?: 'deleteHere' | 'deleteThere' | 'changeHere';
   paths?: string[];
+}
+
+/** Die vorderste Uhr einer Fassung von `state.json` (getrennte Wege); sonst ihre Weltzeit. */
+function frontOfJson(state: { now?: number }): number {
+  const parsed = PlayStateSchema.safeParse(state);
+  return parsed.success ? frontOf({ state: parsed.data }) : (state.now ?? 0);
 }
 
 const parseJson = (text: string | null | undefined): Json | null => {
@@ -591,11 +598,12 @@ export function createSyncEngine(
               if (step.path === 'state.json' && d.fields?.some((f) => f[0] === 'now')) {
                 const l = parseJson(localText) as { now?: number } | null;
                 const r = parseJson(remoteText) as { now?: number } | null;
+                // Getrennte Wege: Bis zur vordersten Uhr des anderen war dort alles eingetreten.
                 if (typeof l?.now === 'number' && typeof r?.now === 'number')
                   timeChoice =
                     d.choice === 'local'
-                      ? { chosen: l.now, other: r.now }
-                      : { chosen: r.now, other: l.now };
+                      ? { chosen: l.now, other: frontOfJson(r) }
+                      : { chosen: r.now, other: frontOfJson(l) };
               }
             }
             if (merged.kind === 'merged') {

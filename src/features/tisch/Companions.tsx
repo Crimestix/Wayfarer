@@ -1,5 +1,12 @@
 /** Die Gefährten als schmale Leiste am unteren Rand: Zustand der Gruppe auf einen Blick. */
-import { useMemo, type CSSProperties, type KeyboardEvent } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react';
 import { Link } from 'wouter';
 import { ExternalLink, Eye, Feather, MapPin, Swords } from 'lucide-react';
 import { nameIntoJournal } from './journalInsert';
@@ -174,12 +181,42 @@ function Mate({ companion }: { companion: Companion }) {
   );
 }
 
+/**
+ * Meldungen stehen unten rechts – am Spieltisch genau über den Knöpfen der Leiste („Wer macht
+ * was …“, Zusammenführen). Solange die Leiste da ist, rücken sie über sie (`--wf-toast-lift`),
+ * sonst schluckt eine Meldung nach dem Festhalten den nächsten Klick.
+ */
+function useToastsAbove(ref: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const lift = () =>
+      root.style.setProperty(
+        '--wf-toast-lift',
+        `${Math.max(0, window.innerHeight - el.getBoundingClientRect().top)}px`,
+      );
+    lift();
+    const watch = new ResizeObserver(lift);
+    watch.observe(el);
+    window.addEventListener('resize', lift);
+    return () => {
+      watch.disconnect();
+      window.removeEventListener('resize', lift);
+      root.style.removeProperty('--wf-toast-lift');
+    };
+  }, [ref]);
+}
+
 export function CompanionStrip() {
   const data = useData();
   const list = useMemo(() => companions(data), [data]);
   const split = isSplit(data);
+  const strip = useRef<HTMLElement>(null);
+  useToastsAbove(strip);
   return (
     <section
+      ref={strip}
       className={cx('wf-tisch-party', split && 'wf-tisch-party--split')}
       aria-label="Gefährten"
     >

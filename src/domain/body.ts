@@ -70,6 +70,10 @@ export function switchPlan(data: CampaignData, characterId: string): SwitchPlan 
   // Wer gerade die Kontrolle hat, gibt sie ab.
   const [from, to] = self.character.resting ? [other, self] : [self, other];
   const swap = (id: string) => (id === from.id ? to.id : id);
+  // Der Körper hat einen Platz: Stand der Ruhende schon irgendwo (vor dem Verbinden), fällt das weg.
+  const swapAll = (ids: readonly string[]) => [
+    ...new Set(ids.filter((id) => id !== to.id).map(swap)),
+  ];
   const timers = Object.values(data.timers)
     .filter(
       (timer) =>
@@ -94,10 +98,10 @@ export function switchPlan(data: CampaignData, characterId: string): SwitchPlan 
     state: {
       groups: data.state.groups.map((group) => ({
         ...group,
-        memberIds: group.memberIds.map(swap),
+        memberIds: swapAll(group.memberIds),
       })),
-      march: data.state.march.map((row) => row.map(swap)),
-      inView: data.state.inView.map(swap),
+      march: data.state.march.map(swapAll).filter((row) => row.length > 0),
+      inView: [...new Set(data.state.inView.map(swap))],
     },
     timers,
   };

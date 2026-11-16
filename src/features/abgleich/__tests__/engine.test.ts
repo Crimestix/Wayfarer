@@ -17,7 +17,7 @@ import {
 import { isSyncedPath } from '../../../domain/sync';
 import { fetchIntoEmptyFolder } from '../engine';
 import { setActiveSync, syncBeforeRestore } from '../index';
-import { FakeRepo, gitSha, machine, markerText, settle, type Machine } from './fake';
+import { FakeRepo, gitSha, machine, markerText, settle, until, type Machine } from './fake';
 
 const text = (v: unknown) => JSON.stringify(v, null, 1) + '\n';
 
@@ -175,7 +175,7 @@ describe('Alltag', () => {
     expect(mac.port.stand!.decided[path]).toBeDefined();
     mac.db.patch('entities', id, { tagline: 'hier weitergeschrieben' });
     mac.drafts.set(0);
-    await settle();
+    await until(() => entity(mac, id)?.name === 'vom PC');
     expect(entity(mac, id)).toMatchObject({ name: 'vom PC', tagline: 'hier weitergeschrieben' });
 
     // Neue Lage: Die Fassung dort ändert sich nach der Entscheidung → sie verfällt.
@@ -188,7 +188,9 @@ describe('Alltag', () => {
     pc.db.patch('entities', id, { name: 'PC 3' });
     await pc.engine.syncNow();
     mac.drafts.set(0);
-    await settle();
+    await until(
+      () => mac.engine.view.get().conflicts.length > 0 && mac.engine.view.get().phase !== 'running',
+    );
     expect(mac.engine.view.get().conflicts).toMatchObject([{ id: path }]);
     expect(entity(mac, id)!.name).toBe('Mac 2');
   });
@@ -439,7 +441,7 @@ describe('Ruhiger Moment', () => {
     // Das veraltete Formular wird gespeichert, dann der Entwurf freigegeben.
     mac.db.put('entities', { ...stale, tagline: 'aus dem Formular' } as Entity);
     mac.drafts.set(0);
-    await settle();
+    await until(() => entity(mac, id)?.name === 'Brann der Schmied');
     expect(entity(mac, id)).toMatchObject({
       name: 'Brann der Schmied',
       tagline: 'aus dem Formular',
@@ -451,12 +453,13 @@ describe('Störungen', () => {
   it('kein Netz → „Kein Netz“, neuer Versuch nach Plan', async () => {
     const { repo, mac } = await twoMachines();
     mac.engine.start();
-    await settle();
+    await idle(mac);
     repo.failNext('offline');
     await mac.engine.syncNow();
     expect(mac.engine.view.get()).toMatchObject({ phase: 'offline', offline: { why: 'net' } });
     expect(mac.timers.pending()[0]).toBe(60_000);
     await mac.timers.advance(60_000);
+    await until(() => mac.engine.view.get().phase !== 'running');
     expect(mac.engine.view.get().phase).toBe('synced');
     mac.engine.stop();
   });
@@ -464,7 +467,7 @@ describe('Störungen', () => {
   it('Schlüssel ungültig → braucht dich, kein Wiederholen; Schlüsselbund verweigert', async () => {
     const { repo, mac } = await twoMachines();
     mac.engine.start();
-    await settle();
+    await idle(mac);
     repo.failNext('key');
     await mac.engine.syncNow();
     expect(mac.engine.view.get().needs?.why).toBe('key');
@@ -675,7 +678,7 @@ describe('Auslöser', () => {
   it('30 s nach dem Speichern; eigenes Anwenden löst keinen Lauf aus; Session beendet → sofort', async () => {
     const { pc, mac } = await twoMachines();
     mac.engine.start();
-    await settle();
+    await idle(mac);
     const scans = () => mac.port.calls.filter((c) => c === 'scan').length;
     // Eigenes Anwenden: kein weiterer Lauf.
     pc.db.patch('entities', firstOf(pc).id, { tagline: 'PC' });
@@ -696,7 +699,7 @@ describe('Auslöser', () => {
     mac.db.setState({ sessionId: 'abend-13' });
     await mac.db.flush();
     mac.db.setState({ sessionId: null });
-    await settle();
+    await until(() => scans() >= afterApply + 2);
     expect(scans()).toBe(afterApply + 2);
     mac.engine.stop();
   });
@@ -704,7 +707,7 @@ describe('Auslöser', () => {
   it('Fokus nach mehr als 60 s; Fokus verloren → nur hochladen', async () => {
     const { repo, mac } = await twoMachines();
     mac.engine.start();
-    await settle();
+    await idle(mac);
     const scans = () => mac.port.calls.filter((c) => c === 'scan').length;
     const n = scans();
     mac.engine.wake();
@@ -712,15 +715,17 @@ describe('Auslöser', () => {
     expect(scans()).toBe(n);
     await mac.timers.advance(61_000);
     mac.engine.wake();
-    await settle();
+    // Erst, wenn dieser Lauf zu Ende ist: Sein Ende zählt für den Abstand bis zum Hochladen
+    // (`pushGap`). Unter Last (alle Tests zugleich) braucht WebCrypto länger als ein `settle` –
+    // endete er erst nach den 21 s unten, wartete `pushSoon` auf die (unechte) Uhr.
+    await until(() => scans() >= n + 1 && mac.engine.view.get().phase !== 'running');
     expect(scans()).toBe(n + 1);
     mac.db.patch('entities', firstOf(mac).id, { tagline: 'kurz vor dem Zuklappen' });
     await mac.db.flush();
     await mac.timers.advance(21_000);
     const heads = repo.head;
     mac.engine.pushSoon();
-    // Unter Last (alle Tests zugleich) braucht WebCrypto länger als ein `settle`.
-    for (let i = 0; i < 40 && repo.head === heads; i++) await settle();
+    await until(() => repo.head !== heads);
     expect(repo.head).not.toBe(heads);
     mac.engine.stop();
   });
@@ -811,6 +816,7 @@ describe('Gegengelesen', () => {
     await settle();
     expect(repo.log.length).toBe(before);
     await mac.timers.advance(5 * 60_000);
+    await until(() => repo.log.length > before && mac.engine.view.get().phase !== 'running');
     expect(repo.log.length).toBeGreaterThan(before);
     expect(mac.engine.view.get().phase).toBe('synced');
     mac.engine.stop();

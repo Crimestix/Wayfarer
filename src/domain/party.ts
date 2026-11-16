@@ -40,9 +40,35 @@ export function syncedGroups(state: PlayState): PartyGroup[] {
   );
 }
 
+/**
+ * Die Teilgruppen, wie sie gerade gelten (`syncedGroups`), mit den Gefährten, die da sind: Wer
+ * nicht mehr aktiv ist oder in einem geteilten Körper ruht (`domain/body.ts`), fehlt; wer aktiv
+ * ist und in keiner Teilgruppe steht (neu dazugekommen, wieder aktiv, aus einem Körper gelöst),
+ * geht mit der geleiteten. Niemand steht doppelt.
+ */
+export function presentGroups(data: Pick<CampaignData, 'state' | 'entities'>): PartyGroup[] {
+  const groups = syncedGroups(data.state);
+  if (!groups.length) return groups;
+  const present = activeParty(data as CampaignData).map((mate) => mate.id);
+  const here = new Set(present);
+  const seen = new Set<string>();
+  const out = groups.map((group) => ({
+    ...group,
+    memberIds: group.memberIds.filter((id) => here.has(id) && !seen.has(id) && !!seen.add(id)),
+  }));
+  const orphans = present.filter((id) => !seen.has(id));
+  return orphans.length
+    ? out.map((group) =>
+        group.id === data.state.leadId
+          ? { ...group, memberIds: [...group.memberIds, ...orphans] }
+          : group,
+      )
+    : out;
+}
+
 /** Die Teilgruppen zum Anzeigen, die geleitete zuerst. Leer, wenn die Gruppe zusammen ist. */
-export function partyGroups(data: Pick<CampaignData, 'state'>): GroupView[] {
-  const groups = syncedGroups(data.state).map((group) => ({
+export function partyGroups(data: Pick<CampaignData, 'state' | 'entities'>): GroupView[] {
+  const groups = presentGroups(data).map((group) => ({
     ...group,
     led: group.id === data.state.leadId,
   }));
@@ -50,7 +76,7 @@ export function partyGroups(data: Pick<CampaignData, 'state'>): GroupView[] {
 }
 
 /** Die geleitete Teilgruppe; null, wenn die Gruppe zusammen ist. */
-export const ledGroup = (data: Pick<CampaignData, 'state'>): GroupView | null =>
+export const ledGroup = (data: Pick<CampaignData, 'state' | 'entities'>): GroupView | null =>
   partyGroups(data).find((group) => group.led) ?? null;
 
 /** Wer gerade geleitet wird: die Mitglieder der geleiteten Teilgruppe, sonst alle aktiven. */
@@ -60,7 +86,10 @@ export function ledMembers(data: CampaignData): string[] {
 }
 
 /** Die Teilgruppe, zu der ein Gefährte gehört; null, wenn die Gruppe zusammen ist. */
-export const groupOf = (data: Pick<CampaignData, 'state'>, memberId: string): GroupView | null =>
+export const groupOf = (
+  data: Pick<CampaignData, 'state' | 'entities'>,
+  memberId: string,
+): GroupView | null =>
   partyGroups(data).find((group) => group.memberIds.includes(memberId)) ?? null;
 
 /**
@@ -110,7 +139,7 @@ export function partyStamp(data: CampaignData, entry: ChronicleEntry): string[] 
 
 /** Wo eine Liste von Gefährten gerade ist: ihre Teilgruppe, sonst der Ort der Gruppe. */
 export function placeOfWho(
-  data: Pick<CampaignData, 'state'>,
+  data: Pick<CampaignData, 'state' | 'entities'>,
   who: readonly string[],
 ): string | null {
   if (!who.length || !isSplit(data)) return data.state.placeId;
@@ -122,7 +151,7 @@ export function placeOfWho(
  * die geleitete Teilgruppe), sonst der Ort ihrer Teilgruppe.
  */
 export function withPlace(
-  data: Pick<CampaignData, 'state'>,
+  data: Pick<CampaignData, 'state' | 'entities'>,
   who: readonly string[],
   placeId: string | null,
 ): Partial<PlayState> {
@@ -253,7 +282,7 @@ export function entryGroupMark(
  */
 export function groupsToSplit(data: CampaignData): { groups: PartyGroup[]; leadId: string } {
   if (isSplit(data) && data.state.leadId)
-    return { groups: syncedGroups(data.state), leadId: data.state.leadId };
+    return { groups: presentGroups(data), leadId: data.state.leadId };
   const all: PartyGroup = {
     id: newId(),
     memberIds: activeParty(data).map((mate) => mate.id),
