@@ -72,7 +72,10 @@ gegengelesen (bis `4449aa5`; 2400 Tests, cargo 94). Tag `v0.1.3` steht auf `6800
 der Nebensitzung zur Rückmeldung vom 15. 11.; enthält Abgleich und neue Mitschrift, nicht die
 kleine Reparatur `a9d9853`). Für die Probe die Pakete von GitHub nehmen – der vorher lokal gebaute
 Windows-Installer 0.1.3 ist älter. **Neuestes Paket: Tag `v0.1.4` auf `d5456c4` (16. 11.)** – mit Teilgruppen,
-Haltung je Gefährte, einem Körper für zwei Gefährten, neuer Wiki-Seite und Beziehungen nach Art. Der Spielleiter macht die Probe nach
+Haltung je Gefährte, einem Körper für zwei Gefährten, neuer Wiki-Seite und Beziehungen nach Art.
+**Danach: Tag `v0.1.5` auf `e5856e1` (16. 11.)** – Reparaturen aus der Reise-Probe (zweiter Weg,
+Begleiter ziehen mit, Gewaltmarsch seit der Rast, Leiste). **DATA_VERSION 6:** Ein Stand aus 0.1.5
+lässt sich in 0.1.4 nicht mehr einspielen – Mac und Windows beide auf 0.1.5. Der Spielleiter macht die Probe nach
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
