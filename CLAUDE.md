@@ -588,7 +588,9 @@ nicht übernommen.
 - Beziehungen als Befehl: `relate(db, { from, to, type, … })` und `unrelate`
   (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
   die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt
-  denselben Befehl; nie Beziehungen an ihm vorbei anlegen.
+  denselben Befehl; nie Beziehungen an ihm vorbei anlegen. „Ort ist Sitz von“ setzt bei leerem
+  Feld den Sitz der Fraktion/Familie statt einer Beziehung (`seatInstead`) – ein weiterer Sitz
+  bleibt Beziehung.
 - Beziehungen nach Art (`domain/relations.ts`): Wer eine Haltung haben kann, sagt einzig
   `holdsAttitude` (Person, Fraktion, Familie, Gefährte, Gruppe); ob eine dasteht,
   `showsAttitude` / `shownAttitude` (sonst nur, wenn eingetragen); offen im Dialog nur zwischen

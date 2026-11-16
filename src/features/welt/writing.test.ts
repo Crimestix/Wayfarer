@@ -227,7 +227,7 @@ describe('Verbindungen als Befehl', () => {
     const first = relate(db, { from: mira.id, to: zunft.id, type: 'member', note: 'Lehrling' })!;
     const second = relate(db, { from: mira.id, to: zunft.id, type: 'leads', secret: true })!;
     expect(second.created).toBe(false);
-    expect(second.relation.id).toBe(first.relation.id);
+    expect(second.relation?.id).toBe(first.relation?.id);
     const all = Object.values(db.getSnapshot().relations).filter(
       (relation) => relation.from === mira.id && relation.to === zunft.id,
     );
@@ -335,5 +335,33 @@ describe('Das eine „Neu“', () => {
     const result = newEntry(db, { name: 'Die Sage vom Salz', kind: null, withText: true })!;
     expect(result).toMatchObject({ entity: null, created: true });
     expect(result.article!.title).toBe('Die Sage vom Salz');
+  });
+});
+
+describe('„ist Sitz von“ und das Feld „Sitz“', () => {
+  it('setzt bei leerem Feld den Sitz statt einer Beziehung – Rückgängig leert ihn wieder', async () => {
+    const { db } = await setup();
+    const halle = db.put('entities', createEntity({ kind: 'place', name: 'Fährhalle' }));
+    const zunft = db.put('entities', createEntity({ kind: 'faction', name: 'Fährleute' }));
+    const result = relate(db, { from: halle.id, to: zunft.id, type: 'seat-of' })!;
+    const after = db.getSnapshot();
+    const faction = after.entities[zunft.id]!;
+    expect(faction.kind === 'faction' && faction.faction.seatId).toBe(halle.id);
+    expect(Object.values(after.relations).filter((r) => r.from === halle.id)).toEqual([]);
+    result.undo();
+    const undone = db.getSnapshot().entities[zunft.id]!;
+    expect(undone.kind === 'faction' && undone.faction.seatId).toBe(null);
+  });
+
+  it('ein weiterer Sitz neben dem Feld bleibt eine Beziehung', async () => {
+    const { db } = await setup();
+    const halle = db.put('entities', createEntity({ kind: 'place', name: 'Fährhalle' }));
+    const steg = db.put('entities', createEntity({ kind: 'place', name: 'Langer Steg' }));
+    const sippe = db.put('entities', createEntity({ kind: 'family', name: 'Salzmann' }));
+    relate(db, { from: halle.id, to: sippe.id, type: 'seat-of' });
+    const second = relate(db, { from: steg.id, to: sippe.id, type: 'seat-of' })!;
+    const family = db.getSnapshot().entities[sippe.id]!;
+    expect(family.kind === 'family' && family.family.seatId).toBe(halle.id);
+    expect(second.relation?.type).toBe('seat-of');
   });
 });

@@ -14,6 +14,7 @@ import {
   type ChronicleEntry,
   type CollectionName,
   type CollectionTypes,
+  type CampaignData,
   type Entity,
   type Relation,
 } from '../../domain/schema';
@@ -74,7 +75,8 @@ export interface RelateInput {
 }
 
 export interface RelateResult {
-  relation: Relation;
+  /** null, wenn nur das Feld „Sitz“ gesetzt wurde (`seatInstead`). */
+  relation: Relation | null;
   /** Neu entstanden – sonst wurde die vorhandene Beziehung dieser Richtung geändert. */
   created: boolean;
   /** Nimmt die Verbindung zurück: Eine neue verschwindet, eine geänderte steht wie vorher. */
@@ -93,6 +95,19 @@ export function relate(db: CampaignDb, input: RelateInput): RelateResult | null 
   const { from, to } = input;
   if (from === PARTY_ID || from === to || !before.entities[from]) return null;
   if (to !== PARTY_ID && !before.entities[to]) return null;
+  const seat = seatInstead(before, input);
+  if (seat) {
+    const group = before.entities[seat.groupId]!;
+    db.patch('entities', group.id, seatPatch(group, seat.placeId));
+    return {
+      relation: null,
+      created: true,
+      undo: () => {
+        const now = db.getSnapshot().entities[seat.groupId];
+        if (now && seatOf(now) === seat.placeId) db.patch('entities', now.id, seatPatch(now, null));
+      },
+    };
+  }
   const existing = findRelation(before, from, to);
   const fields: Partial<Relation> = {
     type: input.type,
@@ -138,6 +153,40 @@ export function relate(db: CampaignDb, input: RelateInput): RelateResult | null 
         for (const id of logged) if (now.chronicle[id]) db.remove('chronicle', id);
       }),
   };
+}
+
+/** Der Sitz einer Fraktion oder Familie (Feld „Sitz“ bzw. „Stammsitz“), sonst undefined. */
+function seatOf(entity: Entity): string | null | undefined {
+  if (entity.kind === 'faction') return entity.faction.seatId;
+  if (entity.kind === 'family') return entity.family.seatId;
+  return undefined;
+}
+
+function seatPatch(entity: Entity, seatId: string | null): Partial<Entity> {
+  if (entity.kind === 'faction') return { faction: { ...entity.faction, seatId } };
+  if (entity.kind === 'family') return { family: { ...entity.family, seatId } };
+  return {};
+}
+
+/**
+ * „Ort ist Sitz von Fraktion/Familie“ und das Feld „Sitz“ sind dasselbe: Ist das Feld noch leer
+ * und gibt es nichts, was nur eine Beziehung tragen kann (Notiz, geheim, beendet, Haltung), wird
+ * das Feld gesetzt statt einer Beziehung – so steht der Sitz nie doppelt da. Ein weiterer Sitz
+ * neben dem Feld bleibt eine Beziehung.
+ */
+export function seatInstead(
+  data: CampaignData,
+  input: RelateInput,
+): { placeId: string; groupId: string } | null {
+  if (input.type !== 'seat-of') return null;
+  if (input.note?.trim() || input.secret || input.ended || input.attitude !== undefined)
+    return null;
+  const place = data.entities[input.from];
+  const group = data.entities[input.to];
+  if (place?.kind !== 'place' || !group) return null;
+  if (seatOf(group) !== null) return null;
+  if (findRelation(data, input.from, input.to)) return null;
+  return { placeId: place.id, groupId: group.id };
 }
 
 /**
