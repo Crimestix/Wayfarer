@@ -8,15 +8,15 @@ import type { CampaignDb } from '../../data/db';
 import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import {
-  boardCards,
   isLooseThread,
   nameSources,
   storyAttached,
   threadLive,
 } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
-import { boardWeb, isStoryTied, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
+import { isStoryTied, isTied, pinExists } from '../../domain/threadWeb';
 import { AREA_MIN, type BoardArea } from '../../domain/boardAreas';
+import type { LinkOffer } from '../../domain/whiteboard';
 import {
   createClock,
   createStory,
@@ -737,10 +737,14 @@ export function tidyBoard(db: CampaignDb): () => void {
     (thread) =>
       isLooseThread(data, thread) && !thread.onBoard && before[spotKey(thread.id)] !== undefined,
   );
-  // Frei hingelegte Namen und Artikel liegen nur, weil sie eine Stelle haben – die bleibt.
-  const owned = ownedPins(boardWeb(data, boardCards(data)));
+  // Was einzeln hingelegt wurde, liegt nur, weil es eine Stelle hat – die bleibt: Namen, Artikel
+  // und Fäden einer Geschichte.
   const free = Object.fromEntries(
-    Object.entries(before).filter(([key]) => pinExists(data, key) && !owned.has(key)),
+    Object.entries(before).filter(([key]) => {
+      if (pinExists(data, key)) return true;
+      const thread = key.startsWith('thread:') ? data.threads[key.slice(7)] : undefined;
+      return thread !== undefined && !isLooseThread(data, thread);
+    }),
   );
   db.batch(() => {
     for (const thread of kept) db.patch('threads', thread.id, { onBoard: true });
@@ -1203,8 +1207,6 @@ export function setStoryUnfolded(db: CampaignDb, storyId: string, unfolded: bool
 /** Was eine auf dem Brett gezogene Schnur bewirkt hat – oder warum sie nichts bewirkt. */
 export type BoardConnect =
   | { done: true; title: string; body: string; undo: () => void }
-  /** Zwei Geschichten: verbinden oder als Teilgeschichte einhängen – das wählt der Spielleiter. */
-  | { done: false; choose: { fromId: string; toId: string } }
   /** Nichts geschehen; `note` sagt warum (leer = ins Leere gezogen). */
   | { done: false; note: string };
 
@@ -1214,14 +1216,12 @@ export const threadOfKey = (key: string): string | null =>
 
 /**
  * Eine Schnur, frei auf dem Brett gezogen, von `fromKey` nach `toKey` (`story:`, `thread:`,
- * `knot:`, `node:`): Faden an Faden verbindet; ein Name an einem Faden oder einer Geschichte
- * hängt dort an; ein loser Faden an einer Geschichte wird ihre Frage. Zwei Namen sind eine
- * Beziehung der Welt – dafür öffnet sich das Fenster. Alles mit Rückgängig.
+ * `node:`, `article:`): immer nur eine Schnur (`addBoardLink`) – was sie in der Welt bedeutet,
+ * bietet das Menü an der Schnur an (`linkOffers`), nichts geschieht von selbst. Mit Rückgängig.
  */
 export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): BoardConnect {
   const data = db.getSnapshot();
-  const none: BoardConnect = { done: false, note: '' };
-  if (fromKey === toKey) return none;
+  if (fromKey === toKey) return { done: false, note: '' };
   const title = (key: string): string => {
     const threadId = threadOfKey(key);
     if (threadId) return data.threads[threadId]?.title ?? '';
@@ -1229,113 +1229,18 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
     if (key.startsWith('article:')) return data.articles[key.slice(8)]?.title ?? '';
     return data.entities[key.slice(5)]?.name ?? '';
   };
-  const [fromThread, toThread] = [threadOfKey(fromKey), threadOfKey(toKey)];
-  if (fromThread && toThread) {
-    if (fromThread === toThread) return none;
-    if (isTied(data, fromThread, toThread))
-      return {
-        done: false,
-        note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.`,
-      };
-    const undo = tieThreads(db, fromThread, toThread);
-    return undo
-      ? {
-          done: true,
-          title: 'Fäden verbunden',
-          body: `„${title(fromKey)}“ – „${title(toKey)}“`,
-          undo,
-        }
-      : none;
-  }
-  const isPin = (key: string) => key.startsWith('node:') || key.startsWith('article:');
-  const articleKey = [fromKey, toKey].find((key) => key.startsWith('article:'));
-  const articleOther = articleKey === fromKey ? toKey : fromKey;
-  // Zwei Namen oder Artikel: eine freie Schnur, gleich – was sie bedeutet, kommt später.
-  if (isPin(fromKey) && isPin(toKey)) {
-    const link = addBoardLink(db, fromKey, toKey);
-    if (!link)
-      return { done: false, note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.` };
+  const link = addBoardLink(db, fromKey, toKey);
+  if (!link)
     return {
-      done: true,
-      title: 'Verbunden',
-      body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur: Wort, Beziehung eintragen, lösen.`,
-      undo: link.undo,
+      done: false,
+      note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.`,
     };
-  }
-  if (articleKey) {
-    const articleId = articleKey.slice(8);
-    const threadId = threadOfKey(articleOther);
-    const sort = threadId ? 'threads' : articleOther.startsWith('story:') ? 'stories' : null;
-    const docId = threadId ?? articleOther.slice(6);
-    const doc =
-      sort === 'threads'
-        ? data.threads[docId]
-        : sort === 'stories'
-          ? data.stories[docId]
-          : undefined;
-    if (!sort || !doc || !data.articles[articleId]) return none;
-    if (doc.articleIds.includes(articleId))
-      return {
-        done: false,
-        note: `„${title(articleKey)}“ hängt schon an „${title(articleOther)}“.`,
-      };
-    const undo = setArticleOn(db, sort, docId, articleId, true);
-    return undo
-      ? {
-          done: true,
-          title: 'Artikel zugeordnet',
-          body: `„${title(articleKey)}“ gehört jetzt zu „${title(articleOther)}“.`,
-          undo,
-        }
-      : none;
-  }
-  const nodeKey = [fromKey, toKey].find((key) => key.startsWith('node:'));
-  const otherKey = nodeKey === fromKey ? toKey : fromKey;
-  if (nodeKey) {
-    const entityId = nodeKey.slice(5);
-    const threadId = threadOfKey(otherKey);
-    const cardKey = threadId ? `thread:${threadId}` : otherKey;
-    const [sort, id] = cardKey.split(':') as [string, string];
-    const doc = sort === 'story' ? data.stories[id] : data.threads[id];
-    if (!doc || !data.entities[entityId]) return none;
-    if (doc.refs.includes(entityId))
-      return { done: false, note: `${title(nodeKey)} hängt schon an „${title(otherKey)}“.` };
-    pinToCard(db, cardKey, entityId);
-    return {
-      done: true,
-      title: 'Angeheftet',
-      body: `${title(nodeKey)} hängt jetzt an „${title(otherKey)}“.`,
-      undo: () => unpinFromCard(db, cardKey, entityId),
-    };
-  }
-  const storyKey = [fromKey, toKey].find((key) => key.startsWith('story:'));
-  const threadKeyOf = [fromKey, toKey].find((key) => threadOfKey(key) !== null);
-  if (storyKey && threadKeyOf) {
-    const thread = data.threads[threadOfKey(threadKeyOf)!];
-    const storyId = storyKey.slice(6);
-    if (!thread || !data.stories[storyId] || thread.storyId === storyId) return none;
-    if (!isLooseThread(data, thread))
-      return {
-        done: false,
-        note: `„${thread.title}“ gehört zu „${data.stories[thread.storyId!]!.title}“. Klapp „${title(storyKey)}“ auf und zieh die Schnur von Faden zu Faden.`,
-      };
-    const undo = moveThread(db, thread.id, storyId);
-    return undo
-      ? {
-          done: true,
-          title: 'An die Geschichte gehängt',
-          body: `„${thread.title}“ ist jetzt eine Frage von „${title(storyKey)}“.`,
-          undo,
-        }
-      : none;
-  }
-  const stories = [fromKey, toKey].every((key) => key.startsWith('story:'));
-  if (stories) {
-    const [a, b] = [fromKey.slice(6), toKey.slice(6)];
-    if (!data.stories[a] || !data.stories[b]) return none;
-    return { done: false, choose: { fromId: a, toId: b } };
-  }
-  return none;
+  return {
+    done: true,
+    title: 'Verbunden',
+    body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur: Wort, was es bedeutet, lösen.`,
+    undo: link.undo,
+  };
 }
 
 // ── Das Brett anfassen: mehrere zugleich, Schnüre lösen, schnell schreiben ─────
@@ -1791,10 +1696,9 @@ export function detachName(
 }
 
 /**
- * Ein neuer Faden, an einer Schnur ins Leere geschrieben – gleich mit dem verbunden, von dem die
- * Schnur kam: an einer Geschichte wird er ihre Frage (und die Geschichte klappt ihre Fäden auf),
- * an einem Faden ein verbundener loser Faden, an einem Namen oder Artikel ein loser Faden, der an
- * ihm hängt. Liegt dort, wo die Schnur endete. Gibt den Faden und `undo` zurück.
+ * Ein neuer Faden, an einer Schnur ins Leere geschrieben: Er liegt als Karte am Ende der Schnur,
+ * und die Schnur verbindet ihn mit dem, von dem sie kam. An einer Geschichte geschrieben, ist er
+ * gleich ihre Frage; sonst ein loser Faden. Gibt den Faden und `undo` zurück.
  */
 export function writeLinkedThread(
   db: CampaignDb,
@@ -1806,43 +1710,32 @@ export function writeLinkedThread(
   if (!clean) return null;
   const data = db.getSnapshot();
   return db.batch(() => {
-    if (sourceKey.startsWith('story:')) {
-      const story = data.stories[sourceKey.slice(6)];
-      if (!story) return null;
-      const thread = saveThread(db, {
-        title: clean,
-        truth: '',
-        state: 'open',
-        storyId: story.id,
-        refs: [],
-        known: false,
-        hints: [],
-      });
-      const wasUnfolded = story.unfolded;
-      setStoryUnfolded(db, story.id, true);
-      placeOnBoard(db, `knot:${thread.id}`, at.x, at.y);
-      return {
-        thread,
-        undo: () =>
-          db.batch(() => {
-            const { [`knot:${thread.id}`]: _gone, ...rest } = db.getSnapshot().state.board;
-            db.setState({ board: rest });
-            if (db.getSnapshot().threads[thread.id]) removeThread(db, thread.id);
-            setStoryUnfolded(db, story.id, wasUnfolded);
-          }),
-      };
-    }
-    const written = writeOnBoard(db, clean, at);
-    if (!written) return null;
-    const threadId = threadOfKey(sourceKey);
-    if (threadId) tieThreads(db, written.thread.id, threadId);
-    else if (sourceKey.startsWith('node:'))
-      pinToCard(db, `thread:${written.thread.id}`, sourceKey.slice(5));
-    else if (sourceKey.startsWith('article:'))
-      setArticleOn(db, 'threads', written.thread.id, sourceKey.slice(8), true);
+    const story = sourceKey.startsWith('story:') ? data.stories[sourceKey.slice(6)] : undefined;
+    const thread = saveThread(db, {
+      title: clean,
+      truth: '',
+      state: 'open',
+      storyId: story?.id ?? null,
+      refs: [],
+      known: false,
+      hints: [],
+    });
+    if (story) placeOnBoard(db, `thread:${thread.id}`, at.x, at.y);
+    else setThreadOnBoard(db, thread.id, true, at);
+    addBoardLink(db, sourceKey, `thread:${thread.id}`);
     return {
-      thread: db.getSnapshot().threads[written.thread.id] ?? written.thread,
-      undo: written.undo,
+      thread: db.getSnapshot().threads[thread.id] ?? thread,
+      undo: () =>
+        db.batch(() => {
+          const now = db.getSnapshot().state;
+          const key = `thread:${thread.id}`;
+          const { [key]: _gone, ...rest } = now.board;
+          db.setState({
+            board: rest,
+            boardLinks: now.boardLinks.filter((link) => link.a !== key && link.b !== key),
+          });
+          if (db.getSnapshot().threads[thread.id]) removeThread(db, thread.id);
+        }),
     };
   });
 }
@@ -1914,4 +1807,108 @@ export function setStringsHidden(
   if (next.length === before.length && next.every((key, i) => key === before[i])) return null;
   db.setState({ boardHidden: next });
   return () => db.setState({ boardHidden: before });
+}
+
+// ── Whiteboard: hinlegen, wegnehmen, Bedeutung wählen ──────────────────────
+
+/**
+ * Nimmt Karten und Namen vom Whiteboard – nie aus der Welt: Eine Geschichte wird weggelegt
+ * (`state.boardHidden`), ein loser Faden steht wieder nur in der Liste, alles andere verliert
+ * seine Stelle. Schnüre bleiben gespeichert und sind wieder da, wenn das Stück zurückkommt.
+ * Gibt zurück, wie viele es waren, und `undo`.
+ */
+export function takeOffWhiteboard(
+  db: CampaignDb,
+  keys: readonly string[],
+): { taken: number; undo: (() => void) | null } {
+  const data = db.getSnapshot();
+  const undos: (() => void)[] = [];
+  db.batch(() => {
+    const stories = keys.filter((key) => key.startsWith('story:'));
+    if (stories.length) {
+      const undo = setStringsHidden(db, stories, true);
+      if (undo) undos.push(undo);
+    }
+    const spots: string[] = [];
+    for (const key of keys) {
+      if (key.startsWith('story:')) continue;
+      const thread = key.startsWith('thread:') ? data.threads[key.slice(7)] : undefined;
+      if (thread && isLooseThread(data, thread)) {
+        const undo = setThreadOnBoard(db, thread.id, false);
+        if (undo) undos.push(undo);
+      } else spots.push(key);
+    }
+    const undo = takeFreeOffBoard(db, spots);
+    if (undo) undos.push(undo);
+  });
+  return {
+    taken: keys.length,
+    undo: undos.length ? () => db.batch(() => [...undos].reverse().forEach((u) => u())) : null,
+  };
+}
+
+/**
+ * Holt etwas aufs Whiteboard – an die Stelle `at`: Eine weggelegte Geschichte kommt zurück, ein
+ * loser Faden liegt wieder, ein Faden einer Geschichte, ein Name oder Artikel bekommt seine
+ * Stelle. Liegt es schon, ändert sich nichts. Gibt `undo` zurück.
+ */
+export function bringOntoBoard(
+  db: CampaignDb,
+  key: string,
+  at: { x: number; y: number },
+): (() => void) | null {
+  const data = db.getSnapshot();
+  if (key.startsWith('story:')) {
+    if (!data.state.boardHidden.includes(key)) return null;
+    return db.batch(() => {
+      const shown = setStringsHidden(db, [key], false);
+      placeOnBoard(db, key, at.x, at.y);
+      return () => shown?.();
+    });
+  }
+  const thread = key.startsWith('thread:') ? data.threads[key.slice(7)] : undefined;
+  if (thread && isLooseThread(data, thread)) return setThreadOnBoard(db, thread.id, true, at);
+  if (data.state.board[key]) return null;
+  placeOnBoard(db, key, at.x, at.y);
+  return () => {
+    takeFreeOffBoard(db, [key]);
+  };
+}
+
+/** Wählt im Menü an einer Schnur, was sie in der Welt bedeuten soll – oder nimmt es zurück. */
+export function applyLinkOffer(db: CampaignDb, offer: LinkOffer): (() => void) | null {
+  const data = db.getSnapshot();
+  switch (offer.kind) {
+    case 'cast': {
+      const story = data.stories[offer.storyId];
+      if (!story) return null;
+      const refs = offer.on
+        ? story.refs.filter((id) => id !== offer.entityId)
+        : [...story.refs, offer.entityId];
+      patchStory(db, story.id, { refs });
+      return () => {
+        if (db.getSnapshot().stories[story.id]) patchStory(db, story.id, { refs: story.refs });
+      };
+    }
+    case 'pin': {
+      const key = `thread:${offer.threadId}`;
+      if (offer.on) {
+        unpinFromCard(db, key, offer.entityId);
+        return () => pinToCard(db, key, offer.entityId);
+      }
+      pinToCard(db, key, offer.entityId);
+      return () => unpinFromCard(db, key, offer.entityId);
+    }
+    case 'question':
+      return moveThread(db, offer.threadId, offer.on ? null : offer.storyId);
+    case 'part':
+      if (!offer.allowed && !offer.on) return null;
+      return setStoryParent(db, offer.partId, offer.on ? null : offer.wholeId);
+    case 'tie':
+      return offer.on ? untieThreads(db, offer.a, offer.b) : tieThreads(db, offer.a, offer.b);
+    case 'article':
+      return setArticleOn(db, offer.sort, offer.docId, offer.articleId, !offer.on);
+    case 'relate':
+      return null;
+  }
 }

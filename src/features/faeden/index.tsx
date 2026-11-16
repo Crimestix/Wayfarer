@@ -21,8 +21,6 @@ import { useLocation } from 'wouter';
 import {
   BookOpen,
   Frame,
-  ChevronsDownUp,
-  ChevronsUpDown,
   Eye,
   EyeOff,
   LayoutGrid,
@@ -32,7 +30,6 @@ import {
   Pencil,
   Plus,
   TriangleAlert,
-  Unlink,
   Waypoints,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -48,8 +45,6 @@ import {
   entryFit,
   hitOnBoard,
   insideOnBoard,
-  nameSources,
-  isLooseThread,
   looseClocks,
   reputeOf,
   threadLive,
@@ -71,17 +66,9 @@ import {
   type Thread,
   type ThreadState,
 } from '../../domain/schema';
-import {
-  boardWeb,
-  dropSuggestions,
-  isStoryTied,
-  pinExists,
-  storyTiesOf,
-  type BoardKnot,
-  type WebString,
-} from '../../domain/threadWeb';
+import { dropSuggestions, pinExists } from '../../domain/threadWeb';
+import { linkOffers, whiteboardCards, type LinkOffer } from '../../domain/whiteboard';
 import { searchWorld } from '../../shell/search';
-import { parentChoices } from '../../domain/storySheet';
 import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
 import { formatDayMonth } from '../../domain/time/calendar';
@@ -105,32 +92,23 @@ import {
 import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
+  applyLinkOffer,
+  bringOntoBoard,
+  takeOffWhiteboard,
   patchStory,
   addBoardArea,
   addSubStory,
-  setPartsFolded,
   setStoryParent,
   connectOnBoard,
   moveBoardArea,
   patchBoardArea,
   removeBoardArea,
   moveThread,
-  moveThreads,
   newStory,
   pinToCard,
   placeManyOnBoard,
   placeOnBoard,
-  setArticleOn,
-  setHintLead,
-  setStoryUnfolded,
-  setStoryTieWord,
-  setTieWord,
   takeFreeOffBoard,
-  takeOffBoard,
-  detachName,
-  tieStories,
-  untieStories,
-  untieThreads,
   writeLinkedThread,
   writeOnBoard,
   removeBoardLink,
@@ -146,7 +124,6 @@ import { ThreadWeb, findHint } from './WebParts';
 import { useHoldDraft } from '../../ui/drafts';
 import { addFromWriting } from '../welt/writing';
 import { KIND_LABEL } from '../../domain/derive';
-import { relationLabel } from '../../domain/relations';
 import type { EntityKind } from '../../domain/schema';
 import { ThreadDialog } from './Dialogs';
 import { AttachDialog } from './LooseDialogs';
@@ -171,14 +148,16 @@ export default function FaedenPage() {
   const db = useDb();
   const data = useData();
   const [view, setView] = useState<BoardView>('truth');
-  /** Die gewählte Karte (`story:…`, `thread:…`) oder der gewählte Name (`node:…`). */
+  const truth = view === 'truth';
+  /** Die gewählte Karte (`story:…`, `thread:…`) oder der gewählte Name (`node:…`, `article:…`). */
   const [selected, setSelected] = useState<string | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(null);
 
   const cards = useMemo(() => boardCards(data, view), [data, view]);
-  // Auf dem Brett liegen die Geschichten – und die losen Fäden, die hingelegt wurden.
-  const open = useMemo(() => cards.filter((card) => !card.closed && card.onBoard), [cards]);
-  const links = useMemo(() => touches(open), [open]);
+  /** Was auf dem Whiteboard liegt: Geschichten, hingelegte Fäden – nichts hängt von selbst daran. */
+  const board = useMemo(() => whiteboardCards(data, cards, view), [data, cards, view]);
+  const open = useMemo(() => board.filter((card) => !card.closed), [board]);
+  const links = useMemo(() => touches(cards.filter((c) => !c.closed && c.onBoard)), [cards]);
   const closed = cards.filter((card) => card.closed);
   /** Die losen Fäden – sie stehen in der Liste neben dem Brett. */
   const loose = useMemo(() => looseThreads(data, view, cards), [data, view, cards]);
@@ -186,32 +165,29 @@ export default function FaedenPage() {
   const looseCount = loose.filter((row) => !row.resting).length;
   /** Uhren, die zu keiner Geschichte gehören – sie lassen sich zu einer machen. */
   const orphans = useMemo(() => looseClocks(data), [data]);
-  const current = cards.find((card) => card.key === selected) ?? null;
+  const current =
+    board.find((card) => card.key === selected) ??
+    cards.find((card) => card.key === selected) ??
+    null;
   /** Der Seitenteil: die gewählte Karte – oder die Liste der losen Fäden. */
   const [side, setSide] = useState<'card' | 'loose'>(() => (loose.length ? 'loose' : 'card'));
-  /** Der lose Faden, der in der Liste gleich im Bild stehen soll. */
   const [looseFocus, setLooseFocus] = useState<string | null>(null);
-  /** Suche und Auswahl der Liste – sie bleiben, wenn zwischendurch eine Karte angesehen wird. */
   const [looseQuery, setLooseQuery] = useState('');
   const [loosePicked, setLoosePicked] = useState<ReadonlySet<string>>(new Set());
-  /** Zeigt die gewählte Karte – die Liste springt danach nicht mehr zu einem alten Faden. */
   const showCard = () => {
     setSide('card');
     setLooseFocus(null);
   };
-  /** Zeigt einen losen Faden in der Liste – ohne Suche, damit er sicher dasteht. */
   const showLoose = (threadId: string) => {
     setLooseFocus(threadId);
     setLooseQuery('');
     setSide('loose');
   };
-  /**
-   * Wählt eine Karte. Ein loser Faden, der nicht auf dem Brett liegt, steht in der Liste – dort
-   * wird er gezeigt.
-   */
+  /** Wählt eine Karte. Ein loser Faden, der nicht auf dem Brett liegt, steht in der Liste. */
   const select = (key: string | null) => {
     const card = key ? cards.find((entry) => entry.key === key) : undefined;
-    if (card && !card.story && !card.closed && !card.onBoard) {
+    const lying = key ? board.some((entry) => entry.key === key) : false;
+    if (card && !card.story && !card.closed && !lying) {
       showLoose(card.threads[0]!.id);
       setSelected(null);
       return;
@@ -219,7 +195,6 @@ export default function FaedenPage() {
     setSelected(key);
     if (key) showCard();
   };
-  // Aus der Suche geöffnet: Die gesuchte Karte ist gleich gewählt.
   useFocus(['card'], (focus) => select(focus.key));
 
   // Die Pinnwand: frei verschieben, vergrößern, Karten und Namen ziehen.
@@ -229,17 +204,20 @@ export default function FaedenPage() {
   const [moving, setMoving] = useState<Record<string, Spot> | null>(null);
   /** Mehrere gewählte Stücke (Umschalt-Klick, Rahmen) – sie ziehen gemeinsam. */
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  /** Die gewählte Schnur. */
+  /** Die gewählte Schnur (`state.boardLinks`). */
   const [lineKey, setLineKey] = useState<string | null>(null);
-  /** Der Rahmen, der gerade aufgezogen wird. */
   const [band, setBand] = useState<{ a: Spot; b: Spot } | null>(null);
   /** Hier wird gerade ein Faden hingeschrieben (Doppelklick ins Leere). */
   const [drafting, setDrafting] = useState<Spot | null>(null);
-  /** Der gewählte Bereich – und der, dessen Namen gerade geschrieben wird. */
   const [areaSel, setAreaSel] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
-  /** Ein Bereich, der gerade gezogen oder größer gezogen wird – bis er losgelassen wird. */
   const [areaMove, setAreaMove] = useState<BoardArea | null>(null);
+  /** Eine Schnur ins Leere: Hier wird gesucht, was an ihr Ende kommt. */
+  const [dropAsk, setDropAsk] = useState<{ from: string; at: Spot } | null>(null);
+  /** Zwei Namen: das Fenster für eine Beziehung der Welt. */
+  const [relating, setRelating] = useState<{ self: Entity; otherId: string } | null>(null);
+  /** Eine Schnur, die gerade gezogen wird – von wo, bis wohin. */
+  const [linking, setLinking] = useState<{ from: string; start: Spot; end: Spot } | null>(null);
   const clearPicks = () => {
     setPicked(new Set());
     setLineKey(null);
@@ -247,54 +225,43 @@ export default function FaedenPage() {
   };
   const [, navigate] = useLocation();
   /** Eine neue Geschichte: Sie entsteht leer und wird auf ihrem Blatt geschrieben. */
-  const write = (at?: Spot) => {
+  const write = () => {
     const story = newStory(db);
-    if (at) placeOnBoard(db, `story:${story.id}`, at.x, at.y);
     navigate(`/geschichte/${story.id}`);
   };
   const placed = data.state.board;
-  /** Das Netz der Fäden: Knoten an den Geschichten und Schnüre zwischen Fäden. */
-  const web = useMemo(() => boardWeb(data, cards, view), [data, cards, view]);
-  /** Namen und Artikel, die eine Stelle haben – frei hingelegt oder verschoben. */
+  /** Namen und Artikel, die eine Stelle haben – sie liegen auf dem Brett. */
   const free = useMemo(
     () => Object.keys(placed).filter((key) => pinExists(data, key)),
     [placed, data],
   );
   const layout = useMemo(
-    () => boardLayout(web.cards, moving ? { ...placed, ...moving } : placed, web.knots, free),
-    [web, placed, moving, free],
+    () => boardLayout(board, moving ? { ...placed, ...moving } : placed, [], free),
+    [board, placed, moving, free],
   );
   const pin = layout.pins.find((entry) => entry.key === selected) ?? null;
-  const knot = web.knots.find((entry) => entry.key === selected) ?? null;
-  /** Wo eine Schnur an etwas ansetzt: Karte (oben), Knoten oder Name (Mitte). */
+  /** Wo eine Schnur ansetzt: an einer Karte oben, an einem Namen in der Mitte. */
   const anchorOf = (key: string): Spot | null => {
     const card = layout.cards[key];
     if (card) return { x: card.x, y: card.y + 56 };
-    const knotAt = layout.knots[key];
-    // Am Knoten setzt die Schnur an seinem Kreis an.
-    if (knotAt) return { x: knotAt.x + 12, y: knotAt.y };
     const at = layout.pins.find((entry) => entry.key === key);
     return at ? { x: at.x, y: at.y } : null;
   };
-  /** Die Stelle eines Stücks in den Maßen, in denen das Brett sie speichert. */
   const spotOf = (key: string): Spot | null =>
-    layout.cards[key] ??
-    layout.knots[key] ??
-    layout.pins.find((entry) => entry.key === key) ??
-    null;
-  /** Eine Schnur, die gerade frei gezogen wird – von wo, bis wohin. */
-  const [linking, setLinking] = useState<{ from: string; start: Spot; end: Spot } | null>(null);
-  /** Zwei Geschichten zusammengebracht: verbinden oder als Teil einhängen – hier wird gefragt. */
-  const [choosing, setChoosing] = useState<{ fromId: string; toId: string; at: Spot } | null>(null);
-  /** Eine Schnur ins Leere: Hier wird gesucht, was an ihr Ende kommt. */
-  const [dropAsk, setDropAsk] = useState<{ from: string; at: Spot } | null>(null);
-  /** Zwei Namen verbunden: Das Fenster für eine Beziehung der Welt. */
-  const [relating, setRelating] = useState<{ self: Entity; otherId: string } | null>(null);
+    layout.cards[key] ?? layout.pins.find((entry) => entry.key === key) ?? null;
+  /** Die Mitte dessen, was gerade im Bild ist – dort entsteht Neues. */
+  const viewCenter = (): Spot => {
+    const rect = frame.current?.getBoundingClientRect();
+    return rect
+      ? wall.toBoard(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      : { x: 0, y: 0 };
+  };
+
+  /** Eine Schnur vom Griff ziehen: auf ein Stück = verbunden; ins Leere = Suche dort. */
   const startLink = (key: string) => (event: PointerEvent) => {
     event.stopPropagation();
     const start = anchorOf(key);
-    if (!start || view !== 'truth') return;
-    // Die Schnur beginnt am Ding; wohin sie fällt, sagt die Stelle unter dem Zeiger.
+    if (!start || !truth) return;
     const grip = wall.toBoard(event.clientX, event.clientY);
     wall.drag(event, {
       onMove: (dx, dy) => setLinking({ from: key, start, end: { x: grip.x + dx, y: grip.y + dy } }),
@@ -303,26 +270,19 @@ export default function FaedenPage() {
         if (!moved) return;
         const end = { x: grip.x + dx, y: grip.y + dy };
         const target = hitOnBoard(layout, end);
-        // Ins Leere gezogen: Dort öffnet sich die Suche – was gewählt wird, kommt ans Ende.
         if (!target) {
           setDropAsk({ from: key, at: end });
           return;
         }
         if (target === key) return;
         const result = connectOnBoard(db, key, target);
-        if (result.done) {
+        if (result.done)
           toast({
             title: result.title,
             body: result.body,
             action: { label: 'Rückgängig', run: result.undo },
           });
-          return;
-        }
-        if ('choose' in result) {
-          setChoosing({ ...result.choose, at: { x: grip.x + dx, y: grip.y + dy } });
-          return;
-        }
-        if (result.note) toast({ title: 'Nicht verbunden', body: result.note });
+        else if (result.note) toast({ title: 'Schon verbunden', body: result.note });
       },
     });
   };
@@ -334,20 +294,16 @@ export default function FaedenPage() {
           at,
           { x: at.x, y: at.y + BOARD_CARD.height },
         ]),
-        ...Object.values(layout.knots),
         ...layout.pins,
         ...data.state.boardAreas.flatMap((area) => [
           { x: area.x, y: area.y },
           { x: area.x + area.w, y: area.y + area.h },
         ]),
       ],
-      // Die Karten sind breit: Platz für eine halbe Karte am Rand.
       140,
       least,
     );
-  // Beim Öffnen liegt das Brett im Bild – aber nie so klein, dass man nichts mehr lesen kann.
   useLayoutEffect(() => showAll(0.62), []);
-  /** Eine Karte, die gerade aufs Brett kam: Sobald sie ausgelegt ist, rückt alles ins Bild. */
   const [arriving, setArriving] = useState<string | null>(null);
   useLayoutEffect(() => {
     if (!arriving || !layout.cards[arriving]) return;
@@ -355,144 +311,32 @@ export default function FaedenPage() {
     setArriving(null);
   }, [arriving, layout]);
 
-  /** Was zum Gewählten gehört – alles andere tritt zurück. */
-  const related = useMemo(() => {
-    if (!selected) return null;
-    const keys = new Set([selected]);
-    // Knoten gehören zu ihrer Karte – und über Schnüre zu den Fäden am anderen Ende.
-    for (const entry of web.knots)
-      if (entry.key === selected || entry.cardKey === selected) {
-        keys.add(entry.key);
-        keys.add(entry.cardKey);
-      }
-    for (const line of web.strings)
-      if (keys.has(line.a) || keys.has(line.b)) {
-        keys.add(line.a);
-        keys.add(line.b);
-      }
-    for (const entry of layout.pins) {
-      if (entry.key === selected) entry.cards.forEach((key) => keys.add(key));
-      else if (entry.cards.includes(selected)) {
-        keys.add(entry.key);
-        // Karten, die über diesen Namen berührt werden, bleiben sichtbar.
-        entry.cards.forEach((key) => keys.add(key));
-      }
-    }
-    return keys;
-  }, [selected, layout.pins, web]);
-
-  /** Schnüre, die der Spielleiter ausgeblendet hat – nur das Bild, nie die Welt. */
-  const hidden = new Set(data.state.boardHidden);
-  const strings = layout.pins.flatMap((entry) =>
-    entry.cards.flatMap((key) => {
-      const from = anchorOf(key);
-      if (!from) return [];
-      // Ein Faden hängt leicht durch.
-      const [mx, my] = [(from.x + entry.x) / 2, (from.y + entry.y) / 2 + 28];
-      const lineId = `name:${key}|${entry.key}`;
-      if (hidden.has(lineId)) return [];
-      return [
-        {
-          key: `${key}|${entry.key}`,
-          lineId,
-          owner: key,
-          entityId: entry.id,
-          article: entry.article,
-          mid: { x: mx, y: (from.y + entry.y) / 2 + 14 },
-          d: `M ${from.x} ${from.y} Q ${mx} ${my} ${entry.x} ${entry.y}`,
-          shared: entry.cards.length > 1,
-          active: selected === key || selected === entry.key || lineKey === lineId,
-        },
-      ];
-    }),
-  );
-
-  /** Die Schnüre von einer Geschichte zu ihren Knoten – kurz, ohne Durchhang. */
-  const knotStrings = web.knots.flatMap((entry) => {
-    const card = layout.cards[entry.cardKey];
-    const at = layout.knots[entry.key];
-    if (!card || !at) return [];
-    const lineId = `knot:${entry.key}`;
-    if (hidden.has(lineId)) return [];
-    return [
-      {
-        key: `${entry.cardKey}|${entry.key}`,
-        lineId,
-        knot: entry,
-        mid: { x: (card.x + at.x) / 2, y: (card.y + 56 + at.y) / 2 },
-        d: `M ${card.x} ${card.y + 56} L ${at.x + 6} ${at.y}`,
-        active: selected === entry.key || selected === entry.cardKey || lineKey === lineId,
-      },
-    ];
-  });
-  /** Die Schnüre des Netzes: Faden an Faden (fest), Hinweis führt zu (gestrichelt). */
-  const webStrings = web.strings.flatMap((line) => {
-    if (line.kind === 'part' && hidden.has(`web:${line.key}`)) return [];
-    const [a, b] = [anchorOf(line.a), anchorOf(line.b)];
+  /** Die Schnüre des Whiteboards – nur die, die der Spielleiter gezogen hat. */
+  const linkStrings = data.state.boardLinks.flatMap((link) => {
+    if (!truth) return [];
+    const [a, b] = [anchorOf(link.a), anchorOf(link.b)];
     if (!a || !b) return [];
-    const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 36];
+    const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 30];
     return [
       {
-        line,
-        a,
-        b,
-        mid: { x: mx, y: (a.y + b.y) / 2 + 18 },
+        link,
+        mid: { x: mx, y: (a.y + b.y) / 2 + 15 },
         d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`,
       },
     ];
   });
-
-  /** Steht zwischen den beiden Namen einer freien Schnur eine Beziehung der Welt – in Worten. */
-  const linkRelation = (link: { a: string; b: string }): string => {
-    if (!link.a.startsWith('node:') || !link.b.startsWith('node:')) return '';
-    const [a, b] = [link.a.slice(5), link.b.slice(5)];
-    const relation = Object.values(data.relations).find(
-      (entry) =>
-        !entry.ended &&
-        ((entry.from === a && entry.to === b) || (entry.from === b && entry.to === a)),
-    );
-    return relation ? relationLabel(relation, relation.from === a ? 'from' : 'to') : '';
-  };
-  /** Freie Schnüre: zwei Stücke, die der Spielleiter verbunden hat – nur in seiner Sicht. */
-  const linkStrings =
-    view === 'truth'
-      ? data.state.boardLinks.flatMap((link) => {
-          const [a, b] = [anchorOf(link.a), anchorOf(link.b)];
-          if (!a || !b) return [];
-          const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 30];
-          return [
-            {
-              link,
-              a,
-              b,
-              mid: { x: mx, y: (a.y + b.y) / 2 + 15 },
-              d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`,
-            },
-          ];
-        })
-      : [];
-
-  /** Die gewählte Schnur – was sie verbindet und was sich mit ihr tun lässt. */
-  const chosenLine: ChosenLine | null = (() => {
-    if (!lineKey) return null;
-    const free = linkStrings.find(({ link }) => `link:${link.id}` === lineKey);
-    if (free) return { kind: 'link', at: free.mid, link: free.link };
-    const name = strings.find((line) => line.lineId === lineKey);
-    if (name)
-      return {
-        kind: 'name',
-        at: name.mid,
-        owner: name.owner,
-        entityId: name.entityId,
-        article: name.article,
-      };
-    const knotLine = knotStrings.find((line) => line.lineId === lineKey);
-    if (knotLine) return { kind: 'knot', at: knotLine.mid, knot: knotLine.knot };
-    const webLine = webStrings.find(({ line }) => `web:${line.key}` === lineKey);
-    if (webLine) return { kind: 'web', at: webLine.mid, line: webLine.line };
-    return null;
-  })();
-  /** Wählt eine Schnur (ein Klick auf sie). */
+  /** Was zum Gewählten gehört – über seine Schnüre. Alles andere tritt zurück. */
+  const related = useMemo(() => {
+    if (!selected) return null;
+    const keys = new Set([selected]);
+    for (const link of data.state.boardLinks)
+      if (link.a === selected || link.b === selected) {
+        keys.add(link.a);
+        keys.add(link.b);
+      }
+    return keys;
+  }, [selected, data.state.boardLinks]);
+  const chosen = linkStrings.find(({ link }) => link.id === lineKey) ?? null;
   const pickLine = (id: string) => (event: PointerEvent) => {
     event.stopPropagation();
     if (event.button !== 0) return;
@@ -501,177 +345,25 @@ export default function FaedenPage() {
     setPicked(new Set());
     setLineKey(lineKey === id ? null : id);
   };
-  /** Löst die gewählte Schnur – mit Meldung und Rückgängig; manche lassen sich nur dort lösen, wo sie entstehen. */
-  /**
-   * Schnüre, die aus der Welt folgen (Name an Geschichte, Faden an Geschichte, Teil von): Lösen
-   * heißt dort nur „nicht mehr zeigen“ – an der Geschichte ändert sich nichts.
-   */
-  const shownOnly = (line: ChosenLine): boolean =>
-    line.kind === 'name' ||
-    line.kind === 'knot' ||
-    (line.kind === 'web' && line.line.kind === 'part');
-  /** Blendet die gewählte Schnur aus – nur das Bild. */
-  const hideLine = () => {
-    if (!lineKey) return;
-    const undo = setStringsHidden(db, [lineKey], true);
+  const dropLine = (id: string) => {
+    const undo = removeBoardLink(db, id);
     setLineKey(null);
     if (undo)
       toast({
-        title: 'Schnur ausgeblendet',
-        body: 'An der Geschichte ändert sich nichts. Unten bei den Werkzeugen holst du sie zurück.',
+        title: 'Schnur gelöst',
+        body: 'Nur die Schnur – was du in der Welt eingetragen hast, bleibt.',
         action: { label: 'Rückgängig', run: undo },
       });
   };
-  /** Was die Schnur in der Welt bedeutet, auch dort lösen – nur auf ausdrücklichen Wunsch. */
-  const releaseLine = () => {
-    const line = chosenLine;
-    if (!line) return;
-    const done = (title: string, body: string, undo: (() => void) | null) => {
-      setLineKey(null);
-      if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
-    };
-    if (line.kind === 'link') {
-      done(
-        'Schnur gelöst',
-        'Was in der Welt eingetragen ist, bleibt.',
-        removeBoardLink(db, line.link.id),
-      );
-      return;
-    }
-    if (line.kind === 'web' && line.line.kind === 'part') {
-      const [parent, part] = [data.stories[line.line.from], data.stories[line.line.to]];
-      done(
-        'Herausgelöst',
-        `„${part?.title ?? ''}“ steht jetzt für sich, nicht mehr als Teil von „${parent?.title ?? ''}“.`,
-        setStoryParent(db, line.line.to, null),
-      );
-      return;
-    }
-    if (line.kind === 'web' && line.line.kind === 'story') {
-      const [a, b] = [data.stories[line.line.from], data.stories[line.line.to]];
-      done(
-        'Verbindung gelöst',
-        `„${a?.title ?? ''}“ – „${b?.title ?? ''}“`,
-        untieStories(db, line.line.from, line.line.to),
-      );
-      return;
-    }
-    if (line.kind === 'web') {
-      const [a, b] = [data.threads[line.line.from], data.threads[line.line.to]];
-      if (line.line.kind === 'tie')
-        done(
-          'Verbindung gelöst',
-          `„${a?.title ?? ''}“ – „${b?.title ?? ''}“`,
-          untieThreads(db, line.line.from, line.line.to),
-        );
-      else if (line.line.hintId)
-        done(
-          'Hinweis führt nirgendwo mehr hin',
-          `„${line.line.word}“ führte zu „${b?.title ?? ''}“.`,
-          setHintLead(db, line.line.from, line.line.hintId, null),
-        );
-      return;
-    }
-    if (line.kind === 'knot') {
-      const thread = data.threads[line.knot.thread.id];
-      if (thread)
-        done(
-          'Von der Geschichte gelöst',
-          `„${thread.title}“ ist jetzt ein loser Faden.`,
-          moveThread(db, thread.id, null),
-        );
-      return;
-    }
-    const cardKey = line.owner.startsWith('knot:') ? `thread:${line.owner.slice(5)}` : line.owner;
-    if (line.article) {
-      if (!nameIsPinned(cardKey, line.entityId, true)) return;
-      const [sort, id] = cardKey.split(':') as [string, string];
-      done(
-        'Gelöst',
-        `„${data.articles[line.entityId]?.title ?? ''}“ gehört nicht mehr zu „${ownerTitle(line.owner)}“.`,
-        setArticleOn(db, sort === 'story' ? 'stories' : 'threads', id, line.entityId, false),
-      );
-      return;
-    }
-    const entity = data.entities[line.entityId];
-    // Gelöst wird überall, worüber der Name an der Karte hängt – Fäden als Knoten hängen für sich.
-    const detached = detachName(db, line.owner, line.entityId, knotThreadsOf(line.owner));
-    if (!detached) return;
-    // Hing der Name nur hier, verschwindet er ganz vom Brett – auch wenn er einmal verschoben wurde.
-    const pinKey = `node:${line.entityId}`;
-    const alone =
-      layout.pins.find((entry) => entry.key === pinKey)?.cards.every((key) => key === line.owner) ??
-      false;
-    const undoSpot = alone ? takeFreeOffBoard(db, [pinKey]) : null;
-    done(
-      'Gelöst',
-      `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“ (${detached.sources.join(', ')}).`,
-      () =>
-        db.batch(() => {
-          detached.undo();
-          undoSpot?.();
-        }),
-    );
-  };
-  /** Die Fäden einer Geschichte, die als Knoten für sich hängen – ihre Namen gehören ihnen. */
-  const knotThreadsOf = (cardKey: string): Set<string> =>
-    new Set(web.knots.filter((knot) => knot.cardKey === cardKey).map((knot) => knot.thread.id));
-  /** Ein Name hängt an einer Karte, weil er dort angeheftet ist – nicht über Hinweis, Uhr oder Szene. */
-  const nameIsPinned = (cardKey: string, id_: string, article = false): boolean => {
-    const [sort, id] = cardKey.split(':') as [string, string];
-    const doc = sort === 'story' ? data.stories[id] : data.threads[id];
-    return (article ? doc?.articleIds : doc?.refs)?.includes(id_) === true;
-  };
-  const ownerTitle = (key: string): string => {
-    const threadId =
-      key.startsWith('knot:') || key.startsWith('thread:') ? key.slice(key.indexOf(':') + 1) : null;
-    if (threadId) return data.threads[threadId]?.title ?? '';
-    return data.stories[key.slice(6)]?.title ?? '';
-  };
-  /** Nimmt die gewählten Stücke vom Brett – lose Fäden; alles andere bleibt, mit einem Satz dazu. */
-  const takeOff = (all: readonly string[]) => {
-    // Was frei liegt (an nichts hängt), geht mit seiner Stelle vom Brett.
-    const loosePins = all.filter((key) =>
-      layout.pins.some((entry) => entry.key === key && entry.cards.length === 0),
-    );
-    const keys = all.filter((key) => !loosePins.includes(key));
-    const undoPins = takeFreeOffBoard(db, loosePins);
-    const threads = takeOffBoard(db, keys);
-    const result = {
-      taken: threads.taken + (undoPins ? loosePins.length : 0),
-      kept: threads.kept,
-      undo:
-        undoPins || threads.undo
-          ? () =>
-              db.batch(() => {
-                threads.undo?.();
-                undoPins?.();
-              })
-          : null,
-    };
-    if (result.taken) {
-      clearPicks();
-      setSelected(null);
-    }
+
+  /** Nimmt die gewählten Stücke vom Brett – nie aus der Welt. */
+  const takeOff = (keys: readonly string[]) => {
+    const result = takeOffWhiteboard(db, keys);
+    clearPicks();
+    setSelected(null);
     toast({
-      title: result.taken
-        ? result.taken === 1
-          ? 'Vom Brett genommen'
-          : `${result.taken} vom Brett genommen`
-        : 'Bleibt auf dem Brett',
-      body: [
-        threads.taken === 1
-          ? 'Der Faden steht weiter unter „Lose Fäden“.'
-          : threads.taken
-            ? 'Die Fäden stehen weiter unter „Lose Fäden“.'
-            : '',
-        undoPins ? 'Namen und Artikel bleiben in der Welt, nur nicht mehr auf dem Brett.' : '',
-        result.kept
-          ? 'Geschichten, Fäden einer Geschichte und Namen, an denen etwas hängt, liegen, weil sie dazugehören.'
-          : '',
-      ]
-        .filter(Boolean)
-        .join(' '),
+      title: result.taken === 1 ? 'Vom Brett genommen' : `${result.taken} vom Brett genommen`,
+      body: 'Nur vom Brett – in der Welt bleibt alles. Über die Suche oben links holst du es zurück.',
       ...(result.undo ? { action: { label: 'Rückgängig', run: result.undo } } : {}),
     });
   };
@@ -687,16 +379,15 @@ export default function FaedenPage() {
         return;
       }
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      if (view !== 'truth') return;
+      if (!truth) return;
       if (areaSel) {
         event.preventDefault();
         dropArea(areaSel);
         return;
       }
-      if (chosenLine) {
+      if (lineKey) {
         event.preventDefault();
-        if (shownOnly(chosenLine)) hideLine();
-        else releaseLine();
+        dropLine(lineKey);
         return;
       }
       const keys = picked.size ? [...picked] : selected ? [selected] : [];
@@ -708,77 +399,28 @@ export default function FaedenPage() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  /** Die Geschichte, auf der ein gezogener loser Faden gerade liegt – dort würde er angehängt. */
-  const [dropOn, setDropOn] = useState<string | null>(null);
-  const truth = view === 'truth';
-  /** Die Geschichte unter einer Stelle des Bretts (Mitte der Oberkante einer gezogenen Karte). */
-  const storyUnder = (x: number, y: number, except: string): string | null =>
-    open.find((card) => {
-      const at = layout.cards[card.key];
-      return (
-        card.story !== null &&
-        card.key !== except &&
-        at !== undefined &&
-        Math.abs(x - at.x) < BOARD_CARD.width / 2 &&
-        y + 30 > at.y &&
-        y + 30 < at.y + BOARD_CARD.height
-      );
-    })?.key ?? null;
-  /**
-   * Hängt lose Fäden an eine Geschichte – mit Meldung und Rückgängig. Vom Brett aus ist danach
-   * die Geschichte gewählt; aus der Liste gezogen bleibt die Liste offen, für den nächsten.
-   */
-  const attach = (threadIds: readonly string[], storyKey: string, show: boolean) => {
-    const story = data.stories[storyKey.slice('story:'.length)];
-    const undo = story ? moveThreads(db, threadIds, story.id) : null;
-    if (!story || !undo) return;
-    const first = data.threads[threadIds[0]!];
-    if (show) select(storyKey);
-    toast({
-      title: 'An die Geschichte gehängt',
-      body:
-        threadIds.length === 1
-          ? `„${first?.title ?? ''}“ ist jetzt eine Frage von „${story.title}“.`
-          : `${threadIds.length} Fäden sind jetzt Fragen von „${story.title}“.`,
-      action: { label: 'Rückgängig', run: undo },
-    });
-  };
-  /** Ziehen legt hin, ein Klick wählt. Ein loser Faden, auf eine Geschichte gezogen, hängt an ihr. */
+  /** Ziehen legt hin, ein Klick wählt, Umschalt-Klick wählt dazu. Mehrere ziehen gemeinsam. */
   const grab = (key: string, at: Spot) => (event: PointerEvent) => {
     event.stopPropagation();
     setLineKey(null);
     setAreaSel(null);
     const shift = event.shiftKey;
-    // Ist das Stück Teil einer Auswahl, zieht die ganze Auswahl mit.
     const group = picked.has(key) && picked.size > 1 ? [...picked] : [key];
     const base: Record<string, Spot> = {};
     for (const each of group) {
       const spot = each === key ? at : spotOf(each);
       if (spot) base[each] = { x: spot.x, y: spot.y };
     }
-    const threadId = key.startsWith('thread:') ? key.slice('thread:'.length) : null;
-    const thread = threadId ? data.threads[threadId] : undefined;
-    const hangs =
-      group.length === 1 &&
-      truth &&
-      ((thread !== undefined && isLooseThread(data, thread)) || key.startsWith('story:'));
-    const target = (dx: number, dy: number) =>
-      hangs ? storyUnder(at.x + dx, at.y + dy, key) : null;
     const shifted = (dx: number, dy: number) =>
       Object.fromEntries(
         Object.entries(base).map(([each, spot]) => [each, { x: spot.x + dx, y: spot.y + dy }]),
       );
     wall.drag(event, {
-      onMove: (dx, dy) => {
-        setMoving(shifted(dx, dy));
-        setDropOn(target(dx, dy));
-      },
+      onMove: (dx, dy) => setMoving(shifted(dx, dy)),
       onEnd: (moved, dx, dy) => {
         setMoving(null);
-        setDropOn(null);
         if (!moved) {
           if (shift) {
-            // Umschalt-Klick: zur Auswahl dazu oder wieder heraus.
             const next = new Set(picked);
             if (selected && !next.size) next.add(selected);
             if (next.has(key)) next.delete(key);
@@ -791,31 +433,14 @@ export default function FaedenPage() {
           select(key === selected ? null : key);
           return;
         }
-        const story = target(dx, dy);
-        if (story && threadId) attach([threadId], story, true);
-        else if (story && key.startsWith('story:'))
-          // Eine Geschichte auf eine andere gezogen: Sie bleibt liegen, wo sie war – gefragt wird,
-          // ob sie ein Teil davon ist oder nur verbunden.
-          setChoosing({
-            fromId: key.slice(6),
-            toId: story.slice(6),
-            at: { x: at.x + dx, y: at.y + dy + 40 },
-          });
-        else placeManyOnBoard(db, shifted(dx, dy));
+        placeManyOnBoard(db, shifted(dx, dy));
       },
     });
   };
+
   const areas = data.state.boardAreas.map((area) =>
     areaMove && areaMove.id === area.id ? areaMove : area,
   );
-  /** Die Mitte dessen, was gerade im Bild ist – dort entsteht Neues. */
-  const viewCenter = (): Spot => {
-    const rect = frame.current?.getBoundingClientRect();
-    return rect
-      ? wall.toBoard(rect.left + rect.width / 2, rect.top + rect.height / 2)
-      : { x: 0, y: 0 };
-  };
-  /** Ein neuer Bereich – um die Auswahl, sonst in der Mitte des Bildes; gleich zum Benennen. */
   const newArea = (keys: readonly string[]) => {
     const { area, undo } = addBoardArea(db, areaAround(layout, keys, viewCenter()));
     setSelected(null);
@@ -825,9 +450,7 @@ export default function FaedenPage() {
     setNaming(area.id);
     toast({
       title: 'Bereich angelegt',
-      body: keys.length
-        ? 'Um die Auswahl gelegt. Gib ihm einen Namen – verschiebst du ihn, zieht mit, was darin liegt.'
-        : 'Gib ihm einen Namen und leg hinein, was zusammengehört.',
+      body: 'Gib ihm einen Namen – verschiebst du ihn, zieht mit, was darin liegt.',
       action: { label: 'Rückgängig', run: undo },
     });
   };
@@ -842,7 +465,6 @@ export default function FaedenPage() {
         action: { label: 'Rückgängig', run: undo },
       });
   };
-  /** Ein Bereich am Namen gezogen: Er und alles darin wandert; ein Klick wählt ihn. */
   const grabArea = (area: BoardArea) => (event: PointerEvent) => {
     event.stopPropagation();
     if (naming === area.id) return;
@@ -875,7 +497,6 @@ export default function FaedenPage() {
       },
     });
   };
-  /** Die Ecke unten rechts: Der Bereich wird größer oder kleiner, sein Inhalt bleibt liegen. */
   const resizeArea = (area: BoardArea) => (event: PointerEvent) => {
     event.stopPropagation();
     wall.drag(event, {
@@ -887,7 +508,6 @@ export default function FaedenPage() {
       },
     });
   };
-  /** Mit gedrückter Umschalttaste im Leeren: einen Rahmen um mehrere Stücke aufziehen. */
   const startBand = (event: PointerEvent) => {
     const a = wall.toBoard(event.clientX, event.clientY);
     wall.drag(event, {
@@ -903,17 +523,11 @@ export default function FaedenPage() {
       },
     });
   };
-  /** Die Fäden, die gerade aus der Liste herübergezogen werden. */
+  /** Lose Fäden aus der Liste aufs Brett ziehen – sie liegen dort, wo sie losgelassen werden. */
   const dragged = (event: DragEvent): boolean => event.dataTransfer.types.includes(THREAD_DRAG);
-  const cardUnder = (event: DragEvent): string | null => {
-    const key = (event.target as HTMLElement).closest<HTMLElement>('[data-card]')?.dataset.card;
-    return key?.startsWith('story:') ? key : null;
-  };
-  /** Aus der Liste aufs Brett: auf eine Geschichte = anhängen, sonst liegt er dort als Karte. */
   const drop = (event: DragEvent) => {
     if (!dragged(event)) return;
     event.preventDefault();
-    setDropOn(null);
     let ids: string[] = [];
     try {
       ids = (JSON.parse(event.dataTransfer.getData(THREAD_DRAG)) as string[]).filter(
@@ -923,8 +537,6 @@ export default function FaedenPage() {
       return;
     }
     if (!ids.length) return;
-    const story = cardUnder(event);
-    if (story) return attach(ids, story, false);
     const at = wall.toBoard(event.clientX, event.clientY);
     const undos = db.batch(() =>
       ids.map((id, index) =>
@@ -936,7 +548,7 @@ export default function FaedenPage() {
     );
     toast({
       title: ids.length === 1 ? 'Aufs Brett gelegt' : `${ids.length} Fäden aufs Brett gelegt`,
-      body: 'Als Karte – von dort lässt er sich weiter auf eine Geschichte ziehen.',
+      body: 'Zieh eine Schnur von ihm weg – was sie bedeutet, wählst du an der Schnur.',
       action: {
         label: 'Rückgängig',
         run: () => db.batch(() => [...undos].reverse().forEach((undo) => undo?.())),
@@ -948,11 +560,26 @@ export default function FaedenPage() {
     requestAnimationFrame(() => showAll());
     toast({
       title: 'Brett aufgeräumt',
-      body: 'Wayfarer hat alles neu ausgelegt.',
+      body: 'Wayfarer hat die Geschichten neu ausgelegt; was du einzeln hingelegt hast, bleibt.',
       action: { label: 'Rückgängig', run: undo },
     });
   };
-  const isEmpty = cards.length === 0;
+  /** Holt etwas aufs Brett (Suche) – in die Mitte des Bildes – und wählt es. */
+  const bring = (key: string) => {
+    const at = viewCenter();
+    const undo = bringOntoBoard(db, key, at);
+    clearPicks();
+    setSelected(key);
+    showCard();
+    if (undo)
+      toast({
+        title: 'Aufs Brett geholt',
+        body: 'Zieh am Griff rechts eine Schnur zu etwas anderem.',
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  const hiddenStories = data.state.boardHidden.filter((key) => key.startsWith('story:'));
+  const isEmpty = cards.length === 0 && free.length === 0;
 
   return (
     <div className="wf-page wf-faden">
@@ -990,7 +617,7 @@ export default function FaedenPage() {
         <Button
           variant="primary"
           icon={<Plus />}
-          onClick={() => write()}
+          onClick={write}
           title="Eine neue Geschichte schreiben"
         >
           Geschichte
@@ -1007,7 +634,7 @@ export default function FaedenPage() {
           >
             {view === 'party'
               ? 'Sobald die Gruppe einen Faden kennt oder einen Hinweis findet, steht er hier.'
-              : 'Eine Geschichte ist ein Vorhaben: Jemand will etwas, und eine Uhr sagt, was geschieht, wenn niemand eingreift. Ein Faden ist eine Frage oder Spur, der die Gruppe folgen kann. Du schreibst beides – auf dem Brett verbinden Fäden jede Geschichte mit den Personen und Orten, an denen sie hängt.'}
+              : 'Das Fadenbrett ist dein Whiteboard: Leg Geschichten, Fäden, Personen und Orte hin und zieh Schnüre dazwischen. Was eine Schnur bedeutet, wählst du, wenn du willst.'}
           </EmptyState>
         </div>
       ) : (
@@ -1023,16 +650,13 @@ export default function FaedenPage() {
               });
             }}
             onDoubleClick={(event) => {
-              // Ein Satz, gleich dort hingeschrieben, wird ein loser Faden auf dem Brett.
-              if (view === 'truth') setDrafting(wall.toBoard(event.clientX, event.clientY));
+              if (truth) setDrafting(wall.toBoard(event.clientX, event.clientY));
             }}
             onDragOver={(event) => {
               if (!truth || !dragged(event)) return;
               event.preventDefault();
               event.dataTransfer.dropEffect = 'move';
-              setDropOn(cardUnder(event));
             }}
-            onDragLeave={() => setDropOn(null)}
             onDrop={drop}
           >
             <div className="wf-faden-layer" style={{ transform: wall.transform }}>
@@ -1053,38 +677,12 @@ export default function FaedenPage() {
                 />
               ))}
               <svg className="wf-faden-strings" aria-hidden>
-                {strings.map((line) => (
-                  <path
-                    key={line.key}
-                    d={line.d}
-                    data-shared={line.shared}
-                    data-active={line.active}
-                    data-dim={selected !== null && !line.active}
-                  />
-                ))}
-                {knotStrings.map((line) => (
-                  <path
-                    key={line.key}
-                    d={line.d}
-                    data-knot
-                    data-active={line.active}
-                    data-dim={related !== null && !line.active}
-                  />
-                ))}
-                {webStrings.map(({ line, d }) => (
-                  <path
-                    key={line.key}
-                    d={d}
-                    data-web={line.kind}
-                    data-dim={related !== null && !(related.has(line.a) && related.has(line.b))}
-                  />
-                ))}
                 {linkStrings.map(({ link, d }) => (
                   <path
                     key={`link:${link.id}`}
                     d={d}
                     data-web="link"
-                    data-chosen-link={lineKey === `link:${link.id}` || undefined}
+                    data-chosen-link={lineKey === link.id || undefined}
                     data-dim={related !== null && !(related.has(link.a) && related.has(link.b))}
                   />
                 ))}
@@ -1094,24 +692,14 @@ export default function FaedenPage() {
                     data-linking
                   />
                 )}
-                {webStrings
-                  .filter(({ line }) => lineKey === `web:${line.key}`)
-                  .map(({ line, d }) => (
-                    <path key={`chosen:${line.key}`} d={d} data-chosen />
-                  ))}
                 {/* Breite, unsichtbare Spuren über den Schnüren: Daran klickt man sie an. */}
                 {truth &&
-                  [
-                    ...strings.map((line) => ({ id: line.lineId, d: line.d })),
-                    ...knotStrings.map((line) => ({ id: line.lineId, d: line.d })),
-                    ...webStrings.map(({ line, d }) => ({ id: `web:${line.key}`, d })),
-                    ...linkStrings.map(({ link, d }) => ({ id: `link:${link.id}`, d })),
-                  ].map((line) => (
+                  linkStrings.map(({ link, d }) => (
                     <path
-                      key={`hit:${line.id}`}
+                      key={`hit:${link.id}`}
                       className="wf-faden-hit"
-                      d={line.d}
-                      onPointerDown={pickLine(line.id)}
+                      d={d}
+                      onPointerDown={pickLine(link.id)}
                     />
                   ))}
               </svg>
@@ -1126,36 +714,27 @@ export default function FaedenPage() {
                   }}
                 />
               )}
-              {chosenLine && (
-                <LineMenu
-                  line={chosenLine}
-                  sources={
-                    chosenLine.kind !== 'name'
-                      ? []
-                      : chosenLine.article
-                        ? nameIsPinned(
-                            chosenLine.owner.startsWith('knot:')
-                              ? `thread:${chosenLine.owner.slice(5)}`
-                              : chosenLine.owner,
-                            chosenLine.entityId,
-                            true,
-                          )
-                          ? ['zugeordnet']
-                          : []
-                        : nameSources(
-                            data,
-                            chosenLine.owner,
-                            chosenLine.entityId,
-                            knotThreadsOf(chosenLine.owner),
-                          )
-                  }
-                  ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
-                  onRelease={shownOnly(chosenLine) ? hideLine : releaseLine}
-                  onDeep={shownOnly(chosenLine) ? releaseLine : undefined}
+              {linkStrings
+                .filter(({ link }) => link.word)
+                .map(({ link, mid }) => (
+                  <span
+                    key={`word:${link.id}`}
+                    className="wf-faden-webword"
+                    data-web="link"
+                    style={{ left: mid.x, top: mid.y }}
+                  >
+                    {link.word}
+                  </span>
+                ))}
+              {chosen && (
+                <LinkMenu
+                  link={chosen.link}
+                  at={chosen.mid}
                   onRelate={(fromId, toId) => {
                     const self = data.entities[fromId];
                     if (self) setRelating({ self, otherId: toId });
                   }}
+                  onDrop={() => dropLine(chosen.link.id)}
                   onClose={() => setLineKey(null)}
                 />
               )}
@@ -1164,15 +743,12 @@ export default function FaedenPage() {
                   ask={dropAsk}
                   pins={layout.pins}
                   onPick={(pinKey) => {
-                    const at = dropAsk.at;
-                    const from = dropAsk.from;
+                    const { at, from } = dropAsk;
                     setDropAsk(null);
-                    // Liegt es noch nicht auf dem Brett, liegt es jetzt am Ende der Schnur.
                     const there = layout.pins.some((entry) => entry.key === pinKey);
                     if (!there) placeOnBoard(db, pinKey, at.x, at.y);
-                    const undoSpot = there ? null : () => takeFreeOffBoard(db, [pinKey]);
                     const result = connectOnBoard(db, from, pinKey);
-                    if (result.done) {
+                    if (result.done)
                       toast({
                         title: result.title,
                         body: result.body,
@@ -1181,42 +757,23 @@ export default function FaedenPage() {
                           run: () =>
                             db.batch(() => {
                               result.undo();
-                              undoSpot?.();
+                              if (!there) takeFreeOffBoard(db, [pinKey]);
                             }),
                         },
                       });
-                      return;
-                    }
-                    if ('note' in result && result.note)
-                      toast({ title: 'Liegt jetzt auf dem Brett', body: result.note });
                   }}
                   onThread={(title) => {
-                    const at = dropAsk.at;
-                    const from = dropAsk.from;
+                    const { at, from } = dropAsk;
                     setDropAsk(null);
                     const made = writeLinkedThread(db, from, title, at);
                     if (made)
                       toast({
                         title: 'Faden geschrieben',
-                        body: `„${made.thread.title}“ hängt an „${ownerTitle(from) || (from.startsWith('node:') ? (data.entities[from.slice(5)]?.name ?? '') : (data.articles[from.slice(8)]?.title ?? ''))}“.`,
+                        body: `„${made.thread.title}“ liegt am Ende der Schnur.`,
                         action: { label: 'Rückgängig', run: made.undo },
                       });
                   }}
                   onCancel={() => setDropAsk(null)}
-                />
-              )}
-              {choosing && (
-                <StoryChoice
-                  choice={choosing}
-                  onDone={(result) => {
-                    setChoosing(null);
-                    if (result)
-                      toast({
-                        title: result.title,
-                        body: result.body,
-                        action: { label: 'Rückgängig', run: result.undo },
-                      });
-                  }}
                 />
               )}
               {drafting && (
@@ -1230,50 +787,13 @@ export default function FaedenPage() {
                     select(`thread:${written.thread.id}`);
                     toast({
                       title: 'Faden hingelegt',
-                      body: `„${written.thread.title}“ – zieh ihn auf eine Geschichte oder eine Schnur von ihm weg.`,
+                      body: `„${written.thread.title}“ – zieh am Griff eine Schnur von ihm weg.`,
                       action: { label: 'Rückgängig', run: written.undo },
                     });
                   }}
                   onCancel={() => setDrafting(null)}
                 />
               )}
-              {linkStrings
-                .filter(({ link }) => link.word || linkRelation(link))
-                .map(({ link, mid }) => (
-                  <span
-                    key={`linkword:${link.id}`}
-                    className="wf-faden-webword"
-                    data-web="link"
-                    style={{ left: mid.x, top: mid.y }}
-                  >
-                    {link.word || linkRelation(link)}
-                  </span>
-                ))}
-              {webStrings
-                .filter(({ line }) => line.word)
-                .map(({ line, mid }) => (
-                  <WebWord
-                    key={`word:${line.key}`}
-                    line={line}
-                    at={mid}
-                    dim={related !== null && !(related.has(line.a) && related.has(line.b))}
-                  />
-                ))}
-              {web.knots.map((entry) => {
-                const at = layout.knots[entry.key];
-                if (!at) return null;
-                return (
-                  <Knot
-                    key={entry.key}
-                    knot={entry}
-                    at={at}
-                    selected={entry.key === selected || picked.has(entry.key)}
-                    dim={related !== null && !related.has(entry.key)}
-                    onGrab={grab(entry.key, at)}
-                    onLink={truth ? startLink(entry.key) : undefined}
-                  />
-                );
-              })}
               {layout.pins.map((entry) => {
                 const entity = entry.article ? undefined : data.entities[entry.id];
                 const article = entry.article ? data.articles[entry.id] : undefined;
@@ -1285,17 +805,9 @@ export default function FaedenPage() {
                     type="button"
                     className={cx('wf-faden-pin', article && 'wf-faden-pin--article')}
                     style={{ left: entry.x, top: entry.y }}
-                    data-shared={entry.cards.length > 1}
-                    data-free={entry.cards.length === 0}
                     data-dim={related !== null && !related.has(entry.key)}
                     aria-pressed={entry.key === selected || picked.has(entry.key)}
-                    title={
-                      entry.cards.length > 1
-                        ? `${name} – hier berühren sich ${entry.cards.length} Karten`
-                        : entry.cards.length === 0
-                          ? `${name} – liegt frei; zieh eine Schnur zu einem Faden oder einer Geschichte`
-                          : name
-                    }
+                    title={name}
                     onPointerDown={grab(entry.key, entry)}
                     onDoubleClick={(event) => event.stopPropagation()}
                   >
@@ -1304,7 +816,7 @@ export default function FaedenPage() {
                     {truth && (
                       <span
                         className="wf-faden-handle"
-                        title="Schnur ziehen: auf einen Faden, eine Geschichte oder einen Namen"
+                        title="Schnur ziehen – auf etwas anderes oder ins Leere"
                         onPointerDown={startLink(entry.key)}
                       />
                     )}
@@ -1318,38 +830,21 @@ export default function FaedenPage() {
                   at={layout.cards[card.key]!}
                   selected={card.key === selected || picked.has(card.key)}
                   dim={related !== null && !related.has(card.key)}
-                  drop={card.key === dropOn}
+                  drop={false}
                   lifted={moving !== null && moving[card.key] !== undefined}
                   onGrab={grab(card.key, layout.cards[card.key]!)}
                   onLink={truth ? startLink(card.key) : undefined}
                 />
               ))}
             </div>
-            {open.length === 0 && (
+            {open.length === 0 && free.length === 0 && (
               <p className="wf-faden-wall__none">
                 {truth
-                  ? 'Noch liegt nichts auf dem Brett. Ein Doppelklick ins Leere schreibt einen Faden; eine Geschichte entsteht über „Geschichte“ oben.'
+                  ? 'Noch liegt nichts auf dem Brett. Ein Doppelklick ins Leere schreibt einen Faden; oben links holst du Geschichten, Personen und Orte dazu.'
                   : 'Von dem, was auf dem Brett liegt, kennt die Gruppe noch nichts.'}
               </p>
             )}
-            {truth && (
-              <BoardSearch
-                pins={layout.pins}
-                onPick={(key) => {
-                  const there = layout.pins.find((entry) => entry.key === key);
-                  if (!there) {
-                    const rect = frame.current?.getBoundingClientRect();
-                    const at = rect
-                      ? wall.toBoard(rect.left + rect.width / 2, rect.top + rect.height / 2)
-                      : { x: 0, y: 0 };
-                    placeOnBoard(db, key, at.x, at.y);
-                  }
-                  clearPicks();
-                  setSelected(key);
-                  showCard();
-                }}
-              />
-            )}
+            {truth && <BoardSearch pins={layout.pins} lying={board} onPick={bring} />}
             <div className="wf-faden-tools" onPointerDown={(event) => event.stopPropagation()}>
               {truth && (
                 <IconButton
@@ -1362,16 +857,16 @@ export default function FaedenPage() {
                   <Frame />
                 </IconButton>
               )}
-              {truth && data.state.boardHidden.length > 0 && (
+              {truth && hiddenStories.length > 0 && (
                 <IconButton
-                  label={`Ausgeblendete Schnüre wieder zeigen (${data.state.boardHidden.length})`}
+                  label={`Weggelegte Geschichten zurückholen (${hiddenStories.length})`}
                   size="sm"
                   onClick={() => {
-                    const undo = setStringsHidden(db, data.state.boardHidden, false);
+                    const undo = setStringsHidden(db, hiddenStories, false);
                     if (undo)
                       toast({
-                        title: 'Schnüre wieder da',
-                        body: 'Alle ausgeblendeten Schnüre stehen wieder auf dem Brett.',
+                        title: 'Geschichten zurück',
+                        body: 'Alle weggelegten Geschichten liegen wieder auf dem Brett.',
                         action: { label: 'Rückgängig', run: undo },
                       });
                   }}
@@ -1389,7 +884,7 @@ export default function FaedenPage() {
                 <Maximize />
               </IconButton>
               <IconButton
-                label="Aufräumen – Wayfarer legt alles neu aus"
+                label="Aufräumen – Wayfarer legt die Geschichten neu aus"
                 size="sm"
                 disabled={Object.keys(placed).length === 0}
                 onClick={tidy}
@@ -1402,7 +897,7 @@ export default function FaedenPage() {
               onPointerDown={(event) => event.stopPropagation()}
               onDoubleClick={(event) => event.stopPropagation()}
             >
-              {view === 'truth' && orphans.length > 0 && (
+              {truth && orphans.length > 0 && (
                 <details className="wf-faden-closed">
                   <summary title="Uhren aus der Zeit, als sie im Kalender angelegt wurden">
                     Uhren ohne Geschichte · {orphans.length}
@@ -1457,7 +952,7 @@ export default function FaedenPage() {
               <Button
                 size="sm"
                 aria-pressed={side === 'loose'}
-                title="Fäden, die zu keiner Geschichte gehören – zum Aufräumen und Verbinden"
+                title="Fäden, die zu keiner Geschichte gehören"
                 onClick={() => setSide('loose')}
               >
                 Lose Fäden · {looseCount}
@@ -1479,14 +974,7 @@ export default function FaedenPage() {
             ) : picked.size > 1 ? (
               <PickedSide
                 count={picked.size}
-                loose={
-                  [...picked].filter((key) => {
-                    const thread = key.startsWith('thread:')
-                      ? data.threads[key.slice(7)]
-                      : undefined;
-                    return thread !== undefined && isLooseThread(data, thread) && !thread.inPlay;
-                  }).length
-                }
+                loose={picked.size}
                 onTakeOff={() => takeOff([...picked])}
                 onArea={() => newArea([...picked])}
                 onClear={clearPicks}
@@ -1498,8 +986,6 @@ export default function FaedenPage() {
                 onSelect={select}
                 onTakeOff={() => takeOff([pin.key])}
               />
-            ) : knot ? (
-              <KnotSide knot={knot} view={view} onSelect={select} />
             ) : (
               <Side
                 card={current}
@@ -1508,6 +994,7 @@ export default function FaedenPage() {
                 cards={cards}
                 onSelect={select}
                 onEdit={setDialog}
+                onPlace={(key) => bring(key)}
               />
             )}
           </div>
@@ -1521,8 +1008,6 @@ export default function FaedenPage() {
           onClose={() => setDialog(null)}
           onSaved={(thread) => {
             setDialog(null);
-            // Ein loser Faden steht in der Liste – dort wird er gezeigt, wenn er nicht auf dem
-            // Brett liegt.
             if (thread.storyId) select(`story:${thread.storyId}`);
             else if (thread.inPlay || thread.onBoard) select(`thread:${thread.id}`);
             else showLoose(thread.id);
@@ -1548,7 +1033,6 @@ export default function FaedenPage() {
           key={dialog.clock?.id ?? 'neu'}
           clock={dialog.clock}
           onClose={() => {
-            // Eine Uhr, die in diesem Fenster entstanden ist, gehört zur Geschichte.
             const now = db.getSnapshot();
             const fresh = Object.keys(now.clocks).filter((id) => !dialog.before.has(id));
             if (fresh.length === 1 && now.stories[dialog.storyId])
@@ -1608,7 +1092,8 @@ function Card({
     >
       <span className="wf-faden-card__top">
         <span className="wf-faden-card__sort">
-          {card.story ? 'Geschichte' : 'Loser Faden'} · {NEARNESS_LABEL[card.nearness]}
+          {card.story ? 'Geschichte' : card.of ? `Faden · ${card.of.title}` : 'Loser Faden'} ·{' '}
+          {NEARNESS_LABEL[card.nearness]}
         </span>
         {card.story ? (
           card.pace !== 'none' && (
@@ -1681,155 +1166,6 @@ function Card({
         />
       )}
     </button>
-  );
-}
-
-/** Ein Faden als Knoten an seiner Geschichte: Kreis, Satz, Griff für eine Schnur. */
-function Knot({
-  knot,
-  at,
-  selected,
-  dim,
-  onGrab,
-  onLink,
-}: {
-  knot: BoardKnot;
-  at: Spot;
-  selected: boolean;
-  dim: boolean;
-  onGrab: (event: PointerEvent) => void;
-  onLink?: ((event: PointerEvent) => void) | undefined;
-}) {
-  const thread = knot.thread;
-  const open = thread.hints.filter((hint) => !hint.found).length;
-  return (
-    <button
-      type="button"
-      className="wf-faden-knot"
-      style={{ left: at.x, top: at.y }}
-      data-state={thread.state}
-      data-dim={dim}
-      aria-pressed={selected}
-      title={`${thread.title} – ${THREAD_STATE_LABEL[thread.state]}${
-        thread.hints.length ? `, ${open} von ${thread.hints.length} Hinweisen offen` : ''
-      }`}
-      onPointerDown={onGrab}
-      onDoubleClick={(event) => event.stopPropagation()}
-    >
-      <i aria-hidden />
-      <span className="wf-clamp-1">{thread.title}</span>
-      {onLink && (
-        <span
-          className="wf-faden-handle"
-          title="Schnur ziehen: auf einen anderen Faden oder einen Namen"
-          onPointerDown={onLink}
-        />
-      )}
-    </button>
-  );
-}
-
-/** Das Wort einer Verbindung, mitten auf der Schnur. */
-function WebWord({ line, at, dim }: { line: WebString; at: Spot; dim: boolean }) {
-  return (
-    <span
-      className="wf-faden-webword"
-      data-web={line.kind}
-      data-dim={dim}
-      style={{ left: at.x, top: at.y }}
-    >
-      {line.kind === 'lead' ? `Hinweis: ${line.word}` : line.word}
-    </span>
-  );
-}
-
-/** Der Seitenteil zu einem Faden als Knoten: was er fragt, seine Hinweise, sein Netz. */
-function KnotSide({
-  knot,
-  view,
-  onSelect,
-}: {
-  knot: BoardKnot;
-  view: BoardView;
-  onSelect: (key: string) => void;
-}) {
-  const db = useDb();
-  const data = useData();
-  const [, navigate] = useLocation();
-  const truth = view === 'truth';
-  const thread = data.threads[knot.thread.id];
-  if (!thread) return null;
-  const shown = truth ? thread : knot.thread;
-  const story = thread.storyId ? data.stories[thread.storyId] : undefined;
-  return (
-    <aside className="wf-faden-side">
-      <div className="wf-faden-side__head">
-        <span className="wf-faden-card__sort">Faden · {THREAD_STATE_LABEL[thread.state]}</span>
-        {truth && story && (
-          <Button
-            size="sm"
-            icon={<Pencil />}
-            onClick={() => navigate(`/geschichte/${story.id}`)}
-            title="Auf dem Blatt der Geschichte schreiben"
-          >
-            Schreiben
-          </Button>
-        )}
-      </div>
-      <h2 className="wf-faden-side__title">{thread.title}</h2>
-      {story && (
-        <p>
-          <span className="wf-mute">Gehört zu:</span>{' '}
-          <button type="button" className="wf-faden-link" onClick={() => onSelect(knot.cardKey)}>
-            {story.title}
-          </button>
-        </p>
-      )}
-      {truth && (
-        <Select
-          value={thread.state}
-          aria-label="Zustand des Fadens"
-          onChange={(event) => setThreadState(db, thread.id, event.target.value as ThreadState)}
-        >
-          {THREAD_STATES.map((state) => (
-            <option key={state} value={state}>
-              {THREAD_STATE_LABEL[state]}
-            </option>
-          ))}
-        </Select>
-      )}
-      {truth && thread.truth && <p className="wf-faden-block__truth">{thread.truth}</p>}
-      <section>
-        <h3 className="wf-faden-side__sub">Hinweise</h3>
-        {shown.hints.length === 0 && <p className="wf-mute">Noch keine Hinweise eingetragen.</p>}
-        {shown.hints.map((hint) => {
-          const target = hint.leadsTo ? data.threads[hint.leadsTo] : undefined;
-          return (
-            <div key={hint.id} className="wf-faden-hint" data-found={hint.found}>
-              {truth ? (
-                <Checkbox
-                  checked={hint.found}
-                  onChange={(found) => findHint(db, thread.id, hint.id, found)}
-                >
-                  {hint.text}
-                </Checkbox>
-              ) : (
-                <span>{hint.text}</span>
-              )}
-              {target && <span className="wf-faden-hint__where">führt zu „{target.title}“</span>}
-            </div>
-          );
-        })}
-      </section>
-      {truth && (
-        <section>
-          <ThreadWeb thread={thread} />
-        </section>
-      )}
-      <p className="wf-mute">
-        Am Griff rechts ziehst du eine Schnur: auf einen anderen Faden, eine Person, einen Ort.
-      </p>
-    </aside>
   );
 }
 
@@ -1936,9 +1272,12 @@ function PinSide({
  */
 function BoardSearch({
   pins,
+  lying,
   onPick,
 }: {
   pins: readonly BoardPin[];
+  /** Was schon als Karte daliegt. */
+  lying: readonly BoardCard[];
   onPick: (key: string) => void;
 }) {
   const data = useData();
@@ -1947,8 +1286,14 @@ function BoardSearch({
   const hits = useMemo(
     () =>
       searchWorld(data, query)
-        .filter((hit) => hit.sort === 'entity' || hit.sort === 'article')
-        .slice(0, 8),
+        .filter(
+          (hit) =>
+            hit.sort === 'entity' ||
+            hit.sort === 'article' ||
+            hit.sort === 'story' ||
+            hit.sort === 'thread',
+        )
+        .slice(0, 9),
     [data, query],
   );
   const keyOf = (hit: (typeof hits)[number]) => (hit.entity ? `node:${hit.entity.id}` : hit.key);
@@ -1968,7 +1313,7 @@ function BoardSearch({
       <input
         className="wf-input"
         value={query}
-        placeholder="Person, Ort, Artikel aufs Brett holen …"
+        placeholder="Geschichte, Faden, Person, Ort, Artikel aufs Brett holen …"
         aria-label="Einen Eintrag oder Artikel aufs Brett holen"
         onChange={(event) => {
           setQuery(event.target.value);
@@ -1989,7 +1334,9 @@ function BoardSearch({
         <div className="wf-faden-search__hits" role="listbox">
           {hits.length === 0 && <span className="wf-faden-search__none">Nichts gefunden.</span>}
           {hits.map((hit, index) => {
-            const there = pins.some((entry) => entry.key === keyOf(hit));
+            const there =
+              pins.some((entry) => entry.key === keyOf(hit)) ||
+              lying.some((card) => card.key === keyOf(hit));
             return (
               <button
                 key={hit.key}
@@ -2000,7 +1347,13 @@ function BoardSearch({
                 onMouseEnter={() => setActive(index)}
                 onClick={() => pick(index)}
               >
-                {hit.entity ? <KindIcon kind={hit.entity.kind} /> : <BookOpen aria-hidden />}
+                {hit.entity ? (
+                  <KindIcon kind={hit.entity.kind} />
+                ) : hit.sort === 'article' ? (
+                  <BookOpen aria-hidden />
+                ) : (
+                  <Waypoints aria-hidden />
+                )}
                 <span className="wf-clamp-1">{hit.label}</span>
                 <em className="wf-clamp-1">{there ? 'liegt schon da' : hit.sub}</em>
               </button>
@@ -2020,7 +1373,10 @@ function Side({
   cards,
   onSelect,
   onEdit,
+  onPlace,
 }: {
+  /** Ein Stück aufs Brett holen (einen Faden der Geschichte als eigene Karte). */
+  onPlace: (key: string) => void;
   card: BoardCard | null;
   view: BoardView;
   links: Touch[];
@@ -2037,32 +1393,23 @@ function Side({
   if (!card)
     return (
       <aside className="wf-faden-side wf-faden-side--blank">
-        <p>
-          Wähle eine Karte: Dann stehen hier ihre Uhr, ihre Fäden mit den Hinweisen, ihre Einstiege
-          und was sie berührt.
+        <p>Das Fadenbrett ist dein Whiteboard. Wähle eine Karte – dann steht hier alles zu ihr.</p>
+        <p className="wf-mute">
+          Hinlegen: oben links suchen (Geschichte, Faden, Person, Ort, Artikel) oder doppelt ins
+          Leere klicken und einen Faden schreiben. Lose Fäden ziehst du aus der Liste herüber.
         </p>
         <p className="wf-mute">
-          Fäden verbinden jede Karte mit den Personen, Orten und Fraktionen, an denen sie hängt.
-          Hängen zwei Karten am selben Namen, berühren sich ihre Geschichten – der Name ist dann
-          golden.
+          Verbinden: am Griff rechts an einer Karte oder einem Namen eine Schnur ziehen – auf etwas
+          anderes, oder ins Leere, dann kannst du dort suchen oder neu anlegen. Eine Schnur ist nur
+          eine Schnur.
         </p>
         <p className="wf-mute">
-          Karten und Namen legst du frei: einfach ziehen. Das Brett selbst ziehst du am leeren
-          Grund, das Mausrad vergrößert. Ein Doppelklick ins Leere schreibt einen Faden.
+          Klick auf eine Schnur: ein Wort dazu – und, nur wenn du willst, was sie in der Welt
+          bedeutet (Beteiligte, Beziehung, Teil von …).
         </p>
         <p className="wf-mute">
-          Am Griff rechts an jedem Stück ziehst du eine Schnur. Eine Schnur klickst du an, um ihr
-          Wort zu ändern oder sie zu lösen. Mit gedrückter Umschalttaste wählst du mehrere (Klick
-          oder Rahmen) und ziehst sie gemeinsam; die Löschtaste nimmt lose Fäden vom Brett.
-        </p>
-        <p className="wf-mute">
-          Oben links holst du Personen, Orte und Artikel aufs Brett. Das Rahmen-Zeichen unten rechts
-          legt einen Bereich an – um die Auswahl, wenn mehrere gewählt sind. Am Namen ziehst du ihn
-          mit allem darin, ein Doppelklick benennt ihn um.
-        </p>
-        <p className="wf-mute">
-          Fäden ohne Geschichte stehen unter „Lose Fäden“ – von dort hängst du sie an eine
-          Geschichte oder legst sie aufs Brett.
+          Ordnen: ziehen; mit Umschalttaste mehrere wählen; das Rahmen-Zeichen unten rechts legt
+          einen Bereich an. Die Löschtaste nimmt etwas nur vom Brett, nie aus der Welt.
         </p>
       </aside>
     );
@@ -2234,22 +1581,6 @@ function Side({
       <section>
         <h3 className="wf-faden-side__sub">
           {story ? 'Fäden' : 'Der Faden'}
-          {story && card.threads.length > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={story.unfolded ? <ChevronsDownUp /> : <ChevronsUpDown />}
-              aria-pressed={story.unfolded}
-              title={
-                story.unfolded
-                  ? 'Nur die Fäden, die mit anderen verbunden sind, bleiben als Knoten auf dem Brett'
-                  : 'Alle Fäden als Knoten an der Karte – zum Verbinden Faden für Faden'
-              }
-              onClick={() => setStoryUnfolded(db, story.id, !story.unfolded)}
-            >
-              {story.unfolded ? 'Einklappen' : 'Aufs Brett'}
-            </Button>
-          )}
           {truth && story && (
             <Button
               size="sm"
@@ -2282,6 +1613,16 @@ function Side({
                     }
                   >
                     Ändern
+                  </button>
+                )}
+                {truth && story && (
+                  <button
+                    type="button"
+                    className="wf-faden-link"
+                    title="Als eigene Karte aufs Brett legen – dann kannst du Schnüre von ihm ziehen"
+                    onClick={() => onPlace(`thread:${thread.id}`)}
+                  >
+                    Aufs Brett
                   </button>
                 )}
                 {truth && story && (
@@ -2418,10 +1759,6 @@ function Side({
         <StoryPartsSide story={story} card={card} editable={truth} onSelect={onSelect} />
       )}
 
-      {story && (truth || storyTiesOf(data, story.id).length > 0) && (
-        <StoryTies story={story} editable={truth} onSelect={onSelect} />
-      )}
-
       {touching.length > 0 && (
         <section>
           <h3 className="wf-faden-side__sub">Berührt</h3>
@@ -2475,141 +1812,6 @@ function Side({
         </section>
       )}
     </aside>
-  );
-}
-
-/** Die gewählte Schnur: zu einem Namen, von einer Geschichte zu ihrem Faden, zwischen Fäden. */
-type ChosenLine =
-  | { kind: 'name'; at: Spot; owner: string; entityId: string; article: boolean }
-  | { kind: 'knot'; at: Spot; knot: BoardKnot }
-  | { kind: 'web'; at: Spot; line: WebString }
-  | { kind: 'link'; at: Spot; link: { id: string; a: string; b: string; word: string } };
-
-/** Das kleine Menü an einer gewählten Schnur: was sie verbindet, ihr Wort, lösen. */
-function LineMenu({
-  line,
-  sources,
-  ownerTitle,
-  onRelease,
-  onDeep,
-  onRelate,
-  onClose,
-}: {
-  /** Bei Schnüren, die aus der Welt folgen: die Bedeutung auch dort lösen. */
-  onDeep?: (() => void) | undefined;
-  /** Zwei Namen: das Fenster für eine Beziehung der Welt öffnen. */
-  onRelate?: (fromId: string, toId: string) => void;
-  line: ChosenLine;
-  /** Bei einem Namen: worüber er an der Karte hängt, in Worten (`nameSources`). */
-  sources: readonly string[];
-  ownerTitle: string;
-  onRelease: () => void;
-  onClose: () => void;
-}) {
-  const db = useDb();
-  const data = useData();
-  const title = (id: string) => data.threads[id]?.title ?? '';
-  let what: string;
-  let release: string | null = 'Lösen';
-  let note = '';
-  const pieceName = (key: string): string =>
-    key.startsWith('node:')
-      ? (data.entities[key.slice(5)]?.name ?? '')
-      : key.startsWith('article:')
-        ? (data.articles[key.slice(8)]?.title ?? '')
-        : key.startsWith('story:')
-          ? (data.stories[key.slice(6)]?.title ?? '')
-          : (data.threads[key.slice(key.indexOf(':') + 1)]?.title ?? '');
-  /** Was „auch in der Welt lösen“ bei dieser Schnur heißt – null, wenn es nichts gibt. */
-  let deep: string | null = null;
-  if (line.kind === 'link') {
-    what = `„${pieceName(line.link.a)}“ – „${pieceName(line.link.b)}“`;
-  } else if (line.kind === 'web' && line.line.kind === 'part') {
-    what = `„${data.stories[line.line.to]?.title ?? ''}“ ist Teil von „${data.stories[line.line.from]?.title ?? ''}“`;
-    release = 'Schnur ausblenden';
-    deep = 'Auch herauslösen – steht dann für sich';
-  } else if (line.kind === 'web' && line.line.kind === 'story') {
-    what = `„${data.stories[line.line.from]?.title ?? ''}“ – „${data.stories[line.line.to]?.title ?? ''}“`;
-  } else if (line.kind === 'web' && line.line.kind === 'tie') {
-    what = `„${title(line.line.from)}“ – „${title(line.line.to)}“`;
-  } else if (line.kind === 'web') {
-    what = `Hinweis „${line.line.word}“ führt zu „${title(line.line.to)}“`;
-  } else if (line.kind === 'knot') {
-    what = `„${line.knot.thread.title}“ gehört zu „${data.stories[line.knot.cardKey.slice(6)]?.title ?? ''}“`;
-    release = 'Schnur ausblenden';
-    deep = 'Auch von der Geschichte lösen – wird ein loser Faden';
-  } else {
-    what = line.article
-      ? `„${data.articles[line.entityId]?.title ?? ''}“ gehört zu „${ownerTitle}“`
-      : `${data.entities[line.entityId]?.name ?? ''} an „${ownerTitle}“`;
-    release = 'Schnur ausblenden';
-    if (sources.length)
-      deep = line.article
-        ? 'Auch die Zuordnung lösen'
-        : `Auch dort herausnehmen (${sources.join(', ')})`;
-    note = 'Ausblenden ändert nichts an der Geschichte.';
-  }
-  return (
-    <div
-      className="wf-faden-linemenu"
-      style={{ left: line.at.x, top: line.at.y }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => event.stopPropagation()}
-    >
-      <span className="wf-faden-linemenu__what">{what}</span>
-      {line.kind === 'web' && line.line.kind !== 'lead' && line.line.kind !== 'part' && (
-        <Written
-          className="wf-faden-linemenu__word"
-          label="Was sie verbindet"
-          wrap
-          value={line.line.word}
-          placeholder="was sie verbindet …"
-          onSave={(word) =>
-            line.line.kind === 'story'
-              ? setStoryTieWord(db, line.line.from, line.line.to, word)
-              : setTieWord(db, line.line.from, line.line.to, word)
-          }
-        />
-      )}
-      {line.kind === 'link' && (
-        <Written
-          className="wf-faden-linemenu__word"
-          label="Was sie verbindet"
-          wrap
-          value={line.link.word}
-          placeholder="was sie verbindet …"
-          onSave={(word) => setBoardLinkWord(db, line.link.id, word)}
-        />
-      )}
-      {line.kind === 'link' &&
-        line.link.a.startsWith('node:') &&
-        line.link.b.startsWith('node:') &&
-        onRelate && (
-          <Button
-            size="sm"
-            onClick={() => onRelate(line.link.a.slice(5), line.link.b.slice(5))}
-            title="Eine Beziehung der Welt eintragen – die Schnur bleibt"
-          >
-            Beziehung eintragen …
-          </Button>
-        )}
-      {note && <span className="wf-faden-linemenu__note">{note}</span>}
-      <span className="wf-faden-linemenu__acts">
-        {release && (
-          <Button size="sm" onClick={onRelease} title="Auch mit der Löschtaste">
-            {release}
-          </Button>
-        )}
-        {deep && onDeep && (
-          <Button size="sm" variant="ghost" onClick={onDeep}>
-            {deep}
-          </Button>
-        )}
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Schließen
-        </Button>
-      </span>
-    </div>
   );
 }
 
@@ -2772,189 +1974,6 @@ function AreaFrame({
 }
 
 /**
- * „Verbunden mit“ an einer Geschichte: die Geschichten, die der Spielleiter von Hand mit ihr
- * verbunden hat – mit ihrem Wort, lösbar, und eine Auswahl, um eine weitere zu verbinden. Was
- * Wayfarer selbst an Berührungen erkennt, steht darunter unter „Berührt“.
- */
-function StoryTies({
-  story,
-  editable,
-  onSelect,
-}: {
-  story: Story;
-  editable: boolean;
-  onSelect: (key: string) => void;
-}) {
-  const db = useDb();
-  const data = useData();
-  const ties = storyTiesOf(data, story.id);
-  const others = Object.values(data.stories)
-    .filter((other) => other.id !== story.id && !ties.some((tie) => tie.story.id === other.id))
-    .sort((a, b) => Number(a.closed) - Number(b.closed) || a.title.localeCompare(b.title, 'de'));
-  const tie = (otherId: string) => {
-    const undo = tieStories(db, story.id, otherId);
-    if (undo)
-      toast({
-        title: 'Geschichten verbunden',
-        body: `„${story.title}“ – „${data.stories[otherId]?.title ?? ''}“`,
-        action: { label: 'Rückgängig', run: undo },
-      });
-  };
-  const untie = (other: Story) => {
-    const undo = untieStories(db, story.id, other.id);
-    if (undo)
-      toast({
-        title: 'Verbindung gelöst',
-        body: `„${story.title}“ – „${other.title}“`,
-        action: { label: 'Rückgängig', run: undo },
-      });
-  };
-  return (
-    <section>
-      <h3 className="wf-faden-side__sub">Verbunden mit</h3>
-      {ties.length === 0 && (
-        <p className="wf-mute">
-          Noch mit keiner Geschichte verbunden. Zieh am Griff der Karte eine Schnur zu einer anderen
-          – oder wähle sie hier.
-        </p>
-      )}
-      {ties.map(({ story: other, word }) => (
-        <div key={other.id} className="wf-faden-web__row" data-step="tie">
-          <i className="wf-faden-web__knot" aria-hidden />
-          <button
-            type="button"
-            className="wf-faden-link wf-faden-web__title"
-            onClick={() => onSelect(`story:${other.id}`)}
-          >
-            {other.title}
-          </button>
-          {editable ? (
-            <>
-              <Written
-                className="wf-faden-web__word"
-                label={`Was „${story.title}“ und „${other.title}“ verbindet`}
-                wrap
-                value={word}
-                placeholder="was sie verbindet …"
-                onSave={(text) => setStoryTieWord(db, story.id, other.id, text)}
-              />
-              <IconButton
-                label="Verbindung lösen"
-                size="sm"
-                variant="ghost"
-                onClick={() => untie(other)}
-              >
-                <Unlink />
-              </IconButton>
-            </>
-          ) : (
-            word && <em className="wf-faden-web__via">{word}</em>
-          )}
-        </div>
-      ))}
-      {editable && others.length > 0 && (
-        <Select
-          className="wf-faden-choice"
-          value=""
-          aria-label={`„${story.title}“ mit einer anderen Geschichte verbinden`}
-          onChange={(event) => event.target.value && tie(event.target.value)}
-        >
-          <option value="">
-            {ties.length
-              ? '+ mit einer weiteren Geschichte verbinden …'
-              : '+ mit einer Geschichte verbinden …'}
-          </option>
-          {others.map((other) => (
-            <option key={other.id} value={other.id}>
-              {other.title}
-              {other.closed ? ' (zu Ende)' : ''}
-            </option>
-          ))}
-        </Select>
-      )}
-    </section>
-  );
-}
-
-/**
- * Zwei Geschichten zusammengebracht (Schnur oder gezogen): Ist die eine ein Teil der anderen, oder
- * sind sie nur verbunden? Was einen Kreis ergäbe, steht nicht zur Wahl.
- */
-function StoryChoice({
-  choice,
-  onDone,
-}: {
-  choice: { fromId: string; toId: string; at: Spot };
-  onDone: (result: { title: string; body: string; undo: () => void } | null) => void;
-}) {
-  const db = useDb();
-  const data = useData();
-  const [a, b] = [data.stories[choice.fromId], data.stories[choice.toId]];
-  if (!a || !b) return null;
-  const aInB = parentChoices(data, a).some((story) => story.id === b.id) && a.parentId !== b.id;
-  const bInA = parentChoices(data, b).some((story) => story.id === a.id) && b.parentId !== a.id;
-  const tied = isStoryTied(data, a.id, b.id);
-  const partOf = (part: typeof a, whole: typeof a) => {
-    const undo = setStoryParent(db, part.id, whole.id);
-    onDone(
-      undo
-        ? {
-            title: 'Als Teilgeschichte eingehängt',
-            body: `„${part.title}“ ist jetzt Teil von „${whole.title}“.`,
-            undo,
-          }
-        : null,
-    );
-  };
-  return (
-    <div
-      className="wf-faden-linemenu wf-faden-choose"
-      style={{ left: choice.at.x, top: choice.at.y }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => event.stopPropagation()}
-    >
-      <span className="wf-faden-linemenu__what">
-        „{a.title}“ und „{b.title}“
-      </span>
-      <span className="wf-faden-linemenu__acts wf-faden-choose__acts">
-        {aInB && (
-          <Button size="sm" onClick={() => partOf(a, b)}>
-            „{a.title}“ ist Teil von „{b.title}“
-          </Button>
-        )}
-        {bInA && (
-          <Button size="sm" onClick={() => partOf(b, a)}>
-            „{b.title}“ ist Teil von „{a.title}“
-          </Button>
-        )}
-        {!tied && (
-          <Button
-            size="sm"
-            onClick={() => {
-              const undo = tieStories(db, a.id, b.id);
-              onDone(
-                undo
-                  ? {
-                      title: 'Geschichten verbunden',
-                      body: `„${a.title}“ – „${b.title}“. Ein Klick auf die Schnur gibt ihr ein Wort.`,
-                      undo,
-                    }
-                  : null,
-              );
-            }}
-          >
-            Nur verbinden
-          </Button>
-        )}
-        <Button size="sm" variant="ghost" onClick={() => onDone(null)}>
-          Abbrechen
-        </Button>
-      </span>
-    </div>
-  );
-}
-
-/**
  * „Teile“ einer Geschichte im Seitenteil: zu welcher großen sie gehört (herauslösbar), ihre
  * Teilgeschichten (anklickbar), ein- und ausklappen auf dem Brett, eine neue Teilgeschichte.
  */
@@ -2989,25 +2008,7 @@ function StoryPartsSide({
   };
   return (
     <section>
-      <h3 className="wf-faden-side__sub">
-        Teile
-        {parts.length > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={story.partsFolded ? <ChevronsUpDown /> : <ChevronsDownUp />}
-            aria-pressed={!story.partsFolded}
-            title={
-              story.partsFolded
-                ? 'Die Teilgeschichten wieder auf dem Brett zeigen'
-                : 'Die Teilgeschichten vom Brett nehmen – die Karte zählt sie nur'
-            }
-            onClick={() => setPartsFolded(db, story.id, !story.partsFolded)}
-          >
-            {story.partsFolded ? 'Zeigen' : 'Einklappen'}
-          </Button>
-        )}
-      </h3>
+      <h3 className="wf-faden-side__sub">Teile</h3>
       {parent && card.partOf && (
         <p>
           <span className="wf-mute">Teil von </span>
@@ -3048,7 +2049,7 @@ function StoryPartsSide({
           onClick={() => onSelect(`story:${part.id}`)}
         >
           <span>{part.title}</span>
-          <em>{part.closed ? 'zu Ende' : story.partsFolded ? 'eingeklappt' : 'Teilgeschichte'}</em>
+          <em>{part.closed ? 'zu Ende' : 'Teilgeschichte'}</em>
         </button>
       ))}
       {editable && (
@@ -3213,6 +2214,163 @@ function DropSearch({
           <em />
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Das Menü an einer Schnur: ihr Wort, was sie in der Welt bedeuten könnte (`linkOffers` – jedes
+ * nur auf Klick, abwählbar), und „Schnur lösen“ (nur die Schnur).
+ */
+function LinkMenu({
+  link,
+  at,
+  onRelate,
+  onDrop,
+  onClose,
+}: {
+  link: { id: string; a: string; b: string; word: string };
+  at: Spot;
+  onRelate: (fromId: string, toId: string) => void;
+  onDrop: () => void;
+  onClose: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const name = (key: string): string => {
+    const id = key.slice(key.indexOf(':') + 1);
+    if (key.startsWith('node:')) return data.entities[id]?.name ?? '';
+    if (key.startsWith('article:')) return data.articles[id]?.title ?? '';
+    if (key.startsWith('story:')) return data.stories[id]?.title ?? '';
+    return data.threads[id]?.title ?? '';
+  };
+  const offers = linkOffers(data, link.a, link.b);
+  const apply = (offer: LinkOffer, title: string) => {
+    const undo = applyLinkOffer(db, offer);
+    if (undo)
+      toast({ title, body: 'Die Schnur bleibt.', action: { label: 'Rückgängig', run: undo } });
+  };
+  const story = (id: string) => data.stories[id]?.title ?? '';
+  const thread = (id: string) => data.threads[id]?.title ?? '';
+  const entity = (id: string) => data.entities[id]?.name ?? '';
+  const rows: { key: string; on: boolean; label: string; run: () => void }[] = [];
+  offers.forEach((offer, index) => {
+    const key = `${offer.kind}:${index}`;
+    switch (offer.kind) {
+      case 'cast':
+        rows.push({
+          key,
+          on: offer.on,
+          label: offer.on
+            ? `${entity(offer.entityId)} gehört zu „${story(offer.storyId)}“ – herausnehmen`
+            : `${entity(offer.entityId)} zu den Beteiligten von „${story(offer.storyId)}“`,
+          run: () => apply(offer, offer.on ? 'Herausgenommen' : 'Eingetragen'),
+        });
+        break;
+      case 'pin':
+        rows.push({
+          key,
+          on: offer.on,
+          label: offer.on
+            ? `${entity(offer.entityId)} hängt am Faden – lösen`
+            : `${entity(offer.entityId)} an den Faden „${thread(offer.threadId)}“ heften`,
+          run: () => apply(offer, offer.on ? 'Gelöst' : 'Angeheftet'),
+        });
+        break;
+      case 'relate':
+        rows.push({
+          key,
+          on: offer.label !== '',
+          label: offer.label ? `Beziehung: ${offer.label} – ändern …` : 'Beziehung eintragen …',
+          run: () => onRelate(offer.fromId, offer.toId),
+        });
+        break;
+      case 'question':
+        rows.push({
+          key,
+          on: offer.on,
+          label: offer.on
+            ? `Faden von „${story(offer.storyId)}“ – lösen`
+            : `Zum Faden von „${story(offer.storyId)}“ machen`,
+          run: () => apply(offer, offer.on ? 'Gelöst' : 'Gehört jetzt zur Geschichte'),
+        });
+        break;
+      case 'part':
+        if (offer.allowed || offer.on)
+          rows.push({
+            key,
+            on: offer.on,
+            label: offer.on
+              ? `„${story(offer.partId)}“ ist Teil von „${story(offer.wholeId)}“ – herauslösen`
+              : `„${story(offer.partId)}“ ist Teil von „${story(offer.wholeId)}“`,
+            run: () => apply(offer, offer.on ? 'Herausgelöst' : 'Als Teilgeschichte eingehängt'),
+          });
+        break;
+      case 'tie':
+        rows.push({
+          key,
+          on: offer.on,
+          label: offer.on
+            ? 'Fäden verbunden – lösen'
+            : 'Fäden verbinden – am Spieltisch „ein Schritt weiter“',
+          run: () => apply(offer, offer.on ? 'Verbindung gelöst' : 'Fäden verbunden'),
+        });
+        break;
+      case 'article':
+        rows.push({
+          key,
+          on: offer.on,
+          label: offer.on
+            ? 'Artikel ist zugeordnet – lösen'
+            : `Artikel „${data.articles[offer.articleId]?.title ?? ''}“ zuordnen`,
+          run: () => apply(offer, offer.on ? 'Zuordnung gelöst' : 'Artikel zugeordnet'),
+        });
+        break;
+    }
+  });
+  return (
+    <div
+      className="wf-faden-linemenu"
+      style={{ left: at.x, top: at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <span className="wf-faden-linemenu__what">
+        „{name(link.a)}“ – „{name(link.b)}“
+      </span>
+      <Written
+        className="wf-faden-linemenu__word"
+        label="Was sie verbindet"
+        wrap
+        value={link.word}
+        placeholder="was sie verbindet …"
+        onSave={(word) => setBoardLinkWord(db, link.id, word)}
+      />
+      {rows.length > 0 && (
+        <span className="wf-faden-linemenu__offers">
+          <span className="wf-faden-linemenu__note">Wenn du willst, auch in der Welt:</span>
+          {rows.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              className="wf-faden-linemenu__offer"
+              data-on={row.on}
+              onClick={row.run}
+            >
+              {row.on ? '✓ ' : '+ '}
+              {row.label}
+            </button>
+          ))}
+        </span>
+      )}
+      <span className="wf-faden-linemenu__acts">
+        <Button size="sm" onClick={onDrop} title="Auch mit der Löschtaste">
+          Schnur lösen
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Schließen
+        </Button>
+      </span>
     </div>
   );
 }

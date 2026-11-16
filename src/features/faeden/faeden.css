@@ -1924,3 +1924,28 @@
 .wf-faden-side__story {
   min-height: 6rem;
 }
+
+/* Menü an der Schnur: was sie in der Welt bedeuten könnte – nur Angebote */
+.wf-faden-linemenu__offers {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-faden-linemenu__offer {
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-faden-linemenu__offer:hover {
+  background: var(--bg-3);
+  color: var(--gold-bright);
+}
+.wf-faden-linemenu__offer[data-on='true'] {
+  color: var(--gold);
+}

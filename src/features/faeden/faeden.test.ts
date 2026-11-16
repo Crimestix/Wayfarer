@@ -297,9 +297,10 @@ describe('Die Pinnwand', () => {
     const after = layout.pins.find((pin) => pin.id === fishers.id)!;
     expect(after.x - before.x).toBeGreaterThan(500);
 
-    // Aufräumen legt alles neu aus – und lässt sich zurücknehmen.
+    // Aufräumen legt die Geschichten neu aus – einzeln Hingelegtes (Namen) bleibt liegen – und
+    // lässt sich zurücknehmen.
     const undo = tidyBoard(db);
-    expect(data().state.board).toEqual({});
+    expect(data().state.board).toEqual({ [`node:${harbour.id}`]: { x: -300, y: -200 } });
     undo();
     expect(Object.keys(data().state.board)).toHaveLength(2);
   });

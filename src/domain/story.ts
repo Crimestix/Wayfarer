@@ -331,6 +331,8 @@ export interface BoardCard {
   partOf: Story | null;
   /** Wie viele Teilgeschichten diese hat (in der Sicht der Gruppe: die sie kennt). */
   parts: number;
+  /** Ein Faden einer Geschichte, der einzeln auf dem Whiteboard liegt: seine Geschichte. */
+  of?: Story | null;
 }
 
 /**

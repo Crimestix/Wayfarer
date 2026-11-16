@@ -378,9 +378,8 @@ nicht übernommen.
   sagen es als Hinweis.
 - Blätter zum freien Auslegen (Wegenetz, Fadenbrett) nutzen `useBoard` aus `ui/board.ts`:
   verschieben, vergrößern, Stücke ziehen. Wo etwas auf dem Fadenbrett liegt, steht in
-  `state.board`; was dort fehlt, legt `boardLayout()` aus. Fäden zwischen Karte und Namen
-  werden nie gespeichert – sie folgen aus dem, woran eine Geschichte hängt (`pinToCard` heftet
-  einen Namen an).
+  `state.board`; was dort fehlt, legt `boardLayout()` aus. Auf dem Fadenbrett sind Schnüre nur
+  die freien (`state.boardLinks`, siehe „Das Fadenbrett ist ein Whiteboard“).
 - Lose Fäden (`domain/looseThreads.ts`, Liste `faeden/LooseDrawer` im Seitenteil des Bretts):
   Ein Faden ohne Geschichte (`isLooseThread`) steht in der Liste, nicht zwischen den Geschichten.
   Als Karte liegt er nur auf dem Brett, wenn der Spielleiter ihn hinlegt (`thread.onBoard`,
@@ -633,49 +632,33 @@ nicht übernommen.
   `worldProfessionSuggestions`, `familyPlanKey`), nie nur in der Oberfläche. Zurückgeholt wird in
   den Einstellungen („Ausgeblendete Vorschläge“, `restoreSuggestions`). Ein neuer Vorschlag
   bekommt Schlüssel, Filter und „×“; eine neue Sorte ihre Worte in `SUGGESTION_SORTS`.
-- Das Netz der Fäden (`domain/threadWeb.ts`, Wunsch des Spielleiters 16. 11. 2026: „Faden für
-  Faden, so ein Spinnennetz“): Fäden verbinden sich quer über Geschichten (`thread.ties`, gilt in
-  beide Richtungen, freies Wort; gelesen nur über `tiesOf`/`isTied`, geändert über `tieThreads`,
-  `untieThreads`, `setTieWord`), ein Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadOf`,
-  Meldung beim Finden `leadNote`/`findHint`). Einen Schritt weiter sagt `neighboursOf`; am
-  Spieltisch nur dieser eine Schritt bei Fäden am Ort (`PlayThread.next`). Vorschläge zum
-  Verbinden (`tieFits`, gleicher Name) mit „×“ (`SUGGESTION.tie`). Auf dem Brett hängen Fäden als
-  Knoten an ihrer Geschichte (`boardWeb`: aufgeklappt über `story.unfolded` / `setStoryUnfolded`,
-  quer Verbundenes immer; Stellen `knot:<id>` in `state.board`); ihre Namen hängen am Knoten.
-  Schnüre zieht der Spielleiter frei am Griff (`connectOnBoard`, Ziel über `hitOnBoard`): Faden an
-  Faden verbindet, Name an Faden/Geschichte heftet an, loser Faden an Geschichte wird ihre Frage,
-  zwei Namen oder Artikel ergeben sofort eine **freie Schnur** (`state.boardLinks`,
-  `addBoardLink`; nie ein Fenster vorweg – Rückmeldung des Spielleiters 16. 11.: „Da schränkt
-  Wayfarer wieder ein“); an ihr: Wort, „Beziehung eintragen …“ (Fenster schon ausgefüllt), lösen.
-  Eine Schnur ins Leere öffnet dort eine Suche (`DropSearch`, Vorschläge `dropSuggestions`):
-  Eintrag, Artikel, „neu als Person/Ort …“ (Platzhalter über `addFromWriting`) oder „als neuen
-  Faden“ (`writeLinkedThread`) – was gewählt wird, liegt am Schnurende und hängt gleich dran.
-  Alles mit Rückgängig. Das Brett ist ein
-  Whiteboard (Vorschlag `docs/proben/fadenbrett-whiteboard.html`, Schritt 1 gebaut): Schnüre
-  anklicken (Menü an der Schnur: Wort, lösen – jede Schnur lässt sich lösen; ein Name wird
-  überall herausgenommen, worüber er hängt, `nameSources`/`detachName`, der Text bleibt), mehrere
-  wählen (Umschalt-Klick, Rahmen mit Umschalttaste, `insideOnBoard`) und gemeinsam ziehen
-  (`placeManyOnBoard`), Löschtaste löst die gewählte Schnur oder nimmt lose Fäden vom Brett
-  (`takeOffBoard` – nie aus der Welt), Doppelklick ins Leere schreibt einen losen Faden dorthin
-  (`writeOnBoard`). Schritt 2: Das Suchfeld auf dem Brett holt jeden Eintrag und jeden Artikel
-  ohne Eintrag (`searchWorld`) als Name bzw. Artikel (`article:<id>`) dazu; was eine Stelle in
-  `state.board` hat, liegt frei, auch wenn nichts an ihm hängt (`pinExists`, „Aufräumen“ behält es,
-  `ownedPins`); eine Schnur ordnet einen Artikel einer Geschichte oder einem Faden zu
-  (`story.articleIds`/`thread.articleIds`, `setArticleOn`); ein Klick zeigt den Anfang des Textes
-  im Seitenteil (`articleExcerpt`). Schritt 3: Bereiche (`state.boardAreas`,
-  `domain/boardAreas.ts`): benannte Rahmen nur zum Ordnen; anlegen über das Rahmen-Zeichen oder
-  „Bereich darum legen“ (`areaAround`), am Namen ziehen nimmt mit, was darin liegt (`insideArea`,
-  `moveBoardArea`), Löschtaste nimmt nur den Rahmen weg (`removeBoardArea`). `mergeThreads` nimmt
-  Verbindungen und „führt zu“ mit. Schritt 4: Eine Schnur von Geschichte zu Geschichte verbindet
-  sie von Hand (`story.ties`, Schnur der Art `story` in `boardWeb`, „Verbunden mit“ im
-  Seitenteil); was Wayfarer an Berührungen ableitet, steht weiter darunter unter „Berührt“.
-  Teilgeschichten auf dem Brett: Schnur `part` von der großen zu ihren Teilen, Zahl „3 Teile“ auf
-  der Karte, Teile liegen unter ihrer großen (`boardLayout`, `PARTS_PER_ROW`); eine Geschichte auf
-  eine andere ziehen oder eine Schnur zwischen zweien fragt (`StoryChoice`): „ist Teil von“ (beide
-  Richtungen, nie im Kreis – `parentChoices`) oder „nur verbinden“; herauslösen über das Menü der
-  Schnur (`setStoryParent`); einklappen über `story.partsFolded` (`setPartsFolded`, `foldedAway`
-  – eingeklappte Teile liegen nicht auf dem Brett); neue Teilgeschichte mit Namen im Seitenteil
-  (`addSubStory`).
+- **Das Fadenbrett ist ein Whiteboard** (Entscheidung des Spielleiters, 16. 11. 2026: „ein
+  Whiteboard, das mehr Optionen bietet, wenn man sie braucht“ – vorher „viel zu verkopft“).
+  Darauf liegt, was der Spielleiter hinlegt (`whiteboardCards` in `domain/whiteboard.ts`):
+  Geschichten (von selbst, bis er sie wegnimmt – `state.boardHidden`), lose Fäden (hingelegt),
+  Fäden einer Geschichte als eigene Karte (`thread:<id>` mit Stelle, `card.of`), Namen und
+  Artikel (`node:`/`article:` mit Stelle). **Nichts hängt von selbst** an einer Karte, Wayfarer
+  zeichnet keine Schnüre aus den Daten. **Jede Schnur ist frei** (`state.boardLinks`,
+  `connectOnBoard` = `addBoardLink`) – sie ändert nichts in der Welt. Ein Klick auf sie
+  (`LinkMenu`): Wort, und nur auf Wunsch, was sie bedeuten könnte (`linkOffers` →
+  `applyLinkOffer`: Beteiligte einer Geschichte, am Faden angeheftet, Beziehung (Fenster schon
+  ausgefüllt), Frage einer Geschichte, Teil von (nie im Kreis), Fäden verbunden, Artikel
+  zugeordnet – mit Haken, wenn es schon gilt, abwählbar), „Schnur lösen“ nimmt nur die Schnur.
+  Hinlegen: Suche oben links (`BoardSearch` – Geschichten, Fäden, Einträge, Artikel;
+  `bringOntoBoard`), Doppelklick ins Leere schreibt einen losen Faden (`writeOnBoard`), lose
+  Fäden aus der Liste herüberziehen, eine Schnur ins Leere öffnet dort eine Suche (`DropSearch`,
+  `dropSuggestions`; neu anlegen über `addFromWriting`, „als neuen Faden“ über
+  `writeLinkedThread`). Wegnehmen: Löschtaste (`takeOffWhiteboard` – nie aus der Welt;
+  weggelegte Geschichten holt das Auge unten zurück). Ordnen: ziehen, Umschalt-Klick/Rahmen für
+  mehrere (`insideOnBoard`, `placeManyOnBoard`), Bereiche (`state.boardAreas`,
+  `domain/boardAreas.ts`), „Aufräumen“ legt nur die Geschichten neu aus. Nie wieder Bedeutung
+  durch bloßes Ziehen oder Ablegen – sie kommt nur über das Menü an der Schnur oder die Seiten.
+  Jede Geschichte hat einen freien Schreibteil (`story.text`, oben auf dem Blatt und im
+  Seitenteil). Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
+  Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadNote`/`findHint`), am Spieltisch
+  zeigt `neighboursOf` bei Fäden am Ort einen Schritt weiter (`PlayThread.next`); Vorschläge zum
+  Verbinden (`tieFits`, `SUGGESTION.tie`) auf dem Blatt (`ThreadWeb`). `boardWeb` (Knoten,
+  abgeleitete Schnüre) wird vom Brett nicht mehr benutzt.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
   `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein
