@@ -1198,6 +1198,8 @@ export type BoardConnect =
   | { done: true; title: string; body: string; undo: () => void }
   /** Zwei Namen: Das ist eine Beziehung der Welt – sie wird im Fenster dafür eingetragen. */
   | { done: false; relate: { fromId: string; toId: string } }
+  /** Zwei Geschichten: verbinden oder als Teilgeschichte einhängen – das wählt der Spielleiter. */
+  | { done: false; choose: { fromId: string; toId: string } }
   /** Nichts geschehen; `note` sagt warum (leer = ins Leere gezogen). */
   | { done: false; note: string };
 
@@ -1320,20 +1322,8 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
   const stories = [fromKey, toKey].every((key) => key.startsWith('story:'));
   if (stories) {
     const [a, b] = [fromKey.slice(6), toKey.slice(6)];
-    if (isStoryTied(data, a, b))
-      return {
-        done: false,
-        note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.`,
-      };
-    const undo = tieStories(db, a, b);
-    return undo
-      ? {
-          done: true,
-          title: 'Geschichten verbunden',
-          body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur gibt ihr ein Wort.`,
-          undo,
-        }
-      : none;
+    if (!data.stories[a] || !data.stories[b]) return none;
+    return { done: false, choose: { fromId: a, toId: b } };
   }
   return none;
 }
@@ -1638,4 +1628,55 @@ export function setStoryTieWord(
   return () => {
     if (db.getSnapshot().stories[holder.id]) db.patch('stories', holder.id, { ties: holder.ties });
   };
+}
+
+// ── Teilgeschichten auf dem Brett ──────────────────────────────────────────
+
+/**
+ * Hängt eine Geschichte als Teil unter eine große (oder löst sie: `parentId` null) – nie im
+ * Kreis (`patchStory` prüft es). Gibt `undo` zurück – null, wenn sich nichts ändert.
+ */
+export function setStoryParent(
+  db: CampaignDb,
+  storyId: string,
+  parentId: string | null,
+): (() => void) | null {
+  const story = db.getSnapshot().stories[storyId];
+  if (!story || story.parentId === parentId) return null;
+  const before = story.parentId;
+  patchStory(db, storyId, { parentId });
+  if (db.getSnapshot().stories[storyId]?.parentId === before) return null;
+  return () => {
+    if (db.getSnapshot().stories[storyId]) patchStory(db, storyId, { parentId: before });
+  };
+}
+
+/** Klappt die Teilgeschichten einer großen Geschichte auf dem Brett ein oder aus. */
+export function setPartsFolded(db: CampaignDb, storyId: string, folded: boolean): void {
+  const story = db.getSnapshot().stories[storyId];
+  if (story && story.partsFolded !== folded) db.patch('stories', storyId, { partsFolded: folded });
+}
+
+/**
+ * Eine neue Teilgeschichte mit dem Namen, den der Spielleiter geschrieben hat (ohne Namen
+ * „Neue Teilgeschichte“); sie liegt gleich bei ihrer großen. Gibt sie und `undo` zurück.
+ */
+export function addSubStory(
+  db: CampaignDb,
+  parentId: string,
+  title: string,
+): { story: Story; undo: () => void } | null {
+  return db.batch(() => {
+    const story = newSubStory(db, parentId);
+    if (!story) return null;
+    if (title.trim()) patchStory(db, story.id, { title: title.trim() });
+    // Was gerade eingeklappt ist, klappt auf: Das Neue soll man sehen.
+    setPartsFolded(db, parentId, false);
+    return {
+      story: db.getSnapshot().stories[story.id] ?? story,
+      undo: () => {
+        if (db.getSnapshot().stories[story.id]) removeStory(db, story.id);
+      },
+    };
+  });
 }

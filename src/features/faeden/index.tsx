@@ -71,12 +71,14 @@ import {
 } from '../../domain/schema';
 import {
   boardWeb,
+  isStoryTied,
   pinExists,
   storyTiesOf,
   type BoardKnot,
   type WebString,
 } from '../../domain/threadWeb';
 import { searchWorld } from '../../shell/search';
+import { parentChoices } from '../../domain/storySheet';
 import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
 import { formatDayMonth } from '../../domain/time/calendar';
@@ -101,6 +103,9 @@ import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
   addBoardArea,
+  addSubStory,
+  setPartsFolded,
+  setStoryParent,
   connectOnBoard,
   moveBoardArea,
   patchBoardArea,
@@ -267,6 +272,8 @@ export default function FaedenPage() {
     null;
   /** Eine Schnur, die gerade frei gezogen wird – von wo, bis wohin. */
   const [linking, setLinking] = useState<{ from: string; start: Spot; end: Spot } | null>(null);
+  /** Zwei Geschichten zusammengebracht: verbinden oder als Teil einhängen – hier wird gefragt. */
+  const [choosing, setChoosing] = useState<{ fromId: string; toId: string; at: Spot } | null>(null);
   /** Zwei Namen verbunden: Das Fenster für eine Beziehung der Welt. */
   const [relating, setRelating] = useState<{ self: Entity; otherId: string } | null>(null);
   const startLink = (key: string) => (event: PointerEvent) => {
@@ -294,6 +301,10 @@ export default function FaedenPage() {
         if ('relate' in result) {
           const self = data.entities[result.relate.fromId];
           if (self) setRelating({ self, otherId: result.relate.toId });
+          return;
+        }
+        if ('choose' in result) {
+          setChoosing({ ...result.choose, at: { x: grip.x + dx, y: grip.y + dy } });
           return;
         }
         if (result.note) toast({ title: 'Nicht verbunden', body: result.note });
@@ -446,6 +457,15 @@ export default function FaedenPage() {
       setLineKey(null);
       if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
     };
+    if (line.kind === 'web' && line.line.kind === 'part') {
+      const [parent, part] = [data.stories[line.line.from], data.stories[line.line.to]];
+      done(
+        'Herausgelöst',
+        `„${part?.title ?? ''}“ steht jetzt für sich, nicht mehr als Teil von „${parent?.title ?? ''}“.`,
+        setStoryParent(db, line.line.to, null),
+      );
+      return;
+    }
     if (line.kind === 'web' && line.line.kind === 'story') {
       const [a, b] = [data.stories[line.line.from], data.stories[line.line.to]];
       done(
@@ -639,7 +659,9 @@ export default function FaedenPage() {
     const threadId = key.startsWith('thread:') ? key.slice('thread:'.length) : null;
     const thread = threadId ? data.threads[threadId] : undefined;
     const hangs =
-      group.length === 1 && truth && thread !== undefined && isLooseThread(data, thread);
+      group.length === 1 &&
+      truth &&
+      ((thread !== undefined && isLooseThread(data, thread)) || key.startsWith('story:'));
     const target = (dx: number, dy: number) =>
       hangs ? storyUnder(at.x + dx, at.y + dy, key) : null;
     const shifted = (dx: number, dy: number) =>
@@ -671,6 +693,14 @@ export default function FaedenPage() {
         }
         const story = target(dx, dy);
         if (story && threadId) attach([threadId], story, true);
+        else if (story && key.startsWith('story:'))
+          // Eine Geschichte auf eine andere gezogen: Sie bleibt liegen, wo sie war – gefragt wird,
+          // ob sie ein Teil davon ist oder nur verbunden.
+          setChoosing({
+            fromId: key.slice(6),
+            toId: story.slice(6),
+            at: { x: at.x + dx, y: at.y + dy + 40 },
+          });
         else placeManyOnBoard(db, shifted(dx, dy));
       },
     });
@@ -1002,6 +1032,20 @@ export default function FaedenPage() {
                   ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
                   onRelease={releaseLine}
                   onClose={() => setLineKey(null)}
+                />
+              )}
+              {choosing && (
+                <StoryChoice
+                  choice={choosing}
+                  onDone={(result) => {
+                    setChoosing(null);
+                    if (result)
+                      toast({
+                        title: result.title,
+                        body: result.body,
+                        action: { label: 'Rückgängig', run: result.undo },
+                      });
+                  }}
                 />
               )}
               {drafting && (
@@ -1381,6 +1425,12 @@ function Card({
       <span className="wf-faden-card__title wf-clamp-2">{card.title}</span>
       {card.partOf && (
         <span className="wf-faden-card__part wf-clamp-1">Teil von {card.partOf.title}</span>
+      )}
+      {card.parts > 0 && (
+        <span className="wf-faden-card__part">
+          {card.parts === 1 ? '1 Teil' : `${card.parts} Teile`}
+          {card.story?.partsFolded ? ' – eingeklappt' : ''}
+        </span>
       )}
       {owner && (
         <span className="wf-faden-card__owner">
@@ -2136,6 +2186,10 @@ function Side({
         </section>
       )}
 
+      {story && (truth || card.parts > 0 || card.partOf) && (
+        <StoryPartsSide story={story} card={card} editable={truth} onSelect={onSelect} />
+      )}
+
       {story && (truth || storyTiesOf(data, story.id).length > 0) && (
         <StoryTies story={story} editable={truth} onSelect={onSelect} />
       )}
@@ -2223,7 +2277,10 @@ function LineMenu({
   let what: string;
   let release: string | null = 'Lösen';
   let note = '';
-  if (line.kind === 'web' && line.line.kind === 'story') {
+  if (line.kind === 'web' && line.line.kind === 'part') {
+    what = `„${data.stories[line.line.to]?.title ?? ''}“ ist Teil von „${data.stories[line.line.from]?.title ?? ''}“`;
+    release = 'Herauslösen';
+  } else if (line.kind === 'web' && line.line.kind === 'story') {
     what = `„${data.stories[line.line.from]?.title ?? ''}“ – „${data.stories[line.line.to]?.title ?? ''}“`;
   } else if (line.kind === 'web' && line.line.kind === 'tie') {
     what = `„${title(line.line.from)}“ – „${title(line.line.to)}“`;
@@ -2249,7 +2306,7 @@ function LineMenu({
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <span className="wf-faden-linemenu__what">{what}</span>
-      {line.kind === 'web' && line.line.kind !== 'lead' && (
+      {line.kind === 'web' && line.line.kind !== 'lead' && line.line.kind !== 'part' && (
         <Written
           className="wf-faden-linemenu__word"
           label="Was sie verbindet"
@@ -2536,6 +2593,204 @@ function StoryTies({
             </option>
           ))}
         </Select>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Zwei Geschichten zusammengebracht (Schnur oder gezogen): Ist die eine ein Teil der anderen, oder
+ * sind sie nur verbunden? Was einen Kreis ergäbe, steht nicht zur Wahl.
+ */
+function StoryChoice({
+  choice,
+  onDone,
+}: {
+  choice: { fromId: string; toId: string; at: Spot };
+  onDone: (result: { title: string; body: string; undo: () => void } | null) => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const [a, b] = [data.stories[choice.fromId], data.stories[choice.toId]];
+  if (!a || !b) return null;
+  const aInB = parentChoices(data, a).some((story) => story.id === b.id) && a.parentId !== b.id;
+  const bInA = parentChoices(data, b).some((story) => story.id === a.id) && b.parentId !== a.id;
+  const tied = isStoryTied(data, a.id, b.id);
+  const partOf = (part: typeof a, whole: typeof a) => {
+    const undo = setStoryParent(db, part.id, whole.id);
+    onDone(
+      undo
+        ? {
+            title: 'Als Teilgeschichte eingehängt',
+            body: `„${part.title}“ ist jetzt Teil von „${whole.title}“.`,
+            undo,
+          }
+        : null,
+    );
+  };
+  return (
+    <div
+      className="wf-faden-linemenu wf-faden-choose"
+      style={{ left: choice.at.x, top: choice.at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <span className="wf-faden-linemenu__what">
+        „{a.title}“ und „{b.title}“
+      </span>
+      <span className="wf-faden-linemenu__acts wf-faden-choose__acts">
+        {aInB && (
+          <Button size="sm" onClick={() => partOf(a, b)}>
+            „{a.title}“ ist Teil von „{b.title}“
+          </Button>
+        )}
+        {bInA && (
+          <Button size="sm" onClick={() => partOf(b, a)}>
+            „{b.title}“ ist Teil von „{a.title}“
+          </Button>
+        )}
+        {!tied && (
+          <Button
+            size="sm"
+            onClick={() => {
+              const undo = tieStories(db, a.id, b.id);
+              onDone(
+                undo
+                  ? {
+                      title: 'Geschichten verbunden',
+                      body: `„${a.title}“ – „${b.title}“. Ein Klick auf die Schnur gibt ihr ein Wort.`,
+                      undo,
+                    }
+                  : null,
+              );
+            }}
+          >
+            Nur verbinden
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => onDone(null)}>
+          Abbrechen
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * „Teile“ einer Geschichte im Seitenteil: zu welcher großen sie gehört (herauslösbar), ihre
+ * Teilgeschichten (anklickbar), ein- und ausklappen auf dem Brett, eine neue Teilgeschichte.
+ */
+function StoryPartsSide({
+  story,
+  card,
+  editable,
+  onSelect,
+}: {
+  story: Story;
+  card: BoardCard;
+  editable: boolean;
+  onSelect: (key: string) => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const [name, setName] = useState('');
+  useHoldDraft(name.trim() !== '', `fadenbrett-teil-${story.id}`);
+  const parts = Object.values(data.stories)
+    .filter((part) => part.parentId === story.id && part.id !== story.id)
+    .sort((a, b) => Number(a.closed) - Number(b.closed) || a.title.localeCompare(b.title, 'de'));
+  const parent = story.parentId ? data.stories[story.parentId] : undefined;
+  const add = () => {
+    const made = addSubStory(db, story.id, name);
+    setName('');
+    if (!made) return;
+    toast({
+      title: 'Teilgeschichte angelegt',
+      body: `„${made.story.title}“ ist Teil von „${story.title}“. Schreiben kannst du sie auf ihrem Blatt.`,
+      action: { label: 'Rückgängig', run: made.undo },
+    });
+  };
+  return (
+    <section>
+      <h3 className="wf-faden-side__sub">
+        Teile
+        {parts.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={story.partsFolded ? <ChevronsUpDown /> : <ChevronsDownUp />}
+            aria-pressed={!story.partsFolded}
+            title={
+              story.partsFolded
+                ? 'Die Teilgeschichten wieder auf dem Brett zeigen'
+                : 'Die Teilgeschichten vom Brett nehmen – die Karte zählt sie nur'
+            }
+            onClick={() => setPartsFolded(db, story.id, !story.partsFolded)}
+          >
+            {story.partsFolded ? 'Zeigen' : 'Einklappen'}
+          </Button>
+        )}
+      </h3>
+      {parent && card.partOf && (
+        <p>
+          <span className="wf-mute">Teil von </span>
+          <button
+            type="button"
+            className="wf-faden-link"
+            onClick={() => onSelect(`story:${parent.id}`)}
+          >
+            {parent.title}
+          </button>
+          {editable && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="wf-faden-link"
+                onClick={() => {
+                  const undo = setStoryParent(db, story.id, null);
+                  if (undo)
+                    toast({
+                      title: 'Herausgelöst',
+                      body: `„${story.title}“ steht jetzt für sich.`,
+                      action: { label: 'Rückgängig', run: undo },
+                    });
+                }}
+              >
+                herauslösen
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {parts.map((part) => (
+        <button
+          key={part.id}
+          type="button"
+          className="wf-faden-touchrow"
+          onClick={() => onSelect(`story:${part.id}`)}
+        >
+          <span>{part.title}</span>
+          <em>{part.closed ? 'zu Ende' : story.partsFolded ? 'eingeklappt' : 'Teilgeschichte'}</em>
+        </button>
+      ))}
+      {editable && (
+        <input
+          className="wf-input"
+          value={name}
+          placeholder="+ Teilgeschichte: Name …"
+          aria-label={`Neue Teilgeschichte von „${story.title}“`}
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') add();
+            if (event.key === 'Escape') setName('');
+          }}
+        />
+      )}
+      {editable && parts.length === 0 && !parent && (
+        <p className="wf-mute">
+          Eine große Geschichte hat Teile – etwa die Geschichte einer Familie oder eines Volkes, die
+          in ihr mitläuft. Zieh eine Geschichte auf diese Karte oder schreib hier einen Namen.
+        </p>
       )}
     </section>
   );

@@ -280,6 +280,23 @@ export interface BoardCard {
    * Gruppe nur, wenn sie von der großen weiß: Sonst verriete die Marke deren Namen.
    */
   partOf: Story | null;
+  /** Wie viele Teilgeschichten diese hat (in der Sicht der Gruppe: die sie kennt). */
+  parts: number;
+}
+
+/**
+ * Liegt eine Geschichte gerade nicht auf dem Brett, weil eine große Geschichte über ihr ihre Teile
+ * eingeklappt hat? Ein Kreis bricht ab.
+ */
+export function foldedAway(data: Pick<CampaignData, 'stories'>, story: Story): boolean {
+  const seen = new Set([story.id]);
+  let current = story.parentId ? data.stories[story.parentId] : undefined;
+  while (current && !seen.has(current.id)) {
+    if (current.partsFolded) return true;
+    seen.add(current.id);
+    current = current.parentId ? data.stories[current.parentId] : undefined;
+  }
+  return false;
 }
 
 /** `truth` = alles, was der Spielleiter weiß; `party` = nur, was die Gruppe kennt. */
@@ -328,8 +345,12 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       pace: party && clock?.clock.secret ? 'none' : pace,
       clock: party && clock?.clock.secret ? null : clock,
       closed: story.closed,
-      onBoard: true,
+      // Eingeklappt unter einer großen Geschichte: Sie zählt dort nur mit.
+      onBoard: !foldedAway(data, story),
       partOf: parent && (!party || parent.known) ? parent : null,
+      parts: Object.values(data.stories).filter(
+        (part) => part.parentId === story.id && part.id !== story.id && (!party || part.known),
+      ).length,
     });
   }
   // Fäden, deren Geschichte es nicht mehr gibt, sind lose.
@@ -354,6 +375,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       // Die Frage einer Geschichte, von der die Gruppe nichts weiß, liegt für sie auf dem Brett.
       onBoard: !isLooseThread(data, thread) || threadOnBoard(data, thread),
       partOf: null,
+      parts: 0,
     });
   }
   return cards.sort(
@@ -713,6 +735,9 @@ export const BOARD_PIN = { width: 150, height: 34 } as const;
 export const BOARD_KNOT = { width: 210, height: 30, step: 40 } as const;
 const CELL = { width: 440, height: 380 } as const;
 const PER_ROW = 3;
+/** Teilgeschichten: so viele nebeneinander unter ihrer großen, so weit auseinander. */
+const PARTS_PER_ROW = 3;
+const PART_STEP = 280;
 const PINS_PER_ROW = 2;
 
 interface Box {
@@ -767,24 +792,76 @@ export function boardLayout(
   const knotsOf = new Map<string, KnotToLay[]>();
   for (const knot of knotsToLay)
     knotsOf.set(knot.cardKey, [...(knotsOf.get(knot.cardKey) ?? []), knot]);
-  // Eine Reihe ist so hoch, wie ihre längste Liste von Knoten es verlangt.
-  const rowTop: number[] = [0];
-  for (let row = 0; row * PER_ROW < open.length; row++) {
-    const most = Math.max(
-      0,
-      ...open
-        .slice(row * PER_ROW, row * PER_ROW + PER_ROW)
-        .map((card) => knotsOf.get(card.key)?.length ?? 0),
+  const knotRoom = (key: string) => (knotsOf.get(key)?.length ?? 0) * BOARD_KNOT.step;
+
+  // Teilgeschichten liegen unter ihrer großen Geschichte, nicht in der Reihe neben ihr.
+  const lyingKeys = new Set(open.map((card) => card.key));
+  const parentOf = (card: BoardCard): string | null => {
+    const parent = card.story?.parentId ? `story:${card.story.parentId}` : null;
+    return parent && parent !== card.key && lyingKeys.has(parent) ? parent : null;
+  };
+  const childrenOf = new Map<string, BoardCard[]>();
+  for (const card of open) {
+    const parent = parentOf(card);
+    if (parent) childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), card]);
+  }
+  /** Wie viele Reihen die Teile unter einer Karte brauchen (mit ihren eigenen Teilen). */
+  const rowsBelow = (key: string, seen: ReadonlySet<string> = new Set()): number => {
+    const parts = (childrenOf.get(key) ?? []).filter((card) => !seen.has(card.key));
+    if (!parts.length) return 0;
+    const next = new Set([...seen, key]);
+    return (
+      Math.ceil(parts.length / PARTS_PER_ROW) +
+      Math.max(0, ...parts.map((card) => rowsBelow(card.key, next)))
     );
-    rowTop.push(rowTop[row]! + CELL.height + most * BOARD_KNOT.step);
+  };
+  // Ein Teil, dessen große Geschichte nicht daliegt (oder ein Kreis), liegt wie jede andere.
+  const top = open.filter((card) => !parentOf(card) || !reachesTop(card));
+  function reachesTop(card: BoardCard): boolean {
+    const seen = new Set<string>();
+    let current: string | null = card.key;
+    while (current) {
+      if (seen.has(current)) return false;
+      seen.add(current);
+      const entry = open.find((other) => other.key === current);
+      current = entry ? parentOf(entry) : null;
+    }
+    return true;
+  }
+
+  // Eine Reihe ist so hoch, wie ihre längste Liste von Knoten und ihre Teile es verlangen.
+  const rowTop: number[] = [0];
+  for (let row = 0; row * PER_ROW < top.length; row++) {
+    const inRow = top.slice(row * PER_ROW, row * PER_ROW + PER_ROW);
+    const most = Math.max(0, ...inRow.map((card) => knotRoom(card.key)));
+    const deepest = Math.max(0, ...inRow.map((card) => rowsBelow(card.key)));
+    rowTop.push(rowTop[row]! + CELL.height + most + deepest * CELL.height);
   }
   const spots: Record<string, Spot> = {};
-  open.forEach((card, index) => {
+  top.forEach((card, index) => {
     spots[card.key] = placed[card.key] ?? {
       x: (index % PER_ROW) * CELL.width,
       y: rowTop[Math.floor(index / PER_ROW)]!,
     };
   });
+  /** Legt die Teile einer Karte in Reihen zu höchstens drei darunter – und deren Teile darunter. */
+  const layParts = (key: string, seen: ReadonlySet<string>) => {
+    const parent = spots[key];
+    const parts = (childrenOf.get(key) ?? []).filter((card) => !seen.has(card.key));
+    if (!parent) return;
+    const next = new Set([...seen, key]);
+    parts.forEach((card, index) => {
+      const row = Math.floor(index / PARTS_PER_ROW);
+      const inRow = Math.min(PARTS_PER_ROW, parts.length - row * PARTS_PER_ROW);
+      const col = index % PARTS_PER_ROW;
+      spots[card.key] = placed[card.key] ?? {
+        x: parent.x + (col - (inRow - 1) / 2) * PART_STEP,
+        y: parent.y + knotRoom(key) + CELL.height * (row + 1),
+      };
+    });
+    for (const card of parts) layParts(card.key, next);
+  };
+  for (const card of top) layParts(card.key, new Set());
   // Die Karten sind Hindernisse – ihre Mitte liegt eine halbe Höhe unter der Oberkante.
   const taken: Box[] = open.map((card) => ({
     x: spots[card.key]!.x,

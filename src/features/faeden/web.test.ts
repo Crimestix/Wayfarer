@@ -23,6 +23,9 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  addSubStory,
+  setPartsFolded,
+  setStoryParent,
   setStoryTieWord,
   tieStories,
   untieStories,
@@ -250,13 +253,10 @@ describe('Das Netz auf dem Brett', () => {
     expect(data().threads[loose.id]!.storyId).toBe(story.id);
     // Ein Faden einer anderen Geschichte wechselt nicht still die Geschichte.
     expect(connectOnBoard(db, `knot:${b.id}`, `story:${story.id}`)).toMatchObject({ done: false });
-    // Geschichte an Geschichte verbindet – ein zweites Mal nicht.
+    // Geschichte an Geschichte: Der Spielleiter wählt – verbinden oder Teil von.
     expect(connectOnBoard(db, `story:${story.id}`, `story:${other.id}`)).toMatchObject({
-      done: true,
-      title: 'Geschichten verbunden',
-    });
-    expect(connectOnBoard(db, `story:${other.id}`, `story:${story.id}`)).toMatchObject({
       done: false,
+      choose: { fromId: story.id, toId: other.id },
     });
     expect(connectOnBoard(db, `node:${mira.id}`, `node:${story.id}`)).toMatchObject({
       relate: { fromId: mira.id },
@@ -471,5 +471,39 @@ describe('Geschichte an Geschichte', () => {
     expect(isStoryTied(data(), a.id, b.id)).toBe(true);
     undo();
     expect(isStoryTied(data(), a.id, b.id)).toBe(false);
+  });
+});
+
+describe('Teilgeschichten auf dem Brett', () => {
+  it('hängt ein, zeigt die Schnur „Teil von“, zählt die Teile und klappt sie ein', async () => {
+    const { db, data } = await setup();
+    const big = newStory(db, { title: 'Vorzagath' });
+    const part = newStory(db, { title: 'Die Duergar' });
+    const undo = setStoryParent(db, part.id, big.id)!;
+    expect(data().stories[part.id]!.parentId).toBe(big.id);
+    // Nie im Kreis: Die große wird kein Teil ihres Teils.
+    expect(setStoryParent(db, big.id, part.id)).toBeNull();
+    let cards = boardCards(data());
+    expect(cards.find((card) => card.key === `story:${big.id}`)!.parts).toBe(1);
+    expect(boardWeb(data(), cards).strings).toMatchObject([
+      { kind: 'part', a: `story:${big.id}`, b: `story:${part.id}` },
+    ]);
+    setPartsFolded(db, big.id, true);
+    cards = boardCards(data());
+    expect(cards.find((card) => card.key === `story:${part.id}`)!.onBoard).toBe(false);
+    expect(boardWeb(data(), cards).strings).toEqual([]);
+    setPartsFolded(db, big.id, false);
+    undo();
+    expect(data().stories[part.id]!.parentId).toBeNull();
+  });
+
+  it('legt eine Teilgeschichte mit Namen an und klappt dafür auf', async () => {
+    const { db, data } = await setup();
+    const big = newStory(db, { title: 'Vorzagath', partsFolded: true });
+    const made = addSubStory(db, big.id, ' Die Geschichte Duskryns ')!;
+    expect(made.story).toMatchObject({ title: 'Die Geschichte Duskryns', parentId: big.id });
+    expect(data().stories[big.id]!.partsFolded).toBe(false);
+    made.undo();
+    expect(data().stories[made.story.id]).toBeUndefined();
   });
 });

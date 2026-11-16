@@ -1866,3 +1866,27 @@
   stroke-width: 3;
   opacity: 0.8;
 }
+
+/* Teil von: von der großen Geschichte zu ihren Teilen – gestrichelt und kräftig */
+.wf-faden-strings path[data-web='part'] {
+  stroke: var(--gold-deep);
+  stroke-width: 2.5;
+  stroke-dasharray: 10 6;
+  opacity: 0.9;
+}
+/* Verbinden oder Teil von? – die Frage auf dem Brett */
+.wf-faden-choose {
+  width: 300px;
+}
+.wf-faden-choose__acts {
+  flex-direction: column;
+  align-items: stretch;
+}
+.wf-faden-choose__acts .wf-btn {
+  height: auto;
+  min-height: 30px;
+  padding-block: 4px;
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+}

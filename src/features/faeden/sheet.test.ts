@@ -337,13 +337,18 @@ describe('Große Geschichten und ihre Teile', () => {
     patchStory(db, part.id, { parentId: part.id });
     expect(data().stories[part.id]!.parentId).toBeNull();
     patchStory(db, part.id, { parentId: big.id });
-    // Auf dem Brett liegt eine Teilgeschichte gleich hinter ihrer großen.
-    newStory(db, { title: 'Aalfang' });
+    // Auf dem Brett liegt eine Teilgeschichte unter ihrer großen – und deren Teil darunter.
+    const eel = newStory(db, { title: 'Aalfang' });
     newStory(db, { title: 'Die Furt bricht' });
-    const order = Object.keys(boardLayout(boardCards(data())).cards);
-    const at = (id: string) => order.indexOf(`story:${id}`);
-    expect(at(part.id)).toBe(at(big.id) + 1);
-    expect(at(small.id)).toBe(at(part.id) + 1);
+    const spots = boardLayout(boardCards(data())).cards;
+    const at = (id: string) => spots[`story:${id}`]!;
+    expect(at(part.id).x).toBe(at(big.id).x);
+    expect(at(part.id).y).toBeGreaterThan(at(big.id).y);
+    expect(at(small.id).x).toBe(at(part.id).x);
+    expect(at(small.id).y).toBeGreaterThan(at(part.id).y);
+    // Was für sich steht, liegt in der Reihe neben der großen – nicht zwischen ihren Teilen.
+    expect(at(eel.id).y).toBe(at(big.id).y);
+    expect(at(eel.id).y).toBeLessThan(at(part.id).y);
     // Wird die mittlere gelöscht, rückt ihr Teil eine Stufe hinauf.
     removeStory(db, part.id);
     expect(data().stories[small.id]!.parentId).toBe(big.id);

@@ -662,6 +662,13 @@ nicht übernommen.
   Verbindungen und „führt zu“ mit. Schritt 4: Eine Schnur von Geschichte zu Geschichte verbindet
   sie von Hand (`story.ties`, Schnur der Art `story` in `boardWeb`, „Verbunden mit“ im
   Seitenteil); was Wayfarer an Berührungen ableitet, steht weiter darunter unter „Berührt“.
+  Teilgeschichten auf dem Brett: Schnur `part` von der großen zu ihren Teilen, Zahl „3 Teile“ auf
+  der Karte, Teile liegen unter ihrer großen (`boardLayout`, `PARTS_PER_ROW`); eine Geschichte auf
+  eine andere ziehen oder eine Schnur zwischen zweien fragt (`StoryChoice`): „ist Teil von“ (beide
+  Richtungen, nie im Kreis – `parentChoices`) oder „nur verbinden“; herauslösen über das Menü der
+  Schnur (`setStoryParent`); einklappen über `story.partsFolded` (`setPartsFolded`, `foldedAway`
+  – eingeklappte Teile liegen nicht auf dem Brett); neue Teilgeschichte mit Namen im Seitenteil
+  (`addSubStory`).
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
   `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein

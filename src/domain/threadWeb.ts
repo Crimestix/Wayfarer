@@ -211,8 +211,11 @@ export interface WebString {
   /** Wo sie beginnt und endet: `knot:…`, `thread:…` (loser Faden) oder `story:…`. */
   a: string;
   b: string;
-  /** `tie` = Fäden verbunden; `lead` = ein Hinweis von `a` führt zu `b`; `story` = Geschichten verbunden. */
-  kind: 'tie' | 'lead' | 'story';
+  /**
+   * `tie` = Fäden verbunden; `lead` = ein Hinweis von `a` führt zu `b`; `story` = Geschichten
+   * verbunden; `part` = `b` ist Teil der großen Geschichte `a`.
+   */
+  kind: 'tie' | 'lead' | 'story' | 'part';
   word: string;
   /** Die beiden Fäden (bei `story`: die beiden Geschichten) – für Rückgängig und den Seitenteil. */
   from: string;
@@ -354,6 +357,21 @@ export function boardWeb(
         hintId: null,
       });
     }
+  // Teilgeschichten hängen an ihrer großen Geschichte.
+  for (const storyId of lyingStories) {
+    const parentId = data.stories[storyId]?.parentId;
+    if (!parentId || parentId === storyId || !lyingStories.has(parentId)) continue;
+    strings.push({
+      key: `part:${parentId}:${storyId}`,
+      a: `story:${parentId}`,
+      b: `story:${storyId}`,
+      kind: 'part',
+      word: '',
+      from: parentId,
+      to: storyId,
+      hintId: null,
+    });
+  }
   return { cards: adjusted, knots, strings };
 }
 
