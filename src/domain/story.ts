@@ -861,6 +861,25 @@ export function hitOnBoard(layout: BoardLayout, at: Spot): string | null {
   return card ? card[0] : null;
 }
 
+/**
+ * Was in einem aufgezogenen Rahmen liegt (zwei Ecken, gleich in welcher Folge): Karten, Knoten
+ * und Namen, deren Mitte darin ist – für die Auswahl mehrerer Stücke.
+ */
+export function insideOnBoard(layout: BoardLayout, a: Spot, b: Spot): string[] {
+  const [x0, x1] = [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+  const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)];
+  const inside = (spot: Spot) => spot.x >= x0 && spot.x <= x1 && spot.y >= y0 && spot.y <= y1;
+  return [
+    ...Object.entries(layout.cards)
+      .filter(([, spot]) => inside({ x: spot.x, y: spot.y + BOARD_CARD.height / 2 }))
+      .map(([key]) => key),
+    ...Object.entries(layout.knots)
+      .filter(([, spot]) => inside({ x: spot.x + BOARD_KNOT.width / 2, y: spot.y }))
+      .map(([key]) => key),
+    ...layout.pins.filter((pin) => inside(pin)).map((pin) => pin.key),
+  ];
+}
+
 /** „über den Hafen“, „über Mira und den Hafen“ – der Grund einer Berührung in Worten. */
 export function touchReason(data: Pick<CampaignData, 'entities'>, touch: Touch): string {
   const names = touch.via.map((id) => data.entities[id]?.name ?? '?');

@@ -181,6 +181,8 @@ export interface WebString {
   /** Die beiden Fäden – für Rückgängig und den Seitenteil. */
   from: string;
   to: string;
+  /** Bei `lead`: der Hinweis an `from`, der zu `to` führt. */
+  hintId: string | null;
 }
 
 export interface BoardWeb {
@@ -224,11 +226,17 @@ export function boardWeb(
       const pair = [thread.id, tie.id].sort().join('|');
       if (tied.has(pair)) continue;
       tied.add(pair);
-      pairs.push({ kind: 'tie', word: tie.word, from: thread.id, to: tie.id });
+      pairs.push({ kind: 'tie', word: tie.word, from: thread.id, to: tie.id, hintId: null });
     }
     for (const hint of thread.hints)
       if (hint.leadsTo && hint.leadsTo !== thread.id && seen.has(hint.leadsTo))
-        pairs.push({ kind: 'lead', word: hint.text, from: thread.id, to: hint.leadsTo });
+        pairs.push({
+          kind: 'lead',
+          word: hint.text,
+          from: thread.id,
+          to: hint.leadsTo,
+          hintId: hint.id,
+        });
   }
 
   // Knoten: aufgeklappt – oder über die eigene Karte hinaus verbunden.

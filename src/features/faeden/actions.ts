@@ -1279,3 +1279,110 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
     note: 'Geschichten verbinden sich über ihre Fäden: Klapp sie auf und zieh die Schnur von Faden zu Faden.',
   };
 }
+
+// ── Das Brett anfassen: mehrere zugleich, Schnüre lösen, schnell schreiben ─────
+
+/** Legt mehrere Stücke auf einmal an neue Stellen (gemeinsam verschoben). */
+export function placeManyOnBoard(
+  db: CampaignDb,
+  spots: Readonly<Record<string, { x: number; y: number }>>,
+): void {
+  const board = db.getSnapshot().state.board;
+  const next = { ...board };
+  for (const [key, at] of Object.entries(spots))
+    next[key] = { x: Math.round(at.x), y: Math.round(at.y) };
+  db.setState({ board: next });
+}
+
+/** Wohin ein Hinweis führt – setzen oder lösen (null). Gibt `undo` zurück. */
+export function setHintLead(
+  db: CampaignDb,
+  threadId: string,
+  hintId: string,
+  leadsTo: string | null,
+): (() => void) | null {
+  const thread = db.getSnapshot().threads[threadId];
+  const hint = thread?.hints.find((entry) => entry.id === hintId);
+  if (!thread || !hint || (hint.leadsTo ?? null) === leadsTo) return null;
+  db.patch('threads', threadId, {
+    hints: thread.hints.map((entry) => (entry.id === hintId ? { ...entry, leadsTo } : entry)),
+  });
+  return () => {
+    const now = db.getSnapshot().threads[threadId];
+    if (now)
+      db.patch('threads', threadId, {
+        hints: now.hints.map((entry) =>
+          entry.id === hintId ? { ...entry, leadsTo: hint.leadsTo ?? null } : entry,
+        ),
+      });
+  };
+}
+
+/**
+ * Ein Satz, auf dem Brett hingeschrieben (Doppelklick ins Leere): ein loser Faden, der gleich
+ * dort liegt. Leerer Satz = nichts. Gibt den Faden und `undo` zurück.
+ */
+export function writeOnBoard(
+  db: CampaignDb,
+  title: string,
+  at: { x: number; y: number },
+): { thread: Thread; undo: () => void } | null {
+  const clean = title.trim();
+  if (!clean) return null;
+  return db.batch(() => {
+    const thread = saveThread(db, {
+      title: clean,
+      truth: '',
+      state: 'open',
+      storyId: null,
+      refs: [],
+      known: false,
+      hints: [],
+    });
+    setThreadOnBoard(db, thread.id, true, at);
+    return {
+      thread,
+      undo: () =>
+        db.batch(() => {
+          const { [spotKey(thread.id)]: _gone, ...rest } = db.getSnapshot().state.board;
+          db.setState({ board: rest });
+          if (db.getSnapshot().threads[thread.id]) removeThread(db, thread.id);
+        }),
+    };
+  });
+}
+
+/** Was „Entf“ mit einem gewählten Stück des Bretts tun kann. */
+export interface TakeOffResult {
+  /** Wie viele lose Fäden vom Brett genommen wurden. */
+  taken: number;
+  /** Was bleiben muss – Geschichten, Namen, Knoten. */
+  kept: number;
+  undo: (() => void) | null;
+}
+
+/**
+ * Nimmt Gewähltes vom Brett – nie aus der Welt. Lose Fäden stehen danach nur in der Liste;
+ * Geschichten, Namen und Fäden einer Geschichte bleiben (sie liegen, weil sie dazugehören).
+ */
+export function takeOffBoard(db: CampaignDb, keys: readonly string[]): TakeOffResult {
+  const data = db.getSnapshot();
+  const undos: (() => void)[] = [];
+  let kept = 0;
+  db.batch(() => {
+    for (const key of keys) {
+      const thread = key.startsWith('thread:') ? data.threads[key.slice(7)] : undefined;
+      if (!thread || !isLooseThread(data, thread) || thread.inPlay) {
+        kept++;
+        continue;
+      }
+      const undo = setThreadOnBoard(db, thread.id, false);
+      if (undo) undos.push(undo);
+    }
+  });
+  return {
+    taken: undos.length,
+    kept,
+    undo: undos.length ? () => db.batch(() => [...undos].reverse().forEach((u) => u())) : null,
+  };
+}

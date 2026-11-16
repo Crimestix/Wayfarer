@@ -8,13 +8,17 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
 import { createEntity, newId, type Place } from '../../domain/schema';
-import { boardCards, boardLayout } from '../../domain/story';
+import { boardCards, boardLayout, insideOnBoard } from '../../domain/story';
 import { boardWeb, isTied, leadNote, neighboursOf, tieFits, tiesOf } from '../../domain/threadWeb';
 import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import {
   connectOnBoard,
   mergeThreads,
+  placeManyOnBoard,
+  setHintLead,
+  takeOffBoard,
+  writeOnBoard,
   newStory,
   saveThread,
   setInPlay,
@@ -252,5 +256,70 @@ describe('Am Spieltisch', () => {
     expect(card.threads[0]!.next).toMatchObject([{ thread: { id: far.id }, word: 'Geld' }]);
     expect(card.threads[1]!.next).toEqual([]);
     void away;
+  });
+});
+
+describe('Das Brett anfassen', () => {
+  it('schreibt einen Faden gleich aufs Brett und nimmt ihn zurück', async () => {
+    const { db, data } = await setup();
+    expect(writeOnBoard(db, '   ', { x: 0, y: 0 })).toBeNull();
+    const written = writeOnBoard(db, ' Wer hat die Tür geöffnet? ', { x: 120, y: 80 })!;
+    expect(written.thread.title).toBe('Wer hat die Tür geöffnet?');
+    expect(data().threads[written.thread.id]!.onBoard).toBe(true);
+    expect(data().state.board[`thread:${written.thread.id}`]).toEqual({ x: 120, y: 80 });
+    written.undo();
+    expect(data().threads[written.thread.id]).toBeUndefined();
+    expect(data().state.board[`thread:${written.thread.id}`]).toBeUndefined();
+  });
+
+  it('nimmt nur lose Fäden vom Brett – Geschichten und Namen bleiben', async () => {
+    const { db, data, mira } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    const loose = writeOnBoard(db, 'Lose', { x: 0, y: 0 })!.thread;
+    const result = takeOffBoard(db, [`thread:${loose.id}`, `story:${story.id}`, `node:${mira.id}`]);
+    expect(result).toMatchObject({ taken: 1, kept: 2 });
+    expect(data().threads[loose.id]!.onBoard).toBe(false);
+    result.undo!();
+    expect(data().threads[loose.id]!.onBoard).toBe(true);
+  });
+
+  it('legt mehrere zugleich und löst, wohin ein Hinweis führt', async () => {
+    const { db, data, thread } = await setup();
+    placeManyOnBoard(db, { 'story:a': { x: 10.4, y: 20 }, 'node:b': { x: -5, y: 7.6 } });
+    expect(data().state.board).toMatchObject({
+      'story:a': { x: 10, y: 20 },
+      'node:b': { x: -5, y: 8 },
+    });
+    const target = thread('Ziel');
+    const hintId = newId();
+    const from = thread('Start', {
+      hints: [
+        {
+          id: hintId,
+          text: 'Spur',
+          placeId: null,
+          sourceId: null,
+          found: false,
+          leadsTo: target.id,
+        },
+      ],
+    });
+    const undo = setHintLead(db, from.id, hintId, null)!;
+    expect(data().threads[from.id]!.hints[0]!.leadsTo).toBeNull();
+    expect(setHintLead(db, from.id, hintId, null)).toBeNull();
+    undo();
+    expect(data().threads[from.id]!.hints[0]!.leadsTo).toBe(target.id);
+  });
+
+  it('findet, was in einem aufgezogenen Rahmen liegt', async () => {
+    const { db, data, arena, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena', unfolded: true });
+    thread('Wer kämpft?', { storyId: story.id, refs: [arena.id] });
+    const web = boardWeb(data(), boardCards(data()));
+    const layout = boardLayout(web.cards, {}, web.knots);
+    const all = insideOnBoard(layout, { x: -1000, y: -1000 }, { x: 3000, y: 3000 });
+    expect(all).toEqual(expect.arrayContaining([`story:${story.id}`, `node:${arena.id}`]));
+    expect(all.some((key) => key.startsWith('knot:'))).toBe(true);
+    expect(insideOnBoard(layout, { x: 5000, y: 5000 }, { x: 6000, y: 6000 })).toEqual([]);
   });
 });

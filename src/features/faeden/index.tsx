@@ -8,6 +8,7 @@
  * und `domain/looseThreads.ts`.
  */
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -42,6 +43,7 @@ import {
   boardLayout,
   entryFit,
   hitOnBoard,
+  insideOnBoard,
   isLooseThread,
   looseClocks,
   reputeOf,
@@ -77,6 +79,7 @@ import {
   IconButton,
   KindIcon,
   Select,
+  Written,
   cx,
   entityHref,
   toast,
@@ -85,11 +88,19 @@ import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
   connectOnBoard,
+  moveThread,
   moveThreads,
   newStory,
   pinToCard,
+  placeManyOnBoard,
   placeOnBoard,
+  setHintLead,
   setStoryUnfolded,
+  setTieWord,
+  takeOffBoard,
+  unpinFromCard,
+  untieThreads,
+  writeOnBoard,
   setThreadOnBoard,
   setThreadState,
   storyFromClock,
@@ -97,6 +108,7 @@ import {
 } from './actions';
 import { RelationQuick } from '../welt/RelationQuick';
 import { ThreadWeb, findHint } from './WebParts';
+import { useHoldDraft } from '../../ui/drafts';
 import { ThreadDialog } from './Dialogs';
 import { AttachDialog } from './LooseDialogs';
 import { LooseDrawer, THREAD_DRAG } from './LooseDrawer';
@@ -174,8 +186,20 @@ export default function FaedenPage() {
   // Die Pinnwand: frei verschieben, vergrößern, Karten und Namen ziehen.
   const frame = useRef<HTMLDivElement>(null);
   const wall = useBoard(frame);
-  /** Was gerade gezogen wird – seine Stelle, bis es losgelassen wird. */
-  const [moving, setMoving] = useState<{ key: string; x: number; y: number } | null>(null);
+  /** Was gerade gezogen wird – je Stück seine Stelle, bis es losgelassen wird. */
+  const [moving, setMoving] = useState<Record<string, Spot> | null>(null);
+  /** Mehrere gewählte Stücke (Umschalt-Klick, Rahmen) – sie ziehen gemeinsam. */
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  /** Die gewählte Schnur. */
+  const [lineKey, setLineKey] = useState<string | null>(null);
+  /** Der Rahmen, der gerade aufgezogen wird. */
+  const [band, setBand] = useState<{ a: Spot; b: Spot } | null>(null);
+  /** Hier wird gerade ein Faden hingeschrieben (Doppelklick ins Leere). */
+  const [drafting, setDrafting] = useState<Spot | null>(null);
+  const clearPicks = () => {
+    setPicked(new Set());
+    setLineKey(null);
+  };
   const [, navigate] = useLocation();
   /** Eine neue Geschichte: Sie entsteht leer und wird auf ihrem Blatt geschrieben. */
   const write = (at?: Spot) => {
@@ -187,12 +211,7 @@ export default function FaedenPage() {
   /** Das Netz der Fäden: Knoten an den Geschichten und Schnüre zwischen Fäden. */
   const web = useMemo(() => boardWeb(data, cards, view), [data, cards, view]);
   const layout = useMemo(
-    () =>
-      boardLayout(
-        web.cards,
-        moving ? { ...placed, [moving.key]: { x: moving.x, y: moving.y } } : placed,
-        web.knots,
-      ),
+    () => boardLayout(web.cards, moving ? { ...placed, ...moving } : placed, web.knots),
     [web, placed, moving],
   );
   const pin = layout.pins.find((entry) => entry.key === selected) ?? null;
@@ -207,6 +226,12 @@ export default function FaedenPage() {
     const at = layout.pins.find((entry) => entry.key === key);
     return at ? { x: at.x, y: at.y } : null;
   };
+  /** Die Stelle eines Stücks in den Maßen, in denen das Brett sie speichert. */
+  const spotOf = (key: string): Spot | null =>
+    layout.cards[key] ??
+    layout.knots[key] ??
+    layout.pins.find((entry) => entry.key === key) ??
+    null;
   /** Eine Schnur, die gerade frei gezogen wird – von wo, bis wohin. */
   const [linking, setLinking] = useState<{ from: string; start: Spot; end: Spot } | null>(null);
   /** Zwei Namen verbunden: Das Fenster für eine Beziehung der Welt. */
@@ -299,12 +324,17 @@ export default function FaedenPage() {
       if (!from) return [];
       // Ein Faden hängt leicht durch.
       const [mx, my] = [(from.x + entry.x) / 2, (from.y + entry.y) / 2 + 28];
+      const lineId = `name:${key}|${entry.key}`;
       return [
         {
           key: `${key}|${entry.key}`,
+          lineId,
+          owner: key,
+          entityId: entry.id,
+          mid: { x: mx, y: (from.y + entry.y) / 2 + 14 },
           d: `M ${from.x} ${from.y} Q ${mx} ${my} ${entry.x} ${entry.y}`,
           shared: entry.cards.length > 1,
-          active: selected === key || selected === entry.key,
+          active: selected === key || selected === entry.key || lineKey === lineId,
         },
       ];
     }),
@@ -315,11 +345,15 @@ export default function FaedenPage() {
     const card = layout.cards[entry.cardKey];
     const at = layout.knots[entry.key];
     if (!card || !at) return [];
+    const lineId = `knot:${entry.key}`;
     return [
       {
         key: `${entry.cardKey}|${entry.key}`,
+        lineId,
+        knot: entry,
+        mid: { x: (card.x + at.x) / 2, y: (card.y + 56 + at.y) / 2 },
         d: `M ${card.x} ${card.y + 56} L ${at.x + 6} ${at.y}`,
-        active: selected === entry.key || selected === entry.cardKey,
+        active: selected === entry.key || selected === entry.cardKey || lineKey === lineId,
       },
     ];
   });
@@ -337,6 +371,133 @@ export default function FaedenPage() {
         d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`,
       },
     ];
+  });
+
+  /** Die gewählte Schnur – was sie verbindet und was sich mit ihr tun lässt. */
+  const chosenLine: ChosenLine | null = (() => {
+    if (!lineKey) return null;
+    const name = strings.find((line) => line.lineId === lineKey);
+    if (name) return { kind: 'name', at: name.mid, owner: name.owner, entityId: name.entityId };
+    const knotLine = knotStrings.find((line) => line.lineId === lineKey);
+    if (knotLine) return { kind: 'knot', at: knotLine.mid, knot: knotLine.knot };
+    const webLine = webStrings.find(({ line }) => `web:${line.key}` === lineKey);
+    if (webLine) return { kind: 'web', at: webLine.mid, line: webLine.line };
+    return null;
+  })();
+  /** Wählt eine Schnur (ein Klick auf sie). */
+  const pickLine = (id: string) => (event: PointerEvent) => {
+    event.stopPropagation();
+    if (event.button !== 0) return;
+    setSelected(null);
+    setPicked(new Set());
+    setLineKey(lineKey === id ? null : id);
+  };
+  /** Löst die gewählte Schnur – mit Meldung und Rückgängig; manche lassen sich nur dort lösen, wo sie entstehen. */
+  const releaseLine = () => {
+    const line = chosenLine;
+    if (!line) return;
+    const done = (title: string, body: string, undo: (() => void) | null) => {
+      setLineKey(null);
+      if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
+    };
+    if (line.kind === 'web') {
+      const [a, b] = [data.threads[line.line.from], data.threads[line.line.to]];
+      if (line.line.kind === 'tie')
+        done(
+          'Verbindung gelöst',
+          `„${a?.title ?? ''}“ – „${b?.title ?? ''}“`,
+          untieThreads(db, line.line.from, line.line.to),
+        );
+      else if (line.line.hintId)
+        done(
+          'Hinweis führt nirgendwo mehr hin',
+          `„${line.line.word}“ führte zu „${b?.title ?? ''}“.`,
+          setHintLead(db, line.line.from, line.line.hintId, null),
+        );
+      return;
+    }
+    if (line.kind === 'knot') {
+      const thread = data.threads[line.knot.thread.id];
+      if (thread)
+        done(
+          'Von der Geschichte gelöst',
+          `„${thread.title}“ ist jetzt ein loser Faden.`,
+          moveThread(db, thread.id, null),
+        );
+      return;
+    }
+    const cardKey = line.owner.startsWith('knot:') ? `thread:${line.owner.slice(5)}` : line.owner;
+    const entity = data.entities[line.entityId];
+    if (!nameIsPinned(cardKey, line.entityId)) return;
+    unpinFromCard(db, cardKey, line.entityId);
+    done('Gelöst', `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“.`, () =>
+      pinToCard(db, cardKey, line.entityId),
+    );
+  };
+  /** Ein Name hängt an einer Karte, weil er dort angeheftet ist – nicht über Hinweis, Uhr oder Szene. */
+  const nameIsPinned = (cardKey: string, entityId: string): boolean => {
+    const [sort, id] = cardKey.split(':') as [string, string];
+    const doc = sort === 'story' ? data.stories[id] : data.threads[id];
+    return doc?.refs.includes(entityId) === true;
+  };
+  const ownerTitle = (key: string): string => {
+    const threadId =
+      key.startsWith('knot:') || key.startsWith('thread:') ? key.slice(key.indexOf(':') + 1) : null;
+    if (threadId) return data.threads[threadId]?.title ?? '';
+    return data.stories[key.slice(6)]?.title ?? '';
+  };
+  /** Nimmt die gewählten Stücke vom Brett – lose Fäden; alles andere bleibt, mit einem Satz dazu. */
+  const takeOff = (keys: readonly string[]) => {
+    const result = takeOffBoard(db, keys);
+    if (result.taken) {
+      clearPicks();
+      setSelected(null);
+    }
+    toast({
+      title: result.taken
+        ? result.taken === 1
+          ? 'Vom Brett genommen'
+          : `${result.taken} Fäden vom Brett genommen`
+        : 'Bleibt auf dem Brett',
+      body: [
+        result.taken === 1
+          ? 'Er steht weiter unter „Lose Fäden“.'
+          : result.taken
+            ? 'Sie stehen weiter unter „Lose Fäden“.'
+            : '',
+        result.kept
+          ? 'Geschichten, Namen und Fäden einer Geschichte liegen, weil sie dazugehören. Vom Brett nehmen lassen sich lose Fäden.'
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      ...(result.undo ? { action: { label: 'Rückgängig', run: result.undo } } : {}),
+    });
+  };
+  // Entf (am Mac die Löschtaste): Schnur lösen oder Gewähltes vom Brett nehmen. Escape hebt auf.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key === 'Escape') {
+        clearPicks();
+        setDrafting(null);
+        return;
+      }
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      if (view !== 'truth') return;
+      if (chosenLine) {
+        event.preventDefault();
+        releaseLine();
+        return;
+      }
+      const keys = picked.size ? [...picked] : selected ? [selected] : [];
+      if (!keys.length) return;
+      event.preventDefault();
+      takeOff(keys);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   });
 
   /** Die Geschichte, auf der ein gezogener loser Faden gerade liegt – dort würde er angehängt. */
@@ -377,23 +538,67 @@ export default function FaedenPage() {
   /** Ziehen legt hin, ein Klick wählt. Ein loser Faden, auf eine Geschichte gezogen, hängt an ihr. */
   const grab = (key: string, at: Spot) => (event: PointerEvent) => {
     event.stopPropagation();
+    setLineKey(null);
+    const shift = event.shiftKey;
+    // Ist das Stück Teil einer Auswahl, zieht die ganze Auswahl mit.
+    const group = picked.has(key) && picked.size > 1 ? [...picked] : [key];
+    const base: Record<string, Spot> = {};
+    for (const each of group) {
+      const spot = each === key ? at : spotOf(each);
+      if (spot) base[each] = { x: spot.x, y: spot.y };
+    }
     const threadId = key.startsWith('thread:') ? key.slice('thread:'.length) : null;
     const thread = threadId ? data.threads[threadId] : undefined;
-    const hangs = truth && thread !== undefined && isLooseThread(data, thread);
+    const hangs =
+      group.length === 1 && truth && thread !== undefined && isLooseThread(data, thread);
     const target = (dx: number, dy: number) =>
       hangs ? storyUnder(at.x + dx, at.y + dy, key) : null;
+    const shifted = (dx: number, dy: number) =>
+      Object.fromEntries(
+        Object.entries(base).map(([each, spot]) => [each, { x: spot.x + dx, y: spot.y + dy }]),
+      );
     wall.drag(event, {
       onMove: (dx, dy) => {
-        setMoving({ key, x: at.x + dx, y: at.y + dy });
+        setMoving(shifted(dx, dy));
         setDropOn(target(dx, dy));
       },
       onEnd: (moved, dx, dy) => {
         setMoving(null);
         setDropOn(null);
-        const story = moved ? target(dx, dy) : null;
+        if (!moved) {
+          if (shift) {
+            // Umschalt-Klick: zur Auswahl dazu oder wieder heraus.
+            const next = new Set(picked);
+            if (selected && !next.size) next.add(selected);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            setPicked(next);
+            setSelected(next.size === 1 ? [...next][0]! : null);
+            return;
+          }
+          setPicked(new Set());
+          select(key === selected ? null : key);
+          return;
+        }
+        const story = target(dx, dy);
         if (story && threadId) attach([threadId], story, true);
-        else if (moved) placeOnBoard(db, key, at.x + dx, at.y + dy);
-        else select(key === selected ? null : key);
+        else placeManyOnBoard(db, shifted(dx, dy));
+      },
+    });
+  };
+  /** Mit gedrückter Umschalttaste im Leeren: einen Rahmen um mehrere Stücke aufziehen. */
+  const startBand = (event: PointerEvent) => {
+    const a = wall.toBoard(event.clientX, event.clientY);
+    wall.drag(event, {
+      onMove: (dx, dy) => setBand({ a, b: { x: a.x + dx, y: a.y + dy } }),
+      onEnd: (moved, dx, dy) => {
+        setBand(null);
+        if (!moved) return;
+        const keys = insideOnBoard(layout, a, { x: a.x + dx, y: a.y + dy });
+        setLineKey(null);
+        setPicked(new Set(keys));
+        setSelected(keys.length === 1 ? keys[0]! : null);
+        if (keys.length) showCard();
       },
     });
   };
@@ -509,10 +714,16 @@ export default function FaedenPage() {
           <div
             ref={frame}
             className="wf-faden-wall"
-            onPointerDown={(event) => wall.pan(event, () => setSelected(null))}
+            onPointerDown={(event) => {
+              if (event.shiftKey) return startBand(event);
+              wall.pan(event, () => {
+                setSelected(null);
+                clearPicks();
+              });
+            }}
             onDoubleClick={(event) => {
-              // Die Karte liegt später dort, wo geklickt wurde.
-              if (view === 'truth') write(wall.toBoard(event.clientX, event.clientY));
+              // Ein Satz, gleich dort hingeschrieben, wird ein loser Faden auf dem Brett.
+              if (view === 'truth') setDrafting(wall.toBoard(event.clientX, event.clientY));
             }}
             onDragOver={(event) => {
               if (!truth || !dragged(event)) return;
@@ -557,7 +768,72 @@ export default function FaedenPage() {
                     data-linking
                   />
                 )}
+                {webStrings
+                  .filter(({ line }) => lineKey === `web:${line.key}`)
+                  .map(({ line, d }) => (
+                    <path key={`chosen:${line.key}`} d={d} data-chosen />
+                  ))}
+                {/* Breite, unsichtbare Spuren über den Schnüren: Daran klickt man sie an. */}
+                {truth &&
+                  [
+                    ...strings.map((line) => ({ id: line.lineId, d: line.d })),
+                    ...knotStrings.map((line) => ({ id: line.lineId, d: line.d })),
+                    ...webStrings.map(({ line, d }) => ({ id: `web:${line.key}`, d })),
+                  ].map((line) => (
+                    <path
+                      key={`hit:${line.id}`}
+                      className="wf-faden-hit"
+                      d={line.d}
+                      onPointerDown={pickLine(line.id)}
+                    />
+                  ))}
               </svg>
+              {band && (
+                <div
+                  className="wf-faden-band"
+                  style={{
+                    left: Math.min(band.a.x, band.b.x),
+                    top: Math.min(band.a.y, band.b.y),
+                    width: Math.abs(band.a.x - band.b.x),
+                    height: Math.abs(band.a.y - band.b.y),
+                  }}
+                />
+              )}
+              {chosenLine && (
+                <LineMenu
+                  line={chosenLine}
+                  pinned={
+                    chosenLine.kind === 'name' &&
+                    nameIsPinned(
+                      chosenLine.owner.startsWith('knot:')
+                        ? `thread:${chosenLine.owner.slice(5)}`
+                        : chosenLine.owner,
+                      chosenLine.entityId,
+                    )
+                  }
+                  ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
+                  onRelease={releaseLine}
+                  onClose={() => setLineKey(null)}
+                />
+              )}
+              {drafting && (
+                <BoardDraft
+                  at={drafting}
+                  onDone={(title) => {
+                    const at = drafting;
+                    setDrafting(null);
+                    const written = writeOnBoard(db, title, { x: at.x, y: at.y - 20 });
+                    if (!written) return;
+                    select(`thread:${written.thread.id}`);
+                    toast({
+                      title: 'Faden hingelegt',
+                      body: `„${written.thread.title}“ – zieh ihn auf eine Geschichte oder eine Schnur von ihm weg.`,
+                      action: { label: 'Rückgängig', run: written.undo },
+                    });
+                  }}
+                  onCancel={() => setDrafting(null)}
+                />
+              )}
               {webStrings
                 .filter(({ line }) => line.word)
                 .map(({ line, mid }) => (
@@ -576,7 +852,7 @@ export default function FaedenPage() {
                     key={entry.key}
                     knot={entry}
                     at={at}
-                    selected={entry.key === selected}
+                    selected={entry.key === selected || picked.has(entry.key)}
                     dim={related !== null && !related.has(entry.key)}
                     onGrab={grab(entry.key, at)}
                     onLink={truth ? startLink(entry.key) : undefined}
@@ -594,7 +870,7 @@ export default function FaedenPage() {
                     style={{ left: entry.x, top: entry.y }}
                     data-shared={entry.cards.length > 1}
                     data-dim={related !== null && !related.has(entry.key)}
-                    aria-pressed={entry.key === selected}
+                    aria-pressed={entry.key === selected || picked.has(entry.key)}
                     title={
                       entry.cards.length > 1
                         ? `${entity.name} – hier berühren sich ${entry.cards.length} Karten`
@@ -620,10 +896,10 @@ export default function FaedenPage() {
                   key={card.key}
                   card={card}
                   at={layout.cards[card.key]!}
-                  selected={card.key === selected}
+                  selected={card.key === selected || picked.has(card.key)}
                   dim={related !== null && !related.has(card.key)}
                   drop={card.key === dropOn}
-                  lifted={card.key === moving?.key}
+                  lifted={moving !== null && moving[card.key] !== undefined}
                   onGrab={grab(card.key, layout.cards[card.key]!)}
                   onLink={truth ? startLink(card.key) : undefined}
                 />
@@ -632,7 +908,7 @@ export default function FaedenPage() {
             {open.length === 0 && (
               <p className="wf-faden-wall__none">
                 {truth
-                  ? 'Noch liegt nichts auf dem Brett. Eine Geschichte entsteht mit einem Doppelklick – oder aus losen Fäden der Liste.'
+                  ? 'Noch liegt nichts auf dem Brett. Ein Doppelklick ins Leere schreibt einen Faden; eine Geschichte entsteht über „Geschichte“ oben.'
                   : 'Von dem, was auf dem Brett liegt, kennt die Gruppe noch nichts.'}
               </p>
             )}
@@ -733,6 +1009,20 @@ export default function FaedenPage() {
                 onPicked={setLoosePicked}
                 onEdit={(thread) => setDialog({ type: 'thread', thread, storyId: thread.storyId })}
                 onShow={setArriving}
+              />
+            ) : picked.size > 1 ? (
+              <PickedSide
+                count={picked.size}
+                loose={
+                  [...picked].filter((key) => {
+                    const thread = key.startsWith('thread:')
+                      ? data.threads[key.slice(7)]
+                      : undefined;
+                    return thread !== undefined && isLooseThread(data, thread) && !thread.inPlay;
+                  }).length
+                }
+                onTakeOff={() => takeOff([...picked])}
+                onClear={clearPicks}
               />
             ) : pin ? (
               <PinSide pin={pin} cards={cards} onSelect={select} />
@@ -1152,7 +1442,12 @@ function Side({
         </p>
         <p className="wf-mute">
           Karten und Namen legst du frei: einfach ziehen. Das Brett selbst ziehst du am leeren
-          Grund, das Mausrad vergrößert, ein Doppelklick legt eine neue Geschichte an.
+          Grund, das Mausrad vergrößert. Ein Doppelklick ins Leere schreibt einen Faden.
+        </p>
+        <p className="wf-mute">
+          Am Griff rechts an jedem Stück ziehst du eine Schnur. Eine Schnur klickst du an, um ihr
+          Wort zu ändern oder sie zu lösen. Mit gedrückter Umschalttaste wählst du mehrere (Klick
+          oder Rahmen) und ziehst sie gemeinsam; die Löschtaste nimmt lose Fäden vom Brett.
         </p>
         <p className="wf-mute">
           Fäden ohne Geschichte stehen unter „Lose Fäden“ – von dort hängst du sie an eine
@@ -1521,6 +1816,154 @@ function Side({
           )}
         </section>
       )}
+    </aside>
+  );
+}
+
+/** Die gewählte Schnur: zu einem Namen, von einer Geschichte zu ihrem Faden, zwischen Fäden. */
+type ChosenLine =
+  | { kind: 'name'; at: Spot; owner: string; entityId: string }
+  | { kind: 'knot'; at: Spot; knot: BoardKnot }
+  | { kind: 'web'; at: Spot; line: WebString };
+
+/** Das kleine Menü an einer gewählten Schnur: was sie verbindet, ihr Wort, lösen. */
+function LineMenu({
+  line,
+  pinned,
+  ownerTitle,
+  onRelease,
+  onClose,
+}: {
+  line: ChosenLine;
+  /** Bei einem Namen: Er ist angeheftet (und nicht über Hinweis, Uhr oder Szene da). */
+  pinned: boolean;
+  ownerTitle: string;
+  onRelease: () => void;
+  onClose: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const title = (id: string) => data.threads[id]?.title ?? '';
+  let what: string;
+  let release: string | null = 'Lösen';
+  let note = '';
+  if (line.kind === 'web' && line.line.kind === 'tie') {
+    what = `„${title(line.line.from)}“ – „${title(line.line.to)}“`;
+  } else if (line.kind === 'web') {
+    what = `Hinweis „${line.line.word}“ führt zu „${title(line.line.to)}“`;
+  } else if (line.kind === 'knot') {
+    what = `„${line.knot.thread.title}“ gehört zu „${data.stories[line.knot.cardKey.slice(6)]?.title ?? ''}“`;
+    release = 'Von der Geschichte lösen';
+  } else {
+    what = `${data.entities[line.entityId]?.name ?? ''} an „${ownerTitle}“`;
+    if (!pinned) {
+      release = null;
+      note = 'Hängt über einen Hinweis, eine Szene, die Uhr oder die Beteiligten – dort lösen.';
+    }
+  }
+  return (
+    <div
+      className="wf-faden-linemenu"
+      style={{ left: line.at.x, top: line.at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <span className="wf-faden-linemenu__what">{what}</span>
+      {line.kind === 'web' && line.line.kind === 'tie' && (
+        <Written
+          className="wf-faden-linemenu__word"
+          label="Was sie verbindet"
+          wrap
+          value={line.line.word}
+          placeholder="was sie verbindet …"
+          onSave={(word) => setTieWord(db, line.line.from, line.line.to, word)}
+        />
+      )}
+      {note && <span className="wf-faden-linemenu__note">{note}</span>}
+      <span className="wf-faden-linemenu__acts">
+        {release && (
+          <Button size="sm" onClick={onRelease} title="Auch mit der Löschtaste">
+            {release}
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Schließen
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+/** Ein Faden, gleich auf dem Brett geschrieben: Eingabetaste legt ihn hin, Escape verwirft. */
+function BoardDraft({
+  at,
+  onDone,
+  onCancel,
+}: {
+  at: Spot;
+  onDone: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState('');
+  useHoldDraft(text.trim() !== '', 'fadenbrett-faden');
+  return (
+    <div
+      className="wf-faden-draft"
+      style={{ left: at.x, top: at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <span className="wf-faden-card__sort">Neuer Faden</span>
+      <input
+        // Der Doppelklick hat den Platz gewählt: Hier wird jetzt geschrieben.
+        autoFocus
+        className="wf-input"
+        value={text}
+        placeholder="Eine Frage, eine Spur, ein Gedanke …"
+        aria-label="Neuer Faden auf dem Brett"
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') onDone(text);
+          if (event.key === 'Escape') onCancel();
+        }}
+        onBlur={() => (text.trim() ? onDone(text) : onCancel())}
+      />
+      <span className="wf-faden-draft__hint">Eingabetaste legt ihn hin · Escape verwirft</span>
+    </div>
+  );
+}
+
+/** Der Seitenteil, wenn mehrere Stücke gewählt sind. */
+function PickedSide({
+  count,
+  loose,
+  onTakeOff,
+  onClear,
+}: {
+  count: number;
+  loose: number;
+  onTakeOff: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <aside className="wf-faden-side">
+      <div className="wf-faden-side__head">
+        <span className="wf-faden-card__sort">Auswahl</span>
+      </div>
+      <h2 className="wf-faden-side__title">{count} gewählt</h2>
+      <p className="wf-mute">
+        Zieh eines davon – die anderen ziehen mit. Umschalt-Klick nimmt eines dazu oder heraus.
+      </p>
+      <div className="wf-faden-side__acts">
+        {loose > 0 && (
+          <Button size="sm" onClick={onTakeOff} title="Auch mit der Löschtaste">
+            {loose === 1 ? 'Losen Faden vom Brett nehmen' : `${loose} lose Fäden vom Brett nehmen`}
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={onClear}>
+          Auswahl aufheben
+        </Button>
+      </div>
     </aside>
   );
 }

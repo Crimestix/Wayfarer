@@ -631,7 +631,13 @@ nicht übernommen.
   quer Verbundenes immer; Stellen `knot:<id>` in `state.board`); ihre Namen hängen am Knoten.
   Schnüre zieht der Spielleiter frei am Griff (`connectOnBoard`, Ziel über `hitOnBoard`): Faden an
   Faden verbindet, Name an Faden/Geschichte heftet an, loser Faden an Geschichte wird ihre Frage,
-  zwei Namen öffnen das Fenster für eine Beziehung – alles mit Rückgängig. `mergeThreads` nimmt
+  zwei Namen öffnen das Fenster für eine Beziehung – alles mit Rückgängig. Das Brett ist ein
+  Whiteboard (Vorschlag `docs/proben/fadenbrett-whiteboard.html`, Schritt 1 gebaut): Schnüre
+  anklicken (Menü an der Schnur: Wort, lösen – ein Name nur, wenn er angeheftet ist), mehrere
+  wählen (Umschalt-Klick, Rahmen mit Umschalttaste, `insideOnBoard`) und gemeinsam ziehen
+  (`placeManyOnBoard`), Löschtaste löst die gewählte Schnur oder nimmt lose Fäden vom Brett
+  (`takeOffBoard` – nie aus der Welt), Doppelklick ins Leere schreibt einen losen Faden dorthin
+  (`writeOnBoard`). `mergeThreads` nimmt
   Verbindungen und „führt zu“ mit. Verbindungen zwischen Geschichten bleiben abgeleitet.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
