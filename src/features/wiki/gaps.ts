@@ -300,3 +300,44 @@ export function newArticleParent(
   }
   return null;
 }
+
+/** Reihenfolge der Arten in Gruppen: wie die Arten der Welt, ohne Art zuletzt. */
+const KIND_ORDER: readonly EntityKind[] = [
+  'place',
+  'person',
+  'faction',
+  'family',
+  'item',
+  'topic',
+  'species',
+  'language',
+  'script',
+  'ability',
+  'plant',
+  'animal',
+  'mineral',
+  'profession',
+  'character',
+];
+
+/**
+ * Teilt eine Liste nach Art – für „Noch zu schreiben“, das sonst mit Einträgen ohne Text
+ * vollläuft. Die Reihenfolge in jeder Gruppe bleibt; Gruppen nach `KIND_ORDER`, ohne Art zuletzt.
+ */
+export function groupByKind<T>(
+  items: readonly T[],
+  kindOf: (item: T) => EntityKind | null,
+): { kind: EntityKind | null; items: T[] }[] {
+  const groups = new Map<EntityKind | null, T[]>();
+  for (const item of items) {
+    const kind = kindOf(item);
+    const list = groups.get(kind) ?? [];
+    list.push(item);
+    groups.set(kind, list);
+  }
+  const rank = (kind: EntityKind | null) =>
+    kind === null ? KIND_ORDER.length + 1 : KIND_ORDER.indexOf(kind) + 1 || KIND_ORDER.length;
+  return [...groups.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b))
+    .map(([kind, list]) => ({ kind, items: list }));
+}

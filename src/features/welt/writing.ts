@@ -5,10 +5,11 @@
  * schreiben“). Nie ein zweiter Eintrag für einen Namen: Gibt es ihn schon, wird er genommen.
  */
 import type { CampaignDb } from '../../data/db';
-import type { Entity, EntityKind, Prep, Story, Thread } from '../../domain/schema';
-import { createNamedEntity } from '../wiki/actions';
+import type { Article, Entity, EntityKind, Prep, Story, Thread } from '../../domain/schema';
+import { createArticleOfKind, createNamedEntity } from '../wiki/actions';
 import { flushEdits } from '../wiki/editing';
 import { entryForTitle } from '../wiki/facts';
+import { linkIndex } from '../wiki/text';
 
 export interface WritingInput {
   name: string;
@@ -129,4 +130,74 @@ export function finishStub(db: CampaignDb, entityId: string): () => void {
     const now = db.getSnapshot().entities[entityId];
     if (now && !now.stub) db.patch('entities', entityId, { stub: true });
   };
+}
+
+export interface NewEntryInput {
+  name: string;
+  /** null = nur ein Text, ohne Art (ein Artikel ohne Eintrag der Welt). */
+  kind: EntityKind | null;
+  /** Gleich den Text anfangen – mit dem Steckbrief-Gerüst der Art. */
+  withText: boolean;
+  /** Wo der neue Text im Baum liegt (ein Artikel); sonst ganz oben. */
+  parentId?: string | null | undefined;
+}
+
+export interface NewEntryResult {
+  /** Der Eintrag – neu oder der, dem der Name schon gehört. null bei einem Text ohne Art. */
+  entity: Entity | null;
+  /** Der Text, wenn einer da ist (neu oder schon vorhanden). */
+  article: Article | null;
+  /** Gerade erst entstanden – sonst gab es den Namen schon und wird nur geöffnet. */
+  created: boolean;
+}
+
+/**
+ * Das eine „Neu“ der Welt: Name und Art. Gibt es den Namen schon (`entryForTitle`, bei einem
+ * Text ohne Art auch der Titel eines Artikels), entsteht nichts – der vorhandene wird geöffnet.
+ * Sonst ein gewöhnlicher Eintrag (kein Platzhalter: er entsteht nicht beim Schreiben einer
+ * Geschichte, sondern mit Absicht); ein Artikel dieses Titels ohne Eintrag wird sein Text
+ * (`createNamedEntity`). Auf Wunsch gleich der Text mit dem Gerüst der Art. null ohne Namen.
+ */
+export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult | null {
+  const name = input.name.replace(/\s+/g, ' ').trim();
+  if (!name) return null;
+  flushEdits();
+  const data = db.getSnapshot();
+  const articleOf = (entity: Entity | null) =>
+    entity?.lk ? (data.articles[entity.lk.resourceId] ?? null) : null;
+  const owner = entryForTitle(data, name);
+  if (owner) {
+    const entity = 'free' in owner ? owner.free : owner.taken;
+    return { entity, article: articleOf(entity), created: false };
+  }
+  if (input.kind === null) {
+    const found = linkIndex(data.articles).resolve(name);
+    const existing = found ? data.articles[found.id] : undefined;
+    if (existing && !existing.template) return { entity: null, article: existing, created: false };
+    const made = createArticleOfKind(db, {
+      title: name,
+      parentId: input.parentId ?? null,
+      kind: null,
+      scaffold: false,
+    });
+    return made ? { entity: null, article: made.article, created: true } : null;
+  }
+  return db.batch(() => {
+    const { entity } = createNamedEntity(db, name, input.kind!, []);
+    const now = db.getSnapshot();
+    const adopted = entity.lk ? (now.articles[entity.lk.resourceId] ?? null) : null;
+    if (adopted || !input.withText) return { entity, article: adopted, created: true };
+    const made = createArticleOfKind(db, {
+      title: name,
+      parentId: input.parentId ?? null,
+      kind: input.kind,
+      scaffold: true,
+      entityId: entity.id,
+    });
+    return {
+      entity: (made?.entity ?? db.getSnapshot().entities[entity.id]) || entity,
+      article: made?.article ?? null,
+      created: true,
+    };
+  });
 }

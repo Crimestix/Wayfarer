@@ -197,6 +197,129 @@
   text-transform: none;
 }
 
+/* Zuklappbare Gruppe der Liste: Arten, „Mehr“, „Noch zu schreiben“. */
+.wf-welt-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-right: var(--s-3);
+}
+.wf-welt-fold__head {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  padding: var(--s-3) var(--s-2) 6px var(--s-3);
+  border: 0;
+  background: none;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-fold__head:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-fold__chev {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  align-self: center;
+  color: var(--ink-faint);
+  transition: transform 0.15s var(--ease);
+}
+.wf-welt-fold__head[aria-expanded='true'] .wf-welt-fold__chev {
+  transform: rotate(90deg);
+}
+.wf-welt-fold__count {
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+.wf-welt-fold__hint {
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-faint);
+}
+.wf-welt-fold__only {
+  flex: none;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s var(--ease);
+}
+.wf-welt-fold:hover .wf-welt-fold__only,
+.wf-welt-fold__only:focus-visible {
+  opacity: 1;
+}
+.wf-welt-fold__only:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-more {
+  margin-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+/* Nur eine Art gezeigt: zurück zu allen. */
+.wf-welt-onlykind {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.wf-welt-onlykind__what {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-welt-onlykind__what span {
+  color: var(--ink-faint);
+}
+/* Netz oder „Noch zu schreiben“ neben einer offenen Seite: groß auf Klick. */
+.wf-welt-bigview {
+  display: block;
+  width: calc(100% - 2 * var(--s-3));
+  margin: var(--s-2) var(--s-3) 0;
+  padding: 6px var(--s-3);
+  border: 1px dashed var(--line-strong);
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-bigview:hover {
+  border-style: solid;
+  color: var(--gold-bright);
+}
+/* Das eine „Neu“ */
+.wf-welt-new {
+  gap: var(--s-4);
+}
+.wf-welt-new__found {
+  margin: 0;
+  padding: 8px var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+  background: var(--gold-glow);
+  color: var(--ink);
+}
+
 /* Zeile der Übersicht */
 .wf-welt-row {
   position: relative;
@@ -1532,7 +1655,8 @@
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 600;
-  max-width: 160px;
+  line-height: 1.15;
+  max-width: 170px;
 }
 
 /* ── Dialog „Eintrag bearbeiten“ ────────────────────────────────────────── */

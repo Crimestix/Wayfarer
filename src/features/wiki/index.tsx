@@ -33,6 +33,7 @@ import type { OpenTarget } from '../legendkeeper/Article';
 import { adoptArticle } from './actions';
 import { articleFacts, kindFromFolder, statedKind } from './facts';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
+import { openNew } from '../welt/editor';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
 import { AiOverview } from '../ki/AiOverview';
 import { AiPanel } from '../ki/AiPanel';
@@ -214,10 +215,10 @@ function AdoptButton({ article }: { article: Article }) {
         size="sm"
         icon={<Plus />}
         onClick={() => setOpen((o) => !o)}
-        title="Diesen Artikel als Eintrag in die Welt aufnehmen"
-        aria-label="In die Welt aufnehmen"
+        title="Sagen, was dieser Text beschreibt – dann hat er eine eigene Seite mit Steckbrief"
+        aria-label="Art festlegen"
       >
-        <span className="wf-lk-act__label">In die Welt aufnehmen</span>
+        <span className="wf-lk-act__label">Art festlegen</span>
       </Button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} align="right" width={230}>
         {kinds.map((kind) => (
@@ -252,19 +253,6 @@ export function WikiStart() {
   const hidden = useMemo(() => roomArticleIds(data), [data]);
   const tree = useMemo(() => articleTree(articles, hidden), [articles, hidden]);
   const total = Object.keys(articles).length - tree.templates.length;
-  const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
-  const dialog = creating && (
-    <NewArticleDialog
-      parent={creating.parent}
-      initialTitle={creating.title}
-      onClose={() => setCreating(null)}
-      onCreated={(created) => {
-        setCreating(null);
-        memory.mode = memory.mode === 'read' ? 'live' : memory.mode;
-        navigate(`/wiki/${created.id}`);
-      }}
-    />
-  );
   if (!Object.keys(articles).length)
     return (
       <div className="wf-wiki-landing">
@@ -273,8 +261,8 @@ export function WikiStart() {
           title="Noch keine Artikel"
           action={
             <div className="wf-row" style={{ gap: 'var(--s-3)' }}>
-              <Button icon={<FilePlus2 />} onClick={() => setCreating({ parent: null, title: '' })}>
-                Ersten Artikel schreiben
+              <Button icon={<FilePlus2 />} onClick={() => openNew({ kind: null, withText: true })}>
+                Ersten Text schreiben
               </Button>
               <Button onClick={() => navigate('/einstellungen')}>LegendKeeper übernehmen</Button>
             </div>
@@ -284,7 +272,6 @@ export function WikiStart() {
           Einstellungen unter „LegendKeeper ganz übernehmen“ die Exportdatei deines
           LegendKeeper-Projekts ein, mit allen Artikeln, Karten und Steckbriefen.
         </EmptyState>
-        {dialog}
       </div>
     );
   return (
@@ -295,10 +282,6 @@ export function WikiStart() {
           {total === 1 ? 'ein Artikel' : `${total} Artikel`} – die Suche links findet auch Wörter
           mitten im Text
         </span>
-        <span className="wf-grow" />
-        <Button icon={<FilePlus2 />} onClick={() => setCreating({ parent: null, title: '' })}>
-          Neuer Artikel
-        </Button>
       </div>
       <div className="wf-wiki-shelf">
         {tree.roots.map(({ article, size }) => (
@@ -313,7 +296,6 @@ export function WikiStart() {
       </div>
       <AiOverview />
       <FactsOverview />
-      {dialog}
     </div>
   );
 }

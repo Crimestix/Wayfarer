@@ -2,7 +2,7 @@
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { ExternalLink, EyeOff, Info } from 'lucide-react';
 import { useMediaSrc } from '../../data/media';
-import { Divider, cx } from '../../ui';
+import { Divider, HoverCard, cx } from '../../ui';
 import { noteText, type ArticleNode, type Inline } from './model';
 
 export interface OpenTarget {
@@ -30,6 +30,11 @@ export interface ArticleContext {
    * was Wayfarer darüber weiß (Wochentag, Abstand zu heute).
    */
   dates?: (text: string) => TextDateLink[];
+  /**
+   * Kurzblick beim Darüberfahren über einen Verweis: was die Karte zeigt, null = keine. Ohne
+   * Angabe (LegendKeeper) gibt es keinen.
+   */
+  hover?: (target: OpenTarget) => ReactNode;
 }
 
 export interface TextDateLink {
@@ -82,7 +87,7 @@ export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleConte
   };
   // Im eigenen Wiki darf ein Verweis ins Leere gehen: Der Artikel ist dann noch nicht angelegt.
   const missing = ctx.local === true && !target.resourceId;
-  return (
+  const link = (
     <span
       role="link"
       tabIndex={0}
@@ -106,6 +111,9 @@ export function Mention({ target, ctx }: { target: OpenTarget; ctx: ArticleConte
       {target.title}
     </span>
   );
+  const hover = ctx.hover;
+  if (!hover || missing) return link;
+  return <HoverCard card={() => hover(target)}>{link}</HoverCard>;
 }
 
 export function Inlines({ inlines, ctx }: { inlines: Inline[]; ctx: ArticleContext }) {

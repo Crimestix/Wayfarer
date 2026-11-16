@@ -21,6 +21,7 @@ import type { Article } from '../../domain/schema';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { describeDate, findDates } from '../../domain/time/textDates';
 import { focusCalendarOn } from '../kalender/focus';
+import { PeekCard } from '../tisch/PeekCard';
 import { Badge, Button, cx, toast } from '../../ui';
 import {
   ArticleNodes,
@@ -196,6 +197,7 @@ export function LocalArticle({
     [data.articles, article.id],
   );
   const articles = data.articles;
+  const entities = data.entities;
   const calendar = data.campaign.calendar;
   const now = data.state.now;
   const [, navigate] = useLocation();
@@ -204,6 +206,13 @@ export function LocalArticle({
       onOpen,
       titleOf: (id) => articles[id]?.title ?? null,
       local: true,
+      // Kurzblick über einem Verweis auf ein Ding der Welt – derselbe wie am Spieltisch.
+      hover: (target) => {
+        const owner = Object.values(entities).find(
+          (entity) => entity.lk?.resourceId === target.resourceId,
+        );
+        return owner ? <PeekCard id={owner.id} /> : null;
+      },
       // Daten des Kalenders im Text: anklickbar, mit Wochentag und Abstand zu heute.
       dates: (text) =>
         findDates(calendar, text, now).map((date) => ({
@@ -216,7 +225,7 @@ export function LocalArticle({
           },
         })),
     }),
-    [onOpen, articles, calendar, now, navigate],
+    [onOpen, articles, entities, calendar, now, navigate],
   );
   const asideRef = useRef<HTMLElement>(null);
 

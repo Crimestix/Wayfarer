@@ -6,6 +6,7 @@ import {
   ATTITUDE_MIN,
   attitudeLabel,
   attitudeLevel,
+  attitudeOpen,
   attitudeToken,
   choiceById,
   holdsAttitude,
@@ -75,6 +76,11 @@ describe('Beziehungen nach Art', () => {
     expect(shownAttitude('item', null)).toBeUndefined();
     expect(shownAttitude('person', undefined)).toBeNull();
     expect(shownAttitude('place', 3)).toBe(3);
+    // Die Skala steht nur zwischen zweien offen, die eine Haltung haben können.
+    expect(attitudeOpen('faction', 'person')).toBe(true);
+    expect(attitudeOpen('person', 'party')).toBe(true);
+    expect(attitudeOpen('faction', 'place')).toBe(false);
+    expect(attitudeOpen('place', 'party')).toBe(false);
   });
 
   it('schlägt zwischen Orten Orts-Beziehungen vor, nie „kennt“', () => {

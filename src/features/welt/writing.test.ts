@@ -18,7 +18,7 @@ import {
 import { isStub } from '../../domain/stub';
 import { createArticle, savePageText } from '../wiki/actions';
 import { relate, unrelate } from './actions';
-import { addFromWriting, finishStub } from './writing';
+import { addFromWriting, finishStub, newEntry } from './writing';
 
 async function setup() {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
@@ -287,5 +287,53 @@ describe('Verbindungen als Befehl', () => {
     undo();
     expect(findRelation(db.getSnapshot(), mira.id, hohenfurt.id)).toMatchObject({ type: 'knows' });
     expect(unrelate(db, { from: hohenfurt.id, to: mira.id })).toBeNull();
+  });
+});
+
+describe('Das eine „Neu“', () => {
+  it('öffnet den vorhandenen Eintrag, wenn es den Namen schon gibt – auch als Zweitname', async () => {
+    const { db, mira } = await setup();
+    const before = count(db);
+    const result = newEntry(db, { name: ' die  fährfrau ', kind: 'place', withText: true })!;
+    expect(result).toMatchObject({ created: false, article: null });
+    expect(result.entity!.id).toBe(mira.id);
+    expect(count(db)).toBe(before);
+  });
+
+  it('legt einen gewöhnlichen Eintrag an – kein Platzhalter, ohne Text, wenn nicht gewünscht', async () => {
+    const { db } = await setup();
+    const result = newEntry(db, { name: 'Salzgrotte', kind: 'place', withText: false })!;
+    expect(result.created).toBe(true);
+    expect(result.article).toBeNull();
+    const entity = db.getSnapshot().entities[result.entity!.id]!;
+    expect(entity).toMatchObject({ kind: 'place', name: 'Salzgrotte', stub: false, lk: null });
+  });
+
+  it('fängt auf Wunsch gleich den Text mit dem Gerüst der Art an', async () => {
+    const { db } = await setup();
+    const result = newEntry(db, { name: 'Brann Esser', kind: 'person', withText: true })!;
+    const entity = db.getSnapshot().entities[result.entity!.id]!;
+    expect(entity.lk?.resourceId).toBe(result.article!.id);
+    const text = result.article!.docs.find((d) => d.kind === 'page')!.text;
+    expect(text).toContain('> [!steckbrief]');
+  });
+
+  it('nimmt einen Artikel gleichen Titels ohne Eintrag als Text, statt einen zweiten anzulegen', async () => {
+    const { db } = await setup();
+    const article = createArticle(db, { title: 'Der alte Zoll', text: 'Ein Turm am Fluss.' })!;
+    const result = newEntry(db, { name: 'Der alte Zoll', kind: 'place', withText: true })!;
+    expect(result.article!.id).toBe(article.id);
+    expect(Object.keys(db.getSnapshot().articles)).toHaveLength(1);
+    // Ohne Art: der vorhandene Text wird nur geöffnet.
+    const again = newEntry(db, { name: 'Der alte Zoll', kind: null, withText: true })!;
+    expect(again.created).toBe(false);
+  });
+
+  it('legt einen Text ohne Art an und tut nichts ohne Namen', async () => {
+    const { db } = await setup();
+    expect(newEntry(db, { name: '   ', kind: 'person', withText: false })).toBeNull();
+    const result = newEntry(db, { name: 'Die Sage vom Salz', kind: null, withText: true })!;
+    expect(result).toMatchObject({ entity: null, created: true });
+    expect(result.article!.title).toBe('Die Sage vom Salz');
   });
 });

@@ -1,4 +1,8 @@
-/** Übersicht links: suchen, nach Art filtern, Orte als Baum, alles andere als Liste. */
+/**
+ * Übersicht links: oben die Suche (auch im Text), darunter die Arten als ruhige Gruppen – die
+ * üblichen offen, die seltenen unter „Mehr“ (nie weggefiltert); Orte als Baum. Ein „Neu“ für
+ * alles (`NewDialog`). Wechselt man Liste oder Ansicht, bleibt die offene Seite stehen.
+ */
 import { isDismissed } from '../../domain/dismiss';
 import {
   Fragment,
@@ -10,8 +14,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ChevronRight, FilePlus2, Footprints, Plus, Search, Users, X } from 'lucide-react';
-import type { Article, Entity } from '../../domain/schema';
+import { ArrowLeft, ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
+import type { Entity } from '../../domain/schema';
 import { showsAttitude } from '../../domain/relations';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
@@ -32,12 +36,11 @@ import {
   toast,
 } from '../../ui';
 import { MissingNamesHint } from '../import/NameSync';
-import { ArticleTree, openForWriting, useArticleHits } from '../wiki';
-import { NewArticleDialog } from '../wiki/ArticleTools';
+import { ArticleTree, useArticleHits } from '../wiki';
 import { ArticleIcon } from '../wiki/icons';
 import { adoptFamilies } from './actions';
 import { familyPlanKey, planFamilies } from './dynasty';
-import { openEntityDialog } from './editor';
+import { openNew } from './editor';
 import {
   getKindFilter,
   setKindFilter,
@@ -49,10 +52,13 @@ import {
 } from './overview';
 import { NetIndex } from './NetIndex';
 import { GapsIndex, useGapCount } from './Gaps';
+import { FoldHead } from './parts';
 import { scopeChoices, visibleIds } from './scope';
 import {
+  COMMON_KINDS,
   WORLD_KINDS,
   entitySubline,
+  kindSections,
   listKeyMove,
   nextRowIndex,
   openAncestors,
@@ -65,10 +71,17 @@ import {
   type WorldKind,
 } from './model';
 
-/** Merkt sich Suche und aufgeklappte Orte, solange die App läuft. */
-const memory: { query: string; open: Record<string, boolean> } = {
+/** Merkt sich Suche, aufgeklappte Orte und zugeklappte Gruppen, solange die App läuft. */
+const memory: {
+  query: string;
+  open: Record<string, boolean>;
+  folded: Record<string, boolean>;
+  more: boolean;
+} = {
   query: '',
   open: {},
+  folded: {},
+  more: false,
 };
 
 const EMPTY_HINT: Record<WorldKind, string> = {
@@ -103,6 +116,9 @@ export function Sidebar({
   const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
+  /** Zugeklappte Gruppen der Arten; die seltenen stehen unter „Mehr“. */
+  const [folded, setFolded] = useState(memory.folded);
+  const [moreOpen, setMoreOpen] = useState(memory.more);
   // Vier Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird, als Netz der
   // Fraktionen – oder was im Wiki noch zu schreiben ist (beides steht groß rechts auf der Bühne).
   const layout = useWorldLayout();
@@ -110,7 +126,6 @@ export function Sidebar({
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
   const gapsCount = useGapCount();
-  const [writing, setWriting] = useState<{ title: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const dataRef = useRef(data);
@@ -119,7 +134,9 @@ export function Sidebar({
   useEffect(() => {
     memory.query = query;
     memory.open = open;
-  }, [query, open]);
+    memory.folded = folded;
+    memory.more = moreOpen;
+  }, [query, open, folded, moreOpen]);
   // Ein Artikel ohne Eintrag steht nur in den Ordnern – außer man kommt aus „Noch zu schreiben“.
   useEffect(() => {
     if (articleId && layoutRef.current !== 'gaps') setLayout('tree');
@@ -132,6 +149,9 @@ export function Sidebar({
     if (!selectedId || !selectedKind) return;
     if (getKindFilter() !== selectedKind) setKindFilter('all');
     if (selectedKind === 'place') setOpen((o) => openAncestors(dataRef.current, selectedId, o));
+    // Die Gruppe des gewählten Eintrags klappt auf – bei einer seltenen Art auch „Mehr“.
+    setFolded((f) => (f[selectedKind] ? { ...f, [selectedKind]: false } : f));
+    if (!(COMMON_KINDS as readonly string[]).includes(selectedKind)) setMoreOpen(true);
   }, [selectedId, selectedKind]);
   // Eine neue Suche oder ein anderer Filter beginnt oben.
   useEffect(() => {
@@ -176,10 +196,6 @@ export function Sidebar({
   const currentArticle =
     articleId ??
     (selected?.lk && data.articles[selected.lk.resourceId] ? selected.lk.resourceId : undefined);
-  const parentArticle: Article | null =
-    currentArticle && !data.articles[currentArticle]?.template
-      ? (data.articles[currentArticle] ?? null)
-      : null;
   // Personen, deren Nachname auf eine Familie schließen lässt, die es noch nicht gibt oder der sie
   // noch nicht angehören. Nur gerechnet, solange die Familien zu sehen sind.
   const familyPlan = useMemo(
@@ -213,9 +229,9 @@ export function Sidebar({
         action: { label: 'Rückgängig', run: adopted.undo },
       });
   };
-  const createKind: WorldKind = filter === 'all' ? 'person' : filter;
-  const create = (preset?: { name: string }) =>
-    openEntityDialog({ mode: 'create', kind: createKind, preset });
+  /** Das eine „Neu“: Art aus der gezeigten Liste, sonst Person. */
+  const create = (name?: string) =>
+    openNew({ kind: filter === 'all' ? 'person' : filter, ...(name ? { name } : {}) });
 
   /** Pfeiltasten wandern durch die Übersicht; links und rechts klappen Orte zu und auf. */
   const rowLinks = () =>
@@ -323,30 +339,69 @@ export function Sidebar({
   );
 
   const kinds = filter === 'all' ? WORLD_KINDS.filter((kind) => counts[kind] > 0) : [filter];
+  const sections = kindSections(counts);
+  const rareTotal = sections.rare.reduce((sum, kind) => sum + counts[kind], 0);
+  const entriesOf = (kind: WorldKind): ReactNode =>
+    kind === 'place'
+      ? places
+      : kind === 'item' && filter === 'item'
+        ? // Gegenstände nach Seltenheit – zum Finden; jeder steht in genau einer Gruppe.
+          itemsByRarity(shown(entitiesOfKind(data, 'item'))).map((group) => (
+            <Fragment key={group.label || 'alle'}>
+              {group.label && (
+                <div className="wf-welt-group">
+                  {group.label} <span>{group.items.length}</span>
+                </div>
+              )}
+              {group.items.map((entity) => row(entity, false))}
+            </Fragment>
+          ))
+        : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false));
+  /** Eine Art als ruhige Gruppe: zuklappbar, „nur diese“ zeigt sie allein (mit ihrer Bühne). */
+  const kindGroup = (kind: WorldKind): ReactNode => (
+    <div key={kind}>
+      <FoldHead
+        open={!folded[kind]}
+        onToggle={() => setFolded((f) => ({ ...f, [kind]: !f[kind] }))}
+        label={KIND_LABEL_PLURAL[kind]}
+        count={counts[kind]}
+        aside={
+          <button
+            type="button"
+            className="wf-welt-fold__only"
+            title={`Nur ${KIND_LABEL_PLURAL[kind]} zeigen`}
+            onClick={() => setKindFilter(kind)}
+          >
+            nur diese
+          </button>
+        }
+      />
+      {!folded[kind] && entriesOf(kind)}
+    </div>
+  );
+  /** Liste oder Ansicht wechseln, ohne die offene Seite zu verlassen; groß gibt es sie auf Klick. */
+  const bigView = (label: string) =>
+    (selected || articleId) && (
+      <button type="button" className="wf-welt-bigview" onClick={() => navigate('/welt')}>
+        {label}
+      </button>
+    );
 
   return (
-    <aside className="wf-welt-side" aria-label="Übersicht der Weltdatenbank">
+    <aside className="wf-welt-side" aria-label="Übersicht der Welt">
       <div className="wf-welt-side__head">
         <div className="wf-spread">
           <Link href="/welt" className="wf-welt-side__title">
             Welt
           </Link>
-          <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
-            <IconButton
-              label={
-                parentArticle
-                  ? `Neuer Artikel – auf Wunsch unter „${parentArticle.title}“`
-                  : 'Neuer Artikel'
-              }
-              size="sm"
-              onClick={() => setWriting({ title: '' })}
-            >
-              <FilePlus2 />
-            </IconButton>
-            <Button size="sm" icon={<Plus />} onClick={() => create()}>
-              Neu
-            </Button>
-          </span>
+          <Button
+            size="sm"
+            icon={<Plus />}
+            title="Etwas Neues anlegen – Name und Art, auf Wunsch gleich mit Text"
+            onClick={() => create()}
+          >
+            Neu
+          </Button>
         </div>
         <div className="wf-welt-search">
           <Search />
@@ -397,10 +452,7 @@ export function Sidebar({
             role="tab"
             aria-selected={layout === 'net'}
             title="Fraktionen, Familien und ihre Leute als Netz – wer mit wem verbündet oder verfeindet ist"
-            onClick={() => {
-              setLayout('net');
-              if (selected || articleId) navigate('/welt');
-            }}
+            onClick={() => setLayout('net')}
           >
             Netz
           </button>
@@ -410,29 +462,25 @@ export function Sidebar({
             className="wf-welt-layout__wide"
             aria-selected={layout === 'gaps'}
             title="Was im Wiki erwähnt wird, aber noch fehlt – und was noch kurz ist"
-            onClick={() => {
-              setLayout('gaps');
-              if (selected || articleId) navigate('/welt');
-            }}
+            onClick={() => setLayout('gaps')}
           >
             Noch zu schreiben
             {gapsCount > 0 && <span>{gapsCount}</span>}
           </button>
         </div>
-        {layout === 'kinds' && (
-          <div className="wf-welt-filter" role="tablist" aria-label="Nach Art filtern">
-            {(['all', ...WORLD_KINDS] as const).map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                role="tab"
-                aria-selected={filter === kind}
-                onClick={() => setKindFilter(kind)}
-              >
-                {kind === 'all' ? 'Alle' : KIND_LABEL_PLURAL[kind]}
-                <span>{kind === 'all' ? total : counts[kind]}</span>
-              </button>
-            ))}
+        {layout === 'kinds' && filter !== 'all' && (
+          <div className="wf-welt-onlykind">
+            <button
+              type="button"
+              className="wf-welt-linkish"
+              onClick={() => setKindFilter('all')}
+              title="Wieder alle Arten zeigen"
+            >
+              <ArrowLeft aria-hidden /> Alle Arten
+            </button>
+            <span className="wf-welt-onlykind__what">
+              {KIND_LABEL_PLURAL[filter]} <span>{counts[filter]}</span>
+            </span>
           </div>
         )}
         {layout === 'kinds' && (choices.length > 0 || narrowed) && (
@@ -477,9 +525,15 @@ export function Sidebar({
       )}
       <div className="wf-welt-side__list" ref={list} onKeyDown={onListKey}>
         {layout === 'net' ? (
-          <NetIndex query={query} selectedId={selectedId} />
+          <>
+            {bigView('Das Netz groß ansehen')}
+            <NetIndex query={query} selectedId={selectedId} />
+          </>
         ) : layout === 'gaps' && !searching ? (
-          <GapsIndex selectedId={selectedId} articleId={currentArticle} />
+          <>
+            {bigView('Alles mit den Stellen ansehen')}
+            <GapsIndex selectedId={selectedId} articleId={currentArticle} />
+          </>
         ) : searching ? (
           hits.length + textHits.length ? (
             <>
@@ -521,7 +575,7 @@ export function Sidebar({
               icon={<Search />}
               title="Nichts gefunden"
               action={
-                <Button size="sm" icon={<Plus />} onClick={() => create({ name: query.trim() })}>
+                <Button size="sm" icon={<Plus />} onClick={() => create(query.trim())}>
                   „{query.trim()}“ anlegen
                 </Button>
               }
@@ -537,8 +591,12 @@ export function Sidebar({
             <EmptyState
               title="Noch keine Artikel"
               action={
-                <Button size="sm" icon={<FilePlus2 />} onClick={() => setWriting({ title: '' })}>
-                  Ersten Artikel schreiben
+                <Button
+                  size="sm"
+                  icon={<Plus />}
+                  onClick={() => openNew({ kind: null, withText: true })}
+                >
+                  Ersten Text schreiben
                 </Button>
               }
             >
@@ -564,11 +622,7 @@ export function Sidebar({
           <EmptyState
             title="Die Welt ist noch leer"
             action={
-              <Button
-                size="sm"
-                icon={<Plus />}
-                onClick={() => openEntityDialog({ mode: 'create', kind: 'place' })}
-              >
+              <Button size="sm" icon={<Plus />} onClick={() => openNew({ kind: 'place' })}>
                 Ersten Ort anlegen
               </Button>
             }
@@ -587,45 +641,30 @@ export function Sidebar({
           >
             {EMPTY_HINT[kinds[0]!]}
           </EmptyState>
+        ) : filter !== 'all' ? (
+          <div>{entriesOf(filter)}</div>
         ) : (
-          kinds.map((kind) => (
-            <div key={kind}>
-              {filter === 'all' && (
-                <div className="wf-welt-group">
-                  {KIND_LABEL_PLURAL[kind]} <span>{counts[kind]}</span>
-                </div>
-              )}
-              {kind === 'place'
-                ? places
-                : kind === 'item' && filter === 'item'
-                  ? // Gegenstände nach Seltenheit – zum Finden; jeder steht in genau einer Gruppe.
-                    itemsByRarity(shown(entitiesOfKind(data, 'item'))).map((group) => (
-                      <Fragment key={group.label || 'alle'}>
-                        {group.label && (
-                          <div className="wf-welt-group">
-                            {group.label} <span>{group.items.length}</span>
-                          </div>
-                        )}
-                        {group.items.map((entity) => row(entity, false))}
-                      </Fragment>
-                    ))
-                  : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false))}
-            </div>
-          ))
+          <>
+            {sections.common.map(kindGroup)}
+            {sections.rare.length > 0 && (
+              <div className="wf-welt-more">
+                <FoldHead
+                  open={moreOpen}
+                  onToggle={() => setMoreOpen((o) => !o)}
+                  label="Mehr"
+                  count={rareTotal}
+                  hint={
+                    moreOpen
+                      ? undefined
+                      : sections.rare.map((kind) => KIND_LABEL_PLURAL[kind]).join(', ')
+                  }
+                />
+                {moreOpen && sections.rare.map(kindGroup)}
+              </div>
+            )}
+          </>
         )}
       </div>
-      {writing && (
-        <NewArticleDialog
-          parent={parentArticle}
-          initialTitle={writing.title}
-          onClose={() => setWriting(null)}
-          onCreated={(created) => {
-            setWriting(null);
-            openForWriting();
-            navigate(`/wiki/${created.id}`);
-          }}
-        />
-      )}
     </aside>
   );
 }

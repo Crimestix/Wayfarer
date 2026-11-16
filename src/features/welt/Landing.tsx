@@ -1,4 +1,4 @@
-/** Einstieg in die Weltdatenbank, solange kein Eintrag gewählt ist. */
+/** Einstieg in die Welt, solange keine Seite offen ist. Angelegt wird über das eine „Neu“. */
 import { Link } from 'wouter';
 import { ArrowRight, Feather, MapPin, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
@@ -11,7 +11,7 @@ import {
 } from '../../domain/derive';
 import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
-import { openEntityDialog } from './editor';
+import { openNew } from './editor';
 import { useGapCount } from './Gaps';
 import { setKindFilter, setWorldLayout } from './overview';
 import {
@@ -42,12 +42,12 @@ export function Landing() {
   return (
     <div className="wf-welt-landing">
       <header className="wf-welt-landing__head">
-        <div className="wf-welt-landing__eyebrow">Weltdatenbank</div>
+        <div className="wf-welt-landing__eyebrow">Welt</div>
         <h1 className="wf-welt-landing__title">{data.campaign.name}</h1>
         <p className="wf-welt-landing__lead">
           {total === 0
             ? 'Noch ist hier nichts verzeichnet. Lege den ersten Ort an – alles Weitere findet dort seinen Platz.'
-            : 'Wähle links einen Eintrag, um sein Dossier aufzuschlagen.'}
+            : 'Wähle links etwas aus, um seine Seite aufzuschlagen – oder lege über „Neu“ etwas an.'}
         </p>
         {gaps > 0 && (
           <button
@@ -76,14 +76,6 @@ export function Landing() {
               <span className="wf-welt-count__label">
                 {counts[kind] === 1 ? KIND_LABEL[kind] : KIND_LABEL_PLURAL[kind]}
               </span>
-            </button>
-            <button
-              type="button"
-              className="wf-welt-count__add"
-              onClick={() => openEntityDialog({ mode: 'create', kind })}
-              aria-label={`${KIND_LABEL[kind]} anlegen`}
-            >
-              <Plus /> anlegen
             </button>
           </div>
         ))}
@@ -159,7 +151,7 @@ export function Landing() {
                   size="sm"
                   variant="primary"
                   icon={<Plus />}
-                  onClick={() => openEntityDialog({ mode: 'create', kind: 'place' })}
+                  onClick={() => openNew({ kind: 'place' })}
                 >
                   Ersten Ort anlegen
                 </Button>

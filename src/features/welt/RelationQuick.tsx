@@ -11,6 +11,7 @@ import { attitudeModeChoice, type AttitudeMode } from '../../domain/attitudeSett
 import { entityName, findRelation, wouldCreatePlaceCycle } from '../../domain/derive';
 import {
   choiceById,
+  attitudeOpen as attitudeBetween,
   holdsAttitude,
   relationChoices,
   type RelationChoice,
@@ -68,7 +69,8 @@ export function RelationQuick({
   // Die Gruppe ist nie Ausgangspunkt einer Beziehung.
   const backwardsFromParty = fromId === PARTY_ID;
   const existing = otherId && !backwardsFromParty ? findRelation(data, fromId, toId) : undefined;
-  const fromHolds = holdsAttitude(relationKind(data, fromId));
+  // Offen nur zwischen zweien, die eine Haltung haben können; sonst „Haltung trotzdem eintragen“.
+  const fromHolds = attitudeBetween(relationKind(data, fromId), relationKind(data, toId));
   const current = existing?.attitude ?? null;
   const value = attitude === undefined ? current : attitude;
   const showScale = fromHolds || attitudeOpen || current !== null;
@@ -183,7 +185,7 @@ export function RelationQuick({
         {otherId && choices && (
           <>
             <div className="wf-welt-quickrel">
-              <span className="wf-welt-quickrel__name wf-clamp-1">{self.name}</span>
+              <span className="wf-welt-quickrel__name wf-clamp-2">{self.name}</span>
               <Select
                 aria-label="Art der Beziehung"
                 value={choice.id}
@@ -207,7 +209,7 @@ export function RelationQuick({
                   <option value="custom">Eigene Bezeichnung …</option>
                 </optgroup>
               </Select>
-              <span className="wf-welt-quickrel__name wf-clamp-1">
+              <span className="wf-welt-quickrel__name wf-clamp-2">
                 {otherId === PARTY_ID ? 'Die Gruppe' : entityName(data, otherId)}
               </span>
             </div>

@@ -91,6 +91,15 @@ export function showsAttitude(kind: string | null | undefined, value: number | n
   return holdsAttitude(kind) || value !== null;
 }
 
+/**
+ * Steht die Haltungsskala einer Beziehung offen? Nur, wenn beide Seiten eine Haltung haben
+ * können (Wesen, Gruppen, die Gruppe) – „Haus Baenre zu Menzoberranzan“ bleibt zugeklappt
+ * („Haltung trotzdem eintragen“).
+ */
+export function attitudeOpen(fromKind: string, toKind: string): boolean {
+  return holdsAttitude(fromKind) && holdsAttitude(toKind);
+}
+
 /** Die Haltung für eine Zeile: der Wert, wenn sie dasteht, sonst `undefined` (= keine Anzeige). */
 export function shownAttitude(
   kind: string | null | undefined,

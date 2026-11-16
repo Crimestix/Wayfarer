@@ -4,7 +4,7 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { createEntity, type Entity } from '../../domain/schema';
 import { adoptArticle, createArticle } from './actions';
-import { STUB_WORDS, gapCount, newArticleParent, wikiGaps } from './gaps';
+import { STUB_WORDS, gapCount, groupByKind, newArticleParent, wikiGaps } from './gaps';
 
 const LONG = Array.from({ length: STUB_WORDS + 5 }, (_, i) => `Wort${i}`).join(' ');
 
@@ -120,5 +120,19 @@ describe('Wo ein neuer Artikel hingehört', () => {
     expect(newArticleParent(data().articles, 'place', [mira.id])?.id).toBe(orte.id);
     expect(newArticleParent(data().articles, 'item', [mira.id])?.id).toBe(personen.id);
     expect(newArticleParent(data().articles, null, [])).toBeNull();
+  });
+});
+
+describe('Noch zu schreiben nach Art', () => {
+  it('teilt nach Art in fester Reihenfolge, ohne Art zuletzt, und behält die Reihenfolge darin', () => {
+    const items = [
+      { name: 'Mira', kind: 'person' as const },
+      { name: 'Grotte', kind: null },
+      { name: 'Hohenfurt', kind: 'place' as const },
+      { name: 'Odo', kind: 'person' as const },
+    ];
+    const groups = groupByKind(items, (item) => item.kind);
+    expect(groups.map((g) => g.kind)).toEqual(['place', 'person', null]);
+    expect(groups[1]!.items.map((i) => i.name)).toEqual(['Mira', 'Odo']);
   });
 });

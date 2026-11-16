@@ -96,7 +96,7 @@ export function NewArticleDialog({
   const kindHint = !named
     ? kind
       ? `Steht dann auch als ${KIND_LABEL[kind]} in der Welt.`
-      : 'Nur ein Artikel – in die Welt aufnehmen lässt er sich jederzeit.'
+      : 'Nur ein Text – eine Art lässt sich jederzeit festlegen.'
     : 'free' in named
       ? `Wird der Text des Eintrags „${named.free.name}“ (${KIND_LABEL[named.free.kind]}).`
       : `„${named.taken.name}“ steht schon in der Welt (${KIND_LABEL[named.taken.kind]}) – der Artikel wird kein zweiter Eintrag.`;

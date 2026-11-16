@@ -5,7 +5,13 @@ import { EyeOff, Pencil, Plus, Users, Waypoints } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, entityName, findRelation } from '../../domain/derive';
 import { attitudeModeChoice, type AttitudeMode } from '../../domain/attitudeSetting';
-import { attitudeLabel, holdsAttitude, relationType, typeOrder } from '../../domain/relations';
+import {
+  attitudeLabel,
+  attitudeOpen as attitudeBetween,
+  holdsAttitude,
+  relationType,
+  typeOrder,
+} from '../../domain/relations';
 import { PARTY_ID, type Relation } from '../../domain/schema';
 import {
   AttitudeBadge,
@@ -323,7 +329,8 @@ function RelationDialog({
   };
   const presets = relationPresets(data, self.id, otherId);
   const order = typeOrder(relationKind(data, fromId), relationKind(data, toId));
-  const fromHolds = holdsAttitude(relationKind(data, fromId));
+  // Offen nur zwischen zweien, die eine Haltung haben können; sonst „Haltung trotzdem eintragen“.
+  const fromHolds = attitudeBetween(relationKind(data, fromId), relationKind(data, toId));
   const showScale =
     fromHolds || attitudeOpen || draft.attitude !== null || (existing?.attitude ?? null) !== null;
 

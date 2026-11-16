@@ -51,6 +51,8 @@ import {
   treeIndent,
   upcomingFor,
   worldCounts,
+  kindSections,
+  WORLD_KINDS,
   type WorldEntity,
 } from './model';
 
@@ -696,5 +698,22 @@ describe('Ergänzungen der Prüfung', () => {
         pairExists: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe('Arten in der Liste', () => {
+  it('stellt die üblichen Arten zuerst, die seltenen unter „Mehr“ – ohne leere', () => {
+    const counts = Object.fromEntries(WORLD_KINDS.map((kind) => [kind, 0])) as Record<
+      (typeof WORLD_KINDS)[number],
+      number
+    >;
+    counts.person = 3;
+    counts.place = 2;
+    counts.language = 1;
+    counts.plant = 4;
+    expect(kindSections(counts)).toEqual({
+      common: ['place', 'person'],
+      rare: ['language', 'plant'],
+    });
   });
 });

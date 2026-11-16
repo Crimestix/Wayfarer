@@ -69,7 +69,7 @@ export function Lexicon({ kind }: { kind: LexiconKind }) {
   return (
     <div className="wf-welt-landing wf-welt-lex">
       <header className="wf-welt-landing__head">
-        <div className="wf-welt-landing__eyebrow">Weltdatenbank</div>
+        <div className="wf-welt-landing__eyebrow">Welt</div>
         <h1 className="wf-welt-landing__title">{KIND_LABEL_PLURAL[kind]}</h1>
         <p className="wf-welt-landing__lead">{LEAD[kind]}</p>
       </header>

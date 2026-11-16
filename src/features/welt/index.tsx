@@ -14,6 +14,7 @@ import { ArticlePage, WikiStart } from '../wiki';
 import { entitiesOfArticle } from '../wiki/model';
 import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
+import { NewDialogHost } from './NewDialog';
 import { Gallery } from './Gallery';
 import { GapsView } from './Gaps';
 import { Landing } from './Landing';
@@ -95,6 +96,7 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
         )}
       </div>
       <EntityDialogHost />
+      <NewDialogHost />
     </div>
   );
 }

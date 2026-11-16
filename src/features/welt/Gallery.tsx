@@ -68,7 +68,7 @@ export function Gallery() {
   return (
     <div className="wf-welt-landing wf-welt-gallery">
       <header className="wf-welt-landing__head">
-        <div className="wf-welt-landing__eyebrow">Weltdatenbank</div>
+        <div className="wf-welt-landing__eyebrow">Welt</div>
         <h1 className="wf-welt-landing__title">Personen</h1>
         <p className="wf-welt-landing__lead">
           {total === 0

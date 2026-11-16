@@ -1,7 +1,7 @@
 /** Kleine Bausteine, die mehrere Teile des Dossiers verwenden. */
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'wouter';
-import { Eye, Pencil, X } from 'lucide-react';
+import { ChevronRight, Eye, Pencil, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import type { Occurrence } from '../../domain/derive';
 import { ATTITUDES } from '../../domain/relations';
@@ -442,5 +442,44 @@ export function SecretSection({ entity }: { entity: WorldEntity }) {
           <div className="wf-prose wf-welt-secret__text">{entity.secret}</div>
         ) : null)}
     </section>
+  );
+}
+
+/**
+ * Kopf einer zuklappbaren Gruppe in der Liste links (Arten, „Mehr“, „Noch zu schreiben“): ruhig
+ * in Versalien wie eine Gruppe, mit Zahl; daneben Platz für einen leisen Handgriff.
+ */
+export function FoldHead({
+  open,
+  onToggle,
+  label,
+  count,
+  hint,
+  aside,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  label: ReactNode;
+  count?: number | undefined;
+  /** Leiser Zusatz rechts vom Titel, etwa was zugeklappt darin steht. */
+  hint?: string | undefined;
+  aside?: ReactNode;
+}) {
+  return (
+    <div className="wf-welt-fold">
+      <button
+        type="button"
+        className="wf-welt-fold__head"
+        aria-expanded={open}
+        onClick={onToggle}
+        title={open ? 'Zuklappen' : 'Aufklappen'}
+      >
+        <ChevronRight className="wf-welt-fold__chev" aria-hidden />
+        <span className="wf-welt-fold__label">{label}</span>
+        {count !== undefined && <span className="wf-welt-fold__count">{count}</span>}
+        {hint && <span className="wf-welt-fold__hint wf-clamp-1">{hint}</span>}
+      </button>
+      {aside}
+    </div>
   );
 }

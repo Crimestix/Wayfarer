@@ -1,13 +1,15 @@
 /**
  * „Noch zu schreiben“ – eine Sicht der Welt: links als knappe Liste, rechts auf der Bühne mit den
  * Stellen, an denen etwas erwähnt wird. Gerechnet wird in `wiki/gaps.ts`; hier wird nur gezeigt.
- * Ein Klick auf einen fehlenden Titel legt den Artikel an (Art wählbar, mit Steckbrief-Gerüst).
+ * Platzhalter aus Geschichten stehen zuerst und offen, alles andere zugeklappt, Dinge ohne Text
+ * nach Art (`groupByKind`). Ein Klick auf einen fehlenden Titel legt den Text an (Art wählbar,
+ * mit Steckbrief-Gerüst).
  */
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ChevronRight, FilePlus2, Feather } from 'lucide-react';
 import { useData } from '../../data/hooks';
-import { KIND_LABEL } from '../../domain/derive';
+import { KIND_LABEL, KIND_LABEL_PLURAL } from '../../domain/derive';
 import type { Article, Entity, EntityKind } from '../../domain/schema';
 import { stubRows, type StubRow } from '../../domain/stub';
 import { Button, KindIcon, cx } from '../../ui';
@@ -16,6 +18,7 @@ import { NewArticleDialog } from '../wiki/ArticleTools';
 import {
   STUB_WORDS,
   gapCount,
+  groupByKind,
   newArticleParent,
   wikiGaps,
   type GapMention,
@@ -24,7 +27,25 @@ import {
   type WikiGaps,
 } from '../wiki/gaps';
 import { ArticleIcon } from '../wiki/icons';
-import { Section } from './parts';
+import { FoldHead, Section } from './parts';
+
+/** Was in „Noch zu schreiben“ aufgeklappt ist, solange die App läuft (Vorgabe: zu). */
+const folds: Record<string, boolean> = { stubs: true };
+
+function useFold(key: string): [boolean, () => void] {
+  const [open, setOpen] = useState(folds[key] ?? false);
+  return [
+    open,
+    () =>
+      setOpen((before) => {
+        folds[key] = !before;
+        return !before;
+      }),
+  ];
+}
+
+/** „Personen“, ohne Art „Ohne Art“. */
+const kindPlural = (kind: EntityKind | null) => (kind ? KIND_LABEL_PLURAL[kind] : 'Ohne Art');
 
 const gapsCache = new WeakMap<object, WeakMap<object, WikiGaps>>();
 
@@ -108,11 +129,14 @@ const mentionText = (mentions: GapMention[]): string =>
 const INDEX_SHOWN = 40;
 
 function IndexGroup({
+  fold,
   label,
   count,
   children,
   more,
 }: {
+  /** Schlüssel, unter dem sich die Gruppe ihr Aufklappen merkt. */
+  fold: string;
   label: string;
   count: number;
   children: ReactNode;
@@ -120,14 +144,13 @@ function IndexGroup({
   more: ReactNode;
 }) {
   const [, navigate] = useLocation();
+  const [open, toggle] = useFold(fold);
   if (!count) return null;
   return (
     <>
-      <div className="wf-welt-group">
-        {label} <span>{count}</span>
-      </div>
-      {children}
-      {more && (
+      <FoldHead open={open} onToggle={toggle} label={label} count={count} />
+      {open && children}
+      {open && more && (
         <button type="button" className="wf-welt-gaps__more" onClick={() => navigate('/welt')}>
           {more}
         </button>
@@ -152,7 +175,7 @@ export function GapsIndex({
   // Ein Platzhalter steht oben bei den Platzhaltern – nicht noch einmal ohne Artikel.
   const stubIds = new Set(stubs.map((row) => row.entity.id));
   const entries = gaps.entries.filter((entry) => !stubIds.has(entry.entity.id));
-  const mentioned = entries.filter((entry) => entry.count > 0);
+  const byKind = groupByKind(entries, (entry) => entry.entity.kind);
   if (!gapCount(gaps) && !gaps.orphans.length && !entries.length && !stubs.length)
     return (
       <p className="wf-welt-gaps__none">
@@ -162,6 +185,7 @@ export function GapsIndex({
   return (
     <div className="wf-welt-gaps__index">
       <IndexGroup
+        fold="stubs"
         label="Platzhalter aus Geschichten"
         count={stubs.length}
         more={moreText(stubs.length - INDEX_SHOWN)}
@@ -186,7 +210,8 @@ export function GapsIndex({
         ))}
       </IndexGroup>
       <IndexGroup
-        label="Fehlt noch"
+        fold="missing"
+        label="Erwähnt, fehlt noch"
         count={gaps.missing.length}
         more={moreText(gaps.missing.length - INDEX_SHOWN)}
       >
@@ -216,36 +241,38 @@ export function GapsIndex({
           </button>
         ))}
       </IndexGroup>
-      <IndexGroup
-        label="Eintrag ohne Artikel"
-        count={entries.length}
-        more={
-          moreText(mentioned.length - INDEX_SHOWN) ??
-          (entries.length > mentioned.length
-            ? `${mentioned.length ? 'dazu ' : ''}${entries.length - mentioned.length} nirgends erwähnt`
-            : null)
-        }
-      >
-        {mentioned.slice(0, INDEX_SHOWN).map(({ entity, count, mentions }) => (
-          <Link
-            key={entity.id}
-            href={`/welt/${entity.id}`}
-            className="wf-welt-row"
-            aria-current={entity.id === selectedId ? 'page' : undefined}
-          >
-            <span className="wf-welt-row__icon">
-              <KindIcon kind={entity.kind} />
-            </span>
-            <span className="wf-welt-row__main">
-              <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>
-              <span className="wf-welt-row__sub wf-clamp-1">
-                {KIND_LABEL[entity.kind]} · {times(count)} erwähnt {mentionText(mentions)}
+      {byKind.map(({ kind, items }) => (
+        <IndexGroup
+          key={kind ?? 'ohne'}
+          fold={`text:${kind ?? ''}`}
+          label={`Ohne Text: ${kindPlural(kind)}`}
+          count={items.length}
+          more={moreText(items.length - INDEX_SHOWN)}
+        >
+          {items.slice(0, INDEX_SHOWN).map(({ entity, count, mentions }) => (
+            <Link
+              key={entity.id}
+              href={`/welt/${entity.id}`}
+              className="wf-welt-row"
+              aria-current={entity.id === selectedId ? 'page' : undefined}
+            >
+              <span className="wf-welt-row__icon">
+                <KindIcon kind={entity.kind} />
               </span>
-            </span>
-          </Link>
-        ))}
-      </IndexGroup>
+              <span className="wf-welt-row__main">
+                <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>
+                <span className="wf-welt-row__sub wf-clamp-1">
+                  {count > 0
+                    ? `${times(count)} erwähnt ${mentionText(mentions)}`
+                    : 'wird nirgends erwähnt'}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </IndexGroup>
+      ))}
       <IndexGroup
+        fold="short"
         label="Noch kurz"
         count={gaps.stubs.length}
         more={moreText(gaps.stubs.length - INDEX_SHOWN)}
@@ -260,7 +287,8 @@ export function GapsIndex({
         ))}
       </IndexGroup>
       <IndexGroup
-        label="Ohne Verweis"
+        fold="orphans"
+        label="Wird nirgends erwähnt"
         count={gaps.orphans.length}
         more={moreText(gaps.orphans.length - INDEX_SHOWN)}
       >
@@ -269,7 +297,7 @@ export function GapsIndex({
             key={article.id}
             article={article}
             current={article.id === articleId}
-            sub="Kein Artikel verweist hierher"
+            sub="Kein anderer Text nennt es"
           />
         ))}
       </IndexGroup>
@@ -388,17 +416,34 @@ function Capped<T>({ items, render }: { items: T[]; render: (item: T) => ReactNo
   );
 }
 
+/** Eine Art unter „Ohne Text“ auf der Bühne: zugeklappt, bis man an ihr weiterschreiben will. */
+function KindFold({
+  kind,
+  count,
+  children,
+}: {
+  kind: EntityKind | null;
+  count: number;
+  children: ReactNode;
+}) {
+  const [open, toggle] = useFold(`stage:${kind ?? ''}`);
+  return (
+    <div className="wf-welt-gaps__kind-group">
+      <FoldHead open={open} onToggle={toggle} label={kindPlural(kind)} count={count} />
+      {open && children}
+    </div>
+  );
+}
+
 /** Rechts auf der Bühne: alles, was noch zu schreiben ist, mit den Stellen. */
 export function GapsView() {
   const gaps = useWikiGaps();
   const stubs = useStubRows();
   const [create, dialog] = useCreate();
-  const [quiet, setQuiet] = useState(false);
-  // Ein Platzhalter steht oben bei den Platzhaltern – nicht noch einmal ohne Artikel.
+  // Ein Platzhalter steht oben bei den Platzhaltern – nicht noch einmal ohne Text.
   const stubIds = new Set(stubs.map((row) => row.entity.id));
   const entries = gaps.entries.filter((entry) => !stubIds.has(entry.entity.id));
-  const mentioned = entries.filter((entry) => entry.count > 0);
-  const unmentioned = entries.filter((entry) => entry.count === 0);
+  const byKind = groupByKind(entries, (entry) => entry.entity.kind);
   const createMissing = (entry: MissingTitle) =>
     create({
       title: entry.title,
@@ -509,39 +554,40 @@ export function GapsView() {
       )}
 
       {entries.length > 0 && (
-        <Section title="Eintrag ohne Artikel" count={entries.length}>
+        <Section title="Ohne Text" count={entries.length}>
           <p className="wf-welt-gaps__lead">
-            Diese Einträge stehen in der Welt, haben aber noch keinen Text. Erwähnte zuerst.
+            Diese Dinge stehen in der Welt, haben aber noch keinen Text – nach Art, erwähnte zuerst.
+            Aufklappen, wenn du an einer Art weiterschreiben willst.
           </p>
-          <Capped
-            items={quiet ? entries : mentioned}
-            render={({ entity, count, mentions }) => (
-              <GapItem
-                key={entity.id}
-                icon={<KindIcon kind={entity.kind} />}
-                name={
-                  <Link href={`/welt/${entity.id}`} className="wf-welt-gaps__link">
-                    {entity.name}
-                  </Link>
-                }
-                count={count}
-                mentions={mentions}
-                action={
-                  <Button size="sm" icon={<Feather />} onClick={() => writeFor(entity, mentions)}>
-                    Artikel schreiben
-                  </Button>
-                }
+          {byKind.map(({ kind, items }) => (
+            <KindFold key={kind ?? 'ohne'} kind={kind} count={items.length}>
+              <Capped
+                items={items}
+                render={({ entity, count, mentions }) => (
+                  <GapItem
+                    key={entity.id}
+                    icon={<KindIcon kind={entity.kind} />}
+                    name={
+                      <Link href={`/welt/${entity.id}`} className="wf-welt-gaps__link">
+                        {entity.name}
+                      </Link>
+                    }
+                    count={count}
+                    mentions={mentions}
+                    action={
+                      <Button
+                        size="sm"
+                        icon={<Feather />}
+                        onClick={() => writeFor(entity, mentions)}
+                      >
+                        Text schreiben
+                      </Button>
+                    }
+                  />
+                )}
               />
-            )}
-          />
-          {!quiet && unmentioned.length > 0 && (
-            <button type="button" className="wf-wiki-more" onClick={() => setQuiet(true)}>
-              {mentioned.length ? 'dazu ' : ''}
-              {unmentioned.length === 1
-                ? 'ein Eintrag, der nirgends erwähnt wird'
-                : `${unmentioned.length} Einträge, die nirgends erwähnt werden`}
-            </button>
-          )}
+            </KindFold>
+          ))}
         </Section>
       )}
 
@@ -575,10 +621,10 @@ export function GapsView() {
       )}
 
       {gaps.orphans.length > 0 && (
-        <Section title="Ohne Verweis" count={gaps.orphans.length}>
+        <Section title="Wird nirgends erwähnt" count={gaps.orphans.length}>
           <p className="wf-welt-gaps__lead">
-            Auf diese Artikel verweist kein anderer, weder in Klammern noch mit dem Namen im Text.
-            Ordnerseiten und Vorlagen fehlen hier.
+            Kein anderer Text nennt diese – weder in Klammern noch mit dem Namen. Ordnerseiten und
+            Vorlagen fehlen hier.
           </p>
           <Capped
             items={gaps.orphans}

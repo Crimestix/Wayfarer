@@ -80,6 +80,30 @@ export const WORLD_KINDS = [
   'profession',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
+
+/** Die Arten, die fast jede Welt hat – in der Liste offen und zuerst. */
+export const COMMON_KINDS: readonly WorldKind[] = [
+  'place',
+  'person',
+  'faction',
+  'family',
+  'item',
+  'topic',
+];
+
+/**
+ * Die Arten in der Liste links: die üblichen als Gruppen, die seltenen unter „Mehr“ – nur eine
+ * Ordnung, nie ein Filter. Arten ohne Eintrag stehen nicht da (die Suche findet trotzdem alles).
+ */
+export function kindSections(counts: Record<WorldKind, number>): {
+  common: WorldKind[];
+  rare: WorldKind[];
+} {
+  return {
+    common: COMMON_KINDS.filter((kind) => counts[kind] > 0),
+    rare: WORLD_KINDS.filter((kind) => !COMMON_KINDS.includes(kind) && counts[kind] > 0),
+  };
+}
 export type KindFilter = 'all' | WorldKind;
 export type WorldEntity = Extract<Entity, { kind: WorldKind }>;
 

@@ -174,7 +174,7 @@ export function FactsHint({ article }: { article: Article }) {
             in der Welt.
           </span>
           <button type="button" className="wf-wiki-facts__act" onClick={apply}>
-            In die Welt aufnehmen
+            Als {KIND_LABEL[kind]} anlegen
           </button>
         </div>
       ))}

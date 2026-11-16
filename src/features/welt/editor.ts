@@ -33,3 +33,33 @@ export function useEntityDialogRequest(): EntityDialogRequest | null {
     () => current,
   );
 }
+
+/** Das eine „Neu“ der Welt: Name und Art (`NewDialog`). */
+export interface NewRequest {
+  /** Vorgeschlagene Art; null = nur ein Text, ohne Art. Ohne Angabe: Person. */
+  kind?: WorldKind | null;
+  name?: string;
+  /** Gleich den Text anfangen (Vorgabe: nein). */
+  withText?: boolean;
+}
+
+let newRequest: NewRequest | null = null;
+const newListeners = new Set<() => void>();
+
+function setNew(next: NewRequest | null) {
+  newRequest = next;
+  newListeners.forEach((l) => l());
+}
+
+export const openNew = (request: NewRequest = {}) => setNew(request);
+export const closeNew = () => setNew(null);
+
+export function useNewRequest(): NewRequest | null {
+  return useSyncExternalStore(
+    (l) => {
+      newListeners.add(l);
+      return () => newListeners.delete(l);
+    },
+    () => newRequest,
+  );
+}
