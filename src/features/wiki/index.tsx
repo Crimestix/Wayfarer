@@ -68,11 +68,24 @@ const ADOPT_KINDS: EntityKind[] = [
 ];
 
 /** Was aufgeklappt ist und wonach gesucht wurde, bleibt beim Wechsel des Bereichs erhalten. */
-const memory = { open: new Set<string>(), query: '', mode: 'read' as WikiMode };
+const memory = {
+  open: new Set<string>(),
+  query: '',
+  mode: 'read' as WikiMode,
+  /** Der nächste Artikel auf der Seite eines Dings öffnet sich zum Schreiben. */
+  writeNext: false,
+};
 
 /** Ein eben angelegter Artikel öffnet sich zum Schreiben, nicht zum Lesen. */
 export function openForWriting() {
   if (memory.mode === 'read') memory.mode = 'live';
+  memory.writeNext = true;
+}
+
+/** Auf der Seite eines Dings beginnt der Text gesetzt – außer er wurde eben angelegt. */
+function embeddedMode(): WikiMode {
+  if (!memory.writeNext) return 'read';
+  return memory.mode === 'source' ? 'source' : 'live';
 }
 
 const MODES: { id: WikiMode; icon: ReactNode; hint: string }[] = [
@@ -416,7 +429,7 @@ export function ArticleTree({ current }: { current: string | undefined }) {
 }
 
 /**
- * Ein Artikel zum Lesen und Schreiben – für sich oder als Reiter „Text“ auf der Seite eines
+ * Ein Artikel zum Lesen und Schreiben – für sich oder als Text auf der Seite eines
  * Eintrags der Welt (`embedded`). Ein Verweis führt immer nach `/wiki/…`; gehört der Artikel zu
  * einem Eintrag, öffnet sich dort dessen Seite.
  */
@@ -430,14 +443,16 @@ export function ArticlePage({
   const data = useData();
   const [, navigate] = useLocation();
   const articles = data.articles;
-  const [mode, setMode] = useState<WikiMode>(memory.mode);
+  const [mode, setMode] = useState<WikiMode>(() => (embedded ? embeddedMode() : memory.mode));
   /** Zuletzt benutzte Schreibansicht – dorthin wechselt Strg+E. */
   const lastEdit = useRef<WikiMode>(memory.mode === 'source' ? 'source' : 'live');
   const [creating, setCreating] = useState<{ parent: Article | null; title: string } | null>(null);
   useEffect(() => {
-    memory.mode = mode;
+    // Die Seite eines Dings merkt sich keine Ansicht: Dort beginnt der Text immer gesetzt.
+    if (!embedded) memory.mode = mode;
+    memory.writeNext = false;
     if (mode !== 'read') lastEdit.current = mode;
-  }, [mode]);
+  }, [mode, embedded]);
 
   // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben.
   useEffect(() => {
@@ -478,6 +493,7 @@ export function ArticlePage({
         article={article}
         onOpen={onOpen}
         mode={mode}
+        embedded={embedded}
         actions={
           <>
             <ModeSwitch
@@ -504,8 +520,9 @@ export function ArticlePage({
                 ))}
               </div>
             )}
-            <ScaffoldHint article={article} />
-            <FactsHint article={article} />
+            {/* Auf der Seite eines Dings stehen Gerüst und Steckbrief im Kasten oben. */}
+            {!embedded && <ScaffoldHint article={article} />}
+            {!embedded && <FactsHint article={article} />}
             <AiPanel article={article} />
           </>
         }

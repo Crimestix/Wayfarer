@@ -102,7 +102,7 @@ nicht übernommen.
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“, „Netz“ und „Noch zu
   schreiben“, eine Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
-  Artikel einem gehört – dort ist er der Reiter „Text“. Vor einem neuen Eintrag in der
+  Artikel einem gehört – dort steht er als Text auf derselben Seite. Vor einem neuen Eintrag in der
   Navigation prüfen, ob er als Reiter oder als Teil der Welt passt (Entscheidung des
   Spielleiters, 12. 11. 2026: „vieles ist drin, dadurch ist einiges unübersichtlich geworden“).
 - `src/features/<bereich>/` – je ein Arbeitsbereich: `tisch`, `welt`, `chronik`, `kalender`,
@@ -844,6 +844,23 @@ nicht übernommen.
   Ein Artikel und ein Eintrag gleichen Namens sind dasselbe Ding: `linkTwins()` verbindet sie
   von selbst (nur wenn eindeutig) – nie einen zweiten Eintrag für einen Namen anlegen, den es
   schon gibt.
+- Die Seite eines Dings (`welt/Dossier.tsx`, KONZEPT-WIKI Schritt 1): eine Seite zum Verstehen,
+  ohne Reiter – Reiter nur noch für Seltenes (Beziehungen ändern, Stammbaum, Verlauf). Kopf mit
+  Pfad (Orte darüber), Name, Art, dem einen Satz (direkt beschreibbar) und Platzhalter-Marke;
+  links breit Steckbrief-Kasten (`FactBox`), was darin oder dazu gehört, Notizen/Geheimnis und
+  der Text (`ArticlePage embedded`: gesetzt, „Schreiben“ öffnet den Editor an Ort und Stelle);
+  rechts schmal, was jetzt gilt (wo sie ist, Haltung zur Gruppe und abweichend zu Gefährten,
+  wer hier ist, die Gruppe hier), Beziehungen knapp, „Zuletzt“ mit „Verlauf ansehen“. Was wo
+  steht, sagt einzig `pagePlan()` (`welt/page.ts`) je Art – als Reihenfolge, nie als Filter:
+  Leere Abschnitte (Laden, Magie, Rezept, Buch, Räume, Vorhaben …) stehen nicht da, sondern als
+  eine Zeile „Hinzufügen: …“ (`AddKey`); neue Abschnitte dort eintragen, nicht in der
+  Oberfläche. Notizen und Geheimnis stehen neben einem Text nur, wenn schon etwas darin steht.
+  Bausteine in `welt/PageParts.tsx`. **Ein Laden ist ein Laden:** Ist der Ort selbst der Laden
+  (ein einzelner Ort, keine Gegend) oder die Person der Händler, ist der Laden der Hauptteil –
+  über beiden Spalten, der Knopf zum Handeln trägt das Messing (`pageShops`, `ShopSection lead`).
+  Nie der Hauptteil eines Ortes darüber: Steht ein Laden direkt an einer Stadt, einem Viertel,
+  einer Gegend (Orte darin oder die Art endet auf „Stadt“, „Viertel“ …), ist er dort nur genannt,
+  mit „als eigenen Ort anlegen“ (`shopToOwnPlace`, nur auf Klick, mit Rückgängig).
 - Frühere Fassungen (`versions/`, `domain/versions.ts`): `savePageText` legt den Wortlaut vor
   einer Änderung ab – höchstens eine je Seite und zehn Minuten (die erste bleibt: der Stand vor
   dem Ansetzen); ausgedünnt über `pruneVersions` (die jüngsten 20, ältere eine je Seite und Tag,
@@ -863,6 +880,17 @@ nicht übernommen.
   schon einem Eintrag, sagt `entryForTitle`, ob er verbunden wird – nie ein zweiter), nachgetragen über
   `addScaffoldFields`; was fehlt, sagt `articleScaffoldGap` leise am Artikel. Ein leeres Feld
   sagt nichts: nie gelesen (`articleFacts`, `articleParts`), nie gezeigt, löscht nie einen Wert.
+  **Der Kasten auf der Seite** (`welt/FactBox.tsx`) ist der eine Weg, den Steckbrief zu
+  ändern: Felder (`boxRows`: erst was im ersten Steckbrief steht, dann die fehlenden Felder des
+  Gerüsts, gedämpft und ausblendbar; „+ Feld“ für eigene), geschrieben beim Verlassen über
+  `writeBoxField` (`welt/pageActions.ts`) – in den Text über `savePageText`, danach liest
+  `applyFacts` ihn in die Welt. Ohne Artikel entsteht er erst mit dem ersten Wort
+  (`createArticleOfKind` mit Gerüst, verbunden mit diesem Eintrag); hat der Text noch keinen
+  Steckbrief, bekommt er mit dem ersten Wort das Gerüst (`writeBoxText`). Zeilen nur über
+  `steckbriefFields` / `setSteckbriefField` (`wiki/factLines.ts`) – nie Kästen selbst zerlegen.
+  Ein leeres Feld zeigt gedämpft, was die Welt schon weiß (`worldValue`), geschrieben wird es
+  erst auf Klick. Auf der Seite zeigt der Text die Felder des ersten Steckbriefs nicht noch
+  einmal (`splitPage(…, { boxShownAbove })`).
 - Noch zu schreiben (`wikiGaps`, `wiki/gaps.ts`, Sicht in „Welt“): Verweise ins Leere je Titel
   mit Stellen und Art aus dem Feld, Einträge ohne Artikel, kurze Artikel (`STUB_WORDS`) und
   Artikel ohne Verweis – ohne Ordnerseiten, Vorlagen und Räume. Nur gezählt und gezeigt;

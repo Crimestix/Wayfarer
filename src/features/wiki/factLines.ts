@@ -269,6 +269,60 @@ export function steckbriefLabels(text: string): string[] {
   return out;
 }
 
+/** Steht im Text ein Steckbrief (`> [!steckbrief]`)? */
+export const hasSteckbrief = (text: string): boolean => findBox(splitLines(text)) !== null;
+
+/** Ein Feld im ersten Steckbrief: Bezeichnung und Wert, wie sie dastehen (der Wert ohne Rand). */
+export interface BoxLine {
+  label: string;
+  value: string;
+}
+
+/**
+ * Alle Felder „Feld: Wert“ im ersten Steckbrief, auch die leeren, in ihrer Reihenfolge – der
+ * Wert als Text, wie er geschrieben steht (mit `[[Verweisen]]`). Bilder, Überschriften und
+ * Kurztexte im Kasten zählen nicht.
+ */
+export function steckbriefFields(text: string): BoxLine[] {
+  const lines = splitLines(text);
+  const box = findBox(lines);
+  if (!box) return [];
+  const out: BoxLine[] = [];
+  for (let i = box.head + 1; i <= box.last; i++) {
+    const match = FACT.exec(lines[i]!);
+    if (match) out.push({ label: match[1]!.trim(), value: match[2]!.trim() });
+  }
+  return out;
+}
+
+/**
+ * Setzt im ersten Steckbrief das Feld mit genau dieser Bezeichnung (ohne Groß- und
+ * Kleinschreibung) auf `value` – ein leerer Wert lässt die Zeile leer stehen („> Geboren: “), nie
+ * fällt sie weg. Steht das Feld nicht da, kommt es hinter die übrigen Felder; fehlt der
+ * Steckbrief, entsteht er oben. Der übrige Text bleibt Zeichen für Zeichen.
+ */
+export function setSteckbriefField(text: string, label: string, value: string): string {
+  const name = oneLine(label).replace(/:+$/, '').trim();
+  if (!name) return text;
+  const key = name.toLocaleLowerCase('de');
+  const clean = oneLine(value);
+  const withLine = steckbriefLabels(text).some((l) => l.toLocaleLowerCase('de') === key)
+    ? text
+    : addBlankFactLines(text, [name]);
+  const lines = splitLines(withLine);
+  const box = findBox(lines);
+  if (!box) return text;
+  for (let i = box.head + 1; i <= box.last; i++) {
+    const match = FACT.exec(lines[i]!);
+    if (!match || match[1]!.trim().toLocaleLowerCase('de') !== key) continue;
+    lines[i] = `> ${match[1]!.trim()}: ${clean}`;
+    const next = lines.join('\n');
+    // Nichts geändert (gleicher Wert, nur Leerzeichen am Ende): der Text bleibt, wie er war.
+    return next.replace(/[ \t]+$/gm, '') === text.replace(/[ \t]+$/gm, '') ? text : next;
+  }
+  return text;
+}
+
 /**
  * Fügt dem Steckbrief leere Felder hinzu („> Geboren: “) – hinter die Felder, die schon dastehen,
  * sonst ans Ende des Steckbriefs. Gibt es keinen, entsteht er ganz oben. Felder, die schon dastehen

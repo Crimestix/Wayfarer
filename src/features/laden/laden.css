@@ -656,3 +656,49 @@
   border-top: 1px solid var(--line-faint);
   font-size: var(--text-sm);
 }
+
+/* Der Laden als Hauptteil der Seite (der Ort ist der Laden, die Person der Händler) */
+.wf-laden-lead {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  box-shadow: var(--shadow-raised);
+}
+.wf-laden-lead::before,
+.wf-laden-lead::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: solid var(--gold);
+  pointer-events: none;
+}
+.wf-laden-lead::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+}
+.wf-laden-lead::after {
+  right: -1px;
+  bottom: -1px;
+  border-width: 0 1px 1px 0;
+}
+.wf-laden-shop--lead .wf-laden-shop__title {
+  font-size: var(--text-2xl);
+}
+.wf-laden-shop__mark {
+  width: 22px;
+  height: 22px;
+  color: var(--gold);
+}
+.wf-laden-lead__pick {
+  flex-wrap: wrap;
+}
+.wf-laden-lead__more {
+  display: flex;
+  justify-content: flex-end;
+}

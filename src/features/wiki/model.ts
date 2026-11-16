@@ -125,8 +125,19 @@ export function splitPage(
   articles: Articles,
   article: Article,
   doc: ArticleDoc | undefined,
+  options: { boxShownAbove?: boolean } = {},
 ): { side: ArticleNode[]; body: ArticleNode[]; outline: OutlineEntry[] } {
-  const nodes = doc?.kind === 'page' ? pageNodes(articles, article, doc) : [];
+  let nodes = doc?.kind === 'page' ? pageNodes(articles, article, doc) : [];
+  // Auf der Seite eines Dings stehen die Felder des Steckbriefs schon oben im Kasten: Im ersten
+  // Steckbrief der ersten Seite bleibt nur, was kein Feld ist (Bilder, Kurztexte).
+  if (options.boxShownAbove && doc && article.docs.find((d) => d.kind === 'page')?.id === doc.id) {
+    const at = nodes.findIndex((node) => node.type === 'infobox');
+    const box = nodes[at];
+    if (box?.type === 'infobox')
+      nodes = nodes.map((node, i) =>
+        i === at ? { ...box, children: box.children.filter((c) => c.type !== 'facts') } : node,
+      );
+  }
   // Ein Steckbrief, in dem noch nichts ausgefüllt ist, steht nicht als leerer Kasten da.
   const side = nodes.filter(
     (node) => node.type === 'infobox' && node.beside && node.children.length > 0,

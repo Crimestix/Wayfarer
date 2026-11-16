@@ -72,10 +72,25 @@ import './laden.css';
 /** Wie viele Geschäfte eines Ladens auf der Seite stehen; alle stehen in der Chronik. */
 const TRADES_SHOWN = 4;
 
-export function ShopSection({ entity }: { entity: Entity }) {
+export function ShopSection({
+  entity,
+  lead = false,
+  shops: given,
+}: {
+  entity: Entity;
+  /**
+   * Der Laden ist das Ding selbst (der Ort ist der Laden, die Person der Händler): Er steht als
+   * Hauptteil der Seite da, der Knopf zum Handeln trägt Messing. Mehrere Läden: ein Umschalter.
+   */
+  lead?: boolean;
+  /** Welche Läden; ohne Angabe alle, die zu diesem Eintrag gehören (`shopsOf`). */
+  shops?: Shop[];
+}) {
   const db = useDb();
   const data = useData();
-  const shops = useMemo(() => shopsOf(data, entity.id), [data, entity.id]);
+  const all = useMemo(() => shopsOf(data, entity.id), [data, entity.id]);
+  const shops = given ?? all;
+  const [chosen, setChosen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   /** Der eben angelegte Laden: Bricht der Spielleiter ab, verschwindet er wieder. */
   const [fresh, setFresh] = useState<string | null>(null);
@@ -101,7 +116,9 @@ export function ShopSection({ entity }: { entity: Entity }) {
   };
 
   // Personen ohne Laden: nur, wenn Rolle oder Beruf nach Handel aussehen; Fraktionen nie leer.
-  if (!shops.length && entity.kind !== 'place' && !looksLikeTrader(data, entity)) return null;
+  // (Auf der Seite eines Dings wird der leere Abschnitt eigens geöffnet: dann immer.)
+  if (!shops.length && !given && entity.kind !== 'place' && !looksLikeTrader(data, entity))
+    return null;
 
   const dialog = editing && data.shops[editing] && (
     <ShopDialog
@@ -133,6 +150,45 @@ export function ShopSection({ entity }: { entity: Entity }) {
     );
 
   const markets = shops.filter((shop) => shop.market).length;
+  if (lead) {
+    const current = shops.find((shop) => shop.id === chosen) ?? shops[0]!;
+    return (
+      <section className="wf-laden-lead" aria-label={shopTitle(data, current)}>
+        {shops.length > 1 && (
+          <div className="wf-btn-group wf-laden-lead__pick" role="group" aria-label="Welcher Laden">
+            {shops.map((shop) => (
+              <button
+                key={shop.id}
+                type="button"
+                className="wf-btn wf-btn--sm"
+                aria-pressed={shop.id === current.id}
+                onClick={() => setChosen(shop.id)}
+              >
+                {shopTitle(data, shop)}
+              </button>
+            ))}
+          </div>
+        )}
+        <ShopCard
+          key={current.id}
+          shop={current}
+          owner={entity}
+          lead
+          onEdit={() => {
+            setEditing(current.id);
+            setFresh(null);
+          }}
+        />
+        <div className="wf-laden-lead__more">
+          <Button size="sm" variant="ghost" icon={<Plus />} onClick={create}>
+            Weiterer Laden
+          </Button>
+        </div>
+        <UnitList />
+        {dialog}
+      </section>
+    );
+  }
   return (
     <Section
       title={
@@ -170,7 +226,18 @@ export function ShopSection({ entity }: { entity: Entity }) {
   );
 }
 
-function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: () => void }) {
+function ShopCard({
+  shop,
+  owner,
+  onEdit,
+  lead = false,
+}: {
+  shop: Shop;
+  owner: Entity;
+  onEdit: () => void;
+  /** Hauptteil der Seite: größer, der Knopf zum Handeln aus Messing. */
+  lead?: boolean;
+}) {
   const db = useDb();
   const data = useData();
   const rows = useMemo(() => stockRows(data, shop), [data, shop]);
@@ -250,15 +317,17 @@ function ShopCard({ shop, owner, onEdit }: { shop: Shop; owner: Entity; onEdit: 
   };
 
   return (
-    <div className="wf-laden-shop">
+    <div className={lead ? 'wf-laden-shop wf-laden-shop--lead' : 'wf-laden-shop'}>
       <div className="wf-laden-shop__head">
+        {lead && <Store className="wf-laden-shop__mark" aria-hidden />}
         <h3 className="wf-laden-shop__title">{shopTitle(data, shop)}</h3>
         <IconButton label="Laden bearbeiten" size="sm" variant="ghost" onClick={onEdit}>
           <Settings2 />
         </IconButton>
         <span className="wf-grow" />
         <Button
-          size="sm"
+          size={lead ? 'md' : 'sm'}
+          variant={lead ? 'primary' : 'default'}
           icon={<Store />}
           onClick={() => openShop(shop.id, shop.market ? 'sell' : 'buy')}
         >
