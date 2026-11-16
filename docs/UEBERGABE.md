@@ -92,6 +92,11 @@ Fenster; Beziehung per Klick auf die Schnur), Suche an einer Schnur ins Leere. *
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
+**Danach: Tag `v0.1.10` auf `a811b64` (16. 11.)** – Fadenbrett als Whiteboard und Storyboard:
+Karten mit eigenem Text, Pfeile „führt zu“ (Richtung im Menü an der Schnur), Namen im Kartentext,
+„Hier steht die Gruppe“ mit „Auf dem Storyboard“ am Spieltisch und gespieltem Weg; Geschichten
+mit freiem Schreibteil. **DATA_VERSION 14** – Mac und Windows beide auf 0.1.10.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
