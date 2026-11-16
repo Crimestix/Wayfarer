@@ -1,0 +1,169 @@
+<title>Fäden an Fäden</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Vorschlag vom 16. 11. 2026 – kein Teil der App. Wie ein Faden an einem Faden hängen kann
+  (Beispiel des Spielleiters: Vorzagath und Duskryns Arena). Alles in Klammern steht für den
+  Wortlaut des Spielleiters; Wayfarer erfindet nichts davon.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg-void: #070605; --bg-0: #0c0a09; --bg-1: #131010; --bg-2: #1a1614; --bg-3: #241e1a;
+    --bg-inset: #0a0808;
+    --line-faint: #2b231d; --line: #43362a; --line-strong: #5a4830;
+    --ink: #e9dfc9; --ink-soft: #c8bca3; --ink-mute: #a09278; --ink-faint: #786c5b;
+    --gold: #c9a35b; --gold-bright: #efd497; --gold-deep: #8b6c34; --gold-glow: rgba(201,163,91,.16);
+    --blood: #9d2f2a; --blood-bright: #d9584c; --blood-wash: rgba(157,47,42,.16);
+    --ember: #d58c3c; --ember-wash: rgba(213,140,60,.14);
+    --moss: #8fae7a;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-caps: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Crimson Pro', Georgia, serif;
+  }
+  body { background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: 2.6rem; line-height: 1.1; color: var(--ink); }
+  h2 { font-size: 1.7rem; margin-top: 56px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.25rem; }
+  .caps { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+  .mute { color: var(--ink-mute); }
+  .gold { color: var(--gold-bright); }
+  p { margin: 0; max-width: 68ch; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .lead { font-size: 1.12rem; color: var(--ink-soft); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 18px; font-variant-numeric: tabular-nums; }
+  .facts div { display: flex; flex-direction: column; }
+  .facts b { font-family: var(--font-display); font-size: 1.5rem; color: var(--gold-bright); font-weight: 600; }
+
+
+  .stage { margin-top: 22px; padding: 18px; background: var(--bg-void); border: 1px dashed var(--line-strong); overflow-x: auto; }
+  .stage-note { font-size: .92rem; color: var(--ink-mute); margin-bottom: 12px; }
+  .panel { position: relative; background: linear-gradient(180deg, #1b1613, #141110); border: 1px solid var(--line); padding: 16px; }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 1px solid var(--gold-deep); }
+  .panel::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+  .panel::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+  .ptitle { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .story { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; margin: 4px 0 10px; }
+  .w { color: var(--ink-faint); font-style: italic; }
+  .tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .tree .tree { margin: 6px 0 2px 6px; padding-left: 14px; border-left: 1px solid var(--line-strong); }
+  .node { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .node .t { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+  .node .t.small { font-size: 1.05rem; font-weight: 500; color: var(--ink-soft); }
+  .mark { font-family: var(--font-caps); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--line); color: var(--ink-mute); }
+  .mark.place { color: var(--gold); border-color: var(--gold-deep); }
+  .mark.here { color: #1a120a; background: var(--gold); border-color: var(--gold); }
+  .hint { font-size: .95rem; color: var(--ink-soft); display: flex; gap: 8px; }
+  .hint::before { content: "◇"; color: var(--gold-deep); }
+  .hint.found::before { content: "◆"; color: var(--gold); }
+  .add { font-size: .9rem; color: var(--gold); }
+  .add.mute { color: var(--ink-faint); }
+  .three { display: grid; grid-template-columns: 330px 300px 290px; gap: 14px; min-width: 950px; align-items: start; }
+  .card { border: 1px solid var(--line-strong); background: #1d1814; padding: 10px 12px; }
+  .card h4 { margin: 0; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .card .row { font-size: .9rem; color: var(--ink-soft); margin-top: 4px; }
+  .string { height: 22px; margin-left: 24px; border-left: 2px dotted var(--gold-deep); }
+  .card.sub { margin-left: 24px; border-color: var(--gold-deep); }
+  .steps { counter-reset: s; list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.2rem minmax(0,1fr); gap: 12px; }
+  .steps li::before { content: counter(s); font-family: var(--font-display); font-size: 1.6rem; color: var(--gold); line-height: 1; }
+  .steps p { color: var(--ink-soft); }
+  .q { margin-top: 18px; display: grid; gap: 12px; }
+  .q div { padding: 12px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .q b { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .q span { color: var(--ink-soft); }
+  .vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+  .vs div { padding: 14px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .vs h3 { font-size: 1.15rem; margin-bottom: 4px; }
+  .vs p { color: var(--ink-soft); }
+  footer { margin-top: 56px; font-size: .9rem; color: var(--ink-faint); }
+</style>
+
+<div class="wrap">
+  <div class="caps">Vorschlag · 16. 11.</div>
+  <h1 style="margin-top:10px">Fäden an Fäden</h1>
+  <div class="stack" style="margin-top:16px">
+    <p class="lead">Vorzagath ist die große Geschichte. Duskryns Arena ist ein Faden darin, weil ein Ort daran hängt, und an der Arena hängen wieder Hinweise und eigene Fäden. Heute kann ein Faden nur Hinweise tragen. Alles andere muss direkt an die Geschichte, und dann liegt alles flach nebeneinander.</p>
+    <p class="mute">Gebaut ist noch nichts. Unten steht der Vorschlag als Bild. Alles in Klammern steht für deinen eigenen Wortlaut, Wayfarer erfindet davon nichts.</p>
+  </div>
+
+  <h2>Der Gedanke</h2>
+  <ol class="steps">
+    <li><p><b class="gold">Ein Faden kann an einem Faden hängen</b>, so tief du willst, aber nie im Kreis. Er gehört damit von selbst zur selben Geschichte wie der Faden, an dem er hängt.</p></li>
+    <li><p><b class="gold">Der Ort zieht alles mit.</b> Ist die Gruppe in der Arena, steht am Spieltisch bei Vorzagath der Faden „Duskryns Arena“ mit allem, was daran hängt, und nicht verstreut zwischen den übrigen Fäden der Geschichte.</p></li>
+    <li><p><b class="gold">Umhängen geht in alle Richtungen</b>, mit Rückgängig: einen Faden an einen anderen hängen, ihn wieder direkt an die Geschichte hängen oder ganz lösen. Was an ihm hängt, geht mit.</p></li>
+    <li><p><b class="gold">Nichts wird von selbst erledigt.</b> Sind alle Fäden unter der Arena beantwortet, sagt Wayfarer das leise. Den Haken an die Arena setzt du.</p></li>
+  </ol>
+
+  <h2>So sähe es aus</h2>
+  <div class="stage">
+    <p class="stage-note">Links das Blatt der Geschichte (Fach „Fragen und Hinweise“), in der Mitte der Spieltisch, wenn die Gruppe in der Arena steht, rechts das Fadenbrett.</p>
+    <div class="three">
+      <div class="panel">
+        <div class="ptitle">Blatt · Fragen und Hinweise</div>
+        <div class="story">Vorzagath</div>
+        <ul class="tree">
+          <li>
+            <div class="node"><span class="t">Duskryns Arena</span><span class="mark place">Ort</span></div>
+            <ul class="tree">
+              <li class="hint found">(ein Hinweis, den die Gruppe schon hat)</li>
+              <li class="hint">(ein Hinweis, der dort noch wartet)</li>
+              <li>
+                <div class="node"><span class="t small">(ein Faden, der in der Arena beginnt)</span></div>
+                <ul class="tree"><li class="hint">(sein Hinweis)</li></ul>
+              </li>
+              <li><div class="node"><span class="t small">(noch ein Faden dort)</span></div></li>
+              <li class="add">+ Faden hier dran · + Hinweis</li>
+            </ul>
+          </li>
+          <li><div class="node"><span class="t">(ein anderer Faden der Geschichte)</span></div></li>
+          <li class="add mute">+ neue Frage</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <div class="ptitle">Spieltisch · Im Spiel</div>
+        <div class="story" style="font-size:1.35rem">Vorzagath</div>
+        <div class="node" style="margin-bottom:8px"><span class="mark here">Liegt hier</span><span class="t">Duskryns Arena</span></div>
+        <ul class="tree" style="margin-left:4px">
+          <li class="hint">(ein Hinweis, der dort noch wartet)</li>
+          <li>
+            <div class="node"><span class="t small">(ein Faden, der in der Arena beginnt)</span></div>
+            <ul class="tree"><li class="hint">(sein Hinweis)</li></ul>
+          </li>
+          <li><div class="node"><span class="t small">(noch ein Faden dort)</span></div></li>
+        </ul>
+        <p class="w" style="margin-top:12px;font-size:.92rem">Gefundene Hinweise stehen nicht mehr da. Was nicht an der Arena hängt, bleibt eingeklappt darunter: „2 weitere Fäden bei Vorzagath“.</p>
+      </div>
+
+      <div class="panel">
+        <div class="ptitle">Fadenbrett</div>
+        <div class="card" style="margin-top:10px"><h4>Vorzagath</h4><div class="row">Antreiber, Uhr, Beteiligte …</div></div>
+        <div class="string"></div>
+        <div class="card sub"><h4>Duskryns Arena</h4><div class="row">2 Hinweise offen · 2 Fäden</div></div>
+        <p class="w" style="margin-top:12px;font-size:.92rem">Ein Faden, an dem etwas hängt, darf als eigene Karte an seiner Geschichte liegen. Nur wenn du ihn hinlegst, so wie heute die losen Fäden.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Oder eine Teilgeschichte?</h2>
+  <p style="margin-top:14px;color:var(--ink-soft)">Wayfarer kann schon heute Geschichten in Geschichten legen. Das passt aber nicht immer:</p>
+  <div class="vs">
+    <div><h3>Faden an Faden</h3><p>Eine Spur mit Unterspuren: eine Frage, ein Ort, Hinweise. Kein eigener Antreiber, keine eigene Uhr. So, wie du die Arena beschreibst.</p></div>
+    <div><h3>Teilgeschichte</h3><p>Ein eigener Strang mit jemandem, der etwas will, eigener Uhr, eigenen Szenen und einem eigenen Stand. Gut, wenn in der Arena selbst etwas läuft, auch ohne die Gruppe.</p></div>
+  </div>
+  <p class="mute" style="margin-top:12px">Wächst ein Faden später zu mehr heran, soll „Zur Teilgeschichte machen“ ihn mit allem, was daran hängt, umziehen. Und umgekehrt.</p>
+
+  <h2>Fragen an dich</h2>
+  <div class="q">
+    <div><b>1. Passt „Faden an Faden“ für die Arena?</b><span>Oder ist sie eher eine Teilgeschichte von Vorzagath?</span></div>
+    <div><b>2. Wie tief?</b><span>Mein Vorschlag: beliebig tief, eingerückt gezeigt. Wahrscheinlich reichen in der Praxis zwei bis drei Ebenen.</span></div>
+    <div><b>3. Was ist mit den losen Fäden?</b><span>Sollen auch lose Fäden ohne Geschichte aneinander hängen können? Mein Vorschlag: ja, dann wandern sie gemeinsam in eine Geschichte.</span></div>
+    <div><b>4. Am Spieltisch</b><span>Wenn die Gruppe am Ort eines Fadens steht: Soll er bei der Geschichte nach oben rücken, mit allem darunter? Ins Spiel nimmst du ihn weiterhin selbst.</span></div>
+  </div>
+  <footer>Vorschlag aus der Sitzung vom 16. 11. 2026 · nichts davon ist gebaut.</footer>
+</div>
