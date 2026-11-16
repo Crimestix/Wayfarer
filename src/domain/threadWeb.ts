@@ -54,6 +54,32 @@ export function tiesOf(data: Pick<CampaignData, 'threads'>, threadId: string): T
   return [...out.values()].sort((a, b) => a.thread.title.localeCompare(b.thread.title, 'de'));
 }
 
+/** Mit welchen Geschichten eine von Hand verbunden ist – in beide Richtungen, jede nur einmal. */
+export function storyTiesOf(
+  data: Pick<CampaignData, 'stories'>,
+  storyId: string,
+): { story: Story; word: string }[] {
+  const own = data.stories[storyId];
+  if (!own) return [];
+  const out = new Map<string, { story: Story; word: string }>();
+  for (const tie of own.ties) {
+    const other = data.stories[tie.id];
+    if (other && other.id !== storyId) out.set(other.id, { story: other, word: tie.word });
+  }
+  for (const other of Object.values(data.stories)) {
+    if (other.id === storyId) continue;
+    const tie = other.ties.find((entry) => entry.id === storyId);
+    if (!tie) continue;
+    out.set(other.id, { story: other, word: out.get(other.id)?.word || tie.word });
+  }
+  return [...out.values()].sort((a, b) => a.story.title.localeCompare(b.story.title, 'de'));
+}
+
+/** Sind zwei Geschichten von Hand verbunden? */
+export const isStoryTied = (data: Pick<CampaignData, 'stories'>, a: string, b: string): boolean =>
+  data.stories[a]?.ties.some((tie) => tie.id === b) === true ||
+  data.stories[b]?.ties.some((tie) => tie.id === a) === true;
+
 /** Sind zwei Fäden verbunden (gleich, an welchem die Verbindung steht)? */
 export const isTied = (data: Pick<CampaignData, 'threads'>, a: string, b: string): boolean =>
   data.threads[a]?.ties.some((tie) => tie.id === b) === true ||
@@ -185,10 +211,10 @@ export interface WebString {
   /** Wo sie beginnt und endet: `knot:…`, `thread:…` (loser Faden) oder `story:…`. */
   a: string;
   b: string;
-  /** `tie` = verbunden; `lead` = ein Hinweis von `a` führt zu `b`. */
-  kind: 'tie' | 'lead';
+  /** `tie` = Fäden verbunden; `lead` = ein Hinweis von `a` führt zu `b`; `story` = Geschichten verbunden. */
+  kind: 'tie' | 'lead' | 'story';
   word: string;
-  /** Die beiden Fäden – für Rückgängig und den Seitenteil. */
+  /** Die beiden Fäden (bei `story`: die beiden Geschichten) – für Rückgängig und den Seitenteil. */
   from: string;
   to: string;
   /** Bei `lead`: der Hinweis an `from`, der zu `to` führt. */
@@ -308,6 +334,26 @@ export function boardWeb(
     if (!a || !b || a === b) continue;
     strings.push({ ...pair, a, b, key: `${pair.kind}:${pair.from}:${pair.to}` });
   }
+  // Geschichte an Geschichte – von Hand gezogen, zwischen ihren Karten.
+  const lyingStories = new Set(lying.flatMap((card) => (card.story ? [card.story.id] : [])));
+  const storyPairs = new Set<string>();
+  for (const storyId of lyingStories)
+    for (const tie of data.stories[storyId]?.ties ?? []) {
+      if (!lyingStories.has(tie.id) || tie.id === storyId) continue;
+      const pair = [storyId, tie.id].sort().join('|');
+      if (storyPairs.has(pair)) continue;
+      storyPairs.add(pair);
+      strings.push({
+        key: `story:${storyId}:${tie.id}`,
+        a: `story:${storyId}`,
+        b: `story:${tie.id}`,
+        kind: 'story',
+        word: tie.word,
+        from: storyId,
+        to: tie.id,
+        hintId: null,
+      });
+    }
   return { cards: adjusted, knots, strings };
 }
 

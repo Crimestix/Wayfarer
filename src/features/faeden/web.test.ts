@@ -9,11 +9,23 @@ import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
 import { ArticleSchema, createEntity, newId, type Place } from '../../domain/schema';
 import { boardCards, boardLayout, insideOnBoard } from '../../domain/story';
-import { boardWeb, isTied, leadNote, neighboursOf, tieFits, tiesOf } from '../../domain/threadWeb';
+import {
+  boardWeb,
+  isStoryTied,
+  isTied,
+  leadNote,
+  neighboursOf,
+  storyTiesOf,
+  tieFits,
+  tiesOf,
+} from '../../domain/threadWeb';
 import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  setStoryTieWord,
+  tieStories,
+  untieStories,
   addBoardArea,
   moveBoardArea,
   patchBoardArea,
@@ -238,7 +250,12 @@ describe('Das Netz auf dem Brett', () => {
     expect(data().threads[loose.id]!.storyId).toBe(story.id);
     // Ein Faden einer anderen Geschichte wechselt nicht still die Geschichte.
     expect(connectOnBoard(db, `knot:${b.id}`, `story:${story.id}`)).toMatchObject({ done: false });
+    // Geschichte an Geschichte verbindet – ein zweites Mal nicht.
     expect(connectOnBoard(db, `story:${story.id}`, `story:${other.id}`)).toMatchObject({
+      done: true,
+      title: 'Geschichten verbunden',
+    });
+    expect(connectOnBoard(db, `story:${other.id}`, `story:${story.id}`)).toMatchObject({
       done: false,
     });
     expect(connectOnBoard(db, `node:${mira.id}`, `node:${story.id}`)).toMatchObject({
@@ -428,5 +445,31 @@ describe('Bereiche auf dem Brett', () => {
     const { data } = await setup();
     const layout = boardLayout(boardCards(data()), {});
     expect(areaAround(layout, [], { x: 1000, y: 500 })).toEqual({ x: 680, y: 290, w: 640, h: 420 });
+  });
+});
+
+describe('Geschichte an Geschichte', () => {
+  it('verbindet zwei Geschichten von Hand, mit Wort, und zeigt die Schnur auf dem Brett', async () => {
+    const { db, data } = await setup();
+    const a = newStory(db, { title: 'Die Arena' });
+    const b = newStory(db, { title: 'Der Salzhandel' });
+    const undo = tieStories(db, a.id, b.id, 'dasselbe Geld')!;
+    expect(isStoryTied(data(), b.id, a.id)).toBe(true);
+    expect(tieStories(db, b.id, a.id)).toBeNull();
+    expect(storyTiesOf(data(), b.id)).toMatchObject([
+      { story: { id: a.id }, word: 'dasselbe Geld' },
+    ]);
+    const web = boardWeb(data(), boardCards(data()));
+    expect(web.strings).toMatchObject([
+      { kind: 'story', a: `story:${a.id}`, b: `story:${b.id}`, word: 'dasselbe Geld' },
+    ]);
+    setStoryTieWord(db, b.id, a.id, 'Schulden');
+    expect(storyTiesOf(data(), a.id)[0]!.word).toBe('Schulden');
+    const back = untieStories(db, b.id, a.id)!;
+    expect(isStoryTied(data(), a.id, b.id)).toBe(false);
+    back();
+    expect(isStoryTied(data(), a.id, b.id)).toBe(true);
+    undo();
+    expect(isStoryTied(data(), a.id, b.id)).toBe(false);
   });
 });

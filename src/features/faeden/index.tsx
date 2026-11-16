@@ -31,6 +31,7 @@ import {
   Pencil,
   Plus,
   TriangleAlert,
+  Unlink,
   Waypoints,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -64,10 +65,17 @@ import {
   THREAD_STATES,
   type Clock,
   type Entity,
+  type Story,
   type Thread,
   type ThreadState,
 } from '../../domain/schema';
-import { boardWeb, pinExists, type BoardKnot, type WebString } from '../../domain/threadWeb';
+import {
+  boardWeb,
+  pinExists,
+  storyTiesOf,
+  type BoardKnot,
+  type WebString,
+} from '../../domain/threadWeb';
 import { searchWorld } from '../../shell/search';
 import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
@@ -106,10 +114,13 @@ import {
   setArticleOn,
   setHintLead,
   setStoryUnfolded,
+  setStoryTieWord,
   setTieWord,
   takeFreeOffBoard,
   takeOffBoard,
   unpinFromCard,
+  tieStories,
+  untieStories,
   untieThreads,
   writeOnBoard,
   setThreadOnBoard,
@@ -435,6 +446,15 @@ export default function FaedenPage() {
       setLineKey(null);
       if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
     };
+    if (line.kind === 'web' && line.line.kind === 'story') {
+      const [a, b] = [data.stories[line.line.from], data.stories[line.line.to]];
+      done(
+        'Verbindung gelöst',
+        `„${a?.title ?? ''}“ – „${b?.title ?? ''}“`,
+        untieStories(db, line.line.from, line.line.to),
+      );
+      return;
+    }
     if (line.kind === 'web') {
       const [a, b] = [data.threads[line.line.from], data.threads[line.line.to]];
       if (line.line.kind === 'tie')
@@ -2116,6 +2136,10 @@ function Side({
         </section>
       )}
 
+      {story && (truth || storyTiesOf(data, story.id).length > 0) && (
+        <StoryTies story={story} editable={truth} onSelect={onSelect} />
+      )}
+
       {touching.length > 0 && (
         <section>
           <h3 className="wf-faden-side__sub">Berührt</h3>
@@ -2199,7 +2223,9 @@ function LineMenu({
   let what: string;
   let release: string | null = 'Lösen';
   let note = '';
-  if (line.kind === 'web' && line.line.kind === 'tie') {
+  if (line.kind === 'web' && line.line.kind === 'story') {
+    what = `„${data.stories[line.line.from]?.title ?? ''}“ – „${data.stories[line.line.to]?.title ?? ''}“`;
+  } else if (line.kind === 'web' && line.line.kind === 'tie') {
     what = `„${title(line.line.from)}“ – „${title(line.line.to)}“`;
   } else if (line.kind === 'web') {
     what = `Hinweis „${line.line.word}“ führt zu „${title(line.line.to)}“`;
@@ -2223,14 +2249,18 @@ function LineMenu({
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <span className="wf-faden-linemenu__what">{what}</span>
-      {line.kind === 'web' && line.line.kind === 'tie' && (
+      {line.kind === 'web' && line.line.kind !== 'lead' && (
         <Written
           className="wf-faden-linemenu__word"
           label="Was sie verbindet"
           wrap
           value={line.line.word}
           placeholder="was sie verbindet …"
-          onSave={(word) => setTieWord(db, line.line.from, line.line.to, word)}
+          onSave={(word) =>
+            line.line.kind === 'story'
+              ? setStoryTieWord(db, line.line.from, line.line.to, word)
+              : setTieWord(db, line.line.from, line.line.to, word)
+          }
         />
       )}
       {note && <span className="wf-faden-linemenu__note">{note}</span>}
@@ -2403,5 +2433,110 @@ function AreaFrame({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * „Verbunden mit“ an einer Geschichte: die Geschichten, die der Spielleiter von Hand mit ihr
+ * verbunden hat – mit ihrem Wort, lösbar, und eine Auswahl, um eine weitere zu verbinden. Was
+ * Wayfarer selbst an Berührungen erkennt, steht darunter unter „Berührt“.
+ */
+function StoryTies({
+  story,
+  editable,
+  onSelect,
+}: {
+  story: Story;
+  editable: boolean;
+  onSelect: (key: string) => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const ties = storyTiesOf(data, story.id);
+  const others = Object.values(data.stories)
+    .filter((other) => other.id !== story.id && !ties.some((tie) => tie.story.id === other.id))
+    .sort((a, b) => Number(a.closed) - Number(b.closed) || a.title.localeCompare(b.title, 'de'));
+  const tie = (otherId: string) => {
+    const undo = tieStories(db, story.id, otherId);
+    if (undo)
+      toast({
+        title: 'Geschichten verbunden',
+        body: `„${story.title}“ – „${data.stories[otherId]?.title ?? ''}“`,
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  const untie = (other: Story) => {
+    const undo = untieStories(db, story.id, other.id);
+    if (undo)
+      toast({
+        title: 'Verbindung gelöst',
+        body: `„${story.title}“ – „${other.title}“`,
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  return (
+    <section>
+      <h3 className="wf-faden-side__sub">Verbunden mit</h3>
+      {ties.length === 0 && (
+        <p className="wf-mute">
+          Noch mit keiner Geschichte verbunden. Zieh am Griff der Karte eine Schnur zu einer anderen
+          – oder wähle sie hier.
+        </p>
+      )}
+      {ties.map(({ story: other, word }) => (
+        <div key={other.id} className="wf-faden-web__row" data-step="tie">
+          <i className="wf-faden-web__knot" aria-hidden />
+          <button
+            type="button"
+            className="wf-faden-link wf-faden-web__title"
+            onClick={() => onSelect(`story:${other.id}`)}
+          >
+            {other.title}
+          </button>
+          {editable ? (
+            <>
+              <Written
+                className="wf-faden-web__word"
+                label={`Was „${story.title}“ und „${other.title}“ verbindet`}
+                wrap
+                value={word}
+                placeholder="was sie verbindet …"
+                onSave={(text) => setStoryTieWord(db, story.id, other.id, text)}
+              />
+              <IconButton
+                label="Verbindung lösen"
+                size="sm"
+                variant="ghost"
+                onClick={() => untie(other)}
+              >
+                <Unlink />
+              </IconButton>
+            </>
+          ) : (
+            word && <em className="wf-faden-web__via">{word}</em>
+          )}
+        </div>
+      ))}
+      {editable && others.length > 0 && (
+        <Select
+          className="wf-faden-choice"
+          value=""
+          aria-label={`„${story.title}“ mit einer anderen Geschichte verbinden`}
+          onChange={(event) => event.target.value && tie(event.target.value)}
+        >
+          <option value="">
+            {ties.length
+              ? '+ mit einer weiteren Geschichte verbinden …'
+              : '+ mit einer Geschichte verbinden …'}
+          </option>
+          {others.map((other) => (
+            <option key={other.id} value={other.id}>
+              {other.title}
+              {other.closed ? ' (zu Ende)' : ''}
+            </option>
+          ))}
+        </Select>
+      )}
+    </section>
   );
 }

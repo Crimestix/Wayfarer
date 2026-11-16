@@ -9,7 +9,7 @@ import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import { boardCards, isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
-import { boardWeb, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
+import { boardWeb, isStoryTied, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
 import { AREA_MIN, type BoardArea } from '../../domain/boardAreas';
 import {
   createClock,
@@ -1317,10 +1317,25 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
         }
       : none;
   }
-  return {
-    done: false,
-    note: 'Geschichten verbinden sich über ihre Fäden: Klapp sie auf und zieh die Schnur von Faden zu Faden.',
-  };
+  const stories = [fromKey, toKey].every((key) => key.startsWith('story:'));
+  if (stories) {
+    const [a, b] = [fromKey.slice(6), toKey.slice(6)];
+    if (isStoryTied(data, a, b))
+      return {
+        done: false,
+        note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.`,
+      };
+    const undo = tieStories(db, a, b);
+    return undo
+      ? {
+          done: true,
+          title: 'Geschichten verbunden',
+          body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur gibt ihr ein Wort.`,
+          undo,
+        }
+      : none;
+  }
+  return none;
 }
 
 // ── Das Brett anfassen: mehrere zugleich, Schnüre lösen, schnell schreiben ─────
@@ -1554,5 +1569,73 @@ export function removeBoardArea(db: CampaignDb, id: string): (() => void) | null
     const next = [...now];
     next.splice(Math.min(index, next.length), 0, area);
     db.setState({ boardAreas: next });
+  };
+}
+
+// ── Geschichte an Geschichte ───────────────────────────────────────────────
+
+/**
+ * Verbindet zwei Geschichten von Hand (Fadenbrett). Die Verbindung steht an der ersten; gibt es
+ * sie schon, bekommt sie nur das neue Wort, wenn eins da ist. Gibt `undo` zurück.
+ */
+export function tieStories(
+  db: CampaignDb,
+  aId: string,
+  bId: string,
+  word = '',
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const [a, b] = [data.stories[aId], data.stories[bId]];
+  if (!a || !b || aId === bId) return null;
+  const clean = word.trim();
+  if (isStoryTied(data, aId, bId)) return clean ? setStoryTieWord(db, aId, bId, clean) : null;
+  db.patch('stories', aId, { ties: [...a.ties, { id: bId, word: clean }] });
+  return () => {
+    const now = db.getSnapshot().stories[aId];
+    if (now) db.patch('stories', aId, { ties: now.ties.filter((tie) => tie.id !== bId) });
+  };
+}
+
+/** Löst die Verbindung zweier Geschichten – an welcher sie auch steht. Gibt `undo` zurück. */
+export function untieStories(db: CampaignDb, aId: string, bId: string): (() => void) | null {
+  const data = db.getSnapshot();
+  const holders = [data.stories[aId], data.stories[bId]].filter(
+    (story): story is Story =>
+      story !== undefined && story.ties.some((tie) => tie.id === (story.id === aId ? bId : aId)),
+  );
+  if (!holders.length) return null;
+  db.batch(() => {
+    for (const story of holders) {
+      const other = story.id === aId ? bId : aId;
+      db.patch('stories', story.id, { ties: story.ties.filter((tie) => tie.id !== other) });
+    }
+  });
+  return () =>
+    db.batch(() => {
+      for (const story of holders)
+        if (db.getSnapshot().stories[story.id]) db.patch('stories', story.id, { ties: story.ties });
+    });
+}
+
+/** Ändert das Wort einer Verbindung zweier Geschichten. Gibt `undo` zurück. */
+export function setStoryTieWord(
+  db: CampaignDb,
+  aId: string,
+  bId: string,
+  word: string,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const holder = [data.stories[aId], data.stories[bId]].find(
+    (story) => story?.ties.some((tie) => tie.id === (story.id === aId ? bId : aId)) === true,
+  );
+  if (!holder) return null;
+  const other = holder.id === aId ? bId : aId;
+  const clean = word.trim();
+  if (holder.ties.find((tie) => tie.id === other)?.word === clean) return null;
+  db.patch('stories', holder.id, {
+    ties: holder.ties.map((tie) => (tie.id === other ? { ...tie, word: clean } : tie)),
+  });
+  return () => {
+    if (db.getSnapshot().stories[holder.id]) db.patch('stories', holder.id, { ties: holder.ties });
   };
 }

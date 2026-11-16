@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 9;
-export const DATA_SHAPE = '9d3dc00f134bf5c9';
+export const DATA_VERSION = 10;
+export const DATA_SHAPE = '6cfcbb5daf1c7d71';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -1637,6 +1637,12 @@ export const StorySchema = z.object({
   unfolded: z.boolean().default(false),
   /** Artikel des Wikis, die zu dieser Geschichte gehören (auch solche ohne Eintrag der Welt). */
   articleIds: z.array(id).default([]),
+  /**
+   * Geschichten, mit denen der Spielleiter diese von Hand verbunden hat (Fadenbrett) – in beide
+   * Richtungen, steht nur an einer; `word` sagt, was sie verbindet. Daneben bleibt, was Wayfarer
+   * an Berührungen selbst ableitet (`touches`). Gelesen über `storyTiesOf`.
+   */
+  ties: z.array(z.object({ id, word: z.string().default('') })).default([]),
   /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
   memo: z.string().default(''),
   /**

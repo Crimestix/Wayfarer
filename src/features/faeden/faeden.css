@@ -1859,3 +1859,10 @@
 .wf-faden-area__resize:hover {
   border-color: var(--gold-bright);
 }
+
+/* Geschichte an Geschichte: eine kräftige Schnur zwischen zwei Karten */
+.wf-faden-strings path[data-web='story'] {
+  stroke: var(--gold);
+  stroke-width: 3;
+  opacity: 0.8;
+}

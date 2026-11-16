@@ -272,7 +272,10 @@ nicht übernommen.
   einem Schritt, der lange zurückliegt. Die Marke „Teil von …“ auf dem Brett kommt aus
   `card.partOf` (in der Sicht der Gruppe nur, wenn sie die große Geschichte kennt). Uhren ohne Geschichte aus früheren
   Ständen (`looseClocks`) werden über `storyFromClock` zu einer. Nähe zur Gruppe, Berührungen und Warnungen
-  leitet `domain/story.ts` ab – Verbindungen zwischen Geschichten werden nie von Hand gezogen.
+  leitet `domain/story.ts` ab (`touches`); daneben kann der Spielleiter Geschichten von Hand
+  verbinden (`story.ties`, Wort frei, Entscheidung 16. 11. 2026 – Fadenbrett als Whiteboard):
+  gelesen über `storyTiesOf`/`isStoryTied`, geändert über `tieStories`, `untieStories`,
+  `setStoryTieWord`.
   Ruf ist keine eigene Angabe: `reputeOf()` liest die Haltungen des Antreibers zur Gruppe und zu
   Gefährten; ob ein Einstieg passt, sagt `entryFit()`, was am Ort der Gruppe bereitliegt
   `storiesHere()`.
@@ -656,7 +659,9 @@ nicht übernommen.
   `domain/boardAreas.ts`): benannte Rahmen nur zum Ordnen; anlegen über das Rahmen-Zeichen oder
   „Bereich darum legen“ (`areaAround`), am Namen ziehen nimmt mit, was darin liegt (`insideArea`,
   `moveBoardArea`), Löschtaste nimmt nur den Rahmen weg (`removeBoardArea`). `mergeThreads` nimmt
-  Verbindungen und „führt zu“ mit. Verbindungen zwischen Geschichten bleiben abgeleitet.
+  Verbindungen und „führt zu“ mit. Schritt 4: Eine Schnur von Geschichte zu Geschichte verbindet
+  sie von Hand (`story.ties`, Schnur der Art `story` in `boardWeb`, „Verbunden mit“ im
+  Seitenteil); was Wayfarer an Berührungen ableitet, steht weiter darunter unter „Berührt“.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
   `threadNames`, sonst Platzhalter über `addFromWriting`, „Was dahintersteckt“ wird sein
