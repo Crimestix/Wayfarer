@@ -1,30 +1,46 @@
 /**
- * Galerie der Personen: Porträts zum Durchblättern, gefiltert nach Ort und danach, ob die Gruppe
- * sie kennt. Erscheint rechts, wenn links „Personen“ gewählt und kein Eintrag offen ist.
+ * Galerie einer Art: Karten zum Durchblättern, gefiltert nach Ort und – bei Personen und Orten –
+ * danach, ob die Gruppe sie kennt. Erscheint rechts, wenn links „nur diese“ gewählt und kein
+ * Eintrag offen ist; dieselbe Ansicht für jede Art (Pflanzen, Tiere, Gesteine und Berufe haben
+ * ihr Lexikon). Die Rechnung steht in `galleryModel.ts`.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Eye, EyeOff, Plus, Search, Users, X } from 'lucide-react';
+import { Eye, EyeOff, Plus, Search, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { entityName } from '../../domain/derive';
-import type { Person } from '../../domain/schema';
-import { AttitudeBadge, Button, EmptyState, IconButton, Input, Portrait, cx } from '../../ui';
+import { KIND_LABEL, KIND_LABEL_PLURAL, entityName } from '../../domain/derive';
+import { showsAttitude } from '../../domain/relations';
+import {
+  AttitudeBadge,
+  Button,
+  EmptyState,
+  IconButton,
+  Input,
+  KindIcon,
+  Portrait,
+  cx,
+} from '../../ui';
 import { patchDetails } from './actions';
-import { openEntityDialog } from './editor';
+import { openEntityDialog, openNew } from './editor';
+import { galleryEntries, galleryWhere, knowsKnown } from './galleryModel';
 import {
   PERSON_STATUS_LABEL,
-  galleryPeople,
+  entitySubline,
   partyAttitudes,
   splitPast,
   type GalleryFilter,
   type KnownFilter,
+  type WorldEntity,
+  type WorldKind,
 } from './model';
 import { FoldHead, Picker } from './parts';
+import { isKnown, visitedPlaces } from './scope';
 
-/** Merkt sich die Filter, solange die App läuft. */
-const memory: GalleryFilter = { query: '', placeId: null, known: 'all' };
-/** Ob „Vergangenheit“ aufgeklappt ist – zu Beginn zu. */
-let pastMemory = false;
+/** Merkt sich die Filter je Art, solange die App läuft. */
+const memory: Partial<Record<WorldKind, GalleryFilter>> = {};
+/** Ob „Vergangenheit“ aufgeklappt ist, je Art – zu Beginn zu. */
+const pastMemory: Partial<Record<WorldKind, boolean>> = {};
+const EMPTY_FILTER: GalleryFilter = { query: '', placeId: null, known: 'all' };
 
 const KNOWN_LABEL: Record<KnownFilter, string> = {
   all: 'Alle',
@@ -32,68 +48,113 @@ const KNOWN_LABEL: Record<KnownFilter, string> = {
   unknown: 'Unbekannt',
 };
 
-const KNOWN_TITLE: Record<KnownFilter, string> = {
-  all: 'Alle Personen',
-  known: 'Nur Personen, die die Gruppe kennt',
-  unknown: 'Nur Personen, denen die Gruppe noch nicht begegnet ist',
+const KNOWN_TITLE: Record<'person' | 'place', Record<KnownFilter, string>> = {
+  person: {
+    all: 'Alle Personen',
+    known: 'Nur Personen, die die Gruppe kennt',
+    unknown: 'Nur Personen, denen die Gruppe noch nicht begegnet ist',
+  },
+  place: {
+    all: 'Alle Orte',
+    known: 'Nur Orte, an denen die Gruppe war',
+    unknown: 'Nur Orte, an denen die Gruppe noch nicht war',
+  },
 };
 
-export function Gallery() {
+/** Was unter „Vergangenheit“ steht, in einem Wort. */
+const PAST_HINT: Partial<Record<WorldKind, string>> = {
+  person: 'Verstorbene',
+  place: 'Untergegangene Orte',
+  faction: 'Aufgelöste',
+  family: 'Erloschene und Aufgelöste',
+  item: 'Zerstörtes',
+};
+
+export function Gallery({ kind }: { kind: WorldKind }) {
   const data = useData();
-  const [filter, setFilter] = useState<GalleryFilter>(() => ({ ...memory }));
+  const [filter, setFilter] = useState<GalleryFilter>(() => ({
+    ...(memory[kind] ?? EMPTY_FILTER),
+  }));
   const set = (change: Partial<GalleryFilter>) => setFilter((f) => ({ ...f, ...change }));
   useEffect(() => {
-    Object.assign(memory, filter);
-  }, [filter]);
+    memory[kind] = filter;
+  }, [kind, filter]);
+  const withKnown = knowsKnown(kind);
   // Ein gelöschter Ort filtert nicht weiter ins Leere.
   const placeId = filter.placeId && data.entities[filter.placeId] ? filter.placeId : null;
-  const people = useMemo(
-    () => splitPast(data, galleryPeople(data, { ...filter, placeId })),
-    [data, filter, placeId],
+  const known = withKnown ? filter.known : 'all';
+  const entries = useMemo(
+    () => splitPast(data, galleryEntries(data, kind, { ...filter, placeId, known })),
+    [data, kind, filter, placeId, known],
   );
-  // Verstorbene stehen für sich – nie weggefiltert, nur nicht zwischen den Lebenden.
-  const [pastOpen, setPastOpenState] = useState(pastMemory);
+  // Vergangenes steht für sich – nie weggefiltert, nur nicht zwischen dem, was heute ist.
+  const [pastOpen, setPastOpenState] = useState(pastMemory[kind] ?? false);
   const setPastOpen = (open: boolean) => {
-    pastMemory = open;
+    pastMemory[kind] = open;
     setPastOpenState(open);
   };
-  const found = people.present.length + people.past.length;
+  const found = entries.present.length + entries.past.length;
   const attitudes = useMemo(() => partyAttitudes(data), [data]);
-  const total = Object.values(data.entities).filter((e) => e.kind === 'person').length;
-  const known = Object.values(data.entities).filter(
-    (e) => e.kind === 'person' && e.person.met,
-  ).length;
-  const filtered = filter.query.trim() !== '' || placeId !== null || filter.known !== 'all';
+  const visited = useMemo(
+    () => (kind === 'place' ? visitedPlaces(data) : new Set<string>()),
+    [data, kind],
+  );
+  const all = useMemo(
+    () => Object.values(data.entities).filter((e) => e.kind === kind),
+    [data, kind],
+  );
+  const total = all.length;
+  const knownCount = withKnown ? all.filter((e) => isKnown(e, visited)).length : 0;
+  const filtered = filter.query.trim() !== '' || placeId !== null || known !== 'all';
+  const plural = KIND_LABEL_PLURAL[kind];
   const create = () =>
-    openEntityDialog({
-      mode: 'create',
-      kind: 'person',
-      preset: {
-        name: filter.query.trim(),
-        placeId,
-        met: filter.known === 'known',
-      },
-    });
+    kind === 'person'
+      ? openEntityDialog({
+          mode: 'create',
+          kind: 'person',
+          preset: {
+            name: filter.query.trim(),
+            placeId,
+            met: filter.known === 'known',
+          },
+        })
+      : openNew({ kind, ...(filter.query.trim() ? { name: filter.query.trim() } : {}) });
+
+  const lead =
+    total === 0
+      ? `Noch keine ${plural} verzeichnet.`
+      : kind === 'person'
+        ? `${total} ${total === 1 ? 'Person' : 'Personen'}, ${knownCount} davon der Gruppe bekannt.`
+        : kind === 'place'
+          ? `${total} ${total === 1 ? 'Ort' : 'Orte'}, an ${knownCount} davon war die Gruppe.`
+          : `${total} ${total === 1 ? KIND_LABEL[kind] : plural}.`;
+
+  const card = (entity: WorldEntity) => (
+    <GalleryCard
+      key={entity.id}
+      entity={entity}
+      attitude={attitudes.get(entity.id) ?? null}
+      unknown={withKnown && !isKnown(entity, visited)}
+    />
+  );
 
   return (
     <div className="wf-welt-landing wf-welt-gallery">
       <header className="wf-welt-landing__head">
         <div className="wf-welt-landing__eyebrow">Welt</div>
-        <h1 className="wf-welt-landing__title">Personen</h1>
-        <p className="wf-welt-landing__lead">
-          {total === 0
-            ? 'Noch niemand verzeichnet.'
-            : `${total} ${total === 1 ? 'Person' : 'Personen'}, ${known} davon der Gruppe bekannt.`}
-        </p>
+        <h1 className="wf-welt-landing__title">{plural}</h1>
+        <p className="wf-welt-landing__lead">{lead}</p>
       </header>
 
-      <div className="wf-welt-gallery__bar">
+      <div className="wf-welt-gallery__bar" data-known={withKnown}>
         <div className="wf-welt-search wf-welt-gallery__search">
           <Search />
           <Input
             value={filter.query}
-            placeholder="Name, Rolle, Schlagwort …"
-            aria-label="Personen durchsuchen"
+            placeholder={
+              kind === 'person' ? 'Name, Rolle, Schlagwort …' : 'Name, Art, Schlagwort …'
+            }
+            aria-label={`${plural} durchsuchen`}
             onChange={(e) => set({ query: e.target.value })}
             onKeyDown={(e) => {
               if (e.key === 'Escape' && filter.query) {
@@ -121,127 +182,138 @@ export function Gallery() {
             placeholder="Überall"
           />
         </div>
-        <div
-          className="wf-welt-filter wf-welt-gallery__known"
-          role="radiogroup"
-          aria-label="Bekanntheit"
-        >
-          {(['all', 'known', 'unknown'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={filter.known === value}
-              title={KNOWN_TITLE[value]}
-              onClick={() => set({ known: value })}
-            >
-              {KNOWN_LABEL[value]}
-            </button>
-          ))}
-        </div>
+        {withKnown && (kind === 'person' || kind === 'place') && (
+          <div
+            className="wf-welt-filter wf-welt-gallery__known"
+            role="radiogroup"
+            aria-label="Bekanntheit"
+          >
+            {(['all', 'known', 'unknown'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={filter.known === value}
+                title={KNOWN_TITLE[kind][value]}
+                onClick={() => set({ known: value })}
+              >
+                {KNOWN_LABEL[value]}
+              </button>
+            ))}
+          </div>
+        )}
         <Button variant="primary" icon={<Plus />} onClick={create}>
-          Person
+          {KIND_LABEL[kind]}
         </Button>
       </div>
       {placeId && (
         <p className="wf-welt-gallery__note">
-          Wer in {entityName(data, placeId)} oder einem Ort darin ist, wohnt oder arbeitet.
+          {kind === 'person'
+            ? `Wer in ${entityName(data, placeId)} oder einem Ort darin ist, wohnt oder arbeitet.`
+            : `Was zu ${entityName(data, placeId)} gehört – darin liegt, dort seinen Sitz hat oder dort ist.`}
         </p>
       )}
 
       {found ? (
         <>
-          {people.present.length > 0 && (
-            <div className="wf-welt-gallery__grid">
-              {people.present.map((person) => (
-                <GalleryCard
-                  key={person.id}
-                  person={person}
-                  attitude={attitudes.get(person.id) ?? null}
-                />
-              ))}
-            </div>
+          {entries.present.length > 0 && (
+            <div className="wf-welt-gallery__grid">{entries.present.map(card)}</div>
           )}
-          {people.past.length > 0 && (
+          {entries.past.length > 0 && (
             <div className="wf-welt-past wf-welt-gallery__past">
               <FoldHead
                 open={pastOpen}
                 onToggle={() => setPastOpen(!pastOpen)}
                 label="Vergangenheit"
-                count={people.past.length}
-                hint="Verstorbene"
+                count={entries.past.length}
+                hint={PAST_HINT[kind] ?? 'Vergangenes'}
               />
-              {pastOpen && (
-                <div className="wf-welt-gallery__grid">
-                  {people.past.map((person) => (
-                    <GalleryCard
-                      key={person.id}
-                      person={person}
-                      attitude={attitudes.get(person.id) ?? null}
-                    />
-                  ))}
-                </div>
-              )}
+              {pastOpen && <div className="wf-welt-gallery__grid">{entries.past.map(card)}</div>}
             </div>
           )}
         </>
       ) : (
         <EmptyState
-          icon={<Users />}
-          title={filtered ? 'Niemand passt zu diesen Filtern' : 'Noch keine Personen'}
+          icon={<KindIcon kind={kind} />}
+          title={filtered ? 'Nichts passt zu diesen Filtern' : `Noch keine ${plural}`}
           action={
             <div className="wf-row" style={{ gap: 8 }}>
               {filtered && (
-                <Button
-                  size="sm"
-                  onClick={() => setFilter({ query: '', placeId: null, known: 'all' })}
-                >
+                <Button size="sm" onClick={() => setFilter({ ...EMPTY_FILTER })}>
                   Filter zurücksetzen
                 </Button>
               )}
               <Button size="sm" icon={<Plus />} onClick={create}>
-                {filter.query.trim() ? `„${filter.query.trim()}“ anlegen` : 'Person anlegen'}
+                {filter.query.trim()
+                  ? `„${filter.query.trim()}“ anlegen`
+                  : `${KIND_LABEL[kind]} anlegen`}
               </Button>
             </div>
           }
         >
           {filtered
             ? 'Lockere die Suche oder wähle einen anderen Ort.'
-            : 'Alle Figuren der Welt, die nicht von Spielern geführt werden, erscheinen hier mit ihrem Porträt.'}
+            : kind === 'person'
+              ? 'Alle Figuren der Welt, die nicht von Spielern geführt werden, erscheinen hier mit ihrem Porträt.'
+              : `Alle ${plural} der Welt erscheinen hier als Karten – mit Bild, wenn sie eines haben.`}
         </EmptyState>
       )}
     </div>
   );
 }
 
-function GalleryCard({ person, attitude }: { person: Person; attitude: number | null }) {
+function GalleryCard({
+  entity,
+  attitude,
+  unknown,
+}: {
+  entity: WorldEntity;
+  attitude: number | null;
+  /** Die Gruppe kennt die Person nicht oder war noch nicht an dem Ort. */
+  unknown: boolean;
+}) {
   const db = useDb();
   const data = useData();
-  const { role, status, placeId, met } = person.person;
-  const where = placeId ? entityName(data, placeId) : 'Aufenthalt unbekannt';
+  const sub =
+    entity.kind === 'person'
+      ? [
+          entity.person.role,
+          entity.person.status !== 'alive' && PERSON_STATUS_LABEL[entity.person.status],
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : entitySubline(data, entity);
+  // Was die erste Zeile schon nennt (der Sitz einer Fraktion), steht nicht noch einmal da.
+  const place = galleryWhere(data, entity);
+  const where = place && !sub.includes(place) ? place : '';
+  const withAttitude = showsAttitude(entity.kind, attitude);
   return (
-    <div className={cx('wf-welt-card', !met && 'wf-welt-card--unknown')}>
-      <Link href={`/welt/${person.id}`} className="wf-welt-card__link" title={person.name}>
-        <Portrait entity={person} size={112} />
-        <span className="wf-welt-card__name wf-clamp-2">{person.name}</span>
-        <span className="wf-welt-card__sub wf-clamp-1">
-          {[role, status !== 'alive' && PERSON_STATUS_LABEL[status]].filter(Boolean).join(' · ') ||
-            person.tagline ||
-            ' '}
-        </span>
-        <span className="wf-welt-card__sub wf-clamp-1">{where}</span>
+    <div className={cx('wf-welt-card', unknown && 'wf-welt-card--unknown')}>
+      <Link href={`/welt/${entity.id}`} className="wf-welt-card__link" title={entity.name}>
+        <Portrait entity={entity} size={112} />
+        <span className="wf-welt-card__name wf-clamp-2">{entity.name}</span>
+        <span className="wf-welt-card__sub wf-clamp-1">{sub || entity.tagline || ' '}</span>
+        <span className="wf-welt-card__sub wf-clamp-1">{where || ' '}</span>
       </Link>
-      <div className="wf-welt-card__foot">
-        <AttitudeBadge value={attitude} />
-        <IconButton
-          size="sm"
-          variant="ghost"
-          label={met ? 'Als der Gruppe unbekannt markieren' : 'Als der Gruppe bekannt markieren'}
-          onClick={() => patchDetails(db, person, { met: !met })}
-        >
-          {met ? <Eye /> : <EyeOff />}
-        </IconButton>
-      </div>
+      {(withAttitude || entity.kind === 'person') && (
+        <div className="wf-welt-card__foot">
+          {withAttitude ? <AttitudeBadge value={attitude} /> : <span />}
+          {entity.kind === 'person' && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              label={
+                entity.person.met
+                  ? 'Als der Gruppe unbekannt markieren'
+                  : 'Als der Gruppe bekannt markieren'
+              }
+              onClick={() => patchDetails(db, entity, { met: !entity.person.met })}
+            >
+              {entity.person.met ? <Eye /> : <EyeOff />}
+            </IconButton>
+          )}
+        </div>
+      )}
     </div>
   );
 }

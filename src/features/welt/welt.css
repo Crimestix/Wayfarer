@@ -3643,3 +3643,8 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-service__head span {
   color: var(--ink-faint);
 }
+
+/* Galerie einer Art ohne „Bekannt / Unbekannt“: Suche, Ort, Knopf. */
+.wf-welt-gallery__bar[data-known='false'] {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+}

@@ -113,10 +113,10 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           <FactionNetView />
         ) : layout === 'gaps' ? (
           <GapsView />
-        ) : filter === 'person' ? (
-          <Gallery />
         ) : filter !== 'all' && isLexiconKind(filter) ? (
           <Lexicon key={filter} kind={filter} />
+        ) : filter !== 'all' ? (
+          <Gallery key={filter} kind={filter} />
         ) : (
           <>
             <Landing />
