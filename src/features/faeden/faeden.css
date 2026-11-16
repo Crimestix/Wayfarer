@@ -1806,3 +1806,56 @@
   padding-left: var(--s-3);
   border-left: 2px solid var(--line);
 }
+
+/* ── Bereiche: benannte Rahmen zum Ordnen ───────────────────────────────── */
+.wf-faden-area {
+  position: absolute;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--gold) 3%, transparent);
+  /* Die Fläche lässt Klicks durch: Darin arbeitet man wie auf dem Brett. */
+  pointer-events: none;
+}
+.wf-faden-area[data-selected='true'] {
+  border-color: var(--gold);
+  border-style: solid;
+}
+.wf-faden-area__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 40px;
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  pointer-events: auto;
+  cursor: grab;
+}
+.wf-faden-area__title {
+  overflow: hidden;
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-sm);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-faden-area__name {
+  width: min(320px, 100%);
+}
+.wf-faden-area__resize {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 18px;
+  height: 18px;
+  border-right: 2px solid var(--gold-deep);
+  border-bottom: 2px solid var(--gold-deep);
+  pointer-events: auto;
+  cursor: nwse-resize;
+}
+.wf-faden-area__resize:hover {
+  border-color: var(--gold-bright);
+}

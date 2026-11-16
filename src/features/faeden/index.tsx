@@ -19,6 +19,7 @@ import {
 import { useLocation } from 'wouter';
 import {
   BookOpen,
+  Frame,
   ChevronsDownUp,
   ChevronsUpDown,
   Eye,
@@ -68,6 +69,7 @@ import {
 } from '../../domain/schema';
 import { boardWeb, pinExists, type BoardKnot, type WebString } from '../../domain/threadWeb';
 import { searchWorld } from '../../shell/search';
+import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
 import { formatDayMonth } from '../../domain/time/calendar';
 import { isNear } from '../../domain/weight';
@@ -90,7 +92,11 @@ import {
 import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
+  addBoardArea,
   connectOnBoard,
+  moveBoardArea,
+  patchBoardArea,
+  removeBoardArea,
   moveThread,
   moveThreads,
   newStory,
@@ -201,9 +207,15 @@ export default function FaedenPage() {
   const [band, setBand] = useState<{ a: Spot; b: Spot } | null>(null);
   /** Hier wird gerade ein Faden hingeschrieben (Doppelklick ins Leere). */
   const [drafting, setDrafting] = useState<Spot | null>(null);
+  /** Der gewählte Bereich – und der, dessen Namen gerade geschrieben wird. */
+  const [areaSel, setAreaSel] = useState<string | null>(null);
+  const [naming, setNaming] = useState<string | null>(null);
+  /** Ein Bereich, der gerade gezogen oder größer gezogen wird – bis er losgelassen wird. */
+  const [areaMove, setAreaMove] = useState<BoardArea | null>(null);
   const clearPicks = () => {
     setPicked(new Set());
     setLineKey(null);
+    setAreaSel(null);
   };
   const [, navigate] = useLocation();
   /** Eine neue Geschichte: Sie entsteht leer und wird auf ihrem Blatt geschrieben. */
@@ -287,6 +299,10 @@ export default function FaedenPage() {
         ]),
         ...Object.values(layout.knots),
         ...layout.pins,
+        ...data.state.boardAreas.flatMap((area) => [
+          { x: area.x, y: area.y },
+          { x: area.x + area.w, y: area.y + area.h },
+        ]),
       ],
       // Die Karten sind breit: Platz für eine halbe Karte am Rand.
       140,
@@ -406,6 +422,7 @@ export default function FaedenPage() {
   const pickLine = (id: string) => (event: PointerEvent) => {
     event.stopPropagation();
     if (event.button !== 0) return;
+    setAreaSel(null);
     setSelected(null);
     setPicked(new Set());
     setLineKey(lineKey === id ? null : id);
@@ -532,6 +549,11 @@ export default function FaedenPage() {
       }
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       if (view !== 'truth') return;
+      if (areaSel) {
+        event.preventDefault();
+        dropArea(areaSel);
+        return;
+      }
       if (chosenLine) {
         event.preventDefault();
         releaseLine();
@@ -585,6 +607,7 @@ export default function FaedenPage() {
   const grab = (key: string, at: Spot) => (event: PointerEvent) => {
     event.stopPropagation();
     setLineKey(null);
+    setAreaSel(null);
     const shift = event.shiftKey;
     // Ist das Stück Teil einer Auswahl, zieht die ganze Auswahl mit.
     const group = picked.has(key) && picked.size > 1 ? [...picked] : [key];
@@ -629,6 +652,88 @@ export default function FaedenPage() {
         const story = target(dx, dy);
         if (story && threadId) attach([threadId], story, true);
         else placeManyOnBoard(db, shifted(dx, dy));
+      },
+    });
+  };
+  const areas = data.state.boardAreas.map((area) =>
+    areaMove && areaMove.id === area.id ? areaMove : area,
+  );
+  /** Die Mitte dessen, was gerade im Bild ist – dort entsteht Neues. */
+  const viewCenter = (): Spot => {
+    const rect = frame.current?.getBoundingClientRect();
+    return rect
+      ? wall.toBoard(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      : { x: 0, y: 0 };
+  };
+  /** Ein neuer Bereich – um die Auswahl, sonst in der Mitte des Bildes; gleich zum Benennen. */
+  const newArea = (keys: readonly string[]) => {
+    const { area, undo } = addBoardArea(db, areaAround(layout, keys, viewCenter()));
+    setSelected(null);
+    setPicked(new Set());
+    setLineKey(null);
+    setAreaSel(area.id);
+    setNaming(area.id);
+    toast({
+      title: 'Bereich angelegt',
+      body: keys.length
+        ? 'Um die Auswahl gelegt. Gib ihm einen Namen – verschiebst du ihn, zieht mit, was darin liegt.'
+        : 'Gib ihm einen Namen und leg hinein, was zusammengehört.',
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
+  const dropArea = (id: string) => {
+    const area = data.state.boardAreas.find((entry) => entry.id === id);
+    const undo = removeBoardArea(db, id);
+    setAreaSel(null);
+    if (undo)
+      toast({
+        title: 'Bereich weggenommen',
+        body: `„${area?.title || 'Bereich ohne Namen'}“ – was darin lag, bleibt, wo es ist.`,
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  /** Ein Bereich am Namen gezogen: Er und alles darin wandert; ein Klick wählt ihn. */
+  const grabArea = (area: BoardArea) => (event: PointerEvent) => {
+    event.stopPropagation();
+    if (naming === area.id) return;
+    const inside = insideArea(layout, area);
+    const base: Record<string, Spot> = {};
+    for (const key of inside) {
+      const spot = spotOf(key);
+      if (spot) base[key] = { x: spot.x, y: spot.y };
+    }
+    const shifted = (dx: number, dy: number) =>
+      Object.fromEntries(
+        Object.entries(base).map(([key, spot]) => [key, { x: spot.x + dx, y: spot.y + dy }]),
+      );
+    wall.drag(event, {
+      onMove: (dx, dy) => {
+        setAreaMove({ ...area, x: area.x + dx, y: area.y + dy });
+        setMoving(shifted(dx, dy));
+      },
+      onEnd: (moved, dx, dy) => {
+        setAreaMove(null);
+        setMoving(null);
+        if (moved && truth) {
+          moveBoardArea(db, area.id, { x: area.x + dx, y: area.y + dy }, shifted(dx, dy));
+          return;
+        }
+        setSelected(null);
+        setPicked(new Set());
+        setLineKey(null);
+        setAreaSel(area.id);
+      },
+    });
+  };
+  /** Die Ecke unten rechts: Der Bereich wird größer oder kleiner, sein Inhalt bleibt liegen. */
+  const resizeArea = (area: BoardArea) => (event: PointerEvent) => {
+    event.stopPropagation();
+    wall.drag(event, {
+      onMove: (dx, dy) =>
+        setAreaMove({ ...area, w: Math.max(220, area.w + dx), h: Math.max(140, area.h + dy) }),
+      onEnd: (moved, dx, dy) => {
+        setAreaMove(null);
+        if (moved) patchBoardArea(db, area.id, { w: area.w + dx, h: area.h + dy });
       },
     });
   };
@@ -781,6 +886,22 @@ export default function FaedenPage() {
             onDrop={drop}
           >
             <div className="wf-faden-layer" style={{ transform: wall.transform }}>
+              {areas.map((area) => (
+                <AreaFrame
+                  key={area.id}
+                  area={area}
+                  selected={areaSel === area.id}
+                  naming={naming === area.id}
+                  editable={truth}
+                  onGrab={grabArea(area)}
+                  onResize={resizeArea(area)}
+                  onName={() => truth && setNaming(area.id)}
+                  onNamed={(title) => {
+                    if (title !== null) patchBoardArea(db, area.id, { title });
+                    setNaming(null);
+                  }}
+                />
+              ))}
               <svg className="wf-faden-strings" aria-hidden>
                 {strings.map((line) => (
                   <path
@@ -983,6 +1104,17 @@ export default function FaedenPage() {
               />
             )}
             <div className="wf-faden-tools" onPointerDown={(event) => event.stopPropagation()}>
+              {truth && (
+                <IconButton
+                  label="Bereich – ein benannter Rahmen zum Ordnen (um die Auswahl, wenn mehrere gewählt sind)"
+                  size="sm"
+                  onClick={() =>
+                    newArea(picked.size > 1 ? [...picked] : selected ? [selected] : [])
+                  }
+                >
+                  <Frame />
+                </IconButton>
+              )}
               <IconButton label="Größer" size="sm" onClick={() => wall.zoom(1.25)}>
                 <Plus />
               </IconButton>
@@ -1092,6 +1224,7 @@ export default function FaedenPage() {
                   }).length
                 }
                 onTakeOff={() => takeOff([...picked])}
+                onArea={() => newArea([...picked])}
                 onClear={clearPicks}
               />
             ) : pin ? (
@@ -1653,6 +1786,11 @@ function Side({
           oder Rahmen) und ziehst sie gemeinsam; die Löschtaste nimmt lose Fäden vom Brett.
         </p>
         <p className="wf-mute">
+          Oben links holst du Personen, Orte und Artikel aufs Brett. Das Rahmen-Zeichen unten rechts
+          legt einen Bereich an – um die Auswahl, wenn mehrere gewählt sind. Am Namen ziehst du ihn
+          mit allem darin, ein Doppelklick benennt ihn um.
+        </p>
+        <p className="wf-mute">
           Fäden ohne Geschichte stehen unter „Lose Fäden“ – von dort hängst du sie an eine
           Geschichte oder legst sie aufs Brett.
         </p>
@@ -2154,11 +2292,13 @@ function PickedSide({
   count,
   loose,
   onTakeOff,
+  onArea,
   onClear,
 }: {
   count: number;
   loose: number;
   onTakeOff: () => void;
+  onArea: () => void;
   onClear: () => void;
 }) {
   return (
@@ -2171,6 +2311,9 @@ function PickedSide({
         Zieh eines davon – die anderen ziehen mit. Umschalt-Klick nimmt eines dazu oder heraus.
       </p>
       <div className="wf-faden-side__acts">
+        <Button size="sm" icon={<Frame />} onClick={onArea}>
+          Bereich darum legen
+        </Button>
         {loose > 0 && (
           <Button size="sm" onClick={onTakeOff} title="Auch mit der Löschtaste">
             {loose === 1 ? 'Losen Faden vom Brett nehmen' : `${loose} lose Fäden vom Brett nehmen`}
@@ -2181,5 +2324,84 @@ function PickedSide({
         </Button>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Ein Bereich auf dem Brett: ein benannter Rahmen. Am Namen zieht man ihn (mit allem darin), die
+ * Ecke unten rechts macht ihn größer, ein Doppelklick auf den Namen benennt ihn um. Die Fläche
+ * selbst lässt Klicks durch – man arbeitet darin wie auf dem Brett.
+ */
+function AreaFrame({
+  area,
+  selected,
+  naming,
+  editable,
+  onGrab,
+  onResize,
+  onName,
+  onNamed,
+}: {
+  area: BoardArea;
+  selected: boolean;
+  naming: boolean;
+  editable: boolean;
+  onGrab: (event: PointerEvent) => void;
+  onResize: (event: PointerEvent) => void;
+  onName: () => void;
+  /** null = abgebrochen. */
+  onNamed: (title: string | null) => void;
+}) {
+  const [text, setText] = useState(area.title);
+  useHoldDraft(naming && text !== area.title, `fadenbrett-bereich-${area.id}`);
+  return (
+    <div
+      className="wf-faden-area"
+      data-selected={selected}
+      style={{ left: area.x, top: area.y, width: area.w, height: area.h }}
+    >
+      <div
+        className="wf-faden-area__bar"
+        onPointerDown={onGrab}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          onName();
+        }}
+        title={
+          editable
+            ? 'Ziehen verschiebt den Bereich mit allem darin · Doppelklick benennt ihn'
+            : undefined
+        }
+      >
+        {naming ? (
+          <input
+            autoFocus
+            className="wf-input wf-faden-area__name"
+            value={text}
+            placeholder="Name des Bereichs"
+            aria-label="Name des Bereichs"
+            onPointerDown={(event) => event.stopPropagation()}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') onNamed(text);
+              if (event.key === 'Escape') {
+                setText(area.title);
+                onNamed(null);
+              }
+            }}
+            onBlur={() => onNamed(text)}
+          />
+        ) : (
+          <span className="wf-faden-area__title">{area.title || 'Bereich ohne Namen'}</span>
+        )}
+      </div>
+      {editable && (
+        <span
+          className="wf-faden-area__resize"
+          title="Größer oder kleiner ziehen"
+          onPointerDown={onResize}
+        />
+      )}
+    </div>
   );
 }

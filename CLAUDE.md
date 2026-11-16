@@ -652,7 +652,10 @@ nicht übernommen.
   `state.board` hat, liegt frei, auch wenn nichts an ihm hängt (`pinExists`, „Aufräumen“ behält es,
   `ownedPins`); eine Schnur ordnet einen Artikel einer Geschichte oder einem Faden zu
   (`story.articleIds`/`thread.articleIds`, `setArticleOn`); ein Klick zeigt den Anfang des Textes
-  im Seitenteil (`articleExcerpt`). `mergeThreads` nimmt
+  im Seitenteil (`articleExcerpt`). Schritt 3: Bereiche (`state.boardAreas`,
+  `domain/boardAreas.ts`): benannte Rahmen nur zum Ordnen; anlegen über das Rahmen-Zeichen oder
+  „Bereich darum legen“ (`areaAround`), am Namen ziehen nimmt mit, was darin liegt (`insideArea`,
+  `moveBoardArea`), Löschtaste nimmt nur den Rahmen weg (`removeBoardArea`). `mergeThreads` nimmt
   Verbindungen und „führt zu“ mit. Verbindungen zwischen Geschichten bleiben abgeleitet.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über

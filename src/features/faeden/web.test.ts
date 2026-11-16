@@ -12,7 +12,12 @@ import { boardCards, boardLayout, insideOnBoard } from '../../domain/story';
 import { boardWeb, isTied, leadNote, neighboursOf, tieFits, tiesOf } from '../../domain/threadWeb';
 import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
+import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  addBoardArea,
+  moveBoardArea,
+  patchBoardArea,
+  removeBoardArea,
   connectOnBoard,
   mergeThreads,
   placeManyOnBoard,
@@ -383,5 +388,45 @@ describe('Artikel und Namen auf dem Brett', () => {
     expect(data().state.board[`node:${mira.id}`]).toBeUndefined();
     undo();
     expect(data().state.board[`node:${mira.id}`]).toEqual({ x: 500, y: 500 });
+  });
+});
+
+describe('Bereiche auf dem Brett', () => {
+  it('legt einen Bereich an, benennt ihn, verschiebt ihn samt Inhalt und nimmt ihn weg', async () => {
+    const { db, data, mira } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    placeOnBoard(db, `story:${story.id}`, 100, 100);
+    placeOnBoard(db, `node:${mira.id}`, 900, 900);
+    const layout = boardLayout(boardCards(data()), data().state.board, [], [`node:${mira.id}`]);
+    const rect = areaAround(layout, [`story:${story.id}`], { x: 0, y: 0 });
+    expect(rect.x).toBeLessThan(100 - 125);
+    expect(rect.y).toBeLessThan(100);
+    const { area, undo } = addBoardArea(db, rect, '  Grauwasser ');
+    expect(data().state.boardAreas).toEqual([{ ...area, title: 'Grauwasser' }]);
+    expect(insideArea(layout, area)).toEqual([`story:${story.id}`]);
+    patchBoardArea(db, area.id, { w: 10, title: 'Die Stadt' });
+    expect(data().state.boardAreas[0]).toMatchObject({ w: 220, title: 'Die Stadt' });
+    moveBoardArea(
+      db,
+      area.id,
+      { x: area.x + 50, y: area.y },
+      { [`story:${story.id}`]: { x: 150, y: 100 } },
+    );
+    expect(data().state.boardAreas[0]!.x).toBe(area.x + 50);
+    expect(data().state.board[`story:${story.id}`]).toEqual({ x: 150, y: 100 });
+    const back = removeBoardArea(db, area.id)!;
+    expect(data().state.boardAreas).toEqual([]);
+    // Was darin lag, bleibt liegen.
+    expect(data().state.board[`story:${story.id}`]).toEqual({ x: 150, y: 100 });
+    back();
+    expect(data().state.boardAreas).toHaveLength(1);
+    undo();
+    expect(data().state.boardAreas).toEqual([]);
+  });
+
+  it('legt ohne Auswahl einen Bereich mittlerer Größe um die Mitte', async () => {
+    const { data } = await setup();
+    const layout = boardLayout(boardCards(data()), {});
+    expect(areaAround(layout, [], { x: 1000, y: 500 })).toEqual({ x: 680, y: 290, w: 640, h: 420 });
   });
 });

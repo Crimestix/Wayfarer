@@ -10,6 +10,7 @@ import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import { boardCards, isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
 import { boardWeb, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
+import { AREA_MIN, type BoardArea } from '../../domain/boardAreas';
 import {
   createClock,
   createStory,
@@ -1468,5 +1469,90 @@ export function takeFreeOffBoard(db: CampaignDb, keys: readonly string[]): (() =
     db.setState({
       board: { ...now, ...Object.fromEntries(gone.map((key) => [key, board[key]!])) },
     });
+  };
+}
+
+// ── Bereiche auf dem Brett ─────────────────────────────────────────────────
+
+type AreaRect = { x: number; y: number; w: number; h: number };
+
+/** Legt einen Bereich an (Name darf leer sein). Gibt ihn und `undo` zurück. */
+export function addBoardArea(
+  db: CampaignDb,
+  rect: AreaRect,
+  title = '',
+): { area: BoardArea; undo: () => void } {
+  const area: BoardArea = {
+    id: newId(),
+    title: title.trim(),
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    w: Math.round(Math.max(AREA_MIN.w, rect.w)),
+    h: Math.round(Math.max(AREA_MIN.h, rect.h)),
+  };
+  db.setState({ boardAreas: [...db.getSnapshot().state.boardAreas, area] });
+  return {
+    area,
+    undo: () =>
+      db.setState({
+        boardAreas: db.getSnapshot().state.boardAreas.filter((entry) => entry.id !== area.id),
+      }),
+  };
+}
+
+/** Ändert Name, Stelle oder Größe eines Bereichs (nie kleiner als `AREA_MIN`). */
+export function patchBoardArea(
+  db: CampaignDb,
+  id: string,
+  change: Partial<Omit<BoardArea, 'id'>>,
+): void {
+  const areas = db.getSnapshot().state.boardAreas;
+  if (!areas.some((area) => area.id === id)) return;
+  db.setState({
+    boardAreas: areas.map((area) =>
+      area.id === id
+        ? {
+            ...area,
+            ...change,
+            ...(change.title !== undefined ? { title: change.title.trim() } : {}),
+            ...(change.x !== undefined ? { x: Math.round(change.x) } : {}),
+            ...(change.y !== undefined ? { y: Math.round(change.y) } : {}),
+            ...(change.w !== undefined ? { w: Math.round(Math.max(AREA_MIN.w, change.w)) } : {}),
+            ...(change.h !== undefined ? { h: Math.round(Math.max(AREA_MIN.h, change.h)) } : {}),
+          }
+        : area,
+    ),
+  });
+}
+
+/**
+ * Verschiebt einen Bereich samt allem, was darin liegt (`spots`: die neuen Stellen der Stücke) –
+ * in einem Zug.
+ */
+export function moveBoardArea(
+  db: CampaignDb,
+  id: string,
+  to: { x: number; y: number },
+  spots: Readonly<Record<string, { x: number; y: number }>>,
+): void {
+  db.batch(() => {
+    patchBoardArea(db, id, to);
+    if (Object.keys(spots).length) placeManyOnBoard(db, spots);
+  });
+}
+
+/** Nimmt einen Bereich weg – was darin liegt, bleibt, wo es ist. Gibt `undo` zurück. */
+export function removeBoardArea(db: CampaignDb, id: string): (() => void) | null {
+  const areas = db.getSnapshot().state.boardAreas;
+  const index = areas.findIndex((area) => area.id === id);
+  if (index < 0) return null;
+  const area = areas[index]!;
+  db.setState({ boardAreas: areas.filter((entry) => entry.id !== id) });
+  return () => {
+    const now = db.getSnapshot().state.boardAreas;
+    if (now.some((entry) => entry.id === id)) return;
+    const next = [...now];
+    next.splice(Math.min(index, next.length), 0, area);
+    db.setState({ boardAreas: next });
   };
 }
