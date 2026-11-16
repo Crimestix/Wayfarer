@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyCampaign } from '../../data/seed';
-import { lifeFacts, readDatePoint, yearsBetween } from '../lifespan';
+import { isPast, lifeFacts, pastLine, readDatePoint, yearsBetween } from '../lifespan';
 import { createEntity, type CampaignData, type Entity } from '../schema';
 import { fromTime, toTime } from '../time/calendar';
 import { ELARIS_CALENDAR, ELARIS_START } from '../time/elaris';
@@ -85,5 +85,27 @@ describe('Lebensdaten', () => {
     });
     // Ohne Lebensdaten: nichts.
     expect(lifeFacts(data, createEntity({ kind: 'person', name: 'Lando' }))).toEqual([]);
+  });
+
+  it('weiß, was der Vergangenheit angehört – Tote und Untergegangenes, kein künftiges Ende', () => {
+    const y = nowParts.year;
+    const king = createEntity({ kind: 'person', name: 'König Odran', person: { status: 'dead' } });
+    const seer = createEntity({ kind: 'person', name: 'Seherin Ulme' });
+    seer.ended = { at: day(y - 120, 0, 1), precision: 'year' };
+    const ruin = createEntity({ kind: 'place', name: 'Altfurt' });
+    ruin.ended = { at: day(y - 300, 0, 1), precision: 'year' };
+    const doomed = createEntity({ kind: 'place', name: 'Morgenwall' });
+    doomed.ended = { at: day(y + 5, 0, 1), precision: 'year' };
+    const lost = createEntity({ kind: 'person', name: 'Brin', person: { status: 'missing' } });
+    const data = world(king, seer, ruin, doomed, lost);
+    expect(isPast(data, king)).toBe(true);
+    expect(isPast(data, seer)).toBe(true);
+    expect(isPast(data, ruin)).toBe(true);
+    expect(isPast(data, doomed)).toBe(false);
+    expect(isPast(data, lost)).toBe(false);
+    expect(pastLine(data, ruin)).toBe('untergegangen vor etwa 300 Jahren');
+    expect(pastLine(data, seer)).toBe('gestorben vor etwa 120 Jahren');
+    // Tot ohne Tag: vergangen, aber ohne Zeitangabe.
+    expect(pastLine(data, king)).toBe('');
   });
 });

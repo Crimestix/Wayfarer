@@ -3548,3 +3548,59 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-shoplead {
   margin-bottom: var(--s-6);
 }
+
+/* Zurück dorthin, woher man kam – über der Seite eines Eintrags oder Artikels. */
+.wf-welt-back {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-6) 0;
+}
+.wf-welt-back a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+.wf-welt-back a:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-back svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.wf-welt-back + .wf-welt-dossier,
+.wf-welt-back + .wf-wiki-article {
+  padding-top: var(--s-3);
+}
+.wf-welt-back:has(+ .wf-wiki-article) {
+  margin: 0;
+}
+
+/* „Alles aufklappen / zuklappen“ in „Nach Art“ und in den Ordnern. */
+.wf-welt-unfold {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--s-4);
+  font-size: var(--text-xs);
+}
+.wf-welt-unfold .wf-welt-linkish svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* „Vergangenheit“ unter einer Art: leiser als die Gruppe darüber, eingerückt. */
+.wf-welt-past .wf-welt-fold__head {
+  padding-left: calc(var(--s-3) + 12px);
+  font-style: italic;
+}
+.wf-welt-gallery__past {
+  margin-top: var(--s-5);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-welt-gallery__past .wf-welt-gallery__grid {
+  margin-top: var(--s-3);
+}

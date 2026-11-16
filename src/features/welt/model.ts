@@ -21,7 +21,7 @@ import {
   type PlaceCast,
   type Stay,
 } from '../../domain/derive';
-import { datePointText, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
+import { datePointText, isPast, lifeFacts, lifeWords, readDatePoint } from '../../domain/lifespan';
 import { formatGold } from '../../domain/loot';
 import { emptyMagic, magicTag, valueOf } from '../../domain/magicItem';
 import {
@@ -33,7 +33,7 @@ import {
   priceText,
   readPrice,
 } from '../../domain/nature';
-import { isRoom } from '../../domain/rooms';
+import { isRoom, roomArticleIds } from '../../domain/rooms';
 import { presetType, relationLabel, relationType } from '../../domain/relations';
 import {
   PARTY_ID,
@@ -42,6 +42,7 @@ import {
   type CampaignData,
   type Character,
   type ChronicleEntry,
+  type Article,
   type Entity,
   type Item,
   type Person,
@@ -275,6 +276,64 @@ export function placeTreeRows(
   // Orte, die sich gegenseitig als Elternort haben, wären sonst unsichtbar.
   for (const place of places) if (!seen.has(place.id)) walk(place, 0);
   return rows;
+}
+
+/**
+ * Was der Vergangenheit angehört, steht für sich: Tote, Untergegangenes, Aufgelöstes. Nie
+ * weggefiltert – nur nicht zwischen dem, was heute ist. Reihenfolge bleibt.
+ */
+export function splitPast<E extends Entity>(
+  data: CampaignData,
+  entities: readonly E[],
+): { present: E[]; past: E[] } {
+  const present: E[] = [];
+  const past: E[] = [];
+  for (const entity of entities) (isPast(data, entity) ? past : present).push(entity);
+  return { present, past };
+}
+
+/**
+ * Orte, die mit allem darin der Vergangenheit angehören – sie stehen unter „Vergangenheit“. Ein
+ * untergegangenes Reich, in dem noch eine Stadt besteht, bleibt im Baum, damit die Stadt ihren
+ * Platz behält.
+ */
+export function pastPlaceIds(data: CampaignData): Set<string> {
+  const places = entitiesOfKind(data, 'place');
+  const children = new Map<string, Place[]>();
+  for (const place of places) {
+    const parentId = place.place.parentId;
+    if (!parentId || parentId === place.id) continue;
+    const list = children.get(parentId);
+    if (list) list.push(place);
+    else children.set(parentId, [place]);
+  }
+  const done = new Map<string, boolean>();
+  const allPast = (place: Place, path: Set<string>): boolean => {
+    const known = done.get(place.id);
+    if (known !== undefined) return known;
+    if (path.has(place.id)) return true; // ein Kreis entscheidet nichts
+    path.add(place.id);
+    let result = isPast(data, place);
+    for (const kid of children.get(place.id) ?? []) if (!allPast(kid, path)) result = false;
+    path.delete(place.id);
+    done.set(place.id, result);
+    return result;
+  };
+  return new Set(places.filter((place) => allPast(place, new Set())).map((place) => place.id));
+}
+
+/**
+ * Texte ohne Eintrag der Welt – Ordnerseiten, Übersichten, Abhandlungen. Damit „Nach Art“ alles
+ * zeigen kann, was es gibt, nicht nur die Einträge. Ohne Vorlagen und Räume, nach Titel.
+ */
+export function textsWithoutEntry(data: CampaignData): Article[] {
+  const owned = new Set<string>();
+  for (const entity of Object.values(data.entities))
+    if (entity.lk?.resourceId) owned.add(entity.lk.resourceId);
+  const rooms = roomArticleIds(data);
+  return Object.values(data.articles)
+    .filter((article) => !article.template && !owned.has(article.id) && !rooms.has(article.id))
+    .sort((a, b) => a.title.localeCompare(b.title, 'de'));
 }
 
 /** Einzug einer Zeile im Baum der Orte in Pixeln; ab der fünften Ebene nur noch halb so weit. */

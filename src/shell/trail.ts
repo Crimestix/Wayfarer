@@ -20,10 +20,19 @@ export function stepTrail(trail: readonly string[], location: string): string[] 
   return [...trail, location].slice(-TRAIL_MAX);
 }
 
-/** Die Seite vor der jetzigen – null, wenn es keine gab. */
-export function cameFrom(trail: readonly string[], location: string): string | null {
-  const index = trail.lastIndexOf(location);
-  return (index > 0 ? trail[index - 1] : null) ?? null;
+/**
+ * Die Seite vor der jetzigen – null, wenn es keine gab. `alias` sagt, welche Adressen dieselbe
+ * Seite meinen (ein Artikel, der zur Seite seines Eintrags weiterleitet): Sie werden übersprungen,
+ * sonst führte „zurück“ im Kreis.
+ */
+export function cameFrom(
+  trail: readonly string[],
+  location: string,
+  alias: (location: string) => boolean = () => false,
+): string | null {
+  let index = trail.lastIndexOf(location) - 1;
+  while (index >= 0 && (trail[index] === location || alias(trail[index]!))) index--;
+  return index >= 0 ? trail[index]! : null;
 }
 
 export interface BackLink {
@@ -43,6 +52,17 @@ const PLAIN: Record<string, string> = {
   '/zeitleiste': 'Zeitleiste',
   '/kalender': 'Kalender',
   '/chronik': 'Chronik',
+  '/nachtragen': 'Nachtragen',
+  '/bestiarium': 'Bestiarium',
+  '/begegnungen': 'Begegnungen',
+  '/bestaende': 'Bestände',
+  '/beute': 'Beute-Buch',
+  '/fortschritt': 'Fortschritt',
+  '/bastion': 'Bastion',
+  '/spielerbuch': 'Spielerbuch',
+  '/atlas': 'Weltkarte',
+  '/karten': 'Karten',
+  '/erkundung': 'Hexkarten',
 };
 
 const FALLBACK: BackLink = { href: '/faeden', label: 'Fadenbrett' };
@@ -50,35 +70,36 @@ const FALLBACK: BackLink = { href: '/faeden', label: 'Fadenbrett' };
 /**
  * Der Zurück-Verweis eines Blatts: dorthin, woher man kam, mit dem Namen der Seite – der Name
  * eines Eintrags, eines Artikels, einer Geschichte, eines Wegenetzes. Unbekanntes führt zum
- * Fadenbrett.
+ * Fadenbrett, auf den Seiten der Welt zur Übersicht (`fallback`).
  */
 export function backLink(
   data: Pick<CampaignData, 'entities' | 'stories' | 'nets' | 'articles'>,
   from: string | null,
+  fallback: BackLink = FALLBACK,
 ): BackLink {
-  if (!from) return FALLBACK;
+  if (!from) return fallback;
   const plain = PLAIN[from];
   if (plain) return { href: from, label: plain };
   const [, area, id] = from.split('/');
-  if (!id) return FALLBACK;
+  if (!id) return fallback;
   if (area === 'welt' || area === 'gruppe') {
     const entity = data.entities[id];
-    return entity ? { href: from, label: entity.name } : FALLBACK;
+    return entity ? { href: from, label: entity.name } : fallback;
   }
   if (area === 'geschichte') {
     const story = data.stories[id];
-    return story ? { href: from, label: story.title } : FALLBACK;
+    return story ? { href: from, label: story.title } : fallback;
   }
   if (area === 'wiki') {
     const article = data.articles[id];
-    return article ? { href: from, label: article.title } : FALLBACK;
+    return article ? { href: from, label: article.title } : fallback;
   }
   if (area === 'wegenetze') {
     const net = data.nets[id];
     // Das Netz einer Geschichte heißt wie sie – das Wort davor sagt, wohin es zurückgeht.
-    return net ? { href: from, label: `Wegenetz „${net.name}“` } : FALLBACK;
+    return net ? { href: from, label: `Wegenetz „${net.name}“` } : fallback;
   }
-  return FALLBACK;
+  return fallback;
 }
 
 let trail: string[] = [];
@@ -89,6 +110,9 @@ export function noteLocation(location: string): void {
 }
 
 /** Für ein Blatt: die Seite, von der man hierher kam. */
-export function previousLocation(location: string): string | null {
-  return cameFrom(trail, location);
+export function previousLocation(
+  location: string,
+  alias?: (location: string) => boolean,
+): string | null {
+  return cameFrom(trail, location, alias);
 }

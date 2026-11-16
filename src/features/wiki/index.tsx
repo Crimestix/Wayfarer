@@ -8,6 +8,8 @@ import { Link, useLocation } from 'wouter';
 import {
   BookOpen,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Code,
   EyeOff,
   FilePlus2,
@@ -373,8 +375,43 @@ export function ArticleTree({ current }: { current: string | undefined }) {
     [],
   );
 
+  /** Alle Ordner auf einmal auf- oder zuklappen. */
+  const unfoldAll = (show: boolean) => {
+    const ids = new Set<string>();
+    const walk = (nodes: TreeNode[]) => {
+      for (const node of nodes)
+        if (node.children.length) {
+          ids.add(node.article.id);
+          walk(node.children);
+        }
+    };
+    if (show) walk(tree.roots);
+    setOpen(ids);
+  };
+  const hasFolders = tree.roots.some((node) => node.children.length > 0);
+
   return (
     <div role="tree">
+      {hasFolders && (
+        <div className="wf-welt-unfold wf-wiki-unfold">
+          <button
+            type="button"
+            className="wf-welt-linkish"
+            title="Alle Ordner aufklappen"
+            onClick={() => unfoldAll(true)}
+          >
+            <ChevronsUpDown aria-hidden /> Alles aufklappen
+          </button>
+          <button
+            type="button"
+            className="wf-welt-linkish"
+            title="Alle Ordner zuklappen"
+            onClick={() => unfoldAll(false)}
+          >
+            <ChevronsDownUp aria-hidden /> Alles zuklappen
+          </button>
+        </div>
+      )}
       <TreeRows nodes={tree.roots} depth={0} open={open} toggle={toggle} current={current} />
       {tree.templates.length > 0 && (
         <div className="wf-wiki-templates">

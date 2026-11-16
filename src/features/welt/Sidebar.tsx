@@ -14,12 +14,23 @@ import {
   type ReactNode,
 } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, ChevronRight, Footprints, Plus, Search, Users, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Footprints,
+  Plus,
+  Search,
+  Users,
+  X,
+} from 'lucide-react';
 import type { Entity } from '../../domain/schema';
 import { showsAttitude } from '../../domain/relations';
 import { useData, useDb } from '../../data/hooks';
 import { useMediaSrc } from '../../data/media';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entitiesOfKind } from '../../domain/derive';
+import { isPast, pastLine } from '../../domain/lifespan';
 import { itemsByRarity } from '../../domain/magicItem';
 import {
   AttitudeBadge,
@@ -63,10 +74,14 @@ import {
   nextRowIndex,
   openAncestors,
   partyAttitudes,
+  pastPlaceIds,
   placeTreeRows,
   searchWorld,
+  splitPast,
+  textsWithoutEntry,
   treeIndent,
   worldCounts,
+  type PlaceRow,
   type WorldEntity,
   type WorldKind,
 } from './model';
@@ -77,11 +92,25 @@ const memory: {
   open: Record<string, boolean>;
   folded: Record<string, boolean>;
   more: boolean;
+  /** Aufgeklappte „Vergangenheit“ je Art – zu Beginn zu. */
+  past: Record<string, boolean>;
+  texts: boolean;
 } = {
   query: '',
   open: {},
   folded: {},
   more: false,
+  past: {},
+  texts: false,
+};
+
+/** Was unter „Vergangenheit“ steht, in einem Wort – solange sie zugeklappt ist. */
+const PAST_HINT: Partial<Record<WorldKind, string>> = {
+  person: 'Verstorbene',
+  place: 'Untergegangene Orte',
+  faction: 'Aufgelöste',
+  family: 'Erloschene und Aufgelöste',
+  item: 'Zerstörtes',
 };
 
 const EMPTY_HINT: Record<WorldKind, string> = {
@@ -119,6 +148,8 @@ export function Sidebar({
   /** Zugeklappte Gruppen der Arten; die seltenen stehen unter „Mehr“. */
   const [folded, setFolded] = useState(memory.folded);
   const [moreOpen, setMoreOpen] = useState(memory.more);
+  const [pastOpen, setPastOpen] = useState(memory.past);
+  const [textsOpen, setTextsOpen] = useState(memory.texts);
   // Vier Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird, als Netz der
   // Fraktionen – oder was im Wiki noch zu schreiben ist (beides steht groß rechts auf der Bühne).
   const layout = useWorldLayout();
@@ -136,7 +167,9 @@ export function Sidebar({
     memory.open = open;
     memory.folded = folded;
     memory.more = moreOpen;
-  }, [query, open, folded, moreOpen]);
+    memory.past = pastOpen;
+    memory.texts = textsOpen;
+  }, [query, open, folded, moreOpen, pastOpen, textsOpen]);
   // Ein Artikel ohne Eintrag steht nur in den Ordnern – außer man kommt aus „Noch zu schreiben“.
   useEffect(() => {
     if (articleId && layoutRef.current !== 'gaps') setLayout('tree');
@@ -149,6 +182,10 @@ export function Sidebar({
     if (!selectedId || !selectedKind) return;
     if (getKindFilter() !== selectedKind) setKindFilter('all');
     if (selectedKind === 'place') setOpen((o) => openAncestors(dataRef.current, selectedId, o));
+    // Steht er unter „Vergangenheit“, klappt sie auf.
+    const chosen = dataRef.current.entities[selectedId];
+    if (chosen && isPast(dataRef.current, chosen))
+      setPastOpen((p) => (p[selectedKind] ? p : { ...p, [selectedKind]: true }));
     // Die Gruppe des gewählten Eintrags klappt auf – bei einer seltenen Art auch „Mehr“.
     setFolded((f) => (f[selectedKind] ? { ...f, [selectedKind]: false } : f));
     if (!(COMMON_KINDS as readonly string[]).includes(selectedKind)) setMoreOpen(true);
@@ -187,7 +224,29 @@ export function Sidebar({
     () => (searching ? searchWorld(data, query, filter, visible) : []),
     [data, query, filter, searching, visible],
   );
-  const tree = useMemo(() => placeTreeRows(data, open, visible), [data, open, visible]);
+  // Orte, die mit allem darin vergangen sind, stehen unter „Vergangenheit“ – als eigener Baum.
+  const pastPlaces = useMemo(() => pastPlaceIds(data), [data]);
+  const treeShown = useMemo(
+    () =>
+      pastPlaces.size === 0
+        ? visible
+        : new Set(
+            entitiesOfKind(data, 'place')
+              .map((place) => place.id)
+              .filter((id) => !pastPlaces.has(id) && (!visible || visible.has(id))),
+          ),
+    [data, visible, pastPlaces],
+  );
+  const pastShown = useMemo(
+    () => new Set([...pastPlaces].filter((id) => !visible || visible.has(id))),
+    [pastPlaces, visible],
+  );
+  const tree = useMemo(() => placeTreeRows(data, open, treeShown), [data, open, treeShown]);
+  const pastTree = useMemo(
+    () => (pastShown.size ? placeTreeRows(data, open, pastShown) : []),
+    [data, open, pastShown],
+  );
+  const texts = useMemo(() => textsWithoutEntry(data), [data]);
   // Die Suche findet auch Wörter mitten im Text – Artikel, deren Eintrag schon oben steht, nicht doppelt.
   const articleHits = useArticleHits(query);
   const listed = new Set(hits.map((entity) => entity.lk?.resourceId));
@@ -260,7 +319,7 @@ export function Sidebar({
     }
   };
 
-  const row = (entity: WorldEntity, withKind: boolean): ReactNode => (
+  const row = (entity: WorldEntity, withKind: boolean, past = false): ReactNode => (
     <Link
       key={entity.id}
       href={`/welt/${entity.id}`}
@@ -279,7 +338,11 @@ export function Sidebar({
         <span className="wf-welt-row__name wf-clamp-1">{entity.name}</span>
         <span className="wf-welt-row__sub wf-clamp-1">
           <StubMark entity={entity} />{' '}
-          {[withKind && KIND_LABEL[entity.kind], entitySubline(data, entity)]
+          {[
+            withKind && KIND_LABEL[entity.kind],
+            entitySubline(data, entity),
+            past && pastLine(data, entity),
+          ]
             .filter(Boolean)
             .join(' · ') || entity.tagline}
         </span>
@@ -290,9 +353,9 @@ export function Sidebar({
     </Link>
   );
 
-  const places = (
+  const placeTree = (rows: PlaceRow[]): ReactNode => (
     <div className="wf-welt-tree">
-      {tree.map(({ place, depth, childCount, open: isOpen, partyHere, partyBelow }) => (
+      {rows.map(({ place, depth, childCount, open: isOpen, partyHere, partyBelow }) => (
         <div
           key={place.id}
           className="wf-welt-tree__row"
@@ -321,7 +384,10 @@ export function Sidebar({
           >
             <span className="wf-welt-row__name wf-clamp-1">{place.name}</span>
             <span className="wf-welt-row__sub wf-clamp-1">
-              <StubMark entity={place} /> {place.place.category}
+              <StubMark entity={place} />{' '}
+              {[place.place.category, isPast(data, place) && pastLine(data, place)]
+                .filter(Boolean)
+                .join(' · ')}
               {!isOpen && childCount > 0 && ` · ${childCount}`}
             </span>
             {(partyHere || (partyBelow && !isOpen)) && (
@@ -341,22 +407,90 @@ export function Sidebar({
   const kinds = filter === 'all' ? WORLD_KINDS.filter((kind) => counts[kind] > 0) : [filter];
   const sections = kindSections(counts);
   const rareTotal = sections.rare.reduce((sum, kind) => sum + counts[kind], 0);
-  const entriesOf = (kind: WorldKind): ReactNode =>
-    kind === 'place'
-      ? places
-      : kind === 'item' && filter === 'item'
-        ? // Gegenstände nach Seltenheit – zum Finden; jeder steht in genau einer Gruppe.
-          itemsByRarity(shown(entitiesOfKind(data, 'item'))).map((group) => (
-            <Fragment key={group.label || 'alle'}>
-              {group.label && (
-                <div className="wf-welt-group">
-                  {group.label} <span>{group.items.length}</span>
-                </div>
-              )}
-              {group.items.map((entity) => row(entity, false))}
-            </Fragment>
-          ))
-        : shown(entitiesOfKind(data, kind)).map((entity) => row(entity, false));
+  /** „Vergangenheit“ unter einer Art: zugeklappt, nie weggefiltert. */
+  const pastFold = (kind: WorldKind, count: number, content: () => ReactNode): ReactNode =>
+    count > 0 && (
+      <div className="wf-welt-past">
+        <FoldHead
+          open={!!pastOpen[kind]}
+          onToggle={() => setPastOpen((p) => ({ ...p, [kind]: !p[kind] }))}
+          label="Vergangenheit"
+          count={count}
+          hint={pastOpen[kind] ? undefined : (PAST_HINT[kind] ?? 'Vergangenes')}
+        />
+        {pastOpen[kind] && content()}
+      </div>
+    );
+  const entriesOf = (kind: WorldKind): ReactNode => {
+    if (kind === 'place')
+      return (
+        <>
+          {placeTree(tree)}
+          {pastFold('place', pastShown.size, () => placeTree(pastTree))}
+        </>
+      );
+    const { present, past } = splitPast(data, shown(entitiesOfKind(data, kind)));
+    const pastRows = () => past.map((entity) => row(entity, false, true));
+    if (kind === 'item' && filter === 'item')
+      // Gegenstände nach Seltenheit – zum Finden; jeder steht in genau einer Gruppe.
+      return (
+        <>
+          {itemsByRarity(splitPast(data, shown(entitiesOfKind(data, 'item'))).present).map(
+            (group) => (
+              <Fragment key={group.label || 'alle'}>
+                {group.label && (
+                  <div className="wf-welt-group">
+                    {group.label} <span>{group.items.length}</span>
+                  </div>
+                )}
+                {group.items.map((entity) => row(entity, false))}
+              </Fragment>
+            ),
+          )}
+          {pastFold('item', past.length, pastRows)}
+        </>
+      );
+    return (
+      <>
+        {present.map((entity) => row(entity, false))}
+        {pastFold(kind, past.length, pastRows)}
+      </>
+    );
+  };
+  /** Alles auf einmal zeigen – oder wieder nur die Gruppen. */
+  const unfoldAll = (show: boolean) => {
+    setFolded(show ? {} : Object.fromEntries(WORLD_KINDS.map((kind) => [kind, true])));
+    setMoreOpen(show);
+    setPastOpen(show ? Object.fromEntries(WORLD_KINDS.map((kind) => [kind, true])) : {});
+    setTextsOpen(show);
+    setOpen(Object.fromEntries(entitiesOfKind(data, 'place').map((place) => [place.id, show])));
+  };
+  /** Texte ohne Eintrag (Ordnerseiten, Übersichten …) – damit „Nach Art“ alles zeigt. */
+  const textsGroup = texts.length > 0 && !narrowed && (
+    <div className="wf-welt-more">
+      <FoldHead
+        open={textsOpen}
+        onToggle={() => setTextsOpen((o) => !o)}
+        label="Texte ohne Eintrag"
+        count={texts.length}
+        hint={textsOpen ? undefined : 'Ordner, Übersichten und Abhandlungen'}
+      />
+      {textsOpen &&
+        texts.map((article) => (
+          <Link
+            key={article.id}
+            href={`/wiki/${article.id}`}
+            className="wf-wiki-hit"
+            data-current={article.id === currentArticle}
+          >
+            <span className="wf-wiki-hit__title">
+              <ArticleIcon icon={article.icon} />
+              {article.title}
+            </span>
+          </Link>
+        ))}
+    </div>
+  );
   /** Eine Art als ruhige Gruppe: zuklappbar, „nur diese“ zeigt sie allein (mit ihrer Bühne). */
   const kindGroup = (kind: WorldKind): ReactNode => (
     <div key={kind}>
@@ -481,6 +615,26 @@ export function Sidebar({
             <span className="wf-welt-onlykind__what">
               {KIND_LABEL_PLURAL[filter]} <span>{counts[filter]}</span>
             </span>
+          </div>
+        )}
+        {layout === 'kinds' && !searching && total > 0 && (
+          <div className="wf-welt-unfold">
+            <button
+              type="button"
+              className="wf-welt-linkish"
+              title="Alle Gruppen, die Orte darin, „Mehr“ und „Vergangenheit“ aufklappen"
+              onClick={() => unfoldAll(true)}
+            >
+              <ChevronsUpDown aria-hidden /> Alles aufklappen
+            </button>
+            <button
+              type="button"
+              className="wf-welt-linkish"
+              title="Nur noch die Gruppen zeigen"
+              onClick={() => unfoldAll(false)}
+            >
+              <ChevronsDownUp aria-hidden /> Alles zuklappen
+            </button>
           </div>
         )}
         {layout === 'kinds' && (choices.length > 0 || narrowed) && (
@@ -662,6 +816,7 @@ export function Sidebar({
                 {moreOpen && sections.rare.map(kindGroup)}
               </div>
             )}
+            {textsGroup}
           </>
         )}
       </div>

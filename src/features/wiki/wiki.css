@@ -1004,3 +1004,8 @@ button.wf-wiki-row__toggle:hover {
   font-size: var(--text-sm);
   font-style: italic;
 }
+
+/* „Alles aufklappen / zuklappen“ über dem Ordnerbaum. */
+.wf-wiki-unfold {
+  padding: var(--s-2) var(--s-3) var(--s-1);
+}

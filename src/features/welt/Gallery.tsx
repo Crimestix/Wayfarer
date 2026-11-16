@@ -15,13 +15,16 @@ import {
   PERSON_STATUS_LABEL,
   galleryPeople,
   partyAttitudes,
+  splitPast,
   type GalleryFilter,
   type KnownFilter,
 } from './model';
-import { Picker } from './parts';
+import { FoldHead, Picker } from './parts';
 
 /** Merkt sich die Filter, solange die App läuft. */
 const memory: GalleryFilter = { query: '', placeId: null, known: 'all' };
+/** Ob „Vergangenheit“ aufgeklappt ist – zu Beginn zu. */
+let pastMemory = false;
 
 const KNOWN_LABEL: Record<KnownFilter, string> = {
   all: 'Alle',
@@ -45,9 +48,16 @@ export function Gallery() {
   // Ein gelöschter Ort filtert nicht weiter ins Leere.
   const placeId = filter.placeId && data.entities[filter.placeId] ? filter.placeId : null;
   const people = useMemo(
-    () => galleryPeople(data, { ...filter, placeId }),
+    () => splitPast(data, galleryPeople(data, { ...filter, placeId })),
     [data, filter, placeId],
   );
+  // Verstorbene stehen für sich – nie weggefiltert, nur nicht zwischen den Lebenden.
+  const [pastOpen, setPastOpenState] = useState(pastMemory);
+  const setPastOpen = (open: boolean) => {
+    pastMemory = open;
+    setPastOpenState(open);
+  };
+  const found = people.present.length + people.past.length;
   const attitudes = useMemo(() => partyAttitudes(data), [data]);
   const total = Object.values(data.entities).filter((e) => e.kind === 'person').length;
   const known = Object.values(data.entities).filter(
@@ -139,16 +149,42 @@ export function Gallery() {
         </p>
       )}
 
-      {people.length ? (
-        <div className="wf-welt-gallery__grid">
-          {people.map((person) => (
-            <GalleryCard
-              key={person.id}
-              person={person}
-              attitude={attitudes.get(person.id) ?? null}
-            />
-          ))}
-        </div>
+      {found ? (
+        <>
+          {people.present.length > 0 && (
+            <div className="wf-welt-gallery__grid">
+              {people.present.map((person) => (
+                <GalleryCard
+                  key={person.id}
+                  person={person}
+                  attitude={attitudes.get(person.id) ?? null}
+                />
+              ))}
+            </div>
+          )}
+          {people.past.length > 0 && (
+            <div className="wf-welt-past wf-welt-gallery__past">
+              <FoldHead
+                open={pastOpen}
+                onToggle={() => setPastOpen(!pastOpen)}
+                label="Vergangenheit"
+                count={people.past.length}
+                hint="Verstorbene"
+              />
+              {pastOpen && (
+                <div className="wf-welt-gallery__grid">
+                  {people.past.map((person) => (
+                    <GalleryCard
+                      key={person.id}
+                      person={person}
+                      attitude={attitudes.get(person.id) ?? null}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState
           icon={<Users />}

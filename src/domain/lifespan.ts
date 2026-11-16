@@ -139,6 +139,24 @@ export function endOf(data: CampaignData, entity: Entity): DatePoint | null {
   return since ? { at: since.since, precision: 'day' } : null;
 }
 
+/**
+ * Gehört der Eintrag der Vergangenheit an? Eine Person, die tot ist, und alles, dessen Ende
+ * (gestorben, untergegangen, aufgelöst, zerstört) schon erreicht ist. Gezeigt wird es trotzdem –
+ * nur für sich, nicht zwischen dem, was heute ist.
+ */
+export function isPast(data: CampaignData, entity: Entity): boolean {
+  if (entity.kind === 'person' && entity.person.status === 'dead') return true;
+  if (entity.kind === 'character' && entity.character.status === 'dead') return true;
+  const end = endOf(data, entity);
+  return !!end && end.at <= data.state.now;
+}
+
+/** Wann es zu Ende ging, in wenigen Worten („gestorben vor 300 Jahren“) – leer ohne Datum. */
+export function pastLine(data: CampaignData, entity: Entity): string {
+  const fact = lifeFacts(data, entity).find((f) => f.tone === 'danger');
+  return fact ? `${fact.label.toLowerCase()} ${fact.text}` : '';
+}
+
 /** Was Lebensdaten über einen Eintrag sagen – für die Zeile unter dem Namen. */
 export function lifeFacts(data: CampaignData, entity: Entity): LifeFact[] {
   const cal = data.campaign.calendar;
