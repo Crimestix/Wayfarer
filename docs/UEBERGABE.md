@@ -75,7 +75,11 @@ Windows-Installer 0.1.3 ist älter. **Neuestes Paket: Tag `v0.1.4` auf `d5456c4`
 Haltung je Gefährte, einem Körper für zwei Gefährten, neuer Wiki-Seite und Beziehungen nach Art.
 **Danach: Tag `v0.1.5` auf `e5856e1` (16. 11.)** – Reparaturen aus der Reise-Probe (zweiter Weg,
 Begleiter ziehen mit, Gewaltmarsch seit der Rast, Leiste). **DATA_VERSION 6:** Ein Stand aus 0.1.5
-lässt sich in 0.1.4 nicht mehr einspielen – Mac und Windows beide auf 0.1.5. Der Spielleiter macht die Probe nach
+lässt sich in 0.1.4 nicht mehr einspielen – Mac und Windows beide auf 0.1.5.
+**Danach: Tag `v0.1.6` auf `f659b37` (16. 11.)** – Netz der Fäden, Fadenbrett als Whiteboard
+(Schritte 1–4: anfassen, Suchfeld/Artikel, Bereiche, Geschichte an Geschichte), Welt: Zurück,
+Vergangenheit, Galerie für jede Art, Familien in Fraktionen, „Wen die Gruppe kennt“.
+**DATA_VERSION 10** – Mac und Windows beide auf 0.1.6. Der Spielleiter macht die Probe nach
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
