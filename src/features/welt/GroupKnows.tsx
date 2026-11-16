@@ -9,7 +9,7 @@ import { useData } from '../../data/hooks';
 import { pagePlainText } from '../../domain/book';
 import { knowledgeOf } from '../../domain/playerBook';
 import type { Entity, Guess } from '../../domain/schema';
-import { Button, EntityLink } from '../../ui';
+import { EntityLink, IconButton } from '../../ui';
 import { GuessDialog } from '../spielerbuch/GuessDialog';
 import { GuessRow } from '../spielerbuch/GuessRow';
 import { bookLine } from '../spielerbuch/model';
@@ -44,14 +44,14 @@ export function GroupKnows({ entity }: { entity: Entity }) {
     <Section
       title="Was die Gruppe weiß"
       action={
-        <Button
+        <IconButton
           size="sm"
           variant="ghost"
-          icon={<Lightbulb />}
-          aria-label="Vermutung festhalten"
-          title="Vermutung festhalten"
+          label="Vermutung festhalten"
           onClick={() => setDialog({})}
-        />
+        >
+          <Lightbulb />
+        </IconButton>
       }
     >
       <div className="wf-welt-knows">
