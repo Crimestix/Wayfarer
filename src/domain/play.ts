@@ -6,7 +6,7 @@
  * Spielleiter (`story.inPlay`); Wayfarer sammelt nur, was dazugehört. Reine Funktionen.
  */
 import { SUGGESTION, isDismissed } from './dismiss';
-import { normalize, occurrencesOf, openPromises, type Occurrence } from './derive';
+import { normalize, occurrencesOf, openPromises, personPlace, type Occurrence } from './derive';
 import { looseOrder } from './looseThreads';
 import { readyLoot } from './loot';
 import { SCENE_ODDS } from './schema';
@@ -161,7 +161,7 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
           ((entity.kind === 'person' &&
             entity.person.status !== 'dead' &&
             entity.person.status !== 'missing' &&
-            isNear(data, entity.person.placeId)) ||
+            isNear(data, personPlace(data, entity))) ||
             (entity.kind === 'faction' && isNear(data, entity.faction.seatId))),
       ),
     threads: card.threads.filter(threadLive).map((thread) => ({

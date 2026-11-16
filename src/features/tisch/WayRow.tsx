@@ -16,6 +16,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
+import { marchAfter, marchRule } from '../../domain/march';
 import { partyTravel, travelNotes } from '../../domain/mounts';
 import type { TravelPath } from '../../domain/schema';
 import { formatWayTime, wayNotes, waysAround, type Way } from '../../domain/ways';
@@ -78,6 +79,7 @@ export function WayRow({ placeId }: { placeId: string }) {
             ? `Die Gruppe reist mit ${way.by.name}: ${formatWayTime(way.minutes)} vergehen.`
             : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
       way.fit ? `${way.fit}.` : '',
+      way.minutes && marchAfter(data, way.minutes) ? marchRule(marchAfter(data, way.minutes)!) : '',
       ...(way.by ? travelNotes(travel, way.minutes ?? 0).map((note) => `${note}.`) : []),
       way.path.conditions,
       ...wayNotes(data, way).map((note) => `${note}.`),
@@ -130,20 +132,20 @@ export function WayRow({ placeId }: { placeId: string }) {
               Dauer angibst.
             </span>
           )}
+          <button
+            ref={more}
+            type="button"
+            className="wf-tisch-way wf-tisch-way--more"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setOpen((o) => !o)}
+            title="Alle Wege: losgehen, ändern, neu anlegen"
+          >
+            {ways.length > SHOWN ? `+ ${ways.length - SHOWN} weitere` : 'Wege …'}
+            <ChevronDown />
+          </button>
+          <TravelBy compact />
         </div>
-        <button
-          ref={more}
-          type="button"
-          className="wf-tisch-way wf-tisch-way--more"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-          title="Wege anlegen und ändern"
-        >
-          {ways.length > SHOWN ? `+ ${ways.length - SHOWN} weitere` : 'Wege …'}
-          <ChevronDown />
-        </button>
-        <TravelBy compact />
       </nav>
       <Popover
         open={open}
@@ -153,6 +155,20 @@ export function WayRow({ placeId }: { placeId: string }) {
         width={360}
         className="wf-tisch-waymenu"
       >
+        {ways.length > 0 && <div className="wf-tisch-suggest__head">Losgehen</div>}
+        {ways.map((way) => (
+          <MenuItem
+            key={`go-${way.path.id}-${way.toId}`}
+            icon={<TravelIcon by={way.by} />}
+            onClick={() => {
+              setOpen(false);
+              go(way);
+            }}
+          >
+            {label(way)} · {way.minutes === null ? 'Dauer offen' : formatWayTime(way.minutes)}
+          </MenuItem>
+        ))}
+        {ways.length > 0 && <div className="wf-menu-sep" />}
         {ways.length > 0 && <div className="wf-tisch-suggest__head">Weg ändern</div>}
         {ways.map((way) => (
           <MenuItem

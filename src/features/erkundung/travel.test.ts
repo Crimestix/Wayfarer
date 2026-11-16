@@ -4,7 +4,9 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   AreaSchema,
+  RestSchema,
   RollTableSchema,
+  createChronicleEntry,
   createEntity,
   type Area,
   type CampaignData,
@@ -23,8 +25,8 @@ import {
   rollEncounters,
   routeTo,
   stepProblem,
-  traveledToday,
 } from './travel';
+import { marchAfter, marchedMinutes } from '../../domain/march';
 
 /**
  * Eine kleine Karte: oben der direkte Weg von A nach B mit Wald, Gebirge und einem See, darunter
@@ -117,7 +119,7 @@ describe('Ein Schritt auf der Karte', () => {
       minutes: 125,
       pace: 'normal',
       slowed: true,
-      minutesToday: 125,
+      marched: 125,
       march: null,
       arrivedAt: null,
     });
@@ -139,25 +141,55 @@ describe('Ein Schritt auf der Karte', () => {
     ).toEqual(['0,0', '0,1', '1,0', '1,1', '2,0']);
     // Das Ausgangsgebiet bleibt unberührt.
     expect(area.party).toMatchObject({ q: 0, r: 0 });
-    expect(traveledToday(step.area, now + 125)).toBe(125);
-    expect(traveledToday(step.area, now + 1440)).toBe(0);
+    const after = { ...data, areas: { [area.id]: step.area } };
+    expect(step.area.party!.legs).toEqual([{ at: now + 125, minutes: 125 }]);
+    expect(marchedMinutes(after, now + 125)).toBe(125);
+    // Nach 24 Stunden zählt der Schritt nicht mehr, auch ohne Rast.
+    expect(marchedMinutes(after, now + 125 + 1440)).toBe(0);
   });
 
-  it('zählt die Reisezeit je Tag und meldet den Gewaltmarsch', () => {
+  it('zählt die Reisezeit seit der letzten Langen Rast und meldet den Gewaltmarsch', () => {
     const { data, area } = world('normal');
     const now = NOON(data);
-    const tired: Area = { ...area, party: { ...area.party!, day: dayIndexOf(now), minutes: 400 } };
-    const step = planStep(data, tired, { q: 0, r: 1 }, now);
+    const tired = (at: number): Area => ({
+      ...area,
+      party: { ...area.party!, legs: [{ at, minutes: 400 }] },
+    });
+    const step = planStep(data, tired(now), { q: 0, r: 1 }, now);
     if (typeof step === 'string') throw new Error(step);
-    expect(step.minutesToday).toBe(525);
+    expect(step.marched).toBe(525);
     expect(step.march).toEqual({ hours: 1, dc: 11 });
-    // Über Mitternacht hinweg beginnt der neue Tag frisch.
+    // Mitternacht beginnt keinen neuen Reisetag: Der Marsch geht weiter.
     const late = dayIndexOf(now) * 1440 + 23 * 60;
-    const night = planStep(data, tired, { q: 0, r: 1 }, late);
+    const night = planStep(data, tired(late), { q: 0, r: 1 }, late);
     if (typeof night === 'string') throw new Error(night);
-    expect(night.minutesToday).toBe(125);
-    expect(night.area.party!.day).toBe(dayIndexOf(now) + 1);
-    expect(night.march).toBeNull();
+    expect(night.marched).toBe(525);
+    expect(night.march).toEqual({ hours: 1, dc: 11 });
+    // Nach einer Langen Rast beginnt die Zählung neu.
+    const rest = RestSchema.parse({ id: 'rast1', start: late - 480, end: late, status: 'done' });
+    const rested = { ...data, rests: { [rest.id]: rest } };
+    const fresh = planStep(rested, tired(late), { q: 0, r: 1 }, late);
+    if (typeof fresh === 'string') throw new Error(fresh);
+    expect(fresh.marched).toBe(125);
+    expect(fresh.march).toBeNull();
+  });
+
+  it('zählt Wege und Hexkarte zusammen', () => {
+    const { data, area } = world('normal');
+    const now = NOON(data);
+    const entry = createChronicleEntry({
+      kind: 'travel',
+      at: now,
+      travel: { fromId: null, toId: null, minutes: 6 * 60 },
+    });
+    const walked = { ...data, chronicle: { [entry.id]: entry }, state: { ...data.state, now } };
+    expect(marchedMinutes(walked, now)).toBe(360);
+    // Noch drei Stunden auf einem Weg: eine Stunde über acht.
+    expect(marchAfter(walked, 180)).toEqual({ hours: 1, dc: 11 });
+    const step = planStep(walked, area, { q: 1, r: 0 }, now);
+    if (typeof step === 'string') throw new Error(step);
+    expect(step.marched).toBe(360 + 125);
+    expect(step.march).toEqual({ hours: 1, dc: 11 });
   });
 
   it('meldet die Ankunft an einem Ort', () => {

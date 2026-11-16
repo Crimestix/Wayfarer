@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 5;
-export const DATA_SHAPE = '14d83823bccc9700';
+export const DATA_VERSION = 6;
+export const DATA_SHAPE = '38516798b5c34ea9';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -829,7 +829,13 @@ export const ChronicleEntrySchema = z.object({
    * ist; leer = die ganze Gruppe (`domain/party.ts`).
    */
   travel: z
-    .object({ fromId: id.nullable(), toId: id.nullable(), who: z.array(id).optional() })
+    .object({
+      fromId: id.nullable(),
+      toId: id.nullable(),
+      who: z.array(id).optional(),
+      /** Wie lange der Weg dauerte (Minuten bis zur Ankunft) – zählt für den Gewaltmarsch. */
+      minutes: z.number().int().nonnegative().optional(),
+    })
     .nullable()
     .default(null),
   /** kind = attitude: Haltungsänderung. */
@@ -2277,6 +2283,13 @@ export const AreaSchema = z.object({
       minutes: z.number().int().nonnegative().default(0),
       /** Die Felder, über die die Gruppe gekommen ist, in der Reihenfolge des Wegs. */
       trail: z.array(z.object({ q: z.number().int(), r: z.number().int() })).default([]),
+      /**
+       * Die Schritte der letzten 24 Stunden: Ende und Dauer – für den Gewaltmarsch, der seit der
+       * letzten Langen Rast zählt (`domain/march.ts`), nicht ab Mitternacht.
+       */
+      legs: z
+        .array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() }))
+        .default([]),
     })
     .nullable()
     .default(null),

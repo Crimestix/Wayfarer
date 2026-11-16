@@ -26,6 +26,7 @@ import {
   entityName,
   mateAttitudes,
   openPromises,
+  personPlace,
   placeCast,
   placeChildren,
   placePath,
@@ -915,7 +916,8 @@ export function MemberList({ group }: { group: Faction | Family }) {
               sub={[
                 member.label,
                 member.entity.kind === 'person' && member.entity.person.role,
-                member.entity.kind === 'person' && entityName(data, member.entity.person.placeId),
+                member.entity.kind === 'person' &&
+                  entityName(data, personPlace(data, member.entity)),
               ]
                 .filter(Boolean)
                 .join(' · ')}

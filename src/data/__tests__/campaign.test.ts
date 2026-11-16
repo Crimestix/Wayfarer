@@ -3,6 +3,7 @@ import {
   attitudeHistory,
   attitudeToParty,
   entitiesOfKind,
+  personPlace,
   placeCast,
   placePath,
   placeStatus,
@@ -11,7 +12,7 @@ import {
   upcomingOccurrences,
   visitsTo,
 } from '../../domain/derive';
-import { PARTY_ID, createEvent, createTimer } from '../../domain/schema';
+import { PARTY_ID, createEvent, createRelation, createTimer } from '../../domain/schema';
 import {
   advanceTime,
   deleteEntity,
@@ -96,6 +97,27 @@ describe('Ort, Personen, Besuche', () => {
     expect(placePath(data, place(db, 'Zum Salzigen Raben').id)).toBe(
       'Nebelküste › Dornhafen › Zum Salzigen Raben',
     );
+  });
+
+  it('ein Begleiter zieht mit der Gruppe, ohne dass sein Ort gespeichert wird', async () => {
+    const { db } = await demoDb();
+    const hafen = place(db, 'Dornhafen');
+    const kloster = place(db, 'Kloster Sankt Vael');
+    const kessa = person(db, 'Kessa Flutwind');
+    db.setState({ placeId: hafen.id });
+    const bond = db.put(
+      'relations',
+      createRelation({ from: kessa.id, to: PARTY_ID, type: 'companion' }),
+    );
+    moveParty(db, kloster.id);
+    let data = db.getSnapshot();
+    expect(personPlace(data, person(db, 'Kessa Flutwind'))).toBe(kloster.id);
+    expect(placeCast(data, kloster.id).present.map((p) => p.name)).toContain('Kessa Flutwind');
+    expect(placeCast(data, hafen.id).present.map((p) => p.name)).not.toContain('Kessa Flutwind');
+    // Endet die Begleitung, gilt wieder ihr eigener Ort.
+    db.patch('relations', bond.id, { ended: true });
+    data = db.getSnapshot();
+    expect(personPlace(data, person(db, 'Kessa Flutwind'))).toBe(kessa.person.placeId);
   });
 
   it('leitet Besuche aus den Ortswechseln ab und sammelt, was sich seitdem verändert hat', async () => {

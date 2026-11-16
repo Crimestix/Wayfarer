@@ -7,7 +7,13 @@
  *
  * Reine Funktionen; gleicher Ausgangswert → gleicher Vorschlag.
  */
-import { byName, normalize, placeAncestors, placeSubtreeIds } from '../../domain/derive';
+import {
+  byName,
+  normalize,
+  personPlace,
+  placeAncestors,
+  placeSubtreeIds,
+} from '../../domain/derive';
 import { rngOf, type Rng } from '../../domain/random';
 import type { CampaignData, Person } from '../../domain/schema';
 import { surnameOf } from './dynasty';
@@ -248,9 +254,7 @@ const personsAt = (data: CampaignData, placeId: string | null): Person[] => {
   if (!placeId) return all;
   const ids = placeSubtreeIds(data, placeId);
   const here = all.filter(
-    (p) =>
-      (p.person.placeId && ids.has(p.person.placeId)) ||
-      (p.person.homeId && ids.has(p.person.homeId)),
+    (p) => ids.has(personPlace(data, p) ?? '') || (p.person.homeId && ids.has(p.person.homeId)),
   );
   return here.length ? here : all;
 };

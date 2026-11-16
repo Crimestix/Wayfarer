@@ -1,9 +1,10 @@
 /* Wetter: das Feld in der Weltleiste und die aufgeklappte Übersicht. Klassen: „wf-wetter-“. */
 .wf-wetter-chip {
-  flex: none;
+  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   max-width: 260px;
   height: 40px;
   padding: 0 8px;
@@ -39,6 +40,9 @@
   font-size: var(--text-lg);
   font-weight: 600;
   color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }

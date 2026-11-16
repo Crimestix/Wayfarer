@@ -114,6 +114,7 @@ export function placeParty(db: CampaignDb, areaId: string, coord: HexCoord | nul
       day: dayIndexOf(db.getSnapshot().state.now),
       minutes: 0,
       trail: [],
+      legs: [],
     },
   });
 }

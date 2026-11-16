@@ -234,10 +234,14 @@
    aus dem Bild zu schieben. */
 .wf-bar__cell--grow {
   flex: 1 1 0;
+  /* Ein Ortsname bleibt lesbar: Wird es eng, gibt zuerst das Wetter nach. */
+  min-width: 11rem;
   overflow: hidden;
 }
 /* Das Wetterfeld: ohne Ort der Gruppe leer und dann ohne Platzbedarf. */
 .wf-bar__cell--weather {
+  flex: 0 1 auto;
+  overflow: hidden;
   padding: 0 var(--s-2);
 }
 @media (max-width: 1400px) {
@@ -618,10 +622,14 @@
     padding: 0;
   }
 }
-@media (max-width: 1365px) {
+/* Bis zur Breite eines MacBook Air 13" sprechen „Zeit“ und „Session“ durch ihr Zeichen – der Platz
+   gehört dem Ort der Gruppe und dem Wetter. */
+@media (max-width: 1500px) {
   .wf-bar__mid {
     display: none;
   }
+}
+@media (max-width: 1365px) {
   .wf-bar__sub {
     letter-spacing: 0.1em;
   }

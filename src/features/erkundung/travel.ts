@@ -12,9 +12,15 @@ import { rngOf, seedOf } from '../../domain/random';
 import type { Area, CampaignData, Hex, Mount, Pace, RollTable, Terrain } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { dayIndexOf } from '../../domain/time/calendar';
+import {
+  TRAVEL_HOURS,
+  forcedMarch,
+  marchedMinutes,
+  recentLegs,
+  type ForcedMarch,
+} from '../../domain/march';
 
-/** Stunden, die eine Gruppe am Tag ohne Folgen reisen kann. */
-export const TRAVEL_HOURS = 8;
+export { TRAVEL_HOURS, forcedMarch, type ForcedMarch } from '../../domain/march';
 
 /**
  * Das höchste Tempo, das ein Gelände zulässt (Regelwerk 2024, Reisen nach Gelände); null = zu
@@ -94,26 +100,6 @@ export function stepProblem(area: Area, to: HexCoord, by: Mount | null = null): 
   return null;
 }
 
-/** Minuten, die die Gruppe am Tag der genannten Weltzeit schon gereist ist. */
-export function traveledToday(area: Area, now: number): number {
-  return area.party && area.party.day === dayIndexOf(now) ? area.party.minutes : 0;
-}
-
-export interface ForcedMarch {
-  /** Angefangene Stunden über die acht hinaus. */
-  hours: number;
-  /** Schwierigkeit des Konstitutionsrettungswurfs für die letzte dieser Stunden. */
-  dc: number;
-}
-
-/** Ab der neunten Stunde: je Stunde ein Rettungswurf, sonst eine Stufe Erschöpfung. */
-export function forcedMarch(minutesToday: number): ForcedMarch | null {
-  const over = minutesToday - TRAVEL_HOURS * 60;
-  if (over <= 0) return null;
-  const hours = Math.ceil(over / 60);
-  return { hours, dc: 10 + hours };
-}
-
 export interface Encounter {
   table: RollTable;
   /** Wurf der Begegnungsprüfung (W20) – null, wenn die Tabelle keine Prüfung verlangt. */
@@ -155,8 +141,8 @@ export interface TravelStep {
   pace: Pace;
   /** Die Gruppe wurde vom Gelände gebremst. */
   slowed: boolean;
-  /** Reisezeit des Tages nach dem Schritt, in Minuten. */
-  minutesToday: number;
+  /** Reisezeit seit der letzten Langen Rast nach dem Schritt, in Minuten (Wege und Hexkarten). */
+  marched: number;
   march: ForcedMarch | null;
   /** Felder, die mit diesem Schritt neu ins Blickfeld kamen. */
   revealed: number;
@@ -184,10 +170,10 @@ export function planStep(
   const target = find(area, to)!;
   const pace = effectivePace(target.terrain, party.pace) ?? party.pace;
   const minutes = hexMinutes(area.hexKm, target.terrain, party.pace, by)!;
-  // Geht der Schritt über Mitternacht, zählt er zum Tag, an dem er endet.
   const arrival = now + minutes;
-  const minutesToday =
-    (dayIndexOf(arrival) === dayIndexOf(now) ? traveledToday(area, now) : 0) + minutes;
+  // Der Tag des Schritts und seine Minuten bleiben für ältere Fassungen des Programms stehen.
+  const today = party.day === dayIndexOf(arrival) && dayIndexOf(arrival) === dayIndexOf(now);
+  const legs = [...recentLegs(party.legs, arrival), { at: arrival, minutes }];
 
   const seen = new Set([hexKey(to), ...hexNeighbors(to).map(hexKey)]);
   let revealed = 0;
@@ -197,18 +183,29 @@ export function planStep(
     return { ...hex, discovered: true };
   });
   const trail = [...party.trail, { q: party.q, r: party.r }].slice(-400);
-  return {
-    area: {
-      ...area,
-      hexes,
-      party: { ...party, q: to.q, r: to.r, day: dayIndexOf(arrival), minutes: minutesToday, trail },
+  const moved: Area = {
+    ...area,
+    hexes,
+    party: {
+      ...party,
+      q: to.q,
+      r: to.r,
+      day: dayIndexOf(arrival),
+      minutes: (today ? party.minutes : 0) + minutes,
+      trail,
+      legs,
     },
+  };
+  // Seit der letzten Langen Rast gereist – über Wege und alle Hexkarten, mit diesem Schritt.
+  const marched = marchedMinutes(data, arrival, moved);
+  return {
+    area: moved,
     target,
     minutes,
     pace,
     slowed: pace !== party.pace,
-    minutesToday,
-    march: forcedMarch(minutesToday),
+    marched,
+    march: forcedMarch(marched),
     revealed,
     arrivedAt: target.placeId && data.entities[target.placeId] ? target.placeId : null,
     encounters: rollEncounters(data, area, target, arrival),

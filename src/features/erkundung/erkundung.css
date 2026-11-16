@@ -402,6 +402,24 @@
   height: 15px;
   color: var(--gold-deep);
 }
+/* Lange Ortsnamen: Der Knopf bricht um, statt aus der schmalen Spalte zu ragen. */
+.wf-btn.wf-erk-wrap {
+  max-width: 100%;
+  height: auto;
+  min-height: 30px;
+  padding-block: 5px;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: left;
+}
+.wf-erk-travel__grid .wf-fort-travel {
+  min-width: 0;
+  max-width: 100%;
+}
+.wf-erk-travel__grid .wf-fort-travel select {
+  min-width: 0;
+  max-width: 100%;
+}
 .wf-erk-travel__march {
   margin: 0;
   padding: var(--s-2) var(--s-3);

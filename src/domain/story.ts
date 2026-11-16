@@ -8,7 +8,7 @@
  * Faden an einem einzigen Hinweis hängt. Reine Funktionen.
  */
 import { clockView, type ClockView } from './clock';
-import { findRelation, placeAncestors } from './derive';
+import { findRelation, personPlace, placeAncestors } from './derive';
 import { attitudeLabel } from './relations';
 import { formatDuration } from './time/calendar';
 import {
@@ -152,7 +152,7 @@ export function whereOf(data: StoryData, id: string): string | null {
   const entity = data.entities[id];
   if (!entity) return null;
   if (entity.kind === 'place') return entity.id;
-  if (entity.kind === 'person') return entity.person.placeId ?? entity.person.homeId ?? null;
+  if (entity.kind === 'person') return personPlace(data, entity) ?? entity.person.homeId ?? null;
   return null;
 }
 

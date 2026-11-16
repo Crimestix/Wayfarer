@@ -270,6 +270,8 @@
   border-top: 1px solid var(--line-faint);
 }
 .wf-tisch-ways__none {
+  flex: 1 1 0;
+  min-width: 0;
   align-self: center;
   color: var(--ink-mute);
   font-size: var(--text-sm);
@@ -279,7 +281,24 @@
   text-overflow: ellipsis;
 }
 .wf-tisch-way--path {
+  /* Ein einzelner langer Name wird gekürzt, statt aus der Spalte zu ragen. */
+  flex: 0 1 auto;
+  min-width: 0;
   border-style: solid;
+}
+/* Die Wege brechen in eine zweite Zeile um, statt unsichtbar abgeschnitten zu werden – in der
+   schmalen Spalte am Tisch ist sonst schon der zweite Weg verschwunden. */
+.wf-tisch-ways--paths {
+  align-items: flex-start;
+}
+.wf-tisch-ways--paths .wf-tisch-ways__row {
+  flex-wrap: wrap;
+}
+.wf-tisch-ways--paths .wf-tisch-way--path {
+  max-width: 100%;
+}
+.wf-tisch-ways--paths .wf-tisch-ways__label {
+  align-self: center;
 }
 .wf-tisch-way--path > svg:first-child {
   color: var(--gold);

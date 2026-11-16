@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { Footprints, Flag, MapPin, TriangleAlert, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
+import { marchRule, marchedMinutes } from '../../domain/march';
 import { partyMeans } from '../../domain/mounts';
 import { PACES, type Area, type Pace } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
@@ -24,12 +25,8 @@ import {
   forcedMarch,
   hexMinutes,
   hexOfPlace,
-  traveledToday,
   type Route,
 } from './travel';
-
-const MARCH_RULE = (hours: number, dc: number) =>
-  `Gewaltmarsch: ${hours === 1 ? 'eine Stunde' : `${hours} Stunden`} über acht. Am Ende jeder dieser Stunden legt jeder einen Konstitutionsrettungswurf ab (jetzt SG ${dc}) oder erhält eine Stufe Erschöpfung.`;
 
 function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) {
   const data = useData();
@@ -54,8 +51,7 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
     });
   for (const timer of time.expired)
     lines.push({ key: `timer-${timer.id}`, text: `Abgelaufen: ${timer.label}` });
-  if (step.march)
-    lines.push({ key: 'march', alert: true, text: MARCH_RULE(step.march.hours, step.march.dc) });
+  if (step.march) lines.push({ key: 'march', alert: true, text: marchRule(step.march) });
 
   return (
     <div className="wf-erk-last" role="status">
@@ -83,6 +79,7 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
         <Button
           variant="primary"
           size="sm"
+          className="wf-erk-wrap"
           icon={<MapPin />}
           onClick={() => openMoveParty({ placeId: step.arrivedAt! })}
         >
@@ -145,7 +142,7 @@ export function TravelPanel({
     );
 
   const here = area.hexes.find((hex) => hex.q === party.q && hex.r === party.r);
-  const today = traveledToday(area, now);
+  const today = marchedMinutes(data, now);
   const march = forcedMarch(today);
   const left = TRAVEL_HOURS * 60 - today;
   const next = route?.steps[0];
@@ -154,13 +151,13 @@ export function TravelPanel({
   const nextMinutes = nextHex
     ? hexMinutes(area.hexKm, nextHex.terrain, party.pace, partyMeans(data))
     : null;
-  // Reicht der Tag noch, steht die Ankunftszeit da; sonst, wie viele Reisetage es werden.
+  // Reicht die Zeit bis zur Grenze noch, steht die Ankunftszeit da; sonst, wie viele Reisetage es werden.
   const arrival = !route
     ? ''
     : route.minutes <= Math.max(0, left)
       ? ` · Ankunft gegen ${formatClock(now + route.minutes)}`
       : route.minutes <= TRAVEL_HOURS * 60
-        ? ' · heute nicht mehr ohne Gewaltmarsch'
+        ? ' · ohne Lange Rast nur noch als Gewaltmarsch'
         : ` · ${Math.ceil(route.minutes / (TRAVEL_HOURS * 60))} Reisetage zu acht Stunden`;
   const limited = here?.terrain && effectivePace(here.terrain, party.pace) !== party.pace;
 
@@ -212,7 +209,7 @@ export function TravelPanel({
             </>
           )}
 
-          <span className="wf-erk-travel__label">Heute</span>
+          <span className="wf-erk-travel__label">Seit der Rast</span>
           <span data-alert={march ? true : undefined}>
             {today === 0 ? 'noch nicht gereist' : `${formatDuration(today)} gereist`}
             {march
@@ -252,7 +249,7 @@ export function TravelPanel({
             {PACE_LABEL[effectivePace(here!.terrain, party.pace)!]}“ zu.
           </p>
         )}
-        {march && <p className="wf-erk-travel__march">{MARCH_RULE(march.hours, march.dc)}</p>}
+        {march && <p className="wf-erk-travel__march">{marchRule(march)}</p>}
 
         {next && goalName && (
           <Button
@@ -267,6 +264,7 @@ export function TravelPanel({
         {route?.steps.length === 0 && area.toId && data.state.placeId !== area.toId && (
           <Button
             variant="primary"
+            className="wf-erk-wrap"
             icon={<MapPin />}
             onClick={() => openMoveParty({ placeId: area.toId! })}
           >

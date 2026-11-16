@@ -13,6 +13,7 @@ import {
   entityName,
   openPromises,
   placeStatus,
+  personPlace,
   placeSubtreeIds,
 } from './derive';
 import { entryEntityIds, sessionAt, statusOf } from './history';
@@ -153,7 +154,7 @@ function whereFact(data: CampaignData, id: string, gone: boolean): MemoryFact | 
   switch (entity.kind) {
     case 'person': {
       if (gone) return null;
-      const placeId = entity.person.placeId;
+      const placeId = personPlace(data, entity);
       if (isHere(data, placeId)) return { kind: 'where', text: 'hier am Ort' };
       return at(placeId, 'jetzt in ');
     }

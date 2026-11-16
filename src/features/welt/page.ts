@@ -4,7 +4,13 @@
  * zum Verstehen – die Gestalt folgt der Art, nie als Filter: Alles Weitere bleibt über
  * „Hinzufügen“ erreichbar. Reine Funktionen; geschrieben wird über `pageActions.ts`.
  */
-import { attitudeToParty, entityCategory, openPromises, placeChildren } from '../../domain/derive';
+import {
+  attitudeToParty,
+  entityCategory,
+  openPromises,
+  personPlace,
+  placeChildren,
+} from '../../domain/derive';
 import { creatureOfAnimal } from '../../domain/nature';
 import { showsAttitude } from '../../domain/relations';
 import { roomCandidates, roomsOf } from '../../domain/rooms';
@@ -78,7 +84,7 @@ export function worldValue(data: CampaignData, entity: Entity, field: FactField 
     case 'home':
       return entity.kind === 'person' ? name(entity.person.homeId) : '';
     case 'whereabouts':
-      return entity.kind === 'person' ? name(entity.person.placeId) : '';
+      return entity.kind === 'person' ? name(personPlace(data, entity)) : '';
     case 'workplace':
       return entity.kind === 'person' ? name(entity.person.workplaceId) : '';
     case 'location':

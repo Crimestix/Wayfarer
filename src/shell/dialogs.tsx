@@ -44,6 +44,7 @@ import {
   signedAttitude,
 } from '../domain/derive';
 import { placeForEntry, sessionForEntry } from '../domain/history';
+import { forcedMarch, marchAfter, marchRule, marchedMinutes } from '../domain/march';
 import { ledMembers } from '../domain/party';
 import { recognizeDelivery, recognizeEntry, type Recognized } from '../domain/recognize';
 import { attitudeLabel } from '../domain/relations';
@@ -214,6 +215,10 @@ export function walkAndReport(
     const result = go();
     const data = db.getSnapshot();
     const name = entityName(data, goers ? (toId ?? null) : data.state.placeId);
+    // Seit der letzten Langen Rast über acht Stunden unterwegs: nur ein Hinweis, nie ein Halt.
+    const march =
+      !goers && result.minutes > 0 ? forcedMarch(marchedMinutes(data, data.state.now)) : null;
+    const news = result.advance && happened(result.advance);
     toast({
       title: goers
         ? `${goers} ${result.minutes > 0 ? `um ${formatClock(data.state.now + result.minutes)} ` : ''}in ${name} – eigene Teilgruppe`
@@ -221,11 +226,14 @@ export function walkAndReport(
           ? `Angekommen: ${name} – ${formatWayTime(result.minutes)} unterwegs`
           : `Angekommen: ${name}`,
       body:
-        result.advance && happened(result.advance)
-          ? meanwhileBody(data, result.advance, 'Währenddessen:')
-          : undefined,
+        news || march ? (
+          <>
+            {march && <div>{marchRule(march)}</div>}
+            {news && meanwhileBody(data, result.advance!, 'Währenddessen:')}
+          </>
+        ) : undefined,
       action: { label: 'Rückgängig', run: result.undo },
-      duration: result.advance?.steps.length ? 14000 : undefined,
+      duration: result.advance?.steps.length || march ? 14000 : undefined,
     });
   } catch (error) {
     toast({
@@ -1074,6 +1082,11 @@ function MovePartyDialog({
                     {note}.
                   </div>
                 ))}
+                {passTime && marchAfter(data, route.minutes) && (
+                  <div className="wf-wege-route__sub">
+                    {marchRule(marchAfter(data, route.minutes)!)}
+                  </div>
+                )}
               </div>
             </div>
             {route.minutes > 0 && (

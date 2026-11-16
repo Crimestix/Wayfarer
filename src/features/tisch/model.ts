@@ -32,6 +32,7 @@ import {
   placeAncestors,
   placeCast,
   placeChildren,
+  personPlace,
   placeSubtreeIds,
   runningTimers,
   TIMER_KIND_LABEL,
@@ -201,8 +202,10 @@ export function castRowOf(data: CampaignData, id: string): CastRow | null {
   if (!entity) return null;
   const nameOf = (placeId: string | null) =>
     placeId ? (data.entities[placeId]?.name ?? null) : null;
-  if (entity.kind === 'person')
-    return personRow(data, entity, nameOf(entity.person.placeId), entity.person.placeId);
+  if (entity.kind === 'person') {
+    const at = personPlace(data, entity);
+    return personRow(data, entity, nameOf(at), at);
+  }
   if (entity.kind === 'faction') {
     const role = entity.faction.category || entity.tagline;
     return {
@@ -243,13 +246,9 @@ export function castView(data: CampaignData, placeId: string): CastView {
 
   const present = cast.present
     .map((p) => {
-      const exact = p.person.placeId === placeId;
-      return personRow(
-        data,
-        p,
-        exact ? null : placeName(p.person.placeId),
-        exact ? null : p.person.placeId,
-      );
+      const at = personPlace(data, p);
+      const exact = at === placeId;
+      return personRow(data, p, exact ? null : placeName(at), exact ? null : at);
     })
     // Erst wer unmittelbar hier ist, dann nach Ort darunter, dann nach Namen.
     .sort(
@@ -260,15 +259,11 @@ export function castView(data: CampaignData, placeId: string): CastView {
     );
 
   const away = cast.away.map((p) => {
-    const elsewhere = placeName(p.person.placeId);
+    const at = personPlace(data, p);
+    const elsewhere = placeName(at);
     // Bei Toten und Verschollenen sagt das Schicksal schon alles.
     const unknown = STATUS_NOTE[p.person.status] ? null : 'Aufenthalt unbekannt';
-    return personRow(
-      data,
-      p,
-      elsewhere ? `jetzt: ${elsewhere}` : unknown,
-      elsewhere ? p.person.placeId : null,
-    );
+    return personRow(data, p, elsewhere ? `jetzt: ${elsewhere}` : unknown, elsewhere ? at : null);
   });
 
   const lost = cast.lost.map((p) => personRow(data, p, null, null));
@@ -389,7 +384,10 @@ export function nearbyPlaces(data: CampaignData, placeId: string): Nearby {
     const ids = placeSubtreeIds(data, place.id);
     return {
       place,
-      people: persons.filter((p) => p.person.placeId && ids.has(p.person.placeId)).length,
+      people: persons.filter((p) => {
+        const at = personPlace(data, p);
+        return at !== null && ids.has(at);
+      }).length,
     };
   });
   return { parent: placeAncestors(data, placeId)[0] ?? null, children };

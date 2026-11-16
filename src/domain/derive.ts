@@ -277,6 +277,41 @@ export interface PlaceCast {
   characters: Character[];
 }
 
+/**
+ * Wem eine Person gerade folgt: Begleitet sie die Gruppe oder einen Gefährten (Beziehung der Art
+ * „begleitet“, nicht beendet), zieht sie mit – ihr eigener Ort gilt dann nicht. null = niemandem.
+ */
+export function followedBy(
+  data: Pick<CampaignData, 'relations' | 'entities'>,
+  personId: string,
+): string | null {
+  for (const relation of Object.values(data.relations)) {
+    if (relation.from !== personId || relation.type !== 'companion' || relation.ended) continue;
+    if (relation.to === PARTY_ID) return PARTY_ID;
+    if (data.entities[relation.to]?.kind === 'character') return relation.to;
+  }
+  return null;
+}
+
+/**
+ * Wo eine Person gerade ist. Wer die Gruppe begleitet, ist dort, wo die Gruppe (bei getrennten
+ * Wegen: die Teilgruppe des Gefährten, dem sie folgt) ist – nie gespeichert, sonst bliebe sie beim
+ * ersten Schritt zurück. Sonst ihr eingetragener Aufenthalt.
+ */
+export function personPlace(
+  data: Pick<CampaignData, 'relations' | 'entities' | 'state'>,
+  person: Person,
+): string | null {
+  const leader = followedBy(data, person.id);
+  if (leader === null) return person.person.placeId;
+  const party = data.state.placeId ?? person.person.placeId;
+  if (leader === PARTY_ID) return party;
+  const mate = data.entities[leader];
+  if (mate?.kind !== 'character' || mate.character.status === 'dead') return person.person.placeId;
+  const group = data.state.groups.find((g) => g.memberIds.includes(leader));
+  return group?.placeId ?? mate.character.placeId ?? party;
+}
+
 /** Wer spielt an diesem Ort eine Rolle? */
 export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   const ids = placeSubtreeIds(data, placeId);
@@ -286,7 +321,7 @@ export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   // Ein ungewisses Schicksal ist noch keins: Der steht weiter da, mit seinem Vermerk.
   const gone = (p: Person) => p.person.status === 'dead' || p.person.status === 'missing';
   const alive = persons.filter((p) => !gone(p));
-  const present = alive.filter((p) => here(p.person.placeId));
+  const present = alive.filter((p) => here(personPlace(data, p)));
   const presentIds = new Set(present.map((p) => p.id));
   const away = alive.filter((p) => !presentIds.has(p.id) && here(p.person.homeId));
   const lost = persons.filter((p) => gone(p) && (here(p.person.placeId) || here(p.person.homeId)));

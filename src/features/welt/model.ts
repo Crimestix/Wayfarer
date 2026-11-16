@@ -10,6 +10,7 @@ import {
   entityCategory,
   entityName,
   placeAncestors,
+  personPlace,
   placeSubtreeIds,
   relationPairs,
   searchEntities,
@@ -328,7 +329,8 @@ export function entitySubline(data: CampaignData, entity: Entity): string {
     case 'person':
       parts.push(entity.person.role);
       if (entity.person.status !== 'alive') parts.push(PERSON_STATUS_LABEL[entity.person.status]);
-      if (entity.person.placeId) parts.push(entityName(data, entity.person.placeId));
+      const at = personPlace(data, entity);
+      if (at) parts.push(entityName(data, at));
       break;
     case 'faction':
       parts.push(entity.faction.category);
@@ -567,7 +569,7 @@ export function castSubline(
 ): string {
   const parts = [person.person.role];
   if (person.person.status !== 'alive') parts.push(PERSON_STATUS_LABEL[person.person.status]);
-  const at = person.person.placeId;
+  const at = personPlace(data, person);
   if (away) parts.push(at ? `zurzeit: ${entityName(data, at)}` : 'Aufenthalt unbekannt');
   else if (at && at !== placeId) parts.push(entityName(data, at));
   return parts.filter(Boolean).join(' · ');
@@ -733,7 +735,7 @@ export function galleryPeople(data: CampaignData, filter: GalleryFilter): Person
       (p) =>
         (filter.known === 'all' || p.person.met === (filter.known === 'known')) &&
         (ids === null ||
-          inPlace(p.person.placeId) ||
+          inPlace(personPlace(data, p)) ||
           inPlace(p.person.homeId) ||
           inPlace(p.person.workplaceId)),
     )

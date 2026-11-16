@@ -307,6 +307,10 @@ nicht übernommen.
   Dauer bei trockenem Wetter. Wer im Viertel steht, steht auch in der Stadt: `routeBetween`
   nimmt die Wege der Orte darüber, wenn vom Ort selbst keiner zum Ziel führt, und lässt am Ziel
   den Ort gelten, in dem es liegt – angekommen ist die Gruppe bei `route.toId`.
+  Gewaltmarsch (`domain/march.ts`): gezählt seit der letzten Langen Rast, höchstens über 24
+  Stunden, nie ab Mitternacht – Wege (`travel.minutes` am Ortswechsel, gesetzt von `walk`) und
+  Schritte der Hexkarten (`area.party.legs`) zusammen: `marchedMinutes`, vorab `marchAfter`, in
+  Worten `marchRule`. Nur ein Hinweis (Weg, Dialog, Meldung nach der Ankunft), nie ein Halt.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und
@@ -768,7 +772,9 @@ nicht übernommen.
   wird über `readDatePoint` („3. Tauwind 667“, „667“, „vor 300 Jahren“, „Alter 34“), auch aus dem
   Steckbrief (Geboren, Alter, Gegründet, Gestorben …). Ein Tod aus der Chronik zählt ohne Tag.
 - Wer an einem Ort ist, sagt `placeCast()` (`domain/derive.ts`): Tote und Verschollene sind nie
-  anwesend, sie stehen für sich in `lost`.
+  anwesend, sie stehen für sich in `lost`. Wo eine Person gerade ist, sagt `personPlace()` – nie
+  `person.placeId` direkt: Wer die Gruppe oder einen Gefährten begleitet (Beziehung `companion`,
+  `followedBy`), ist dort, wo die Gruppe ist; das wird nie gespeichert.
 - Kontinuität („Passt nicht zusammen“, `domain/continuity.ts`): `continuityIssues()` meldet
   Widersprüche leise – auf „Noch offen“ und als Hinweis auf der Seite eines Eintrags, nie als
   Rückfrage oder Toast. Geprüft wird nach Eintrag (id), nie nach Namen; gleiche Namen sind nur ein

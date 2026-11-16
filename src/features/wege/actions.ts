@@ -81,6 +81,12 @@ export interface WalkResult {
   undo: () => void;
 }
 
+/** Die Dauer eines Weges am Ortswechsel – sie zählt für den Gewaltmarsch (`domain/march.ts`). */
+function noteMinutes(db: CampaignDb, entryId: string, minutes: number): void {
+  const travel = db.getSnapshot().chronicle[entryId]?.travel;
+  if (travel) db.patch('chronicle', entryId, { travel: { ...travel, minutes } });
+}
+
 /**
  * Die Gruppe geht zu einem Ort: Erst vergeht die Zeit des Weges, dann kommt sie an. `note` steht
  * am Ortswechsel in der Chronik.
@@ -101,6 +107,7 @@ export function walk(
   const data = db.getSnapshot();
   if (!isWholeLed(data, who)) {
     const sent = sendOff(db, who, toId, length, note);
+    if (sent.entry && length > 0) noteMinutes(db, sent.entry.id, length);
     return {
       advance: sent.advance.occurred.length || sent.advance.steps.length ? sent.advance : null,
       entry: sent.entry,
@@ -112,6 +119,7 @@ export function walk(
     const start = db.getSnapshot().state.now;
     const advance = length > 0 ? advanceTime(db, start + length) : null;
     const entry = moveParty(db, toId, note);
+    if (entry && length > 0) noteMinutes(db, entry.id, length);
     const state = db.getSnapshot().state;
     const leadId = state.leadId;
     const doingBefore = state.groups.find((group) => group.id === leadId)?.doing ?? null;
