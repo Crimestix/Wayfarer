@@ -253,7 +253,8 @@ export function boardWeb(
   for (const card of lying)
     for (const thread of card.threads) {
       cardOf.set(thread.id, card.key);
-      seen.set(thread.id, thread);
+      // Gelöst oder verloren: Der Faden ist erledigt – er hält auf dem Brett keine Schnur mehr.
+      if (threadLive(thread) || !card.story) seen.set(thread.id, thread);
     }
 
   /** Alle Paare von Fäden, die eine Schnur verbinden könnte. */

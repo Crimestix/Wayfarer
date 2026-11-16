@@ -546,3 +546,23 @@ describe('Jede Schnur lässt sich lösen', () => {
     expect(detachName(db, `knot:${a.id}`, arena.id)).toBeNull();
   });
 });
+
+describe('Erledigte Fäden verschwinden vom Brett', () => {
+  it('ein gelöster oder verlorener Faden hält keinen Knoten und keine Schnur mehr', async () => {
+    const { db, data, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    const other = newStory(db, { title: 'Der Salzhandel' });
+    const a = thread('Wer kämpft?', { storyId: story.id });
+    const b = thread('Wer kauft?', { storyId: other.id });
+    tieThreads(db, a.id, b.id);
+    expect(boardWeb(data(), boardCards(data())).strings).toHaveLength(1);
+    db.patch('threads', a.id, { state: 'solved' });
+    const web = boardWeb(data(), boardCards(data()));
+    expect(web.strings).toEqual([]);
+    expect(web.knots).toEqual([]);
+    // Die Verbindung selbst bleibt gespeichert – wird er wieder offen, ist sie wieder da.
+    expect(isTied(data(), a.id, b.id)).toBe(true);
+    db.patch('threads', a.id, { state: 'open' });
+    expect(boardWeb(data(), boardCards(data())).strings).toHaveLength(1);
+  });
+});

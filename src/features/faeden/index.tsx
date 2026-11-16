@@ -516,12 +516,22 @@ export default function FaedenPage() {
     const entity = data.entities[line.entityId];
     // Gelöst wird überall, worüber der Name an der Karte hängt – Fäden als Knoten hängen für sich.
     const detached = detachName(db, line.owner, line.entityId, knotThreadsOf(line.owner));
-    if (detached)
-      done(
-        'Gelöst',
-        `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“ (${detached.sources.join(', ')}).`,
-        detached.undo,
-      );
+    if (!detached) return;
+    // Hing der Name nur hier, verschwindet er ganz vom Brett – auch wenn er einmal verschoben wurde.
+    const pinKey = `node:${line.entityId}`;
+    const alone =
+      layout.pins.find((entry) => entry.key === pinKey)?.cards.every((key) => key === line.owner) ??
+      false;
+    const undoSpot = alone ? takeFreeOffBoard(db, [pinKey]) : null;
+    done(
+      'Gelöst',
+      `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“ (${detached.sources.join(', ')}).`,
+      () =>
+        db.batch(() => {
+          detached.undo();
+          undoSpot?.();
+        }),
+    );
   };
   /** Die Fäden einer Geschichte, die als Knoten für sich hängen – ihre Namen gehören ihnen. */
   const knotThreadsOf = (cardKey: string): Set<string> =>
