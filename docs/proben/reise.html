@@ -1,0 +1,255 @@
+<title>Reise durch die Dunkelweite</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Probe vom 16. 11. 2026 (Station 2 „Reise durchs Unterreich“, docs/VERSION-1.md) – kein Teil der
+  App. Bericht über eine geleitete Reise in einer erfundenen Welt und ein Vorschlag als Bild.
+  Alle Namen sind erfunden. Läuft als eigenständige Seite ohne die App.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  /* Wayfarers eigene Werkstoffe: geschwärztes Holz, Leder, Pergament als Schrift, Messing.
+     Bewusst nur dunkel – so sieht die App aus. Lesespalte links, Bild des Vorschlags in der Mitte. */
+  :root {
+    color-scheme: dark;
+    --bg-void: #070605; --bg-0: #0c0a09; --bg-1: #131010; --bg-2: #1a1614; --bg-3: #241e1a;
+    --bg-inset: #0a0808;
+    --line-faint: #2b231d; --line: #43362a; --line-strong: #5a4830;
+    --ink: #e9dfc9; --ink-soft: #c8bca3; --ink-mute: #a09278; --ink-faint: #786c5b;
+    --gold: #c9a35b; --gold-bright: #efd497; --gold-deep: #8b6c34; --gold-glow: rgba(201,163,91,.16);
+    --blood: #9d2f2a; --blood-bright: #d9584c; --blood-wash: rgba(157,47,42,.16);
+    --ember: #d58c3c; --ember-wash: rgba(213,140,60,.14);
+    --moss: #8fae7a;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-caps: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Crimson Pro', Georgia, serif;
+  }
+  body { background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: 2.6rem; line-height: 1.1; color: var(--ink); }
+  h2 { font-size: 1.7rem; margin-top: 56px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.25rem; }
+  .caps { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+  .mute { color: var(--ink-mute); }
+  .gold { color: var(--gold-bright); }
+  p { margin: 0; max-width: 68ch; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .lead { font-size: 1.12rem; color: var(--ink-soft); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 18px; font-variant-numeric: tabular-nums; }
+  .facts div { display: flex; flex-direction: column; }
+  .facts b { font-family: var(--font-display); font-size: 1.5rem; color: var(--gold-bright); font-weight: 600; }
+
+  /* Befunde */
+  .finds { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
+  .find { display: grid; grid-template-columns: 9.5rem minmax(0,1fr); gap: 4px 18px; padding: 14px 16px;
+    background: var(--bg-1); border: 1px solid var(--line-faint); border-left: 3px solid var(--line-strong); }
+  .find.bug { border-left-color: var(--blood-bright); }
+  .find.gap { border-left-color: var(--ember); }
+  .find.good { border-left-color: var(--moss); }
+  .find .tag { font-family: var(--font-caps); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); padding-top: 3px; }
+  .find.bug .tag { color: var(--blood-bright); }
+  .find.gap .tag { color: var(--ember); }
+  .find.good .tag { color: var(--moss); }
+  .find h3 { font-size: 1.12rem; }
+  .find p { color: var(--ink-soft); }
+  .find .where { font-size: .9rem; color: var(--ink-faint); margin-top: 4px; }
+  @media (max-width: 640px) { .find { grid-template-columns: minmax(0,1fr); } }
+
+  /* Bild des Vorschlags – nachgebaut im Stil der App */
+  .stage { margin-top: 22px; padding: 18px; background: var(--bg-void); border: 1px dashed var(--line-strong); overflow-x: auto; }
+  .stage-note { font-size: .92rem; color: var(--ink-mute); margin-bottom: 12px; }
+  .table { display: grid; grid-template-columns: 340px 280px 300px; gap: 14px; min-width: 950px; align-items: start; }
+  .panel { position: relative; background: linear-gradient(180deg, #1b1613, #141110); border: 1px solid var(--line); padding: 16px; }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 1px solid var(--gold-deep); }
+  .panel::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+  .panel::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+  .ptitle { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .route { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.05; margin: 6px 0 2px; font-weight: 600; }
+  .sub { font-size: .92rem; color: var(--ink-mute); font-style: italic; }
+  .track { position: relative; height: 34px; margin: 14px 4px 6px; }
+  .track .line { position: absolute; left: 0; right: 0; top: 15px; height: 2px; background: var(--line-strong); }
+  .track .done { position: absolute; left: 0; width: 41%; top: 15px; height: 2px; background: var(--gold); }
+  .track .dot { position: absolute; top: 10px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--gold-deep); background: var(--bg-2); transform: translateX(-50%); }
+  .track .dot.here { border-color: var(--gold-bright); background: var(--gold); box-shadow: 0 0 0 4px var(--gold-glow); }
+  .track .dot.feat { width: 8px; height: 8px; top: 12px; border-color: var(--ink-faint); }
+  .track .lab { position: absolute; top: 26px; font-size: .74rem; color: var(--ink-mute); transform: translateX(-50%); white-space: nowrap; }
+  .rows { display: grid; grid-template-columns: 6.2rem minmax(0,1fr); gap: 6px 10px; margin-top: 18px; font-size: .95rem; }
+  .rows dt { font-family: var(--font-caps); font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); padding-top: 3px; }
+  .rows dd { margin: 0; color: var(--ink-soft); }
+  .meter { display: inline-block; vertical-align: middle; width: 90px; height: 5px; background: var(--bg-inset); border: 1px solid var(--line); margin-left: 6px; }
+  .meter i { display: block; height: 100%; width: 66%; background: var(--gold-deep); }
+  .warm { color: var(--ember); }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .btn { font-family: var(--font-body); font-size: .92rem; padding: 6px 12px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--ink-soft); }
+  .btn.primary { background: linear-gradient(180deg, #d9b36a, #a8833f); color: #1a120a; border-color: var(--gold-deep); font-weight: 600; }
+  .stops { font-size: .82rem; color: var(--ink-faint); margin-top: 6px; }
+  .halt { margin-top: 16px; padding: 12px; background: var(--ember-wash); border: 1px solid #6a4a26; }
+  .halt h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+  .halt p { font-size: .93rem; color: var(--ink-soft); }
+  .roll { font-variant-numeric: tabular-nums; color: var(--gold-bright); }
+  .log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; font-size: .93rem; }
+  .log li { display: grid; grid-template-columns: 3.1rem minmax(0,1fr); gap: 8px; color: var(--ink-soft); }
+  .log time { font-variant-numeric: tabular-nums; color: var(--ink-mute); font-size: .86rem; padding-top: 1px; }
+  .log .k { font-family: var(--font-caps); font-size: .64rem; letter-spacing: .12em; color: var(--ink-faint); text-transform: uppercase; display: block; }
+  .ghost { opacity: .45; }
+  .who { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip { font-size: .85rem; padding: 1px 8px; border: 1px solid var(--line); color: var(--ink-soft); }
+  .chip.npc { border-style: dashed; }
+
+  /* Gelände-Vorschlag */
+  .tbl-wrap { overflow-x: auto; margin-top: 16px; }
+  table { border-collapse: collapse; min-width: 560px; width: 100%; font-size: .96rem; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line-faint); vertical-align: top; }
+  th { font-family: var(--font-caps); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); font-weight: 500; }
+  td:first-child { font-family: var(--font-display); font-size: 1.1rem; color: var(--ink); white-space: nowrap; }
+  td { color: var(--ink-soft); }
+
+  .steps { counter-reset: s; list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.2rem minmax(0,1fr); gap: 12px; }
+  .steps li::before { content: counter(s); font-family: var(--font-display); font-size: 1.6rem; color: var(--gold); line-height: 1; }
+  .steps p { color: var(--ink-soft); }
+  .q { margin-top: 18px; display: grid; gap: 12px; }
+  .q div { padding: 12px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .q b { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .q span { color: var(--ink-soft); }
+  footer { margin-top: 56px; font-size: .9rem; color: var(--ink-faint); }
+</style>
+
+<div class="wrap">
+  <div class="caps">Probe · Station 2 auf dem Weg zu Version 1.0 · Nacht zum 17. 11.</div>
+  <h1 style="margin-top:10px">Reise durch die Dunkelweite</h1>
+  <div class="stack" style="margin-top:16px">
+    <p class="lead">Ich habe in einer erfundenen Welt eine Reise unter der Erde geleitet, so wie sie euch bevorsteht: vier Gefährten mit einer Führerin, eine Stadt als Start, Höhlen, ein See, eine Festung der Grauzwerge und ein Ziel ohne bekannten Weg dorthin. Geleitet am Spieltisch, im Format deines MacBooks (1440 × 900).</p>
+    <p class="mute">An Wayfarer selbst habe ich nichts verändert. Unten stehen, was gut lief, was hakt, und ein Vorschlag als Bild. Gebaut wird erst nach deinem Ja.</p>
+  </div>
+  <div class="facts">
+    <div><b>5</b><span class="caps">Etappen</span></div>
+    <div><b>~330 km</b><span class="caps">Strecke</span></div>
+    <div><b>4 Tage</b><span class="caps">Weltzeit</span></div>
+    <div><b>2</b><span class="caps">Nachtlager</span></div>
+    <div><b>1</b><span class="caps">Hexkarte, 150 km</span></div>
+  </div>
+
+  <h2>Was gut lief</h2>
+  <ul class="finds">
+    <li class="find good"><span class="tag">Licht</span><div><h3>Das Feld „Dunkelheit“ in der Weltleiste</h3><p>Ein Klick zeigt sofort, wer ohne Licht nichts sieht, wer Dunkelsicht hat und wie lange die Fackel noch brennt. Eine Fackel ist mit einem Klick angezündet und erlischt von selbst.</p></div></li>
+    <li class="find good"><span class="tag">Rast</span><div><h3>Lange Rast mit Wachplan</h3><p>Die Wachen verteilt Wayfarer selbst, jede mit passiver Wahrnehmung, und eine Störung in der Nacht lässt sich stundengenau setzen.</p></div></li>
+    <li class="find good"><span class="tag">Wege</span><div><h3>Wegsuche über mehrere Etappen</h3><p>Vom See zur Festung fand Wayfarer den Weg über die Kluft und sagte ruhig dazu, dass der Wasserweg ein Boot braucht. Verboten hat es nichts.</p></div></li>
+    <li class="find good"><span class="tag">Erkennen</span><div><h3>„Unter der Erde“ von selbst erkannt</h3><p>Aus dem Wort „Unterreich“ beim obersten Ort wusste Wayfarer überall, dass es keinen Himmel gibt, und die Hexkarte wählte das passende Gelände.</p></div></li>
+    <li class="find good"><span class="tag">Welt</span><div><h3>Die Uhr der Geschichte läuft mit</h3><p>Während der Reise rückte der nächste Schritt der Grauzwerge sichtbar näher, ohne dass ich etwas tun musste.</p></div></li>
+  </ul>
+
+  <h2>Was am Tisch stören würde</h2>
+  <p class="mute" style="margin-top:12px">Rot sind Fehler, die man einfach reparieren kann. Orange sind Lücken, für die es den Vorschlag weiter unten braucht.</p>
+  <ul class="finds">
+    <li class="find bug"><span class="tag">Fehler</span><div><h3>Der zweite Weg aus einem Ort ist unsichtbar</h3><p>Aus den Glimmergrotten führten zwei Wege. Am Spieltisch war nur einer zu sehen, der zweite war abgeschnitten. Das Menü daneben zeigt ihn zwar, aber nur zum Bearbeiten, nicht zum Losgehen. Wer es nicht weiß, findet ihn nicht.</p><p class="where">Spieltisch, Zeile „Wege“ unter dem Ort</p></div></li>
+    <li class="find bug"><span class="tag">Fehler</span><div><h3>Die Führerin bleibt zurück</h3><p>Veyra „begleitet die Gruppe“, blieb aber beim ersten Schritt in der Stadt stehen. Sie stand an keinem späteren Ort bei „Wer hier ist“, nicht in der Marschordnung und nicht im Wachplan.</p></div></li>
+    <li class="find bug"><span class="tag">Fehler</span><div><h3>Der Gewaltmarsch zählt ab Mitternacht</h3><p>Auf der Hexkarte bin ich 22 Stunden am Stück gelaufen. Weil um Mitternacht ein neuer Tag begann, stand danach „4 Std. 35 Min. gereist“ da, ohne Warnung. Nach den Regeln zählt die Zeit seit der letzten langen Rast. Über Wege gibt es den Hinweis gar nicht: 12½ und 14½ Stunden am Stück liefen ohne ein Wort durch.</p></div></li>
+    <li class="find bug"><span class="tag">Fehler</span><div><h3>Knöpfe ragen aus der Reise-Spalte</h3><p>Auf der Hexkarte sind „Gruppe nach Nachtzinne versetzen“ und die Auswahl „Womit“ breiter als ihre Spalte und werden abgeschnitten. In der Weltleiste ist der Ortsname oft nur drei Buchstaben lang („Fäh…“).</p></div></li>
+    <li class="find gap"><span class="tag">Lücke</span><div><h3>Hexkarte und Spieltisch wissen nichts voneinander</h3><p>Die Gruppe war auf der Hexkarte schon 40 km in den Gängen, aber der Spieltisch zeigte sie noch in der Festung: der Kommandant „hier“, dämmriges Licht statt Dunkelheit, die Rast „in Kesselbrück“. Kein Schritt der Hexkarte landete in der Mitschrift, und was unterwegs entdeckt wurde, ist danach nirgends mehr zu lesen.</p></div></li>
+    <li class="find gap"><span class="tag">Lücke</span><div><h3>Lange Strecken gehen in einem Rutsch</h3><p>Ein Klick auf einen Weg ließ sofort zehn Stunden vergehen, bis zwei Uhr nachts. Die Route über die Kluft lief 14½ Stunden ohne Halt, und die Kluft unterwegs zählt nicht als besucht. Es gibt keinen Reisetag mit Halt am Abend, wie ihr ihn am Tisch spielt.</p></div></li>
+    <li class="find gap"><span class="tag">Lücke</span><div><h3>Begegnungstabellen kann man nicht anlegen</h3><p>Die Hexkarte würfelt zwar auf Begegnungs- und Entdeckungstabellen, aber es gibt nirgends einen Ort, an dem man sie schreibt oder einer Gegend gibt. Sie kommen nur aus der alten Übernahme. Wege und Nachtlager würfeln nie.</p></div></li>
+    <li class="find gap"><span class="tag">Lücke</span><div><h3>Unter der Erde gibt es nur ein Gelände</h3><p>150 km Hexkarte bestanden zu 96 % aus „Unterreich“ und zu 4 % aus Wasser. Enge Gänge, große Höhlen, Pilzwälder, Klüfte gibt es nur als Besonderheit eines Feldes, nicht als Gelände mit eigenem Tempo.</p></div></li>
+    <li class="find gap"><span class="tag">Lücke</span><div><h3>Ohne Weg wird es „Keine Zeit“</h3><p>Wer zu einem fernen Ort ohne Weg zieht, bekommt „Keine Zeit“ vorgewählt, und mehr als „1 Tag“ gibt es nicht als Knopf. Eine Hexkarte für diese Strecke bietet das Fenster nicht an.</p></div></li>
+    <li class="find"><span class="tag">Kleinigkeit</span><div><h3>Weitere Kleinigkeiten</h3><p>Wer im Dunkeln Wache hält und nichts sieht, bekommt keinen Hinweis. Die „Leuchtenden Pilzwälder“ galten als stockdunkel. Die Packechse geht nur als „Reittier“, ein Lasttier gibt es nicht. Vorräte für drei Wochen stehen nur als Notiz da.</p></div></li>
+  </ul>
+
+  <h2>Vorschlag: Unterwegs am Spieltisch</h2>
+  <div class="stack" style="margin-top:14px">
+    <p>Eine Reise ist ein Zustand des Spieltischs. Solange die Gruppe unterwegs ist, zeigt die linke Spalte keinen Ort, sondern die Reise: woher, wohin, wie weit, Licht, wer mitzieht. Es ist egal, ob die Strecke aus Wegen, einer Hexkarte oder beidem besteht.</p>
+    <p>Der wichtigste Knopf heißt <span class="gold">„Bis zur nächsten Entscheidung“</span>. Wayfarer geht dann Feld für Feld oder Weg für Weg voran und hält von selbst an, sobald etwas für dich zu entscheiden ist: ein Ort am Weg, etwas, das du dort vorbereitet hast, eine Besonderheit, eine Begegnung aus deiner Tabelle, ein Termin oder ein Schritt einer Uhr, ein Licht, das erlischt, oder acht Stunden seit der letzten Rast. Was unterwegs geschah, steht danach in der Mitschrift, mit Uhrzeit.</p>
+  </div>
+
+  <div class="stage" role="img" aria-label="Bild des Vorschlags: Spieltisch während einer Reise">
+    <div class="stage-note">So könnte es aussehen. Das ist nachgebaut, kein Teil der App. Die Mitte („Im Spiel“) bleibt, wie sie ist.</div>
+    <div class="table">
+      <section class="panel">
+        <div class="ptitle">Unterwegs · Die Dunkelweite</div>
+        <div class="route">Kesselbrück → Nachtzinne</div>
+        <div class="sub">Tag 2 der Reise · 62 von 150 km · etwa 2 Tage noch</div>
+        <div class="track" aria-hidden="true">
+          <span class="line"></span><span class="done"></span>
+          <span class="dot" style="left:0%"></span><span class="lab" style="left:6%">Kesselbrück</span>
+          <span class="dot feat" style="left:18%"></span>
+          <span class="dot feat" style="left:30%"></span>
+          <span class="dot here" style="left:41%"></span><span class="lab" style="left:41%">hier</span>
+          <span class="dot feat" style="left:66%"></span>
+          <span class="dot" style="left:100%"></span><span class="lab" style="left:92%">Nachtzinne</span>
+        </div>
+        <dl class="rows">
+          <dt>Seit der Rast</dt><dd>5 Std. 20 Min. von 8 <span class="meter"><i></i></span></dd>
+          <dt>Gelände</dt><dd>Enge Kriechgänge · <span class="warm">langsam</span></dd>
+          <dt>Licht</dt><dd>Fackel, noch 20 Min. · Dunkelsicht: Thrain, Ilyth</dd>
+          <dt>Zieht mit</dt><dd><div class="who"><span class="chip">Aldric</span><span class="chip">Ilyth</span><span class="chip">Sefa</span><span class="chip">Thrain</span><span class="chip npc">Veyra · Führerin</span></div></dd>
+        </dl>
+        <div class="halt">
+          <h4>Halt: Begegnung</h4>
+          <p>Prüfung <span class="roll">W20 = 16</span> (ab 15). Deine Tabelle „Begegnungen in der Dunkelweite“, <span class="roll">W8 = 1</span>: <b>Eine Grauzwerg-Streife (4)</b>.</p>
+          <div class="btns" style="margin-top:10px"><span class="btn">Begegnung öffnen</span><span class="btn">Trotzdem weiter</span></div>
+        </div>
+        <div class="btns">
+          <span class="btn primary">Bis zur nächsten Entscheidung</span>
+          <span class="btn">1 Stunde</span>
+          <span class="btn">Lager aufschlagen</span>
+        </div>
+        <div class="stops">Hält an bei: Ort am Weg · Vorbereitetem · Besonderheit · Begegnung · Termin · Licht aus · 8 Stunden</div>
+      </section>
+
+      <section class="panel ghost">
+        <div class="ptitle">Im Spiel</div>
+        <div class="route" style="font-size:1.4rem">Der Zug nach Nachtzinne</div>
+        <div class="sub">In 1 Tag 11 Std.: Die Grauzwerge verdoppeln die Wachen am Schlund.</div>
+        <div class="sub" style="margin-top:14px">bleibt, wie es heute ist</div>
+      </section>
+
+      <section class="panel">
+        <div class="ptitle">Mitschrift · heute</div>
+        <ul class="log">
+          <li><time>06:15</time><span><span class="k">Reise</span>Aufbruch aus Kesselbrück, Richtung Nachtzinne</span></li>
+          <li><time>08:40</time><span><span class="k">Unterwegs</span>Pilzhain (Besonderheit des Feldes)</span></li>
+          <li><time>10:05</time><span><span class="k">Unterwegs</span>Enge Kriechgänge – es geht nur langsam voran</span></li>
+          <li><time>10:30</time><span><span class="k">Licht</span>Fackel erloschen, neue angezündet</span></li>
+          <li><time>11:35</time><span><span class="k">Begegnung</span>Grauzwerg-Streife (4)</span></li>
+        </ul>
+        <div class="sub" style="margin-top:12px">Wayfarer schreibt nur, was geschah, in kurzen Zeilen. Erzählen tust du.</div>
+      </section>
+    </div>
+  </div>
+
+  <h3 style="margin-top:36px">Gelände unter der Erde</h3>
+  <p class="mute" style="margin-top:6px">Damit „verschiedenes Gelände des Unterreichs“ auf der Hexkarte steht und das Tempo bestimmt. Ein Vorschlag, Namen und Sorten bestimmst du.</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Gelände</th><th>Tempo höchstens</th><th>Was es ausmacht</th></tr></thead>
+      <tbody>
+        <tr><td>Gänge</td><td>normal</td><td>Der übliche Weg: Tunnel und Stollen</td></tr>
+        <tr><td>Große Höhle</td><td>normal</td><td>Weit und offen, man sieht nicht ans Ende</td></tr>
+        <tr><td>Enge Kriechgänge</td><td>langsam</td><td>Gebückt, Lasttiere kommen schwer durch</td></tr>
+        <tr><td>Pilzwald</td><td>normal</td><td>Leuchtet schwach, Nahrung, Sporen</td></tr>
+        <tr><td>Kluft, Abgrund</td><td>langsam</td><td>Klettern, Seile, Brücken</td></tr>
+        <tr><td>Unterirdisches Wasser</td><td>nur mit Boot</td><td>See oder Fluss, wie Wasser oben</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>In welcher Reihenfolge</h2>
+  <ol class="steps">
+    <li><div><h3>Reparieren</h3><p>Zweiter Weg sichtbar und begehbar, Gewaltmarsch seit der letzten Rast (auch auf Wegen, als Hinweis), Knöpfe in der Reise-Spalte, Ortsname in der Weltleiste. Klein, das ginge gleich.</p></div></li>
+    <li><div><h3>Begleiter ziehen mit</h3><p>Wer die Gruppe „begleitet“, geht mit ihr, steht bei „Wer hier ist“ und in der Marschordnung und kann Wache halten.</p></div></li>
+    <li><div><h3>Unterwegs am Spieltisch</h3><p>Das Bild oben: Reise als Zustand, „Bis zur nächsten Entscheidung“, Lager aufschlagen, Mitschrift-Zeilen. Die Hexkarte-Seite bleibt zum Vorbereiten und Ansehen.</p></div></li>
+    <li><div><h3>Deine Tabellen</h3><p>Begegnungen und Entdeckungen als eigene Tabellen, einer Gegend zugeordnet (im Bestiarium neben den Begegnungen). Wayfarer würfelt darauf unterwegs und im Nachtlager, als Vorschlag.</p></div></li>
+    <li><div><h3>Gelände unten</h3><p>Die Sorten aus der Tabelle, mit Tempo und eigenen Besonderheiten.</p></div></li>
+  </ol>
+
+  <h2>Was ich von dir brauche</h2>
+  <div class="q">
+    <div><b>Passt „Unterwegs am Spieltisch“?</b><span>Oder lieber auf der Hexkarte-Seite bleiben und nur den Spieltisch mitziehen lassen?</span></div>
+    <div><b>Wie oft soll unterwegs geprüft werden?</b><span>Je vier Stunden Reise und einmal in der Nacht wäre mein Vorschlag. Oder morgens, mittags, abends, nachts, oder je Feld?</span></div>
+    <div><b>Welche Gelände-Sorten unten?</b><span>Die sechs aus der Tabelle, oder andere?</span></div>
+    <div><b>Vorräte zählen?</b><span>Tage Proviant und Wasser als Leiste, die mit jedem Reisetag sinkt, nur als Hinweis. Oder führen das die Spieler selbst?</span></div>
+  </div>
+
+  <footer>Probe-Welt erfunden (Dunkelweite, Schwarzkluft, Kesselbrück, Nachtzinne). Nichts davon stammt aus deiner Kampagne, nichts davon liegt in deinem Spielstand.</footer>
+</div>
