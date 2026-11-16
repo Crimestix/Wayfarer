@@ -79,7 +79,10 @@ lässt sich in 0.1.4 nicht mehr einspielen – Mac und Windows beide auf 0.1.5.
 **Danach: Tag `v0.1.6` auf `f659b37` (16. 11.)** – Netz der Fäden, Fadenbrett als Whiteboard
 (Schritte 1–4: anfassen, Suchfeld/Artikel, Bereiche, Geschichte an Geschichte), Welt: Zurück,
 Vergangenheit, Galerie für jede Art, Familien in Fraktionen, „Wen die Gruppe kennt“.
-**DATA_VERSION 10** – Mac und Windows beide auf 0.1.6. Der Spielleiter macht die Probe nach
+**DATA_VERSION 10** – Mac und Windows beide auf 0.1.6.
+**Danach: Tag `v0.1.7` auf `2243090` (16. 11.)** – Teilgeschichten auf dem Fadenbrett (Schnur
+„Teil von“, einhängen per Ziehen, einklappen, Teile unter ihrer großen). **DATA_VERSION 11** –
+Mac und Windows beide auf 0.1.7. Der Spielleiter macht die Probe nach
 `docs/abgleich/ANLEITUNG-PROBE.md` (Testordner, Wegwerf-Ablage). Offen danach: MacBook, dann
 echter Spielstand; Liste in `docs/WEITERARBEIT.md` → „Abgleich über GitHub 15. 11. 2026“.
 
