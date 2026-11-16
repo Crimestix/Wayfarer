@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 7;
-export const DATA_SHAPE = '0a199dd3e2ca301a';
+export const DATA_VERSION = 8;
+export const DATA_SHAPE = 'ca982abb34a92248';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -159,7 +159,9 @@ export const PlayStateSchema = z.object({
   watch: z.array(id).default([]),
   /**
    * Das Fadenbrett: wo der Spielleiter Karten und Namen hingelegt hat. Schlüssel sind
-   * `story:<id>`, `thread:<id>`, `knot:<id>` (Faden als Knoten) und `node:<id>`; was hier fehlt, legt Wayfarer selbst aus
+   * `story:<id>`, `thread:<id>`, `knot:<id>` (Faden als Knoten), `node:<id>` (Eintrag der Welt)
+   * und `article:<id>` (Artikel); ein Name oder Artikel, der hier steht, liegt auf dem Brett, auch
+   * wenn noch nichts an ihm hängt. Was hier fehlt, legt Wayfarer selbst aus
    * (`boardLayout` in `domain/story.ts`).
    */
   board: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).default({}),
@@ -1396,6 +1398,8 @@ export const ThreadSchema = z.object({
    * über `tiesOf` (`domain/threadWeb.ts`). `word` sagt, was sie verbindet – frei, darf leer sein.
    */
   ties: z.array(z.object({ id, word: z.string().default('') })).default([]),
+  /** Artikel des Wikis, die zu diesem Faden gehören (auch solche ohne Eintrag der Welt). */
+  articleIds: z.array(id).default([]),
 });
 export type Thread = z.infer<typeof ThreadSchema>;
 
@@ -1614,6 +1618,8 @@ export const StorySchema = z.object({
   inPlay: z.boolean().default(false),
   /** Auf dem Fadenbrett aufgeklappt: Ihre Fäden hängen als eigene Knoten an ihr. */
   unfolded: z.boolean().default(false),
+  /** Artikel des Wikis, die zu dieser Geschichte gehören (auch solche ohne Eintrag der Welt). */
+  articleIds: z.array(id).default([]),
   /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
   memo: z.string().default(''),
   /**

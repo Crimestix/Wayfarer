@@ -7,7 +7,7 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
-import { createEntity, newId, type Place } from '../../domain/schema';
+import { ArticleSchema, createEntity, newId, type Place } from '../../domain/schema';
 import { boardCards, boardLayout, insideOnBoard } from '../../domain/story';
 import { boardWeb, isTied, leadNote, neighboursOf, tieFits, tiesOf } from '../../domain/threadWeb';
 import { dismissSuggestion } from '../../data/actions';
@@ -16,6 +16,10 @@ import {
   connectOnBoard,
   mergeThreads,
   placeManyOnBoard,
+  placeOnBoard,
+  setArticleOn,
+  takeFreeOffBoard,
+  tidyBoard,
   setHintLead,
   takeOffBoard,
   writeOnBoard,
@@ -321,5 +325,63 @@ describe('Das Brett anfassen', () => {
     expect(all).toEqual(expect.arrayContaining([`story:${story.id}`, `node:${arena.id}`]));
     expect(all.some((key) => key.startsWith('knot:'))).toBe(true);
     expect(insideOnBoard(layout, { x: 5000, y: 5000 }, { x: 6000, y: 6000 })).toEqual([]);
+  });
+});
+
+describe('Artikel und Namen auf dem Brett', () => {
+  const article = (db: CampaignDb, title: string) =>
+    db.put(
+      'articles',
+      ArticleSchema.parse({
+        id: newId(),
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        title,
+      }),
+    );
+
+  it('legt Namen und Artikel frei hin und hängt sie mit einer Schnur an', async () => {
+    const { db, data, mira, thread } = await setup();
+    const lore = article(db, 'Die alte Prophezeiung');
+    const story = newStory(db, { title: 'Die Arena' });
+    const a = thread('Wer kämpft?', { storyId: story.id });
+    placeOnBoard(db, `node:${mira.id}`, 500, 500);
+    placeOnBoard(db, `article:${lore.id}`, 700, 500);
+    const free = Object.keys(data().state.board);
+    let layout = boardLayout(boardCards(data()), data().state.board, [], free);
+    expect(layout.pins.map((pin) => [pin.key, pin.article, pin.cards])).toEqual(
+      expect.arrayContaining([
+        [`node:${mira.id}`, false, []],
+        [`article:${lore.id}`, true, []],
+      ]),
+    );
+    const tied = connectOnBoard(db, `article:${lore.id}`, `thread:${a.id}`);
+    expect(tied).toMatchObject({ done: true, title: 'Artikel zugeordnet' });
+    expect(data().threads[a.id]!.articleIds).toEqual([lore.id]);
+    layout = boardLayout(boardCards(data()), data().state.board, [], free);
+    expect(layout.pins.find((pin) => pin.key === `article:${lore.id}`)!.cards).toEqual([
+      `story:${story.id}`,
+    ]);
+    expect(connectOnBoard(db, `article:${lore.id}`, `node:${mira.id}`)).toMatchObject({
+      done: false,
+    });
+    if (tied.done) tied.undo();
+    expect(data().threads[a.id]!.articleIds).toEqual([]);
+    expect(setArticleOn(db, 'stories', story.id, lore.id, true)).not.toBeNull();
+    expect(data().stories[story.id]!.articleIds).toEqual([lore.id]);
+  });
+
+  it('nimmt frei Hingelegtes vom Brett und behält es beim Aufräumen', async () => {
+    const { db, data, mira } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    placeOnBoard(db, `story:${story.id}`, 10, 10);
+    placeOnBoard(db, `node:${mira.id}`, 500, 500);
+    const undoTidy = tidyBoard(db);
+    expect(data().state.board).toEqual({ [`node:${mira.id}`]: { x: 500, y: 500 } });
+    undoTidy();
+    const undo = takeFreeOffBoard(db, [`node:${mira.id}`])!;
+    expect(data().state.board[`node:${mira.id}`]).toBeUndefined();
+    undo();
+    expect(data().state.board[`node:${mira.id}`]).toEqual({ x: 500, y: 500 });
   });
 });

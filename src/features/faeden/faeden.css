@@ -1724,3 +1724,85 @@
   color: var(--ink-mute);
   font-size: var(--text-xs);
 }
+
+/* ── Namen und Artikel aufs Brett holen ─────────────────────────────────── */
+.wf-faden-search {
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  z-index: 6;
+  width: min(320px, 60%);
+}
+.wf-faden-search .wf-input {
+  width: 100%;
+  background: var(--bg-1);
+}
+.wf-faden-search__hits {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--shadow-raised);
+}
+.wf-faden-search__hit {
+  display: grid;
+  grid-template-columns: 16px minmax(0, auto) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-faden-search__hit svg {
+  width: 14px;
+  height: 14px;
+  color: var(--gold-deep);
+}
+.wf-faden-search__hit em {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-faden-search__hit[aria-selected='true'] {
+  background: var(--bg-3);
+  color: var(--gold-bright);
+}
+.wf-faden-search__none {
+  padding: 5px 8px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+/* Ein Artikel auf dem Brett: wie ein Name, aber als Blatt */
+.wf-faden-pin--article {
+  border-style: double;
+  border-width: 3px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+.wf-faden-pin--article svg {
+  color: var(--gold-deep);
+}
+/* Frei hingelegt: Noch hängt nichts daran */
+.wf-faden-pin[data-free='true'] {
+  border-style: dashed;
+}
+.wf-faden-pin--article[data-free='true'] {
+  border-style: double;
+  opacity: 0.9;
+}
+.wf-faden-side__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--line);
+}

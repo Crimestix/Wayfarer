@@ -49,7 +49,25 @@ export const threadLive = (thread: Pick<Thread, 'state'>): boolean =>
 type StoryData = Pick<
   CampaignData,
   'entities' | 'state' | 'threads' | 'stories' | 'clocks' | 'paths' | 'maps' | 'relations'
->;
+> &
+  Partial<Pick<CampaignData, 'articles'>>;
+
+/**
+ * Die Artikel, die es noch gibt – jeder einmal; in der Sicht der Gruppe ohne verborgene. Ohne
+ * Artikel im Spielstand (Teile von Tests) keiner.
+ */
+export function articlesIn(
+  data: Partial<Pick<CampaignData, 'articles'>>,
+  ids: readonly string[],
+  party = false,
+): string[] {
+  const articles = data.articles;
+  if (!articles) return [];
+  return [...new Set(ids)].filter((id) => {
+    const article = articles[id];
+    return article !== undefined && !article.template && !(party && article.hidden);
+  });
+}
 
 const unique = (ids: readonly (string | null | undefined)[], data: StoryData): string[] => [
   ...new Set(ids.filter((id): id is string => !!id && data.entities[id] !== undefined)),
@@ -245,6 +263,8 @@ export interface BoardCard {
   threads: Thread[];
   title: string;
   nodes: string[];
+  /** Artikel des Wikis, die an der Karte hängen (an der Geschichte und an ihren Fäden). */
+  articles: string[];
   nearness: Nearness;
   pace: StoryPace;
   clock: ClockView | null;
@@ -298,6 +318,11 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       threads: shown,
       title: story.title,
       nodes,
+      articles: articlesIn(
+        data,
+        [...(party ? [] : story.articleIds), ...shown.flatMap((thread) => thread.articleIds)],
+        party,
+      ),
       nearness: nearness(data, nodes),
       // Wie weit die Uhr ist, weiß die Gruppe nur, wenn die Uhr nicht geheim ist.
       pace: party && clock?.clock.secret ? 'none' : pace,
@@ -321,6 +346,7 @@ export function boardCards(data: StoryData, view: BoardView = 'truth'): BoardCar
       threads: [shown],
       title: thread.title,
       nodes,
+      articles: articlesIn(data, thread.articleIds, party),
       nearness: nearness(data, nodes),
       pace: 'none',
       clock: null,
@@ -649,14 +675,16 @@ export interface Spot {
   y: number;
 }
 
-/** Ein Name auf dem Brett: eine Person, ein Ort, eine Fraktion, an der Karten hängen. */
+/** Ein Name auf dem Brett: eine Person, ein Ort, eine Fraktion – oder ein Artikel des Wikis. */
 export interface BoardPin {
-  /** `node:<id>` – unter diesem Schlüssel merkt sich das Brett seine Stelle. */
+  /** `node:<id>` oder `article:<id>` – unter diesem Schlüssel merkt sich das Brett seine Stelle. */
   key: string;
+  /** Der Eintrag der Welt – bei einem Artikel (`article`) der Artikel. */
   id: string;
+  article: boolean;
   x: number;
   y: number;
-  /** Die Karten, die an ihm hängen. Mehr als eine: Dort berühren sich Geschichten. */
+  /** Die Karten, die an ihm hängen. Mehr als eine: Dort berühren sich Geschichten. Leer: frei hingelegt. */
   cards: string[];
 }
 
@@ -673,6 +701,8 @@ export interface KnotToLay {
   key: string;
   cardKey: string;
   nodes: readonly string[];
+  /** Artikel, die an diesem Faden hängen. */
+  articles?: readonly string[];
 }
 
 /** Breite und ungefähre Höhe einer Karte auf dem Brett. */
@@ -726,6 +756,8 @@ export function boardLayout(
   placed: Readonly<Record<string, Spot>> = {},
   /** Fäden als Knoten (`boardWeb` in `domain/threadWeb.ts`): Sie hängen unter ihrer Karte. */
   knotsToLay: readonly KnotToLay[] = [],
+  /** Frei hingelegte Namen und Artikel (`node:<id>`, `article:<id>`), die es noch gibt. */
+  free: readonly string[] = [],
 ): BoardLayout {
   const lying = cards.filter((card) => !card.closed && card.onBoard);
   const open = withParts([
@@ -787,27 +819,36 @@ export function boardLayout(
     return free;
   };
 
+  /** Je Name (`node:<id>`) oder Artikel (`article:<id>`) die Karten und Knoten, die an ihm hängen. */
   const owners = new Map<string, string[]>();
-  for (const card of open)
-    for (const id of card.nodes) owners.set(id, [...(owners.get(id) ?? []), card.key]);
+  const own_ = (pinKey: string, owner: string) =>
+    owners.set(pinKey, [...(owners.get(pinKey) ?? []), owner]);
+  for (const card of open) {
+    for (const id of card.nodes) own_(`node:${id}`, card.key);
+    for (const id of card.articles) own_(`article:${id}`, card.key);
+  }
   for (const knot of knotsToLay)
-    if (knots[knot.key])
-      for (const id of knot.nodes) owners.set(id, [...(owners.get(id) ?? []), knot.key]);
+    if (knots[knot.key]) {
+      for (const id of knot.nodes) own_(`node:${id}`, knot.key);
+      for (const id of knot.articles ?? []) own_(`article:${id}`, knot.key);
+    }
+  // Was der Spielleiter frei hingelegt hat, liegt da, auch wenn noch nichts an ihm hängt.
+  for (const key of free) if (placed[key] && !owners.has(key)) owners.set(key, []);
   /** Die Stelle, an der ein Name hängt: Oberkante einer Karte oder Mitte eines Knotens. */
   const anchor = (key: string): Spot => spots[key] ?? knots[key]!;
   const pins: BoardPin[] = [];
   const own = new Map<string, number>();
-  const add = (id: string, keys: string[], wish: Spot) => {
-    const key = `node:${id}`;
+  const add = (key: string, keys: string[], wish: Spot) => {
     const spot = placed[key] ?? settle(wish);
     taken.push(pinBox(spot));
-    pins.push({ key, id, ...spot, cards: keys });
+    const article = key.startsWith('article:');
+    pins.push({ key, id: key.slice(key.indexOf(':') + 1), article, ...spot, cards: keys });
   };
   // Erst die Namen, die der Spielleiter hingelegt hat: Sie sind Hindernisse für die übrigen.
-  for (const [id, keys] of owners) if (placed[`node:${id}`]) add(id, keys, placed[`node:${id}`]!);
+  for (const [id, keys] of owners) if (placed[id]) add(id, keys, placed[id]!);
   // Dann, was mehrere Karten verbindet – in ihre Mitte.
   for (const [id, keys] of owners) {
-    if (placed[`node:${id}`] || keys.length < 2) continue;
+    if (placed[id] || keys.length < 2) continue;
     const at = keys.map(anchor);
     add(id, keys, {
       x: at.reduce((sum, spot) => sum + spot.x, 0) / at.length,
@@ -816,7 +857,7 @@ export function boardLayout(
   }
   // Zuletzt die eigenen Namen jeder Karte: in Reihen unter ihr.
   for (const [id, keys] of owners) {
-    if (placed[`node:${id}`] || keys.length !== 1) continue;
+    if (placed[id] || keys.length !== 1) continue;
     const index = own.get(keys[0]!) ?? 0;
     own.set(keys[0]!, index + 1);
     const card = spots[keys[0]!];

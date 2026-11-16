@@ -7,9 +7,9 @@ import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
-import { isLooseThread, storyAttached, threadLive } from '../../domain/story';
+import { boardCards, isLooseThread, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
-import { isTied } from '../../domain/threadWeb';
+import { boardWeb, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
 import {
   createClock,
   createStory,
@@ -729,9 +729,14 @@ export function tidyBoard(db: CampaignDb): () => void {
     (thread) =>
       isLooseThread(data, thread) && !thread.onBoard && before[spotKey(thread.id)] !== undefined,
   );
+  // Frei hingelegte Namen und Artikel liegen nur, weil sie eine Stelle haben – die bleibt.
+  const owned = ownedPins(boardWeb(data, boardCards(data)));
+  const free = Object.fromEntries(
+    Object.entries(before).filter(([key]) => pinExists(data, key) && !owned.has(key)),
+  );
   db.batch(() => {
     for (const thread of kept) db.patch('threads', thread.id, { onBoard: true });
-    db.setState({ board: {} });
+    db.setState({ board: free });
   });
   return () =>
     db.batch(() => {
@@ -1019,6 +1024,7 @@ export function mergeThreads(
       all.some((thread) => thread.onBoard || data.state.board[spotKey(thread.id)] !== undefined),
     sessionIds: [...new Set(all.flatMap((thread) => threadSessionIds(data, thread)))],
     articleId: all.find((thread) => thread.articleId)?.articleId ?? null,
+    articleIds: [...new Set(all.flatMap((thread) => thread.articleIds))],
     ties: mergedTies(all, keepId, new Set(others.map((other) => other.id))),
   } satisfies Partial<Thread>;
   const before = Object.fromEntries(
@@ -1212,6 +1218,7 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
     const threadId = threadOfKey(key);
     if (threadId) return data.threads[threadId]?.title ?? '';
     if (key.startsWith('story:')) return data.stories[key.slice(6)]?.title ?? '';
+    if (key.startsWith('article:')) return data.articles[key.slice(8)]?.title ?? '';
     return data.entities[key.slice(5)]?.name ?? '';
   };
   const [fromThread, toThread] = [threadOfKey(fromKey), threadOfKey(toKey)];
@@ -1228,6 +1235,41 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
           done: true,
           title: 'Fäden verbunden',
           body: `„${title(fromKey)}“ – „${title(toKey)}“`,
+          undo,
+        }
+      : none;
+  }
+  const isPin = (key: string) => key.startsWith('node:') || key.startsWith('article:');
+  const articleKey = [fromKey, toKey].find((key) => key.startsWith('article:'));
+  const articleOther = articleKey === fromKey ? toKey : fromKey;
+  if (articleKey && isPin(articleOther))
+    return {
+      done: false,
+      note: 'Ein Artikel hängt an Fäden und Geschichten. Mit Namen verbindet ihn sein Text: Verweise im Artikel schreiben.',
+    };
+  if (articleKey) {
+    const articleId = articleKey.slice(8);
+    const threadId = threadOfKey(articleOther);
+    const sort = threadId ? 'threads' : articleOther.startsWith('story:') ? 'stories' : null;
+    const docId = threadId ?? articleOther.slice(6);
+    const doc =
+      sort === 'threads'
+        ? data.threads[docId]
+        : sort === 'stories'
+          ? data.stories[docId]
+          : undefined;
+    if (!sort || !doc || !data.articles[articleId]) return none;
+    if (doc.articleIds.includes(articleId))
+      return {
+        done: false,
+        note: `„${title(articleKey)}“ hängt schon an „${title(articleOther)}“.`,
+      };
+    const undo = setArticleOn(db, sort, docId, articleId, true);
+    return undo
+      ? {
+          done: true,
+          title: 'Artikel zugeordnet',
+          body: `„${title(articleKey)}“ gehört jetzt zu „${title(articleOther)}“.`,
           undo,
         }
       : none;
@@ -1384,5 +1426,47 @@ export function takeOffBoard(db: CampaignDb, keys: readonly string[]): TakeOffRe
     taken: undos.length,
     kept,
     undo: undos.length ? () => db.batch(() => [...undos].reverse().forEach((u) => u())) : null,
+  };
+}
+
+/** Ordnet einen Artikel einer Geschichte oder einem Faden zu – oder löst ihn. Gibt `undo` zurück. */
+export function setArticleOn(
+  db: CampaignDb,
+  sort: 'stories' | 'threads',
+  docId: string,
+  articleId: string,
+  on: boolean,
+): (() => void) | null {
+  const data = db.getSnapshot();
+  const doc = sort === 'stories' ? data.stories[docId] : data.threads[docId];
+  if (!doc || doc.articleIds.includes(articleId) === on) return null;
+  const next = on
+    ? [...doc.articleIds, articleId]
+    : doc.articleIds.filter((id) => id !== articleId);
+  db.patch(sort, docId, { articleIds: next });
+  return () => {
+    const now =
+      sort === 'stories' ? db.getSnapshot().stories[docId] : db.getSnapshot().threads[docId];
+    if (now) db.patch(sort, docId, { articleIds: doc.articleIds });
+  };
+}
+
+/**
+ * Nimmt frei hingelegte Namen und Artikel vom Brett (ihre Stelle fällt weg) – nur solche, an
+ * denen nichts hängt; die anderen liegen, weil sie zu einer Karte gehören. Gibt `undo` zurück.
+ */
+export function takeFreeOffBoard(db: CampaignDb, keys: readonly string[]): (() => void) | null {
+  const board = db.getSnapshot().state.board;
+  const gone = keys.filter((key) => board[key] !== undefined);
+  if (!gone.length) return null;
+  const drop = new Set(gone);
+  db.setState({
+    board: Object.fromEntries(Object.entries(board).filter(([key]) => !drop.has(key))),
+  });
+  return () => {
+    const now = db.getSnapshot().state.board;
+    db.setState({
+      board: { ...now, ...Object.fromEntries(gone.map((key) => [key, board[key]!])) },
+    });
   };
 }

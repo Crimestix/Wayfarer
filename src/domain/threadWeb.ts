@@ -14,12 +14,20 @@
  */
 import { SUGGESTION, isDismissed } from './dismiss';
 import type { CampaignData, Story, Thread, ThreadHint } from './schema';
-import { storyNodes, threadLive, threadNodes, type BoardCard, type BoardView } from './story';
+import {
+  articlesIn,
+  storyNodes,
+  threadLive,
+  threadNodes,
+  type BoardCard,
+  type BoardView,
+} from './story';
 
 type WebData = Pick<
   CampaignData,
   'threads' | 'stories' | 'entities' | 'state' | 'clocks' | 'paths' | 'maps' | 'relations'
->;
+> &
+  Partial<Pick<CampaignData, 'articles'>>;
 
 export interface ThreadTie {
   thread: Thread;
@@ -167,6 +175,8 @@ export interface BoardKnot {
   cardKey: string;
   /** Woran er hängt – diese Namen hängen am Knoten, nicht mehr an der Karte. */
   nodes: string[];
+  /** Seine Artikel – auch sie hängen am Knoten. */
+  articles: string[];
 }
 
 /** Eine Schnur zwischen zwei Fäden auf dem Brett. */
@@ -265,6 +275,7 @@ export function boardWeb(
         thread,
         cardKey: card.key,
         nodes: threadNodes(data, thread),
+        articles: articlesIn(data, thread.articleIds, view === 'party'),
       });
     const skip = new Set(mine.map((thread) => thread.id));
     // Die Namen der Knoten hängen an den Knoten; an der Karte bleibt, was sonst zu ihr gehört.
@@ -276,7 +287,17 @@ export function boardWeb(
               .flatMap((thread) => threadNodes(data, thread)),
           )
         : storyNodes(data, card.story as Story, skip);
-    return { ...card, nodes };
+    const articles = articlesIn(
+      data,
+      [
+        ...(view === 'party' ? [] : card.story.articleIds),
+        ...card.threads
+          .filter((thread) => !skip.has(thread.id))
+          .flatMap((thread) => thread.articleIds),
+      ],
+      view === 'party',
+    );
+    return { ...card, nodes, articles };
   });
 
   const spot = (threadId: string) =>
@@ -288,4 +309,32 @@ export function boardWeb(
     strings.push({ ...pair, a, b, key: `${pair.kind}:${pair.from}:${pair.to}` });
   }
   return { cards: adjusted, knots, strings };
+}
+
+/**
+ * Welche Namen und Artikel an Karten oder Knoten hängen (`node:<id>`, `article:<id>`) – alle
+ * anderen, die eine Stelle auf dem Brett haben, liegen dort frei.
+ */
+export function ownedPins(web: BoardWeb): Set<string> {
+  const owned = new Set<string>();
+  for (const card of web.cards) {
+    if (card.closed || !card.onBoard) continue;
+    for (const id of card.nodes) owned.add(`node:${id}`);
+    for (const id of card.articles) owned.add(`article:${id}`);
+  }
+  for (const knot of web.knots) {
+    for (const id of knot.nodes) owned.add(`node:${id}`);
+    for (const id of knot.articles) owned.add(`article:${id}`);
+  }
+  return owned;
+}
+
+/** Ist ein Schlüssel des Bretts ein Name oder Artikel, den es (noch) gibt? */
+export function pinExists(
+  data: Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'articles'>>,
+  key: string,
+): boolean {
+  if (key.startsWith('node:')) return data.entities[key.slice(5)] !== undefined;
+  if (key.startsWith('article:')) return data.articles?.[key.slice(8)] !== undefined;
+  return false;
 }

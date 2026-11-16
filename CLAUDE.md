@@ -637,7 +637,12 @@ nicht übernommen.
   wählen (Umschalt-Klick, Rahmen mit Umschalttaste, `insideOnBoard`) und gemeinsam ziehen
   (`placeManyOnBoard`), Löschtaste löst die gewählte Schnur oder nimmt lose Fäden vom Brett
   (`takeOffBoard` – nie aus der Welt), Doppelklick ins Leere schreibt einen losen Faden dorthin
-  (`writeOnBoard`). `mergeThreads` nimmt
+  (`writeOnBoard`). Schritt 2: Das Suchfeld auf dem Brett holt jeden Eintrag und jeden Artikel
+  ohne Eintrag (`searchWorld`) als Name bzw. Artikel (`article:<id>`) dazu; was eine Stelle in
+  `state.board` hat, liegt frei, auch wenn nichts an ihm hängt (`pinExists`, „Aufräumen“ behält es,
+  `ownedPins`); eine Schnur ordnet einen Artikel einer Geschichte oder einem Faden zu
+  (`story.articleIds`/`thread.articleIds`, `setArticleOn`); ein Klick zeigt den Anfang des Textes
+  im Seitenteil (`articleExcerpt`). `mergeThreads` nimmt
   Verbindungen und „führt zu“ mit. Verbindungen zwischen Geschichten bleiben abgeleitet.
 - Lose Fäden gehören zu Geschichten, wie sie gemeint sind – nie still als Frage (`ThreadTake`,
   am Fadenbrett und auf dem Blatt): als Ort, Person … (`threadToCast`: vorhandener Eintrag über
