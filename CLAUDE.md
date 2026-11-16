@@ -589,6 +589,22 @@ nicht übernommen.
   (`features/welt/actions.ts`) – je Richtung höchstens eine Beziehung (die vorhandene bekommt
   die neue Art), die Haltung zur Gruppe läuft dabei über `setAttitude`. Der Dialog nutzt
   denselben Befehl; nie Beziehungen an ihm vorbei anlegen.
+- Beziehungen nach Art (`domain/relations.ts`): Wer eine Haltung haben kann, sagt einzig
+  `holdsAttitude` (Person, Fraktion, Familie, Gefährte, Gruppe); ob eine dasteht,
+  `showsAttitude` / `shownAttitude` (sonst nur, wenn eingetragen); offen im Dialog nur zwischen
+  zweien, die eine haben können (`attitudeOpen`), sonst „Haltung trotzdem eintragen“. Nie selbst
+  nach Art entscheiden – auch nicht am Spieltisch. Was zu einem Paar passt, sagt
+  `relationChoices` (Passend zuerst, die erste ist die Vorgabe – nie „Ort kennt Person“; alles
+  Übrige unter „Weitere“, dazu die eigene Bezeichnung; rückwärts Gelesenes wie „wird beherrscht
+  von“ wird in seiner Richtung gespeichert). „+ Beziehung“ und „+ Mitglied“ öffnen
+  `welt/RelationQuick`; „liegt in“ ist das Feld „Liegt in“, keine Beziehung. Die Gruppe steht
+  bei einem Ding ohne Haltung nur zur Wahl, wenn man nach ihr sucht (`allowParty: 'named'`).
+- Das eine „Neu“ der Welt (`welt/NewDialog`, `openNew`, Befehl `newEntry` in
+  `welt/writing.ts`): Name und Art, gibt es den Namen schon (`entryForTitle`), wird der
+  vorhandene geöffnet; auf Wunsch gleich der Text mit Gerüst. Kein zweiter Weg zum Anlegen in
+  der Welt. Die Liste links ordnet Arten als Gruppen (`kindSections`, seltene unter „Mehr“) –
+  nie als Filter; Liste und Ansicht wechseln, ohne die offene Seite zu verlassen. Verweise im
+  Text zeigen beim Darüberfahren den Kurzblick (`HoverCard`, `tisch/PeekCard` aus `peekView`).
 - Vorschläge wegklicken (Rückmeldung des Spielleiters, 15. 11. 2026: „Man muss im Generellen
   Vorschläge dismissen und ausblenden können“): Jeder Vorschlag hat ein „×“ (`DismissButton`,
   `ui/dismiss.tsx`); sein Schlüssel kommt aus `SUGGESTION` (`domain/dismiss.ts`) und steht in

@@ -155,6 +155,27 @@ Für Schritt 3: „Bearbeiten“ (Stift im Kopf) ist nur noch für Name, Art, Sc
 Lebensdaten; der eine Satz ist im Kopf direkt beschreibbar. Offen: Zeiten der Läden (Markttage,
 fahrende Händler) als eigener Schritt.
 
+### Stand nach Schritt 2 und 3 (16. 11.)
+
+Beziehungen nach Art (`domain/relations.ts`): Haltung nur bei Person, Fraktion, Familie,
+Gefährte und Gruppe (`holdsAttitude`; Eingetragenes bleibt sichtbar, `showsAttitude`), die Skala
+im Dialog nur offen zwischen zweien, die eine haben können. Passendes je Paar zuerst
+(`relationChoices`): Ort ↔ Ort grenzt an, Handel, beherrscht von, gehört; Ort ↔ Fraktion/Person
+beherrscht von, gehört, Sitz von, wichtig für (früher „ist verbunden mit“); Person ↔ Person
+Freundschaft, liiert, verwandt, Feind …; alles Übrige unter „Weitere“, dazu eine eigene
+Bezeichnung. „+ Beziehung“/„+ Mitglied“ öffnen einen schlanken Dialog (`RelationQuick`), „liegt
+in“ verweist auf das Feld (mit Knopf). Haltungsspalten nur, wenn es Werte gibt; Familien zeigen
+ihre Haltung; Spieltisch, Gedächtnis und Liste fragen dieselbe Regel.
+
+Finden und Anlegen: ein „Neu“ (Name + Art, vorhandener Name öffnet, Text auf Wunsch); links
+Suche, Arten als zuklappbare Gruppen, seltene unter „Mehr“, „nur diese“ statt 15 Knöpfen; Netz
+und „Noch zu schreiben“ lassen die offene Seite stehen; „Noch zu schreiben“ mit Platzhaltern
+zuerst, sonst zugeklappt, „ohne Text“ nach Art; Kurzblick beim Darüberfahren über Verweise im
+Text; die Wörter „Welt“, „Seite“, „ohne Text“, „wird nirgends erwähnt“, „Art festlegen“.
+
+Noch offen: Die Kacheln der Startseite zählen nur noch (kein „+ anlegen“); „Bearbeiten“ und
+„Person hier anlegen“ nutzen weiter den alten Dialog mit Vorbelegung.
+
 ## Fragen an den Spielleiter
 
 1. Rechte Spalte „jetzt“ (wer hier ist, Haltung, zuletzt) – brauchst du die beim Worldbuilding
