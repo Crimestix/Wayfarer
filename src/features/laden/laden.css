@@ -702,3 +702,8 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* Als Hauptteil der Seite ist Platz: Preis und Einheit ganz lesbar („je Stück“, „je Pfund“). */
+.wf-laden-lead .wf-laden-stockrow {
+  grid-template-columns: minmax(0, 1fr) 96px 104px 52px auto;
+}
