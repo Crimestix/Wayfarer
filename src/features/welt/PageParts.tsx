@@ -87,6 +87,7 @@ import {
   languagesInScript,
   linkedFrom,
   linkedSubline,
+  memberGroups,
   partyAttitudes,
   recentChronicle,
   relationRows,
@@ -895,6 +896,7 @@ export function SeatSection({ group, inBox }: { group: Faction | Family; inBox: 
 export function MemberList({ group }: { group: Faction | Family }) {
   const data = useData();
   const { family, service, split } = houseMembers(data, group);
+  const groups = memberGroups(data, group.id);
   const attitudes = partyAttitudes(data);
   const [adding, setAdding] = useState(false);
   const rows = (members: Member[]) => (
@@ -916,6 +918,32 @@ export function MemberList({ group }: { group: Faction | Family }) {
     </div>
   );
   const total = family.length + service.length;
+  /** Familien und Fraktionen darin – ein Haus im Bund, eine Sippe im Orden. */
+  const groupRows = groups.length > 0 && (
+    <div className="wf-welt-service">
+      <div className="wf-welt-service__head">
+        {group.kind === 'faction' ? 'Häuser und Gruppen darin' : 'Gruppen darin'}{' '}
+        <span>{groups.length}</span>
+      </div>
+      <div className="wf-welt-rows wf-welt-rows--grid">
+        {groups.map((member) => (
+          <EntryRow
+            key={member.entity.id}
+            entity={member.entity}
+            sub={[
+              member.label,
+              member.entity.kind === 'family'
+                ? member.entity.family.category || 'Familie'
+                : member.entity.faction.category || 'Fraktion',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            attitude={shownAttitude(member.entity.kind, attitudes.get(member.entity.id))}
+          />
+        ))}
+      </div>
+    </div>
+  );
   return (
     <Section
       title={split ? 'Familie' : 'Mitglieder'}
@@ -930,10 +958,10 @@ export function MemberList({ group }: { group: Faction | Family }) {
       {!split ? (
         total ? (
           rows(service)
-        ) : (
+        ) : groups.length ? null : (
           <p className="wf-welt-quiet">
-            Noch keine. Wer zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet, steht
-            hier.
+            Noch keine. Wer zur Fraktion gehört, sie führt, ihr dient oder hier arbeitet – auch eine
+            Familie –, steht hier.
           </p>
         )
       ) : (
@@ -956,6 +984,7 @@ export function MemberList({ group }: { group: Faction | Family }) {
           )}
         </>
       )}
+      {groupRows}
     </Section>
   );
 }

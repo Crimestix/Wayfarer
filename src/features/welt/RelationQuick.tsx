@@ -63,9 +63,11 @@ export function RelationQuick({
   const selfKind = relationKind(data, self.id);
   const otherKind = relationKind(data, otherId);
   const choices = otherId ? relationChoices(selfKind, otherKind) : null;
+  // Beim Eintragen eines Mitglieds ist „hat als Mitglied“ die Vorgabe, wo es passt.
+  const memberPreset = asMember ? choices?.fitting.find((c) => c.id === '~member') : undefined;
   const choice: RelationChoice = choiceId
     ? choiceById(choiceId)
-    : (choices?.preset ?? choiceById('custom'));
+    : (memberPreset ?? choices?.preset ?? choiceById('custom'));
   // Rückwärts gelesen („beherrscht von“) geht die Beziehung vom Gegenüber aus.
   const fromId = choice.reverse ? (otherId ?? '') : self.id;
   const toId = choice.reverse ? self.id : (otherId ?? '');
@@ -176,12 +178,25 @@ export function RelationQuick({
             // Die Gruppe steht oben nur bei denen, die eine Haltung haben können; sonst findet man
             // sie, wenn man nach ihr sucht.
             allowParty={asMember ? false : holdsAttitude(selfKind) ? true : 'named'}
-            kinds={asMember ? ['person', 'character'] : undefined}
+            // Zu einer Fraktion gehören auch Familien (ein Haus im Bund) und kleinere Gruppen.
+            kinds={
+              asMember
+                ? selfKind === 'faction'
+                  ? ['person', 'character', 'family', 'faction']
+                  : ['person', 'character']
+                : undefined
+            }
             exclude={[self.id]}
             create={{}}
             autoFocus
             openOnMount
-            placeholder={asMember ? 'Person oder Gefährte …' : 'Name suchen oder neu anlegen …'}
+            placeholder={
+              asMember
+                ? selfKind === 'faction'
+                  ? 'Person, Gefährte, Familie …'
+                  : 'Person oder Gefährte …'
+                : 'Name suchen oder neu anlegen …'
+            }
           />
         </Field>
 

@@ -183,6 +183,11 @@ function fittingIds(self: string, other: string): string[] {
     return ['member', 'leads', 'serves', '~employs', 'ally', 'enemy', 'owes', 'knows', 'seeks'];
   if (a === 'group' && b === 'being')
     return ['~member', '~leads', '~serves', 'employs', 'ally', 'enemy', 'seeks', 'knows'];
+  // Eine Familie gehört zu einer Fraktion (ein Haus im Bund, eine Sippe im Orden).
+  if (self === 'family' && other === 'faction')
+    return ['member', 'leads', 'serves', 'ally', 'enemy', 'rival', 'trades', '~rules', 'rules'];
+  if (self === 'faction' && other === 'family')
+    return ['~member', '~leads', '~serves', 'ally', 'enemy', 'rival', 'trades', 'rules', '~rules'];
   if (a === 'group' && b === 'group')
     return ['ally', 'enemy', 'rival', 'trades', 'member', '~member', 'rules', '~rules', 'serves'];
   if ((a === 'being' || a === 'group') && b === 'item') return ['owns', 'seeks', 'fears'];

@@ -14,7 +14,9 @@ import {
   type Family,
 } from '../../domain/schema';
 import { ELARIS_CALENDAR, ELARIS_START } from '../../domain/time/elaris';
+import { relationChoices } from '../../domain/relations';
 import { houseMembers, houseName, houseTwins, mergeHouse, rewireId } from './house';
+import { memberGroups } from './model';
 
 /** Eine erfundene Welt mit einem Haus, das zweimal angelegt ist. */
 function world() {
@@ -173,5 +175,35 @@ describe('Häuser: der eine Satz', () => {
     const house = db.getSnapshot().entities[family.id] as Family;
     expect(house.tagline).toBe('Herren des Passes.');
     expect(house.notes).toBe('Blut vom Pass.\n\nAlte Linie.\n\nHält den Pass.');
+  });
+});
+
+describe('Familien in Fraktionen', () => {
+  it('schlägt zwischen Familie und Fraktion zuerst „gehört zu“ vor – in beide Richtungen', () => {
+    expect(relationChoices('family', 'faction').preset.id).toBe('member');
+    expect(relationChoices('faction', 'family').preset.id).toBe('~member');
+    // Zwischen zwei Fraktionen bleibt „verbündet“ die Vorgabe; „gehört zu“ steht zur Wahl.
+    const between = relationChoices('faction', 'faction');
+    expect(between.preset.id).toBe('ally');
+    expect(between.fitting.map((c) => c.id)).toContain('~member');
+  });
+
+  it('zeigt die Familien, die zu einer Fraktion gehören', () => {
+    const base = emptyCampaign('Testwelt', ELARIS_CALENDAR, ELARIS_START) as CampaignData;
+    const league = createEntity({ kind: 'faction', name: 'Bund der Pässe' }) as Faction;
+    const house = createEntity({ kind: 'family', name: 'Vellmor' }) as Family;
+    const other = createEntity({ kind: 'family', name: 'Kressen' }) as Family;
+    const rels = [
+      createRelation({ from: house.id, to: league.id, type: 'member' }),
+      createRelation({ from: other.id, to: league.id, type: 'enemy' }),
+    ];
+    const data: CampaignData = {
+      ...base,
+      entities: Object.fromEntries([league, house, other].map((e) => [e.id, e])),
+      relations: Object.fromEntries(rels.map((r) => [r.id, r])),
+    };
+    expect(memberGroups(data, league.id).map((m) => [m.entity.name, m.label])).toEqual([
+      ['Vellmor', 'gehört zu'],
+    ]);
   });
 });

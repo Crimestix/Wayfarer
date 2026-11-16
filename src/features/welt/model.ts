@@ -44,6 +44,8 @@ import {
   type ChronicleEntry,
   type Article,
   type Entity,
+  type Faction,
+  type Family,
   type Item,
   type Person,
   type PersonStatus,
@@ -767,6 +769,32 @@ export function groupMembers(data: CampaignData, groupId: string): Member[] {
   const rank = (m: Member) => (m.relation?.type === 'leads' && m.relation.to === factionId ? 0 : 1);
   return [...members.values()].sort((a, b) => rank(a) - rank(b) || byName(a.entity, b.entity));
 }
+
+/** Eine Familie oder Fraktion, die zu einer anderen gehört – mit dem Wort aus ihrer Sicht. */
+export interface GroupMember {
+  entity: Faction | Family;
+  relation: Relation;
+  label: string;
+}
+
+/**
+ * Familien und Fraktionen, die zu dieser Gruppe gehören („gehört zu“, „führt“, „dient“ –
+ * in beide Richtungen eingetragen). Ein Haus im Bund, eine Sippe im Orden.
+ */
+export function memberGroups(data: CampaignData, groupId: string): GroupMember[] {
+  const out = new Map<string, GroupMember>();
+  for (const relation of Object.values(data.relations)) {
+    if (relation.ended || !BELONGS.has(relation.type)) continue;
+    // „hat als Mitglied“ steht als `member` mit der Gruppe als `to`; rückwärts gelesen genauso.
+    if (relation.to !== groupId) continue;
+    const entity = data.entities[relation.from];
+    if (!entity || (entity.kind !== 'family' && entity.kind !== 'faction')) continue;
+    if (entity.id === groupId || out.has(entity.id)) continue;
+    out.set(entity.id, { entity, relation, label: relationLabel(relation, 'from') });
+  }
+  return [...out.values()].sort((a, b) => byName(a.entity, b.entity));
+}
+const BELONGS = new Set(['member', 'leads', 'serves']);
 
 // ── Galerie der Personen ───────────────────────────────────────────────────
 
