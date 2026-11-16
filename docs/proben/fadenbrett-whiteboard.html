@@ -1,0 +1,206 @@
+<title>Fadenbrett als Whiteboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Vorschlag vom 16. 11. 2026 – kein Teil der App. Das Fadenbrett als digitales Whiteboard
+  (Wunsch des Spielleiters). Alles in Klammern steht für den
+  Wortlaut des Spielleiters; Wayfarer erfindet nichts davon.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg-void: #070605; --bg-0: #0c0a09; --bg-1: #131010; --bg-2: #1a1614; --bg-3: #241e1a;
+    --bg-inset: #0a0808;
+    --line-faint: #2b231d; --line: #43362a; --line-strong: #5a4830;
+    --ink: #e9dfc9; --ink-soft: #c8bca3; --ink-mute: #a09278; --ink-faint: #786c5b;
+    --gold: #c9a35b; --gold-bright: #efd497; --gold-deep: #8b6c34; --gold-glow: rgba(201,163,91,.16);
+    --blood: #9d2f2a; --blood-bright: #d9584c; --blood-wash: rgba(157,47,42,.16);
+    --ember: #d58c3c; --ember-wash: rgba(213,140,60,.14);
+    --moss: #8fae7a;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-caps: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Crimson Pro', Georgia, serif;
+  }
+  body { background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: 2.6rem; line-height: 1.1; color: var(--ink); }
+  h2 { font-size: 1.7rem; margin-top: 56px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.25rem; }
+  .caps { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+  .mute { color: var(--ink-mute); }
+  .gold { color: var(--gold-bright); }
+  p { margin: 0; max-width: 68ch; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .lead { font-size: 1.12rem; color: var(--ink-soft); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 18px; font-variant-numeric: tabular-nums; }
+  .facts div { display: flex; flex-direction: column; }
+  .facts b { font-family: var(--font-display); font-size: 1.5rem; color: var(--gold-bright); font-weight: 600; }
+
+
+  .stage { margin-top: 22px; padding: 18px; background: var(--bg-void); border: 1px dashed var(--line-strong); overflow-x: auto; }
+  .stage-note { font-size: .92rem; color: var(--ink-mute); margin-bottom: 12px; }
+  .panel { position: relative; background: linear-gradient(180deg, #1b1613, #141110); border: 1px solid var(--line); padding: 16px; }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 1px solid var(--gold-deep); }
+  .panel::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+  .panel::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+  .ptitle { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .story { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; margin: 4px 0 10px; }
+  .w { color: var(--ink-faint); font-style: italic; }
+  .tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .tree .tree { margin: 6px 0 2px 6px; padding-left: 14px; border-left: 1px solid var(--line-strong); }
+  .node { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .node .t { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+  .node .t.small { font-size: 1.05rem; font-weight: 500; color: var(--ink-soft); }
+  .mark { font-family: var(--font-caps); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--line); color: var(--ink-mute); }
+  .mark.place { color: var(--gold); border-color: var(--gold-deep); }
+  .mark.here { color: #1a120a; background: var(--gold); border-color: var(--gold); }
+  .hint { font-size: .95rem; color: var(--ink-soft); display: flex; gap: 8px; }
+  .hint::before { content: "◇"; color: var(--gold-deep); }
+  .hint.found::before { content: "◆"; color: var(--gold); }
+  .add { font-size: .9rem; color: var(--gold); }
+  .add.mute { color: var(--ink-faint); }
+  .three { display: grid; grid-template-columns: 330px 300px 290px; gap: 14px; min-width: 950px; align-items: start; }
+  .card { border: 1px solid var(--line-strong); background: #1d1814; padding: 10px 12px; }
+  .card h4 { margin: 0; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .card .row { font-size: .9rem; color: var(--ink-soft); margin-top: 4px; }
+  .string { height: 22px; margin-left: 24px; border-left: 2px dotted var(--gold-deep); }
+  .card.sub { margin-left: 24px; border-color: var(--gold-deep); }
+  .steps { counter-reset: s; list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.2rem minmax(0,1fr); gap: 12px; }
+  .steps li::before { content: counter(s); font-family: var(--font-display); font-size: 1.6rem; color: var(--gold); line-height: 1; }
+  .steps p { color: var(--ink-soft); }
+  .q { margin-top: 18px; display: grid; gap: 12px; }
+  .q div { padding: 12px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .q b { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .q span { color: var(--ink-soft); }
+  .vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+  .vs div { padding: 14px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .vs h3 { font-size: 1.15rem; margin-bottom: 4px; }
+  .vs p { color: var(--ink-soft); }
+  footer { margin-top: 56px; font-size: .9rem; color: var(--ink-faint); }
+</style>
+
+<style>
+  .have { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+  .have li { display: grid; grid-template-columns: 1.4rem minmax(0,1fr); gap: 8px; color: var(--ink-soft); }
+  .have li::before { content: "✓"; color: var(--moss); font-weight: 600; }
+  .have li.miss::before { content: "○"; color: var(--ember); }
+  .board-svg text { font-family: 'Crimson Pro', Georgia, serif; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: .9rem; color: var(--ink-mute); }
+  .legend b { color: var(--gold-bright); font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <div class="caps">Vorschlag · 16. 11. · Fadenbrett als Whiteboard</div>
+  <h1 style="margin-top:10px">Das Fadenbrett als Whiteboard</h1>
+  <div class="stack" style="margin-top:16px">
+    <p class="lead">Dein Wunsch: Das Fadenbrett soll „einfach nur wie ein digitales Whiteboard funktionieren, wo man alle Fäden und Geschichten vernünftig verbinden kann, ordnen kann und Artikeln zuordnen kann.“ Hier steht, was davon seit heute schon geht, was fehlt, und wie es aussähe.</p>
+    <p class="mute">Gebaut wird erst nach deinem Ja. Alles in Klammern steht für deinen eigenen Wortlaut.</p>
+  </div>
+
+  <h2>Seit heute schon da</h2>
+  <ul class="have">
+    <li>Fäden als Knoten: Eine Geschichte klappst du auf, dann hängen ihre Fäden an ihr.</li>
+    <li>Schnüre frei ziehen: Am Griff jeder Karte, jedes Fadens und Namens ziehst du auf das Ziel. Faden an Faden, Name an Faden, loser Faden an Geschichte, zwei Namen ergeben eine Beziehung.</li>
+    <li>Ein Wort an der Verbindung und „Hinweis führt zu“. Am Spieltisch erscheint der eine Schritt weiter.</li>
+  </ul>
+
+  <h2>Was zum Whiteboard noch fehlt</h2>
+  <ul class="have">
+    <li class="miss"><span><b class="gold">Schnüre anfassen.</b> Ein Klick auf eine Schnur wählt sie: Wort ändern, lösen. Heute geht das nur im Seitenteil.</span></li>
+    <li class="miss"><span><b class="gold">Viele auf einmal.</b> Mit einem Rahmen aufziehen oder Umschalt-Klick mehrere wählen und gemeinsam verschieben. Die Entf-Taste nimmt sie nur vom Brett, gelöscht wird nichts, und es gibt Rückgängig.</span></li>
+    <li class="miss"><span><b class="gold">Bereiche zum Ordnen.</b> Benannte Flächen wie „(Menzoberranzan)“ oder „(Der Weg nach Yth'voraal)“. Was darin liegt, zieht mit, wenn du den Bereich verschiebst. Sie sind nur Ordnung und bedeuten für die Welt nichts.</span></li>
+    <li class="miss"><span><b class="gold">Artikel und Einträge aufs Brett.</b> Ein Suchfeld auf dem Brett holt jeden Eintrag der Welt oder Wiki-Artikel als Karte dazu, auch wenn noch nichts daran hängt. Eine Schnur zu einem Faden ordnet ihn zu. Ein Klick zeigt den Text im Seitenteil, ohne das Brett zu verlassen.</span></li>
+    <li class="miss"><span><b class="gold">Schnell etwas hinschreiben.</b> Doppelklick ins Leere und tippen: Ein Satz wird ein loser Faden, der gleich dort liegt. Der lose Faden ist der Zettel, es gibt also nichts Neues zu lernen. Er lässt sich verbinden und später an eine Geschichte hängen.</span></li>
+    <li class="miss"><span><b class="gold">Geschichte an Geschichte.</b> Heute leitet Wayfarer Verbindungen zwischen Geschichten nur ab. Ein Whiteboard braucht hier eine eigene Schnur, siehe Frage 2.</span></li>
+    <li class="miss"><span><b class="gold">Ruhiger und fester.</b> Was du hinlegst, bleibt liegen. Knoten und Namen legen sich nicht übereinander.</span></li>
+  </ul>
+
+  <h2>So sähe es aus</h2>
+  <div class="stage">
+    <p class="stage-note">Zwei Bereiche, eine aufgeklappte Geschichte, ein Artikel als Karte, ein schnell hingeschriebener Faden. Gewählt ist eine Schnur, an ihr steht ein kleines Menü.</p>
+    <svg class="board-svg" viewBox="0 0 980 560" width="980" height="560" role="img" aria-label="Fadenbrett als Whiteboard mit Bereichen, Fäden, Artikel und Zettel">
+      <!-- Bereiche -->
+      <rect x="20" y="20" width="560" height="520" fill="rgba(201,163,91,.035)" stroke="#5a4830" stroke-dasharray="8 6"/>
+      <text x="36" y="46" font-family="Cinzel, serif" font-size="13" letter-spacing="2" fill="#c9a35b">(MENZOBERRANZAN)</text>
+      <rect x="610" y="20" width="350" height="330" fill="rgba(201,163,91,.035)" stroke="#5a4830" stroke-dasharray="8 6"/>
+      <text x="626" y="46" font-family="Cinzel, serif" font-size="13" letter-spacing="2" fill="#c9a35b">(DER WEG NACH YTH'VORAAL)</text>
+
+      <!-- Geschichte Vorzagath -->
+      <rect x="60" y="70" width="230" height="76" fill="#211b16" stroke="#8b6c34"/>
+      <text x="74" y="92" font-family="Cinzel, serif" font-size="10" letter-spacing="1.5" fill="#a09278">GESCHICHTE · HIER</text>
+      <text x="74" y="124" font-family="Cormorant Garamond, serif" font-weight="600" font-size="24" fill="#e9dfc9">Vorzagath</text>
+      <!-- Knoten -->
+      <path d="M90 146 L 104 186 M90 146 L 104 226 M90 146 L 104 266" stroke="#8b6c34" stroke-width="1.3" fill="none"/>
+      <g font-size="14" fill="#e9dfc9">
+        <rect x="98" y="174" width="168" height="24" rx="12" fill="#131010" stroke="#c9a35b"/><circle cx="111" cy="186" r="5" fill="none" stroke="#c9a35b"/><text x="122" y="191">Duskryns Arena</text>
+        <rect x="98" y="214" width="190" height="24" rx="12" fill="#131010" stroke="#43362a"/><circle cx="111" cy="226" r="5" fill="none" stroke="#c9a35b"/><text x="122" y="231">(ein Faden dort)</text>
+        <rect x="98" y="254" width="190" height="24" rx="12" fill="#131010" stroke="#43362a"/><circle cx="111" cy="266" r="5" fill="none" stroke="#c9a35b"/><text x="122" y="271">(noch ein Faden)</text>
+      </g>
+      <!-- Name an der Arena -->
+      <rect x="320" y="174" width="150" height="24" fill="#131010" stroke="#5a4830"/><text x="332" y="191" font-size="13" fill="#c8bca3">⌂ Duskryns Arena</text>
+      <path d="M266 186 L 320 186" stroke="#d58c3c" stroke-width="1.3" opacity=".7"/>
+
+      <!-- Artikel als Karte -->
+      <rect x="330" y="300" width="210" height="88" fill="#1d1814" stroke="#5a4830"/>
+      <text x="344" y="322" font-family="Cinzel, serif" font-size="10" letter-spacing="1.5" fill="#a09278">ARTIKEL</text>
+      <text x="344" y="350" font-family="Cormorant Garamond, serif" font-weight="600" font-size="20" fill="#e9dfc9">(ein Wiki-Artikel)</text>
+      <text x="344" y="373" font-size="13" fill="#a09278" font-style="italic">Klick: Text im Seitenteil</text>
+      <path d="M288 226 Q 320 290 330 330" stroke="#c9a35b" stroke-width="2" fill="none"/>
+
+      <!-- Zettel -->
+      <g transform="rotate(-2 120 400)">
+        <rect x="60" y="360" width="200" height="110" fill="#2a2418" stroke="#6a5530"/>
+        <text x="74" y="384" font-family="Cinzel, serif" font-size="10" letter-spacing="1.5" fill="#a09278">LOSER FADEN</text>
+        <text x="74" y="410" font-size="15" fill="#e9dfc9">(ein Gedanke, der</text>
+        <text x="74" y="430" font-size="15" fill="#e9dfc9">noch kein Faden ist)</text>
+        <text x="74" y="456" font-size="12" fill="#c9a35b">per Doppelklick geschrieben</text>
+      </g>
+      <path d="M220 362 Q 230 320 200 278" stroke="#c9a35b" stroke-width="1.6" stroke-dasharray="3 4" fill="none"/>
+
+      <!-- zweite Geschichte -->
+      <rect x="650" y="70" width="230" height="76" fill="#211b16" stroke="#8b6c34"/>
+      <text x="664" y="92" font-family="Cinzel, serif" font-size="10" letter-spacing="1.5" fill="#a09278">GESCHICHTE · WEIT</text>
+      <text x="664" y="124" font-family="Cormorant Garamond, serif" font-weight="600" font-size="22" fill="#e9dfc9">(eine andere)</text>
+      <rect x="690" y="200" width="200" height="24" rx="12" fill="#131010" stroke="#c9a35b"/><circle cx="703" cy="212" r="5" fill="none" stroke="#c9a35b"/><text x="714" y="217" font-size="14" fill="#e9dfc9">(ihr Faden)</text>
+      <path d="M690 146 L 696 200" stroke="#8b6c34" stroke-width="1.3"/>
+
+      <!-- gewählte Schnur mit Menü -->
+      <path d="M266 186 C 420 120, 560 150, 690 212" stroke="#efd497" stroke-width="3" fill="none"/>
+      <rect x="440" y="104" width="190" height="62" fill="#0c0a09" stroke="#c9a35b"/>
+      <text x="452" y="126" font-size="13" fill="#a09278" font-style="italic">Wort: (wer dahintersteckt)</text>
+      <text x="452" y="152" font-size="13" fill="#c9a35b">Wort ändern · Lösen</text>
+
+      <!-- Mehrfachauswahl angedeutet -->
+      <rect x="640" y="380" width="300" height="150" fill="none" stroke="#c9a35b" stroke-dasharray="4 4" opacity=".7"/>
+      <text x="652" y="402" font-size="13" fill="#a09278" font-style="italic">Rahmen aufgezogen: 2 gewählt</text>
+      <rect x="660" y="420" width="140" height="24" fill="#131010" stroke="#c9a35b"/><text x="672" y="437" font-size="13" fill="#c8bca3">☺ (eine Person)</text>
+      <rect x="760" y="470" width="160" height="24" rx="12" fill="#131010" stroke="#c9a35b"/><circle cx="773" cy="482" r="5" fill="none" stroke="#c9a35b"/><text x="784" y="487" font-size="14" fill="#e9dfc9">(ein loser Faden)</text>
+
+      <!-- Suchfeld -->
+      <rect x="20" y="548" width="0" height="0"/>
+    </svg>
+    <div class="legend"><span><b>Feste Schnur</b> = verbunden</span><span><b>Gestrichelt</b> = Hinweis führt zu</span><span><b>Rahmen</b> = Bereich zum Ordnen</span></div>
+  </div>
+
+  <h2>Am einfachsten: in vier kleinen Schritten</h2>
+  <p style="margin-top:14px;color:var(--ink-soft)">Jeder Schritt ist für sich nutzbar. Nach jedem probierst du das Brett aus und sagst, was hakt. So wächst es dahin, wie du damit Geschichten schreibst, statt dass ich alles auf einmal rate.</p>
+  <ol class="steps">
+    <li><p><b class="gold">Anfassen und schnell schreiben:</b> Schnüre anklicken (Wort, lösen), mehrere wählen und verschieben, Entf nimmt vom Brett, ein Doppelklick ins Leere schreibt einen Faden. Das nimmt das Raue am meisten.</p></li>
+    <li><p><b class="gold">Artikel und Einträge aufs Brett:</b> Ein Suchfeld holt Personen, Orte und Wiki-Artikel als Karte dazu, eine Schnur ordnet sie zu, ein Klick zeigt den Text im Seitenteil.</p></li>
+    <li><p><b class="gold">Bereiche:</b> benannte Rahmen zum Ordnen, nur Ordnung, ohne Bedeutung für die Welt.</p></li>
+    <li><p><b class="gold">Geschichte an Geschichte:</b> eine eigene Schnur mit Wort, wie bei Fäden. „Teil von“ bleibt auf dem Blatt.</p></li>
+  </ol>
+
+  <h2>Was ich so entschieden hätte</h2>
+  <div class="q">
+    <div><b>Artikel zuordnen</b><span>Beides über ein Suchfeld auf dem Brett: Wiki-Artikel als Karte und Personen und Orte als Namen.</span></div>
+    <div><b>Zettel</b><span>Kein neues Ding. Ein schnell hingeschriebener loser Faden ist der Zettel.</span></div>
+    <div><b>Bereiche</b><span>Nur ein benannter Rahmen. Was er bedeutet, schreibst du hinein.</span></div>
+    <div><b>Geschichte an Geschichte</b><span>Eine eigene Verbindung mit Wort, gezogen wie bei Fäden.</span></div>
+  </div>
+  <footer>Vorschlag vom 16. 11. 2026 · baut auf „Fäden an Fäden“ (gebaut, ec619df) auf · nichts Neues davon ist gebaut.</footer>
+</div>
