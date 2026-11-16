@@ -151,6 +151,16 @@ button {
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+.wf-clamp-3,
+.wf-clamp-5 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.wf-clamp-5 {
+  -webkit-line-clamp: 5;
+}
 .wf-prose {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

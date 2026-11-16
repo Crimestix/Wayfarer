@@ -9,7 +9,14 @@ import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
 import { ArticleSchema, createEntity, newId, type Place } from '../../domain/schema';
 import { boardCards, boardLayout, insideOnBoard, nameSources } from '../../domain/story';
-import { linkOffers, whiteboardCards } from '../../domain/whiteboard';
+import {
+  boardNowView,
+  cardNames,
+  edgePoint,
+  linkOffers,
+  stringPath,
+  whiteboardCards,
+} from '../../domain/whiteboard';
 import {
   boardWeb,
   isStoryTied,
@@ -24,6 +31,11 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  moveBoardNow,
+  patchThread,
+  setBoardLinkDir,
+  setBoardNow,
+  setBoardPlayed,
   bringOntoBoard,
   takeOffWhiteboard,
   applyLinkOffer,
@@ -252,7 +264,7 @@ describe('Das Netz auf dem Brett', () => {
     // Eine Schnur ist nur eine Schnur: In der Welt ändert sich nichts.
     expect(connectOnBoard(db, `node:${mira.id}`, `story:${story.id}`)).toMatchObject({
       done: true,
-      title: 'Verbunden',
+      title: 'Pfeil gezogen',
     });
     expect(data().stories[story.id]!.refs).toEqual([]);
     expect(connectOnBoard(db, `story:${story.id}`, `node:${mira.id}`)).toMatchObject({
@@ -668,5 +680,73 @@ describe('Whiteboard', () => {
     expect(whiteboardCards(data(), boardCards(data())).map((card) => card.key)).toContain(
       `story:${story.id}`,
     );
+  });
+});
+
+describe('Storyboard', () => {
+  it('schreibt Text auf eine Karte und erkennt Namen darin – weggeklickte nicht', async () => {
+    const { db, data, mira, thread } = await setup();
+    const card = thread('Ankunft in der Stadt');
+    patchThread(db, card.id, { text: 'Am Tor wartet Mira Tannhaus mit einem Brief.' });
+    expect(data().threads[card.id]!.text).toContain('Brief');
+    expect(cardNames(data(), card.id).map((entity) => entity.id)).toEqual([mira.id]);
+    patchThread(db, card.id, { notMeant: [mira.id] });
+    expect(cardNames(data(), card.id)).toEqual([]);
+  });
+
+  it('zieht Pfeile mit Richtung – umdrehen, ohne Pfeil, mit Rückgängig', async () => {
+    const { db, data, thread } = await setup();
+    const a = thread('A');
+    const b = thread('B');
+    const link = addBoardLink(db, `thread:${a.id}`, `thread:${b.id}`)!;
+    expect(data().state.boardLinks[0]).toMatchObject({ a: `thread:${a.id}`, dir: 'to' });
+    const undo = setBoardLinkDir(db, link.id, 'flip')!;
+    expect(data().state.boardLinks[0]).toMatchObject({ a: `thread:${b.id}`, b: `thread:${a.id}` });
+    undo();
+    expect(data().state.boardLinks[0]).toMatchObject({ a: `thread:${a.id}` });
+    setBoardLinkDir(db, link.id, 'none');
+    expect(data().state.boardLinks[0]!.dir).toBe('none');
+  });
+
+  it('lässt Pfeile am Rand der Karten enden', () => {
+    const box = { cx: 0, cy: 0, w: 200, h: 100 };
+    expect(edgePoint(box, { x: 500, y: 0 })).toEqual({ x: 100, y: 0 });
+    expect(edgePoint(box, { x: 0, y: -300 })).toEqual({ x: 0, y: -50 });
+    const path = stringPath(box, { cx: 600, cy: 0, w: 200, h: 100 }, 0);
+    expect(path.d.startsWith('M 100 0')).toBe(true);
+    expect(path.d.endsWith('500 0')).toBe(true);
+  });
+
+  it('zeigt, wo die Gruppe steht und wohin es führen kann; Weitergehen merkt den gespielten Weg', async () => {
+    const { db, data, thread } = await setup();
+    const start = thread('Die Gruppe kommt in die Stadt');
+    const arena = thread('Die Arena');
+    const harbour = thread('Der Hafen');
+    expect(boardNowView(data())).toBeNull();
+    addBoardLink(db, `thread:${start.id}`, `thread:${arena.id}`);
+    const toHarbour = addBoardLink(db, `thread:${start.id}`, `thread:${harbour.id}`)!;
+    setBoardLinkWord(db, toHarbour.id, 'wenn sie fliehen');
+    // Eine Schnur ohne Richtung ist keine Abzweigung.
+    const loose = thread('Nebenbei');
+    const side = addBoardLink(db, `thread:${start.id}`, `thread:${loose.id}`)!;
+    setBoardLinkDir(db, side.id, 'none');
+    setBoardNow(db, `thread:${start.id}`);
+    const view = boardNowView(data())!;
+    expect(view.here.title).toBe('Die Gruppe kommt in die Stadt');
+    expect(view.next.map((step) => [step.title, step.word])).toEqual([
+      ['Die Arena', ''],
+      ['Der Hafen', 'wenn sie fliehen'],
+    ]);
+    const undo = moveBoardNow(db, `thread:${arena.id}`);
+    expect(data().state.boardNow).toBe(`thread:${arena.id}`);
+    expect(data().state.boardPlayed).toEqual([`thread:${start.id}`]);
+    expect(boardNowView(data())!).toMatchObject({ played: 1, came: [{ title: start.title }] });
+    undo();
+    expect(data().state.boardNow).toBe(`thread:${start.id}`);
+    expect(data().state.boardPlayed).toEqual([]);
+    setBoardPlayed(db, `thread:${harbour.id}`, true);
+    expect(data().state.boardPlayed).toEqual([`thread:${harbour.id}`]);
+    setBoardPlayed(db, `thread:${harbour.id}`, false);
+    expect(data().state.boardPlayed).toEqual([]);
   });
 });

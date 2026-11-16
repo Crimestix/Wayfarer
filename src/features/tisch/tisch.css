@@ -2205,3 +2205,81 @@ button.wf-tisch-cast__who:focus-visible {
 .wf-tisch-dazu__onward em {
   color: var(--ink-mute);
 }
+
+/* Auf dem Storyboard: wo die Gruppe steht und wohin die Pfeile führen */
+.wf-tisch-board.wf-tisch-gesch--open {
+  border-left-color: var(--gold);
+}
+.wf-tisch-board__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: var(--s-2) 0 0;
+}
+.wf-tisch-board__here {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--gold);
+}
+.wf-tisch-board__here svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.wf-tisch-board__title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-tisch-board__title:hover {
+  color: var(--gold-bright);
+}
+.wf-tisch-board__text {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+.wf-tisch-board__none {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.wf-tisch-board__next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-tisch-board__next > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  justify-content: space-between;
+  padding: var(--s-2) 0 0;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-tisch-board__step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wf-tisch-board__step em {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-tisch-board__peek {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

@@ -23,6 +23,7 @@ import {
   Frame,
   Eye,
   EyeOff,
+  Flag,
   LayoutGrid,
   Link2,
   Maximize,
@@ -67,7 +68,14 @@ import {
   type ThreadState,
 } from '../../domain/schema';
 import { dropSuggestions, pinExists } from '../../domain/threadWeb';
-import { linkOffers, whiteboardCards, type LinkOffer } from '../../domain/whiteboard';
+import {
+  cardNames,
+  linkOffers,
+  stringPath,
+  whiteboardCards,
+  type BoardBox,
+  type LinkOffer,
+} from '../../domain/whiteboard';
 import { searchWorld } from '../../shell/search';
 import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
@@ -83,6 +91,7 @@ import {
   EntityPicker,
   IconButton,
   KindIcon,
+  NamesHint,
   Select,
   Written,
   cx,
@@ -112,7 +121,11 @@ import {
   writeLinkedThread,
   writeOnBoard,
   removeBoardLink,
+  setBoardLinkDir,
   setBoardLinkWord,
+  setBoardNow,
+  setBoardPlayed,
+  patchThread,
   setStringsHidden,
   setThreadOnBoard,
   setThreadState,
@@ -209,6 +222,10 @@ export default function FaedenPage() {
   const [band, setBand] = useState<{ a: Spot; b: Spot } | null>(null);
   /** Hier wird gerade ein Faden hingeschrieben (Doppelklick ins Leere). */
   const [drafting, setDrafting] = useState<Spot | null>(null);
+  /** Die Karte, auf der gerade geschrieben wird (Doppelklick auf die Karte). */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** Wie groß Karten und Namen gerade sind – Pfeile enden an ihrem Rand. */
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [areaSel, setAreaSel] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
   const [areaMove, setAreaMove] = useState<BoardArea | null>(null);
@@ -311,19 +328,42 @@ export default function FaedenPage() {
     setArriving(null);
   }, [arriving, layout]);
 
+  /** Der Kasten eines Stücks auf dem Brett – gemessen, sonst geschätzt. */
+  const boxOf = (key: string): BoardBox | null => {
+    const card = layout.cards[key];
+    if (card) {
+      const h = sizes[key]?.h ?? BOARD_CARD.height;
+      return { cx: card.x, cy: card.y + h / 2, w: BOARD_CARD.width, h };
+    }
+    const at = layout.pins.find((entry) => entry.key === key);
+    if (!at) return null;
+    const size = sizes[key] ?? { w: 150, h: 34 };
+    return { cx: at.x, cy: at.y, w: size.w, h: size.h };
+  };
+  // Größen messen, sobald etwas auf dem Brett anders aussieht.
+  const layer = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = layer.current;
+    if (!root) return;
+    const next: Record<string, { w: number; h: number }> = {};
+    root.querySelectorAll<HTMLElement>('[data-card], [data-pin]').forEach((el) => {
+      const key = el.dataset.card ?? el.dataset.pin;
+      if (key) next[key] = { w: el.offsetWidth, h: el.offsetHeight };
+    });
+    const same =
+      Object.keys(next).length === Object.keys(sizes).length &&
+      Object.entries(next).every(
+        ([key, size]) => sizes[key]?.w === size.w && sizes[key]?.h === size.h,
+      );
+    if (!same) setSizes(next);
+  });
+
   /** Die Schnüre des Whiteboards – nur die, die der Spielleiter gezogen hat. */
   const linkStrings = data.state.boardLinks.flatMap((link) => {
     if (!truth) return [];
-    const [a, b] = [anchorOf(link.a), anchorOf(link.b)];
+    const [a, b] = [boxOf(link.a), boxOf(link.b)];
     if (!a || !b) return [];
-    const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 30];
-    return [
-      {
-        link,
-        mid: { x: mx, y: (a.y + b.y) / 2 + 15 },
-        d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`,
-      },
-    ];
+    return [{ link, ...stringPath(a, b, link.dir === 'to' ? 7 : 0) }];
   });
   /** Was zum Gewählten gehört – über seine Schnüre. Alles andere tritt zurück. */
   const related = useMemo(() => {
@@ -579,7 +619,7 @@ export default function FaedenPage() {
       });
   };
   const hiddenStories = data.state.boardHidden.filter((key) => key.startsWith('story:'));
-  const isEmpty = cards.length === 0 && free.length === 0;
+  const isEmpty = view === 'party' && cards.length === 0 && free.length === 0;
 
   return (
     <div className="wf-page wf-faden">
@@ -659,7 +699,7 @@ export default function FaedenPage() {
             }}
             onDrop={drop}
           >
-            <div className="wf-faden-layer" style={{ transform: wall.transform }}>
+            <div ref={layer} className="wf-faden-layer" style={{ transform: wall.transform }}>
               {areas.map((area) => (
                 <AreaFrame
                   key={area.id}
@@ -677,11 +717,46 @@ export default function FaedenPage() {
                 />
               ))}
               <svg className="wf-faden-strings" aria-hidden>
+                <defs>
+                  {/* Die Spitze eines Pfeils „führt zu“ – gewöhnlich und gewählt */}
+                  <marker
+                    id="wf-faden-arrow"
+                    className="wf-faden-arrow"
+                    viewBox="0 0 10 10"
+                    refX="7"
+                    refY="5"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" />
+                  </marker>
+                  <marker
+                    id="wf-faden-arrow-chosen"
+                    className="wf-faden-arrow wf-faden-arrow--chosen"
+                    viewBox="0 0 10 10"
+                    refX="7"
+                    refY="5"
+                    markerWidth="5"
+                    markerHeight="5"
+                    orient="auto"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" />
+                  </marker>
+                </defs>
                 {linkStrings.map(({ link, d }) => (
                   <path
                     key={`link:${link.id}`}
                     d={d}
                     data-web="link"
+                    data-arrow={link.dir === 'to' || undefined}
+                    markerEnd={
+                      link.dir === 'to'
+                        ? lineKey === link.id
+                          ? 'url(#wf-faden-arrow-chosen)'
+                          : 'url(#wf-faden-arrow)'
+                        : undefined
+                    }
                     data-chosen-link={lineKey === link.id || undefined}
                     data-dim={related !== null && !(related.has(link.a) && related.has(link.b))}
                   />
@@ -785,8 +860,9 @@ export default function FaedenPage() {
                     const written = writeOnBoard(db, title, { x: at.x, y: at.y - 20 });
                     if (!written) return;
                     select(`thread:${written.thread.id}`);
+                    setEditing(`thread:${written.thread.id}`);
                     toast({
-                      title: 'Faden hingelegt',
+                      title: 'Karte hingelegt',
                       body: `„${written.thread.title}“ – zieh am Griff eine Schnur von ihm weg.`,
                       action: { label: 'Rückgängig', run: written.undo },
                     });
@@ -805,6 +881,7 @@ export default function FaedenPage() {
                     type="button"
                     className={cx('wf-faden-pin', article && 'wf-faden-pin--article')}
                     style={{ left: entry.x, top: entry.y }}
+                    data-pin={entry.key}
                     data-dim={related !== null && !related.has(entry.key)}
                     aria-pressed={entry.key === selected || picked.has(entry.key)}
                     title={name}
@@ -832,15 +909,25 @@ export default function FaedenPage() {
                   dim={related !== null && !related.has(card.key)}
                   drop={false}
                   lifted={moving !== null && moving[card.key] !== undefined}
+                  isNow={data.state.boardNow === card.key}
+                  played={data.state.boardPlayed.includes(card.key)}
                   onGrab={grab(card.key, layout.cards[card.key]!)}
                   onLink={truth ? startLink(card.key) : undefined}
+                  onWrite={truth ? () => setEditing(card.key) : undefined}
                 />
               ))}
+              {editing && layout.cards[editing] && (
+                <CardWriter
+                  cardKey={editing}
+                  at={layout.cards[editing]!}
+                  onDone={() => setEditing(null)}
+                />
+              )}
             </div>
             {open.length === 0 && free.length === 0 && (
               <p className="wf-faden-wall__none">
                 {truth
-                  ? 'Noch liegt nichts auf dem Brett. Ein Doppelklick ins Leere schreibt einen Faden; oben links holst du Geschichten, Personen und Orte dazu.'
+                  ? 'Noch liegt nichts auf dem Brett. Ein Doppelklick ins Leere schreibt eine Karte – etwa „Die Spieler kommen in die Stadt“. Oben links holst du Geschichten, Personen und Orte dazu.'
                   : 'Von dem, was auf dem Brett liegt, kennt die Gruppe noch nichts.'}
               </p>
             )}
@@ -1053,13 +1140,22 @@ function Card({
   dim,
   drop,
   lifted,
+  isNow,
+  played,
   onGrab,
   onLink,
+  onWrite,
 }: {
   card: BoardCard;
   at: Spot;
   selected: boolean;
   dim: boolean;
+  /** Hier steht die Gruppe gerade (`state.boardNow`). */
+  isNow: boolean;
+  /** Die Gruppe war schon hier (gespielter Weg). */
+  played: boolean;
+  /** Doppelklick: auf der Karte schreiben (nur in der Sicht „Wahrheit“). */
+  onWrite?: (() => void) | undefined;
   /** Ein loser Faden wird gerade auf diese Geschichte gezogen. */
   drop: boolean;
   /** Die Karte wird gerade gezogen: Sie liegt über allen anderen. */
@@ -1076,10 +1172,14 @@ function Card({
   const live = card.threads.filter(threadLive);
   const warnings = card.threads.filter((thread) => threadWarning(thread)).length;
   const found = lone ? lone.hints.filter((hint) => hint.found).length : 0;
+  const text = card.story ? card.story.text : (data.threads[lone!.id]?.text ?? '');
+  const names = lone ? cardNames(data, lone.id).slice(0, 4) : [];
   return (
     <button
       type="button"
       className={cx('wf-faden-card', !card.story && 'wf-faden-card--thread')}
+      data-now={isNow || undefined}
+      data-played={played || undefined}
       style={{ left: at.x, top: at.y }}
       data-card={card.key}
       data-near={card.nearness}
@@ -1087,13 +1187,23 @@ function Card({
       data-drop={drop}
       data-lifted={lifted}
       aria-pressed={selected}
+      title={onWrite ? 'Doppelklick: auf der Karte schreiben' : undefined}
       onPointerDown={onGrab}
-      onDoubleClick={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onWrite?.();
+      }}
     >
+      {isNow && (
+        <span className="wf-faden-card__now">
+          <Flag aria-hidden />
+          Hier steht die Gruppe
+        </span>
+      )}
       <span className="wf-faden-card__top">
         <span className="wf-faden-card__sort">
           {card.story ? 'Geschichte' : card.of ? `Faden · ${card.of.title}` : 'Loser Faden'} ·{' '}
-          {NEARNESS_LABEL[card.nearness]}
+          {played ? 'gespielt' : NEARNESS_LABEL[card.nearness]}
         </span>
         {card.story ? (
           card.pace !== 'none' && (
@@ -1108,6 +1218,21 @@ function Card({
         )}
       </span>
       <span className="wf-faden-card__title wf-clamp-2">{card.title}</span>
+      {text.trim() && (
+        <span className={cx('wf-faden-card__text', card.story ? 'wf-clamp-3' : 'wf-clamp-5')}>
+          {text}
+        </span>
+      )}
+      {names.length > 0 && (
+        <span className="wf-faden-card__names">
+          {names.map((entity) => (
+            <span key={entity.id} className="wf-faden-card__name">
+              <KindIcon kind={entity.kind} />
+              <span className="wf-clamp-1">{entity.name}</span>
+            </span>
+          ))}
+        </span>
+      )}
       {card.partOf && (
         <span className="wf-faden-card__part wf-clamp-1">Teil von {card.partOf.title}</span>
       )}
@@ -1166,6 +1291,74 @@ function Card({
         />
       )}
     </button>
+  );
+}
+
+/**
+ * Auf einer Karte schreiben: Überschrift und Text, an Ort und Stelle. Geschrieben wird beim
+ * Verlassen, mit Strg+Eingabe oder Escape – ein „Speichern“ gibt es nicht.
+ */
+function CardWriter({ cardKey, at, onDone }: { cardKey: string; at: Spot; onDone: () => void }) {
+  const db = useDb();
+  const data = useData();
+  const isStory = cardKey.startsWith('story:');
+  const id = cardKey.slice(cardKey.indexOf(':') + 1);
+  const start = isStory ? data.stories[id] : data.threads[id];
+  const [title, setTitle] = useState(start?.title ?? '');
+  const [text, setText] = useState(start?.text ?? '');
+  const changed = !!start && (title !== start.title || text !== start.text);
+  useHoldDraft(changed, `fadenbrett-karte-${cardKey}`);
+  const box = useRef<HTMLDivElement>(null);
+  const done = useRef(false);
+  const save = () => {
+    if (done.current) return;
+    done.current = true;
+    if (start && changed) {
+      if (isStory) patchStory(db, id, { title, text });
+      else patchThread(db, id, { title, text });
+    }
+    onDone();
+  };
+  if (!start) return null;
+  return (
+    <div
+      ref={box}
+      className="wf-faden-writer"
+      style={{ left: at.x, top: at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onBlur={(event) => {
+        if (!box.current?.contains(event.relatedTarget as Node | null)) save();
+      }}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+          event.preventDefault();
+          save();
+        }
+      }}
+    >
+      <input
+        className="wf-faden-writer__title"
+        aria-label="Überschrift"
+        value={title}
+        placeholder="Überschrift"
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <textarea
+        className="wf-faden-writer__text"
+        aria-label="Was hier geschieht"
+        value={text}
+        autoFocus
+        placeholder={
+          isStory
+            ? 'Die Geschichte in deinen Worten …'
+            : 'Was hier geschieht – in deinen Worten, so lang du willst …'
+        }
+        onChange={(event) => setText(event.target.value)}
+      />
+      <span className="wf-faden-writer__hint">Fertig: Escape oder daneben klicken</span>
+    </div>
   );
 }
 
@@ -1393,19 +1586,30 @@ function Side({
   if (!card)
     return (
       <aside className="wf-faden-side wf-faden-side--blank">
-        <p>Das Fadenbrett ist dein Whiteboard. Wähle eine Karte – dann steht hier alles zu ihr.</p>
-        <p className="wf-mute">
-          Hinlegen: oben links suchen (Geschichte, Faden, Person, Ort, Artikel) oder doppelt ins
-          Leere klicken und einen Faden schreiben. Lose Fäden ziehst du aus der Liste herüber.
+        <p>
+          Das Fadenbrett ist dein Storyboard. Fang dort an, wo die Spieler ankommen – und schreib,
+          wohin es von dort führen kann. Was davon passiert, entscheidet sich am Tisch.
         </p>
         <p className="wf-mute">
-          Verbinden: am Griff rechts an einer Karte oder einem Namen eine Schnur ziehen – auf etwas
-          anderes, oder ins Leere, dann kannst du dort suchen oder neu anlegen. Eine Schnur ist nur
-          eine Schnur.
+          Schreiben: doppelt ins Leere klicken – eine Karte mit Überschrift und so viel Text, wie du
+          willst. Doppelklick auf eine Karte schreibt weiter. Namen im Text erkennt Wayfarer.
         </p>
         <p className="wf-mute">
-          Klick auf eine Schnur: ein Wort dazu – und, nur wenn du willst, was sie in der Welt
-          bedeutet (Beteiligte, Beziehung, Teil von …).
+          Verbinden: am Griff rechts an einer Karte einen Pfeil ziehen – „führt zu“. Mehrere Pfeile
+          von einer Karte sind die Möglichkeiten. Ins Leere gezogen, kannst du dort suchen oder neu
+          anlegen.
+        </p>
+        <p className="wf-mute">
+          Klick auf einen Pfeil: ein Wort dazu („wenn sie fliehen“), umdrehen, ohne Pfeil – und, nur
+          wenn du willst, was er in der Welt bedeutet.
+        </p>
+        <p className="wf-mute">
+          Am Tisch: eine Karte als „Hier steht die Gruppe“ markieren. Der Spieltisch zeigt sie und
+          wohin ihre Pfeile führen; „Hierhin“ rückt weiter, der gespielte Weg bleibt sichtbar.
+        </p>
+        <p className="wf-mute">
+          Hinlegen: oben links suchen (Geschichte, Faden, Person, Ort, Artikel); lose Fäden ziehst
+          du aus der Liste herüber.
         </p>
         <p className="wf-mute">
           Ordnen: ziehen; mit Umschalttaste mehrere wählen; das Rahmen-Zeichen unten rechts legt
@@ -1439,7 +1643,8 @@ function Side({
     <aside className="wf-faden-side">
       <div className="wf-faden-side__head">
         <span className="wf-faden-card__sort">
-          {story ? 'Geschichte' : 'Loser Faden'} · {NEARNESS_LABEL[card.nearness]}
+          {story ? 'Geschichte' : card.of ? `Faden · ${card.of.title}` : 'Loser Faden'} ·{' '}
+          {NEARNESS_LABEL[card.nearness]}
         </span>
         {truth && story && (
           <Button
@@ -1463,6 +1668,78 @@ function Side({
           placeholder="Die Geschichte in deinen Worten – schreib einfach drauflos …"
           onSave={(text) => patchStory(db, story.id, { text })}
         />
+      )}
+      {truth && lone && (
+        <Written
+          className="wf-faden-side__story"
+          label="Was hier geschieht"
+          grow
+          value={lone.text}
+          placeholder="Was hier geschieht – in deinen Worten, so lang du willst …"
+          onSave={(text) => patchThread(db, lone.id, { text })}
+        />
+      )}
+      {truth && lone && (
+        <NamesHint
+          texts={[lone.title, lone.text]}
+          attached={lone.refs}
+          ignored={lone.notMeant}
+          storyId={lone.storyId}
+          onAdd={(entityId) => {
+            const now = db.getSnapshot().threads[lone.id];
+            if (now) patchThread(db, lone.id, { refs: [...now.refs, entityId] });
+          }}
+          onRemove={(entityId) => {
+            const now = db.getSnapshot().threads[lone.id];
+            if (now) patchThread(db, lone.id, { refs: now.refs.filter((id) => id !== entityId) });
+          }}
+          onIgnore={(key) => {
+            const now = db.getSnapshot().threads[lone.id];
+            if (now && !now.notMeant.includes(key))
+              patchThread(db, lone.id, { notMeant: [...now.notMeant, key] });
+          }}
+        />
+      )}
+      {truth && (
+        <div className="wf-faden-side__acts">
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<Flag />}
+            aria-pressed={data.state.boardNow === card.key}
+            title="Am Spieltisch stehen dann diese Karte und wohin ihre Pfeile führen"
+            onClick={() => {
+              const here = data.state.boardNow === card.key;
+              const undo = setBoardNow(db, here ? null : card.key);
+              toast({
+                title: here ? 'Markierung entfernt' : 'Hier steht die Gruppe',
+                body: here
+                  ? 'Keine Karte ist mehr markiert.'
+                  : 'Am Spieltisch siehst du diese Karte und wohin ihre Pfeile führen.',
+                action: { label: 'Rückgängig', run: undo },
+              });
+            }}
+          >
+            {data.state.boardNow === card.key ? 'Hier steht die Gruppe ✓' : 'Hier steht die Gruppe'}
+          </Button>
+          {data.state.boardPlayed.includes(card.key) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Die Karte gehört dann nicht mehr zum gespielten Weg"
+              onClick={() => {
+                const undo = setBoardPlayed(db, card.key, false);
+                toast({
+                  title: 'Nicht mehr gespielt',
+                  body: 'Die Karte gilt wieder als Möglichkeit.',
+                  action: { label: 'Rückgängig', run: undo },
+                });
+              }}
+            >
+              Doch nicht gespielt
+            </Button>
+          )}
+        </div>
       )}
       {owner && (
         <p>
@@ -2229,7 +2506,7 @@ function LinkMenu({
   onDrop,
   onClose,
 }: {
-  link: { id: string; a: string; b: string; word: string };
+  link: { id: string; a: string; b: string; word: string; dir: 'to' | 'none' };
   at: Spot;
   onRelate: (fromId: string, toId: string) => void;
   onDrop: () => void;
@@ -2336,7 +2613,35 @@ function LinkMenu({
       onDoubleClick={(event) => event.stopPropagation()}
     >
       <span className="wf-faden-linemenu__what">
-        „{name(link.a)}“ – „{name(link.b)}“
+        „{name(link.a)}“ {link.dir === 'to' ? '→' : '–'} „{name(link.b)}“
+      </span>
+      <span className="wf-btn-group wf-faden-linemenu__dir" role="group" aria-label="Richtung">
+        <button
+          type="button"
+          className="wf-btn wf-btn--sm"
+          aria-pressed={link.dir === 'to'}
+          title={`„${name(link.a)}“ führt zu „${name(link.b)}“`}
+          onClick={() => setBoardLinkDir(db, link.id, 'to')}
+        >
+          Pfeil
+        </button>
+        <button
+          type="button"
+          className="wf-btn wf-btn--sm"
+          title="Der Pfeil zeigt in die andere Richtung"
+          onClick={() => setBoardLinkDir(db, link.id, 'flip')}
+        >
+          Umdrehen
+        </button>
+        <button
+          type="button"
+          className="wf-btn wf-btn--sm"
+          aria-pressed={link.dir === 'none'}
+          title="Nur eine Schnur, ohne Richtung"
+          onClick={() => setBoardLinkDir(db, link.id, 'none')}
+        >
+          Ohne Pfeil
+        </button>
       </span>
       <Written
         className="wf-faden-linemenu__word"

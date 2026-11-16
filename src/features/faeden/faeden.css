@@ -1921,7 +1921,10 @@
   font-size: var(--text-md);
   line-height: 1.6;
 }
-.wf-faden-side__story {
+/* Im Seitenteil (einer Spalte, die rollt) darf das Feld nicht schrumpfen – es ist so hoch wie
+   sein Text, wenigstens ein paar Zeilen. */
+.wf-faden-side .wf-textarea.wf-written.wf-faden-side__story {
+  flex: none;
   min-height: 6rem;
 }
 
@@ -1948,4 +1951,128 @@
 }
 .wf-faden-linemenu__offer[data-on='true'] {
   color: var(--gold);
+}
+
+/* ── Storyboard: Text auf der Karte, Namen, Pfeile, wo die Gruppe steht ── */
+.wf-faden-card__text {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.wf-faden-card__names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.wf-faden-card__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 7px 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-mute);
+  font-size: var(--text-2xs);
+}
+.wf-faden-card__name svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: var(--gold-deep);
+}
+.wf-faden-card__now {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 5px;
+  margin: -2px 0 0;
+  color: var(--gold-bright);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-faden-card__now svg {
+  width: 12px;
+  height: 12px;
+}
+.wf-faden-card[data-now] {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 2px var(--gold-deep),
+    var(--shadow-float);
+}
+/* Gespielt: Die Gruppe war schon hier – die Karte tritt zurück, bleibt aber lesbar. */
+.wf-faden-card[data-played] {
+  background: var(--bg-0);
+  border-style: dashed;
+}
+.wf-faden-card[data-played] .wf-faden-card__title,
+.wf-faden-card[data-played] .wf-faden-card__text {
+  color: var(--ink-mute);
+}
+
+/* Pfeilspitzen „führt zu“ */
+.wf-faden-strings .wf-faden-arrow path {
+  fill: var(--ink-mute);
+  stroke: none;
+  opacity: 1;
+}
+.wf-faden-strings .wf-faden-arrow--chosen path {
+  fill: var(--gold-bright);
+}
+
+/* Auf einer Karte schreiben */
+.wf-faden-writer {
+  position: absolute;
+  z-index: 30;
+  width: 320px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  box-shadow: var(--shadow-float);
+  cursor: auto;
+}
+.wf-faden-writer__title,
+.wf-faden-writer__text {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-0);
+  color: var(--ink);
+  font: inherit;
+}
+.wf-faden-writer__title {
+  padding: 4px 8px;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.wf-faden-writer__text {
+  min-height: 160px;
+  padding: 6px 8px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  resize: vertical;
+}
+.wf-faden-writer__title:focus,
+.wf-faden-writer__text:focus {
+  border-color: var(--gold-deep);
+  outline: none;
+}
+.wf-faden-writer__hint {
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+}
+
+/* Richtung einer Schnur im Menü */
+.wf-faden-linemenu__dir {
+  align-self: flex-start;
 }

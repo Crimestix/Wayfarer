@@ -7,12 +7,7 @@ import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
-import {
-  isLooseThread,
-  nameSources,
-  storyAttached,
-  threadLive,
-} from '../../domain/story';
+import { isLooseThread, nameSources, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
 import { isStoryTied, isTied, pinExists } from '../../domain/threadWeb';
 import { AREA_MIN, type BoardArea } from '../../domain/boardAreas';
@@ -409,7 +404,7 @@ export function runStoryClock(db: CampaignDb, storyId: string, on: boolean): voi
 }
 
 export type ThreadChange = Partial<
-  Pick<Thread, 'title' | 'truth' | 'state' | 'refs' | 'known' | 'hints'>
+  Pick<Thread, 'title' | 'truth' | 'state' | 'refs' | 'known' | 'hints' | 'text' | 'notMeant'>
 >;
 
 /** Ändert einzelne Angaben eines Fadens. Hinweise ohne Text fallen weg. */
@@ -1237,8 +1232,8 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
     };
   return {
     done: true,
-    title: 'Verbunden',
-    body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur: Wort, was es bedeutet, lösen.`,
+    title: 'Pfeil gezogen',
+    body: `„${title(fromKey)}“ führt zu „${title(toKey)}“. Ein Klick auf den Pfeil: Wort, Richtung, was er bedeutet, lösen.`,
     undo: link.undo,
   };
 }
@@ -1756,7 +1751,7 @@ export function addBoardLink(
   if (links.some((link) => (link.a === a && link.b === b) || (link.a === b && link.b === a)))
     return null;
   const id = newId();
-  db.setState({ boardLinks: [...links, { id, a, b, word: '' }] });
+  db.setState({ boardLinks: [...links, { id, a, b, word: '', dir: 'to' }] });
   return {
     id,
     undo: () =>
@@ -1773,6 +1768,58 @@ export function setBoardLinkWord(db: CampaignDb, id: string, word: string): void
   db.setState({
     boardLinks: links.map((link) => (link.id === id ? { ...link, word: word.trim() } : link)),
   });
+}
+
+/**
+ * Die Richtung einer Schnur: `to` = Pfeil von `a` nach `b` („führt zu“), `none` = ohne Pfeil;
+ * `flip` dreht den Pfeil um. Gibt `undo` zurück.
+ */
+export function setBoardLinkDir(
+  db: CampaignDb,
+  id: string,
+  how: 'to' | 'none' | 'flip',
+): (() => void) | null {
+  const links = db.getSnapshot().state.boardLinks;
+  const link = links.find((entry) => entry.id === id);
+  if (!link) return null;
+  const next =
+    how === 'flip' ? { ...link, a: link.b, b: link.a, dir: 'to' as const } : { ...link, dir: how };
+  db.setState({ boardLinks: links.map((entry) => (entry.id === id ? next : entry)) });
+  return () =>
+    db.setState({
+      boardLinks: db
+        .getSnapshot()
+        .state.boardLinks.map((entry) => (entry.id === id ? link : entry)),
+    });
+}
+
+/** Markiert die Karte, an der die Gruppe auf dem Storyboard gerade steht (null = keine). */
+export function setBoardNow(db: CampaignDb, key: string | null): () => void {
+  const before = db.getSnapshot().state.boardNow;
+  db.setState({ boardNow: key });
+  return () => db.setState({ boardNow: before });
+}
+
+/**
+ * Die Gruppe geht auf dem Storyboard weiter (am Spieltisch: wohin ein Pfeil führt): Die Karte,
+ * an der sie stand, gehört danach zum gespielten Weg (`state.boardPlayed`). Gibt `undo` zurück.
+ */
+export function moveBoardNow(db: CampaignDb, key: string): () => void {
+  const { boardNow, boardPlayed } = db.getSnapshot().state;
+  const played =
+    boardNow && boardNow !== key
+      ? [...boardPlayed.filter((entry) => entry !== boardNow), boardNow]
+      : boardPlayed;
+  db.setState({ boardNow: key, boardPlayed: played.filter((entry) => entry !== key) });
+  return () => db.setState({ boardNow, boardPlayed });
+}
+
+/** Zählt eine Karte zum gespielten Weg – oder nimmt sie heraus. Gibt `undo` zurück. */
+export function setBoardPlayed(db: CampaignDb, key: string, played: boolean): () => void {
+  const before = db.getSnapshot().state.boardPlayed;
+  const rest = before.filter((entry) => entry !== key);
+  db.setState({ boardPlayed: played ? [...rest, key] : rest });
+  return () => db.setState({ boardPlayed: before });
 }
 
 /** Nimmt eine freie Schnur weg. Gibt `undo` zurück. */

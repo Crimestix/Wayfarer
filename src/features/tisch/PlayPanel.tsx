@@ -42,6 +42,7 @@ import { newStory, setHintFound, setInPlay, setSceneDone, setStoryMemo } from '.
 import { leadNote } from '../../domain/threadWeb';
 import { dismissRecap } from './commands';
 import { EveningBlock } from './EveningBlock';
+import { BoardNowBox } from './BoardNowBox';
 import { whenLabel } from './model';
 
 const upper = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -145,6 +146,7 @@ export function PlayPanel() {
     >
       <TableRecap />
       <EveningBlock />
+      <BoardNowBox />
       {view.cards.length === 0 && (
         <p className="wf-tisch-play__none">
           Noch keine Geschichte im Spiel. Nimm die herein, die gerade wichtig sind – dann steht hier

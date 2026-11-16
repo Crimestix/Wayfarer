@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 13;
-export const DATA_SHAPE = '00b56172666dfebc';
+export const DATA_VERSION = 14;
+export const DATA_SHAPE = '9a70920b4666e99b';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -176,8 +176,27 @@ export const PlayStateSchema = z.object({
    * etwa zwei Namen, bevor eine Beziehung eingetragen ist. `word` sagt, was sie verbindet.
    */
   boardLinks: z
-    .array(z.object({ id, a: z.string(), b: z.string(), word: z.string().default('') }))
+    .array(
+      z.object({
+        id,
+        a: z.string(),
+        b: z.string(),
+        word: z.string().default(''),
+        /** `to` = ein Pfeil von `a` nach `b` („führt zu“); `none` = eine Schnur ohne Richtung. */
+        dir: z.enum(['to', 'none']).default('to'),
+      }),
+    )
     .default([]),
+  /**
+   * Wo die Gruppe auf dem Storyboard gerade steht: der Schlüssel einer Karte (`thread:`,
+   * `story:`) – am Spieltisch mit dem, wohin ihre Pfeile führen. null = nirgends markiert.
+   */
+  boardNow: z.string().nullable().default(null),
+  /**
+   * Der gespielte Weg auf dem Storyboard: Karten, an denen die Gruppe schon war (in der
+   * Reihenfolge). Geschrieben wird eine Möglichkeit – gespielt wird, was die Spieler daraus machen.
+   */
+  boardPlayed: z.array(z.string()).default([]),
   /**
    * Schnüre, die der Spielleiter auf dem Fadenbrett ausgeblendet hat – nur das Bild, nie die
    * Welt: Der Name bleibt Teil der Geschichte, der Faden ihr Faden (Schlüssel der Schnur, etwa
@@ -1431,6 +1450,13 @@ export const ThreadSchema = z.object({
   ties: z.array(z.object({ id, word: z.string().default('') })).default([]),
   /** Artikel des Wikis, die zu diesem Faden gehören (auch solche ohne Eintrag der Welt). */
   articleIds: z.array(id).default([]),
+  /**
+   * Das Stück Geschichte in den eigenen Worten des Spielleiters – frei, so lang er will; auf dem
+   * Fadenbrett steht es auf der Karte unter der Überschrift (`title`).
+   */
+  text: z.string().default(''),
+  /** Namen im Text, die nicht gemeint sind (wie bei Geschichten `notMeant`). */
+  notMeant: z.array(z.string()).default([]),
 });
 export type Thread = z.infer<typeof ThreadSchema>;
 

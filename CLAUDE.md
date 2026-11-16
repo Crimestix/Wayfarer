@@ -654,7 +654,17 @@ nicht übernommen.
   `domain/boardAreas.ts`), „Aufräumen“ legt nur die Geschichten neu aus. Nie wieder Bedeutung
   durch bloßes Ziehen oder Ablegen – sie kommt nur über das Menü an der Schnur oder die Seiten.
   Jede Geschichte hat einen freien Schreibteil (`story.text`, oben auf dem Blatt und im
-  Seitenteil). Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
+  Seitenteil).
+  **Storyboard** (Entscheidung des Spielleiters, 16. 11. 2026: „Faden ist halt alles, was man zu
+  einer Geschichte zieht“; geschrieben wird vorab – „Die Spieler kommen nach …“ –, gespielt wird,
+  was die Spieler daraus machen): Eine Karte ist ein Stück Geschichte mit Überschrift und eigenem
+  Text (`thread.text`, `story.text`; Doppelklick schreibt auf der Karte, `CardWriter`). Namen im
+  Text erkennt `cardNames` (weggeklickt: `thread.notMeant`). Schnüre haben eine Richtung
+  (`link.dir`: `to` = Pfeil „führt zu“ von `a` nach `b`, `none`; `setBoardLinkDir`), sie enden am
+  Rand der Karten (`stringPath`, `edgePoint`). „Hier steht die Gruppe“ ist `state.boardNow`
+  (`setBoardNow`); am Spieltisch zeigt `BoardNowBox` die Karte und wohin ihre Pfeile führen
+  (`boardNowView`), „Hierhin“ rückt über `moveBoardNow` weiter und legt die alte Karte auf den
+  gespielten Weg (`state.boardPlayed`, `setBoardPlayed`). Alles in `domain/whiteboard.ts`. Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
   Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadNote`/`findHint`), am Spieltisch
   zeigt `neighboursOf` bei Fäden am Ort einen Schritt weiter (`PlayThread.next`); Vorschläge zum
   Verbinden (`tieFits`, `SUGGESTION.tie`) auf dem Blatt (`ThreadWeb`). `boardWeb` (Knoten,

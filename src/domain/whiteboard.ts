@@ -6,7 +6,7 @@
  * Welt bedeuten könnte, bietet `linkOffers` an; es gilt erst, wenn er es wählt.
  */
 import { relationLabel } from './relations';
-import type { CampaignData, Story } from './schema';
+import type { CampaignData, Entity, Story } from './schema';
 import {
   isLooseThread,
   nearness,
@@ -17,6 +17,7 @@ import {
 } from './story';
 import { storyAncestors } from './storySheet';
 import { isTied } from './threadWeb';
+import { writtenNames } from './written';
 
 /**
  * Die Karten des Whiteboards: Geschichten (außer weggelegten, `state.boardHidden`), lose Fäden,
@@ -40,7 +41,9 @@ export function whiteboardCards(
     if (!thread || isLooseThread(data, thread)) continue;
     if (view === 'party' && !thread.known) continue;
     const shown =
-      view === 'party' ? { ...thread, truth: '', hints: thread.hints.filter((h) => h.found) } : thread;
+      view === 'party'
+        ? { ...thread, truth: '', hints: thread.hints.filter((h) => h.found) }
+        : thread;
     out.push({
       key,
       story: null,
@@ -185,4 +188,151 @@ export function linkOffers(data: CampaignData, a: string, b: string): LinkOffer[
       });
   }
   return offers;
+}
+
+// ── Storyboard: Karten mit Text, Pfeile, wo die Gruppe steht ───────────────
+
+/** Ein Kasten auf dem Brett: Mitte, Breite, Höhe. */
+export interface BoardBox {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+}
+
+/** Der Punkt am Rand eines Kastens, an dem eine Linie zu `toward` ihn verlässt. */
+export function edgePoint(
+  box: BoardBox,
+  toward: { x: number; y: number },
+): { x: number; y: number } {
+  const dx = toward.x - box.cx;
+  const dy = toward.y - box.cy;
+  if (dx === 0 && dy === 0) return { x: box.cx, y: box.cy };
+  const sx = dx === 0 ? Infinity : box.w / 2 / Math.abs(dx);
+  const sy = dy === 0 ? Infinity : box.h / 2 / Math.abs(dy);
+  const s = Math.min(sx, sy);
+  return { x: box.cx + dx * s, y: box.cy + dy * s };
+}
+
+/**
+ * Der Weg einer Schnur von Kasten zu Kasten – von Rand zu Rand, leicht gebogen, damit eine
+ * Pfeilspitze am Ende sichtbar bleibt. `mid` ist die Stelle für ihr Wort.
+ */
+export function stringPath(
+  a: BoardBox,
+  b: BoardBox,
+  gap = 6,
+): { d: string; mid: { x: number; y: number } } {
+  const from = edgePoint(a, { x: b.cx, y: b.cy });
+  const raw = edgePoint(b, { x: a.cx, y: a.cy });
+  const len = Math.hypot(raw.x - from.x, raw.y - from.y) || 1;
+  const to = {
+    x: raw.x + ((from.x - raw.x) / len) * gap,
+    y: raw.y + ((from.y - raw.y) / len) * gap,
+  };
+  // Leicht gebogen: die Mitte um ein Zwölftel der Länge zur Seite.
+  const bend = Math.min(40, len / 12);
+  const nx = -(to.y - from.y) / len;
+  const ny = (to.x - from.x) / len;
+  const cx = (from.x + to.x) / 2 + nx * bend;
+  const cy = (from.y + to.y) / 2 + ny * bend;
+  return {
+    d: `M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`,
+    mid: { x: (from.x + 2 * cx + to.x) / 4, y: (from.y + 2 * cy + to.y) / 4 },
+  };
+}
+
+/** Ein Stück des Bretts, wie es auf einer Karte oder am Spieltisch steht. */
+export interface BoardPiece {
+  key: string;
+  sort: 'thread' | 'story' | 'node' | 'article';
+  /** Die Kennung dahinter (Faden, Geschichte, Eintrag, Artikel). */
+  id: string;
+  title: string;
+  /** Der Text des Spielleiters – leer, wenn keiner dasteht. */
+  text: string;
+}
+
+/** Was hinter einem Schlüssel des Bretts steht – null, wenn es das nicht mehr gibt. */
+export function boardPiece(data: CampaignData, key: string): BoardPiece | null {
+  const cut = key.indexOf(':');
+  const id = key.slice(cut + 1);
+  switch (key.slice(0, cut)) {
+    case 'thread': {
+      const thread = data.threads[id];
+      return thread ? { key, sort: 'thread', id, title: thread.title, text: thread.text } : null;
+    }
+    case 'story': {
+      const story = data.stories[id];
+      return story ? { key, sort: 'story', id, title: story.title, text: story.text } : null;
+    }
+    case 'node': {
+      const entity = data.entities[id];
+      return entity ? { key, sort: 'node', id, title: entity.name, text: entity.tagline } : null;
+    }
+    case 'article': {
+      const article = data.articles[id];
+      return article ? { key, sort: 'article', id, title: article.title, text: '' } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * Die Namen auf einer Faden-Karte: wer im Text genannt ist (Regeln des Erkennens, ohne
+ * Weggeklicktes) und wer am Faden angeheftet ist – in dieser Reihenfolge, jeder einmal.
+ */
+export function cardNames(data: CampaignData, threadId: string): Entity[] {
+  const thread = data.threads[threadId];
+  if (!thread) return [];
+  const seen = new Set<string>();
+  const out: Entity[] = [];
+  const add = (entity: Entity | undefined) => {
+    if (!entity || seen.has(entity.id) || thread.notMeant.includes(entity.id)) return;
+    seen.add(entity.id);
+    out.push(entity);
+  };
+  for (const entity of writtenNames(data, [thread.title, thread.text], [], thread.notMeant).known)
+    add(entity);
+  for (const id of thread.refs) add(data.entities[id]);
+  return out;
+}
+
+/** Ein Pfeil, der von einer Karte wegführt: wohin und mit welchem Wort. */
+export interface BoardStep extends BoardPiece {
+  word: string;
+}
+
+/** Wo die Gruppe auf dem Storyboard steht – und wohin ihre Pfeile führen. */
+export interface BoardNowView {
+  here: BoardPiece;
+  /** Pfeile von hier weg (`dir: 'to'`, `a` = hier): die Abzweigungen. */
+  next: BoardStep[];
+  /** Pfeile, die hierher führten. */
+  came: BoardStep[];
+  /** Wie viele Karten schon zum gespielten Weg gehören. */
+  played: number;
+}
+
+/**
+ * Die markierte Karte (`state.boardNow`) mit dem, wohin ihre Pfeile führen. null, wenn keine
+ * markiert ist oder es sie nicht mehr gibt. Schnüre ohne Richtung zählen nicht.
+ */
+export function boardNowView(data: CampaignData): BoardNowView | null {
+  const key = data.state.boardNow;
+  if (!key) return null;
+  const here = boardPiece(data, key);
+  if (!here) return null;
+  const step = (other: string, word: string): BoardStep[] => {
+    const piece = boardPiece(data, other);
+    return piece ? [{ ...piece, word }] : [];
+  };
+  const arrows = data.state.boardLinks.filter((link) => link.dir === 'to');
+  return {
+    played: data.state.boardPlayed.filter((entry) => boardPiece(data, entry)).length,
+    here,
+    next: arrows.filter((link) => link.a === key).flatMap((link) => step(link.b, link.word)),
+    came: arrows.filter((link) => link.b === key).flatMap((link) => step(link.a, link.word)),
+  };
 }
