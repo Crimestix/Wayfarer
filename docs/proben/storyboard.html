@@ -1,0 +1,188 @@
+<title>Dein Storyboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Vorschlag vom 16. 11. 2026 – kein Teil der App. Das Fadenbrett als Storyboard – Beispiel aus der Nachricht des Spielleiters (Menzoberranzan).
+  Kein Teil der App.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg-void: #070605; --bg-0: #0c0a09; --bg-1: #131010; --bg-2: #1a1614; --bg-3: #241e1a;
+    --bg-inset: #0a0808;
+    --line-faint: #2b231d; --line: #43362a; --line-strong: #5a4830;
+    --ink: #e9dfc9; --ink-soft: #c8bca3; --ink-mute: #a09278; --ink-faint: #786c5b;
+    --gold: #c9a35b; --gold-bright: #efd497; --gold-deep: #8b6c34; --gold-glow: rgba(201,163,91,.16);
+    --blood: #9d2f2a; --blood-bright: #d9584c; --blood-wash: rgba(157,47,42,.16);
+    --ember: #d58c3c; --ember-wash: rgba(213,140,60,.14);
+    --moss: #8fae7a;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-caps: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Crimson Pro', Georgia, serif;
+  }
+  body { background: var(--bg-0); color: var(--ink); font-family: var(--font-body); font-size: 17px; line-height: 1.5; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: 2.6rem; line-height: 1.1; color: var(--ink); }
+  h2 { font-size: 1.7rem; margin-top: 56px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.25rem; }
+  .caps { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-mute); }
+  .mute { color: var(--ink-mute); }
+  .gold { color: var(--gold-bright); }
+  p { margin: 0; max-width: 68ch; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .lead { font-size: 1.12rem; color: var(--ink-soft); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 18px; font-variant-numeric: tabular-nums; }
+  .facts div { display: flex; flex-direction: column; }
+  .facts b { font-family: var(--font-display); font-size: 1.5rem; color: var(--gold-bright); font-weight: 600; }
+
+
+  .stage { margin-top: 22px; padding: 18px; background: var(--bg-void); border: 1px dashed var(--line-strong); overflow-x: auto; }
+  .stage-note { font-size: .92rem; color: var(--ink-mute); margin-bottom: 12px; }
+  .panel { position: relative; background: linear-gradient(180deg, #1b1613, #141110); border: 1px solid var(--line); padding: 16px; }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 1px solid var(--gold-deep); }
+  .panel::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+  .panel::after { bottom: 3px; right: 3px; border-left: 0; border-top: 0; }
+  .ptitle { font-family: var(--font-caps); font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .story { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; margin: 4px 0 10px; }
+  .w { color: var(--ink-faint); font-style: italic; }
+  .tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .tree .tree { margin: 6px 0 2px 6px; padding-left: 14px; border-left: 1px solid var(--line-strong); }
+  .node { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .node .t { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; color: var(--ink); }
+  .node .t.small { font-size: 1.05rem; font-weight: 500; color: var(--ink-soft); }
+  .mark { font-family: var(--font-caps); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--line); color: var(--ink-mute); }
+  .mark.place { color: var(--gold); border-color: var(--gold-deep); }
+  .mark.here { color: #1a120a; background: var(--gold); border-color: var(--gold); }
+  .hint { font-size: .95rem; color: var(--ink-soft); display: flex; gap: 8px; }
+  .hint::before { content: "◇"; color: var(--gold-deep); }
+  .hint.found::before { content: "◆"; color: var(--gold); }
+  .add { font-size: .9rem; color: var(--gold); }
+  .add.mute { color: var(--ink-faint); }
+  .three { display: grid; grid-template-columns: 330px 300px 290px; gap: 14px; min-width: 950px; align-items: start; }
+  .card { border: 1px solid var(--line-strong); background: #1d1814; padding: 10px 12px; }
+  .card h4 { margin: 0; font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
+  .card .row { font-size: .9rem; color: var(--ink-soft); margin-top: 4px; }
+  .string { height: 22px; margin-left: 24px; border-left: 2px dotted var(--gold-deep); }
+  .card.sub { margin-left: 24px; border-color: var(--gold-deep); }
+  .steps { counter-reset: s; list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 14px; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.2rem minmax(0,1fr); gap: 12px; }
+  .steps li::before { content: counter(s); font-family: var(--font-display); font-size: 1.6rem; color: var(--gold); line-height: 1; }
+  .steps p { color: var(--ink-soft); }
+  .q { margin-top: 18px; display: grid; gap: 12px; }
+  .q div { padding: 12px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .q b { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .q span { color: var(--ink-soft); }
+  .vs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 16px; }
+  .vs div { padding: 14px 16px; background: var(--bg-1); border: 1px solid var(--line-faint); }
+  .vs h3 { font-size: 1.15rem; margin-bottom: 4px; }
+  .vs p { color: var(--ink-soft); }
+  footer { margin-top: 56px; font-size: .9rem; color: var(--ink-faint); }
+</style>
+
+<style>
+  .sb { position: relative; width: 1560px; height: 1120px; }
+  .sb svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .sb .a { stroke: #c9a35b; stroke-width: 1.8; fill: none; }
+  .sb .a.other { stroke: #8b6c34; stroke-dasharray: 6 5; }
+  .area { position: absolute; border: 1px dashed #5a4830; border-radius: 6px; background: rgba(201,163,91,.03); }
+  .area > span { position: absolute; top: 8px; left: 12px; font-family: var(--font-caps); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .beat { position: absolute; width: 220px; padding: 9px 11px 10px; background: #1d1814; border: 1px solid #43362a; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  .beat h4 { margin: 0 0 4px; font-family: var(--font-display); font-size: 1.08rem; font-weight: 600; color: var(--ink); line-height: 1.15; }
+  .beat p { margin: 0; font-size: .86rem; line-height: 1.38; color: var(--ink-soft); }
+  .beat .n { color: var(--gold-bright); border-bottom: 1px dotted #8b6c34; }
+  .beat.now { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,163,91,.18); }
+  .beat.now::before { content: "Hier steht die Gruppe"; position: absolute; top: -20px; left: 0; font-family: var(--font-caps); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .story { position: absolute; width: 230px; padding: 10px 12px; background: #241d17; border: 1px solid #8b6c34; border-radius: 6px; }
+  .story small { font-family: var(--font-caps); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-mute); }
+  .story h4 { margin: 2px 0 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; color: var(--ink); }
+  .lbl { position: absolute; font-size: .78rem; font-style: italic; color: var(--ink-mute); background: var(--bg-void); padding: 0 4px; white-space: nowrap; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: .9rem; color: var(--ink-mute); }
+  .legend b { color: var(--gold-bright); font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <div class="caps">Probe · 16. 11. · so schreibst du Geschichten</div>
+  <h1 style="margin-top:10px">Dein Storyboard</h1>
+  <div class="stack" style="margin-top:16px">
+    <p class="lead">Ich habe „Faden“ zu wörtlich genommen. Bei dir ist ein Faden ein Stück Geschichte: Es führt zum nächsten, verzweigt sich und reicht in andere Geschichten. Unten steht deine Menzoberranzan-Kette so, wie das Fadenbrett sie zeigen könnte. Der Text auf den Karten ist deiner, gekürzt. Ich habe nichts dazuerfunden.</p>
+    <p class="mute">Nur ein Bild, gebaut ist nichts. Am Ende stehen vier Fragen.</p>
+  </div>
+
+  <h2>So sähe es aus</h2>
+  <div class="stage">
+    <p class="stage-note">Karten sind Stücke der Geschichte, eine Überschrift und darunter dein Text. Pfeile zeigen, was wozu führt. Namen im Text erkennt Wayfarer von selbst, sie sind unterstrichen. Gestrichelte Pfeile führen in eine andere Geschichte.</p>
+    <div class="sb">
+      <div class="area" style="left:10px; top:10px; width:1010px; height:520px"><span>Menzoberranzan</span></div>
+      <div class="area" style="left:10px; top:560px; width:1010px; height:540px"><span>Haus Duskryn</span></div>
+
+      <svg aria-hidden="true">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c9a35b"/></marker>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8b6c34"/></marker>
+        </defs>
+        <!-- Kette oben -->
+        <path class="a" d="M276 110 L 298 110" marker-end="url(#ah)"/>
+        <path class="a" d="M546 110 L 568 110" marker-end="url(#ah)"/>
+        <path class="a" d="M816 110 C 860 110, 860 300, 816 300" marker-end="url(#ah)"/>
+        <path class="a" d="M568 300 L 546 300" marker-end="url(#ah)"/>
+        <path class="a" d="M298 300 L 276 300" marker-end="url(#ah)"/>
+        <!-- Quenthel → Kammer (andere Geschichte) -->
+        <path class="a other" d="M680 360 C 700 420, 1050 420, 1090 380" marker-end="url(#ah2)"/>
+        <!-- Wein → Duskryn: drei Wege -->
+        <path class="a" d="M140 360 C 140 520, 140 560, 140 640" marker-end="url(#ah)"/>
+        <path class="a" d="M200 360 C 260 520, 440 560, 480 640" marker-end="url(#ah)"/>
+        <path class="a" d="M230 340 C 420 480, 760 560, 830 640" marker-end="url(#ah)"/>
+        <!-- Bucht → Sprengung → Zehnsternauge → Vorzagath -->
+        <path class="a" d="M830 780 L 830 830" marker-end="url(#ah)"/>
+        <path class="a other" d="M950 900 C 1050 900, 1080 820, 1100 760" marker-end="url(#ah2)"/>
+        <!-- Bucht → Widerständler → Deneir → Vorzagath -->
+        <path class="a" d="M720 900 L 610 960" marker-end="url(#ah)"/>
+        <path class="a" d="M380 990 L 300 990" marker-end="url(#ah)"/>
+        <path class="a other" d="M180 1040 C 600 1110, 1150 1100, 1200 780" marker-end="url(#ah2)"/>
+        <!-- Widerständler ← Theo (Rückverweis) -->
+        <path class="a other" d="M500 940 C 470 760, 120 520, 120 150" marker-end="url(#ah2)"/>
+      </svg>
+
+      <!-- Menzoberranzan -->
+      <div class="beat now" style="left:30px; top:60px"><h4>Targum spricht sie an</h4><p><span class="n">Targum</span> kommt wegen <span class="n">Theo Beckers</span> Tod auf die Gruppe zu.</p></div>
+      <div class="beat" style="left:300px; top:60px"><h4>Das Schwarze Register</h4><p>Hier erfahren sie vom Behir-Auftrag von <span class="n">Haus Orvyndra</span>.</p></div>
+      <div class="beat" style="left:570px; top:60px"><h4>Der Behir</h4><p>Sie erlegen den Behir.</p></div>
+      <div class="beat" style="left:570px; top:250px"><h4>Quenthel kommt zu sich</h4><p><span class="n">Quenthel</span> erzählt von der Kammer unter dem Haus.</p></div>
+      <div class="beat" style="left:300px; top:250px"><h4>Der Wein</h4><p><span class="n">Haus Duskryn</span> hat den Wein wahrscheinlich vergiftet.</p></div>
+      <div class="beat" style="left:30px; top:250px"><h4>Tiefer zu Duskryn</h4><p>Dadurch gelangen sie tiefer in die Geschichte von <span class="n">Haus Duskryn</span>.</p></div>
+
+      <!-- andere Geschichten -->
+      <div class="story" style="left:1060px; top:320px"><small>Andere Geschichte</small><h4>Die Kammer unter dem Haus</h4></div>
+      <div class="story" style="left:1080px; top:700px"><small>Große Geschichte</small><h4>Vorzagath</h4></div>
+
+      <!-- Haus Duskryn: drei Wege -->
+      <div class="beat" style="left:30px; top:650px"><h4>Die Arena</h4><p>Sie finden heraus: Das rote Bad enthält <span class="n">Gedankenschinder</span>-Larven.</p></div>
+      <div class="beat" style="left:380px; top:650px"><h4>Die Schwarze Reuse</h4><p>Der Weg in die dunklen Gassen.</p></div>
+      <div class="beat" style="left:720px; top:650px"><h4>Die versteckte Bucht</h4><p>Dort liegt der <span class="n">Graue Fang</span>, das Schiff von <span class="n">Mordecai Duskryn</span>. Er hat auf der 80 Jahre alten Verbindung von Duskryn mit den Gedankenschindern aufgebaut: Sklaven gegen Ruhe für die Stadt.</p></div>
+      <div class="beat" style="left:720px; top:840px"><h4>Die Bucht fliegt in die Luft</h4><p>Sie töten <span class="n">Mordecai</span> und erfahren, dass sein Zehnsternauge von <span class="n">Vorzagath</span> hergestellt wurde.</p></div>
+      <div class="beat" style="left:390px; top:930px"><h4>Die Widerständler</h4><p>Sie befreien sie. Sie kamen über <span class="n">Theos</span> Verbindung zu <span class="n">Haus Orvyndra</span> und sollten zur Kolonie gebracht werden.</p></div>
+      <div class="beat" style="left:60px; top:930px"><h4>Deneir</h4><p><span class="n">Deneir</span>, Gedankenschinder aus <span class="n">Yth'voraal</span>: <span class="n">Vorzagath</span> hat <span class="n">Khundrakar</span> eingenommen, Yth'voraal unter Kontrolle, nächstes Ziel Menzoberranzan.</p></div>
+    </div>
+  </div>
+  <div class="legend"><span><b>Pfeil</b> = führt zu</span><span><b>Gestrichelt</b> = führt in eine andere Geschichte</span><span><b>Unterstrichen</b> = erkannter Name</span><span><b>Goldener Rand</b> = hier steht die Gruppe</span></div>
+
+  <h2>Was das Brett dafür können müsste</h2>
+  <ol class="steps">
+    <li><p><b class="gold">Eine Karte ist ein Stück Geschichte.</b> Eine Überschrift und darunter so viel Text, wie du willst, direkt auf der Karte geschrieben. Doppelklick ins Leere legt eine neue an. Das ist dein „Faden“.</p></li>
+    <li><p><b class="gold">Pfeile mit Richtung:</b> Du ziehst von einer Karte zur nächsten, und es entsteht „führt zu“. Mehrere Pfeile von einer Karte sind die Abzweigungen. Der Pfeil kann ein Wort tragen, muss aber nicht.</p></li>
+    <li><p><b class="gold">Namen erkennt Wayfarer im Text.</b> Targum, Haus Duskryn, Mordecai und so weiter sind dann gleich verlinkt, ein Klick öffnet ihre Seite. Kennt Wayfarer einen Namen noch nicht, bietet es „neu anlegen“ an, aber nur, wenn du es willst.</p></li>
+    <li><p><b class="gold">Ordnen ohne Pflicht:</b> Bereiche wie „Menzoberranzan“ oder „Haus Duskryn“. Ein Pfeil zu einer Geschichtenkarte führt in eine andere Geschichte. Eine Karte kann markieren, wo die Gruppe gerade steht. Am Spieltisch siehst du dann diese Karte und wohin ihre Pfeile führen.</p></li>
+  </ol>
+
+  <h2>Fragen an dich</h2>
+  <div class="q">
+    <div><b>1. Ist das deine Art, Geschichten zu schreiben?</b><span>Karten mit eigenem Text, Pfeile „führt zu“, Abzweigungen, Sprünge in andere Geschichten.</span></div>
+    <div><b>2. Gehört so ein Storyboard zu einer Geschichte oder ist es ein großes Brett für alles?</b><span>Mein Vorschlag: ein großes Brett wie bisher, und Bereiche oder Geschichtenkarten ordnen es. Ein Doppelklick auf eine Geschichtenkarte könnte auch nur ihren Teil zeigen.</span></div>
+    <div><b>3. Was soll am Spieltisch davon zu sehen sein?</b><span>Mein Vorschlag: die Karte „Hier steht die Gruppe“ und wohin ihre Pfeile führen, also die nächsten Möglichkeiten.</span></div>
+    <div><b>4. Sollen Karten mehr als Text sein?</b><span>Etwa ein Haken „gespielt“, wenn die Gruppe durch ist, oder ein Hinweis, den sie dort findet. Oder lieber erst einmal nur Text und Pfeile?</span></div>
+  </div>
+  <footer>Probe vom 16. 11. 2026 · Text der Karten aus der Nachricht des Spielleiters · nichts davon ist gebaut.</footer>
+</div>
