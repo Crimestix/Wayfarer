@@ -1202,8 +1202,6 @@ export function setStoryUnfolded(db: CampaignDb, storyId: string, unfolded: bool
 /** Was eine auf dem Brett gezogene Schnur bewirkt hat – oder warum sie nichts bewirkt. */
 export type BoardConnect =
   | { done: true; title: string; body: string; undo: () => void }
-  /** Zwei Namen: Das ist eine Beziehung der Welt – sie wird im Fenster dafür eingetragen. */
-  | { done: false; relate: { fromId: string; toId: string } }
   /** Zwei Geschichten: verbinden oder als Teilgeschichte einhängen – das wählt der Spielleiter. */
   | { done: false; choose: { fromId: string; toId: string } }
   /** Nichts geschehen; `note` sagt warum (leer = ins Leere gezogen). */
@@ -1251,11 +1249,18 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
   const isPin = (key: string) => key.startsWith('node:') || key.startsWith('article:');
   const articleKey = [fromKey, toKey].find((key) => key.startsWith('article:'));
   const articleOther = articleKey === fromKey ? toKey : fromKey;
-  if (articleKey && isPin(articleOther))
+  // Zwei Namen oder Artikel: eine freie Schnur, gleich – was sie bedeutet, kommt später.
+  if (isPin(fromKey) && isPin(toKey)) {
+    const link = addBoardLink(db, fromKey, toKey);
+    if (!link)
+      return { done: false, note: `„${title(fromKey)}“ und „${title(toKey)}“ sind schon verbunden.` };
     return {
-      done: false,
-      note: 'Ein Artikel hängt an Fäden und Geschichten. Mit Namen verbindet ihn sein Text: Verweise im Artikel schreiben.',
+      done: true,
+      title: 'Verbunden',
+      body: `„${title(fromKey)}“ – „${title(toKey)}“. Ein Klick auf die Schnur: Wort, Beziehung eintragen, lösen.`,
+      undo: link.undo,
     };
+  }
   if (articleKey) {
     const articleId = articleKey.slice(8);
     const threadId = threadOfKey(articleOther);
@@ -1285,8 +1290,6 @@ export function connectOnBoard(db: CampaignDb, fromKey: string, toKey: string): 
   }
   const nodeKey = [fromKey, toKey].find((key) => key.startsWith('node:'));
   const otherKey = nodeKey === fromKey ? toKey : fromKey;
-  if (nodeKey && otherKey.startsWith('node:'))
-    return { done: false, relate: { fromId: fromKey.slice(5), toId: toKey.slice(5) } };
   if (nodeKey) {
     const entityId = nodeKey.slice(5);
     const threadId = threadOfKey(otherKey);
@@ -1783,5 +1786,113 @@ export function detachName(
         for (const entry of before)
           if (now[entry.sort][entry.id]) db.patch(entry.sort, entry.id, entry.doc as never);
       }),
+  };
+}
+
+/**
+ * Ein neuer Faden, an einer Schnur ins Leere geschrieben – gleich mit dem verbunden, von dem die
+ * Schnur kam: an einer Geschichte wird er ihre Frage (und die Geschichte klappt ihre Fäden auf),
+ * an einem Faden ein verbundener loser Faden, an einem Namen oder Artikel ein loser Faden, der an
+ * ihm hängt. Liegt dort, wo die Schnur endete. Gibt den Faden und `undo` zurück.
+ */
+export function writeLinkedThread(
+  db: CampaignDb,
+  sourceKey: string,
+  title: string,
+  at: { x: number; y: number },
+): { thread: Thread; undo: () => void } | null {
+  const clean = title.trim();
+  if (!clean) return null;
+  const data = db.getSnapshot();
+  return db.batch(() => {
+    if (sourceKey.startsWith('story:')) {
+      const story = data.stories[sourceKey.slice(6)];
+      if (!story) return null;
+      const thread = saveThread(db, {
+        title: clean,
+        truth: '',
+        state: 'open',
+        storyId: story.id,
+        refs: [],
+        known: false,
+        hints: [],
+      });
+      const wasUnfolded = story.unfolded;
+      setStoryUnfolded(db, story.id, true);
+      placeOnBoard(db, `knot:${thread.id}`, at.x, at.y);
+      return {
+        thread,
+        undo: () =>
+          db.batch(() => {
+            const { [`knot:${thread.id}`]: _gone, ...rest } = db.getSnapshot().state.board;
+            db.setState({ board: rest });
+            if (db.getSnapshot().threads[thread.id]) removeThread(db, thread.id);
+            setStoryUnfolded(db, story.id, wasUnfolded);
+          }),
+      };
+    }
+    const written = writeOnBoard(db, clean, at);
+    if (!written) return null;
+    const threadId = threadOfKey(sourceKey);
+    if (threadId) tieThreads(db, written.thread.id, threadId);
+    else if (sourceKey.startsWith('node:'))
+      pinToCard(db, `thread:${written.thread.id}`, sourceKey.slice(5));
+    else if (sourceKey.startsWith('article:'))
+      setArticleOn(db, 'threads', written.thread.id, sourceKey.slice(8), true);
+    return {
+      thread: db.getSnapshot().threads[written.thread.id] ?? written.thread,
+      undo: written.undo,
+    };
+  });
+}
+
+// ── Freie Schnüre auf dem Brett ────────────────────────────────────────────
+
+/**
+ * Eine freie Schnur zwischen zwei Stücken des Bretts – gibt es sie schon (in einer der beiden
+ * Richtungen), entsteht keine zweite. Gibt die Schnur und `undo` zurück.
+ */
+export function addBoardLink(
+  db: CampaignDb,
+  a: string,
+  b: string,
+): { id: string; undo: () => void } | null {
+  if (a === b) return null;
+  const links = db.getSnapshot().state.boardLinks;
+  if (links.some((link) => (link.a === a && link.b === b) || (link.a === b && link.b === a)))
+    return null;
+  const id = newId();
+  db.setState({ boardLinks: [...links, { id, a, b, word: '' }] });
+  return {
+    id,
+    undo: () =>
+      db.setState({
+        boardLinks: db.getSnapshot().state.boardLinks.filter((link) => link.id !== id),
+      }),
+  };
+}
+
+/** Das Wort einer freien Schnur. */
+export function setBoardLinkWord(db: CampaignDb, id: string, word: string): void {
+  const links = db.getSnapshot().state.boardLinks;
+  if (!links.some((link) => link.id === id)) return;
+  db.setState({
+    boardLinks: links.map((link) => (link.id === id ? { ...link, word: word.trim() } : link)),
+  });
+}
+
+/** Nimmt eine freie Schnur weg. Gibt `undo` zurück. */
+export function removeBoardLink(db: CampaignDb, id: string): (() => void) | null {
+  const links = db.getSnapshot().state.boardLinks;
+  const index = links.findIndex((link) => link.id === id);
+  if (index < 0) return null;
+  const link = links[index]!;
+  db.setState({ boardLinks: links.filter((entry) => entry.id !== id) });
+  return () => {
+    const now = db.getSnapshot().state.boardLinks;
+    if (now.some((entry) => entry.id === id)) return;
+    const next = [...now];
+    next.splice(Math.min(index, next.length), 0, link);
+    db.setState({ boardLinks: next });
   };
 }

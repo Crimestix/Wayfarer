@@ -15,6 +15,7 @@ import {
   useState,
   type DragEvent,
   type PointerEvent,
+  type ReactNode,
 } from 'react';
 import { useLocation } from 'wouter';
 import {
@@ -72,6 +73,7 @@ import {
 } from '../../domain/schema';
 import {
   boardWeb,
+  dropSuggestions,
   isStoryTied,
   pinExists,
   storyTiesOf,
@@ -128,7 +130,10 @@ import {
   tieStories,
   untieStories,
   untieThreads,
+  writeLinkedThread,
   writeOnBoard,
+  removeBoardLink,
+  setBoardLinkWord,
   setThreadOnBoard,
   setThreadState,
   storyFromClock,
@@ -137,6 +142,10 @@ import {
 import { RelationQuick } from '../welt/RelationQuick';
 import { ThreadWeb, findHint } from './WebParts';
 import { useHoldDraft } from '../../ui/drafts';
+import { addFromWriting } from '../welt/writing';
+import { KIND_LABEL } from '../../domain/derive';
+import { relationLabel } from '../../domain/relations';
+import type { EntityKind } from '../../domain/schema';
 import { ThreadDialog } from './Dialogs';
 import { AttachDialog } from './LooseDialogs';
 import { LooseDrawer, THREAD_DRAG } from './LooseDrawer';
@@ -275,6 +284,8 @@ export default function FaedenPage() {
   const [linking, setLinking] = useState<{ from: string; start: Spot; end: Spot } | null>(null);
   /** Zwei Geschichten zusammengebracht: verbinden oder als Teil einhängen – hier wird gefragt. */
   const [choosing, setChoosing] = useState<{ fromId: string; toId: string; at: Spot } | null>(null);
+  /** Eine Schnur ins Leere: Hier wird gesucht, was an ihr Ende kommt. */
+  const [dropAsk, setDropAsk] = useState<{ from: string; at: Spot } | null>(null);
   /** Zwei Namen verbunden: Das Fenster für eine Beziehung der Welt. */
   const [relating, setRelating] = useState<{ self: Entity; otherId: string } | null>(null);
   const startLink = (key: string) => (event: PointerEvent) => {
@@ -288,8 +299,14 @@ export default function FaedenPage() {
       onEnd: (moved, dx, dy) => {
         setLinking(null);
         if (!moved) return;
-        const target = hitOnBoard(layout, { x: grip.x + dx, y: grip.y + dy });
-        if (!target || target === key) return;
+        const end = { x: grip.x + dx, y: grip.y + dy };
+        const target = hitOnBoard(layout, end);
+        // Ins Leere gezogen: Dort öffnet sich die Suche – was gewählt wird, kommt ans Ende.
+        if (!target) {
+          setDropAsk({ from: key, at: end });
+          return;
+        }
+        if (target === key) return;
         const result = connectOnBoard(db, key, target);
         if (result.done) {
           toast({
@@ -297,11 +314,6 @@ export default function FaedenPage() {
             body: result.body,
             action: { label: 'Rückgängig', run: result.undo },
           });
-          return;
-        }
-        if ('relate' in result) {
-          const self = data.entities[result.relate.fromId];
-          if (self) setRelating({ self, otherId: result.relate.toId });
           return;
         }
         if ('choose' in result) {
@@ -423,9 +435,41 @@ export default function FaedenPage() {
     ];
   });
 
+  /** Steht zwischen den beiden Namen einer freien Schnur eine Beziehung der Welt – in Worten. */
+  const linkRelation = (link: { a: string; b: string }): string => {
+    if (!link.a.startsWith('node:') || !link.b.startsWith('node:')) return '';
+    const [a, b] = [link.a.slice(5), link.b.slice(5)];
+    const relation = Object.values(data.relations).find(
+      (entry) =>
+        !entry.ended &&
+        ((entry.from === a && entry.to === b) || (entry.from === b && entry.to === a)),
+    );
+    return relation ? relationLabel(relation, relation.from === a ? 'from' : 'to') : '';
+  };
+  /** Freie Schnüre: zwei Stücke, die der Spielleiter verbunden hat – nur in seiner Sicht. */
+  const linkStrings =
+    view === 'truth'
+      ? data.state.boardLinks.flatMap((link) => {
+          const [a, b] = [anchorOf(link.a), anchorOf(link.b)];
+          if (!a || !b) return [];
+          const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 30];
+          return [
+            {
+              link,
+              a,
+              b,
+              mid: { x: mx, y: (a.y + b.y) / 2 + 15 },
+              d: `M ${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}`,
+            },
+          ];
+        })
+      : [];
+
   /** Die gewählte Schnur – was sie verbindet und was sich mit ihr tun lässt. */
   const chosenLine: ChosenLine | null = (() => {
     if (!lineKey) return null;
+    const free = linkStrings.find(({ link }) => `link:${link.id}` === lineKey);
+    if (free) return { kind: 'link', at: free.mid, link: free.link };
     const name = strings.find((line) => line.lineId === lineKey);
     if (name)
       return {
@@ -458,6 +502,14 @@ export default function FaedenPage() {
       setLineKey(null);
       if (undo) toast({ title, body, action: { label: 'Rückgängig', run: undo } });
     };
+    if (line.kind === 'link') {
+      done(
+        'Schnur gelöst',
+        'Was in der Welt eingetragen ist, bleibt.',
+        removeBoardLink(db, line.link.id),
+      );
+      return;
+    }
     if (line.kind === 'web' && line.line.kind === 'part') {
       const [parent, part] = [data.stories[line.line.from], data.stories[line.line.to]];
       done(
@@ -603,6 +655,7 @@ export default function FaedenPage() {
       if (event.key === 'Escape') {
         clearPicks();
         setDrafting(null);
+        setDropAsk(null);
         return;
       }
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
@@ -997,6 +1050,15 @@ export default function FaedenPage() {
                     data-dim={related !== null && !(related.has(line.a) && related.has(line.b))}
                   />
                 ))}
+                {linkStrings.map(({ link, d }) => (
+                  <path
+                    key={`link:${link.id}`}
+                    d={d}
+                    data-web="link"
+                    data-chosen-link={lineKey === `link:${link.id}` || undefined}
+                    data-dim={related !== null && !(related.has(link.a) && related.has(link.b))}
+                  />
+                ))}
                 {linking && (
                   <path
                     d={`M ${linking.start.x} ${linking.start.y} L ${linking.end.x} ${linking.end.y}`}
@@ -1014,6 +1076,7 @@ export default function FaedenPage() {
                     ...strings.map((line) => ({ id: line.lineId, d: line.d })),
                     ...knotStrings.map((line) => ({ id: line.lineId, d: line.d })),
                     ...webStrings.map(({ line, d }) => ({ id: `web:${line.key}`, d })),
+                    ...linkStrings.map(({ link, d }) => ({ id: `link:${link.id}`, d })),
                   ].map((line) => (
                     <path
                       key={`hit:${line.id}`}
@@ -1059,7 +1122,57 @@ export default function FaedenPage() {
                   }
                   ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
                   onRelease={releaseLine}
+                  onRelate={(fromId, toId) => {
+                    const self = data.entities[fromId];
+                    if (self) setRelating({ self, otherId: toId });
+                  }}
                   onClose={() => setLineKey(null)}
+                />
+              )}
+              {dropAsk && (
+                <DropSearch
+                  ask={dropAsk}
+                  pins={layout.pins}
+                  onPick={(pinKey) => {
+                    const at = dropAsk.at;
+                    const from = dropAsk.from;
+                    setDropAsk(null);
+                    // Liegt es noch nicht auf dem Brett, liegt es jetzt am Ende der Schnur.
+                    const there = layout.pins.some((entry) => entry.key === pinKey);
+                    if (!there) placeOnBoard(db, pinKey, at.x, at.y);
+                    const undoSpot = there ? null : () => takeFreeOffBoard(db, [pinKey]);
+                    const result = connectOnBoard(db, from, pinKey);
+                    if (result.done) {
+                      toast({
+                        title: result.title,
+                        body: result.body,
+                        action: {
+                          label: 'Rückgängig',
+                          run: () =>
+                            db.batch(() => {
+                              result.undo();
+                              undoSpot?.();
+                            }),
+                        },
+                      });
+                      return;
+                    }
+                    if ('note' in result && result.note)
+                      toast({ title: 'Liegt jetzt auf dem Brett', body: result.note });
+                  }}
+                  onThread={(title) => {
+                    const at = dropAsk.at;
+                    const from = dropAsk.from;
+                    setDropAsk(null);
+                    const made = writeLinkedThread(db, from, title, at);
+                    if (made)
+                      toast({
+                        title: 'Faden geschrieben',
+                        body: `„${made.thread.title}“ hängt an „${ownerTitle(from) || (from.startsWith('node:') ? (data.entities[from.slice(5)]?.name ?? '') : (data.articles[from.slice(8)]?.title ?? ''))}“.`,
+                        action: { label: 'Rückgängig', run: made.undo },
+                      });
+                  }}
+                  onCancel={() => setDropAsk(null)}
                 />
               )}
               {choosing && (
@@ -1094,6 +1207,18 @@ export default function FaedenPage() {
                   onCancel={() => setDrafting(null)}
                 />
               )}
+              {linkStrings
+                .filter(({ link }) => link.word || linkRelation(link))
+                .map(({ link, mid }) => (
+                  <span
+                    key={`linkword:${link.id}`}
+                    className="wf-faden-webword"
+                    data-web="link"
+                    style={{ left: mid.x, top: mid.y }}
+                  >
+                    {link.word || linkRelation(link)}
+                  </span>
+                ))}
               {webStrings
                 .filter(({ line }) => line.word)
                 .map(({ line, mid }) => (
@@ -2300,7 +2425,8 @@ function Side({
 type ChosenLine =
   | { kind: 'name'; at: Spot; owner: string; entityId: string; article: boolean }
   | { kind: 'knot'; at: Spot; knot: BoardKnot }
-  | { kind: 'web'; at: Spot; line: WebString };
+  | { kind: 'web'; at: Spot; line: WebString }
+  | { kind: 'link'; at: Spot; link: { id: string; a: string; b: string; word: string } };
 
 /** Das kleine Menü an einer gewählten Schnur: was sie verbindet, ihr Wort, lösen. */
 function LineMenu({
@@ -2308,8 +2434,11 @@ function LineMenu({
   sources,
   ownerTitle,
   onRelease,
+  onRelate,
   onClose,
 }: {
+  /** Zwei Namen: das Fenster für eine Beziehung der Welt öffnen. */
+  onRelate?: (fromId: string, toId: string) => void;
   line: ChosenLine;
   /** Bei einem Namen: worüber er an der Karte hängt, in Worten (`nameSources`). */
   sources: readonly string[];
@@ -2323,7 +2452,17 @@ function LineMenu({
   let what: string;
   let release: string | null = 'Lösen';
   let note = '';
-  if (line.kind === 'web' && line.line.kind === 'part') {
+  const pieceName = (key: string): string =>
+    key.startsWith('node:')
+      ? (data.entities[key.slice(5)]?.name ?? '')
+      : key.startsWith('article:')
+        ? (data.articles[key.slice(8)]?.title ?? '')
+        : key.startsWith('story:')
+          ? (data.stories[key.slice(6)]?.title ?? '')
+          : (data.threads[key.slice(key.indexOf(':') + 1)]?.title ?? '');
+  if (line.kind === 'link') {
+    what = `„${pieceName(line.link.a)}“ – „${pieceName(line.link.b)}“`;
+  } else if (line.kind === 'web' && line.line.kind === 'part') {
     what = `„${data.stories[line.line.to]?.title ?? ''}“ ist Teil von „${data.stories[line.line.from]?.title ?? ''}“`;
     release = 'Herauslösen';
   } else if (line.kind === 'web' && line.line.kind === 'story') {
@@ -2366,6 +2505,28 @@ function LineMenu({
           }
         />
       )}
+      {line.kind === 'link' && (
+        <Written
+          className="wf-faden-linemenu__word"
+          label="Was sie verbindet"
+          wrap
+          value={line.link.word}
+          placeholder="was sie verbindet …"
+          onSave={(word) => setBoardLinkWord(db, line.link.id, word)}
+        />
+      )}
+      {line.kind === 'link' &&
+        line.link.a.startsWith('node:') &&
+        line.link.b.startsWith('node:') &&
+        onRelate && (
+          <Button
+            size="sm"
+            onClick={() => onRelate(line.link.a.slice(5), line.link.b.slice(5))}
+            title="Eine Beziehung der Welt eintragen – die Schnur bleibt"
+          >
+            Beziehung eintragen …
+          </Button>
+        )}
       {note && <span className="wf-faden-linemenu__note">{note}</span>}
       <span className="wf-faden-linemenu__acts">
         {release && (
@@ -2839,5 +3000,148 @@ function StoryPartsSide({
         </p>
       )}
     </section>
+  );
+}
+
+/** Was sich aus einer Schnur ins Leere neu anlegen lässt – die häufigsten Arten zuerst. */
+const DROP_KINDS: EntityKind[] = ['person', 'place', 'faction', 'family', 'item'];
+
+/**
+ * Die Suche am Ende einer Schnur, die ins Leere gezogen wurde: Vorschläge aus dem Text (bevor
+ * getippt wird), dann jeder Eintrag und Artikel, dazu „neu als Person, Ort …“ (als Platzhalter)
+ * und „als neuen Faden“. Was gewählt wird, liegt am Ende der Schnur und ist gleich verbunden.
+ */
+function DropSearch({
+  ask,
+  pins,
+  onPick,
+  onThread,
+  onCancel,
+}: {
+  ask: { from: string; at: Spot };
+  pins: readonly BoardPin[];
+  onPick: (pinKey: string) => void;
+  onThread: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const [query, setQuery] = useState('');
+  useHoldDraft(query.trim() !== '', 'fadenbrett-schnur-suche');
+  const suggestions = useMemo(() => dropSuggestions(data, ask.from), [data, ask.from]);
+  const hits = useMemo(
+    () =>
+      searchWorld(data, query)
+        .filter((hit) => hit.sort === 'entity' || hit.sort === 'article')
+        .slice(0, 7),
+    [data, query],
+  );
+  const name = query.replace(/\s+/g, ' ').trim();
+  const exact = hits.some(
+    (hit) => hit.label.toLocaleLowerCase('de') === name.toLocaleLowerCase('de'),
+  );
+  const storyId = ask.from.startsWith('story:') ? ask.from.slice(6) : null;
+  const rows: { key: string; label: string; sub: string; icon: ReactNode; run: () => void }[] = [];
+  if (!name)
+    for (const entity of suggestions)
+      rows.push({
+        key: `s:${entity.id}`,
+        label: entity.name,
+        sub: 'steht im Text',
+        icon: <KindIcon kind={entity.kind} />,
+        run: () => onPick(`node:${entity.id}`),
+      });
+  for (const hit of hits) {
+    const key = hit.entity ? `node:${hit.entity.id}` : hit.key;
+    rows.push({
+      key,
+      label: hit.label,
+      sub: pins.some((entry) => entry.key === key) ? 'liegt schon da' : hit.sub,
+      icon: hit.entity ? <KindIcon kind={hit.entity.kind} /> : <BookOpen aria-hidden />,
+      run: () => onPick(key),
+    });
+  }
+  if (name && !exact)
+    for (const kind of DROP_KINDS)
+      rows.push({
+        key: `neu:${kind}`,
+        label: `„${name}“ neu als ${KIND_LABEL[kind]}`,
+        sub: 'Platzhalter – fertig geschrieben wird später',
+        icon: <Plus aria-hidden />,
+        run: () => {
+          const made = addFromWriting(db, { name, kind, storyId });
+          if (made) onPick(`node:${made.entity.id}`);
+        },
+      });
+  if (name)
+    rows.push({
+      key: 'faden',
+      label: `„${name}“ als neuen Faden`,
+      sub: 'eine Frage, eine Spur – gleich verbunden',
+      icon: <Waypoints aria-hidden />,
+      run: () => onThread(name),
+    });
+  const [active, setActive] = useState(0);
+  const pick = (index: number) => rows[index]?.run();
+  return (
+    <div
+      className="wf-faden-search wf-faden-dropsearch"
+      style={{ left: ask.at.x, top: ask.at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <input
+        autoFocus
+        className="wf-input"
+        value={query}
+        placeholder="Wer oder was hängt daran? Suchen oder neu …"
+        aria-label="Was ans Ende der Schnur kommt"
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActive(0);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActive((index) => Math.min(rows.length - 1, index + 1));
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActive((index) => Math.max(0, index - 1));
+          } else if (event.key === 'Enter') pick(active);
+          else if (event.key === 'Escape') onCancel();
+        }}
+      />
+      <div className="wf-faden-search__hits" role="listbox">
+        {rows.length === 0 && (
+          <span className="wf-faden-search__none">
+            Tippe einen Namen – Person, Ort, Artikel – oder einen neuen Faden.
+          </span>
+        )}
+        {rows.map((row, index) => (
+          <button
+            key={row.key}
+            type="button"
+            role="option"
+            aria-selected={index === active}
+            className="wf-faden-search__hit"
+            onMouseEnter={() => setActive(index)}
+            onClick={() => pick(index)}
+          >
+            {row.icon}
+            <span className="wf-clamp-1">{row.label}</span>
+            <em className="wf-clamp-1">{row.sub}</em>
+          </button>
+        ))}
+        <button
+          type="button"
+          className="wf-faden-search__hit wf-faden-dropsearch__cancel"
+          onClick={onCancel}
+        >
+          <span />
+          <span>Abbrechen</span>
+          <em />
+        </button>
+      </div>
+    </div>
   );
 }

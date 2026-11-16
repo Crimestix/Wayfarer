@@ -1890,3 +1890,26 @@
   text-align: left;
   justify-content: flex-start;
 }
+
+/* Freie Schnur: zwei Stücke verbunden, ohne dass daraus schon etwas in der Welt folgt */
+.wf-faden-strings path[data-web='link'] {
+  stroke: var(--ink-mute);
+  stroke-width: 1.8;
+  opacity: 0.85;
+}
+.wf-faden-strings path[data-chosen-link] {
+  stroke: var(--gold-bright);
+  stroke-width: 3;
+  opacity: 1;
+}
+/* Die Suche am Ende einer Schnur, die ins Leere gezogen wurde */
+.wf-faden-dropsearch {
+  position: absolute;
+  top: auto;
+  left: auto;
+  width: 320px;
+  transform: translate(-50%, 8px);
+}
+.wf-faden-dropsearch__cancel {
+  color: var(--ink-mute);
+}

@@ -644,7 +644,13 @@ nicht übernommen.
   quer Verbundenes immer; Stellen `knot:<id>` in `state.board`); ihre Namen hängen am Knoten.
   Schnüre zieht der Spielleiter frei am Griff (`connectOnBoard`, Ziel über `hitOnBoard`): Faden an
   Faden verbindet, Name an Faden/Geschichte heftet an, loser Faden an Geschichte wird ihre Frage,
-  zwei Namen öffnen das Fenster für eine Beziehung – alles mit Rückgängig. Das Brett ist ein
+  zwei Namen oder Artikel ergeben sofort eine **freie Schnur** (`state.boardLinks`,
+  `addBoardLink`; nie ein Fenster vorweg – Rückmeldung des Spielleiters 16. 11.: „Da schränkt
+  Wayfarer wieder ein“); an ihr: Wort, „Beziehung eintragen …“ (Fenster schon ausgefüllt), lösen.
+  Eine Schnur ins Leere öffnet dort eine Suche (`DropSearch`, Vorschläge `dropSuggestions`):
+  Eintrag, Artikel, „neu als Person/Ort …“ (Platzhalter über `addFromWriting`) oder „als neuen
+  Faden“ (`writeLinkedThread`) – was gewählt wird, liegt am Schnurende und hängt gleich dran.
+  Alles mit Rückgängig. Das Brett ist ein
   Whiteboard (Vorschlag `docs/proben/fadenbrett-whiteboard.html`, Schritt 1 gebaut): Schnüre
   anklicken (Menü an der Schnur: Wort, lösen – jede Schnur lässt sich lösen; ein Name wird
   überall herausgenommen, worüber er hängt, `nameSources`/`detachName`, der Text bleibt), mehrere

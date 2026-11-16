@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 11;
-export const DATA_SHAPE = '70b688c6ca1d11fe';
+export const DATA_VERSION = 12;
+export const DATA_SHAPE = '6ef8bdaf629f6416';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -170,6 +170,14 @@ export const PlayStateSchema = z.object({
    * Ordnung, ohne Bedeutung für die Welt (`domain/boardAreas.ts`). Was in einem Bereich liegt,
    * zieht mit, wenn er verschoben wird.
    */
+  /**
+   * Freie Schnüre auf dem Fadenbrett: zwei Stücke (`node:`, `article:`, `story:`, `thread:`,
+   * `knot:`), die der Spielleiter verbunden hat, ohne dass daraus schon etwas in der Welt folgt –
+   * etwa zwei Namen, bevor eine Beziehung eingetragen ist. `word` sagt, was sie verbindet.
+   */
+  boardLinks: z
+    .array(z.object({ id, a: z.string(), b: z.string(), word: z.string().default('') }))
+    .default([]),
   boardAreas: z
     .array(
       z.object({

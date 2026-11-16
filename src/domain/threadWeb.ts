@@ -13,9 +13,12 @@
  * auf dem Fadenbrett liegt. Fehlt ein Faden (gelöscht), fällt die Verbindung still weg.
  */
 import { SUGGESTION, isDismissed } from './dismiss';
-import type { CampaignData, Story, Thread, ThreadHint } from './schema';
+import type { CampaignData, Entity, Story, Thread, ThreadHint } from './schema';
+import { writtenNames } from './written';
 import {
   articlesIn,
+  storyAttached,
+  storyTexts,
   storyNodes,
   threadLive,
   threadNodes,
@@ -402,4 +405,33 @@ export function pinExists(
   if (key.startsWith('node:')) return data.entities[key.slice(5)] !== undefined;
   if (key.startsWith('article:')) return data.articles?.[key.slice(8)] !== undefined;
   return false;
+}
+
+/** So viele Namen schlägt die Suche an einer Schnur ins Leere vor, bevor getippt wird. */
+export const DROP_SUGGESTIONS = 6;
+
+/**
+ * Was eine Schnur ins Leere vorschlägt, bevor getippt wird: die Namen, die im Text der
+ * Geschichte oder des Fadens stehen, aber noch nicht an ihm hängen – nur ein Angebot, nie von
+ * selbst angehängt. Ohne solchen Text keine.
+ */
+export function dropSuggestions(data: CampaignData, sourceKey: string): Entity[] {
+  if (sourceKey.startsWith('story:')) {
+    const story = data.stories[sourceKey.slice(6)];
+    if (!story) return [];
+    return writtenNames(
+      data,
+      storyTexts(data, story),
+      storyAttached(data, story),
+      story.notMeant,
+    ).known.slice(0, DROP_SUGGESTIONS);
+  }
+  const threadId =
+    sourceKey.startsWith('knot:') || sourceKey.startsWith('thread:')
+      ? sourceKey.slice(sourceKey.indexOf(':') + 1)
+      : null;
+  const thread = threadId ? data.threads[threadId] : undefined;
+  if (!thread) return [];
+  const texts = [thread.title, thread.truth, ...thread.hints.map((hint) => hint.text)];
+  return writtenNames(data, texts, threadNodes(data, thread)).known.slice(0, DROP_SUGGESTIONS);
 }

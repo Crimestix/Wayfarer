@@ -23,6 +23,10 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  addBoardLink,
+  removeBoardLink,
+  setBoardLinkWord,
+  writeLinkedThread,
   detachName,
   addSubStory,
   setPartsFolded,
@@ -259,9 +263,14 @@ describe('Das Netz auf dem Brett', () => {
       done: false,
       choose: { fromId: story.id, toId: other.id },
     });
-    expect(connectOnBoard(db, `node:${mira.id}`, `node:${story.id}`)).toMatchObject({
-      relate: { fromId: mira.id },
-    });
+    // Zwei Namen: sofort eine freie Schnur – kein Fenster, keine Beziehung verlangt.
+    const odo = db.put('entities', createEntity({ kind: 'person', name: 'Odo' }));
+    const linked = connectOnBoard(db, `node:${mira.id}`, `node:${odo.id}`);
+    expect(linked).toMatchObject({ done: true, title: 'Verbunden' });
+    expect(data().state.boardLinks).toMatchObject([{ a: `node:${mira.id}`, b: `node:${odo.id}` }]);
+    expect(connectOnBoard(db, `node:${odo.id}`, `node:${mira.id}`)).toMatchObject({ done: false });
+    if (linked.done) linked.undo();
+    expect(data().state.boardLinks).toEqual([]);
   });
 });
 
@@ -385,8 +394,9 @@ describe('Artikel und Namen auf dem Brett', () => {
     expect(layout.pins.find((pin) => pin.key === `article:${lore.id}`)!.cards).toEqual([
       `story:${story.id}`,
     ]);
+    // Artikel an Name: eine freie Schnur.
     expect(connectOnBoard(db, `article:${lore.id}`, `node:${mira.id}`)).toMatchObject({
-      done: false,
+      done: true,
     });
     if (tied.done) tied.undo();
     expect(data().threads[a.id]!.articleIds).toEqual([]);
@@ -564,5 +574,36 @@ describe('Erledigte Fäden verschwinden vom Brett', () => {
     expect(isTied(data(), a.id, b.id)).toBe(true);
     db.patch('threads', a.id, { state: 'open' });
     expect(boardWeb(data(), boardCards(data())).strings).toHaveLength(1);
+  });
+});
+
+describe('Freie Schnüre und Suche am Schnurende', () => {
+  it('legt eine freie Schnur an, gibt ihr ein Wort und löst sie wieder', async () => {
+    const { db, data, mira, arena } = await setup();
+    const link = addBoardLink(db, `node:${mira.id}`, `node:${arena.id}`)!;
+    expect(addBoardLink(db, `node:${arena.id}`, `node:${mira.id}`)).toBeNull();
+    setBoardLinkWord(db, link.id, ' kennt sich aus ');
+    expect(data().state.boardLinks[0]!.word).toBe('kennt sich aus');
+    const back = removeBoardLink(db, link.id)!;
+    expect(data().state.boardLinks).toEqual([]);
+    back();
+    expect(data().state.boardLinks).toHaveLength(1);
+  });
+
+  it('schreibt einen Faden am Schnurende – an einer Geschichte, einem Faden, einem Namen', async () => {
+    const { db, data, mira, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena' });
+    const fromStory = writeLinkedThread(db, `story:${story.id}`, 'Wer zahlt?', { x: 5, y: 5 })!;
+    expect(fromStory.thread.storyId).toBe(story.id);
+    expect(data().stories[story.id]!.unfolded).toBe(true);
+    fromStory.undo();
+    expect(data().threads[fromStory.thread.id]).toBeUndefined();
+    expect(data().stories[story.id]!.unfolded).toBe(false);
+    const a = thread('Start');
+    const fromThread = writeLinkedThread(db, `thread:${a.id}`, 'Weiter', { x: 5, y: 5 })!;
+    expect(isTied(data(), a.id, fromThread.thread.id)).toBe(true);
+    const fromName = writeLinkedThread(db, `node:${mira.id}`, 'Was weiß Mira?', { x: 9, y: 9 })!;
+    expect(data().threads[fromName.thread.id]!.refs).toEqual([mira.id]);
+    expect(writeLinkedThread(db, `node:${mira.id}`, '  ', { x: 0, y: 0 })).toBeNull();
   });
 });
