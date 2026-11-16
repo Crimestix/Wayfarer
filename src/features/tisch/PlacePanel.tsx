@@ -674,7 +674,7 @@ export function PlacePanel({ place }: { place: Place }) {
               action={
                 <Link href={entityHref(place)} className="wf-btn">
                   <BookOpen />
-                  Im Dossier ausarbeiten
+                  Auf der Seite ausarbeiten
                 </Link>
               }
             >
@@ -787,8 +787,8 @@ export function PlacePanel({ place }: { place: Place }) {
                       {earlier.length > EARLIER_SHOWN && (
                         <Link href={entityHref(place)} className="wf-tisch-more">
                           {earlier.length - EARLIER_SHOWN === 1
-                            ? '1 älterer Eintrag steht im Dossier'
-                            : `${earlier.length - EARLIER_SHOWN} ältere Einträge stehen im Dossier`}
+                            ? '1 älterer Eintrag steht auf der Seite'
+                            : `${earlier.length - EARLIER_SHOWN} ältere Einträge stehen auf der Seite`}
                         </Link>
                       )}
                     </div>

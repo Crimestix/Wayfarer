@@ -79,14 +79,14 @@ const ACCEPT_LABEL: Record<AiHint['kind'], string> = {
 /** Wo der Spielleiter das Eingetragene danach findet. */
 const WHERE: Record<AiHint['kind'], string> = {
   event: 'Wird ein Termin im Kalender – er steht auch am Spieltisch unter „Anstehend“.',
-  relation: 'Wird eine Beziehung in der Welt – zu sehen im Dossier beider unter „Beziehungen“.',
+  relation: 'Wird eine Beziehung in der Welt – zu sehen auf den Seiten beider unter „Beziehungen“.',
   thread:
     'Wird eine offene Abmachung in der Chronik – an dem Tag, an dem sie getroffen wurde. Zu sehen unter „Offene Abmachungen“ und am Spieltisch unter „Anstehend“.',
 };
 
 const DONE_WHERE: Record<AiHint['kind'], string> = {
   event: 'Zu finden im Kalender und am Spieltisch unter „Anstehend“.',
-  relation: 'Zu finden im Dossier beider unter „Beziehungen“.',
+  relation: 'Zu finden auf den Seiten beider unter „Beziehungen“.',
   thread: 'Zu finden in der Chronik unter „Offene Abmachungen“.',
 };
 
@@ -216,7 +216,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
                 : asLead
                   ? 'Zu finden am Fadenbrett unter „Lose Fäden“.'
                   : secret
-                    ? 'Zu finden im Dossier der genannten Person, im Feld „Geheimnis“.'
+                    ? 'Zu finden auf der Seite der genannten Person, im Feld „Geheimnis“.'
                     : DONE_WHERE[hint.kind]}
           </div>
         </>
@@ -248,7 +248,7 @@ export function HintRow({ article, hint }: { article: Article; hint: AiHint }) {
             lead
               ? 'Wird ein Faden – eine Spur, der die Gruppe folgen kann. Ohne Geschichte steht er am Fadenbrett unter „Lose Fäden“.'
               : secret
-                ? 'Kommt ohne Datum ins Dossier der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
+                ? 'Kommt ohne Datum auf die Seite der genannten Person, ins Feld „Geheimnis“ – das siehst nur du.'
                 : WHERE[hint.kind]
           }
         >

@@ -51,14 +51,15 @@ export function AiOverview() {
           <strong>Termin</strong> kommt in den Kalender und steht am Spieltisch unter „Anstehend“.
         </li>
         <li>
-          <strong>Beziehung</strong> kommt in die Welt: ins Dossier beider unter „Beziehungen“.
+          <strong>Beziehung</strong> kommt in die Welt: auf die Seiten beider unter „Beziehungen“.
         </li>
         <li>
           <strong>Abmachung</strong> kommt in die Chronik unter „Offene Abmachungen“ – an dem Tag,
           an dem sie getroffen wurde.
         </li>
         <li>
-          <strong>Geheimnis</strong> kommt ohne Datum ins Dossier der Person, ins Feld „Geheimnis“.
+          <strong>Geheimnis</strong> kommt ohne Datum auf die Seite der Person, ins Feld
+          „Geheimnis“.
         </li>
       </ul>
       {shown.map((article) => (
