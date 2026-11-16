@@ -28,7 +28,7 @@ import {
   toast,
 } from '../../ui';
 import { relate, removeRelation } from './actions';
-import type { RelationIntent } from './OverviewTab';
+import type { RelationIntent } from './PageParts';
 import { Picker } from './parts';
 import {
   canRelateFrom,

@@ -2,6 +2,7 @@
 
 Stand 16. 11. 2026. Nur Konzept, nichts gebaut – zum Besprechen mit dem Spielleiter. Grundlage:
 Bestandsaufnahme der Welt-Seiten (16. 11.) und seine Antworten:
+
 - Oben auf der Seite: **Steckbrief, wer dort ist, Beziehungen** – der Text danach.
 - Der Steckbrief ist **ein einzelner Kasten, den man direkt ausfüllt**.
 - Orte bekommen Beziehungen wie Orte („liegt in“, „gehört zu“, „beherrscht von“, „Handel mit“),
@@ -88,13 +89,13 @@ der Spielleiter geschrieben hat.)
 
 ### Gestalt je Art (Reihenfolge, nie Filter)
 
-| Art | Steckbrief zuerst | Rechts „jetzt“ | Darin / dazu |
-|---|---|---|---|
-| Person | Spezies, Alter, Beruf, Zugehörigkeit, Wohnort | Wo sie ist, Schicksal, Haltung (Gruppe + Gefährten), offene Abmachungen | Familie, Besitz |
-| Ort | Art, Herrscher, Einwohner, Gegründet, Klima | Wer hier ist, wann die Gruppe hier war, seitdem verändert | Orte darin, Räume, Läden |
-| Fraktion / Familie | Sitz, Oberhaupt, Ziel, Gegründet | Haltung zur Gruppe, laufende Vorhaben | Mitglieder, Stammbaum |
-| Gegenstand | Art, Wert, Gewicht, Magie (Seltenheit …) | Wer ihn hat, Lebenslauf (wenn an) | Rezept, Buch |
-| Pflanze/Tier/Gestein | Lebensraum, Vorkommen, Zeit, Seltenheit, Wert | Wo es hier vorkommt | Kampfwerte (Tier) |
+| Art                  | Steckbrief zuerst                             | Rechts „jetzt“                                                          | Darin / dazu             |
+| -------------------- | --------------------------------------------- | ----------------------------------------------------------------------- | ------------------------ |
+| Person               | Spezies, Alter, Beruf, Zugehörigkeit, Wohnort | Wo sie ist, Schicksal, Haltung (Gruppe + Gefährten), offene Abmachungen | Familie, Besitz          |
+| Ort                  | Art, Herrscher, Einwohner, Gegründet, Klima   | Wer hier ist, wann die Gruppe hier war, seitdem verändert               | Orte darin, Räume, Läden |
+| Fraktion / Familie   | Sitz, Oberhaupt, Ziel, Gegründet              | Haltung zur Gruppe, laufende Vorhaben                                   | Mitglieder, Stammbaum    |
+| Gegenstand           | Art, Wert, Gewicht, Magie (Seltenheit …)      | Wer ihn hat, Lebenslauf (wenn an)                                       | Rezept, Buch             |
+| Pflanze/Tier/Gestein | Lebensraum, Vorkommen, Zeit, Seltenheit, Wert | Wo es hier vorkommt                                                     | Kampfwerte (Tier)        |
 
 Die Felder je Art sind die heutigen Gerüste (`wiki/scaffold.ts`, eigene Felder in den
 Einstellungen) – nur sichtbar und direkt beschreibbar.
@@ -138,11 +139,27 @@ verschoben oder gelöscht. Ohne Text bleiben sie, was sie sind.
 3. **Finden und Anlegen:** ein „Neu“, Liste mit Suche und Gruppen, „Noch zu schreiben“ gruppiert,
    Kurzblick beim Darüberfahren, Wörter.
 
+### Stand nach Schritt 1 (16. 11.)
+
+Gebaut: die Seite ohne Reiter (`welt/Dossier.tsx`, Gestalt je Art in `welt/page.ts`,
+`pagePlan`), Steckbrief als Kasten (`welt/FactBox.tsx`, schreibt in den Text), Text auf der
+Seite, rechte Spalte „jetzt / Beziehungen / zuletzt“, „Hinzufügen: …“, Doppeltes weg (Kopf ohne
+Art, Rolle, Aufenthalt, Sitz; Haltung nur noch rechts, Verlauf auf Klick). Dazu (Zusatz des
+Spielleiters): Ein Laden ist ein Laden – auf dem Ort, der der Laden ist, und beim Händler der
+Hauptteil über beiden Spalten; an einer Stadt nur genannt, mit „als eigenen Ort anlegen“.
+
+Vorbereitet für Schritt 2: Beziehungen stehen rechts knapp (`Connections`), „+ Beziehung“ öffnet
+noch den alten Dialog im Reiter „Beziehungen“; die Haltung steht nur bei Person und Fraktion
+(`AttitudeNow`) – Familie und die Zuklapp-Regel für Orte kommen mit `domain/relations.ts`.
+Für Schritt 3: „Bearbeiten“ (Stift im Kopf) ist nur noch für Name, Art, Schlagworte,
+Lebensdaten; der eine Satz ist im Kopf direkt beschreibbar. Offen: Zeiten der Läden (Markttage,
+fahrende Händler) als eigener Schritt.
+
 ## Fragen an den Spielleiter
 
 1. Rechte Spalte „jetzt“ (wer hier ist, Haltung, zuletzt) – brauchst du die beim Worldbuilding
-   oder stört sie dort und gehört eher an den Spieltisch? *Empfehlung: zeigen, aber schmal.*
+   oder stört sie dort und gehört eher an den Spieltisch? _Empfehlung: zeigen, aber schmal._
 2. Leere Steckbrief-Felder: gedämpft sichtbar (lädt zum Ausfüllen ein) oder nur die gefüllten
-   mit „+ Feld“? *Empfehlung: gedämpft sichtbar, einklappbar.*
+   mit „+ Feld“? _Empfehlung: gedämpft sichtbar, einklappbar._
 3. Soll ein Text ohne Steckbrief von selbst das Gerüst seiner Art bekommen, sobald man den Kasten
-   anklickt? *Empfehlung: ja – erst beim ersten Wort wird es geschrieben, nie vorher.*
+   anklickt? _Empfehlung: ja – erst beim ersten Wort wird es geschrieben, nie vorher._

@@ -161,6 +161,7 @@ export function LocalArticle({
   actions,
   below,
   mode = 'read',
+  embedded = false,
 }: {
   article: Article;
   /** Ein Verweis wurde angeklickt. Ohne `resourceId` gibt es den Artikel noch nicht. */
@@ -171,6 +172,11 @@ export function LocalArticle({
   below?: ReactNode;
   /** Lesen, Schreiben oder Quelltext. */
   mode?: WikiMode;
+  /**
+   * Auf der Seite eines Dings: Name und Steckbrief-Felder stehen dort schon oben – hier nicht
+   * noch einmal.
+   */
+  embedded?: boolean;
 }) {
   const db = useDb();
   const data = useData();
@@ -179,8 +185,8 @@ export function LocalArticle({
   const [chosen, setChosen] = useState<string | null>(null);
   const doc = docs.find((entry) => entry.id === chosen) ?? docs[0];
   const { side, body, outline } = useMemo(
-    () => splitPage(data.articles, article, doc),
-    [data.articles, article, doc],
+    () => splitPage(data.articles, article, doc, { boxShownAbove: embedded }),
+    [data.articles, article, doc, embedded],
   );
   const [bannerBroken, setBannerBroken] = useState(false);
   const src = useMediaSrc();
@@ -240,36 +246,40 @@ export function LocalArticle({
 
       <header className="wf-lk-head">
         <div className="wf-lk-head__main">
-          <nav
-            className="wf-lk-path"
-            aria-label="Platz in den Ordnern"
-            title={[...path.map((step) => step.title), article.title].join(' › ')}
-          >
-            <span className="wf-lk-path__source">Artikel</span>
-            {path.length > steps.length && (
-              <>
-                <span className="wf-lk-path__sep" aria-hidden>
-                  ›
-                </span>
-                <span>…</span>
-              </>
-            )}
-            {steps.map((step) => (
-              <Fragment key={step.id}>
-                <span className="wf-lk-path__sep" aria-hidden>
-                  ›
-                </span>
-                <button
-                  type="button"
-                  title={`„${step.title}“ öffnen`}
-                  onClick={() => onOpen({ resourceId: step.id, title: step.title })}
-                >
-                  {step.title}
-                </button>
-              </Fragment>
-            ))}
-          </nav>
-          {editing ? (
+          {!embedded && (
+            <nav
+              className="wf-lk-path"
+              aria-label="Platz in den Ordnern"
+              title={[...path.map((step) => step.title), article.title].join(' › ')}
+            >
+              <span className="wf-lk-path__source">Artikel</span>
+              {path.length > steps.length && (
+                <>
+                  <span className="wf-lk-path__sep" aria-hidden>
+                    ›
+                  </span>
+                  <span>…</span>
+                </>
+              )}
+              {steps.map((step) => (
+                <Fragment key={step.id}>
+                  <span className="wf-lk-path__sep" aria-hidden>
+                    ›
+                  </span>
+                  <button
+                    type="button"
+                    title={`„${step.title}“ öffnen`}
+                    onClick={() => onOpen({ resourceId: step.id, title: step.title })}
+                  >
+                    {step.title}
+                  </button>
+                </Fragment>
+              ))}
+            </nav>
+          )}
+          {embedded ? (
+            <h4 className="wf-section-title">Text</h4>
+          ) : editing ? (
             <TitleInput article={article} />
           ) : (
             <h2 className="wf-lk-title">{article.title}</h2>
@@ -388,11 +398,13 @@ export function LocalArticle({
               <ArticleNodes nodes={body} ctx={ctx} />
             ) : (
               <p className="wf-lk-blank">
-                {children.length > 0
-                  ? 'Dieser Artikel hat keinen eigenen Text – er ordnet die Artikel darunter.'
-                  : hasAside
-                    ? 'Dieser Artikel hat keinen Fließtext – nur die Angaben daneben.'
-                    : 'Dieser Artikel ist noch leer.'}
+                {embedded
+                  ? 'Noch kein Text – „Schreiben“ beginnt ihn hier.'
+                  : children.length > 0
+                    ? 'Dieser Artikel hat keinen eigenen Text – er ordnet die Artikel darunter.'
+                    : hasAside
+                      ? 'Dieser Artikel hat keinen Fließtext – nur die Angaben daneben.'
+                      : 'Dieser Artikel ist noch leer.'}
               </p>
             )}
           </div>
