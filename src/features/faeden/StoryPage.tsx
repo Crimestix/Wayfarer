@@ -211,6 +211,22 @@ function StorySheet({ story }: { story: Story }) {
         </header>
 
         <SheetSection
+          id="text"
+          title="Die Geschichte"
+          hint="In deinen Worten, so lang du willst. Alles darunter ist freiwillig – füll aus, was dir hilft."
+        >
+          <Written
+            className="wf-sheet__story"
+            label="Die Geschichte in deinen Worten"
+            grow
+            value={story.text}
+            placeholder="Schreib einfach drauflos: was passiert, wer was will, wie es ausgehen könnte. Mit @ erwähnst du jemanden – oder legst ihn gleich an."
+            mention={mention}
+            onSave={(text) => patch({ text })}
+          />
+        </SheetSection>
+
+        <SheetSection
           id="who"
           title="Wer will was"
           hint="Ein Vorhaben, kein Ablauf: Wer treibt das an – und was will er?"

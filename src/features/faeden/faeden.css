@@ -1913,3 +1913,14 @@
 .wf-faden-dropsearch__cancel {
   color: var(--ink-mute);
 }
+
+/* Die Geschichte in eigenen Worten: Platz zum Schreiben, nicht nur eine Zeile */
+.wf-sheet__story,
+.wf-faden-side__story {
+  min-height: 9rem;
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+.wf-faden-side__story {
+  min-height: 6rem;
+}

@@ -105,6 +105,7 @@ import {
 import { useBoard } from '../../ui/board';
 import { ClockDialog } from '../kalender/ClockDialog';
 import {
+  patchStory,
   addBoardArea,
   addSubStory,
   setPartsFolded,
@@ -134,6 +135,7 @@ import {
   writeOnBoard,
   removeBoardLink,
   setBoardLinkWord,
+  setStringsHidden,
   setThreadOnBoard,
   setThreadState,
   storyFromClock,
@@ -379,6 +381,8 @@ export default function FaedenPage() {
     return keys;
   }, [selected, layout.pins, web]);
 
+  /** Schnüre, die der Spielleiter ausgeblendet hat – nur das Bild, nie die Welt. */
+  const hidden = new Set(data.state.boardHidden);
   const strings = layout.pins.flatMap((entry) =>
     entry.cards.flatMap((key) => {
       const from = anchorOf(key);
@@ -386,6 +390,7 @@ export default function FaedenPage() {
       // Ein Faden hängt leicht durch.
       const [mx, my] = [(from.x + entry.x) / 2, (from.y + entry.y) / 2 + 28];
       const lineId = `name:${key}|${entry.key}`;
+      if (hidden.has(lineId)) return [];
       return [
         {
           key: `${key}|${entry.key}`,
@@ -408,6 +413,7 @@ export default function FaedenPage() {
     const at = layout.knots[entry.key];
     if (!card || !at) return [];
     const lineId = `knot:${entry.key}`;
+    if (hidden.has(lineId)) return [];
     return [
       {
         key: `${entry.cardKey}|${entry.key}`,
@@ -421,6 +427,7 @@ export default function FaedenPage() {
   });
   /** Die Schnüre des Netzes: Faden an Faden (fest), Hinweis führt zu (gestrichelt). */
   const webStrings = web.strings.flatMap((line) => {
+    if (line.kind === 'part' && hidden.has(`web:${line.key}`)) return [];
     const [a, b] = [anchorOf(line.a), anchorOf(line.b)];
     if (!a || !b) return [];
     const [mx, my] = [(a.x + b.x) / 2, (a.y + b.y) / 2 + 36];
@@ -495,6 +502,27 @@ export default function FaedenPage() {
     setLineKey(lineKey === id ? null : id);
   };
   /** Löst die gewählte Schnur – mit Meldung und Rückgängig; manche lassen sich nur dort lösen, wo sie entstehen. */
+  /**
+   * Schnüre, die aus der Welt folgen (Name an Geschichte, Faden an Geschichte, Teil von): Lösen
+   * heißt dort nur „nicht mehr zeigen“ – an der Geschichte ändert sich nichts.
+   */
+  const shownOnly = (line: ChosenLine): boolean =>
+    line.kind === 'name' ||
+    line.kind === 'knot' ||
+    (line.kind === 'web' && line.line.kind === 'part');
+  /** Blendet die gewählte Schnur aus – nur das Bild. */
+  const hideLine = () => {
+    if (!lineKey) return;
+    const undo = setStringsHidden(db, [lineKey], true);
+    setLineKey(null);
+    if (undo)
+      toast({
+        title: 'Schnur ausgeblendet',
+        body: 'An der Geschichte ändert sich nichts. Unten bei den Werkzeugen holst du sie zurück.',
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  /** Was die Schnur in der Welt bedeutet, auch dort lösen – nur auf ausdrücklichen Wunsch. */
   const releaseLine = () => {
     const line = chosenLine;
     if (!line) return;
@@ -667,7 +695,8 @@ export default function FaedenPage() {
       }
       if (chosenLine) {
         event.preventDefault();
-        releaseLine();
+        if (shownOnly(chosenLine)) hideLine();
+        else releaseLine();
         return;
       }
       const keys = picked.size ? [...picked] : selected ? [selected] : [];
@@ -1121,7 +1150,8 @@ export default function FaedenPage() {
                           )
                   }
                   ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
-                  onRelease={releaseLine}
+                  onRelease={shownOnly(chosenLine) ? hideLine : releaseLine}
+                  onDeep={shownOnly(chosenLine) ? releaseLine : undefined}
                   onRelate={(fromId, toId) => {
                     const self = data.entities[fromId];
                     if (self) setRelating({ self, otherId: toId });
@@ -1330,6 +1360,23 @@ export default function FaedenPage() {
                   }
                 >
                   <Frame />
+                </IconButton>
+              )}
+              {truth && data.state.boardHidden.length > 0 && (
+                <IconButton
+                  label={`Ausgeblendete Schnüre wieder zeigen (${data.state.boardHidden.length})`}
+                  size="sm"
+                  onClick={() => {
+                    const undo = setStringsHidden(db, data.state.boardHidden, false);
+                    if (undo)
+                      toast({
+                        title: 'Schnüre wieder da',
+                        body: 'Alle ausgeblendeten Schnüre stehen wieder auf dem Brett.',
+                        action: { label: 'Rückgängig', run: undo },
+                      });
+                  }}
+                >
+                  <Eye />
                 </IconButton>
               )}
               <IconButton label="Größer" size="sm" onClick={() => wall.zoom(1.25)}>
@@ -2060,6 +2107,16 @@ function Side({
       </div>
       <h2 className="wf-faden-side__title">{card.title}</h2>
       {story?.summary && truth && <p className="wf-prose">{story.summary}</p>}
+      {story && truth && (
+        <Written
+          className="wf-faden-side__story"
+          label="Die Geschichte in deinen Worten"
+          grow
+          value={story.text}
+          placeholder="Die Geschichte in deinen Worten – schreib einfach drauflos …"
+          onSave={(text) => patchStory(db, story.id, { text })}
+        />
+      )}
       {owner && (
         <p>
           <span className="wf-mute">Treibt an:</span> {link(owner.id)}
@@ -2434,9 +2491,12 @@ function LineMenu({
   sources,
   ownerTitle,
   onRelease,
+  onDeep,
   onRelate,
   onClose,
 }: {
+  /** Bei Schnüren, die aus der Welt folgen: die Bedeutung auch dort lösen. */
+  onDeep?: (() => void) | undefined;
   /** Zwei Namen: das Fenster für eine Beziehung der Welt öffnen. */
   onRelate?: (fromId: string, toId: string) => void;
   line: ChosenLine;
@@ -2460,11 +2520,14 @@ function LineMenu({
         : key.startsWith('story:')
           ? (data.stories[key.slice(6)]?.title ?? '')
           : (data.threads[key.slice(key.indexOf(':') + 1)]?.title ?? '');
+  /** Was „auch in der Welt lösen“ bei dieser Schnur heißt – null, wenn es nichts gibt. */
+  let deep: string | null = null;
   if (line.kind === 'link') {
     what = `„${pieceName(line.link.a)}“ – „${pieceName(line.link.b)}“`;
   } else if (line.kind === 'web' && line.line.kind === 'part') {
     what = `„${data.stories[line.line.to]?.title ?? ''}“ ist Teil von „${data.stories[line.line.from]?.title ?? ''}“`;
-    release = 'Herauslösen';
+    release = 'Schnur ausblenden';
+    deep = 'Auch herauslösen – steht dann für sich';
   } else if (line.kind === 'web' && line.line.kind === 'story') {
     what = `„${data.stories[line.line.from]?.title ?? ''}“ – „${data.stories[line.line.to]?.title ?? ''}“`;
   } else if (line.kind === 'web' && line.line.kind === 'tie') {
@@ -2473,15 +2536,18 @@ function LineMenu({
     what = `Hinweis „${line.line.word}“ führt zu „${title(line.line.to)}“`;
   } else if (line.kind === 'knot') {
     what = `„${line.knot.thread.title}“ gehört zu „${data.stories[line.knot.cardKey.slice(6)]?.title ?? ''}“`;
-    release = 'Von der Geschichte lösen';
+    release = 'Schnur ausblenden';
+    deep = 'Auch von der Geschichte lösen – wird ein loser Faden';
   } else {
     what = line.article
       ? `„${data.articles[line.entityId]?.title ?? ''}“ gehört zu „${ownerTitle}“`
       : `${data.entities[line.entityId]?.name ?? ''} an „${ownerTitle}“`;
-    if (!sources.length) release = null;
-    else if (!line.article) {
-      note = `Hängt über: ${sources.join(', ')}. Lösen nimmt den Namen dort heraus – der Text bleibt.`;
-    }
+    release = 'Schnur ausblenden';
+    if (sources.length)
+      deep = line.article
+        ? 'Auch die Zuordnung lösen'
+        : `Auch dort herausnehmen (${sources.join(', ')})`;
+    note = 'Ausblenden ändert nichts an der Geschichte.';
   }
   return (
     <div
@@ -2532,6 +2598,11 @@ function LineMenu({
         {release && (
           <Button size="sm" onClick={onRelease} title="Auch mit der Löschtaste">
             {release}
+          </Button>
+        )}
+        {deep && onDeep && (
+          <Button size="sm" variant="ghost" onClick={onDeep}>
+            {deep}
           </Button>
         )}
         <Button size="sm" variant="ghost" onClick={onClose}>

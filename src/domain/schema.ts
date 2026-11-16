@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 12;
-export const DATA_SHAPE = '6ef8bdaf629f6416';
+export const DATA_VERSION = 13;
+export const DATA_SHAPE = '00b56172666dfebc';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -178,6 +178,12 @@ export const PlayStateSchema = z.object({
   boardLinks: z
     .array(z.object({ id, a: z.string(), b: z.string(), word: z.string().default('') }))
     .default([]),
+  /**
+   * Schnüre, die der Spielleiter auf dem Fadenbrett ausgeblendet hat – nur das Bild, nie die
+   * Welt: Der Name bleibt Teil der Geschichte, der Faden ihr Faden (Schlüssel der Schnur, etwa
+   * `name:story:<id>|node:<id>`).
+   */
+  boardHidden: z.array(z.string()).default([]),
   boardAreas: z
     .array(
       z.object({
@@ -1655,6 +1661,11 @@ export const StorySchema = z.object({
   ties: z.array(z.object({ id, word: z.string().default('') })).default([]),
   /** Merkzettel für den Tisch: woran der Spielleiter bei dieser Geschichte denken will. */
   memo: z.string().default(''),
+  /**
+   * Die Geschichte in den eigenen Worten des Spielleiters – frei, so lang er will, ohne Fächer.
+   * Alles andere auf dem Blatt ist freiwillig dazu.
+   */
+  text: z.string().default(''),
   /**
    * Namen aus dem Text des Blatts, die der Spielleiter weggeklickt hat („nicht gemeint“): die
    * Kennung eines Eintrags oder ein unbekannter Name (`writtenNames` in `domain/written.ts`).

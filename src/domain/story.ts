@@ -198,6 +198,7 @@ export function nameSources(
 export function storyTexts(data: StoryData, story: Story): string[] {
   const clock = story.clockId ? data.clocks[story.clockId] : undefined;
   return [
+    story.text,
     story.summary,
     story.needs,
     story.stakes,

@@ -119,6 +119,7 @@ export type StoryChange = { scenes?: SceneInput[] } & Partial<
     | 'ending'
     | 'reward'
     | 'memo'
+    | 'text'
     | 'known'
     | 'closed'
     | 'inPlay'
@@ -1895,4 +1896,22 @@ export function removeBoardLink(db: CampaignDb, id: string): (() => void) | null
     next.splice(Math.min(index, next.length), 0, link);
     db.setState({ boardLinks: next });
   };
+}
+
+/**
+ * Blendet Schnüre auf dem Brett aus – oder wieder ein. Nur das Bild: An Geschichte, Faden und
+ * Namen ändert sich nichts. Gibt `undo` zurück.
+ */
+export function setStringsHidden(
+  db: CampaignDb,
+  keys: readonly string[],
+  hidden: boolean,
+): (() => void) | null {
+  const before = db.getSnapshot().state.boardHidden;
+  const next = hidden
+    ? [...new Set([...before, ...keys])]
+    : before.filter((key) => !keys.includes(key));
+  if (next.length === before.length && next.every((key, i) => key === before[i])) return null;
+  db.setState({ boardHidden: next });
+  return () => db.setState({ boardHidden: before });
 }

@@ -23,6 +23,7 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  setStringsHidden,
   addBoardLink,
   removeBoardLink,
   setBoardLinkWord,
@@ -605,5 +606,22 @@ describe('Freie Schnüre und Suche am Schnurende', () => {
     const fromName = writeLinkedThread(db, `node:${mira.id}`, 'Was weiß Mira?', { x: 9, y: 9 })!;
     expect(data().threads[fromName.thread.id]!.refs).toEqual([mira.id]);
     expect(writeLinkedThread(db, `node:${mira.id}`, '  ', { x: 0, y: 0 })).toBeNull();
+  });
+});
+
+describe('Schnüre ausblenden', () => {
+  it('blendet nur das Bild aus – an der Geschichte ändert sich nichts', async () => {
+    const { db, data, mira } = await setup();
+    const story = newStory(db, { title: 'Die Arena', refs: [mira.id] });
+    const key = `name:story:${story.id}|node:${mira.id}`;
+    const undo = setStringsHidden(db, [key], true)!;
+    expect(data().state.boardHidden).toEqual([key]);
+    expect(data().stories[story.id]!.refs).toEqual([mira.id]);
+    expect(setStringsHidden(db, [key], true)).toBeNull();
+    undo();
+    expect(data().state.boardHidden).toEqual([]);
+    setStringsHidden(db, [key], true);
+    setStringsHidden(db, [key], false);
+    expect(data().state.boardHidden).toEqual([]);
   });
 });
