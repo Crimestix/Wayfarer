@@ -142,6 +142,54 @@ export function storyNodes(
 }
 
 /**
+ * Worüber ein Name an einer Karte hängt – in Worten, für das Menü an der Schnur: „Beteiligte“,
+ * „Antreiber“, „Uhr“, „Hinweis „…“ (Wo?)“ … `cardKey` ist `story:<id>`, `thread:<id>` oder
+ * `knot:<id>`; bei einer Geschichte zählen ihre Fäden mit, außer denen in `skip` (Knoten).
+ */
+export function nameSources(
+  data: StoryData,
+  cardKey: string,
+  entityId: string,
+  skip: ReadonlySet<string> = new Set(),
+): string[] {
+  const out: string[] = [];
+  const ofThread = (thread: Thread, own: boolean) => {
+    if (thread.refs.includes(entityId))
+      out.push(own ? 'hängt am Faden' : `Faden „${thread.title}“`);
+    for (const hint of thread.hints) {
+      if (hint.placeId === entityId) out.push(`Hinweis „${hint.text}“ (Wo?)`);
+      if (hint.sourceId === entityId) out.push(`Hinweis „${hint.text}“ (Wer weiß es?)`);
+    }
+  };
+  const threadId =
+    cardKey.startsWith('knot:') || cardKey.startsWith('thread:')
+      ? cardKey.slice(cardKey.indexOf(':') + 1)
+      : null;
+  if (threadId) {
+    const thread = data.threads[threadId];
+    if (thread) ofThread(thread, true);
+    return out;
+  }
+  const story = data.stories[cardKey.slice(6)];
+  if (!story) return out;
+  if (story.ownerId === entityId) out.push('Antreiber');
+  if (story.refs.includes(entityId)) out.push('Beteiligte');
+  if (story.heroes.some((hero) => hero.characterId === entityId)) out.push('betrifft persönlich');
+  const clock = story.clockId ? data.clocks[story.clockId] : undefined;
+  if (
+    clock &&
+    (clock.ownerId === entityId || clock.placeId === entityId || clock.refs.includes(entityId))
+  )
+    out.push('Uhr');
+  for (const entry of story.entries)
+    if (entry.placeId === entityId) out.push(`Einstieg „${entry.text}“`);
+  for (const scene of story.scenes)
+    if (scene.placeId === entityId) out.push(`Szene „${scene.text || 'ohne Namen'}“`);
+  for (const thread of threadsOf(data, story.id)) if (!skip.has(thread.id)) ofThread(thread, false);
+  return out;
+}
+
+/**
  * Was auf dem Blatt einer Geschichte geschrieben steht – jedes Feld für sich: was der Antreiber
  * will und was ihm fehlt, was auf dem Spiel steht, die Schritte ihrer Uhr und woran man sie
  * merkt, was die Beteiligten wollen, Fragen mit Antwort und Hinweisen, Einstiege, Szenen, Ende,

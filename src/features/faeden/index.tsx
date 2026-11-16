@@ -47,6 +47,7 @@ import {
   entryFit,
   hitOnBoard,
   insideOnBoard,
+  nameSources,
   isLooseThread,
   looseClocks,
   reputeOf,
@@ -123,7 +124,7 @@ import {
   setTieWord,
   takeFreeOffBoard,
   takeOffBoard,
-  unpinFromCard,
+  detachName,
   tieStories,
   untieStories,
   untieThreads,
@@ -502,8 +503,8 @@ export default function FaedenPage() {
       return;
     }
     const cardKey = line.owner.startsWith('knot:') ? `thread:${line.owner.slice(5)}` : line.owner;
-    if (!nameIsPinned(cardKey, line.entityId, line.article)) return;
     if (line.article) {
+      if (!nameIsPinned(cardKey, line.entityId, true)) return;
       const [sort, id] = cardKey.split(':') as [string, string];
       done(
         'Gelöst',
@@ -513,11 +514,18 @@ export default function FaedenPage() {
       return;
     }
     const entity = data.entities[line.entityId];
-    unpinFromCard(db, cardKey, line.entityId);
-    done('Gelöst', `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“.`, () =>
-      pinToCard(db, cardKey, line.entityId),
-    );
+    // Gelöst wird überall, worüber der Name an der Karte hängt – Fäden als Knoten hängen für sich.
+    const detached = detachName(db, line.owner, line.entityId, knotThreadsOf(line.owner));
+    if (detached)
+      done(
+        'Gelöst',
+        `${entity?.name ?? ''} hängt nicht mehr an „${ownerTitle(line.owner)}“ (${detached.sources.join(', ')}).`,
+        detached.undo,
+      );
   };
+  /** Die Fäden einer Geschichte, die als Knoten für sich hängen – ihre Namen gehören ihnen. */
+  const knotThreadsOf = (cardKey: string): Set<string> =>
+    new Set(web.knots.filter((knot) => knot.cardKey === cardKey).map((knot) => knot.thread.id));
   /** Ein Name hängt an einer Karte, weil er dort angeheftet ist – nicht über Hinweis, Uhr oder Szene. */
   const nameIsPinned = (cardKey: string, id_: string, article = false): boolean => {
     const [sort, id] = cardKey.split(':') as [string, string];
@@ -1019,15 +1027,25 @@ export default function FaedenPage() {
               {chosenLine && (
                 <LineMenu
                   line={chosenLine}
-                  pinned={
-                    chosenLine.kind === 'name' &&
-                    nameIsPinned(
-                      chosenLine.owner.startsWith('knot:')
-                        ? `thread:${chosenLine.owner.slice(5)}`
-                        : chosenLine.owner,
-                      chosenLine.entityId,
-                      chosenLine.article,
-                    )
+                  sources={
+                    chosenLine.kind !== 'name'
+                      ? []
+                      : chosenLine.article
+                        ? nameIsPinned(
+                            chosenLine.owner.startsWith('knot:')
+                              ? `thread:${chosenLine.owner.slice(5)}`
+                              : chosenLine.owner,
+                            chosenLine.entityId,
+                            true,
+                          )
+                          ? ['zugeordnet']
+                          : []
+                        : nameSources(
+                            data,
+                            chosenLine.owner,
+                            chosenLine.entityId,
+                            knotThreadsOf(chosenLine.owner),
+                          )
                   }
                   ownerTitle={chosenLine.kind === 'name' ? ownerTitle(chosenLine.owner) : ''}
                   onRelease={releaseLine}
@@ -2074,6 +2092,24 @@ function Side({
                     Ändern
                   </button>
                 )}
+                {truth && story && (
+                  <button
+                    type="button"
+                    className="wf-faden-link"
+                    title="Von der Geschichte lösen – er wird ein loser Faden"
+                    onClick={() => {
+                      const undo = moveThread(db, thread.id, null);
+                      if (undo)
+                        toast({
+                          title: 'Von der Geschichte gelöst',
+                          body: `„${thread.title}“ steht jetzt unter „Lose Fäden“.`,
+                          action: { label: 'Rückgängig', run: undo },
+                        });
+                    }}
+                  >
+                    Lösen
+                  </button>
+                )}
               </div>
               <div className="wf-faden-block__meta">
                 {truth ? (
@@ -2259,14 +2295,14 @@ type ChosenLine =
 /** Das kleine Menü an einer gewählten Schnur: was sie verbindet, ihr Wort, lösen. */
 function LineMenu({
   line,
-  pinned,
+  sources,
   ownerTitle,
   onRelease,
   onClose,
 }: {
   line: ChosenLine;
-  /** Bei einem Namen: Er ist angeheftet (und nicht über Hinweis, Uhr oder Szene da). */
-  pinned: boolean;
+  /** Bei einem Namen: worüber er an der Karte hängt, in Worten (`nameSources`). */
+  sources: readonly string[];
   ownerTitle: string;
   onRelease: () => void;
   onClose: () => void;
@@ -2293,9 +2329,9 @@ function LineMenu({
     what = line.article
       ? `„${data.articles[line.entityId]?.title ?? ''}“ gehört zu „${ownerTitle}“`
       : `${data.entities[line.entityId]?.name ?? ''} an „${ownerTitle}“`;
-    if (!pinned) {
-      release = null;
-      note = 'Hängt über einen Hinweis, eine Szene, die Uhr oder die Beteiligten – dort lösen.';
+    if (!sources.length) release = null;
+    else if (!line.article) {
+      note = `Hängt über: ${sources.join(', ')}. Lösen nimmt den Namen dort heraus – der Text bleibt.`;
     }
   }
   return (

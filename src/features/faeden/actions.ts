@@ -7,7 +7,13 @@ import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { addFromWriting } from '../welt/writing';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
-import { boardCards, isLooseThread, storyAttached, threadLive } from '../../domain/story';
+import {
+  boardCards,
+  isLooseThread,
+  nameSources,
+  storyAttached,
+  threadLive,
+} from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
 import { boardWeb, isStoryTied, isTied, ownedPins, pinExists } from '../../domain/threadWeb';
 import { AREA_MIN, type BoardArea } from '../../domain/boardAreas';
@@ -1679,4 +1685,103 @@ export function addSubStory(
       },
     };
   });
+}
+
+// ── Eine Schnur zu einem Namen lösen – gleich, worüber sie entstand ─────────
+
+/**
+ * Löst einen Namen von einer Karte: überall, worüber er an ihr hängt (`nameSources`) –
+ * Beteiligte, Antreiber, Gefährten, Uhr, Einstiege, Szenen, Fäden und Hinweise (bei einer
+ * Geschichte ohne die Fäden in `skip`, die als Knoten für sich hängen). Nichts wird gelöscht:
+ * Ein Hinweis, eine Szene behalten ihren Text, nur der Name fehlt dann dort. Gibt zurück, was
+ * gelöst wurde (in Worten) und `undo` – null, wenn er nirgends hing.
+ */
+export function detachName(
+  db: CampaignDb,
+  cardKey: string,
+  entityId: string,
+  skip: ReadonlySet<string> = new Set(),
+): { sources: string[]; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const sources = nameSources(data, cardKey, entityId, skip);
+  if (!sources.length) return null;
+  const before: { sort: 'stories' | 'threads' | 'clocks'; id: string; doc: object }[] = [];
+  const freeThread = (thread: Thread) => {
+    const touched =
+      thread.refs.includes(entityId) ||
+      thread.hints.some((hint) => hint.placeId === entityId || hint.sourceId === entityId);
+    if (!touched) return;
+    before.push({
+      sort: 'threads',
+      id: thread.id,
+      doc: { refs: thread.refs, hints: thread.hints },
+    });
+    db.patch('threads', thread.id, {
+      refs: thread.refs.filter((id) => id !== entityId),
+      hints: thread.hints.map((hint) => ({
+        ...hint,
+        placeId: hint.placeId === entityId ? null : hint.placeId,
+        sourceId: hint.sourceId === entityId ? null : hint.sourceId,
+      })),
+    });
+  };
+  db.batch(() => {
+    const threadId = threadOfKey(cardKey);
+    if (threadId) {
+      const thread = data.threads[threadId];
+      if (thread) freeThread(thread);
+      return;
+    }
+    const story = data.stories[cardKey.slice(6)];
+    if (!story) return;
+    before.push({
+      sort: 'stories',
+      id: story.id,
+      doc: {
+        ownerId: story.ownerId,
+        refs: story.refs,
+        heroes: story.heroes,
+        entries: story.entries,
+        scenes: story.scenes,
+      },
+    });
+    db.patch('stories', story.id, {
+      ownerId: story.ownerId === entityId ? null : story.ownerId,
+      refs: story.refs.filter((id) => id !== entityId),
+      heroes: story.heroes.filter((hero) => hero.characterId !== entityId),
+      entries: story.entries.map((entry) =>
+        entry.placeId === entityId ? { ...entry, placeId: null } : entry,
+      ),
+      scenes: story.scenes.map((scene) =>
+        scene.placeId === entityId ? { ...scene, placeId: null } : scene,
+      ),
+    });
+    const clock = story.clockId ? data.clocks[story.clockId] : undefined;
+    if (
+      clock &&
+      (clock.ownerId === entityId || clock.placeId === entityId || clock.refs.includes(entityId))
+    ) {
+      before.push({
+        sort: 'clocks',
+        id: clock.id,
+        doc: { ownerId: clock.ownerId, placeId: clock.placeId, refs: clock.refs },
+      });
+      db.patch('clocks', clock.id, {
+        ownerId: clock.ownerId === entityId ? null : clock.ownerId,
+        placeId: clock.placeId === entityId ? null : clock.placeId,
+        refs: clock.refs.filter((id) => id !== entityId),
+      });
+    }
+    for (const thread of Object.values(data.threads))
+      if (thread.storyId === story.id && !skip.has(thread.id)) freeThread(thread);
+  });
+  return {
+    sources,
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot();
+        for (const entry of before)
+          if (now[entry.sort][entry.id]) db.patch(entry.sort, entry.id, entry.doc as never);
+      }),
+  };
 }

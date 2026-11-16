@@ -646,7 +646,8 @@ nicht übernommen.
   Faden verbindet, Name an Faden/Geschichte heftet an, loser Faden an Geschichte wird ihre Frage,
   zwei Namen öffnen das Fenster für eine Beziehung – alles mit Rückgängig. Das Brett ist ein
   Whiteboard (Vorschlag `docs/proben/fadenbrett-whiteboard.html`, Schritt 1 gebaut): Schnüre
-  anklicken (Menü an der Schnur: Wort, lösen – ein Name nur, wenn er angeheftet ist), mehrere
+  anklicken (Menü an der Schnur: Wort, lösen – jede Schnur lässt sich lösen; ein Name wird
+  überall herausgenommen, worüber er hängt, `nameSources`/`detachName`, der Text bleibt), mehrere
   wählen (Umschalt-Klick, Rahmen mit Umschalttaste, `insideOnBoard`) und gemeinsam ziehen
   (`placeManyOnBoard`), Löschtaste löst die gewählte Schnur oder nimmt lose Fäden vom Brett
   (`takeOffBoard` – nie aus der Welt), Doppelklick ins Leere schreibt einen losen Faden dorthin

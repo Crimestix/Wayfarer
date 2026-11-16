@@ -8,7 +8,7 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
 import { ArticleSchema, createEntity, newId, type Place } from '../../domain/schema';
-import { boardCards, boardLayout, insideOnBoard } from '../../domain/story';
+import { boardCards, boardLayout, insideOnBoard, nameSources } from '../../domain/story';
 import {
   boardWeb,
   isStoryTied,
@@ -23,6 +23,7 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  detachName,
   addSubStory,
   setPartsFolded,
   setStoryParent,
@@ -505,5 +506,43 @@ describe('Teilgeschichten auf dem Brett', () => {
     expect(data().stories[big.id]!.partsFolded).toBe(false);
     made.undo();
     expect(data().stories[made.story.id]).toBeUndefined();
+  });
+});
+
+describe('Jede Schnur lässt sich lösen', () => {
+  it('löst einen Namen überall, worüber er an der Geschichte hängt – der Text bleibt', async () => {
+    const { db, data, arena, mira, thread } = await setup();
+    const story = newStory(db, { title: 'Die Arena', ownerId: mira.id, refs: [arena.id] });
+    const a = thread('Wer kämpft?', {
+      storyId: story.id,
+      hints: [
+        { id: newId(), text: 'Ein Zettel', placeId: arena.id, sourceId: mira.id, found: false },
+      ],
+    });
+    expect(nameSources(data(), `story:${story.id}`, mira.id)).toEqual([
+      'Antreiber',
+      'Hinweis „Ein Zettel“ (Wer weiß es?)',
+    ]);
+    const done = detachName(db, `story:${story.id}`, mira.id)!;
+    expect(data().stories[story.id]!.ownerId).toBeNull();
+    expect(data().threads[a.id]!.hints[0]).toMatchObject({
+      text: 'Ein Zettel',
+      sourceId: null,
+      placeId: arena.id,
+    });
+    expect(
+      boardCards(data()).find((card) => card.key === `story:${story.id}`)!.nodes,
+    ).not.toContain(mira.id);
+    done.undo();
+    expect(data().stories[story.id]!.ownerId).toBe(mira.id);
+    expect(data().threads[a.id]!.hints[0]!.sourceId).toBe(mira.id);
+    // Ein Faden als Knoten behält seine Namen, wenn die Schnur der Geschichte gelöst wird.
+    const knotted = detachName(db, `story:${story.id}`, arena.id, new Set([a.id]))!;
+    expect(knotted.sources).toEqual(['Beteiligte']);
+    expect(data().threads[a.id]!.hints[0]!.placeId).toBe(arena.id);
+    expect(detachName(db, `knot:${a.id}`, arena.id)!.sources).toEqual([
+      'Hinweis „Ein Zettel“ (Wo?)',
+    ]);
+    expect(detachName(db, `knot:${a.id}`, arena.id)).toBeNull();
   });
 });
