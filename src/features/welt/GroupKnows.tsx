@@ -44,9 +44,14 @@ export function GroupKnows({ entity }: { entity: Entity }) {
     <Section
       title="Was die Gruppe weiß"
       action={
-        <Button size="sm" variant="ghost" icon={<Lightbulb />} onClick={() => setDialog({})}>
-          Vermutung
-        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={<Lightbulb />}
+          aria-label="Vermutung festhalten"
+          title="Vermutung festhalten"
+          onClick={() => setDialog({})}
+        />
       }
     >
       <div className="wf-welt-knows">
