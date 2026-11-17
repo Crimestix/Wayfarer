@@ -18,6 +18,7 @@ import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { generatorTables } from './tables';
+import { patchMany, type ManyChange } from './prep';
 import {
   planSearch,
   planStep,
@@ -345,6 +346,18 @@ export function paintHexes(
 }
 
 /** Die Felder einer Karte wieder so, wie sie vor einem Strich waren. */
+/** Ändert mehrere Felder zugleich (Editor-Ansicht); sie gelten danach als von Hand gemacht. */
+export function patchHexes(
+  db: CampaignDb,
+  areaId: string,
+  coords: readonly HexCoord[],
+  change: ManyChange,
+): void {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area || !coords.length) return;
+  db.patch('areas', areaId, { hexes: patchMany(area.hexes, coords, change) });
+}
+
 export function restoreHexes(db: CampaignDb, areaId: string, hexes: Hex[]): void {
   if (db.getSnapshot().areas[areaId]) db.patch('areas', areaId, { hexes });
 }

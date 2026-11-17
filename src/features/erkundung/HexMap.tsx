@@ -47,7 +47,12 @@ interface Props {
   /** Größe eines Feldes in Bildpunkten (Abstand zweier Nachbarn). */
   size: number;
   selected: HexCoord | null;
-  onSelect: (hex: HexCoord | null) => void;
+  /** `add`: mit Umschalt- oder Strg-Taste geklickt – zur Auswahl dazu (Vorbereiten). */
+  onSelect: (hex: HexCoord | null, add?: boolean) => void;
+  /** Weitere gewählte Felder (Vorbereiten: mehrere Felder auf einmal). */
+  marked?: readonly HexCoord[];
+  /** Unentdecktes gedämpft zeigen (Spielen); beim Vorbereiten sieht man alles. */
+  fog?: boolean;
   /** Der geplante Weg der Gruppe zum Ziel, ab dem nächsten Schritt. */
   plan?: readonly HexCoord[];
   /** Die Ebene, die gezeigt wird (Unterreich); ohne Angabe die oberste. */
@@ -146,13 +151,15 @@ const Cells = memo(function Cells({
   size,
   onSelect,
   painting,
+  fog,
   regionNames,
   activeRegion,
 }: {
   cells: Cell[];
   size: number;
-  onSelect: (hex: HexCoord) => void;
+  onSelect: (hex: HexCoord, add?: boolean) => void;
   painting: Props['paint'] | undefined;
+  fog: boolean;
   regionNames: Record<string, string>;
   activeRegion: string | null;
 }) {
@@ -164,8 +171,16 @@ const Cells = memo(function Cells({
           className="wf-hex"
           data-hex={`${hex.q},${hex.r},${hex.level}`}
           data-terrain={hex.terrain ?? 'none'}
-          data-hidden={(!painting && !hex.discovered) || undefined}
-          onClick={painting ? undefined : () => onSelect({ q: hex.q, r: hex.r, level: hex.level })}
+          data-hidden={(fog && !painting && !hex.discovered) || undefined}
+          onClick={
+            painting
+              ? undefined
+              : (event) =>
+                  onSelect(
+                    { q: hex.q, r: hex.r, level: hex.level },
+                    event.shiftKey || event.ctrlKey || event.metaKey,
+                  )
+          }
           onPointerDown={
             painting
               ? (event) => {
@@ -264,7 +279,18 @@ const Cells = memo(function Cells({
   );
 });
 
-export function HexMap({ area, data, size, selected, onSelect, plan, paint, level = 0 }: Props) {
+export function HexMap({
+  area,
+  data,
+  size,
+  selected,
+  onSelect,
+  plan,
+  paint,
+  level = 0,
+  marked = [],
+  fog = true,
+}: Props) {
   const orientation = area.orientation;
   const caves = area.hexes.some((hex) => hex.exits !== null);
   const layout = useMemo(() => {
@@ -345,6 +371,9 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint, leve
           )
       : [];
   const chosen = selected ? layout.cells.find((c) => sameHex(c.hex, selected)) : undefined;
+  const markedCells = marked
+    .map((coord) => layout.cells.find((c) => sameHex(c.hex, coord)))
+    .filter((cell): cell is Cell => !!cell && cell !== chosen);
   // Straßen, Pfade und Flüsse verbinden Nachbarn, die dieselbe Linie tragen.
   const links = useMemo(() => {
     const byKey = new Map(layout.cells.map((cell) => [hexKey(cell.hex), cell]));
@@ -418,6 +447,7 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint, leve
         size={size}
         onSelect={onSelect}
         painting={paint}
+        fog={fog}
         regionNames={regionNames}
         activeRegion={paint?.regionId ?? null}
       />
@@ -477,6 +507,9 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint, leve
           <title>Hier ist die Gruppe</title>
         </g>
       )}
+      {markedCells.map((cell) => (
+        <polygon key={`m${hexKey(cell.hex)}`} className="wf-hexmap__marked" points={cell.points} />
+      ))}
       {chosen && <polygon className="wf-hexmap__chosen" points={chosen.points} />}
     </svg>
   );

@@ -343,8 +343,20 @@ nicht übernommen.
   Hexkarte zieht mit (`syncArea`: Stellung, Spur, entdeckt). Eine Reise ohne Weg kann gleich einen
   Weg mit Hexkarte bekommen (`wayWithHexMap`). Liegen beide Orte unter der Erde, ist das Gelände
   dazwischen es auch (`recognizeBiome`); „Grasland“ als Vorgabe eines Weges zählt nicht.
+  **Vorbereiten und Spielen** (Wunsch 17. 11.: „Wir brauchen ne richtige Editor-Ansicht“): Die
+  Seite einer Hexkarte hat zwei Ansichten (Umschalter im Kopf). **Vorbereiten** ist der Editor:
+  Werkzeugleiste links der Karte in Gruppen (`HexToolbar`, Grundwerkzeug „Auswählen“), alles
+  sichtbar (`HexMap fog={false}`), rechts der Feld-Inspektor (`erkundung/HexInspector.tsx`: ein
+  Feld nach Gelände und Wege, Was man merkt, Was hier ist, Verborgen, Nur für dich; mehrere Felder
+  mit Umschalt- oder Strg-Klick – `toggleSelection`, `marked` – zugleich ändern über
+  `patchHexes`/`patchMany`, „Inhalt leeren“ `CLEAR_CONTENT`; ohne Auswahl, was schon vorbereitet
+  ist, `prepOverview`, „Zeigen“ wählt die Felder). Rückgängig und Wiederholen über viele Schritte
+  (`HexHistory` in `erkundung/prep.ts`, `editor.record` vor jedem Schritt – auch im Inspektor;
+  Strg+Z, Strg+Y, Escape hebt die Auswahl auf). **Spielen** zeigt die Reise mit Nebel; Felder nur
+  zum Ansehen (`HexFacts`), „Feld vorbereiten“ springt in den Editor. Eine Karte ohne Gruppe
+  beginnt beim Vorbereiten.
   **Hexkarten bearbeiten** (Wunsch 17. 11.: „Hexkarten perfekt vorbereiten“,
-  `erkundung/HexEditor.tsx`): „Bearbeiten“ auf der Seite der Hexkarte – Pinsel für Gelände und für
+  `erkundung/HexEditor.tsx`): Werkzeuge der Ansicht „Vorbereiten“ – Pinsel für Gelände und für
   Gegenden der Welt (`hex.regionId`; ihr Gelände, Tempo und ihre Tabellen gelten dort), Straße
   und Pfad (`hex.road`), Fluss (`hex.river`), Radierer, Pinselgröße 1–3, Felder am Rand anfügen
   oder wegnehmen (`addHex`, `removeHex`, `edgeSlots` – nie Start, Ziel, Feld der Gruppe). Gemalt

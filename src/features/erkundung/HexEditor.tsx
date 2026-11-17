@@ -1,13 +1,19 @@
 /**
  * Hexkarten bearbeiten (Wunsch des Spielleiters, 17. 11.: „Wir müssen in der Vorbereitung
- * Hexkarten perfekt vorbereiten können“): Werkzeuge über der Karte – Gelände und eigene Gegenden
- * malen (mit Pinselgröße), Straßen, Pfade und Flüsse ziehen, radieren, Felder am Rand anfügen
- * oder wegnehmen. Jeder Strich lässt sich zurücknehmen; Neu würfeln behält, was von Hand gemacht ist.
+ * Hexkarten perfekt vorbereiten können“ – „Wir brauchen ne richtige Editor-Ansicht“): die
+ * Werkzeugleiste links der Karte in der Ansicht „Vorbereiten“ – Auswählen, Gelände und eigene
+ * Gegenden malen (mit Pinselgröße), Straßen, Pfade und Flüsse ziehen, radieren, Felder am Rand
+ * anfügen oder wegnehmen, unter der Erde Gänge, Fels und Schächte. Jeder Schritt lässt sich mit
+ * Strg+Z zurücknehmen und mit Strg+Y wiederholen (`prep.ts`); Neu würfeln behält, was von Hand
+ * gemacht ist.
  */
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownToLine,
   Brush,
+  MousePointer2,
+  Redo2,
+  Undo2,
   Eraser,
   Grid2x2Plus,
   MapPin,
@@ -29,7 +35,8 @@ import {
   type Terrain,
 } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
-import { EntityPicker, Input, Select, cx, toast } from '../../ui';
+import { EntityPicker, IconButton, Input, Select, cx, toast } from '../../ui';
+import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
   digBetween,
@@ -45,6 +52,7 @@ import {
 } from './actions';
 
 export type HexTool =
+  | 'select'
   | 'tunnel'
   | 'rock'
   | 'shaft'
@@ -58,6 +66,7 @@ export type HexTool =
   | 'cells';
 
 const TOOL_LABEL: Record<HexTool, string> = {
+  select: 'Auswählen',
   tunnel: 'Gang',
   rock: 'Fels',
   shaft: 'Schacht',
@@ -72,6 +81,8 @@ const TOOL_LABEL: Record<HexTool, string> = {
 };
 
 const TOOL_HINT: Record<HexTool, string> = {
+  select:
+    'Klick wählt ein Feld, Umschalt- oder Strg-Klick nimmt weitere dazu. Rechts steht, was dort ist.',
   tunnel:
     'Mit gedrückter Maus von Feld zu Feld einen Gang ziehen – die Seiten dazwischen gehen auf.',
   rock: 'Felder zu Fels machen: kein Ausgang mehr, auch nicht von den Nachbarn.',
@@ -106,7 +117,26 @@ const under = (area: Area, at: HexCoord, radius: number): HexCoord[] =>
 export function useHexEditor(area: Area) {
   const db = useDb();
   const caves = area.hexes.some((hex) => hex.exits !== null);
-  const [tool, setTool] = useState<HexTool>(caves ? 'tunnel' : 'terrain');
+  const [tool, setTool] = useState<HexTool>('select');
+  /** Rückgängig und Wiederholen über viele Schritte (`prep.ts`). */
+  const [history, setHistory] = useState<HexHistory>(EMPTY_HISTORY);
+  const current = () => db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
+  /** Merkt den Stand der Felder vor einem Schritt. */
+  const record = useCallback((before: Hex[]) => setHistory((h) => recordStep(h, before)), []);
+  const undo = () => {
+    const step = undoHistory(history, current());
+    if (!step) return false;
+    restoreHexes(db, area.id, step.restore);
+    setHistory(step.history);
+    return true;
+  };
+  const redo = () => {
+    const step = redoHistory(history, current());
+    if (!step) return false;
+    restoreHexes(db, area.id, step.restore);
+    setHistory(step.history);
+    return true;
+  };
   const [passage, setPassageKind] = useState<PassageKind>('open');
   /** Das Feld, an dem der Gang gerade angekommen ist. */
   const lastCell = useRef<HexCoord | null>(null);
@@ -133,6 +163,7 @@ export function useHexEditor(area: Area) {
         return { river: river.trim() || 'Fluss' };
       case 'erase':
         return { road: 'none', river: '', regionId: null };
+      case 'select':
       case 'cells':
       case 'place':
       case 'tunnel':
@@ -167,6 +198,7 @@ export function useHexEditor(area: Area) {
     if (tool === 'shaft') {
       const old = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
       const open = toggleShaft(db, area.id, at);
+      if (open !== null) record(old);
       toast({
         slot: 'hexkarte',
         title:
@@ -193,6 +225,7 @@ export function useHexEditor(area: Area) {
         return;
       }
       const old = current.hexes;
+      record(old);
       // Ein Ort steht auf einem Feld: Stand er schon woanders, zieht er um.
       restoreHexes(
         db,
@@ -215,13 +248,14 @@ export function useHexEditor(area: Area) {
     }
     if (tool === 'cells') {
       const fresh = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
-      if (removeHex(db, area.id, at))
+      if (removeHex(db, area.id, at)) {
+        record(fresh);
         toast({
           slot: 'hexkarte',
           title: 'Feld weggenommen',
           action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, fresh) },
         });
-      else
+      } else
         toast({
           slot: 'hexkarte',
           title: 'Dieses Feld bleibt',
@@ -242,6 +276,7 @@ export function useHexEditor(area: Area) {
     before.current = null;
     lastCell.current = null;
     if (!old || !touched.current) return;
+    record(old);
     toast({
       slot: 'hexkarte',
       title: DONE_LABEL[tool] ?? `${TOOL_LABEL[tool]} gemalt`,
@@ -250,12 +285,14 @@ export function useHexEditor(area: Area) {
   };
   const onSlot = (at: HexCoord) => {
     const old = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
-    if (addHex(db, area.id, at))
+    if (addHex(db, area.id, at)) {
+      record(old);
       toast({
         slot: 'hexkarte',
         title: 'Feld angefügt',
         action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
       });
+    }
   };
   return {
     area,
@@ -274,127 +311,187 @@ export function useHexEditor(area: Area) {
     setPlaceId,
     radius,
     setRadius,
-    paint: {
-      onStart,
-      onMove,
-      onEnd,
-      onSlot,
-      slots: tool === 'cells' ? edgeSlots(area) : undefined,
-      regionId: tool === 'region' ? regionId : null,
-    },
+    record,
+    undo,
+    redo,
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+    paint:
+      tool === 'select'
+        ? undefined
+        : {
+            onStart,
+            onMove,
+            onEnd,
+            onSlot,
+            slots: tool === 'cells' ? edgeSlots(area) : undefined,
+            regionId: tool === 'region' ? regionId : null,
+          },
   };
 }
 
 export type HexEditor = ReturnType<typeof useHexEditor>;
 
-/** Die Werkzeugleiste über der Karte. */
+/** Die Werkzeugleiste links der Karte (Ansicht „Vorbereiten“), in Gruppen. */
 export function HexToolbar({ editor }: { editor: HexEditor }) {
   const data = useData();
-  const tools: { tool: HexTool; icon: React.ReactNode }[] = editor.caves
+  const groups: { title: string; tools: { tool: HexTool; icon: ReactNode }[] }[] = editor.caves
     ? [
-        { tool: 'tunnel', icon: <Spline aria-hidden /> },
-        { tool: 'rock', icon: <Mountain aria-hidden /> },
-        { tool: 'shaft', icon: <ArrowDownToLine aria-hidden /> },
-        { tool: 'region', icon: <MapPinned aria-hidden /> },
-        { tool: 'place', icon: <MapPin aria-hidden /> },
+        { title: 'Ansehen', tools: [{ tool: 'select', icon: <MousePointer2 aria-hidden /> }] },
+        {
+          title: 'Gänge',
+          tools: [
+            { tool: 'tunnel', icon: <Spline aria-hidden /> },
+            { tool: 'rock', icon: <Mountain aria-hidden /> },
+            { tool: 'shaft', icon: <ArrowDownToLine aria-hidden /> },
+          ],
+        },
+        {
+          title: 'Welt',
+          tools: [
+            { tool: 'region', icon: <MapPinned aria-hidden /> },
+            { tool: 'place', icon: <MapPin aria-hidden /> },
+          ],
+        },
       ]
     : [
-        { tool: 'terrain', icon: <Brush aria-hidden /> },
-        { tool: 'region', icon: <MapPinned aria-hidden /> },
-        { tool: 'road', icon: <Route aria-hidden /> },
-        { tool: 'trail', icon: <Route aria-hidden /> },
-        { tool: 'river', icon: <Waves aria-hidden /> },
-        { tool: 'place', icon: <MapPin aria-hidden /> },
-        { tool: 'erase', icon: <Eraser aria-hidden /> },
-        { tool: 'cells', icon: <Grid2x2Plus aria-hidden /> },
+        { title: 'Ansehen', tools: [{ tool: 'select', icon: <MousePointer2 aria-hidden /> }] },
+        {
+          title: 'Malen',
+          tools: [
+            { tool: 'terrain', icon: <Brush aria-hidden /> },
+            { tool: 'region', icon: <MapPinned aria-hidden /> },
+          ],
+        },
+        {
+          title: 'Linien',
+          tools: [
+            { tool: 'road', icon: <Route aria-hidden /> },
+            { tool: 'trail', icon: <Route aria-hidden /> },
+            { tool: 'river', icon: <Waves aria-hidden /> },
+            { tool: 'erase', icon: <Eraser aria-hidden /> },
+          ],
+        },
+        {
+          title: 'Welt und Rand',
+          tools: [
+            { tool: 'place', icon: <MapPin aria-hidden /> },
+            { tool: 'cells', icon: <Grid2x2Plus aria-hidden /> },
+          ],
+        },
       ];
   const brush = editor.tool === 'terrain' || editor.tool === 'region' || editor.tool === 'erase';
   const region = editor.regionId ? data.entities[editor.regionId] : undefined;
   return (
     <div className="wf-erk-tools">
-      <span className="wf-btn-group" role="group" aria-label="Werkzeug">
-        {tools.map(({ tool, icon }) => (
-          <button
-            key={tool}
-            type="button"
-            className={cx('wf-btn wf-btn--sm')}
-            aria-pressed={editor.tool === tool}
-            title={TOOL_HINT[tool]}
-            onClick={() => editor.setTool(tool)}
+      <div className="wf-erk-tools__history">
+        <IconButton
+          label="Rückgängig (Strg+Z)"
+          size="sm"
+          disabled={!editor.canUndo}
+          onClick={() => editor.undo()}
+        >
+          <Undo2 />
+        </IconButton>
+        <IconButton
+          label="Wiederholen (Strg+Y)"
+          size="sm"
+          disabled={!editor.canRedo}
+          onClick={() => editor.redo()}
+        >
+          <Redo2 />
+        </IconButton>
+      </div>
+      {groups.map((group) => (
+        <div key={group.title} className="wf-erk-tools__group">
+          <span className="wf-erk-tools__caption">{group.title}</span>
+          <div className="wf-erk-tools__buttons" role="group" aria-label={group.title}>
+            {group.tools.map(({ tool, icon }) => (
+              <button
+                key={tool}
+                type="button"
+                className={cx('wf-btn wf-btn--sm')}
+                aria-pressed={editor.tool === tool}
+                title={TOOL_HINT[tool]}
+                onClick={() => editor.setTool(tool)}
+              >
+                {icon}
+                {TOOL_LABEL[tool]}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="wf-erk-tools__options">
+        {editor.tool === 'terrain' && (
+          <Select
+            value={editor.terrain}
+            aria-label="Gelände zum Malen"
+            onChange={(event) => editor.setTerrain(event.target.value as Terrain)}
           >
-            {icon}
-            {TOOL_LABEL[tool]}
-          </button>
-        ))}
-      </span>
-      {editor.tool === 'terrain' && (
-        <Select
-          value={editor.terrain}
-          aria-label="Gelände zum Malen"
-          onChange={(event) => editor.setTerrain(event.target.value as Terrain)}
-        >
-          {TERRAINS.map((terrain) => (
-            <option key={terrain} value={terrain}>
-              {TERRAIN_LABEL[terrain]}
-            </option>
-          ))}
-        </Select>
-      )}
-      {editor.tool === 'region' && (
-        <span className="wf-erk-tools__region">
-          <EntityPicker
-            value={editor.regionId}
-            onChange={editor.setRegionId}
-            kinds={['place']}
-            placeholder="Gegend wählen – leer nimmt sie weg"
+            {TERRAINS.map((terrain) => (
+              <option key={terrain} value={terrain}>
+                {TERRAIN_LABEL[terrain]}
+              </option>
+            ))}
+          </Select>
+        )}
+        {editor.tool === 'region' && (
+          <span className="wf-erk-tools__region">
+            <EntityPicker
+              value={editor.regionId}
+              onChange={editor.setRegionId}
+              kinds={['place']}
+              placeholder="Gegend wählen – leer nimmt sie weg"
+            />
+            {region?.kind === 'place' && (
+              <em>
+                {region.place.ground || 'ohne Gelände-Wort'}
+                {region.place.groundSlow ? ' · langsam' : ''}
+              </em>
+            )}
+          </span>
+        )}
+        {editor.tool === 'place' && <PlaceTool editor={editor} />}
+        {editor.tool === 'tunnel' && (
+          <Select
+            value={editor.passage}
+            aria-label="Art des Gangs"
+            onChange={(event) => editor.setPassageKind(event.target.value as PassageKind)}
+          >
+            {PASSAGE_KINDS.filter((kind) => kind !== 'drop').map((kind) => (
+              <option key={kind} value={kind}>
+                {PASSAGE_LABEL[kind]}
+              </option>
+            ))}
+          </Select>
+        )}
+        {editor.tool === 'river' && (
+          <Input
+            value={editor.river}
+            aria-label="Name des Flusses"
+            placeholder="Name des Flusses"
+            onChange={(event) => editor.setRiver(event.target.value)}
           />
-          {region?.kind === 'place' && (
-            <em>
-              {region.place.ground || 'ohne Gelände-Wort'}
-              {region.place.groundSlow ? ' · langsam' : ''}
-            </em>
-          )}
-        </span>
-      )}
-      {editor.tool === 'place' && <PlaceTool editor={editor} />}
-      {editor.tool === 'tunnel' && (
-        <Select
-          value={editor.passage}
-          aria-label="Art des Gangs"
-          onChange={(event) => editor.setPassageKind(event.target.value as PassageKind)}
-        >
-          {PASSAGE_KINDS.filter((kind) => kind !== 'drop').map((kind) => (
-            <option key={kind} value={kind}>
-              {PASSAGE_LABEL[kind]}
-            </option>
-          ))}
-        </Select>
-      )}
-      {editor.tool === 'river' && (
-        <Input
-          value={editor.river}
-          aria-label="Name des Flusses"
-          placeholder="Name des Flusses"
-          onChange={(event) => editor.setRiver(event.target.value)}
-        />
-      )}
-      {brush && (
-        <span className="wf-btn-group" role="group" aria-label="Pinselgröße">
-          {[1, 2, 3].map((size) => (
-            <button
-              key={size}
-              type="button"
-              className="wf-btn wf-btn--sm"
-              aria-pressed={editor.radius === size}
-              title={size === 1 ? 'Ein Feld' : `Mit Nachbarn (${size === 2 ? '7' : '19'} Felder)`}
-              onClick={() => editor.setRadius(size)}
-            >
-              {size === 1 ? '·' : size === 2 ? '●' : '⬤'}
-            </button>
-          ))}
-        </span>
-      )}
-      <span className="wf-erk-tools__hint">{TOOL_HINT[editor.tool]}</span>
+        )}
+        {brush && (
+          <span className="wf-btn-group" role="group" aria-label="Pinselgröße">
+            {[1, 2, 3].map((size) => (
+              <button
+                key={size}
+                type="button"
+                className="wf-btn wf-btn--sm"
+                aria-pressed={editor.radius === size}
+                title={size === 1 ? 'Ein Feld' : `Mit Nachbarn (${size === 2 ? '7' : '19'} Felder)`}
+                onClick={() => editor.setRadius(size)}
+              >
+                {size === 1 ? '·' : size === 2 ? '●' : '⬤'}
+              </button>
+            ))}
+          </span>
+        )}
+      </div>
+      <p className="wf-erk-tools__hint">{TOOL_HINT[editor.tool]}</p>
     </div>
   );
 }

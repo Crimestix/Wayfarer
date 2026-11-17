@@ -1,4 +1,9 @@
-/** Erkundung – Hexkarten zwischen zwei Orten: links die Karten, in der Mitte die Karte, rechts das Feld. */
+/**
+ * Erkundung – Hexkarten zwischen zwei Orten: links die Karten, in der Mitte die Karte, rechts das
+ * Feld. Zwei Ansichten (Wunsch des Spielleiters, 17. 11.): „Vorbereiten“ ist der Editor –
+ * Werkzeuge links der Karte, alles sichtbar, rechts der Feld-Inspektor für ein oder mehrere Felder,
+ * Strg+Z/Strg+Y; „Spielen“ zeigt die Reise mit Nebel, Felder nur zum Ansehen.
+ */
 import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,6 +16,7 @@ import {
   Hexagon,
   Minus,
   Pencil,
+  Play,
   Plus,
   Search,
   Trash2,
@@ -30,27 +36,20 @@ import {
 } from '../../domain/passages';
 import { senseLine, sensesAt } from '../../domain/senses';
 import { afarFrom, sightingLine } from '../../domain/afar';
-import { PACES, TERRAINS, type Area, type Terrain } from '../../domain/schema';
+import { PACES, type Area, type Hex } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
 import { formatDuration } from '../../domain/time/calendar';
 import {
   Button,
-  Checkbox,
   EmptyState,
   EntityLink,
-  EntityPicker,
-  Field,
   IconButton,
-  Input,
   Panel,
-  Select,
-  TextArea,
   confirmDialog,
   cx,
   toast,
 } from '../../ui';
 import {
-  patchHex,
   placeParty,
   removeArea,
   rerollArea,
@@ -63,6 +62,8 @@ import { CreateDialog } from './CreateDialog';
 import { SIX_MILES_KM, terrainShares } from './generate';
 import { HexMap } from './HexMap';
 import { HexToolbar, useHexEditor } from './HexEditor';
+import { HexInspector } from './HexInspector';
+import { toggleSelection } from './prep';
 import { partyMeans } from '../../domain/mounts';
 import {
   STEP_PROBLEM,
@@ -189,9 +190,35 @@ function AreaView({ area }: { area: Area }) {
     if (partyLevel !== null) setLevel(partyLevel);
   }, [partyLevel]);
   const caves = area.hexes.some((h) => h.exits !== null);
-  /** Bearbeiten: Werkzeuge über der Karte statt Reisen und Ansehen. */
-  const [editing, setEditing] = useState(false);
+  /** Vorbereiten (Editor) oder Spielen (Reise mit Nebel). Eine neue Karte beginnt beim Vorbereiten. */
+  const [mode, setMode] = useState<'prep' | 'play'>(() => (area.party ? 'play' : 'prep'));
+  const editing = mode === 'prep';
+  /** Die gewählten Felder beim Vorbereiten – eins oder mehrere. */
+  const [picked, setPicked] = useState<HexCoord[]>([]);
   const editor = useHexEditor(area);
+  // Tastenkürzel beim Vorbereiten: Strg+Z, Strg+Y (Strg+Umschalt+Z), Escape hebt die Auswahl auf.
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return;
+      const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && key === 'z' && !event.shiftKey) {
+        if (editor.undo()) event.preventDefault();
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        (key === 'y' || (key === 'z' && event.shiftKey))
+      ) {
+        if (editor.redo()) event.preventDefault();
+      } else if (key === 'escape') setPicked([]);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing, editor]);
   const size = SIZES[zoom]!;
   const hex = selected ? area.hexes.find((h) => sameHex(h, selected)) : undefined;
   const start = area.hexes.find((h) => h.placeId !== null && h.placeId === area.fromId);
@@ -367,18 +394,32 @@ function AreaView({ area }: { area: Area }) {
             >
               <Plus />
             </IconButton>
-            <Button
-              size="sm"
-              icon={<Pencil />}
-              aria-pressed={editing}
-              onClick={() => {
-                setEditing((on) => !on);
-                setSelected(null);
-              }}
-              title="Gelände und Gegenden malen, Straßen und Flüsse ziehen, Felder anfügen"
-            >
-              {editing ? 'Fertig' : 'Bearbeiten'}
-            </Button>
+            <span className="wf-btn-group" role="group" aria-label="Ansicht">
+              <button
+                type="button"
+                className="wf-btn wf-btn--sm"
+                aria-pressed={editing}
+                title="Der Editor: malen, ziehen, Felder füllen – alles sichtbar"
+                onClick={() => {
+                  setMode('prep');
+                  setPicked(selected ? [selected] : []);
+                }}
+              >
+                <Pencil aria-hidden /> Vorbereiten
+              </button>
+              <button
+                type="button"
+                className="wf-btn wf-btn--sm"
+                aria-pressed={!editing}
+                title="Die Reise am Tisch: Gruppe ziehen, Nebel über Unentdecktem"
+                onClick={() => {
+                  setMode('play');
+                  setSelected(null);
+                }}
+              >
+                <Play aria-hidden /> Spielen
+              </button>
+            </span>
             {area.seed !== null && (
               <Button
                 size="sm"
@@ -394,274 +435,241 @@ function AreaView({ area }: { area: Area }) {
             </IconButton>
           </div>
         </header>
-        {editing && <HexToolbar editor={editor} />}
-        <div className="wf-erk-map">
-          <HexMap
-            area={area}
-            data={data}
-            size={size}
-            selected={selected}
-            onSelect={setSelected}
-            plan={editing ? undefined : route?.steps}
-            level={level}
-            paint={editing ? editor.paint : undefined}
-          />
-        </div>
+        {editing ? (
+          <div className="wf-erk-prep">
+            <aside className="wf-erk-prep__rail" aria-label="Werkzeuge">
+              <HexToolbar editor={editor} />
+            </aside>
+            <div className="wf-erk-map">
+              <HexMap
+                area={area}
+                data={data}
+                size={size}
+                selected={picked[0] ?? null}
+                marked={picked}
+                fog={false}
+                onSelect={(coord, add) =>
+                  setPicked((current) => (coord ? toggleSelection(current, coord, !!add) : []))
+                }
+                level={level}
+                paint={editor.paint}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="wf-erk-map">
+            <HexMap
+              area={area}
+              data={data}
+              size={size}
+              selected={selected}
+              onSelect={setSelected}
+              plan={route?.steps}
+              level={level}
+            />
+          </div>
+        )}
       </section>
 
       <aside className="wf-erk-detail">
-        <TravelPanel area={area} route={route} last={last} onMove={move} onUndo={undoLast} />
-        {hex ? (
-          <Panel
-            title={hex.placeId ? entityName(data, hex.placeId) : hex.feature || 'Feld'}
-            actions={
-              <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
-                Zur Übersicht
-              </Button>
-            }
-          >
-            <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
-              {partyHere ? (
-                <>
-                  <p className="wf-erk-travel__here">
-                    <Footprints aria-hidden /> Hier steht die Gruppe.
-                  </p>
-                  {shafts.map((shaft) => (
-                    <Button
-                      key={shaft.dir}
-                      icon={<Footprints />}
-                      onClick={() => move(across(hex, shaft.dir))}
-                      title={PASSAGE_LABEL[shaft.kind]}
-                    >
-                      {shaft.dir === DIR_DOWN ? 'Hinab' : 'Hinauf'} – Ebene {shaft.to.level + 1}
-                    </Button>
-                  ))}
-                  {senses.length > 0 && (
-                    <div className="wf-erk-senses">
-                      <span className="wf-caps">Ringsum</span>
-                      {senses.map((sense) => (
-                        <p key={sense.dir}>{senseLine(sense)}</p>
-                      ))}
-                    </div>
-                  )}
-                  {far.length > 0 && (
-                    <div className="wf-erk-senses">
-                      <span className="wf-caps">In der Ferne</span>
-                      {far.map((sight) => (
-                        <p key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</p>
-                      ))}
-                    </div>
-                  )}
-                  {searchTime !== null && (
-                    <Button
-                      icon={<Search />}
-                      onClick={search}
-                      title="Die Gruppe sucht das Feld ab – es dauert so lange wie das Durchqueren, und einmal wird auf Begegnungen gewürfelt"
-                    >
-                      {hex.searched ? 'Noch einmal durchsuchen' : 'Durchsuchen'} ·{' '}
-                      {formatDuration(searchTime)}
-                    </Button>
-                  )}
-                </>
-              ) : hex && isRock(hex) ? (
-                <p className="wf-erk-detail__where">Fels – hier führt kein Gang hindurch.</p>
-              ) : stepMinutes !== null ? (
-                <Button variant="primary" icon={<Footprints />} onClick={() => move(hex)}>
-                  Hierher ziehen · {formatDuration(stepMinutes)}
-                </Button>
-              ) : (
-                <div className="wf-erk-travel__set">
-                  {area.party && problem && problem !== 'no-party' && (
-                    <span className="wf-erk-detail__where">{STEP_PROBLEM[problem]}</span>
-                  )}
-                  <Button
-                    size="sm"
-                    icon={<Footprints />}
-                    onClick={() => {
-                      placeParty(db, area.id, hex);
-                      setLast(null);
-                    }}
-                    title="Stellt die Gruppe auf dieses Feld, ohne dass Zeit vergeht"
-                  >
-                    {area.party ? 'Gruppe hierher setzen' : 'Gruppe hier aufstellen'}
-                  </Button>
-                </div>
-              )}
-              {start && (
-                <p className="wf-erk-detail__where">
-                  {hexDistance(start, hex) === 0
-                    ? 'Hier beginnt der Weg.'
-                    : `${hexDistance(start, hex)} ${hexDistance(start, hex) === 1 ? 'Feld' : 'Felder'} vom Start · etwa ${km(hexDistance(start, hex) * area.hexKm)}`}
-                </p>
-              )}
-              {!hex.manual && (hex.feature || hex.afar || hex.hidden || hex.sign) && (
-                <p className="wf-erk-detail__where">
-                  Von Wayfarer erzeugt – aus den Würfeltabellen der Einstellungen. Was du hier
-                  änderst, bleibt beim Neu würfeln.
-                </p>
-              )}
-              <Checkbox
-                checked={hex.discovered}
-                onChange={(discovered) => patchHex(db, area.id, hex, { discovered })}
-              >
-                Von der Gruppe entdeckt
-              </Checkbox>
-              <Checkbox
-                checked={hex.searched}
-                onChange={(searched) => patchHex(db, area.id, hex, { searched })}
-              >
-                Von der Gruppe durchsucht
-              </Checkbox>
-              <Field label="Gelände">
-                <Select
-                  value={hex.terrain ?? ''}
-                  onChange={(e) =>
-                    patchHex(db, area.id, hex, {
-                      terrain: (e.target.value || null) as Terrain | null,
-                    })
-                  }
-                >
-                  {TERRAINS.map((t) => (
-                    <option key={t} value={t}>
-                      {TERRAIN_LABEL[t]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {hex.exits === null && (
-                <Field
-                  label="Von fern zu sehen"
-                  hint="Was man aus mehreren Feldern Entfernung sieht – ein Turm, eine Rauchsäule, kreisende Geier. Die Reise hält, sobald es in Sicht kommt."
-                >
-                  <Input
-                    key={`${hex.q},${hex.r},${hex.level},a`}
-                    defaultValue={hex.afar}
-                    onBlur={(e) => patchHex(db, area.id, hex, { afar: e.target.value.trim() })}
-                  />
-                </Field>
-              )}
-              <Field
-                label="Woran man es von nebenan merkt"
-                hint="Steht bei der Gruppe, sobald sie auf einem Nachbarfeld mit Gang hierher steht – etwa „Schwefelgeruch“."
-              >
-                <Input
-                  key={`${hex.q},${hex.r},${hex.level},s`}
-                  defaultValue={hex.sign}
-                  onBlur={(e) => patchHex(db, area.id, hex, { sign: e.target.value.trim() })}
-                />
-              </Field>
-              <Field label="Besonderheit" hint="Was die Landschaft hier auszeichnet.">
-                <Input
-                  key={`${hex.q},${hex.r},${hex.level},f`}
-                  defaultValue={hex.feature}
-                  onBlur={(e) => patchHex(db, area.id, hex, { feature: e.target.value.trim() })}
-                />
-              </Field>
-              <Field label="Ort">
-                <EntityPicker
-                  value={hex.placeId}
-                  onChange={(placeId) => patchHex(db, area.id, hex, { placeId })}
-                  kinds={['place']}
-                  placeholder="Kein Ort auf diesem Feld"
-                />
-              </Field>
-              <Field
-                label="Was hier wartet"
-                hint="Vorbereitetes für den Moment, in dem die Gruppe das Feld betritt."
-              >
-                <TextArea
-                  key={`${hex.q},${hex.r},${hex.level},p`}
-                  defaultValue={hex.prepared}
-                  onBlur={(e) => patchHex(db, area.id, hex, { prepared: e.target.value.trim() })}
-                  style={{ minHeight: 64 }}
-                />
-              </Field>
-              <Field
-                label="Verborgen"
-                hint="Findet die Gruppe nur, wenn sie das Feld durchsucht. Nicht jedes Feld braucht etwas."
-              >
-                <TextArea
-                  key={`${hex.q},${hex.r},${hex.level},h`}
-                  defaultValue={hex.hidden}
-                  onBlur={(e) => patchHex(db, area.id, hex, { hidden: e.target.value.trim() })}
-                  style={{ minHeight: 48 }}
-                />
-              </Field>
-              <Field label="Notiz">
-                <TextArea
-                  key={`${hex.q},${hex.r},${hex.level},n`}
-                  defaultValue={hex.note}
-                  onBlur={(e) => patchHex(db, area.id, hex, { note: e.target.value.trim() })}
-                  style={{ minHeight: 64 }}
-                />
-              </Field>
-              <NatureFold spot={`feld:${area.id}`} hits={natureOnHex(data, area, hex)} />
-            </div>
-          </Panel>
+        {editing ? (
+          <HexInspector area={area} selection={picked} editor={editor} onSelect={setPicked} />
         ) : (
-          <Panel title="Die Karte">
-            <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
-              <p className="wf-erk-detail__where">
-                {area.hexes.length} Felder, {features} mit einer Besonderheit. Klick auf ein Feld,
-                um es anzusehen oder zu ändern.
-              </p>
-              {caves && (
-                <p className="wf-erk-detail__where">
-                  {levels > 1 ? `${levels} Ebenen. ` : ''}
-                  Gänge sind hell gezeichnet, Höhlen als Kammer, Schächte als Dreieck. Gepunktet:
-                  verborgen, blau: Wasser, gestrichelt: Kletterei.
-                </p>
-              )}
-              {!caves && (
-                <div className="wf-erk-legend">
-                  {shares.map(({ terrain, count }) => (
-                    <div key={terrain} className="wf-erk-legend__row">
-                      <i data-terrain={terrain} />
-                      <span>{TERRAIN_LABEL[terrain]}</span>
-                      <em className="wf-num">{Math.round((count / area.hexes.length) * 100)} %</em>
+          <>
+            <TravelPanel area={area} route={route} last={last} onMove={move} onUndo={undoLast} />
+            {hex ? (
+              <Panel
+                title={hex.placeId ? entityName(data, hex.placeId) : hex.feature || 'Feld'}
+                actions={
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
+                    Zur Übersicht
+                  </Button>
+                }
+              >
+                <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
+                  {partyHere ? (
+                    <>
+                      <p className="wf-erk-travel__here">
+                        <Footprints aria-hidden /> Hier steht die Gruppe.
+                      </p>
+                      {shafts.map((shaft) => (
+                        <Button
+                          key={shaft.dir}
+                          icon={<Footprints />}
+                          onClick={() => move(across(hex, shaft.dir))}
+                          title={PASSAGE_LABEL[shaft.kind]}
+                        >
+                          {shaft.dir === DIR_DOWN ? 'Hinab' : 'Hinauf'} – Ebene {shaft.to.level + 1}
+                        </Button>
+                      ))}
+                      {senses.length > 0 && (
+                        <div className="wf-erk-senses">
+                          <span className="wf-caps">Ringsum</span>
+                          {senses.map((sense) => (
+                            <p key={sense.dir}>{senseLine(sense)}</p>
+                          ))}
+                        </div>
+                      )}
+                      {far.length > 0 && (
+                        <div className="wf-erk-senses">
+                          <span className="wf-caps">In der Ferne</span>
+                          {far.map((sight) => (
+                            <p key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</p>
+                          ))}
+                        </div>
+                      )}
+                      {searchTime !== null && (
+                        <Button
+                          icon={<Search />}
+                          onClick={search}
+                          title="Die Gruppe sucht das Feld ab – es dauert so lange wie das Durchqueren, und einmal wird auf Begegnungen gewürfelt"
+                        >
+                          {hex.searched ? 'Noch einmal durchsuchen' : 'Durchsuchen'} ·{' '}
+                          {formatDuration(searchTime)}
+                        </Button>
+                      )}
+                    </>
+                  ) : hex && isRock(hex) ? (
+                    <p className="wf-erk-detail__where">Fels – hier führt kein Gang hindurch.</p>
+                  ) : stepMinutes !== null ? (
+                    <Button variant="primary" icon={<Footprints />} onClick={() => move(hex)}>
+                      Hierher ziehen · {formatDuration(stepMinutes)}
+                    </Button>
+                  ) : (
+                    <div className="wf-erk-travel__set">
+                      {area.party && problem && problem !== 'no-party' && (
+                        <span className="wf-erk-detail__where">{STEP_PROBLEM[problem]}</span>
+                      )}
+                      <Button
+                        size="sm"
+                        icon={<Footprints />}
+                        onClick={() => {
+                          placeParty(db, area.id, hex);
+                          setLast(null);
+                        }}
+                        title="Stellt die Gruppe auf dieses Feld, ohne dass Zeit vergeht"
+                      >
+                        {area.party ? 'Gruppe hierher setzen' : 'Gruppe hier aufstellen'}
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              )}
-              <div className="wf-erk-detail__found">
-                <span>
-                  Entdeckt: <b className="wf-num">{discovered}</b> von {area.hexes.length}
-                </span>
-                <div className="wf-row" style={{ gap: 6 }}>
+                  )}
+                  {start && (
+                    <p className="wf-erk-detail__where">
+                      {hexDistance(start, hex) === 0
+                        ? 'Hier beginnt der Weg.'
+                        : `${hexDistance(start, hex)} ${hexDistance(start, hex) === 1 ? 'Feld' : 'Felder'} vom Start · etwa ${km(hexDistance(start, hex) * area.hexKm)}`}
+                    </p>
+                  )}
+                  <HexFacts hex={hex} />
                   <Button
                     size="sm"
-                    icon={<Eye />}
-                    disabled={discovered === area.hexes.length}
-                    onClick={() => setAllDiscovered(db, area.id, true)}
+                    icon={<Pencil />}
+                    onClick={() => {
+                      setPicked([hex]);
+                      setMode('prep');
+                    }}
+                    title="Dieses Feld in der Ansicht „Vorbereiten“ bearbeiten"
                   >
-                    Alles aufdecken
+                    Feld vorbereiten
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={<EyeOff />}
-                    disabled={discovered <= 1}
-                    onClick={() => setAllDiscovered(db, area.id, false)}
-                  >
-                    Zudecken
-                  </Button>
+                  <NatureFold spot={`feld:${area.id}`} hits={natureOnHex(data, area, hex)} />
                 </div>
-              </div>
-              <div className={cx('wf-erk-key')}>
-                <span>
-                  <i className="wf-erk-key__route" /> direkter Weg
-                </span>
-                <span>
-                  <i className="wf-erk-key__feature" /> Besonderheit
-                </span>
-                <span>
-                  <i className="wf-erk-key__note" /> eigener Eintrag
-                </span>
-              </div>
-            </div>
-          </Panel>
+              </Panel>
+            ) : (
+              <Panel title="Die Karte">
+                <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
+                  <p className="wf-erk-detail__where">
+                    {area.hexes.length} Felder, {features} mit einer Besonderheit. Klick auf ein
+                    Feld, um es anzusehen oder zu ändern.
+                  </p>
+                  {caves && (
+                    <p className="wf-erk-detail__where">
+                      {levels > 1 ? `${levels} Ebenen. ` : ''}
+                      Gänge sind hell gezeichnet, Höhlen als Kammer, Schächte als Dreieck.
+                      Gepunktet: verborgen, blau: Wasser, gestrichelt: Kletterei.
+                    </p>
+                  )}
+                  {!caves && (
+                    <div className="wf-erk-legend">
+                      {shares.map(({ terrain, count }) => (
+                        <div key={terrain} className="wf-erk-legend__row">
+                          <i data-terrain={terrain} />
+                          <span>{TERRAIN_LABEL[terrain]}</span>
+                          <em className="wf-num">
+                            {Math.round((count / area.hexes.length) * 100)} %
+                          </em>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="wf-erk-detail__found">
+                    <span>
+                      Entdeckt: <b className="wf-num">{discovered}</b> von {area.hexes.length}
+                    </span>
+                    <div className="wf-row" style={{ gap: 6 }}>
+                      <Button
+                        size="sm"
+                        icon={<Eye />}
+                        disabled={discovered === area.hexes.length}
+                        onClick={() => setAllDiscovered(db, area.id, true)}
+                      >
+                        Alles aufdecken
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<EyeOff />}
+                        disabled={discovered <= 1}
+                        onClick={() => setAllDiscovered(db, area.id, false)}
+                      >
+                        Zudecken
+                      </Button>
+                    </div>
+                  </div>
+                  <div className={cx('wf-erk-key')}>
+                    <span>
+                      <i className="wf-erk-key__route" /> direkter Weg
+                    </span>
+                    <span>
+                      <i className="wf-erk-key__feature" /> Besonderheit
+                    </span>
+                    <span>
+                      <i className="wf-erk-key__note" /> eigener Eintrag
+                    </span>
+                  </div>
+                </div>
+              </Panel>
+            )}
+          </>
         )}
       </aside>
     </>
+  );
+}
+
+/** Beim Spielen: was an einem Feld steht, nur zum Ansehen. */
+function HexFacts({ hex }: { hex: Hex }) {
+  const data = useData();
+  const region = hex.regionId ? data.entities[hex.regionId] : undefined;
+  const rows: [string, string][] = [
+    ['Gelände', isRock(hex) ? 'Fels' : hex.terrain ? TERRAIN_LABEL[hex.terrain] : '–'],
+    ['Gegend', region?.name ?? ''],
+    ['Von fern', hex.exits === null ? hex.afar : ''],
+    ['Von nebenan', hex.sign],
+    ['Besonderheit', hex.feature],
+    ['Was hier wartet', hex.prepared],
+    ['Verborgen', hex.hidden ? `${hex.hidden}${hex.searched ? ' (gefunden)' : ''}` : ''],
+    ['Notiz', hex.note],
+  ];
+  const shown = rows.filter(([, value]) => value.trim());
+  return (
+    <dl className="wf-erk-facts">
+      {shown.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

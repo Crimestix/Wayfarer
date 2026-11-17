@@ -602,35 +602,144 @@
   font-size: var(--text-sm);
 }
 
-/* ── Bearbeiten ── */
+/* ── Vorbereiten: der Editor ── */
+/* Werkzeugleiste links, Karte daneben. */
+.wf-erk-prep {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 11.5rem minmax(0, 1fr);
+}
+.wf-erk-prep__rail {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  background: var(--bg-1);
+}
 .wf-erk-tools {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--s-2) var(--s-3);
-  padding: var(--s-2) var(--s-4);
-  border-bottom: 1px solid var(--line);
-  background: var(--bg-1);
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-3);
+}
+.wf-erk-tools__history {
+  display: flex;
+  gap: 4px;
+}
+.wf-erk-tools__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-erk-tools__caption {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-erk-tools__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-erk-tools__buttons .wf-btn {
+  justify-content: flex-start;
+  width: 100%;
 }
 .wf-erk-tools .wf-btn svg {
   width: 14px;
   height: 14px;
 }
+.wf-erk-tools__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-erk-tools__options:empty {
+  display: none;
+}
 .wf-erk-tools .wf-select,
 .wf-erk-tools .wf-input {
-  width: auto;
-  min-width: 10em;
+  width: 100%;
+  min-width: 0;
 }
 .wf-erk-tools__region {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  min-width: 16em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
 }
 .wf-erk-tools__region em,
 .wf-erk-tools__hint {
   color: var(--ink-mute);
   font-size: var(--text-xs);
+  margin: 0;
+}
+/* Mehrere gewählte Felder */
+.wf-hexmap__marked {
+  fill: color-mix(in srgb, var(--gold-bright) 18%, transparent);
+  stroke: var(--gold);
+  stroke-width: 2;
+  pointer-events: none;
+}
+/* Der Feld-Inspektor */
+.wf-erk-inspect {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-erk-inspect__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-erk-inspect__part h4 {
+  margin: 0;
+  font-size: var(--text-2xs);
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+.wf-erk-inspect__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5em, 1fr));
+  gap: var(--s-2);
+}
+.wf-erk-inspect__counts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.wf-erk-inspect__counts li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 2px 0;
+  border-bottom: 1px solid var(--line-faint);
+  font-size: var(--text-sm);
+}
+/* Beim Spielen: was am Feld steht, nur zum Ansehen */
+.wf-erk-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+}
+.wf-erk-facts > div {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: var(--s-2);
+}
+.wf-erk-facts dt {
+  color: var(--ink-mute);
+}
+.wf-erk-facts dd {
+  margin: 0;
 }
 .wf-hexmap[data-painting] {
   cursor: crosshair;
