@@ -1031,6 +1031,10 @@ nicht wie ein Admin-Dashboard.
 - `docs/KONZEPT-WELT-UND-KARTEN.md` – lebendige Welt („Die Welt dreht sich weiter“, Uhren mit
   Bedingungen, Abläufe, Wissen) und intelligente Karten aus Vektoren; dazu Leiten in der Sandbox
   (Fadenbrett), Bestiarium, „Alles ist ein Artikel“ und Beute. Probe in `docs/proben/`.
+- `docs/KONZEPT-BESPRECHUNG-16-11.md` – Konzeptbesprechung vom 16. 11. 2026: drei Kerne (Wiki,
+  Fadenbrett, Spieltisch) und Aufräumen, Gefährten, Fadenbrett als Pinnwand eines Ermittlers,
+  Worldbuilding nach dem Vorbild der Läden (Kategorien, eigenes Wort, Bausteine, Vorlagen durch
+  Merken). Entschiedenes, Vorschläge und Offenes sind dort gekennzeichnet.
 
 ## Befehle
 
