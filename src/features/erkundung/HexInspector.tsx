@@ -32,6 +32,7 @@ import { dwellersOf, lairPlan, lairsOnArea, landscapeOfHex } from '../../domain/
 import type { HexEditor } from './HexEditor';
 import { CLEAR_CONTENT, prepOverview, type ManyChange } from './prep';
 import { ZoomButton } from './ZoomButton';
+import { HazardFields } from '../reise/HazardFields';
 
 const ROAD_LABEL: Record<Hex['road'], string> = {
   none: 'Keine',
@@ -216,6 +217,15 @@ function One({
               key={`${key},f`}
               defaultValue={hex.feature}
               onBlur={(e) => text('feature')(e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Gefahr beim Betreten"
+            hint="Abhang, Geröll, Eis: Die Reise hält hier mit SG und Sturzschaden nach den Regeln."
+          >
+            <HazardFields
+              value={hex.hazard ?? null}
+              onChange={(hazard) => edit([hex], { hazard })}
             />
           </Field>
           <Field label="Was hier wartet" hint="Für den Moment, in dem die Gruppe das Feld betritt.">

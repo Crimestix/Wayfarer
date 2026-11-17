@@ -24,6 +24,7 @@ import { TravelBy } from '../fortbewegung/TravelBy';
 import { WeatherIcon } from '../wetter/WeatherChip';
 import { placeParty, setLost, setTravelPace, type TravelResult } from './actions';
 import { HEADING_LABEL, hexNavigation } from '../../domain/journey';
+import { hazardLine } from '../../domain/travelRules';
 import {
   TRAVEL_HOURS,
   effectivePace,
@@ -39,6 +40,7 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
   const hex = step.target;
   const terrain = hex.terrain ? kindLabelOf(hex) : 'offenes Gelände';
   const lines: { key: string; alert?: boolean; text: string }[] = [];
+  if (hex.hazard) lines.push({ key: 'hazard', alert: true, text: hazardLine(hex.hazard) });
   if (hex.prepared)
     lines.push({ key: 'prepared', alert: true, text: `Was hier wartet: ${hex.prepared}` });
   if (hex.feature) lines.push({ key: 'feature', text: `Besonderheit: ${hex.feature}` });

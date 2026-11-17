@@ -1004,6 +1004,25 @@ function Editor({
                 }
               />
             </Field>
+            <Field
+              label="Revier eines Baus (km²)"
+              hint="Für „Beleben“ auf der Hexkarte: so viel Fläche braucht ein Bau. Leer: wie die Vorlage, sonst 1000 km²."
+            >
+              <Input
+                inputMode="numeric"
+                value={roaming.territoryKm2 ? String(roaming.territoryKm2) : ''}
+                placeholder="1000"
+                onChange={(event) => {
+                  const n = Number(event.target.value.replace(',', '.'));
+                  set('roaming', {
+                    roaming: {
+                      ...roaming,
+                      territoryKm2: event.target.value.trim() && n > 0 ? n : null,
+                    },
+                  });
+                }}
+              />
+            </Field>
           </Part>
         </div>
 

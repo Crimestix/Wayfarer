@@ -1,4 +1,6 @@
 /** Einen Weg zwischen zwei Orten anlegen oder ändern. */
+import { HazardFields } from '../reise/HazardFields';
+import type { Hazard } from '../../domain/schema';
 import { HexWayButton } from '../reise/HexWayButton';
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
@@ -38,6 +40,7 @@ export function WayDialog({
   const [oneWay, setOneWay] = useState(way?.oneWay ?? false);
   const [secret, setSecret] = useState(way?.secret ?? false);
   const [sort, setSort] = useState<WaySort>(way ? sortOfWay(way) : 'street');
+  const [hazard, setHazard] = useState<Hazard | null>(way?.hazard ?? null);
 
   // Zeigt eine Karte mit Maßstab beide Orte, ergibt sich daraus ein Vorschlag.
   const km = from && to ? suggestedKm(data, from, to) : null;
@@ -59,6 +62,7 @@ export function WayDialog({
       oneWay,
       secret,
       sort,
+      hazard,
     });
     onClose();
   };
@@ -145,6 +149,12 @@ export function WayDialog({
         </Field>
         <Field label="Besonderheiten" hint="Zoll, Wachen, nur bei Ebbe, eingestürzt …">
           <Input value={conditions} onChange={(e) => setConditions(e.target.value)} />
+        </Field>
+        <Field
+          label="Gefahr"
+          hint="Ein Abhang, eine Kletterei: Die Reise hält dort mit SG und Sturzschaden nach den Regeln."
+        >
+          <HazardFields value={hazard} onChange={setHazard} />
         </Field>
         <div className="wf-wege-row">
           <Checkbox checked={oneWay} onChange={setOneWay}>

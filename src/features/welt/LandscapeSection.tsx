@@ -13,6 +13,7 @@ import { TERRAIN_LABEL } from '../../domain/terrain';
 import { Checkbox, EntityRefsEditor, Field, Select } from '../../ui';
 import { KindSwatch } from '../erkundung/HexEditor';
 import { Section } from './parts';
+import { BountyFields } from '../reise/RegionFields';
 
 export function LandscapeSection({ landscape }: { landscape: Landscape }) {
   const db = useDb();
@@ -74,6 +75,7 @@ export function LandscapeSection({ landscape }: { landscape: Landscape }) {
             </span>
           </Field>
         </div>
+        <BountyFields id={landscape.id} value={{ yield: details.yield, water: details.water }} />
         <Checkbox checked={details.slow} onChange={(slow) => patch({ slow })}>
           Schwer zu durchqueren – jede Reisedauer verdoppelt sich
         </Checkbox>

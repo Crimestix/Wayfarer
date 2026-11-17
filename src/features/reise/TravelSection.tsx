@@ -5,6 +5,7 @@
  * (Entscheidung des Spielleiters, 17. 11.: „diese Regionen festlegen können im Worldbuilding“).
  */
 import { Trash2 } from 'lucide-react';
+import { BountyFields, ClimateRow } from './RegionFields';
 import { useData, useDb } from '../../data/hooks';
 import { groundOf } from '../../domain/journey';
 import { WHEN_LABEL, roamingOf, type When } from '../../domain/roaming';
@@ -83,6 +84,12 @@ export function TravelSection({ place }: { place: Place }) {
           }}
         />
       </label>
+      <ClimateRow place={place} />
+      <BountyFields
+        id={place.id}
+        value={{ yield: place.place.yield, water: place.place.water }}
+        inheritFrom={place.place.parentId}
+      />
       <TableField place={place} kind="encounter" />
       <TableField place={place} kind="discovery" />
     </section>

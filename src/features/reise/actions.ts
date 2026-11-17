@@ -29,6 +29,7 @@ import {
   type Journey,
   type RollTable,
   type TableKind,
+  type Yield,
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
 import { markSighted } from '../../domain/afar';
@@ -487,6 +488,19 @@ export function setPlaceGround(
       ...(change.slow !== undefined ? { groundSlow: change.slow } : {}),
     },
   });
+}
+
+/** Was eine Gegend für die Nahrungssuche hergibt und ob es Trinkwasser gibt (null = nicht festgelegt). */
+export function setPlaceBounty(
+  db: CampaignDb,
+  placeId: string,
+  change: { yield?: Yield | null; water?: boolean | null },
+): void {
+  const entity = db.getSnapshot().entities[placeId];
+  if (entity?.kind === 'place')
+    db.patch('entities', placeId, { place: { ...entity.place, ...change } });
+  else if (entity?.kind === 'landscape')
+    db.patch('entities', placeId, { landscape: { ...entity.landscape, ...change } });
 }
 
 /** Der Schwierigkeitsgrad der Orientierung in einer Gegend (null = Vorschlag nach Gelände, 0 = nie). */

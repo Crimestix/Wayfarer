@@ -12,6 +12,7 @@ import {
 } from '../../data/actions';
 import { isSplit, isWholeLed } from '../../domain/party';
 import type { CampaignDb } from '../../data/db';
+import type { Hazard } from '../../domain/schema';
 import { routeMeans, describeVia, directWay, formatWayTime, type Route } from '../../domain/ways';
 import {
   createPath,
@@ -37,6 +38,8 @@ export interface WayInput {
   secret?: boolean;
   /** Was für ein Weg das ist; ohne Angabe bleibt ein vorhandener, wie er ist. */
   sort?: WaySort;
+  /** Eine Gefahr auf dem Weg; ohne Angabe bleibt sie, wie sie ist. */
+  hazard?: Hazard | null;
 }
 
 /** Legt einen Weg an oder ändert ihn. */
@@ -50,6 +53,7 @@ export function saveWay(db: CampaignDb, input: WayInput): TravelPath {
     conditions: input.conditions?.trim() ?? '',
     oneWay: input.oneWay ?? false,
     secret: input.secret ?? false,
+    ...(input.hazard !== undefined ? { hazard: input.hazard } : {}),
   };
   const existing = input.id ? db.getSnapshot().paths[input.id] : undefined;
   // Die Art nur ändern, wenn sie wirklich eine andere ist: Gelände von der Karte bleibt sonst.
