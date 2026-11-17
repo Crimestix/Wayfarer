@@ -97,6 +97,12 @@ Karten mit eigenem Text, Pfeile „führt zu“ (Richtung im Menü an der Schnur
 „Hier steht die Gruppe“ mit „Auf dem Storyboard“ am Spieltisch und gespieltem Weg; Geschichten
 mit freiem Schreibteil. **DATA_VERSION 14** – Mac und Windows beide auf 0.1.10.
 
+**Danach: Tag `v0.1.11` auf `30e4222` (17. 11.)** – Konzeptbesprechung umgesetzt
+(`docs/KONZEPT-BESPRECHUNG-16-11.md`, „Stand der Umsetzung“): Pinnwand mit Dingen als Karten,
+Rahmen als Geschichte, Backstory und Bastion bei den Gefährten, Kategorien mit eigenem Wort,
+Größe der Orte, Vorlagen durch Merken, Navigation nach den drei Kernen. **DATA_VERSION 17** –
+Mac und Windows beide auf 0.1.11.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
