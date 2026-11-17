@@ -98,3 +98,29 @@ export function entryParts(text: string): EntryParts {
   const cap = (part: string) => (part ? part[0]!.toUpperCase() + part.slice(1) : '');
   return { here: nothing ? '' : cap(here), afar: cap(afar), hidden: cap(hidden) };
 }
+
+/** Setzt einen Eintrag aus seinen Teilen zusammen – die Umkehrung von `entryParts`. */
+export function composeEntry(parts: EntryParts, underground = false): string {
+  const far = parts.afar.trim()
+    ? ` (${underground ? 'von nebenan' : 'von fern'}: ${parts.afar.trim()})`
+    : '';
+  const hidden = parts.hidden.trim() ? ` (verborgen: ${parts.hidden.trim()})` : '';
+  return `${parts.here.trim()}${far}${hidden}`.trim();
+}
+
+/** Zeilen aus Einträgen mit Häufigkeit: hintereinander, die erste ab 1. */
+export function rowsOf(entries: readonly { text: string; weight: number }[]): TableRow[] {
+  const rows: TableRow[] = [];
+  let next = 1;
+  for (const entry of entries) {
+    const text = entry.text.trim();
+    if (!text) continue;
+    const weight = Math.max(1, Math.min(99, Math.round(entry.weight) || 1));
+    rows.push({ min: next, max: next + weight - 1, text });
+    next += weight;
+  }
+  return rows;
+}
+
+/** Die Häufigkeit einer Zeile. */
+export const weightOf = (row: TableRow): number => row.max - row.min + 1;

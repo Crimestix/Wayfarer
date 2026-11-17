@@ -371,8 +371,10 @@ nicht übernommen.
   als `RollTable` mit `kind: 'generator'` und `slot`; Vorgaben in `erkundung/tables.ts`
   (`DEFAULT_TABLES`: Fundstellen, Fundstellen unter der Erde, Verborgenes, Besonderheiten je
   Gelände, Höhlen, Sackgassen – nur Beiwerk in eigenen Worten); was gilt, sagt `generatorTables`
-  (eigene vor Vorgabe), geändert über `erkundung/tableActions.ts`, Einstellungen →
-  „Würfeltabellen“. Ein Eintrag darf sagen, was man von fern (unter der Erde: von nebenan) sieht
+  (eigene vor Vorgabe), geändert über `erkundung/tableActions.ts` (`saveGeneratorRows`),
+  Einstellungen → „Würfeltabellen“ – als echte Tabelle mit Zeilen (Nr., Eintrag, bei Fundstellen
+  „Von fern“ und „Verborgen“, Häufigkeit), nie als Textfeld (Wunsch 17. 11.: „Es müssen Tabellen
+  sein, keine Textfelder“); neue Zeile über `NewLine`. Ein Eintrag darf sagen, was man von fern (unter der Erde: von nebenan) sieht
   und was verborgen liegt: „Ein Köhlerlager (von fern: eine Rauchsäule) (verborgen: …)“
   (`entryParts`). Der Erzeuger (`placeFindings` in `generate.ts`) legt höchstens eins je Feld:
   Besonderheit (`FEATURE_SHARE`), Fundstelle (`SITE_SHARE`, mindestens drei Felder auseinander)

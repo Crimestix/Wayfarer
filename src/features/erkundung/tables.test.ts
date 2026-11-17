@@ -3,7 +3,8 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { DEFAULT_TABLES, generatorTables } from './tables';
-import { resetGeneratorTable, saveGeneratorTable } from './tableActions';
+import { resetGeneratorTable, saveGeneratorRows, saveGeneratorTable } from './tableActions';
+import { composeEntry, entryParts } from '../../domain/rollTable';
 
 describe('Würfeltabellen der Erzeuger', () => {
   it('nimmt die Vorgaben, solange der Spielleiter keine eigenen hat', async () => {
@@ -39,5 +40,29 @@ describe('Würfeltabellen der Erzeuger', () => {
     const def = DEFAULT_TABLES.find((entry) => entry.slot === 'hidden')!;
     saveGeneratorTable(db, 'hidden', def.entries.join('\n'));
     expect(Object.values(db.getSnapshot().tables)).toHaveLength(0);
+  });
+
+  it('schreibt Zeilen mit Teilen und Häufigkeit, wie die Tabelle sie zeigt', async () => {
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const parts = { here: 'Ein Kobold-Markt', afar: 'bunte Fahnen', hidden: 'ein Schuldbuch' };
+    expect(entryParts(composeEntry(parts))).toEqual({
+      here: 'Ein Kobold-Markt',
+      afar: 'Bunte Fahnen',
+      hidden: 'Ein Schuldbuch',
+    });
+    expect(composeEntry({ ...parts, hidden: '' }, true)).toBe(
+      'Ein Kobold-Markt (von nebenan: bunte Fahnen)',
+    );
+    saveGeneratorRows(db, 'site', [
+      { text: composeEntry(parts), weight: 3 },
+      { text: '  ', weight: 1 },
+      { text: 'Eine Quelle', weight: 1 },
+    ]);
+    const site = generatorTables(db.getSnapshot()).slot('site')!;
+    expect(site.die).toBe(4);
+    expect(site.rows.map((row) => [row.min, row.max])).toEqual([
+      [1, 3],
+      [4, 4],
+    ]);
   });
 });

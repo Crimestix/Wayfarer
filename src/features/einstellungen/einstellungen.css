@@ -795,9 +795,45 @@
   margin: 0 0 var(--s-2);
   font-size: var(--text-sm);
 }
-.wf-einstellungen-tables__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 30px;
-  align-items: start;
-  gap: var(--s-2);
+.wf-einstellungen-tables__table > summary .wf-icon-btn,
+.wf-einstellungen-tables__table > summary button {
+  margin-left: auto;
+}
+/* Eine Würfeltabelle als Tabelle: Nr., Eintrag (bei Fundstellen dazu von fern, verborgen),
+   Häufigkeit, Entfernen. */
+.wf-einstellungen-rolltable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-rolltable th {
+  text-align: left;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 400;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-einstellungen-rolltable td {
+  padding: 2px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-einstellungen-rolltable__nr {
+  width: 3.5em;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+td.wf-einstellungen-rolltable__nr {
+  padding-top: 7px;
+}
+.wf-einstellungen-rolltable__weight {
+  width: 6.5em;
+}
+.wf-einstellungen-rolltable__weight input {
+  width: 4.5em;
 }
