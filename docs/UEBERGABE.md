@@ -130,6 +130,16 @@ und Geländearten, freie Karten mit Maßstab, Landschaften als Kategorie, Belebe
 Verirren mit Richtung), Kachelansicht der Welt mit Filtern je Kategorie, Ansicht „Geschichte“ für
 Vergangenes. Der Zeichen-Editor „Karten“ ist aus der Navigation. **DATA_VERSION 30**.
 
+**Danach: Tag `v0.1.16` auf `e2d3a6e` (17. 11.)** – Erkundung nach den Regeln, auf dem Vorhandenen gebaut:
+Reise antreten nach Meilen, Reisetagen oder Stunden mit Tempo und Vorräten; unterwegs Halte mit
+fertig gerechnetem SG (Gewaltmarsch, Kälte, Hitze, Hunger und Durst, Dunkelheit, Gefahr am Weg oder
+Feld mit Sturzschaden), je Gefährte „geschafft/gescheitert“; Nahrung suchen; Klima, Ertrag und
+Trinkwasser an Ort und Landschaft; Begegnung aus der Tabelle wird eine Begegnung zum Führen; die
+Nachtprüfung trifft die Wache der gewürfelten Stunde; Hinweis auf Futter für Reittiere; Weg mit
+Länge in Meilen. Dazu der Feinschliff nach dem Durchspielen (Halt oben, Hexkarte füllt die Fläche)
+und zwei behobene Fehler (Gefahr hielt immer wieder; Prüfungen gingen im Gewaltmarsch und bei
+Kälte verloren). **DATA_VERSION 32**.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
