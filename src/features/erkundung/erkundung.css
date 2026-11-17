@@ -206,6 +206,177 @@
 .wf-hex[data-terrain='urban'] polygon {
   fill: var(--terrain-urban);
 }
+/* Geländearten (domain/hexKinds.ts): eigene Farbe, Grundgelände bleibt für die Regeln. */
+.wf-hex[data-kind='meadow'] polygon,
+.wf-kind-swatch[data-kind='meadow'] {
+  fill: var(--terrain-meadow);
+  background: var(--terrain-meadow);
+}
+.wf-hex[data-kind='farmland'] polygon,
+.wf-kind-swatch[data-kind='farmland'] {
+  fill: var(--terrain-farmland);
+  background: var(--terrain-farmland);
+}
+.wf-hex[data-kind='valley'] polygon,
+.wf-kind-swatch[data-kind='valley'] {
+  fill: var(--terrain-valley);
+  background: var(--terrain-valley);
+}
+.wf-hex[data-kind='heath'] polygon,
+.wf-kind-swatch[data-kind='heath'] {
+  fill: var(--terrain-heath);
+  background: var(--terrain-heath);
+}
+.wf-hex[data-kind='steppe'] polygon,
+.wf-kind-swatch[data-kind='steppe'] {
+  fill: var(--terrain-steppe);
+  background: var(--terrain-steppe);
+}
+.wf-hex[data-kind='savanna'] polygon,
+.wf-kind-swatch[data-kind='savanna'] {
+  fill: var(--terrain-savanna);
+  background: var(--terrain-savanna);
+}
+.wf-hex[data-kind='dense-forest'] polygon,
+.wf-kind-swatch[data-kind='dense-forest'] {
+  fill: var(--terrain-dense-forest);
+  background: var(--terrain-dense-forest);
+}
+.wf-hex[data-kind='pine'] polygon,
+.wf-kind-swatch[data-kind='pine'] {
+  fill: var(--terrain-pine);
+  background: var(--terrain-pine);
+}
+.wf-hex[data-kind='jungle'] polygon,
+.wf-kind-swatch[data-kind='jungle'] {
+  fill: var(--terrain-jungle);
+  background: var(--terrain-jungle);
+}
+.wf-hex[data-kind='glade'] polygon,
+.wf-kind-swatch[data-kind='glade'] {
+  fill: var(--terrain-glade);
+  background: var(--terrain-glade);
+}
+.wf-hex[data-kind='dead-forest'] polygon,
+.wf-kind-swatch[data-kind='dead-forest'] {
+  fill: var(--terrain-dead-forest);
+  background: var(--terrain-dead-forest);
+}
+.wf-hex[data-kind='marsh'] polygon,
+.wf-kind-swatch[data-kind='marsh'] {
+  fill: var(--terrain-marsh);
+  background: var(--terrain-marsh);
+}
+.wf-hex[data-kind='bog'] polygon,
+.wf-kind-swatch[data-kind='bog'] {
+  fill: var(--terrain-bog);
+  background: var(--terrain-bog);
+}
+.wf-hex[data-kind='mangrove'] polygon,
+.wf-kind-swatch[data-kind='mangrove'] {
+  fill: var(--terrain-mangrove);
+  background: var(--terrain-mangrove);
+}
+.wf-hex[data-kind='crag'] polygon,
+.wf-kind-swatch[data-kind='crag'] {
+  fill: var(--terrain-crag);
+  background: var(--terrain-crag);
+}
+.wf-hex[data-kind='highpeak'] polygon,
+.wf-kind-swatch[data-kind='highpeak'] {
+  fill: var(--terrain-highpeak);
+  background: var(--terrain-highpeak);
+}
+.wf-hex[data-kind='volcano'] polygon,
+.wf-kind-swatch[data-kind='volcano'] {
+  fill: var(--terrain-volcano);
+  background: var(--terrain-volcano);
+}
+.wf-hex[data-kind='lava'] polygon,
+.wf-kind-swatch[data-kind='lava'] {
+  fill: var(--terrain-lava);
+  background: var(--terrain-lava);
+}
+.wf-hex[data-kind='dunes'] polygon,
+.wf-kind-swatch[data-kind='dunes'] {
+  fill: var(--terrain-dunes);
+  background: var(--terrain-dunes);
+}
+.wf-hex[data-kind='badlands'] polygon,
+.wf-kind-swatch[data-kind='badlands'] {
+  fill: var(--terrain-badlands);
+  background: var(--terrain-badlands);
+}
+.wf-hex[data-kind='canyon'] polygon,
+.wf-kind-swatch[data-kind='canyon'] {
+  fill: var(--terrain-canyon);
+  background: var(--terrain-canyon);
+}
+.wf-hex[data-kind='crater'] polygon,
+.wf-kind-swatch[data-kind='crater'] {
+  fill: var(--terrain-crater);
+  background: var(--terrain-crater);
+}
+.wf-hex[data-kind='salt'] polygon,
+.wf-kind-swatch[data-kind='salt'] {
+  fill: var(--terrain-salt);
+  background: var(--terrain-salt);
+}
+.wf-hex[data-kind='oasis'] polygon,
+.wf-kind-swatch[data-kind='oasis'] {
+  fill: var(--terrain-oasis);
+  background: var(--terrain-oasis);
+}
+.wf-hex[data-kind='tundra'] polygon,
+.wf-kind-swatch[data-kind='tundra'] {
+  fill: var(--terrain-tundra);
+  background: var(--terrain-tundra);
+}
+.wf-hex[data-kind='glacier'] polygon,
+.wf-kind-swatch[data-kind='glacier'] {
+  fill: var(--terrain-glacier);
+  background: var(--terrain-glacier);
+}
+.wf-hex[data-kind='lake'] polygon,
+.wf-kind-swatch[data-kind='lake'] {
+  fill: var(--terrain-lake);
+  background: var(--terrain-lake);
+}
+.wf-hex[data-kind='reef'] polygon,
+.wf-kind-swatch[data-kind='reef'] {
+  fill: var(--terrain-reef);
+  background: var(--terrain-reef);
+}
+.wf-hex[data-kind='village'] polygon,
+.wf-kind-swatch[data-kind='village'] {
+  fill: var(--terrain-village);
+  background: var(--terrain-village);
+}
+.wf-hex[data-kind='ruins'] polygon,
+.wf-kind-swatch[data-kind='ruins'] {
+  fill: var(--terrain-ruins);
+  background: var(--terrain-ruins);
+}
+.wf-hex[data-kind='fungus'] polygon,
+.wf-kind-swatch[data-kind='fungus'] {
+  fill: var(--terrain-fungus);
+  background: var(--terrain-fungus);
+}
+.wf-hex[data-kind='crystal'] polygon,
+.wf-kind-swatch[data-kind='crystal'] {
+  fill: var(--terrain-crystal);
+  background: var(--terrain-crystal);
+}
+.wf-hex[data-kind='deep-lake'] polygon,
+.wf-kind-swatch[data-kind='deep-lake'] {
+  fill: var(--terrain-deep-lake);
+  background: var(--terrain-deep-lake);
+}
+.wf-hex[data-kind='magma'] polygon,
+.wf-kind-swatch[data-kind='magma'] {
+  fill: var(--terrain-magma);
+  background: var(--terrain-magma);
+}
 /* Was die Gruppe noch nicht kennt, liegt im Dunkeln – für die Spielleitung aber lesbar. */
 .wf-hex[data-hidden] polygon {
   filter: saturate(0.7) brightness(0.74);
@@ -604,11 +775,192 @@
 
 /* ── Vorbereiten: der Editor ── */
 /* Werkzeugleiste links, Karte daneben. */
+/* Beim Vorbereiten gehört der Platz der Karte: die Kartenliste klappt weg. */
+.wf-erk:has(.wf-erk-prep) {
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+.wf-erk:has(.wf-erk-prep) > .wf-erk-side {
+  display: none;
+}
 .wf-erk-prep {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 11.5rem minmax(0, 1fr);
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+}
+/* Was die Maus und die Tasten gerade tun – unten über der Karte. */
+.wf-erk-prep__keys {
+  position: absolute;
+  left: calc(3.25rem + var(--s-4));
+  bottom: var(--s-3);
+  padding: 4px var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-1) 88%, transparent);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
+/* Die schmale Werkzeugleiste: Symbole mit Tastenkürzel. */
+.wf-erk-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--s-2) 0;
+}
+.wf-erk-rail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--s-2);
+  margin-top: 2px;
+  border-top: 1px solid var(--line-faint);
+}
+.wf-erk-rail__tool {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.2rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.wf-erk-rail__tool svg {
+  width: 18px;
+  height: 18px;
+}
+.wf-erk-rail__tool:hover {
+  background: var(--bg-2);
+  color: var(--ink);
+}
+.wf-erk-rail__tool[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold-bright);
+}
+.wf-erk-rail__tool kbd {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  color: var(--ink-faint);
+}
+/* Rechts: das Werkzeug und seine Palette */
+.wf-erk-toolpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-erk-size {
+  display: inline-flex;
+  gap: 2px;
+}
+.wf-erk-size button {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.wf-erk-size button[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+}
+.wf-erk-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.wf-erk-palette__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-erk-palette__kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+.wf-erk-kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 6px 3px 3px;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-erk-kind span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-erk-kind:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+.wf-erk-kind[aria-pressed='true'] {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  background: color-mix(in srgb, var(--gold) 10%, var(--bg-1));
+}
+.wf-kind-swatch {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: none !important;
+}
+.wf-kind-swatch polygon {
+  stroke: var(--line);
+  stroke-width: 0.03;
+}
+.wf-kind-swatch[data-kind='grassland'] {
+  fill: var(--terrain-grassland);
+}
+.wf-kind-swatch[data-kind='forest'] {
+  fill: var(--terrain-forest);
+}
+.wf-kind-swatch[data-kind='hills'] {
+  fill: var(--terrain-hills);
+}
+.wf-kind-swatch[data-kind='mountains'] {
+  fill: var(--terrain-mountains);
+}
+.wf-kind-swatch[data-kind='swamp'] {
+  fill: var(--terrain-swamp);
+}
+.wf-kind-swatch[data-kind='desert'] {
+  fill: var(--terrain-desert);
+}
+.wf-kind-swatch[data-kind='arctic'] {
+  fill: var(--terrain-arctic);
+}
+.wf-kind-swatch[data-kind='coast'] {
+  fill: var(--terrain-coast);
+}
+.wf-kind-swatch[data-kind='water'] {
+  fill: var(--terrain-water);
+}
+.wf-kind-swatch[data-kind='underdark'] {
+  fill: var(--terrain-underdark);
+}
+.wf-kind-swatch[data-kind='urban'] {
+  fill: var(--terrain-urban);
 }
 .wf-erk-prep__rail {
   min-height: 0;

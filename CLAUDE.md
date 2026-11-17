@@ -354,7 +354,16 @@ nicht übernommen.
   (`HexHistory` in `erkundung/prep.ts`, `editor.record` vor jedem Schritt – auch im Inspektor;
   Strg+Z, Strg+Y, Escape hebt die Auswahl auf). **Spielen** zeigt die Reise mit Nebel; Felder nur
   zum Ansehen (`HexFacts`), „Feld vorbereiten“ springt in den Editor. Eine Karte ohne Gruppe
-  beginnt beim Vorbereiten.
+  beginnt beim Vorbereiten. Der Editor ist ein Malprogramm (Wunsch 17. 11.: „verschiedene
+  Terrain-Pinsel“): links eine schmale Leiste mit Symbolen und Tastenkürzeln (`HexToolRail`,
+  `TOOL_KEY`, `toolOfKey`: V, B, G, S, P, F, E, O, X, unten T, K, H), rechts je Werkzeug seine
+  Tafel (`HexToolPanel`; Pinselgröße 1–5, „,“ und „.“), beim Gelände-Pinsel die Palette der
+  **Geländearten** (`domain/hexKinds.ts`: `HEX_KINDS` in Gruppen, `hex.kind`; für die Regeln zählt
+  das Grundgelände `kind.base` = `hex.terrain` – Tempo, Sicht, Orientierung, Begegnungen; gemalt
+  über `paintOfKind`, gelesen über `kindKeyOf`/`kindLabelOf`; Farben `--terrain-<art>`, Zeichen
+  `KIND_GLYPH`), Suche, „Zuletzt“, Strg-Klick nimmt die Art eines Feldes auf. Ändert sich das
+  Grundgelände von Hand ohne Art, fällt die Art weg (`withChange`). Beim Vorbereiten klappt die
+  Kartenliste weg.
   **Hexkarten bearbeiten** (Wunsch 17. 11.: „Hexkarten perfekt vorbereiten“,
   `erkundung/HexEditor.tsx`): Werkzeuge der Ansicht „Vorbereiten“ – Pinsel für Gelände und für
   Gegenden der Welt (`hex.regionId`; ihr Gelände, Tempo und ihre Tabellen gelten dort), Straße

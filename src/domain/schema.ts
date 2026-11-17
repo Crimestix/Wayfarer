@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 27;
-export const DATA_SHAPE = 'a90ca24d52a2d33c';
+export const DATA_VERSION = 28;
+export const DATA_SHAPE = '87ae6fc932b10e53';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2554,6 +2554,11 @@ export const HexSchema = z.object({
   q: z.number().int(),
   r: z.number().int(),
   terrain: z.enum(TERRAINS).nullable().default(null),
+  /**
+   * Geländeart (`domain/hexKinds.ts`): wie das Feld aussieht und heißt – „Moor“, „Vulkan“. Für die
+   * Regeln zählt `terrain`. null = das Grundgelände selbst.
+   */
+  kind: z.string().nullable().default(null),
   placeId: id.nullable().default(null),
   note: z.string().default(''),
   discovered: z.boolean().default(false),

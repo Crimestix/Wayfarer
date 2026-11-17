@@ -3,6 +3,7 @@
  * ist, und der eine Handgriff „weiter Richtung Ziel“. Nach jedem Schritt steht hier, was er
  * gebracht hat – Entdecktes, Vorbereitetes, Würfe auf Tabellen, eingetretene Termine.
  */
+import { kindLabelOf } from '../../domain/hexKinds';
 import { useMemo } from 'react';
 import { Footprints, Flag, MapPin, TriangleAlert, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -35,7 +36,7 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
   const data = useData();
   const { step, time } = last;
   const hex = step.target;
-  const terrain = hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'offenes Gelände';
+  const terrain = hex.terrain ? kindLabelOf(hex) : 'offenes Gelände';
   const lines: { key: string; alert?: boolean; text: string }[] = [];
   if (hex.prepared)
     lines.push({ key: 'prepared', alert: true, text: `Was hier wartet: ${hex.prepared}` });

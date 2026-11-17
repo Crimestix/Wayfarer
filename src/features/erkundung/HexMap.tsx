@@ -1,4 +1,5 @@
 /** Die gezeichnete Hexkarte: Gelände, Besonderheiten, Orte und der direkte Weg. */
+import { kindKeyOf, kindLabelOf } from '../../domain/hexKinds';
 import { memo, useMemo, type ReactNode } from 'react';
 import {
   HEX_DIRECTIONS,
@@ -11,13 +12,12 @@ import {
 } from '../../domain/hex';
 import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/passages';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
-import { TERRAIN_LABEL } from '../../domain/terrain';
 import { areaLine } from './generate';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
 /** Zeichen im Feld, je Gelände; gezeichnet in einem Feld der Größe 1 um den Ursprung. */
-const GLYPH: Record<Terrain, ReactNode> = {
+export const GLYPH: Record<Terrain, ReactNode> = {
   grassland: <path d="M-0.16 0.1 l0.05 -0.12 l0.05 0.12 M0.06 0.14 l0.05 -0.12 l0.05 0.12" />,
   forest: (
     <path d="M-0.2 0.14 l0.1 -0.24 l0.1 0.24 z M0.02 0.16 l0.11 -0.28 l0.11 0.28 z" data-fill />
@@ -41,6 +41,101 @@ const GLYPH: Record<Terrain, ReactNode> = {
   urban: <path d="M-0.14 0.12 v-0.16 l0.14 -0.1 l0.14 0.1 v0.16 z" />,
 };
 
+/**
+ * Zeichen der Geländearten (`domain/hexKinds.ts`) – kleine Striche in Feldgröße 1. Arten ohne
+ * eigenes Zeichen tragen das ihres Grundgeländes.
+ */
+export const KIND_GLYPH: Record<string, ReactNode> = {
+  meadow: (
+    <path d="M-0.2 0.1 v-0.08 M-0.12 0.1 v-0.12 M0 0.12 v-0.1 M0.1 0.1 v-0.14 M0.2 0.12 v-0.08" />
+  ),
+  farmland: <path d="M-0.24 -0.08 h0.48 M-0.24 0.02 h0.48 M-0.24 0.12 h0.48" />,
+  valley: <path d="M-0.26 -0.1 q0.26 0.3 0.52 0" />,
+  heath: (
+    <path d="M-0.18 0.1 l0.04 -0.08 l0.04 0.08 M0.02 0.12 l0.04 -0.08 l0.04 0.08 M-0.08 -0.04 l0.04 -0.08 l0.04 0.08" />
+  ),
+  steppe: (
+    <path d="M-0.24 0.06 h0.12 M-0.04 0.06 h0.12 M0.14 0.06 h0.1 M-0.14 -0.06 h0.12 M0.06 -0.06 h0.12" />
+  ),
+  savanna: (
+    <path d="M-0.02 0.14 v-0.18 M-0.16 -0.06 q0.14 -0.1 0.28 0 M-0.24 0.14 h0.08 M0.14 0.14 h0.1" />
+  ),
+  'dense-forest': (
+    <path
+      d="M-0.26 0.14 l0.09 -0.22 l0.09 0.22 z M-0.06 0.16 l0.1 -0.26 l0.1 0.26 z M0.12 0.12 l0.08 -0.2 l0.08 0.2 z"
+      data-fill
+    />
+  ),
+  pine: <path d="M0 -0.2 l0.12 0.18 h-0.08 l0.1 0.14 h-0.28 l0.1 -0.14 h-0.08 z" data-fill />,
+  jungle: (
+    <path d="M-0.16 0.14 q0 -0.2 0.12 -0.24 M-0.04 -0.1 q0.14 -0.04 0.2 0.08 M0.08 0.14 q0 -0.16 -0.1 -0.22" />
+  ),
+  glade: (
+    <path d="M-0.2 0.12 l0.07 -0.18 l0.07 0.18 z M0.1 0.12 h0.001 M0.18 0.02 h0.001" data-fill />
+  ),
+  'dead-forest': (
+    <path d="M-0.1 0.16 v-0.3 M-0.1 -0.04 l-0.08 -0.08 M-0.1 -0.08 l0.08 -0.08 M0.12 0.16 v-0.22 M0.12 0 l0.06 -0.06" />
+  ),
+  marsh: <path d="M-0.22 0.08 h0.44 M-0.12 0.08 v-0.14 M0 0.08 v-0.2 M0.12 0.08 v-0.12" />,
+  bog: (
+    <path d="M-0.22 0.02 q0.11 0.08 0.22 0 t0.22 0 M-0.12 0.14 h0.24 M-0.06 -0.1 h0.001 M0.1 -0.08 h0.001" />
+  ),
+  mangrove: (
+    <path d="M0 -0.18 v0.2 M0 0.02 l-0.12 0.12 M0 0.02 l0.12 0.12 M-0.14 -0.12 q0.14 -0.1 0.28 0" />
+  ),
+  crag: (
+    <path d="M-0.24 0.14 l0.08 -0.16 l0.06 0.06 l0.08 -0.18 l0.1 0.14 l0.06 -0.04 l0.08 0.18" />
+  ),
+  highpeak: (
+    <path d="M-0.3 0.16 l0.18 -0.36 l0.1 0.18 l0.08 -0.14 l0.16 0.32 M-0.16 -0.08 l0.04 0.04 l0.04 -0.04" />
+  ),
+  volcano: (
+    <path d="M-0.26 0.16 l0.16 -0.28 h0.2 l0.16 0.28 M-0.04 -0.16 q0.04 -0.08 0 -0.14 M0.06 -0.16 q0.06 -0.06 0.02 -0.12" />
+  ),
+  lava: <path d="M-0.24 -0.06 q0.12 0.1 0.24 0 t0.24 0 M-0.24 0.1 q0.12 0.1 0.24 0 t0.24 0" />,
+  dunes: (
+    <path d="M-0.26 0.08 q0.13 -0.16 0.26 0 M0 0.08 q0.13 -0.16 0.26 0 M-0.12 -0.06 q0.12 -0.12 0.24 0" />
+  ),
+  badlands: <path d="M-0.26 0.14 v-0.1 h0.1 v-0.08 h0.12 v0.08 h0.08 v-0.14 h0.1 v0.24" />,
+  canyon: <path d="M-0.2 -0.16 q0.1 0.16 0 0.32 M0.2 -0.16 q-0.1 0.16 0 0.32" />,
+  crater: <path d="M-0.18 0 a0.18 0.1 0 1 0 0.36 0 a0.18 0.1 0 1 0 -0.36 0" />,
+  salt: (
+    <path d="M-0.2 -0.06 l0.08 0.08 M0 -0.1 l0.08 0.08 M-0.12 0.08 l0.08 0.08 M0.1 0.06 l0.08 0.08" />
+  ),
+  oasis: (
+    <path d="M-0.02 0.08 v-0.2 M-0.14 -0.08 q0.12 -0.1 0.24 0 M-0.2 0.14 q0.18 -0.08 0.36 0" />
+  ),
+  tundra: (
+    <path d="M-0.2 0.06 h0.12 M0.04 0.06 h0.16 M-0.1 -0.06 h0.001 M0.12 -0.08 h0.001 M-0.02 0.14 h0.001" />
+  ),
+  glacier: (
+    <path d="M-0.26 0.14 l0.12 -0.24 l0.08 0.1 l0.1 -0.14 l0.12 0.28 M-0.12 0.04 l0.08 0.04" />
+  ),
+  lake: <path d="M-0.16 0 q0.08 -0.06 0.16 0 t0.16 0" />,
+  reef: (
+    <path d="M-0.2 0.06 l0.06 -0.08 l0.06 0.08 l0.06 -0.08 l0.06 0.08 l0.06 -0.08 l0.06 0.08 M-0.2 -0.08 q0.1 -0.06 0.2 0" />
+  ),
+  village: (
+    <path d="M-0.2 0.12 v-0.1 l0.08 -0.06 l0.08 0.06 v0.1 z M0.04 0.12 v-0.12 l0.08 -0.06 l0.08 0.06 v0.12 z" />
+  ),
+  ruins: (
+    <path d="M-0.2 0.14 v-0.2 h0.06 v0.06 M0 0.14 v-0.12 h0.06 v0.04 M0.12 0.14 v-0.24 h0.06 v0.24" />
+  ),
+  fungus: (
+    <path
+      d="M-0.16 -0.02 q0.1 -0.14 0.2 0 z M-0.06 -0.02 v0.16 M0.08 0.04 q0.06 -0.08 0.12 0 z M0.14 0.04 v0.1"
+      data-fill
+    />
+  ),
+  crystal: (
+    <path d="M-0.12 0.14 l-0.04 -0.16 l0.06 -0.12 l0.06 0.12 l-0.04 0.16 z M0.06 0.14 l0.02 -0.2 l0.08 0.08 l-0.02 0.12 z" />
+  ),
+  'deep-lake': <path d="M-0.2 0 q0.1 -0.08 0.2 0 t0.2 0 M-0.12 0.12 q0.06 -0.05 0.12 0 t0.12 0" />,
+  magma: (
+    <path d="M-0.22 -0.04 l0.1 0.06 l0.08 -0.08 l0.1 0.1 l0.12 -0.08 M-0.16 0.12 l0.1 -0.04 l0.12 0.06" />
+  ),
+};
+
 interface Props {
   area: Area;
   data: CampaignData;
@@ -62,7 +157,8 @@ interface Props {
    * die Maus mit gedrückter Taste fährt. Ohne `paint` ist die Karte nur zum Ansehen.
    */
   paint?: {
-    onStart: (hex: HexCoord) => void;
+    /** `pick`: mit Strg oder Alt gedrückt – das Gelände des Feldes aufnehmen (Pipette). */
+    onStart: (hex: HexCoord, pick?: boolean) => void;
     onMove: (hex: HexCoord) => void;
     onEnd: () => void;
     /** Freie Plätze am Rand, an denen sich ein Feld anfügen lässt (Werkzeug „Felder“). */
@@ -171,6 +267,7 @@ const Cells = memo(function Cells({
           className="wf-hex"
           data-hex={`${hex.q},${hex.r},${hex.level}`}
           data-terrain={hex.terrain ?? 'none'}
+          data-kind={kindKeyOf(hex) ?? undefined}
           data-hidden={(fog && !painting && !hex.discovered) || undefined}
           onClick={
             painting
@@ -186,7 +283,10 @@ const Cells = memo(function Cells({
               ? (event) => {
                   if (event.button !== 0) return;
                   event.preventDefault();
-                  painting.onStart({ q: hex.q, r: hex.r, level: hex.level });
+                  painting.onStart(
+                    { q: hex.q, r: hex.r, level: hex.level },
+                    event.ctrlKey || event.altKey || event.metaKey,
+                  );
                 }
               : undefined
           }
@@ -212,7 +312,7 @@ const Cells = memo(function Cells({
           )}
           {hex.terrain && hex.exits === null && size >= 22 && (
             <g className="wf-hex__glyph" transform={`translate(${x} ${y}) scale(${size})`}>
-              {GLYPH[hex.terrain]}
+              {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
             </g>
           )}
           {hex.river && hex.discovered && hex.exits === null && (
@@ -260,7 +360,7 @@ const Cells = memo(function Cells({
           <title>
             {hex.regionId && regionNames[hex.regionId] ? `${regionNames[hex.regionId]} · ` : ''}
             {[
-              isRock(hex) ? 'Fels' : hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'Ohne Gelände',
+              isRock(hex) ? 'Fels' : kindLabelOf(hex),
               hex.exits !== null && !isRock(hex) && exitWords(hex),
               hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
               hex.feature,

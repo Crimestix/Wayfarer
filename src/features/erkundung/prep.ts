@@ -13,6 +13,7 @@ export type ManyChange = Partial<
   Pick<
     Hex,
     | 'terrain'
+    | 'kind'
     | 'regionId'
     | 'road'
     | 'river'
@@ -44,7 +45,18 @@ export function patchMany(
   change: ManyChange,
 ): Hex[] {
   const keys = new Set(coords.map((coord) => hexKey(coord)));
-  return hexes.map((hex) => (keys.has(hexKey(hex)) ? { ...hex, ...change, manual: true } : hex));
+  return hexes.map((hex) => (keys.has(hexKey(hex)) ? withChange(hex, change) : hex));
+}
+
+/**
+ * Ein Feld mit einer Änderung, von Hand gemacht. Ändert sich das Grundgelände ohne eigene Art,
+ * gilt wieder das Grundgelände selbst (eine „Wiese“ wird nicht zum „Wald“ mit Wiesen-Namen).
+ */
+export function withChange(hex: Hex, change: ManyChange): Hex {
+  const next = { ...hex, ...change, manual: true };
+  if (change.terrain !== undefined && change.kind === undefined && change.terrain !== hex.terrain)
+    next.kind = null;
+  return next;
 }
 
 /** Wählt ein Feld (allein) oder nimmt es zur Auswahl dazu bzw. heraus (`add`). */

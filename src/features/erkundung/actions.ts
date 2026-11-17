@@ -18,7 +18,7 @@ import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { generatorTables } from './tables';
-import { patchMany, type ManyChange } from './prep';
+import { patchMany, withChange, type ManyChange } from './prep';
 import {
   planSearch,
   planStep,
@@ -41,7 +41,7 @@ export function patchHex(
   const hexes = area.hexes.map((hex) => {
     if (!sameHex(hex, coord)) return hex;
     found = true;
-    return { ...hex, ...change, manual: true };
+    return withChange(hex, change as ManyChange);
   });
   if (found) db.patch('areas', areaId, { hexes });
 }
@@ -312,7 +312,7 @@ export function searchHex(db: CampaignDb, areaId: string): SearchResult | null {
 // ── Bearbeiten: malen, Linien ziehen, anfügen, wegnehmen ───────────────────
 
 /** Was ein Pinselstrich an einem Feld ändert. */
-export type HexPaint = Partial<Pick<Hex, 'terrain' | 'regionId' | 'road' | 'river'>>;
+export type HexPaint = Partial<Pick<Hex, 'terrain' | 'kind' | 'regionId' | 'road' | 'river'>>;
 
 /**
  * Malt auf Felder der Karte (ein Pinselstrich): Sie gelten danach als von Hand geändert. Gibt den
@@ -330,9 +330,10 @@ export function paintHexes(
   let changed = false;
   const hexes = area.hexes.map((hex) => {
     if (!keys.has(hexKey(hex))) return hex;
-    const next = { ...hex, ...change, manual: true };
+    const next = withChange(hex, change);
     if (
       next.terrain === hex.terrain &&
+      next.kind === hex.kind &&
       next.regionId === hex.regionId &&
       next.road === hex.road &&
       next.river === hex.river &&

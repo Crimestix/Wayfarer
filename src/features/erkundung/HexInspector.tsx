@@ -12,8 +12,8 @@ import { entityName } from '../../domain/derive';
 import { sameHex, type HexCoord } from '../../domain/hex';
 import { natureOnHex } from '../../domain/nature';
 import { PASSAGE_LABEL, exitsOf, isRock } from '../../domain/passages';
-import { ROAD_KINDS, TERRAINS, type Area, type Hex, type Terrain } from '../../domain/schema';
-import { TERRAIN_LABEL } from '../../domain/terrain';
+import { ROAD_KINDS, type Area, type Hex } from '../../domain/schema';
+import { KIND_GROUP_LABEL, kindKeyOf, kindsByGroup, paintOfKind } from '../../domain/hexKinds';
 import {
   Button,
   Checkbox,
@@ -122,18 +122,13 @@ function One({
           )}
           <div className="wf-erk-inspect__row">
             <Field label="Gelände">
-              <Select
-                value={hex.terrain ?? ''}
-                onChange={(e) =>
-                  edit([hex], { terrain: (e.target.value || null) as Terrain | null })
-                }
-              >
-                {TERRAINS.map((t) => (
-                  <option key={t} value={t}>
-                    {TERRAIN_LABEL[t]}
-                  </option>
-                ))}
-              </Select>
+              <KindSelect
+                value={kindKeyOf(hex) ?? ''}
+                onChange={(key) => {
+                  const paint = paintOfKind(key);
+                  if (paint) edit([hex], paint);
+                }}
+              />
             </Field>
             {!caves && (
               <Field label="Straße">
@@ -279,7 +274,7 @@ function Many({
   const caves = hexes.some((hex) => hex.exits !== null);
   const same = <T,>(pick: (hex: Hex) => T): T | '' =>
     hexes.every((hex) => pick(hex) === pick(hexes[0]!)) ? pick(hexes[0]!) : '';
-  const terrain = same((hex) => hex.terrain ?? '');
+  const kind = same((hex) => kindKeyOf(hex) ?? '');
   const road = same((hex) => hex.road);
   const regionId = same((hex) => hex.regionId);
   const filled = hexes.filter(
@@ -301,19 +296,14 @@ function Many({
         </p>
         <div className="wf-erk-inspect__row">
           <Field label="Gelände">
-            <Select
-              value={terrain}
-              onChange={(e) => {
-                if (e.target.value) edit(hexes, { terrain: e.target.value as Terrain });
+            <KindSelect
+              value={kind}
+              mixed={kind === ''}
+              onChange={(key) => {
+                const paint = paintOfKind(key);
+                if (paint) edit(hexes, paint);
               }}
-            >
-              {terrain === '' && <option value="">verschieden</option>}
-              {TERRAINS.map((t) => (
-                <option key={t} value={t}>
-                  {TERRAIN_LABEL[t]}
-                </option>
-              ))}
-            </Select>
+            />
           </Field>
           {!caves && (
             <Field label="Straße">
@@ -438,5 +428,36 @@ function Overview({
         </div>
       </div>
     </Panel>
+  );
+}
+
+/** Auswahl einer Geländeart, nach Gruppen. */
+function KindSelect({
+  value,
+  onChange,
+  mixed = false,
+}: {
+  value: string;
+  onChange: (key: string) => void;
+  mixed?: boolean;
+}) {
+  return (
+    <Select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value) onChange(e.target.value);
+      }}
+    >
+      {mixed && <option value="">verschieden</option>}
+      {kindsByGroup().map(({ group, kinds }) => (
+        <optgroup key={group} label={KIND_GROUP_LABEL[group]}>
+          {kinds.map((kind) => (
+            <option key={kind.key} value={kind.key}>
+              {kind.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </Select>
   );
 }

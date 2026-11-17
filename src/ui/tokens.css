@@ -59,6 +59,41 @@
   --terrain-underdark: #443a57;
   --terrain-urban: #6e503a;
   --terrain-ink: rgba(233, 223, 201, 0.5);
+  /* Geländearten der Hexkarten (domain/hexKinds.ts) – gedämpft, in der Familie ihres Grundgeländes. */
+  --terrain-meadow: #7b8a46;
+  --terrain-farmland: #8a7e44;
+  --terrain-heath: #6d5f4e;
+  --terrain-steppe: #84804e;
+  --terrain-savanna: #8f8143;
+  --terrain-valley: #5f7a46;
+  --terrain-dense-forest: #213f29;
+  --terrain-pine: #2a4a3c;
+  --terrain-jungle: #2a5a2c;
+  --terrain-glade: #4f6a3c;
+  --terrain-dead-forest: #4a4436;
+  --terrain-marsh: #4a5f46;
+  --terrain-bog: #3b4537;
+  --terrain-mangrove: #2f4f44;
+  --terrain-crag: #5b5146;
+  --terrain-highpeak: #77757a;
+  --terrain-volcano: #5a3a32;
+  --terrain-lava: #7a3326;
+  --terrain-dunes: #9a8150;
+  --terrain-badlands: #7d5a3e;
+  --terrain-canyon: #84513a;
+  --terrain-crater: #5e534c;
+  --terrain-salt: #a39a86;
+  --terrain-oasis: #4f7a52;
+  --terrain-tundra: #6f7b72;
+  --terrain-glacier: #9db2bd;
+  --terrain-lake: #33607a;
+  --terrain-reef: #3c6d72;
+  --terrain-village: #7a5e40;
+  --terrain-ruins: #5f574d;
+  --terrain-fungus: #4c3d66;
+  --terrain-crystal: #4c4f78;
+  --terrain-deep-lake: #22384f;
+  --terrain-magma: #6a3530;
 
   /* Gezeichnete Karten: Tinte auf Pergament. Nur für die Zeichenfläche einer Karte. */
   --map-paper: #e8dab8;

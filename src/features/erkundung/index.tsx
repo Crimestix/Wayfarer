@@ -4,6 +4,7 @@
  * Werkzeuge links der Karte, alles sichtbar, rechts der Feld-Inspektor für ein oder mehrere Felder,
  * Strg+Z/Strg+Y; „Spielen“ zeigt die Reise mit Nebel, Felder nur zum Ansehen.
  */
+import { kindLabelOf } from '../../domain/hexKinds';
 import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
 import { useEffect, useMemo, useState } from 'react';
@@ -61,7 +62,7 @@ import {
 import { CreateDialog } from './CreateDialog';
 import { SIX_MILES_KM, terrainShares } from './generate';
 import { HexMap } from './HexMap';
-import { HexToolbar, useHexEditor } from './HexEditor';
+import { HexToolPanel, HexToolRail, brushTool, toolOfKey, useHexEditor } from './HexEditor';
 import { HexInspector } from './HexInspector';
 import { toggleSelection } from './prep';
 import { partyMeans } from '../../domain/mounts';
@@ -215,6 +216,15 @@ function AreaView({ area }: { area: Area }) {
       ) {
         if (editor.redo()) event.preventDefault();
       } else if (key === 'escape') setPicked([]);
+      else if (event.ctrlKey || event.metaKey || event.altKey) return;
+      else if (key === ',' && brushTool(editor.tool))
+        editor.setRadius(Math.max(1, editor.radius - 1));
+      else if (key === '.' && brushTool(editor.tool))
+        editor.setRadius(Math.min(5, editor.radius + 1));
+      else {
+        const tool = toolOfKey(key, editor.caves);
+        if (tool) editor.setTool(tool);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -438,7 +448,7 @@ function AreaView({ area }: { area: Area }) {
         {editing ? (
           <div className="wf-erk-prep">
             <aside className="wf-erk-prep__rail" aria-label="Werkzeuge">
-              <HexToolbar editor={editor} />
+              <HexToolRail editor={editor} />
             </aside>
             <div className="wf-erk-map">
               <HexMap
@@ -454,6 +464,13 @@ function AreaView({ area }: { area: Area }) {
                 level={level}
                 paint={editor.paint}
               />
+            </div>
+            <div className="wf-erk-prep__keys" aria-hidden>
+              {editor.tool === 'select'
+                ? 'Klick: ein Feld · Umschalt-Klick: mehrere · Escape: Auswahl aufheben · Strg+Z / Strg+Y'
+                : editor.tool === 'terrain'
+                  ? 'Mit gedrückter Maus malen · Strg-Klick: Gelände aufnehmen · „,“ und „.“: Pinselgröße · V: Auswählen'
+                  : 'Mit gedrückter Maus ziehen · Strg+Z: zurück · V: Auswählen'}
             </div>
           </div>
         ) : (
@@ -472,7 +489,9 @@ function AreaView({ area }: { area: Area }) {
       </section>
 
       <aside className="wf-erk-detail">
-        {editing ? (
+        {editing && editor.tool !== 'select' ? (
+          <HexToolPanel editor={editor} />
+        ) : editing ? (
           <HexInspector area={area} selection={picked} editor={editor} onSelect={setPicked} />
         ) : (
           <>
@@ -652,7 +671,7 @@ function HexFacts({ hex }: { hex: Hex }) {
   const data = useData();
   const region = hex.regionId ? data.entities[hex.regionId] : undefined;
   const rows: [string, string][] = [
-    ['Gelände', isRock(hex) ? 'Fels' : hex.terrain ? TERRAIN_LABEL[hex.terrain] : '–'],
+    ['Gelände', isRock(hex) ? 'Fels' : kindLabelOf(hex)],
     ['Gegend', region?.name ?? ''],
     ['Von fern', hex.exits === null ? hex.afar : ''],
     ['Von nebenan', hex.sign],

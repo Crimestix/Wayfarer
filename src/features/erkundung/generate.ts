@@ -644,6 +644,7 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       sighted: false,
       hidden: '',
       searched: false,
+      kind: null,
     });
   }
 
@@ -794,6 +795,7 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
       sighted: false,
       hidden: '',
       searched: false,
+      kind: null,
     };
   });
   // Fundstellen in Gängen und Kreuzungen – Höhlen und Sackgassen haben schon ihr Gepräge.
