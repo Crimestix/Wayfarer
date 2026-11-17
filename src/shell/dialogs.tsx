@@ -13,7 +13,9 @@ import {
   Library,
   Lightbulb,
   Map as MapIcon,
+  MousePointerClick,
   Repeat,
+  Settings,
   Route as RouteIcon,
   Search,
   NotebookPen,
@@ -151,12 +153,24 @@ import type { DowntimeResult } from '../features/gruppe/downtime';
 import { focusOn, type Focus } from './focus';
 import { hasNews, meanwhile } from './meanwhile';
 import { searchWorld, type SearchSort } from './search';
+import { JourneyDialog } from '../features/reise/JourneyDialog';
 import {
   closeShellRequest,
+  openDowntime,
+  openJourney,
+  openMoveParty,
+  openQuickLog,
+  openRest,
+  openShop,
+  openSpell,
+  openTimeDialog,
   useShellRequest,
   type AttitudeRequest,
   type QuickLogRequest,
 } from './commands';
+import { findHandgrips, type GripRun } from './handgrips';
+import { openNew } from '../features/welt/editor';
+import { newStory } from '../features/faeden/actions';
 
 /** Die Zeilen der Meldung „währenddessen“: Wichtiges hell, Routinen gedämpft, der Rest gezählt. */
 function meanwhileBody(data: CampaignData, result: TimeAdvanceResult, lead?: string): ReactNode {
@@ -1305,6 +1319,8 @@ interface SearchHit {
   icon: ReactNode;
   /** Was die Seite gleich zeigen soll: die Karte, die Uhr, den Tag. */
   focus?: Focus;
+  /** Ein Handgriff statt einer Seite (`handgrips.ts`). */
+  run?: GripRun;
 }
 
 const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
@@ -1361,10 +1377,57 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
     ),
     focus: hit.focus,
   }));
-  return q ? [...found, ...areas] : areas;
+  // Handgriffe zuerst: Wer „Rast“ oder „2 Std.“ tippt, will es tun – dazu steht, wo er zu Hause ist.
+  const grips: SearchHit[] = findHandgrips(data, query).map((grip) => ({
+    key: 'grip:' + grip.key,
+    label: grip.label,
+    sub: `sonst unter ${grip.home.replaceAll(' · ', ' › ')}`,
+    href: '',
+    icon: grip.run.type === 'settings' ? <Settings /> : <MousePointerClick />,
+    run: grip.run,
+  }));
+  return q ? [...grips, ...found, ...areas] : areas;
+}
+
+/** Führt einen Handgriff aus der Suche aus. */
+function runGrip(db: CampaignDb, run: GripRun, navigate: (to: string) => void): void {
+  switch (run.type) {
+    case 'log':
+      return openQuickLog({ kind: run.kind, own: run.own });
+    case 'move':
+      return openMoveParty({ placeId: run.placeId });
+    case 'journey':
+      return openJourney(run.toId ?? null);
+    case 'pass':
+      return advanceAndReport(db, db.getSnapshot().state.now + run.minutes);
+    case 'time':
+      return openTimeDialog();
+    case 'rest':
+      return openRest(run.kind);
+    case 'downtime':
+      return openDowntime();
+    case 'spell':
+      return openSpell();
+    case 'shop':
+      return openShop();
+    case 'newEntry':
+      navigate('/welt');
+      return openNew();
+    case 'newStory':
+      return navigate(`/geschichte/${newStory(db).id}`);
+    case 'rules':
+      focusOn({ type: 'rules' });
+      return navigate('/');
+    case 'page':
+      return navigate(run.href);
+    case 'settings':
+      focusOn({ type: 'settings', section: run.section });
+      return navigate('/einstellungen');
+  }
 }
 
 function SearchDialog() {
+  const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
   const [query, setQuery] = useState('');
@@ -1373,6 +1436,12 @@ function SearchDialog() {
   useEffect(() => setIndex(0), [query]);
   const go = (hit: SearchHit | undefined) => {
     if (!hit) return;
+    if (hit.run) {
+      // Erst die Suche schließen: Der Handgriff öffnet oft selbst ein Fenster.
+      closeShellRequest();
+      runGrip(db, hit.run, navigate);
+      return;
+    }
     focusOn(hit.focus ?? null);
     navigate(hit.href);
     closeShellRequest();
@@ -1394,7 +1463,7 @@ function SearchDialog() {
         <Input
           className="wf-search__input"
           autoFocus
-          placeholder="Person, Ort, Geschichte, Wesen, Termin …"
+          placeholder="Person, Ort, Geschichte … oder was du tun willst: Rast, Beute, 2 Std., nach …"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -1468,5 +1537,7 @@ export function ShellDialogs() {
       );
     case 'search':
       return <SearchDialog />;
+    case 'journey':
+      return <JourneyDialog initialTo={request.toId} onClose={closeShellRequest} />;
   }
 }

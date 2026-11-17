@@ -20,11 +20,18 @@ import { Button, Checkbox, Dialog, EntityPicker, Field, Input, toast } from '../
 import { DurationField } from '../wege/DurationField';
 import { startJourney } from './actions';
 
-export function JourneyDialog({ onClose }: { onClose: () => void }) {
+export function JourneyDialog({
+  onClose,
+  initialTo = null,
+}: {
+  onClose: () => void;
+  /** Ein Ziel, das schon feststeht (aus der Suche: „Reise nach …“). */
+  initialTo?: string | null;
+}) {
   const db = useDb();
   const data = useData();
   const fromId = data.state.placeId;
-  const [toId, setToId] = useState<string | null>(null);
+  const [toId, setToId] = useState<string | null>(initialTo);
   const [minutes, setMinutes] = useState(0);
   const [food, setFood] = useState('');
   const [water, setWater] = useState('');

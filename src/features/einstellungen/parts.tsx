@@ -9,7 +9,10 @@ export function Section({
   lead,
   children,
   alert,
+  anchor,
 }: {
+  /** Kennung zum Anspringen (aus der Suche): `wf-einstellungen-<anchor>`. */
+  anchor?: string;
   /** Römische Ziffer als Zierde vor dem Titel. */
   numeral: string;
   title: string;
@@ -21,6 +24,7 @@ export function Section({
   const id = useId();
   return (
     <section
+      id={anchor ? `wf-einstellungen-${anchor}` : undefined}
       className={cx('wf-einstellungen-section', alert && 'wf-einstellungen-section--alert')}
       aria-labelledby={id}
     >

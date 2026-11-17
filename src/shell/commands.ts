@@ -51,6 +51,7 @@ export type ShellRequest =
   | { type: 'move'; placeId?: string; text?: string; onSaved?: () => void }
   | { type: 'spell'; request: SpellRequest }
   | { type: 'search' }
+  | { type: 'journey'; toId: string | null }
   | { type: 'time' }
   | { type: 'rest'; kind: 'short' | 'long' }
   | { type: 'downtime' }
@@ -76,6 +77,8 @@ export const openAttitude = (request: AttitudeRequest) => set({ type: 'attitude'
 export const openMoveParty = (preset: MoveRequest = {}) => set({ type: 'move', ...preset });
 /** Öffnet „Zauber“: wer wirkt was, wie lange, mit Konzentration. */
 export const openSpell = (request: SpellRequest = {}) => set({ type: 'spell', request });
+/** Öffnet „Reise antreten“, auf Wunsch mit einem Ziel. */
+export const openJourney = (toId: string | null = null) => set({ type: 'journey', toId });
 /** Öffnet die Suche. */
 export const openSearch = () => set({ type: 'search' });
 /** Öffnet „Zeit vergehen lassen“ mit freier Dauer oder Zieldatum. */

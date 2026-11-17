@@ -4,6 +4,7 @@
  * ist; steht sie schon offen, springt sie sofort.
  */
 import { useEffect, useSyncExternalStore } from 'react';
+import type { SettingsSectionId } from '../features/einstellungen/sections';
 
 export type Focus =
   /** Eine Karte auf dem Fadenbrett: `story:<id>` oder `thread:<id>`. */
@@ -25,7 +26,9 @@ export type Focus =
   /** „Abend vorbereiten“: das Blatt des laufenden Abends oder das offene für den nächsten. */
   | { type: 'prep'; which: 'now' | 'next' }
   /** Das Blatt eines früheren Abends – es öffnet sich in der Chronik zum Nachlesen. */
-  | { type: 'sheet'; sessionId: string };
+  | { type: 'sheet'; sessionId: string }
+  /** Ein Abschnitt der Einstellungen (`einstellungen/sections.ts`). */
+  | { type: 'settings'; section: SettingsSectionId };
 
 let pending: Focus | null = null;
 const listeners = new Set<() => void>();
