@@ -140,6 +140,11 @@ Länge in Meilen. Dazu der Feinschliff nach dem Durchspielen (Halt oben, Hexkart
 und zwei behobene Fehler (Gefahr hielt immer wieder; Prüfungen gingen im Gewaltmarsch und bei
 Kälte verloren). **DATA_VERSION 32**.
 
+**Danach: Tag `v0.1.17` auf `fdfe00c` (18. 11.)** – Testmodus: ein Schalter unter Einstellungen → Sichern und
+Abgleich. An: Der ganze Stand wird beiseitegelegt, man probiert in der echten Welt aus. Aus: Alles
+seitdem ist weg, jede Datei wie vorher; der Abgleich ruht solange, das Zeichen steht in der Leiste.
+Kein Schema geändert (**DATA_VERSION 32**). In der installierten App noch nicht von Hand geprüft.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
