@@ -21,7 +21,7 @@ import {
 import { biomeOfPreset, describeSite, siteAt, sitePreset } from '../../domain/geoClimate';
 import { crossesWater, landRoute } from '../../domain/landRoute';
 import { exactGeo, placeGeo, planetOf, reliefOf, terrainAt } from '../../domain/planet';
-import { PRESET } from '../../domain/weather';
+import { PRESET, type ClimatePreset } from '../../domain/weather';
 import {
   hexAt,
   hexBand,
@@ -46,6 +46,7 @@ import { TERRAIN_LABEL } from '../../domain/terrain';
 import { generateCaves, type CaveQuality } from '../../domain/caves';
 import { entryParts, pickFrom } from '../../domain/rollTable';
 import { DEFAULT_GENERATOR_TABLES, generatorTables, type GeneratorTables } from './tables';
+import { assignSurfaceKinds, caveKind, warmthOf, type Field } from './kinds';
 
 // ── Erkennen: Entfernung, Richtung, Orte am Weg ────────────────────────────
 
@@ -78,6 +79,8 @@ export interface Recognition {
   route: { x: number; y: number }[] | null;
   /** Die Luftlinie führt übers Wasser, und es gibt keinen Weg über Land. */
   seaOnly: boolean;
+  /** Das Klima auf halber Strecke, wenn der Planet es hergibt – für die Geländearten. */
+  climate: ClimatePreset | null;
 }
 
 /** Stichworte (ohne Umlaute und Akzente, siehe `normalize`), an denen eine Landschaft zu erkennen ist. */
@@ -302,11 +305,15 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
   }
 
   // Deutet kein Wort auf eine Landschaft, sagt das Klima auf halber Strecke etwas über sie.
-  if (!words.found && planet && geoFrom && geoTo) {
+  let climate: ClimatePreset | null = null;
+  if (planet && geoFrom && geoTo) {
     const site = siteAt(planet, reliefOf(data), pointAlong(geoFrom.geo, geoTo.geo, 0.5));
     const preset = sitePreset(site);
-    biome = biomeOfPreset(preset);
-    biomeSource = `Aus der Lage gerechnet: ${PRESET[preset].name} auf halber Strecke (${describeSite(site)}).`;
+    climate = preset;
+    if (!words.found) {
+      biome = biomeOfPreset(preset);
+      biomeSource = `Aus der Lage gerechnet: ${PRESET[preset].name} auf halber Strecke (${describeSite(site)}).`;
+    }
   }
   return {
     distanceKm,
@@ -322,6 +329,7 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     fromAtlas,
     route,
     seaOnly,
+    climate,
   };
 }
 
@@ -519,6 +527,8 @@ export interface GenerateInput {
   pinned?: { q: number; r: number; placeId: string }[];
   /** Die Tabellen des Spielleiters (`generatorTables`); ohne sie gelten die Vorgaben. */
   tables?: GeneratorTables;
+  /** Das Klima (aus `recognize`) – oben wählt es Geländearten wie Dschungel oder Tundra. */
+  climate?: ClimatePreset | null;
 }
 
 /** So viele Felder hat eine Karte höchstens; breitere Streifen werden schmaler gemacht. */
@@ -596,6 +606,8 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
   const hexes: Hex[] = [];
   const ground = input.ground;
   const sea = new Set<string>();
+  /** Höhe, Feuchte und Flecken je Feld – daraus folgen die Geländearten (`kinds.ts`). */
+  const fields = new Map<string, Field>();
   for (const cell of cells) {
     const { x, y } = hexCenter(cell);
     const height = terrainNoise(input.seed, x / grain, y / grain);
@@ -603,6 +615,11 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
     // Lage quer zum Weg, von −1 (links) bis +1 (rechts).
     const side = Math.max(-1, Math.min(1, (-dir.y * x + dir.x * y) / Math.max(1, radius)));
     const key = hexKey(cell);
+    fields.set(key, {
+      height,
+      wet,
+      patch: terrainNoise(input.seed + 104729, x / (grain * 0.7) + 5.1, y / (grain * 0.7) - 3.3),
+    });
     const sample = ground?.(x * input.hexKm, y * input.hexKm);
     let terrain = sample
       ? groundTerrain(input.biome, sample, height, wet)
@@ -657,6 +674,9 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
         hexNeighbors(hex).some((n) => sea.has(hexKey(n)))
       )
         hex.terrain = 'coast';
+
+  // Geländearten: Wiese, Moor, Hochgebirge … nach Höhe, Feuchte, Klima und Nachbarn.
+  assignSurfaceKinds(hexes, fields, warmthOf(input.climate, input.biome), input.seed);
 
   // Besonderheiten: verstreut, nie zwei nebeneinander, nicht auf Feldern mit einem Ort.
   const byKey = new Map(hexes.map((hex) => [hexKey(hex), hex]));
@@ -804,12 +824,27 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
     const role = roles.get(hexKey(hex));
     return role === 'tunnel' || role === 'junction' ? 'site:underdark' : null;
   });
+  // Geländearten unter der Erde: aus Höhlen, Tiefe und Wasser – nie aus Klima oder Licht.
+  const cellAt = new Map(hexes.map((hex) => [hexKey(hex), hex]));
+  for (const hex of hexes) {
+    const role = roles.get(hexKey(hex)) ?? 'rock';
+    const nearWater = !!hex.river || hexNeighbors(hex).some((n) => !!cellAt.get(hexKey(n))?.river);
+    const patch = smoothNoise(seedOf(input.seed, 'art', hex.level), hex.q / 3, hex.r / 3);
+    hex.kind = caveKind(hex, role, caves.cells.length ? levels : 1, nearWater, patch);
+  }
   return { hexes, line, radius, caves: caves.quality };
 }
 
 /** Die fertige Karte als Erkundungsgebiet. */
 export function generateArea(data: CampaignData, input: GenerateInput, name?: string): Area {
-  const { hexes } = generateHexes({ ...input, tables: input.tables ?? generatorTables(data) });
+  const { hexes } = generateHexes({
+    ...input,
+    tables: input.tables ?? generatorTables(data),
+    climate:
+      input.climate !== undefined
+        ? input.climate
+        : recognize(data, input.fromId, input.toId).climate,
+  });
   const stamp = nowIso();
   const fromName = data.entities[input.fromId]?.name ?? 'Start';
   const toName = data.entities[input.toId]?.name ?? 'Ziel';

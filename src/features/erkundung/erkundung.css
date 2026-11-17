@@ -1212,3 +1212,17 @@
 .wf-erk-senses p {
   margin: 0;
 }
+
+/* Geländearten unter der Erde färben die Höhle ein – Pilze, Kristall, Wasser, Glut. */
+.wf-hex[data-kind='fungus'] polygon[data-cave] {
+  fill: color-mix(in srgb, var(--terrain-fungus) 75%, var(--map-cave));
+}
+.wf-hex[data-kind='crystal'] polygon[data-cave] {
+  fill: color-mix(in srgb, var(--terrain-crystal) 75%, var(--map-cave));
+}
+.wf-hex[data-kind='deep-lake'] polygon[data-cave] {
+  fill: color-mix(in srgb, var(--terrain-deep-lake) 80%, var(--map-cave));
+}
+.wf-hex[data-kind='magma'] polygon[data-cave] {
+  fill: color-mix(in srgb, var(--terrain-magma) 80%, var(--map-cave));
+}

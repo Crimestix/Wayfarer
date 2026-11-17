@@ -363,7 +363,13 @@ nicht übernommen.
   über `paintOfKind`, gelesen über `kindKeyOf`/`kindLabelOf`; Farben `--terrain-<art>`, Zeichen
   `KIND_GLYPH`), Suche, „Zuletzt“, Strg-Klick nimmt die Art eines Feldes auf. Ändert sich das
   Grundgelände von Hand ohne Art, fällt die Art weg (`withChange`). Beim Vorbereiten klappt die
-  Kartenliste weg.
+  Kartenliste weg. **Geländearten erzeugen** (`erkundung/kinds.ts`, Wunsch 17. 11.: „Unterreich
+  und Oberwelt ist ein massiver Unterschied“) – zwei getrennte Regelwerke, die nur `hex.kind`
+  setzen: oben `assignSurfaceKinds`/`surfaceKind` aus Höhe, Feuchte, Flecken (`Field`), Wärme
+  (`warmthOf`: Klima des Planeten über `Recognition.climate`/`GenerateInput.climate`, sonst die
+  Landschaft) und Nachbarn (Ackerland um Orte, Seen im Land, höchstens ein Vulkan); unten
+  `caveKind` aus dem Gepräge der Höhle, der Tiefe und dem Wasser – nie Klima oder Licht. Neu
+  würfeln behält von Hand gemalte Arten.
   **Hexkarten bearbeiten** (Wunsch 17. 11.: „Hexkarten perfekt vorbereiten“,
   `erkundung/HexEditor.tsx`): Werkzeuge der Ansicht „Vorbereiten“ – Pinsel für Gelände und für
   Gegenden der Welt (`hex.regionId`; ihr Gelände, Tempo und ihre Tabellen gelten dort), Straße

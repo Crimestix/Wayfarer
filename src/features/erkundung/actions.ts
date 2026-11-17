@@ -78,6 +78,7 @@ export function rerollInput(
     ground: groundOf(db.getSnapshot(), known.origin, area.hexKm),
     route: known.route,
     tables: generatorTables(db.getSnapshot()),
+    climate: known.climate,
   };
 }
 
@@ -132,6 +133,7 @@ export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null 
         tableIds: before.tableIds,
         regionId: before.regionId,
         feature: before.manual ? before.feature : hex.feature,
+        kind: before.manual ? before.kind : hex.kind,
         manual: before.manual,
         dug: before.dug,
       };
