@@ -21,7 +21,7 @@ export const PACE_LABEL: Record<Pace, string> = {
   fast: 'Schnell',
 };
 
-const KM_PER_MILE = 1.609344;
+export const KM_PER_MILE = 1.609344;
 
 /** Tagesstrecke zu Fuß nach Regelwerk: 18, 24 und 30 Meilen am Tag. */
 export const DAY_KM: Record<Pace, number> = {

@@ -6,18 +6,22 @@
 import { useMemo, useState } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { planJourney } from '../../domain/journey';
+import { landscapesOf } from '../../domain/landscape';
+import { TRAVEL_HOURS } from '../../domain/march';
+import { PACES, TERRAINS, type Pace, type Terrain } from '../../domain/schema';
+import { DAY_KM, KM_PER_MILE, PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
+import { PACE_EFFECT } from '../../domain/travelRules';
 import type { CampaignData } from '../../domain/schema';
 import { wayWithHexMap, withHexes } from './hexway';
 
 /** Der Plan mit den Hexkarten der Wege. */
-const planOf = (data: CampaignData, fromId: string, toId: string) => {
-  const plan = planJourney(data, fromId, toId);
+const planOf = (data: CampaignData, fromId: string, toId: string, pace: Pace = 'normal') => {
+  const plan = planJourney(data, fromId, toId, pace);
   return plan ? withHexes(data, plan) : null;
 };
 import { createEntity } from '../../domain/schema';
 import { formatWayTime } from '../../domain/ways';
-import { Button, Checkbox, Dialog, EntityPicker, Field, Input, toast } from '../../ui';
-import { DurationField } from '../wege/DurationField';
+import { Button, Checkbox, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
 import { startJourney } from './actions';
 
 export function JourneyDialog({
@@ -32,16 +36,32 @@ export function JourneyDialog({
   const data = useData();
   const fromId = data.state.placeId;
   const [toId, setToId] = useState<string | null>(initialTo);
-  const [minutes, setMinutes] = useState(0);
+  const [pace, setPace] = useState<Pace>('normal');
+  /** Wie weit es ist, wenn Wayfarer es nicht weiß: eine Zahl und ihre Einheit. */
+  const [far, setFar] = useState('');
+  const [unit, setUnit] = useState<'mi' | 'days' | 'hours'>('mi');
+  /** Was unterwegs liegt, wenn es keinen Weg gibt: eine Landschaft (landscape:<id>) oder ein Gelände. */
+  const [ground, setGround] = useState('');
   const [food, setFood] = useState('');
   const [water, setWater] = useState('');
   const plan = useMemo(
-    () => (fromId && toId ? planOf(data, fromId, toId) : null),
-    [data, fromId, toId],
+    () => (fromId && toId ? planOf(data, fromId, toId, pace) : null),
+    [data, fromId, toId, pace],
   );
+  const farValue = Number.parseFloat(far.replace(',', '.'));
+  const farOk = Number.isFinite(farValue) && farValue > 0;
+  /** Entfernung in km, wenn sie eingetragen ist (Meilen, oder Tage und Stunden im gewählten Tempo). */
+  const typedKm = !farOk
+    ? null
+    : unit === 'mi'
+      ? farValue * KM_PER_MILE
+      : unit === 'days'
+        ? farValue * DAY_KM[pace]
+        : (farValue * DAY_KM[pace]) / TRAVEL_HOURS;
+  const minutes = typedKm === null ? 0 : Math.round((typedKm / DAY_KM[pace]) * TRAVEL_HOURS * 60);
   /** Eine Strecke ohne Weg bekommt auf Wunsch einen Weg mit Hexkarte (Gelände dazwischen). */
   const [hexes, setHexes] = useState(true);
-  const freeKm = plan?.free ? (plan.legs[0]?.distanceKm ?? null) : null;
+  const freeKm = plan?.free ? (plan.legs[0]?.distanceKm ?? typedKm) : null;
   const name = (id: string | null | undefined) => (id ? (data.entities[id]?.name ?? '?') : '?');
   const days = (text: string) => {
     const value = Number.parseFloat(text.replace(',', '.'));
@@ -52,14 +72,22 @@ export function JourneyDialog({
   const go = () => {
     if (!plan || !toId || !fromId) return;
     // Ohne Weg, aber mit bekannter Länge: erst den Weg mit seiner Hexkarte, dann den Plan neu.
-    const made = plan.free && hexes && freeKm ? wayWithHexMap(db, fromId, toId, freeKm) : null;
-    const final = made ? (planOf(db.getSnapshot(), fromId, toId) ?? plan) : plan;
+    const picked = ground.startsWith('landscape:') ? data.entities[ground.slice(10)] : undefined;
+    const made =
+      plan.free && hexes && freeKm
+        ? wayWithHexMap(db, fromId, toId, freeKm, {
+            landscape: picked?.kind === 'landscape' ? picked : null,
+            terrain: ground && !picked ? (ground as Terrain) : null,
+          })
+        : null;
+    const final = made ? (planOf(db.getSnapshot(), fromId, toId, pace) ?? plan) : plan;
     const started = startJourney(db, {
       toId,
       plan: final,
-      minutes: plan.unknown ? minutes : null,
+      minutes: final.unknown ? minutes : null,
       food: days(food),
       water: days(water),
+      pace,
     });
     onClose();
     if (started)
@@ -133,18 +161,76 @@ export function JourneyDialog({
             )}
           </div>
         )}
+        {plan?.unknown && (
+          <Field
+            label="Wie weit?"
+            hint="Wayfarer kennt die Strecke nicht – in Meilen, Reisetagen oder Stunden."
+          >
+            <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
+              <Input
+                value={far}
+                inputMode="decimal"
+                placeholder="z. B. 48"
+                aria-label="Entfernung"
+                onChange={(e) => setFar(e.target.value)}
+              />
+              <Select
+                value={unit}
+                aria-label="Einheit"
+                onChange={(e) => setUnit(e.target.value as 'mi' | 'days' | 'hours')}
+              >
+                <option value="mi">Meilen</option>
+                <option value="days">Reisetage</option>
+                <option value="hours">Stunden</option>
+              </Select>
+            </span>
+          </Field>
+        )}
+        {plan?.free && (
+          <Field
+            label="Was liegt dazwischen?"
+            hint="Eine Landschaft deiner Welt oder ein Gelände – leer: Wayfarer erkennt es aus der Welt."
+          >
+            <Select value={ground} onChange={(e) => setGround(e.target.value)}>
+              <option value="">Wayfarer erkennt es</option>
+              {landscapesOf(data).length > 0 && (
+                <optgroup label="Landschaften deiner Welt">
+                  {landscapesOf(data).map((land) => (
+                    <option key={land.id} value={'landscape:' + land.id}>
+                      {land.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="Gelände">
+                {TERRAINS.filter((t) => t !== 'urban').map((t) => (
+                  <option key={t} value={t}>
+                    {TERRAIN_LABEL[t]}
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
+          </Field>
+        )}
         {plan?.free && freeKm !== null && (
           <Checkbox checked={hexes} onChange={setHexes}>
             Als Weg mit Hexkarte anlegen – dann geht es Feld für Feld, und der Weg steht im Wegenetz
           </Checkbox>
         )}
-        {plan?.unknown && (
-          <Field label="Wie lange?" hint="Die Dauer ist nicht bekannt – trag sie ein.">
-            <DurationField value={minutes} onChange={setMinutes} allowNone={false} />
-          </Field>
-        )}
+        <Field label="Tempo" hint={PACE_EFFECT[pace]}>
+          <div className="wf-btn-group" role="group" aria-label="Reisetempo">
+            {PACES.map((entry) => (
+              <Button key={entry} aria-pressed={pace === entry} onClick={() => setPace(entry)}>
+                {PACE_LABEL[entry]}
+              </Button>
+            ))}
+          </div>
+        </Field>
         <div className="wf-row wf-reise-dialog__supplies">
-          <Field label="Proviant (Tage)" hint="Nur ein Hinweis, abgezogen wird nichts.">
+          <Field
+            label="Proviant (Tage)"
+            hint="Für die ganze Gruppe. Je Tag geht einer weg; reicht es nicht, kommen Hunger und Durst nach den Regeln."
+          >
             <Input
               value={food}
               inputMode="decimal"

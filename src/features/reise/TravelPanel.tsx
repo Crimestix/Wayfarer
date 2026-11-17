@@ -4,12 +4,14 @@
  * Entscheidung“ reist weiter und hält von selbst an, wenn der Spielleiter etwas entscheiden muss
  * (`travelOn`). Die Rechnung steht in `domain/journey.ts`.
  */
-import { useMemo } from 'react';
-import { Check, Flag, MapPin, Search, Tent } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Check, Flag, MapPin, Search, Sprout, Tent } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
-import { HALT_LABEL, journeyView, type JourneyView } from '../../domain/journey';
+import { HALT_LABEL, bountyOf, journeyView, type JourneyView } from '../../domain/journey';
+import { bodyCheckOf, forageText } from '../../domain/travelRules';
+import { BodyCheck } from './BodyCheck';
 import { afarFrom, sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
 import { sensesAt } from '../../domain/senses';
@@ -20,9 +22,17 @@ import type { Journey } from '../../domain/schema';
 import { isUnderground, lightStatus } from '../../domain/underground';
 import { formatWayTime } from '../../domain/ways';
 import { openQuickLog, openRest } from '../../shell/commands';
-import { Button, Panel, cx, toast } from '../../ui';
+import { Button, Input, Panel, cx, toast } from '../../ui';
 import { fairDie } from '../bestiarium/model';
-import { campCheck, clearHalt, endJourney, getLost, searchOnJourney, travelOn } from './actions';
+import {
+  addSupplies,
+  campCheck,
+  clearHalt,
+  endJourney,
+  getLost,
+  searchOnJourney,
+  travelOn,
+} from './actions';
 import { HEADING_LABEL } from '../../domain/journey';
 import './reise.css';
 
@@ -47,6 +57,10 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   const far = spot && area ? afarFrom(area, spot.hex) : [];
   const hexHere = spot && area ? area.hexes.find((hex) => sameHex(hex, spot.hex)) : undefined;
   const searchTime = hexHere && area ? searchMinutes(data, area, hexHere) : null;
+  const [foraging, setForaging] = useState(false);
+  const leg = journey.legs[journey.progress.leg];
+  /** Was die Gegend hier hergibt: an der Landschaft des Feldes, sonst an der Gegend des Weges. */
+  const bounty = bountyOf(data, leg?.regionId ?? leg?.toId ?? null, hexHere?.landscapeId ?? null);
 
   const go = (limit: number | null) => {
     const result = travelOn(db, fairDie, limit);
@@ -194,7 +208,28 @@ export function TravelPanel({ journey }: { journey: Journey }) {
           <span className="wf-caps">Halt: {HALT_LABEL[halt.kind]}</span>
           {halt.text && <p>{halt.text}</p>}
           {halt.roll && <span className="wf-reise__roll">{halt.roll}</span>}
+          {bodyCheckOf(halt.kind, halt.text) && (
+            <BodyCheck
+              key={`${halt.kind}-${halt.at}`}
+              check={bodyCheckOf(halt.kind, halt.text)!}
+              members={party}
+            />
+          )}
           <div className="wf-reise__haltacts">
+            {halt.kind === 'dark' && (
+              <>
+                <Button size="sm" icon={<Tent />} onClick={camp}>
+                  Lager aufschlagen
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => clearHalt(db)}
+                  title="Mit Fackel oder Laterne weiter – die Lichter der Gruppe stehen bei den Gefährten"
+                >
+                  Mit Licht weiter
+                </Button>
+              </>
+            )}
             {halt.kind === 'navigate' && halt.text !== 'Wieder auf Kurs.' && (
               <>
                 <Button size="sm" onClick={() => clearHalt(db)} title="Die Probe gelang">
@@ -271,11 +306,17 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </p>
       )}
 
+      {foraging && (
+        <ForageForm
+          text={forageText(bounty.yield, bounty.water)}
+          onDone={() => setForaging(false)}
+        />
+      )}
       <div className="wf-reise__acts">
         <Button
           className="wf-reise__go"
           onClick={() => go(null)}
-          title="Reist weiter und hält von selbst: Ort am Weg, Vorbereitetes, Begegnung, Termin, Licht aus, acht Stunden"
+          title="Reist weiter und hält von selbst – an allem, was entschieden oder geprobt werden muss"
         >
           Bis zur nächsten Entscheidung
         </Button>
@@ -284,6 +325,15 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </Button>
         <Button size="sm" icon={<Tent />} onClick={camp} title="Nachtprüfung, dann die Rast">
           Lager aufschlagen
+        </Button>
+        <Button
+          size="sm"
+          icon={<Sprout />}
+          aria-expanded={foraging}
+          onClick={() => setForaging((on) => !on)}
+          title={forageText(bounty.yield, bounty.water)}
+        >
+          Nahrung suchen
         </Button>
         {searchTime !== null && (
           <Button
@@ -297,8 +347,8 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         )}
       </div>
       <p className="wf-reise__hint">
-        Hält an bei: Ort am Weg · Vorbereitetem · Begegnung · etwas in Sicht · Termin · Licht aus ·
-        acht Stunden
+        Hält an bei: Ort am Weg · Vorbereitetem · Gefahr · Begegnung · etwas in Sicht · Termin ·
+        Licht aus · Dunkelheit · acht Stunden · Gewaltmarsch · Kälte und Hitze · Hunger und Durst
       </p>
     </Panel>
   );
@@ -315,5 +365,56 @@ function Supply({ label, left, start }: { label: string; left: number; start: nu
         <i style={{ width: `${Math.round(share * 100)}%` }} />
       </span>
     </span>
+  );
+}
+
+/** Was die Nahrungssuche gebracht hat – in Tagen für die Gruppe, nach der Probe am Tisch. */
+function ForageForm({ text, onDone }: { text: string; onDone: () => void }) {
+  const db = useDb();
+  const [food, setFood] = useState('');
+  const [water, setWater] = useState('');
+  const num = (value: string) => {
+    const n = Number.parseFloat(value.replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  return (
+    <div className="wf-reise__forage">
+      <p>{text}</p>
+      <div className="wf-row" style={{ gap: 'var(--s-2)' }}>
+        <Input
+          value={food}
+          inputMode="decimal"
+          placeholder="Proviant (Tage)"
+          aria-label="Gefundener Proviant in Tagen"
+          onChange={(e) => setFood(e.target.value)}
+        />
+        <Input
+          value={water}
+          inputMode="decimal"
+          placeholder="Wasser (Tage)"
+          aria-label="Gefundenes Wasser in Tagen"
+          onChange={(e) => setWater(e.target.value)}
+        />
+        <Button
+          size="sm"
+          disabled={!num(food) && !num(water)}
+          onClick={() => {
+            const undo = addSupplies(db, num(food), num(water));
+            onDone();
+            if (undo)
+              toast({
+                slot: 'reise',
+                title: 'Zu den Vorräten gelegt',
+                action: { label: 'Rückgängig', run: undo },
+              });
+          }}
+        >
+          Dazulegen
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDone}>
+          Nichts gefunden
+        </Button>
+      </div>
+    </div>
   );
 }

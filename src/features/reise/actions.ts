@@ -27,6 +27,7 @@ import {
   newId,
   type CampaignData,
   type Journey,
+  type Pace,
   type RollTable,
   type TableKind,
   type Yield,
@@ -50,6 +51,8 @@ export function startJourney(
     minutes?: number | null;
     food?: number | null;
     water?: number | null;
+    /** Reisetempo (Regelwerk); ohne Angabe normal. */
+    pace?: Pace;
   },
 ): { journey: Journey; undo: () => void } | null {
   const data = db.getSnapshot();
@@ -83,6 +86,7 @@ export function startJourney(
         departAt: data.state.now,
         progress: { leg: 0, minutes: 0, km: 0 },
         supplies: { food: input.food ?? null, water: input.water ?? null },
+        pace: input.pace ?? 'normal',
       }),
     );
     const line = logEntry(db, {
@@ -607,4 +611,34 @@ export function setRegionTableDc(
 ): void {
   const table = regionTable(db.getSnapshot(), placeId, kind);
   if (table) db.patch('tables', table.id, { dc });
+}
+
+/**
+ * Was die Nahrungssuche gebracht hat (vom Spielleiter nach der Probe eingetragen): Tage Proviant
+ * und Wasser für die Gruppe kommen zu den Vorräten der Reise; die Zeile steht in der Chronik.
+ * Gibt `undo` zurück.
+ */
+export function addSupplies(db: CampaignDb, food: number, water: number): (() => void) | null {
+  const journey = journeyUnderway(db.getSnapshot());
+  if (!journey || (food <= 0 && water <= 0)) return null;
+  const before = journey.supplies;
+  return db.batch(() => {
+    db.patch('journeys', journey.id, {
+      supplies: {
+        food: food > 0 ? (before.food ?? 0) + food : before.food,
+        water: water > 0 ? (before.water ?? 0) + water : before.water,
+      },
+    });
+    const found = [
+      food > 0 ? `${food} ${food === 1 ? 'Tag' : 'Tage'} Proviant` : '',
+      water > 0 ? `${water} ${water === 1 ? 'Tag' : 'Tage'} Wasser` : '',
+    ].filter(Boolean);
+    const line = logEntry(db, { text: `Nahrungssuche: ${found.join(' und ')} gefunden` });
+    return () =>
+      db.batch(() => {
+        if (db.getSnapshot().journeys[journey.id])
+          db.patch('journeys', journey.id, { supplies: before });
+        if (db.getSnapshot().chronicle[line.id]) db.remove('chronicle', line.id);
+      });
+  });
 }

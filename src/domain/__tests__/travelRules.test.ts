@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { startJourney, travelOn } from '../../features/reise/actions';
+import { addSupplies, startJourney, travelOn } from '../../features/reise/actions';
+import { wayWithHexMap } from '../../features/reise/hexway';
 import { bodyHalts, bountyOf, journeyUnderway, nextHalt, planJourney } from '../journey';
 import { createEntity, createPath, type Place } from '../schema';
 import { MINUTES_PER_DAY, dayIndexOf } from '../time/calendar';
@@ -76,5 +77,31 @@ describe('Regeln der Reise', () => {
     const { data, from, to } = await setup();
     const fixed = planJourney(data(), from.id, to.id, 'fast')!;
     expect(fixed.minutes).toBe(3000);
+  });
+
+  it('legt Gefundenes zu den Vorräten – mit Zeile in der Chronik und Rückgängig', async () => {
+    const { db, data, from, to } = await setup();
+    startJourney(db, { toId: to.id, plan: planJourney(data(), from.id, to.id)!, food: 1 });
+    const undo = addSupplies(db, 2, 1)!;
+    expect(journeyUnderway(data())!.supplies).toEqual({ food: 3, water: 1 });
+    expect(Object.values(data().chronicle).some((e) => e.text.startsWith('Nahrungssuche'))).toBe(
+      true,
+    );
+    undo();
+    expect(journeyUnderway(data())!.supplies).toEqual({ food: 1, water: null });
+  });
+
+  it('legt eine Landschaft auf die Hexkarte einer freien Strecke', async () => {
+    const { db, data, from, to } = await setup();
+    const forest = db.put(
+      'entities',
+      createEntity({ kind: 'landscape', name: 'Nebelforst', landscape: { base: 'forest' } }),
+    );
+    const path = wayWithHexMap(db, from.id, to.id, 60, {
+      landscape: forest.kind === 'landscape' ? forest : null,
+    })!;
+    const area = data().areas[path.areaId!]!;
+    expect(area.biome).toBe('forest');
+    expect(area.hexes.some((hex) => hex.landscapeId === forest.id)).toBe(true);
   });
 });

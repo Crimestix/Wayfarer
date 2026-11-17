@@ -320,3 +320,46 @@
 .wf-reise-hazard .wf-reise-hazard__text {
   grid-column: 1 / -1;
 }
+
+/* Rettungswürfe am Halt: je Gefährte geschafft oder gescheitert. */
+.wf-reise-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--s-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-reise-body li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+.wf-reise-body li[data-state='fail'] .wf-reise-body__done {
+  color: var(--blood-bright);
+}
+.wf-reise-body li[data-state='ok'] .wf-reise-body__done {
+  color: var(--ink-mute);
+}
+.wf-reise-body__name em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-reise-body__acts {
+  display: inline-flex;
+  gap: 4px;
+}
+/* Nahrungssuche: SG und was gefunden wurde. */
+.wf-reise__forage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-faint);
+}
+.wf-reise__forage p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}

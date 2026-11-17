@@ -15,8 +15,11 @@ import {
   type Area,
   type CampaignData,
   type Journey,
+  type Landscape,
+  type Terrain,
   type TravelPath,
 } from '../../domain/schema';
+import { paintOfLandscape } from '../../domain/landscape';
 import { DAY_KM } from '../../domain/terrain';
 import { areaLine, generateArea, groundOf, recognize, suggestHexKm } from '../erkundung/generate';
 import { hexMinutes, hexOfPlace, passageMinutes, stepMinutes } from '../erkundung/travel';
@@ -34,20 +37,25 @@ function wayKm(data: CampaignData, path: TravelPath): number | null {
 }
 
 /** Erzeugt die Hexkarte zwischen zwei Orten – gleicher Ausgangswert, gleiche Karte. */
+/** Was unterwegs liegt, wenn der Spielleiter es sagt: eine Landschaft deiner Welt oder ein Gelände. */
+export type WayGround = { landscape?: Landscape | null; terrain?: Terrain | null };
+
 function makeArea(
   data: CampaignData,
   fromId: string,
   toId: string,
   km: number,
   seedKey: string,
+  ground: WayGround = {},
 ): Area {
   const known = recognize(data, fromId, toId);
-  const hexKm = suggestHexKm(km, known.biome);
-  return generateArea(data, {
+  const biome = ground.landscape?.landscape.base ?? ground.terrain ?? known.biome;
+  const hexKm = suggestHexKm(km, biome);
+  const area = generateArea(data, {
     fromId,
     toId,
     distanceKm: km,
-    biome: known.biome,
+    biome,
     hexKm,
     seed: seedOf('weg', seedKey),
     direction: known.direction,
@@ -55,6 +63,16 @@ function makeArea(
     ground: groundOf(data, known.origin, hexKm),
     route: known.route,
   });
+  // Eine Landschaft deiner Welt liegt auf allem, was ihr Gelände hat – der Rest bleibt erzeugt.
+  const land = ground.landscape;
+  if (!land) return area;
+  const paint = paintOfLandscape(land);
+  return {
+    ...area,
+    hexes: area.hexes.map((hex) =>
+      hex.terrain === land.landscape.base && !hex.placeId ? { ...hex, ...paint } : hex,
+    ),
+  };
 }
 
 /**
@@ -85,11 +103,12 @@ export function wayWithHexMap(
   fromId: string,
   toId: string,
   km: number,
+  ground: WayGround = {},
 ): TravelPath | null {
   if (!km || km > 5000) return null;
   return db.batch(() => {
     const path = db.put('paths', createPath({ fromId, toId, distanceKm: Math.round(km) }));
-    const area = db.put('areas', makeArea(db.getSnapshot(), fromId, toId, km, path.id));
+    const area = db.put('areas', makeArea(db.getSnapshot(), fromId, toId, km, path.id, ground));
     return db.patch('paths', path.id, { areaId: area.id }) ?? path;
   });
 }
