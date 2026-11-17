@@ -143,10 +143,10 @@ import {
 import { RelationQuick } from '../welt/RelationQuick';
 import { ThreadWeb, findHint } from './WebParts';
 import { useHoldDraft } from '../../ui/drafts';
+import { boardFinds, exactFind } from './finds';
 import { addFromWriting } from '../welt/writing';
 import { KIND_LABEL } from '../../domain/derive';
 import { CREATE_KINDS } from '../../domain/pick';
-import { entryForTitle } from '../wiki/facts';
 import type { EntityKind } from '../../domain/schema';
 import { ThreadDialog } from './Dialogs';
 import { AttachDialog } from './LooseDialogs';
@@ -903,6 +903,25 @@ export default function FaedenPage() {
                   at={drafting}
                   kind={draftKind}
                   onKind={setDraftKind}
+                  onPick={(key) => {
+                    const at = drafting;
+                    setDrafting(null);
+                    const undo = bringOntoBoard(db, key, at);
+                    select(key);
+                    if (undo)
+                      toast({
+                        slot: 'fadenbrett',
+                        title: 'Aufs Brett geholt',
+                        body: 'Zieh am Griff rechts einen Faden zu etwas anderem.',
+                        action: { label: 'Rückgängig', run: undo },
+                      });
+                    else
+                      toast({
+                        slot: 'fadenbrett',
+                        title: 'Liegt schon auf dem Brett',
+                        body: 'Es ist jetzt gewählt.',
+                      });
+                  }}
                   onDone={(title) => {
                     const at = drafting;
                     setDrafting(null);
@@ -1824,8 +1843,9 @@ function Side({
           wohin es von dort führen kann. Was davon passiert, entscheidet sich am Tisch.
         </p>
         <p className="wf-mute">
-          Schreiben: doppelt ins Leere klicken – eine Karte mit Überschrift und so viel Text, wie du
-          willst. Doppelklick auf eine Karte schreibt weiter. Namen im Text erkennt Wayfarer.
+          Hinlegen und Suchen: doppelt ins Leere klicken und tippen – was es schon gibt (Artikel,
+          Personen, Orte, Geschichten), steht gleich darunter; sonst entsteht es neu als Notiz,
+          Person, Ort … Doppelklick auf eine Karte schreibt weiter.
         </p>
         <p className="wf-mute">
           Verbinden: am Griff rechts an einer Karte einen Pfeil ziehen – „führt zu“. Mehrere Pfeile
@@ -2342,12 +2362,15 @@ function BoardDraft({
   kind,
   onKind,
   onDone,
+  onPick,
   onCancel,
 }: {
   at: Spot;
   kind: DraftKind;
   onKind: (kind: DraftKind) => void;
   onDone: (title: string) => void;
+  /** Etwas Vorhandenes gewählt (Artikel, Eintrag, Geschichte, Faden) – es kommt an diese Stelle. */
+  onPick: (key: string) => void;
   onCancel: () => void;
 }) {
   const data = useData();
@@ -2356,9 +2379,14 @@ function BoardDraft({
   const box = useRef<HTMLDivElement>(null);
   const label = (entry: DraftKind) => (entry === 'note' ? 'Notiz' : KIND_LABEL[entry]);
   const more = CREATE_KINDS.filter((entry) => !DRAFT_FIRST.includes(entry));
-  // Gibt es den Namen schon, sagt es die Zeile darunter – genommen wird dann dieser Eintrag.
-  const owner = kind !== 'note' && text.trim() ? entryForTitle(data, text.trim()) : null;
-  const known = owner ? ('free' in owner ? owner.free : owner.taken) : null;
+  // Beim Tippen: was es schon gibt – Artikel, Einträge, Geschichten, Fäden.
+  const hits = useMemo(() => boardFinds(data, text), [data, text]);
+  // Die Eingabetaste nimmt den genauen Namen; sonst entsteht Neues. Pfeiltasten wählen.
+  const exact = exactFind(hits, text);
+  const [active, setActive] = useState<number | null>(null);
+  const chosen = active ?? exact;
+  const create = () => (text.trim() ? onDone(text) : onCancel());
+  const enter = () => (chosen >= 0 && hits[chosen] ? onPick(hits[chosen]!.key) : create());
   return (
     <div
       ref={box}
@@ -2368,7 +2396,8 @@ function BoardDraft({
       onDoubleClick={(event) => event.stopPropagation()}
       onBlur={(event) => {
         if (box.current?.contains(event.relatedTarget as Node | null)) return;
-        if (text.trim()) onDone(text);
+        // Eine angefangene Notiz bleibt liegen; ein Name ohne Wahl wird nicht still angelegt.
+        if (text.trim() && kind === 'note' && exact < 0) onDone(text);
         else onCancel();
       }}
     >
@@ -2400,28 +2429,79 @@ function BoardDraft({
         </Select>
       </span>
       <input
-        // Der Doppelklick hat den Platz gewählt: Hier wird jetzt geschrieben.
+        // Der Doppelklick hat den Platz gewählt: Hier wird jetzt geschrieben oder gesucht.
         autoFocus
         className="wf-input"
         value={text}
         placeholder={
           kind === 'note'
-            ? 'Eine Notiz, ein Gedanke, ein Stück Geschichte …'
-            : `Name – ${label(kind)}`
+            ? 'Suchen oder eine Notiz schreiben …'
+            : `Suchen oder neu – ${label(kind)}`
         }
-        aria-label="Neu auf dem Brett"
-        onChange={(event) => setText(event.target.value)}
+        aria-label="Suchen oder neu auf dem Brett"
+        onChange={(event) => {
+          setText(event.target.value);
+          setActive(null);
+        }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') onDone(text);
-          if (event.key === 'Escape') onCancel();
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActive(Math.min(hits.length - 1, (chosen < 0 ? -1 : chosen) + 1));
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            // Über dem ersten Treffer steht wieder „neu“.
+            setActive(chosen <= 0 ? -1 : chosen - 1);
+          } else if (event.key === 'Enter') enter();
+          else if (event.key === 'Escape') onCancel();
         }}
       />
+      {text.trim() && (
+        <div className="wf-faden-draft__finds" role="listbox" aria-label="Gefunden">
+          {exact < 0 && (
+            <button
+              type="button"
+              role="option"
+              aria-selected={chosen < 0}
+              className="wf-faden-search__hit"
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActive(-1)}
+              onClick={create}
+            >
+              <Plus aria-hidden />
+              <span className="wf-clamp-1">„{text.trim()}“</span>
+              <em>{kind === 'note' ? 'als Notiz' : `neu als ${label(kind)}`}</em>
+            </button>
+          )}
+          {hits.map((hit, index) => (
+            <button
+              key={hit.key}
+              type="button"
+              role="option"
+              aria-selected={index === chosen}
+              className="wf-faden-search__hit"
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => onPick(hit.key)}
+            >
+              {hit.entity ? (
+                <KindIcon kind={hit.entity.kind} />
+              ) : hit.sort === 'article' ? (
+                <BookOpen aria-hidden />
+              ) : (
+                <Waypoints aria-hidden />
+              )}
+              <span className="wf-clamp-1">{hit.label}</span>
+              <em className="wf-clamp-1">{hit.sub}</em>
+            </button>
+          ))}
+        </div>
+      )}
       <span className="wf-faden-draft__hint">
-        {known
-          ? `Gibt es schon: ${known.name} (${KIND_LABEL[known.kind]}) – wird genommen`
+        {chosen >= 0 && hits[chosen]
+          ? `Eingabetaste holt „${hits[chosen]!.label}“ hierher`
           : kind === 'note'
-            ? 'Eingabetaste legt die Notiz hin · Escape verwirft'
-            : 'Eingabetaste legt es als Platzhalter hin · Escape verwirft'}
+            ? 'Eingabetaste legt die Notiz hin · ↑ ↓ wählt · Escape verwirft'
+            : 'Eingabetaste legt es als Platzhalter hin · ↑ ↓ wählt · Escape verwirft'}
       </span>
     </div>
   );

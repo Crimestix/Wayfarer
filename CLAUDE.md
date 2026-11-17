@@ -674,7 +674,9 @@ nicht übernommen.
   ein Ding erst durch seinen Faden. **Die Notiz gehört zur Karte, nicht zum Ding**
   (`state.boardNotes`, `setBoardNote`, Doppelklick `NoteWriter`; auf Wunsch das Bild). Ein
   Doppelklick ins Leere fragt die Art (`BoardDraft`: Notiz, Person, Ort, Gegenstand, Fraktion,
-  andere; `writeThingOnBoard` über `addFromWriting` – nie ein zweiter Eintrag). Hingelegtes landet
+  andere; `writeThingOnBoard` über `addFromWriting` – nie ein zweiter Eintrag) und sucht beim Tippen, was es schon gibt
+  (`faeden/finds.ts`: `boardFinds` – Einträge, Artikel, Geschichten, Fäden; die Eingabetaste nimmt
+  nur den genauen Namen, `exactFind`). Hingelegtes landet
   nie übereinander (`freeSpot`), Meldungen des Bretts stapeln sich nicht (`toast` mit `slot`).
   **Ein Rahmen kann eine Geschichte sein** (`area.storyId`, `setAreaStory`; neu mit dem Namen des
   Rahmens): Was darin liegt, gehört zu ihr (`frameKeys`, `frameMembers` – aus den gespeicherten
