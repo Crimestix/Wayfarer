@@ -22,6 +22,7 @@ import {
 import { storyAncestors } from './storySheet';
 import { isStub } from './stub';
 import { isTied } from './threadWeb';
+import { boardFacts, entityOfKey, leadsInto } from './boardFacts';
 import { writtenNames } from './written';
 
 /**
@@ -465,4 +466,67 @@ export function freeSpot(
       if (clear(spot)) return spot;
     }
   return at;
+}
+
+// ── Ist die Geschichte im Rahmen spielbar? ─────────────────────────────────
+
+/** Wie weit die Geschichte in einem Rahmen ist – in Brett-Worten, nur als Hinweis. */
+export interface FrameReadiness {
+  /** Karten im Rahmen, die als Einstieg markiert sind. */
+  starts: string[];
+  /** Orte im Rahmen. */
+  places: number;
+  /** Was mit „liegt in“ an einem Ort hängt. */
+  found: number;
+  /** Der Kern: der Antreiber, wenn er im Rahmen liegt, sonst die Karte der Geschichte. */
+  core: string | null;
+  coreName: string;
+  /** Wie viele Fäden zum Kern führen. */
+  leads: number;
+  /** Spielbar: Einstieg, Ort, etwas zu finden, drei Fäden zum Kern. */
+  playable: boolean;
+  /** Was als Nächstes fehlt, höchstens drei Sätze. */
+  missing: string[];
+}
+
+/** Liest den Rahmen einer Geschichte: was für einen spielbaren Abend schon da ist. */
+export function frameReadiness(data: CampaignData, storyId: string): FrameReadiness | null {
+  const story = data.stories[storyId];
+  if (!story) return null;
+  const keys = frameKeys(data, storyId);
+  if (!keys.length) return null;
+  const inside = new Set(keys);
+  const facts = boardFacts(data, inside);
+  const starts = data.state.boardStarts.filter((key) => inside.has(key));
+  const places = keys.filter((key) => entityOfKey(data, key)?.kind === 'place').length;
+  const found = facts.filter((fact) => fact.kind === 'located').length;
+  const owner = story.ownerId ? `node:${story.ownerId}` : null;
+  const core =
+    owner && inside.has(owner) ? owner : inside.has(`story:${storyId}`) ? `story:${storyId}` : null;
+  const coreName = core ? (boardPiece(data, core)?.title ?? story.title) : story.title;
+  const leads = core ? leadsInto(facts, core) : 0;
+  const missing: string[] = [];
+  if (!starts.length)
+    missing.push('Noch kein Einstieg – markiere eine Karte im Rahmen als Einstieg.');
+  if (!places) missing.push('Noch kein Ort im Rahmen.');
+  if (!found)
+    missing.push(
+      'Noch liegt nichts „in“ einem Ort – sonst weiß der Spieltisch nicht, was die Gruppe wo findet.',
+    );
+  if (core && leads < 3)
+    missing.push(
+      leads === 0
+        ? `Noch führt kein Faden zu „${coreName}“ – drei sind sicher.`
+        : `Zu „${coreName}“ ${leads === 1 ? 'führt erst ein Faden' : 'führen erst zwei Fäden'} – drei sind sicher.`,
+    );
+  return {
+    starts,
+    places,
+    found,
+    core,
+    coreName,
+    leads,
+    playable: starts.length > 0 && places > 0 && found > 0 && (!core || leads >= 3),
+    missing: missing.slice(0, 3),
+  };
 }

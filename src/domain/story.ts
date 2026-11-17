@@ -9,6 +9,7 @@
  */
 import { clockView, type ClockView } from './clock';
 import { findRelation, personPlace, placeAncestors } from './derive';
+import { boardFacts, leadsInto } from './boardFacts';
 import { attitudeLabel } from './relations';
 import { formatDuration } from './time/calendar';
 import {
@@ -635,6 +636,20 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
   const entries = story.entries.filter((entry) => entry.text.trim()).length;
   const scenes = story.scenes.filter((scene) => scene.text.trim() || scene.encounterId).length;
   const placed = storyNodes(data, story).some((id) => whereOf(data, id) !== null);
+  // Was im Rahmen der Geschichte auf dem Brett steht, zählt mit (Wunsch 17. 11.: vom Fadenbrett
+  // aus spielbar): Einstieg markiert, etwas „liegt in“ einem Ort, drei Fäden zum Kern.
+  const framed = new Set(frameKeys(data, story.id));
+  const facts = framed.size ? boardFacts(data, framed) : [];
+  const boardStart = data.state.boardStarts.some((key) => framed.has(key));
+  const boardFound = facts.some((fact) => fact.kind === 'located');
+  const ownerKey = story.ownerId ? `node:${story.ownerId}` : null;
+  const coreKey =
+    ownerKey && framed.has(ownerKey)
+      ? ownerKey
+      : framed.has(`story:${story.id}`)
+        ? `story:${story.id}`
+        : null;
+  const boardLeads = coreKey ? leadsInto(facts, coreKey) : 0;
   const few = (count: number) =>
     count === 0 ? 'Noch keiner.' : count === 1 ? 'Erst einer.' : 'Erst zwei.';
   const off = new Set(story.adviceOff);
@@ -694,7 +709,7 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
     },
     {
       key: 'entry',
-      done: entries > 0,
+      done: entries > 0 || boardStart,
       text: 'Ein Einstieg',
       why:
         entries > 1
@@ -706,7 +721,7 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
     {
       key: 'threads',
       // Sind alle Fragen beantwortet oder verloren, ist hier nichts mehr zu schreiben.
-      done: full || (threads.length === 0 && all.length > 0),
+      done: full || (threads.length === 0 && all.length > 0) || boardLeads >= HINTS_WANTED,
       text: 'Eine Frage mit drei Hinweisen',
       why: !lead
         ? 'Was soll die Gruppe herausfinden – und was steckt dahinter?'
@@ -736,7 +751,7 @@ export function storyAdvice(data: StoryData, story: Story): StoryAdvice[] {
     },
     {
       key: 'scene',
-      done: scenes > 0,
+      done: scenes > 0 || boardFound,
       text: 'Eine Szene',
       why: 'Was liegt bereit, wenn die Gruppe hingeht?',
       section: 'scenes',

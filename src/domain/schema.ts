@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 18;
-export const DATA_SHAPE = '1fab84b516455996';
+export const DATA_VERSION = 19;
+export const DATA_SHAPE = 'd9efa1d8bce90bdd';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -212,6 +212,8 @@ export const PlayStateSchema = z.object({
    * Reihenfolge). Geschrieben wird eine Möglichkeit – gespielt wird, was die Spieler daraus machen.
    */
   boardPlayed: z.array(z.string()).default([]),
+  /** Karten, die der Spielleiter als Einstieg einer Geschichte markiert hat (`frameReadiness`). */
+  boardStarts: z.array(z.string()).default([]),
   /**
    * Was auf einer Karte der Pinnwand steht, gehört zur Karte, nicht zum Ding (Konzeptbesprechung
    * 16. 11.): je Schlüssel (`node:`, `article:`) eine eigene Notiz und ob das Bild des Eintrags

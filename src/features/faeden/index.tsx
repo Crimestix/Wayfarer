@@ -24,6 +24,8 @@ import {
   Eye,
   EyeOff,
   Flag,
+  Check,
+  DoorOpen,
   LayoutGrid,
   Link2,
   Maximize,
@@ -72,6 +74,7 @@ import {
   boardPiece,
   cardNames,
   freeSpot,
+  frameReadiness,
   thingFace,
   linkOffers,
   stringPath,
@@ -131,6 +134,7 @@ import {
   setBoardLinkWord,
   setBoardNow,
   setBoardNote,
+  setBoardStart,
   setAreaStory,
   setBoardPlayed,
   patchThread,
@@ -144,6 +148,7 @@ import { RelationQuick } from '../welt/RelationQuick';
 import { ThreadWeb, findHint } from './WebParts';
 import { useHoldDraft } from '../../ui/drafts';
 import { boardFinds, exactFind } from './finds';
+import { FACT_LABEL, factKindOf } from '../../domain/boardFacts';
 import { addFromWriting } from '../welt/writing';
 import { KIND_LABEL } from '../../domain/derive';
 import { CREATE_KINDS } from '../../domain/pick';
@@ -1309,6 +1314,12 @@ function Card({
           Hier steht die Gruppe
         </span>
       )}
+      {data.state.boardStarts.includes(card.key) && (
+        <span className="wf-faden-card__now wf-faden-card__start">
+          <DoorOpen aria-hidden />
+          Einstieg
+        </span>
+      )}
       <span className="wf-faden-card__top">
         <span className="wf-faden-card__sort">
           {card.story ? 'Geschichte' : card.of ? `Faden · ${card.of.title}` : 'Loser Faden'} ·{' '}
@@ -1403,6 +1414,35 @@ function Card({
   );
 }
 
+/** Schalter „Einstieg“: Diese Karte ist ein Weg in eine Geschichte (`state.boardStarts`). */
+function StartToggle({ cardKey }: { cardKey: string }) {
+  const db = useDb();
+  const data = useData();
+  const on = data.state.boardStarts.includes(cardKey);
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      icon={<DoorOpen />}
+      aria-pressed={on}
+      title="Ein Weg hinein: Hier stößt die Gruppe auf die Geschichte"
+      onClick={() => {
+        const undo = setBoardStart(db, cardKey, !on);
+        toast({
+          slot: 'fadenbrett',
+          title: on ? 'Kein Einstieg mehr' : 'Einstieg',
+          body: on
+            ? 'Die Karte ist kein Einstieg mehr.'
+            : 'Liegt sie im Rahmen einer Geschichte, zählt sie dort als Weg hinein.',
+          action: { label: 'Rückgängig', run: undo },
+        });
+      }}
+    >
+      {on ? 'Einstieg ✓' : 'Einstieg'}
+    </Button>
+  );
+}
+
 /**
  * Ein Ding der Welt als Karte auf der Pinnwand: Name, Kategorie mit eigenem Wort, leiser Zustand,
  * auf Wunsch das Bild und die eigene Notiz der Karte. Doppelklick schreibt die Notiz.
@@ -1429,6 +1469,7 @@ function ThingCard({
   onWrite?: (() => void) | undefined;
 }) {
   const src = useMediaSrc()(face.image);
+  const start = useData().state.boardStarts.includes(face.key);
   return (
     <button
       type="button"
@@ -1449,6 +1490,12 @@ function ThingCard({
         <span className="wf-faden-card__now">
           <Flag aria-hidden />
           Hier steht die Gruppe
+        </span>
+      )}
+      {start && (
+        <span className="wf-faden-card__now wf-faden-card__start">
+          <DoorOpen aria-hidden />
+          Einstieg
         </span>
       )}
       {src && <img className="wf-faden-thing__image" src={src} alt="" draggable={false} />}
@@ -1662,6 +1709,11 @@ function PinSide({
         >
           Bild auf der Karte zeigen
         </Checkbox>
+      )}
+      {face && (
+        <div className="wf-faden-side__acts">
+          <StartToggle cardKey={pin.key} />
+        </div>
       )}
       {excerpt && excerpt.paragraphs.length > 0 && (
         <section className="wf-faden-side__text">
@@ -1978,6 +2030,7 @@ function Side({
               ? 'Hier steht die Gruppe ✓'
               : 'Hier steht die Gruppe'}
           </Button>
+          <StartToggle cardKey={card.key} />
           {data.state.boardPlayed.includes(card.key) && (
             <Button
               size="sm"
@@ -2626,6 +2679,43 @@ function AreaFrame({
   );
 }
 
+/** Der Stand der Geschichte im Rahmen – in Brett-Worten, nur ein Hinweis. */
+function FrameReady({ storyId }: { storyId: string }) {
+  const data = useData();
+  const ready = frameReadiness(data, storyId);
+  if (!ready) return null;
+  const row = (done: boolean, text: string) => (
+    <li className={cx(done && 'is-done')}>
+      {done ? <Check aria-hidden /> : <span aria-hidden>·</span>}
+      {text}
+    </li>
+  );
+  return (
+    <section className="wf-faden-ready">
+      <span className="wf-caps">{ready.playable ? 'Spielbar' : 'Auf dem Weg zum Spielen'}</span>
+      <ul>
+        {row(
+          ready.starts.length > 0,
+          ready.starts.length > 1 ? `${ready.starts.length} Einstiege` : 'Ein Einstieg',
+        )}
+        {row(ready.places > 0, ready.places > 1 ? `${ready.places} Orte` : 'Ein Ort')}
+        {row(
+          ready.found > 0,
+          ready.found > 0
+            ? `${ready.found}× „liegt in“ – der Spieltisch weiß, was wo zu finden ist`
+            : 'Etwas, das an einem Ort zu finden ist',
+        )}
+        {ready.core &&
+          row(
+            ready.leads >= 3,
+            `${ready.leads} ${ready.leads === 1 ? 'Faden führt' : 'Fäden führen'} zu „${ready.coreName}“`,
+          )}
+      </ul>
+      {ready.missing.length > 0 && <p className="wf-mute">{ready.missing[0]}</p>}
+    </section>
+  );
+}
+
 /**
  * Der Seitenteil eines Rahmens: ob er eine Geschichte ist (dann gehört zu ihr, was darin liegt),
  * nur ihn zeigen, was darin liegt.
@@ -2720,6 +2810,7 @@ function AreaSide({
           </button>
         </p>
       )}
+      {story && <FrameReady storyId={story.id} />}
       <div className="wf-faden-side__acts">
         <Button size="sm" icon={only ? <Eye /> : <EyeOff />} onClick={() => onOnly(!only)}>
           {only ? 'Alles zeigen' : 'Nur diesen Rahmen zeigen'}
@@ -3024,6 +3115,8 @@ function LinkMenu({
     return data.threads[id]?.title ?? '';
   };
   const offers = linkOffers(data, link.a, link.b);
+  const meaning =
+    factKindOf(link.word) ?? (!link.word.trim() && link.dir === 'to' ? 'leads' : null);
   const apply = (offer: LinkOffer, title: string) => {
     const undo = applyLinkOffer(db, offer);
     if (undo)
@@ -3158,6 +3251,11 @@ function LinkMenu({
         placeholder="was sie verbindet …"
         onSave={(word) => setBoardLinkWord(db, link.id, word)}
       />
+      <span className="wf-faden-linemenu__note">
+        {meaning
+          ? `Wayfarer liest: ${FACT_LABEL[meaning]}`
+          : 'Wayfarer versteht „liegt in“, „weiß von“ und „führt zu“ – sonst bleibt es eine Schnur.'}
+      </span>
       {rows.length > 0 && (
         <span className="wf-faden-linemenu__offers">
           <span className="wf-faden-linemenu__note">Wenn du willst, auch in der Welt:</span>

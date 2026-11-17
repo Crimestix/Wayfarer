@@ -702,7 +702,16 @@ nicht übernommen.
   (`onlyArea`), nie Spielstand. „Hier steht die Gruppe“ darf mehrfach stehen (`state.boardNow`
   ist eine Liste; `setBoardNow(…, on)`, `moveBoardNow(from, to)`, `boardNowViews`). Text aufs
   Brett holen (Absatz einer Backstory, Ereignis der Bastion): `pinTextToBoard` – Notizkarte mit
-  Faden und Wort zum Ding, von dem es kommt. Eine Idee ohne Hinweise trägt keine Warnung. Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
+  Faden und Wort zum Ding, von dem es kommt. Eine Idee ohne Hinweise trägt keine Warnung.
+  **Was die Fäden sagen** (`domain/boardFacts.ts`, Wunsch 17. 11.: vom Brett zur spielbaren
+  Geschichte): Wayfarer versteht drei Sorten von Wörtern – „liegt in“ (`located`, der Ort steht
+  am Ende), „weiß von“ (`knows`), „führt zu“ (`leads`, auch ein Pfeil ohne Wort) –, sonst bleibt
+  ein Faden eine Schnur (`factKindOf`, `boardFacts`). Am Spieltisch steht am Ort der Gruppe „Vom
+  Fadenbrett“ (`tisch/BoardHere`: `foundAt`, `knownBy` für Anwesende). Karten lassen sich als
+  **Einstieg** markieren (`state.boardStarts`, `setBoardStart`). Der Rahmen einer Geschichte sagt,
+  ob sie spielbar ist (`frameReadiness`: Einstieg, Ort, etwas „liegt in“, drei Fäden zum Kern –
+  Antreiber im Rahmen, sonst die Karte der Geschichte, `leadsInto`), und `storyAdvice` zählt das
+  Brett mit (Einstieg, Frage mit drei Hinweisen, Szene). Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
   Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadNote`/`findHint`), am Spieltisch
   zeigt `neighboursOf` bei Fäden am Ort einen Schritt weiter (`PlayThread.next`); Vorschläge zum
   Verbinden (`tieFits`, `SUGGESTION.tie`) auf dem Blatt (`ThreadWeb`). `boardWeb` (Knoten,

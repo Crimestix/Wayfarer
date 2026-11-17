@@ -2219,3 +2219,43 @@
   border-radius: var(--radius);
   background: var(--bg-1);
 }
+
+/* Einstieg einer Geschichte */
+.wf-faden-card__start {
+  color: var(--gold);
+}
+/* Rahmen: ist die Geschichte spielbar? */
+.wf-faden-ready {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.wf-faden-ready ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-faden-ready li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink-mute);
+}
+.wf-faden-ready li.is-done {
+  color: var(--ink);
+}
+.wf-faden-ready li svg {
+  width: 12px;
+  height: 12px;
+  color: var(--gold);
+}
+.wf-faden-ready p {
+  margin: 0;
+}

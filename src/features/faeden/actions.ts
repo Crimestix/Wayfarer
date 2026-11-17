@@ -1821,6 +1821,14 @@ export function moveBoardNow(db: CampaignDb, from: string, to: string): () => vo
   return () => db.setState({ boardNow, boardPlayed });
 }
 
+/** Markiert eine Karte als Einstieg einer Geschichte – oder nimmt das Zeichen weg. Gibt `undo` zurück. */
+export function setBoardStart(db: CampaignDb, key: string, on: boolean): () => void {
+  const before = db.getSnapshot().state.boardStarts;
+  const rest = before.filter((entry) => entry !== key);
+  db.setState({ boardStarts: on ? [...rest, key] : rest });
+  return () => db.setState({ boardStarts: before });
+}
+
 /** Zählt eine Karte zum gespielten Weg – oder nimmt sie heraus. Gibt `undo` zurück. */
 export function setBoardPlayed(db: CampaignDb, key: string, played: boolean): () => void {
   const before = db.getSnapshot().state.boardPlayed;

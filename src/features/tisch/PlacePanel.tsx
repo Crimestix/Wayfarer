@@ -78,6 +78,7 @@ import { ShopsHere } from '../laden/ShopsHere';
 import { shopsHere } from '../../domain/shop';
 import { CrossingRow } from '../fortbewegung/CrossingRow';
 import { WayRow } from './WayRow';
+import { BoardHere } from './BoardHere';
 import { ArticleDialog, MapDialog } from './WikiPeek';
 
 /** Wie viele Veränderungen sofort zu sehen sind; der Rest klappt auf. In niedrigen Fenstern weniger. */
@@ -753,6 +754,7 @@ export function PlacePanel({ place }: { place: Place }) {
             </section>
 
             <ScenesHere />
+            <BoardHere placeId={place.id} />
             <StocksHere />
             <ShopsHere />
             <NatureFold spot={`tisch:${place.id}`} hits={nature} />

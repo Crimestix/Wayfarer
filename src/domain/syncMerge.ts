@@ -61,7 +61,7 @@ export const STATE_RULES: MergeRules = {
     },
   ],
   sets: ['watch', 'continuityOk', 'twinsApart', 'inView', 'dismissed'],
-  newerWins: ['board', 'boardAreas', 'boardLinks', 'boardHidden', 'boardNow', 'boardPlayed', 'boardNotes', 'netBoard', 'timelineLanes', 'nameMemory', 'recapDismissed'],
+  newerWins: ['board', 'boardAreas', 'boardLinks', 'boardHidden', 'boardNow', 'boardPlayed', 'boardNotes', 'boardStarts', 'netBoard', 'timelineLanes', 'nameMemory', 'recapDismissed'],
   whole: ['march'],
 };
 
