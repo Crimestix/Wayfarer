@@ -70,9 +70,7 @@ export function MeansPanel() {
     >
       {groups.length === 0 ? (
         <p className="wf-fort-empty">
-          Pferde, Kutschen und Schiffe der Gruppe und der Gefährten. Was im Laden gekauft wird,
-          lässt sich beim Kauf gleich hier eintragen; am Spieltisch wählst du bei den Wegen, womit
-          gereist wird.
+          Noch keine – was im Laden gekauft wird, kommt beim Kauf hierher.
         </p>
       ) : (
         <div className="wf-fort-list">

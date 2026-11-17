@@ -6,6 +6,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useParams } from 'wouter';
+import { PasteDialog } from './PasteDialog';
 import { ArrowLeft, Blocks, Library, Plus, Redo2, Skull, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
@@ -176,6 +177,8 @@ function Editor({
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
+  /** Ein neues Wesen kann gleich aus einem eingefügten Statblock entstehen. */
+  const [pasting, setPasting] = useState(false);
   const stored = storedId ? (data.creatures[storedId] ?? null) : null;
   const [baseline] = useState<CreatureDraft>(() =>
     draftOf(stored, {
@@ -431,6 +434,15 @@ function Editor({
           <h1>{title}</h1>
         </div>
         <span className="wf-grow" />
+        {!stored && !dirty && !animalId && (
+          <Button
+            variant="ghost"
+            onClick={() => setPasting(true)}
+            title="Einen Statblock als Text einfügen – aus einem Buch oder eigenen Notizen; Wayfarer liest, was dasteht"
+          >
+            Aus Text …
+          </Button>
+        )}
         <span
           className={cx('wf-best-edit__state', tried && problem && 'wf-best-edit__state--problem')}
         >
@@ -460,6 +472,15 @@ function Editor({
         </Button>
       </header>
 
+      {pasting && (
+        <PasteDialog
+          onClose={() => setPasting(false)}
+          onSaved={(creature) => {
+            setPasting(false);
+            navigate(`/bestiarium/${creature.id}/bearbeiten`);
+          }}
+        />
+      )}
       <div className="wf-best-edit__body">
         <div className="wf-best-edit__form">
           <nav className="wf-best-edit__jump" aria-label="Abschnitte">

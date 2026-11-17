@@ -54,7 +54,7 @@ const memoRows = (memo: string) =>
         8,
         memo.split('\n').reduce((rows, line) => rows + Math.max(1, Math.ceil(line.length / 42)), 0),
       )
-    : 2;
+    : 1;
 
 /**
  * „Letztes Mal“ zu Beginn des Abends: steht da, bis im neuen Abend etwas festgehalten ist oder

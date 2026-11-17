@@ -337,8 +337,7 @@ export function Overview({
             {active.length > 0 ? (
               <>
                 <SummaryBand summary={summary} />
-                <OnTheRoad />
-                <MeansPanel />
+                {/* Die Gefährten zuerst – Marschordnung und Reittiere darunter (Rundgang 17. 11.). */}
                 <div className="wf-gruppe-grid" data-count={Math.min(active.length, 6)}>
                   {active.map((c) => (
                     <CharacterCard
@@ -349,6 +348,8 @@ export function Overview({
                     />
                   ))}
                 </div>
+                <OnTheRoad />
+                <MeansPanel />
                 <SpotlightPanel />
               </>
             ) : (
