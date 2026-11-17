@@ -1574,6 +1574,7 @@ export function ShellDialogs() {
       return (
         <RestDialog
           kind={request.kind}
+          disturbed={request.disturbed}
           onClose={closeShellRequest}
           onDone={(result) => reportRest(db.getSnapshot(), result)}
         />

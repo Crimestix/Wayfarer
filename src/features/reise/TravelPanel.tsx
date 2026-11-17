@@ -11,7 +11,7 @@ import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
 import { HALT_LABEL, bountyOf, journeyView, type JourneyView } from '../../domain/journey';
-import { bodyCheckOf, forageText, marchDc } from '../../domain/travelRules';
+import { animalFeedText, bodyCheckOf, forageText, marchDc } from '../../domain/travelRules';
 import { BodyCheck } from './BodyCheck';
 import { afarFrom, sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
@@ -20,6 +20,7 @@ import { sensesAt } from '../../domain/senses';
 import { searchMinutes } from '../erkundung/travel';
 import { hexAtProgress } from './hexway';
 import { TRAVEL_HOURS, forcedMarch, marchRule } from '../../domain/march';
+import { partyMeans } from '../../domain/mounts';
 import type { Journey } from '../../domain/schema';
 import { isUnderground, lightStatus } from '../../domain/underground';
 import { formatWayTime } from '../../domain/ways';
@@ -75,6 +76,8 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   const leg = journey.legs[journey.progress.leg];
   /** Was die Gegend hier hergibt: an der Landschaft des Feldes, sonst an der Gegend des Weges. */
   const bounty = bountyOf(data, leg?.regionId ?? leg?.toId ?? null, hexHere?.landscapeId ?? null);
+  /** Reist die Gruppe mit Tieren, erinnert der Halt bei Hunger und Durst an ihr Futter. */
+  const feed = animalFeedText(partyMeans(data), bounty.yield, bounty.water);
 
   const go = (limit: number | null) => {
     const result = travelOn(db, fairDie, limit);
@@ -108,9 +111,15 @@ export function TravelPanel({ journey }: { journey: Journey }) {
     toast({
       slot: 'reise',
       title: found ? 'In der Nacht: etwas geschieht' : 'Die Nacht bleibt ruhig',
-      body: found ? found.text : 'Die Prüfung im Lager ergab nichts.',
+      body: found
+        ? `${found.text} – nach ${found.hour === 1 ? 'einer Stunde' : `${found.hour} Stunden`} Rast. Die Rast zeigt, wer dann wacht.`
+        : 'Die Prüfung im Lager ergab nichts.',
     });
-    openRest('long');
+    // Die Begegnung trifft die Wache dieser Stunde: Die Rast ist dort schon als gestört vorgewählt.
+    openRest(
+      'long',
+      found ? { hour: found.hour, reason: `Begegnung in der Nacht: ${found.text}` } : undefined,
+    );
   };
   const search = () => {
     const result = searchOnJourney(db, fairDie);
@@ -172,6 +181,9 @@ export function TravelPanel({ journey }: { journey: Journey }) {
           {halt.text && <p>{halt.text}</p>}
           {halt.roll && <span className="wf-reise__roll">{halt.roll}</span>}
           {halt.kind === 'encounter' && notice && <p className="wf-reise__notice">{notice}</p>}
+          {(halt.kind === 'hunger' || halt.kind === 'thirst') && feed && (
+            <p className="wf-reise__notice">{feed}</p>
+          )}
           {bodyCheckOf(halt.kind, halt.text) && (
             <BodyCheck
               key={`${halt.kind}-${halt.at}`}

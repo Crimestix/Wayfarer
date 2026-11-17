@@ -35,10 +35,13 @@ const KINDS = [
 
 export function RestDialog({
   kind: initialKind = 'long',
+  disturbed,
   onClose,
   onDone,
 }: {
   kind?: Rest['kind'];
+  /** Eine Störung, die schon feststeht (Nachtprüfung im Lager): vorgewählt, abwählbar. */
+  disturbed?: { hour: number; reason: string };
   onClose: () => void;
   /** Die Rast ist vorbei (oder gestört) – zum Melden, was in der Zeit eingetreten ist. */
   onDone: (result: RestResult) => void;
@@ -55,8 +58,8 @@ export function RestDialog({
   const [resume, setResume] = useState(open !== null);
   const [chosen, setChosen] = useState<string[]>(() => party.map((c) => c.id));
   const [edited, setEdited] = useState<Watch[] | null>(null);
-  const [stopHours, setStopHours] = useState(0);
-  const [reason, setReason] = useState('');
+  const [stopHours, setStopHours] = useState(disturbed?.hour ?? 0);
+  const [reason, setReason] = useState(disturbed?.reason ?? '');
 
   const resuming = kind === 'long' && resume && open !== null;
   const total = resuming
@@ -95,7 +98,9 @@ export function RestDialog({
   const changed = effects.filter(changesSomething);
   const overWatched = effects.filter((e) => e.overWatched);
   const wait = kind === 'long' && !resuming ? minutesUntilLongRest(rests, now) : 0;
-  const stop = kind === 'long' && stopHours > 0 ? stopHours * 60 : null;
+  // Eine vorgewählte Störung passt immer in die Rast – auch in den Rest einer fortgesetzten.
+  const stopAt = Math.min(stopHours, Math.max(0, Math.ceil(total / 60) - 1));
+  const stop = kind === 'long' && stopAt > 0 ? stopAt * 60 : null;
   const stopWatch = stop === null ? undefined : watchAt(watches, now + stop - 1);
   const stopView = stopWatch ? views.find((view) => view.watch.id === stopWatch.id) : undefined;
   const hours = Array.from({ length: Math.max(0, Math.ceil(total / 60) - 1) }, (_, i) => i + 1);
@@ -279,10 +284,7 @@ export function RestDialog({
 
         {kind === 'long' && participants.length > 0 && (
           <Field label="Verlauf der Nacht">
-            <Select
-              value={String(stopHours)}
-              onChange={(e) => setStopHours(Number(e.target.value))}
-            >
+            <Select value={String(stopAt)} onChange={(e) => setStopHours(Number(e.target.value))}>
               <option value="0">Ungestört bis zum Ende</option>
               {hours.map((hour) => (
                 <option key={hour} value={hour}>

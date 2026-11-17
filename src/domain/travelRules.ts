@@ -124,3 +124,31 @@ export const forageText = (yieldOf: Yield | null, water: boolean | null): string
   ]
     .filter(Boolean)
     .join(' ');
+
+// ── Reittiere und Zugtiere ─────────────────────────────────────────────────
+
+/**
+ * Auch Tiere brauchen Futter und Wasser (Regelwerk: nach Größe – ein großes Tier wie ein Pferd
+ * 4 Pfund und 4 Gallonen am Tag, viermal so viel wie ein Gefährte). Die Vorräte der Reise zählen
+ * in Tagen; dieser Satz erinnert nur daran, die Tiere mitzurechnen, und sagt, ob sie hier grasen
+ * und saufen können. null = kein Tier dabei (zu Fuß, Schiff).
+ */
+export function animalFeedText(
+  means: { kind: 'mount' | 'vehicle' | 'ship'; name: string } | null,
+  yieldOf: Yield | null,
+  water: boolean | null,
+): string | null {
+  if (!means || means.kind === 'ship') return null;
+  const who = means.kind === 'vehicle' ? `Die Zugtiere (${means.name})` : means.name;
+  return [
+    `${who}: Auch Tiere brauchen Futter und Wasser – ein großes Tier viermal so viel wie ein Gefährte (4 Pfund, 4 Gallonen am Tag).`,
+    yieldOf === 'rich' || yieldOf === 'modest'
+      ? 'Hier können sie grasen.'
+      : yieldOf === 'poor'
+        ? 'Hier finden sie kaum etwas zu fressen.'
+        : '',
+    water === true ? 'Wasser gibt es hier.' : water === false ? 'Wasser gibt es hier keins.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}

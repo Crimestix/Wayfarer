@@ -53,7 +53,7 @@ export type ShellRequest =
   | { type: 'search' }
   | { type: 'journey'; toId: string | null }
   | { type: 'time' }
-  | { type: 'rest'; kind: 'short' | 'long' }
+  | { type: 'rest'; kind: 'short' | 'long'; disturbed?: RestDisturbance }
   | { type: 'downtime' }
   | { type: 'shop'; shopId: string | null; direction: 'buy' | 'sell' }
   | null;
@@ -83,8 +83,19 @@ export const openJourney = (toId: string | null = null) => set({ type: 'journey'
 export const openSearch = () => set({ type: 'search' });
 /** Öffnet „Zeit vergehen lassen“ mit freier Dauer oder Zieldatum. */
 export const openTimeDialog = () => set({ type: 'time' });
-/** Öffnet die Rast: Kurze oder Lange Rast mit Wachplan. */
-export const openRest = (kind: 'short' | 'long' = 'long') => set({ type: 'rest', kind });
+/** Eine Störung, die schon feststeht, wenn die Rast beginnt (die Nachtprüfung im Lager). */
+export interface RestDisturbance {
+  /** Nach so vielen Stunden der Rast. */
+  hour: number;
+  /** Was stört – steht mit der Rast in der Chronik. */
+  reason: string;
+}
+/**
+ * Öffnet die Rast: Kurze oder Lange Rast mit Wachplan. `disturbed` wählt die Störung vor – die
+ * Rast zeigt dann gleich, wer zu der Stunde wacht; der Spielleiter kann sie abwählen.
+ */
+export const openRest = (kind: 'short' | 'long' = 'long', disturbed?: RestDisturbance) =>
+  set({ type: 'rest', kind, ...(disturbed ? { disturbed } : {}) });
 /** Öffnet „Freie Zeit“: Tage vergehen, die Gefährten gehen ihren Vorhaben nach. */
 export const openDowntime = () => set({ type: 'downtime' });
 /**

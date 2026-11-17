@@ -10,7 +10,8 @@ import { landscapesOf } from '../../domain/landscape';
 import { TRAVEL_HOURS } from '../../domain/march';
 import { PACES, TERRAINS, type Pace, type Terrain } from '../../domain/schema';
 import { DAY_KM, KM_PER_MILE, PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
-import { PACE_EFFECT } from '../../domain/travelRules';
+import { partyMeans } from '../../domain/mounts';
+import { PACE_EFFECT, animalFeedText } from '../../domain/travelRules';
 import type { CampaignData } from '../../domain/schema';
 import { wayWithHexMap, withHexes } from './hexway';
 
@@ -48,6 +49,8 @@ export function JourneyDialog({
     () => (fromId && toId ? planOf(data, fromId, toId, pace) : null),
     [data, fromId, toId, pace],
   );
+  /** Reist die Gruppe mit Tieren: Futter und Wasser für sie mitrechnen. */
+  const feed = animalFeedText(partyMeans(data), null, null);
   const farValue = Number.parseFloat(far.replace(',', '.'));
   const farOk = Number.isFinite(farValue) && farValue > 0;
   /** Entfernung in km, wenn sie eingetragen ist (Meilen, oder Tage und Stunden im gewählten Tempo). */
@@ -259,6 +262,7 @@ export function JourneyDialog({
             . Je Tag geht einer weg; reicht es nicht, kommen Hunger und Durst nach den Regeln. Leer:
             Wayfarer zählt nicht mit.
           </p>
+          {feed && <p className="wf-field__hint">{feed}</p>}
         </div>
       </div>
     </Dialog>

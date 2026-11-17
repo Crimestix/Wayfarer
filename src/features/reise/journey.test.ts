@@ -166,7 +166,14 @@ describe('Unterwegs', () => {
     ).toBe(true);
     // Die Nachtprüfung im Lager würfelt einmal.
     expect(campCheck(db, dice(3))).toBeNull();
-    expect(campCheck(db, dice(20, 8))).toMatchObject({ text: 'Ein hungriger Wurm' });
+    // Dazu die Stunde der Rast (W7 = 5): Die Begegnung trifft, wer dann wacht.
+    const before = data().state.now;
+    expect(campCheck(db, dice(20, 8, 5))).toMatchObject({ text: 'Ein hungriger Wurm', hour: 5 });
+    expect(journeyUnderway(data())!.halt).toMatchObject({
+      kind: 'encounter',
+      at: before + 5 * 60,
+    });
+    expect(journeyUnderway(data())!.halt!.roll).toContain('nach 5 Stunden Rast');
   });
 
   it('verliert keine Prüfung, die auf die Minute eines anderen Halts fällt', async () => {

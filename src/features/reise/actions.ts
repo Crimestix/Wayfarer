@@ -453,29 +453,53 @@ function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number)
   });
 }
 
+/** Was die Nachtprüfung im Lager ergab: die Zeile, die Stunde der Rast und die Begegnung dazu. */
+export interface CampResult extends TableResult {
+  /** Nach so vielen Stunden der Rast geschieht es (1–7) – daraus folgt, wer gerade wacht. */
+  hour: number;
+  /** Die Begegnung zum Führen, wenn die Zeile ein Wesen des Bestiariums nennt. */
+  encounterId: string | null;
+}
+
+/** Die Rast ist acht Stunden lang: Eine Störung fällt auf das Ende der ersten bis siebten Stunde. */
+const NIGHT_HOURS = 7;
+
 /**
- * Ein Lager unterwegs: die Nachtprüfung auf den Begegnungen der Gegend (nur ein Vorschlag). Die
- * Rast selbst läuft über den Dialog der Rast. Gibt das Ergebnis zurück – null, wenn nichts geschieht.
+ * Ein Lager unterwegs: die Nachtprüfung auf den Begegnungen der Gegend (nur ein Vorschlag) – mit
+ * der Stunde, in der es geschieht, damit die Rast zeigt, wer dann wacht. Die Rast selbst läuft
+ * über den Dialog der Rast; in die Chronik schreibt erst sie (mit der Störung). Gibt das Ergebnis
+ * zurück – null, wenn nichts geschieht.
  */
-export function campCheck(db: CampaignDb, roll: Roll): TableResult | null {
+export function campCheck(db: CampaignDb, roll: Roll): CampResult | null {
   const data = db.getSnapshot();
   const journey = journeyUnderway(data);
   if (!journey) return null;
   const found = nightCheck(data, journey, roll);
-  db.patch('journeys', journey.id, {
-    sinceCheck: 0,
-    halt: found
-      ? {
-          kind: 'encounter',
-          text: found.text,
-          at: data.state.now,
-          roll: `Nachts · ${found.table.name}: ${found.rolled}`,
-          encounterId: null,
-        }
-      : null,
+  if (!found) {
+    db.patch('journeys', journey.id, { sinceCheck: 0, halt: null });
+    return null;
+  }
+  const hour = Math.max(1, Math.min(NIGHT_HOURS, roll(NIGHT_HOURS)));
+  return db.batch(() => {
+    const creature = found.creatureId ? data.creatures[found.creatureId] : undefined;
+    let encounterId: string | null = null;
+    if (creature) {
+      const made = newEncounter(db, `Nachts im Lager: ${creature.name}`);
+      addFoes(db, made.id, creature.id, found.meeting.count ?? 1);
+      encounterId = made.id;
+    }
+    db.patch('journeys', journey.id, {
+      sinceCheck: 0,
+      halt: {
+        kind: 'encounter',
+        text: found.text,
+        at: data.state.now + hour * 60,
+        roll: `Nachts, nach ${hour === 1 ? 'einer Stunde' : `${hour} Stunden`} Rast · ${found.table.name}: ${found.rolled}`,
+        encounterId,
+      },
+    });
+    return { ...found, hour, encounterId };
   });
-  if (found) logEntry(db, { text: `Begegnung in der Nacht: ${found.text}` });
-  return found;
 }
 
 /** Nimmt den Halt zur Kenntnis („Trotzdem weiter“ ohne zu reisen). */

@@ -355,6 +355,16 @@ nicht übernommen.
   Begegnung aus einer Tabellenzeile mit Wesen wird gleich eine Begegnung mit Anzahl
   (`halt.foe` → `newEncounter`/`addFoes`, `journey.halt.encounterId`); der Halt nennt, wer wen
   bemerkt (beste passive Wahrnehmung gegen Heimlichkeit, überrascht = Nachteil auf Initiative).
+  Halte zu Beginn eines Abschnitts (Vorbereitetes, Gefahr am Weg) halten genau einmal – gemerkt in
+  `journey.legSeen` (`legSeenKey`), nie am gezeigten Halt abgelesen: „Zur Kenntnis“ nimmt ihn weg.
+  Eine Prüfung auf Begegnungen, die auf die Minute eines anderen Halts fällt (Gewaltmarsch, Kälte,
+  die achte Stunde), bleibt fällig (`halt.sinceCheck`, `journey.sinceCheck` ≥ vier Stunden) und
+  wird als Erstes gewürfelt, sobald es weitergeht – nie mit Modulo wegrechnen. Die Nachtprüfung im
+  Lager (`campCheck`) würfelt auch die Stunde der Rast und öffnet die Rast mit dieser Störung
+  vorgewählt (`openRest('long', { hour, reason })`): Die Rast zeigt, wer dann wacht; in die Chronik
+  schreibt erst sie. Reist die Gruppe mit Tieren, erinnert `animalFeedText` (Reise antreten, Halt
+  bei Hunger und Durst) an Futter und Wasser – nur ein Hinweis. Ein Weg hat eine feste Dauer oder
+  eine Länge in Meilen (Fenster „Weg“): Ohne feste Dauer rechnet Wayfarer nach Tempo und Reittier.
   **Wegenetz, Hexkarte, Unterwegs greifen ineinander** (Wunsch 17. 11., `features/reise/hexway.ts`):
   Das Wegenetz ist die Übersicht, eine Hexkarte das Gelände einer Verbindung („Gelände
   dazwischen“, `path.areaId`, `hexMapForWay` – einmal erzeugt mit `seedOf` aus dem Weg; Knopf

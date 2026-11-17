@@ -7,7 +7,7 @@ import { wayWithHexMap } from '../../features/reise/hexway';
 import { bodyHalts, bountyOf, journeyUnderway, nextHalt, planJourney } from '../journey';
 import { createEntity, createPath, type Place } from '../schema';
 import { MINUTES_PER_DAY, dayIndexOf } from '../time/calendar';
-import { fallDice, hazardLine, heatDc, marchDc } from '../travelRules';
+import { animalFeedText, fallDice, hazardLine, heatDc, marchDc } from '../travelRules';
 
 const dice = () => () => 20;
 
@@ -22,7 +22,10 @@ async function setup(minutes = 3000) {
   const heath = place('Graue Heide', { yield: 'poor', water: false });
   const from = place('Kesselfurt', { parentId: heath.id });
   const to = place('Ostwacht', { parentId: heath.id });
-  const path = db.put('paths', createPath({ fromId: from.id, toId: to.id, minutes, terrain: 'urban' }));
+  const path = db.put(
+    'paths',
+    createPath({ fromId: from.id, toId: to.id, minutes, terrain: 'urban' }),
+  );
   const noon = dayIndexOf(db.getSnapshot().state.now) * MINUTES_PER_DAY + 12 * 60;
   db.setState({ placeId: from.id, now: noon });
   return { db, data: () => db.getSnapshot(), from, to, heath, path };
@@ -120,5 +123,18 @@ describe('Regeln der Reise', () => {
     // Einmal am Tag: nach dem Halt nicht noch einmal.
     travelOn(db, dice());
     expect(nextHalt(data(), journeyUnderway(data())!, dice())?.kind).not.toBe('thirst');
+  });
+
+  it('erinnert an Futter und Wasser für Tiere – nie für ein Schiff', () => {
+    expect(animalFeedText(null, 'rich', true)).toBeNull();
+    expect(animalFeedText({ kind: 'ship', name: 'Kahn' }, 'rich', true)).toBeNull();
+    const horse = animalFeedText({ kind: 'mount', name: 'Reitpferde' }, 'modest', false)!;
+    expect(horse).toContain('Reitpferde');
+    expect(horse).toContain('4 Pfund, 4 Gallonen');
+    expect(horse).toContain('grasen');
+    expect(horse).toContain('Wasser gibt es hier keins');
+    expect(animalFeedText({ kind: 'vehicle', name: 'Karren' }, 'poor', null)).toContain(
+      'Die Zugtiere (Karren)',
+    );
   });
 });
