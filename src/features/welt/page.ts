@@ -315,6 +315,11 @@ export function pagePlan(
         'travel',
         !!entity.place.ground ||
           entity.place.groundSlow ||
+          // Auch Klima, Ertrag, Trinkwasser und der SG der Orientierung stehen dort.
+          !!entity.place.climateId ||
+          entity.place.yield !== null ||
+          entity.place.water !== null ||
+          entity.place.navDc !== null ||
           Object.values(data.tables).some((table) => table.placeId === entity.id),
         () => main.push('travel'),
       );

@@ -13,7 +13,8 @@ import {
   sortOfWay,
   type WaySort,
 } from '../../domain/wayState';
-import { WALK_KMH, formatWayTime, suggestedKm } from '../../domain/ways';
+import { KM_PER_MILE } from '../../domain/terrain';
+import { WALK_KMH, formatWayTime, suggestedKm, wayMinutes } from '../../domain/ways';
 import { Button, Checkbox, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
 import { removeWay, saveWay } from './actions';
 import { DurationField } from './DurationField';
@@ -41,11 +42,34 @@ export function WayDialog({
   const [secret, setSecret] = useState(way?.secret ?? false);
   const [sort, setSort] = useState<WaySort>(way ? sortOfWay(way) : 'street');
   const [hazard, setHazard] = useState<Hazard | null>(way?.hazard ?? null);
+  /** Länge in Meilen – statt einer festen Dauer: Wayfarer rechnet dann nach Tempo und Reittier. */
+  const wayMiles = way?.distanceKm ? way.distanceKm / KM_PER_MILE : 0;
+  const milesBefore = wayMiles
+    ? String(wayMiles >= 10 ? Math.round(wayMiles) : Math.round(wayMiles * 10) / 10).replace(
+        '.',
+        ',',
+      )
+    : '';
+  const [miles, setMiles] = useState(milesBefore);
+  const milesValue = Number.parseFloat(miles.replace(',', '.'));
+  const lengthKm =
+    miles === milesBefore
+      ? (way?.distanceKm ?? null)
+      : Number.isFinite(milesValue) && milesValue > 0
+        ? milesValue * KM_PER_MILE
+        : null;
+  /** Ohne feste Dauer: was sich aus der Länge ergibt – oder aus der Karte, der der Weg folgt. */
+  const derived =
+    lengthKm !== null
+      ? Math.max(1, Math.round((lengthKm / WALK_KMH.normal) * 60))
+      : way && way.minutes === null && miles === milesBefore
+        ? wayMinutes(data, way)
+        : null;
 
   // Zeigt eine Karte mit Maßstab beide Orte, ergibt sich daraus ein Vorschlag.
   const km = from && to ? suggestedKm(data, from, to) : null;
   const suggested = km === null ? null : Math.max(1, Math.round((km / WALK_KMH.normal) * 60));
-  const ready = from !== null && to !== null && from !== to && minutes > 0;
+  const ready = from !== null && to !== null && from !== to && (minutes > 0 || derived !== null);
   const create = (text: string) =>
     db.put('entities', createEntity({ kind: 'place', name: text })).id;
 
@@ -56,8 +80,8 @@ export function WayDialog({
       fromId: from,
       toId: to,
       name,
-      minutes,
-      distanceKm: way?.distanceKm ?? null,
+      minutes: minutes > 0 ? minutes : null,
+      distanceKm: lengthKm,
       conditions,
       oneWay,
       secret,
@@ -124,12 +148,27 @@ export function WayDialog({
         <Field
           label="Dauer"
           hint={
-            suggested !== null && minutes !== suggested
-              ? `Nach der Karte etwa ${formatWayTime(suggested)} zu Fuß (${km!.toLocaleString('de-DE', { maximumFractionDigits: 1 })} km Luftlinie).`
-              : 'Wie lange die Gruppe für diesen Weg braucht.'
+            minutes === 0 && derived !== null
+              ? `Keine feste Dauer: Wayfarer rechnet – zu Fuß etwa ${formatWayTime(derived)}, mit Reittier, Tempo und Gelände entsprechend.`
+              : suggested !== null && minutes !== suggested
+                ? `Nach der Karte etwa ${formatWayTime(suggested)} zu Fuß (${km!.toLocaleString('de-DE', { maximumFractionDigits: 1 })} km Luftlinie).`
+                : 'Wie lange die Gruppe für diesen Weg braucht – oder darunter die Länge.'
           }
         >
           <DurationField value={minutes} onChange={setMinutes} allowNone={false} />
+          <label className="wf-wege-duration__exact">
+            <Input
+              value={miles}
+              inputMode="decimal"
+              placeholder="–"
+              aria-label="Länge in Meilen"
+              onChange={(e) => setMiles(e.target.value)}
+            />
+            <span>
+              Meilen lang
+              {lengthKm !== null ? ` · ${Math.round(lengthKm)} km` : ' – statt einer festen Dauer'}
+            </span>
+          </label>
         </Field>
         <Field label="Was für ein Weg" hint={WAY_SORT_HINT[sort]}>
           <Select

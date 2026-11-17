@@ -7,9 +7,9 @@
 import { advanceTime, logEntry, undoTimeAdvance } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import {
-  CHECK_EVERY,
   HALT_LABEL,
   HEADING_LABEL,
+  legSeenKey,
   veerHeading,
   journeyUnderway,
   nextHalt,
@@ -183,12 +183,17 @@ export function travelOn(
       progress,
       steps,
       status,
-      sinceCheck:
-        halt.kind === 'encounter' || halt.kind === 'discovery'
-          ? 0
-          : (journey.sinceCheck + halt.minutes) % CHECK_EVERY,
+      sinceCheck: halt.sinceCheck ?? journey.sinceCheck + halt.minutes,
       navDay: halt.kind === 'navigate' ? dayIndexOf(now) : journey.navDay,
       fedDay: halt.kind === 'hunger' || halt.kind === 'thirst' ? dayIndexOf(now) : journey.fedDay,
+      // Vorbereitetes und eine Gefahr zu Beginn eines Abschnitts halten genau einmal.
+      ...((halt.kind === 'prepared' || halt.kind === 'hazard') &&
+      halt.minutes === 0 &&
+      journey.progress.minutes === 0
+        ? {
+            legSeen: [...(journey.legSeen ?? []), legSeenKey(journey.progress.leg, halt.kind)],
+          }
+        : {}),
       halt:
         status === 'arrived'
           ? null
@@ -298,7 +303,7 @@ function detour(db: CampaignDb, journey: Journey): TravelResult {
       lostMinutes: 0,
       lostHeading: null,
       steps: [...journey.steps, { at: start + minutes, minutes }].slice(-20),
-      sinceCheck: (journey.sinceCheck + minutes) % CHECK_EVERY,
+      sinceCheck: journey.sinceCheck + minutes,
       halt: {
         kind: 'navigate',
         text: 'Wieder auf Kurs.',

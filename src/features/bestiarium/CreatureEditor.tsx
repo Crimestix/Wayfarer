@@ -1006,7 +1006,7 @@ function Editor({
             </Field>
             <Field
               label="Revier eines Baus (km²)"
-              hint="Für „Beleben“ auf der Hexkarte: so viel Fläche braucht ein Bau. Leer: wie die Vorlage, sonst 1000 km²."
+              hint="Für „Beleben“ auf der Hexkarte: so viel Fläche braucht ein Bau. Ein Feld von 6 Meilen hat rund 80 km² – 1000 km² sind also etwa zwölf Felder. Leer: wie die Vorlage, sonst 1000 km²."
             >
               <Input
                 inputMode="numeric"

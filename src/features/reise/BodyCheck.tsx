@@ -78,7 +78,10 @@ export function BodyCheck({
             <span className="wf-reise-body__name">
               {member.name}
               {member.character.exhaustion > 0 && (
-                <em> · Erschöpfung {member.character.exhaustion}</em>
+                <em title={`Erschöpfung Stufe ${member.character.exhaustion}`}>
+                  {' '}
+                  · Stufe {member.character.exhaustion}
+                </em>
               )}
             </span>
             {done[member.id] ? (
@@ -102,6 +105,22 @@ export function BodyCheck({
           </li>
         ))}
       </ul>
+      {members.some((member) => !done[member.id]) && (
+        <div className="wf-reise-body wf-reise-body--all">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setDone((current) => ({
+                ...Object.fromEntries(members.map((member) => [member.id, 'ok' as const])),
+                ...current,
+              }))
+            }
+          >
+            Alle übrigen geschafft
+          </Button>
+        </div>
+      )}
       {allToo && (
         <div className="wf-reise-body">
           <Button size="sm" onClick={() => tire(members.map((member) => member.id))}>

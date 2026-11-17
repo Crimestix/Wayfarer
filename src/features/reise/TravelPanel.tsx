@@ -11,7 +11,7 @@ import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
 import { HALT_LABEL, bountyOf, journeyView, type JourneyView } from '../../domain/journey';
-import { bodyCheckOf, forageText } from '../../domain/travelRules';
+import { bodyCheckOf, forageText, marchDc } from '../../domain/travelRules';
 import { BodyCheck } from './BodyCheck';
 import { afarFrom, sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
@@ -143,6 +143,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   return (
     <Panel
       flush
+      scroll
       className="wf-tisch-place wf-reise"
       title="Unterwegs"
       actions={
@@ -164,68 +165,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </div>
       </div>
 
-      <ol className="wf-reise__stops">
-        {view.stops.map((stop, index) => (
-          <li
-            key={`${stop.placeId}-${index}`}
-            className={cx(stop.reached && 'is-reached', stop.current && 'is-here')}
-          >
-            {stop.current ? (
-              <MapPin aria-hidden />
-            ) : stop.reached ? (
-              <Check aria-hidden />
-            ) : (
-              <Flag aria-hidden />
-            )}
-            <span>{name(stop.placeId)}</span>
-            {stop.current && <em>hier</em>}
-          </li>
-        ))}
-      </ol>
-
-      <dl className="wf-reise__facts">
-        <dt>Seit der Rast</dt>
-        <dd className={cx(march && 'is-warn')}>
-          {formatWayTime(view.sinceRest)} von {TRAVEL_HOURS} Std.
-          {march && <span className="wf-reise__note">{marchRule(march)}</span>}
-        </dd>
-        <dt>Gelände</dt>
-        <dd>
-          {view.ground?.word ||
-            (hexHere ? (
-              <span>
-                {(hexHere.landscapeId && data.entities[hexHere.landscapeId]?.name) ||
-                  kindLabelOf(hexHere)}{' '}
-                <span className="wf-mute">(Hexkarte)</span>
-              </span>
-            ) : (
-              <span className="wf-mute">nichts eingetragen</span>
-            ))}
-          {view.ground?.slow && <span className="wf-reise__tag">langsam</span>}
-        </dd>
-        {light && (
-          <>
-            <dt>Licht</dt>
-            <dd className={cx(light.state === 'dark' && 'is-warn')}>{light.summary}</dd>
-          </>
-        )}
-        <dt>Zieht mit</dt>
-        <dd>{[...party.map((member) => member.name), ...along.filter(Boolean)].join(', ')}</dd>
-        {(view.food !== null || view.water !== null) && (
-          <>
-            <dt>Vorräte</dt>
-            <dd className="wf-reise__supplies">
-              {view.food !== null && (
-                <Supply label="Proviant" left={view.food} start={journey.supplies.food ?? 0} />
-              )}
-              {view.water !== null && (
-                <Supply label="Wasser" left={view.water} start={journey.supplies.water ?? 0} />
-              )}
-            </dd>
-          </>
-        )}
-      </dl>
-
+      {/* Zuerst, was jetzt zu entscheiden ist (der Halt) und wie es weitergeht; darunter der Stand. */}
       {halt && (
         <div className={cx('wf-reise__halt', `wf-reise__halt--${halt.kind}`)} role="status">
           <span className="wf-caps">Halt: {HALT_LABEL[halt.kind]}</span>
@@ -310,37 +250,6 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </div>
       )}
 
-      {senses.length > 0 && (
-        <div className="wf-reise__senses" aria-label="Ringsum">
-          <span className="wf-caps">Ringsum</span>
-          <ul>
-            {senses.map((sense) => (
-              <li key={sense.dir}>
-                <b>{sense.where}:</b> {sense.noticed.join(' · ')}
-                {sense.gm.length > 0 && <em> {sense.gm.join(' · ')}</em>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {far.length > 0 && (
-        <div className="wf-reise__senses" aria-label="In der Ferne">
-          <span className="wf-caps">In der Ferne</span>
-          <ul>
-            {far.map((sight) => (
-              <li key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {hexHere?.hidden.trim() && !hexHere.searched && (
-        <p className="wf-reise__senses">
-          <em>Nur für dich – verborgen auf diesem Feld: {hexHere.hidden.trim()}</em>
-        </p>
-      )}
-
       {foraging && (
         <ForageForm
           text={forageText(bounty.yield, bounty.water)}
@@ -381,6 +290,109 @@ export function TravelPanel({ journey }: { journey: Journey }) {
           </Button>
         )}
       </div>
+
+      {senses.length > 0 && (
+        <div className="wf-reise__senses" aria-label="Ringsum">
+          <span className="wf-caps">Ringsum</span>
+          <ul>
+            {senses.map((sense) => (
+              <li key={sense.dir}>
+                <b>{sense.where}:</b> {sense.noticed.join(' · ')}
+                {sense.gm.length > 0 && <em> {sense.gm.join(' · ')}</em>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {far.length > 0 && (
+        <div className="wf-reise__senses" aria-label="In der Ferne">
+          <span className="wf-caps">In der Ferne</span>
+          <ul>
+            {far.map((sight) => (
+              <li key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hexHere?.hidden.trim() && !hexHere.searched && (
+        <p className="wf-reise__senses">
+          <em>Nur für dich – verborgen auf diesem Feld: {hexHere.hidden.trim()}</em>
+        </p>
+      )}
+
+      <ol className="wf-reise__stops">
+        {view.stops.map((stop, index) => (
+          <li
+            key={`${stop.placeId}-${index}`}
+            className={cx(stop.reached && 'is-reached', stop.current && 'is-here')}
+          >
+            {stop.current ? (
+              <MapPin aria-hidden />
+            ) : stop.reached ? (
+              <Check aria-hidden />
+            ) : (
+              <Flag aria-hidden />
+            )}
+            <span>{name(stop.placeId)}</span>
+            {stop.current && <em>hier</em>}
+          </li>
+        ))}
+      </ol>
+
+      <dl className="wf-reise__facts">
+        <dt>Seit der Rast</dt>
+        <dd className={cx(march && 'is-warn')}>
+          {formatWayTime(view.sinceRest)} von {TRAVEL_HOURS} Std.
+          {/* Steht der Gewaltmarsch gerade als Halt da, sagt die Zeile ihn nur in einem Wort. */}
+          {march &&
+            (halt?.kind === 'march' ? (
+              <span className="wf-reise__tag">Gewaltmarsch</span>
+            ) : (
+              <span className="wf-reise__note" title={marchRule(march)}>
+                Gewaltmarsch – am Ende der nächsten Stunde: Konstitutionsrettungswurf SG{' '}
+                {marchDc(Math.floor((view.sinceRest - TRAVEL_HOURS * 60) / 60) + 1)}
+              </span>
+            ))}
+        </dd>
+        <dt>Gelände</dt>
+        <dd>
+          {view.ground?.word ||
+            (hexHere ? (
+              <span>
+                {(hexHere.landscapeId && data.entities[hexHere.landscapeId]?.name) ||
+                  kindLabelOf(hexHere)}{' '}
+                <span className="wf-mute">(Hexkarte)</span>
+              </span>
+            ) : (
+              <span className="wf-mute">nichts eingetragen</span>
+            ))}
+          {view.ground?.slow && <span className="wf-reise__tag">langsam</span>}
+        </dd>
+        {light && (
+          <>
+            <dt>Licht</dt>
+            <dd className={cx(light.state === 'dark' && 'is-warn')}>{light.summary}</dd>
+          </>
+        )}
+        <dt>Zieht mit</dt>
+        <dd>{[...party.map((member) => member.name), ...along.filter(Boolean)].join(', ')}</dd>
+        {(view.food !== null || view.water !== null) && (
+          <>
+            <dt>Vorräte</dt>
+            <dd className="wf-reise__supplies">
+              {view.food !== null && (
+                <Supply label="Proviant" left={view.food} start={journey.supplies.food ?? 0} />
+              )}
+              {view.water !== null && (
+                <Supply label="Wasser" left={view.water} start={journey.supplies.water ?? 0} />
+              )}
+            </dd>
+          </>
+        )}
+      </dl>
+
       <p className="wf-reise__hint">
         Hält an bei: Ort am Weg · Vorbereitetem · Gefahr · Begegnung · etwas in Sicht · Termin ·
         Licht aus · Dunkelheit · acht Stunden · Gewaltmarsch · Kälte und Hitze · Hunger und Durst
@@ -394,7 +406,7 @@ function Supply({ label, left, start }: { label: string; left: number; start: nu
   return (
     <span className={cx('wf-reise__supply', left <= 1 && 'is-warn')}>
       <span>
-        {label}: noch {left === 1 ? '1 Tag' : `${left} Tage`}
+        {label}: {left <= 0 ? 'aufgebraucht' : `noch ${left === 1 ? '1 Tag' : `${left} Tage`}`}
       </span>
       <span className="wf-reise__supplybar" aria-hidden>
         <i style={{ width: `${Math.round(share * 100)}%` }} />

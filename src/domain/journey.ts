@@ -397,6 +397,12 @@ export interface Halt {
   arrives: boolean;
   /** Bei einer Begegnung aus der Tabelle: welches Wesen und wie viele (`meetingOf`). */
   foe?: { creatureId: string; count: number } | null;
+  /**
+   * Reiseminuten seit der letzten Prüfung auf Begegnungen, wenn dieser Halt erreicht ist. Fiel
+   * eine Prüfung auf dieselbe Minute wie der Halt, steht sie noch aus (vier Stunden und mehr) und
+   * wird als Erstes gewürfelt, sobald es weitergeht. Fehlt die Angabe, ist keine Zeit vergangen.
+   */
+  sinceCheck?: number;
 }
 
 /**
@@ -442,8 +448,15 @@ export function nextHalt(
   // Was der Spielleiter am Weg vorbereitet hat, hält gleich zu Beginn des Abschnitts – einmal.
   const path = leg.pathId ? data.paths[leg.pathId] : undefined;
   const prepared = path?.onTheWay.trim() ?? '';
+  const seen = (kind: HaltKind) =>
+    (journey.legSeen ?? []).includes(legSeenKey(journey.progress.leg, kind));
   const shown = journey.halt?.kind === 'prepared' && journey.halt.at === now;
-  if (journey.progress.minutes === 0 && (prepared || path?.encounterId) && !shown)
+  if (
+    journey.progress.minutes === 0 &&
+    (prepared || path?.encounterId) &&
+    !shown &&
+    !seen('prepared')
+  )
     return {
       kind: 'prepared',
       minutes: 0,
@@ -454,7 +467,7 @@ export function nextHalt(
     };
   // Eine Gefahr auf dem Weg (Abhang, Kletterei): zu Beginn des Abschnitts – einmal.
   const hazardShown = journey.halt?.kind === 'hazard' && journey.halt.at === now;
-  if (journey.progress.minutes === 0 && path?.hazard && !hazardShown && !shown)
+  if (journey.progress.minutes === 0 && path?.hazard && !hazardShown && !shown && !seen('hazard'))
     return {
       kind: 'hazard',
       minutes: 0,
@@ -548,6 +561,8 @@ export function nextHalt(
       add(step.at - now, 'clock', step.step.text);
   // Prüfungen alle vier Stunden: würfeln, und nur halten, wenn etwas geschieht.
   let quietChecks = 0;
+  /** Wann in dieser Etappe zuletzt geprüft wurde (Minuten ab jetzt); null = noch gar nicht. */
+  let lastCheck: number | null = null;
   // Auf einer Hexkarte gilt die Gegend, die auf das erreichte Feld gemalt ist; sonst die des Weges.
   const regionAt = (after: number): string | null => {
     if (area) {
@@ -558,10 +573,13 @@ export function nextHalt(
     }
     return leg.regionId ?? leg.toId;
   };
-  for (let at = CHECK_EVERY - journey.sinceCheck; at <= horizon; at += CHECK_EVERY) {
-    if (at <= 0) continue;
+  // Eine Prüfung, die auf die Minute eines anderen Halts fällt (Gewaltmarsch, Kälte, die achte
+  // Stunde), geht nicht verloren: Sie bleibt fällig und wird gleich gewürfelt (`at` = 0), sobald
+  // es weitergeht – sonst gäbe es im Winter und im Gewaltmarsch nie eine Begegnung.
+  for (let at = Math.max(0, CHECK_EVERY - journey.sinceCheck); at <= horizon; at += CHECK_EVERY) {
     const earliest = Math.min(...candidates.map((c) => c.at), Infinity);
-    if (at >= earliest) break;
+    if (at > 0 && at >= earliest) break;
+    lastCheck = at;
     const region = regionAt(at);
     const found =
       rollTables(data, region, 'encounter', roll, now + at) ??
@@ -577,6 +595,7 @@ export function nextHalt(
       roll: `${found.table.name}: ${found.rolled}`,
       quietChecks,
       arrives: at >= left && left > 0,
+      sinceCheck: 0,
       foe:
         found.table.kind !== 'discovery' && found.creatureId
           ? { creatureId: found.creatureId, count: found.meeting.count ?? 1 }
@@ -592,6 +611,7 @@ export function nextHalt(
     roll: '',
     quietChecks,
     arrives: first.at >= left,
+    sinceCheck: lastCheck === null ? journey.sinceCheck + first.at : first.at - lastCheck,
   };
 }
 
@@ -658,6 +678,9 @@ export function bodyHalts(
   }
   return out;
 }
+
+/** Der Schlüssel in `journey.legSeen`: Abschnitt und Art des Halts an seinem Beginn. */
+export const legSeenKey = (leg: number, kind: HaltKind): string => `${leg}:${kind}`;
 
 /**
  * Fehlen Proviant oder Wasser für den Tag, der zu einer Zeit zu Ende gegangen ist? Beides in einem

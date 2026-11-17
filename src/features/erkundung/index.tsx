@@ -7,7 +7,7 @@
 import { kindLabelOf } from '../../domain/hexKinds';
 import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import {
   Dices,
@@ -83,17 +83,15 @@ import './erkundung.css';
 const SIZES = [9, 13, 18, 26, 36, 48, 64];
 
 /**
- * Die größte Darstellung, bei der die ganze Karte in die Breite passt – gerechnet aus der
+ * Die größte Darstellung, bei der die ganze Karte in die Breite passt – in den Platz, den die
+ * Kartenfläche wirklich hat (`room`); solange sie noch nicht gemessen ist, geschätzt aus der
  * Fensterbreite abzüglich Navigation, Liste und Feldansicht.
  */
-function fitZoom(area: Area): number {
+function fitZoom(area: Area, room?: number): number {
   if (!area.hexes.length) return 4;
   const xs = area.hexes.map((hex) => hexCenter(hex, area.orientation).x);
   const units = Math.max(...xs) - Math.min(...xs) + 2.4;
-  const room = Math.max(
-    320,
-    window.innerWidth - 212 - (window.innerWidth <= 1500 ? 508 : 610) - 40,
-  );
+  room ??= Math.max(320, window.innerWidth - 212 - (window.innerWidth <= 1500 ? 508 : 610) - 40);
   let best = 0;
   SIZES.forEach((size, i) => {
     if (units * size <= room) best = i;
@@ -196,6 +194,15 @@ function AreaView({ area }: { area: Area }) {
   /** Vorbereiten (Editor) oder Spielen (Reise mit Nebel). Eine neue Karte beginnt beim Vorbereiten. */
   const [mode, setMode] = useState<'prep' | 'play'>(() => (area.party ? 'play' : 'prep'));
   const editing = mode === 'prep';
+  // Die Karte füllt die Fläche, die sie hat: Beim Vorbereiten klappt die Liste weg, dann passt
+  // sie größer. Wer selbst vergrößert oder verkleinert hat, behält seine Größe.
+  const mapRef = useRef<HTMLDivElement>(null);
+  const zoomedByHand = useRef(false);
+  useLayoutEffect(() => {
+    const width = mapRef.current?.clientWidth;
+    if (!zoomedByHand.current && width) setZoom(fitZoom(area, width - 32));
+    // Nur beim Wechsel der Ansicht neu einpassen – nicht bei jeder Änderung der Karte.
+  }, [mode]);
   /** Die gewählten Felder beim Vorbereiten – eins oder mehrere. */
   const [picked, setPicked] = useState<HexCoord[]>([]);
   const editor = useHexEditor(area);
@@ -391,7 +398,10 @@ function AreaView({ area }: { area: Area }) {
               label="Kleiner"
               size="sm"
               disabled={zoom === 0}
-              onClick={() => setZoom((z) => Math.max(0, z - 1))}
+              onClick={() => {
+                zoomedByHand.current = true;
+                setZoom((z) => Math.max(0, z - 1));
+              }}
             >
               <Minus />
             </IconButton>
@@ -399,7 +409,10 @@ function AreaView({ area }: { area: Area }) {
               label="Größer"
               size="sm"
               disabled={zoom === SIZES.length - 1}
-              onClick={() => setZoom((z) => Math.min(SIZES.length - 1, z + 1))}
+              onClick={() => {
+                zoomedByHand.current = true;
+                setZoom((z) => Math.min(SIZES.length - 1, z + 1));
+              }}
             >
               <Plus />
             </IconButton>
@@ -449,7 +462,7 @@ function AreaView({ area }: { area: Area }) {
             <aside className="wf-erk-prep__rail" aria-label="Werkzeuge">
               <HexToolRail editor={editor} />
             </aside>
-            <div className="wf-erk-map">
+            <div className="wf-erk-map" ref={mapRef}>
               <HexMap
                 area={area}
                 data={data}
@@ -473,7 +486,7 @@ function AreaView({ area }: { area: Area }) {
             </div>
           </div>
         ) : (
-          <div className="wf-erk-map">
+          <div className="wf-erk-map" ref={mapRef}>
             <HexMap
               area={area}
               data={data}

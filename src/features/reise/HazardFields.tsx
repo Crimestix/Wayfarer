@@ -4,7 +4,7 @@
  * (`hazardLine`); geprobt wird am Tisch.
  */
 import { HAZARD_KINDS, type Hazard, type HazardKind } from '../../domain/schema';
-import { HAZARD_CHECK, HAZARD_LABEL, fallDice } from '../../domain/travelRules';
+import { HAZARD_CHECK, HAZARD_LABEL, fallDice, hazardLine } from '../../domain/travelRules';
 import { Input, Select } from '../../ui';
 
 const NONE = '';
@@ -70,6 +70,8 @@ export function HazardFields({
             aria-label="Gefahr in eigenen Worten"
             onBlur={(e) => set({ text: e.target.value.trim() })}
           />
+          {/* So steht es nachher am Halt – fertig gerechnet. */}
+          <p className="wf-reise-hazard__line">Am Halt: {hazardLine(value)}</p>
         </>
       )}
     </div>

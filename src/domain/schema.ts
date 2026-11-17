@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 31;
-export const DATA_SHAPE = '5d231fbb0f3cd4bb';
+export const DATA_VERSION = 32;
+export const DATA_SHAPE = '3612cd7487237b33';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2487,6 +2487,11 @@ export const JourneySchema = z.object({
   lostHeading: z.number().int().min(0).max(5).nullable().optional(),
   /** Der letzte Kalendertag, an dem Hunger und Durst geprüft wurden. */
   fedDay: z.number().int().nullable().optional(),
+  /**
+   * Was zu Beginn eines Abschnitts schon gehalten hat („0:prepared“, „0:hazard“) – damit
+   * Vorbereitetes und eine Gefahr am Weg genau einmal halten, auch nach „Zur Kenntnis“.
+   */
+  legSeen: z.array(z.string()).optional(),
   /** Gereiste Stücke mitten auf einem Abschnitt – für den Gewaltmarsch (`domain/march.ts`). */
   steps: z.array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() })).default([]),
   /** Vorräte beim Aufbruch in Tagen – nur ein Hinweis, abgezogen wird nichts. null = nicht gezählt. */

@@ -110,9 +110,11 @@ export function ClimateRow({ place }: { place: Place }) {
         <span>Klima</span>
         <Select value={value} onChange={(e) => choose(e.target.value)}>
           <option value="">
-            {zone.source === 'chosen' && !own && !preset
-              ? zone.climate.name
-              : `erkannt: ${zone.climate.name}`}
+            {own || preset
+              ? 'Wayfarer erkennt es'
+              : zone.source === 'chosen'
+                ? zone.climate.name
+                : `erkannt: ${zone.climate.name}`}
           </option>
           {CLIMATE_PRESETS.map((entry) => (
             <option key={entry} value={entry}>
@@ -150,7 +152,7 @@ export function ClimateRow({ place }: { place: Place }) {
                   <td key={field}>
                     <Input
                       key={`${own.id}-${index}-${field}-${month[field]}`}
-                      defaultValue={String(month[field])}
+                      defaultValue={String(Math.round(month[field] * 10) / 10).replace('.', ',')}
                       inputMode="decimal"
                       aria-label={`${months[index]?.name ?? index + 1}: ${field}`}
                       onBlur={(e) => {

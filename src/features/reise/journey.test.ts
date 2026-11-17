@@ -26,7 +26,7 @@ import {
 import { sameHex, type HexCoord } from '../../domain/hex';
 import { placeSuggestions, placeWorldPlaces } from '../erkundung/actions';
 import { seenFrom, sightRadius } from '../erkundung/travel';
-import { campCheck, endJourney, getLost, startJourney, travelOn } from './actions';
+import { campCheck, clearHalt, endJourney, getLost, startJourney, travelOn } from './actions';
 import { hexMapForWay, withHexes } from './hexway';
 
 /** Ein Würfel, der der Reihe nach die gegebenen Zahlen zeigt (danach 1). */
@@ -106,6 +106,32 @@ describe('Unterwegs', () => {
     expect(journeyUnderway(data())!.progress).toMatchObject({ leg: 0, minutes: 540 });
   });
 
+  it('hält an Gefahr und Vorbereitetem am Weg genau einmal – auch nach „Zur Kenntnis“', async () => {
+    const { db, data, start, grotto, goal } = await setup();
+    const way = Object.values(data().paths).find(
+      (path) => path.fromId === start.id && path.toId === grotto.id,
+    )!;
+    db.patch('paths', way.id, {
+      onTheWay: 'Ein umgestürzter Karren',
+      hazard: { kind: 'slope', dc: 13, fallFeet: 40, text: '' },
+    });
+    const plan = planJourney(data(), data().state.placeId!, goal.id)!;
+    startJourney(db, { toId: goal.id, plan, food: 10, water: 10 });
+
+    expect(travelOn(db, dice())!.halt).toMatchObject({ kind: 'prepared', minutes: 0 });
+    clearHalt(db);
+    const hazard = travelOn(db, dice())!.halt;
+    expect(hazard).toMatchObject({ kind: 'hazard', minutes: 0 });
+    expect(hazard.text).toContain('SG 13');
+    expect(hazard.text).toContain('4W6');
+    // „Zur Kenntnis“ nimmt den Halt weg – danach geht es voran, nicht wieder an dieselbe Stelle.
+    clearHalt(db);
+    const on = travelOn(db, dice())!.halt;
+    expect(on.kind).not.toBe('hazard');
+    expect(on.kind).not.toBe('prepared');
+    expect(on.minutes).toBeGreaterThan(0);
+  });
+
   it('hält bei einer Begegnung aus der Tabelle der Gegend', async () => {
     const { db, data, wide, goal } = await setup();
     db.put(
@@ -141,6 +167,34 @@ describe('Unterwegs', () => {
     // Die Nachtprüfung im Lager würfelt einmal.
     expect(campCheck(db, dice(3))).toBeNull();
     expect(campCheck(db, dice(20, 8))).toMatchObject({ text: 'Ein hungriger Wurm' });
+  });
+
+  it('verliert keine Prüfung, die auf die Minute eines anderen Halts fällt', async () => {
+    const { db, data, wide, goal } = await setup();
+    db.put(
+      'tables',
+      createRollTable({
+        name: 'Begegnungen in der Dunkelweite',
+        kind: 'encounter',
+        placeId: wide.id,
+        die: 8,
+        dc: 15,
+        entries: [{ id: 'a', min: 1, max: 8, text: 'Eine Grauzwerg-Streife', refs: [] }],
+      }),
+    );
+    const plan = planJourney(data(), data().state.placeId!, goal.id)!;
+    startJourney(db, { toId: goal.id, plan });
+    // Nach vier Stunden geprüft (W20 = 3: nichts), die Prüfung nach acht Stunden fällt auf die Rast.
+    const rest = travelOn(db, dice(3))!;
+    expect(rest.halt).toMatchObject({ kind: 'rest', minutes: 480, quietChecks: 1 });
+    expect(journeyUnderway(data())!.sinceCheck).toBe(240);
+    // Weiter: Die fällige Prüfung kommt zuerst – ohne dass Zeit vergeht (W20 = 18: Begegnung).
+    const met = travelOn(db, dice(18, 1))!;
+    expect(met.halt).toMatchObject({ kind: 'encounter', minutes: 0 });
+    expect(journeyUnderway(data())!.sinceCheck).toBe(0);
+    // Danach wieder der gewohnte Gang: Gewaltmarsch in der neunten Stunde.
+    expect(travelOn(db, dice())!.halt).toMatchObject({ kind: 'march', minutes: 60 });
+    expect(journeyUnderway(data())!.sinceCheck).toBe(60);
   });
 
   it('macht aus einem Wesen der Tabelle gleich eine Begegnung mit Anzahl', async () => {

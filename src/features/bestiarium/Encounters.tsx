@@ -5,9 +5,10 @@
  */
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
-import { BookCheck, Minus, Plus, RotateCcw, Swords, Trash2, X } from 'lucide-react';
+import { BookCheck, Footprints, Minus, Plus, RotateCcw, Swords, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { DIFFICULTY_LABEL, encounterView, type FoeView } from '../../domain/creature';
+import { journeyUnderway } from '../../domain/journey';
 import { fielded, lossPlan, stockView } from '../../domain/stock';
 import {
   Button,
@@ -189,6 +190,17 @@ export default function EncountersPage() {
                 />
               </div>
               <span className="wf-grow" />
+              {/* Aus dem Halt einer Reise geöffnet: mit einem Klick zurück an den Spieltisch. */}
+              {journeyUnderway(data)?.halt?.encounterId === encounter.id && (
+                <Button
+                  size="sm"
+                  icon={<Footprints aria-hidden />}
+                  title="Die Reise wartet am Spieltisch an diesem Halt"
+                  onClick={() => navigate('/')}
+                >
+                  Zurück zur Reise
+                </Button>
+              )}
               {losses > 0 && (
                 <Button
                   size="sm"

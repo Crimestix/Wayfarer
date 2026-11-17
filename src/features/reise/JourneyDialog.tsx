@@ -59,6 +59,8 @@ export function JourneyDialog({
         ? farValue * DAY_KM[pace]
         : (farValue * DAY_KM[pace]) / TRAVEL_HOURS;
   const minutes = typedKm === null ? 0 : Math.round((typedKm / DAY_KM[pace]) * TRAVEL_HOURS * 60);
+  /** Reisetage zu je acht Stunden – so viele Tage Vorräte braucht die Strecke mindestens. */
+  const travelDays = Math.ceil((plan?.minutes || 0 || minutes) / (TRAVEL_HOURS * 60));
   /** Eine Strecke ohne Weg bekommt auf Wunsch einen Weg mit Hexkarte (Gelände dazwischen). */
   const [hexes, setHexes] = useState(true);
   const freeKm = plan?.free ? (plan.legs[0]?.distanceKm ?? typedKm) : null;
@@ -138,7 +140,9 @@ export function JourneyDialog({
                   <b>{name(leg.toId)}</b>
                   <em>
                     {leg.minutes > 0 ? formatWayTime(leg.minutes) : 'Dauer offen'}
-                    {leg.distanceKm ? ` · ${leg.distanceKm} km` : ''}
+                    {leg.distanceKm
+                      ? ` · ${Math.round(leg.distanceKm / KM_PER_MILE)} Meilen (${Math.round(leg.distanceKm)} km)`
+                      : ''}
                     {leg.ground ? ` · ${leg.ground}` : ''}
                     {leg.slow ? ' · schwer zu durchqueren' : ''}
                     {leg.hexes.length ? ` · Feld für Feld (${leg.hexes.length} Felder)` : ''}
@@ -147,7 +151,10 @@ export function JourneyDialog({
               ))}
             </ol>
             {plan.minutes > 0 && (
-              <span>Zusammen etwa {formatWayTime(plan.minutes)} Reisezeit.</span>
+              <span>
+                Zusammen etwa {formatWayTime(plan.minutes)} Reisezeit
+                {travelDays > 1 ? ` – ${travelDays} Reisetage zu je ${TRAVEL_HOURS} Stunden` : ''}.
+              </span>
             )}
             {/* Gelände kommt aus der Gegend, aus der Hexkarte des Weges oder aus seiner Karte. */}
             {!plan.legs.some(
@@ -227,11 +234,8 @@ export function JourneyDialog({
             ))}
           </div>
         </Field>
-        <div className="wf-row wf-reise-dialog__supplies">
-          <Field
-            label="Proviant (Tage)"
-            hint="Für die ganze Gruppe. Je Tag geht einer weg; reicht es nicht, kommen Hunger und Durst nach den Regeln."
-          >
+        <div className="wf-reise-dialog__supplies">
+          <Field label="Proviant (Tage)">
             <Input
               value={food}
               inputMode="decimal"
@@ -247,6 +251,14 @@ export function JourneyDialog({
               onChange={(e) => setWater(e.target.value)}
             />
           </Field>
+          <p className="wf-field__hint">
+            Für die ganze Gruppe
+            {travelDays > 0
+              ? ` – diese Reise dauert ${travelDays === 1 ? 'einen Tag' : `${travelDays} Tage`}`
+              : ''}
+            . Je Tag geht einer weg; reicht es nicht, kommen Hunger und Durst nach den Regeln. Leer:
+            Wayfarer zählt nicht mit.
+          </p>
         </div>
       </div>
     </Dialog>
