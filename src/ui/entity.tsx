@@ -1,6 +1,7 @@
 /** Bausteine, die Einträge der Weltdatenbank darstellen und auswählen. */
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
+import { openSheet, sheetOpensAt } from './sideSheet';
 import {
   Castle,
   Dna,
@@ -101,6 +102,7 @@ export function Portrait({
 /** Verweis auf einen Eintrag; führt zu seiner Seite. Kennt auch „Die Gruppe“. */
 export function EntityLink({ id, icon = true }: { id: string | null | undefined; icon?: boolean }) {
   const data = useData();
+  const [location] = useLocation();
   if (!id) return null;
   if (id === PARTY_ID)
     return (
@@ -112,8 +114,19 @@ export function EntityLink({ id, icon = true }: { id: string | null | undefined;
   const entity = data.entities[id];
   if (!entity)
     return <span className="wf-entity-link wf-entity-link--gone">Gelöschter Eintrag</span>;
+  // Außerhalb der Welt öffnet ein Name seine Seite im Seitenblatt – die eigene Seite bleibt offen.
+  // Mit gedrückter Strg- oder Befehlstaste geht es wie bisher auf die ganze Seite.
+  const inSheet = entity.kind !== 'character' && sheetOpensAt(location);
   return (
-    <Link href={entityHref(entity)} className="wf-entity-link">
+    <Link
+      href={entityHref(entity)}
+      className="wf-entity-link"
+      onClick={(event) => {
+        if (!inSheet || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        openSheet(entity.id);
+      }}
+    >
       {icon && <KindIcon kind={entity.kind} />}
       {entity.name}
     </Link>

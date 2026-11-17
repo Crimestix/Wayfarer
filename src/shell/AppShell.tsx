@@ -59,6 +59,7 @@ import {
 import { AreaTabs } from './AreaTabs';
 import TischPage from '../features/tisch';
 import WeltPage, { WikiRoute } from '../features/welt';
+import { SideSheet } from '../features/welt/SideSheet';
 import { Button, ConfirmHost, IconButton, MenuItem, MoonGlyph, Popover, Toaster } from '../ui';
 import { openMoveParty, openQuickLog, openRest, openSearch, openTimeDialog } from './commands';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -441,6 +442,7 @@ export function AppShell() {
           </Switch>
         </ErrorBoundary>
       </main>
+      <SideSheet />
       <ShellDialogs />
       <LkNameSync />
       <TwinSync />

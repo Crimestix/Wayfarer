@@ -679,3 +679,82 @@
   background: var(--line);
   content: '';
 }
+
+/* ── Seitenblatt: eine Seite daneben, ohne die eigene zu verlassen ────────── */
+.wf-sidesheet {
+  position: fixed;
+  top: var(--bar-height);
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  width: min(660px, 50vw);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line-strong);
+  background:
+    linear-gradient(180deg, rgba(33, 27, 23, 0.95), rgba(18, 15, 13, 0.98)),
+    url('../ui/assets/tex-leder.webp') 0 0 / 460px,
+    #14110f;
+  box-shadow: var(--shadow-float);
+  animation: wf-sidesheet-in 0.16s var(--ease);
+}
+@keyframes wf-sidesheet-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+.wf-sidesheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-sidesheet__back,
+.wf-sidesheet__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  font-family: var(--font-caps);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-sidesheet__back {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+.wf-sidesheet__back:hover {
+  color: var(--gold);
+}
+.wf-sidesheet__back svg,
+.wf-sidesheet__kind svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.wf-sidesheet__tools {
+  margin-left: auto;
+  display: flex;
+  gap: var(--s-1);
+}
+.wf-sidesheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  container-type: inline-size;
+}
+/* Schmal: die Seite in einer Spalte, das „Jetzt“ unter dem Text. */
+@container (max-width: 720px) {
+  .wf-sidesheet__body .wf-welt-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wf-sidesheet__body .wf-welt-dossier {
+    padding: var(--s-4) var(--s-4) var(--s-6);
+  }
+}

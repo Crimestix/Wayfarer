@@ -93,7 +93,14 @@ import { Schemes } from './Schemes';
 import { finishStub } from './writing';
 import { isUnmetPerson } from '../../domain/known';
 
-export function Dossier({ entity }: { entity: WorldEntity }) {
+export function Dossier({
+  entity,
+  inSheet = false,
+}: {
+  entity: WorldEntity;
+  /** Im Seitenblatt: Die Seite daneben hat ihren eigenen Hauptknopf – hier trägt keiner Messing. */
+  inSheet?: boolean;
+}) {
   const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
@@ -370,7 +377,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
         </div>
         <div className="wf-welt-hero__actions">
           <Button
-            variant={shopLead ? 'default' : 'primary'}
+            variant={shopLead || inSheet ? 'default' : 'primary'}
             icon={<Feather />}
             onClick={log}
             title="Etwas zu diesem Eintrag festhalten"

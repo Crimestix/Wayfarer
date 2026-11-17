@@ -94,6 +94,8 @@ import {
   Tabs,
   TextArea,
   entityHref,
+  openSheet,
+  sheetOpensAt,
   toast,
 } from '../ui';
 import {
@@ -1321,6 +1323,8 @@ interface SearchHit {
   focus?: Focus;
   /** Ein Handgriff statt einer Seite (`handgrips.ts`). */
   run?: GripRun;
+  /** Ein Eintrag der Welt: Außerhalb der Welt öffnet er sich im Seitenblatt. */
+  sheetId?: string;
 }
 
 const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
@@ -1368,6 +1372,7 @@ function searchHits(data: CampaignData, query: string): SearchHit[] {
     label: hit.label,
     sub: hit.sub,
     href: hit.entity ? entityHref(hit.entity) : hit.href,
+    sheetId: hit.entity && hit.entity.kind !== 'character' ? hit.entity.id : undefined,
     icon: hit.entity ? (
       <KindIcon kind={hit.entity.kind} />
     ) : hit.mountKind ? (
@@ -1429,7 +1434,7 @@ function runGrip(db: CampaignDb, run: GripRun, navigate: (to: string) => void): 
 function SearchDialog() {
   const db = useDb();
   const data = useData();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const hits = useMemo(() => searchHits(data, query), [data, query]);
@@ -1440,6 +1445,12 @@ function SearchDialog() {
       // Erst die Suche schließen: Der Handgriff öffnet oft selbst ein Fenster.
       closeShellRequest();
       runGrip(db, hit.run, navigate);
+      return;
+    }
+    if (hit.sheetId && sheetOpensAt(location)) {
+      // Nachsehen, ohne die Seite zu verlassen: am Spieltisch bleibt der Spieltisch offen.
+      closeShellRequest();
+      openSheet(hit.sheetId);
       return;
     }
     focusOn(hit.focus ?? null);
