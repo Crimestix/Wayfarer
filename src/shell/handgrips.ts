@@ -174,13 +174,6 @@ export const HANDGRIPS: readonly Handgrip[] = [
     run: { type: 'page', href: '/erkundung' },
   },
   {
-    key: 'draw',
-    label: 'Karte zeichnen',
-    home: 'Welt · Karten',
-    words: ['Karte', 'zeichnen', 'Dungeon', 'Plan'],
-    run: { type: 'page', href: '/karten' },
-  },
-  {
     key: 'net',
     label: 'Wegenetz vorbereiten',
     home: 'Fadenbrett · Wegenetze',

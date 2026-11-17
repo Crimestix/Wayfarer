@@ -12,7 +12,6 @@ import {
   Hexagon,
   Landmark,
   Skull,
-  Map as MapIcon,
   NotebookPen,
   Pin,
   Orbit,
@@ -92,7 +91,9 @@ export const STORY_TABS: readonly AreaTab[] = [
 export const WORLD_TABS: readonly AreaTab[] = [
   { path: '/welt', label: 'Welt', hint: 'Orte, Personen, Artikel', icon: Landmark },
   { path: '/atlas', label: 'Weltkarte', hint: 'Der ganze Planet und wo alles liegt', icon: Globe },
-  { path: '/karten', label: 'Karten', hint: 'Zeichnen und ansehen', icon: MapIcon },
+  // „Karten“ (der Zeichen-Editor) ist vorerst verworfen (Spielleiter, 17. 11. 2026: „Wir werden
+  // nur noch Hexkarten machen“). Die Seite bleibt unter ihrer Adresse erreichbar, steht aber
+  // nicht mehr in der Navigation; gezeichnete Karten und ihre Wege bleiben im Spielstand.
   { path: '/erkundung', label: 'Hexkarten', hint: 'Erkundung und Reisen', icon: Hexagon },
 ];
 

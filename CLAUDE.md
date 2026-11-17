@@ -98,8 +98,9 @@ nicht übernommen.
   (Worldbuilding); abgesetzt darunter, was sie füttert: Gefährten, Zeit, Bestiarium. Verwandte
   Seiten stehen als Reiter unter einem Eintrag (`shell/AreaTabs`), die Adressen bleiben:
   „Spieltisch“ = Spieltisch, Abend vorbereiten, Chronik, Noch offen, Handouts; „Fadenbrett“ =
-  Fadenbrett und Wegenetze; „Welt“ = Welt, Weltkarte (`atlas`), Karten (`karten`), Hexkarten
-  (`erkundung`); „Gefährten“ = Gefährten, Beute-Buch, Fortschritt, Bastion, Spielerbuch; „Zeit“ =
+  Fadenbrett und Wegenetze; „Welt“ = Welt, Weltkarte (`atlas`), Hexkarten (`erkundung`) – der
+  Zeichen-Editor „Karten“ (`karten`) ist vorerst verworfen (17. 11. 2026: „nur noch Hexkarten“;
+  Adresse und Daten bleiben, kein Eintrag in der Navigation); „Gefährten“ = Gefährten, Beute-Buch, Fortschritt, Bastion, Spielerbuch; „Zeit“ =
   Kalender, Zeitleiste, Weltgeschehen, Nachtragen (dazu ohne Reiter „Welt an einem Tag“,
   `/damals`); „Bestiarium“ = Wesen, Begegnungen, Bestände. „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“, „Netz“ und „Noch zu
