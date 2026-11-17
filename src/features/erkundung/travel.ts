@@ -24,6 +24,7 @@ import {
 import { carries, ignoresGround, meansKmh, partyMeans } from '../../domain/mounts';
 import { rngOf, seedOf } from '../../domain/random';
 import { sensesAt, type Sense } from '../../domain/senses';
+import { markSighted, newSightings, type Sighting } from '../../domain/afar';
 import type { Area, CampaignData, Hex, Mount, Pace, RollTable, Terrain } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { dayIndexOf } from '../../domain/time/calendar';
@@ -261,6 +262,8 @@ export interface TravelStep {
   encounters: Encounter[];
   /** Witterung: was die Gruppe von den Feldern ringsum bemerkt (`sensesAt`). */
   senses: Sense[];
+  /** Was mit diesem Schritt zum ersten Mal in der Ferne auftauchte (`domain/afar.ts`). */
+  sighted: Sighting[];
 }
 
 /**
@@ -297,10 +300,13 @@ export function planStep(
     revealed++;
     return { ...hex, discovered: true };
   });
+  // Was von hier aus zum ersten Mal in der Ferne auftaucht.
+  const sighted = newSightings({ hexes }, [to]);
+  const marked = markSighted(hexes, [to]);
   const trail = [...party.trail, { q: party.q, r: party.r, level: party.level }].slice(-400);
   const moved: Area = {
     ...area,
-    hexes,
+    hexes: marked,
     party: {
       ...party,
       q: to.q,
@@ -326,6 +332,47 @@ export function planStep(
     arrivedAt: target.placeId && data.entities[target.placeId] ? target.placeId : null,
     encounters: rollEncounters(data, area, target, arrival),
     senses: sensesAt(data, moved, target, party),
+    sighted,
+  };
+}
+
+/**
+ * Wie lange es dauert, ein Feld zu durchsuchen: so lange, wie es zu Fuß im normalen Tempo zu
+ * durchqueren (`stepMinutes` – Gelände, Straße, langsame Gegend). Ein Feld voll Wasser lässt sich
+ * nicht durchsuchen (null).
+ */
+export function searchMinutes(
+  data: CampaignData,
+  area: Pick<Area, 'hexKm'>,
+  hex: Pick<Hex, 'terrain' | 'road' | 'regionId'>,
+): number | null {
+  if (hex.terrain === 'water') return null;
+  return stepMinutes(data, area, { ...hex, road: 'none' }, 'normal');
+}
+
+export interface SearchPlan {
+  hex: Hex;
+  minutes: number;
+  /** Was verborgen lag – null, wenn dort nichts ist (die Spieler erfahren nur: nichts gefunden). */
+  found: string | null;
+  /** Begegnungen während der Suche: einmal auf den Tabellen des Feldes gewürfelt. */
+  encounters: Encounter[];
+}
+
+/**
+ * Die Gruppe durchsucht ihr Feld, beginnend zur Weltzeit `now`. Ändert nichts – geschrieben wird
+ * über `searchHex` (`actions.ts`).
+ */
+export function planSearch(data: CampaignData, area: Area, now: number): SearchPlan | null {
+  const hex = partyHex(area);
+  if (!hex) return null;
+  const minutes = searchMinutes(data, area, hex);
+  if (minutes === null) return null;
+  return {
+    hex,
+    minutes,
+    found: hex.hidden.trim() || null,
+    encounters: rollEncounters(data, area, hex, now + minutes),
   };
 }
 

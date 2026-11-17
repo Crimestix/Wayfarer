@@ -3,7 +3,18 @@ import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { Dices, Eye, EyeOff, Footprints, Hexagon, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  Dices,
+  Eye,
+  EyeOff,
+  Footprints,
+  Hexagon,
+  Minus,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { byName, entityName } from '../../domain/derive';
 import { hexCenter, hexDistance, sameHex, type HexCoord } from '../../domain/hex';
@@ -18,6 +29,7 @@ import {
   passagesFrom,
 } from '../../domain/passages';
 import { senseLine, sensesAt } from '../../domain/senses';
+import { afarFrom, sightingLine } from '../../domain/afar';
 import { PACES, TERRAINS, type Area, type Terrain } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
 import { formatDuration } from '../../domain/time/calendar';
@@ -44,6 +56,7 @@ import {
   rerollArea,
   setAllDiscovered,
   travelTo,
+  searchHex,
   type TravelResult,
 } from './actions';
 import { CreateDialog } from './CreateDialog';
@@ -51,7 +64,14 @@ import { SIX_MILES_KM, terrainShares } from './generate';
 import { HexMap } from './HexMap';
 import { HexToolbar, useHexEditor } from './HexEditor';
 import { partyMeans } from '../../domain/mounts';
-import { STEP_PROBLEM, hexMinutes, hexOfPlace, routeTo, stepProblem } from './travel';
+import {
+  STEP_PROBLEM,
+  hexMinutes,
+  hexOfPlace,
+  routeTo,
+  searchMinutes,
+  stepProblem,
+} from './travel';
 import { TravelPanel } from './TravelPanel';
 import './erkundung.css';
 
@@ -210,6 +230,24 @@ function AreaView({ area }: { area: Area }) {
         )
       : [];
   const senses = partyHere && hex ? sensesAt(data, area, hex) : [];
+  const far = partyHere && hex ? afarFrom(area, hex) : [];
+  const searchTime = partyHere && hex ? searchMinutes(data, area, hex) : null;
+  const search = () => {
+    const result = searchHex(db, area.id);
+    if (!result) return;
+    setLast(null);
+    toast({
+      title: result.search.found ? 'Beim Durchsuchen gefunden' : 'Nichts gefunden',
+      body: [
+        `${formatDuration(result.search.minutes)} gesucht.`,
+        result.search.found ?? '',
+        ...result.search.encounters.map((e) => `Dabei: ${e.text}`),
+      ]
+        .filter(Boolean)
+        .join(' '),
+      action: { label: 'Rückgängig', run: result.undo },
+    });
+  };
 
   const reroll = async () => {
     const ok = await confirmDialog({
@@ -406,6 +444,24 @@ function AreaView({ area }: { area: Area }) {
                       ))}
                     </div>
                   )}
+                  {far.length > 0 && (
+                    <div className="wf-erk-senses">
+                      <span className="wf-caps">In der Ferne</span>
+                      {far.map((sight) => (
+                        <p key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</p>
+                      ))}
+                    </div>
+                  )}
+                  {searchTime !== null && (
+                    <Button
+                      icon={<Search />}
+                      onClick={search}
+                      title="Die Gruppe sucht das Feld ab – es dauert so lange wie das Durchqueren, und einmal wird auf Begegnungen gewürfelt"
+                    >
+                      {hex.searched ? 'Noch einmal durchsuchen' : 'Durchsuchen'} ·{' '}
+                      {formatDuration(searchTime)}
+                    </Button>
+                  )}
                 </>
               ) : hex && isRock(hex) ? (
                 <p className="wf-erk-detail__where">Fels – hier führt kein Gang hindurch.</p>
@@ -444,6 +500,12 @@ function AreaView({ area }: { area: Area }) {
               >
                 Von der Gruppe entdeckt
               </Checkbox>
+              <Checkbox
+                checked={hex.searched}
+                onChange={(searched) => patchHex(db, area.id, hex, { searched })}
+              >
+                Von der Gruppe durchsucht
+              </Checkbox>
               <Field label="Gelände">
                 <Select
                   value={hex.terrain ?? ''}
@@ -460,6 +522,18 @@ function AreaView({ area }: { area: Area }) {
                   ))}
                 </Select>
               </Field>
+              {hex.exits === null && (
+                <Field
+                  label="Von fern zu sehen"
+                  hint="Was man aus mehreren Feldern Entfernung sieht – ein Turm, eine Rauchsäule, kreisende Geier. Die Reise hält, sobald es in Sicht kommt."
+                >
+                  <Input
+                    key={`${hex.q},${hex.r},${hex.level},a`}
+                    defaultValue={hex.afar}
+                    onBlur={(e) => patchHex(db, area.id, hex, { afar: e.target.value.trim() })}
+                  />
+                </Field>
+              )}
               <Field
                 label="Woran man es von nebenan merkt"
                 hint="Steht bei der Gruppe, sobald sie auf einem Nachbarfeld mit Gang hierher steht – etwa „Schwefelgeruch“."
@@ -494,6 +568,17 @@ function AreaView({ area }: { area: Area }) {
                   defaultValue={hex.prepared}
                   onBlur={(e) => patchHex(db, area.id, hex, { prepared: e.target.value.trim() })}
                   style={{ minHeight: 64 }}
+                />
+              </Field>
+              <Field
+                label="Verborgen"
+                hint="Findet die Gruppe nur, wenn sie das Feld durchsucht. Nicht jedes Feld braucht etwas."
+              >
+                <TextArea
+                  key={`${hex.q},${hex.r},${hex.level},h`}
+                  defaultValue={hex.hidden}
+                  onBlur={(e) => patchHex(db, area.id, hex, { hidden: e.target.value.trim() })}
+                  style={{ minHeight: 48 }}
                 />
               </Field>
               <Field label="Notiz">

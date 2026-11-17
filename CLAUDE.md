@@ -352,8 +352,18 @@ nicht übernommen.
   (`hex.manual`, Gegend, Straße, Vorbereitetes, Notiz, angefügte Felder), behält `rerollArea`.
   Schrittzeiten rechnet `stepMinutes`: auf Straße oder Pfad im Tempo offenen Landes, in einer
   langsamen Gegend doppelt – auf der Hexkarte wie Unterwegs.
-  **Die Hexkarte wird simuliert, nicht gedruckt** (Entscheidung 17. 11.: kein Schlüssel, keine
-  Feldnummern). Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
+  **Die Hexkarte wird simuliert, nicht gedruckt** (Entscheidung 17. 11.: keine Feldnummern, kein
+  gedruckter Schlüssel – der Schlüssel steht am Feld). **Drei Schichten je Feld** (Wunsch 17. 11.:
+  „Wie machen wir die Hexkarte interessant für die Spieler?“ – „nicht jedes Hex darf mit allem
+  voll sein“, `domain/afar.ts`): **von fern** (`hex.afar`, nur oben; Reichweite nach dem Feld der
+  Gruppe `AFAR_RANGE`: Berge sechs, Hügel vier, offenes Land drei, Wald und Sumpf eins; gesehen
+  über `afarFrom`, einmal gemerkt in `hex.sighted` – `newSightings`/`markSighted` beim Schritt,
+  in `placeParty` und `syncArea`; Halt `sighted` „In Sicht“ mit Himmelsrichtung `bearing`),
+  **beim Betreten** (Besonderheit, Ort, Vorbereitetes, Witterung) und **beim Durchsuchen**
+  (`hex.hidden`, `hex.searched`): Durchsuchen dauert so lange wie das Durchqueren zu Fuß
+  (`searchMinutes`), auf der Hexkarte über `searchHex` (Begegnungen über `rollEncounters`),
+  unterwegs über `searchOnJourney` (eine Prüfung auf den Begegnungen der Gegend, die Reise kommt
+  nicht voran, Halt `search`); Gefundenes steht in der Chronik. Leere Felder sind gewollt. Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
   `river`). Orientierung abseits von Wegen (freie Strecke oder Feld ohne Straße): einmal am Tag
   ein Halt `navigate` (`navigationAt`, SG der Gegend `place.navDc` – leer = Vorschlag nach
   Gelände `SUGGESTED_NAV_DC`, 0 = nie); „Verirrt“ würfelt den Umweg (`getLost`, 1W6 Stunden),

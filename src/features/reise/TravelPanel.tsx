@@ -5,12 +5,15 @@
  * (`travelOn`). Die Rechnung steht in `domain/journey.ts`.
  */
 import { useMemo } from 'react';
-import { Check, Flag, MapPin, Tent } from 'lucide-react';
+import { Check, Flag, MapPin, Search, Tent } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
 import { HALT_LABEL, journeyView, type JourneyView } from '../../domain/journey';
+import { afarFrom, sightingLine } from '../../domain/afar';
+import { sameHex } from '../../domain/hex';
 import { sensesAt } from '../../domain/senses';
+import { searchMinutes } from '../erkundung/travel';
 import { hexAtProgress } from './hexway';
 import { TRAVEL_HOURS, forcedMarch, marchRule } from '../../domain/march';
 import type { Journey } from '../../domain/schema';
@@ -19,7 +22,7 @@ import { formatWayTime } from '../../domain/ways';
 import { openQuickLog, openRest } from '../../shell/commands';
 import { Button, Panel, cx, toast } from '../../ui';
 import { fairDie } from '../bestiarium/model';
-import { campCheck, clearHalt, endJourney, getLost, travelOn } from './actions';
+import { campCheck, clearHalt, endJourney, getLost, searchOnJourney, travelOn } from './actions';
 import './reise.css';
 
 export function TravelPanel({ journey }: { journey: Journey }) {
@@ -37,8 +40,12 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   const halt = journey.halt;
   // Witterung: was die Gruppe vom Feld, auf dem sie steht, ringsum bemerkt.
   const spot = hexAtProgress(journey);
-  const senses =
-    spot && data.areas[spot.areaId] ? sensesAt(data, data.areas[spot.areaId]!, spot.hex) : [];
+  const area = spot ? data.areas[spot.areaId] : undefined;
+  const senses = spot && area ? sensesAt(data, area, spot.hex) : [];
+  // Was von hier aus in der Ferne zu sehen ist, und das Feld selbst (zum Durchsuchen).
+  const far = spot && area ? afarFrom(area, spot.hex) : [];
+  const hexHere = spot && area ? area.hexes.find((hex) => sameHex(hex, spot.hex)) : undefined;
+  const searchTime = hexHere && area ? searchMinutes(data, area, hexHere) : null;
 
   const go = (limit: number | null) => {
     const result = travelOn(db, fairDie, limit);
@@ -75,6 +82,22 @@ export function TravelPanel({ journey }: { journey: Journey }) {
       body: found ? found.text : 'Die Prüfung im Lager ergab nichts.',
     });
     openRest('long');
+  };
+  const search = () => {
+    const result = searchOnJourney(db, fairDie);
+    if (!result) return;
+    toast({
+      slot: 'reise',
+      title: result.found ? 'Beim Durchsuchen gefunden' : 'Nichts gefunden',
+      body: [
+        `${formatWayTime(result.minutes)} gesucht.`,
+        result.found ?? '',
+        result.encounter ? `Dabei: ${result.encounter.text}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      action: { label: 'Rückgängig', run: result.undo },
+    });
   };
   const end = () => {
     const undo = endJourney(db, false);
@@ -198,6 +221,8 @@ export function TravelPanel({ journey }: { journey: Journey }) {
               halt.kind === 'discovery' ||
               halt.kind === 'prepared' ||
               halt.kind === 'passage' ||
+              halt.kind === 'sighted' ||
+              halt.kind === 'search' ||
               halt.kind === 'river') && (
               <Button
                 size="sm"
@@ -228,6 +253,23 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </div>
       )}
 
+      {far.length > 0 && (
+        <div className="wf-reise__senses" aria-label="In der Ferne">
+          <span className="wf-caps">In der Ferne</span>
+          <ul>
+            {far.map((sight) => (
+              <li key={`${sight.hex.q},${sight.hex.r}`}>{sightingLine(sight)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hexHere?.hidden.trim() && !hexHere.searched && (
+        <p className="wf-reise__senses">
+          <em>Nur für dich – verborgen auf diesem Feld: {hexHere.hidden.trim()}</em>
+        </p>
+      )}
+
       <div className="wf-reise__acts">
         <Button
           className="wf-reise__go"
@@ -242,9 +284,20 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         <Button size="sm" icon={<Tent />} onClick={camp} title="Nachtprüfung, dann die Rast">
           Lager aufschlagen
         </Button>
+        {searchTime !== null && (
+          <Button
+            size="sm"
+            icon={<Search />}
+            onClick={search}
+            title="Die Gruppe sucht das Feld ab: dauert so lange wie das Durchqueren, die Reise kommt nicht voran, eine Begegnungsprüfung"
+          >
+            Durchsuchen ({formatWayTime(searchTime)})
+          </Button>
+        )}
       </div>
       <p className="wf-reise__hint">
-        Hält an bei: Ort am Weg · Vorbereitetem · Begegnung · Termin · Licht aus · acht Stunden
+        Hält an bei: Ort am Weg · Vorbereitetem · Begegnung · etwas in Sicht · Termin · Licht aus ·
+        acht Stunden
       </p>
     </Panel>
   );

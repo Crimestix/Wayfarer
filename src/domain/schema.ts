@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 24;
-export const DATA_SHAPE = '8958f57758e31331';
+export const DATA_VERSION = 25;
+export const DATA_SHAPE = 'e4e0f2715802c399';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2331,6 +2331,8 @@ export const HALT_KINDS = [
   'feature',
   'river',
   'passage',
+  'sighted',
+  'search',
   'navigate',
   'prepared',
   'encounter',
@@ -2571,6 +2573,17 @@ export const HexSchema = z.object({
   sign: z.string().default(''),
   /** Gänge, Fels oder Schacht von Hand gesetzt: Neu würfeln behält die Ausgänge dieses Feldes. */
   dug: z.boolean().default(false),
+  /**
+   * Von fern zu sehen („Eine Rauchsäule“): Die Gruppe sieht es aus mehreren Feldern Entfernung
+   * (`domain/afar.ts`). Leer = nichts.
+   */
+  afar: z.string().default(''),
+  /** Die Gruppe hat es von fern gesehen (die Reise hält dafür nur einmal). */
+  sighted: z.boolean().default(false),
+  /** Verborgen: findet die Gruppe nur, wenn sie das Feld durchsucht. Leer = nichts. */
+  hidden: z.string().default(''),
+  /** Die Gruppe hat das Feld durchsucht. */
+  searched: z.boolean().default(false),
 });
 export type Hex = z.infer<typeof HexSchema>;
 

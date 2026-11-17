@@ -1,5 +1,6 @@
 /** Befehle des Bereichs „Erkundung“. */
-import { advanceTime, undoTimeAdvance, type TimeAdvanceResult } from '../../data/actions';
+import { advanceTime, logEntry, undoTimeAdvance, type TimeAdvanceResult } from '../../data/actions';
+import { markSighted } from '../../domain/afar';
 import type { CampaignDb } from '../../data/db';
 import { hexKey, hexNeighbors, sameHex, type HexCoord } from '../../domain/hex';
 import { DIR_DOWN, across, dirTo, exitsOf, isRock, setPassage } from '../../domain/passages';
@@ -16,7 +17,14 @@ import {
 import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
-import { planStep, seenFrom, type StepProblem, type TravelStep } from './travel';
+import {
+  planSearch,
+  planStep,
+  seenFrom,
+  type SearchPlan,
+  type StepProblem,
+  type TravelStep,
+} from './travel';
 
 /** Ändert ein Feld einer Karte; fehlt die Karte oder das Feld, geschieht nichts. */
 export function patchHex(
@@ -77,11 +85,15 @@ const handMade = (hex: Hex): boolean =>
   hex.road !== 'none' ||
   hex.prepared.trim() !== '' ||
   hex.note.trim() !== '' ||
+  hex.afar.trim() !== '' ||
+  hex.hidden.trim() !== '' ||
+  hex.sign.trim() !== '' ||
   hex.tableIds.length > 0;
 
 /**
  * Würfelt das Gelände einer erzeugten Karte neu. Name und Notizen bleiben; was der Spielleiter an
- * Feldern von Hand gemacht hat (gemalt, Gegend, Straße, Vorbereitetes, Notiz), bleibt, wie es ist.
+ * Feldern von Hand gemacht hat (gemalt, Gegend, Straße, Vorbereitetes, Notiz, von fern zu sehen,
+ * verborgen), bleibt, wie es ist.
  * Felder, die er angefügt hat, bleiben auch. `undo` stellt den alten Stand wieder her.
  */
 export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null {
@@ -113,6 +125,10 @@ export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null 
         prepared: before.prepared,
         note: before.note,
         sign: before.sign,
+        afar: before.afar,
+        sighted: before.sighted,
+        hidden: before.hidden,
+        searched: before.searched,
         tableIds: before.tableIds,
         regionId: before.regionId,
         feature: before.manual && before.feature ? before.feature : hex.feature,
@@ -184,8 +200,11 @@ export function placeParty(db: CampaignDb, areaId: string, coord: HexCoord | nul
   if (!here || isRock(here)) return;
   const seen = new Set([hexKey(here), ...seenFrom(db.getSnapshot(), area, here)]);
   db.patch('areas', areaId, {
-    hexes: area.hexes.map((hex) =>
-      hex.discovered || !seen.has(hexKey(hex)) ? hex : { ...hex, discovered: true },
+    hexes: markSighted(
+      area.hexes.map((hex) =>
+        hex.discovered || !seen.has(hexKey(hex)) ? hex : { ...hex, discovered: true },
+      ),
+      [here],
     ),
     party: {
       q: coord.q,
@@ -244,6 +263,50 @@ export function travelTo(db: CampaignDb, areaId: string, to: HexCoord): TravelRe
           db.patch('areas', areaId, { hexes: area.hexes, party: area.party });
       }),
   };
+}
+
+export interface SearchResult {
+  search: SearchPlan;
+  time: TimeAdvanceResult;
+  undo: () => void;
+}
+
+/**
+ * Die Gruppe durchsucht ihr Feld: Die Zeit vergeht (so lange wie das Durchqueren), das Feld gilt
+ * als durchsucht, und was verborgen lag, steht danach in der Chronik. Gibt null zurück, wenn es
+ * nicht geht (keine Gruppe auf der Karte, Wasser).
+ */
+export function searchHex(db: CampaignDb, areaId: string): SearchResult | null {
+  const data = db.getSnapshot();
+  const area = data.areas[areaId];
+  if (!area) return null;
+  const now = data.state.now;
+  const search = planSearch(data, area, now);
+  if (!search) return null;
+  return db.batch(() => {
+    const time = advanceTime(db, now + search.minutes);
+    db.patch('areas', areaId, {
+      hexes: area.hexes.map((hex) => (sameHex(hex, search.hex) ? { ...hex, searched: true } : hex)),
+    });
+    const line = search.found
+      ? logEntry(db, {
+          text: `Beim Durchsuchen gefunden: ${search.found}`,
+          refs: search.hex.placeId ? [search.hex.placeId] : [],
+        })
+      : null;
+    return {
+      search,
+      time,
+      undo: () =>
+        db.batch(() => {
+          const current = db.getSnapshot();
+          if (line && current.chronicle[line.id]) db.remove('chronicle', line.id);
+          if (current.state.now === time.to && current.state.previousNow === time.from)
+            undoTimeAdvance(db);
+          if (current.areas[areaId]) db.patch('areas', areaId, { hexes: area.hexes });
+        }),
+    };
+  });
 }
 
 // ── Bearbeiten: malen, Linien ziehen, anfügen, wegnehmen ───────────────────

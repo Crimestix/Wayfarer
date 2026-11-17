@@ -20,7 +20,7 @@ import {
   type Hex,
   type Place,
 } from '../../domain/schema';
-import type { HexCoord } from '../../domain/hex';
+import { sameHex, type HexCoord } from '../../domain/hex';
 import { placeSuggestions, placeWorldPlaces } from '../erkundung/actions';
 import { seenFrom, sightRadius } from '../erkundung/travel';
 import { campCheck, endJourney, getLost, startJourney, travelOn } from './actions';
@@ -269,11 +269,37 @@ describe('Simulierte Hexkarte: Flüsse, Orientierung, Sicht, Orte', () => {
   });
 
   it('hält an einem Fluss ohne Straße – einmal, nicht auf jedem Feld des Flusses', async () => {
-    const { db, data } = await hexJourney((hex, index, line) =>
-      index > 0 && index >= Math.floor(line.length / 2) && index <= Math.floor(line.length / 2) + 1
-        ? { ...hex, river: 'Schwarzwasser' }
-        : hex,
-    );
+    // Erst die Gänge ohne schwierige Stellen (eine Kletterei am Flussfeld hielte sonst zuerst),
+    // dann den Weg bestimmen und den Fluss auf zwei Felder in seiner Mitte legen.
+    const ctx = await setup();
+    const { db, data, grotto, goal } = ctx;
+    db.setState({ placeId: grotto.id });
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const easy = (hex: Hex): Hex => ({
+      ...hex,
+      road: 'none',
+      river: '',
+      exits:
+        hex.exits?.map((exit) =>
+          exit.kind === 'narrow' || exit.kind === 'climb' || exit.kind === 'water'
+            ? { ...exit, kind: 'open' as const }
+            : exit,
+        ) ?? null,
+    });
+    db.patch('areas', area.id, { hexes: data().areas[area.id]!.hexes.map(easy) });
+    const line = withHexes(data(), planJourney(data(), grotto.id, goal.id)!).legs[0]!.hexes;
+    const middle = Math.floor(line.length / 2);
+    const wet = line.slice(middle, middle + 2);
+    db.patch('areas', area.id, {
+      hexes: data().areas[area.id]!.hexes.map((hex) =>
+        wet.some((step) => sameHex(step, hex)) ? { ...hex, river: 'Schwarzwasser' } : hex,
+      ),
+    });
+    startJourney(db, {
+      toId: goal.id,
+      plan: withHexes(data(), planJourney(data(), grotto.id, goal.id)!),
+    });
     const halts: string[] = [];
     let result = travelOn(db, dice())!;
     while (journeyUnderway(data())) {

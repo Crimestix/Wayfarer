@@ -12,6 +12,7 @@ import {
   journeyUnderway,
   nextHalt,
   nightCheck,
+  rollTables,
   type Halt,
   type JourneyPlan,
   type Roll,
@@ -27,7 +28,9 @@ import {
   type TableKind,
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
-import { seenFrom } from '../erkundung/travel';
+import { markSighted } from '../../domain/afar';
+import { searchMinutes, seenFrom } from '../erkundung/travel';
+import { hexAtProgress } from './hexway';
 import { hexKey, sameHex } from '../../domain/hex';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { formatWayTime } from '../../domain/ways';
@@ -149,6 +152,7 @@ export function travelOn(
       feature: `Unterwegs: ${halt.text}`,
       light: `Licht erlischt: ${halt.text}`,
       river: `Am Fluss: ${halt.text}`,
+      sighted: `In Sicht: ${halt.text}`,
       rest: 'Acht Stunden unterwegs seit der letzten Rast',
     };
     const text = lineFor[halt.kind];
@@ -176,6 +180,74 @@ export function travelOn(
           for (const undo of undos.reverse()) undo();
           db.put('journeys', journey);
           if (areaBefore) db.put('areas', areaBefore);
+        }),
+    };
+  });
+}
+
+export interface JourneySearch {
+  minutes: number;
+  /** Was verborgen lag – null: nichts gefunden. */
+  found: string | null;
+  /** Die eine Begegnungsprüfung während der Suche. */
+  encounter: TableResult | null;
+  undo: () => void;
+}
+
+/**
+ * Das Feld durchsuchen, auf dem die Reise gerade steht: Es dauert so lange wie das Durchqueren
+ * (`searchMinutes`), die Reise kommt dabei nicht voran, und einmal wird auf den Begegnungen der
+ * Gegend geprüft (wie im Lager). Was verborgen lag, findet die Gruppe und steht in der Chronik.
+ */
+export function searchOnJourney(db: CampaignDb, roll: Roll): JourneySearch | null {
+  const data = db.getSnapshot();
+  const journey = journeyUnderway(data);
+  if (!journey) return null;
+  const leg = journey.legs[journey.progress.leg];
+  const spot = hexAtProgress(journey);
+  const area = spot ? data.areas[spot.areaId] : undefined;
+  const hex = area?.hexes.find((entry) => sameHex(entry, spot!.hex));
+  if (!leg || !area || !hex) return null;
+  const minutes = searchMinutes(data, area, hex);
+  if (minutes === null) return null;
+  const encounter = rollTables(data, hex.regionId ?? leg.regionId ?? leg.toId, 'encounter', roll);
+  const found = hex.hidden.trim() || null;
+  return db.batch(() => {
+    const start = db.getSnapshot().state.now;
+    advanceTime(db, start + minutes);
+    db.patch('areas', area.id, {
+      hexes: area.hexes.map((entry) => (entry === hex ? { ...entry, searched: true } : entry)),
+    });
+    const line = logEntry(db, {
+      text: found
+        ? `Beim Durchsuchen gefunden: ${found}`
+        : 'Die Gegend durchsucht – nichts gefunden',
+      refs: leg.toId ? [leg.toId] : [],
+    });
+    const at = db.getSnapshot().state.now;
+    db.patch('journeys', journey.id, {
+      halt: found
+        ? { kind: 'search', text: found, at, roll: '', encounterId: null }
+        : encounter
+          ? {
+              kind: 'encounter',
+              text: encounter.text,
+              at,
+              roll: `Beim Durchsuchen · ${encounter.table.name}: ${encounter.rolled}`,
+              encounterId: null,
+            }
+          : null,
+    });
+    return {
+      minutes,
+      found,
+      encounter,
+      undo: () =>
+        db.batch(() => {
+          if (db.getSnapshot().chronicle[line.id]) db.remove('chronicle', line.id);
+          undoTimeAdvance(db);
+          db.put('journeys', journey);
+          if (db.getSnapshot().areas[area.id]) db.patch('areas', area.id, { hexes: area.hexes });
         }),
     };
   });
@@ -261,8 +333,12 @@ function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number)
       trail,
       legs: before?.legs ?? [],
     },
-    hexes: area.hexes.map((hex) =>
-      seen.has(hexKey(hex)) && !hex.discovered ? { ...hex, discovered: true } : hex,
+    // Was dabei in der Ferne auftauchte, gilt als gesehen (`hex.sighted`).
+    hexes: markSighted(
+      area.hexes.map((hex) =>
+        seen.has(hexKey(hex)) && !hex.discovered ? { ...hex, discovered: true } : hex,
+      ),
+      passed,
     ),
   });
 }

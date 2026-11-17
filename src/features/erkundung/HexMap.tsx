@@ -216,6 +216,24 @@ const Cells = memo(function Cells({
               transform={`rotate(45 ${x} ${y + size * 0.31})`}
             />
           )}
+          {hex.afar && (
+            // Von fern zu sehen: eine kleine Spitze oben links.
+            <path
+              className="wf-hex__afar"
+              data-sighted={hex.sighted || hex.discovered || undefined}
+              d={`M ${x - size * 0.3} ${y - size * 0.14} L ${x - size * 0.24} ${y - size * 0.36} L ${x - size * 0.18} ${y - size * 0.14} Z`}
+            />
+          )}
+          {hex.hidden && (
+            // Verborgen: ein Ring unten links – gestrichelt, solange niemand gesucht hat.
+            <circle
+              className="wf-hex__hidden"
+              data-searched={hex.searched || undefined}
+              cx={x - size * 0.26}
+              cy={y + size * 0.24}
+              r={size * 0.07}
+            />
+          )}
           {(hex.note || hex.prepared) && (
             <circle
               className="wf-hex__note"
@@ -231,6 +249,10 @@ const Cells = memo(function Cells({
               hex.exits !== null && !isRock(hex) && exitWords(hex),
               hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
               hex.feature,
+              hex.afar &&
+                `von fern: ${hex.afar}${hex.sighted && !hex.discovered ? ' (gesehen)' : ''}`,
+              hex.hidden && `verborgen: ${hex.hidden}`,
+              hex.searched && 'durchsucht',
               hex.discovered ? '' : 'noch nicht entdeckt',
             ]
               .filter(Boolean)

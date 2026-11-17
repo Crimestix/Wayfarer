@@ -18,6 +18,7 @@ import { occurrencesBetween, placeAncestors } from './derive';
 import { distanceKm } from './geo';
 import { TRAVEL_HOURS, marchedMinutes } from './march';
 import { partyTravel } from './mounts';
+import { newSightings, sightingLine } from './afar';
 import { sameHex } from './hex';
 import { DIR_DOWN, dirTo, exitsOf, isJunction } from './passages';
 import { placeGeo, planetOf } from './planet';
@@ -47,6 +48,8 @@ export const HALT_LABEL: Record<HaltKind, string> = {
   feature: 'Besonderheit unterwegs',
   river: 'Ein Fluss',
   passage: 'Ein schwieriger Durchgang',
+  sighted: 'In Sicht',
+  search: 'Beim Durchsuchen',
   navigate: 'Orientierung',
   prepared: 'Am Weg vorbereitet',
   encounter: 'Begegnung',
@@ -381,6 +384,7 @@ export function nextHalt(
   const area = leg.areaId ? data.areas[leg.areaId] : undefined;
   let prevKind: PassageKind | undefined;
   const navDays = new Set<number>();
+  const shownFar = new Set<unknown>();
   if (area)
     leg.hexes.slice(1, -1).forEach((step, index) => {
       if (step.at <= journey.progress.minutes) return;
@@ -418,6 +422,10 @@ export function nextHalt(
       else if (hex.river && !prev?.river && hex.road === 'none')
         add(at, 'river', `${hex.river}: eine Furt suchen, schwimmen oder ein Boot`);
       else if (hex.feature.trim() && !hex.discovered) add(at, 'feature', hex.feature.trim());
+      // Was von hier aus zum ersten Mal in der Ferne auftaucht – die Gruppe kann hingehen.
+      const sights = newSightings(area, [hex]).filter((sight) => !shownFar.has(sight.hex));
+      for (const sight of sights) shownFar.add(sight.hex);
+      if (sights.length) add(at, 'sighted', sights.map(sightingLine).join(' · '));
     });
   // Acht Stunden seit der Rast: nur, wenn die Grenze unterwegs erreicht wird.
   const since = marchedMinutes(data, now);

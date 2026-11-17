@@ -9,6 +9,7 @@ import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
 import { marchRule, marchedMinutes } from '../../domain/march';
 import { senseLine } from '../../domain/senses';
+import { sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
 import { partyMeans } from '../../domain/mounts';
 import { PACES, type Area, type Pace } from '../../domain/schema';
@@ -57,6 +58,13 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
   // Witterung: was die Gruppe von den Feldern ringsum bemerkt.
   for (const sense of step.senses)
     lines.push({ key: `sense-${sense.dir}`, text: senseLine(sense) });
+  // Was zum ersten Mal in der Ferne auftaucht.
+  for (const sight of step.sighted)
+    lines.push({
+      key: `far-${sight.hex.q},${sight.hex.r}`,
+      alert: true,
+      text: `In Sicht – ${sightingLine(sight)}`,
+    });
 
   return (
     <div className="wf-erk-last" role="status">

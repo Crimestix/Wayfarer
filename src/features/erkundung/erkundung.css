@@ -250,6 +250,26 @@
   stroke-width: 1;
   pointer-events: none;
 }
+.wf-hex__afar {
+  fill: var(--ink-faint);
+  stroke: var(--bg-0);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.wf-hex__afar[data-sighted] {
+  fill: var(--ink);
+}
+.wf-hex__hidden {
+  fill: none;
+  stroke: var(--gold-bright);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+.wf-hex__hidden[data-searched] {
+  stroke: var(--ink-faint);
+  stroke-dasharray: none;
+}
 .wf-hex__note {
   fill: var(--ember);
   stroke: var(--bg-0);

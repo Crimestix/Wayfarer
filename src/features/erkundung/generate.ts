@@ -733,6 +733,10 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       level: 0,
       sign: '',
       dug: false,
+      afar: '',
+      sighted: false,
+      hidden: '',
+      searched: false,
     });
   }
 
@@ -852,6 +856,10 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
       exits: cell.exits,
       sign: '',
       dug: false,
+      afar: '',
+      sighted: false,
+      hidden: '',
+      searched: false,
     };
   });
   return { hexes, line, radius, caves: caves.quality };
