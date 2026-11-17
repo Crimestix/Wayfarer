@@ -103,6 +103,12 @@ Rahmen als Geschichte, Backstory und Bastion bei den Gefährten, Kategorien mit 
 Größe der Orte, Vorlagen durch Merken, Navigation nach den drei Kernen. **DATA_VERSION 17** –
 Mac und Windows beide auf 0.1.11.
 
+**Danach: Tag `v0.1.12` auf `e3975ea` (17. 11.)** – Reise „Unterwegs am Spieltisch“ (bis zur
+nächsten Entscheidung, Gelände und Tabellen aus den Gegenden, Vorräte), Wegenetz/Hexkarte/Unterwegs
+verzahnt („Gelände dazwischen“, Feld für Feld), Fadenbrett versteht „liegt in“, „weiß von“,
+„führt zu“ (Spieltisch „Vom Fadenbrett“, Rahmen „Spielbar?“), Suche beim Doppelklick.
+**DATA_VERSION 20** – Mac und Windows beide auf 0.1.12.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
