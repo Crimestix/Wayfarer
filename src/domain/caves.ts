@@ -66,6 +66,10 @@ export interface CaveQuality {
   secrets: number;
   /** Ebenen, die vom Start aus erreichbar sind. */
   levelsUsed: number;
+  /** Große Szenen: Höhlen mit vier Ausgängen oder mehr, die dazu einen Schacht oder Fluss haben. */
+  scenes: number;
+  /** Der kürzeste Weg zum Ziel verlangt etwas (Kletterei, Wasser, Engstelle), ein anderer nicht. */
+  choice: boolean;
 }
 
 export interface CaveResult {
@@ -265,7 +269,7 @@ function digPath(
   const level = a.level;
   const noise = (c: Cell) => {
     const { x, y } = hexCenter(c);
-    return smoothNoise(seedOf(seed, 'gang', level), x / 2.2, y / 2.2);
+    return smoothNoise(seedOf(seed, 'gang', level), x / 1.7, y / 1.7);
   };
   const start = keyOf(a, level);
   const goal = keyOf(b, level);
@@ -282,7 +286,7 @@ function digPath(
     for (const next of net.neighbours(cell)) {
       const nk = keyOf(next, level);
       if (forbid.has(nk)) continue;
-      let step = 1 + 2.4 * noise(next);
+      let step = 1 + 3.2 * noise(next);
       if (net.carved(next)) step *= 0.75;
       if (avoid.has(nk) && nk !== goal) step += 4;
       const total = cost + step;
@@ -541,6 +545,12 @@ function measure(net: Net, start: Cell, goal: Cell): CaveQuality {
     deadEnds: carved.filter((c) => c.role === 'deadend').length,
     secrets: Math.round(secrets),
     levelsUsed: new Set([...reach.keys()].map((c) => c.level)).size,
+    scenes: carved.filter(
+      (c) =>
+        [...c.exits.keys()].filter((d) => d < 6).length >= 4 &&
+        (c.exits.has(DIR_DOWN) || c.exits.has(DIR_UP) || c.river),
+    ).length,
+    choice: routeChoice(net, start, goal),
   };
 }
 
@@ -550,7 +560,9 @@ const score = (q: CaveQuality) =>
   Math.min(q.loops, 6) * 3 +
   Math.min(q.bigCaves, 3) * 4 +
   Math.min(q.junctions, 8) +
-  q.levelsUsed * 5;
+  q.levelsUsed * 5 +
+  Math.min(q.scenes, 2) * 6 +
+  (q.choice ? 8 : 0);
 
 // ── Ein Versuch ────────────────────────────────────────────────────────────
 
@@ -584,7 +596,7 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
       rng,
       input.cells,
       forced,
-      Math.round(count * (level === 0 ? 1 : 0.75)),
+      Math.round(count * (level === 0 ? 1 : 0.85)),
       gap,
     ).map((c) => net.at(c, level)!);
     hubsByLevel.push(hubs);
@@ -602,11 +614,14 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
       const targets = candidates.length >= 6 ? [0.2, 0.5, 0.8] : [0.25, 0.75];
       const used = new Set<Cell>();
       targets.forEach((t, i) => {
+        // Lieber in einer Höhle: Dort trifft sich vieles – ein Schacht macht sie zur großen Szene.
+        const away = (c: Cell) => Math.abs(along(c) - t) + (c.role === 'cave' ? 0 : 0.12);
         const pick = [...candidates]
           .filter((c) => !used.has(c))
-          .sort((a, b) => Math.abs(along(a) - t) - Math.abs(along(b) - t))[0];
+          .sort((a, b) => away(a) - away(b))[0];
         if (!pick) return;
         used.add(pick);
+        pick.role = 'cave';
         const kind: PassageKind = i === 0 ? 'climb' : rng.chance(0.4) ? 'drop' : 'open';
         shafts.push({ cell: { q: pick.q, r: pick.r }, level, kind });
       });
@@ -617,12 +632,10 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
   for (let level = 0; level < levels; level++) {
     const hubs = hubsByLevel[level]!;
     const twice = hubs.flatMap((hub, i) => (hub.role === 'place' ? [i] : []));
-    const links = linkHubs(rng, hubs, gap * 3 + 1, level === 0 ? 0.4 : 0.3, twice);
+    const links = linkHubs(rng, hubs, gap * 3 + 1, level === 0 ? 0.32 : 0.34, twice);
     const avoid = new Set(hubs.map((h) => keyOf(h, level)));
-    for (const [a, b] of links) {
-      const path = digPath(net, hubs[a]!, hubs[b]!, seed, avoid);
-      dig(net, rng, path);
-    }
+    for (const [a, b] of links)
+      dig(net, rng, windingPath(net, rng, hubs[a]!, hubs[b]!, seed, avoid));
   }
   // Schächte: oben hinab, unten hinauf – ein Abbruch nur in eine Richtung.
   for (const shaft of shafts) {
@@ -643,11 +656,14 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
       for (const n of shuffle(rng, net.neighbours(hub))) {
         if ([...hub.exits.keys()].filter((d) => d < 6).length >= want) break;
         if (net.connected(hub, n)) continue;
+        // Ein Gang, der ohnehin nach wenigen Schritten hier ankommt, bekommt keinen zweiten
+        // Durchbruch – das gäbe nur kleine Dreiecke statt echter Wege.
+        if (net.carved(n) && near(net, hub, n, 3)) continue;
         const fresh = !net.carved(n);
         net.open(hub, n);
         // Ein neuer Ausgang in den Fels führt meist zu einem nahen Gang (eine weitere Schleife),
         // sonst als kurzer Gang ins Blinde.
-        if (fresh && !(rng.chance(0.35) && joinNearby(net, rng, n, hub, seed))) {
+        if (fresh && !(rng.chance(0.25) && joinNearby(net, rng, n, hub, seed))) {
           const end = spur(net, rng, n, rng.int(0, 2));
           if (!end && n.exits.size === 1) n.role = 'deadend';
         }
@@ -658,7 +674,7 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
   bypassBridges(net, start, goal, seed);
   // Sackgassen von Gängen aus.
   const tunnels = [...net.cells.values()].filter((c) => c.role === 'tunnel' && c.exits.size === 2);
-  const deadEnds = Math.round(hubsByLevel.flat().length * 0.25);
+  const deadEnds = Math.round(hubsByLevel.flat().length * 0.2);
   for (const cell of shuffle(rng, tunnels).slice(0, deadEnds)) spur(net, rng, cell, rng.int(1, 3));
 
   // Ein Fluss quert die Karte durch eine Höhle.
@@ -697,14 +713,164 @@ function attempt(input: CaveInput, seed: number): { net: Net; quality: CaveQuali
     if (sides >= 3) cell.role = 'junction';
     else if (cell.exits.size === 1 && !cell.river) cell.role = 'deadend';
   }
+  characterRoutes(net, rng, start, goal);
   return { net, quality: measure(net, start, goal) };
+}
+
+/** Ein Gang mit seitlichem Umweg: Lange Verbindungen laufen über einen versetzten Punkt. */
+function windingPath(
+  net: Net,
+  rng: Rng,
+  a: Cell,
+  b: Cell,
+  seed: number,
+  avoid: ReadonlySet<string>,
+): Cell[] {
+  const d = hexDistance(a, b);
+  if (d < 5 || !rng.chance(0.7)) return digPath(net, a, b, seed, avoid);
+  // Ein Punkt neben der Mitte, eins bis drei Felder quer zur Linie.
+  const ca = hexCenter(a);
+  const cb = hexCenter(b);
+  const len = Math.hypot(cb.x - ca.x, cb.y - ca.y) || 1;
+  const side = (rng.chance(0.5) ? 1 : -1) * rng.int(1, Math.min(3, Math.floor(d / 2)));
+  const mx = (ca.x + cb.x) / 2 + (-(cb.y - ca.y) / len) * side;
+  const my = (ca.y + cb.y) / 2 + ((cb.x - ca.x) / len) * side;
+  const mid = [...net.cells.values()]
+    .filter((c) => c.level === a.level)
+    .sort((x, y) => {
+      const px = hexCenter(x);
+      const py = hexCenter(y);
+      return Math.hypot(px.x - mx, px.y - my) - Math.hypot(py.x - mx, py.y - my);
+    })[0];
+  if (!mid || mid === a || mid === b) return digPath(net, a, b, seed, avoid);
+  const first = digPath(net, a, mid, seed, avoid);
+  const second = digPath(net, mid, b, seed, avoid);
+  return first.length && second.length
+    ? [...first, ...second.slice(1)]
+    : digPath(net, a, b, seed, avoid);
+}
+
+const HARD: ReadonlySet<PassageKind> = new Set(['narrow', 'climb', 'water']);
+
+/** Die Durchgänge eines Weges als Paare. */
+const stepsOf = (path: readonly Cell[]) =>
+  path.slice(1).map((cell, i) => [path[i]!, cell] as const);
+
+const kindOf = (a: Cell, b: Cell): PassageKind | undefined => {
+  const dir = dirTo(a, b);
+  return dir === null ? undefined : a.exits.get(dir);
+};
+
+const setKind = (a: Cell, b: Cell, kind: PassageKind) => {
+  const dir = dirTo(a, b);
+  if (dir === null) return;
+  if (a.exits.has(dir)) a.exits.set(dir, kind);
+  if (b.exits.has(opposite(dir))) b.exits.set(opposite(dir), kind);
+};
+
+/** Erreicht man `b` von `a` aus in höchstens `steps` Schritten? */
+function near(net: Net, a: Cell, b: Cell, steps: number): boolean {
+  let ring = new Set([a]);
+  const seen = new Set([a]);
+  for (let i = 0; i < steps; i++) {
+    const next = new Set<Cell>();
+    for (const cell of ring)
+      for (const to of net.moves(cell, true)) {
+        if (to === b) return true;
+        if (!seen.has(to)) {
+          seen.add(to);
+          next.add(to);
+        }
+      }
+    ring = next;
+  }
+  return false;
+}
+
+/**
+ * Ein zweiter Weg zum Ziel, der so wenig wie möglich mit dem ersten teilt: Jeder Durchgang des
+ * ersten kostet viel, verboten ist er nicht (eine reine Sperre fände manchmal keinen Weg, obwohl
+ * es zwei getrennte gibt).
+ */
+function secondRoute(net: Net, start: Cell, goal: Cell, first: readonly Cell[]): Cell[] | null {
+  const used = new Set(
+    stepsOf(first).flatMap(([a, b]) => [
+      `${keyOf(a, a.level)}>${keyOf(b, b.level)}`,
+      `${keyOf(b, b.level)}>${keyOf(a, a.level)}`,
+    ]),
+  );
+  const best = new Map<Cell, number>([[start, 0]]);
+  const prev = new Map<Cell, Cell>();
+  const heap = new MinHeap<Cell>();
+  heap.push(start, 0);
+  while (heap.size) {
+    const { item: here, priority } = heap.pop()!;
+    if (priority > (best.get(here) ?? Infinity)) continue;
+    if (here === goal) break;
+    for (const next of net.moves(here, false)) {
+      const cost = used.has(`${keyOf(here, here.level)}>${keyOf(next, next.level)}`) ? 60 : 1;
+      const total = priority + cost;
+      if (total < (best.get(next) ?? Infinity)) {
+        best.set(next, total);
+        prev.set(next, here);
+        heap.push(next, total);
+      }
+    }
+  }
+  if (!best.has(goal)) return null;
+  const path = [goal];
+  while (path[0] !== start) path.unshift(prev.get(path[0]!)!);
+  return path;
+}
+
+const pairKey = (a: Cell, b: Cell) => [keyOf(a, a.level), keyOf(b, b.level)].sort().join('|');
+
+/**
+ * Jaquaying: Wege mit verschiedenem Charakter. Der kürzeste Weg verlangt etwas – eine Kletterei,
+ * Wasser oder eine Engstelle –, ein zweiter Weg ist länger, aber ohne solche Stellen. So hat die
+ * Gruppe eine echte Wahl. Geändert wird nur, was die beiden Wege nicht teilen.
+ */
+function characterRoutes(net: Net, rng: Rng, start: Cell, goal: Cell): void {
+  const short = shortest(net, start, goal);
+  if (!short || short.length < 4) return;
+  const long = secondRoute(net, start, goal, short);
+  if (!long) return;
+  const inLong = new Set(stepsOf(long).map(([a, b]) => pairKey(a, b)));
+  const inShort = new Set(stepsOf(short).map(([a, b]) => pairKey(a, b)));
+  const own = stepsOf(short).filter(([a, b]) => a.level === b.level && !inLong.has(pairKey(a, b)));
+  if (!own.some(([a, b]) => HARD.has(kindOf(a, b) ?? 'open'))) {
+    const middle = own.slice(Math.floor(own.length / 3), Math.ceil((own.length * 2) / 3));
+    const pick = rng.pick(middle.length ? middle : own);
+    if (pick) setKind(pick[0], pick[1], rng.chance(0.55) ? 'climb' : 'water');
+  }
+  for (const [a, b] of stepsOf(long))
+    if (!inShort.has(pairKey(a, b)) && !(a.river && b.river) && HARD.has(kindOf(a, b) ?? 'open'))
+      // Ein Schacht auf dem leichten Weg hat Tritte statt Kletterei.
+      setKind(a, b, 'open');
+}
+
+/** Gibt es die Wahl: kurz mit schwieriger Stelle oder länger ohne? */
+function routeChoice(net: Net, start: Cell, goal: Cell): boolean {
+  const short = shortest(net, start, goal);
+  if (!short) return false;
+  const long = secondRoute(net, start, goal, short);
+  if (!long || long.length <= short.length) return false;
+  const hard = (path: readonly Cell[]) =>
+    stepsOf(path).some(([a, b]) => HARD.has(kindOf(a, b) ?? 'open'));
+  return hard(short) && !hard(long);
 }
 
 /** Der Fluss: von einem Rand über eine Höhle zum gegenüberliegenden Rand. */
 function river(net: Net, rng: Rng, input: CaveInput, seed: number, hubsByLevel: Cell[][]): void {
-  const level = rng.int(0, net.levels - 1);
-  const hubs = hubsByLevel[level]!;
+  // Am liebsten durch eine Höhle mit Schacht – dort entsteht die große Szene.
+  const shafted = hubsByLevel
+    .flat()
+    .filter((h) => h.role === 'cave' && (h.exits.has(DIR_DOWN) || h.exits.has(DIR_UP)));
+  const pickLevel = rng.pick(shafted)?.level ?? rng.int(0, net.levels - 1);
+  const hubs = hubsByLevel[pickLevel]!;
+  const level = pickLevel;
   const through =
+    rng.pick(shafted.filter((h) => h.level === level)) ??
     rng.pick(hubs.filter((h) => h.role === 'cave')) ??
     rng.pick(hubs.filter((h) => h.role !== 'place'));
   if (!through) return;
@@ -740,7 +906,11 @@ export function generateCaves(input: CaveInput): CaveResult {
   let chosen: { net: Net; quality: CaveQuality; attempt: number } | null = null;
   for (let k = 0; k < ATTEMPTS; k++) {
     const result = attempt(input, seedOf(input.seed, 'versuch', k));
-    const good = result.quality.routes >= 2 && result.quality.loops >= 2;
+    const good =
+      result.quality.routes >= 2 &&
+      result.quality.loops >= 2 &&
+      // Auf größeren Karten auch die Wahl zwischen kurz und schwer oder lang und leicht.
+      (result.quality.choice || input.cells.length < 60);
     if (!chosen || score(result.quality) > score(chosen.quality))
       chosen = { ...result, attempt: k };
     if (good) {

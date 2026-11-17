@@ -70,6 +70,7 @@ describe('Hexkarten unter der Erde', () => {
     const dug = get().hexes.find((h) => h.level === 0 && h.q === rock.q && h.r === rock.r)!;
     expect(exitsOf(dug)).toEqual([{ dir: 1, kind: 'climb', found: false }]);
     expect(dug.manual).toBe(true);
+    expect(dug.dug).toBe(true);
     expect(fillRock(db, area.id, dug)).toBe(true);
     expect(
       isRock(get().hexes.find((h) => h.level === 0 && h.q === rock.q && h.r === rock.r)!),
@@ -85,9 +86,20 @@ describe('Hexkarten unter der Erde', () => {
     db.patch('areas', area.id, {
       hexes: get().hexes.map((h) => (h === spot ? { ...h, prepared: 'Ein Hinterhalt' } : h)),
     });
+    // Ein Gang von Hand in den Fels.
+    const rock = get().hexes.find((h) => h.level === 0 && isRock(h) && !h.placeId)!;
+    const next = get().hexes.find((h) => h.level === 0 && h.q === rock.q + 1 && h.r === rock.r)!;
+    digBetween(db, area.id, rock, next, 'narrow');
     const undo = rerollArea(db, area.id)!;
     const kept = get().hexes.find((h) => h.level === 0 && h.q === spot.q && h.r === spot.r)!;
     expect(kept.prepared).toBe('Ein Hinterhalt');
+    const stillDug = get().hexes.find((h) => h.level === 0 && h.q === rock.q && h.r === rock.r)!;
+    expect(exitsOf(stillDug)).toContainEqual({ dir: 1, kind: 'narrow', found: false });
+    // Eingetragenes (Notiz, Ort) friert keine Gänge ein – nur von Hand Gegrabenes bleibt.
+    expect(kept.dug).toBe(false);
+    // Kein Ort steht zweimal auf der Karte.
+    const places = get().hexes.flatMap((h) => (h.placeId ? [h.placeId] : []));
+    expect(new Set(places).size).toBe(places.length);
     undo();
     expect(get().seed).toBe(area.seed);
   });

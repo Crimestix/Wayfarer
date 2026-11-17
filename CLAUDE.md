@@ -373,15 +373,19 @@ nicht übernommen.
   Knoten, natürliche Nachbarn, Baum plus Schleifen, gewundene Gänge, Höhlen mit vier bis sechs
   Ausgängen, Sackgassen, Schächte an Stellen, die sich nicht decken (einer immer beidseitig), ein
   Fluss durch eine Höhle, verborgene Abkürzungen, Umwege um jede Engstelle (`bypassBridges`);
-  geprüft wird auf zwei getrennte Wege zum Ziel und Schleifen (`CaveQuality`), sonst nächster
-  Versuch. Erzeugt wird nur Gestalt. Reisen gehen nur durch Gänge (`routeTo`, `stepProblem` →
+  dazu Wege mit verschiedenem Charakter (`characterRoutes`: der kürzeste verlangt Kletterei oder
+  Wasser, ein zweiter ist länger und leicht) und große Szenen (Schächte lieber in Höhlen, der Fluss
+  durch eine Höhle mit Schacht); geprüft wird auf zwei getrennte Wege, Schleifen und diese Wahl
+  (`CaveQuality`: `routes`, `loops`, `choice`, `scenes`), sonst nächster Versuch. Erzeugt wird nur Gestalt. Reisen gehen nur durch Gänge (`routeTo`, `stepProblem` →
   `wall`, `passageMinutes`; Unterwegs über `caveTrail`), Orientierung nur an Kreuzungen, Halt
   `passage` an Kletterei, Wasser, Schacht, Abbruch. **Witterung** (`domain/senses.ts`,
   `sensesAt`): was die Gruppe aus den Gängen ringsum bemerkt – das Wort des Spielleiters am
   Feld (`hex.sign`), sonst `FEATURE_SIGNS`, Fluss, Schacht, Art des Durchgangs; dazu für die
   Spielleitung Ort und Vorbereitetes; nie das Feld, aus dem die Gruppe kam. Bearbeiten unter der
   Erde: Werkzeuge Gang (ziehen, `digBetween`), Fels (`fillRock`), Schacht (`toggleShaft`).
-  Neu würfeln erzeugt das Netz neu und behält, was an Feldern eingetragen ist.
+  Diese Werkzeuge setzen `hex.dug`: Neu würfeln erzeugt das Netz neu, behält die Ausgänge solcher
+  Felder (auf beiden Seiten) und alles, was an Feldern eingetragen ist; Orte auf der Karte gehen
+  als feste Knoten in den Erzeuger (`GenerateInput.pinned`), damit Gänge zu ihnen führen.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

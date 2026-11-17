@@ -24,7 +24,6 @@ describe('Höhlennetz', () => {
     const rock = result.cells.filter((c) => c.role === 'rock');
     expect(rock.length).toBeGreaterThan(cells.length / 3);
     expect(rock.every((c) => c.exits.length === 0)).toBe(true);
-    console.log(JSON.stringify({ ms: Math.round(ms), ...result.quality, attempt: result.attempt }));
   });
 
   it('ist bei gleichem Ausgangswert gleich, bei anderem anders', () => {
@@ -48,7 +47,15 @@ describe('Höhlennetz', () => {
         `${quality.routes}/${quality.loops}/${quality.bigCaves}/${quality.secrets}/${quality.deadEnds}`,
       );
     }
-    console.log(stats.join(' '));
     expect(twoRoutes).toBeGreaterThanOrEqual(27);
+  });
+
+  it('gibt die Wahl: kurz mit einer schweren Stelle oder länger ohne – und große Szenen', () => {
+    const { start, goal, cells } = band(20, 4);
+    for (let seed = 0; seed < 12; seed++) {
+      const { quality } = generateCaves({ cells, start, goal, levels: 3, seed });
+      expect(quality.choice).toBe(true);
+      expect(quality.scenes).toBeGreaterThanOrEqual(1);
+    }
   });
 });

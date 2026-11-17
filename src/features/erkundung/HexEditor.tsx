@@ -17,7 +17,7 @@ import {
   Spline,
   Waves,
 } from 'lucide-react';
-import { PASSAGE_LABEL } from '../../domain/passages';
+import { PASSAGE_LABEL, isRock } from '../../domain/passages';
 import { useData, useDb } from '../../data/hooks';
 import { hexDistance, hexKey, hexLine, type HexCoord } from '../../domain/hex';
 import {
@@ -85,6 +85,16 @@ const TOOL_HINT: Record<HexTool, string> = {
   place: 'Einen Ort der Welt auf ein Feld setzen: wählen, dann aufs Feld klicken.',
   erase: 'Straße, Pfad, Fluss und Gegend von Feldern nehmen.',
   cells: 'Klick auf einen hellen Platz am Rand fügt ein Feld an; Klick auf ein Feld nimmt es weg.',
+};
+
+/** Was nach einem Strich in der Meldung steht. */
+const DONE_LABEL: Partial<Record<HexTool, string>> = {
+  tunnel: 'Gang gezogen',
+  rock: 'Fels gesetzt',
+  road: 'Straße gezogen',
+  trail: 'Pfad gezogen',
+  river: 'Fluss gezogen',
+  erase: 'Radiert',
 };
 
 /** Die Felder unter dem Pinsel: das Feld selbst und bei größerem Pinsel die Nachbarn. */
@@ -165,6 +175,9 @@ export function useHexEditor(area: Area) {
             : open
               ? 'Schacht hinab geöffnet'
               : 'Schacht geschlossen',
+        ...(open && lowerIsPocket(db.getSnapshot().areas[area.id]?.hexes ?? [], at)
+          ? { body: 'Unten ist noch Fels – zieh dort einen Gang weiter.' }
+          : {}),
         ...(open === null
           ? {}
           : { action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) } }),
@@ -195,6 +208,7 @@ export function useHexEditor(area: Area) {
       toast({
         slot: 'hexkarte',
         title: 'Ort gesetzt',
+        ...(isRock(hex) ? { body: 'Hier ist noch Fels – zieh einen Gang hierher.' } : {}),
         action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
       });
       return;
@@ -230,7 +244,7 @@ export function useHexEditor(area: Area) {
     if (!old || !touched.current) return;
     toast({
       slot: 'hexkarte',
-      title: `${TOOL_LABEL[tool]} gemalt`,
+      title: DONE_LABEL[tool] ?? `${TOOL_LABEL[tool]} gemalt`,
       action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
     });
   };
@@ -432,4 +446,12 @@ function PlaceTool({ editor }: { editor: HexEditor }) {
       </button>
     </span>
   );
+}
+
+/** Führt aus dem Feld unter einem Schacht nur der Schacht selbst hinaus? */
+function lowerIsPocket(hexes: readonly Hex[], at: HexCoord): boolean {
+  const below = hexes.find(
+    (hex) => hex.q === at.q && hex.r === at.r && hex.level === (at.level ?? 0) + 1,
+  );
+  return !!below && (below.exits ?? []).every((exit) => exit.dir === 6);
 }

@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 23;
-export const DATA_SHAPE = '138f28974ec9a064';
+export const DATA_VERSION = 24;
+export const DATA_SHAPE = '8958f57758e31331';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2569,6 +2569,8 @@ export const HexSchema = z.object({
    * Spielleiter; ohne Eintrag sagt es die Besonderheit (`domain/senses.ts`).
    */
   sign: z.string().default(''),
+  /** Gänge, Fels oder Schacht von Hand gesetzt: Neu würfeln behält die Ausgänge dieses Feldes. */
+  dug: z.boolean().default(false),
 });
 export type Hex = z.infer<typeof HexSchema>;
 

@@ -33,8 +33,8 @@ const DIR_FROM = [
 
 /** „Aus dem westlichen Gang“, „Von oben“, „Von unten“ – auf der Oberwelt „Aus Westen“. */
 export function fromWhere(dir: number, underground: boolean): string {
-  if (dir === DIR_UP) return 'Von oben';
-  if (dir === DIR_DOWN) return 'Von unten';
+  if (dir === DIR_UP) return 'Nach oben';
+  if (dir === DIR_DOWN) return 'Nach unten';
   return underground ? `Aus dem ${DIR_WORD[dir] ?? ''} Gang` : (DIR_FROM[dir] ?? '');
 }
 
@@ -61,6 +61,15 @@ const PASSAGE_SIGNS: Partial<Record<PassageKind, string>> = {
   climb: 'der Gang steigt steil an oder fällt ab',
   water: 'Wasser steht im Gang',
   drop: 'der Boden bricht dort ab',
+};
+
+/** Ein Weg hinauf oder hinab, wie er sich zeigt. */
+const SHAFT_SIGNS: Partial<Record<PassageKind, string>> = {
+  open: 'ein Schacht mit Tritten',
+  narrow: 'ein enger Schlot',
+  climb: 'ein Schacht, nur kletternd',
+  water: 'ein überfluteter Schacht',
+  drop: 'ein Abbruch – hinunter, aber nicht zurück',
 };
 
 export interface Sense {
@@ -102,7 +111,7 @@ export function sensesAt(
       noticed.push('ein kalter Luftzug aus der Tiefe');
     else if (passage.dir < 6 && shafts.some((exit) => exit.dir === DIR_UP))
       noticed.push('ein Hauch frischerer Luft von oben');
-    const kind = PASSAGE_SIGNS[passage.kind];
+    const kind = passage.dir >= 6 ? SHAFT_SIGNS[passage.kind] : PASSAGE_SIGNS[passage.kind];
     if (kind) noticed.push(kind);
     const gm: string[] = [];
     if (there.placeId && data.entities[there.placeId])

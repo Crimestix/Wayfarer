@@ -618,6 +618,8 @@ export interface GenerateInput {
   ground?: Ground;
   /** Aus `recognize`: der Landweg ums Wasser herum. Dann folgt die Karte ihm statt der Luftlinie. */
   route?: Recognition['route'];
+  /** Orte, die schon auf Feldern stehen (Neu würfeln): Unter der Erde führen Gänge zu ihnen. */
+  pinned?: { q: number; r: number; placeId: string }[];
 }
 
 /** So viele Felder hat eine Karte höchstens; breitere Streifen werden schmaler gemacht. */
@@ -730,6 +732,7 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       exits: null,
       level: 0,
       sign: '',
+      dug: false,
     });
   }
 
@@ -814,6 +817,11 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
     const key = hexKey(hex);
     if (inside.has(key) && !places.has(key)) places.set(key, between.placeId);
   }
+  for (const pin of input.pinned ?? []) {
+    const key = hexKey(pin);
+    if (inside.has(key) && !places.has(key) && ![...places.values()].includes(pin.placeId))
+      places.set(key, pin.placeId);
+  }
   const fixed = [...places.keys()].map((key) => cells.find((c) => hexKey(c) === key)!);
 
   const caves = generateCaves({ cells, start, goal: end, levels, seed: input.seed, fixed });
@@ -843,6 +851,7 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
       manual: false,
       exits: cell.exits,
       sign: '',
+      dug: false,
     };
   });
   return { hexes, line, radius, caves: caves.quality };

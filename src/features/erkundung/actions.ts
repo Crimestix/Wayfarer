@@ -86,25 +86,48 @@ const handMade = (hex: Hex): boolean =>
  */
 export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null {
   const area = db.getSnapshot().areas[areaId];
-  const input = area ? rerollInput(db, area) : null;
-  if (!area || !input) return null;
+  const base = area ? rerollInput(db, area) : null;
+  if (!area || !base) return null;
+  // Orte, die schon auf der Karte stehen, bleiben dort – unter der Erde mit Gängen dorthin.
+  const input = {
+    ...base,
+    pinned: area.hexes.flatMap((hex) =>
+      hex.placeId && hex.level === 0 ? [{ q: hex.q, r: hex.r, placeId: hex.placeId }] : [],
+    ),
+  };
   const fresh = generateHexes(input).hexes;
-  // Unter der Erde entsteht das Gangnetz neu; was an Feldern eingetragen ist, bleibt am selben Feld.
+  // Unter der Erde entsteht das Gangnetz neu; was an Feldern eingetragen ist, bleibt am selben Feld,
+  // und Gänge, Fels und Schächte, die der Spielleiter selbst gesetzt hat, bleiben auch.
   if (fresh.some((hex) => hex.exits !== null)) {
     const old = new Map(area.hexes.map((hex) => [hexKey(hex), hex]));
-    const hexes = fresh.map((hex) => {
+    const placed = new Set(fresh.flatMap((hex) => (hex.placeId ? [hex.placeId] : [])));
+    const dug = (hex: Hex) => hex.dug && hex.exits !== null;
+    let hexes = fresh.map((hex) => {
       const before = old.get(hexKey(hex));
       if (!before) return hex;
+      const keepPlace = !hex.placeId && before.placeId && !placed.has(before.placeId);
+      if (keepPlace) placed.add(before.placeId!);
       return {
         ...hex,
-        placeId: hex.placeId ?? before.placeId,
+        placeId: hex.placeId ?? (keepPlace ? before.placeId : null),
         prepared: before.prepared,
         note: before.note,
+        sign: before.sign,
         tableIds: before.tableIds,
         regionId: before.regionId,
         feature: before.manual && before.feature ? before.feature : hex.feature,
+        manual: before.manual,
+        dug: before.dug,
       };
     });
+    // Von Hand Gegrabenes und Zugemauertes setzen, auf beiden Seiten.
+    for (const before of area.hexes.filter(dug)) {
+      if (!hexes.some((hex) => sameHex(hex, before))) continue;
+      const own = new Set(before.exits!.map((exit) => exit.dir));
+      for (let dir = 0; dir < 8; dir++)
+        if (!own.has(dir)) hexes = setPassage(hexes, before, dir, null);
+      for (const exit of before.exits!) hexes = setPassage(hexes, before, exit.dir, exit.kind);
+    }
     db.patch('areas', areaId, { hexes, seed: input.seed, hexKm: input.hexKm, party: null });
     return () => {
       if (db.getSnapshot().areas[areaId])
@@ -388,7 +411,7 @@ export function placeWorldPlaces(
 
 /** Markiert die Felder, deren Ausgänge sich geändert haben, als von Hand gemacht. */
 function markManual(before: readonly Hex[], after: Hex[]): Hex[] {
-  return after.map((hex, i) => (hex === before[i] ? hex : { ...hex, manual: true }));
+  return after.map((hex, i) => (hex === before[i] ? hex : { ...hex, manual: true, dug: true }));
 }
 
 /**
