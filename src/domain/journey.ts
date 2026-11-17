@@ -32,6 +32,7 @@ export const HALT_HORIZON = MINUTES_PER_DAY;
 
 export const HALT_LABEL: Record<HaltKind, string> = {
   place: 'Ort am Weg',
+  feature: 'Besonderheit unterwegs',
   prepared: 'Am Weg vorbereitet',
   encounter: 'Begegnung',
   discovery: 'Entdeckung',
@@ -129,6 +130,8 @@ function legOf(
     ground: ground?.word ?? '',
     slow,
     regionId: ground?.regionId ?? null,
+    areaId: null,
+    hexes: [],
     mapId: null,
     points: [],
     terrain: null,
@@ -329,6 +332,20 @@ export function nextHalt(
       text: target,
     });
   if (limit !== null) add(limit, 'hour', '');
+  // Auf der Hexkarte des Weges: Felder mit Vorbereitetem, einem Ort oder einer Besonderheit, die
+  // die Gruppe noch nicht kennt – beim Betreten.
+  const area = leg.areaId ? data.areas[leg.areaId] : undefined;
+  if (area)
+    for (const step of leg.hexes.slice(1, -1)) {
+      if (step.at <= journey.progress.minutes) continue;
+      const hex = area.hexes.find((entry) => entry.q === step.q && entry.r === step.r);
+      if (!hex) continue;
+      const at = step.at - journey.progress.minutes;
+      if (hex.prepared.trim()) add(at, 'prepared', hex.prepared.trim());
+      else if (hex.placeId && hex.placeId !== leg.fromId && hex.placeId !== leg.toId)
+        add(at, 'place', data.entities[hex.placeId]?.name ?? '');
+      else if (hex.feature.trim() && !hex.discovered) add(at, 'feature', hex.feature.trim());
+    }
   // Acht Stunden seit der Rast: nur, wenn die Grenze unterwegs erreicht wird.
   const since = marchedMinutes(data, now);
   if (since < TRAVEL_HOURS * 60) add(TRAVEL_HOURS * 60 - since, 'rest', '');

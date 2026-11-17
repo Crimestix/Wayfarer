@@ -38,6 +38,7 @@ import {
   toast,
 } from '../../ui';
 import { removeWay } from '../wege/actions';
+import { HexWayButton } from '../reise/HexWayButton';
 import { addNextPoint, patchNet, removeNet, removePoint } from './actions';
 
 type Select = { type: 'point'; id: string } | { type: 'link'; id: string } | null;
@@ -465,6 +466,12 @@ export function LinkPanel({ link, onGone }: { link: NetLinkView; onGone: () => v
           value={path.conditions}
           onSave={(conditions) => patch({ conditions })}
         />
+      </Field>
+      <Field
+        label="Gelände dazwischen"
+        hint="Die Hexkarte dieses Weges: Unterwegs geht es dann Feld für Feld."
+      >
+        <HexWayButton path={path} />
       </Field>
       <Field
         label="Unterwegs"

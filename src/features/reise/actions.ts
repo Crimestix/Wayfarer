@@ -112,6 +112,7 @@ export function travelOn(
   if (!halt) return null;
   const leg = journey.legs[journey.progress.leg]!;
   const left = Math.max(0, leg.minutes - journey.progress.minutes);
+  const areaBefore = leg.areaId ? data.areas[leg.areaId] : undefined;
   return db.batch(() => {
     const undos: (() => void)[] = [];
     let progress = { ...journey.progress };
@@ -132,11 +133,14 @@ export function travelOn(
         steps = [...steps, { at: start + halt.minutes, minutes: halt.minutes }].slice(-20);
       }
     }
+    // Die Hexkarte des Weges zieht mit: Die Gruppe steht dort, wo die Reise ist.
+    syncArea(db, leg, halt.arrives ? leg.minutes : progress.minutes);
     const now = db.getSnapshot().state.now;
     const lineFor: Partial<Record<Halt['kind'], string>> = {
       encounter: `Begegnung unterwegs: ${halt.text}`,
       discovery: `Entdeckung unterwegs: ${halt.text}`,
       prepared: `Am Weg: ${halt.text}`,
+      feature: `Unterwegs: ${halt.text}`,
       light: `Licht erlischt: ${halt.text}`,
       rest: 'Acht Stunden unterwegs seit der letzten Rast',
     };
@@ -163,8 +167,40 @@ export function travelOn(
           if (line && db.getSnapshot().chronicle[line.id]) db.remove('chronicle', line.id);
           for (const undo of undos.reverse()) undo();
           db.put('journeys', journey);
+          if (areaBefore) db.put('areas', areaBefore);
         }),
     };
+  });
+}
+
+/**
+ * Stellt die Gruppe auf der Hexkarte eines Abschnitts dorthin, wo die Reise nach `minutes` ist:
+ * das letzte erreichte Feld; was sie dabei durchquert hat, ist entdeckt und steht in ihrer Spur.
+ */
+function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number): void {
+  if (!leg.areaId || !leg.hexes.length) return;
+  const area = db.getSnapshot().areas[leg.areaId];
+  if (!area) return;
+  const passed = leg.hexes.filter((hex) => hex.at <= minutes);
+  const at = passed[passed.length - 1] ?? leg.hexes[0]!;
+  const seen = new Set(passed.map((hex) => `${hex.q},${hex.r}`));
+  const before = area.party;
+  const trail = [...(before?.trail ?? []), ...passed.map(({ q, r }) => ({ q, r }))].filter(
+    (hex, index, all) => all.findIndex((other) => other.q === hex.q && other.r === hex.r) === index,
+  );
+  db.patch('areas', area.id, {
+    party: {
+      q: at.q,
+      r: at.r,
+      pace: before?.pace ?? 'normal',
+      day: before?.day ?? 0,
+      minutes: before?.minutes ?? 0,
+      trail,
+      legs: before?.legs ?? [],
+    },
+    hexes: area.hexes.map((hex) =>
+      seen.has(`${hex.q},${hex.r}`) && !hex.discovered ? { ...hex, discovered: true } : hex,
+    ),
   });
 }
 

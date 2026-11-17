@@ -6,9 +6,17 @@
 import { useMemo, useState } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { planJourney } from '../../domain/journey';
+import type { CampaignData } from '../../domain/schema';
+import { wayWithHexMap, withHexes } from './hexway';
+
+/** Der Plan mit den Hexkarten der Wege. */
+const planOf = (data: CampaignData, fromId: string, toId: string) => {
+  const plan = planJourney(data, fromId, toId);
+  return plan ? withHexes(data, plan) : null;
+};
 import { createEntity } from '../../domain/schema';
 import { formatWayTime } from '../../domain/ways';
-import { Button, Dialog, EntityPicker, Field, Input, toast } from '../../ui';
+import { Button, Checkbox, Dialog, EntityPicker, Field, Input, toast } from '../../ui';
 import { DurationField } from '../wege/DurationField';
 import { startJourney } from './actions';
 
@@ -21,9 +29,12 @@ export function JourneyDialog({ onClose }: { onClose: () => void }) {
   const [food, setFood] = useState('');
   const [water, setWater] = useState('');
   const plan = useMemo(
-    () => (fromId && toId ? planJourney(data, fromId, toId) : null),
+    () => (fromId && toId ? planOf(data, fromId, toId) : null),
     [data, fromId, toId],
   );
+  /** Eine Strecke ohne Weg bekommt auf Wunsch einen Weg mit Hexkarte (Gelände dazwischen). */
+  const [hexes, setHexes] = useState(true);
+  const freeKm = plan?.free ? (plan.legs[0]?.distanceKm ?? null) : null;
   const name = (id: string | null | undefined) => (id ? (data.entities[id]?.name ?? '?') : '?');
   const days = (text: string) => {
     const value = Number.parseFloat(text.replace(',', '.'));
@@ -32,10 +43,13 @@ export function JourneyDialog({ onClose }: { onClose: () => void }) {
   const ready =
     !!plan && (!plan.unknown || minutes > 0 || plan.legs.some((leg) => leg.minutes > 0));
   const go = () => {
-    if (!plan || !toId) return;
+    if (!plan || !toId || !fromId) return;
+    // Ohne Weg, aber mit bekannter Länge: erst den Weg mit seiner Hexkarte, dann den Plan neu.
+    const made = plan.free && hexes && freeKm ? wayWithHexMap(db, fromId, toId, freeKm) : null;
+    const final = made ? (planOf(db.getSnapshot(), fromId, toId) ?? plan) : plan;
     const started = startJourney(db, {
       toId,
-      plan,
+      plan: final,
       minutes: plan.unknown ? minutes : null,
       food: days(food),
       water: days(water),
@@ -92,6 +106,7 @@ export function JourneyDialog({ onClose }: { onClose: () => void }) {
                     {leg.distanceKm ? ` · ${leg.distanceKm} km` : ''}
                     {leg.ground ? ` · ${leg.ground}` : ''}
                     {leg.slow ? ' · schwer zu durchqueren' : ''}
+                    {leg.hexes.length ? ` · Feld für Feld (${leg.hexes.length} Felder)` : ''}
                   </em>
                 </li>
               ))}
@@ -106,6 +121,11 @@ export function JourneyDialog({ onClose }: { onClose: () => void }) {
               </span>
             )}
           </div>
+        )}
+        {plan?.free && freeKm !== null && (
+          <Checkbox checked={hexes} onChange={setHexes}>
+            Als Weg mit Hexkarte anlegen – dann geht es Feld für Feld, und der Weg steht im Wegenetz
+          </Checkbox>
         )}
         {plan?.unknown && (
           <Field label="Wie lange?" hint="Die Dauer ist nicht bekannt – trag sie ein.">

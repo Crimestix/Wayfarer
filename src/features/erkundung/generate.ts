@@ -8,6 +8,7 @@
  * Reine Funktionen. Gleicher Ausgangswert und gleiche Angaben → dieselbe Karte, damit die
  * Rückreise dieselbe Welt vorfindet.
  */
+import { isUnderground } from '../../domain/underground';
 import { normalize, placeAncestors } from '../../domain/derive';
 import {
   along as pointAlong,
@@ -144,9 +145,17 @@ export function recognizeBiome(
       a &&
       b &&
       ((path.fromId === a && path.toId === b) || (path.fromId === b && path.toId === a)) &&
-      path.terrain !== 'urban'
+      // „Grasland“ ist nur die Vorgabe eines Weges, „Stadt“ sagt nichts über das Land dazwischen.
+      path.terrain !== 'urban' &&
+      path.terrain !== 'grassland'
     )
       hit(path.terrain, 4, path.name ? `Weg „${path.name}“` : 'gespeicherter Weg');
+
+  // Liegen die Orte unter der Erde (`isUnderground`: Klima, Unterreich-Karte, Namen), ist das
+  // Land dazwischen es auch – das wiegt mehr als jedes Wort.
+  const below = placeIds.filter((id) => isUnderground(data, id));
+  if (below.length && below.length === placeIds.filter((id) => data.entities[id]).length)
+    hit('underdark', 20, data.entities[below[0]!]?.name ?? 'unter der Erde');
 
   let best: Terrain | null = null;
   for (const [terrain, entry] of scores)

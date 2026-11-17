@@ -1,4 +1,5 @@
 /** Einen Weg zwischen zwei Orten anlegen oder ändern. */
+import { HexWayButton } from '../reise/HexWayButton';
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
@@ -86,6 +87,7 @@ export function WayDialog({
               Entfernen
             </Button>
           )}
+          {way && <HexWayButton path={way} onOpened={onClose} />}
           <Button onClick={onClose}>Abbrechen</Button>
           <Button variant="primary" onClick={save} disabled={!ready}>
             {way ? 'Speichern' : 'Weg anlegen'}

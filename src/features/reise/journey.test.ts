@@ -13,6 +13,7 @@ import {
 import { marchedMinutes } from '../../domain/march';
 import { createEntity, createPath, createRollTable, type Place } from '../../domain/schema';
 import { campCheck, endJourney, startJourney, travelOn } from './actions';
+import { hexMapForWay, withHexes } from './hexway';
 
 /** Ein Würfel, der der Reihe nach die gegebenen Zahlen zeigt (danach 1). */
 const dice = (...values: number[]): Roll => {
@@ -139,5 +140,47 @@ describe('Unterwegs', () => {
     startJourney(db, { toId: goal.id, plan: planJourney(data(), data().state.placeId!, goal.id)! });
     const hour = nextHalt(data(), journeyUnderway(data())!, dice(), 60)!;
     expect(hour).toMatchObject({ kind: 'hour', minutes: 60 });
+  });
+});
+
+describe('Wegenetz, Hexkarte und Unterwegs', () => {
+  it('gibt einem Weg einmal seine Hexkarte – danach bleibt sie dieselbe', async () => {
+    const { db, data, grotto, goal } = await setup();
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const first = hexMapForWay(db, path.id)!;
+    expect(first.hexes.length).toBeGreaterThan(1);
+    // Beide Orte liegen unter der Erde – das Gelände dazwischen auch.
+    expect(first.biome).toBe('underdark');
+    expect(data().paths[path.id]!.areaId).toBe(first.id);
+    expect(hexMapForWay(db, path.id)!.id).toBe(first.id);
+    expect(goal.id).toBeTruthy();
+  });
+
+  it('reist einen Weg mit Hexkarte Feld für Feld, hält an Vorbereitetem und zieht die Karte mit', async () => {
+    const { db, data, grotto, goal } = await setup();
+    db.setState({ placeId: grotto.id });
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const plan = withHexes(data(), planJourney(data(), grotto.id, goal.id)!);
+    const leg = plan.legs[0]!;
+    expect(leg.areaId).toBe(area.id);
+    expect(leg.hexes.length).toBeGreaterThan(2);
+    // Auf einem Feld in der Mitte wartet etwas Vorbereitetes.
+    const middle = leg.hexes[Math.floor(leg.hexes.length / 2)]!;
+    db.patch('areas', area.id, {
+      hexes: data().areas[area.id]!.hexes.map((hex) =>
+        hex.q === middle.q && hex.r === middle.r
+          ? { ...hex, prepared: 'Ein eingestürzter Gang' }
+          : hex,
+      ),
+    });
+    startJourney(db, { toId: goal.id, plan });
+    let result = travelOn(db, dice())!;
+    while (result.halt.kind !== 'prepared' && journeyUnderway(data()))
+      result = travelOn(db, dice())!;
+    expect(result.halt).toMatchObject({ kind: 'prepared', text: 'Ein eingestürzter Gang' });
+    expect(data().areas[area.id]!.party).toMatchObject({ q: middle.q, r: middle.r });
+    const passed = data().areas[area.id]!.hexes.filter((hex) => hex.discovered).length;
+    expect(passed).toBeGreaterThan(0);
   });
 });

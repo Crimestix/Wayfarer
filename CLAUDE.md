@@ -334,6 +334,15 @@ nicht übernommen.
   Tabellen der Gegend (`tables/`, `tablesAt`, als Text `tableText`/`tableFromText`, W20 ab einem
   Wert) – mit `fairDie`, nur als Vorschlag, als Halt und Zeile der Chronik. Vorräte sind eine
   Leiste in Tagen (`journey.supplies`, nach Kalendertagen), nur ein Hinweis.
+  **Wegenetz, Hexkarte, Unterwegs greifen ineinander** (Wunsch 17. 11., `features/reise/hexway.ts`):
+  Das Wegenetz ist die Übersicht, eine Hexkarte das Gelände einer Verbindung („Gelände
+  dazwischen“, `path.areaId`, `hexMapForWay` – einmal erzeugt mit `seedOf` aus dem Weg; Knopf
+  `HexWayButton` im Wegenetz und am Weg). Ein Abschnitt mit Hexkarte geht Feld für Feld
+  (`withHexes`, `leg.hexes` mit Minuten; eine feste Dauer am Weg wird auf die Felder verteilt) und
+  hält an Vorbereitetem, Orten und noch unentdeckten Besonderheiten der Felder (`feature`); die
+  Hexkarte zieht mit (`syncArea`: Stellung, Spur, entdeckt). Eine Reise ohne Weg kann gleich einen
+  Weg mit Hexkarte bekommen (`wayWithHexMap`). Liegen beide Orte unter der Erde, ist das Gelände
+  dazwischen es auch (`recognizeBiome`); „Grasland“ als Vorgabe eines Weges zählt nicht.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

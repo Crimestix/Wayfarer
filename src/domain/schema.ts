@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 19;
-export const DATA_SHAPE = 'd9efa1d8bce90bdd';
+export const DATA_VERSION = 20;
+export const DATA_SHAPE = '25eb30cbbec09d96';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2218,6 +2218,11 @@ export const PathSchema = z.object({
   toId: id,
   name: z.string().default(''),
   /** Länge in km; null = aus den Punkten und dem Kartenmaßstab berechnen. */
+  /**
+   * Das Gelände dieses Weges als Hexkarte („Gelände dazwischen“): Unterwegs wird der Weg dann Feld
+   * für Feld gereist, und die Hexkarte zeigt, wo die Gruppe ist. null = keine.
+   */
+  areaId: id.nullable().default(null),
   distanceKm: z.number().nonnegative().nullable().default(null),
   /** Fester Aufwand in Minuten (z. B. Gasse durch die Stadt), unabhängig vom Tempo. */
   minutes: z.number().int().nonnegative().nullable().default(null),
@@ -2288,6 +2293,13 @@ export const JourneyLegSchema = z.object({
   slow: z.boolean().default(false),
   /** Die Gegend, aus der Gelände und Tabellen stammen. */
   regionId: id.nullable().default(null),
+  /** Die Hexkarte des Weges: Unterwegs geht es Feld für Feld, `hexes` mit Minuten ab Beginn. */
+  areaId: id.nullable().default(null),
+  hexes: z
+    .array(
+      z.object({ q: z.number().int(), r: z.number().int(), at: z.number().int().nonnegative() }),
+    )
+    .default([]),
   // Aus dem ersten Entwurf; ungenutzt.
   mapId: id.nullable().default(null),
   points: z.array(point).default([]),
@@ -2305,6 +2317,7 @@ export const JourneyLogSchema = z.object({
 /** Warum die Reise angehalten hat (`domain/journey.ts`, `HALT_LABEL`). */
 export const HALT_KINDS = [
   'place',
+  'feature',
   'prepared',
   'encounter',
   'discovery',
