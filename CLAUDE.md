@@ -335,6 +335,26 @@ nicht übernommen.
   Tabellen der Gegend (`tables/`, `tablesAt`, als Text `tableText`/`tableFromText`, W20 ab einem
   Wert) – mit `fairDie`, nur als Vorschlag, als Halt und Zeile der Chronik. Vorräte sind eine
   Leiste in Tagen (`journey.supplies`, nach Kalendertagen), nur ein Hinweis.
+  **Regeln unterwegs mit fertig gerechnetem SG** (Wunsch 17. 11.: „Dinge, die mit Hand nervig
+  sind, erleichtert Wayfarer – nach den Regeln von D&D“, `domain/travelRules.ts`, SRD 5.2.1):
+  weitere Halte in `nextHalt` – `march` (am Ende jeder Stunde nach der achten, SG 10 + Stunden
+  darüber), `cold`/`heat` (stündlich aus `weatherAt`; Hitze nur ohne Trinkwasser, SG 5 steigend),
+  `dark` (Einbruch der Nacht unter freiem Himmel), `hunger`/`thirst` (Tag zu Ende, Proviant oder
+  Wasser aufgebraucht; `shortage`, einmal am Tag über `journey.fedDay` – auch nach einer Nacht im
+  Lager), `hazard` (Gefahr am Weg `path.hazard` oder Feld `hex.hazard`: Art, SG, Sturz 1W6 je
+  10 Fuß – `hazardLine`; eingetragen über `reise/HazardFields`). Am Halt steht je Gefährte
+  „geschafft“/„gescheitert“ (`reise/BodyCheck`), gescheitert trägt eine Stufe Erschöpfung ein; die
+  Spieler würfeln am Tisch. Was eine Gegend für die Nahrungssuche hergibt und ob es Trinkwasser
+  gibt, steht am Ort und an der Landschaft (`yield`, `water`, gelesen über `bountyOf`; Felder in
+  „Unterwegs hier“ und „Landschaft“, `reise/RegionFields`); „Nahrung suchen“ nennt den SG, und was
+  gefunden wurde, kommt über `addSupplies` zu den Vorräten. Das Klima eines Ortes steht ebenfalls
+  in „Unterwegs hier“ – erkannt, Vorgabe oder eigenes mit Werten je Monat (`ownClimate`,
+  `patchClimateMonth`). Reise antreten fragt nach Meilen, Reisetagen oder Stunden, nach dem Tempo
+  (`journey.pace`, `PACE_EFFECT`, Tagesstrecke nach `DAY_KM`) und für eine freie Strecke, was
+  dazwischen liegt (Landschaft oder Gelände für die Hexkarte, `wayWithHexMap(…, ground)`). Eine
+  Begegnung aus einer Tabellenzeile mit Wesen wird gleich eine Begegnung mit Anzahl
+  (`halt.foe` → `newEncounter`/`addFoes`, `journey.halt.encounterId`); der Halt nennt, wer wen
+  bemerkt (beste passive Wahrnehmung gegen Heimlichkeit, überrascht = Nachteil auf Initiative).
   **Wegenetz, Hexkarte, Unterwegs greifen ineinander** (Wunsch 17. 11., `features/reise/hexway.ts`):
   Das Wegenetz ist die Übersicht, eine Hexkarte das Gelände einer Verbindung („Gelände
   dazwischen“, `path.areaId`, `hexMapForWay` – einmal erzeugt mit `seedOf` aus dem Weg; Knopf
