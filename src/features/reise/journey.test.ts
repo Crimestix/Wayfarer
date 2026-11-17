@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { moveParty } from '../../data/actions';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
@@ -158,18 +159,25 @@ describe('Unterwegs', () => {
     const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
     const area = hexMapForWay(db, path.id)!;
     const open = area.hexes.find((hex) => !hex.placeId && hex.terrain)!;
-    db.patch('areas', area.id, {
-      party: {
-        ...HexSchema.pick({ q: true, r: true }).parse(open),
-        pace: 'normal',
-        day: 0,
-        minutes: 0,
-        trail: [{ q: 0, r: 0, level: 0 }],
-        level: 0,
-        legs: [],
-      },
-    });
+    const step = (at: number) =>
+      db.patch('areas', area.id, {
+        party: {
+          ...HexSchema.pick({ q: true, r: true }).parse(open),
+          pace: 'normal',
+          day: 0,
+          minutes: 0,
+          trail: [{ q: 0, r: 0, level: 0 }],
+          level: 0,
+          legs: [{ at, minutes: 60 }],
+        },
+      });
+    step(data().state.now + 60);
     expect(partyBetween(data())).toEqual({ toId: goal.id, areaId: area.id });
+    // Ein alter Stand der Hexkarte – die Gruppe ist seitdem anders angekommen: nicht unterwegs.
+    step(data().state.now - 60);
+    db.setState({ placeId: start.id });
+    moveParty(db, grotto.id);
+    expect(partyBetween(data())).toBeNull();
   });
 
   it('nimmt eine Stunde, wenn man nur ein Stück weiter will', async () => {

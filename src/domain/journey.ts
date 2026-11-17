@@ -23,6 +23,7 @@ import { sameHex } from './hex';
 import { DIR_DOWN, dirTo, exitsOf, isJunction } from './passages';
 import { placeGeo, planetOf } from './planet';
 import type {
+  Area,
   CampaignData,
   HaltKind,
   Journey,
@@ -632,7 +633,7 @@ function passageText(dir: number, kind: PassageKind, before: PassageKind | undef
  * „Unterwegs“ statt des Ortes, von dem sie aufgebrochen ist. null = sie ist an ihrem Ort.
  */
 export function partyBetween(
-  data: Pick<CampaignData, 'journeys' | 'areas' | 'entities' | 'state'>,
+  data: Pick<CampaignData, 'journeys' | 'areas' | 'entities' | 'state' | 'chronicle'>,
 ): { toId: string | null; areaId: string | null } | null {
   const journey = journeyUnderway(data);
   if (journey) {
@@ -644,11 +645,21 @@ export function partyBetween(
   }
   const here = data.state.placeId;
   if (!here) return null;
+  // Ein Schritt auf der Hexkarte zählt nur, wenn er nach dem letzten Ortswechsel kam – sonst ist
+  // es ein alter Stand der Karte, und die Gruppe ist längst irgendwo angekommen.
+  let movedAt = Number.NEGATIVE_INFINITY;
+  for (const entry of Object.values(data.chronicle))
+    if (entry.kind === 'travel' && entry.at > movedAt) movedAt = entry.at;
+  // Auch eine Reise, die danach aufbrach (und vielleicht ohne Ortswechsel endete), löst ab.
+  for (const journey of Object.values(data.journeys))
+    if (journey.departAt !== null && journey.departAt > movedAt) movedAt = journey.departAt;
+  const lastStep = (area: Area) => area.party!.legs[area.party!.legs.length - 1]?.at ?? null;
   const walking = Object.values(data.areas)
     .filter((area) => area.party && (area.fromId === here || area.toId === here))
     .filter((area) => {
       const at = area.hexes.find((hex) => sameHex(hex, area.party!));
-      return at && !at.placeId && area.party!.trail.length > 0;
+      const step = lastStep(area);
+      return at && !at.placeId && area.party!.trail.length > 0 && step !== null && step > movedAt;
     })
     .sort(
       (a, b) =>
