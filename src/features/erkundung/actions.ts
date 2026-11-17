@@ -557,6 +557,20 @@ export function toggleShaft(db: CampaignDb, areaId: string, at: HexCoord): boole
   return !open;
 }
 
+/**
+ * Verirrt oder zurechtgefunden (nach der Probe, entschieden vom Spielleiter): Solange die Gruppe
+ * verirrt ist, weicht jeder Schritt eine Seite ab (`planStep`). Mit Rückgängig.
+ */
+export function setLost(db: CampaignDb, areaId: string, lost: boolean): (() => void) | null {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area?.party) return null;
+  const before = area.party;
+  db.patch('areas', areaId, { party: { ...area.party, lost } });
+  return () => {
+    if (db.getSnapshot().areas[areaId]) db.patch('areas', areaId, { party: before });
+  };
+}
+
 // ── Landschaften beleben ───────────────────────────────────────────────────
 
 /**

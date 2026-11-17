@@ -9,6 +9,8 @@ import type { CampaignDb } from '../../data/db';
 import {
   CHECK_EVERY,
   HALT_LABEL,
+  HEADING_LABEL,
+  veerHeading,
   journeyUnderway,
   nextHalt,
   nightCheck,
@@ -30,9 +32,10 @@ import {
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
 import { markSighted } from '../../domain/afar';
-import { searchMinutes, seenFrom } from '../erkundung/travel';
+import { hexMinutes, searchMinutes, seenFrom } from '../erkundung/travel';
 import { hexAtProgress } from './hexway';
-import { hexKey, sameHex } from '../../domain/hex';
+import { HEX_DIRECTIONS, hexKey, sameHex } from '../../domain/hex';
+import { dirTo } from '../../domain/passages';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { formatWayTime } from '../../domain/ways';
 
@@ -259,10 +262,22 @@ function detour(db: CampaignDb, journey: Journey): TravelResult {
   const minutes = journey.lostMinutes;
   return db.batch(() => {
     const start = db.getSnapshot().state.now;
+    const areaBefore = (() => {
+      const leg = journey.legs[journey.progress.leg];
+      return leg?.areaId ? db.getSnapshot().areas[leg.areaId] : undefined;
+    })();
     advanceTime(db, start + minutes);
-    const line = logEntry(db, { text: `Umweg: etwa ${formatWayTime(minutes)} verloren` });
+    wanderOnMap(db, journey, minutes);
+    const heading =
+      journey.lostHeading !== null && journey.lostHeading !== undefined
+        ? `nach ${HEADING_LABEL[journey.lostHeading]} abgekommen – `
+        : '';
+    const line = logEntry(db, {
+      text: `Verirrt: ${heading}etwa ${formatWayTime(minutes)} Umweg`,
+    });
     const next = db.patch('journeys', journey.id, {
       lostMinutes: 0,
+      lostHeading: null,
       steps: [...journey.steps, { at: start + minutes, minutes }].slice(-20),
       sinceCheck: (journey.sinceCheck + minutes) % CHECK_EVERY,
       halt: {
@@ -288,6 +303,8 @@ function detour(db: CampaignDb, journey: Journey): TravelResult {
           if (db.getSnapshot().chronicle[line.id]) db.remove('chronicle', line.id);
           undoTimeAdvance(db);
           db.put('journeys', journey);
+          if (areaBefore && db.getSnapshot().areas[areaBefore.id])
+            db.patch('areas', areaBefore.id, { hexes: areaBefore.hexes, party: areaBefore.party });
         }),
     };
   });
@@ -297,12 +314,80 @@ function detour(db: CampaignDb, journey: Journey): TravelResult {
  * Verirrt (nach einer misslungenen Orientierung, entschieden vom Spielleiter): Wayfarer würfelt
  * den Umweg – 1W6 Stunden –, den die nächste Etappe kostet. Gibt die Stunden und `undo` zurück.
  */
-export function getLost(db: CampaignDb, roll: Roll): { hours: number; undo: () => void } | null {
-  const journey = journeyUnderway(db.getSnapshot());
+export function getLost(
+  db: CampaignDb,
+  roll: Roll,
+): { hours: number; heading: number | null; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const journey = journeyUnderway(data);
   if (!journey) return null;
   const hours = roll(6);
-  db.patch('journeys', journey.id, { lostMinutes: hours * 60, halt: null });
-  return { hours, undo: () => db.put('journeys', journey) };
+  const heading = lostHeadingOf(data, journey, roll(2) === 1);
+  db.patch('journeys', journey.id, { lostMinutes: hours * 60, lostHeading: heading, halt: null });
+  return { hours, heading, undo: () => db.put('journeys', journey) };
+}
+
+/**
+ * Wohin die Gruppe abkommt: Auf einer Hexkarte eine Seite neben der Richtung, in die sie gerade
+ * will (das nächste Feld des Abschnitts) – nur auf ein Feld, das es gibt. null ohne Hexkarte.
+ */
+function lostHeadingOf(data: CampaignData, journey: Journey, left: boolean): number | null {
+  const leg = journey.legs[journey.progress.leg];
+  const area = leg?.areaId ? data.areas[leg.areaId] : undefined;
+  if (!leg || !area || leg.hexes.length < 2) return null;
+  const passed = leg.hexes.filter((hex) => hex.at <= journey.progress.minutes);
+  const here = passed[passed.length - 1] ?? leg.hexes[0]!;
+  const next = leg.hexes[leg.hexes.indexOf(here) + 1];
+  const intended = next ? dirTo(here, next) : null;
+  if (intended === null || intended >= 6) return null;
+  const exists = (dir: number) =>
+    area.hexes.some(
+      (hex) =>
+        hex.q === here.q + HEX_DIRECTIONS[dir]!.q &&
+        hex.r === here.r + HEX_DIRECTIONS[dir]!.r &&
+        hex.level === here.level,
+    );
+  return veerHeading(intended, left, exists);
+}
+
+/**
+ * Der Umweg auf der Hexkarte: von der Stelle der Gruppe in die Richtung, in die sie abkam – so
+ * weit, wie die halbe verlorene Zeit reicht, höchstens sechs Felder –, und wieder zurück. Die
+ * Felder sind danach entdeckt und stehen in der Spur; die Gruppe steht wieder, wo sie war.
+ */
+function wanderOnMap(db: CampaignDb, journey: Journey, minutes: number): void {
+  const heading = journey.lostHeading;
+  const leg = journey.legs[journey.progress.leg];
+  const area = leg?.areaId ? db.getSnapshot().areas[leg.areaId] : undefined;
+  if (heading === null || heading === undefined || !leg || !area?.party) return;
+  const party = area.party;
+  const perHex = hexMinutes(area.hexKm, 'grassland', 'normal') ?? 60;
+  const steps = Math.max(1, Math.min(6, Math.round(minutes / 2 / perHex)));
+  const path: { q: number; r: number; level: number }[] = [];
+  let at = { q: party.q, r: party.r, level: party.level };
+  for (let i = 0; i < steps; i++) {
+    const next = {
+      q: at.q + HEX_DIRECTIONS[heading]!.q,
+      r: at.r + HEX_DIRECTIONS[heading]!.r,
+      level: at.level,
+    };
+    if (!area.hexes.some((hex) => sameHex(hex, next))) break;
+    path.push(next);
+    at = next;
+  }
+  if (!path.length) return;
+  const seen = new Set<string>();
+  for (const hex of path) for (const key of seenFrom(db.getSnapshot(), area, hex)) seen.add(key);
+  for (const hex of path) seen.add(hexKey(hex));
+  db.patch('areas', area.id, {
+    hexes: area.hexes.map((hex) =>
+      !hex.discovered && seen.has(hexKey(hex)) ? { ...hex, discovered: true } : hex,
+    ),
+    party: {
+      ...party,
+      trail: [...party.trail, ...path, ...[...path].reverse().slice(1)].slice(-400),
+    },
+  });
 }
 
 /**

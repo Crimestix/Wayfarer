@@ -25,6 +25,7 @@ import { placeGeo, planetOf } from './planet';
 import type {
   Area,
   CampaignData,
+  Hex,
   HaltKind,
   Journey,
   JourneyLeg,
@@ -590,6 +591,42 @@ export function navigationAt(
   }
   const below = leg.toId ? isUnderground(data, leg.toId) : false;
   return navNeed(data, regionId, terrain, below);
+}
+
+/**
+ * Muss sich die Gruppe auf diesem Feld einer Hexkarte orientieren? Nur abseits von Straße und
+ * Pfad, im Gangnetz nur an Kreuzungen. SG der Gegend, sonst Vorschlag nach Gelände.
+ */
+export function hexNavigation(
+  data: CampaignData,
+  hex: Pick<Hex, 'road' | 'exits' | 'terrain' | 'regionId'>,
+): { dc: number; suggested: boolean } | null {
+  if (hex.road !== 'none') return null;
+  if (hex.exits !== null && !isJunction(hex as Hex)) return null;
+  return navNeed(data, hex.regionId, hex.terrain, hex.terrain === 'underdark');
+}
+
+/** Die Seiten eines Feldes als Himmelsrichtung (Spitze oben): 0 = Nordosten … 5 = Nordwesten. */
+export const HEADING_LABEL = [
+  'Nordosten',
+  'Osten',
+  'Südosten',
+  'Südwesten',
+  'Westen',
+  'Nordwesten',
+] as const;
+
+/**
+ * Wohin eine verirrte Gruppe abkommt: eine Seite neben der gewollten (60° nach links oder rechts,
+ * `left` entscheidet), aber nur auf ein Feld, das es gibt und das betretbar ist (`ok`); sonst die
+ * andere Seite, sonst bleibt es bei der gewollten.
+ */
+export function veerHeading(intended: number, left: boolean, ok: (dir: number) => boolean): number {
+  const first = (intended + (left ? 5 : 1)) % 6;
+  const second = (intended + (left ? 1 : 5)) % 6;
+  if (ok(first)) return first;
+  if (ok(second)) return second;
+  return intended;
 }
 
 /** Ob und mit welchem SG geprüft wird: eigener Wert der Gegend, sonst Vorschlag nach Gelände. */

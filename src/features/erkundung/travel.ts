@@ -6,6 +6,9 @@
  * acht Stunden Reise am Tag; jede weitere Stunde ist ein Gewaltmarsch. Das Gelände begrenzt,
  * wie schnell es höchstens vorangeht.
  */
+import { HEX_DIRECTIONS } from '../../domain/hex';
+import { veerHeading } from '../../domain/journey';
+import { landscapeOfHex } from '../../domain/landscape';
 import { groundOf as journeyGround } from '../../domain/journey';
 import { lightStatus } from '../../domain/underground';
 import { hexDistance, hexKey, sameHex, type HexCoord } from '../../domain/hex';
@@ -100,14 +103,18 @@ export function hexMinutes(
 export function stepMinutes(
   data: CampaignData,
   area: Pick<Area, 'hexKm'>,
-  hex: Pick<Hex, 'terrain' | 'road' | 'regionId'>,
+  hex: Pick<Hex, 'terrain' | 'road' | 'regionId' | 'landscapeId'>,
   pace: Pace,
   by: Mount | null = null,
 ): number | null {
   const onRoad = hex.road !== 'none' && hex.terrain !== 'water';
   const base = hexMinutes(area.hexKm, onRoad ? 'grassland' : hex.terrain, pace, by);
   if (base === null) return null;
-  const slow = !onRoad && !!hex.regionId && !!journeyGround(data, hex.regionId)?.slow;
+  // Schwer zu durchqueren: eine langsame Gegend – oder eine Landschaft, die es sagt.
+  const slow =
+    !onRoad &&
+    ((!!hex.regionId && !!journeyGround(data, hex.regionId)?.slow) ||
+      !!landscapeOfHex(data, hex)?.landscape.slow);
   return slow ? base * 2 : base;
 }
 
@@ -275,6 +282,8 @@ export interface TravelStep {
   senses: Sense[];
   /** Was mit diesem Schritt zum ersten Mal in der Ferne auftauchte (`domain/afar.ts`). */
   sighted: Sighting[];
+  /** Verirrt: wohin die Gruppe wollte und wohin sie kam (Seiten 0–5). null = wie gewollt. */
+  veered: { wanted: number; went: number } | null;
 }
 
 /**
@@ -285,13 +294,33 @@ export interface TravelStep {
 export function planStep(
   data: CampaignData,
   area: Area,
-  to: HexCoord,
+  wanted: HexCoord,
   now: number,
 ): TravelStep | StepProblem {
   // Womit die Gruppe reist (`state.travelBy`) – ein Schiff trägt sie übers Wasser.
   const by = partyMeans(data);
-  const problem = stepProblem(area, to, by);
+  const problem = stepProblem(area, wanted, by);
   if (problem) return problem;
+  // Verirrt (Wunsch 17. 11.: „Verirren … zeigt Wayfarer an, wie in einem Videospiel“): Die Gruppe
+  // will auf das gewählte Feld, kommt aber eine Seite daneben heraus – fest je Zeitpunkt, und nur
+  // auf ein Feld, das sie betreten kann.
+  let to: HexCoord = wanted;
+  let veered: TravelStep['veered'] = null;
+  const from = partyHex(area)!;
+  const intended = area.party?.lost ? dirTo(from, wanted) : null;
+  if (intended !== null && intended < 6) {
+    const coordOf = (dir: number) => ({
+      q: from.q + HEX_DIRECTIONS[dir]!.q,
+      r: from.r + HEX_DIRECTIONS[dir]!.r,
+      level: from.level,
+    });
+    const left = rngOf(seedOf(area.id, 'verirrt', now)).chance(0.5);
+    const dir = veerHeading(intended, left, (d) => !stepProblem(area, coordOf(d), by));
+    if (dir !== intended) {
+      to = coordOf(dir);
+      veered = { wanted: intended, went: dir };
+    }
+  }
   const party = area.party!;
   const target = find(area, to)!;
   const passage = passageBetween(indexHexes(area.hexes), partyHex(area)!, target)!;
@@ -344,6 +373,7 @@ export function planStep(
     encounters: rollEncounters(data, area, target, arrival),
     senses: sensesAt(data, moved, target, party),
     sighted,
+    veered,
   };
 }
 

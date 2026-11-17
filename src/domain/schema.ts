@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 29;
-export const DATA_SHAPE = '25a5b948bc6bb756';
+export const DATA_VERSION = 30;
+export const DATA_SHAPE = 'a68648330f802ea9';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2439,6 +2439,11 @@ export const JourneySchema = z.object({
   navDay: z.number().int().nullable().default(null),
   /** Verirrt: so viele Minuten Umweg kostet der nächste Abschnitt der Reise, ohne voranzukommen. */
   lostMinutes: z.number().int().nonnegative().default(0),
+  /**
+   * Wohin die Gruppe beim Verirren abkam (Seite 0–5 der Hexkarte) – der Umweg führt sichtbar
+   * dorthin und zurück. null = keine Hexkarte oder keine Richtung.
+   */
+  lostHeading: z.number().int().min(0).max(5).nullable().optional(),
   /** Gereiste Stücke mitten auf einem Abschnitt – für den Gewaltmarsch (`domain/march.ts`). */
   steps: z.array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() })).default([]),
   /** Vorräte beim Aufbruch in Tagen – nur ein Hinweis, abgezogen wird nichts. null = nicht gezählt. */
@@ -2708,6 +2713,8 @@ export const AreaSchema = z.object({
         .default([]),
       /** Die Ebene, auf der die Gruppe steht. */
       level: z.number().int().nonnegative().default(0),
+      /** Verirrt: Jeder Schritt weicht ab, bis sie sich zurechtfindet (`planStep`). */
+      lost: z.boolean().optional(),
       /**
        * Die Schritte der letzten 24 Stunden: Ende und Dauer – für den Gewaltmarsch, der seit der
        * letzten Langen Rast zählt (`domain/march.ts`), nicht ab Mitternacht.

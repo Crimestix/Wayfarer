@@ -1287,3 +1287,20 @@
 .wf-erk-zoomback:hover {
   text-decoration: underline;
 }
+
+/* Orientierung beim Spielen: SG oder „verirrt“, dazu der Umschalter. */
+.wf-erk-orient {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-faint);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-erk-orient[data-lost] {
+  border-color: var(--ember);
+  color: var(--ember);
+}

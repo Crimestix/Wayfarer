@@ -23,6 +23,7 @@ import { openQuickLog, openRest } from '../../shell/commands';
 import { Button, Panel, cx, toast } from '../../ui';
 import { fairDie } from '../bestiarium/model';
 import { campCheck, clearHalt, endJourney, getLost, searchOnJourney, travelOn } from './actions';
+import { HEADING_LABEL } from '../../domain/journey';
 import './reise.css';
 
 export function TravelPanel({ journey }: { journey: Journey }) {
@@ -208,7 +209,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
                       toast({
                         slot: 'reise',
                         title: 'Verirrt',
-                        body: `Etwa ${lost.hours} ${lost.hours === 1 ? 'Stunde' : 'Stunden'} Umweg – das kostet die nächste Etappe.`,
+                        body: `${lost.heading !== null ? `Die Gruppe kommt nach ${HEADING_LABEL[lost.heading]} ab – ` : ''}etwa ${lost.hours} ${lost.hours === 1 ? 'Stunde' : 'Stunden'} Umweg. Das kostet die nächste Etappe; die Hexkarte zeigt den Umweg.`,
                         action: { label: 'Rückgängig', run: lost.undo },
                       });
                   }}

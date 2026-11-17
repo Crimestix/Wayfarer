@@ -13,16 +13,17 @@ import { senseLine } from '../../domain/senses';
 import { sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
 import { partyMeans } from '../../domain/mounts';
-import { PACES, type Area, type Pace } from '../../domain/schema';
+import { PACES, type Area, type Hex, type Pace } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
 import { formatClock, formatDuration } from '../../domain/time/calendar';
 import { describeWeather, temperatureLabel } from '../../domain/weather';
 import { weatherAt } from '../../domain/weatherZone';
 import { openMoveParty } from '../../shell/commands';
-import { Button, Panel, Select } from '../../ui';
+import { Button, Panel, Select, toast } from '../../ui';
 import { TravelBy } from '../fortbewegung/TravelBy';
 import { WeatherIcon } from '../wetter/WeatherChip';
-import { placeParty, setTravelPace, type TravelResult } from './actions';
+import { placeParty, setLost, setTravelPace, type TravelResult } from './actions';
+import { HEADING_LABEL, hexNavigation } from '../../domain/journey';
 import {
   TRAVEL_HOURS,
   effectivePace,
@@ -56,6 +57,12 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
   for (const timer of time.expired)
     lines.push({ key: `timer-${timer.id}`, text: `Abgelaufen: ${timer.label}` });
   if (step.march) lines.push({ key: 'march', alert: true, text: marchRule(step.march) });
+  if (step.veered)
+    lines.push({
+      key: 'veered',
+      alert: true,
+      text: `Verirrt: Statt nach ${HEADING_LABEL[step.veered.wanted]} ging es nach ${HEADING_LABEL[step.veered.went]}.`,
+    });
   // Witterung: was die Gruppe von den Feldern ringsum bemerkt.
   for (const sense of step.senses)
     lines.push({ key: `sense-${sense.dir}`, text: senseLine(sense) });
@@ -257,6 +264,7 @@ export function TravelPanel({
           )}
         </div>
 
+        {here && <Orientation area={area} hex={here} />}
         {limited && (
           <p className="wf-erk-detail__where">
             Hier lässt das Gelände höchstens „
@@ -289,5 +297,47 @@ export function TravelPanel({
         {last && <LastStep last={last} onUndo={onUndo} />}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * Orientierung auf dem Feld der Gruppe: ob sie sich hier zurechtfinden muss (SG der Gegend, sonst
+ * Vorschlag nach Gelände) – und nach der Probe „Verirrt“ oder „Zurechtgefunden“. Verirrt weicht
+ * jeder Schritt eine Seite ab, bis die Gruppe sich zurechtfindet.
+ */
+function Orientation({ area, hex }: { area: Area; hex: Hex }) {
+  const db = useDb();
+  const data = useData();
+  const nav = hexNavigation(data, hex);
+  const lost = !!area.party?.lost;
+  if (!nav && !lost) return null;
+  const toggle = (next: boolean) => {
+    const undo = setLost(db, area.id, next);
+    if (undo)
+      toast({
+        slot: 'hexkarte',
+        title: next ? 'Verirrt' : 'Zurechtgefunden',
+        body: next
+          ? 'Jeder Schritt weicht jetzt eine Seite ab – bis die Gruppe sich zurechtfindet.'
+          : 'Die Schritte gehen wieder dorthin, wohin die Gruppe will.',
+        action: { label: 'Rückgängig', run: undo },
+      });
+  };
+  return (
+    <div className="wf-erk-orient" data-lost={lost || undefined}>
+      <span>
+        {lost
+          ? 'Die Gruppe hat sich verirrt.'
+          : `Orientierung: Weisheit (Überlebenskunst) SG ${nav!.dc}${nav!.suggested ? ' (Vorschlag nach Gelände)' : ''}`}
+      </span>
+      <span className="wf-btn-group" role="group" aria-label="Orientierung">
+        <Button size="sm" aria-pressed={!lost} onClick={() => lost && toggle(false)}>
+          Zurechtgefunden
+        </Button>
+        <Button size="sm" aria-pressed={lost} onClick={() => !lost && toggle(true)}>
+          Verirrt
+        </Button>
+      </span>
+    </div>
   );
 }

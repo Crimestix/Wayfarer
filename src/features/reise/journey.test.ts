@@ -230,6 +230,28 @@ describe('Wegenetz, Hexkarte und Unterwegs', () => {
   });
 });
 
+describe('Verirrt auf der Reise', () => {
+  it('kommt in eine Richtung ab – der Umweg steht in der Chronik und auf der Hexkarte', async () => {
+    const { db, data, grotto, goal } = await setup();
+    db.setState({ placeId: grotto.id });
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const plan = withHexes(data(), planJourney(data(), grotto.id, goal.id)!);
+    startJourney(db, { toId: goal.id, plan });
+    const lost = getLost(db, dice(3, 1))!;
+    expect(lost.hours).toBe(3);
+    expect(lost.heading).not.toBeNull();
+    expect(journeyUnderway(data())!.lostHeading).toBe(lost.heading);
+    const trailBefore = data().areas[area.id]!.party?.trail.length ?? 0;
+    const result = travelOn(db, dice())!;
+    expect(result.halt.kind).toBe('navigate');
+    const line = Object.values(data().chronicle).find((entry) => entry.text.startsWith('Verirrt'));
+    expect(line?.text).toMatch(/^Verirrt: nach \S+ abgekommen – etwa 3 Std\./);
+    expect(journeyUnderway(data())!.lostHeading).toBeNull();
+    expect(data().areas[area.id]!.party?.trail.length ?? 0).toBeGreaterThanOrEqual(trailBefore);
+  });
+});
+
 describe('Simulierte Hexkarte: Flüsse, Orientierung, Sicht, Orte', () => {
   /** Die Reise über die Hexkarte zwischen Glimmergrotten und Nachtzinne, Felder ohne Straße. */
   async function hexJourney(change: (hex: Hex, index: number, line: HexCoord[]) => Hex = (h) => h) {

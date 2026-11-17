@@ -12,7 +12,11 @@ import {
   paintOfLandscape,
 } from '../../domain/landscape';
 import { createCreature, createEntity, type Landscape } from '../../domain/schema';
-import { lairToPlace, paintHexes, populateArea } from './actions';
+import { lairToPlace, paintHexes, placeParty, populateArea, setLost } from './actions';
+import { planStep } from './travel';
+import { hexNavigation, veerHeading } from '../../domain/journey';
+import { dirTo } from '../../domain/passages';
+import { sameHex } from '../../domain/hex';
 import { brushPaint } from './HexEditor';
 import { MILE_KM, blankArea, scaleWords, zoomArea, zoomOf } from './freeMap';
 
@@ -144,5 +148,35 @@ describe('Hineinzoomen', () => {
     expect(child.hexes.some((hex) => hex.terrain === 'grassland')).toBe(true);
     db.put('areas', child);
     expect(zoomOf(data().areas, area.id, middle)?.id).toBe(child.id);
+  });
+});
+
+describe('Verirren mit Richtung', () => {
+  it('lässt eine verirrte Gruppe eine Seite neben dem gewollten Feld ankommen', async () => {
+    const { db, data, area, forest } = await setup();
+    paintHexes(db, area.id, area.hexes, paintOfLandscape(forest));
+    const centre = data().areas[area.id]!.hexes.find((hex) => hex.q === 3 && hex.r === 4)!;
+    placeParty(db, area.id, centre);
+    // Im Wald abseits von Wegen muss sich die Gruppe orientieren.
+    expect(hexNavigation(data(), centre)).toEqual({ dc: expect.any(Number), suggested: true });
+    const east = { q: centre.q + 1, r: centre.r, level: 0 };
+    const intended = dirTo(centre, east)!;
+    setLost(db, area.id, true);
+    const step = planStep(data(), data().areas[area.id]!, east, data().state.now);
+    if (typeof step === 'string') throw new Error(step);
+    expect(step.veered?.wanted).toBe(intended);
+    expect([(intended + 1) % 6, (intended + 5) % 6]).toContain(step.veered?.went);
+    expect(sameHex(step.target, east)).toBe(false);
+    // Zurechtgefunden: wieder dorthin, wohin sie will.
+    setLost(db, area.id, false);
+    const straight = planStep(data(), data().areas[area.id]!, east, data().state.now);
+    if (typeof straight === 'string') throw new Error(straight);
+    expect(straight.veered).toBeNull();
+    expect(sameHex(straight.target, east)).toBe(true);
+  });
+
+  it('weicht nie auf ein Feld aus, das es nicht gibt', () => {
+    expect(veerHeading(1, true, (dir) => dir === 2)).toBe(2);
+    expect(veerHeading(1, true, () => false)).toBe(1);
   });
 });
