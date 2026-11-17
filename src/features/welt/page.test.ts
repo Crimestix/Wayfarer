@@ -176,9 +176,9 @@ describe('Gestalt je Art', () => {
   it('Person: Steckbrief, dann Besitz und Text; rechts wo sie ist und Haltung', async () => {
     const { db, tovan } = await setup();
     const plan = pagePlan(db.getSnapshot(), tovan, { hasText: false });
-    expect(plan.main).toEqual(['box', 'belongings', 'notes', 'secret', 'text']);
+    expect(plan.main).toEqual(['box', 'belongings', 'text']);
     expect(plan.side.slice(0, 2)).toEqual(['whereabouts', 'attitude']);
-    expect(plan.add).toEqual(['shop', 'scheme', 'promise']);
+    expect(plan.add).toEqual(['shop', 'scheme', 'promise', 'notes', 'secret']);
   });
 
   it('Haltung bei Familien immer, bei Orten nur, wenn eine eingetragen ist', async () => {
@@ -197,14 +197,14 @@ describe('Gestalt je Art', () => {
     const sword = put(createEntity({ kind: 'item', name: 'Kurzschwert' }) as Item);
     const plan = pagePlan(db.getSnapshot(), sword as Item, { hasText: true });
     expect(plan.main).toEqual(['box', 'text']);
-    expect(plan.add).toEqual(['magic', 'recipe', 'book', 'life']);
+    expect(plan.add).toEqual(['magic', 'recipe', 'book', 'life', 'notes', 'secret']);
     // Geöffnet steht er da – an seinem Platz.
     const opened = pagePlan(db.getSnapshot(), sword as Item, {
       hasText: true,
       opened: new Set(['recipe']),
     });
     expect(opened.main).toEqual(['box', 'recipe', 'text']);
-    expect(opened.add).toEqual(['magic', 'book', 'life']);
+    expect(opened.add).toEqual(['magic', 'book', 'life', 'notes', 'secret']);
   });
 
   it('Notizen und Geheimnis neben einem Text nur, wenn schon etwas darin steht', async () => {
@@ -228,7 +228,7 @@ describe('Gestalt je Art', () => {
     const plan = pagePlan(db.getSnapshot(), stadt, { hasText: true });
     expect(plan.main).toEqual(['box', 'places', 'items', 'text']);
     expect(plan.side.slice(0, 3)).toEqual(['party', 'changes', 'cast']);
-    expect(plan.add).toEqual(['shop', 'rooms', 'travel']);
+    expect(plan.add).toEqual(['shop', 'rooms', 'travel', 'notes', 'secret']);
     // Ein Ort ohne Orte darin zeigt keinen leeren Abschnitt „Darin“.
     const leaf = pagePlan(db.getSnapshot(), schmiede, { hasText: true });
     expect(leaf.main).not.toContain('places');

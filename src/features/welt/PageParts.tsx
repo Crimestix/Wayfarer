@@ -793,8 +793,83 @@ export function Whereabouts({ person, homeInBox }: { person: Person; homeInBox: 
     ? `Seit ${formatShortDate(data.campaign.calendar, data.state.now, stay.since)}`
     : undefined;
   const createPlace = createPlaceNamed(db);
+  // Gelesen wird ein Satz; geändert erst nach „Ändern“ (Rundgang 17. 11.: lauter offene Felder).
+  const [editing, setEditing] = useState(false);
+  if (!editing)
+    return (
+      <Section
+        title="Wo sie ist"
+        action={
+          <button type="button" className="wf-welt-box__toggle" onClick={() => setEditing(true)}>
+            Ändern
+          </button>
+        }
+      >
+        <div className="wf-col" style={{ gap: 'var(--s-2)' }}>
+          <p className="wf-welt-where">
+            {placeId ? (
+              <>
+                Hält sich auf in <EntityLink id={placeId} icon={false} />
+                {staySince && <span className="wf-mute"> · {staySince.toLowerCase()}</span>}
+              </>
+            ) : (
+              <span className="wf-mute">Aufenthalt unbekannt</span>
+            )}
+            {homeId && !homeInBox && homeId !== placeId && (
+              <>
+                {' '}
+                · zu Hause in <EntityLink id={homeId} icon={false} />
+              </>
+            )}
+            {homeId && homeId === placeId && <span className="wf-mute"> · zu Hause</span>}
+            {status !== 'alive' && (
+              <b className="wf-welt-where__fate"> · {fateLabel ?? PERSON_STATUS_LABEL[status]}</b>
+            )}
+          </p>
+          {status === 'alive' && (
+            <div className="wf-row-wrap wf-welt-quick">
+              {partyPlaceId && placeId !== partyPlaceId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Users />}
+                  title={`Nach ${entityName(data, partyPlaceId)}`}
+                  onClick={() => patchDetails(db, person, { placeId: partyPlaceId })}
+                >
+                  Bei der Gruppe
+                </Button>
+              )}
+              {homeId && placeId !== homeId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Home />}
+                  title={`Nach ${entityName(data, homeId)}`}
+                  onClick={() => patchDetails(db, person, { placeId: homeId })}
+                >
+                  Zu Hause
+                </Button>
+              )}
+            </div>
+          )}
+          <OpenConditions entityId={person.id} />
+          {hasStance(data, person.id) || met ? null : (
+            <Checkbox checked={met} onChange={(next) => patchDetails(db, person, { met: next })}>
+              Die Gruppe kennt diese Person
+            </Checkbox>
+          )}
+        </div>
+      </Section>
+    );
   return (
-    <Section title="Wo sie ist">
+    <Section
+      title="Wo sie ist"
+      action={
+        <button type="button" className="wf-welt-box__toggle" onClick={() => setEditing(false)}>
+          Fertig
+        </button>
+      }
+    >
       <div className="wf-col" style={{ gap: 'var(--s-3)' }}>
         <Field label="Hält sich auf in" hint={staySince}>
           <Picker

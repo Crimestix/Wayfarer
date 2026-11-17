@@ -187,7 +187,9 @@ export type AddKey =
   | 'scheme'
   | 'promise'
   | 'combat'
-  | 'travel';
+  | 'travel'
+  | 'notes'
+  | 'secret';
 
 export const ADD_LABEL: Record<AddKey, string> = {
   shop: 'Laden',
@@ -201,6 +203,8 @@ export const ADD_LABEL: Record<AddKey, string> = {
   promise: 'Abmachung',
   combat: 'Kampfwerte',
   travel: 'Unterwegs hier',
+  notes: 'Notiz',
+  secret: 'Geheimnis',
 };
 
 /** Linke, breite Spalte: verstehen und schreiben. */
@@ -364,8 +368,10 @@ export function pagePlan(
   if (!side.includes('attitude') && showsAttitude(entity.kind, attitudeToParty(data, entity.id)))
     side.unshift('attitude');
 
-  if (!options.hasText || entity.notes.trim()) main.push('notes');
-  if (!options.hasText || entity.secret.trim()) main.push('secret');
+  // Notiz und Geheimnis stehen da, wenn etwas darin steht – leer warten sie unter „Hinzufügen“
+  // (Rundgang 17. 11.: drei leere Felder untereinander machten die Seite voll).
+  maybe('notes', !!entity.notes.trim(), () => main.push('notes'));
+  maybe('secret', !!entity.secret.trim(), () => main.push('secret'));
   main.push('text');
   side.push('relations', 'stories', 'knows', 'tracks', 'upcoming', 'recent');
   return { main, side, add };

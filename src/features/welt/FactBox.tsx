@@ -21,7 +21,7 @@ import { Section } from './parts';
 import type { WorldEntity } from './model';
 
 /** Ob leere Felder ausgeblendet sind – gilt für alle Seiten, bis die App neu startet. */
-const memory = { hideBlank: false };
+const memory = { hideBlank: true };
 
 export function FactBox({ entity, article }: { entity: WorldEntity; article: Article | null }) {
   const db = useDb();
@@ -39,8 +39,12 @@ export function FactBox({ entity, article }: { entity: WorldEntity; article: Art
     () => boxRows(text, entity.kind, scaffoldOf(data.campaign, entity.kind)),
     [text, entity.kind, data.campaign],
   );
-  const blanks = rows.filter((row) => !isFilled(row)).length;
-  const shown = hideBlank ? rows.filter(isFilled) : rows;
+  // Leere Felder stehen nur da, wenn die Welt schon etwas dazu weiß (gedämpft zum Übernehmen) –
+  // die übrigen leeren erst auf Wunsch (Rundgang 17. 11.: sieben leere Zeilen machen die Seite voll).
+  const knownOf = (row: (typeof rows)[number]) =>
+    isFilled(row) ? '' : worldValue(data, entity, row.field);
+  const blanks = rows.filter((row) => !isFilled(row) && !knownOf(row)).length;
+  const shown = hideBlank ? rows.filter((row) => isFilled(row) || knownOf(row)) : rows;
   const resolve = linkIndex(data.articles).resolve;
   const ctx = useMemo<ArticleContext>(
     () => ({
@@ -84,7 +88,7 @@ export function FactBox({ entity, article }: { entity: WorldEntity; article: Art
           <BoxField
             key={row.label}
             row={row}
-            known={isFilled(row) ? '' : worldValue(data, entity, row.field)}
+            known={knownOf(row)}
             ctx={ctx}
             render={(value) => parseInline(value, { resolve, headings: 0 })}
             onSave={(value) => save(row.label, value)}

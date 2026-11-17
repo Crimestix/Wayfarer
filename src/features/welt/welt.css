@@ -3793,3 +3793,13 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-history__row:not([data-past]) .wf-welt-history__when {
   color: var(--ink-mute);
 }
+
+/* „Wo sie ist“ zum Lesen: ein Satz statt offener Felder. */
+.wf-welt-where {
+  margin: 0;
+  line-height: 1.45;
+}
+.wf-welt-where__fate {
+  color: var(--blood-bright);
+  font-weight: 600;
+}
