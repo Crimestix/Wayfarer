@@ -45,7 +45,7 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
     lines.push({
       key: `table-${encounter.table.id}`,
       alert: true,
-      text: `${encounter.table.name}: ${encounter.text} (${encounter.check !== null ? `Prüfung ${encounter.check}, ` : ''}Wurf ${encounter.roll})`,
+      text: `${encounter.table.name}: ${encounter.text}${encounter.check !== null ? ` (Prüfung ${encounter.check})` : ''}`,
     });
   for (const occurred of time.occurred)
     lines.push({

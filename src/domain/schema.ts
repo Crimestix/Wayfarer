@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 26;
-export const DATA_SHAPE = '1e1bfcd73fe673bc';
+export const DATA_VERSION = 27;
+export const DATA_SHAPE = 'a90ca24d52a2d33c';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -1935,6 +1935,21 @@ export const CreatureSchema = z.object({
   hpNow: z.number().int().nonnegative().nullable().default(null),
   /** Einzelner: wo er sich aufhält. */
   placeId: id.nullable().default(null),
+  /**
+   * Unterwegs (Wunsch 17. 11.: „Die Menge von Monstern könnte im Bestiarium angelegt sein“): was
+   * Begegnungstabellen von diesem Wesen wissen – wie viele man trifft, woran man es vorher merkt,
+   * wann es unterwegs ist. Leer = geerbt (`roamingOf`, `domain/roaming.ts`).
+   */
+  roaming: z
+    .object({
+      /** Wie viele man meist trifft: „2–5“, „3“. */
+      appearing: z.string().default(''),
+      /** Woran man es vorher merkt: Spuren, Losung, Geräusche. */
+      signs: z.string().default(''),
+      /** Wann es unterwegs ist; null = immer. */
+      active: z.enum(['day', 'night']).nullable().default(null),
+    })
+    .default({ appearing: '', signs: '', active: null }),
 });
 export type Creature = z.infer<typeof CreatureSchema>;
 
@@ -2666,11 +2681,15 @@ export const RollTableSchema = z.object({
     .array(
       z.object({
         id,
-        /** Bereich auf dem Würfel, z. B. 1–2. */
+        /** Bereich auf dem Würfel, z. B. 1–2 – die Breite ist die Häufigkeit. */
         min: z.number().int().min(1),
         max: z.number().int().min(1),
         text: z.string().default(''),
         refs: z.array(id).default([]),
+        /** Ein Wesen des Bestiariums: Anzahl, Spuren und Bau kommen von dort (`domain/roaming.ts`). */
+        creatureId: id.nullable().default(null),
+        /** Nur tags oder nur nachts; null = immer bzw. wie das Wesen im Bestiarium. */
+        when: z.enum(['day', 'night']).nullable().default(null),
       }),
     )
     .default([]),
@@ -3342,7 +3361,9 @@ export function createJourney(init: Partial<Journey>): Journey {
   return JourneySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
-export function createRollTable(init: Partial<RollTable> & { name: string }): RollTable {
+export function createRollTable(
+  init: Partial<z.input<typeof RollTableSchema>> & { name: string },
+): RollTable {
   const stamp = nowIso();
   return RollTableSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }

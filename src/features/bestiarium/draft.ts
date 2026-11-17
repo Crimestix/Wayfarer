@@ -34,6 +34,7 @@ export function draftOf(
     source: creature?.source ?? '',
     notes: creature?.notes ?? '',
     speciesId: creature?.speciesId ?? null,
+    roaming: creature?.roaming ?? { appearing: '', signs: '', active: null },
     ...preset,
   };
 }

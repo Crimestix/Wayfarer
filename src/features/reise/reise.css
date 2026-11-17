@@ -36,6 +36,43 @@
   width: 3.2em;
   text-align: center;
 }
+/* Tabelle einer Gegend: Was, Häufigkeit, Wann, Entfernen. */
+.wf-reise-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.wf-reise-table th {
+  text-align: left;
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 400;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-reise-table td {
+  padding: 2px 4px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-reise-table__freq {
+  width: 8.5em;
+}
+.wf-reise-table__when {
+  width: 11em;
+}
+.wf-reise-table select {
+  width: 100%;
+}
+.wf-reise-table__from {
+  display: block;
+  font-size: var(--text-2xs);
+  color: var(--ink-mute);
+  padding: 0 2px;
+}
 
 /* ── Unterwegs am Spieltisch ── */
 .wf-reise__head {

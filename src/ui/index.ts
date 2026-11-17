@@ -10,3 +10,4 @@ export * from './names';
 export { useHoldDraft } from './drafts';
 export { DismissButton } from './dismiss';
 export { HoverCard, HOVER_DELAY } from './hover';
+export { FrequencySelect } from './frequency';

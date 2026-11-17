@@ -36,6 +36,7 @@ import { DAY_KM } from './terrain';
 import { MINUTES_PER_DAY, dayIndexOf, type WorldTime } from './time/calendar';
 import { routeBetween } from './ways';
 import { isUnderground } from './underground';
+import { isNightAt, meetingLine, meetingOf, pickRow, type Meeting } from './roaming';
 import { isEveryday } from './weight';
 
 /** Alle so viele Reiseminuten prüft Wayfarer auf Begegnungen (Entscheidung 17. 11.: vier Stunden). */
@@ -276,36 +277,50 @@ export interface TableResult {
   table: RollTable;
   /** Die Prüfung (W20 gegen den Wert der Tabelle) – null, wenn die Tabelle immer würfelt. */
   check: number | null;
-  /** Der Wurf auf die Tabelle und die Zeile – null, wenn die Prüfung nichts ergab. */
+  /** Die gewählte Zeile – null, wenn die Prüfung nichts ergab. */
   roll: number | null;
+  /** Die Zeile mit allem, was das Bestiarium dazu weiß, als ein Satz. */
   text: string;
+  /** Die Zeile mit Anzahl, Spuren und Bau (`domain/roaming.ts`). */
+  meeting: Meeting;
   /** Was gewürfelt wurde, in Worten. */
   rolled: string;
 }
 
 /**
- * Prüft die Tabellen einer Art an einem Ort: je Tabelle W20 gegen ihren Wert (ohne Wert immer),
- * dann ihr Würfel auf die Zeilen. Gibt das erste Ergebnis zurück – null, wenn nichts geschieht.
+ * Würfelt auf den Tabellen der Gegend (`tablesAt`): erst die Prüfung, dann eine Zeile nach
+ * Häufigkeit – tags und nachts nur, was dann unterwegs ist (`at` = Weltzeit, 'night' = im Lager);
+ * unter der Erde zählt die Tageszeit nicht. Anzahl, Spuren und Bau kommen aus dem Bestiarium.
  */
 export function rollTables(
   data: CampaignData,
   placeId: string | null,
   kind: TableKind,
   roll: Roll,
+  at: number | 'night' = data.state.now,
 ): TableResult | null {
+  const night = isUnderground(data, placeId) ? null : at === 'night' ? true : isNightAt(at);
   for (const table of tablesAt(data, placeId, kind)) {
     const check = table.dc === null ? null : roll(20);
     if (check !== null && check < table.dc!) continue;
-    const value = roll(table.die);
-    const entry = table.entries.find((row) => value >= row.min && value <= row.max);
-    if (!entry) continue;
+    const picked = pickRow(data, table, roll, night);
+    if (!picked) continue;
+    const meeting = meetingOf(data, picked.row, placeId, roll);
     const rolled = [
-      check !== null ? `W20 = ${check} (ab ${table.dc})` : '',
-      `W${table.die} = ${value}`,
+      check !== null ? `Prüfung W20 = ${check} (ab ${table.dc})` : '',
+      `gewählt aus ${picked.from === 1 ? 'einer Zeile' : `${picked.from} Zeilen`}`,
+      night === null ? '' : night ? 'nachts' : 'tags',
     ]
       .filter(Boolean)
       .join(' · ');
-    return { table, check, roll: value, text: entry.text, rolled };
+    return {
+      table,
+      check,
+      roll: picked.row.min,
+      text: meetingLine(meeting),
+      meeting,
+      rolled,
+    };
   }
   return null;
 }
@@ -459,7 +474,8 @@ export function nextHalt(
     if (at >= earliest) break;
     const region = regionAt(at);
     const found =
-      rollTables(data, region, 'encounter', roll) ?? rollTables(data, region, 'discovery', roll);
+      rollTables(data, region, 'encounter', roll, now + at) ??
+      rollTables(data, region, 'discovery', roll, now + at);
     if (!found) {
       quietChecks++;
       continue;
@@ -489,7 +505,7 @@ export function nextHalt(
 export function nightCheck(data: CampaignData, journey: Journey, roll: Roll): TableResult | null {
   const leg = journey.legs[journey.progress.leg];
   const regionAt = leg ? (leg.regionId ?? leg.toId) : data.state.placeId;
-  return rollTables(data, regionAt, 'encounter', roll);
+  return rollTables(data, regionAt, 'encounter', roll, 'night');
 }
 
 // ── Tabellen als Text ──────────────────────────────────────────────────────

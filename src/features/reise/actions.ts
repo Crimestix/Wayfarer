@@ -17,12 +17,13 @@ import {
   type JourneyPlan,
   type Roll,
   type TableResult,
-  tableFromText,
 } from '../../domain/journey';
+import type { When } from '../../domain/roaming';
 import {
   createJourney,
   createRollTable,
   newId,
+  type CampaignData,
   type Journey,
   type RollTable,
   type TableKind,
@@ -422,28 +423,89 @@ export function regionTable(
   );
 }
 
+/** Eine Zeile einer Begegnungstabelle, wie die Tabelle an der Gegend sie zeigt. */
+export interface RegionRow {
+  text: string;
+  /** Wesen des Bestiariums mit genau diesem Namen (sonst null). */
+  creatureId: string | null;
+  weight: number;
+  when: When | null;
+}
+
+/** Das Wesen des Bestiariums, das genau so heißt (ohne Groß/Klein) – sonst null. */
+export function creatureNamed(data: CampaignData, name: string): string | null {
+  const key = name.trim().toLowerCase();
+  if (!key) return null;
+  return Object.values(data.creatures).find((c) => c.name.trim().toLowerCase() === key)?.id ?? null;
+}
+
+/** Die Zeilen der Tabelle einer Gegend. */
+export function regionRows(table: RollTable | null): RegionRow[] {
+  return (table?.entries ?? []).map((row) => ({
+    text: row.text,
+    creatureId: row.creatureId,
+    weight: row.max - row.min + 1,
+    when: row.when,
+  }));
+}
+
 /**
- * Schreibt die Tabelle einer Gegend aus Text („1–4: …“). Leerer Text nimmt sie weg. `dc`: ab
- * welchem W20 etwas geschieht (null = jede Prüfung würfelt auf die Tabelle).
+ * Schreibt die Tabelle einer Gegend Zeile für Zeile (Was, Häufigkeit, Wann). Trägt eine Zeile genau
+ * den Namen eines Wesens im Bestiarium, hängt es daran – Anzahl, Spuren und Bau kommen dann von
+ * dort. Keine Zeile mehr nimmt die Tabelle weg. `dc`: ab welchem W20 etwas geschieht (null = jede
+ * Prüfung wählt eine Zeile). Gibt `undo` zurück.
  */
-export function saveRegionTable(
+export function saveRegionRows(
   db: CampaignDb,
   placeId: string,
   kind: TableKind,
-  text: string,
+  rows: readonly RegionRow[],
   dc: number | null,
-): void {
+): () => void {
   const data = db.getSnapshot();
   const place = data.entities[placeId];
-  if (!place) return;
   const existing = regionTable(data, placeId, kind);
-  const { entries, die } = tableFromText(text);
+  const undo = () => {
+    const now = regionTable(db.getSnapshot(), placeId, kind);
+    if (now) db.remove('tables', now.id);
+    if (existing) db.put('tables', { ...existing, rev: 0 });
+  };
+  if (!place) return () => {};
+  let next = 1;
+  const entries = rows
+    .filter((row) => row.text.trim())
+    .map((row) => {
+      const weight = Math.max(1, Math.min(99, Math.round(row.weight) || 1));
+      const entry = {
+        id: newId(),
+        min: next,
+        max: next + weight - 1,
+        text: row.text.trim(),
+        refs: [] as string[],
+        creatureId: creatureNamed(data, row.text),
+        when: row.when,
+      };
+      next += weight;
+      return entry;
+    });
   if (!entries.length) {
     if (existing) db.remove('tables', existing.id);
-    return;
+    return undo;
   }
-  const rows = entries.map((row) => ({ ...row, id: newId(), refs: [] as string[] }));
+  const die = Math.max(2, next - 1);
   const name = `${kind === 'encounter' ? 'Begegnungen' : 'Entdeckungen'} – ${place.name}`;
-  if (existing) db.patch('tables', existing.id, { entries: rows, die, dc, name });
-  else db.put('tables', createRollTable({ name, kind, placeId, die, dc, entries: rows }));
+  if (existing) db.patch('tables', existing.id, { entries, die, dc, name });
+  else db.put('tables', createRollTable({ name, kind, placeId, die, dc, entries }));
+  return undo;
+}
+
+/** Ändert nur, ab welchem W20 auf der Tabelle einer Gegend etwas geschieht. */
+export function setRegionTableDc(
+  db: CampaignDb,
+  placeId: string,
+  kind: TableKind,
+  dc: number | null,
+): void {
+  const table = regionTable(db.getSnapshot(), placeId, kind);
+  if (table) db.patch('tables', table.id, { dc });
 }

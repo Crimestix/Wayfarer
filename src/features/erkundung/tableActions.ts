@@ -7,7 +7,7 @@
 import type { CampaignDb } from '../../data/db';
 import { readTable, rowsOf, tableToText, type TableRow } from '../../domain/rollTable';
 import { createRollTable, newId, type RollTable } from '../../domain/schema';
-import { DEFAULT_TABLES } from './tables';
+import { DEFAULT_TABLES, defaultTable } from './tables';
 
 const ownOf = (db: CampaignDb, slot: string): RollTable | undefined =>
   Object.values(db.getSnapshot().tables).find(
@@ -29,12 +29,18 @@ export function saveGeneratorRows(
   };
   if (!def) return () => {};
   const rows: TableRow[] = rowsOf(entries);
-  const fallback = readTable(def.name, def.entries.join('\n')).rows;
+  const fallback = defaultTable(def).rows;
   if (tableToText(rows) === tableToText(fallback)) {
     if (before) db.remove('tables', before.id);
     return restore;
   }
-  const stored = rows.map((row) => ({ id: newId(), ...row, refs: [] }));
+  const stored = rows.map((row) => ({
+    id: newId(),
+    ...row,
+    refs: [],
+    creatureId: null,
+    when: null,
+  }));
   const die = Math.max(2, rows.length ? rows[rows.length - 1]!.max : 0);
   if (before) db.patch('tables', before.id, { entries: stored, die, name: def.name });
   else

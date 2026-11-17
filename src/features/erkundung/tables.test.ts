@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { DEFAULT_TABLES, generatorTables } from './tables';
+import { DEFAULT_TABLES, defaultTable, generatorTables } from './tables';
 import { resetGeneratorTable, saveGeneratorRows, saveGeneratorTable } from './tableActions';
-import { composeEntry, entryParts } from '../../domain/rollTable';
+import { composeEntry, entryParts, tableToText } from '../../domain/rollTable';
 
 describe('Würfeltabellen der Erzeuger', () => {
   it('nimmt die Vorgaben, solange der Spielleiter keine eigenen hat', async () => {
@@ -38,7 +38,7 @@ describe('Würfeltabellen der Erzeuger', () => {
   it('legt keine eigene Tabelle an, wenn der Text der Vorgabe gleicht', async () => {
     const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
     const def = DEFAULT_TABLES.find((entry) => entry.slot === 'hidden')!;
-    saveGeneratorTable(db, 'hidden', def.entries.join('\n'));
+    saveGeneratorTable(db, 'hidden', tableToText(defaultTable(def).rows));
     expect(Object.values(db.getSnapshot().tables)).toHaveLength(0);
   });
 

@@ -243,6 +243,13 @@ export const DEFAULT_TABLES: readonly TableDef[] = [
   },
 ];
 
+/**
+ * Eine Vorgabe als Tabelle: jede Zeile „gelegentlich“ (Gewicht 2), damit der Spielleiter einzelne
+ * häufiger oder seltener machen kann.
+ */
+export const defaultTable = (def: TableDef): TextTable =>
+  readTable(def.name, def.entries.map((entry) => `2× ${entry}`).join('\n'));
+
 /** Eine Tabelle, wie sie gilt: die eigene des Spielleiters oder die Vorgabe. */
 export interface GeneratorTable {
   table: TextTable;

@@ -64,6 +64,7 @@ import {
   useHoldDraft,
 } from '../../ui';
 import { addToWorld, linkAnimalCreature, saveCreature } from './actions';
+import { WHEN_LABEL, roamingOf } from '../../domain/roaming';
 import {
   EMPTY_HISTORY,
   animalPreset,
@@ -118,6 +119,7 @@ const PARTS = [
   { id: 'sinne', label: 'Sinne und Sprachen' },
   { id: 'faehigkeiten', label: 'Fähigkeiten' },
   { id: 'welt', label: 'Welt' },
+  { id: 'unterwegs', label: 'Unterwegs' },
 ] as const;
 
 type TextKey = 'type' | 'tags' | 'alignment' | 'acNote' | 'gear' | 'habitat' | 'treasure';
@@ -211,6 +213,9 @@ function Editor({
     [data.creatures, draft, stored],
   );
   const block = preview.block;
+  // Unterwegs: eigene Angaben des Entwurfs, geerbte als Platzhalter.
+  const roaming = draft.roaming ?? { appearing: '', signs: '', active: null };
+  const inherited = roamingOf(data, draft.parentId);
   const stats = statsOf(block);
   const check = crCheck(preview);
   const guide = crGuide(block.cr);
@@ -927,6 +932,55 @@ function Editor({
                 value={draft.notes}
                 rows={3}
                 onChange={(event) => set('notes', { notes: event.target.value })}
+              />
+            </Field>
+          </Part>
+
+          <Part id="unterwegs" title="Unterwegs">
+            <p className="wf-mute wf-best-edit__lead">
+              Was die Begegnungstabellen der Gegenden von diesem Wesen wissen. Steht es dort in
+              einer Zeile, würfelt Wayfarer die Anzahl, nennt die Spuren und den Bau, wenn es in der
+              Gegend einen Bestand mit ihm gibt. Leer heißt: wie die Vorlage.
+            </p>
+            <div className="wf-best-form__row">
+              <Field label="Wie viele man trifft">
+                <Input
+                  value={roaming.appearing}
+                  placeholder={inherited.appearing || 'etwa 2–5'}
+                  onChange={(event) =>
+                    set('roaming', { roaming: { ...roaming, appearing: event.target.value } })
+                  }
+                />
+              </Field>
+              <Field label="Unterwegs">
+                <Select
+                  value={roaming.active ?? ''}
+                  onChange={(event) =>
+                    set('roaming', {
+                      roaming: {
+                        ...roaming,
+                        active: (event.target.value || null) as 'day' | 'night' | null,
+                      },
+                    })
+                  }
+                >
+                  <option value="">
+                    {inherited.active
+                      ? `wie die Vorlage (${WHEN_LABEL[inherited.active]})`
+                      : 'immer'}
+                  </option>
+                  <option value="day">tags</option>
+                  <option value="night">nachts</option>
+                </Select>
+              </Field>
+            </div>
+            <Field label="Woran man es vorher merkt">
+              <Input
+                value={roaming.signs}
+                placeholder={inherited.signs || 'Spuren, Losung, Geräusche …'}
+                onChange={(event) =>
+                  set('roaming', { roaming: { ...roaming, signs: event.target.value } })
+                }
               />
             </Field>
           </Part>

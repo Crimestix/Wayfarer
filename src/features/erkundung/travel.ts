@@ -25,6 +25,7 @@ import { carries, ignoresGround, meansKmh, partyMeans } from '../../domain/mount
 import { rngOf, seedOf } from '../../domain/random';
 import { sensesAt, type Sense } from '../../domain/senses';
 import { markSighted, newSightings, type Sighting } from '../../domain/afar';
+import { isNightAt, meetingLine, meetingOf, pickRow } from '../../domain/roaming';
 import type { Area, CampaignData, Hex, Mount, Pace, RollTable, Terrain } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { dayIndexOf } from '../../domain/time/calendar';
@@ -215,30 +216,40 @@ export interface Encounter {
   table: RollTable;
   /** Wurf der Begegnungsprüfung (W20) – null, wenn die Tabelle keine Prüfung verlangt. */
   check: number | null;
-  /** Wurf auf der Tabelle. */
-  roll: number;
+  /** Aus wie vielen Zeilen gewählt wurde (nach Tageszeit). */
+  from: number;
+  /** Die Zeile mit Anzahl, Spuren und Bau aus dem Bestiarium, als ein Satz. */
   text: string;
   refs: string[];
 }
 
 /**
- * Würfelt auf den Tabellen, die für ein Feld gelten (die des Feldes, sonst die des Gebiets).
- * Wiederholbar: Derselbe Schritt zur selben Weltzeit ergibt dasselbe. Verlangt eine Tabelle
- * eine Prüfung, kommt es nur bei einem W20-Wurf ab ihrer Schwierigkeit zu einem Ergebnis.
+ * Wählt auf den Tabellen, die für ein Feld gelten (die des Feldes, sonst die des Gebiets), eine
+ * Zeile nach Häufigkeit – oben nach Tageszeit, unter der Erde nicht. Wiederholbar: Derselbe
+ * Schritt zur selben Weltzeit ergibt dasselbe. Verlangt eine Tabelle eine Prüfung, kommt es nur
+ * bei einem W20-Wurf ab ihrer Schwierigkeit zu einem Ergebnis.
  */
 export function rollEncounters(data: CampaignData, area: Area, hex: Hex, at: number): Encounter[] {
   const ids = hex.tableIds.length ? hex.tableIds : area.tableIds;
+  const night = hex.exits !== null || hex.terrain === 'underdark' ? null : isNightAt(at);
   const out: Encounter[] = [];
   for (const id of ids) {
     const table = data.tables[id];
     if (!table || !table.entries.length) continue;
     const rng = rngOf(seedOf(area.seed ?? 0, area.id, table.id, hex.q, hex.r, at));
+    const roll = (sides: number) => rng.int(1, sides);
     const check = table.dc === null ? null : rng.int(1, 20);
     if (check !== null && check < table.dc!) continue;
-    const roll = rng.int(1, table.die);
-    const entry = table.entries.find((e) => roll >= e.min && roll <= e.max);
-    if (!entry || !entry.text.trim()) continue;
-    out.push({ table, check, roll, text: entry.text.trim(), refs: entry.refs });
+    const picked = pickRow(data, table, roll, night);
+    if (!picked) continue;
+    const meeting = meetingOf(data, picked.row, hex.regionId ?? table.placeId, roll);
+    out.push({
+      table,
+      check,
+      from: picked.from,
+      text: meetingLine(meeting),
+      refs: picked.row.refs,
+    });
   }
   return out;
 }

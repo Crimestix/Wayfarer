@@ -9,7 +9,7 @@ import { RotateCcw, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { composeEntry, entryParts, weightOf, type EntryParts } from '../../domain/rollTable';
-import { IconButton, Input, NewLine, Written, toast } from '../../ui';
+import { FrequencySelect, IconButton, NewLine, Written, toast } from '../../ui';
 import { generatorTables, type GeneratorTable } from '../erkundung/tables';
 import { resetGeneratorTable, saveGeneratorRows } from '../erkundung/tableActions';
 
@@ -19,9 +19,10 @@ export function TablesSection() {
   return (
     <div className="wf-einstellungen-tables">
       <p className="wf-mute">
-        Eine Zeile je Möglichkeit – Wayfarer wählt beim Erzeugen eine davon aus, jede gleich oft.
-        Was öfter vorkommen soll, bekommt eine höhere Häufigkeit. Eine leere Tabelle heißt: hier
-        nichts erzeugen. Schon erzeugte Karten ändern sich erst, wenn du sie neu würfelst.
+        Eine Zeile je Möglichkeit – Wayfarer wählt beim Erzeugen eine davon aus, nach Häufigkeit:
+        Häufiges kommt doppelt so oft wie Gelegentliches, das doppelt so oft wie Seltenes. Eine
+        leere Tabelle heißt: hier nichts erzeugen. Schon erzeugte Karten ändern sich erst, wenn du
+        sie neu würfelst.
       </p>
       {tables.all.map((entry) => (
         <TableBlock key={entry.slot} entry={entry} />
@@ -98,7 +99,7 @@ function TableBlock({ entry }: { entry: GeneratorTable }) {
             <th
               scope="col"
               className="wf-einstellungen-rolltable__weight"
-              title="Wie oft im Vergleich zu den anderen Zeilen – 2 heißt doppelt so oft"
+              title="Wie oft im Vergleich zu den anderen Zeilen"
             >
               Häufigkeit
             </th>
@@ -145,17 +146,10 @@ function TableBlock({ entry }: { entry: GeneratorTable }) {
                   </td>
                 )}
                 <td className="wf-einstellungen-rolltable__weight">
-                  <Input
-                    key={`${index}-${line.weight}`}
-                    type="number"
-                    min={1}
-                    max={99}
-                    aria-label={`${entry.table.name}, Zeile ${index + 1}: Häufigkeit`}
-                    defaultValue={line.weight}
-                    onBlur={(event) => {
-                      const weight = Number(event.target.value) || 1;
-                      if (weight !== line.weight) change(index, { weight });
-                    }}
+                  <FrequencySelect
+                    weight={line.weight}
+                    label={`${entry.table.name}, Zeile ${index + 1}: Häufigkeit`}
+                    onChange={(weight) => change(index, { weight })}
                   />
                 </td>
                 <td>
@@ -187,7 +181,7 @@ function TableBlock({ entry }: { entry: GeneratorTable }) {
                 label={`${entry.table.name}: neue Zeile`}
                 placeholder="Neue Zeile …"
                 onAdd={(text) =>
-                  save([...lines, { parts: { here: text, afar: '', hidden: '' }, weight: 1 }])
+                  save([...lines, { parts: { here: text, afar: '', hidden: '' }, weight: 2 }])
                 }
               />
             </td>

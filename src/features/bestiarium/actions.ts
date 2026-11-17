@@ -15,6 +15,8 @@ export type CreatureInput = Pick<
 > & {
   /** Die Spezies der Welt; fehlt die Angabe, bleibt sie, wie sie war. */
   speciesId?: string | null;
+  /** Unterwegs: Anzahl, Spuren, Tageszeit; fehlt die Angabe, bleibt sie, wie sie war. */
+  roaming?: Creature['roaming'];
 };
 
 /** Legt ein Wesen an oder ändert es. Fähigkeiten ohne Namen fallen weg. */
@@ -29,6 +31,15 @@ export function saveCreature(db: CampaignDb, input: CreatureInput, id?: string):
       .filter((feature) => feature.name),
     source: input.source.trim(),
     notes: input.notes.trim(),
+    ...(input.roaming
+      ? {
+          roaming: {
+            appearing: input.roaming.appearing.trim(),
+            signs: input.roaming.signs.trim(),
+            active: input.roaming.active,
+          },
+        }
+      : {}),
   };
   if (clean.speciesId === undefined) delete clean.speciesId;
   if (id && db.getSnapshot().creatures[id])

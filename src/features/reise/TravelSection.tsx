@@ -1,15 +1,34 @@
 /**
  * „Unterwegs hier“ auf der Seite eines Ortes (meist einer Gegend): das Gelände in eigenen Worten,
- * ob es schwer zu durchqueren ist, und die Tabellen für Begegnungen und Entdeckungen als Text.
+ * ob es schwer zu durchqueren ist, und die Tabellen für Begegnungen und Entdeckungen.
  * Es gilt für alles darunter. Wayfarer bringt kein Gelände und keine Tabelle mit
  * (Entscheidung des Spielleiters, 17. 11.: „diese Regionen festlegen können im Worldbuilding“).
  */
-import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { groundOf, tableText } from '../../domain/journey';
+import { groundOf } from '../../domain/journey';
+import { WHEN_LABEL, roamingOf, type When } from '../../domain/roaming';
 import type { Place, TableKind } from '../../domain/schema';
-import { Checkbox, Input, Written } from '../../ui';
-import { regionTable, saveRegionTable, setPlaceGround, setPlaceNav } from './actions';
+import { isUnderground } from '../../domain/underground';
+import {
+  Checkbox,
+  FrequencySelect,
+  IconButton,
+  Input,
+  NewLine,
+  Select,
+  Written,
+  toast,
+} from '../../ui';
+import {
+  regionRows,
+  regionTable,
+  saveRegionRows,
+  setPlaceGround,
+  setPlaceNav,
+  setRegionTableDc,
+  type RegionRow,
+} from './actions';
 import './reise.css';
 
 export function TravelSection({ place }: { place: Place }) {
@@ -70,45 +89,162 @@ export function TravelSection({ place }: { place: Place }) {
   );
 }
 
+/** „Wie oft etwas geschieht“ statt „W20 ab“: die Prüfung in Worten. */
+const CHANCES: readonly { dc: number | null; label: string }[] = [
+  { dc: null, label: 'bei jeder Prüfung' },
+  { dc: 11, label: 'oft – etwa jede zweite Prüfung' },
+  { dc: 16, label: 'manchmal – etwa jede vierte' },
+  { dc: 19, label: 'selten – etwa jede zehnte' },
+];
+
+/**
+ * Die Tabelle einer Gegend als Tabelle (Wunsch 17. 11.: „Es müssen Tabellen sein, keine
+ * Textfelder“): Was, Häufigkeit, Wann – unter der Erde ohne Wann. Trägt eine Zeile genau den Namen
+ * eines Wesens im Bestiarium, kommen Anzahl, Spuren und Bau von dort.
+ */
 function TableField({ place, kind }: { place: Place; kind: TableKind }) {
   const db = useDb();
   const data = useData();
   const table = regionTable(data, place.id, kind);
-  const [dc, setDc] = useState(table?.dc === null || !table ? '' : String(table.dc));
+  const rows = regionRows(table);
+  const dc = table?.dc ?? null;
+  const below = isUnderground(data, place.id);
   const label = kind === 'encounter' ? 'Begegnungen' : 'Entdeckungen';
-  const readDc = (text: string) => {
-    const value = Number.parseInt(text, 10);
-    return Number.isFinite(value) && value >= 1 && value <= 30 ? value : null;
-  };
+  const showWhen = kind === 'encounter' && !below;
+  const save = (next: RegionRow[]) => saveRegionRows(db, place.id, kind, next, dc);
+  const change = (index: number, patch: Partial<RegionRow>) =>
+    save(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  const chances = CHANCES.some((entry) => entry.dc === dc)
+    ? CHANCES
+    : [...CHANCES, { dc, label: `W20 ab ${dc}` }];
   return (
     <div className="wf-reise-section__table">
       <div className="wf-reise-section__tablehead">
         <span>{label}</span>
-        <label className="wf-reise-section__dc">
-          W20 ab
-          <Input
-            value={dc}
-            inputMode="numeric"
-            aria-label={`${label}: ab welchem W20 etwas geschieht`}
-            placeholder="–"
-            onChange={(event) => setDc(event.target.value)}
-            onBlur={() =>
-              table && saveRegionTable(db, place.id, kind, tableText(table), readDc(dc))
-            }
-          />
-        </label>
+        {table && (
+          <label className="wf-reise-section__dc">
+            Es geschieht
+            <Select
+              value={dc === null ? '' : String(dc)}
+              aria-label={`${label}: wie oft eine Prüfung etwas ergibt`}
+              onChange={(event) =>
+                setRegionTableDc(
+                  db,
+                  place.id,
+                  kind,
+                  event.target.value ? Number(event.target.value) : null,
+                )
+              }
+            >
+              {chances.map((entry) => (
+                <option key={entry.label} value={entry.dc === null ? '' : String(entry.dc)}>
+                  {entry.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
       </div>
-      <Written
-        label={`${label} in ${place.name}`}
-        grow
-        value={tableText(table)}
-        placeholder={
-          kind === 'encounter'
-            ? '1–4: Eine Streife\n5–7: Ein Händlerzug\n8: Etwas Hungriges'
-            : '1–3: Eine alte Inschrift\n4–6: Ein verlassenes Lager'
-        }
-        onSave={(text) => saveRegionTable(db, place.id, kind, text, readDc(dc))}
-      />
+      <table className="wf-reise-table">
+        {rows.length > 0 && (
+          <thead>
+            <tr>
+              <th scope="col">Was</th>
+              <th scope="col" className="wf-reise-table__freq">
+                Häufigkeit
+              </th>
+              {showWhen && (
+                <th scope="col" className="wf-reise-table__when">
+                  Wann
+                </th>
+              )}
+              <th scope="col" aria-label="Zeile entfernen" />
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {rows.map((row, index) => {
+            const creature = row.creatureId ? data.creatures[row.creatureId] : undefined;
+            const active = creature ? roamingOf(data, creature.id).active : null;
+            return (
+              <tr key={index}>
+                <td>
+                  <Written
+                    wrap
+                    value={row.text}
+                    label={`${label} in ${place.name}, Zeile ${index + 1}`}
+                    onSave={(text) => {
+                      if (text.trim() !== row.text) change(index, { text });
+                    }}
+                  />
+                  {creature && (
+                    <span
+                      className="wf-reise-table__from"
+                      title="Anzahl, Spuren und Bau kommen aus dem Bestiarium"
+                    >
+                      aus dem Bestiarium
+                    </span>
+                  )}
+                </td>
+                <td className="wf-reise-table__freq">
+                  <FrequencySelect
+                    weight={row.weight}
+                    label={`${label}, Zeile ${index + 1}: Häufigkeit`}
+                    onChange={(weight) => change(index, { weight })}
+                  />
+                </td>
+                {showWhen && (
+                  <td className="wf-reise-table__when">
+                    <Select
+                      value={row.when ?? ''}
+                      aria-label={`${label}, Zeile ${index + 1}: wann`}
+                      onChange={(event) =>
+                        change(index, { when: (event.target.value || null) as When | null })
+                      }
+                    >
+                      <option value="">
+                        {active ? `wie im Bestiarium (${WHEN_LABEL[active]})` : WHEN_LABEL.always}
+                      </option>
+                      <option value="day">{WHEN_LABEL.day}</option>
+                      <option value="night">{WHEN_LABEL.night}</option>
+                    </Select>
+                  </td>
+                )}
+                <td>
+                  <IconButton
+                    label="Zeile entfernen"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const undo = save(rows.filter((_, i) => i !== index));
+                      toast({
+                        title: 'Zeile entfernt',
+                        body: row.text,
+                        action: { label: 'Rückgängig', run: undo },
+                      });
+                    }}
+                  >
+                    <Trash2 />
+                  </IconButton>
+                </td>
+              </tr>
+            );
+          })}
+          <tr>
+            <td colSpan={showWhen ? 4 : 3}>
+              <NewLine
+                label={`${label} in ${place.name}: neue Zeile`}
+                placeholder={
+                  kind === 'encounter'
+                    ? 'Was hier unterwegs ist – ein Wesen aus dem Bestiarium oder ein paar Worte …'
+                    : 'Was man hier entdecken kann …'
+                }
+                onAdd={(text) => save([...rows, { text, creatureId: null, weight: 2, when: null }])}
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }

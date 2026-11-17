@@ -832,8 +832,8 @@ td.wf-einstellungen-rolltable__nr {
   padding-top: 7px;
 }
 .wf-einstellungen-rolltable__weight {
-  width: 6.5em;
+  width: 9.5em;
 }
-.wf-einstellungen-rolltable__weight input {
-  width: 4.5em;
+.wf-einstellungen-rolltable__weight select {
+  width: 8.5em;
 }

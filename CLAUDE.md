@@ -381,7 +381,22 @@ nicht übernommen.
   oder Verborgenes (`HIDDEN_SHARE`, nie nebeneinander); unter der Erde Fundstellen nur in Gängen
   und Kreuzungen. Erzeugtes hat kein `manual`; Neu würfeln behält nur, was der Spielleiter ans
   Feld geschrieben hat. Neue Erzeuger nehmen ihre Listen über einen neuen Platz in
-  `DEFAULT_TABLES`, nie fest im Code. Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
+  `DEFAULT_TABLES`, nie fest im Code. Häufigkeit ist überall ein Wort (`FREQUENCIES` in
+  `domain/roaming.ts`: häufig 4, gelegentlich 2, selten 1; Baustein `FrequencySelect`), die
+  Vorgaben stehen auf „gelegentlich“ (`defaultTable`).
+  **Begegnungstabellen der Gegenden** (Wunsch 17. 11., nach Vorbildern wie dem Alexandrian-
+  Hexcrawl, aber schlank: „Das ist fast schon zu viel“): je Zeile nur Was, Häufigkeit, Wann
+  (tags, nachts; unter der Erde ohne Wann) – als Tabelle in „Unterwegs hier“
+  (`reise/TravelSection`, `saveRegionRows`, `regionRows`; die Prüfung als Wort statt „W20 ab“,
+  `setRegionTableDc`). Was zum Wesen gehört, steht im Bestiarium (`creature.roaming`: wie viele
+  man trifft, woran man es vorher merkt, wann es unterwegs ist – Abschnitt „Unterwegs“ im
+  `CreatureEditor`, geerbt über `roamingOf`) und in den Beständen (der Bau, `lairOf`, mit den
+  Bewohnern, die noch übrig sind). Eine Zeile mit genau dem Namen eines Wesens hängt daran
+  (`creatureNamed`, `row.creatureId`). Gewählt wird über `pickRow` (Häufigkeit, Tageszeit
+  `isNightAt`, „Wann“ der Zeile vor dem des Wesens), beschrieben über `meetingOf`/`meetingLine`
+  („Sporenläufer (4) · vorher: … · aus: Brutkammer (noch 7)“) – unterwegs in `rollTables`,
+  auf der Hexkarte in `rollEncounters`. Nie Anzahl oder Spuren in die Tabelle schreiben, wenn
+  sie zum Wesen gehören. Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
   `river`). Orientierung abseits von Wegen (freie Strecke oder Feld ohne Straße): einmal am Tag
   ein Halt `navigate` (`navigationAt`, SG der Gegend `place.navDc` – leer = Vorschlag nach
   Gelände `SUGGESTED_NAV_DC`, 0 = nie); „Verirrt“ würfelt den Umweg (`getLost`, 1W6 Stunden),
