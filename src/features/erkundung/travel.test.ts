@@ -131,14 +131,14 @@ describe('Ein Schritt auf der Karte', () => {
       minutes: 125,
       trail: [{ q: 0, r: 0 }],
     });
-    // Betreten: (1,0). Zu sehen: die Nachbarn auf der Karte – (2,0), (0,1), (1,1); (0,0) war es schon.
-    expect(step.revealed).toBe(4);
+    // Betreten: (1,0) – ein Wald: Von dort sieht die Gruppe nur das eigene Feld (`sightRadius`).
+    expect(step.revealed).toBe(1);
     expect(
       step.area.hexes
         .filter((h) => h.discovered)
         .map((h) => `${h.q},${h.r}`)
         .sort(),
-    ).toEqual(['0,0', '0,1', '1,0', '1,1', '2,0']);
+    ).toEqual(['0,0', '1,0']);
     // Das Ausgangsgebiet bleibt unberührt.
     expect(area.party).toMatchObject({ q: 0, r: 0 });
     const after = { ...data, areas: { [area.id]: step.area } };

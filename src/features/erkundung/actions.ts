@@ -3,7 +3,15 @@ import { advanceTime, undoTimeAdvance, type TimeAdvanceResult } from '../../data
 import type { CampaignDb } from '../../data/db';
 import { hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import { freshSeed } from '../../domain/random';
-import { HexSchema, type Area, type Hex, type Pace } from '../../domain/schema';
+import {
+  HexSchema,
+  type Area,
+  type CampaignData,
+  type Hex,
+  type Pace,
+  type Place,
+} from '../../domain/schema';
+import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { planStep, type StepProblem, type TravelStep } from './travel';
@@ -271,4 +279,76 @@ export function edgeSlots(area: Pick<Area, 'hexes'>): HexCoord[] {
   for (const hex of area.hexes)
     for (const n of hexNeighbors(hex)) if (!taken.has(hexKey(n))) out.set(hexKey(n), n);
   return [...out.values()];
+}
+
+// ── Orte aus der Welt ──────────────────────────────────────────────────────
+
+/**
+ * Orte, die auf diese Karte gehören könnten und noch auf keinem Feld stehen: was in den Gegenden
+ * von Start und Ziel liegt (die Orte darüber und alles darunter) – die Nachbarn von Start und Ziel
+ * zuerst. Räume zählen nicht. Unter der Erde haben die meisten Orte keine Lage; dann setzt der
+ * Spielleiter sie mit dem Werkzeug „Ort“ selbst.
+ */
+export function placeSuggestions(data: CampaignData, area: Area): Place[] {
+  if (!area.fromId || !area.toId) return [];
+  const onMap = new Set(area.hexes.flatMap((hex) => (hex.placeId ? [hex.placeId] : [])));
+  const ends = [area.fromId, area.toId];
+  const parents = new Set(
+    ends.map((id) =>
+      data.entities[id]?.kind === 'place' ? (data.entities[id] as Place).place.parentId : null,
+    ),
+  );
+  const roots = new Set<string>();
+  for (const id of ends) {
+    roots.add(id);
+    // Höchstens zwei Ebenen hinauf – sonst stünde die ganze Welt zur Wahl.
+    for (const place of placeAncestors(data, id).slice(0, 2)) roots.add(place.id);
+  }
+  const ids = new Set<string>();
+  for (const root of roots) for (const id of placeSubtreeIds(data, root)) ids.add(id);
+  return [...ids]
+    .map((id) => data.entities[id])
+    .filter(
+      (entity): entity is Place =>
+        entity?.kind === 'place' &&
+        !entity.place.room &&
+        !onMap.has(entity.id) &&
+        !ends.includes(entity.id),
+    )
+    .sort(
+      (a, b) =>
+        Number(parents.has(b.place.parentId)) - Number(parents.has(a.place.parentId)) ||
+        a.name.localeCompare(b.name, 'de'),
+    )
+    .slice(0, 40);
+}
+
+/**
+ * Setzt Orte mit einer Lage in der Welt auf ihr Feld – so, wie die Karte sie beim Erzeugen
+ * gesetzt hätte. Felder, auf denen schon ein Ort steht, bleiben. Gibt zurück, wie viele es waren,
+ * und `undo`.
+ */
+export function placeWorldPlaces(
+  db: CampaignDb,
+  areaId: string,
+): { added: number; undo: () => void } | null {
+  const area = db.getSnapshot().areas[areaId];
+  const input = area && area.seed !== null ? rerollInput(db, area, area.seed) : null;
+  if (!area || !input) return null;
+  const fresh = new Map(
+    generateHexes(input)
+      .hexes.filter((hex) => hex.placeId)
+      .map((hex) => [hexKey(hex), hex.placeId!]),
+  );
+  const onMap = new Set(area.hexes.flatMap((hex) => (hex.placeId ? [hex.placeId] : [])));
+  let added = 0;
+  const hexes = area.hexes.map((hex) => {
+    const placeId = fresh.get(hexKey(hex));
+    if (!placeId || hex.placeId || onMap.has(placeId)) return hex;
+    added++;
+    onMap.add(placeId);
+    return { ...hex, placeId };
+  });
+  if (added) db.patch('areas', areaId, { hexes });
+  return { added, undo: () => restoreHexes(db, areaId, area.hexes) };
 }

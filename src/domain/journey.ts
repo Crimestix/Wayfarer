@@ -19,10 +19,19 @@ import { distanceKm } from './geo';
 import { TRAVEL_HOURS, marchedMinutes } from './march';
 import { partyTravel } from './mounts';
 import { placeGeo, planetOf } from './planet';
-import type { CampaignData, HaltKind, Journey, JourneyLeg, RollTable, TableKind } from './schema';
+import type {
+  CampaignData,
+  HaltKind,
+  Journey,
+  JourneyLeg,
+  RollTable,
+  TableKind,
+  Terrain,
+} from './schema';
 import { DAY_KM } from './terrain';
 import { MINUTES_PER_DAY, dayIndexOf, type WorldTime } from './time/calendar';
 import { routeBetween } from './ways';
+import { isUnderground } from './underground';
 import { isEveryday } from './weight';
 
 /** Alle so viele Reiseminuten prüft Wayfarer auf Begegnungen (Entscheidung 17. 11.: vier Stunden). */
@@ -33,6 +42,8 @@ export const HALT_HORIZON = MINUTES_PER_DAY;
 export const HALT_LABEL: Record<HaltKind, string> = {
   place: 'Ort am Weg',
   feature: 'Besonderheit unterwegs',
+  river: 'Ein Fluss',
+  navigate: 'Orientierung',
   prepared: 'Am Weg vorbereitet',
   encounter: 'Begegnung',
   discovery: 'Entdeckung',
@@ -319,6 +330,21 @@ export function nextHalt(
   if (!leg) return null;
   const now = data.state.now;
   const left = Math.max(0, leg.minutes - journey.progress.minutes);
+  // Orientierung: einmal am Tag, wenn es abseits von Wegen und Straßen weitergeht.
+  const nav = navigationAt(data, journey);
+  if (
+    nav &&
+    journey.navDay !== dayIndexOf(now) &&
+    !(journey.halt?.kind === 'navigate' && journey.halt.at === now)
+  )
+    return {
+      kind: 'navigate',
+      minutes: 0,
+      text: `Weisheit (Überlebenskunst) SG ${nav.dc}${nav.suggested ? ' (Vorschlag nach Gelände)' : ''}`,
+      roll: '',
+      quietChecks: 0,
+      arrives: false,
+    };
   // Was der Spielleiter am Weg vorbereitet hat, hält gleich zu Beginn des Abschnitts – einmal.
   const path = leg.pathId ? data.paths[leg.pathId] : undefined;
   const prepared = path?.onTheWay.trim() ?? '';
@@ -350,16 +376,21 @@ export function nextHalt(
   // die Gruppe noch nicht kennt – beim Betreten.
   const area = leg.areaId ? data.areas[leg.areaId] : undefined;
   if (area)
-    for (const step of leg.hexes.slice(1, -1)) {
-      if (step.at <= journey.progress.minutes) continue;
+    leg.hexes.slice(1, -1).forEach((step, index) => {
+      if (step.at <= journey.progress.minutes) return;
       const hex = area.hexes.find((entry) => entry.q === step.q && entry.r === step.r);
-      if (!hex) continue;
+      if (!hex) return;
+      const before = leg.hexes[index]!;
+      const prev = area.hexes.find((entry) => entry.q === before.q && entry.r === before.r);
       const at = step.at - journey.progress.minutes;
       if (hex.prepared.trim()) add(at, 'prepared', hex.prepared.trim());
       else if (hex.placeId && hex.placeId !== leg.fromId && hex.placeId !== leg.toId)
         add(at, 'place', data.entities[hex.placeId]?.name ?? '');
+      // Ein Fluss ohne Straße oder Brücke: Furt, schwimmen oder Boot – entscheidet der Spielleiter.
+      else if (hex.river && !prev?.river && hex.road === 'none')
+        add(at, 'river', `${hex.river}: eine Furt suchen, schwimmen oder ein Boot`);
       else if (hex.feature.trim() && !hex.discovered) add(at, 'feature', hex.feature.trim());
-    }
+    });
   // Acht Stunden seit der Rast: nur, wenn die Grenze unterwegs erreicht wird.
   const since = marchedMinutes(data, now);
   if (since < TRAVEL_HOURS * 60) add(TRAVEL_HOURS * 60 - since, 'rest', '');
@@ -449,4 +480,64 @@ export function tableFromText(text: string): {
   const top = Math.max(0, ...entries.map((row) => row.max));
   const die = [4, 6, 8, 10, 12, 20, 100].find((sides) => sides >= top) ?? Math.max(2, top);
   return { entries, die };
+}
+
+// ── Orientierung ───────────────────────────────────────────────────────────
+
+/**
+ * Vorschlag für die Orientierung abseits von Wegen, wenn die Gegend keinen eigenen Wert hat – nur
+ * ein Vorschlag, in der Gegend änderbar (`place.navDc`, 0 = nie prüfen). Offenes Land braucht keine
+ * Prüfung, unübersichtliches Gelände und das Unterreich schon.
+ */
+export const SUGGESTED_NAV_DC: Record<Terrain, number> = {
+  grassland: 0,
+  coast: 0,
+  urban: 0,
+  water: 0,
+  hills: 10,
+  desert: 15,
+  arctic: 15,
+  mountains: 15,
+  forest: 15,
+  swamp: 15,
+  underdark: 15,
+};
+
+/** Der eigene Wert der Gegend (oder einer darüber) – null, wenn keiner eingetragen ist. */
+function ownNavDc(data: CampaignData, regionId: string | null): number | null {
+  if (!regionId) return null;
+  const self = data.entities[regionId];
+  const chain = [...(self?.kind === 'place' ? [self] : []), ...placeAncestors(data, regionId)];
+  for (const place of chain) if (place.place.navDc !== null) return place.place.navDc;
+  return null;
+}
+
+/**
+ * Muss die Gruppe sich hier orientieren? Nur abseits von Wegen: auf einer freien Strecke oder auf
+ * einem Feld der Hexkarte ohne Straße und Pfad. Gibt den Schwierigkeitsgrad zurück (eigener Wert
+ * der Gegend, sonst Vorschlag nach Gelände) – null, wenn nicht geprüft wird.
+ */
+export function navigationAt(
+  data: CampaignData,
+  journey: Journey,
+): { dc: number; suggested: boolean } | null {
+  const leg = journey.legs[journey.progress.leg];
+  if (!leg) return null;
+  const area = leg.areaId ? data.areas[leg.areaId] : undefined;
+  if (leg.pathId && !area) return null;
+  let terrain: Terrain | null = null;
+  let regionId = leg.regionId;
+  if (area) {
+    const passed = leg.hexes.filter((step) => step.at <= journey.progress.minutes);
+    const step = passed[passed.length - 1] ?? leg.hexes[0];
+    const hex = step ? area.hexes.find((h) => h.q === step.q && h.r === step.r) : undefined;
+    if (!hex || hex.road !== 'none') return null;
+    terrain = hex.terrain;
+    regionId = hex.regionId ?? regionId;
+  }
+  const own = ownNavDc(data, regionId);
+  if (own !== null) return own > 0 ? { dc: own, suggested: false } : null;
+  const below = leg.toId ? isUnderground(data, leg.toId) : false;
+  const dc = terrain ? SUGGESTED_NAV_DC[terrain] : below ? SUGGESTED_NAV_DC.underdark : 0;
+  return dc > 0 ? { dc, suggested: true } : null;
 }

@@ -27,6 +27,9 @@ import {
   type TableKind,
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
+import { seenFrom } from '../erkundung/travel';
+import { dayIndexOf } from '../../domain/time/calendar';
+import { formatWayTime } from '../../domain/ways';
 
 /** Bricht auf: eine laufende Reise vom Ort der Gruppe zum Ziel. Gibt die Reise und `undo` zurück. */
 export function startJourney(
@@ -108,6 +111,8 @@ export function travelOn(
   const data = db.getSnapshot();
   const journey = journeyUnderway(data);
   if (!journey) return null;
+  // Verirrt: Erst kostet der Umweg seine Zeit, ohne dass die Reise vorankommt.
+  if (journey.lostMinutes > 0) return detour(db, journey);
   const halt = nextHalt(data, journey, roll, limit);
   if (!halt) return null;
   const leg = journey.legs[journey.progress.leg]!;
@@ -142,6 +147,7 @@ export function travelOn(
       prepared: `Am Weg: ${halt.text}`,
       feature: `Unterwegs: ${halt.text}`,
       light: `Licht erlischt: ${halt.text}`,
+      river: `Am Fluss: ${halt.text}`,
       rest: 'Acht Stunden unterwegs seit der letzten Rast',
     };
     const text = lineFor[halt.kind];
@@ -154,6 +160,7 @@ export function travelOn(
         halt.kind === 'encounter' || halt.kind === 'discovery'
           ? 0
           : (journey.sinceCheck + halt.minutes) % CHECK_EVERY,
+      navDay: halt.kind === 'navigate' ? dayIndexOf(now) : journey.navDay,
       halt:
         status === 'arrived'
           ? null
@@ -173,6 +180,57 @@ export function travelOn(
   });
 }
 
+/** Der Umweg nach dem Verirren: Zeit vergeht, die Reise kommt nicht voran. */
+function detour(db: CampaignDb, journey: Journey): TravelResult {
+  const minutes = journey.lostMinutes;
+  return db.batch(() => {
+    const start = db.getSnapshot().state.now;
+    advanceTime(db, start + minutes);
+    const line = logEntry(db, { text: `Umweg: etwa ${formatWayTime(minutes)} verloren` });
+    const next = db.patch('journeys', journey.id, {
+      lostMinutes: 0,
+      steps: [...journey.steps, { at: start + minutes, minutes }].slice(-20),
+      sinceCheck: (journey.sinceCheck + minutes) % CHECK_EVERY,
+      halt: {
+        kind: 'navigate',
+        text: 'Wieder auf Kurs.',
+        at: start + minutes,
+        roll: '',
+        encounterId: null,
+      },
+    })!;
+    return {
+      halt: {
+        kind: 'navigate',
+        minutes,
+        text: 'Umweg gegangen – wieder auf Kurs.',
+        roll: '',
+        quietChecks: 0,
+        arrives: false,
+      },
+      journey: next,
+      undo: () =>
+        db.batch(() => {
+          if (db.getSnapshot().chronicle[line.id]) db.remove('chronicle', line.id);
+          undoTimeAdvance(db);
+          db.put('journeys', journey);
+        }),
+    };
+  });
+}
+
+/**
+ * Verirrt (nach einer misslungenen Orientierung, entschieden vom Spielleiter): Wayfarer würfelt
+ * den Umweg – 1W6 Stunden –, den die nächste Etappe kostet. Gibt die Stunden und `undo` zurück.
+ */
+export function getLost(db: CampaignDb, roll: Roll): { hours: number; undo: () => void } | null {
+  const journey = journeyUnderway(db.getSnapshot());
+  if (!journey) return null;
+  const hours = roll(6);
+  db.patch('journeys', journey.id, { lostMinutes: hours * 60, halt: null });
+  return { hours, undo: () => db.put('journeys', journey) };
+}
+
 /**
  * Stellt die Gruppe auf der Hexkarte eines Abschnitts dorthin, wo die Reise nach `minutes` ist:
  * das letzte erreichte Feld; was sie dabei durchquert hat, ist entdeckt und steht in ihrer Spur.
@@ -183,7 +241,9 @@ function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number)
   if (!area) return;
   const passed = leg.hexes.filter((hex) => hex.at <= minutes);
   const at = passed[passed.length - 1] ?? leg.hexes[0]!;
-  const seen = new Set(passed.map((hex) => `${hex.q},${hex.r}`));
+  // Entdeckt ist, was die Gruppe von jedem durchquerten Feld aus sieht (`seenFrom`).
+  const seen = new Set<string>();
+  for (const hex of passed) for (const key of seenFrom(db.getSnapshot(), area, hex)) seen.add(key);
   const before = area.party;
   const trail = [...(before?.trail ?? []), ...passed.map(({ q, r }) => ({ q, r }))].filter(
     (hex, index, all) => all.findIndex((other) => other.q === hex.q && other.r === hex.r) === index,
@@ -262,6 +322,13 @@ export function setPlaceGround(
       ...(change.slow !== undefined ? { groundSlow: change.slow } : {}),
     },
   });
+}
+
+/** Der Schwierigkeitsgrad der Orientierung in einer Gegend (null = Vorschlag nach Gelände, 0 = nie). */
+export function setPlaceNav(db: CampaignDb, placeId: string, dc: number | null): void {
+  const place = db.getSnapshot().entities[placeId];
+  if (place?.kind !== 'place') return;
+  db.patch('entities', placeId, { place: { ...place.place, navDc: dc } });
 }
 
 /** Die Tabelle einer Gegend für eine Art (die erste, die es gibt) – null, wenn keine. */

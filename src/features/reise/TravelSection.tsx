@@ -9,7 +9,7 @@ import { useData, useDb } from '../../data/hooks';
 import { groundOf, tableText } from '../../domain/journey';
 import type { Place, TableKind } from '../../domain/schema';
 import { Checkbox, Input, Written } from '../../ui';
-import { regionTable, saveRegionTable, setPlaceGround } from './actions';
+import { regionTable, saveRegionTable, setPlaceGround, setPlaceNav } from './actions';
 import './reise.css';
 
 export function TravelSection({ place }: { place: Place }) {
@@ -44,6 +44,26 @@ export function TravelSection({ place }: { place: Place }) {
       >
         Schwer zu durchqueren – Reisen dauern doppelt so lange
       </Checkbox>
+      <label className="wf-reise-section__dc">
+        Orientierung abseits von Wegen: SG
+        <Input
+          key={`nav-${place.place.navDc}`}
+          defaultValue={place.place.navDc === null ? '' : String(place.place.navDc)}
+          inputMode="numeric"
+          aria-label="Orientierung: Schwierigkeitsgrad"
+          placeholder="Vorschlag"
+          title="Leer: Vorschlag nach Gelände. 0: hier verirrt sich niemand."
+          onBlur={(event) => {
+            const text = event.target.value.trim();
+            const value = Number.parseInt(text, 10);
+            setPlaceNav(
+              db,
+              place.id,
+              text === '' || !Number.isFinite(value) ? null : Math.max(0, Math.min(30, value)),
+            );
+          }}
+        />
+      </label>
       <TableField place={place} kind="encounter" />
       <TableField place={place} kind="discovery" />
     </section>

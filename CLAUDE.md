@@ -352,6 +352,16 @@ nicht übernommen.
   (`hex.manual`, Gegend, Straße, Vorbereitetes, Notiz, angefügte Felder), behält `rerollArea`.
   Schrittzeiten rechnet `stepMinutes`: auf Straße oder Pfad im Tempo offenen Landes, in einer
   langsamen Gegend doppelt – auf der Hexkarte wie Unterwegs.
+  **Die Hexkarte wird simuliert, nicht gedruckt** (Entscheidung 17. 11.: kein Schlüssel, keine
+  Feldnummern). Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
+  `river`). Orientierung abseits von Wegen (freie Strecke oder Feld ohne Straße): einmal am Tag
+  ein Halt `navigate` (`navigationAt`, SG der Gegend `place.navDc` – leer = Vorschlag nach
+  Gelände `SUGGESTED_NAV_DC`, 0 = nie); „Verirrt“ würfelt den Umweg (`getLost`, 1W6 Stunden),
+  den die nächste Etappe kostet (`detour`: Zeit vergeht, kein Fortschritt). Sicht nach Gelände
+  (`sightRadius`, `seenFrom`: Berge drei Ringe, Hügel zwei, Wald und Sumpf nur das eigene Feld,
+  unter der Erde ohne Licht nur das eigene Feld). Orte auf die Karte: Werkzeug „Ort“
+  (`placeSuggestions` – die Gegenden von Start und Ziel zuerst, nie Räume) und „Orte aus der
+  Welt“ (`placeWorldPlaces`: Orte mit Lage auf ihr Feld, besetzte Felder bleiben).
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

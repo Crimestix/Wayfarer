@@ -17,7 +17,7 @@ import { formatWayTime } from '../../domain/ways';
 import { openQuickLog, openRest } from '../../shell/commands';
 import { Button, Panel, cx, toast } from '../../ui';
 import { fairDie } from '../bestiarium/model';
-import { campCheck, clearHalt, endJourney, travelOn } from './actions';
+import { campCheck, clearHalt, endJourney, getLost, travelOn } from './actions';
 import './reise.css';
 
 export function TravelPanel({ journey }: { journey: Journey }) {
@@ -165,9 +165,33 @@ export function TravelPanel({ journey }: { journey: Journey }) {
           {halt.text && <p>{halt.text}</p>}
           {halt.roll && <span className="wf-reise__roll">{halt.roll}</span>}
           <div className="wf-reise__haltacts">
+            {halt.kind === 'navigate' && halt.text !== 'Wieder auf Kurs.' && (
+              <>
+                <Button size="sm" onClick={() => clearHalt(db)} title="Die Probe gelang">
+                  Zurechtgefunden
+                </Button>
+                <Button
+                  size="sm"
+                  title="Die Probe misslang: Wayfarer würfelt den Umweg (1W6 Stunden) – er kostet die nächste Etappe"
+                  onClick={() => {
+                    const lost = getLost(db, fairDie);
+                    if (lost)
+                      toast({
+                        slot: 'reise',
+                        title: 'Verirrt',
+                        body: `Etwa ${lost.hours} ${lost.hours === 1 ? 'Stunde' : 'Stunden'} Umweg – das kostet die nächste Etappe.`,
+                        action: { label: 'Rückgängig', run: lost.undo },
+                      });
+                  }}
+                >
+                  Verirrt
+                </Button>
+              </>
+            )}
             {(halt.kind === 'encounter' ||
               halt.kind === 'discovery' ||
-              halt.kind === 'prepared') && (
+              halt.kind === 'prepared' ||
+              halt.kind === 'river') && (
               <Button
                 size="sm"
                 onClick={() => openQuickLog({ text: halt.text })}

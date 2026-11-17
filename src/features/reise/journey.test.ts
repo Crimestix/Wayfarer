@@ -11,8 +11,18 @@ import {
   type Roll,
 } from '../../domain/journey';
 import { marchedMinutes } from '../../domain/march';
-import { createEntity, createPath, createRollTable, type Place } from '../../domain/schema';
-import { campCheck, endJourney, startJourney, travelOn } from './actions';
+import {
+  HexSchema,
+  createEntity,
+  createPath,
+  createRollTable,
+  type Hex,
+  type Place,
+} from '../../domain/schema';
+import type { HexCoord } from '../../domain/hex';
+import { placeSuggestions, placeWorldPlaces } from '../erkundung/actions';
+import { seenFrom, sightRadius } from '../erkundung/travel';
+import { campCheck, endJourney, getLost, startJourney, travelOn } from './actions';
 import { hexMapForWay, withHexes } from './hexway';
 
 /** Ein Würfel, der der Reihe nach die gegebenen Zahlen zeigt (danach 1). */
@@ -182,5 +192,117 @@ describe('Wegenetz, Hexkarte und Unterwegs', () => {
     expect(data().areas[area.id]!.party).toMatchObject({ q: middle.q, r: middle.r });
     const passed = data().areas[area.id]!.hexes.filter((hex) => hex.discovered).length;
     expect(passed).toBeGreaterThan(0);
+  });
+});
+
+describe('Simulierte Hexkarte: Flüsse, Orientierung, Sicht, Orte', () => {
+  /** Die Reise über die Hexkarte zwischen Glimmergrotten und Nachtzinne, Felder ohne Straße. */
+  async function hexJourney(change: (hex: Hex, index: number, line: HexCoord[]) => Hex = (h) => h) {
+    const ctx = await setup();
+    const { db, data, grotto, goal } = ctx;
+    db.setState({ placeId: grotto.id });
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const line = withHexes(data(), planJourney(data(), grotto.id, goal.id)!).legs[0]!.hexes;
+    db.patch('areas', area.id, {
+      hexes: data().areas[area.id]!.hexes.map((hex) => {
+        const index = line.findIndex((step) => step.q === hex.q && step.r === hex.r);
+        return change({ ...hex, road: 'none', river: '' }, index, line);
+      }),
+    });
+    const plan = withHexes(data(), planJourney(data(), grotto.id, goal.id)!);
+    startJourney(db, { toId: goal.id, plan });
+    return { ...ctx, area, line };
+  }
+
+  it('fragt abseits von Wegen einmal am Tag nach der Orientierung', async () => {
+    const { db, data } = await hexJourney();
+    const first = travelOn(db, dice())!;
+    expect(first.halt.kind).toBe('navigate');
+    expect(first.halt.text).toMatch(/Überlebenskunst\) SG \d+/);
+    expect(first.halt.minutes).toBe(0);
+    // Zurechtgefunden: Danach geht es ohne neue Frage weiter.
+    const second = travelOn(db, dice())!;
+    expect(second.halt.kind).not.toBe('navigate');
+    expect(second.halt.minutes).toBeGreaterThan(0);
+    expect(data().state.now).toBeGreaterThan(0);
+  });
+
+  it('verirrt: der Umweg kostet Zeit, die Reise kommt nicht voran', async () => {
+    const { db, data } = await hexJourney();
+    travelOn(db, dice());
+    const lost = getLost(db, dice(3))!;
+    expect(lost.hours).toBe(3);
+    const t0 = data().state.now;
+    const before = journeyUnderway(data())!.progress;
+    const detour = travelOn(db, dice())!;
+    expect(detour.halt.kind).toBe('navigate');
+    expect(data().state.now).toBe(t0 + 180);
+    expect(journeyUnderway(data())!.progress).toEqual(before);
+    expect(journeyUnderway(data())!.lostMinutes).toBe(0);
+    expect(marchedMinutes(data(), data().state.now)).toBeGreaterThanOrEqual(180);
+  });
+
+  it('fragt nie, wenn die Gegend es abgeschaltet hat (SG 0)', async () => {
+    const ctx = await setup();
+    ctx.db.patch('entities', ctx.wide.id, {
+      place: { ...(ctx.data().entities[ctx.wide.id] as Place).place, navDc: 0 },
+    });
+    const { db } = ctx;
+    db.setState({ placeId: ctx.grotto.id });
+    const path = Object.values(ctx.data().paths).find((p) => p.fromId === ctx.grotto.id)!;
+    hexMapForWay(db, path.id);
+    const plan = withHexes(ctx.data(), planJourney(ctx.data(), ctx.grotto.id, ctx.goal.id)!);
+    startJourney(db, { toId: ctx.goal.id, plan });
+    expect(travelOn(db, dice())!.halt.kind).not.toBe('navigate');
+  });
+
+  it('hält an einem Fluss ohne Straße – einmal, nicht auf jedem Feld des Flusses', async () => {
+    const { db, data } = await hexJourney((hex, index, line) =>
+      index > 0 && index >= Math.floor(line.length / 2) && index <= Math.floor(line.length / 2) + 1
+        ? { ...hex, river: 'Schwarzwasser' }
+        : hex,
+    );
+    const halts: string[] = [];
+    let result = travelOn(db, dice())!;
+    while (journeyUnderway(data())) {
+      halts.push(result.halt.kind);
+      result = travelOn(db, dice())!;
+    }
+    expect(halts.filter((kind) => kind === 'river')).toHaveLength(1);
+  });
+
+  it('sieht von Bergen weit, im Wald nur das eigene Feld', async () => {
+    const { data } = await setup();
+    expect(sightRadius(data(), { terrain: 'mountains' })).toBe(3);
+    expect(sightRadius(data(), { terrain: 'hills' })).toBe(2);
+    expect(sightRadius(data(), { terrain: 'forest' })).toBe(0);
+    const cell = (q: number, r: number, terrain: Hex['terrain']) =>
+      HexSchema.parse({ q, r, terrain });
+    const area = {
+      hexes: [cell(0, 0, 'forest'), cell(1, 0, 'grassland'), cell(2, 0, 'grassland')],
+    };
+    expect(seenFrom(data(), area, { q: 0, r: 0 }).size).toBe(1);
+    expect(seenFrom(data(), area, { q: 1, r: 0 }).size).toBe(3);
+  });
+
+  it('schlägt Orte der Gegend vor, die noch auf keinem Feld stehen', async () => {
+    const { db, data, grotto, goal, wide } = await setup();
+    const hidden = db.put(
+      'entities',
+      createEntity({ kind: 'place', name: 'Pilzhain', place: { parentId: wide.id } }),
+    );
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const names = placeSuggestions(data(), area).map((place) => place.name);
+    expect(names).toContain('Pilzhain');
+    expect(names).not.toContain(grotto.name);
+    expect(names).not.toContain(goal.name);
+    expect(names.indexOf('Pilzhain')).toBeLessThan(
+      names.indexOf('Unterreich') === -1 ? 99 : names.indexOf('Unterreich'),
+    );
+    // Ohne Lage in der Welt setzt Wayfarer nichts von selbst.
+    expect(placeWorldPlaces(db, area.id)!.added).toBe(0);
+    expect(hidden.id).toBeTruthy();
   });
 });

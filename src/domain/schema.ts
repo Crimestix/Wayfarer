@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 21;
-export const DATA_SHAPE = 'b69cea1b284d483d';
+export const DATA_VERSION = 22;
+export const DATA_SHAPE = '70d9bbecec54b4bd';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -434,6 +434,11 @@ const PlaceDetails = z.object({
   ground: z.string().default(''),
   /** Schwer zu durchqueren: Reisen hier dauern doppelt so lange (Regelwerk: schwieriges Gelände). */
   groundSlow: z.boolean().default(false),
+  /**
+   * Orientierung abseits von Wegen: der Schwierigkeitsgrad, den die Gruppe hier schaffen muss,
+   * um sich nicht zu verirren. null = Vorschlag nach Gelände (`navDc`), 0 = nie prüfen.
+   */
+  navDc: z.number().int().min(0).max(30).nullable().default(null),
   /**
    * Wie groß der Ort ist (Konzeptbesprechung 16. 11.): Gegend, Siedlung, Gebäude – ein Raum ist
    * `room`. '' = nicht festgelegt; dann schätzt `placeScale()` aus Wort und Orten darin.
@@ -2318,6 +2323,8 @@ export const JourneyLogSchema = z.object({
 export const HALT_KINDS = [
   'place',
   'feature',
+  'river',
+  'navigate',
   'prepared',
   'encounter',
   'discovery',
@@ -2361,6 +2368,10 @@ export const JourneySchema = z.object({
     .prefault({ leg: 0, minutes: 0, km: 0 }),
   /** Reiseminuten seit der letzten Prüfung auf Begegnungen. */
   sinceCheck: z.number().int().nonnegative().default(0),
+  /** Der Welttag, an dem zuletzt auf Orientierung geprüft wurde – einmal am Tag. */
+  navDay: z.number().int().nullable().default(null),
+  /** Verirrt: so viele Minuten Umweg kostet der nächste Abschnitt der Reise, ohne voranzukommen. */
+  lostMinutes: z.number().int().nonnegative().default(0),
   /** Gereiste Stücke mitten auf einem Abschnitt – für den Gewaltmarsch (`domain/march.ts`). */
   steps: z.array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() })).default([]),
   /** Vorräte beim Aufbruch in Tagen – nur ein Hinweis, abgezogen wird nichts. null = nicht gezählt. */

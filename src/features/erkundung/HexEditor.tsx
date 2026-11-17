@@ -5,15 +5,25 @@
  * oder wegnehmen. Jeder Strich lässt sich zurücknehmen; Neu würfeln behält, was von Hand gemacht ist.
  */
 import { useRef, useState } from 'react';
-import { Brush, Eraser, Grid2x2Plus, MapPinned, Route, Waves } from 'lucide-react';
+import { Brush, Eraser, Grid2x2Plus, MapPin, MapPinned, Route, Waves } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { hexDistance, hexKey, type HexCoord } from '../../domain/hex';
 import { TERRAINS, type Area, type Hex, type Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { EntityPicker, Input, Select, cx, toast } from '../../ui';
-import { addHex, edgeSlots, paintHexes, removeHex, restoreHexes, type HexPaint } from './actions';
+import {
+  addHex,
+  edgeSlots,
+  paintHexes,
+  placeSuggestions,
+  placeWorldPlaces,
+  removeHex,
+  restoreHexes,
+  type HexPaint,
+} from './actions';
 
-export type HexTool = 'terrain' | 'region' | 'road' | 'trail' | 'river' | 'erase' | 'cells';
+export type HexTool =
+  'terrain' | 'region' | 'road' | 'trail' | 'river' | 'place' | 'erase' | 'cells';
 
 const TOOL_LABEL: Record<HexTool, string> = {
   terrain: 'Gelände',
@@ -21,6 +31,7 @@ const TOOL_LABEL: Record<HexTool, string> = {
   road: 'Straße',
   trail: 'Pfad',
   river: 'Fluss',
+  place: 'Ort',
   erase: 'Radierer',
   cells: 'Felder',
 };
@@ -31,7 +42,8 @@ const TOOL_HINT: Record<HexTool, string> = {
     'Eine Gegend der Welt auf die Felder malen – ihr Gelände, Tempo und ihre Tabellen gelten dort.',
   road: 'Mit gedrückter Maus eine Straße ziehen: Reisen dort gehen im normalen Tempo.',
   trail: 'Einen Pfad ziehen.',
-  river: 'Einen Fluss ziehen.',
+  river: 'Einen Fluss ziehen – ohne Straße oder Brücke muss die Gruppe ihn überqueren.',
+  place: 'Einen Ort der Welt auf ein Feld setzen: wählen, dann aufs Feld klicken.',
   erase: 'Straße, Pfad, Fluss und Gegend von Feldern nehmen.',
   cells: 'Klick auf einen hellen Platz am Rand fügt ein Feld an; Klick auf ein Feld nimmt es weg.',
 };
@@ -46,6 +58,7 @@ export function useHexEditor(area: Area) {
   const [terrain, setTerrain] = useState<Terrain>('forest');
   const [regionId, setRegionId] = useState<string | null>(null);
   const [river, setRiver] = useState('Fluss');
+  const [placeId, setPlaceId] = useState<string | null>(null);
   const [radius, setRadius] = useState(1);
   /** Der Stand der Felder vor dem laufenden Strich – zum Zurücknehmen. */
   const before = useRef<Hex[] | null>(null);
@@ -66,6 +79,7 @@ export function useHexEditor(area: Area) {
       case 'erase':
         return { road: 'none', river: '', regionId: null };
       case 'cells':
+      case 'place':
         return null;
     }
   };
@@ -78,6 +92,34 @@ export function useHexEditor(area: Area) {
     touched.current += coords.length;
   };
   const onStart = (at: HexCoord) => {
+    if (tool === 'place') {
+      const current = db.getSnapshot().areas[area.id] ?? area;
+      const hex = current.hexes.find((entry) => hexKey(entry) === hexKey(at));
+      if (!placeId || !hex) return;
+      if (hex.placeId && (hex.placeId === current.fromId || hex.placeId === current.toId)) {
+        toast({ slot: 'hexkarte', title: 'Hier stehen Start oder Ziel' });
+        return;
+      }
+      const old = current.hexes;
+      // Ein Ort steht auf einem Feld: Stand er schon woanders, zieht er um.
+      restoreHexes(
+        db,
+        area.id,
+        old.map((entry) =>
+          hexKey(entry) === hexKey(at)
+            ? { ...entry, placeId, manual: true }
+            : entry.placeId === placeId
+              ? { ...entry, placeId: null }
+              : entry,
+        ),
+      );
+      toast({
+        slot: 'hexkarte',
+        title: 'Ort gesetzt',
+        action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+      });
+      return;
+    }
     if (tool === 'cells') {
       const fresh = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
       if (removeHex(db, area.id, at))
@@ -121,6 +163,7 @@ export function useHexEditor(area: Area) {
       });
   };
   return {
+    area,
     tool,
     setTool,
     terrain,
@@ -129,6 +172,8 @@ export function useHexEditor(area: Area) {
     setRegionId,
     river,
     setRiver,
+    placeId,
+    setPlaceId,
     radius,
     setRadius,
     paint: {
@@ -153,6 +198,7 @@ export function HexToolbar({ editor }: { editor: HexEditor }) {
     { tool: 'road', icon: <Route aria-hidden /> },
     { tool: 'trail', icon: <Route aria-hidden /> },
     { tool: 'river', icon: <Waves aria-hidden /> },
+    { tool: 'place', icon: <MapPin aria-hidden /> },
     { tool: 'erase', icon: <Eraser aria-hidden /> },
     { tool: 'cells', icon: <Grid2x2Plus aria-hidden /> },
   ];
@@ -204,6 +250,7 @@ export function HexToolbar({ editor }: { editor: HexEditor }) {
           )}
         </span>
       )}
+      {editor.tool === 'place' && <PlaceTool editor={editor} />}
       {editor.tool === 'river' && (
         <Input
           value={editor.river}
@@ -234,3 +281,50 @@ export function HexToolbar({ editor }: { editor: HexEditor }) {
 }
 
 export { hexKey };
+
+/** Werkzeug „Ort“: Vorschläge aus den Gegenden von Start und Ziel, jeder Ort der Welt, Orte mit Lage. */
+function PlaceTool({ editor }: { editor: HexEditor }) {
+  const db = useDb();
+  const data = useData();
+  const area = editor.area;
+  const suggestions = placeSuggestions(data, area);
+  return (
+    <span className="wf-erk-tools__region">
+      <Select
+        value={editor.placeId ?? ''}
+        aria-label="Ort aus der Gegend"
+        onChange={(event) => editor.setPlaceId(event.target.value || null)}
+      >
+        <option value="">{suggestions.length ? 'Ort aus der Gegend …' : 'Keine Vorschläge'}</option>
+        {suggestions.map((place) => (
+          <option key={place.id} value={place.id}>
+            {place.name}
+          </option>
+        ))}
+      </Select>
+      <EntityPicker
+        value={editor.placeId}
+        onChange={editor.setPlaceId}
+        kinds={['place']}
+        placeholder="… oder jeder andere Ort"
+      />
+      <button
+        type="button"
+        className="wf-btn wf-btn--sm"
+        title="Orte mit einer Lage in der Welt auf ihr Feld setzen"
+        onClick={() => {
+          const done = placeWorldPlaces(db, area.id);
+          toast({
+            slot: 'hexkarte',
+            title: done?.added
+              ? `${done.added} Orte aus der Welt gesetzt`
+              : 'Keine weiteren Orte mit Lage',
+            ...(done?.added ? { action: { label: 'Rückgängig', run: done.undo } } : {}),
+          });
+        }}
+      >
+        Orte aus der Welt
+      </button>
+    </span>
+  );
+}

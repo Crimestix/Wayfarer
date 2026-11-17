@@ -7,6 +7,7 @@
  * wie schnell es höchstens vorangeht.
  */
 import { groundOf as journeyGround } from '../../domain/journey';
+import { lightStatus } from '../../domain/underground';
 import { hexDistance, hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import { carries, ignoresGround, meansKmh, partyMeans } from '../../domain/mounts';
 import { rngOf, seedOf } from '../../domain/random';
@@ -93,6 +94,36 @@ export function stepMinutes(
   if (base === null) return null;
   const slow = !onRoad && !!hex.regionId && !!journeyGround(data, hex.regionId)?.slow;
   return slow ? base * 2 : base;
+}
+
+/**
+ * Wie weit die Gruppe von einem Feld aus sieht – so viele Ringe von Feldern gelten als entdeckt:
+ * von Bergen drei, von Hügeln zwei, im offenen Land eins, im Wald und Sumpf nur das eigene Feld.
+ * Unter der Erde hängt es am Licht (`lightStatus`): ohne Licht nur das eigene Feld.
+ */
+export function sightRadius(data: CampaignData, hex: Pick<Hex, 'terrain'>): number {
+  switch (hex.terrain) {
+    case 'mountains':
+      return 3;
+    case 'hills':
+      return 2;
+    case 'forest':
+    case 'swamp':
+      return 0;
+    case 'underdark':
+      return lightStatus(data)?.state === 'dark' ? 0 : 1;
+    default:
+      return 1;
+  }
+}
+
+/** Die Felder, die die Gruppe von `at` aus sieht (`sightRadius`). */
+export function seenFrom(data: CampaignData, area: Pick<Area, 'hexes'>, at: HexCoord): Set<string> {
+  const here = area.hexes.find((hex) => hex.q === at.q && hex.r === at.r);
+  const radius = here ? sightRadius(data, here) : 1;
+  return new Set(
+    area.hexes.filter((hex) => hexDistance(hex, at) <= radius).map((hex) => hexKey(hex)),
+  );
 }
 
 const find = (area: Area, coord: HexCoord): Hex | undefined =>
@@ -197,7 +228,7 @@ export function planStep(
   const today = party.day === dayIndexOf(arrival) && dayIndexOf(arrival) === dayIndexOf(now);
   const legs = [...recentLegs(party.legs, arrival), { at: arrival, minutes }];
 
-  const seen = new Set([hexKey(to), ...hexNeighbors(to).map(hexKey)]);
+  const seen = new Set([hexKey(to), ...seenFrom(data, area, to)]);
   let revealed = 0;
   const hexes = area.hexes.map((hex) => {
     if (hex.discovered || !seen.has(hexKey(hex))) return hex;
