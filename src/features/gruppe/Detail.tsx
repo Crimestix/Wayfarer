@@ -34,7 +34,7 @@ import {
   TextArea,
   cx,
 } from '../../ui';
-import { patchCharacter, toggleCharacterCondition } from './actions';
+import { patchCharacter } from './actions';
 import { BondDialog } from './BondDialog';
 import { HeroArcPanel } from './HeroArc';
 import { BackstoryPanel, FacilitiesPanel } from './Backstory';
@@ -48,7 +48,8 @@ import {
   type CharacterBond,
 } from './model';
 import {
-  ConditionToggles,
+  ActiveConditionRules,
+  ConditionChips,
   ExhaustionControl,
   HpControl,
   BodyControl,
@@ -389,11 +390,9 @@ export function Detail({
                 </dd>
                 <dt>Zustände</dt>
                 <dd className="wf-gruppe-stack">
-                  <ConditionToggles
-                    value={active}
-                    rules="active"
-                    onToggle={(name) => toggleCharacterCondition(db, character.id, name)}
-                  />
+                  {/* Was gilt, steht als Wort da; die ganze Liste kommt erst mit „Zustand setzen“. */}
+                  <ConditionChips character={character} />
+                  <ActiveConditionRules value={active} />
                   <OpenConditions entityId={character.id} />
                 </dd>
                 {personas.length > 0 && (

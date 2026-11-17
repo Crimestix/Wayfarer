@@ -350,6 +350,18 @@ describe('Erkennen: zwischen Leuten', () => {
     ).toEqual({ fromId: w.krummzahn.id, toId: w.ilka.id, value: null });
   });
 
+  it('Haltung mit Stufe nur, wenn ihr Name wörtlich dasteht', () => {
+    const w = world();
+    expect(
+      only(recognizeEntry(w.data, 'Krummzahn ist feindselig gegenüber uns.'), 'attitude')[0]
+        ?.payload.attitude,
+    ).toEqual({ fromId: w.krummzahn.id, toId: PARTY_ID, value: -3 });
+    expect(
+      only(recognizeEntry(w.data, 'Lando ist misstrauisch.'), 'attitude')[0]?.payload.attitude
+        ?.value,
+    ).toBe(-1);
+  });
+
   it('Wer was weiß', () => {
     const w = world();
     expect(

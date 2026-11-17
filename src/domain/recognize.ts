@@ -12,6 +12,7 @@ import {
   type RecordKind,
 } from './chronicleKinds';
 import { activeParty, entityName } from './derive';
+import { ATTITUDES } from './relations';
 import {
   PARTY_ID,
   type CampaignData,
@@ -28,7 +29,8 @@ import {
  */
 export interface RecognizedPayload {
   travel?: { toId: string | null };
-  attitude?: { fromId: string | null; toId: string | null; value: null };
+  /** `value`: die Stufe, wenn ihr Name wörtlich im Satz steht („feindselig“) – sonst null. */
+  attitude?: { fromId: string | null; toId: string | null; value: number | null };
   fight?: { outcome: FightOutcome };
   rest?: { long: boolean };
   fate?: { entityId: string | null; status: PersonStatus };
@@ -1112,8 +1114,14 @@ function knowledgeRules(ctx: Context, out: Draft[]) {
 }
 
 const ATTITUDE = words(
-  'verliebt in|hasst|hasste|hassen|ist wütend|war wütend|sind wütend|wütend auf|zornig|verabscheut|misstraut|misstraute|vertraut|vertraute|mag uns|liebt|ist dankbar|sind dankbar|dankbar|feindselig|freundlich gesinnt|beleidigt|verärgert',
+  'verliebt in|hasst|hasste|hassen|ist wütend|war wütend|sind wütend|wütend auf|zornig|verabscheut|misstraut|misstraute|vertraut|vertraute|mag uns|liebt|ist dankbar|sind dankbar|dankbar|feindselig|hasserfüllt|ablehnend|misstrauisch|wohlgesonnen|freundlich gesinnt|beleidigt|verärgert',
 );
+
+/** Die Stufe, deren Name wörtlich dasteht – nie aus einem bloßen Verb geraten. */
+function attitudeNamed(word: string): number | null {
+  const lower = word.toLocaleLowerCase('de');
+  return ATTITUDES.find((level) => level.label.toLocaleLowerCase('de') === lower)?.value ?? null;
+}
 
 function attitudeRules(ctx: Context, out: Draft[]) {
   const text = ctx.sentence.text;
@@ -1134,7 +1142,7 @@ function attitudeRules(ctx: Context, out: Draft[]) {
   out.push({
     kind: 'attitude',
     label,
-    payload: { attitude: { fromId, toId, value: null } },
+    payload: { attitude: { fromId, toId, value: attitudeNamed(cue.word) } },
     refs: [fromId, toId].filter((id): id is string => !!id && id !== PARTY_ID),
     at: cue,
   });

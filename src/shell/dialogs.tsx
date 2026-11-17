@@ -457,6 +457,11 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
   const [guessing, setGuessing] = useState(request.own === 'guess');
   /** Bestellung oder Lieferung „in 3 Tagen“ zusätzlich als Termin eintragen. */
   const [asEvent, setAsEvent] = useState(false);
+  /**
+   * Wer mit einer Art hereinkommt (aus der Mitschrift, „Haltung …“), sieht nur sie – die übrigen
+   * dreißig erst mit „Andere Art …“. Ohne Art steht das ganze Raster da.
+   */
+  const [allKinds, setAllKinds] = useState(!(request.parts?.length || request.kind));
   const recognized = useRecognized(data, text, refs);
   const delivery = useMemo(() => recognizeDelivery(text), [text]);
 
@@ -685,33 +690,62 @@ function QuickLogDialog({ request }: { request: QuickLogRequest }) {
           </span>
         </div>
 
-        <div className="wf-shell-kinds" role="group" aria-label="Art">
-          {RECORD_GROUPS.map((group) => (
-            <div key={group.id} className="wf-shell-kinds__group">
-              <div className="wf-caps">{group.label}</div>
-              {group.choices.map(({ choice, label }) => (
+        {!allKinds ? (
+          <div className="wf-shell-kinds wf-shell-kinds--chosen" role="group" aria-label="Art">
+            <div className="wf-shell-kinds__group">
+              <div className="wf-caps">Art</div>
+              {parts.map((part) => (
                 <button
-                  key={choice}
+                  key={part.key}
                   type="button"
                   className="wf-shell-kind"
-                  aria-pressed={isOwnDialogChoice(choice) ? undefined : pressed(choice)}
-                  title={
-                    choice === 'loot' ||
-                    choice === 'repute' ||
-                    choice === 'job' ||
-                    choice === 'guess'
-                      ? CHOICE_HINT[choice]
-                      : KIND_HINT[choice]
-                  }
-                  onClick={() => toggle(choice)}
+                  aria-pressed
+                  title={KIND_HINT[kindOfFields(part.choice)]}
+                  onClick={() => setAllKinds(true)}
                 >
-                  {label}
-                  {choice === 'repute' && <span className="wf-shell-kind__aside"> (Fraktion)</span>}
+                  {fieldsLabel(part.choice)}
                 </button>
               ))}
+              <button
+                type="button"
+                className="wf-shell-kind wf-shell-kind--more"
+                onClick={() => setAllKinds(true)}
+              >
+                Andere Art …
+              </button>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="wf-shell-kinds" role="group" aria-label="Art">
+            {RECORD_GROUPS.map((group) => (
+              <div key={group.id} className="wf-shell-kinds__group">
+                <div className="wf-caps">{group.label}</div>
+                {group.choices.map(({ choice, label }) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    className="wf-shell-kind"
+                    aria-pressed={isOwnDialogChoice(choice) ? undefined : pressed(choice)}
+                    title={
+                      choice === 'loot' ||
+                      choice === 'repute' ||
+                      choice === 'job' ||
+                      choice === 'guess'
+                        ? CHOICE_HINT[choice]
+                        : KIND_HINT[choice]
+                    }
+                    onClick={() => toggle(choice)}
+                  >
+                    {label}
+                    {choice === 'repute' && (
+                      <span className="wf-shell-kind__aside"> (Fraktion)</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="wf-form-grid">
           <Field label="Wann">
@@ -977,6 +1011,19 @@ function MovePartyDialog({
       width={520}
       footer={
         <>
+          {/* Eine längere Strecke Tag für Tag: dieselbe Wahl, als Reise am Spieltisch. */}
+          <Button
+            variant="ghost"
+            style={{ marginRight: 'auto' }}
+            disabled={!moving}
+            onClick={() => {
+              closeShellRequest();
+              openJourney(placeId);
+            }}
+            title="Tag für Tag reisen: Wayfarer hält an Orten am Weg, bei Begegnungen, Terminen und zur Rast"
+          >
+            Als Reise, Tag für Tag …
+          </Button>
           <Button onClick={closeShellRequest}>Abbrechen</Button>
           <Button
             variant="primary"

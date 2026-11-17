@@ -521,6 +521,9 @@ export function draftFromRecognized(item: Recognized): { draft: RecordDraft; ref
     case 'attitude':
       draft.whoId = p.attitude?.fromId ?? null;
       draft.towardId = p.attitude?.toId === PARTY_ID ? null : (p.attitude?.toId ?? null);
+      // Steht der Name der Stufe im Satz („feindselig“), ist sie gewählt.
+      if (p.attitude?.value !== null && p.attitude?.value !== undefined)
+        draft.attitude = p.attitude.value;
       used = [draft.whoId, draft.towardId];
       break;
     case 'fight':

@@ -758,3 +758,26 @@
     padding: var(--s-4) var(--s-4) var(--s-6);
   }
 }
+
+/* Mit einer Art hereingekommen: nur sie und „Andere Art …“ in einer Zeile. */
+.wf-shell-kinds--chosen {
+  grid-template-columns: minmax(0, 1fr);
+}
+.wf-shell-kinds--chosen .wf-shell-kinds__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-shell-kinds--chosen .wf-shell-kinds__group > .wf-caps {
+  margin: 0 var(--s-2) 0 0;
+  padding: 0;
+  border: 0;
+}
+.wf-shell-kinds--chosen .wf-shell-kind {
+  width: auto;
+}
+.wf-shell-kind--more {
+  color: var(--ink-mute);
+  font-style: italic;
+}

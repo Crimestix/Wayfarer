@@ -1323,7 +1323,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
-  margin-top: var(--s-2);
+  margin-bottom: var(--s-2);
 }
 .wf-gruppe-conditions__own .wf-input {
   flex: 1 1 180px;

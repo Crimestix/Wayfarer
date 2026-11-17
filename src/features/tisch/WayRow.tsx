@@ -17,21 +17,23 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { marchAfter, marchRule } from '../../domain/march';
+import { TRAVEL_HOURS, marchAfter, marchRule } from '../../domain/march';
 import { partyTravel, travelNotes } from '../../domain/mounts';
 import type { TravelPath } from '../../domain/schema';
 import { formatWayTime, wayNotes, waysAround, type Way } from '../../domain/ways';
-import { openMoveParty } from '../../shell/commands';
+import { openJourney, openMoveParty } from '../../shell/commands';
 import { walkAndReport } from '../../shell/dialogs';
 import { MenuItem, Popover } from '../../ui';
 import { TravelIcon } from '../fortbewegung/parts';
 import { TravelBy } from '../fortbewegung/TravelBy';
 import { walk } from '../wege/actions';
 import { WayDialog } from '../wege/WayDialog';
-import { JourneyDialog } from '../reise/JourneyDialog';
 
 /** Auf dem Weg wartet etwas, das der Spielleiter vorbereitet hat (Wegenetz). */
 const prepared = (way: Way) => way.path.onTheWay.trim() !== '' || way.path.encounterId !== null;
+
+/** Ab einem Reisetag wird ein Weg zur Reise (`JourneyDialog`), darunter geht man ihn in einem Zug. */
+const isJourney = (way: Way) => !way.barred && (way.minutes ?? 0) >= TRAVEL_HOURS * 60;
 
 /** So viele Wege stehen als Knopf in der Zeile; der Rest hinter „Wege …“. */
 const SHOWN = 5;
@@ -44,7 +46,6 @@ export function WayRow({ placeId }: { placeId: string }) {
   const more = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TravelPath | 'new' | null>(null);
-  const [journey, setJourney] = useState(false);
   const origin = around?.origin ?? null;
   /** Von wo ein Weg abgeht, wenn nicht vom Ort der Wege selbst: „ab Hohenfurt“. */
   const startOf = new Map((around?.above?.ways ?? []).map((way) => [way, around!.above!.origin]));
@@ -52,6 +53,12 @@ export function WayRow({ placeId }: { placeId: string }) {
   const elsewhere = origin !== null && origin.id !== placeId;
 
   const go = (way: Way) => {
+    // Ein Weg über einen Reisetag und mehr ist eine Reise: Tag für Tag, mit Halten unterwegs –
+    // statt die ganze Zeit auf einmal vergehen zu lassen. Ob Reise oder Gang, sagt die Dauer.
+    if (isJourney(way)) {
+      openJourney(way.toId);
+      return;
+    }
     // Eine verschlossene Tür – oder es wartet etwas Vorbereitetes: nicht still hindurchgehen,
     // sondern erst zeigen, was auf dem Weg ist.
     if (way.barred || prepared(way)) {
@@ -76,11 +83,13 @@ export function WayRow({ placeId }: { placeId: string }) {
       }`,
       way.barred
         ? 'Der Weg ist gerade nicht passierbar.'
-        : way.minutes === null
-          ? 'Dauer unbekannt: Die Zeit bleibt stehen.'
-          : way.by
-            ? `Die Gruppe reist mit ${way.by.name}: ${formatWayTime(way.minutes)} vergehen.`
-            : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
+        : isJourney(way)
+          ? `Eine Reise von ${formatWayTime(way.minutes ?? 0)}: Tag für Tag, mit Halten unterwegs.`
+          : way.minutes === null
+            ? 'Dauer unbekannt: Die Zeit bleibt stehen.'
+            : way.by
+              ? `Die Gruppe reist mit ${way.by.name}: ${formatWayTime(way.minutes)} vergehen.`
+              : `Die Gruppe geht los: ${formatWayTime(way.minutes)} vergehen.`,
       way.fit ? `${way.fit}.` : '',
       way.minutes && marchAfter(data, way.minutes) ? marchRule(marchAfter(data, way.minutes)!) : '',
       ...(way.by ? travelNotes(travel, way.minutes ?? 0).map((note) => `${note}.`) : []),
@@ -106,7 +115,7 @@ export function WayRow({ placeId }: { placeId: string }) {
               onClick={() => go(way)}
               title={hint(way)}
             >
-              <TravelIcon by={way.by} />
+              {isJourney(way) ? <Compass aria-hidden /> : <TravelIcon by={way.by} />}
               <span className="wf-clamp-1">{label(way)}</span>
               <span className="wf-tisch-way__time">
                 {way.minutes === null ? '?' : formatWayTime(way.minutes)}
@@ -129,12 +138,6 @@ export function WayRow({ placeId }: { placeId: string }) {
               {way.path.secret && <EyeOff className="wf-tisch-way__flag" aria-hidden />}
             </button>
           ))}
-          {ways.length === 0 && (
-            <span className="wf-tisch-ways__none">
-              Noch keine Wege. Sie entstehen von selbst, wenn die Gruppe weiterzieht und du die
-              Dauer angibst.
-            </span>
-          )}
           <button
             ref={more}
             type="button"
@@ -142,19 +145,14 @@ export function WayRow({ placeId }: { placeId: string }) {
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            title="Alle Wege: losgehen, ändern, neu anlegen"
+            title={
+              ways.length
+                ? 'Alle Wege: losgehen, ändern, neu anlegen, eine Reise antreten'
+                : 'Noch keine Wege. Sie entstehen von selbst, wenn die Gruppe weiterzieht und du die Dauer angibst – oder hier von Hand.'
+            }
           >
             {ways.length > SHOWN ? `+ ${ways.length - SHOWN} weitere` : 'Wege …'}
             <ChevronDown />
-          </button>
-          <button
-            type="button"
-            className="wf-tisch-way wf-tisch-way--more"
-            onClick={() => setJourney(true)}
-            title="Eine längere Reise Tag für Tag: am Spieltisch weiter bis zur nächsten Entscheidung"
-          >
-            <Compass aria-hidden />
-            Reise …
           </button>
           <TravelBy compact />
         </div>
@@ -167,7 +165,7 @@ export function WayRow({ placeId }: { placeId: string }) {
         width={360}
         className="wf-tisch-waymenu"
       >
-        {ways.length > 0 && <div className="wf-tisch-suggest__head">Losgehen</div>}
+        {ways.length > 0 && <div className="wf-tisch-suggest__head">Losgehen oder reisen</div>}
         {ways.map((way) => (
           <MenuItem
             key={`go-${way.path.id}-${way.toId}`}
@@ -204,8 +202,16 @@ export function WayRow({ placeId }: { placeId: string }) {
         >
           Neuen Weg anlegen …
         </MenuItem>
+        <MenuItem
+          icon={<Compass />}
+          onClick={() => {
+            setOpen(false);
+            openJourney();
+          }}
+        >
+          Reise antreten, Tag für Tag …
+        </MenuItem>
       </Popover>
-      {journey && <JourneyDialog onClose={() => setJourney(false)} />}
       {editing && (
         <WayDialog
           way={editing === 'new' ? undefined : editing}

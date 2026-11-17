@@ -165,10 +165,14 @@ export function ConditionToggles({
     ...custom.map((c) => c.name),
     ...active.filter((name) => !conditionRule(name) && !custom.some((c) => c.name === name)),
   ];
-  const listed = [
+  const all = [
     ...CONDITIONS.map((c) => ({ name: c.name, own: false })),
     ...extra.map((name) => ({ name, own: true })),
   ];
+  // Ein Feld für beides: Es sucht in der Liste, und was es nicht gibt, wird ein eigener Zustand.
+  const query = own.trim().toLowerCase();
+  const listed = query ? all.filter((c) => c.name.toLowerCase().includes(query)) : all;
+  const exact = all.find((c) => c.name.toLowerCase() === query);
   const addOwn = () => {
     const name = own.trim();
     if (!name) return;
@@ -176,8 +180,37 @@ export function ConditionToggles({
     if (!hasCondition(value, name)) onToggle(name);
     setOwn('');
   };
+  const enter = () => {
+    const pick = exact ?? (listed.length === 1 ? listed[0] : undefined);
+    if (pick) {
+      onToggle(pick.name);
+      setOwn('');
+    } else addOwn();
+  };
   return (
     <div className="wf-gruppe-conditions">
+      {/* Kein eigenes Formular: Die Schalter stehen auch im Bearbeiten-Dialog, der selbst eines ist. */}
+      <div className="wf-gruppe-conditions__own">
+        <input
+          className="wf-input"
+          value={own}
+          onChange={(e) => setOwn(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || e.ctrlKey || e.metaKey) return;
+            e.preventDefault();
+            e.stopPropagation();
+            enter();
+          }}
+          placeholder="Suchen – oder eigenen Zustand anlegen"
+          aria-label="Zustand suchen oder eigenen anlegen"
+          maxLength={40}
+        />
+        {query && !exact && (
+          <button type="button" className="wf-btn wf-btn--sm" onClick={addOwn}>
+            „{own.trim()}“ anlegen
+          </button>
+        )}
+      </div>
       <div className="wf-gruppe-conditions__grid" role="group" aria-label="Zustände">
         {listed.map((condition) => (
           <button
@@ -198,39 +231,19 @@ export function ConditionToggles({
           </button>
         ))}
       </div>
-      {/* Kein eigenes Formular: Die Schalter stehen auch im Bearbeiten-Dialog, der selbst eines ist. */}
-      <div className="wf-gruppe-conditions__own">
-        <input
-          className="wf-input"
-          value={own}
-          onChange={(e) => setOwn(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter' || e.ctrlKey || e.metaKey) return;
-            e.preventDefault();
-            e.stopPropagation();
-            addOwn();
+      {hover && custom.some((c) => c.name === hover) && (
+        <button
+          type="button"
+          className="wf-btn wf-btn--sm wf-btn--ghost"
+          title="Aus der Liste der eigenen Zustände nehmen. Wer ihn gerade hat, behält ihn."
+          onClick={() => {
+            removeOwnCondition(db, hover);
+            setHover(null);
           }}
-          placeholder="Eigener Zustand, z. B. Verflucht"
-          aria-label="Eigenen Zustand anlegen"
-          maxLength={40}
-        />
-        <button type="button" className="wf-btn wf-btn--sm" disabled={!own.trim()} onClick={addOwn}>
-          Anlegen
+        >
+          „{hover}“ aus der Liste nehmen
         </button>
-        {hover && custom.some((c) => c.name === hover) && (
-          <button
-            type="button"
-            className="wf-btn wf-btn--sm wf-btn--ghost"
-            title="Aus der Liste der eigenen Zustände nehmen. Wer ihn gerade hat, behält ihn."
-            onClick={() => {
-              removeOwnCondition(db, hover);
-              setHover(null);
-            }}
-          >
-            „{hover}“ aus der Liste nehmen
-          </button>
-        )}
-      </div>
+      )}
       {rules === 'hover' && (
         <p
           className={cx('wf-gruppe-conditions__rule', !hover && 'wf-gruppe-conditions__rule--idle')}
@@ -253,6 +266,22 @@ export function ConditionToggles({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Die Regeln der Zustände, die gerade gelten – zum Nachlesen auf der Seite des Gefährten. */
+export function ActiveConditionRules({ value }: { value: readonly string[] }) {
+  const custom = useData().campaign.customConditions;
+  const active = sortConditions(value);
+  if (!active.length) return null;
+  return (
+    <div className="wf-gruppe-conditions__active">
+      {active.map((name) => (
+        <p key={name}>
+          <b>{name}.</b> {ruleOf(name, custom) || 'Eigener Zustand ohne hinterlegte Regel.'}
+        </p>
+      ))}
     </div>
   );
 }
