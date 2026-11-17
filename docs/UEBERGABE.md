@@ -122,6 +122,14 @@ Einstellungen (Fundstellen, Verborgenes, Besonderheiten), Begegnungstabellen der
 Was/Häufigkeit/Wann und Abschnitt „Unterwegs“ im Bestiarium (Anzahl, Spuren, Bau aus den
 Beständen). **DATA_VERSION 27** – Mac und Windows beide auf 0.1.14.
 
+**Danach: Tag `v0.1.15` auf `3b7551b` (17. 11.)** – Aufräumen nach dem Rundgang (Suche findet jeden
+Handgriff, Seitenblatt, Einstellungen in Gruppen, Festhalten mit einer Art, Zustände als Wörter,
+Rat mit einem nächsten Schritt, schlanke Beute, Geschichte entsteht auf dem Brett, Seite eines
+Eintrags ohne leere Felder, Gefährten zuerst), Hexkarten-Block (Hexkarten-Editor mit Malprogramm
+und Geländearten, freie Karten mit Maßstab, Landschaften als Kategorie, Beleben, Hineinzoomen,
+Verirren mit Richtung), Kachelansicht der Welt mit Filtern je Kategorie, Ansicht „Geschichte“ für
+Vergangenes. Der Zeichen-Editor „Karten“ ist aus der Navigation. **DATA_VERSION 30**.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
