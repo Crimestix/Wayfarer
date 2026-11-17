@@ -547,6 +547,8 @@ export interface CharacterDraft {
   sheetUrl: string;
   /** Was der Gefährte will. */
   goal: string;
+  /** Wird auf der Seite geschrieben; der Dialog trägt sie nur unverändert weiter. */
+  backstory: string;
   /** Schicksal; wird im Dialog nicht geändert (das geht über „Festhalten“), bleibt aber erhalten. */
   status?: PersonStatus;
 }
@@ -579,6 +581,7 @@ export function emptyDraft(): CharacterDraft {
     active: true,
     sheetUrl: '',
     goal: '',
+    backstory: '',
   };
 }
 
@@ -609,6 +612,7 @@ export function draftFromCharacter(c: Character): CharacterDraft {
     active: d.active,
     sheetUrl: d.sheetUrl,
     goal: d.goal,
+    backstory: d.backstory,
     status: d.status,
   };
 }
@@ -814,6 +818,7 @@ export function parseDraft(draft: CharacterDraft): DraftResult {
         active: draft.active,
         sheetUrl: sheetUrl ? (sheetHref(sheetUrl) ?? sheetUrl) : '',
         goal: draft.goal.trim(),
+        backstory: draft.backstory,
         status: draft.status ?? 'alive',
         // Ein Körper mit einem anderen wird auf der Seite verbunden, nicht im Dialog (`saveCharacter` behält ihn).
         bodyWith: null,

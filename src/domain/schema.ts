@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 15;
-export const DATA_SHAPE = '0af881f24c55c719';
+export const DATA_VERSION = 16;
+export const DATA_SHAPE = 'bca9d40ed5a56e59';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -449,6 +449,11 @@ const CharacterDetails = z.object({
   sheetUrl: z.string().default(''),
   /** Was der Gefährte will – was ihn in den nächsten Abend zieht. */
   goal: z.string().default(''),
+  /**
+   * Die Backstory, wie die Spieler sie geschrieben haben – vom Spielleiter als Text eingetragen.
+   * Einzelne Absätze holt er als Haken für Geschichten aufs Fadenbrett (`backstoryToBoard`).
+   */
+  backstory: z.string().default(''),
   /**
    * Schicksal wie bei Personen: Ein toter Gefährte bleibt in der Gruppe sichtbar, aber als tot
    * gekennzeichnet. Gesetzt über Einträge der Art „Schicksal“ (`data/record.ts`).

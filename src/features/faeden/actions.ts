@@ -6,6 +6,8 @@
 import { pauseClock, resumeClock } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { addFromWriting } from '../welt/writing';
+import { cardTitleOf } from '../../domain/backstory';
+import { freeSpot } from '../../domain/whiteboard';
 import { threadKey, threadSessionIds } from '../../domain/looseThreads';
 import { isLooseThread, nameSources, storyAttached, threadLive } from '../../domain/story';
 import { storyAncestors } from '../../domain/storySheet';
@@ -1911,6 +1913,47 @@ export function setAreaStory(
         db.batch(() => {
           db.setState({ boardAreas: before.boardAreas, board: before.board });
           if (made && db.getSnapshot().stories[made.id]) db.remove('stories', made.id);
+        }),
+    };
+  });
+}
+
+/**
+ * Ein Stück Text aufs Brett holen – ein Absatz einer Backstory, ein Ereignis der Bastion: als
+ * Notizkarte (loser Faden) mit den Worten des Spielleiters, nahe dem Ding, von dem es kommt, mit
+ * einem Faden dorthin, der `word` trägt. Liegt das Ding noch nicht auf dem Brett, kommt es mit.
+ * `known`: Die Gruppe kennt es schon (eine Backstory haben die Spieler selbst geschrieben).
+ * Gibt die Karte und `undo` zurück.
+ */
+export function pinTextToBoard(
+  db: CampaignDb,
+  input: { text: string; fromId: string | null; word: string; known: boolean },
+): { thread: Thread; undo: () => void } | null {
+  const text = input.text.replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  const data = db.getSnapshot();
+  const from = input.fromId && data.entities[input.fromId] ? `node:${input.fromId}` : null;
+  const taken = Object.values(data.state.board);
+  const base = (from && data.state.board[from]) || { x: 0, y: 0 };
+  return db.batch(() => {
+    const placedFrom = from && !data.state.board[from] ? from : null;
+    if (placedFrom) placeOnBoard(db, placedFrom, base.x, base.y);
+    const at = freeSpot([...taken, base], { x: base.x + 280, y: base.y });
+    const title = cardTitleOf(text);
+    const written = writeOnBoard(db, title, at)!;
+    patchThread(db, written.thread.id, {
+      text: title === text ? '' : text,
+      known: input.known,
+    });
+    const link = from ? addBoardLink(db, from, `thread:${written.thread.id}`) : null;
+    if (link && input.word) setBoardLinkWord(db, link.id, input.word);
+    return {
+      thread: db.getSnapshot().threads[written.thread.id] ?? written.thread,
+      undo: () =>
+        db.batch(() => {
+          link?.undo();
+          written.undo();
+          if (placedFrom) takeFreeOffBoard(db, [placedFrom]);
         }),
     };
   });

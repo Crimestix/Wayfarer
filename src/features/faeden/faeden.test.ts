@@ -746,11 +746,12 @@ describe('Im Spiel', () => {
 });
 
 describe('Hinweise', () => {
-  it('warnt, wenn ein Faden an einem einzigen Hinweis hängt oder an keinem', async () => {
+  it('warnt, wenn ein Faden an einem einzigen Hinweis hängt – eine Idee ohne Hinweise nicht', async () => {
     const { db, data, thread, hint } = await setup();
     const one = thread('Wer bezahlt die Schläger?', { hints: [hint('Münzen aus Hohenfurt')] });
     expect(threadWarning(one)).toContain('einzigen Hinweis');
-    expect(threadWarning(thread('Was liegt im Wrack?'))).toContain('nicht finden');
+    // Ohne Hinweise ist er eine Idee, die noch wächst.
+    expect(threadWarning(thread('Was liegt im Wrack?'))).toBeNull();
     // Kennt die Gruppe den Faden schon, braucht sie keinen Hinweis, um ihn zu finden.
     expect(threadWarning(thread('Wohin führen die Fährten?', { known: true }))).toBeNull();
     expect(

@@ -3,7 +3,7 @@
  * was daraus wird, und bei „Instandhalten“ ein Ereignis aus der Tabelle des Spielleiters.
  */
 import { useMemo, useState } from 'react';
-import { Dices } from 'lucide-react';
+import { Dices, Pin } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import {
   ORDER_LABEL,
@@ -18,6 +18,7 @@ import { formatDayMonth, MINUTES_PER_DAY } from '../../domain/time/calendar';
 import { Button, Checkbox, Dialog, Input, Select, toast } from '../../ui';
 import { fairDie } from '../bestiarium/model';
 import { runTurn } from './actions';
+import { pinTextToBoard } from '../faeden/actions';
 
 export function TurnDialog({ bastion, onClose }: { bastion: Bastion; onClose: () => void }) {
   const db = useDb();
@@ -26,6 +27,8 @@ export function TurnDialog({ bastion, onClose }: { bastion: Bastion; onClose: ()
   const rows = useMemo(() => parseEvents(bastion.events), [bastion.events]);
   const [event, setEvent] = useState('');
   const [roll, setRoll] = useState<number | null>(null);
+  /** Das Ereignis, das schon als Karte aufs Fadenbrett gelegt wurde. */
+  const [pinned, setPinned] = useState('');
   const turnAt = (bastion.lastTurnAt ?? data.state.now) + bastion.turnDays * MINUTES_PER_DAY;
   const set = (id: string, change: Partial<TurnChoice>) =>
     setChoices((all) => all.map((c) => (c.facilityId === id ? { ...c, ...change } : c)));
@@ -156,6 +159,31 @@ export function TurnDialog({ bastion, onClose }: { bastion: Bastion; onClose: ()
             placeholder="Was geschieht – gewürfelt oder selbst eingetragen"
             onChange={(e) => setEvent(e.target.value)}
           />
+          <Button
+            size="sm"
+            icon={<Pin />}
+            disabled={!event.trim() || pinned === event.trim()}
+            title="Ein Ereignis kann der Einstieg in eine Geschichte sein: als Karte aufs Fadenbrett"
+            onClick={() => {
+              const made = pinTextToBoard(db, {
+                text: event,
+                fromId: bastion.placeId,
+                word: 'Bastion',
+                known: false,
+              });
+              if (!made) return;
+              setPinned(event.trim());
+              toast({
+                title: 'Aufs Fadenbrett gelegt',
+                body: bastion.placeId
+                  ? 'Als Karte mit Faden zum Ort der Bastion.'
+                  : 'Als Karte auf dem Fadenbrett.',
+                action: { label: 'Rückgängig', run: made.undo },
+              });
+            }}
+          >
+            {pinned === event.trim() && event.trim() ? 'Liegt auf dem Brett' : 'Aufs Brett'}
+          </Button>
         </div>
       )}
     </Dialog>

@@ -133,6 +133,24 @@ export function turnLine(bastion: Bastion, choices: TurnChoice[], event: string 
     .join('\n');
 }
 
+/** Die Einrichtungen eines Gefährten, über alle Bastionen. */
+export function facilitiesOf(
+  data: Pick<CampaignData, 'bastions'>,
+  characterId: string,
+): { bastion: Bastion; facility: BastionFacility }[] {
+  return Object.values(data.bastions)
+    .flatMap((bastion) =>
+      bastion.facilities
+        .filter((facility) => facility.ownerId === characterId)
+        .map((facility) => ({ bastion, facility })),
+    )
+    .sort(
+      (a, b) =>
+        a.bastion.name.localeCompare(b.bastion.name, 'de') ||
+        a.facility.name.localeCompare(b.facility.name, 'de'),
+    );
+}
+
 export interface FacilityGroup {
   owner: Character | null;
   facilities: BastionFacility[];

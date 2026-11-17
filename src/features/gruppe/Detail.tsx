@@ -37,6 +37,7 @@ import {
 import { patchCharacter, toggleCharacterCondition } from './actions';
 import { BondDialog } from './BondDialog';
 import { HeroArcPanel } from './HeroArc';
+import { BackstoryPanel, FacilitiesPanel } from './Backstory';
 import type { EditFocus } from './EditDialog';
 import {
   characterBonds,
@@ -472,6 +473,7 @@ export function Detail({
                 </dd>
               </dl>
             </Panel>
+            <BackstoryPanel character={character} />
             <NotePanel
               title="Notizen"
               value={character.notes}
@@ -529,6 +531,7 @@ export function Detail({
             </Panel>
 
             <HeroArcPanel character={character} />
+            <FacilitiesPanel character={character} />
 
             <Panel
               title="Erhalten"

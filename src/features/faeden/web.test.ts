@@ -42,6 +42,7 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  pinTextToBoard,
   setAreaStory,
   setBoardNote,
   writeThingOnBoard,
@@ -836,5 +837,32 @@ describe('Pinnwand', () => {
     done.undo();
     expect(data().stories[story.id]).toBeUndefined();
     expect(data().state.boardAreas[0]!.storyId).toBeNull();
+  });
+});
+
+describe('Aufs Brett holen', () => {
+  it('legt einen Absatz als Karte mit Faden zum Gefährten hin – der Gefährte kommt mit', async () => {
+    const { db, data } = await setup();
+    const hero = db.put('entities', createEntity({ kind: 'character', name: 'Corrin' }));
+    const made = pinTextToBoard(db, {
+      text: 'Corrin schuldet dem Smaragdzirkel einen Gefallen. Er weiß nicht, welchen.',
+      fromId: hero.id,
+      word: 'Backstory',
+      known: true,
+    })!;
+    expect(made.thread).toMatchObject({
+      title: 'Corrin schuldet dem Smaragdzirkel einen Gefallen.',
+      known: true,
+      onBoard: true,
+    });
+    expect(made.thread.text).toContain('Er weiß nicht');
+    expect(data().state.board[`node:${hero.id}`]).toBeDefined();
+    expect(data().state.boardLinks).toMatchObject([
+      { a: `node:${hero.id}`, b: `thread:${made.thread.id}`, word: 'Backstory' },
+    ]);
+    made.undo();
+    expect(data().threads[made.thread.id]).toBeUndefined();
+    expect(data().state.board[`node:${hero.id}`]).toBeUndefined();
+    expect(data().state.boardLinks).toEqual([]);
   });
 });

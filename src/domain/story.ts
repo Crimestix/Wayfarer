@@ -336,8 +336,9 @@ export function threadWarning(thread: Thread): string | null {
   const found = thread.hints.filter((hint) => hint.found).length;
   const open = thread.hints.length - found;
   if (found > 0) return null;
-  if (thread.hints.length === 0)
-    return thread.known ? null : 'Kein Hinweis führt zu ihm: Die Gruppe kann ihn nicht finden.';
+  // Ohne Hinweise ist er eine Idee, die noch wächst – keine Warnung (Konzeptbesprechung 16. 11.:
+  // neue Ideen trugen sofort ein rotes Zeichen). Wie viele Hinweise fehlen, sagt das Blatt leise.
+  if (thread.hints.length === 0) return null;
   if (open === 1) return 'Hängt an einem einzigen Hinweis – verpasst die Gruppe ihn, reißt er ab.';
   return null;
 }

@@ -4,7 +4,14 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { addBastion, runTurn, saveFacility, startRepair } from '../../features/bastion/actions';
-import { daysToNextTurn, eventFor, parseEvents, proposeTurn, turnsDue } from '../bastion';
+import {
+  daysToNextTurn,
+  eventFor,
+  facilitiesOf,
+  parseEvents,
+  proposeTurn,
+  turnsDue,
+} from '../bastion';
 import { createEntity, type BastionFacility } from '../schema';
 import { MINUTES_PER_DAY } from '../time/calendar';
 
@@ -108,5 +115,14 @@ describe('Bastion', () => {
       ownerId: keep.id,
       segments: 3,
     });
+  });
+});
+
+describe('Einrichtungen eines Gefährten', () => {
+  it('sammelt, was ihm in allen Bastionen gehört', async () => {
+    const { db, brann, bastion, data } = await setup();
+    saveFacility(db, bastion.id, facility({ name: 'Schmiede', ownerId: brann.id }));
+    saveFacility(db, bastion.id, facility({ name: 'Garten', ownerId: null }));
+    expect(facilitiesOf(data(), brann.id).map((row) => row.facility.name)).toEqual(['Schmiede']);
   });
 });
