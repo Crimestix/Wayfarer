@@ -2283,3 +2283,26 @@ button.wf-tisch-cast__who:focus-visible {
   color: var(--ink-mute);
   font-size: var(--text-sm);
 }
+
+/* Was im Rahmen einer Geschichte auf dem Fadenbrett liegt */
+.wf-tisch-brett {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-tisch-brett em {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-tisch-brett__name {
+  font-weight: 600;
+}
+.wf-tisch-brett__note {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}

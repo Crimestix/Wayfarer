@@ -1399,6 +1399,7 @@ export function addBoardArea(
 ): { area: BoardArea; undo: () => void } {
   const area: BoardArea = {
     id: newId(),
+    storyId: null,
     title: title.trim(),
     x: Math.round(rect.x),
     y: Math.round(rect.y),
@@ -1793,24 +1794,28 @@ export function setBoardLinkDir(
     });
 }
 
-/** Markiert die Karte, an der die Gruppe auf dem Storyboard gerade steht (null = keine). */
-export function setBoardNow(db: CampaignDb, key: string | null): () => void {
+/**
+ * Markiert eine Karte als „Hier steht die Gruppe“ – oder nimmt die Markierung weg. Es darf
+ * mehrere geben: je Geschichte, die gerade läuft, eine. Gibt `undo` zurück.
+ */
+export function setBoardNow(db: CampaignDb, key: string, on: boolean): () => void {
   const before = db.getSnapshot().state.boardNow;
-  db.setState({ boardNow: key });
+  const rest = before.filter((entry) => entry !== key);
+  db.setState({ boardNow: on ? [...rest, key] : rest });
   return () => db.setState({ boardNow: before });
 }
 
 /**
- * Die Gruppe geht auf dem Storyboard weiter (am Spieltisch: wohin ein Pfeil führt): Die Karte,
- * an der sie stand, gehört danach zum gespielten Weg (`state.boardPlayed`). Gibt `undo` zurück.
+ * Die Gruppe geht auf dem Storyboard weiter (am Spieltisch: wohin ein Pfeil führt): Die
+ * Markierung rückt von `from` nach `to`, und `from` gehört danach zum gespielten Weg
+ * (`state.boardPlayed`). Gibt `undo` zurück.
  */
-export function moveBoardNow(db: CampaignDb, key: string): () => void {
+export function moveBoardNow(db: CampaignDb, from: string, to: string): () => void {
   const { boardNow, boardPlayed } = db.getSnapshot().state;
+  const marks = boardNow.filter((entry) => entry !== from && entry !== to);
   const played =
-    boardNow && boardNow !== key
-      ? [...boardPlayed.filter((entry) => entry !== boardNow), boardNow]
-      : boardPlayed;
-  db.setState({ boardNow: key, boardPlayed: played.filter((entry) => entry !== key) });
+    from !== to ? [...boardPlayed.filter((entry) => entry !== from), from] : boardPlayed;
+  db.setState({ boardNow: [...marks, to], boardPlayed: played.filter((entry) => entry !== to) });
   return () => db.setState({ boardNow, boardPlayed });
 }
 
@@ -1820,6 +1825,95 @@ export function setBoardPlayed(db: CampaignDb, key: string, played: boolean): ()
   const rest = before.filter((entry) => entry !== key);
   db.setState({ boardPlayed: played ? [...rest, key] : rest });
   return () => db.setState({ boardPlayed: before });
+}
+
+/**
+ * Ändert, was auf einer Karte der Pinnwand steht (Notiz, Bild) – nur die Karte, nie das Ding.
+ * Gibt `undo` zurück.
+ */
+export function setBoardNote(
+  db: CampaignDb,
+  key: string,
+  change: { text?: string; image?: boolean },
+): () => void {
+  const before = db.getSnapshot().state.boardNotes;
+  const now = before[key] ?? { text: '', image: false };
+  const next = {
+    text: change.text !== undefined ? change.text.trim() : now.text,
+    image: change.image ?? now.image,
+  };
+  const { [key]: _old, ...rest } = before;
+  db.setState({ boardNotes: next.text || next.image ? { ...rest, [key]: next } : rest });
+  return () => db.setState({ boardNotes: before });
+}
+
+/**
+ * Ein Ding der Welt auf die Pinnwand schreiben (Doppelklick ins Leere): Gibt es den Namen schon,
+ * wird der vorhandene Eintrag genommen (`addFromWriting` – nie ein zweiter), sonst entsteht ein
+ * Platzhalter. Liegt er schon auf dem Brett, bleibt er, wo er ist. Gibt den Schlüssel, ob er neu
+ * ist, und `undo` zurück.
+ */
+export function writeThingOnBoard(
+  db: CampaignDb,
+  name: string,
+  kind: EntityKind,
+  at: { x: number; y: number },
+): { key: string; entity: Entity; created: boolean; otherKind: boolean; undo: () => void } | null {
+  return db.batch(() => {
+    const made = addFromWriting(db, { name, kind });
+    if (!made) return null;
+    const key = `node:${made.entity.id}`;
+    const lying = !!db.getSnapshot().state.board[key];
+    if (!lying) placeOnBoard(db, key, at.x, at.y);
+    return {
+      key,
+      entity: made.entity,
+      created: made.created,
+      otherKind: made.otherKind,
+      undo: () =>
+        db.batch(() => {
+          if (!lying) takeFreeOffBoard(db, [key]);
+          made.undo();
+        }),
+    };
+  });
+}
+
+/**
+ * Ein Rahmen wird zur Geschichte (oder wieder nur ein Rahmen): Was in ihm liegt, gehört dann zu
+ * ihr (`frameMembers`). Ohne `storyId` entsteht eine neue Geschichte mit dem Namen des Rahmens;
+ * ihre Karte liegt oben im Rahmen. Gibt die Geschichte und `undo` zurück.
+ */
+export function setAreaStory(
+  db: CampaignDb,
+  areaId: string,
+  storyId: string | null | 'new',
+): { story: Story | null; undo: () => void } | null {
+  const before = db.getSnapshot().state;
+  const area = before.boardAreas.find((entry) => entry.id === areaId);
+  if (!area) return null;
+  return db.batch(() => {
+    let story: Story | null = null;
+    if (storyId === 'new') {
+      story = newStory(db, { title: area.title.trim() || 'Neue Geschichte' });
+      placeOnBoard(db, `story:${story.id}`, area.x + 150, area.y + 50);
+    } else if (storyId) story = db.getSnapshot().stories[storyId] ?? null;
+    const id = story?.id ?? null;
+    db.setState({
+      boardAreas: db
+        .getSnapshot()
+        .state.boardAreas.map((entry) => (entry.id === areaId ? { ...entry, storyId: id } : entry)),
+    });
+    const made = storyId === 'new' ? story : null;
+    return {
+      story,
+      undo: () =>
+        db.batch(() => {
+          db.setState({ boardAreas: before.boardAreas, board: before.board });
+          if (made && db.getSnapshot().stories[made.id]) db.remove('stories', made.id);
+        }),
+    };
+  });
 }
 
 /** Nimmt eine freie Schnur weg. Gibt `undo` zurück. */

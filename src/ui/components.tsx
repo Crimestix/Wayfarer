@@ -501,6 +501,11 @@ export interface ToastInput {
   action?: { label: string; run: () => void };
   /** Anzeigedauer in Millisekunden. */
   duration?: number;
+  /**
+   * Meldungen derselben Stelle stapeln sich nicht: Eine neue ersetzt die vorige (etwa beim
+   * Arbeiten auf dem Fadenbrett, wo jede Karte und Schnur eine Meldung hätte).
+   */
+  slot?: string;
 }
 
 interface ToastItem extends ToastInput {
@@ -520,7 +525,8 @@ function dismissToast(id: number) {
 /** Zeigt unten rechts eine kurze Meldung. */
 export function toast(input: ToastInput) {
   const id = ++toastSeq;
-  toasts = [...toasts.slice(-3), { ...input, id }];
+  const others = input.slot ? toasts.filter((item) => item.slot !== input.slot) : toasts;
+  toasts = [...others.slice(-3), { ...input, id }];
   emitToasts();
   setTimeout(() => dismissToast(id), input.duration ?? (input.action ? 12000 : 6000));
 }

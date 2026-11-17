@@ -9,6 +9,7 @@ import { SUGGESTION, isDismissed } from './dismiss';
 import { neighboursOf, type WebNeighbour } from './threadWeb';
 import { normalize, occurrencesOf, openPromises, personPlace, type Occurrence } from './derive';
 import { looseOrder } from './looseThreads';
+import { thingFace, type ThingFace } from './whiteboard';
 import { readyLoot } from './loot';
 import { SCENE_ODDS } from './schema';
 import type {
@@ -25,6 +26,7 @@ import type {
 import {
   boardCards,
   entryFit,
+  frameKeys,
   heroesOf,
   threadLive,
   threadNodes,
@@ -79,6 +81,11 @@ export interface PlayCard {
   notes: ChronicleEntry[];
   /** Der Merkzettel des Spielleiters – nur Geschichten haben einen. */
   memo: string;
+  /**
+   * Was auf dem Fadenbrett im Rahmen der Geschichte liegt (`frameKeys`): Personen, Orte,
+   * Gegenstände … mit der Notiz ihrer Karte – damit man am Tisch weiß, was man gerade hat.
+   */
+  onBoard: ThingFace[];
 }
 
 export interface PlayView {
@@ -210,6 +217,12 @@ function playCard(data: CampaignData, card: BoardCard): PlayCard {
           .slice(0, NOTES_SHOWN)
       : [],
     memo: story?.memo ?? '',
+    onBoard: story
+      ? frameKeys(data, story.id).flatMap((key) => {
+          const face = thingFace(data, key);
+          return face ? [face] : [];
+        })
+      : [],
   };
 }
 

@@ -115,6 +115,43 @@ export function threadsOf(data: StoryData, storyId: string | null): Thread[] {
  * Woran eine Geschichte hängt: wer sie antreibt, wer und was dazugehört, wo ihre Uhr spielt, wo
  * ihre Einstiege und Szenen liegen – und alles, woran ihre Fäden hängen.
  */
+/**
+ * Was in den Rahmen einer Geschichte liegt (`area.storyId`): die Schlüssel der Stücke, deren
+ * Mitte darin ist – nach den gespeicherten Stellen (`state.board`). Karten (Geschichte, Faden)
+ * zählen mit ihrer Mitte unter der Oberkante, Dinge mit ihrer Stelle.
+ */
+export function frameKeys(data: Pick<CampaignData, 'state'>, storyId: string): string[] {
+  const frames = data.state.boardAreas.filter((area) => area.storyId === storyId);
+  if (!frames.length) return [];
+  const out: string[] = [];
+  for (const [key, spot] of Object.entries(data.state.board)) {
+    const card = key.startsWith('story:') || key.startsWith('thread:');
+    const mid = card ? { x: spot.x, y: spot.y + BOARD_CARD.height / 2 } : spot;
+    if (
+      frames.some(
+        (area) =>
+          mid.x >= area.x &&
+          mid.x <= area.x + area.w &&
+          mid.y >= area.y &&
+          mid.y <= area.y + area.h,
+      )
+    )
+      out.push(key);
+  }
+  return out;
+}
+
+/** Die Einträge der Welt in den Rahmen einer Geschichte. */
+export function frameMembers(
+  data: Pick<CampaignData, 'state' | 'entities'>,
+  storyId: string,
+): string[] {
+  return frameKeys(data, storyId)
+    .filter((key) => key.startsWith('node:'))
+    .map((key) => key.slice(5))
+    .filter((id) => !!data.entities[id]);
+}
+
 export function storyNodes(
   data: StoryData,
   story: Story,
@@ -136,6 +173,8 @@ export function storyNodes(
       ...threadsOf(data, story.id)
         .filter((thread) => !skip?.has(thread.id))
         .flatMap((thread) => threadNodes(data, thread)),
+      // Was der Spielleiter auf dem Brett in ihren Rahmen gelegt hat.
+      ...frameMembers(data, story.id),
     ],
     data,
   );
@@ -481,12 +520,21 @@ export function heroesOf(
  * Die Geschichten, die einen Gefährten persönlich betreffen – die im Spiel zuerst. Zu Ende
  * Erzähltes zählt nicht mehr.
  */
-export function storiesOfHero(data: Pick<CampaignData, 'stories'>, characterId: string): HeroTie[] {
+export function storiesOfHero(
+  data: Pick<CampaignData, 'stories'> & Partial<Pick<CampaignData, 'state' | 'entities'>>,
+  characterId: string,
+): HeroTie[] {
   return Object.values(data.stories)
     .filter((story) => !story.closed)
     .flatMap((story) => {
       const hero = story.heroes.find((entry) => entry.characterId === characterId);
-      return hero ? [{ story, why: hero.why }] : [];
+      if (hero) return [{ story, why: hero.why }];
+      // Liegt der Gefährte auf dem Brett im Rahmen der Geschichte, betrifft sie ihn.
+      const framed =
+        data.state && data.entities
+          ? frameMembers({ state: data.state, entities: data.entities }, story.id)
+          : [];
+      return framed.includes(characterId) ? [{ story, why: '' }] : [];
     })
     .sort(
       (a, b) =>
@@ -781,7 +829,7 @@ export interface KnotToLay {
 /** Breite und ungefähre Höhe einer Karte auf dem Brett. */
 export const BOARD_CARD = { width: 250, height: 170 } as const;
 /** Platz, den ein Name auf dem Brett braucht. */
-export const BOARD_PIN = { width: 150, height: 34 } as const;
+export const BOARD_PIN = { width: 200, height: 64 } as const;
 /** Platz, den ein Faden als Knoten braucht – und der Abstand der Knoten untereinander. */
 export const BOARD_KNOT = { width: 210, height: 30, step: 40 } as const;
 const CELL = { width: 440, height: 380 } as const;

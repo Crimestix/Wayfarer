@@ -5,9 +5,13 @@
  * nur Schnüre (`state.boardLinks`) – Wayfarer zeichnet keine von selbst. Was eine Schnur in der
  * Welt bedeuten könnte, bietet `linkOffers` an; es gilt erst, wenn er es wählt.
  */
+import { FATE_LABEL } from './chronicleKinds';
+import { KIND_LABEL } from './derive';
+import { knowsPerson } from './known';
 import { relationLabel } from './relations';
 import type { CampaignData, Entity, Story } from './schema';
 import {
+  frameKeys,
   isLooseThread,
   nearness,
   threadLive,
@@ -16,6 +20,7 @@ import {
   type BoardView,
 } from './story';
 import { storyAncestors } from './storySheet';
+import { isStub } from './stub';
 import { isTied } from './threadWeb';
 import { writtenNames } from './written';
 
@@ -268,11 +273,22 @@ export function boardPiece(data: CampaignData, key: string): BoardPiece | null {
     }
     case 'node': {
       const entity = data.entities[id];
-      return entity ? { key, sort: 'node', id, title: entity.name, text: entity.tagline } : null;
+      const note = data.state.boardNotes[key]?.text ?? '';
+      return entity
+        ? { key, sort: 'node', id, title: entity.name, text: note || entity.tagline }
+        : null;
     }
     case 'article': {
       const article = data.articles[id];
-      return article ? { key, sort: 'article', id, title: article.title, text: '' } : null;
+      return article
+        ? {
+            key,
+            sort: 'article',
+            id,
+            title: article.title,
+            text: data.state.boardNotes[key]?.text ?? '',
+          }
+        : null;
     }
     default:
       return null;
@@ -313,15 +329,24 @@ export interface BoardNowView {
   came: BoardStep[];
   /** Wie viele Karten schon zum gespielten Weg gehören. */
   played: number;
+  /** Die Geschichte, in deren Rahmen die Karte liegt – null, wenn in keinem. */
+  story: Story | null;
 }
 
 /**
- * Die markierte Karte (`state.boardNow`) mit dem, wohin ihre Pfeile führen. null, wenn keine
- * markiert ist oder es sie nicht mehr gibt. Schnüre ohne Richtung zählen nicht.
+ * Die markierten Karten (`state.boardNow`) mit dem, wohin ihre Pfeile führen – je Stelle, an
+ * der die Gruppe steht, eine Sicht. Was es nicht mehr gibt, fällt weg. Schnüre ohne Richtung
+ * zählen nicht.
  */
-export function boardNowView(data: CampaignData): BoardNowView | null {
-  const key = data.state.boardNow;
-  if (!key) return null;
+export function boardNowViews(data: CampaignData): BoardNowView[] {
+  return data.state.boardNow.flatMap((key) => {
+    const view = boardNowAt(data, key);
+    return view ? [view] : [];
+  });
+}
+
+/** Eine markierte Karte mit dem, wohin ihre Pfeile führen – null, wenn es sie nicht gibt. */
+export function boardNowAt(data: CampaignData, key: string): BoardNowView | null {
   const here = boardPiece(data, key);
   if (!here) return null;
   const step = (other: string, word: string): BoardStep[] => {
@@ -329,10 +354,115 @@ export function boardNowView(data: CampaignData): BoardNowView | null {
     return piece ? [{ ...piece, word }] : [];
   };
   const arrows = data.state.boardLinks.filter((link) => link.dir === 'to');
+  const story =
+    Object.values(data.stories).find((entry) => frameKeys(data, entry.id).includes(key)) ?? null;
   return {
+    story,
     played: data.state.boardPlayed.filter((entry) => boardPiece(data, entry)).length,
     here,
     next: arrows.filter((link) => link.a === key).flatMap((link) => step(link.b, link.word)),
     came: arrows.filter((link) => link.b === key).flatMap((link) => step(link.a, link.word)),
   };
+}
+
+// ── Pinnwand: die Dinge selbst als Karten ──────────────────────────────────
+
+/**
+ * Das eigene Wort unter der Kategorie: Fischerdorf, Gilde, Tagebuch, Händlerin … – bei einer
+ * Person ihre Rolle, sonst das Feld „Art“ des Eintrags. Leer, wenn keines dasteht.
+ */
+export function ownWord(entity: Entity): string {
+  if (entity.kind === 'person') return entity.person.role.trim();
+  const details: unknown = (entity as unknown as Record<string, unknown>)[entity.kind];
+  if (details && typeof details === 'object' && 'category' in details) {
+    const word = (details as { category: unknown }).category;
+    if (typeof word === 'string' && word.trim()) return word.trim();
+  }
+  if (entity.kind === 'item' && entity.item.magic?.type.trim())
+    return entity.item.magic.type.trim();
+  return '';
+}
+
+/** Was eine Karte der Pinnwand über ein Ding der Welt zeigt. */
+export interface ThingFace {
+  key: string;
+  name: string;
+  /** Kategorie · eigenes Wort, etwa „Ort · Fischerdorf“; bei Artikeln „Artikel“. */
+  sort: string;
+  /** Leiser Zustand: tot, verschollen, Platzhalter, der Gruppe unbekannt. */
+  marks: string[];
+  /** Die eigene Notiz der Karte (`state.boardNotes`). */
+  note: string;
+  /** Das Bild des Eintrags – nur, wenn es auf der Karte stehen soll und eines da ist. */
+  image: string | null;
+  /** Hat der Eintrag überhaupt ein Bild? (Dann bietet die Karte es an.) */
+  hasImage: boolean;
+}
+
+/** Die Karte zu einem Ding auf dem Brett (`node:`, `article:`) – null, wenn es fehlt. */
+export function thingFace(data: CampaignData, key: string): ThingFace | null {
+  const own = data.state.boardNotes[key];
+  const note = own?.text ?? '';
+  if (key.startsWith('article:')) {
+    const article = data.articles[key.slice(8)];
+    if (!article) return null;
+    return {
+      key,
+      name: article.title,
+      sort: 'Artikel',
+      marks: [],
+      note,
+      image: null,
+      hasImage: false,
+    };
+  }
+  if (!key.startsWith('node:')) return null;
+  const entity = data.entities[key.slice(5)];
+  if (!entity) return null;
+  const word = ownWord(entity);
+  const marks: string[] = [];
+  const status =
+    entity.kind === 'person'
+      ? entity.person.status
+      : entity.kind === 'character'
+        ? entity.character.status
+        : 'alive';
+  if (status !== 'alive') marks.push(FATE_LABEL[status]);
+  else if (entity.ended) marks.push(entity.kind === 'place' ? 'gibt es nicht mehr' : 'vergangen');
+  if (isStub(data, entity)) marks.push('Platzhalter');
+  if (!knowsPerson(data, entity)) marks.push('der Gruppe unbekannt');
+  return {
+    key,
+    name: entity.name,
+    sort: word ? `${KIND_LABEL[entity.kind]} · ${word}` : KIND_LABEL[entity.kind],
+    marks,
+    note,
+    image: own?.image && entity.image ? entity.image : null,
+    hasImage: !!entity.image,
+  };
+}
+
+/**
+ * Eine freie Stelle nahe `at`: Liegt dort schon etwas (Mitte näher als ein Kartenmaß), rückt
+ * das Neue in Schritten nach unten und zur Seite – damit Hingelegtes nie übereinander landet.
+ */
+export function freeSpot(
+  taken: readonly { x: number; y: number }[],
+  at: { x: number; y: number },
+): { x: number; y: number } {
+  const clear = (spot: { x: number; y: number }) =>
+    taken.every((other) => Math.abs(other.x - spot.x) > 210 || Math.abs(other.y - spot.y) > 90);
+  for (let ring = 0; ring < 12; ring++)
+    for (const [dx, dy] of [
+      [0, 1],
+      [1, 0],
+      [-1, 0],
+      [0, -1],
+      [1, 1],
+      [-1, 1],
+    ] as const) {
+      const spot = { x: at.x + dx * ring * 230, y: at.y + dy * ring * 100 };
+      if (clear(spot)) return spot;
+    }
+  return at;
 }

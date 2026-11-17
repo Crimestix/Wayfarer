@@ -8,9 +8,20 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import { playView } from '../../domain/play';
 import { ArticleSchema, createEntity, newId, type Place } from '../../domain/schema';
-import { boardCards, boardLayout, insideOnBoard, nameSources } from '../../domain/story';
 import {
-  boardNowView,
+  boardCards,
+  boardLayout,
+  frameMembers,
+  insideOnBoard,
+  nameSources,
+  storiesOfHero,
+} from '../../domain/story';
+import { storiesOf } from '../../domain/storySheet';
+import {
+  boardNowAt,
+  freeSpot,
+  thingFace,
+  boardNowViews,
   cardNames,
   edgePoint,
   linkOffers,
@@ -31,6 +42,9 @@ import { dismissSuggestion } from '../../data/actions';
 import { SUGGESTION } from '../../domain/dismiss';
 import { areaAround, insideArea } from '../../domain/boardAreas';
 import {
+  setAreaStory,
+  setBoardNote,
+  writeThingOnBoard,
   moveBoardNow,
   patchThread,
   setBoardLinkDir,
@@ -722,7 +736,7 @@ describe('Storyboard', () => {
     const start = thread('Die Gruppe kommt in die Stadt');
     const arena = thread('Die Arena');
     const harbour = thread('Der Hafen');
-    expect(boardNowView(data())).toBeNull();
+    expect(boardNowViews(data())).toEqual([]);
     addBoardLink(db, `thread:${start.id}`, `thread:${arena.id}`);
     const toHarbour = addBoardLink(db, `thread:${start.id}`, `thread:${harbour.id}`)!;
     setBoardLinkWord(db, toHarbour.id, 'wenn sie fliehen');
@@ -730,23 +744,97 @@ describe('Storyboard', () => {
     const loose = thread('Nebenbei');
     const side = addBoardLink(db, `thread:${start.id}`, `thread:${loose.id}`)!;
     setBoardLinkDir(db, side.id, 'none');
-    setBoardNow(db, `thread:${start.id}`);
-    const view = boardNowView(data())!;
+    setBoardNow(db, `thread:${start.id}`, true);
+    const view = boardNowViews(data())[0]!;
     expect(view.here.title).toBe('Die Gruppe kommt in die Stadt');
     expect(view.next.map((step) => [step.title, step.word])).toEqual([
       ['Die Arena', ''],
       ['Der Hafen', 'wenn sie fliehen'],
     ]);
-    const undo = moveBoardNow(db, `thread:${arena.id}`);
-    expect(data().state.boardNow).toBe(`thread:${arena.id}`);
+    const undo = moveBoardNow(db, `thread:${start.id}`, `thread:${arena.id}`);
+    expect(data().state.boardNow).toEqual([`thread:${arena.id}`]);
     expect(data().state.boardPlayed).toEqual([`thread:${start.id}`]);
-    expect(boardNowView(data())!).toMatchObject({ played: 1, came: [{ title: start.title }] });
+    expect(boardNowAt(data(), `thread:${arena.id}`)!).toMatchObject({
+      played: 1,
+      came: [{ title: start.title }],
+    });
+    // Mehrere Stellen zugleich: je Geschichte, die läuft, eine.
+    setBoardNow(db, `thread:${harbour.id}`, true);
+    expect(boardNowViews(data()).map((entry) => entry.here.title)).toEqual([
+      'Die Arena',
+      'Der Hafen',
+    ]);
+    setBoardNow(db, `thread:${harbour.id}`, false);
     undo();
-    expect(data().state.boardNow).toBe(`thread:${start.id}`);
+    expect(data().state.boardNow).toEqual([`thread:${start.id}`]);
     expect(data().state.boardPlayed).toEqual([]);
     setBoardPlayed(db, `thread:${harbour.id}`, true);
     expect(data().state.boardPlayed).toEqual([`thread:${harbour.id}`]);
     setBoardPlayed(db, `thread:${harbour.id}`, false);
     expect(data().state.boardPlayed).toEqual([]);
+  });
+});
+
+describe('Pinnwand', () => {
+  it('legt Dinge als Karten mit eigener Notiz hin – die Notiz gehört zur Karte, nicht zum Ding', async () => {
+    const { db, data, mira } = await setup();
+    const made = writeThingOnBoard(db, 'Das Tagebuch', 'item', { x: 10, y: 10 })!;
+    expect(made).toMatchObject({ created: true });
+    expect(data().state.board[made.key]).toEqual({ x: 10, y: 10 });
+    expect(thingFace(data(), made.key)).toMatchObject({
+      name: 'Das Tagebuch',
+      sort: 'Gegenstand',
+      marks: ['Platzhalter'],
+    });
+    // Gibt es den Namen schon, wird er genommen – nie ein zweiter.
+    const again = writeThingOnBoard(db, 'Mira Tannhaus', 'person', { x: 400, y: 10 })!;
+    expect(again).toMatchObject({ created: false, key: `node:${mira.id}` });
+    const undo = setBoardNote(db, `node:${mira.id}`, { text: 'Weiß, wo Theo wohnt.' });
+    expect(thingFace(data(), `node:${mira.id}`)!.note).toBe('Weiß, wo Theo wohnt.');
+    expect(data().entities[mira.id]!.notes).toBe('');
+    undo();
+    expect(data().state.boardNotes).toEqual({});
+    made.undo();
+    expect(data().entities[made.entity.id]).toBeUndefined();
+    expect(data().state.board[made.key]).toBeUndefined();
+  });
+
+  it('zeigt das eigene Wort unter der Kategorie', async () => {
+    const { db, data, town } = await setup();
+    db.patch('entities', town.id, { place: { ...town.place, category: 'Fischerdorf' } });
+    expect(thingFace(data(), `node:${town.id}`)!.sort).toBe('Ort · Fischerdorf');
+  });
+
+  it('legt Neues nie auf schon Liegendes', () => {
+    const taken = [{ x: 0, y: 0 }];
+    const spot = freeSpot(taken, { x: 0, y: 0 });
+    expect(spot).not.toEqual({ x: 0, y: 0 });
+    expect(freeSpot([], { x: 5, y: 5 })).toEqual({ x: 5, y: 5 });
+  });
+
+  it('macht einen Rahmen zur Geschichte: was darin liegt, gehört dazu', async () => {
+    const { db, data, mira } = await setup();
+    const hero = db.put('entities', createEntity({ kind: 'character', name: 'Corrin' }));
+    const { area } = addBoardArea(db, { x: 0, y: 0, w: 800, h: 600 }, 'Daria Hagel');
+    placeOnBoard(db, `node:${mira.id}`, 100, 300);
+    placeOnBoard(db, `node:${hero.id}`, 300, 300);
+    placeOnBoard(db, `node:${hero.id}-weg`, 2000, 2000);
+    const done = setAreaStory(db, area.id, 'new')!;
+    const story = done.story!;
+    expect(story.title).toBe('Daria Hagel');
+    expect(frameMembers(data(), story.id).sort()).toEqual([mira.id, hero.id].sort());
+    expect(storiesOfHero(data(), hero.id).map((tie) => tie.story.id)).toEqual([story.id]);
+    expect(storiesOf(data(), mira.id).map((row) => row.story.id)).toEqual([story.id]);
+    expect(
+      playView({
+        ...data(),
+        stories: { ...data().stories, [story.id]: { ...story, inPlay: true } },
+      })
+        .cards[0]!.onBoard.map((thing) => thing.name)
+        .sort(),
+    ).toEqual(['Corrin', 'Mira Tannhaus']);
+    done.undo();
+    expect(data().stories[story.id]).toBeUndefined();
+    expect(data().state.boardAreas[0]!.storyId).toBeNull();
   });
 });

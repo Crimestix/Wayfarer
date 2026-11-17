@@ -69,13 +69,18 @@ import {
 } from '../../domain/schema';
 import { dropSuggestions, pinExists } from '../../domain/threadWeb';
 import {
+  boardPiece,
   cardNames,
+  freeSpot,
+  thingFace,
   linkOffers,
   stringPath,
   whiteboardCards,
   type BoardBox,
   type LinkOffer,
+  type ThingFace,
 } from '../../domain/whiteboard';
+import { useMediaSrc } from '../../data/media';
 import { searchWorld } from '../../shell/search';
 import { areaAround, insideArea, type BoardArea } from '../../domain/boardAreas';
 import { articleExcerpt } from '../tisch/wiki';
@@ -120,10 +125,13 @@ import {
   takeFreeOffBoard,
   writeLinkedThread,
   writeOnBoard,
+  writeThingOnBoard,
   removeBoardLink,
   setBoardLinkDir,
   setBoardLinkWord,
   setBoardNow,
+  setBoardNote,
+  setAreaStory,
   setBoardPlayed,
   patchThread,
   setStringsHidden,
@@ -137,6 +145,8 @@ import { ThreadWeb, findHint } from './WebParts';
 import { useHoldDraft } from '../../ui/drafts';
 import { addFromWriting } from '../welt/writing';
 import { KIND_LABEL } from '../../domain/derive';
+import { CREATE_KINDS } from '../../domain/pick';
+import { entryForTitle } from '../wiki/facts';
 import type { EntityKind } from '../../domain/schema';
 import { ThreadDialog } from './Dialogs';
 import { AttachDialog } from './LooseDialogs';
@@ -222,11 +232,15 @@ export default function FaedenPage() {
   const [band, setBand] = useState<{ a: Spot; b: Spot } | null>(null);
   /** Hier wird gerade ein Faden hingeschrieben (Doppelklick ins Leere). */
   const [drafting, setDrafting] = useState<Spot | null>(null);
+  /** Was ein Doppelklick ins Leere zuletzt hingelegt hat – das nächste Mal dasselbe. */
+  const [draftKind, setDraftKind] = useState<DraftKind>('note');
   /** Die Karte, auf der gerade geschrieben wird (Doppelklick auf die Karte). */
   const [editing, setEditing] = useState<string | null>(null);
   /** Wie groß Karten und Namen gerade sind – Pfeile enden an ihrem Rand. */
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   const [areaSel, setAreaSel] = useState<string | null>(null);
+  /** „Nur diesen Rahmen zeigen“: alles außerhalb tritt zurück (Ansicht, nie Spielstand). */
+  const [onlyArea, setOnlyArea] = useState<string | null>(null);
   const [naming, setNaming] = useState<string | null>(null);
   const [areaMove, setAreaMove] = useState<BoardArea | null>(null);
   /** Eine Schnur ins Leere: Hier wird gesucht, was an ihr Ende kommt. */
@@ -295,11 +309,13 @@ export default function FaedenPage() {
         const result = connectOnBoard(db, key, target);
         if (result.done)
           toast({
+            slot: 'fadenbrett',
             title: result.title,
             body: result.body,
             action: { label: 'Rückgängig', run: result.undo },
           });
-        else if (result.note) toast({ title: 'Schon verbunden', body: result.note });
+        else if (result.note)
+          toast({ slot: 'fadenbrett', title: 'Schon verbunden', body: result.note });
       },
     });
   };
@@ -390,6 +406,7 @@ export default function FaedenPage() {
     setLineKey(null);
     if (undo)
       toast({
+        slot: 'fadenbrett',
         title: 'Schnur gelöst',
         body: 'Nur die Schnur – was du in der Welt eingetragen hast, bleibt.',
         action: { label: 'Rückgängig', run: undo },
@@ -402,6 +419,7 @@ export default function FaedenPage() {
     clearPicks();
     setSelected(null);
     toast({
+      slot: 'fadenbrett',
       title: result.taken === 1 ? 'Vom Brett genommen' : `${result.taken} vom Brett genommen`,
       body: 'Nur vom Brett – in der Welt bleibt alles. Über die Suche oben links holst du es zurück.',
       ...(result.undo ? { action: { label: 'Rückgängig', run: result.undo } } : {}),
@@ -478,9 +496,13 @@ export default function FaedenPage() {
     });
   };
 
-  const areas = data.state.boardAreas.map((area) =>
+  const allAreas = data.state.boardAreas.map((area) =>
     areaMove && areaMove.id === area.id ? areaMove : area,
   );
+  const shownArea = onlyArea ? (allAreas.find((area) => area.id === onlyArea) ?? null) : null;
+  /** Was im gezeigten Rahmen liegt – null, wenn alles gezeigt wird. */
+  const shownKeys = shownArea ? new Set(insideArea(layout, shownArea)) : null;
+  const areas = shownArea ? [shownArea] : allAreas;
   const newArea = (keys: readonly string[]) => {
     const { area, undo } = addBoardArea(db, areaAround(layout, keys, viewCenter()));
     setSelected(null);
@@ -489,6 +511,7 @@ export default function FaedenPage() {
     setAreaSel(area.id);
     setNaming(area.id);
     toast({
+      slot: 'fadenbrett',
       title: 'Bereich angelegt',
       body: 'Gib ihm einen Namen – verschiebst du ihn, zieht mit, was darin liegt.',
       action: { label: 'Rückgängig', run: undo },
@@ -500,6 +523,7 @@ export default function FaedenPage() {
     setAreaSel(null);
     if (undo)
       toast({
+        slot: 'fadenbrett',
         title: 'Bereich weggenommen',
         body: `„${area?.title || 'Bereich ohne Namen'}“ – was darin lag, bleibt, wo es ist.`,
         action: { label: 'Rückgängig', run: undo },
@@ -587,6 +611,7 @@ export default function FaedenPage() {
       ),
     );
     toast({
+      slot: 'fadenbrett',
       title: ids.length === 1 ? 'Aufs Brett gelegt' : `${ids.length} Fäden aufs Brett gelegt`,
       body: 'Zieh eine Schnur von ihm weg – was sie bedeutet, wählst du an der Schnur.',
       action: {
@@ -599,6 +624,7 @@ export default function FaedenPage() {
     const undo = tidyBoard(db);
     requestAnimationFrame(() => showAll());
     toast({
+      slot: 'fadenbrett',
       title: 'Brett aufgeräumt',
       body: 'Wayfarer hat die Geschichten neu ausgelegt; was du einzeln hingelegt hast, bleibt.',
       action: { label: 'Rückgängig', run: undo },
@@ -606,13 +632,20 @@ export default function FaedenPage() {
   };
   /** Holt etwas aufs Brett (Suche) – in die Mitte des Bildes – und wählt es. */
   const bring = (key: string) => {
-    const at = viewCenter();
+    const at = freeSpot(
+      [
+        ...layout.pins,
+        ...Object.values(layout.cards).map((card) => ({ x: card.x, y: card.y + 80 })),
+      ],
+      viewCenter(),
+    );
     const undo = bringOntoBoard(db, key, at);
     clearPicks();
     setSelected(key);
     showCard();
     if (undo)
       toast({
+        slot: 'fadenbrett',
         title: 'Aufs Brett geholt',
         body: 'Zieh am Griff rechts eine Schnur zu etwas anderem.',
         action: { label: 'Rückgängig', run: undo },
@@ -746,6 +779,11 @@ export default function FaedenPage() {
                 </defs>
                 {linkStrings.map(({ link, d }) => (
                   <path
+                    display={
+                      shownKeys && !(shownKeys.has(link.a) && shownKeys.has(link.b))
+                        ? 'none'
+                        : undefined
+                    }
                     key={`link:${link.id}`}
                     d={d}
                     data-web="link"
@@ -769,14 +807,18 @@ export default function FaedenPage() {
                 )}
                 {/* Breite, unsichtbare Spuren über den Schnüren: Daran klickt man sie an. */}
                 {truth &&
-                  linkStrings.map(({ link, d }) => (
-                    <path
-                      key={`hit:${link.id}`}
-                      className="wf-faden-hit"
-                      d={d}
-                      onPointerDown={pickLine(link.id)}
-                    />
-                  ))}
+                  linkStrings
+                    .filter(
+                      ({ link }) => !shownKeys || (shownKeys.has(link.a) && shownKeys.has(link.b)),
+                    )
+                    .map(({ link, d }) => (
+                      <path
+                        key={`hit:${link.id}`}
+                        className="wf-faden-hit"
+                        d={d}
+                        onPointerDown={pickLine(link.id)}
+                      />
+                    ))}
               </svg>
               {band && (
                 <div
@@ -791,6 +833,9 @@ export default function FaedenPage() {
               )}
               {linkStrings
                 .filter(({ link }) => link.word)
+                .filter(
+                  ({ link }) => !shownKeys || (shownKeys.has(link.a) && shownKeys.has(link.b)),
+                )
                 .map(({ link, mid }) => (
                   <span
                     key={`word:${link.id}`}
@@ -825,6 +870,7 @@ export default function FaedenPage() {
                     const result = connectOnBoard(db, from, pinKey);
                     if (result.done)
                       toast({
+                        slot: 'fadenbrett',
                         title: result.title,
                         body: result.body,
                         action: {
@@ -843,6 +889,7 @@ export default function FaedenPage() {
                     const made = writeLinkedThread(db, from, title, at);
                     if (made)
                       toast({
+                        slot: 'fadenbrett',
                         title: 'Faden geschrieben',
                         body: `„${made.thread.title}“ liegt am Ende der Schnur.`,
                         action: { label: 'Rückgängig', run: made.undo },
@@ -854,14 +901,31 @@ export default function FaedenPage() {
               {drafting && (
                 <BoardDraft
                   at={drafting}
+                  kind={draftKind}
+                  onKind={setDraftKind}
                   onDone={(title) => {
                     const at = drafting;
                     setDrafting(null);
+                    if (draftKind !== 'note') {
+                      const thing = writeThingOnBoard(db, title, draftKind, at);
+                      if (!thing) return;
+                      select(thing.key);
+                      toast({
+                        slot: 'fadenbrett',
+                        title: thing.created ? 'Hingelegt' : 'Gibt es schon',
+                        body: thing.created
+                          ? `„${thing.entity.name}“ liegt als Platzhalter auf dem Brett – fertig geschrieben wird später.`
+                          : `„${thing.entity.name}“ (${KIND_LABEL[thing.entity.kind]}) ist schon in der Welt – genommen, kein zweiter.`,
+                        action: { label: 'Rückgängig', run: thing.undo },
+                      });
+                      return;
+                    }
                     const written = writeOnBoard(db, title, { x: at.x, y: at.y - 20 });
                     if (!written) return;
                     select(`thread:${written.thread.id}`);
                     setEditing(`thread:${written.thread.id}`);
                     toast({
+                      slot: 'fadenbrett',
                       title: 'Karte hingelegt',
                       body: `„${written.thread.title}“ – zieh am Griff eine Schnur von ihm weg.`,
                       action: { label: 'Rückgängig', run: written.undo },
@@ -871,55 +935,54 @@ export default function FaedenPage() {
                 />
               )}
               {layout.pins.map((entry) => {
+                if (shownKeys && !shownKeys.has(entry.key)) return null;
+                const face = thingFace(data, entry.key);
+                if (!face) return null;
                 const entity = entry.article ? undefined : data.entities[entry.id];
-                const article = entry.article ? data.articles[entry.id] : undefined;
-                const name = entity?.name ?? article?.title;
-                if (!name) return null;
                 return (
-                  <button
+                  <ThingCard
                     key={entry.key}
-                    type="button"
-                    className={cx('wf-faden-pin', article && 'wf-faden-pin--article')}
-                    style={{ left: entry.x, top: entry.y }}
-                    data-pin={entry.key}
-                    data-dim={related !== null && !related.has(entry.key)}
-                    aria-pressed={entry.key === selected || picked.has(entry.key)}
-                    title={name}
-                    onPointerDown={grab(entry.key, entry)}
-                    onDoubleClick={(event) => event.stopPropagation()}
-                  >
-                    {entity ? <KindIcon kind={entity.kind} /> : <BookOpen aria-hidden />}
-                    <span className="wf-clamp-1">{name}</span>
-                    {truth && (
-                      <span
-                        className="wf-faden-handle"
-                        title="Schnur ziehen – auf etwas anderes oder ins Leere"
-                        onPointerDown={startLink(entry.key)}
-                      />
-                    )}
-                  </button>
+                    face={face}
+                    kind={entity?.kind ?? null}
+                    at={entry}
+                    dim={related !== null && !related.has(entry.key)}
+                    selected={entry.key === selected || picked.has(entry.key)}
+                    isNow={data.state.boardNow.includes(entry.key)}
+                    onGrab={grab(entry.key, entry)}
+                    onLink={truth ? startLink(entry.key) : undefined}
+                    onWrite={truth ? () => setEditing(entry.key) : undefined}
+                  />
                 );
               })}
-              {open.map((card) => (
-                <Card
-                  key={card.key}
-                  card={card}
-                  at={layout.cards[card.key]!}
-                  selected={card.key === selected || picked.has(card.key)}
-                  dim={related !== null && !related.has(card.key)}
-                  drop={false}
-                  lifted={moving !== null && moving[card.key] !== undefined}
-                  isNow={data.state.boardNow === card.key}
-                  played={data.state.boardPlayed.includes(card.key)}
-                  onGrab={grab(card.key, layout.cards[card.key]!)}
-                  onLink={truth ? startLink(card.key) : undefined}
-                  onWrite={truth ? () => setEditing(card.key) : undefined}
-                />
-              ))}
+              {open
+                .filter((card) => !shownKeys || shownKeys.has(card.key))
+                .map((card) => (
+                  <Card
+                    key={card.key}
+                    card={card}
+                    at={layout.cards[card.key]!}
+                    selected={card.key === selected || picked.has(card.key)}
+                    dim={related !== null && !related.has(card.key)}
+                    drop={false}
+                    lifted={moving !== null && moving[card.key] !== undefined}
+                    isNow={data.state.boardNow.includes(card.key)}
+                    played={data.state.boardPlayed.includes(card.key)}
+                    onGrab={grab(card.key, layout.cards[card.key]!)}
+                    onLink={truth ? startLink(card.key) : undefined}
+                    onWrite={truth ? () => setEditing(card.key) : undefined}
+                  />
+                ))}
               {editing && layout.cards[editing] && (
                 <CardWriter
                   cardKey={editing}
                   at={layout.cards[editing]!}
+                  onDone={() => setEditing(null)}
+                />
+              )}
+              {editing && !layout.cards[editing] && (
+                <NoteWriter
+                  cardKey={editing}
+                  at={layout.pins.find((entry) => entry.key === editing) ?? null}
                   onDone={() => setEditing(null)}
                 />
               )}
@@ -932,6 +995,14 @@ export default function FaedenPage() {
               </p>
             )}
             {truth && <BoardSearch pins={layout.pins} lying={board} onPick={bring} />}
+            {shownArea && (
+              <div className="wf-faden-only" onPointerDown={(event) => event.stopPropagation()}>
+                Nur „{shownArea.title || 'Bereich ohne Namen'}“
+                <button type="button" className="wf-faden-link" onClick={() => setOnlyArea(null)}>
+                  Alles zeigen
+                </button>
+              </div>
+            )}
             <div className="wf-faden-tools" onPointerDown={(event) => event.stopPropagation()}>
               {truth && (
                 <IconButton
@@ -952,6 +1023,7 @@ export default function FaedenPage() {
                     const undo = setStringsHidden(db, hiddenStories, false);
                     if (undo)
                       toast({
+                        slot: 'fadenbrett',
                         title: 'Geschichten zurück',
                         body: 'Alle weggelegten Geschichten liegen wieder auf dem Brett.',
                         action: { label: 'Rückgängig', run: undo },
@@ -1065,6 +1137,24 @@ export default function FaedenPage() {
                 onTakeOff={() => takeOff([...picked])}
                 onArea={() => newArea([...picked])}
                 onClear={clearPicks}
+              />
+            ) : areaSel &&
+              !selected &&
+              data.state.boardAreas.some((area) => area.id === areaSel) ? (
+              <AreaSide
+                area={data.state.boardAreas.find((area) => area.id === areaSel)!}
+                inside={insideArea(
+                  layout,
+                  data.state.boardAreas.find((area) => area.id === areaSel)!,
+                )}
+                only={onlyArea === areaSel}
+                onOnly={(on) => {
+                  setOnlyArea(on ? areaSel : null);
+                  if (on) setArriving(null);
+                }}
+                onSelect={select}
+                onName={() => setNaming(areaSel)}
+                onDrop={() => dropArea(areaSel)}
               />
             ) : pin ? (
               <PinSide
@@ -1295,6 +1385,128 @@ function Card({
 }
 
 /**
+ * Ein Ding der Welt als Karte auf der Pinnwand: Name, Kategorie mit eigenem Wort, leiser Zustand,
+ * auf Wunsch das Bild und die eigene Notiz der Karte. Doppelklick schreibt die Notiz.
+ */
+function ThingCard({
+  face,
+  kind,
+  at,
+  dim,
+  selected,
+  isNow,
+  onGrab,
+  onLink,
+  onWrite,
+}: {
+  face: ThingFace;
+  kind: EntityKind | null;
+  at: Spot;
+  dim: boolean;
+  selected: boolean;
+  isNow: boolean;
+  onGrab: (event: PointerEvent) => void;
+  onLink?: ((event: PointerEvent) => void) | undefined;
+  onWrite?: (() => void) | undefined;
+}) {
+  const src = useMediaSrc()(face.image);
+  return (
+    <button
+      type="button"
+      className={cx('wf-faden-thing', !kind && 'wf-faden-thing--article')}
+      style={{ left: at.x, top: at.y }}
+      data-pin={face.key}
+      data-dim={dim}
+      data-now={isNow || undefined}
+      aria-pressed={selected}
+      title={onWrite ? 'Doppelklick: eine Notiz auf die Karte schreiben' : face.name}
+      onPointerDown={onGrab}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        onWrite?.();
+      }}
+    >
+      {isNow && (
+        <span className="wf-faden-card__now">
+          <Flag aria-hidden />
+          Hier steht die Gruppe
+        </span>
+      )}
+      {src && <img className="wf-faden-thing__image" src={src} alt="" draggable={false} />}
+      <span className="wf-faden-thing__head">
+        {kind ? <KindIcon kind={kind} /> : <BookOpen aria-hidden />}
+        <span className="wf-faden-thing__name wf-clamp-2">{face.name}</span>
+      </span>
+      <span className="wf-faden-thing__sort wf-clamp-1">
+        {face.sort}
+        {face.marks.length > 0 && <em> · {face.marks.join(' · ')}</em>}
+      </span>
+      {face.note && <span className="wf-faden-thing__note wf-clamp-5">{face.note}</span>}
+      {onLink && (
+        <span
+          className="wf-faden-handle wf-faden-handle--card"
+          title="Faden ziehen – auf etwas anderes oder ins Leere"
+          onPointerDown={onLink}
+        />
+      )}
+    </button>
+  );
+}
+
+/** Die Notiz einer Karte schreiben, an Ort und Stelle – sie gehört zur Karte, nicht zum Ding. */
+function NoteWriter({
+  cardKey,
+  at,
+  onDone,
+}: {
+  cardKey: string;
+  at: Spot | null;
+  onDone: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const face = thingFace(data, cardKey);
+  const start = face?.note ?? '';
+  const [text, setText] = useState(start);
+  useHoldDraft(text !== start, `fadenbrett-notiz-${cardKey}`);
+  const done = useRef(false);
+  const save = () => {
+    if (done.current) return;
+    done.current = true;
+    if (text.trim() !== start) setBoardNote(db, cardKey, { text });
+    onDone();
+  };
+  if (!face || !at) return null;
+  return (
+    <div
+      className="wf-faden-writer"
+      style={{ left: at.x, top: at.y }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+          event.preventDefault();
+          save();
+        }
+      }}
+    >
+      <span className="wf-faden-writer__name">{face.name}</span>
+      <textarea
+        className="wf-faden-writer__text"
+        aria-label={`Notiz zu ${face.name} auf dem Brett`}
+        value={text}
+        autoFocus
+        placeholder="Was hier gerade wichtig ist – nur auf dieser Karte, nicht im Artikel …"
+        onChange={(event) => setText(event.target.value)}
+        onBlur={save}
+      />
+      <span className="wf-faden-writer__hint">Fertig: Escape oder daneben klicken</span>
+    </div>
+  );
+}
+
+/**
  * Auf einer Karte schreiben: Überschrift und Text, an Ort und Stelle. Geschrieben wird beim
  * Verlassen, mit Strg+Eingabe oder Escape – ein „Speichern“ gibt es nicht.
  */
@@ -1377,8 +1589,10 @@ function PinSide({
   onSelect: (key: string) => void;
   onTakeOff: () => void;
 }) {
+  const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
+  const face = thingFace(data, pin.key);
   const entity = pin.article ? undefined : data.entities[pin.id];
   const article = pin.article
     ? data.articles[pin.id]
@@ -1396,7 +1610,7 @@ function PinSide({
     <aside className="wf-faden-side">
       <div className="wf-faden-side__head">
         <span className="wf-faden-card__sort">
-          {pin.article ? 'Artikel' : 'Name'} ·{' '}
+          {pin.article ? 'Artikel' : 'Auf dem Brett'} ·{' '}
           {hanging.length > 1
             ? 'hier berühren sich Geschichten'
             : hanging.length === 1
@@ -1410,7 +1624,26 @@ function PinSide({
         )}
       </div>
       <h2 className="wf-faden-side__title">{name}</h2>
+      {face && <p className="wf-faden-side__sort">{face.sort}</p>}
       {entity?.tagline && <p className="wf-prose">{entity.tagline}</p>}
+      {face && (
+        <Written
+          className="wf-faden-side__story"
+          label="Notiz auf der Karte"
+          grow
+          value={face.note}
+          placeholder="Notiz auf der Karte – was hier gerade wichtig ist …"
+          onSave={(text) => setBoardNote(db, pin.key, { text })}
+        />
+      )}
+      {face?.hasImage && (
+        <Checkbox
+          checked={!!data.state.boardNotes[pin.key]?.image}
+          onChange={(on) => setBoardNote(db, pin.key, { image: on })}
+        >
+          Bild auf der Karte zeigen
+        </Checkbox>
+      )}
       {excerpt && excerpt.paragraphs.length > 0 && (
         <section className="wf-faden-side__text">
           {excerpt.paragraphs.map((text, index) => (
@@ -1445,8 +1678,8 @@ function PinSide({
       ) : (
         <>
           <p className="wf-mute">
-            Liegt frei auf dem Brett. Zieh am Griff eine Schnur zu einem Faden oder einer Geschichte
-            – dann gehört {pin.article ? 'der Artikel' : 'der Name'} dazu.
+            Zieh am Griff einen Faden zu etwas anderem – auf dem Faden steht, wie es dazugehört.
+            Legst du es in einen Rahmen, der eine Geschichte ist, gehört es zu ihr.
           </p>
           <div className="wf-faden-side__acts">
             <Button size="sm" variant="ghost" onClick={onTakeOff} title="Auch mit der Löschtaste">
@@ -1706,12 +1939,13 @@ function Side({
             size="sm"
             variant="ghost"
             icon={<Flag />}
-            aria-pressed={data.state.boardNow === card.key}
+            aria-pressed={data.state.boardNow.includes(card.key)}
             title="Am Spieltisch stehen dann diese Karte und wohin ihre Pfeile führen"
             onClick={() => {
-              const here = data.state.boardNow === card.key;
-              const undo = setBoardNow(db, here ? null : card.key);
+              const here = data.state.boardNow.includes(card.key);
+              const undo = setBoardNow(db, card.key, !here);
               toast({
+                slot: 'fadenbrett',
                 title: here ? 'Markierung entfernt' : 'Hier steht die Gruppe',
                 body: here
                   ? 'Keine Karte ist mehr markiert.'
@@ -1720,7 +1954,9 @@ function Side({
               });
             }}
           >
-            {data.state.boardNow === card.key ? 'Hier steht die Gruppe ✓' : 'Hier steht die Gruppe'}
+            {data.state.boardNow.includes(card.key)
+              ? 'Hier steht die Gruppe ✓'
+              : 'Hier steht die Gruppe'}
           </Button>
           {data.state.boardPlayed.includes(card.key) && (
             <Button
@@ -1730,6 +1966,7 @@ function Side({
               onClick={() => {
                 const undo = setBoardPlayed(db, card.key, false);
                 toast({
+                  slot: 'fadenbrett',
                   title: 'Nicht mehr gespielt',
                   body: 'Die Karte gilt wieder als Möglichkeit.',
                   action: { label: 'Rückgängig', run: undo },
@@ -1775,6 +2012,7 @@ function Side({
                 const undo = setThreadOnBoard(db, lone.id, false);
                 if (undo)
                   toast({
+                    slot: 'fadenbrett',
                     title: 'Vom Brett genommen',
                     body: `„${lone.title}“ steht nur noch in der Liste „Lose Fäden“.`,
                     action: { label: 'Rückgängig', run: undo },
@@ -1911,6 +2149,7 @@ function Side({
                       const undo = moveThread(db, thread.id, null);
                       if (undo)
                         toast({
+                          slot: 'fadenbrett',
                           title: 'Von der Geschichte gelöst',
                           body: `„${thread.title}“ steht jetzt unter „Lose Fäden“.`,
                           action: { label: 'Rückgängig', run: undo },
@@ -2093,40 +2332,97 @@ function Side({
 }
 
 /** Ein Faden, gleich auf dem Brett geschrieben: Eingabetaste legt ihn hin, Escape verwirft. */
+/** Was ein Doppelklick ins Leere hinlegt: eine Notiz oder ein Ding der Welt. */
+type DraftKind = 'note' | EntityKind;
+/** Die Arten, die der Doppelklick gleich anbietet; alle übrigen stehen unter „Andere …“. */
+const DRAFT_FIRST: readonly DraftKind[] = ['note', 'person', 'place', 'item', 'faction'];
+
 function BoardDraft({
   at,
+  kind,
+  onKind,
   onDone,
   onCancel,
 }: {
   at: Spot;
+  kind: DraftKind;
+  onKind: (kind: DraftKind) => void;
   onDone: (title: string) => void;
   onCancel: () => void;
 }) {
+  const data = useData();
   const [text, setText] = useState('');
   useHoldDraft(text.trim() !== '', 'fadenbrett-faden');
+  const box = useRef<HTMLDivElement>(null);
+  const label = (entry: DraftKind) => (entry === 'note' ? 'Notiz' : KIND_LABEL[entry]);
+  const more = CREATE_KINDS.filter((entry) => !DRAFT_FIRST.includes(entry));
+  // Gibt es den Namen schon, sagt es die Zeile darunter – genommen wird dann dieser Eintrag.
+  const owner = kind !== 'note' && text.trim() ? entryForTitle(data, text.trim()) : null;
+  const known = owner ? ('free' in owner ? owner.free : owner.taken) : null;
   return (
     <div
+      ref={box}
       className="wf-faden-draft"
       style={{ left: at.x, top: at.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
+      onBlur={(event) => {
+        if (box.current?.contains(event.relatedTarget as Node | null)) return;
+        if (text.trim()) onDone(text);
+        else onCancel();
+      }}
     >
-      <span className="wf-faden-card__sort">Neuer Faden</span>
+      <span className="wf-btn-group wf-faden-draft__kinds" role="group" aria-label="Was es ist">
+        {DRAFT_FIRST.map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            className="wf-btn wf-btn--sm"
+            aria-pressed={kind === entry}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onKind(entry)}
+          >
+            {label(entry)}
+          </button>
+        ))}
+        <Select
+          className="wf-faden-draft__more"
+          aria-label="Andere Art"
+          value={DRAFT_FIRST.includes(kind) ? '' : kind}
+          onChange={(event) => event.target.value && onKind(event.target.value as EntityKind)}
+        >
+          <option value="">Andere …</option>
+          {more.map((entry) => (
+            <option key={entry} value={entry}>
+              {KIND_LABEL[entry]}
+            </option>
+          ))}
+        </Select>
+      </span>
       <input
         // Der Doppelklick hat den Platz gewählt: Hier wird jetzt geschrieben.
         autoFocus
         className="wf-input"
         value={text}
-        placeholder="Eine Frage, eine Spur, ein Gedanke …"
-        aria-label="Neuer Faden auf dem Brett"
+        placeholder={
+          kind === 'note'
+            ? 'Eine Notiz, ein Gedanke, ein Stück Geschichte …'
+            : `Name – ${label(kind)}`
+        }
+        aria-label="Neu auf dem Brett"
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') onDone(text);
           if (event.key === 'Escape') onCancel();
         }}
-        onBlur={() => (text.trim() ? onDone(text) : onCancel())}
       />
-      <span className="wf-faden-draft__hint">Eingabetaste legt ihn hin · Escape verwirft</span>
+      <span className="wf-faden-draft__hint">
+        {known
+          ? `Gibt es schon: ${known.name} (${KIND_LABEL[known.kind]}) – wird genommen`
+          : kind === 'note'
+            ? 'Eingabetaste legt die Notiz hin · Escape verwirft'
+            : 'Eingabetaste legt es als Platzhalter hin · Escape verwirft'}
+      </span>
     </div>
   );
 }
@@ -2251,6 +2547,130 @@ function AreaFrame({
 }
 
 /**
+ * Der Seitenteil eines Rahmens: ob er eine Geschichte ist (dann gehört zu ihr, was darin liegt),
+ * nur ihn zeigen, was darin liegt.
+ */
+function AreaSide({
+  area,
+  inside,
+  only,
+  onOnly,
+  onSelect,
+  onName,
+  onDrop,
+}: {
+  area: BoardArea;
+  inside: string[];
+  only: boolean;
+  onOnly: (on: boolean) => void;
+  onSelect: (key: string) => void;
+  onName: () => void;
+  onDrop: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const [, navigate] = useLocation();
+  const story = area.storyId ? data.stories[area.storyId] : undefined;
+  const stories = Object.values(data.stories)
+    .filter((entry) => !entry.closed || entry.id === area.storyId)
+    .sort((a, b) => a.title.localeCompare(b.title, 'de'));
+  const bind = (storyId: string | null | 'new') => {
+    const done = setAreaStory(db, area.id, storyId);
+    if (!done) return;
+    toast({
+      slot: 'fadenbrett',
+      title: done.story ? 'Rahmen ist eine Geschichte' : 'Nur ein Rahmen',
+      body: done.story
+        ? `Was darin liegt, gehört zu „${done.story.title}“ – am Spieltisch, bei den Gefährten, unter „Kommt vor in“.`
+        : 'Er ordnet nur noch das Brett.',
+      action: { label: 'Rückgängig', run: done.undo },
+    });
+  };
+  const names = inside.flatMap((key) => {
+    const face = thingFace(data, key);
+    if (face) return [{ key, label: face.name, sort: face.sort }];
+    const piece = boardPiece(data, key);
+    return piece
+      ? [{ key, label: piece.title, sort: piece.sort === 'story' ? 'Geschichte' : 'Karte' }]
+      : [];
+  });
+  return (
+    <aside className="wf-faden-side">
+      <div className="wf-faden-side__head">
+        <span className="wf-faden-card__sort">Rahmen{story ? ' · Geschichte' : ''}</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onName}
+          title="Auch mit Doppelklick auf den Namen"
+        >
+          Umbenennen
+        </Button>
+      </div>
+      <h2 className="wf-faden-side__title">{area.title || 'Bereich ohne Namen'}</h2>
+      <label className="wf-faden-side__field">
+        <span className="wf-mute">Dieser Rahmen ist</span>
+        <Select
+          value={area.storyId ?? ''}
+          onChange={(event) => bind(event.target.value || null)}
+          aria-label="Geschichte des Rahmens"
+        >
+          <option value="">nur ein Rahmen zum Ordnen</option>
+          {stories.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              die Geschichte „{entry.title}“
+            </option>
+          ))}
+        </Select>
+      </label>
+      {!story && (
+        <Button size="sm" onClick={() => bind('new')}>
+          Als neue Geschichte „{area.title.trim() || 'Neue Geschichte'}“
+        </Button>
+      )}
+      {story && (
+        <p className="wf-mute">
+          Was in diesem Rahmen liegt, gehört zu „{story.title}“ – ohne dass du etwas zuordnen musst.{' '}
+          <button
+            type="button"
+            className="wf-faden-link"
+            onClick={() => navigate(`/geschichte/${story.id}`)}
+          >
+            Blatt öffnen
+          </button>
+        </p>
+      )}
+      <div className="wf-faden-side__acts">
+        <Button size="sm" icon={only ? <Eye /> : <EyeOff />} onClick={() => onOnly(!only)}>
+          {only ? 'Alles zeigen' : 'Nur diesen Rahmen zeigen'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDrop} title="Was darin liegt, bleibt">
+          Rahmen entfernen
+        </Button>
+      </div>
+      <section>
+        <h3 className="wf-faden-side__sub">Darin ({names.length})</h3>
+        {names.length === 0 ? (
+          <p className="wf-mute">Noch liegt nichts darin. Zieh Karten hinein.</p>
+        ) : (
+          names.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              className="wf-faden-touchrow"
+              onClick={() => onSelect(row.key)}
+            >
+              <span>{row.label}</span>
+              <em>{row.sort}</em>
+            </button>
+          ))
+        )}
+      </section>
+    </aside>
+  );
+}
+
+/**
  * „Teile“ einer Geschichte im Seitenteil: zu welcher großen sie gehört (herauslösbar), ihre
  * Teilgeschichten (anklickbar), ein- und ausklappen auf dem Brett, eine neue Teilgeschichte.
  */
@@ -2278,6 +2698,7 @@ function StoryPartsSide({
     setName('');
     if (!made) return;
     toast({
+      slot: 'fadenbrett',
       title: 'Teilgeschichte angelegt',
       body: `„${made.story.title}“ ist Teil von „${story.title}“. Schreiben kannst du sie auf ihrem Blatt.`,
       action: { label: 'Rückgängig', run: made.undo },
@@ -2306,6 +2727,7 @@ function StoryPartsSide({
                   const undo = setStoryParent(db, story.id, null);
                   if (undo)
                     toast({
+                      slot: 'fadenbrett',
                       title: 'Herausgelöst',
                       body: `„${story.title}“ steht jetzt für sich.`,
                       action: { label: 'Rückgängig', run: undo },
@@ -2525,7 +2947,12 @@ function LinkMenu({
   const apply = (offer: LinkOffer, title: string) => {
     const undo = applyLinkOffer(db, offer);
     if (undo)
-      toast({ title, body: 'Die Schnur bleibt.', action: { label: 'Rückgängig', run: undo } });
+      toast({
+        slot: 'fadenbrett',
+        title,
+        body: 'Die Schnur bleibt.',
+        action: { label: 'Rückgängig', run: undo },
+      });
   };
   const story = (id: string) => data.stories[id]?.title ?? '';
   const thread = (id: string) => data.threads[id]?.title ?? '';

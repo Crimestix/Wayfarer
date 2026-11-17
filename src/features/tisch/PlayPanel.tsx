@@ -443,10 +443,7 @@ function PlayStory({
                       <span key={step.thread.id}>
                         {step.step === 'ledFrom' ? '←' : '→'} {step.thread.title}
                         {step.word && (
-                          <em>
-                            {' '}
-                            – {step.step === 'tie' ? step.word : `Hinweis: ${step.word}`}
-                          </em>
+                          <em> – {step.step === 'tie' ? step.word : `Hinweis: ${step.word}`}</em>
                         )}
                       </span>
                     ))}
@@ -562,6 +559,33 @@ function PlayStory({
               </span>
             </Row>
           ))}
+          {play.onBoard.length > 0 && (
+            <Row label="Auf dem Brett" block>
+              <ul className="wf-tisch-brett">
+                {play.onBoard.map((thing) => (
+                  <li key={thing.key}>
+                    <button
+                      type="button"
+                      className="wf-tisch-dazu__link wf-tisch-brett__name"
+                      title="Auf dem Fadenbrett zeigen"
+                      onClick={() => {
+                        focusOn({ type: 'card', key: thing.key });
+                        navigate('/faeden');
+                      }}
+                    >
+                      {thing.name}
+                    </button>
+                    <em>
+                      {' '}
+                      {thing.sort}
+                      {thing.marks.length > 0 && ` · ${thing.marks.join(' · ')}`}
+                    </em>
+                    {thing.note && <span className="wf-tisch-brett__note">{thing.note}</span>}
+                  </li>
+                ))}
+              </ul>
+            </Row>
+          )}
           {story && (
             <Row label="Merkzettel" block>
               <TextArea

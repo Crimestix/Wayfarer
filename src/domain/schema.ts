@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 14;
-export const DATA_SHAPE = '9a70920b4666e99b';
+export const DATA_VERSION = 15;
+export const DATA_SHAPE = '0af881f24c55c719';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -191,12 +191,28 @@ export const PlayStateSchema = z.object({
    * Wo die Gruppe auf dem Storyboard gerade steht: der Schlüssel einer Karte (`thread:`,
    * `story:`) – am Spieltisch mit dem, wohin ihre Pfeile führen. null = nirgends markiert.
    */
-  boardNow: z.string().nullable().default(null),
+  boardNow: z.preprocess(
+    // Früher eine einzige Stelle (oder keine) – heute so viele, wie Geschichten laufen.
+    (value) =>
+      value === null || value === undefined ? [] : typeof value === 'string' ? [value] : value,
+    z.array(z.string()),
+  ),
   /**
    * Der gespielte Weg auf dem Storyboard: Karten, an denen die Gruppe schon war (in der
    * Reihenfolge). Geschrieben wird eine Möglichkeit – gespielt wird, was die Spieler daraus machen.
    */
   boardPlayed: z.array(z.string()).default([]),
+  /**
+   * Was auf einer Karte der Pinnwand steht, gehört zur Karte, nicht zum Ding (Konzeptbesprechung
+   * 16. 11.): je Schlüssel (`node:`, `article:`) eine eigene Notiz und ob das Bild des Eintrags
+   * auf der Karte steht.
+   */
+  boardNotes: z
+    .record(
+      z.string(),
+      z.object({ text: z.string().default(''), image: z.boolean().default(false) }),
+    )
+    .default({}),
   /**
    * Schnüre, die der Spielleiter auf dem Fadenbrett ausgeblendet hat – nur das Bild, nie die
    * Welt: Der Name bleibt Teil der Geschichte, der Faden ihr Faden (Schlüssel der Schnur, etwa
@@ -212,6 +228,11 @@ export const PlayStateSchema = z.object({
         y: z.number(),
         w: z.number().positive(),
         h: z.number().positive(),
+        /**
+         * Der Rahmen ist eine Geschichte: Was in ihm liegt, gehört zu ihr (`frameMembers`) – für
+         * Gefährten, Spieltisch, „Kommt vor in“. null = nur ein Rahmen zum Ordnen.
+         */
+        storyId: id.nullable().default(null),
       }),
     )
     .default([]),
