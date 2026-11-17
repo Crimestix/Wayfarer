@@ -560,7 +560,7 @@ function PlayStory({
             </Row>
           ))}
           {play.onBoard.length > 0 && (
-            <Row label="Auf dem Brett" block>
+            <Row label="Brett" block>
               <ul className="wf-tisch-brett">
                 {play.onBoard.map((thing) => (
                   <li key={thing.key}>

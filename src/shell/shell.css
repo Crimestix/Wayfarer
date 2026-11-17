@@ -665,3 +665,17 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Unter den drei Kernen (Spieltisch, Fadenbrett, Welt) stehen, was sie füttert – abgesetzt. */
+.wf-nav__item[data-after-cores] {
+  margin-top: var(--s-3);
+}
+.wf-nav__item[data-after-cores]::before {
+  position: absolute;
+  top: calc(-1 * var(--s-2));
+  right: var(--s-4);
+  left: 18px;
+  height: 1px;
+  background: var(--line);
+  content: '';
+}

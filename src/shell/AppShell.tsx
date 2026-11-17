@@ -48,9 +48,10 @@ import {
   AREAS,
   BEAST_TABS,
   GROUP_TABS,
-  MAP_TABS,
+  LEAD_TABS,
   STORY_TABS,
   TIME_TABS,
+  WORLD_TABS,
   areaPaths,
   type Area,
 } from '../features/registry';
@@ -75,8 +76,13 @@ const timePage = (Page: ComponentType) => () => (
     <Page />
   </AreaTabs>
 );
-const mapPage = (Page: ComponentType) => () => (
-  <AreaTabs tabs={MAP_TABS}>
+const worldPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={WORLD_TABS}>
+    <Page />
+  </AreaTabs>
+);
+const leadPage = (Page: ComponentType) => () => (
+  <AreaTabs tabs={LEAD_TABS}>
     <Page />
   </AreaTabs>
 );
@@ -102,23 +108,26 @@ const GruppeBastion = groupPage(BastionPage);
 const GruppeSpielerbuch = groupPage(SpielerbuchPage);
 const GeschichtenBrett = storyPage(FaedenPage);
 const GeschichtenBlatt = storyPage(StoryPage);
-const GeschichtenAbend = storyPage(AbendPage);
-const GeschichtenHandouts = storyPage(HandoutsPage);
-const GeschichtenOffen = storyPage(OffenPage);
+const LeitenTisch = leadPage(TischPage);
+const LeitenAbend = leadPage(AbendPage);
+const LeitenHandouts = leadPage(HandoutsPage);
+const LeitenOffen = leadPage(OffenPage);
+const LeitenChronik = leadPage(ChronikPage);
 const BestiariumWesen = beastPage(BestiariumPage);
 const BestiariumBearbeiten = beastPage(CreatureEditorPage);
 const BestiariumBegegnungen = beastPage(EncountersPage);
 const BestiariumBestaende = beastPage(StocksPage);
 const ZeitKalender = timePage(KalenderPage);
-const ZeitChronik = timePage(ChronikPage);
 const ZeitGeschehen = timePage(GeschehenPage);
 const ZeitNachtragen = timePage(NachtragenPage);
 const ZeitZeitleiste = timePage(ZeitleistePage);
 const ZeitDamals = timePage(WorldAtPage);
-const KartenAtlas = mapPage(AtlasPage);
-const KartenKarten = mapPage(KartenPage);
-const KartenHex = mapPage(ErkundungPage);
-const KartenNetze = mapPage(WegenetzPage);
+const WeltSeite = worldPage(WeltPage);
+const WeltWiki = worldPage(WikiRoute);
+const KartenAtlas = worldPage(AtlasPage);
+const KartenKarten = worldPage(KartenPage);
+const KartenHex = worldPage(ErkundungPage);
+const GeschichtenNetze = storyPage(WegenetzPage);
 
 function NavRail() {
   const data = useData();
@@ -137,6 +146,7 @@ function NavRail() {
       <div className="wf-nav">
         {AREAS.map((area, i) => (
           <Link
+            data-after-cores={!area.core && AREAS[i - 1]?.core ? true : undefined}
             key={area.path}
             href={area.path}
             className="wf-nav__item"
@@ -391,10 +401,10 @@ export function AppShell() {
         <IncomingLine />
         <ErrorBoundary resetKey={location} onLeave={() => navigate('/')}>
           <Switch>
-            <Route path="/" component={TischPage} />
-            <Route path="/welt/:id?" component={WeltPage} />
-            <Route path="/wiki/:id?" component={WikiRoute} />
-            <Route path="/chronik" component={ZeitChronik} />
+            <Route path="/" component={LeitenTisch} />
+            <Route path="/welt/:id?" component={WeltSeite} />
+            <Route path="/wiki/:id?" component={WeltWiki} />
+            <Route path="/chronik" component={LeitenChronik} />
             <Route path="/nachtragen/:id?" component={ZeitNachtragen} />
             <Route path="/zeitleiste" component={ZeitZeitleiste} />
             <Route path="/damals/:at?" component={ZeitDamals} />
@@ -408,19 +418,19 @@ export function AppShell() {
             <Route path="/erkundung/:id?" component={KartenHex} />
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />
-            <Route path="/wegenetze/:id?" component={KartenNetze} />
+            <Route path="/wegenetze/:id?" component={GeschichtenNetze} />
             <Route path="/faeden" component={GeschichtenBrett} />
             <Route path="/geschichte/:id" component={GeschichtenBlatt} />
-            <Route path="/abend" component={GeschichtenAbend} />
-            <Route path="/handouts" component={GeschichtenHandouts} />
-            <Route path="/offen" component={GeschichtenOffen} />
+            <Route path="/abend" component={LeitenAbend} />
+            <Route path="/handouts" component={LeitenHandouts} />
+            <Route path="/offen" component={LeitenOffen} />
             <Route path="/bestiarium/neu/:art?/:erbt?" component={BestiariumBearbeiten} />
             <Route path="/bestiarium/:id/bearbeiten" component={BestiariumBearbeiten} />
             <Route path="/bestiarium/:id?" component={BestiariumWesen} />
             <Route path="/begegnungen/:id?" component={BestiariumBegegnungen} />
             <Route path="/bestaende/:id?" component={BestiariumBestaende} />
             <Route path="/einstellungen" component={EinstellungenPage} />
-            <Route component={TischPage} />
+            <Route component={LeitenTisch} />
           </Switch>
         </ErrorBoundary>
       </main>

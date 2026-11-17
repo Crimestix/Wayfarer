@@ -93,12 +93,15 @@ nicht übernommen.
   angelegt hat – eine neue Sammlung, die man finden soll, dort eintragen. Soll ein Treffer auf
   einer Seite ohne eigene Adresse etwas öffnen (Karte des Fadenbretts, Uhr, Tag), geht das über
   `focus.ts` (`focusOn`, `useFocus`).
-- **Navigation** (`features/registry.ts`): sieben Einträge – Spieltisch, Welt, Zeit,
-  Fadenbrett, Bestiarium, Gefährten, Karten. Verwandte Seiten stehen als Reiter unter einem
-  Eintrag (`shell/AreaTabs`): „Zeit“ = Kalender, Chronik, Zeitleiste, Nachtragen und Weltgeschehen (dazu ohne Reiter „Welt an einem Tag“, `/damals`); „Fadenbrett“ = Fadenbrett, Abend vorbereiten, Handouts und Noch offen; „Gefährten“ =
-  Gefährten und Beute-Buch; „Bestiarium“ = Wesen,
-  Begegnungen und Bestände; „Karten“ = Weltkarte (`atlas`),
-  Karten (`karten`), Wegenetze (`wegenetz`), Hexkarten (`erkundung`). „Welt“ ist Weltdatenbank und Wiki in einem:
+- **Navigation** (`features/registry.ts`) folgt den **drei Kernen** (Konzeptbesprechung 16. 11.,
+  `docs/KONZEPT-BESPRECHUNG-16-11.md`): oben Spieltisch (Leiten), Fadenbrett (Storyboarding), Welt
+  (Worldbuilding); abgesetzt darunter, was sie füttert: Gefährten, Zeit, Bestiarium. Verwandte
+  Seiten stehen als Reiter unter einem Eintrag (`shell/AreaTabs`), die Adressen bleiben:
+  „Spieltisch“ = Spieltisch, Abend vorbereiten, Chronik, Noch offen, Handouts; „Fadenbrett“ =
+  Fadenbrett und Wegenetze; „Welt“ = Welt, Weltkarte (`atlas`), Karten (`karten`), Hexkarten
+  (`erkundung`); „Gefährten“ = Gefährten, Beute-Buch, Fortschritt, Bastion, Spielerbuch; „Zeit“ =
+  Kalender, Zeitleiste, Weltgeschehen, Nachtragen (dazu ohne Reiter „Welt an einem Tag“,
+  `/damals`); „Bestiarium“ = Wesen, Begegnungen, Bestände. „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“, „Netz“ und „Noch zu
   schreiben“, eine Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
@@ -664,7 +667,23 @@ nicht übernommen.
   Rand der Karten (`stringPath`, `edgePoint`). „Hier steht die Gruppe“ ist `state.boardNow`
   (`setBoardNow`); am Spieltisch zeigt `BoardNowBox` die Karte und wohin ihre Pfeile führen
   (`boardNowView`), „Hierhin“ rückt über `moveBoardNow` weiter und legt die alte Karte auf den
-  gespielten Weg (`state.boardPlayed`, `setBoardPlayed`). Alles in `domain/whiteboard.ts`. Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
+  gespielten Weg (`state.boardPlayed`, `setBoardPlayed`). Alles in `domain/whiteboard.ts`.
+  **Pinnwand eines Ermittlers** (Konzeptbesprechung 16. 11.): Auf dem Brett liegen die Dinge
+  selbst – Personen, Orte, Gegenstände als Karten (`ThingCard`, gelesen über `thingFace`: Name,
+  Kategorie · eigenes Wort `ownWord`, leiser Zustand), nie als „Frage“ oder „Hinweis“; das wird
+  ein Ding erst durch seinen Faden. **Die Notiz gehört zur Karte, nicht zum Ding**
+  (`state.boardNotes`, `setBoardNote`, Doppelklick `NoteWriter`; auf Wunsch das Bild). Ein
+  Doppelklick ins Leere fragt die Art (`BoardDraft`: Notiz, Person, Ort, Gegenstand, Fraktion,
+  andere; `writeThingOnBoard` über `addFromWriting` – nie ein zweiter Eintrag). Hingelegtes landet
+  nie übereinander (`freeSpot`), Meldungen des Bretts stapeln sich nicht (`toast` mit `slot`).
+  **Ein Rahmen kann eine Geschichte sein** (`area.storyId`, `setAreaStory`; neu mit dem Namen des
+  Rahmens): Was darin liegt, gehört zu ihr (`frameKeys`, `frameMembers` – aus den gespeicherten
+  Stellen, nie zugeordnet), zählt in `storyNodes`, `storiesOfHero`, „Kommt vor in“ und steht am
+  Spieltisch als „Brett“ (`playView().onBoard`). „Nur diesen Rahmen zeigen“ ist Ansicht
+  (`onlyArea`), nie Spielstand. „Hier steht die Gruppe“ darf mehrfach stehen (`state.boardNow`
+  ist eine Liste; `setBoardNow(…, on)`, `moveBoardNow(from, to)`, `boardNowViews`). Text aufs
+  Brett holen (Absatz einer Backstory, Ereignis der Bastion): `pinTextToBoard` – Notizkarte mit
+  Faden und Wort zum Ding, von dem es kommt. Eine Idee ohne Hinweise trägt keine Warnung. Die Daten dahinter bleiben: Fäden verbinden sich (`thread.ties`, `tiesOf`), ein
   Hinweis kann zu einem Faden führen (`hint.leadsTo`, `leadNote`/`findHint`), am Spieltisch
   zeigt `neighboursOf` bei Fäden am Ort einen Schritt weiter (`PlayThread.next`); Vorschläge zum
   Verbinden (`tieFits`, `SUGGESTION.tie`) auf dem Blatt (`ThreadWeb`). `boardWeb` (Knoten,
@@ -754,6 +773,21 @@ nicht übernommen.
   „Zwischenzeit“ (`kind: 'downtime'`, am Beginn, je Gefährte seine Tätigkeit) nur aus den
   gewählten Tätigkeiten, Fertiges gehört auf Wunsch dem Gefährten – einem anderen nimmt es ihn
   nur ausdrücklich (`keepByDefault`), Rückgängig.
+- Kategorien und eigenes Wort (Konzeptbesprechung 16. 11., nach dem Vorbild der Läden): Die Art
+  eines Eintrags heißt sichtbar **Kategorie** (dazu Gottheit `deity`, Reich `realm`, Ereignis
+  `happening`; „Thema“ heißt Überlieferung), darunter steht frei das **eigene Wort** („Genauer“,
+  gespeichert als `category`, bei Personen die Rolle) – Vorschläge aus den eigenen Wörtern zuerst
+  (`wordChoices`, `categoryOptions`). Neue Kategorien lesen ihren Steckbrief über `VOCABULARY`
+  (Domänen, Tempel, Hauptstadt, Gebiet, Herrscher als Beziehung `rules`, Beginn/Ende als
+  Lebensdaten, Ort). Die **Größe eines Ortes** (Gegend, Siedlung, Gebäude; Raum über
+  `place.room`) steht in `place.scale` oder wird aus dem Wort gelesen – gefragt immer über
+  `placeScale()` (`domain/placeScale.ts`). **Vorlagen durch Merken** (`domain/pageTemplate.ts`,
+  `campaign.pageTemplates`): „Als Vorlage für <Wort> merken“ (`rememberPageTemplate`) behält die
+  Form einer Seite (`templateOfText`: Steckbrief-Zeilen ohne Wert, Überschriften, eigene Fragen),
+  „Neu“ bietet sie beim nächsten Ding mit Kategorie und Wort an (`templateFor`). Leitfragen je
+  Kategorie (`KIND_QUESTIONS`, `pageQuestions`) stehen leise am Rand, wegklickbar
+  (`SUGGESTION.question`), und schweigen, sobald die Seite eigene Fragen hat. Nie eine Vorlage
+  mitliefern, nie ein Feld zur Pflicht.
 - Räume: Ein Ort mit `place.room` gehört zum Ort darüber (Festung, Verlies, Haus) und steht nicht
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt
@@ -805,6 +839,12 @@ nicht übernommen.
   geleiteten stehen (beschäftigt bis, voraus, zurück, fertig seit): `groupStanding`,
   `partyOverview`. Leser über alle Teilgruppen (Abend, Rückblick, Zeitleiste, `worldAt`, Karten,
   Besuche) sind Schritt 2 (`docs/getrennte-wege-entwurf.md`).
+- Gefährten (Konzeptbesprechung 16. 11.): Unter Gefährten steht alles, was die Charaktere der
+  Spieler betrifft; ihr Wiki-Artikel ist unwichtig, solange sie Gefährten sind. Die Backstory
+  trägt der Spielleiter als Text ein (`character.backstory`, `gruppe/Backstory.tsx`): genannte
+  Namen erkannt, jeder Absatz (`backstoryParts`, Überschrift `cardTitleOf` – immer seine Worte)
+  auf Klick aufs Fadenbrett. Seine Einrichtungen der Bastion stehen auf seiner Seite
+  (`facilitiesOf`); ein Bastionsereignis lässt sich im Zug aufs Brett legen.
 - Zwei Gefährten, ein Körper (`domain/body.ts`, `character.bodyWith` / `character.resting`):
   zwei eigene Gefährten, immer genau einer hat die Kontrolle; wer ruht, fehlt in `activeParty`.
   Schaden, Zustände, Erschöpfung, Teilgruppe, Marsch und Wirkungen gehören dem Körper und ziehen
