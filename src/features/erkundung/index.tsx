@@ -494,6 +494,12 @@ function AreaView({ area }: { area: Area }) {
                     : `${hexDistance(start, hex)} ${hexDistance(start, hex) === 1 ? 'Feld' : 'Felder'} vom Start · etwa ${km(hexDistance(start, hex) * area.hexKm)}`}
                 </p>
               )}
+              {!hex.manual && (hex.feature || hex.afar || hex.hidden || hex.sign) && (
+                <p className="wf-erk-detail__where">
+                  Von Wayfarer erzeugt – aus den Würfeltabellen der Einstellungen. Was du hier
+                  änderst, bleibt beim Neu würfeln.
+                </p>
+              )}
               <Checkbox
                 checked={hex.discovered}
                 onChange={(discovered) => patchHex(db, area.id, hex, { discovered })}

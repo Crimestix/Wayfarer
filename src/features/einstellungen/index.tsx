@@ -16,6 +16,7 @@ import { AtlasSection } from './AtlasSection';
 import { WikiImportSection } from './WikiImportSection';
 import { SourcesSection } from './SourcesSection';
 import { ScaffoldSection } from './ScaffoldSection';
+import { TablesSection } from './TablesSection';
 import { TrashSection } from './TrashSection';
 import { DismissedSection } from './DismissedSection';
 import { TableRulesSheet } from '../tisch/TableRules';
@@ -99,6 +100,14 @@ export default function Page() {
             lead="Welche Felder ein neuer Artikel je Art leer mitbekommt – Person, Ort, Fraktion und so weiter. Nur Feldnamen, nie ein Wert; ausgefüllt wird von dir."
           >
             <ScaffoldSection />
+          </Section>
+
+          <Section
+            numeral={numeral()}
+            title="Würfeltabellen"
+            lead="Die Listen, aus denen Wayfarer erzeugt – Fundstellen, Verborgenes und Besonderheiten auf den Hexkarten. Wo andere würfeln, wählt Wayfarer aus deiner Liste."
+          >
+            <TablesSection />
           </Section>
 
           <Section

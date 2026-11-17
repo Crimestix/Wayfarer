@@ -768,3 +768,36 @@
   align-items: center;
   gap: var(--s-1);
 }
+
+/* Würfeltabellen: je Tabelle ein Klappteil mit Namen, Zahl der Einträge und der Liste. */
+.wf-einstellungen-tables {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-einstellungen-tables__table {
+  border-bottom: 1px solid var(--line-faint);
+  padding: 4px 0 var(--s-2);
+}
+.wf-einstellungen-tables__table > summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.wf-einstellungen-tables__name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+.wf-einstellungen-tables__table > p {
+  margin: 0 0 var(--s-2);
+  font-size: var(--text-sm);
+}
+.wf-einstellungen-tables__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: start;
+  gap: var(--s-2);
+}

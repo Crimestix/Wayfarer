@@ -17,6 +17,7 @@ import {
 import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
+import { generatorTables } from './tables';
 import {
   planSearch,
   planStep,
@@ -75,6 +76,7 @@ export function rerollInput(
     between: known.between,
     ground: groundOf(db.getSnapshot(), known.origin, area.hexKm),
     route: known.route,
+    tables: generatorTables(db.getSnapshot()),
   };
 }
 
@@ -85,15 +87,13 @@ const handMade = (hex: Hex): boolean =>
   hex.road !== 'none' ||
   hex.prepared.trim() !== '' ||
   hex.note.trim() !== '' ||
-  hex.afar.trim() !== '' ||
-  hex.hidden.trim() !== '' ||
-  hex.sign.trim() !== '' ||
   hex.tableIds.length > 0;
 
 /**
  * Würfelt das Gelände einer erzeugten Karte neu. Name und Notizen bleiben; was der Spielleiter an
- * Feldern von Hand gemacht hat (gemalt, Gegend, Straße, Vorbereitetes, Notiz, von fern zu sehen,
- * verborgen), bleibt, wie es ist.
+ * Feldern von Hand gemacht hat (gemalt, Gegend, Straße, Vorbereitetes, Notiz, alles, was er an ein
+ * Feld geschrieben hat), bleibt, wie es ist. Fundstellen und Besonderheiten kommen neu aus den
+ * Tabellen.
  * Felder, die er angefügt hat, bleiben auch. `undo` stellt den alten Stand wieder her.
  */
 export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null {
@@ -124,14 +124,13 @@ export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null 
         placeId: hex.placeId ?? (keepPlace ? before.placeId : null),
         prepared: before.prepared,
         note: before.note,
-        sign: before.sign,
-        afar: before.afar,
-        sighted: before.sighted,
-        hidden: before.hidden,
-        searched: before.searched,
+        // Was der Spielleiter ans Feld geschrieben hat, bleibt; Erzeugtes kommt neu.
+        sign: before.manual ? before.sign : hex.sign,
+        afar: before.manual ? before.afar : hex.afar,
+        hidden: before.manual ? before.hidden : hex.hidden,
         tableIds: before.tableIds,
         regionId: before.regionId,
-        feature: before.manual && before.feature ? before.feature : hex.feature,
+        feature: before.manual ? before.feature : hex.feature,
         manual: before.manual,
         dug: before.dug,
       };

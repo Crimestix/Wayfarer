@@ -44,6 +44,8 @@ import {
 } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { generateCaves, type CaveQuality } from '../../domain/caves';
+import { entryParts, pickFrom } from '../../domain/rollTable';
+import { DEFAULT_GENERATOR_TABLES, generatorTables, type GeneratorTables } from './tables';
 
 // ── Erkennen: Entfernung, Richtung, Orte am Weg ────────────────────────────
 
@@ -495,112 +497,7 @@ export function terrainOf(biome: Terrain, height: number, wet: number, side: num
   }
 }
 
-/** Besonderheiten der Landschaft – das, wofür andere eine Entdeckungstabelle würfeln. */
-export const FEATURES: Record<Terrain, string[]> = {
-  grassland: [
-    'Einzelner alter Baum',
-    'Flacher Bachlauf',
-    'Felsblock im offenen Land',
-    'Wildblumenwiese',
-    'Verfallene Wegmarke',
-    'Ausgetretener Wildwechsel',
-    'Kleiner Tümpel',
-    'Windschiefe Feldscheune',
-  ],
-  forest: [
-    'Lichtung',
-    'Uralter Baumriese',
-    'Windbruch',
-    'Moosbedeckter Findling',
-    'Bachlauf',
-    'Verlassene Köhlerstelle',
-    'Dichtes Unterholz',
-    'Hohler Baum',
-  ],
-  hills: [
-    'Aussichtskuppe',
-    'Steiniger Hohlweg',
-    'Quelle am Hang',
-    'Verfallene Schäferhütte',
-    'Felsüberhang',
-    'Geröllfeld',
-    'Alter Grenzstein',
-    'Einsame Baumgruppe',
-  ],
-  mountains: [
-    'Schmaler Pass',
-    'Geröllhalde',
-    'Wasserfall',
-    'Höhleneingang',
-    'Felsnadel',
-    'Schneefeld',
-    'Bergsee',
-    'Steile Klamm',
-  ],
-  swamp: [
-    'Trockene Insel im Moor',
-    'Schwarzes Wasserloch',
-    'Nebelsenke',
-    'Alter Knüppeldamm',
-    'Versunkene Baumstümpfe',
-    'Schilfdickicht',
-    'Torfstich',
-    'Faulig riechender Grund',
-  ],
-  desert: [
-    'Wasserloch',
-    'Felsbogen',
-    'Wanderdüne',
-    'Ausgetrocknetes Flussbett',
-    'Salzpfanne',
-    'Windgeschliffene Felsen',
-    'Dornengestrüpp',
-    'Schattige Felsnische',
-  ],
-  arctic: [
-    'Gletscherspalte',
-    'Eishöhle',
-    'Windgepeitschter Grat',
-    'Zugefrorener See',
-    'Schneewechte',
-    'Heiße Quelle',
-    'Blankes Eisfeld',
-    'Geschützte Senke',
-  ],
-  coast: [
-    'Felsbucht',
-    'Gezeitentümpel',
-    'Treibholzstrand',
-    'Steilklippe',
-    'Sandbank',
-    'Seevogelkolonie',
-    'Dünengürtel',
-    'Angespültes Wrackteil',
-  ],
-  water: [
-    'Sandbank',
-    'Felsriff',
-    'Starke Strömung',
-    'Treibgutfeld',
-    'Kleine Felseninsel',
-    'Nebelbank',
-    'Untiefe',
-    'Tangteppich',
-  ],
-  underdark: [
-    'Tropfsteinhalle',
-    'Enger Kriechgang',
-    'Leuchtende Flechten',
-    'Eingestürzter Stollen',
-    'Heiße Quelle',
-    'Pilzhain',
-    'Tiefe Kluft',
-    'Kristalladern',
-    'Alte Wegmarke',
-    'Unterirdischer Wasserlauf',
-  ],
-  urban: [],
-};
+export { CAVE_FEATURES, DEAD_END_FEATURES, FEATURES } from './tables';
 
 // ── Erzeugen ───────────────────────────────────────────────────────────────
 
@@ -620,12 +517,22 @@ export interface GenerateInput {
   route?: Recognition['route'];
   /** Orte, die schon auf Feldern stehen (Neu würfeln): Unter der Erde führen Gänge zu ihnen. */
   pinned?: { q: number; r: number; placeId: string }[];
+  /** Die Tabellen des Spielleiters (`generatorTables`); ohne sie gelten die Vorgaben. */
+  tables?: GeneratorTables;
 }
 
 /** So viele Felder hat eine Karte höchstens; breitere Streifen werden schmaler gemacht. */
 export const MAX_HEXES = 1400;
 /** Anteil der Felder mit einer Besonderheit. */
 const FEATURE_SHARE = 0.16;
+/**
+ * Fundstellen und Verborgenes (Wunsch 17. 11.: „Nicht jedes Hex darf mit allem voll sein“): ein
+ * Feld bekommt höchstens eins – eine Besonderheit, eine Fundstelle oder etwas Verborgenes –,
+ * Fundstellen liegen mindestens drei Felder auseinander, Verborgenes nie nebeneinander.
+ */
+const SITE_SHARE = 0.09;
+const SITE_SPACING = 3;
+const HIDDEN_SHARE = 0.07;
 
 export interface GeneratedMap {
   hexes: Hex[];
@@ -752,42 +659,64 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
 
   // Besonderheiten: verstreut, nie zwei nebeneinander, nicht auf Feldern mit einem Ort.
   const byKey = new Map(hexes.map((hex) => [hexKey(hex), hex]));
+  const tables = input.tables ?? DEFAULT_GENERATOR_TABLES;
   for (const hex of hexes) {
     if (hex.placeId || !hex.terrain) continue;
-    const options = FEATURES[hex.terrain];
+    const table = tables.slot(`feature:${hex.terrain}`);
     const rng = rngOf(seedOf(input.seed, 'feature', hex.q, hex.r));
-    if (!options.length || !rng.chance(FEATURE_SHARE)) continue;
+    if (!table?.rows.length || !rng.chance(FEATURE_SHARE)) continue;
     if (hexNeighbors(hex).some((n) => byKey.get(hexKey(n))?.feature)) continue;
-    hex.feature = rng.pick(options)!;
+    hex.feature = entryParts(pickFrom(table, rng.int)).here;
   }
+  placeFindings(hexes, input.seed, tables, (hex) =>
+    hex.terrain && hex.terrain !== 'water' ? 'site' : null,
+  );
   return { hexes, line, radius };
 }
 
+/**
+ * Fundstellen und Verborgenes aus den Tabellen, selten und verstreut. Eine Fundstelle schreibt,
+ * was die Gruppe vorfindet (Besonderheit), was man von fern sieht (unter der Erde: von nebenan,
+ * die Witterung) und was verborgen liegt.
+ */
+function placeFindings(
+  hexes: Hex[],
+  seed: number,
+  tables: GeneratorTables,
+  slotOf: (hex: Hex) => string | null,
+): void {
+  const sites: Hex[] = [];
+  const taken = (hex: Hex) => !!(hex.placeId || hex.feature || hex.afar || hex.hidden || hex.sign);
+  for (const hex of hexes) {
+    const slot = slotOf(hex);
+    if (!slot || taken(hex)) continue;
+    const rng = rngOf(seedOf(seed, 'fundstelle', hex.q, hex.r, hex.level));
+    if (!rng.chance(SITE_SHARE)) continue;
+    if (sites.some((site) => site.level === hex.level && hexDistance(site, hex) < SITE_SPACING))
+      continue;
+    const table = tables.slot(slot);
+    if (!table?.rows.length) continue;
+    const parts = entryParts(pickFrom(table, rng.int));
+    if (!parts.here && !parts.afar && !parts.hidden) continue;
+    hex.feature = parts.here;
+    if (hex.exits === null) hex.afar = parts.afar;
+    else hex.sign = parts.afar;
+    hex.hidden = parts.hidden;
+    sites.push(hex);
+  }
+  const byKey = new Map(hexes.map((hex) => [hexKey(hex), hex]));
+  for (const hex of hexes) {
+    if (!slotOf(hex) || taken(hex)) continue;
+    const rng = rngOf(seedOf(seed, 'verborgen', hex.q, hex.r, hex.level));
+    if (!rng.chance(HIDDEN_SHARE)) continue;
+    if (hexNeighbors(hex).some((n) => byKey.get(hexKey(n))?.hidden)) continue;
+    const table = tables.slot('hidden');
+    if (!table?.rows.length) continue;
+    hex.hidden = entryParts(pickFrom(table, rng.int)).here;
+  }
+}
+
 // ── Unter der Erde ─────────────────────────────────────────────────────────
-
-/** Was eine Höhle auszeichnet – erzeugte Gestalt, kein Inhalt der Geschichte. */
-export const CAVE_FEATURES = [
-  'Große Höhle',
-  'Tropfsteinhalle',
-  'Pilzwald',
-  'Kristallgrotte',
-  'Unterirdischer See',
-  'Einsturzhalle',
-  'Leuchtmooshöhle',
-  'Schlotkammer',
-  'Säulenhalle',
-  'Warme Quellhöhle',
-];
-
-/** Woran eine Sackgasse endet. */
-export const DEAD_END_FEATURES = [
-  'Sackgasse',
-  'Verschütteter Gang',
-  'Nische mit Tropfwasser',
-  'Spalt, zu eng zum Weitergehen',
-  'Senkloch voller Wasser',
-  'Alter Lagerplatz',
-];
 
 /** Felder unter der Erde höchstens, über alle Ebenen. */
 const MAX_CAVE_HEXES = 2400;
@@ -829,14 +758,19 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
   const fixed = [...places.keys()].map((key) => cells.find((c) => hexKey(c) === key)!);
 
   const caves = generateCaves({ cells, start, goal: end, levels, seed: input.seed, fixed });
+  const tables = input.tables ?? DEFAULT_GENERATOR_TABLES;
+  const featureOf = (slot: string, rng: ReturnType<typeof rngOf>) => {
+    const table = tables.slot(slot);
+    return table?.rows.length ? entryParts(pickFrom(table, rng.int)).here : '';
+  };
   const hexes: Hex[] = caves.cells.map((cell) => {
     const rng = rngOf(seedOf(input.seed, 'hoehle', cell.q, cell.r, cell.level));
     const top = cell.level === 0;
     const feature =
       cell.role === 'cave'
-        ? rng.pick(CAVE_FEATURES)!
+        ? featureOf('feature:cave', rng)
         : cell.role === 'deadend'
-          ? rng.pick(DEAD_END_FEATURES)!
+          ? featureOf('feature:deadend', rng)
           : '';
     return {
       q: cell.q,
@@ -862,12 +796,18 @@ function generateUnderdark(input: GenerateInput): GeneratedMap {
       searched: false,
     };
   });
+  // Fundstellen in Gängen und Kreuzungen – Höhlen und Sackgassen haben schon ihr Gepräge.
+  const roles = new Map(caves.cells.map((cell) => [hexKey(cell), cell.role]));
+  placeFindings(hexes, input.seed, tables, (hex) => {
+    const role = roles.get(hexKey(hex));
+    return role === 'tunnel' || role === 'junction' ? 'site:underdark' : null;
+  });
   return { hexes, line, radius, caves: caves.quality };
 }
 
 /** Die fertige Karte als Erkundungsgebiet. */
 export function generateArea(data: CampaignData, input: GenerateInput, name?: string): Area {
-  const { hexes } = generateHexes(input);
+  const { hexes } = generateHexes({ ...input, tables: input.tables ?? generatorTables(data) });
   const stamp = nowIso();
   const fromName = data.entities[input.fromId]?.name ?? 'Start';
   const toName = data.entities[input.toId]?.name ?? 'Ziel';

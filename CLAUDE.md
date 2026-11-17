@@ -363,7 +363,23 @@ nicht übernommen.
   (`hex.hidden`, `hex.searched`): Durchsuchen dauert so lange wie das Durchqueren zu Fuß
   (`searchMinutes`), auf der Hexkarte über `searchHex` (Begegnungen über `rollEncounters`),
   unterwegs über `searchOnJourney` (eine Prüfung auf den Begegnungen der Gegend, die Reise kommt
-  nicht voran, Halt `search`); Gefundenes steht in der Chronik. Leere Felder sind gewollt. Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
+  nicht voran, Halt `search`); Gefundenes steht in der Chronik. Leere Felder sind gewollt.
+  **Würfeltabellen der Erzeuger** (Wunsch 17. 11.: „Man trägt einfach die Dinge ein, die man dort
+  möglich sieht … man muss nicht 2W6 machen, auch 37 Einträge sind fine“): Eine Tabelle ist eine
+  Liste, eine Zeile je Möglichkeit, jede gleich oft (`domain/rollTable.ts`: `readTable`,
+  `pickFrom`; „3×“ macht häufiger, eingefügte Bereiche „1–3:“ zählen als Häufigkeit). Gespeichert
+  als `RollTable` mit `kind: 'generator'` und `slot`; Vorgaben in `erkundung/tables.ts`
+  (`DEFAULT_TABLES`: Fundstellen, Fundstellen unter der Erde, Verborgenes, Besonderheiten je
+  Gelände, Höhlen, Sackgassen – nur Beiwerk in eigenen Worten); was gilt, sagt `generatorTables`
+  (eigene vor Vorgabe), geändert über `erkundung/tableActions.ts`, Einstellungen →
+  „Würfeltabellen“. Ein Eintrag darf sagen, was man von fern (unter der Erde: von nebenan) sieht
+  und was verborgen liegt: „Ein Köhlerlager (von fern: eine Rauchsäule) (verborgen: …)“
+  (`entryParts`). Der Erzeuger (`placeFindings` in `generate.ts`) legt höchstens eins je Feld:
+  Besonderheit (`FEATURE_SHARE`), Fundstelle (`SITE_SHARE`, mindestens drei Felder auseinander)
+  oder Verborgenes (`HIDDEN_SHARE`, nie nebeneinander); unter der Erde Fundstellen nur in Gängen
+  und Kreuzungen. Erzeugtes hat kein `manual`; Neu würfeln behält nur, was der Spielleiter ans
+  Feld geschrieben hat. Neue Erzeuger nehmen ihre Listen über einen neuen Platz in
+  `DEFAULT_TABLES`, nie fest im Code. Ein Fluss ohne Straße oder Pfad hält die Reise einmal beim Betreten (Halt
   `river`). Orientierung abseits von Wegen (freie Strecke oder Feld ohne Straße): einmal am Tag
   ein Halt `navigate` (`navigationAt`, SG der Gegend `place.navDc` – leer = Vorschlag nach
   Gelände `SUGGESTED_NAV_DC`, 0 = nie); „Verirrt“ würfelt den Umweg (`getLost`, 1W6 Stunden),

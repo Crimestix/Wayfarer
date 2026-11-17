@@ -14,10 +14,12 @@ import {
   AreaSchema,
   MapSchema,
   PathSchema,
+  RollTableSchema,
   TERRAINS,
   createEntity,
   type CampaignData,
   type Entity,
+  type Hex,
 } from '../../domain/schema';
 import { DAY_KM, formatDays, travelDays } from '../../domain/terrain';
 import {
@@ -34,6 +36,7 @@ import {
   terrainShares,
   type GenerateInput,
 } from './generate';
+import { generatorTables } from './tables';
 
 const place = (name: string, details: Record<string, unknown> = {}, extra: object = {}) =>
   createEntity({ kind: 'place', name, place: details, ...extra });
@@ -260,14 +263,55 @@ describe('Hexkarte erzeugen', () => {
   it('streut Besonderheiten passend zum Gelände, nie zwei nebeneinander', () => {
     const { hexes } = generateHexes(input);
     const byKey = new Map(hexes.map((h) => [hexKey(h), h]));
-    const marked = hexes.filter((h) => h.feature);
+    const isLandscape = (h: Hex) => FEATURES[h.terrain!].includes(h.feature);
+    const marked = hexes.filter((h) => h.feature && isLandscape(h));
     expect(marked.length / hexes.length).toBeGreaterThan(0.05);
     expect(marked.length / hexes.length).toBeLessThan(0.25);
     for (const hex of marked) {
-      expect(FEATURES[hex.terrain!]).toContain(hex.feature);
       expect(hex.placeId).toBeNull();
-      for (const n of hexNeighbors(hex)) expect(byKey.get(hexKey(n))?.feature ?? '').toBe('');
+      for (const n of hexNeighbors(hex)) {
+        const other = byKey.get(hexKey(n));
+        if (other && isLandscape(other)) expect(other.feature).toBe('');
+      }
     }
+  });
+
+  it('legt Fundstellen und Verborgenes selten und verstreut aus den Tabellen', () => {
+    const { hexes } = generateHexes(input);
+    const sites = hexes.filter((h) => h.feature && !FEATURES[h.terrain!].includes(h.feature));
+    const hiddenOnly = hexes.filter((h) => h.hidden && !h.feature);
+    // Nicht jedes Feld ist voll: zusammen weit unter der Hälfte.
+    const filled = hexes.filter((h) => h.feature || h.hidden || h.afar);
+    expect(filled.length / hexes.length).toBeLessThan(0.4);
+    expect(sites.length).toBeGreaterThan(0);
+    expect(hiddenOnly.length).toBeGreaterThan(0);
+    for (const a of sites)
+      for (const b of sites) if (a !== b) expect(hexDistance(a, b)).toBeGreaterThanOrEqual(3);
+    // Was man von fern sieht, gehört immer zu einer Fundstelle.
+    for (const hex of hexes.filter((h) => h.afar)) expect(sites).toContain(hex);
+  });
+
+  it('nimmt die Tabelle des Spielleiters, wenn es eine gibt', () => {
+    const tables = generatorTables({
+      tables: {
+        eigene: RollTableSchema.parse({
+          id: 'eigene',
+          created: '',
+          updated: '',
+          name: 'Fundstellen',
+          kind: 'generator',
+          slot: 'site',
+          die: 2,
+          entries: [
+            { id: 'z1', min: 1, max: 2, text: 'Ein Kobold-Markt (von fern: bunte Fahnen)' },
+          ],
+        }),
+      },
+    });
+    const { hexes } = generateHexes({ ...input, tables });
+    const sites = hexes.filter((h) => h.feature === 'Ein Kobold-Markt');
+    expect(sites.length).toBeGreaterThan(0);
+    for (const hex of sites) expect(hex.afar).toBe('Bunte Fahnen');
   });
 
   it('folgt der bekannten Richtung und bleibt auch bei langen Wegen handlich', () => {
