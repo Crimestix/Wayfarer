@@ -81,6 +81,8 @@ const KIND_HINT: Record<WorldKind, string> = {
   realm: 'Reich – Königreiche, Fürstentümer, Stadtstaaten: ein Gebiet mit einer Herrschaft.',
   happening:
     'Ereignis – Kriege, Gründungen, Katastrophen: was in der Geschichte der Welt geschah, mit Beginn und Ende.',
+  landscape:
+    'Landschaft – Wald, Moor, Höhlen: wie eine Gegend aussieht, wie man durchkommt und wer dort lebt. Man malt sie auf Hexkarten.',
   species: 'Spezies – Völker und Wesen, aus denen Personen stammen.',
   language: 'Sprache – was gesprochen wird; wer sie spricht, steht bei der Person.',
   script: 'Schrift – Alphabete und Zeichen, in denen Sprachen geschrieben werden.',
@@ -102,6 +104,7 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   deity: 'z. B. Herrin der Stürme, der die Fischer opfern.',
   realm: 'z. B. Küstenreich, das von Zöllen lebt.',
   happening: 'z. B. Der Krieg, der die alte Brücke zerstörte.',
+  landscape: 'z. B. Nebelwald, in dem die Dunkelwölfe jagen.',
   family: 'z. B. Altes Seefahrerhaus, das seine Schulden verbirgt.',
   species: 'Ein Satz, woran man sie am Tisch erkennt.',
   language: 'Ein Satz, wie sie klingt und wo man sie hört.',

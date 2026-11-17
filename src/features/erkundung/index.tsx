@@ -60,7 +60,9 @@ import {
   type TravelResult,
 } from './actions';
 import { CreateDialog } from './CreateDialog';
-import { SIX_MILES_KM, terrainShares } from './generate';
+import { ZoomBack, ZoomButton } from './ZoomButton';
+import { scaleWords } from './freeMap';
+import { terrainShares } from './generate';
 import { HexMap } from './HexMap';
 import { HexToolPanel, HexToolRail, brushTool, toolOfKey, useHexEditor } from './HexEditor';
 import { HexInspector } from './HexInspector';
@@ -340,6 +342,7 @@ function AreaView({ area }: { area: Area }) {
               }}
             />
             <div className="wf-erk-head__facts">
+              <ZoomBack area={area} />
               {area.fromId && area.toId && (
                 <span>
                   <EntityLink id={area.fromId} icon={false} /> →{' '}
@@ -347,11 +350,7 @@ function AreaView({ area }: { area: Area }) {
                 </span>
               )}
               {area.distanceKm && <span>{km(area.distanceKm)}</span>}
-              <span>
-                {Math.abs(area.hexKm - SIX_MILES_KM) < 0.01
-                  ? '6 Meilen je Feld'
-                  : `${Math.round(area.hexKm * 10) / 10} km je Feld`}
-              </span>
+              <span>{scaleWords(area.hexKm)}</span>
               {area.distanceKm && (
                 <span
                   title={PACES.map(
@@ -580,6 +579,7 @@ function AreaView({ area }: { area: Area }) {
                     </p>
                   )}
                   <HexFacts hex={hex} />
+                  <ZoomButton area={area} hex={hex} />
                   <Button
                     size="sm"
                     icon={<Pencil />}

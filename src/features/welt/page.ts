@@ -219,6 +219,7 @@ export type MainBlock =
   | 'book'
   | 'madeBy'
   | 'combat'
+  | 'landscape'
   | 'belongings'
   | 'notes'
   | 'secret'
@@ -353,6 +354,9 @@ export function pagePlan(
       if (entity.kind === 'language' || entity.kind === 'script') side.push('script');
       break;
     case 'topic':
+      break;
+    case 'landscape':
+      main.push('landscape');
       break;
   }
 

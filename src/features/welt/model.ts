@@ -88,6 +88,7 @@ export const WORLD_KINDS = [
   'deity',
   'realm',
   'happening',
+  'landscape',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 
@@ -98,6 +99,7 @@ export const COMMON_KINDS: readonly WorldKind[] = [
   'faction',
   'family',
   'realm',
+  'landscape',
   'item',
   'deity',
   'happening',
@@ -153,6 +155,7 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   deity: ['Göttin', 'Gott', 'Dämonenfürst', 'Schutzgeist', 'Erzfee', 'Alte Macht'],
   realm: ['Königreich', 'Fürstentum', 'Stadtstaat', 'Grenzmark', 'Reich', 'Stammesgebiet'],
   happening: ['Krieg', 'Schlacht', 'Gründung', 'Katastrophe', 'Seuche', 'Krönung', 'Vertrag'],
+  landscape: ['Wald', 'Moor', 'Heide', 'Gebirge', 'Wüste', 'Küste', 'Höhlen', 'Steppe'],
   family: ['Adelshaus', 'Sippe', 'Clan', 'Dynastie', 'Kaufmannsfamilie'],
   species: ['Humanoid', 'Fee', 'Elementar', 'Untoter', 'Drache', 'Tier'],
   language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
@@ -1448,7 +1451,8 @@ export function entityFromDraft(
     case 'ability':
     case 'deity':
     case 'realm':
-    case 'happening': {
+    case 'happening':
+    case 'landscape': {
       const kind = draft.kind;
       if (base) {
         const details = (base as unknown as Record<string, object>)[kind];

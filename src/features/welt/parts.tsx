@@ -355,6 +355,7 @@ const NOTES_HINT: Record<WorldEntity['kind'], string> = {
   deity: 'wofür sie steht, Kult, Gebote und Feste',
   realm: 'Herrschaft, Gesetze, Grenzen und Geschichte',
   happening: 'was geschah, wer beteiligt war und was daraus folgte',
+  landscape: 'wie sie aussieht, wie man durchkommt und wer dort lebt',
   family: 'Herkunft, Ruf, Geschichte und Einzelheiten',
   species: 'Aussehen, Lebensweise und Eigenheiten',
   language: 'Klang, Verbreitung und Eigenheiten',

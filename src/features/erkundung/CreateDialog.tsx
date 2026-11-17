@@ -10,6 +10,8 @@ import { TERRAINS, type Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
 import { Button, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
 import { generateArea, groundOf, recognize, suggestHexKm } from './generate';
+import { MAX_SIDE, MILE_KM, SCALE_PRESETS, blankArea, scaleWords } from './freeMap';
+import { landscapesOf } from '../../domain/landscape';
 
 /** Landschaften, die als Grundlage einer Karte taugen (eine Siedlung ist keine). */
 const BIOMES = TERRAINS.filter((t) => t !== 'urban');
@@ -26,6 +28,36 @@ export function CreateDialog({
 }: {
   onClose: () => void;
   onCreated: (areaId: string) => void;
+}) {
+  // Zwei Wege zu einer Karte: zwischen zwei Orten erkannt – oder frei, mit eigenem Maßstab.
+  const [mode, setMode] = useState<'between' | 'free'>('between');
+  if (mode === 'free')
+    return <FreeDialog onClose={onClose} onCreated={onCreated} onMode={() => setMode('between')} />;
+  return <BetweenDialog onClose={onClose} onCreated={onCreated} onMode={() => setMode('free')} />;
+}
+
+/** Umschalter oben in beiden Fenstern. */
+function ModeSwitch({ free, onMode }: { free: boolean; onMode: () => void }) {
+  return (
+    <div className="wf-btn-group" role="group" aria-label="Art der Karte">
+      <Button aria-pressed={!free} onClick={free ? onMode : undefined}>
+        Zwischen zwei Orten
+      </Button>
+      <Button aria-pressed={free} onClick={free ? undefined : onMode}>
+        Freie Karte
+      </Button>
+    </div>
+  );
+}
+
+function BetweenDialog({
+  onClose,
+  onCreated,
+  onMode,
+}: {
+  onClose: () => void;
+  onCreated: (areaId: string) => void;
+  onMode: () => void;
 }) {
   const db = useDb();
   const data = useData();
@@ -108,6 +140,7 @@ export function CreateDialog({
       }
     >
       <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
+        <ModeSwitch free={false} onMode={onMode} />
         <div className="wf-form-grid">
           <Field label="Von">
             <EntityPicker
@@ -199,6 +232,169 @@ export function CreateDialog({
             daraus die Karte.
           </p>
         )}
+      </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Eine freie Hexkarte: Name, Größe in Feldern, Maßstab (Vorschlag oder eigener Wert in Meilen,
+ * km oder m) und der Grund – ein Gelände oder eine Landschaft deiner Welt. Gemalt wird danach.
+ */
+function FreeDialog({
+  onClose,
+  onCreated,
+  onMode,
+}: {
+  onClose: () => void;
+  onCreated: (areaId: string) => void;
+  onMode: () => void;
+}) {
+  const db = useDb();
+  const data = useData();
+  const lands = landscapesOf(data);
+  const [name, setName] = useState('');
+  const [cols, setCols] = useState('12');
+  const [rows, setRows] = useState('10');
+  const [scale, setScale] = useState('0');
+  const [own, setOwn] = useState('');
+  const [unit, setUnit] = useState<'mi' | 'km' | 'm'>('mi');
+  const [ground, setGround] = useState<string>('grassland');
+  const ownNumber = parseKm(own);
+  const ownKm =
+    ownNumber === null
+      ? null
+      : unit === 'mi'
+        ? ownNumber * MILE_KM
+        : unit === 'm'
+          ? ownNumber / 1000
+          : ownNumber;
+  const hexKm = scale === 'own' ? ownKm : SCALE_PRESETS[Number(scale)]!.km;
+  const c = Number(cols);
+  const r = Number(rows);
+  const problem =
+    !Number.isInteger(c) || !Number.isInteger(r) || c < 1 || r < 1
+      ? 'Breite und Höhe sind ganze Zahlen ab 1.'
+      : c > MAX_SIDE || r > MAX_SIDE
+        ? `Höchstens ${MAX_SIDE} Felder je Seite.`
+        : hexKm === null
+          ? 'Trag den Maßstab als Zahl ein.'
+          : '';
+  const create = () => {
+    if (problem || hexKm === null) return;
+    const picked = ground.startsWith('landscape:') ? data.entities[ground.slice(10)] : undefined;
+    const land = picked?.kind === 'landscape' ? picked : null;
+    const area = db.put(
+      'areas',
+      blankArea({
+        name,
+        cols: c,
+        rows: r,
+        hexKm,
+        terrain: land ? land.landscape.base : (ground as Terrain),
+        landscape: land,
+      }),
+    );
+    toast({ title: 'Hexkarte angelegt', body: `${area.name} · ${area.hexes.length} Felder` });
+    onCreated(area.id);
+  };
+  const size =
+    hexKm === null ? '' : ` · etwa ${Math.round(c * hexKm)} × ${Math.round(r * hexKm * 0.866)} km`;
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Neue Hexkarte"
+      width={620}
+      footer={
+        <>
+          <span className="wf-grow wf-erk-form__status" role="status">
+            {problem || `${c * r} Felder · ${scaleWords(hexKm!)}${size}`}
+          </span>
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="primary" icon={<Hexagon />} onClick={create} disabled={!!problem}>
+            Karte anlegen
+          </Button>
+        </>
+      }
+    >
+      <div className="wf-col" style={{ gap: 'var(--s-4)' }}>
+        <ModeSwitch free onMode={onMode} />
+        <div className="wf-form-grid">
+          <Field label="Name der Karte" className="wf-span-2">
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="z. B. Der Nebelforst"
+            />
+          </Field>
+          <Field label="Breite (Felder)">
+            <Input inputMode="numeric" value={cols} onChange={(e) => setCols(e.target.value)} />
+          </Field>
+          <Field label="Höhe (Felder)">
+            <Input inputMode="numeric" value={rows} onChange={(e) => setRows(e.target.value)} />
+          </Field>
+          <Field label="Maßstab" className={scale === 'own' ? undefined : 'wf-span-2'}>
+            <Select value={scale} onChange={(e) => setScale(e.target.value)}>
+              {SCALE_PRESETS.map((preset, index) => (
+                <option key={preset.label} value={index}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value="own">Eigener Maßstab …</option>
+            </Select>
+          </Field>
+          {scale === 'own' && (
+            <Field label="Ein Feld misst">
+              <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
+                <Input
+                  inputMode="decimal"
+                  value={own}
+                  placeholder="z. B. 3"
+                  onChange={(e) => setOwn(e.target.value)}
+                />
+                <Select
+                  value={unit}
+                  aria-label="Einheit"
+                  onChange={(e) => setUnit(e.target.value as 'mi' | 'km' | 'm')}
+                >
+                  <option value="mi">Meilen</option>
+                  <option value="km">km</option>
+                  <option value="m">m</option>
+                </Select>
+              </span>
+            </Field>
+          )}
+          <Field
+            label="Grund"
+            className="wf-span-2"
+            hint="Womit die Karte beginnt – gemalt wird danach mit dem Gelände-Pinsel."
+          >
+            <Select value={ground} onChange={(e) => setGround(e.target.value)}>
+              {lands.length > 0 && (
+                <optgroup label="Landschaften deiner Welt">
+                  {lands.map((land) => (
+                    <option key={land.id} value={`landscape:${land.id}`}>
+                      {land.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="Gelände">
+                {TERRAINS.map((terrain) => (
+                  <option key={terrain} value={terrain}>
+                    {TERRAIN_LABEL[terrain]}
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
+          </Field>
+        </div>
+        <p className="wf-erk-form__known">
+          Eine freie Karte gehört keinem Weg: Du malst Landschaften, setzt Orte, belebst sie – und
+          zoomst in ein Feld hinein, wenn die Gruppe dort genauer unterwegs ist.
+        </p>
       </div>
     </Dialog>
   );

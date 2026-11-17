@@ -12,11 +12,12 @@ import { entityName } from '../../domain/derive';
 import { sameHex, type HexCoord } from '../../domain/hex';
 import { natureOnHex } from '../../domain/nature';
 import { PASSAGE_LABEL, exitsOf, isRock } from '../../domain/passages';
-import { ROAD_KINDS, type Area, type Hex } from '../../domain/schema';
+import { ROAD_KINDS, type Area, type Hex, type Landscape } from '../../domain/schema';
 import { KIND_GROUP_LABEL, kindKeyOf, kindsByGroup, paintOfKind } from '../../domain/hexKinds';
 import {
   Button,
   Checkbox,
+  EntityLink,
   EntityPicker,
   Field,
   Input,
@@ -26,9 +27,11 @@ import {
   toast,
 } from '../../ui';
 import { NatureFold } from '../welt/NatureList';
-import { patchHexes, setAllDiscovered } from './actions';
+import { lairToPlace, patchHexes, populateArea, setAllDiscovered } from './actions';
+import { dwellersOf, lairPlan, lairsOnArea, landscapeOfHex } from '../../domain/landscape';
 import type { HexEditor } from './HexEditor';
 import { CLEAR_CONTENT, prepOverview, type ManyChange } from './prep';
+import { ZoomButton } from './ZoomButton';
 
 const ROAD_LABEL: Record<Hex['road'], string> = {
   none: 'Keine',
@@ -105,6 +108,7 @@ function One({
           </p>
         )}
 
+        <ZoomButton area={area} hex={hex} />
         <section className="wf-erk-inspect__part">
           <h4 className="wf-caps">Gelände und Wege</h4>
           {isRock(hex) ? (
@@ -145,6 +149,11 @@ function One({
               </Field>
             )}
           </div>
+          {landscapeOfHex(data, hex) && (
+            <p className="wf-erk-detail__where">
+              Landschaft: <EntityLink id={hex.landscapeId} />
+            </p>
+          )}
           <Field label="Gegend" hint="Ihr Gelände, Tempo und ihre Begegnungen gelten hier.">
             <EntityPicker
               value={hex.regionId}
@@ -201,6 +210,7 @@ function One({
               placeholder="Kein Ort auf diesem Feld"
             />
           </Field>
+          <HexLairs area={area} hex={hex} />
           <Field label="Besonderheit" hint="Was die Landschaft hier auszeichnet.">
             <Input
               key={`${key},f`}
@@ -396,6 +406,7 @@ function Overview({
             </li>
           ))}
         </ul>
+        <Populate area={area} />
         <div className="wf-erk-detail__found">
           <span>
             Entdeckt: <b className="wf-num">{discovered}</b> von {area.hexes.length}
@@ -459,5 +470,130 @@ function KindSelect({
         </optgroup>
       ))}
     </Select>
+  );
+}
+
+/** Die Baue auf einem Feld: wer dort haust, „Als Ort anlegen“, wegnehmen. */
+function HexLairs({ area, hex }: { area: Area; hex: Hex }) {
+  const db = useDb();
+  const data = useData();
+  const lairs = lairsOnArea(data, area.id).filter((stock) => sameHex(stock.at!, hex));
+  if (!lairs.length) return null;
+  return (
+    <div className="wf-erk-lairs">
+      {lairs.map((stock) => (
+        <div key={stock.id} className="wf-erk-lair">
+          <b>{stock.placeId ? <EntityLink id={stock.placeId} /> : stock.name}</b>
+          <span className="wf-mute">
+            {stock.groups
+              .map((group) => {
+                const left = group.count - group.lost;
+                return `${data.creatures[group.creatureId]?.name ?? 'Wesen'} (${left})`;
+              })
+              .join(', ')}
+            {stock.generated ? ' · von „Beleben“' : ''}
+          </span>
+          <span className="wf-row" style={{ gap: 6 }}>
+            {!stock.placeId && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  const done = lairToPlace(db, stock.id);
+                  if (done)
+                    toast({
+                      slot: 'hexkarte',
+                      title: 'Als Ort angelegt',
+                      body: 'Ein Platzhalter in der Welt – er steht auf diesem Feld.',
+                      action: { label: 'Rückgängig', run: done.undo },
+                    });
+                }}
+              >
+                Als Ort anlegen
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const before = db.getSnapshot().stocks[stock.id];
+                db.remove('stocks', stock.id);
+                if (before)
+                  toast({
+                    slot: 'hexkarte',
+                    title: 'Bau weggenommen',
+                    action: { label: 'Rückgängig', run: () => db.put('stocks', before) },
+                  });
+              }}
+            >
+              Wegnehmen
+            </Button>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * „Beleben“: welche Landschaften gemalt sind, wer in ihnen lebt – und ein Knopf, der ihre Baue
+ * setzt. Fehlt etwas, sagt ein Satz, woran es liegt (keine Landschaft gemalt, niemand lebt dort).
+ */
+function Populate({ area }: { area: Area }) {
+  const db = useDb();
+  const data = useData();
+  const painted = [...new Set(area.hexes.map((hex) => hex.landscapeId).filter(Boolean))]
+    .map((id) => data.entities[id!])
+    .filter((entity): entity is Landscape => entity?.kind === 'landscape');
+  const lairs = lairsOnArea(data, area.id).length;
+  const plan = useMemo(() => lairPlan(data, area), [data, area]);
+  const dwellers = painted.flatMap((land) =>
+    dwellersOf(data, land.id).map((dweller) => `${dweller.name} (${land.name})`),
+  );
+  return (
+    <section className="wf-erk-inspect__part">
+      <h4 className="wf-caps">Bewohner</h4>
+      {!painted.length ? (
+        <p className="wf-erk-detail__where">
+          Mal eine Landschaft deiner Welt auf die Karte (Gelände-Pinsel, „Landschaften deiner Welt“)
+          – dann setzt „Beleben“ die Baue derer, die dort leben.
+        </p>
+      ) : !dwellers.length ? (
+        <p className="wf-erk-detail__where">
+          In {painted.map((land) => `„${land.name}“`).join(', ')} lebt noch niemand mit Werten im
+          Bestiarium. Trag es auf der Seite der Landschaft unter „Wer hier lebt“ ein.
+        </p>
+      ) : (
+        <p className="wf-erk-detail__where">
+          Hier leben: {dwellers.join(', ')}. Auf der Karte: {lairs} {lairs === 1 ? 'Bau' : 'Baue'}.
+        </p>
+      )}
+      {dwellers.length > 0 && (
+        <Button
+          size="sm"
+          disabled={!plan.length}
+          title={
+            plan.length
+              ? `Setzt ${plan.length} ${plan.length === 1 ? 'Bau' : 'Baue'} – so viele, wie ihre Reviere Platz haben`
+              : 'Alle Reviere sind besetzt'
+          }
+          onClick={() => {
+            const done = populateArea(db, area.id);
+            if (done)
+              toast({
+                slot: 'hexkarte',
+                title: done.added
+                  ? `${done.added} ${done.added === 1 ? 'Bau' : 'Baue'} gesetzt`
+                  : 'Nichts mehr zu setzen',
+                body: done.added
+                  ? 'Sie stehen an ihren Feldern; „Als Ort anlegen“ macht einen zum Ort der Welt.'
+                  : undefined,
+                ...(done.added ? { action: { label: 'Rückgängig', run: done.undo } } : {}),
+              });
+          }}
+        >
+          Beleben
+        </Button>
+      )}
+    </section>
   );
 }

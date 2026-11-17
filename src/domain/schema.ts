@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 28;
-export const DATA_SHAPE = '87ae6fc932b10e53';
+export const DATA_VERSION = 29;
+export const DATA_SHAPE = '25a5b948bc6bb756';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -318,6 +318,7 @@ export const ENTITY_KINDS = [
   'deity',
   'realm',
   'happening',
+  'landscape',
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
@@ -745,6 +746,22 @@ const AnimalDetails = z.object({
 /** Gestein: was aus dem Boden kommt – Erze, Edelsteine, Gesteine, Salze. */
 const MineralDetails = z.object(natureDetails);
 
+/** Gelände nach den Reiseregeln (D&D 2024). */
+export const TERRAINS = [
+  'grassland',
+  'forest',
+  'hills',
+  'mountains',
+  'swamp',
+  'desert',
+  'arctic',
+  'coast',
+  'water',
+  'underdark',
+  'urban',
+] as const;
+export type Terrain = (typeof TERRAINS)[number];
+
 /**
  * Gottheit (Konzeptbesprechung 16. 11.): Göttin, Dämonenfürst, Schutzgeist … Anhänger stehen in
  * Beziehungen, Tempel sind Orte, Feiertage Termine – hier nur, wofür sie steht.
@@ -774,6 +791,25 @@ const HappeningDetails = z.object({
   category: z.string().default(''),
   /** Wo es geschah. */
   placeId: id.nullable().default(null),
+});
+
+/**
+ * Landschaft (Wunsch des Spielleiters, 17. 11. 2026: „Unsere Gelände funktionieren ähnlich wie
+ * Biome“): eine Art Gegend – „Wald“, „Schwarzmoor“, „Kristallhöhlen“ –, geschrieben wie jeder
+ * Artikel und auf Hexkarten gemalt (`hex.landscapeId`). Für die Regeln zählt das Grundgelände
+ * (`base`); wie sie aussieht, sagt eine Geländeart (`look`, `domain/hexKinds.ts`). Wer dort lebt,
+ * steht hier (`dwellerIds`: Wesen des Bestiariums, Tiere, Spezies) oder am Bewohner als
+ * Lebensraum – gelesen über `dwellersOf` (`domain/landscape.ts`).
+ */
+const LandscapeDetails = z.object({
+  category: z.string().default(''),
+  base: z.enum(TERRAINS).default('grassland'),
+  /** Schlüssel einer Geländeart für Farbe und Zeichen; null = das Grundgelände. */
+  look: z.string().nullable().default(null),
+  /** Schwer zu durchqueren: Jede Dauer verdoppelt sich wie in einer langsamen Gegend. */
+  slow: z.boolean().default(false),
+  /** Wer hier lebt – Kennungen von Wesen des Bestiariums oder Einträgen der Welt. */
+  dwellerIds: z.array(id).default([]),
 });
 
 /** Beruf: ein Handwerk, Gewerbe oder Amt. Wer ihn ausübt, steht in Beziehungen der Art „practises“. */
@@ -815,6 +851,11 @@ export const EntitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('happening'),
     happening: HappeningDetails.prefault({}),
   }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('landscape'),
+    landscape: LandscapeDetails.prefault({}),
+  }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -829,6 +870,7 @@ export type Species = EntityOf<'species'>;
 export type Deity = EntityOf<'deity'>;
 export type Realm = EntityOf<'realm'>;
 export type Happening = EntityOf<'happening'>;
+export type Landscape = EntityOf<'landscape'>;
 export type Language = EntityOf<'language'>;
 export type Script = EntityOf<'script'>;
 export type Ability = EntityOf<'ability'>;
@@ -1948,6 +1990,8 @@ export const CreatureSchema = z.object({
       signs: z.string().default(''),
       /** Wann es unterwegs ist; null = immer. */
       active: z.enum(['day', 'night']).nullable().default(null),
+      /** Wie groß das Revier eines Baus ist, in km² – „Beleben“ setzt so viele Baue, wie Platz ist. */
+      territoryKm2: z.number().positive().nullable().optional(),
     })
     .default({ appearing: '', signs: '', active: null }),
 });
@@ -1999,6 +2043,21 @@ export const StockSchema = z.object({
   ...base,
   name: z.string(),
   placeId: id.nullable().default(null),
+  /**
+   * Wo der Bau auf einer Hexkarte liegt (von „Beleben“ gesetzt oder von Hand). Ohne Ort ist er nur
+   * dort; „Als Ort anlegen“ macht ihn zu einem Ort der Welt. null = auf keiner Hexkarte.
+   */
+  at: z
+    .object({
+      areaId: id,
+      q: z.number().int(),
+      r: z.number().int(),
+      level: z.number().int().nonnegative().default(0),
+    })
+    .nullable()
+    .default(null),
+  /** Von „Beleben“ gesetzt – nicht von Hand. Neu beleben nimmt nur solche weg, die keiner angefasst hat. */
+  generated: z.boolean().default(false),
   groups: z.array(StockGroupSchema).default([]),
   stores: z.string().default(''),
   loot: z.string().default(''),
@@ -2208,22 +2267,6 @@ export const MapSchema = z.object({
   notes: z.string().default(''),
 });
 export type GameMap = z.infer<typeof MapSchema>;
-
-/** Gelände nach den Reiseregeln (D&D 2024). */
-export const TERRAINS = [
-  'grassland',
-  'forest',
-  'hills',
-  'mountains',
-  'swamp',
-  'desert',
-  'arctic',
-  'coast',
-  'water',
-  'underdark',
-  'urban',
-] as const;
-export type Terrain = (typeof TERRAINS)[number];
 
 export const ROAD_KINDS = ['none', 'trail', 'road'] as const;
 export type RoadKind = (typeof ROAD_KINDS)[number];
@@ -2575,6 +2618,8 @@ export const HexSchema = z.object({
    * `domain/journey.ts`) – vom Spielleiter auf die Felder gemalt. null = keine.
    */
   regionId: id.nullable().default(null),
+  /** Die Landschaft, die auf dieses Feld gemalt ist (`landscape`); ihr Gelände gilt hier. */
+  landscapeId: id.nullable().optional(),
   /** Straße oder Pfad durch dieses Feld: Reisen hier gehen im normalen Tempo, auch im Sumpf. */
   road: z.enum(ROAD_KINDS).default('none'),
   /** Von Hand geändert: Neu würfeln behält dieses Feld, wie es ist. */
@@ -2627,6 +2672,19 @@ export const AreaSchema = z.object({
   toId: id.nullable().default(null),
   biome: z.enum(TERRAINS).nullable().default(null),
   seed: z.number().int().nonnegative().nullable().default(null),
+  /**
+   * Hineingezoomt: Diese Karte zeigt ein Feld einer gröberen Karte im Kleinen (`domain/zoom.ts`).
+   * null = eine Karte für sich.
+   */
+  parent: z
+    .object({
+      areaId: id,
+      q: z.number().int(),
+      r: z.number().int(),
+      level: z.number().int().nonnegative().default(0),
+    })
+    .nullable()
+    .default(null),
   /** Entfernung zwischen Start und Ziel in km, wie sie beim Erzeugen galt. */
   distanceKm: z.number().positive().nullable().default(null),
   /** Wo die Gruppe auf dieser Karte steht; null = sie ist nicht auf dieser Karte unterwegs. */

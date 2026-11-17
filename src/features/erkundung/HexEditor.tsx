@@ -27,7 +27,20 @@ import {
 import { PASSAGE_LABEL, isRock } from '../../domain/passages';
 import { useData, useDb } from '../../data/hooks';
 import { hexDistance, hexKey, hexLine, type HexCoord } from '../../domain/hex';
-import { PASSAGE_KINDS, type Area, type Hex, type PassageKind } from '../../domain/schema';
+import {
+  PASSAGE_KINDS,
+  type Area,
+  type CampaignData,
+  type Hex,
+  type PassageKind,
+} from '../../domain/schema';
+import {
+  landscapeLook,
+  landscapeOfHex,
+  landscapeOfKind,
+  landscapesOf,
+  paintOfLandscape,
+} from '../../domain/landscape';
 import {
   KIND_GROUP_LABEL,
   hexKind,
@@ -38,6 +51,7 @@ import {
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { GLYPH, KIND_GLYPH } from './HexMap';
 import { EntityPicker, IconButton, Input, Panel, Select, toast } from '../../ui';
+import { addFromWriting } from '../welt/writing';
 import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
@@ -160,7 +174,7 @@ export function useHexEditor(area: Area) {
   const change = (): HexPaint | null => {
     switch (tool) {
       case 'terrain':
-        return paintOfKind(kind);
+        return brushPaint(db.getSnapshot(), kind);
       case 'region':
         return { regionId };
       case 'road':
@@ -206,10 +220,14 @@ export function useHexEditor(area: Area) {
     // Pipette: Strg- oder Alt-Klick nimmt die Geländeart eines Feldes auf.
     if (pick && tool === 'terrain') {
       const hex = current().find((entry) => hexKey(entry) === hexKey(at));
-      const key = hex ? kindKeyOf(hex) : null;
+      const land = hex ? landscapeOfHex(db.getSnapshot(), hex) : undefined;
+      const key = land ? `landscape:${land.id}` : hex ? kindKeyOf(hex) : null;
       if (key) {
         setKind(key);
-        toast({ slot: 'hexkarte', title: `Aufgenommen: ${hexKind(key)?.label ?? key}` });
+        toast({
+          slot: 'hexkarte',
+          title: `Aufgenommen: ${land?.name ?? hexKind(key)?.label ?? key}`,
+        });
       }
       return;
     }
@@ -515,6 +533,22 @@ export function HexToolPanel({ editor }: { editor: HexEditor }) {
   );
 }
 
+/**
+ * Was der Gelände-Pinsel malt: eine Landschaft deiner Welt (`landscape:<id>`) – oder eine
+ * Geländeart. Gibt es eine Landschaft gleichen Namens wie die Art, malt der Pinsel sie; sonst ist
+ * das Feld danach keine Landschaft mehr.
+ */
+export function brushPaint(data: CampaignData, key: string): HexPaint | null {
+  if (key.startsWith('landscape:')) {
+    const land = data.entities[key.slice('landscape:'.length)];
+    return land?.kind === 'landscape' ? paintOfLandscape(land) : null;
+  }
+  const same = landscapeOfKind(data, key);
+  if (same) return paintOfLandscape(same);
+  const paint = paintOfKind(key);
+  return paint ? { ...paint, landscapeId: null } : null;
+}
+
 /** Ein Feld im Kleinen: Farbe und Zeichen einer Geländeart. */
 export function KindSwatch({ kind }: { kind: string }) {
   const base = hexKind(kind)?.base;
@@ -526,20 +560,55 @@ export function KindSwatch({ kind }: { kind: string }) {
   );
 }
 
-/** Die Palette des Gelände-Pinsels: Suche, zuletzt benutzt, Geländearten nach Gruppen. */
+/**
+ * Die Palette des Gelände-Pinsels: Suche, zuletzt benutzt, die Landschaften deiner Welt und die
+ * Geländearten nach Gruppen. Eine neue Landschaft entsteht hier, ohne die Karte zu verlassen
+ * (Wunsch 17. 11.: „neues Gelände direkt aus der Palette – es wird zugleich Artikel“): Name genügt,
+ * Gelände und Aussehen nimmt sie von der gewählten Geländeart; geschrieben wird sie später.
+ */
 function KindPalette({ editor }: { editor: HexEditor }) {
+  const db = useDb();
+  const data = useData();
   const [query, setQuery] = useState('');
+  const [naming, setNaming] = useState<string | null>(null);
   const groups = kindsByGroup(query);
+  const lands = landscapesOf(data).filter(
+    (land) =>
+      !query.trim() ||
+      land.name.toLocaleLowerCase('de').includes(query.trim().toLocaleLowerCase('de')),
+  );
   const button = (key: string) => {
+    if (key.startsWith('landscape:')) {
+      const land = data.entities[key.slice('landscape:'.length)];
+      if (land?.kind !== 'landscape') return null;
+      return (
+        <button
+          key={key}
+          type="button"
+          className="wf-erk-kind wf-erk-kind--land"
+          aria-pressed={editor.kind === key}
+          title={`${land.name} – Landschaft deiner Welt, zählt als ${TERRAIN_LABEL[land.landscape.base]}`}
+          onClick={() => editor.setKind(key)}
+        >
+          <KindSwatch kind={landscapeLook(land)} />
+          <span>{land.name}</span>
+        </button>
+      );
+    }
     const kind = hexKind(key);
     if (!kind) return null;
+    const same = landscapeOfKind(data, key);
     return (
       <button
         key={key}
         type="button"
         className="wf-erk-kind"
         aria-pressed={editor.kind === key}
-        title={`${kind.label} – zählt als ${TERRAIN_LABEL[kind.base]}`}
+        title={
+          same
+            ? `${kind.label} – malt deine Landschaft „${same.name}“`
+            : `${kind.label} – zählt als ${TERRAIN_LABEL[kind.base]}`
+        }
         onClick={() => editor.setKind(key)}
       >
         <KindSwatch kind={key} />
@@ -547,14 +616,54 @@ function KindPalette({ editor }: { editor: HexEditor }) {
       </button>
     );
   };
+  /** Legt eine Landschaft an – mit Gelände und Aussehen der gerade gewählten Geländeart. */
+  const create = (raw: string) => {
+    const name = raw.trim();
+    if (!name) return;
+    const result = addFromWriting(db, { name, kind: 'landscape' });
+    setNaming(null);
+    setQuery('');
+    if (!result) return;
+    if (!result.created) {
+      if (result.entity.kind === 'landscape') editor.setKind(`landscape:${result.entity.id}`);
+      toast({
+        slot: 'hexkarte',
+        title: result.otherKind ? `„${name}“ gibt es schon` : `„${name}“ ist schon eine Landschaft`,
+        body: result.otherKind ? 'Als andere Kategorie – such dir einen anderen Namen.' : undefined,
+      });
+      return;
+    }
+    const from = editor.kind.startsWith('landscape:') ? undefined : hexKind(editor.kind);
+    const land = db.getSnapshot().entities[result.entity.id];
+    if (land?.kind === 'landscape' && from)
+      db.put('entities', {
+        ...land,
+        landscape: {
+          ...land.landscape,
+          base: from.base,
+          look: from.key === from.base ? null : from.key,
+        },
+      });
+    editor.setKind(`landscape:${result.entity.id}`);
+    toast({
+      slot: 'hexkarte',
+      title: `Landschaft „${name}“ angelegt`,
+      body: 'Sie steht als Platzhalter in der Welt – schreib dort später, wer hier lebt.',
+      action: { label: 'Rückgängig', run: result.undo },
+    });
+  };
   return (
     <div className="wf-erk-palette">
       <Input
         value={query}
         type="search"
-        aria-label="Geländeart suchen"
-        placeholder="Geländeart suchen …"
+        aria-label="Landschaft oder Geländeart suchen"
+        placeholder="Landschaft oder Geländeart suchen …"
         onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && query.trim() && !lands.length && !groups.length)
+            create(query);
+        }}
       />
       {!query && editor.recent.length > 1 && (
         <div className="wf-erk-palette__group">
@@ -562,14 +671,47 @@ function KindPalette({ editor }: { editor: HexEditor }) {
           <div className="wf-erk-palette__kinds">{editor.recent.map(button)}</div>
         </div>
       )}
+      <div className="wf-erk-palette__group">
+        <span className="wf-erk-tools__caption">Landschaften deiner Welt</span>
+        <div className="wf-erk-palette__kinds">
+          {lands.map((land) => button(`landscape:${land.id}`))}
+        </div>
+        {naming === null ? (
+          <button
+            type="button"
+            className="wf-erk-palette__new"
+            onClick={() => setNaming(query.trim())}
+            title="Eine Landschaft deiner Welt – sie wird zugleich ein Eintrag in der Welt"
+          >
+            {query.trim() && !lands.some((land) => land.name === query.trim())
+              ? `+ „${query.trim()}“ als neue Landschaft`
+              : '+ Neue Landschaft'}
+          </button>
+        ) : (
+          <Input
+            autoFocus
+            value={naming}
+            aria-label="Name der neuen Landschaft"
+            placeholder="Name, z. B. Nebelwald – Eingabe legt an"
+            onChange={(event) => setNaming(event.target.value)}
+            onBlur={() => !naming.trim() && setNaming(null)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') create(naming);
+              if (event.key === 'Escape') setNaming(null);
+            }}
+          />
+        )}
+      </div>
       {groups.map(({ group, kinds }) => (
         <div key={group} className="wf-erk-palette__group">
           <span className="wf-erk-tools__caption">{KIND_GROUP_LABEL[group]}</span>
           <div className="wf-erk-palette__kinds">{kinds.map((kind) => button(kind.key))}</div>
         </div>
       ))}
-      {groups.length === 0 && (
-        <p className="wf-erk-tools__hint">Keine Geländeart mit diesem Wort.</p>
+      {groups.length === 0 && !lands.length && (
+        <p className="wf-erk-tools__hint">
+          Keine Geländeart mit diesem Wort – Eingabe legt „{query.trim()}“ als Landschaft an.
+        </p>
       )}
     </div>
   );

@@ -8,6 +8,8 @@ import type { PassageKind } from '../../domain/schema';
 import { freshSeed } from '../../domain/random';
 import {
   HexSchema,
+  createStock,
+  newId,
   type Area,
   type CampaignData,
   type Hex,
@@ -16,6 +18,8 @@ import {
 } from '../../domain/schema';
 import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
+import { lairPlan } from '../../domain/landscape';
+import { addFromWriting } from '../welt/writing';
 import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { generatorTables } from './tables';
 import { patchMany, withChange, type ManyChange } from './prep';
@@ -314,7 +318,9 @@ export function searchHex(db: CampaignDb, areaId: string): SearchResult | null {
 // ── Bearbeiten: malen, Linien ziehen, anfügen, wegnehmen ───────────────────
 
 /** Was ein Pinselstrich an einem Feld ändert. */
-export type HexPaint = Partial<Pick<Hex, 'terrain' | 'kind' | 'regionId' | 'road' | 'river'>>;
+export type HexPaint = Partial<
+  Pick<Hex, 'terrain' | 'kind' | 'regionId' | 'road' | 'river' | 'landscapeId'>
+>;
 
 /**
  * Malt auf Felder der Karte (ein Pinselstrich): Sie gelten danach als von Hand geändert. Gibt den
@@ -339,6 +345,7 @@ export function paintHexes(
       next.regionId === hex.regionId &&
       next.road === hex.road &&
       next.river === hex.river &&
+      (next.landscapeId ?? null) === (hex.landscapeId ?? null) &&
       hex.manual
     )
       return hex;
@@ -548,4 +555,85 @@ export function toggleShaft(db: CampaignDb, areaId: string, at: HexCoord): boole
     hexes: markManual(area.hexes, setPassage(area.hexes, hex, DIR_DOWN, open ? null : 'climb')),
   });
   return !open;
+}
+
+// ── Landschaften beleben ───────────────────────────────────────────────────
+
+/**
+ * „Beleben“ (Wunsch 17. 11.: „Er hat nun die Möglichkeit, diesen Wald zu beleben“): setzt die Baue
+ * der Bewohner jeder gemalten Landschaft auf die Karte (`lairPlan`) – als Bestände mit Lage auf
+ * der Hexkarte, noch ohne Ort der Welt. Nur, was fehlt, kommt dazu. Mit Rückgängig.
+ */
+export function populateArea(
+  db: CampaignDb,
+  areaId: string,
+): { added: number; undo: () => void } | null {
+  const data = db.getSnapshot();
+  const area = data.areas[areaId];
+  if (!area) return null;
+  const plans = lairPlan(data, area);
+  const ids = db.batch(() =>
+    plans.map(
+      (plan) =>
+        db.put(
+          'stocks',
+          createStock({
+            name: plan.name,
+            at: { areaId, ...plan.at },
+            generated: true,
+            groups: [{ id: newId(), creatureId: plan.creatureId, count: plan.count, lost: 0 }],
+          }),
+        ).id,
+    ),
+  );
+  return {
+    added: ids.length,
+    undo: () =>
+      db.batch(() => {
+        for (const id of ids) if (db.getSnapshot().stocks[id]) db.remove('stocks', id);
+      }),
+  };
+}
+
+/**
+ * Macht aus einem Bau auf der Hexkarte einen Ort der Welt (Entscheidung 17. 11.: „Baue nur auf der
+ * Hexkarte, bis man sie per Klick zum Ort macht“): ein Platzhalter mit dem Namen des Baus, der auf
+ * seinem Feld steht. Steht dort schon ein Ort, gehört der Bau zu ihm. Mit Rückgängig.
+ */
+export function lairToPlace(db: CampaignDb, stockId: string): { undo: () => void } | null {
+  const data = db.getSnapshot();
+  const stock = data.stocks[stockId];
+  const area = stock?.at ? data.areas[stock.at.areaId] : undefined;
+  if (!stock?.at || !area) return null;
+  const at = stock.at;
+  const hex = area.hexes.find((entry) => sameHex(entry, at));
+  if (!hex) return null;
+  const before = { stock, hexes: area.hexes };
+  return db.batch(() => {
+    let placeId = hex.placeId;
+    let undoPlace: (() => void) | null = null;
+    if (!placeId) {
+      const made = addFromWriting(db, {
+        name: stock.name.replace(/^Bau: (.+)$/, '$1-Bau'),
+        kind: 'place',
+      });
+      if (!made || made.entity.kind !== 'place') return null;
+      placeId = made.entity.id;
+      undoPlace = made.created ? made.undo : null;
+      db.patch('areas', area.id, {
+        hexes: area.hexes.map((entry) =>
+          sameHex(entry, at) ? { ...entry, placeId, manual: true } : entry,
+        ),
+      });
+    }
+    db.patch('stocks', stock.id, { placeId, generated: false });
+    return {
+      undo: () =>
+        db.batch(() => {
+          if (db.getSnapshot().stocks[stock.id]) db.put('stocks', before.stock);
+          if (db.getSnapshot().areas[area.id]) db.patch('areas', area.id, { hexes: before.hexes });
+          undoPlace?.();
+        }),
+    };
+  });
 }

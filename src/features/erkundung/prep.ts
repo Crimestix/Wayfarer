@@ -14,6 +14,7 @@ export type ManyChange = Partial<
     Hex,
     | 'terrain'
     | 'kind'
+    | 'landscapeId'
     | 'regionId'
     | 'road'
     | 'river'
@@ -56,6 +57,13 @@ export function withChange(hex: Hex, change: ManyChange): Hex {
   const next = { ...hex, ...change, manual: true };
   if (change.terrain !== undefined && change.kind === undefined && change.terrain !== hex.terrain)
     next.kind = null;
+  // Ändert sich das Grundgelände ohne Landschaft, ist das Feld keine Landschaft mehr.
+  if (
+    change.terrain !== undefined &&
+    change.landscapeId === undefined &&
+    change.terrain !== hex.terrain
+  )
+    next.landscapeId = null;
   return next;
 }
 

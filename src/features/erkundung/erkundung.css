@@ -1226,3 +1226,64 @@
 .wf-hex[data-kind='magma'] polygon[data-cave] {
   fill: color-mix(in srgb, var(--terrain-magma) 80%, var(--map-cave));
 }
+
+/* Landschaften deiner Welt in der Palette: wie Geländearten, mit Messing-Rand als Zeichen. */
+.wf-erk-kind--land {
+  border-color: var(--gold-deep);
+}
+.wf-erk-palette__new {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.wf-erk-palette__new:hover,
+.wf-erk-palette__new:focus-visible {
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+/* Baue der Bewohner (Beleben): ein kleines Zeichen unten rechts im Feld. */
+.wf-hexmap__lair polygon {
+  fill: var(--ember);
+  stroke: var(--bg-0);
+  stroke-width: 1;
+}
+.wf-erk-lairs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-erk-lair {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-2);
+  border: 1px solid var(--line-faint);
+  border-left: 2px solid var(--ember);
+}
+
+/* Auf einer hineingezoomten Karte: zurück zur gröberen. */
+.wf-erk-zoomback {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  cursor: pointer;
+}
+.wf-erk-zoomback svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-erk-zoomback:hover {
+  text-decoration: underline;
+}

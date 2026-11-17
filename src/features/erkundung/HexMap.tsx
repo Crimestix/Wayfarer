@@ -1,4 +1,5 @@
 /** Die gezeichnete Hexkarte: Gelände, Besonderheiten, Orte und der direkte Weg. */
+import { lairsOnArea } from '../../domain/landscape';
 import { kindKeyOf, kindLabelOf } from '../../domain/hexKinds';
 import { memo, useMemo, type ReactNode } from 'react';
 import {
@@ -249,6 +250,7 @@ const Cells = memo(function Cells({
   painting,
   fog,
   regionNames,
+  landscapeNames,
   activeRegion,
 }: {
   cells: Cell[];
@@ -257,6 +259,8 @@ const Cells = memo(function Cells({
   painting: Props['paint'] | undefined;
   fog: boolean;
   regionNames: Record<string, string>;
+  /** Namen der gemalten Landschaften – sie heißen auf dem Feld statt der Geländeart. */
+  landscapeNames: Record<string, string>;
   activeRegion: string | null;
 }) {
   return (
@@ -360,7 +364,9 @@ const Cells = memo(function Cells({
           <title>
             {hex.regionId && regionNames[hex.regionId] ? `${regionNames[hex.regionId]} · ` : ''}
             {[
-              isRock(hex) ? 'Fels' : kindLabelOf(hex),
+              isRock(hex)
+                ? 'Fels'
+                : (hex.landscapeId && landscapeNames[hex.landscapeId]) || kindLabelOf(hex),
               hex.exits !== null && !isRock(hex) && exitWords(hex),
               hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
               hex.feature,
@@ -434,6 +440,21 @@ export function HexMap({
     [area, orientation, size],
   );
   const places = layout.cells.filter((c) => c.hex.placeId && data.entities[c.hex.placeId]);
+  /** Baue auf der Karte (`Beleben`): beim Vorbereiten alle, beim Spielen nur auf entdeckten Feldern. */
+  const lairCells = useMemo(() => {
+    const lairs = lairsOnArea(data, area.id);
+    return layout.cells
+      .map((cell) => ({
+        cell,
+        lairs: lairs.filter(
+          (stock) =>
+            stock.at!.q === cell.hex.q &&
+            stock.at!.r === cell.hex.r &&
+            (stock.at!.level ?? 0) === (cell.hex.level ?? 0),
+        ),
+      }))
+      .filter((entry) => entry.lairs.length && (!fog || entry.cell.hex.discovered));
+  }, [data, area.id, layout.cells, fog]);
 
   // Die Gruppe auf der Karte: wo sie steht, woher sie kam, wohin sie als Nächstes kann.
   const party = area.party;
@@ -502,6 +523,13 @@ export function HexMap({
         out[hex.regionId] = data.entities[hex.regionId]?.name ?? '';
     return out;
   }, [area.hexes, data.entities]);
+  const landscapeNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const hex of area.hexes)
+      if (hex.landscapeId && !out[hex.landscapeId])
+        out[hex.landscapeId] = data.entities[hex.landscapeId]?.name ?? '';
+    return out;
+  }, [area.hexes, data.entities]);
   const slots = useMemo(
     () =>
       (paint?.slots ?? []).map((coord) => ({
@@ -549,6 +577,7 @@ export function HexMap({
         painting={paint}
         fog={fog}
         regionNames={regionNames}
+        landscapeNames={landscapeNames}
         activeRegion={paint?.regionId ?? null}
       />
       {links.map((link) => (
@@ -586,6 +615,27 @@ export function HexMap({
           </g>
         );
       })}
+      {lairCells.map(({ cell, lairs }) => (
+        <g key={`bau${hexKey(cell.hex)}`} className="wf-hexmap__lair">
+          <polygon
+            points={[
+              [cell.x + size * 0.22, cell.y + size * 0.12],
+              [cell.x + size * 0.36, cell.y + size * 0.36],
+              [cell.x + size * 0.08, cell.y + size * 0.36],
+            ]
+              .map(([px, py]) => `${px!.toFixed(1)},${py!.toFixed(1)}`)
+              .join(' ')}
+          />
+          <title>
+            {lairs
+              .map(
+                (stock) =>
+                  `${stock.name}: ${stock.groups.map((group) => `${data.creatures[group.creatureId]?.name ?? 'Wesen'} (${group.count - group.lost})`).join(', ')}`,
+              )
+              .join(' · ')}
+          </title>
+        </g>
+      ))}
       {reach.map((cell) => (
         <polygon key={hexKey(cell.hex)} className="wf-hexmap__reach" points={cell.points} />
       ))}

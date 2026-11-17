@@ -42,6 +42,7 @@ import { BookSection, BookSwitch } from './BookSection';
 import { openEntityDialog } from './editor';
 import { FactBox } from './FactBox';
 import { FamilyTree } from './FamilyTree';
+import { LandscapeSection } from './LandscapeSection';
 import { HouseTwinNote } from './HouseTwinNote';
 import { GroupKnows } from './GroupKnows';
 import { InStories } from './InStories';
@@ -223,6 +224,7 @@ export function Dossier({
       ),
     madeBy: () => entity.kind === 'profession' && <MadeBy professionId={entity.id} />,
     combat: () => entity.kind === 'animal' && <CombatStats animal={entity} />,
+    landscape: () => entity.kind === 'landscape' && <LandscapeSection landscape={entity} />,
     belongings: () => (
       <Belongings
         entity={entity}
