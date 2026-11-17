@@ -433,6 +433,32 @@ nicht übernommen.
   unter der Erde ohne Licht nur das eigene Feld). Orte auf die Karte: Werkzeug „Ort“
   (`placeSuggestions` – die Gegenden von Start und Ziel zuerst, nie Räume) und „Orte aus der
   Welt“ (`placeWorldPlaces`: Orte mit Lage auf ihr Feld, besetzte Felder bleiben).
+  **Freie Karten, Landschaften, Beleben, Hineinzoomen** (Wunsch 17. 11.: „Karten in
+  verschiedenen Maßstäben … Unsere Gelände funktionieren ähnlich wie Biome … beleben … die
+  Hexkarte des Waldes erstellen“, `erkundung/freeMap.ts`, `domain/landscape.ts`): Eine **freie
+  Hexkarte** (`blankArea`, „Freie Karte“ im Fenster „Neue Hexkarte“) hat Breite × Höhe, einen
+  eigenen Maßstab (`SCALE_PRESETS`, frei in Meilen/km/m; in Worten `scaleWords`) und ein Gelände
+  oder eine Landschaft als Grund. Eine **Landschaft** ist eine Kategorie der Welt (`landscape`:
+  `base` für die Regeln, `look` eine Geländeart, `slow`, `dwellerIds`), gemalt mit dem
+  Gelände-Pinsel (`hex.landscapeId`, `paintOfLandscape`, im Editor `brushPaint`); angelegt an Ort
+  und Stelle aus der Palette („+ Neue Landschaft“, über `addFromWriting`, mit Gelände und Aussehen
+  der gewählten Art). Die 46 Geländearten bleiben die Palette; eine Landschaft gleichen Namens
+  malt sich statt ihrer (`landscapeOfKind`). Wer dort lebt, sagt `dwellersOf` – an der
+  Landschaft eingetragen oder am Tier als Lebensraum; nur Wesen mit Werten im Bestiarium.
+  **Beleben** (`lairPlan`, `populateArea`) setzt je Landschaft und Bewohner so viele Baue, wie
+  Reviere auf die gemalte Fläche passen (`creature.roaming.territoryKm2`, geerbt über
+  `territoryOf`, sonst `DEFAULT_TERRITORY_KM2`), fest je Karte, nur was fehlt – als Bestände mit
+  Lage auf der Hexkarte (`stock.at`, `stock.generated`), noch ohne Ort; „Als Ort anlegen“
+  (`lairToPlace`) macht einen zum Platzhalter-Ort auf seinem Feld. **Hineinzoomen** (`zoomArea`,
+  `ZoomButton`): ein Feld als feinere Karte (`zoomFactor`: 6 Meilen → 1 Meile → 100 m), Felder
+  erben Gelände, Art, Landschaft und Gegend des groben Feldes unter ihrer Mitte; die Karte
+  merkt ihr Feld (`area.parent`, wiedergefunden über `zoomOf`, zurück über `ZoomBack`).
+  **Verirren mit Richtung**: Auf der Hexkarte zeigt `Orientation` den SG (`hexNavigation`);
+  „Verirrt“ (`setLost`, `area.party.lost`) lässt jeden Schritt eine Seite neben dem gewollten
+  Feld ankommen (`veerHeading` in `planStep`, `step.veered`), bis „Zurechtgefunden“. Unterwegs
+  würfelt `getLost` Richtung und Umweg (`journey.lostHeading`); der Umweg führt auf der Hexkarte
+  sichtbar dorthin und zurück (`wanderOnMap`) und steht mit Himmelsrichtung (`HEADING_LABEL`) in
+  der Chronik.
   **Unterreich-Hexkarten** (Wunsch 17. 11.: „Es ist leichter, ein extrem smartes System dumm zu
   machen, als ein dummes smart“; erst nur unter der Erde): sechs Meilen je Feld
   (`SIX_MILES_KM`). Ein Feld hat Ausgänge (`hex.exits`: null = alle sechs offen wie oben, leere

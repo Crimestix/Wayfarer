@@ -57,7 +57,7 @@ export function LandscapeSection({ landscape }: { landscape: Landscape }) {
               ))}
             </Select>
           </Field>
-          <Field label="Aussieht wie" hint="Farbe und Zeichen auf der Hexkarte.">
+          <Field label="Sieht aus wie" hint="Farbe und Zeichen auf der Hexkarte.">
             <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
               <KindSwatch kind={landscapeLook(landscape)} />
               <Select
