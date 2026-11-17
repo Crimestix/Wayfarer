@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 17;
-export const DATA_SHAPE = '512264a76fbbd85a';
+export const DATA_VERSION = 18;
+export const DATA_SHAPE = '1fab84b516455996';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -425,6 +425,13 @@ const PlaceDetails = z.object({
   room: z.boolean().default(false),
   /** Stand eines Raums in Worten: frei, verschlossen, eingestürzt, Falle … */
   roomState: z.string().default(''),
+  /**
+   * Das Gelände dieser Gegend für Reisen, in den Worten des Spielleiters: „Enge Kriechgänge“,
+   * „Pilzwald“ … Es gilt für alles darunter (`groundOf`). '' = keines eingetragen.
+   */
+  ground: z.string().default(''),
+  /** Schwer zu durchqueren: Reisen hier dauern doppelt so lange (Regelwerk: schwieriges Gelände). */
+  groundSlow: z.boolean().default(false),
   /**
    * Wie groß der Ort ist (Konzeptbesprechung 16. 11.): Gegend, Siedlung, Gebäude – ein Raum ist
    * `room`. '' = nicht festgelegt; dann schätzt `placeScale()` aus Wort und Orten darin.
@@ -2258,17 +2265,30 @@ export type Pace = (typeof PACES)[number];
 export const JOURNEY_STATUS = ['planned', 'underway', 'arrived', 'aborted'] as const;
 export type JourneyStatus = (typeof JOURNEY_STATUS)[number];
 
-/** Ein Abschnitt einer Reise: entweder ein gespeicherter Weg oder eine freie Strecke auf der Karte. */
+/**
+ * Ein Abschnitt einer Reise (`domain/journey.ts`): ein Weg der Welt oder eine freie Strecke
+ * zwischen zwei Orten. Dauer und Gelände werden beim Aufbruch festgehalten, damit die Reise
+ * nicht unterwegs ihre Länge ändert.
+ */
 export const JourneyLegSchema = z.object({
   id,
   pathId: id.nullable().default(null),
   /** Gespeicherten Weg in Gegenrichtung (to → from) gehen. */
   reverse: z.boolean().default(false),
-  /** Freie Strecke: Karte, Verlauf und Ziel. */
+  fromId: id.nullable().default(null),
+  toId: id.nullable().default(null),
+  /** Dauer in Minuten, mit dem Gelände gerechnet. */
+  minutes: z.number().int().nonnegative().default(0),
+  distanceKm: z.number().nonnegative().nullable().default(null),
+  /** Gelände der Gegend in den Worten des Spielleiters (`place.ground`); '' = keines eingetragen. */
+  ground: z.string().default(''),
+  /** Die Gegend ist schwer zu durchqueren: Die Strecke dauert doppelt so lange. */
+  slow: z.boolean().default(false),
+  /** Die Gegend, aus der Gelände und Tabellen stammen. */
+  regionId: id.nullable().default(null),
+  // Aus dem ersten Entwurf; ungenutzt.
   mapId: id.nullable().default(null),
   points: z.array(point).default([]),
-  toId: id.nullable().default(null),
-  distanceKm: z.number().nonnegative().nullable().default(null),
   terrain: z.enum(TERRAINS).nullable().default(null),
 });
 export type JourneyLeg = z.infer<typeof JourneyLegSchema>;
@@ -2280,10 +2300,32 @@ export const JourneyLogSchema = z.object({
   chronicleId: id.nullable().default(null),
 });
 
+/** Warum die Reise angehalten hat (`domain/journey.ts`, `HALT_LABEL`). */
+export const HALT_KINDS = [
+  'place',
+  'prepared',
+  'encounter',
+  'discovery',
+  'event',
+  'clock',
+  'light',
+  'rest',
+  'hour',
+  'arrived',
+] as const;
+export type HaltKind = (typeof HALT_KINDS)[number];
+
+/**
+ * Eine Reise (Station 2 auf dem Weg zu Version 1.0): Solange sie unterwegs ist (`underway`), zeigt
+ * der Spieltisch sie statt eines Ortes. Gegangen wird „bis zur nächsten Entscheidung“
+ * (`travelOn`); was unterwegs geschah, steht in der Chronik.
+ */
 export const JourneySchema = z.object({
   ...base,
   name: z.string().default(''),
   startId: id.nullable().default(null),
+  /** Das Ziel der Reise. */
+  toId: id.nullable().default(null),
   /** Reisende Gefährten; leer = die ganze aktive Gruppe. */
   participants: z.array(id).default([]),
   legs: z.array(JourneyLegSchema).default([]),
@@ -2294,10 +2336,38 @@ export const JourneySchema = z.object({
   /** Geplanter oder tatsächlicher Aufbruch. */
   departAt: worldTime.nullable().default(null),
   status: z.enum(JOURNEY_STATUS).default('planned'),
-  /** Wo die Reise gerade steht: Abschnitt und zurückgelegte km darin. */
+  /** Wo die Reise gerade steht: Abschnitt und darin vergangene Minuten. */
   progress: z
-    .object({ leg: z.number().int().nonnegative(), km: z.number().nonnegative() })
-    .prefault({ leg: 0, km: 0 }),
+    .object({
+      leg: z.number().int().nonnegative(),
+      minutes: z.number().int().nonnegative().default(0),
+      km: z.number().nonnegative().default(0),
+    })
+    .prefault({ leg: 0, minutes: 0, km: 0 }),
+  /** Reiseminuten seit der letzten Prüfung auf Begegnungen. */
+  sinceCheck: z.number().int().nonnegative().default(0),
+  /** Gereiste Stücke mitten auf einem Abschnitt – für den Gewaltmarsch (`domain/march.ts`). */
+  steps: z.array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() })).default([]),
+  /** Vorräte beim Aufbruch in Tagen – nur ein Hinweis, abgezogen wird nichts. null = nicht gezählt. */
+  supplies: z
+    .object({
+      food: z.number().nonnegative().nullable().default(null),
+      water: z.number().nonnegative().nullable().default(null),
+    })
+    .prefault({}),
+  /** Woran die Reise zuletzt angehalten hat; null = sie ist gerade nicht angehalten. */
+  halt: z
+    .object({
+      kind: z.enum(HALT_KINDS),
+      text: z.string().default(''),
+      at: worldTime,
+      /** Was gewürfelt wurde, in Worten: „W20 = 16 (ab 15) · W8 = 3“. */
+      roll: z.string().default(''),
+      /** Eine Begegnung aus der Tabelle, die sich öffnen lässt. */
+      encounterId: id.nullable().default(null),
+    })
+    .nullable()
+    .default(null),
   log: z.array(JourneyLogSchema).default([]),
   notes: z.string().default(''),
 });
@@ -3161,6 +3231,16 @@ export function createRun(
     every: { every: 1, unit: 'week' },
     ...init,
   });
+}
+
+export function createJourney(init: Partial<Journey>): Journey {
+  const stamp = nowIso();
+  return JourneySchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createRollTable(init: Partial<RollTable> & { name: string }): RollTable {
+  const stamp = nowIso();
+  return RollTableSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createBastion(init: Partial<Bastion> & { name: string }): Bastion {

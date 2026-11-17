@@ -228,7 +228,7 @@ describe('Gestalt je Art', () => {
     const plan = pagePlan(db.getSnapshot(), stadt, { hasText: true });
     expect(plan.main).toEqual(['box', 'places', 'items', 'text']);
     expect(plan.side.slice(0, 3)).toEqual(['party', 'changes', 'cast']);
-    expect(plan.add).toEqual(['shop', 'rooms']);
+    expect(plan.add).toEqual(['shop', 'rooms', 'travel']);
     // Ein Ort ohne Orte darin zeigt keinen leeren Abschnitt „Darin“.
     const leaf = pagePlan(db.getSnapshot(), schmiede, { hasText: true });
     expect(leaf.main).not.toContain('places');

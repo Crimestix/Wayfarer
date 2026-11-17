@@ -1,0 +1,410 @@
+/**
+ * Unterwegs (Station 2 auf dem Weg zu Version 1.0, Entscheidungen des Spielleiters vom 17. 11.):
+ * Eine Reise ist ein Zustand des Spieltischs. Sie besteht aus Abschnitten – Wegen der Welt oder
+ * freien Strecken –, deren Dauer und Gelände beim Aufbruch feststehen. Gegangen wird „bis zur
+ * nächsten Entscheidung“: Wayfarer rechnet voran und hält von selbst, sobald der Spielleiter etwas
+ * entscheiden muss (ein Ort am Weg, Vorbereitetes, eine Begegnung aus seiner Tabelle, ein Termin
+ * oder Schritt einer Uhr, ein Licht, das erlischt, acht Stunden seit der Rast).
+ *
+ * Gelände bringt Wayfarer nicht mit: Es steht an den Gegenden der Welt (`place.ground`,
+ * `place.groundSlow`) und gilt für alles darunter. Begegnungen und Entdeckungen würfelt Wayfarer
+ * alle vier Reisestunden und einmal nachts auf den Tabellen der Gegend – nur als Vorschlag.
+ * Vorräte sind eine Leiste in Tagen, nur ein Hinweis. Reine Funktionen; geschrieben wird über
+ * `features/reise/actions.ts`.
+ */
+import { parseEvents } from './bastion';
+import { dueSteps } from './clock';
+import { occurrencesBetween, placeAncestors } from './derive';
+import { distanceKm } from './geo';
+import { TRAVEL_HOURS, marchedMinutes } from './march';
+import { partyTravel } from './mounts';
+import { placeGeo, planetOf } from './planet';
+import type { CampaignData, HaltKind, Journey, JourneyLeg, RollTable, TableKind } from './schema';
+import { DAY_KM } from './terrain';
+import { MINUTES_PER_DAY, dayIndexOf, type WorldTime } from './time/calendar';
+import { routeBetween } from './ways';
+import { isEveryday } from './weight';
+
+/** Alle so viele Reiseminuten prüft Wayfarer auf Begegnungen (Entscheidung 17. 11.: vier Stunden). */
+export const CHECK_EVERY = 4 * 60;
+/** So weit rechnet „Bis zur nächsten Entscheidung“ höchstens voraus: ein Tag. */
+export const HALT_HORIZON = MINUTES_PER_DAY;
+
+export const HALT_LABEL: Record<HaltKind, string> = {
+  place: 'Ort am Weg',
+  prepared: 'Am Weg vorbereitet',
+  encounter: 'Begegnung',
+  discovery: 'Entdeckung',
+  event: 'Termin',
+  clock: 'Eine Uhr rückt vor',
+  light: 'Ein Licht erlischt',
+  rest: 'Acht Stunden seit der Rast',
+  hour: 'Eine Stunde gereist',
+  arrived: 'Angekommen',
+};
+
+// ── Gelände aus der Welt ───────────────────────────────────────────────────
+
+/** Das Gelände einer Gegend: wo es steht, wie es heißt, ob es langsam macht. */
+export interface Ground {
+  regionId: string;
+  word: string;
+  slow: boolean;
+}
+
+/**
+ * Das Gelände an einem Ort: das eigene oder das des nächsten Ortes darüber, der eines hat. null,
+ * wenn nirgends eines eingetragen ist.
+ */
+export function groundOf(data: CampaignData, placeId: string | null): Ground | null {
+  if (!placeId) return null;
+  const self = data.entities[placeId];
+  const chain = [...(self?.kind === 'place' ? [self] : []), ...placeAncestors(data, placeId)];
+  for (const place of chain)
+    if (place.place.ground.trim() || place.place.groundSlow)
+      return { regionId: place.id, word: place.place.ground.trim(), slow: place.place.groundSlow };
+  return null;
+}
+
+/** Die Gegend, deren Tabellen an einem Ort gelten: der Ort und die Orte darüber, der nächste zuerst. */
+export function tablesAt(data: CampaignData, placeId: string | null, kind: TableKind): RollTable[] {
+  if (!placeId) return [];
+  const self = data.entities[placeId];
+  const chain = [...(self?.kind === 'place' ? [self] : []), ...placeAncestors(data, placeId)];
+  for (const place of chain) {
+    const own = Object.values(data.tables).filter(
+      (table) => table.placeId === place.id && table.kind === kind && table.entries.length > 0,
+    );
+    if (own.length) return own.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  }
+  return [];
+}
+
+// ── Planen ─────────────────────────────────────────────────────────────────
+
+/** Minuten je km zu Fuß im normalen Tempo: die Tagesstrecke auf acht Stunden. */
+const MINUTES_PER_KM = (TRAVEL_HOURS * 60) / DAY_KM.normal;
+
+/** Die Luftlinie zwischen zwei Orten in km – null, wenn einer keine Lage hat. */
+export function straightKm(data: CampaignData, fromId: string, toId: string): number | null {
+  const planet = planetOf(data);
+  const a = placeGeo(data, fromId);
+  const b = placeGeo(data, toId);
+  if (!a || !b) return null;
+  return distanceKm(planet?.radiusKm ?? 6371, a.geo, b.geo);
+}
+
+/** Ein geplanter Abschnitt, bevor er Teil einer Reise ist. */
+export type LegPlan = Omit<JourneyLeg, 'id'>;
+
+export interface JourneyPlan {
+  legs: LegPlan[];
+  /** Summe der Dauern. */
+  minutes: number;
+  /** Ein Abschnitt hat keine bekannte Dauer – sie muss beim Aufbruch eingetragen werden. */
+  unknown: boolean;
+  /** Es gibt keinen Weg; die Strecke ist frei nach der Luftlinie geschätzt. */
+  free: boolean;
+}
+
+/** Ein Abschnitt mit dem Gelände seiner Gegend – das Ziel zählt vor dem Start. */
+function legOf(
+  data: CampaignData,
+  fromId: string,
+  toId: string,
+  base: number | null,
+  fixed: boolean,
+  extra: Partial<LegPlan>,
+): LegPlan {
+  const ground = groundOf(data, toId) ?? groundOf(data, fromId);
+  const slow = !!ground?.slow;
+  const minutes = base === null ? 0 : Math.round(base * (slow && !fixed ? 2 : 1));
+  return {
+    pathId: null,
+    reverse: false,
+    fromId,
+    toId,
+    minutes,
+    distanceKm: null,
+    ground: ground?.word ?? '',
+    slow,
+    regionId: ground?.regionId ?? null,
+    mapId: null,
+    points: [],
+    terrain: null,
+    ...extra,
+  };
+}
+
+/**
+ * Plant eine Reise: über die Wege der Welt (`routeBetween`), sonst als freie Strecke nach der
+ * Luftlinie. Schwieriges Gelände verdoppelt jede Dauer, die nicht fest am Weg steht.
+ */
+export function planJourney(data: CampaignData, fromId: string, toId: string): JourneyPlan | null {
+  if (!fromId || !toId || fromId === toId) return null;
+  const route = routeBetween(data, fromId, toId, partyTravel(data));
+  if (route && !route.barred) {
+    const legs = route.legs.map((way) =>
+      legOf(data, way.fromId, way.toId, way.minutes, way.path.minutes !== null, {
+        pathId: way.path.id,
+        reverse: way.reverse,
+        distanceKm: way.path.distanceKm ?? null,
+      }),
+    );
+    return {
+      legs,
+      minutes: legs.reduce((sum, leg) => sum + leg.minutes, 0),
+      unknown: route.unknown || legs.some((leg) => leg.minutes === 0),
+      free: false,
+    };
+  }
+  const km = straightKm(data, fromId, toId);
+  const leg = legOf(data, fromId, toId, km === null ? null : km * MINUTES_PER_KM, false, {
+    distanceKm: km === null ? null : Math.round(km),
+  });
+  return { legs: [leg], minutes: leg.minutes, unknown: km === null, free: true };
+}
+
+// ── Stand ──────────────────────────────────────────────────────────────────
+
+export interface JourneyView {
+  journey: Journey;
+  leg: JourneyLeg | null;
+  /** Gesamtdauer und schon gereist, in Minuten. */
+  total: number;
+  done: number;
+  /** Tag der Reise: am Tag des Aufbruchs 1. */
+  day: number;
+  /** Die Orte der Reise in Reihenfolge: Start, Orte am Weg, Ziel – mit „schon erreicht“. */
+  stops: { placeId: string; reached: boolean; current: boolean }[];
+  /** Gereist seit der letzten Langen Rast (Gewaltmarsch ab acht Stunden). */
+  sinceRest: number;
+  /** Vorräte, die noch reichen, in Tagen – null, wenn nicht gezählt. */
+  food: number | null;
+  water: number | null;
+}
+
+/** Die laufende Reise der geleiteten Gruppe – null, wenn niemand unterwegs ist. */
+export function journeyUnderway(data: Pick<CampaignData, 'journeys'>): Journey | null {
+  return (
+    Object.values(data.journeys)
+      .filter((journey) => journey.status === 'underway')
+      .sort((a, b) => b.updated.localeCompare(a.updated))[0] ?? null
+  );
+}
+
+/** Wie viele Kalendertage seit dem Aufbruch vergangen sind (der Tag des Aufbruchs zählt als 0). */
+const daysSince = (from: WorldTime | null, now: WorldTime) =>
+  from === null ? 0 : Math.max(0, dayIndexOf(now) - dayIndexOf(from));
+
+export function journeyView(data: CampaignData, journey: Journey): JourneyView {
+  const legs = journey.legs;
+  const index = Math.min(journey.progress.leg, Math.max(0, legs.length - 1));
+  const total = legs.reduce((sum, leg) => sum + leg.minutes, 0);
+  const done =
+    legs.slice(0, journey.progress.leg).reduce((sum, leg) => sum + leg.minutes, 0) +
+    (journey.progress.leg < legs.length ? journey.progress.minutes : 0);
+  const places = [journey.startId ?? legs[0]?.fromId ?? null, ...legs.map((leg) => leg.toId)];
+  const stops = places.flatMap((placeId, i) =>
+    placeId
+      ? [
+          {
+            placeId,
+            reached: i <= journey.progress.leg,
+            current: i === journey.progress.leg && journey.progress.minutes === 0,
+          },
+        ]
+      : [],
+  );
+  const days = daysSince(journey.departAt, data.state.now);
+  const left = (start: number | null) => (start === null ? null : Math.max(0, start - days));
+  return {
+    journey,
+    leg: legs[index] ?? null,
+    total,
+    done,
+    day: days + 1,
+    stops,
+    sinceRest: marchedMinutes(data, data.state.now),
+    food: left(journey.supplies.food),
+    water: left(journey.supplies.water),
+  };
+}
+
+// ── Bis zur nächsten Entscheidung ──────────────────────────────────────────
+
+/** Ein Würfel: gibt 1 bis `sides` zurück (am Tisch echter Zufall, im Test fest). */
+export type Roll = (sides: number) => number;
+
+/** Was beim Würfeln auf eine Tabelle herauskam. */
+export interface TableResult {
+  table: RollTable;
+  /** Die Prüfung (W20 gegen den Wert der Tabelle) – null, wenn die Tabelle immer würfelt. */
+  check: number | null;
+  /** Der Wurf auf die Tabelle und die Zeile – null, wenn die Prüfung nichts ergab. */
+  roll: number | null;
+  text: string;
+  /** Was gewürfelt wurde, in Worten. */
+  rolled: string;
+}
+
+/**
+ * Prüft die Tabellen einer Art an einem Ort: je Tabelle W20 gegen ihren Wert (ohne Wert immer),
+ * dann ihr Würfel auf die Zeilen. Gibt das erste Ergebnis zurück – null, wenn nichts geschieht.
+ */
+export function rollTables(
+  data: CampaignData,
+  placeId: string | null,
+  kind: TableKind,
+  roll: Roll,
+): TableResult | null {
+  for (const table of tablesAt(data, placeId, kind)) {
+    const check = table.dc === null ? null : roll(20);
+    if (check !== null && check < table.dc!) continue;
+    const value = roll(table.die);
+    const entry = table.entries.find((row) => value >= row.min && value <= row.max);
+    if (!entry) continue;
+    const rolled = [
+      check !== null ? `W20 = ${check} (ab ${table.dc})` : '',
+      `W${table.die} = ${value}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return { table, check, roll: value, text: entry.text, rolled };
+  }
+  return null;
+}
+
+/** Wo die Reise anhält und wie lange bis dahin gereist wird. */
+export interface Halt {
+  kind: HaltKind;
+  /** Reiseminuten bis zum Halt. */
+  minutes: number;
+  text: string;
+  roll: string;
+  /** Die Prüfungen unterwegs, die nichts ergeben haben: so viele. */
+  quietChecks: number;
+  /** Der Halt liegt am Ende des laufenden Abschnitts (die Gruppe erreicht einen Ort). */
+  arrives: boolean;
+}
+
+/**
+ * Rechnet voran, wie weit die Reise bis zur nächsten Entscheidung kommt. `limit` begrenzt die
+ * Reisezeit (der Knopf „1 Stunde“). Würfelt nur, wenn unterwegs eine Prüfung fällig wird.
+ */
+export function nextHalt(
+  data: CampaignData,
+  journey: Journey,
+  roll: Roll,
+  limit: number | null = null,
+): Halt | null {
+  const leg = journey.legs[journey.progress.leg];
+  if (!leg) return null;
+  const now = data.state.now;
+  const left = Math.max(0, leg.minutes - journey.progress.minutes);
+  // Was der Spielleiter am Weg vorbereitet hat, hält gleich zu Beginn des Abschnitts – einmal.
+  const path = leg.pathId ? data.paths[leg.pathId] : undefined;
+  const prepared = path?.onTheWay.trim() ?? '';
+  const shown = journey.halt?.kind === 'prepared' && journey.halt.at === now;
+  if (journey.progress.minutes === 0 && (prepared || path?.encounterId) && !shown)
+    return {
+      kind: 'prepared',
+      minutes: 0,
+      text: prepared || 'Eine Begegnung liegt an diesem Weg bereit.',
+      roll: '',
+      quietChecks: 0,
+      arrives: false,
+    };
+  const horizon = Math.min(HALT_HORIZON, limit ?? HALT_HORIZON);
+  const candidates: { at: number; kind: HaltKind; text: string }[] = [];
+  const add = (at: number, kind: HaltKind, text: string) => {
+    if (at > 0 && at <= horizon) candidates.push({ at, kind, text });
+  };
+  const last = journey.progress.leg === journey.legs.length - 1;
+  const target = leg.toId ? (data.entities[leg.toId]?.name ?? '') : '';
+  if (left > 0 || journey.progress.minutes === 0)
+    candidates.push({
+      at: Math.max(left, 0),
+      kind: last ? 'arrived' : 'place',
+      text: target,
+    });
+  if (limit !== null) add(limit, 'hour', '');
+  // Acht Stunden seit der Rast: nur, wenn die Grenze unterwegs erreicht wird.
+  const since = marchedMinutes(data, now);
+  if (since < TRAVEL_HOURS * 60) add(TRAVEL_HOURS * 60 - since, 'rest', '');
+  // Lichter, die unterwegs erlöschen.
+  for (const timer of Object.values(data.timers))
+    if (timer.kind === 'light' && !timer.done && timer.end > now)
+      add(timer.end - now, 'light', timer.label);
+  // Termine (ohne Alltag) und Schritte von Uhren.
+  for (const occurrence of occurrencesBetween(data, now + 1, now + horizon))
+    if (!isEveryday(data, occurrence.event))
+      add(occurrence.at - now, 'event', occurrence.event.title);
+  for (const clock of Object.values(data.clocks))
+    for (const step of dueSteps(clock, now, now + horizon))
+      add(step.at - now, 'clock', step.step.text);
+  // Prüfungen alle vier Stunden: würfeln, und nur halten, wenn etwas geschieht.
+  let quietChecks = 0;
+  const regionAt = leg.regionId ?? leg.toId;
+  for (let at = CHECK_EVERY - journey.sinceCheck; at <= horizon; at += CHECK_EVERY) {
+    if (at <= 0) continue;
+    const earliest = Math.min(...candidates.map((c) => c.at), Infinity);
+    if (at >= earliest) break;
+    const found =
+      rollTables(data, regionAt, 'encounter', roll) ??
+      rollTables(data, regionAt, 'discovery', roll);
+    if (!found) {
+      quietChecks++;
+      continue;
+    }
+    return {
+      kind: found.table.kind === 'discovery' ? 'discovery' : 'encounter',
+      minutes: at,
+      text: found.text,
+      roll: `${found.table.name}: ${found.rolled}`,
+      quietChecks,
+      arrives: at >= left && left > 0,
+    };
+  }
+  const first = candidates.sort((a, b) => a.at - b.at)[0];
+  if (!first) return null;
+  return {
+    kind: first.kind,
+    minutes: first.at,
+    text: first.text,
+    roll: '',
+    quietChecks,
+    arrives: first.at >= left,
+  };
+}
+
+/** Die Nachtprüfung im Lager: einmal würfeln auf Begegnungen der Gegend. */
+export function nightCheck(data: CampaignData, journey: Journey, roll: Roll): TableResult | null {
+  const leg = journey.legs[journey.progress.leg];
+  const regionAt = leg ? (leg.regionId ?? leg.toId) : data.state.placeId;
+  return rollTables(data, regionAt, 'encounter', roll);
+}
+
+// ── Tabellen als Text ──────────────────────────────────────────────────────
+
+/** Eine Tabelle als Text zum Schreiben: je Zeile „1–4: Eine Grauzwerg-Streife“. */
+export function tableText(table: Pick<RollTable, 'entries'> | null | undefined): string {
+  if (!table) return '';
+  return table.entries
+    .map((row) => `${row.min === row.max ? row.min : `${row.min}–${row.max}`}: ${row.text}`)
+    .join('\n');
+}
+
+/**
+ * Die Zeilen einer Tabelle aus Text („1–4: …“, „5-8 …“, „9: …“) und der Würfel dazu: der größte
+ * Wert, der vorkommt (W4, W6, W8, W10, W12, W20, W100 – der nächste passende).
+ */
+export function tableFromText(text: string): {
+  entries: { min: number; max: number; text: string }[];
+  die: number;
+} {
+  const entries = parseEvents(text);
+  const top = Math.max(0, ...entries.map((row) => row.max));
+  const die = [4, 6, 8, 10, 12, 20, 100].find((sides) => sides >= top) ?? Math.max(2, top);
+  return { entries, die };
+}

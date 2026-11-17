@@ -125,7 +125,9 @@ export type FactField =
   | 'magicType'
   | 'attunement'
   | 'charges'
-  | 'domains';
+  | 'domains'
+  | 'ground'
+  | 'passage';
 
 export const FIELD_LABEL: Record<FactField, string> = {
   kind: 'Art',
@@ -150,6 +152,8 @@ export const FIELD_LABEL: Record<FactField, string> = {
   price: 'Wert',
   tool: 'Werkzeug',
   domains: 'Wofür sie steht',
+  ground: 'Gelände',
+  passage: 'Tempo',
   profession: 'Beruf',
   magicType: 'Art des magischen Gegenstands',
   attunement: 'Einstimmung',
@@ -279,6 +283,9 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
       'Bürgermeisterin',
     ],
     owner: OWNER,
+    // Reisen (`domain/journey.ts`): Gelände in eigenen Worten, ob es langsam macht.
+    ground: ['Gelände', 'Untergrund', 'Landschaft'],
+    passage: ['Tempo', 'Fortkommen', 'Durchquerung', 'Reisetempo'],
   },
   faction: {
     kind: KIND,
@@ -1260,6 +1267,17 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
         break;
       case 'domains':
         set(reading, 'domains', valueWords(reading.text), reading.text);
+        break;
+      case 'ground':
+        set(reading, 'ground', reading.text.slice(0, 80), reading.text.slice(0, 80));
+        break;
+      case 'passage':
+        set(
+          reading,
+          'groundSlow',
+          /langsam|schwer|schwierig|mühsam|doppelt|beschwerlich/i.test(reading.text),
+          reading.text,
+        );
         break;
       case 'season':
         set(reading, 'seasons', valueWords(reading.text), reading.text);

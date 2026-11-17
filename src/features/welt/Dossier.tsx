@@ -88,6 +88,7 @@ import { Facts, NotesSection, SecretSection } from './parts';
 import { MadeBy, RecipeSection, UsedIn } from './RecipeSection';
 import { RelationsTab } from './RelationsTab';
 import { RoomsSection } from './RoomsSection';
+import { TravelSection } from '../reise/TravelSection';
 import { Schemes } from './Schemes';
 import { finishStub } from './writing';
 import { isUnmetPerson } from '../../domain/known';
@@ -202,6 +203,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
     places: () => entity.kind === 'place' && <PlacesBelow place={entity} />,
     shopsHere: () => <ShopsHere shops={shops.listed} />,
     rooms: () => entity.kind === 'place' && <RoomsSection place={entity} />,
+    travel: () => entity.kind === 'place' && <TravelSection place={entity} />,
     items: () => entity.kind === 'place' && <PlaceItems place={entity} />,
     magic: () => entity.kind === 'item' && <MagicSection item={entity} />,
     recipe: () => entity.kind === 'item' && <RecipeSection item={entity} />,

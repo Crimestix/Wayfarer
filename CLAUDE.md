@@ -317,6 +317,23 @@ nicht übernommen.
   Stunden, nie ab Mitternacht – Wege (`travel.minutes` am Ortswechsel, gesetzt von `walk`) und
   Schritte der Hexkarten (`area.party.legs`) zusammen: `marchedMinutes`, vorab `marchAfter`, in
   Worten `marchRule`. Nur ein Hinweis (Weg, Dialog, Meldung nach der Ankunft), nie ein Halt.
+- **Unterwegs** (Station 2, Entscheidungen des Spielleiters 17. 11., `domain/journey.ts`,
+  `features/reise`): Eine Reise (`journeys/`, `status: 'underway'`) ist ein Zustand des
+  Spieltischs – solange sie läuft, steht links `TravelPanel` statt des Ortes. Angetreten über
+  „Reise …“ in den Wegen (`JourneyDialog`, `planJourney`: Wege der Welt über `routeBetween`, sonst
+  frei nach der Luftlinie; Dauer und Gelände stehen ab dem Aufbruch fest, `startJourney`).
+  „Bis zur nächsten Entscheidung“ (`travelOn` → `nextHalt`) reist voran und hält von selbst: Ort
+  am Weg, am Weg Vorbereitetes (`path.onTheWay`), Begegnung oder Entdeckung, Termin (ohne
+  Alltag), Schritt einer Uhr, Licht erlischt, acht Stunden seit der Rast; „1 Stunde“ begrenzt.
+  Zeit läuft nur über `walk` (am Ende eines Abschnitts) und `advanceTime` (mitten darauf, mit
+  `journey.steps` für den Gewaltmarsch). **Gelände bringt Wayfarer nicht mit:** Es steht an den
+  Gegenden der Welt (`place.ground`, `place.groundSlow` – „Unterwegs hier“ auf der Seite,
+  Steckbrief „Gelände:“/„Tempo:“) und gilt für alles darunter (`groundOf`); schwieriges Gelände
+  verdoppelt jede Dauer, die nicht fest am Weg steht. Begegnungen und Entdeckungen würfelt
+  Wayfarer alle vier Reisestunden (`CHECK_EVERY`) und einmal im Lager (`campCheck`) auf den
+  Tabellen der Gegend (`tables/`, `tablesAt`, als Text `tableText`/`tableFromText`, W20 ab einem
+  Wert) – mit `fairDie`, nur als Vorschlag, als Halt und Zeile der Chronik. Vorräte sind eine
+  Leiste in Tagen (`journey.supplies`, nach Kalendertagen), nur ein Hinweis.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

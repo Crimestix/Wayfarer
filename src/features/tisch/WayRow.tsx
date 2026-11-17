@@ -8,6 +8,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   CloudRain,
+  Compass,
   EyeOff,
   Lock,
   Pencil,
@@ -27,6 +28,7 @@ import { TravelIcon } from '../fortbewegung/parts';
 import { TravelBy } from '../fortbewegung/TravelBy';
 import { walk } from '../wege/actions';
 import { WayDialog } from '../wege/WayDialog';
+import { JourneyDialog } from '../reise/JourneyDialog';
 
 /** Auf dem Weg wartet etwas, das der Spielleiter vorbereitet hat (Wegenetz). */
 const prepared = (way: Way) => way.path.onTheWay.trim() !== '' || way.path.encounterId !== null;
@@ -42,6 +44,7 @@ export function WayRow({ placeId }: { placeId: string }) {
   const more = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TravelPath | 'new' | null>(null);
+  const [journey, setJourney] = useState(false);
   const origin = around?.origin ?? null;
   /** Von wo ein Weg abgeht, wenn nicht vom Ort der Wege selbst: „ab Hohenfurt“. */
   const startOf = new Map((around?.above?.ways ?? []).map((way) => [way, around!.above!.origin]));
@@ -144,6 +147,15 @@ export function WayRow({ placeId }: { placeId: string }) {
             {ways.length > SHOWN ? `+ ${ways.length - SHOWN} weitere` : 'Wege …'}
             <ChevronDown />
           </button>
+          <button
+            type="button"
+            className="wf-tisch-way wf-tisch-way--more"
+            onClick={() => setJourney(true)}
+            title="Eine längere Reise Tag für Tag: am Spieltisch weiter bis zur nächsten Entscheidung"
+          >
+            <Compass aria-hidden />
+            Reise …
+          </button>
           <TravelBy compact />
         </div>
       </nav>
@@ -193,6 +205,7 @@ export function WayRow({ placeId }: { placeId: string }) {
           Neuen Weg anlegen …
         </MenuItem>
       </Popover>
+      {journey && <JourneyDialog onClose={() => setJourney(false)} />}
       {editing && (
         <WayDialog
           way={editing === 'new' ? undefined : editing}

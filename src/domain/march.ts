@@ -27,7 +27,8 @@ export function forcedMarch(minutes: number): ForcedMarch | null {
   return { hours, dc: 10 + hours };
 }
 
-type MarchData = Pick<CampaignData, 'rests' | 'chronicle' | 'areas' | 'state' | 'entities'>;
+type MarchData = Pick<CampaignData, 'rests' | 'chronicle' | 'areas' | 'state' | 'entities'> &
+  Partial<Pick<CampaignData, 'journeys'>>;
 
 /** Ab wann Reisezeit zur Zeit `at` zählt: Ende der letzten Langen Rast, höchstens 24 Stunden. */
 export function marchStart(data: Pick<CampaignData, 'rests'>, at: WorldTime): WorldTime {
@@ -61,6 +62,9 @@ export function marchedMinutes(data: MarchData, at: WorldTime, area?: Area): num
     // Ältere Stände kennen nur die Reisezeit des Tages.
     else if (party.minutes && party.day === dayIndexOf(at)) total += party.minutes;
   }
+  // Reisen „bis zur nächsten Entscheidung“: Stücke mitten auf einem Abschnitt (`journey.steps`).
+  for (const journey of Object.values(data.journeys ?? {}))
+    for (const step of journey.steps) total += within(step.at, step.minutes, from, at);
   return total;
 }
 

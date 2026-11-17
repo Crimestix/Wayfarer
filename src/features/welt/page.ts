@@ -186,7 +186,8 @@ export type AddKey =
   | 'life'
   | 'scheme'
   | 'promise'
-  | 'combat';
+  | 'combat'
+  | 'travel';
 
 export const ADD_LABEL: Record<AddKey, string> = {
   shop: 'Laden',
@@ -199,6 +200,7 @@ export const ADD_LABEL: Record<AddKey, string> = {
   scheme: 'Vorhaben',
   promise: 'Abmachung',
   combat: 'Kampfwerte',
+  travel: 'Unterwegs hier',
 };
 
 /** Linke, breite Spalte: verstehen und schreiben. */
@@ -210,6 +212,7 @@ export type MainBlock =
   | 'places'
   | 'shopsHere'
   | 'rooms'
+  | 'travel'
   | 'items'
   | 'magic'
   | 'recipe'
@@ -302,6 +305,13 @@ export function pagePlan(
         'rooms',
         roomsOf(data, entity.id).length > 0 || roomCandidates(data, entity.id).length > 0,
         () => main.push('rooms'),
+      );
+      maybe(
+        'travel',
+        !!entity.place.ground ||
+          entity.place.groundSlow ||
+          Object.values(data.tables).some((table) => table.placeId === entity.id),
+        () => main.push('travel'),
       );
       main.push('items');
       side.push('party', 'changes', 'cast', 'nature');

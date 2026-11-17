@@ -1,0 +1,213 @@
+/* ── Reise: „Unterwegs hier“ auf der Seite einer Gegend ── */
+.wf-reise-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-reise-section__lead {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.wf-reise-section__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-reise-section__table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-reise-section__tablehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-reise-section__dc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wf-reise-section__dc input {
+  width: 3.2em;
+  text-align: center;
+}
+
+/* ── Unterwegs am Spieltisch ── */
+.wf-reise__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s-3) var(--s-4) var(--s-2);
+}
+.wf-reise__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.wf-reise__sub {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-reise__bar,
+.wf-reise__supplybar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--bg-3);
+}
+.wf-reise__bar i,
+.wf-reise__supplybar i {
+  display: block;
+  height: 100%;
+  background: var(--gold-deep);
+}
+.wf-reise__stops {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--line-faint);
+  list-style: none;
+  font-size: var(--text-sm);
+}
+.wf-reise__stops li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-mute);
+}
+.wf-reise__stops li svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.wf-reise__stops li.is-reached {
+  color: var(--ink-soft);
+}
+.wf-reise__stops li.is-here {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+.wf-reise__stops em {
+  color: var(--gold);
+  font-size: var(--text-xs);
+}
+.wf-reise__facts {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 6px var(--s-2);
+  margin: 0;
+  padding: var(--s-2) var(--s-4);
+  border-top: 1px solid var(--line-faint);
+  font-size: var(--text-sm);
+}
+.wf-reise__facts dt {
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.wf-reise__facts dd {
+  margin: 0;
+}
+.wf-reise__facts .is-warn,
+.wf-reise__supply.is-warn {
+  color: var(--blood-bright);
+}
+.wf-reise__note {
+  display: block;
+  font-size: var(--text-xs);
+}
+.wf-reise__tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-mute);
+  font-size: var(--text-2xs);
+}
+.wf-reise__supplies {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-reise__supply {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-reise__halt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--s-2) var(--s-4);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--gold-deep);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+}
+.wf-reise__halt--encounter {
+  border-left-color: var(--blood);
+}
+.wf-reise__halt p {
+  margin: 0;
+  font-size: var(--text-md);
+}
+.wf-reise__roll {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-reise__haltacts,
+.wf-reise__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.wf-reise__acts {
+  padding: var(--s-2) var(--s-4) 0;
+}
+.wf-reise__go {
+  flex: 1 1 100%;
+  border-color: var(--gold-deep);
+  color: var(--gold-bright);
+}
+.wf-reise__hint {
+  margin: var(--s-2) var(--s-4) var(--s-3);
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+/* Reise antreten */
+.wf-reise-dialog__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.wf-reise-dialog__plan ol {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 1.2em;
+}
+.wf-reise-dialog__plan em {
+  margin-left: 6px;
+  color: var(--ink-mute);
+}
+.wf-reise-dialog__supplies > * {
+  flex: 1 1 0;
+}

@@ -13,18 +13,28 @@ import { NoPlace, PlacePanel } from './PlacePanel';
 import { closePeek, usePeek } from './peek';
 import { PeekPanel } from './PeekPanel';
 import { PlayPanel } from './PlayPanel';
+import { journeyUnderway } from '../../domain/journey';
+import { TravelPanel } from '../reise/TravelPanel';
 import './tisch.css';
 
 export default function TischPage() {
   const data = useData();
   const place = partyPlace(data);
+  // Solange die Gruppe reist, steht links die Reise statt eines Ortes.
+  const journey = journeyUnderway(data);
   // Der Kurzblick steht in der Mitte, solange er offen ist; wer den Spieltisch verlässt, schließt ihn.
   const peek = usePeek();
   useEffect(() => closePeek, []);
   return (
     <div className="wf-tisch">
       <div className="wf-tisch__place">
-        {place ? <PlacePanel key={place.id} place={place} /> : <NoPlace />}
+        {journey ? (
+          <TravelPanel journey={journey} />
+        ) : place ? (
+          <PlacePanel key={place.id} place={place} />
+        ) : (
+          <NoPlace />
+        )}
       </div>
       <div className="wf-tisch__play">{peek.id ? <PeekPanel /> : <PlayPanel />}</div>
       <div className="wf-tisch__side">
