@@ -1,4 +1,5 @@
 /** Befehle des Bereichs „Wiki“. */
+import { templateKey, templateOfText, wordKey } from '../../domain/pageTemplate';
 import type { CampaignDb } from '../../data/db';
 import { kinInSentence } from '../../domain/kin';
 import { pruneVersions, shouldKeepVersion } from '../../domain/versions';
@@ -268,6 +269,8 @@ export function createArticleOfKind(
     scaffold: boolean;
     /** Der Eintrag, dessen Artikel das wird (er hat noch keinen). */
     entityId?: string;
+    /** Die eigene Vorlage des Spielleiters (`domain/pageTemplate.ts`) – statt des Gerüsts. */
+    template?: string;
   },
 ): { article: Article; entity: Entity | null } | null {
   const { kind } = input;
@@ -277,7 +280,7 @@ export function createArticleOfKind(
     const article = createArticle(db, {
       title: input.title,
       parentId: input.parentId ?? null,
-      text: scaffoldText(labels),
+      text: input.template?.trim() ? `${input.template.trim()}\n` : scaffoldText(labels),
     });
     if (!article) return null;
     const data = db.getSnapshot();
@@ -816,4 +819,36 @@ export function dismissHint(db: CampaignDb, articleId: string, key: string): () 
         dismissedHints: now.dismissedHints.filter((entry) => entry !== key),
       });
   };
+}
+
+// ── Vorlagen durch Merken ──────────────────────────────────────────────────
+
+/**
+ * „Als Vorlage für <Wort> merken“: Die Form dieser Seite (`templateOfText`) wird die eigene
+ * Vorlage für Kategorie und Wort; eine frühere für dasselbe Wort wird ersetzt. Gibt `undo`
+ * zurück – null, wenn es kein Wort oder keine Form gibt.
+ */
+export function rememberPageTemplate(
+  db: CampaignDb,
+  kind: EntityKind,
+  word: string,
+  text: string,
+): (() => void) | null {
+  const form = templateOfText(text);
+  const clean = word.replace(/\s+/g, ' ').trim();
+  if (!form || !wordKey(clean)) return null;
+  const before = db.getSnapshot().campaign.pageTemplates;
+  db.setCampaign({
+    pageTemplates: { ...before, [templateKey(kind, clean)]: { kind, word: clean, text: form } },
+  });
+  return () => db.setCampaign({ pageTemplates: before });
+}
+
+/** Vergisst eine eigene Vorlage. Gibt `undo` zurück. */
+export function forgetPageTemplate(db: CampaignDb, key: string): (() => void) | null {
+  const before = db.getSnapshot().campaign.pageTemplates;
+  if (!before[key]) return null;
+  const { [key]: _gone, ...rest } = before;
+  db.setCampaign({ pageTemplates: rest });
+  return () => db.setCampaign({ pageTemplates: before });
 }

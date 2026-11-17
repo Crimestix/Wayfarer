@@ -399,3 +399,34 @@ describe('Schreiben', () => {
     expect(relinked(articles(), articles())).toEqual([]);
   });
 });
+
+describe('Neue Kategorien im Steckbrief', () => {
+  it('liest Reich, Gottheit und Ereignis aus ihrem Steckbrief', async () => {
+    const { db } = await setup();
+    const capital = db.put('entities', createEntity({ kind: 'place', name: 'Kronfurt' }));
+    const coast = db.put('entities', createEntity({ kind: 'place', name: 'Salzküste' }));
+    const realm = db.put('entities', createEntity({ kind: 'realm', name: 'Reich Veldmar' }));
+    const deity = db.put('entities', createEntity({ kind: 'deity', name: 'Isara' }));
+    const war = db.put('entities', createEntity({ kind: 'happening', name: 'Der Salzkrieg' }));
+    const write = (title: string, lines: string[]) => {
+      const article = createArticle(db, {
+        title,
+        text: ['> [!steckbrief]', ...lines.map((line) => `> ${line}`)].join('\n'),
+      })!;
+      syncFacts(db, [article.id]);
+    };
+    write('Reich Veldmar', ['Art: Königreich', 'Hauptstadt: Kronfurt', 'Gebiet: Salzküste']);
+    write('Isara', ['Art: Göttin', 'Domänen: Meer, Sturm']);
+    write('Der Salzkrieg', ['Art: Krieg', 'Ort: Salzküste']);
+    const data = db.getSnapshot();
+    expect(data.entities[realm.id]).toMatchObject({
+      realm: { category: 'Königreich', seatId: capital.id, regionIds: [coast.id] },
+    });
+    expect(data.entities[deity.id]).toMatchObject({
+      deity: { category: 'Göttin', domains: ['Meer', 'Sturm'] },
+    });
+    expect(data.entities[war.id]).toMatchObject({
+      happening: { category: 'Krieg', placeId: coast.id },
+    });
+  });
+});

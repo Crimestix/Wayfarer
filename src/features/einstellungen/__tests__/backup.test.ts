@@ -189,7 +189,7 @@ describe('Dateiname und Zusammenfassung', () => {
         '7 Orte',
         '3 Fraktionen',
         '6 Gefährten',
-        '2 Themen',
+        '2 Überlieferungen',
         '1 Familie',
         '2 Spezies',
         '2 Sprachen',

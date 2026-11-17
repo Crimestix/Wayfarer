@@ -38,7 +38,7 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   faction: 'Fraktion',
   character: 'Gefährte',
   item: 'Gegenstand',
-  topic: 'Thema',
+  topic: 'Überlieferung',
   family: 'Familie',
   species: 'Spezies',
   language: 'Sprache',
@@ -48,6 +48,9 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   animal: 'Tier',
   mineral: 'Gestein',
   profession: 'Beruf',
+  deity: 'Gottheit',
+  realm: 'Reich',
+  happening: 'Ereignis',
 };
 
 export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
@@ -56,7 +59,7 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   faction: 'Fraktionen',
   character: 'Gefährten',
   item: 'Gegenstände',
-  topic: 'Themen',
+  topic: 'Überlieferungen',
   family: 'Familien',
   species: 'Spezies',
   language: 'Sprachen',
@@ -66,6 +69,9 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   animal: 'Tiere',
   mineral: 'Gesteine',
   profession: 'Berufe',
+  deity: 'Gottheiten',
+  realm: 'Reiche',
+  happening: 'Ereignisse',
 };
 
 /**
@@ -85,6 +91,9 @@ export const DETAIL_LINKS = {
   plant: ['regionIds'],
   animal: ['regionIds'],
   mineral: ['regionIds'],
+  deity: ['seatId'],
+  realm: ['seatId', 'regionIds'],
+  happening: ['placeId'],
 } as const satisfies Partial<Record<EntityKind, readonly string[]>>;
 
 type LinkKind = keyof typeof DETAIL_LINKS;

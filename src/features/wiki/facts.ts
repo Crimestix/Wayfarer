@@ -124,7 +124,8 @@ export type FactField =
   | 'profession'
   | 'magicType'
   | 'attunement'
-  | 'charges';
+  | 'charges'
+  | 'domains';
 
 export const FIELD_LABEL: Record<FactField, string> = {
   kind: 'Art',
@@ -148,6 +149,7 @@ export const FIELD_LABEL: Record<FactField, string> = {
   rarity: 'Seltenheit',
   price: 'Wert',
   tool: 'Werkzeug',
+  domains: 'Wofür sie steht',
   profession: 'Beruf',
   magicType: 'Art des magischen Gegenstands',
   attunement: 'Einstimmung',
@@ -310,10 +312,51 @@ const VOCABULARY: Partial<Record<EntityKind, Partial<Record<FactField, string[]>
   animal: NATURE,
   mineral: NATURE,
   profession: { kind: KIND, tool: ['Werkzeug', 'Werkzeuge', 'Handwerkszeug'] },
+  deity: {
+    kind: KIND,
+    domains: ['Domäne', 'Domänen', 'Bereich', 'Bereiche', 'Wofür sie steht', 'Zuständig für'],
+    seat: ['Tempel', 'Haupttempel', 'Heiliger Ort', 'Heiligtum', 'Sitz'],
+    leader: ['Hohepriester', 'Hohepriesterin', 'Oberhaupt'],
+  },
+  realm: {
+    kind: KIND,
+    seat: ['Hauptstadt', 'Sitz', 'Regierungssitz', 'Residenz'],
+    region: ['Gebiet', 'Gebiete', 'Provinzen', 'Länder', 'Umfasst'],
+    leader: [
+      ...LEADER,
+      'Herrscher',
+      'Herrscherin',
+      'Herrschaft',
+      'Regiert von',
+      'König',
+      'Königin',
+      'Fürst',
+      'Fürstin',
+    ],
+  },
+  happening: {
+    kind: KIND,
+    location: ['Ort', 'Schauplatz', 'Wo', 'Fand statt in', 'Geschah in'],
+  },
 };
 
-for (const kind of ['person', 'place', 'faction', 'family', 'item', 'species', 'topic'] as const)
+for (const kind of [
+  'person',
+  'place',
+  'faction',
+  'family',
+  'item',
+  'species',
+  'topic',
+  'realm',
+] as const)
   VOCABULARY[kind] = { ...VOCABULARY[kind], born: BORN, died: DIED };
+// Ein Ereignis beginnt und endet – auch das sind Lebensdaten (so steht es in der Zeitleiste).
+VOCABULARY.happening = {
+  ...VOCABULARY.happening,
+  born: [...BORN, 'Beginn', 'Begann', 'Datum', 'Wann', 'Jahr'],
+  died: [...DIED, 'Ende', 'Endete', 'Bis'],
+};
 
 const meaningCache = new Map<EntityKind, Map<string, FactField>>();
 
@@ -1175,6 +1218,11 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
         if (target) set(reading, 'workplaceId', target.id, target.name);
         break;
       case 'location':
+        // Ein Ereignis geschah an einem Ort; ein Ort liegt in einem anderen.
+        if (entity.kind === 'happening') {
+          if (target) set(reading, 'placeId', target.id, target.name);
+          break;
+        }
         // Ein Ort liegt nie in sich selbst oder in einem Ort, der unter ihm liegt.
         if (target && !isUnder(index, target.id, entity.id))
           set(reading, 'parentId', target.id, target.name);
@@ -1209,6 +1257,9 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
         break;
       case 'habitat':
         set(reading, 'habitat', valueWords(reading.text), reading.text);
+        break;
+      case 'domains':
+        set(reading, 'domains', valueWords(reading.text), reading.text);
         break;
       case 'season':
         set(reading, 'seasons', valueWords(reading.text), reading.text);
@@ -1270,7 +1321,7 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
           wishes.push({
             from: other.id,
             to: entity.id,
-            type: entity.kind === 'place' ? 'rules' : 'leads',
+            type: entity.kind === 'place' || entity.kind === 'realm' ? 'rules' : 'leads',
           });
         break;
       case 'owner':

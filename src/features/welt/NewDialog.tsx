@@ -16,7 +16,8 @@ import { newArticleParent } from '../wiki/gaps';
 import { scaffoldOf } from '../wiki/scaffold';
 import { linkIndex } from '../wiki/text';
 import { closeNew, useNewRequest, type NewRequest } from './editor';
-import { COMMON_KINDS, WORLD_KINDS, isWorldKind } from './model';
+import { COMMON_KINDS, WORLD_KINDS, isWorldKind, wordChoices } from './model';
+import { templateFor } from '../../domain/pageTemplate';
 import { newEntry } from './writing';
 
 /** Hängt am Gerüst der Welt-Seite: öffnet sich über `openNew` von überall. */
@@ -38,7 +39,12 @@ function NewDialog({ request }: { request: NewRequest }) {
   );
   const [withText, setWithText] = useState(request.withText ?? kind === null);
   const [inFolder, setInFolder] = useState(true);
+  /** Das eigene Wort unter der Kategorie – mit ihm kommt die eigene Vorlage. */
+  const [word, setWord] = useState('');
+  const [useTemplate, setUseTemplate] = useState(true);
   const clean = name.replace(/\s+/g, ' ').trim();
+  const template = kind && word.trim() ? templateFor(data.campaign, kind, word) : null;
+  const words = kind && isWorldKind(kind) ? wordChoices(data, kind) : [];
 
   // Gibt es den Namen schon? Dann wird nur geöffnet – nie ein zweiter.
   const owner = clean ? entryForTitle(data, clean) : null;
@@ -47,7 +53,7 @@ function NewDialog({ request }: { request: NewRequest }) {
     !existing && kind === null && clean ? linkIndex(data.articles).resolve(clean) : null;
   const existingText = found ? (data.articles[found.id] ?? null) : null;
   const labels = kind ? scaffoldOf(data.campaign, kind) : [];
-  const writes = kind === null || withText;
+  const writes = kind === null || withText || (!!template && useTemplate);
   const folder = writes ? newArticleParent(data.articles, kind, []) : null;
 
   const submit = () => {
@@ -55,8 +61,10 @@ function NewDialog({ request }: { request: NewRequest }) {
     const result = newEntry(db, {
       name: clean,
       kind,
-      withText,
+      withText: writes,
       parentId: folder && inFolder ? folder.id : null,
+      word,
+      ...(template && useTemplate ? { template: template.text } : {}),
     });
     closeNew();
     if (!result) return;
@@ -114,7 +122,7 @@ function NewDialog({ request }: { request: NewRequest }) {
         ) : null}
         {!existing && (
           <Field
-            label="Art"
+            label="Kategorie"
             hint={
               kind
                 ? labels.length
@@ -125,7 +133,7 @@ function NewDialog({ request }: { request: NewRequest }) {
           >
             <Select
               value={kind ?? NO_KIND}
-              aria-label="Art"
+              aria-label="Kategorie"
               onChange={(e) => {
                 const next = isWorldKind(e.target.value) ? e.target.value : null;
                 setKind(next);
@@ -150,7 +158,35 @@ function NewDialog({ request }: { request: NewRequest }) {
             </Select>
           </Field>
         )}
-        {!opening && kind !== null && (
+        {!existing && kind !== null && (
+          <Field
+            label="Genauer"
+            hint={
+              template
+                ? `Du hast eine eigene Vorlage für „${template.word}“.`
+                : 'Dein eigenes Wort: Fischerdorf, Gilde, Tagebuch, Pilz … – frei, nie Pflicht.'
+            }
+          >
+            <Input
+              value={word}
+              list="wf-welt-new-words"
+              aria-label="Genauer"
+              placeholder={words.slice(0, 3).join(', ') + (words.length ? ' …' : '')}
+              onChange={(e) => setWord(e.target.value)}
+            />
+            <datalist id="wf-welt-new-words">
+              {words.map((entry) => (
+                <option key={entry} value={entry} />
+              ))}
+            </datalist>
+          </Field>
+        )}
+        {!opening && template && (
+          <Checkbox checked={useTemplate} onChange={setUseTemplate}>
+            Mit deiner Vorlage für „{template.word}“ anfangen
+          </Checkbox>
+        )}
+        {!opening && kind !== null && !(template && useTemplate) && (
           <Checkbox checked={withText} onChange={setWithText}>
             Gleich den Text anfangen
           </Checkbox>

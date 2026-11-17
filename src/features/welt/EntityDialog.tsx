@@ -1,4 +1,6 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
+import { PLACE_SCALES, type PlaceScale } from '../../domain/schema';
+import { SCALE_LABEL, scaleOfWord } from '../../domain/placeScale';
 import { lifeWords } from '../../domain/lifespan';
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocation } from 'wouter';
@@ -73,7 +75,12 @@ const KIND_HINT: Record<WorldKind, string> = {
   family: 'Familie – Häuser, Sippen und Dynastien; die Mitglieder trägst du bei den Personen ein.',
   faction: 'Fraktion – Gruppen mit eigenen Zielen: Häuser, Gilden, Orden und Kulte.',
   item: 'Gegenstand – was von Hand gemacht ist: Waffen, Artefakte, Schriftstücke, auch Tränke, Gifte und Bücher.',
-  topic: 'Thema – Gerüchte, Glaube und Handlungsfäden, was sonst kein Zuhause hat.',
+  topic:
+    'Überlieferung – Legenden, Prophezeiungen, Glaube, Magiesysteme: Wissen der Welt als Text.',
+  deity: 'Gottheit – Göttinnen, Götter, Dämonenfürsten und alte Mächte, mit dem, wofür sie stehen.',
+  realm: 'Reich – Königreiche, Fürstentümer, Stadtstaaten: ein Gebiet mit einer Herrschaft.',
+  happening:
+    'Ereignis – Kriege, Gründungen, Katastrophen: was in der Geschichte der Welt geschah, mit Beginn und Ende.',
   species: 'Spezies – Völker und Wesen, aus denen Personen stammen.',
   language: 'Sprache – was gesprochen wird; wer sie spricht, steht bei der Person.',
   script: 'Schrift – Alphabete und Zeichen, in denen Sprachen geschrieben werden.',
@@ -92,6 +99,9 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   faction: 'z. B. Gilde der Lotsen. Kennt jede Sandbank.',
   item: 'z. B. Bronzeglocke, die schlägt, wenn jemand stirbt.',
   topic: 'z. B. Niemand weiß, warum das Leuchtfeuer erloschen ist.',
+  deity: 'z. B. Herrin der Stürme, der die Fischer opfern.',
+  realm: 'z. B. Küstenreich, das von Zöllen lebt.',
+  happening: 'z. B. Der Krieg, der die alte Brücke zerstörte.',
   family: 'z. B. Altes Seefahrerhaus, das seine Schulden verbirgt.',
   species: 'Ein Satz, woran man sie am Tisch erkennt.',
   language: 'Ein Satz, wie sie klingt und wo man sie hört.',
@@ -545,6 +555,29 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
               />
             </Field>
           )}
+          {draft.kind === 'place' && (
+            <Field
+              label="Größe"
+              hint="Ändert, wer „hier“ ist und ob ein Laden der Ort selbst ist. Offen gelassen, liest Wayfarer sie aus dem Wort darunter."
+            >
+              <Select
+                value={draft.scale}
+                onChange={(e) => set({ scale: e.target.value as PlaceScale | '' })}
+              >
+                <option value="">
+                  offen
+                  {scaleOfWord(draft.category)
+                    ? ` – nach dem Wort: ${SCALE_LABEL[scaleOfWord(draft.category)!]}`
+                    : ''}
+                </option>
+                {PLACE_SCALES.map((scale) => (
+                  <option key={scale} value={scale}>
+                    {SCALE_LABEL[scale]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           {draft.kind === 'faction' && (
             <Field label="Sitz">
               <Picker
@@ -594,7 +627,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
             </Field>
           )}
           {draft.kind !== 'person' && (
-            <Field label="Art">
+            <Field label="Genauer" hint="Dein eigenes Wort: Fischerdorf, Gilde, Tagebuch, Pilz …">
               <Input
                 list={categoryList}
                 value={draft.category}

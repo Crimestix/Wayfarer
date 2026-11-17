@@ -140,6 +140,10 @@ export interface NewEntryInput {
   withText: boolean;
   /** Wo der neue Text im Baum liegt (ein Artikel); sonst ganz oben. */
   parentId?: string | null | undefined;
+  /** Das eigene Wort unter der Kategorie: Fischerdorf, Gilde, Tagebuch … (bei Personen die Rolle). */
+  word?: string | undefined;
+  /** Die eigene Vorlage für Kategorie und Wort – der Text beginnt mit ihr statt mit dem Gerüst. */
+  template?: string | undefined;
 }
 
 export interface NewEntryResult {
@@ -158,6 +162,19 @@ export interface NewEntryResult {
  * Geschichte, sondern mit Absicht); ein Artikel dieses Titels ohne Eintrag wird sein Text
  * (`createNamedEntity`). Auf Wunsch gleich der Text mit dem Gerüst der Art. null ohne Namen.
  */
+/** Setzt das eigene Wort eines Eintrags (bei Personen die Rolle, sonst „Genauer“). */
+function withOwnWord(db: CampaignDb, entity: Entity, word: string): Entity {
+  if (entity.kind === 'character') return entity;
+  if (entity.kind === 'person')
+    return db.patch('entities', entity.id, { person: { ...entity.person, role: word } }) ?? entity;
+  const details = (entity as unknown as Record<string, object>)[entity.kind];
+  return (
+    db.patch('entities', entity.id, {
+      [entity.kind]: { ...details, category: word },
+    } as Partial<Entity>) ?? entity
+  );
+}
+
 export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult | null {
   const name = input.name.replace(/\s+/g, ' ').trim();
   if (!name) return null;
@@ -183,7 +200,9 @@ export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult |
     return made ? { entity: null, article: made.article, created: true } : null;
   }
   return db.batch(() => {
-    const { entity } = createNamedEntity(db, name, input.kind!, []);
+    const made0 = createNamedEntity(db, name, input.kind!, []);
+    const word = (input.word ?? '').replace(/\s+/g, ' ').trim();
+    const entity = word ? withOwnWord(db, made0.entity, word) : made0.entity;
     const now = db.getSnapshot();
     const adopted = entity.lk ? (now.articles[entity.lk.resourceId] ?? null) : null;
     if (adopted || !input.withText) return { entity, article: adopted, created: true };
@@ -193,6 +212,7 @@ export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult |
       kind: input.kind,
       scaffold: true,
       entityId: entity.id,
+      ...(input.template ? { template: input.template } : {}),
     });
     return {
       entity: (made?.entity ?? db.getSnapshot().entities[entity.id]) || entity,

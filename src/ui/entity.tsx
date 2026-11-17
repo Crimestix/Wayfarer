@@ -20,6 +20,9 @@ import {
   User,
   Users,
   X,
+  Sun,
+  Crown,
+  Hourglass,
 } from 'lucide-react';
 import { useData } from '../data/hooks';
 import { useMediaSrc } from '../data/media';
@@ -55,6 +58,9 @@ const KIND_ICONS: Record<EntityKind, typeof User> = {
   animal: PawPrint,
   mineral: Pickaxe,
   profession: Hammer,
+  deity: Sun,
+  realm: Crown,
+  happening: Hourglass,
 };
 
 export function KindIcon({ kind, size }: { kind: EntityKind; size?: number }) {

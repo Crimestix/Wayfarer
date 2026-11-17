@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 16;
-export const DATA_SHAPE = 'bca9d40ed5a56e59';
+export const DATA_VERSION = 17;
+export const DATA_SHAPE = '512264a76fbbd85a';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -101,6 +101,16 @@ export const CampaignMetaSchema = z.object({
    * (`features/wiki/scaffold.ts`). Fehlt eine Art, gilt die Vorgabe; eine leere Liste = kein Gerüst.
    */
   factScaffolds: z.record(z.string(), z.array(z.string())).default({}),
+  /**
+   * Eigene Vorlagen durch Merken (`domain/pageTemplate.ts`): je Kategorie und Wort („place:taverne“)
+   * die Form einer Seite, die der Spielleiter einmal so geschrieben hat, wie er sie will.
+   */
+  pageTemplates: z
+    .record(
+      z.string(),
+      z.object({ kind: z.string(), word: z.string(), text: z.string().default('') }),
+    )
+    .default({}),
   /**
    * Zeitalter der Welt, vom Spielleiter benannt (`domain/ages.ts`): als breite Bänder über der
    * Zeitleiste. Leer = keine.
@@ -303,6 +313,9 @@ export const ENTITY_KINDS = [
   'animal',
   'mineral',
   'profession',
+  'deity',
+  'realm',
+  'happening',
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
@@ -384,6 +397,10 @@ const PersonDetails = z.object({
 export const PLACE_LIGHTS = ['dark', 'dim', 'bright'] as const;
 export type PlaceLight = (typeof PLACE_LIGHTS)[number];
 
+/** Die Größen eines Ortes, die etwas ändern (Wer hier ist, Räume, Läden). */
+export const PLACE_SCALES = ['region', 'settlement', 'building'] as const;
+export type PlaceScale = (typeof PLACE_SCALES)[number];
+
 const PlaceDetails = z.object({
   /** Übergeordneter Ort. */
   parentId: id.nullable().default(null),
@@ -408,6 +425,11 @@ const PlaceDetails = z.object({
   room: z.boolean().default(false),
   /** Stand eines Raums in Worten: frei, verschlossen, eingestürzt, Falle … */
   roomState: z.string().default(''),
+  /**
+   * Wie groß der Ort ist (Konzeptbesprechung 16. 11.): Gegend, Siedlung, Gebäude – ein Raum ist
+   * `room`. '' = nicht festgelegt; dann schätzt `placeScale()` aus Wort und Orten darin.
+   */
+  scale: z.enum(['', ...PLACE_SCALES]).default(''),
 });
 
 const FactionDetails = z.object({
@@ -709,6 +731,37 @@ const AnimalDetails = z.object({
 /** Gestein: was aus dem Boden kommt – Erze, Edelsteine, Gesteine, Salze. */
 const MineralDetails = z.object(natureDetails);
 
+/**
+ * Gottheit (Konzeptbesprechung 16. 11.): Göttin, Dämonenfürst, Schutzgeist … Anhänger stehen in
+ * Beziehungen, Tempel sind Orte, Feiertage Termine – hier nur, wofür sie steht.
+ */
+const DeityDetails = z.object({
+  category: z.string().default(''),
+  /** Wofür sie steht, als Wörter: Meer, Tod, Schmiedekunst … */
+  domains: z.array(z.string()).default([]),
+  /** Ihr wichtigster Tempel oder heiliger Ort. */
+  seatId: id.nullable().default(null),
+});
+
+/** Reich: Königreich, Stadtstaat, Grenzmark … – ein Gebiet mit Herrschaft. */
+const RealmDetails = z.object({
+  category: z.string().default(''),
+  /** Hauptstadt oder Sitz der Herrschaft. */
+  seatId: id.nullable().default(null),
+  /** Die Orte und Gegenden, die dazugehören – mit allem darunter. */
+  regionIds: z.array(id).default([]),
+});
+
+/**
+ * Ereignis der Weltgeschichte: Krieg, Gründung, Katastrophe … Wann es war, steht in den
+ * Lebensdaten (`born` = Beginn, `ended` = Ende) – so steht es von selbst in der Zeitleiste.
+ */
+const HappeningDetails = z.object({
+  category: z.string().default(''),
+  /** Wo es geschah. */
+  placeId: id.nullable().default(null),
+});
+
 /** Beruf: ein Handwerk, Gewerbe oder Amt. Wer ihn ausübt, steht in Beziehungen der Art „practises“. */
 const ProfessionDetails = z.object({
   /** Handwerk, Handel, Gelehrsamkeit, Heilkunde, Dienst, Land und Wasser … */
@@ -741,6 +794,13 @@ export const EntitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('profession'),
     profession: ProfessionDetails.prefault({}),
   }),
+  z.object({ ...entityBase, kind: z.literal('deity'), deity: DeityDetails.prefault({}) }),
+  z.object({ ...entityBase, kind: z.literal('realm'), realm: RealmDetails.prefault({}) }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('happening'),
+    happening: HappeningDetails.prefault({}),
+  }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -752,6 +812,9 @@ export type Item = EntityOf<'item'>;
 export type Topic = EntityOf<'topic'>;
 export type Family = EntityOf<'family'>;
 export type Species = EntityOf<'species'>;
+export type Deity = EntityOf<'deity'>;
+export type Realm = EntityOf<'realm'>;
+export type Happening = EntityOf<'happening'>;
 export type Language = EntityOf<'language'>;
 export type Script = EntityOf<'script'>;
 export type Ability = EntityOf<'ability'>;

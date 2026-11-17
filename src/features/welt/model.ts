@@ -50,6 +50,7 @@ import {
   type Person,
   type PersonStatus,
   type Place,
+  type PlaceScale,
   type Rarity,
   type Relation,
 } from '../../domain/schema';
@@ -64,6 +65,7 @@ import {
   type WorldTime,
 } from '../../domain/time/calendar';
 import { knowsPerson } from '../../domain/known';
+import { templatesOfKind } from '../../domain/pageTemplate';
 
 // ── Arten ──────────────────────────────────────────────────────────────────
 
@@ -83,6 +85,9 @@ export const WORLD_KINDS = [
   'animal',
   'mineral',
   'profession',
+  'deity',
+  'realm',
+  'happening',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 
@@ -92,7 +97,10 @@ export const COMMON_KINDS: readonly WorldKind[] = [
   'person',
   'faction',
   'family',
+  'realm',
   'item',
+  'deity',
+  'happening',
   'topic',
 ];
 
@@ -141,7 +149,10 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   ],
   faction: ['Adelshaus', 'Gilde', 'Orden', 'Kult', 'Bande', 'Handelshaus', 'Stadtwache'],
   item: ['Artefakt', 'Waffe', 'Schriftstück', 'Schlüssel', 'Schatz'],
-  topic: ['Gerücht', 'Geschichte', 'Glaube', 'Rätsel', 'Handlungsfaden'],
+  topic: ['Legende', 'Prophezeiung', 'Glaube', 'Magiesystem', 'Rätsel', 'Gerücht'],
+  deity: ['Göttin', 'Gott', 'Dämonenfürst', 'Schutzgeist', 'Erzfee', 'Alte Macht'],
+  realm: ['Königreich', 'Fürstentum', 'Stadtstaat', 'Grenzmark', 'Reich', 'Stammesgebiet'],
+  happening: ['Krieg', 'Schlacht', 'Gründung', 'Katastrophe', 'Seuche', 'Krönung', 'Vertrag'],
   family: ['Adelshaus', 'Sippe', 'Clan', 'Dynastie', 'Kaufmannsfamilie'],
   species: ['Humanoid', 'Fee', 'Elementar', 'Untoter', 'Drache', 'Tier'],
   language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
@@ -173,6 +184,29 @@ export function categoryOptions(data: CampaignData, kind: Exclude<WorldKind, 'pe
   const collator = new Intl.Collator('de');
   const rest = CATEGORY_SUGGESTIONS[kind].filter((c) => !used.has(c));
   return [...[...used].sort(collator.compare), ...rest];
+}
+
+/**
+ * Vorschläge für das eigene Wort beim Anlegen: Wörter mit eigener Vorlage zuerst, dann die schon
+ * verwendeten, dann ein paar übliche, damit eine neue Welt nicht leer startet. Bei Personen die
+ * schon vergebenen Rollen.
+ */
+export function wordChoices(data: CampaignData, kind: WorldKind): string[] {
+  const own = templatesOfKind(data.campaign, kind).map((entry) => entry.word);
+  const rest =
+    kind === 'person'
+      ? [
+          ...new Set(
+            Object.values(data.entities).flatMap((entity) =>
+              entity.kind === 'person' && entity.person.role.trim()
+                ? [entity.person.role.trim()]
+                : [],
+            ),
+          ),
+        ].sort(new Intl.Collator('de').compare)
+      : categoryOptions(data, kind);
+  const seen = new Set(own.map((word) => word.toLocaleLowerCase('de')));
+  return [...own, ...rest.filter((word) => !seen.has(word.toLocaleLowerCase('de')))];
 }
 
 /** Vorschläge für Lebensräume: was in der Welt schon steht, dann die üblichen Wörter. */
@@ -1141,6 +1175,8 @@ export interface EntityDraft {
   abilityIds: string[];
   // Ort
   parentId: string | null;
+  /** Größe eines Ortes; '' = offen (Wayfarer liest sie aus dem eigenen Wort). */
+  scale: PlaceScale | '';
   // Fraktion und Familie
   seatId: string | null;
   // Gegenstand
@@ -1201,6 +1237,7 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     languageIds: [],
     abilityIds: [],
     parentId: null,
+    scale: '',
     seatId: null,
     holderId: null,
     magic: false,
@@ -1339,7 +1376,7 @@ export function entityFromDraft(
         : createEntity({ kind: 'person', ...common, person });
     }
     case 'place': {
-      const place = { parentId: draft.parentId, category };
+      const place = { parentId: draft.parentId, category, scale: draft.scale };
       return base?.kind === 'place'
         ? { ...base, ...common, place: { ...base.place, ...place } }
         : createEntity({ kind: 'place', ...common, place });
@@ -1408,7 +1445,10 @@ export function entityFromDraft(
     case 'topic':
     case 'species':
     case 'script':
-    case 'ability': {
+    case 'ability':
+    case 'deity':
+    case 'realm':
+    case 'happening': {
       const kind = draft.kind;
       if (base) {
         const details = (base as unknown as Record<string, object>)[kind];

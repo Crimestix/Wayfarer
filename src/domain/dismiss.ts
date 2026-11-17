@@ -24,6 +24,8 @@ export const SUGGESTION = {
   tie: (a: string, b: string) => `tie:${[a, b].sort().join(':')}`,
   /** Eine Fraktion und eine Familie könnten dasselbe Haus sein („Haus Orvyndra“ / „Orvyndra“). */
   house: (factionId: string, familyId: string) => `house:${factionId}:${familyId}`,
+  /** Eine Leitfrage am Rand einer Seite (`KIND_QUESTIONS`) – je Kategorie und Frage. */
+  question: (kind: string, question: string) => `question:${kind}:${question}`,
 } as const;
 
 export function isDismissed(data: Pick<CampaignData, 'state'>, key: string): boolean {
@@ -51,6 +53,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   prep: 'Angebote beim Vorbereiten eines Abends',
   tie: 'Fäden, die sich verbinden ließen',
   house: 'Fraktionen und Familien, die dasselbe Haus sein könnten',
+  question: 'Leitfragen am Rand einer Seite',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */

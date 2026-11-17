@@ -82,6 +82,9 @@ describe('Übersicht', () => {
       animal: 0,
       mineral: 0,
       profession: 0,
+      deity: 0,
+      realm: 0,
+      happening: 0,
     });
   });
 

@@ -4,6 +4,7 @@
  * zum Verstehen – die Gestalt folgt der Art, nie als Filter: Alles Weitere bleibt über
  * „Hinzufügen“ erreichbar. Reine Funktionen; geschrieben wird über `pageActions.ts`.
  */
+import { isWideScale } from '../../domain/placeScale';
 import {
   attitudeToParty,
   entityCategory,
@@ -146,6 +147,8 @@ const AREA_WORDS =
  */
 function isArea(data: CampaignData, place: Place): boolean {
   if (placeChildren(data, place.id).some((child) => !child.place.room)) return true;
+  // Hat der Spielleiter die Größe festgelegt, gilt sie (`domain/placeScale.ts`).
+  if (place.place.scale) return isWideScale(place.place.scale);
   return AREA_WORDS.test(place.place.category.trim());
 }
 

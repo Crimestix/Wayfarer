@@ -5,6 +5,8 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
+import { PageTemplateTools } from './PageTemplate';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { BookOpen, EyeOff, Feather, Footprints, Link2, Pencil, Trash2 } from 'lucide-react';
@@ -131,6 +133,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
   };
   const above = entity.kind === 'place' ? placeAncestors(data, entity.id).reverse() : [];
   const category = entity.kind === 'person' ? '' : entityCategory(entity).trim();
+  const scale = entity.kind === 'place' ? placeScale(data, entity) : null;
 
   const openAdd = (key: AddKey) => {
     if (key === 'promise') {
@@ -288,6 +291,15 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
             <span>
               {KIND_LABEL[entity.kind]}
               {category && <span className="wf-welt-hero__category"> · {category}</span>}
+              {scale &&
+                !category
+                  .toLocaleLowerCase('de')
+                  .includes(SCALE_LABEL[scale].toLocaleLowerCase('de')) && (
+                  <span className="wf-welt-hero__category" title="Größe des Ortes">
+                    {' '}
+                    · {SCALE_LABEL[scale]}
+                  </span>
+                )}
             </span>
             {partyHere && (
               <Badge tone="gold" icon={<Footprints />}>
@@ -414,6 +426,7 @@ export function Dossier({ entity }: { entity: WorldEntity }) {
                   <Fragment key={block}>{side[block]?.()}</Fragment>
                 ))}
                 <AddRow keys={plan.add} onOpen={openAdd} />
+                <PageTemplateTools entity={entity} />
               </aside>
             </div>
           </>

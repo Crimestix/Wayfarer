@@ -3648,3 +3648,27 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-gallery__bar[data-known='false'] {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
 }
+
+/* Am Rand einer Seite: Leitfragen und „Als Vorlage merken“ */
+.wf-welt-template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line-faint);
+}
+.wf-welt-template__questions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-template__question {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-2);
+  font-style: italic;
+}
