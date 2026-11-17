@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 30;
-export const DATA_SHAPE = 'a68648330f802ea9';
+export const DATA_VERSION = 31;
+export const DATA_SHAPE = '5d231fbb0f3cd4bb';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -400,6 +400,30 @@ const PersonDetails = z.object({
 export const PLACE_LIGHTS = ['dark', 'dim', 'bright'] as const;
 export type PlaceLight = (typeof PLACE_LIGHTS)[number];
 
+/**
+ * Was eine Gegend für die Nahrungssuche hergibt (Regelwerk: reichlich, begrenzt, kaum): daraus
+ * folgt der Vorschlag für den SG. null = nicht festgelegt.
+ */
+export const YIELDS = ['rich', 'modest', 'poor'] as const;
+export type Yield = (typeof YIELDS)[number];
+
+/**
+ * Eine Gefahr unterwegs (Wunsch 17. 11.: „ein gefährlicher Abhang“): an einem Weg oder einem Feld
+ * der Hexkarte. Die Reise hält dort mit SG und Folge; geprobt wird am Tisch.
+ */
+export const HAZARD_KINDS = ['climb', 'slope', 'scree', 'water', 'ice', 'other'] as const;
+export type HazardKind = (typeof HAZARD_KINDS)[number];
+export const HazardSchema = z.object({
+  kind: z.enum(HAZARD_KINDS).default('other'),
+  /** Schwierigkeitsgrad der Probe; null = keiner genannt. */
+  dc: z.number().int().min(0).max(30).nullable().default(null),
+  /** Wie tief man stürzt, in Fuß (Regelwerk: 1W6 je 10 Fuß, höchstens 20W6); null = kein Sturz. */
+  fallFeet: z.number().int().min(0).max(1000).nullable().default(null),
+  /** In eigenen Worten: was die Gruppe vor sich hat. */
+  text: z.string().default(''),
+});
+export type Hazard = z.infer<typeof HazardSchema>;
+
 /** Die Größen eines Ortes, die etwas ändern (Wer hier ist, Räume, Läden). */
 export const PLACE_SCALES = ['region', 'settlement', 'building'] as const;
 export type PlaceScale = (typeof PLACE_SCALES)[number];
@@ -440,6 +464,10 @@ const PlaceDetails = z.object({
    * um sich nicht zu verirren. null = Vorschlag nach Gelände (`navDc`), 0 = nie prüfen.
    */
   navDc: z.number().int().min(0).max(30).nullable().default(null),
+  /** Was die Gegend für die Nahrungssuche hergibt; null = nicht festgelegt (gilt dann von darüber). */
+  yield: z.enum(YIELDS).nullable().default(null),
+  /** Gibt es hier Trinkwasser (Bäche, Quellen)? null = nicht festgelegt. */
+  water: z.boolean().nullable().default(null),
   /**
    * Wie groß der Ort ist (Konzeptbesprechung 16. 11.): Gegend, Siedlung, Gebäude – ein Raum ist
    * `room`. '' = nicht festgelegt; dann schätzt `placeScale()` aus Wort und Orten darin.
@@ -810,6 +838,10 @@ const LandscapeDetails = z.object({
   slow: z.boolean().default(false),
   /** Wer hier lebt – Kennungen von Wesen des Bestiariums oder Einträgen der Welt. */
   dwellerIds: z.array(id).default([]),
+  /** Was sie für die Nahrungssuche hergibt; null = nicht festgelegt. */
+  yield: z.enum(YIELDS).nullable().default(null),
+  /** Gibt es hier Trinkwasser? null = nicht festgelegt. */
+  water: z.boolean().nullable().default(null),
 });
 
 /** Beruf: ein Handwerk, Gewerbe oder Amt. Wer ihn ausübt, steht in Beziehungen der Art „practises“. */
@@ -2301,6 +2333,8 @@ export const PathSchema = z.object({
   onTheWay: z.string().default(''),
   /** Eine vorbereitete Begegnung, die auf diesem Weg wartet. */
   encounterId: id.nullable().default(null),
+  /** Eine Gefahr auf diesem Weg (Abhang, Kletterei …) – die Reise hält dort mit SG und Folge. */
+  hazard: HazardSchema.nullable().default(null),
   mapId: id.nullable().default(null),
   /** Verlauf auf der Karte, von from nach to. */
   points: z.array(point).default([]),
@@ -2401,6 +2435,13 @@ export const HALT_KINDS = [
   'rest',
   'hour',
   'arrived',
+  'march',
+  'cold',
+  'heat',
+  'hunger',
+  'thirst',
+  'dark',
+  'hazard',
 ] as const;
 export type HaltKind = (typeof HALT_KINDS)[number];
 
@@ -2444,6 +2485,8 @@ export const JourneySchema = z.object({
    * dorthin und zurück. null = keine Hexkarte oder keine Richtung.
    */
   lostHeading: z.number().int().min(0).max(5).nullable().optional(),
+  /** Der letzte Kalendertag, an dem Hunger und Durst geprüft wurden. */
+  fedDay: z.number().int().nullable().optional(),
   /** Gereiste Stücke mitten auf einem Abschnitt – für den Gewaltmarsch (`domain/march.ts`). */
   steps: z.array(z.object({ at: worldTime, minutes: z.number().int().nonnegative() })).default([]),
   /** Vorräte beim Aufbruch in Tagen – nur ein Hinweis, abgezogen wird nichts. null = nicht gezählt. */
@@ -2625,6 +2668,8 @@ export const HexSchema = z.object({
   regionId: id.nullable().default(null),
   /** Die Landschaft, die auf dieses Feld gemalt ist (`landscape`); ihr Gelände gilt hier. */
   landscapeId: id.nullable().optional(),
+  /** Eine Gefahr beim Betreten dieses Feldes (Abhang, Geröll …) mit SG und Folge. */
+  hazard: HazardSchema.nullable().optional(),
   /** Straße oder Pfad durch dieses Feld: Reisen hier gehen im normalen Tempo, auch im Sumpf. */
   road: z.enum(ROAD_KINDS).default('none'),
   /** Von Hand geändert: Neu würfeln behält dieses Feld, wie es ist. */

@@ -91,14 +91,18 @@ describe('Unterwegs', () => {
     expect(journeyUnderway(data())!.progress).toMatchObject({ leg: 0, minutes: 480 });
     expect(marchedMinutes(data(), data().state.now)).toBe(480);
 
+    // Weiter ohne Rast: Gewaltmarsch – am Ende der neunten Stunde ein Rettungswurf mit SG 11.
+    const march = travelOn(db, dice())!;
+    expect(march.halt).toMatchObject({ kind: 'march', minutes: 60 });
+    expect(march.halt.text).toContain('SG 11');
     const second = travelOn(db, dice())!;
-    expect(second.halt).toMatchObject({ kind: 'place', minutes: 120, arrives: true });
+    expect(second.halt).toMatchObject({ kind: 'place', minutes: 60, arrives: true });
     expect(data().state.placeId).toBe(grotto.id);
     expect(journeyUnderway(data())!.progress).toMatchObject({ leg: 1, minutes: 0 });
     // Die Prüfungen nach vier und acht Stunden ergaben nichts – das hält nicht an.
     second.undo();
     expect(data().state.placeId).not.toBe(grotto.id);
-    expect(journeyUnderway(data())!.progress).toMatchObject({ leg: 0, minutes: 480 });
+    expect(journeyUnderway(data())!.progress).toMatchObject({ leg: 0, minutes: 540 });
   });
 
   it('hält bei einer Begegnung aus der Tabelle der Gegend', async () => {
@@ -142,7 +146,7 @@ describe('Unterwegs', () => {
     const { db, data, goal } = await setup();
     const plan = planJourney(data(), data().state.placeId!, goal.id)!;
     startJourney(db, { toId: goal.id, plan });
-    for (let i = 0; i < 6 && journeyUnderway(data()); i++) travelOn(db, dice());
+    for (let i = 0; i < 40 && journeyUnderway(data()); i++) travelOn(db, dice());
     expect(journeyUnderway(data())).toBeNull();
     expect(data().state.placeId).toBe(goal.id);
     expect(endJourney(db, true)).toBeNull();

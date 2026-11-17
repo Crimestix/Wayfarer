@@ -30,9 +30,11 @@ import type {
   Journey,
   JourneyLeg,
   PassageKind,
+  Pace,
   RollTable,
   TableKind,
   Terrain,
+  Yield,
 } from './schema';
 import { DAY_KM } from './terrain';
 import { MINUTES_PER_DAY, dayIndexOf, type WorldTime } from './time/calendar';
@@ -40,6 +42,9 @@ import { routeBetween } from './ways';
 import { isUnderground } from './underground';
 import { isNightAt, meetingLine, meetingOf, pickRow, type Meeting } from './roaming';
 import { isEveryday } from './weight';
+import { EXTREME_COLD, EXTREME_HEAT } from './weather';
+import { weatherAt } from './weatherZone';
+import { coldText, hazardLine, heatText, hungerText, marchText, thirstText } from './travelRules';
 
 /** Alle so viele Reiseminuten prüft Wayfarer auf Begegnungen (Entscheidung 17. 11.: vier Stunden). */
 export const CHECK_EVERY = 4 * 60;
@@ -63,6 +68,13 @@ export const HALT_LABEL: Record<HaltKind, string> = {
   rest: 'Acht Stunden seit der Rast',
   hour: 'Eine Stunde gereist',
   arrived: 'Angekommen',
+  march: 'Gewaltmarsch',
+  cold: 'Extreme Kälte',
+  heat: 'Extreme Hitze',
+  hunger: 'Hunger',
+  thirst: 'Durst',
+  dark: 'Es wird dunkel',
+  hazard: 'Gefahr am Weg',
 };
 
 // ── Gelände aus der Welt ───────────────────────────────────────────────────
@@ -88,6 +100,33 @@ export function groundOf(data: CampaignData, placeId: string | null): Ground | n
   return null;
 }
 
+/**
+ * Was eine Gegend für die Nahrungssuche hergibt und ob es Trinkwasser gibt: an der Landschaft des
+ * Feldes, sonst am Ort und den Orten darüber – der nächste, der etwas sagt.
+ */
+export function bountyOf(
+  data: CampaignData,
+  placeId: string | null,
+  landscapeId: string | null = null,
+): { yield: Yield | null; water: boolean | null } {
+  let found: Yield | null = null;
+  let water: boolean | null = null;
+  const land = landscapeId ? data.entities[landscapeId] : undefined;
+  if (land?.kind === 'landscape') {
+    found = land.landscape.yield;
+    water = land.landscape.water;
+  }
+  if (placeId) {
+    const self = data.entities[placeId];
+    const chain = [...(self?.kind === 'place' ? [self] : []), ...placeAncestors(data, placeId)];
+    for (const place of chain) {
+      if (found === null && place.place.yield) found = place.place.yield;
+      if (water === null && place.place.water !== null) water = place.place.water;
+    }
+  }
+  return { yield: found, water };
+}
+
 /** Die Gegend, deren Tabellen an einem Ort gelten: der Ort und die Orte darüber, der nächste zuerst. */
 export function tablesAt(data: CampaignData, placeId: string | null, kind: TableKind): RollTable[] {
   if (!placeId) return [];
@@ -104,8 +143,8 @@ export function tablesAt(data: CampaignData, placeId: string | null, kind: Table
 
 // ── Planen ─────────────────────────────────────────────────────────────────
 
-/** Minuten je km zu Fuß im normalen Tempo: die Tagesstrecke auf acht Stunden. */
-const MINUTES_PER_KM = (TRAVEL_HOURS * 60) / DAY_KM.normal;
+/** Minuten je km zu Fuß: die Tagesstrecke des Tempos auf acht Stunden (Regelwerk). */
+const minutesPerKm = (pace: Pace = 'normal') => (TRAVEL_HOURS * 60) / DAY_KM[pace];
 
 /** Die Luftlinie zwischen zwei Orten in km – null, wenn einer keine Lage hat. */
 export function straightKm(data: CampaignData, fromId: string, toId: string): number | null {
@@ -164,16 +203,31 @@ function legOf(
  * Plant eine Reise: über die Wege der Welt (`routeBetween`), sonst als freie Strecke nach der
  * Luftlinie. Schwieriges Gelände verdoppelt jede Dauer, die nicht fest am Weg steht.
  */
-export function planJourney(data: CampaignData, fromId: string, toId: string): JourneyPlan | null {
+export function planJourney(
+  data: CampaignData,
+  fromId: string,
+  toId: string,
+  pace: Pace = 'normal',
+): JourneyPlan | null {
   if (!fromId || !toId || fromId === toId) return null;
   const route = routeBetween(data, fromId, toId, partyTravel(data));
   if (route && !route.barred) {
     const legs = route.legs.map((way) =>
-      legOf(data, way.fromId, way.toId, way.minutes, way.path.minutes !== null, {
-        pathId: way.path.id,
-        reverse: way.reverse,
-        distanceKm: way.path.distanceKm ?? null,
-      }),
+      legOf(
+        data,
+        way.fromId,
+        way.toId,
+        // Eine feste Dauer gilt immer; sonst bestimmt das Tempo die Tagesstrecke.
+        way.path.minutes !== null || way.minutes === null
+          ? way.minutes
+          : way.minutes * (DAY_KM.normal / DAY_KM[pace]),
+        way.path.minutes !== null,
+        {
+          pathId: way.path.id,
+          reverse: way.reverse,
+          distanceKm: way.path.distanceKm ?? null,
+        },
+      ),
     );
     return {
       legs,
@@ -183,7 +237,7 @@ export function planJourney(data: CampaignData, fromId: string, toId: string): J
     };
   }
   const km = straightKm(data, fromId, toId);
-  const leg = legOf(data, fromId, toId, km === null ? null : km * MINUTES_PER_KM, false, {
+  const leg = legOf(data, fromId, toId, km === null ? null : km * minutesPerKm(pace), false, {
     distanceKm: km === null ? null : Math.round(km),
   });
   return { legs: [leg], minutes: leg.minutes, unknown: km === null, free: true };
@@ -382,6 +436,17 @@ export function nextHalt(
       quietChecks: 0,
       arrives: false,
     };
+  // Eine Gefahr auf dem Weg (Abhang, Kletterei): zu Beginn des Abschnitts – einmal.
+  const hazardShown = journey.halt?.kind === 'hazard' && journey.halt.at === now;
+  if (journey.progress.minutes === 0 && path?.hazard && !hazardShown && !shown)
+    return {
+      kind: 'hazard',
+      minutes: 0,
+      text: hazardLine(path.hazard),
+      roll: '',
+      quietChecks: 0,
+      arrives: false,
+    };
   const horizon = Math.min(HALT_HORIZON, limit ?? HALT_HORIZON);
   const candidates: { at: number; kind: HaltKind; text: string }[] = [];
   const add = (at: number, kind: HaltKind, text: string) => {
@@ -432,6 +497,7 @@ export function nextHalt(
         }
       }
       if (hex.prepared.trim()) add(at, 'prepared', hex.prepared.trim());
+      else if (hex.hazard) add(at, 'hazard', hazardLine(hex.hazard));
       else if (passage) add(at, 'passage', passage);
       else if (hex.placeId && hex.placeId !== leg.fromId && hex.placeId !== leg.toId)
         add(at, 'place', data.entities[hex.placeId]?.name ?? '');
@@ -447,6 +513,12 @@ export function nextHalt(
   // Acht Stunden seit der Rast: nur, wenn die Grenze unterwegs erreicht wird.
   const since = marchedMinutes(data, now);
   if (since < TRAVEL_HOURS * 60) add(TRAVEL_HOURS * 60 - since, 'rest', '');
+  // Gewaltmarsch: am Ende jeder Stunde nach der achten ein Rettungswurf (Regelwerk).
+  else {
+    const next = (Math.floor(since / 60) + 1) * 60;
+    add(next - since, 'march', marchText(next / 60 - TRAVEL_HOURS));
+  }
+  for (const halt of bodyHalts(data, journey, now, horizon)) add(halt.at, halt.kind, halt.text);
   // Lichter, die unterwegs erlöschen.
   for (const timer of Object.values(data.timers))
     if (timer.kind === 'light' && !timer.done && timer.end > now)
@@ -501,6 +573,71 @@ export function nextHalt(
     quietChecks,
     arrives: first.at >= left,
   };
+}
+
+/**
+ * Was der Körper der Gruppe unterwegs nach den Regeln aushalten muss – als Halte, die kommen:
+ * extreme Kälte (stündlich), extreme Hitze ohne Trinkwasser (stündlich, steigend), Einbruch der
+ * Nacht unter freiem Himmel, Hunger und Durst um Mitternacht, wenn die Vorräte nicht reichen.
+ * Gezählt ab jetzt (`now`), höchstens bis `horizon` Minuten.
+ */
+export function bodyHalts(
+  data: CampaignData,
+  journey: Journey,
+  now: WorldTime,
+  horizon: number,
+): { at: number; kind: HaltKind; text: string }[] {
+  const out: { at: number; kind: HaltKind; text: string }[] = [];
+  const leg = journey.legs[journey.progress.leg];
+  const placeId = leg?.toId ?? leg?.regionId ?? data.state.placeId;
+  const below = placeId ? isUnderground(data, placeId) : false;
+  const left = (start: number | null, at: WorldTime) =>
+    start === null ? null : start - daysSince(journey.departAt, at);
+  const bounty = bountyOf(data, leg?.regionId ?? placeId);
+  // Stündlich: Kälte und Hitze, je nur die nächste Stunde, in der es zählt.
+  if (!below) {
+    let cold = false;
+    let heat = false;
+    let hotHours = 0;
+    for (let hour = 1; hour * 60 <= horizon && (!cold || !heat); hour++) {
+      const at = now + hour * 60;
+      const temperature = weatherAt(data, placeId, at).now.temperature;
+      const water = left(journey.supplies.water, at);
+      const dry = water !== null && water <= 0 && bounty.water !== true;
+      if (temperature >= EXTREME_HEAT && dry) hotHours++;
+      else hotHours = 0;
+      if (!cold && temperature <= EXTREME_COLD) {
+        cold = true;
+        out.push({ at: hour * 60, kind: 'cold', text: coldText() });
+      }
+      if (!heat && hotHours > 0) {
+        heat = true;
+        out.push({ at: hour * 60, kind: 'heat', text: heatText(hotHours) });
+      }
+    }
+    // Einbruch der Nacht – nur, wenn es jetzt noch hell ist.
+    if (!isNightAt(now))
+      for (let minute = 10; minute <= horizon; minute += 10)
+        if (isNightAt(now + minute)) {
+          out.push({
+            at: minute,
+            kind: 'dark',
+            text: 'Die Sonne geht unter. Lager aufschlagen – oder mit Licht weiter (Dunkelheit: ohne Licht oder Dunkelsicht sieht niemand etwas).',
+          });
+          break;
+        }
+  }
+  // Um Mitternacht: Reichen Proviant und Wasser für den Tag, der zu Ende ist?
+  const midnight = (dayIndexOf(now) + 1) * MINUTES_PER_DAY - now;
+  for (let at = midnight; at <= horizon; at += MINUTES_PER_DAY) {
+    const food = left(journey.supplies.food, now + at);
+    const water = left(journey.supplies.water, now + at);
+    if (water !== null && water < 0 && bounty.water !== true)
+      out.push({ at, kind: 'thirst', text: thirstText() });
+    if (food !== null && food < 0) out.push({ at, kind: 'hunger', text: hungerText(-food) });
+    if ((food !== null && food < 0) || (water !== null && water < 0)) break;
+  }
+  return out;
 }
 
 /** Die Nachtprüfung im Lager: einmal würfeln auf Begegnungen der Gegend. */
