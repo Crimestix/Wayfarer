@@ -27,7 +27,7 @@ import {
   threadsOf,
 } from '../../domain/story';
 import { eveningSecretsOf, hintsOnEvening } from '../../domain/prepOffers';
-import { hintsNote, threadFits } from '../../domain/storySheet';
+import { hintsNote, soleNamed, threadFits } from '../../domain/storySheet';
 import { focusOn } from '../../shell/focus';
 import {
   Checkbox,
@@ -132,6 +132,16 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
   const note = threadLive(thread)
     ? hintsNote(thread.hints.filter((hint) => hint.text.trim()).length)
     : null;
+  /**
+   * Was der Satz eines Hinweises eindeutig nennt, füllt seine leeren Felder: der eine Ort sein
+   * „Wo?“, die eine Person oder Fraktion sein „Wer weiß es?“.
+   */
+  const namedIn = (text: string, hint: Pick<ThreadHint, 'placeId' | 'sourceId'>) => {
+    const now = db.getSnapshot();
+    const placeId = hint.placeId ?? soleNamed(now, text, ['place']);
+    const sourceId = hint.sourceId ?? soleNamed(now, text, ['person', 'faction']);
+    return { placeId, sourceId };
+  };
   /** Der Hinweis, für den gerade gewählt wird, wohin er führt. */
   const [leading, setLeading] = useState<string | null>(null);
   const found = (hint: ThreadHint, isFound: boolean) => {
@@ -221,7 +231,7 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
               wrap
               value={hint.text}
               mention={mention}
-              onSave={(text) => hints.set(hint.id, { text })}
+              onSave={(text) => hints.set(hint.id, { text, ...namedIn(text, hint) })}
             />
             <EntityPicker
               value={hint.placeId}
@@ -295,7 +305,12 @@ function ThreadBlock({ thread, story }: { thread: Thread; story: Story }) {
             patch({
               hints: [
                 ...thread.hints,
-                { id: newId(), text, placeId: null, sourceId: null, found: false },
+                {
+                  id: newId(),
+                  text,
+                  found: false,
+                  ...namedIn(text, { placeId: null, sourceId: null }),
+                },
               ],
             })
           }

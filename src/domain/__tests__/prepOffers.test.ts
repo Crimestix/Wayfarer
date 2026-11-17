@@ -34,6 +34,7 @@ import {
   sceneOffers,
   scenesOnEvening,
   startOffers,
+  storyStartOffers,
   wantToKnow,
 } from '../prepOffers';
 import { createEncounter, createEntity, createGuess, createPath } from '../schema';
@@ -236,6 +237,18 @@ describe('Geschichten im Spiel auf dem Blatt des Abends', () => {
     ]);
     addToStart(db, offers[0]!.line);
     expect(startOffers(data(), content(), number())[0]!.taken).toBe(true);
+  });
+
+  it('bietet beim starken Einstieg die Einstiege der Geschichten im Spiel an', async () => {
+    const { db, data, content } = await setup();
+    const offers = storyStartOffers(data(), content());
+    expect(offers.map((offer) => [offer.line, offer.fits, offer.taken])).toEqual([
+      ['Ein Aushang am Zollhaus', true, false],
+      ['Lando bittet um einen Gefallen', false, false],
+    ]);
+    expect(offers[0]!.sub).toContain('Der Griff nach dem Zoll');
+    addToStart(db, offers[0]!.line);
+    expect(storyStartOffers(data(), content())[0]!.taken).toBe(true);
   });
 
   it('nimmt lose Fäden im Spiel mit ihren offenen Hinweisen auf', async () => {

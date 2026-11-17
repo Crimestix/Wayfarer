@@ -147,3 +147,21 @@ a.wf-beute-share__name:hover {
   color: var(--ink-mute);
   font-size: var(--text-sm);
 }
+
+/* „Mehr …“ im Fenster der Beute: das Seltene auf Wunsch. */
+.wf-beute-more {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-beute-more:hover,
+.wf-beute-more:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+}

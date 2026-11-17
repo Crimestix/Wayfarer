@@ -324,7 +324,12 @@ export function SheetAdvice<T extends SheetAdviceItem>({
   onPick?: ((item: T) => void) | undefined;
   onOff?: ((item: T, off: boolean) => void) | undefined;
 }) {
-  return (
+  // Oben ein Satz: der nächste offene Punkt. Die ganze Reihe erst auf Wunsch – sie ist zum
+  // Nachsehen da, nicht zum Abarbeiten (Rundgang 17. 11.: „wie ein Fragebogen“).
+  const [all, setAll] = useState(false);
+  const next = items.find((entry) => !entry.done && !entry.off);
+  const done = items.filter((entry) => entry.done).length;
+  const list = (
     <ul className="wf-sheet-advice">
       {items.map((entry) => {
         const off = !entry.done && !!entry.off;
@@ -350,7 +355,6 @@ export function SheetAdvice<T extends SheetAdviceItem>({
               ) : (
                 entry.text
               )}
-              {!entry.done && !off && <em>{entry.why}</em>}
               {off && onOff && (
                 <button
                   type="button"
@@ -376,5 +380,50 @@ export function SheetAdvice<T extends SheetAdviceItem>({
         );
       })}
     </ul>
+  );
+  return (
+    <div className="wf-sheet-advice-box">
+      {next ? (
+        <div className="wf-sheet-advice__next">
+          <span className="wf-sheet-advice__label">Als Nächstes</span>
+          {onPick ? (
+            <button
+              type="button"
+              className="wf-sheet-advice__go wf-sheet-advice__nexttext"
+              onClick={() => onPick(next)}
+            >
+              {next.text}
+            </button>
+          ) : (
+            <span className="wf-sheet-advice__nexttext">{next.text}</span>
+          )}
+          <em>{next.why}</em>
+          {onOff && (
+            <button
+              type="button"
+              className="wf-sheet-advice__back"
+              onClick={() => onOff(next, true)}
+            >
+              brauche ich nicht
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="wf-sheet-advice__next wf-sheet-advice__next--none">
+          Nichts mehr offen – was jetzt noch fehlt, zeigt sich am Tisch.
+        </p>
+      )}
+      {items.length > 1 && (
+        <button
+          type="button"
+          className="wf-sheet-advice__all"
+          aria-expanded={all}
+          onClick={() => setAll((open) => !open)}
+        >
+          {all ? 'Weniger zeigen' : `Alle Punkte zeigen (${done} geschrieben)`}
+        </button>
+      )}
+      {all && list}
+    </div>
   );
 }

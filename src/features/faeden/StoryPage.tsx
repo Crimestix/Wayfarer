@@ -413,10 +413,6 @@ function StorySheet({ story }: { story: Story }) {
           <h3 className="wf-faden-side__sub" title={STAGES_HELP}>
             Stand: {STAGE_LABEL[stage.stage]}
           </h3>
-          <p className="wf-mute">
-            Ein Rat, keine Pflicht – in der Reihenfolge des Blatts. Ein Klick führt zum Fach; was du
-            nicht brauchst, wählst du am Punkt ab.
-          </p>
           <SheetAdvice
             items={advice}
             onPick={(entry) => goToAdvice(data, entry)}

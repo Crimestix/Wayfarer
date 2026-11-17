@@ -318,3 +318,52 @@
 .wf-sheet-advice__off:focus-visible svg {
   color: var(--ink);
 }
+
+/* Der Rat: oben der nächste Punkt, die ganze Reihe auf Wunsch. */
+.wf-sheet-advice-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-sheet-advice__next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: var(--s-3);
+  border-left: 2px solid var(--gold-deep);
+}
+.wf-sheet-advice__next--none {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+.wf-sheet-advice__label {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-sheet-advice__nexttext {
+  font-size: var(--text-md);
+  color: var(--ink);
+}
+.wf-sheet-advice__next em {
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-sheet-advice__all {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.wf-sheet-advice__all:hover,
+.wf-sheet-advice__all:focus-visible {
+  color: var(--ink-soft);
+  text-decoration: underline;
+}

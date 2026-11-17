@@ -18,7 +18,7 @@ import {
   sceneOfText,
   secretOfText,
 } from '../../domain/prep';
-import { sceneOffers, startOffers, wantToKnow } from '../../domain/prepOffers';
+import { sceneOffers, startOffers, storyStartOffers, wantToKnow } from '../../domain/prepOffers';
 import type { PrepScene, PrepSecret } from '../../domain/schema';
 import { formatDayMonth } from '../../domain/time/calendar';
 import {
@@ -82,6 +82,7 @@ export function StartBody() {
     [data, number, content.start],
   );
   const fresh = useMemo(() => startOffers(data, content, number), [data, content, number]);
+  const entries = useMemo(() => storyStartOffers(data, content), [data, content]);
   const cal = data.campaign.calendar;
   return (
     <>
@@ -110,6 +111,27 @@ export function StartBody() {
               label={offer.kind === 'step' ? 'Schritt' : 'Termin'}
               text={offer.line}
               sub={[offer.sub, formatDayMonth(cal, offer.at)].filter(Boolean).join(' · ')}
+              taken={offer.taken}
+              takenText="Steht im Einstieg"
+              action="in den Einstieg"
+              title="Wörtlich in den Einstieg – unter dem, was schon dasteht"
+              onTake={() => addToStart(db, offer.line, which)}
+            />
+          ))}
+        </div>
+      )}
+      {entries.length > 0 && (
+        <div className="wf-abend-offers">
+          <OfferHead>
+            <span>Einstiege der Geschichten im Spiel</span>
+          </OfferHead>
+          {entries.map((offer) => (
+            <OfferRow
+              key={offer.key}
+              dismissKey={SUGGESTION.prep('start', offer.key)}
+              label="Einstieg"
+              text={offer.line}
+              sub={offer.sub}
               taken={offer.taken}
               takenText="Steht im Einstieg"
               action="in den Einstieg"

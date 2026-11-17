@@ -16,6 +16,7 @@ import type {
   CampaignData,
   ChronicleEntry,
   Entity,
+  EntityKind,
   Handout,
   Place,
   Relation,
@@ -482,4 +483,22 @@ export function hintsNote(count: number): { text: string; thin: boolean } {
     return { text: 'Ein Hinweis – verpasst die Gruppe ihn, reißt die Frage ab.', thin: true };
   if (count === 2) return { text: 'Zwei Hinweise – ein dritter trägt.', thin: true };
   return { text: count === 3 ? 'Drei Hinweise – das reicht.' : 'Das reicht.', thin: false };
+}
+
+/**
+ * Der eine Eintrag einer Art, den ein Satz nennt – null, wenn keiner oder mehrere. So füllt ein
+ * Einstieg „… bittet in Dornhafen um Hilfe“ sein „Wo?“ und ein Hinweis „Bruder Teoric hat sie
+ * gesehen“ sein „Wer weiß es?“ (Rundgang 17. 11.). Nur, was eindeutig dasteht – nie geraten.
+ */
+export function soleNamed(
+  data: CampaignData,
+  text: string,
+  kinds: readonly EntityKind[],
+): string | null {
+  const ids = new Set(
+    namesIn(data, text)
+      .map((name) => name.id)
+      .filter((id): id is string => !!id && kinds.includes(data.entities[id]?.kind as EntityKind)),
+  );
+  return ids.size === 1 ? [...ids][0]! : null;
 }

@@ -10,6 +10,7 @@ import { createEntity, type Loot } from '../../domain/schema';
 import { Button, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
 import { parseGold } from '../../domain/loot';
 import { giveLoot, removeLoot, saveLoot } from './actions';
+import './beute.css';
 
 export function LootDialog({
   loot,
@@ -42,6 +43,13 @@ export function LootDialog({
   const [toId, setToId] = useState<string | null>(loot?.toId ?? preset?.toId ?? null);
   const [source, setSource] = useState(loot?.source ?? '');
   const [story, setStory] = useState<string | null>(loot?.storyId ?? storyId ?? null);
+  /**
+   * Was, Gold, für wen reichen fast immer. Gegenstand der Welt, Herkunft und Geschichte stehen
+   * hinter „Mehr …“ – offen, wenn darin schon etwas steht oder die Geschichte nicht vorgegeben ist.
+   */
+  const [more, setMore] = useState(
+    !!loot?.itemId || !!loot?.source || (!!loot?.storyId && loot.storyId !== storyId),
+  );
 
   const parsed = parseGold(gold);
   const badGold = parsed === null;
@@ -152,41 +160,52 @@ export function LootDialog({
             </Select>
           </Field>
         </div>
-        <Field
-          label="Gegenstand der Welt"
-          hint="Nur wenn es ein besonderes Stück ist, das in deiner Welt steht. Es gehört danach dem, der es bekommt."
-        >
-          <EntityPicker
-            value={itemId}
-            onChange={setItemId}
-            kinds={['item']}
-            placeholder="Gegenstand wählen oder neu anlegen …"
-            onCreate={(name) => db.put('entities', createEntity({ kind: 'item', name })).id}
-          />
-        </Field>
-        <div className="wf-form-grid">
-          <Field label="Woher" hint="Die Herkunft – für später.">
-            <Input
-              value={source}
-              placeholder="aus dem Hort des Aalwächters"
-              onChange={(event) => setSource(event.target.value)}
-            />
-          </Field>
-          <Field label="Gehört zur Geschichte">
-            <Select
-              value={story ?? ''}
-              aria-label="Gehört zur Geschichte"
-              onChange={(event) => setStory(event.target.value || null)}
+        {!more && (
+          <button type="button" className="wf-beute-more" onClick={() => setMore(true)}>
+            Mehr … Gegenstand der Welt, Herkunft
+            {stories.length ? ', Geschichte' : ''}
+            {story && data.stories[story] ? ` (gehört zu „${data.stories[story]!.title}“)` : ''}
+          </button>
+        )}
+        {more && (
+          <>
+            <Field
+              label="Gegenstand der Welt"
+              hint="Nur wenn es ein besonderes Stück ist, das in deiner Welt steht. Es gehört danach dem, der es bekommt."
             >
-              <option value="">zu keiner</option>
-              {stories.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.title}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+              <EntityPicker
+                value={itemId}
+                onChange={setItemId}
+                kinds={['item']}
+                placeholder="Gegenstand wählen oder neu anlegen …"
+                onCreate={(name) => db.put('entities', createEntity({ kind: 'item', name })).id}
+              />
+            </Field>
+            <div className="wf-form-grid">
+              <Field label="Woher" hint="Die Herkunft – für später.">
+                <Input
+                  value={source}
+                  placeholder="aus dem Hort des Aalwächters"
+                  onChange={(event) => setSource(event.target.value)}
+                />
+              </Field>
+              <Field label="Gehört zur Geschichte">
+                <Select
+                  value={story ?? ''}
+                  aria-label="Gehört zur Geschichte"
+                  onChange={(event) => setStory(event.target.value || null)}
+                >
+                  <option value="">zu keiner</option>
+                  {stories.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </>
+        )}
       </div>
     </Dialog>
   );

@@ -288,6 +288,41 @@ export function startOffers(
     .slice(0, START_OFFERS);
 }
 
+/** Ein Einstieg, den eine Geschichte im Spiel schon geschrieben hat. */
+export interface StoryStartOffer {
+  key: string;
+  line: string;
+  /** Die Geschichte – und warum der Einstieg gerade (nicht) passt. */
+  sub: string;
+  fits: boolean;
+  taken: boolean;
+}
+
+/**
+ * Die Einstiege der Geschichten im Spiel für „Starker Einstieg“ (Rundgang 17. 11.: Der Einstieg
+ * stand auf dem Blatt der Geschichte, beim Abend aber nicht). Passende zuerst – nur angeboten,
+ * übernommen wird erst auf Klick.
+ */
+export function storyStartOffers(data: CampaignData, content: PrepContent): StoryStartOffer[] {
+  const offers: StoryStartOffer[] = [];
+  for (const story of storiesInPlay(data))
+    for (const entry of story.entries) {
+      const line = entry.text.trim();
+      if (!line) continue;
+      const fit = entryFit(data, story, entry);
+      offers.push({
+        key: `entry:${story.id}:${entry.id}`,
+        line,
+        sub: [story.title, fit.note].filter(Boolean).join(' · '),
+        fits: fit.fits,
+        taken: hasLine(content.start, line),
+      });
+    }
+  return withoutDismissed(data, offers, (offer) => SUGGESTION.prep('start', offer.key)).sort(
+    (a, b) => Number(b.fits) - Number(a.fits),
+  );
+}
+
 // ── Mögliche Szenen ────────────────────────────────────────────────────────
 
 /** Was eine angebotene Szene mitbringt – die Kennung entsteht erst beim Dazunehmen. */

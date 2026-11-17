@@ -21,6 +21,7 @@ import {
   type StoryScene,
 } from '../../domain/schema';
 import { ENTRY_STANDING_LABEL, heroesOf } from '../../domain/story';
+import { soleNamed } from '../../domain/storySheet';
 import {
   Checkbox,
   EntityPicker,
@@ -147,7 +148,13 @@ export function StoryEntries({ story }: { story: Story }) {
             wrap
             value={entry.text}
             mention={mention}
-            onSave={(text) => list.set(entry.id, { text })}
+            onSave={(text) =>
+              // Nennt der Satz genau einen Ort, ist das sein „Wo?“ – nur, solange es leer ist.
+              list.set(entry.id, {
+                text,
+                ...(entry.placeId ? {} : { placeId: soleNamed(db.getSnapshot(), text, ['place']) }),
+              })
+            }
           />
           <EntityPicker
             value={entry.placeId}
@@ -187,7 +194,15 @@ export function StoryEntries({ story }: { story: Story }) {
         mention={mention}
         onAdd={(text) =>
           patchStory(db, story.id, {
-            entries: [...story.entries, { id: newId(), text, placeId: null, standing: 'any' }],
+            entries: [
+              ...story.entries,
+              {
+                id: newId(),
+                text,
+                placeId: soleNamed(db.getSnapshot(), text, ['place']),
+                standing: 'any',
+              },
+            ],
           })
         }
       />

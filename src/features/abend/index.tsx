@@ -180,10 +180,6 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
           </section>
           <section>
             <h3 className="wf-abend-sub">Das Blatt</h3>
-            <p className="wf-mute">
-              Ein Rat, keine Pflicht – in der Reihenfolge des Blatts. Ein Klick führt zum Fach; was
-              du heute nicht brauchst, wählst du am Punkt ab.
-            </p>
             <SheetAdvice
               items={advice}
               onPick={(entry) => jump(entry.key)}
