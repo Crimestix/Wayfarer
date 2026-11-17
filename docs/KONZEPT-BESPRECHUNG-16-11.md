@@ -262,3 +262,47 @@ Ankreuzen, nie Pflicht; die Art des Ladens ist ein freies Wort; Vorlagen entsteh
   den ungenau Eingetragenen gerade da ist – das entscheidet der Spielleiter. **Offen**, nicht
   weiter besprochen; das Verorten darf nie Pflegearbeit werden („wieder zu verkompliziert für den
   DM“).
+
+---
+
+## Stand der Umsetzung (17. 11. 2026)
+
+Auf „Setz alles um“ gebaut (Commits 8a93338, 3d9fe67, d1e71a8, 4ab9c8f). Wo die Besprechung
+„offen“ sagte, galt „nie einschränken“ und „Geschichte zuerst“; die Entscheidungen stehen hier,
+damit der Spielleiter sie umwerfen kann.
+
+**Umgesetzt**
+
+- Pinnwand: Personen, Orte, Gegenstände … liegen als Karten (Name, Kategorie · eigenes Wort,
+  leiser Zustand, auf Wunsch das Bild, eigene Notiz der Karte). Doppelklick ins Leere fragt die
+  Art. Neues landet nie übereinander, Meldungen stapeln sich nicht, Ideen ohne Hinweise tragen
+  keine rote Warnung mehr.
+- Ein Rahmen kann eine Geschichte sein: Was darin liegt, gehört zu ihr – auf der Seite des
+  Gefährten, unter „Kommt vor in“ und am Spieltisch („Brett“ mit den Notizen der Karten).
+  „Nur diesen Rahmen zeigen“. „Hier steht die Gruppe“ mehrfach (je laufende Geschichte).
+- Gefährten: Backstory als Text, Absätze auf Klick aufs Brett (Faden „Backstory“ zum
+  Gefährten), Einrichtungen der Bastion auf seiner Seite, Bastionsereignis aufs Brett.
+- Wiki: Kategorien Gottheit, Reich, Ereignis neu, „Thema“ heißt Überlieferung; darunter das
+  eigene Wort („Genauer“); Größe eines Ortes; Vorlagen durch Merken; leise Leitfragen.
+- Navigation: oben die drei Kerne (Spieltisch mit Abend, Chronik, Noch offen, Handouts;
+  Fadenbrett mit Wegenetzen; Welt mit den Karten), darunter Gefährten, Zeit, Bestiarium.
+
+**Entschieden ohne Rückfrage (umwerfbar)**
+
+- Offene Fragen zur Wiki: (1) Das eigene Wort heißt im Fenster „Genauer“, auf der Seite steht
+  „Ort · Fischerdorf“. (2) Die eigenen Ordner bleiben die Ordnung des Baums; Kategorien sind
+  Etiketten zum Finden. (3) Vorschläge: eigene Wörter zuerst, dann ein paar übliche. (4) Keine
+  Kategorie „Kultur“ – Überlieferung deckt es ab.
+- Der Herrscher eines Reichs ist eine Beziehung („herrscht über“), kein eigenes Feld.
+- Chronik steht beim Spieltisch (Gedächtnis des Leitens), Wegenetze beim Fadenbrett.
+
+**Noch offen**
+
+- Text, der zur Mechanik wird, außerhalb der Läden (Fährdienst → Überfahrt, Taverne mit
+  Gerüchten, Tempel mit Diensten) – nicht gebaut.
+- Ein im Text erkannter Name als Angebot für eine Schnur – nicht gebaut.
+- Die Sicht „Was die Gruppe weiß“ auf dem Brett, „+ Geschichte“ öffnet weiter das Blatt.
+- „Abend vorbereiten“ liest das Brett nur über die Geschichten (Rahmen zählen dort mit, wo
+  `storyNodes` gilt), nicht eigens.
+- Große Orte („In der Stadt, ohne genauen Ort“) – weiter offen.
+- Bilder auf Karten: nur je Karte eingeschaltet (aus als Vorgabe).
