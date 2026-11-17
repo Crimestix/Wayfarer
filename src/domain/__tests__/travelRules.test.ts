@@ -11,7 +11,10 @@ import { fallDice, hazardLine, heatDc, marchDc } from '../travelRules';
 
 const dice = () => () => 20;
 
-/** Zwei erfundene Orte über der Erde, ein langer Weg dazwischen; es ist Mittag. */
+/**
+ * Zwei erfundene Orte über der Erde, ein langer Weg dazwischen (eine gepflasterte Straße – das
+ * Wetter verschlammt sie nicht, die Tests bleiben fest); es ist Mittag.
+ */
 async function setup(minutes = 3000) {
   const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
   const place = (name: string, more: Partial<Place['place']> = {}) =>
@@ -19,7 +22,7 @@ async function setup(minutes = 3000) {
   const heath = place('Graue Heide', { yield: 'poor', water: false });
   const from = place('Kesselfurt', { parentId: heath.id });
   const to = place('Ostwacht', { parentId: heath.id });
-  const path = db.put('paths', createPath({ fromId: from.id, toId: to.id, minutes }));
+  const path = db.put('paths', createPath({ fromId: from.id, toId: to.id, minutes, terrain: 'urban' }));
   const noon = dayIndexOf(db.getSnapshot().state.now) * MINUTES_PER_DAY + 12 * 60;
   db.setState({ placeId: from.id, now: noon });
   return { db, data: () => db.getSnapshot(), from, to, heath, path };
@@ -55,9 +58,11 @@ describe('Regeln der Reise', () => {
     const kinds = halts.map((halt) => [halt.kind, halt.at]);
     // Mittag: Um 20 Uhr wird es dunkel, um Mitternacht fehlen Wasser und Proviant.
     expect(kinds).toContainEqual(['dark', 8 * 60]);
-    expect(kinds).toContainEqual(['thirst', 12 * 60]);
+    // Hunger und Durst zugleich: ein Halt – Rettungswurf für den Hunger, Durst für alle.
     expect(kinds).toContainEqual(['hunger', 12 * 60]);
-    expect(halts.find((halt) => halt.kind === 'hunger')!.text).toContain('SG 10');
+    const hunger = halts.find((halt) => halt.kind === 'hunger')!.text;
+    expect(hunger).toContain('SG 10');
+    expect(hunger).toContain('Durst');
   });
 
   it('hält an einer Gefahr am Weg – einmal, zu Beginn', async () => {
@@ -103,5 +108,17 @@ describe('Regeln der Reise', () => {
     const area = data().areas[path.areaId!]!;
     expect(area.biome).toBe('forest');
     expect(area.hexes.some((hex) => hex.landscapeId === forest.id)).toBe(true);
+  });
+
+  it('hält am Morgen nach, wenn um Mitternacht etwas anderes hielt', async () => {
+    const { db, data, from, to } = await setup();
+    startJourney(db, { toId: to.id, plan: planJourney(data(), from.id, to.id)!, water: 0 });
+    // Die Nacht vergeht im Lager – ohne die Reise.
+    db.setState({ now: data().state.now + 20 * 60 });
+    const halt = nextHalt(data(), journeyUnderway(data())!, dice());
+    expect(halt).toMatchObject({ kind: 'thirst', minutes: 0 });
+    // Einmal am Tag: nach dem Halt nicht noch einmal.
+    travelOn(db, dice());
+    expect(nextHalt(data(), journeyUnderway(data())!, dice())?.kind).not.toBe('thirst');
   });
 });

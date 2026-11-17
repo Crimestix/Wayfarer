@@ -15,6 +15,7 @@ import { bodyCheckOf, forageText } from '../../domain/travelRules';
 import { BodyCheck } from './BodyCheck';
 import { afarFrom, sightingLine } from '../../domain/afar';
 import { sameHex } from '../../domain/hex';
+import { kindLabelOf } from '../../domain/hexKinds';
 import { sensesAt } from '../../domain/senses';
 import { searchMinutes } from '../erkundung/travel';
 import { hexAtProgress } from './hexway';
@@ -190,7 +191,16 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </dd>
         <dt>Gelände</dt>
         <dd>
-          {view.ground?.word || <span className="wf-mute">nichts eingetragen</span>}
+          {view.ground?.word ||
+            (hexHere ? (
+              <span>
+                {(hexHere.landscapeId && data.entities[hexHere.landscapeId]?.name) ||
+                  kindLabelOf(hexHere)}{' '}
+                <span className="wf-mute">(Hexkarte)</span>
+              </span>
+            ) : (
+              <span className="wf-mute">nichts eingetragen</span>
+            ))}
           {view.ground?.slow && <span className="wf-reise__tag">langsam</span>}
         </dd>
         {light && (
@@ -227,6 +237,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
               key={`${halt.kind}-${halt.at}`}
               check={bodyCheckOf(halt.kind, halt.text)!}
               members={party}
+              allToo={halt.kind === 'hunger' && halt.text.includes('Durst')}
             />
           )}
           <div className="wf-reise__haltacts">

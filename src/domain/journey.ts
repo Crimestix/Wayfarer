@@ -414,6 +414,17 @@ export function nextHalt(
   const now = data.state.now;
   const left = Math.max(0, leg.minutes - journey.progress.minutes);
   // Orientierung: einmal am Tag, wenn es abseits von Wegen und Straßen weitergeht.
+  // Hunger und Durst: Ist ein Tag zu Ende gegangen, ohne dass Proviant oder Wasser reichten, hält
+  // die Reise gleich – auch wenn um Mitternacht etwas anderes hielt oder die Nacht im Lager verging.
+  const today = dayIndexOf(now);
+  if (
+    journey.fedDay !== today &&
+    journey.departAt !== null &&
+    today > dayIndexOf(journey.departAt)
+  ) {
+    const short = shortage(data, journey, now);
+    if (short) return { ...short, minutes: 0, roll: '', quietChecks: 0, arrives: false };
+  }
   const nav = navigationAt(data, journey);
   if (
     nav &&
@@ -639,14 +650,39 @@ export function bodyHalts(
   // Um Mitternacht: Reichen Proviant und Wasser für den Tag, der zu Ende ist?
   const midnight = (dayIndexOf(now) + 1) * MINUTES_PER_DAY - now;
   for (let at = midnight; at <= horizon; at += MINUTES_PER_DAY) {
-    const food = left(journey.supplies.food, now + at);
-    const water = left(journey.supplies.water, now + at);
-    if (water !== null && water < 0 && bounty.water !== true)
-      out.push({ at, kind: 'thirst', text: thirstText() });
-    if (food !== null && food < 0) out.push({ at, kind: 'hunger', text: hungerText(-food) });
-    if ((food !== null && food < 0) || (water !== null && water < 0)) break;
+    const short = shortage(data, journey, now + at);
+    if (short) {
+      out.push({ at, ...short });
+      break;
+    }
   }
   return out;
+}
+
+/**
+ * Fehlen Proviant oder Wasser für den Tag, der zu einer Zeit zu Ende gegangen ist? Beides in einem
+ * Halt: Hunger mit Rettungswurf, Durst für alle (Regelwerk). null = es reicht.
+ */
+function shortage(
+  data: CampaignData,
+  journey: Journey,
+  at: WorldTime,
+): { kind: HaltKind; text: string } | null {
+  const leg = journey.legs[journey.progress.leg];
+  const bounty = bountyOf(data, leg?.regionId ?? leg?.toId ?? data.state.placeId);
+  const left = (start: number | null) =>
+    start === null ? null : start - daysSince(journey.departAt, at);
+  const food = left(journey.supplies.food);
+  const water = left(journey.supplies.water);
+  const thirsty = water !== null && water < 0 && bounty.water !== true;
+  const hungry = food !== null && food < 0;
+  if (!thirsty && !hungry) return null;
+  if (hungry)
+    return {
+      kind: 'hunger',
+      text: [hungerText(-food!), thirsty ? thirstText() : ''].filter(Boolean).join(' '),
+    };
+  return { kind: 'thirst', text: thirstText() };
 }
 
 /** Die Nachtprüfung im Lager: einmal würfeln auf Begegnungen der Gegend. */

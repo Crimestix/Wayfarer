@@ -11,7 +11,16 @@ import type { Character } from '../../domain/schema';
 import { Button, toast } from '../../ui';
 import { patchCharacter } from '../gruppe/actions';
 
-export function BodyCheck({ check, members }: { check: Check; members: readonly Character[] }) {
+export function BodyCheck({
+  check,
+  members,
+  allToo = false,
+}: {
+  check: Check;
+  members: readonly Character[];
+  /** Dazu gilt eine Folge für alle (Durst neben dem Hunger): ein Knopf darunter. */
+  allToo?: boolean;
+}) {
   const db = useDb();
   /** Wer schon entschieden ist – je Halt neu (der Aufrufer gibt einen `key`). */
   const [done, setDone] = useState<Record<string, 'ok' | 'fail'>>({});
@@ -62,35 +71,44 @@ export function BodyCheck({ check, members }: { check: Check; members: readonly 
       </div>
     );
   return (
-    <ul className="wf-reise-body" aria-label="Rettungswürfe">
-      {members.map((member) => (
-        <li key={member.id} data-state={done[member.id]}>
-          <span className="wf-reise-body__name">
-            {member.name}
-            {member.character.exhaustion > 0 && (
-              <em> · Erschöpfung {member.character.exhaustion}</em>
+    <>
+      <ul className="wf-reise-body" aria-label="Rettungswürfe">
+        {members.map((member) => (
+          <li key={member.id} data-state={done[member.id]}>
+            <span className="wf-reise-body__name">
+              {member.name}
+              {member.character.exhaustion > 0 && (
+                <em> · Erschöpfung {member.character.exhaustion}</em>
+              )}
+            </span>
+            {done[member.id] ? (
+              <span className="wf-reise-body__done">
+                {done[member.id] === 'ok' ? 'geschafft' : '+1 Erschöpfung'}
+              </span>
+            ) : (
+              <span className="wf-reise-body__acts">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDone((current) => ({ ...current, [member.id]: 'ok' }))}
+                >
+                  geschafft
+                </Button>
+                <Button size="sm" onClick={() => tire([member.id])}>
+                  gescheitert
+                </Button>
+              </span>
             )}
-          </span>
-          {done[member.id] ? (
-            <span className="wf-reise-body__done">
-              {done[member.id] === 'ok' ? 'geschafft' : '+1 Erschöpfung'}
-            </span>
-          ) : (
-            <span className="wf-reise-body__acts">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setDone((current) => ({ ...current, [member.id]: 'ok' }))}
-              >
-                geschafft
-              </Button>
-              <Button size="sm" onClick={() => tire([member.id])}>
-                gescheitert
-              </Button>
-            </span>
-          )}
-        </li>
-      ))}
-    </ul>
+          </li>
+        ))}
+      </ul>
+      {allToo && (
+        <div className="wf-reise-body">
+          <Button size="sm" onClick={() => tire(members.map((member) => member.id))}>
+            Durst: allen eine Stufe Erschöpfung
+          </Button>
+        </div>
+      )}
+    </>
   );
 }

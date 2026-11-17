@@ -188,6 +188,7 @@ export function travelOn(
           ? 0
           : (journey.sinceCheck + halt.minutes) % CHECK_EVERY,
       navDay: halt.kind === 'navigate' ? dayIndexOf(now) : journey.navDay,
+      fedDay: halt.kind === 'hunger' || halt.kind === 'thirst' ? dayIndexOf(now) : journey.fedDay,
       halt:
         status === 'arrived'
           ? null

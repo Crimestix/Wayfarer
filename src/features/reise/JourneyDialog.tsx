@@ -153,12 +153,13 @@ export function JourneyDialog({
             {!plan.legs.some(
               (leg) =>
                 leg.ground || leg.hexes.length || (leg.pathId && data.paths[leg.pathId]?.mapId),
-            ) && (
-              <span className="wf-mute">
-                Kein Gelände eingetragen. Auf der Seite einer Gegend legst du unter „Unterwegs hier“
-                Gelände, Tempo und Tabellen fest.
-              </span>
-            )}
+            ) &&
+              !(plan.free && (ground || (hexes && freeKm))) && (
+                <span className="wf-mute">
+                  Kein Gelände eingetragen. Auf der Seite einer Gegend legst du unter „Unterwegs
+                  hier“ Gelände, Tempo und Tabellen fest.
+                </span>
+              )}
           </div>
         )}
         {plan?.unknown && (
