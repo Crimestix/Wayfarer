@@ -272,7 +272,7 @@ export default function FaedenPage() {
     [placed, data],
   );
   const layout = useMemo(
-    () => boardLayout(board, moving ? { ...placed, ...moving } : placed, [], free),
+    () => boardLayout(board, moving ? { ...placed, ...moving } : placed, [], free, placed),
     [board, placed, moving, free],
   );
   const pin = layout.pins.find((entry) => entry.key === selected) ?? null;

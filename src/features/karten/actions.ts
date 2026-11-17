@@ -173,6 +173,55 @@ export function drawLine(
   const [fromId, toId] = [placeOf(start?.entityId), placeOf(end?.entityId)];
   const walkable = kind === 'road' || kind === 'path';
   const hidden = secret && walkable;
+  // Gibt es zwischen den beiden Orten schon einen Weg, der auf keiner Karte liegt (im Wegenetz
+  // oder von Hand eingetragen), ist die gezeichnete Linie dieser Weg – nie ein zweiter daneben.
+  // Seine feste Dauer bleibt; die Karte liefert nur den Verlauf.
+  const known =
+    walkable && fromId && toId && fromId !== toId
+      ? Object.values(data.paths).find(
+          (path) =>
+            !path.mapId &&
+            ((path.fromId === fromId && path.toId === toId) ||
+              (path.fromId === toId && path.toId === fromId)),
+        )
+      : undefined;
+  if (known) {
+    const before = known;
+    const along = known.fromId === fromId ? points : [...points].reverse();
+    return db.batch(() => {
+      db.patch('paths', known.id, {
+        mapId,
+        points: along,
+        road: kind === 'road' ? 'road' : 'trail',
+      });
+      const line: MapLine = {
+        id: newId(),
+        kind,
+        name: '',
+        points,
+        pathId: known.id,
+        secret: known.secret,
+      };
+      const undoMap = change(
+        db,
+        mapId,
+        (current) => ({ lines: [...current.lines, line] }),
+        (current) => ({ lines: without(current.lines, line.id) }),
+      );
+      return {
+        line,
+        undo: () => {
+          undoMap();
+          if (db.getSnapshot().paths[before.id])
+            db.patch('paths', before.id, {
+              mapId: before.mapId,
+              points: before.points,
+              road: before.road,
+            });
+        },
+      };
+    });
+  }
   return db.batch(() => {
     const pathId =
       walkable && fromId && toId && fromId !== toId

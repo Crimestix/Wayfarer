@@ -305,6 +305,18 @@ describe('Die Pinnwand', () => {
     expect(Object.keys(data().state.board)).toHaveLength(2);
   });
 
+  it('legt eine Geschichte nie auf eine hingelegte Karte', async () => {
+    const { db, data, story, thread } = await setup();
+    const loose = thread('Das Licht auf der Aalinsel');
+    setThreadOnBoard(db, loose.id, true);
+    // Der Spielleiter legt den Faden genau dorthin, wo die erste Geschichte hinkäme.
+    db.setState({ board: { [`thread:${loose.id}`]: { x: 0, y: 0 } } });
+    const toll = story('Der Zoll wird verdoppelt');
+    const spots = boardLayout(boardCards(data()), data().state.board).cards;
+    expect(spots[`thread:${loose.id}`]).toEqual({ x: 0, y: 0 });
+    expect(spots[`story:${toll.id}`]).not.toEqual({ x: 0, y: 0 });
+  });
+
   it('heftet Namen an eine Karte und löst sie wieder', async () => {
     const { db, data, story, thread, mira, odo } = await setup();
     const toll = story('Der Zoll wird verdoppelt');

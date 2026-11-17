@@ -34,6 +34,7 @@ import {
   signedAttitude,
 } from '../../domain/derive';
 import { whereaboutsSince } from '../../domain/history';
+import { hasStance } from '../../domain/known';
 import { creatureOfAnimal } from '../../domain/nature';
 import { RULES_ATTITUDE_LABEL, attitudeLevel, shownAttitude } from '../../domain/relations';
 import {
@@ -854,9 +855,16 @@ export function Whereabouts({ person, homeInBox }: { person: Person; homeInBox: 
           </Select>
         </Field>
         <OpenConditions entityId={person.id} />
-        <Checkbox checked={met} onChange={(next) => patchDetails(db, person, { met: next })}>
-          Die Gruppe kennt diese Person
-        </Checkbox>
+        {hasStance(data, person.id) ? (
+          // Wer eine Haltung zur Gruppe hat, ist ihr bekannt – das steht nur da.
+          <span className="wf-welt-quiet">
+            Die Gruppe kennt diese Person – sie hat eine Haltung zu ihr.
+          </span>
+        ) : (
+          <Checkbox checked={met} onChange={(next) => patchDetails(db, person, { met: next })}>
+            Die Gruppe kennt diese Person
+          </Checkbox>
+        )}
       </div>
     </Section>
   );

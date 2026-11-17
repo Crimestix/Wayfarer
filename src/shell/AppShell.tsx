@@ -4,6 +4,7 @@ import { Link, Route, Switch, useLocation } from 'wouter';
 import { ChevronDown, Feather, Hourglass, MapPin, Search, Settings, Undo2 } from 'lucide-react';
 import { endSession, startSession, undoTimeAdvance } from '../data/actions';
 import { useData, useDb, useSaveStatus } from '../data/hooks';
+import { partyBetween } from '../domain/journey';
 import { currentSession, placeAncestors } from '../domain/derive';
 import {
   formatClock,
@@ -202,6 +203,8 @@ function WorldBar() {
   const place = data.state.placeId ? data.entities[data.state.placeId] : undefined;
   const parent = place ? placeAncestors(data, place.id)[0] : undefined;
   const session = currentSession(data);
+  /** Zwischen zwei Orten (Reise oder Hexkarte): „Unterwegs“ statt des Ortes, von dem sie kam. */
+  const between = partyBetween(data);
   const moreAnchor = useRef<HTMLButtonElement>(null);
   const sessionAnchor = useRef<HTMLButtonElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -287,14 +290,18 @@ function WorldBar() {
           <MapPin />
           <span style={{ minWidth: 0 }}>
             <span className="wf-bar__place-name wf-clamp-1" style={{ display: 'block' }}>
-              {place?.name ?? 'Aufenthaltsort offen'}
+              {between ? 'Unterwegs' : (place?.name ?? 'Aufenthaltsort offen')}
             </span>
             <span className="wf-bar__sub wf-clamp-1" style={{ display: 'block' }}>
-              {parent
-                ? parent.name
-                : place
-                  ? 'Aufenthaltsort der Gruppe'
-                  : 'Ort der Gruppe festlegen'}
+              {between
+                ? between.toId
+                  ? `von ${place?.name ?? '…'} nach ${data.entities[between.toId]?.name ?? '…'}`
+                  : `von ${place?.name ?? '…'}`
+                : parent
+                  ? parent.name
+                  : place
+                    ? 'Aufenthaltsort der Gruppe'
+                    : 'Ort der Gruppe festlegen'}
             </span>
           </span>
         </button>

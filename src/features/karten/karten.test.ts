@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { createEntity } from '../../domain/schema';
+import { createEntity, createPath } from '../../domain/schema';
 import { wayMinutes, waysFrom } from '../../domain/ways';
 import {
   createDrawnMap,
@@ -128,6 +128,27 @@ describe('Linien, die etwas bedeuten', () => {
       way: { from: 'Hohenfurt', to: 'Graufels' },
     });
     expect(facts.km).toBeCloseTo(80, 5);
+  });
+
+  it('gibt es schon einen Weg ohne Karte, wird die gezeichnete Straße dieser Weg', async () => {
+    const { db, data, town, rock, mapId } = await setup();
+    const known = db.put('paths', createPath({ fromId: rock.id, toId: town.id, minutes: 240 }));
+    const { line, undo } = drawLine(db, mapId, 'road', [
+      [108, 306],
+      [893, 296],
+    ]);
+    expect(line?.pathId).toBe(known.id);
+    expect(Object.keys(data().paths)).toHaveLength(1);
+    const path = data().paths[known.id]!;
+    // Der Weg läuft von Graufels nach Hohenfurt – sein Verlauf auch; die feste Dauer bleibt.
+    expect([path.mapId, path.road, path.minutes, path.points[0]]).toEqual([
+      mapId,
+      'road',
+      240,
+      [900, 300],
+    ]);
+    undo();
+    expect(data().paths[known.id]).toMatchObject({ mapId: null, points: [], road: 'none' });
   });
 
   it('ein Pfad durch den Wald braucht länger als die Straße', async () => {

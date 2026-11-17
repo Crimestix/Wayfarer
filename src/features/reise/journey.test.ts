@@ -7,6 +7,7 @@ import {
   journeyUnderway,
   journeyView,
   nextHalt,
+  partyBetween,
   planJourney,
   type Roll,
 } from '../../domain/journey';
@@ -144,6 +145,31 @@ describe('Unterwegs', () => {
     expect(journeyUnderway(data())).toBeNull();
     expect(data().state.placeId).toBe(goal.id);
     expect(endJourney(db, true)).toBeNull();
+  });
+
+  it('sagt der Weltleiste, dass die Gruppe unterwegs ist – auf der Reise und auf der Hexkarte', async () => {
+    const { db, data, start, grotto, goal } = await setup();
+    expect(partyBetween(data())).toBeNull();
+    startJourney(db, { toId: goal.id, plan: planJourney(data(), start.id, goal.id)! });
+    expect(partyBetween(data())).toMatchObject({ toId: goal.id });
+    endJourney(db, true);
+    // Auf der Hexkarte eines Weges: ein Feld ohne Ort, schon ein Schritt gegangen.
+    db.setState({ placeId: grotto.id });
+    const path = Object.values(data().paths).find((p) => p.fromId === grotto.id)!;
+    const area = hexMapForWay(db, path.id)!;
+    const open = area.hexes.find((hex) => !hex.placeId && hex.terrain)!;
+    db.patch('areas', area.id, {
+      party: {
+        ...HexSchema.pick({ q: true, r: true }).parse(open),
+        pace: 'normal',
+        day: 0,
+        minutes: 0,
+        trail: [{ q: 0, r: 0, level: 0 }],
+        level: 0,
+        legs: [],
+      },
+    });
+    expect(partyBetween(data())).toEqual({ toId: goal.id, areaId: area.id });
   });
 
   it('nimmt eine Stunde, wenn man nur ein Stück weiter will', async () => {

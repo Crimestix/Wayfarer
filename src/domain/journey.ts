@@ -625,3 +625,36 @@ function passageText(dir: number, kind: PassageKind, before: PassageKind | undef
     return 'Wasser im Gang: schwimmen – Stärke (Athletik) – oder ein Boot.';
   return '';
 }
+
+/**
+ * Ist die Gruppe gerade zwischen zwei Orten? Auf einer laufenden Reise oder auf einer Hexkarte
+ * zwischen ihrem Ort und einem anderen, auf einem Feld ohne Ort – dann steht in der Weltleiste
+ * „Unterwegs“ statt des Ortes, von dem sie aufgebrochen ist. null = sie ist an ihrem Ort.
+ */
+export function partyBetween(
+  data: Pick<CampaignData, 'journeys' | 'areas' | 'entities' | 'state'>,
+): { toId: string | null; areaId: string | null } | null {
+  const journey = journeyUnderway(data);
+  if (journey) {
+    const leg = journey.legs[journey.progress.leg];
+    return {
+      toId: journey.legs[journey.legs.length - 1]?.toId ?? leg?.toId ?? null,
+      areaId: leg?.areaId ?? null,
+    };
+  }
+  const here = data.state.placeId;
+  if (!here) return null;
+  const walking = Object.values(data.areas)
+    .filter((area) => area.party && (area.fromId === here || area.toId === here))
+    .filter((area) => {
+      const at = area.hexes.find((hex) => sameHex(hex, area.party!));
+      return at && !at.placeId && area.party!.trail.length > 0;
+    })
+    .sort(
+      (a, b) =>
+        (b.party!.legs[b.party!.legs.length - 1]?.at ?? 0) -
+        (a.party!.legs[a.party!.legs.length - 1]?.at ?? 0),
+    )[0];
+  if (!walking) return null;
+  return { toId: walking.fromId === here ? walking.toId : walking.fromId, areaId: walking.id };
+}

@@ -863,6 +863,13 @@ interface Box {
 }
 const overlaps = (a: Box, b: Box) =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2;
+/** Der Platz einer Karte: ihre Stelle ist die Mitte oben. */
+const cardBox = (spot: Spot): Box => ({
+  x: spot.x,
+  y: spot.y + BOARD_CARD.height / 2,
+  w: BOARD_CARD.width + 20,
+  h: BOARD_CARD.height + 20,
+});
 
 /** Teilgeschichten liegen bei ihrer großen: in der Reihe gleich hinter ihr. */
 function withParts(cards: readonly BoardCard[]): BoardCard[] {
@@ -898,6 +905,11 @@ export function boardLayout(
   knotsToLay: readonly KnotToLay[] = [],
   /** Frei hingelegte Namen und Artikel (`node:<id>`, `article:<id>`), die es noch gibt. */
   free: readonly string[] = [],
+  /**
+   * Was fest liegt und dem Ausgelegten im Weg ist – ohne das, was gerade gezogen wird (sonst
+   * spränge eine Geschichte beim Ziehen davon). Vorgabe: `placed`.
+   */
+  still: Readonly<Record<string, Spot>> = placed,
 ): BoardLayout {
   const lying = cards.filter((card) => !card.closed && card.onBoard);
   const open = withParts([
@@ -953,12 +965,29 @@ export function boardLayout(
     rowTop.push(rowTop[row]! + CELL.height + most + deepest * CELL.height);
   }
   const spots: Record<string, Spot> = {};
-  top.forEach((card, index) => {
-    spots[card.key] = placed[card.key] ?? {
-      x: (index % PER_ROW) * CELL.width,
-      y: rowTop[Math.floor(index / PER_ROW)]!,
-    };
-  });
+  // Was der Spielleiter hingelegt hat, ist ein Hindernis: Ausgelegtes landet nie darauf.
+  const lyingStill = [
+    ...open.filter((card) => still[card.key]).map((card) => cardBox(still[card.key]!)),
+    ...free
+      .filter((key) => still[key])
+      .map((key) => ({ ...still[key]!, w: BOARD_PIN.width, h: BOARD_PIN.height })),
+  ];
+  const slotAt = (slot: number): Spot => {
+    const row = Math.floor(slot / PER_ROW);
+    while (rowTop.length <= row) rowTop.push(rowTop[rowTop.length - 1]! + CELL.height);
+    return { x: (slot % PER_ROW) * CELL.width, y: rowTop[row]! };
+  };
+  let slot = 0;
+  for (const card of top) {
+    const own = placed[card.key];
+    if (own) {
+      spots[card.key] = own;
+      continue;
+    }
+    while (slot < 400 && lyingStill.some((box) => overlaps(cardBox(slotAt(slot)), box))) slot++;
+    spots[card.key] = slotAt(slot);
+    slot++;
+  }
   /** Legt die Teile einer Karte in Reihen zu höchstens drei darunter – und deren Teile darunter. */
   const layParts = (key: string, seen: ReadonlySet<string>) => {
     const parent = spots[key];

@@ -610,7 +610,11 @@ button.wf-item:hover,
     inset 0 1px 0 rgba(239, 212, 151, 0.08),
     var(--shadow-float);
   max-width: calc(100vw - 48px);
-  max-height: calc(100vh - 48px);
+  /* Fenster stehen oben fest und wachsen nach unten: Wächst der Inhalt beim Wählen, springen
+     Überschrift und Felder nicht mit (sonst trifft ein Klick daneben). */
+  margin-top: min(10vh, 96px);
+  margin-bottom: auto;
+  max-height: calc(100vh - min(10vh, 96px) - 24px);
   overflow: visible;
 }
 .wf-dialog::backdrop {

@@ -114,7 +114,11 @@ export function JourneyDialog({ onClose }: { onClose: () => void }) {
             {plan.minutes > 0 && (
               <span>Zusammen etwa {formatWayTime(plan.minutes)} Reisezeit.</span>
             )}
-            {!plan.legs.some((leg) => leg.ground) && (
+            {/* Gelände kommt aus der Gegend, aus der Hexkarte des Weges oder aus seiner Karte. */}
+            {!plan.legs.some(
+              (leg) =>
+                leg.ground || leg.hexes.length || (leg.pathId && data.paths[leg.pathId]?.mapId),
+            ) && (
               <span className="wf-mute">
                 Kein Gelände eingetragen. Auf der Seite einer Gegend legst du unter „Unterwegs hier“
                 Gelände, Tempo und Tabellen fest.
