@@ -114,6 +114,14 @@ Gegenden der Welt, Straßen, Pfade, Flüsse, Radierer, Felder anfügen/wegnehmen
 Handarbeit; Straße und langsame Gegend ändern die Reisezeit. **DATA_VERSION 21** – Mac und
 Windows beide auf 0.1.13.
 
+**Danach: Tag `v0.1.14` auf `ace768d` (17. 11.)** – Hexkarten simuliert (Flüsse, Orientierung,
+Sicht, Orte aus der Welt), Unterreich-Hexkarten mit Gangnetz-Erzeuger (Fels, Ausgänge, Ebenen,
+Schächte, echte Wahl zwischen kurzem und leichtem Weg, Witterung „Ringsum“), drei Schichten je
+Feld (von fern, beim Betreten, beim Durchsuchen), Würfeltabellen als echte Tabellen in den
+Einstellungen (Fundstellen, Verborgenes, Besonderheiten), Begegnungstabellen der Gegenden mit
+Was/Häufigkeit/Wann und Abschnitt „Unterwegs“ im Bestiarium (Anzahl, Spuren, Bau aus den
+Beständen). **DATA_VERSION 27** – Mac und Windows beide auf 0.1.14.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
