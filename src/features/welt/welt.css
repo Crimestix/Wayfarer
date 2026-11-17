@@ -510,9 +510,12 @@
   background: var(--bg-3);
   color: var(--gold-bright);
 }
-/* „Noch zu schreiben“ passt nicht mehr daneben: eine zweite Reihe über die ganze Breite. */
+/* Zweite Reihe: „Geschichte“ und „Noch zu schreiben“ (über zwei Spalten). */
 .wf-welt-layout .wf-welt-layout__wide {
-  grid-column: 1 / -1;
+  grid-column: span 2;
+  border-top: 1px solid var(--line);
+}
+.wf-welt-layout .wf-welt-layout__row2 {
   border-top: 1px solid var(--line);
 }
 .wf-welt-layout__wide span {
@@ -3702,4 +3705,91 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-gallery__facet select[aria-pressed='true'] {
   border-color: var(--gold-deep);
   color: var(--gold);
+}
+
+/* Geschichte der Welt: Zeitalter als Abschnitte, darin eine ruhige Zeitliste. */
+.wf-welt-history__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--s-2);
+  margin-bottom: var(--s-5);
+  padding: var(--s-3);
+  border: 1px solid var(--line-faint);
+}
+.wf-welt-history__form .wf-welt-history__line {
+  grid-column: 1 / 5;
+}
+.wf-welt-history__problem {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--blood-bright);
+}
+.wf-welt-history__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.wf-welt-history__age {
+  margin-bottom: var(--s-5);
+}
+.wf-welt-history__agetitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-2);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--ink);
+}
+.wf-welt-history__agetitle span {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-welt-history__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wf-welt-history__row {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--s-3);
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-history__when {
+  color: var(--gold);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+.wf-welt-history__link {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+.wf-welt-history__link:hover b {
+  color: var(--gold-bright);
+}
+.wf-welt-history__sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-history__sub svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-welt-history__row:not([data-past]) .wf-welt-history__when {
+  color: var(--ink-mute);
 }

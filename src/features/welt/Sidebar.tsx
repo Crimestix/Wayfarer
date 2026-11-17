@@ -597,6 +597,19 @@ export function Sidebar({
           <button
             type="button"
             role="tab"
+            className="wf-welt-layout__row2"
+            aria-selected={layout === 'history'}
+            title="Was war: Verstorbene, untergegangene Orte, Ereignisse – nach Zeitaltern"
+            onClick={() => {
+              setLayout('history');
+              navigate('/welt');
+            }}
+          >
+            Geschichte
+          </button>
+          <button
+            type="button"
+            role="tab"
             className="wf-welt-layout__wide"
             aria-selected={layout === 'gaps'}
             title="Was im Wiki erwähnt wird, aber noch fehlt – und was noch kurz ist"

@@ -16,6 +16,7 @@ import { entitiesOfArticle } from '../wiki/model';
 import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
 import { NewDialogHost } from './NewDialog';
+import { HistoryView } from './HistoryView';
 import { Gallery } from './Gallery';
 import { GapsView } from './Gaps';
 import { Landing } from './Landing';
@@ -113,6 +114,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           <FactionNetView />
         ) : layout === 'gaps' ? (
           <GapsView />
+        ) : layout === 'history' ? (
+          <HistoryView />
         ) : filter !== 'all' && isLexiconKind(filter) ? (
           <Lexicon key={filter} kind={filter} />
         ) : filter !== 'all' ? (
