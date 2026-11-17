@@ -30,6 +30,7 @@ import {
   Link2,
   Maximize,
   Minus,
+  MoreHorizontal,
   Pencil,
   Plus,
   TriangleAlert,
@@ -99,7 +100,9 @@ import {
   EntityPicker,
   IconButton,
   KindIcon,
+  MenuItem,
   NamesHint,
+  Popover,
   Select,
   Written,
   cx,
@@ -260,10 +263,32 @@ export default function FaedenPage() {
     setAreaSel(null);
   };
   const [, navigate] = useLocation();
-  /** Eine neue Geschichte: Sie entsteht leer und wird auf ihrem Blatt geschrieben. */
+  /**
+   * Eine neue Geschichte: Sie entsteht auf dem Brett, in der Mitte des Bildes, und man schreibt
+   * gleich auf ihrer Karte – das Blatt öffnet sich erst auf Wunsch (Rundgang 17. 11.: „+ Geschichte“
+   * führte vom Brett weg).
+   */
   const write = () => {
     const story = newStory(db);
-    navigate(`/geschichte/${story.id}`);
+    const key = `story:${story.id}`;
+    const at = freeSpot(
+      [
+        ...layout.pins,
+        ...Object.values(layout.cards).map((card) => ({ x: card.x, y: card.y + 80 })),
+      ],
+      viewCenter(),
+    );
+    placeOnBoard(db, key, at.x, at.y);
+    clearPicks();
+    setSelected(key);
+    showCard();
+    setEditing(key);
+    toast({
+      slot: 'fadenbrett',
+      title: 'Neue Geschichte auf dem Brett',
+      body: 'Schreib Überschrift und ein paar Sätze auf die Karte.',
+      action: { label: 'Blatt öffnen', run: () => navigate(`/geschichte/${story.id}`) },
+    });
   };
   const placed = data.state.board;
   /** Namen und Artikel, die eine Stelle haben – sie liegen auf dem Brett. */
@@ -1584,6 +1609,16 @@ function CardWriter({ cardKey, at, onDone }: { cardKey: string; at: Spot; onDone
   const start = isStory ? data.stories[id] : data.threads[id];
   const [title, setTitle] = useState(start?.title ?? '');
   const [text, setText] = useState(start?.text ?? '');
+  /** Eine eben angelegte Karte: erst die Überschrift, schon markiert zum Überschreiben. */
+  const fresh = !!start && !start.text.trim() && /^Neue (Geschichte|Notiz)$/.test(start.title);
+  const titleRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!fresh) return;
+    titleRef.current?.focus();
+    titleRef.current?.select();
+    // Nur beim Öffnen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const changed = !!start && (title !== start.title || text !== start.text);
   useHoldDraft(changed, `fadenbrett-karte-${cardKey}`);
   const box = useRef<HTMLDivElement>(null);
@@ -1617,6 +1652,7 @@ function CardWriter({ cardKey, at, onDone }: { cardKey: string; at: Spot; onDone
       }}
     >
       <input
+        ref={titleRef}
         className="wf-faden-writer__title"
         aria-label="Überschrift"
         value={title}
@@ -1627,7 +1663,7 @@ function CardWriter({ cardKey, at, onDone }: { cardKey: string; at: Spot; onDone
         className="wf-faden-writer__text"
         aria-label="Was hier geschieht"
         value={text}
-        autoFocus
+        autoFocus={!fresh}
         placeholder={
           isStory
             ? 'Die Geschichte in deinen Worten …'
@@ -1862,6 +1898,70 @@ function BoardSearch({
   );
 }
 
+/** Das Seltene an einer Karte: „Doch nicht gespielt“, „Vom Brett nehmen“ – hinter „…“. */
+function CardMore({ card, lone }: { card: BoardCard; lone: Thread | null }) {
+  const db = useDb();
+  const data = useData();
+  const anchor = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const played = data.state.boardPlayed.includes(card.key);
+  const canTakeOff = !!lone && card.onBoard && !card.closed;
+  if (!played && !canTakeOff) return null;
+  return (
+    <>
+      <IconButton
+        ref={anchor}
+        label="Mehr zu dieser Karte"
+        size="sm"
+        variant="ghost"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((on) => !on)}
+      >
+        <MoreHorizontal />
+      </IconButton>
+      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} width={260}>
+        {played && (
+          <MenuItem
+            onClick={() => {
+              setOpen(false);
+              const undo = setBoardPlayed(db, card.key, false);
+              toast({
+                slot: 'fadenbrett',
+                title: 'Nicht mehr gespielt',
+                body: 'Die Karte gilt wieder als Möglichkeit.',
+                action: { label: 'Rückgängig', run: undo },
+              });
+            }}
+          >
+            Doch nicht gespielt
+          </MenuItem>
+        )}
+        {canTakeOff && lone && (
+          <MenuItem
+            disabled={lone.inPlay}
+            onClick={() => {
+              setOpen(false);
+              const undo = setThreadOnBoard(db, lone.id, false);
+              if (undo)
+                toast({
+                  slot: 'fadenbrett',
+                  title: 'Vom Brett genommen',
+                  body: `„${lone.title}“ steht nur noch in der Liste „Lose Fäden“.`,
+                  action: { label: 'Rückgängig', run: undo },
+                });
+            }}
+          >
+            {lone.inPlay
+              ? 'Vom Brett nehmen – erst, wenn er nicht im Spiel ist'
+              : 'Vom Brett nehmen (Löschtaste)'}
+          </MenuItem>
+        )}
+      </Popover>
+    </>
+  );
+}
+
 /** Der Seitenteil: alles zur gewählten Karte – Uhr, Fäden mit Hinweisen, Einstiege, Berührungen. */
 function Side({
   card,
@@ -1891,34 +1991,29 @@ function Side({
     return (
       <aside className="wf-faden-side wf-faden-side--blank">
         <p>
-          Das Fadenbrett ist dein Storyboard. Fang dort an, wo die Spieler ankommen – und schreib,
-          wohin es von dort führen kann. Was davon passiert, entscheidet sich am Tisch.
+          Dein Storyboard: Fang dort an, wo die Spieler ankommen – und schreib, wohin es führen
+          kann.
         </p>
+        {/* Ein Spickzettel statt einer Anleitung: Handgriff links, Wirkung rechts. */}
+        <dl className="wf-faden-grips">
+          <dt>Doppelklick ins Leere</dt>
+          <dd>Karte schreiben – oder finden, was es schon gibt</dd>
+          <dt>Doppelklick auf eine Karte</dt>
+          <dd>weiterschreiben</dd>
+          <dt>Griff rechts an der Karte ziehen</dt>
+          <dd>Pfeil „führt zu“ – ins Leere gezogen: dort suchen oder anlegen</dd>
+          <dt>Klick auf einen Pfeil</dt>
+          <dd>Wort, Richtung, was er in der Welt bedeutet</dd>
+          <dt>Suche oben links</dt>
+          <dd>Geschichten, Fäden, Personen, Orte, Artikel hinlegen</dd>
+          <dt>Umschalt-Klick · Rahmen unten rechts</dt>
+          <dd>mehrere wählen · Bereich anlegen</dd>
+          <dt>Löschtaste</dt>
+          <dd>vom Brett nehmen, nie aus der Welt</dd>
+        </dl>
         <p className="wf-mute">
-          Hinlegen und Suchen: doppelt ins Leere klicken und tippen – was es schon gibt (Artikel,
-          Personen, Orte, Geschichten), steht gleich darunter; sonst entsteht es neu als Notiz,
-          Person, Ort … Doppelklick auf eine Karte schreibt weiter.
-        </p>
-        <p className="wf-mute">
-          Verbinden: am Griff rechts an einer Karte einen Pfeil ziehen – „führt zu“. Mehrere Pfeile
-          von einer Karte sind die Möglichkeiten. Ins Leere gezogen, kannst du dort suchen oder neu
-          anlegen.
-        </p>
-        <p className="wf-mute">
-          Klick auf einen Pfeil: ein Wort dazu („wenn sie fliehen“), umdrehen, ohne Pfeil – und, nur
-          wenn du willst, was er in der Welt bedeutet.
-        </p>
-        <p className="wf-mute">
-          Am Tisch: eine Karte als „Hier steht die Gruppe“ markieren. Der Spieltisch zeigt sie und
-          wohin ihre Pfeile führen; „Hierhin“ rückt weiter, der gespielte Weg bleibt sichtbar.
-        </p>
-        <p className="wf-mute">
-          Hinlegen: oben links suchen (Geschichte, Faden, Person, Ort, Artikel); lose Fäden ziehst
-          du aus der Liste herüber.
-        </p>
-        <p className="wf-mute">
-          Ordnen: ziehen; mit Umschalttaste mehrere wählen; das Rahmen-Zeichen unten rechts legt
-          einen Bereich an. Die Löschtaste nimmt etwas nur vom Brett, nie aus der Welt.
+          Am Tisch: Eine Karte als „Hier steht die Gruppe“ markieren – der Spieltisch zeigt, wohin
+          ihre Pfeile führen.
         </p>
       </aside>
     );
@@ -2005,6 +2100,7 @@ function Side({
           }}
         />
       )}
+      {/* Eine Zeile Handgriffe: was zu dieser Art Karte passt; Seltenes hinter „…“. */}
       {truth && (
         <div className="wf-faden-side__acts">
           <Button
@@ -2031,24 +2127,17 @@ function Side({
               : 'Hier steht die Gruppe'}
           </Button>
           <StartToggle cardKey={card.key} />
-          {data.state.boardPlayed.includes(card.key) && (
+          {lone && (
             <Button
               size="sm"
-              variant="ghost"
-              title="Die Karte gehört dann nicht mehr zum gespielten Weg"
-              onClick={() => {
-                const undo = setBoardPlayed(db, card.key, false);
-                toast({
-                  slot: 'fadenbrett',
-                  title: 'Nicht mehr gespielt',
-                  body: 'Die Karte gilt wieder als Möglichkeit.',
-                  action: { label: 'Rückgängig', run: undo },
-                });
-              }}
+              icon={<Link2 />}
+              title="Als Frage, Hinweis oder Einstieg – oder zieh die Karte auf eine Geschichte"
+              onClick={() => onEdit({ type: 'attach', ids: [lone.id] })}
             >
-              Doch nicht gespielt
+              An Geschichte hängen …
             </Button>
           )}
+          <CardMore card={card} lone={lone} />
         </div>
       )}
       {owner && (
@@ -2060,42 +2149,6 @@ function Side({
         <p className="wf-faden-side__note">
           Sicht der Gruppe: nur, was sie kennt. Zum Ändern auf „Wahrheit“ wechseln.
         </p>
-      )}
-      {truth && lone && (
-        <div className="wf-faden-side__acts">
-          <Button
-            size="sm"
-            icon={<Link2 />}
-            title="Als Frage, Hinweis oder Einstieg – oder zieh die Karte auf eine Geschichte"
-            onClick={() => onEdit({ type: 'attach', ids: [lone.id] })}
-          >
-            An Geschichte hängen …
-          </Button>
-          {card.onBoard && !card.closed && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={lone.inPlay}
-              title={
-                lone.inPlay
-                  ? 'Er liegt auf dem Brett, solange er im Spiel ist.'
-                  : 'Er steht dann nur noch in der Liste „Lose Fäden“.'
-              }
-              onClick={() => {
-                const undo = setThreadOnBoard(db, lone.id, false);
-                if (undo)
-                  toast({
-                    slot: 'fadenbrett',
-                    title: 'Vom Brett genommen',
-                    body: `„${lone.title}“ steht nur noch in der Liste „Lose Fäden“.`,
-                    action: { label: 'Rückgängig', run: undo },
-                  });
-              }}
-            >
-              Vom Brett nehmen
-            </Button>
-          )}
-        </div>
       )}
 
       {truth && story && !card.clock && (

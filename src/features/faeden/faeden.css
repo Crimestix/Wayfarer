@@ -2259,3 +2259,23 @@
 .wf-faden-ready p {
   margin: 0;
 }
+
+/* Spickzettel des leeren Bretts: Handgriff, darunter seine Wirkung. */
+.wf-faden-grips {
+  display: grid;
+  gap: 2px 0;
+  margin: var(--s-3) 0;
+}
+.wf-faden-grips dt {
+  margin-top: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.wf-faden-grips dd {
+  margin: 0;
+  color: var(--ink-mute);
+  line-height: 1.35;
+}
