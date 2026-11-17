@@ -714,6 +714,9 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       feature: '',
       river: terrain === 'water' ? '' : (sample?.river ?? ''),
       tableIds: [],
+      regionId: null,
+      road: 'none',
+      manual: false,
     });
   }
 

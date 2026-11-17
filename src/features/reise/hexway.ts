@@ -19,7 +19,7 @@ import {
 } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { areaLine, generateArea, groundOf, recognize, suggestHexKm } from '../erkundung/generate';
-import { hexMinutes } from '../erkundung/travel';
+import { hexMinutes, stepMinutes } from '../erkundung/travel';
 
 /** Minuten je km zu Fuß im normalen Tempo. */
 const MINUTES_PER_KM = (TRAVEL_HOURS * 60) / DAY_KM.normal;
@@ -111,8 +111,10 @@ export function hexTrail(
   const hexes = ordered.map((coord, index) => {
     if (index > 0) {
       const hex = byKey.get(hexKey(coord));
-      const step = hexMinutes(area.hexKm, hex?.terrain ?? null, 'normal', by) ?? 0;
-      at += step * (slow ? 2 : 1);
+      // Gemalte Gegend und Straße zählen (`stepMinutes`); ohne eigene Gegend gilt die des Weges.
+      const own = hex ? stepMinutes(data, area, hex, 'normal', by) : null;
+      const step = own ?? hexMinutes(area.hexKm, hex?.terrain ?? null, 'normal', by) ?? 0;
+      at += step * (slow && !hex?.regionId && hex?.road === 'none' ? 2 : 1);
     }
     return { q: coord.q, r: coord.r, at: Math.round(at) };
   });

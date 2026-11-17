@@ -3,7 +3,7 @@ import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
-import { Dices, Eye, EyeOff, Footprints, Hexagon, Minus, Plus, Trash2 } from 'lucide-react';
+import { Dices, Eye, EyeOff, Footprints, Hexagon, Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { byName, entityName } from '../../domain/derive';
 import { hexCenter, hexDistance, type HexCoord } from '../../domain/hex';
@@ -38,6 +38,7 @@ import {
 import { CreateDialog } from './CreateDialog';
 import { terrainShares } from './generate';
 import { HexMap } from './HexMap';
+import { HexToolbar, useHexEditor } from './HexEditor';
 import { partyMeans } from '../../domain/mounts';
 import { STEP_PROBLEM, hexMinutes, hexOfPlace, routeTo, stepProblem } from './travel';
 import { TravelPanel } from './TravelPanel';
@@ -149,6 +150,9 @@ function AreaView({ area }: { area: Area }) {
   const [, navigate] = useLocation();
   const [zoom, setZoom] = useState(() => fitZoom(area));
   const [selected, setSelected] = useState<HexCoord | null>(null);
+  /** Bearbeiten: Werkzeuge über der Karte statt Reisen und Ansehen. */
+  const [editing, setEditing] = useState(false);
+  const editor = useHexEditor(area);
   const size = SIZES[zoom]!;
   const hex = selected
     ? area.hexes.find((h) => h.q === selected.q && h.r === selected.r)
@@ -185,7 +189,7 @@ function AreaView({ area }: { area: Area }) {
   const reroll = async () => {
     const ok = await confirmDialog({
       title: 'Gelände neu würfeln?',
-      body: 'Die Landschaft entsteht neu. Was du an einzelnen Feldern eingetragen oder aufgedeckt hast, geht dabei verloren.',
+      body: 'Die Landschaft entsteht neu. Was du von Hand gemalt, gezogen, angefügt oder an Feldern eingetragen hast, bleibt.',
       confirmLabel: 'Neu würfeln',
     });
     if (!ok) return;
@@ -272,6 +276,18 @@ function AreaView({ area }: { area: Area }) {
             >
               <Plus />
             </IconButton>
+            <Button
+              size="sm"
+              icon={<Pencil />}
+              aria-pressed={editing}
+              onClick={() => {
+                setEditing((on) => !on);
+                setSelected(null);
+              }}
+              title="Gelände und Gegenden malen, Straßen und Flüsse ziehen, Felder anfügen"
+            >
+              {editing ? 'Fertig' : 'Bearbeiten'}
+            </Button>
             {area.seed !== null && (
               <Button
                 size="sm"
@@ -287,6 +303,7 @@ function AreaView({ area }: { area: Area }) {
             </IconButton>
           </div>
         </header>
+        {editing && <HexToolbar editor={editor} />}
         <div className="wf-erk-map">
           <HexMap
             area={area}
@@ -294,7 +311,8 @@ function AreaView({ area }: { area: Area }) {
             size={size}
             selected={selected}
             onSelect={setSelected}
-            plan={route?.steps}
+            plan={editing ? undefined : route?.steps}
+            paint={editing ? editor.paint : undefined}
           />
         </div>
       </section>

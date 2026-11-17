@@ -343,6 +343,15 @@ nicht übernommen.
   Hexkarte zieht mit (`syncArea`: Stellung, Spur, entdeckt). Eine Reise ohne Weg kann gleich einen
   Weg mit Hexkarte bekommen (`wayWithHexMap`). Liegen beide Orte unter der Erde, ist das Gelände
   dazwischen es auch (`recognizeBiome`); „Grasland“ als Vorgabe eines Weges zählt nicht.
+  **Hexkarten bearbeiten** (Wunsch 17. 11.: „Hexkarten perfekt vorbereiten“,
+  `erkundung/HexEditor.tsx`): „Bearbeiten“ auf der Seite der Hexkarte – Pinsel für Gelände und für
+  Gegenden der Welt (`hex.regionId`; ihr Gelände, Tempo und ihre Tabellen gelten dort), Straße
+  und Pfad (`hex.road`), Fluss (`hex.river`), Radierer, Pinselgröße 1–3, Felder am Rand anfügen
+  oder wegnehmen (`addHex`, `removeHex`, `edgeSlots` – nie Start, Ziel, Feld der Gruppe). Gemalt
+  wird über `paintHexes` (jeder Strich mit Rückgängig, `restoreHexes`); was von Hand gemacht ist
+  (`hex.manual`, Gegend, Straße, Vorbereitetes, Notiz, angefügte Felder), behält `rerollArea`.
+  Schrittzeiten rechnet `stepMinutes`: auf Straße oder Pfad im Tempo offenen Landes, in einer
+  langsamen Gegend doppelt – auf der Hexkarte wie Unterwegs.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

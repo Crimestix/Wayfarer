@@ -25,7 +25,6 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   const data = useData();
   const view: JourneyView = useMemo(() => journeyView(data, journey), [data, journey]);
   const name = (id: string | null | undefined) => (id ? (data.entities[id]?.name ?? '?') : '?');
-  const leg = view.leg;
   const below = isUnderground(data, data.state.placeId);
   const light = below ? lightStatus(data) : null;
   const party = activeParty(data);
@@ -134,8 +133,8 @@ export function TravelPanel({ journey }: { journey: Journey }) {
         </dd>
         <dt>Gelände</dt>
         <dd>
-          {leg?.ground || <span className="wf-mute">nichts eingetragen</span>}
-          {leg?.slow && <span className="wf-reise__tag">langsam</span>}
+          {view.ground?.word || <span className="wf-mute">nichts eingetragen</span>}
+          {view.ground?.slow && <span className="wf-reise__tag">langsam</span>}
         </dd>
         {light && (
           <>

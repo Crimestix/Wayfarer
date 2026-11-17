@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 20;
-export const DATA_SHAPE = '25eb30cbbec09d96';
+export const DATA_VERSION = 21;
+export const DATA_SHAPE = 'b69cea1b284d483d';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2510,6 +2510,15 @@ export const HexSchema = z.object({
   river: z.string().default(''),
   /** Abweichende Tabellen für dieses Hex. */
   tableIds: z.array(id).default([]),
+  /**
+   * Die Gegend der Welt, die hier gilt (ein Ort mit Gelände, Tempo und Tabellen,
+   * `domain/journey.ts`) – vom Spielleiter auf die Felder gemalt. null = keine.
+   */
+  regionId: id.nullable().default(null),
+  /** Straße oder Pfad durch dieses Feld: Reisen hier gehen im normalen Tempo, auch im Sumpf. */
+  road: z.enum(ROAD_KINDS).default('none'),
+  /** Von Hand geändert: Neu würfeln behält dieses Feld, wie es ist. */
+  manual: z.boolean().default(false),
 });
 export type Hex = z.infer<typeof HexSchema>;
 

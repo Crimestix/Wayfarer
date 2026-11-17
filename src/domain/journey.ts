@@ -182,6 +182,8 @@ export interface JourneyView {
   stops: { placeId: string; reached: boolean; current: boolean }[];
   /** Gereist seit der letzten Langen Rast (Gewaltmarsch ab acht Stunden). */
   sinceRest: number;
+  /** Das Gelände, durch das die Reise gerade geht: gemalt auf das Feld, sonst das des Abschnitts. */
+  ground: { word: string; slow: boolean } | null;
   /** Vorräte, die noch reichen, in Tagen – null, wenn nicht gezählt. */
   food: number | null;
   water: number | null;
@@ -221,8 +223,20 @@ export function journeyView(data: CampaignData, journey: Journey): JourneyView {
   );
   const days = daysSince(journey.departAt, data.state.now);
   const left = (start: number | null) => (start === null ? null : Math.max(0, start - days));
+  const current = legs[index];
+  const area = current?.areaId ? data.areas[current.areaId] : undefined;
+  const passed = current?.hexes.filter((step) => step.at <= journey.progress.minutes) ?? [];
+  const step = passed[passed.length - 1];
+  const hex = area && step ? area.hexes.find((h) => h.q === step.q && h.r === step.r) : undefined;
+  const painted = hex?.regionId ? groundOf(data, hex.regionId) : null;
+  const ground = painted
+    ? { word: painted.word, slow: painted.slow && hex?.road === 'none' }
+    : current && (current.ground || current.slow)
+      ? { word: current.ground, slow: current.slow }
+      : null;
   return {
     journey,
+    ground,
     leg: legs[index] ?? null,
     total,
     done,
@@ -362,14 +376,25 @@ export function nextHalt(
       add(step.at - now, 'clock', step.step.text);
   // Prüfungen alle vier Stunden: würfeln, und nur halten, wenn etwas geschieht.
   let quietChecks = 0;
-  const regionAt = leg.regionId ?? leg.toId;
+  // Auf einer Hexkarte gilt die Gegend, die auf das erreichte Feld gemalt ist; sonst die des Weges.
+  const regionAt = (after: number): string | null => {
+    if (area) {
+      const passed = leg.hexes.filter((step) => step.at <= journey.progress.minutes + after);
+      const step = passed[passed.length - 1];
+      const hex = step
+        ? area.hexes.find((entry) => entry.q === step.q && entry.r === step.r)
+        : undefined;
+      if (hex?.regionId) return hex.regionId;
+    }
+    return leg.regionId ?? leg.toId;
+  };
   for (let at = CHECK_EVERY - journey.sinceCheck; at <= horizon; at += CHECK_EVERY) {
     if (at <= 0) continue;
     const earliest = Math.min(...candidates.map((c) => c.at), Infinity);
     if (at >= earliest) break;
+    const region = regionAt(at);
     const found =
-      rollTables(data, regionAt, 'encounter', roll) ??
-      rollTables(data, regionAt, 'discovery', roll);
+      rollTables(data, region, 'encounter', roll) ?? rollTables(data, region, 'discovery', roll);
     if (!found) {
       quietChecks++;
       continue;

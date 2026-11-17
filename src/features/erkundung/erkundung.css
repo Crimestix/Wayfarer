@@ -579,3 +579,82 @@
   color: var(--ink-soft);
   font-size: var(--text-sm);
 }
+
+/* ── Bearbeiten ── */
+.wf-erk-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.wf-erk-tools .wf-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-erk-tools .wf-select,
+.wf-erk-tools .wf-input {
+  width: auto;
+  min-width: 10em;
+}
+.wf-erk-tools__region {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 16em;
+}
+.wf-erk-tools__region em,
+.wf-erk-tools__hint {
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+}
+.wf-hexmap[data-painting] {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+/* Eine Gegend der Welt auf dem Feld: ein innerer Umriss */
+.wf-hex__region {
+  fill: none;
+  stroke: var(--gold-deep);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+.wf-hex__region[data-active] {
+  stroke: var(--gold-bright);
+  stroke-width: 2.5;
+  stroke-dasharray: none;
+}
+/* Straßen, Pfade, Flüsse zwischen Nachbarn */
+.wf-hexmap__link {
+  fill: none;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.wf-hexmap__link--road {
+  stroke: var(--map-road);
+  stroke-width: 3.5;
+}
+.wf-hexmap__link--trail {
+  stroke: var(--map-road);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+.wf-hexmap__link--river {
+  stroke: var(--map-river);
+  stroke-width: 3;
+}
+/* Freier Platz am Rand: hier lässt sich ein Feld anfügen */
+.wf-hexmap__slot {
+  fill: var(--bg-2);
+  fill-opacity: 0.35;
+  stroke: var(--gold-deep);
+  stroke-dasharray: 3 3;
+  cursor: copy;
+}
+.wf-hexmap__slot:hover {
+  fill-opacity: 0.7;
+}

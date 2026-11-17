@@ -41,6 +41,20 @@ interface Props {
   onSelect: (hex: HexCoord | null) => void;
   /** Der geplante Weg der Gruppe zum Ziel, ab dem nächsten Schritt. */
   plan?: readonly HexCoord[];
+  /**
+   * Bearbeiten: Ein Strich beginnt mit dem Drücken auf ein Feld und geht über jedes Feld, über das
+   * die Maus mit gedrückter Taste fährt. Ohne `paint` ist die Karte nur zum Ansehen.
+   */
+  paint?: {
+    onStart: (hex: HexCoord) => void;
+    onMove: (hex: HexCoord) => void;
+    onEnd: () => void;
+    /** Freie Plätze am Rand, an denen sich ein Feld anfügen lässt (Werkzeug „Felder“). */
+    slots?: readonly HexCoord[];
+    onSlot?: (hex: HexCoord) => void;
+    /** Die Gegend, mit der gerade gemalt wird – ihre Felder treten hervor. */
+    regionId?: string | null;
+  };
 }
 
 interface Cell {
@@ -55,10 +69,16 @@ const Cells = memo(function Cells({
   cells,
   size,
   onSelect,
+  painting,
+  regionNames,
+  activeRegion,
 }: {
   cells: Cell[];
   size: number;
   onSelect: (hex: HexCoord) => void;
+  painting: Props['paint'] | undefined;
+  regionNames: Record<string, string>;
+  activeRegion: string | null;
 }) {
   return (
     <>
@@ -66,11 +86,34 @@ const Cells = memo(function Cells({
         <g
           key={hexKey(hex)}
           className="wf-hex"
+          data-hex={`${hex.q},${hex.r}`}
           data-terrain={hex.terrain ?? 'none'}
-          data-hidden={!hex.discovered || undefined}
-          onClick={() => onSelect({ q: hex.q, r: hex.r })}
+          data-hidden={(!painting && !hex.discovered) || undefined}
+          onClick={painting ? undefined : () => onSelect({ q: hex.q, r: hex.r })}
+          onPointerDown={
+            painting
+              ? (event) => {
+                  if (event.button !== 0) return;
+                  event.preventDefault();
+                  painting.onStart({ q: hex.q, r: hex.r });
+                }
+              : undefined
+          }
         >
           <polygon points={points} />
+          {hex.regionId && (
+            <polygon
+              className="wf-hex__region"
+              data-active={hex.regionId === activeRegion || undefined}
+              points={points
+                .split(' ')
+                .map((pair) => {
+                  const [px, py] = pair.split(',').map(Number);
+                  return `${(x + (px! - x) * 0.8).toFixed(1)},${(y + (py! - y) * 0.8).toFixed(1)}`;
+                })
+                .join(' ')}
+            />
+          )}
           {hex.terrain && size >= 22 && (
             <g className="wf-hex__glyph" transform={`translate(${x} ${y}) scale(${size})`}>
               {GLYPH[hex.terrain]}
@@ -101,6 +144,7 @@ const Cells = memo(function Cells({
             />
           )}
           <title>
+            {hex.regionId && regionNames[hex.regionId] ? `${regionNames[hex.regionId]} · ` : ''}
             {[
               hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'Ohne Gelände',
               hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
@@ -116,7 +160,7 @@ const Cells = memo(function Cells({
   );
 });
 
-export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
+export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Props) {
   const orientation = area.orientation;
   const layout = useMemo(() => {
     const cells: Cell[] = area.hexes.map((hex) => {
@@ -177,6 +221,44 @@ export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
   const chosen = selected
     ? layout.cells.find((c) => c.hex.q === selected.q && c.hex.r === selected.r)
     : undefined;
+  // Straßen, Pfade und Flüsse verbinden Nachbarn, die dieselbe Linie tragen.
+  const links = useMemo(() => {
+    const byKey = new Map(layout.cells.map((cell) => [hexKey(cell.hex), cell]));
+    const out: { key: string; kind: 'road' | 'trail' | 'river'; d: string }[] = [];
+    for (const cell of layout.cells)
+      for (const n of hexNeighbors(cell.hex)) {
+        const other = byKey.get(hexKey(n));
+        if (!other || hexKey(other.hex) < hexKey(cell.hex)) continue;
+        const d = `M ${cell.x.toFixed(1)} ${cell.y.toFixed(1)} L ${other.x.toFixed(1)} ${other.y.toFixed(1)}`;
+        const road = (h: Hex) => h.road !== 'none';
+        if (road(cell.hex) && road(other.hex))
+          out.push({
+            key: `r${hexKey(cell.hex)}-${hexKey(other.hex)}`,
+            kind: cell.hex.road === 'road' && other.hex.road === 'road' ? 'road' : 'trail',
+            d,
+          });
+        if (cell.hex.river && other.hex.river)
+          out.push({ key: `w${hexKey(cell.hex)}-${hexKey(other.hex)}`, kind: 'river', d });
+      }
+    return out;
+  }, [layout.cells]);
+  const regionNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const hex of area.hexes)
+      if (hex.regionId && !out[hex.regionId])
+        out[hex.regionId] = data.entities[hex.regionId]?.name ?? '';
+    return out;
+  }, [area.hexes, data.entities]);
+  const slots = useMemo(
+    () =>
+      (paint?.slots ?? []).map((coord) => ({
+        coord,
+        points: hexCorners(coord, orientation)
+          .map((p) => `${(p.x * size).toFixed(1)},${(p.y * size).toFixed(1)}`)
+          .join(' '),
+      })),
+    [paint?.slots, orientation, size],
+  );
 
   if (!area.hexes.length) return null;
   return (
@@ -190,8 +272,48 @@ export function HexMap({ area, data, size, selected, onSelect, plan }: Props) {
       onClick={(e) => {
         if (e.target === e.currentTarget) onSelect(null);
       }}
+      onPointerMove={
+        paint
+          ? (event) => {
+              if (!(event.buttons & 1)) return;
+              // Das Feld unter der Maus – auch, wenn die Maus schnell über mehrere hinweg fährt.
+              const under = document.elementFromPoint(event.clientX, event.clientY);
+              const cell = under?.closest('[data-hex]')?.getAttribute('data-hex');
+              if (!cell) return;
+              const [q, r] = cell.split(',').map(Number);
+              paint.onMove({ q: q!, r: r! });
+            }
+          : undefined
+      }
+      onPointerUp={paint ? () => paint.onEnd() : undefined}
+      onPointerLeave={paint ? () => paint.onEnd() : undefined}
+      data-painting={paint ? true : undefined}
     >
-      <Cells cells={layout.cells} size={size} onSelect={onSelect} />
+      <Cells
+        cells={layout.cells}
+        size={size}
+        onSelect={onSelect}
+        painting={paint}
+        regionNames={regionNames}
+        activeRegion={paint?.regionId ?? null}
+      />
+      {links.map((link) => (
+        <path
+          key={link.key}
+          className={`wf-hexmap__link wf-hexmap__link--${link.kind}`}
+          d={link.d}
+        />
+      ))}
+      {slots.map((slot) => (
+        <polygon
+          key={hexKey(slot.coord)}
+          className="wf-hexmap__slot"
+          points={slot.points}
+          onClick={() => paint?.onSlot?.(slot.coord)}
+        >
+          <title>Hier ein Feld anfügen</title>
+        </polygon>
+      ))}
       {line && <polyline className="wf-hexmap__route" points={line} />}
       {places.map(({ hex, x, y }) => {
         const place = data.entities[hex.placeId!]!;

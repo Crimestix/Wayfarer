@@ -6,6 +6,7 @@
  * acht Stunden Reise am Tag; jede weitere Stunde ist ein Gewaltmarsch. Das Gelände begrenzt,
  * wie schnell es höchstens vorangeht.
  */
+import { groundOf as journeyGround } from '../../domain/journey';
 import { hexDistance, hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import { carries, ignoresGround, meansKmh, partyMeans } from '../../domain/mounts';
 import { rngOf, seedOf } from '../../domain/random';
@@ -73,6 +74,25 @@ export function hexMinutes(
   if (!actual) return null;
   const kmPerHour = (used && meansKmh(used, actual)) ?? DAY_KM[actual] / TRAVEL_HOURS;
   return round5((hexKm / kmPerHour) * 60);
+}
+
+/**
+ * Die Minuten für einen Schritt auf ein Feld, mit dem, was der Spielleiter gemalt hat: Auf einer
+ * Straße oder einem Pfad geht es im Tempo offenen Landes; in einer Gegend, die schwer zu
+ * durchqueren ist (`groundOf`), doppelt so lange – außer auf der Straße. null = unpassierbar.
+ */
+export function stepMinutes(
+  data: CampaignData,
+  area: Pick<Area, 'hexKm'>,
+  hex: Pick<Hex, 'terrain' | 'road' | 'regionId'>,
+  pace: Pace,
+  by: Mount | null = null,
+): number | null {
+  const onRoad = hex.road !== 'none' && hex.terrain !== 'water';
+  const base = hexMinutes(area.hexKm, onRoad ? 'grassland' : hex.terrain, pace, by);
+  if (base === null) return null;
+  const slow = !onRoad && !!hex.regionId && !!journeyGround(data, hex.regionId)?.slow;
+  return slow ? base * 2 : base;
 }
 
 const find = (area: Area, coord: HexCoord): Hex | undefined =>
@@ -169,7 +189,9 @@ export function planStep(
   const party = area.party!;
   const target = find(area, to)!;
   const pace = effectivePace(target.terrain, party.pace) ?? party.pace;
-  const minutes = hexMinutes(area.hexKm, target.terrain, party.pace, by)!;
+  const minutes =
+    stepMinutes(data, area, target, party.pace, by) ??
+    hexMinutes(area.hexKm, target.terrain, party.pace, by)!;
   const arrival = now + minutes;
   // Der Tag des Schritts und seine Minuten bleiben für ältere Fassungen des Programms stehen.
   const today = party.day === dayIndexOf(arrival) && dayIndexOf(arrival) === dayIndexOf(now);

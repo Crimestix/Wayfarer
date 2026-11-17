@@ -3,7 +3,7 @@ import { advanceTime, undoTimeAdvance, type TimeAdvanceResult } from '../../data
 import type { CampaignDb } from '../../data/db';
 import { hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
 import { freshSeed } from '../../domain/random';
-import type { Area, Hex, Pace } from '../../domain/schema';
+import { HexSchema, type Area, type Hex, type Pace } from '../../domain/schema';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { generateHexes, groundOf, recognize, type GenerateInput } from './generate';
 import { planStep, type StepProblem, type TravelStep } from './travel';
@@ -21,7 +21,7 @@ export function patchHex(
   const hexes = area.hexes.map((hex) => {
     if (hex.q !== coord.q || hex.r !== coord.r) return hex;
     found = true;
-    return { ...hex, ...change };
+    return { ...hex, ...change, manual: true };
   });
   if (found) db.patch('areas', areaId, { hexes });
 }
@@ -60,15 +60,34 @@ export function rerollInput(
   };
 }
 
+/** Hat der Spielleiter an diesem Feld etwas eingetragen, das Neu würfeln nicht anfassen darf? */
+const handMade = (hex: Hex): boolean =>
+  hex.manual ||
+  hex.regionId !== null ||
+  hex.road !== 'none' ||
+  hex.prepared.trim() !== '' ||
+  hex.note.trim() !== '' ||
+  hex.tableIds.length > 0;
+
 /**
- * Würfelt das Gelände einer erzeugten Karte neu. Name und Notizen bleiben; alles, was an den
- * Feldern eingetragen war, geht verloren – `undo` stellt den alten Stand wieder her.
+ * Würfelt das Gelände einer erzeugten Karte neu. Name und Notizen bleiben; was der Spielleiter an
+ * Feldern von Hand gemacht hat (gemalt, Gegend, Straße, Vorbereitetes, Notiz), bleibt, wie es ist.
+ * Felder, die er angefügt hat, bleiben auch. `undo` stellt den alten Stand wieder her.
  */
 export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null {
   const area = db.getSnapshot().areas[areaId];
   const input = area ? rerollInput(db, area) : null;
   if (!area || !input) return null;
-  const { hexes } = generateHexes(input);
+  const fresh = generateHexes(input).hexes;
+  const kept = new Map(area.hexes.filter(handMade).map((hex) => [hexKey(hex), hex]));
+  const present = new Set(area.hexes.map(hexKey));
+  // Was weggenommen wurde, bleibt weg; was von Hand angefügt wurde, bleibt.
+  const hexes = [
+    ...fresh
+      .filter((hex) => present.has(hexKey(hex)) || hex.placeId !== null)
+      .map((hex) => kept.get(hexKey(hex)) ?? hex),
+    ...[...kept.values()].filter((hex) => !fresh.some((other) => hexKey(other) === hexKey(hex))),
+  ];
   // Die Gruppe verlässt die Karte: Auf dem neuen Gelände stünde sie womöglich mitten im See.
   db.patch('areas', areaId, { hexes, seed: input.seed, party: null });
   return () => {
@@ -163,4 +182,93 @@ export function travelTo(db: CampaignDb, areaId: string, to: HexCoord): TravelRe
           db.patch('areas', areaId, { hexes: area.hexes, party: area.party });
       }),
   };
+}
+
+// ── Bearbeiten: malen, Linien ziehen, anfügen, wegnehmen ───────────────────
+
+/** Was ein Pinselstrich an einem Feld ändert. */
+export type HexPaint = Partial<Pick<Hex, 'terrain' | 'regionId' | 'road' | 'river'>>;
+
+/**
+ * Malt auf Felder der Karte (ein Pinselstrich): Sie gelten danach als von Hand geändert. Gibt den
+ * alten Stand der Felder zurück, damit ein ganzer Strich zurückgenommen werden kann.
+ */
+export function paintHexes(
+  db: CampaignDb,
+  areaId: string,
+  coords: readonly HexCoord[],
+  change: HexPaint,
+): void {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area || !coords.length) return;
+  const keys = new Set(coords.map(hexKey));
+  let changed = false;
+  const hexes = area.hexes.map((hex) => {
+    if (!keys.has(hexKey(hex))) return hex;
+    const next = { ...hex, ...change, manual: true };
+    if (
+      next.terrain === hex.terrain &&
+      next.regionId === hex.regionId &&
+      next.road === hex.road &&
+      next.river === hex.river &&
+      hex.manual
+    )
+      return hex;
+    changed = true;
+    return next;
+  });
+  if (changed) db.patch('areas', areaId, { hexes });
+}
+
+/** Die Felder einer Karte wieder so, wie sie vor einem Strich waren. */
+export function restoreHexes(db: CampaignDb, areaId: string, hexes: Hex[]): void {
+  if (db.getSnapshot().areas[areaId]) db.patch('areas', areaId, { hexes });
+}
+
+/**
+ * Fügt ein Feld am Rand an: mit dem Gelände, das unter seinen Nachbarn am häufigsten ist. Nur
+ * neben einem vorhandenen Feld und nur, wo noch keins ist.
+ */
+export function addHex(db: CampaignDb, areaId: string, coord: HexCoord): boolean {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area || area.hexes.some((hex) => hexKey(hex) === hexKey(coord))) return false;
+  const around = hexNeighbors(coord)
+    .map((n) => area.hexes.find((hex) => hexKey(hex) === hexKey(n)))
+    .filter((hex): hex is Hex => !!hex);
+  if (!around.length) return false;
+  const count = new Map<string, number>();
+  for (const hex of around)
+    if (hex.terrain) count.set(hex.terrain, (count.get(hex.terrain) ?? 0) + 1);
+  const terrain = ([...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null) as Hex['terrain'];
+  db.patch('areas', areaId, {
+    hexes: [
+      ...area.hexes,
+      HexSchema.parse({ q: coord.q, r: coord.r, terrain, manual: true, discovered: false }),
+    ],
+  });
+  return true;
+}
+
+/**
+ * Nimmt ein Feld weg – nie das Feld von Start oder Ziel und nie das, auf dem die Gruppe steht.
+ * Gibt zurück, ob es weg ist.
+ */
+export function removeHex(db: CampaignDb, areaId: string, coord: HexCoord): boolean {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area) return false;
+  const hex = area.hexes.find((entry) => hexKey(entry) === hexKey(coord));
+  if (!hex) return false;
+  if (hex.placeId && (hex.placeId === area.fromId || hex.placeId === area.toId)) return false;
+  if (area.party && hexKey(area.party) === hexKey(coord)) return false;
+  db.patch('areas', areaId, { hexes: area.hexes.filter((entry) => entry !== hex) });
+  return true;
+}
+
+/** Die freien Plätze am Rand: wo sich ein Feld anfügen ließe. */
+export function edgeSlots(area: Pick<Area, 'hexes'>): HexCoord[] {
+  const taken = new Set(area.hexes.map(hexKey));
+  const out = new Map<string, HexCoord>();
+  for (const hex of area.hexes)
+    for (const n of hexNeighbors(hex)) if (!taken.has(hexKey(n))) out.set(hexKey(n), n);
+  return [...out.values()];
 }
