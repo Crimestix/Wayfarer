@@ -43,7 +43,7 @@ export function CreateDialog({
   );
   const km = distance !== null ? parseKm(distance) : (known?.distanceKm ?? null);
   const land = biome ?? known?.biome ?? 'grassland';
-  const size = hexKm ?? suggestHexKm(km);
+  const size = hexKm ?? suggestHexKm(km, land);
   const length = km ? Math.max(1, Math.round(km / size)) : null;
   const problem = !fromId
     ? 'Wähle den Ort, an dem der Weg beginnt.'

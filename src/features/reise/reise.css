@@ -211,3 +211,26 @@
 .wf-reise-dialog__supplies > * {
   flex: 1 1 0;
 }
+
+/* Witterung: was die Gruppe von den Feldern ringsum bemerkt */
+.wf-reise__senses {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 var(--s-4) var(--s-2);
+  font-size: var(--text-sm);
+}
+.wf-reise__senses ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wf-reise__senses b {
+  font-weight: 600;
+}
+.wf-reise__senses em {
+  color: var(--ink-mute);
+}

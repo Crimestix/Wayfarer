@@ -1,7 +1,9 @@
 /** Befehle des Bereichs „Erkundung“. */
 import { advanceTime, undoTimeAdvance, type TimeAdvanceResult } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
-import { hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
+import { hexKey, hexNeighbors, sameHex, type HexCoord } from '../../domain/hex';
+import { DIR_DOWN, across, dirTo, exitsOf, isRock, setPassage } from '../../domain/passages';
+import type { PassageKind } from '../../domain/schema';
 import { freshSeed } from '../../domain/random';
 import {
   HexSchema,
@@ -13,21 +15,21 @@ import {
 } from '../../domain/schema';
 import { placeAncestors, placeSubtreeIds } from '../../domain/derive';
 import { dayIndexOf } from '../../domain/time/calendar';
-import { generateHexes, groundOf, recognize, type GenerateInput } from './generate';
-import { planStep, type StepProblem, type TravelStep } from './travel';
+import { SIX_MILES_KM, generateHexes, groundOf, recognize, type GenerateInput } from './generate';
+import { planStep, seenFrom, type StepProblem, type TravelStep } from './travel';
 
 /** Ändert ein Feld einer Karte; fehlt die Karte oder das Feld, geschieht nichts. */
 export function patchHex(
   db: CampaignDb,
   areaId: string,
-  coord: { q: number; r: number },
+  coord: HexCoord,
   change: Partial<Omit<Hex, 'q' | 'r'>>,
 ): void {
   const area = db.getSnapshot().areas[areaId];
   if (!area) return;
   let found = false;
   const hexes = area.hexes.map((hex) => {
-    if (hex.q !== coord.q || hex.r !== coord.r) return hex;
+    if (!sameHex(hex, coord)) return hex;
     found = true;
     return { ...hex, ...change, manual: true };
   });
@@ -59,7 +61,7 @@ export function rerollInput(
     toId: area.toId,
     distanceKm: area.distanceKm,
     biome: area.biome,
-    hexKm: area.hexKm,
+    hexKm: area.biome === 'underdark' ? SIX_MILES_KM : area.hexKm,
     seed,
     direction: known.direction,
     between: known.between,
@@ -87,6 +89,33 @@ export function rerollArea(db: CampaignDb, areaId: string): (() => void) | null 
   const input = area ? rerollInput(db, area) : null;
   if (!area || !input) return null;
   const fresh = generateHexes(input).hexes;
+  // Unter der Erde entsteht das Gangnetz neu; was an Feldern eingetragen ist, bleibt am selben Feld.
+  if (fresh.some((hex) => hex.exits !== null)) {
+    const old = new Map(area.hexes.map((hex) => [hexKey(hex), hex]));
+    const hexes = fresh.map((hex) => {
+      const before = old.get(hexKey(hex));
+      if (!before) return hex;
+      return {
+        ...hex,
+        placeId: hex.placeId ?? before.placeId,
+        prepared: before.prepared,
+        note: before.note,
+        tableIds: before.tableIds,
+        regionId: before.regionId,
+        feature: before.manual && before.feature ? before.feature : hex.feature,
+      };
+    });
+    db.patch('areas', areaId, { hexes, seed: input.seed, hexKm: input.hexKm, party: null });
+    return () => {
+      if (db.getSnapshot().areas[areaId])
+        db.patch('areas', areaId, {
+          hexes: area.hexes,
+          seed: area.seed,
+          hexKm: area.hexKm,
+          party: area.party,
+        });
+    };
+  }
   const kept = new Map(area.hexes.filter(handMade).map((hex) => [hexKey(hex), hex]));
   const present = new Set(area.hexes.map(hexKey));
   // Was weggenommen wurde, bleibt weg; was von Hand angefügt wurde, bleibt.
@@ -128,8 +157,9 @@ export function placeParty(db: CampaignDb, areaId: string, coord: HexCoord | nul
     db.patch('areas', areaId, { party: null });
     return;
   }
-  if (!area.hexes.some((hex) => hex.q === coord.q && hex.r === coord.r)) return;
-  const seen = new Set([hexKey(coord), ...hexNeighbors(coord).map(hexKey)]);
+  const here = area.hexes.find((hex) => sameHex(hex, coord));
+  if (!here || isRock(here)) return;
+  const seen = new Set([hexKey(here), ...seenFrom(db.getSnapshot(), area, here)]);
   db.patch('areas', areaId, {
     hexes: area.hexes.map((hex) =>
       hex.discovered || !seen.has(hexKey(hex)) ? hex : { ...hex, discovered: true },
@@ -137,6 +167,7 @@ export function placeParty(db: CampaignDb, areaId: string, coord: HexCoord | nul
     party: {
       q: coord.q,
       r: coord.r,
+      level: here.level,
       pace: area.party?.pace ?? 'normal',
       day: dayIndexOf(db.getSnapshot().state.now),
       minutes: 0,
@@ -351,4 +382,69 @@ export function placeWorldPlaces(
   });
   if (added) db.patch('areas', areaId, { hexes });
   return { added, undo: () => restoreHexes(db, areaId, area.hexes) };
+}
+
+// ── Gänge unter der Erde ───────────────────────────────────────────────────
+
+/** Markiert die Felder, deren Ausgänge sich geändert haben, als von Hand gemacht. */
+function markManual(before: readonly Hex[], after: Hex[]): Hex[] {
+  return after.map((hex, i) => (hex === before[i] ? hex : { ...hex, manual: true }));
+}
+
+/**
+ * Gang ziehen: öffnet den Durchgang zwischen zwei angrenzenden Feldern derselben Ebene (oder
+ * übereinander) mit seiner Art. Fels wird dabei zum Gang. Gibt zurück, ob sich etwas geändert hat.
+ */
+export function digBetween(
+  db: CampaignDb,
+  areaId: string,
+  a: HexCoord,
+  b: HexCoord,
+  kind: PassageKind,
+): boolean {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area) return false;
+  const dir = dirTo(a, b);
+  const from = area.hexes.find((hex) => sameHex(hex, a));
+  if (dir === null || !from || !area.hexes.some((hex) => sameHex(hex, b))) return false;
+  if (exitsOf(from).some((exit) => exit.dir === dir && exit.kind === kind)) return false;
+  db.patch('areas', areaId, {
+    hexes: markManual(area.hexes, setPassage(area.hexes, from, dir, kind)),
+  });
+  return true;
+}
+
+/** Fels: schließt alle Ausgänge eines Feldes – auch die der Nachbarn zu ihm hin. */
+export function fillRock(db: CampaignDb, areaId: string, at: HexCoord): boolean {
+  const area = db.getSnapshot().areas[areaId];
+  const hex = area?.hexes.find((entry) => sameHex(entry, at));
+  if (!area || !hex || isRock(hex)) return false;
+  // Nie das Feld eines Ortes oder der Gruppe zumauern.
+  if (hex.placeId || (area.party && sameHex(area.party, hex))) return false;
+  let hexes = area.hexes;
+  for (const exit of exitsOf(hex)) hexes = setPassage(hexes, hex, exit.dir, null);
+  // Nachbarn, die nur einseitig hierher führten (Abbruch), verlieren den Ausgang auch.
+  hexes = hexes.map((entry) => {
+    const back = entry.exits?.filter((exit) => !sameHex(across(entry, exit.dir), hex));
+    return back && back.length !== entry.exits!.length ? { ...entry, exits: back } : entry;
+  });
+  hexes = hexes.map((entry) => (sameHex(entry, hex) ? { ...entry, exits: [] } : entry));
+  db.patch('areas', areaId, { hexes: markManual(area.hexes, hexes) });
+  return true;
+}
+
+/**
+ * Schacht: öffnet oder schließt den Weg hinab zum selben Feld der Ebene darunter. Gibt zurück, ob
+ * er jetzt offen ist – null, wenn es darunter kein Feld gibt.
+ */
+export function toggleShaft(db: CampaignDb, areaId: string, at: HexCoord): boolean | null {
+  const area = db.getSnapshot().areas[areaId];
+  const hex = area?.hexes.find((entry) => sameHex(entry, at));
+  if (!area || !hex) return null;
+  if (!area.hexes.some((entry) => sameHex(entry, across(hex, DIR_DOWN)))) return null;
+  const open = exitsOf(hex).some((exit) => exit.dir === DIR_DOWN);
+  db.patch('areas', areaId, {
+    hexes: markManual(area.hexes, setPassage(area.hexes, hex, DIR_DOWN, open ? null : 'climb')),
+  });
+  return !open;
 }

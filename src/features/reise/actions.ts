@@ -28,6 +28,7 @@ import {
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
 import { seenFrom } from '../erkundung/travel';
+import { hexKey, sameHex } from '../../domain/hex';
 import { dayIndexOf } from '../../domain/time/calendar';
 import { formatWayTime } from '../../domain/ways';
 
@@ -245,13 +246,15 @@ function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number)
   const seen = new Set<string>();
   for (const hex of passed) for (const key of seenFrom(db.getSnapshot(), area, hex)) seen.add(key);
   const before = area.party;
-  const trail = [...(before?.trail ?? []), ...passed.map(({ q, r }) => ({ q, r }))].filter(
-    (hex, index, all) => all.findIndex((other) => other.q === hex.q && other.r === hex.r) === index,
-  );
+  const trail = [
+    ...(before?.trail ?? []),
+    ...passed.map(({ q, r, level }) => ({ q, r, level })),
+  ].filter((hex, index, all) => all.findIndex((other) => sameHex(other, hex)) === index);
   db.patch('areas', area.id, {
     party: {
       q: at.q,
       r: at.r,
+      level: at.level,
       pace: before?.pace ?? 'normal',
       day: before?.day ?? 0,
       minutes: before?.minutes ?? 0,
@@ -259,7 +262,7 @@ function syncArea(db: CampaignDb, leg: Journey['legs'][number], minutes: number)
       legs: before?.legs ?? [],
     },
     hexes: area.hexes.map((hex) =>
-      seen.has(`${hex.q},${hex.r}`) && !hex.discovered ? { ...hex, discovered: true } : hex,
+      seen.has(hexKey(hex)) && !hex.discovered ? { ...hex, discovered: true } : hex,
     ),
   });
 }

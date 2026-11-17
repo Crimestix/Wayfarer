@@ -10,6 +10,8 @@ import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
 import { HALT_LABEL, journeyView, type JourneyView } from '../../domain/journey';
+import { sensesAt } from '../../domain/senses';
+import { hexAtProgress } from './hexway';
 import { TRAVEL_HOURS, forcedMarch, marchRule } from '../../domain/march';
 import type { Journey } from '../../domain/schema';
 import { isUnderground, lightStatus } from '../../domain/underground';
@@ -33,6 +35,10 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   );
   const march = forcedMarch(view.sinceRest);
   const halt = journey.halt;
+  // Witterung: was die Gruppe vom Feld, auf dem sie steht, ringsum bemerkt.
+  const spot = hexAtProgress(journey);
+  const senses =
+    spot && data.areas[spot.areaId] ? sensesAt(data, data.areas[spot.areaId]!, spot.hex) : [];
 
   const go = (limit: number | null) => {
     const result = travelOn(db, fairDie, limit);
@@ -191,6 +197,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
             {(halt.kind === 'encounter' ||
               halt.kind === 'discovery' ||
               halt.kind === 'prepared' ||
+              halt.kind === 'passage' ||
               halt.kind === 'river') && (
               <Button
                 size="sm"
@@ -204,6 +211,20 @@ export function TravelPanel({ journey }: { journey: Journey }) {
               Zur Kenntnis
             </Button>
           </div>
+        </div>
+      )}
+
+      {senses.length > 0 && (
+        <div className="wf-reise__senses" aria-label="Ringsum">
+          <span className="wf-caps">Ringsum</span>
+          <ul>
+            {senses.map((sense) => (
+              <li key={sense.dir}>
+                <b>{sense.where}:</b> {sense.noticed.join(' · ')}
+                {sense.gm.length > 0 && <em> {sense.gm.join(' · ')}</em>}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

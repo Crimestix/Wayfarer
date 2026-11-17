@@ -18,12 +18,15 @@ import { occurrencesBetween, placeAncestors } from './derive';
 import { distanceKm } from './geo';
 import { TRAVEL_HOURS, marchedMinutes } from './march';
 import { partyTravel } from './mounts';
+import { sameHex } from './hex';
+import { DIR_DOWN, dirTo, exitsOf, isJunction } from './passages';
 import { placeGeo, planetOf } from './planet';
 import type {
   CampaignData,
   HaltKind,
   Journey,
   JourneyLeg,
+  PassageKind,
   RollTable,
   TableKind,
   Terrain,
@@ -43,6 +46,7 @@ export const HALT_LABEL: Record<HaltKind, string> = {
   place: 'Ort am Weg',
   feature: 'Besonderheit unterwegs',
   river: 'Ein Fluss',
+  passage: 'Ein schwieriger Durchgang',
   navigate: 'Orientierung',
   prepared: 'Am Weg vorbereitet',
   encounter: 'Begegnung',
@@ -238,7 +242,7 @@ export function journeyView(data: CampaignData, journey: Journey): JourneyView {
   const area = current?.areaId ? data.areas[current.areaId] : undefined;
   const passed = current?.hexes.filter((step) => step.at <= journey.progress.minutes) ?? [];
   const step = passed[passed.length - 1];
-  const hex = area && step ? area.hexes.find((h) => h.q === step.q && h.r === step.r) : undefined;
+  const hex = area && step ? area.hexes.find((h) => sameHex(h, step)) : undefined;
   const painted = hex?.regionId ? groundOf(data, hex.regionId) : null;
   const ground = painted
     ? { word: painted.word, slow: painted.slow && hex?.road === 'none' }
@@ -340,7 +344,7 @@ export function nextHalt(
     return {
       kind: 'navigate',
       minutes: 0,
-      text: `Weisheit (Überlebenskunst) SG ${nav.dc}${nav.suggested ? ' (Vorschlag nach Gelände)' : ''}`,
+      text: navText(nav),
       roll: '',
       quietChecks: 0,
       arrives: false,
@@ -375,15 +379,39 @@ export function nextHalt(
   // Auf der Hexkarte des Weges: Felder mit Vorbereitetem, einem Ort oder einer Besonderheit, die
   // die Gruppe noch nicht kennt – beim Betreten.
   const area = leg.areaId ? data.areas[leg.areaId] : undefined;
+  let prevKind: PassageKind | undefined;
+  const navDays = new Set<number>();
   if (area)
     leg.hexes.slice(1, -1).forEach((step, index) => {
       if (step.at <= journey.progress.minutes) return;
-      const hex = area.hexes.find((entry) => entry.q === step.q && entry.r === step.r);
+      const hex = area.hexes.find((entry) => sameHex(entry, step));
       if (!hex) return;
       const before = leg.hexes[index]!;
-      const prev = area.hexes.find((entry) => entry.q === before.q && entry.r === before.r);
+      const prev = area.hexes.find((entry) => sameHex(entry, before));
       const at = step.at - journey.progress.minutes;
+      // Unter der Erde: wie der Durchgang ins Feld beschaffen ist.
+      const dir = prev ? dirTo(prev, hex) : null;
+      const kind =
+        prev && dir !== null ? exitsOf(prev).find((e) => e.dir === dir)?.kind : undefined;
+      const passage = prev && kind ? passageText(dir!, kind, prevKind) : '';
+      prevKind = kind;
+      const quiet =
+        !hex.prepared.trim() &&
+        !passage &&
+        !(hex.placeId && hex.placeId !== leg.fromId && hex.placeId !== leg.toId) &&
+        !(hex.river && !prev?.river && hex.road === 'none') &&
+        !(hex.feature.trim() && !hex.discovered);
+      // Orientierung: an der ersten Kreuzung eines neuen Tages, an der sonst nichts hält.
+      if (quiet && hex.exits !== null && isJunction(hex)) {
+        const day = dayIndexOf(now + at);
+        const need = navNeed(data, hex.regionId ?? leg.regionId, hex.terrain, true);
+        if (need && day !== journey.navDay && !navDays.has(day)) {
+          navDays.add(day);
+          add(at, 'navigate', navText(need));
+        }
+      }
       if (hex.prepared.trim()) add(at, 'prepared', hex.prepared.trim());
+      else if (passage) add(at, 'passage', passage);
       else if (hex.placeId && hex.placeId !== leg.fromId && hex.placeId !== leg.toId)
         add(at, 'place', data.entities[hex.placeId]?.name ?? '');
       // Ein Fluss ohne Straße oder Brücke: Furt, schwimmen oder Boot – entscheidet der Spielleiter.
@@ -412,9 +440,7 @@ export function nextHalt(
     if (area) {
       const passed = leg.hexes.filter((step) => step.at <= journey.progress.minutes + after);
       const step = passed[passed.length - 1];
-      const hex = step
-        ? area.hexes.find((entry) => entry.q === step.q && entry.r === step.r)
-        : undefined;
+      const hex = step ? area.hexes.find((entry) => sameHex(entry, step)) : undefined;
       if (hex?.regionId) return hex.regionId;
     }
     return leg.regionId ?? leg.toId;
@@ -530,14 +556,48 @@ export function navigationAt(
   if (area) {
     const passed = leg.hexes.filter((step) => step.at <= journey.progress.minutes);
     const step = passed[passed.length - 1] ?? leg.hexes[0];
-    const hex = step ? area.hexes.find((h) => h.q === step.q && h.r === step.r) : undefined;
+    const hex = step ? area.hexes.find((h) => sameHex(h, step)) : undefined;
     if (!hex || hex.road !== 'none') return null;
+    // Im Gangnetz verirrt man sich nur, wo sich Wege teilen: an Kreuzungen und in Höhlen.
+    if (hex.exits !== null && !isJunction(hex)) return null;
     terrain = hex.terrain;
     regionId = hex.regionId ?? regionId;
   }
+  const below = leg.toId ? isUnderground(data, leg.toId) : false;
+  return navNeed(data, regionId, terrain, below);
+}
+
+/** Ob und mit welchem SG geprüft wird: eigener Wert der Gegend, sonst Vorschlag nach Gelände. */
+function navNeed(
+  data: CampaignData,
+  regionId: string | null,
+  terrain: Terrain | null,
+  below: boolean,
+): { dc: number; suggested: boolean } | null {
   const own = ownNavDc(data, regionId);
   if (own !== null) return own > 0 ? { dc: own, suggested: false } : null;
-  const below = leg.toId ? isUnderground(data, leg.toId) : false;
   const dc = terrain ? SUGGESTED_NAV_DC[terrain] : below ? SUGGESTED_NAV_DC.underdark : 0;
   return dc > 0 ? { dc, suggested: true } : null;
+}
+
+const navText = (nav: { dc: number; suggested: boolean }) =>
+  `Weisheit (Überlebenskunst) SG ${nav.dc}${nav.suggested ? ' (Vorschlag nach Gelände)' : ''}`;
+
+/**
+ * Was ein schwieriger Durchgang verlangt – nur ein Hinweis, die Probe entscheidet der
+ * Spielleiter. Leer, wenn der Durchgang nicht hält (Gang, Engstelle, Wasser in Folge).
+ */
+function passageText(dir: number, kind: PassageKind, before: PassageKind | undefined): string {
+  if (dir >= 6) {
+    const way = dir === DIR_DOWN ? 'hinab' : 'hinauf';
+    if (kind === 'drop') return 'Ein Abbruch: hinunter geht es, zurück nicht.';
+    return kind === 'climb'
+      ? `Ein Schacht ${way}: klettern – Stärke (Athletik).`
+      : `Ein Schacht ${way}.`;
+  }
+  if (kind === 'climb') return 'Kletterei: Stärke (Athletik).';
+  if (kind === 'drop') return 'Ein Abbruch: hinunter geht es, zurück nicht.';
+  if (kind === 'water' && before !== 'water')
+    return 'Wasser im Gang: schwimmen – Stärke (Athletik) – oder ein Boot.';
+  return '';
 }

@@ -19,7 +19,8 @@ import {
 } from '../../domain/schema';
 import { DAY_KM } from '../../domain/terrain';
 import { areaLine, generateArea, groundOf, recognize, suggestHexKm } from '../erkundung/generate';
-import { hexMinutes, stepMinutes } from '../erkundung/travel';
+import { hexMinutes, hexOfPlace, passageMinutes, stepMinutes } from '../erkundung/travel';
+import { cheapestPath, indexHexes, passagesFrom } from '../../domain/passages';
 
 /** Minuten je km zu Fuß im normalen Tempo. */
 const MINUTES_PER_KM = (TRAVEL_HOURS * 60) / DAY_KM.normal;
@@ -41,7 +42,7 @@ function makeArea(
   seedKey: string,
 ): Area {
   const known = recognize(data, fromId, toId);
-  const hexKm = suggestHexKm(km);
+  const hexKm = suggestHexKm(km, known.biome);
   return generateArea(data, {
     fromId,
     toId,
@@ -102,7 +103,8 @@ export function hexTrail(
   area: Area,
   reverse: boolean,
   slow: boolean,
-): { hexes: { q: number; r: number; at: number }[]; minutes: number } {
+): { hexes: { q: number; r: number; level: number; at: number }[]; minutes: number } {
+  if (area.hexes.some((hex) => hex.exits !== null)) return caveTrail(data, area, reverse, slow);
   const line = areaLine(area);
   const ordered: HexCoord[] = reverse ? [...line].reverse() : line;
   const byKey = new Map(area.hexes.map((hex) => [hexKey(hex), hex]));
@@ -116,8 +118,45 @@ export function hexTrail(
       const step = own ?? hexMinutes(area.hexKm, hex?.terrain ?? null, 'normal', by) ?? 0;
       at += step * (slow && !hex?.regionId && hex?.road === 'none' ? 2 : 1);
     }
-    return { q: coord.q, r: coord.r, at: Math.round(at) };
+    return { q: coord.q, r: coord.r, level: 0, at: Math.round(at) };
   });
+  return { hexes, minutes: Math.round(at) };
+}
+
+/**
+ * Unter der Erde geht es nicht geradeaus, sondern durch die Gänge: der schnellste Weg vom Feld
+ * des Startortes zum Feld des Zielortes über die Ausgänge (ohne verborgene, die noch niemand
+ * gefunden hat), auch über andere Ebenen. Ohne Weg bleibt der Abschnitt ohne Felder.
+ */
+function caveTrail(
+  data: CampaignData,
+  area: Area,
+  reverse: boolean,
+  slow: boolean,
+): { hexes: { q: number; r: number; level: number; at: number }[]; minutes: number } {
+  const from = hexOfPlace(area, reverse ? area.toId : area.fromId);
+  const to = hexOfPlace(area, reverse ? area.fromId : area.toId);
+  const by = partyMeans(data);
+  if (!from || !to) return { hexes: [], minutes: 0 };
+  const found = cheapestPath(indexHexes(area.hexes), from, to, (passage) => {
+    const minutes = passageMinutes(data, area, passage, 'normal', by);
+    if (minutes === null) return null;
+    const double = slow && passage.dir < 6 && !passage.to.regionId && passage.to.road === 'none';
+    return minutes * (double ? 2 : 1);
+  });
+  if (!found) return { hexes: [], minutes: 0 };
+  const hexes = [{ q: from.q, r: from.r, level: from.level, at: 0 }];
+  let at = 0;
+  let prev = from;
+  const index = indexHexes(area.hexes);
+  for (const hex of found.steps) {
+    const passage = passagesFrom(index, prev).find((p) => p.to === hex);
+    const minutes = passage ? (passageMinutes(data, area, passage, 'normal', by) ?? 0) : 0;
+    const double = slow && passage && passage.dir < 6 && !hex.regionId && hex.road === 'none';
+    at += minutes * (double ? 2 : 1);
+    hexes.push({ q: hex.q, r: hex.r, level: hex.level, at: Math.round(at) });
+    prev = hex;
+  }
   return { hexes, minutes: Math.round(at) };
 }
 
@@ -150,5 +189,5 @@ export function hexAtProgress(
   if (!leg?.areaId || !leg.hexes.length) return null;
   const passed = leg.hexes.filter((hex) => hex.at <= journey.progress.minutes);
   const hex = passed[passed.length - 1] ?? leg.hexes[0]!;
-  return { areaId: leg.areaId, hex: { q: hex.q, r: hex.r }, passed };
+  return { areaId: leg.areaId, hex: { q: hex.q, r: hex.r, level: hex.level }, passed };
 }

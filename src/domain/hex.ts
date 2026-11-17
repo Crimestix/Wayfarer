@@ -11,11 +11,19 @@
 export interface HexCoord {
   q: number;
   r: number;
+  /** Ebene einer Karte mit mehreren Ebenen (Unterreich); fehlt oder 0 = oberste. */
+  level?: number;
 }
 
 export type HexOrientation = 'flat' | 'pointy';
 
-export const hexKey = (hex: HexCoord): string => `${hex.q},${hex.r}`;
+/** Schlüssel eines Feldes; auf tieferen Ebenen mit der Ebene („3,-1,2“). */
+export const hexKey = (hex: HexCoord): string =>
+  hex.level ? `${hex.q},${hex.r},${hex.level}` : `${hex.q},${hex.r}`;
+
+/** Dasselbe Feld – Lage und Ebene. */
+export const sameHex = (a: HexCoord, b: HexCoord): boolean =>
+  a.q === b.q && a.r === b.r && (a.level ?? 0) === (b.level ?? 0);
 
 /** Die sechs Nachbarn. */
 export const HEX_DIRECTIONS: readonly HexCoord[] = [
@@ -27,8 +35,13 @@ export const HEX_DIRECTIONS: readonly HexCoord[] = [
   { q: 0, r: -1 },
 ];
 
+/** Die sechs Nachbarn auf derselben Ebene, in der Reihenfolge von `HEX_DIRECTIONS`. */
 export const hexNeighbors = (hex: HexCoord): HexCoord[] =>
-  HEX_DIRECTIONS.map((d) => ({ q: hex.q + d.q, r: hex.r + d.r }));
+  HEX_DIRECTIONS.map((d) =>
+    hex.level
+      ? { q: hex.q + d.q, r: hex.r + d.r, level: hex.level }
+      : { q: hex.q + d.q, r: hex.r + d.r },
+  );
 
 /** Abstand zweier Felder in Schritten. */
 export function hexDistance(a: HexCoord, b: HexCoord): number {

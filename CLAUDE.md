@@ -362,6 +362,26 @@ nicht übernommen.
   unter der Erde ohne Licht nur das eigene Feld). Orte auf die Karte: Werkzeug „Ort“
   (`placeSuggestions` – die Gegenden von Start und Ziel zuerst, nie Räume) und „Orte aus der
   Welt“ (`placeWorldPlaces`: Orte mit Lage auf ihr Feld, besetzte Felder bleiben).
+  **Unterreich-Hexkarten** (Wunsch 17. 11.: „Es ist leichter, ein extrem smartes System dumm zu
+  machen, als ein dummes smart“; erst nur unter der Erde): sechs Meilen je Feld
+  (`SIX_MILES_KM`). Ein Feld hat Ausgänge (`hex.exits`: null = alle sechs offen wie oben, leere
+  Liste = Fels; Seiten 0–5, 6 hinauf, 7 hinab; Arten Gang, Engstelle, Kletterei, Wasser,
+  verborgen, Abbruch) und eine Ebene (`hex.level`). Gefragt wird immer über `domain/passages.ts`
+  (`passagesFrom`, `passageBetween`, `setPassage` – beide Seiten –, `cheapestPath`, `isRock`,
+  `isJunction`); Schlüssel mit Ebene über `hexKey`/`sameHex`, nie nur q und r vergleichen. Der
+  Erzeuger `generateCaves` (`domain/caves.ts`, gedacht auch für Verliese) folgt dem Jaquaying:
+  Knoten, natürliche Nachbarn, Baum plus Schleifen, gewundene Gänge, Höhlen mit vier bis sechs
+  Ausgängen, Sackgassen, Schächte an Stellen, die sich nicht decken (einer immer beidseitig), ein
+  Fluss durch eine Höhle, verborgene Abkürzungen, Umwege um jede Engstelle (`bypassBridges`);
+  geprüft wird auf zwei getrennte Wege zum Ziel und Schleifen (`CaveQuality`), sonst nächster
+  Versuch. Erzeugt wird nur Gestalt. Reisen gehen nur durch Gänge (`routeTo`, `stepProblem` →
+  `wall`, `passageMinutes`; Unterwegs über `caveTrail`), Orientierung nur an Kreuzungen, Halt
+  `passage` an Kletterei, Wasser, Schacht, Abbruch. **Witterung** (`domain/senses.ts`,
+  `sensesAt`): was die Gruppe aus den Gängen ringsum bemerkt – das Wort des Spielleiters am
+  Feld (`hex.sign`), sonst `FEATURE_SIGNS`, Fluss, Schacht, Art des Durchgangs; dazu für die
+  Spielleitung Ort und Vorbereitetes; nie das Feld, aus dem die Gruppe kam. Bearbeiten unter der
+  Erde: Werkzeuge Gang (ziehen, `digBetween`), Fels (`fillRock`), Schacht (`toggleShaft`).
+  Neu würfeln erzeugt das Netz neu und behält, was an Feldern eingetragen ist.
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

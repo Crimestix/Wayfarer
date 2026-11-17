@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 22;
-export const DATA_SHAPE = '70d9bbecec54b4bd';
+export const DATA_VERSION = 23;
+export const DATA_SHAPE = '138f28974ec9a064';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2302,7 +2302,13 @@ export const JourneyLegSchema = z.object({
   areaId: id.nullable().default(null),
   hexes: z
     .array(
-      z.object({ q: z.number().int(), r: z.number().int(), at: z.number().int().nonnegative() }),
+      z.object({
+        q: z.number().int(),
+        r: z.number().int(),
+        /** Ebene der Hexkarte (0 = oberste); ein Schacht führt hinab oder hinauf. */
+        level: z.number().int().nonnegative().default(0),
+        at: z.number().int().nonnegative(),
+      }),
     )
     .default([]),
   // Aus dem ersten Entwurf; ungenutzt.
@@ -2324,6 +2330,7 @@ export const HALT_KINDS = [
   'place',
   'feature',
   'river',
+  'passage',
   'navigate',
   'prepared',
   'encounter',
@@ -2505,6 +2512,26 @@ export const weatherId = (climateId: string, day: number) => `${climateId}-${day
 
 // ── Erkundung und Tabellen ─────────────────────────────────────────────────
 
+/**
+ * Wie ein Ausgang eines Feldes beschaffen ist (`domain/passages.ts`): ein gewöhnlicher Gang, eine
+ * Engstelle oder Kletterei (doppelte Zeit), Wasser (schwimmen oder ein Boot), verborgen (erst
+ * nutzbar, wenn die Gruppe ihn gefunden hat), ein Abbruch (nur in eine Richtung).
+ */
+export const PASSAGE_KINDS = ['open', 'narrow', 'climb', 'water', 'hidden', 'drop'] as const;
+export type PassageKind = (typeof PASSAGE_KINDS)[number];
+
+/**
+ * Ein Ausgang: Seite 0–5 (wie `HEX_DIRECTIONS`), 6 = hinauf, 7 = hinab (dasselbe Feld eine Ebene
+ * darüber oder darunter).
+ */
+export const ExitSchema = z.object({
+  dir: z.number().int().min(0).max(7),
+  kind: z.enum(PASSAGE_KINDS).default('open'),
+  /** Ein verborgener Ausgang, den die Gruppe gefunden hat. */
+  found: z.boolean().default(false),
+});
+export type Exit = z.infer<typeof ExitSchema>;
+
 export const HexSchema = z.object({
   /** Axiale Koordinaten. */
   q: z.number().int(),
@@ -2530,6 +2557,18 @@ export const HexSchema = z.object({
   road: z.enum(ROAD_KINDS).default('none'),
   /** Von Hand geändert: Neu würfeln behält dieses Feld, wie es ist. */
   manual: z.boolean().default(false),
+  /**
+   * Ausgänge des Feldes. null = alle sechs Seiten offen (Oberwelt, ältere Karten). Eine Liste =
+   * nur diese; eine leere Liste ist Fels, den niemand betritt.
+   */
+  exits: z.array(ExitSchema).nullable().default(null),
+  /** Ebene der Karte: 0 = oberste, 1 darunter … */
+  level: z.number().int().nonnegative().default(0),
+  /**
+   * Woran die Gruppe dieses Feld vom Nachbarfeld aus bemerkt („Schwefelgeruch“) – vom
+   * Spielleiter; ohne Eintrag sagt es die Besonderheit (`domain/senses.ts`).
+   */
+  sign: z.string().default(''),
 });
 export type Hex = z.infer<typeof HexSchema>;
 
@@ -2565,7 +2604,17 @@ export const AreaSchema = z.object({
       day: z.number().int().nonnegative().default(0),
       minutes: z.number().int().nonnegative().default(0),
       /** Die Felder, über die die Gruppe gekommen ist, in der Reihenfolge des Wegs. */
-      trail: z.array(z.object({ q: z.number().int(), r: z.number().int() })).default([]),
+      trail: z
+        .array(
+          z.object({
+            q: z.number().int(),
+            r: z.number().int(),
+            level: z.number().int().nonnegative().default(0),
+          }),
+        )
+        .default([]),
+      /** Die Ebene, auf der die Gruppe steht. */
+      level: z.number().int().nonnegative().default(0),
       /**
        * Die Schritte der letzten 24 Stunden: Ende und Dauer – für den Gewaltmarsch, der seit der
        * letzten Langen Rast zählt (`domain/march.ts`), nicht ab Mitternacht.

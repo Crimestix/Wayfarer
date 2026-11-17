@@ -101,6 +101,7 @@
 }
 .wf-erk-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--s-4);
@@ -108,8 +109,8 @@
   border-bottom: 1px solid var(--line-faint);
 }
 .wf-erk-head__main {
-  min-width: 0;
-  flex: 1 1 auto;
+  min-width: 16rem;
+  flex: 1 1 16rem;
 }
 .wf-erk-head__name {
   width: 100%;
@@ -139,6 +140,7 @@
 .wf-erk-head__tools {
   flex: none;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -657,4 +659,75 @@
 }
 .wf-hexmap__slot:hover {
   fill-opacity: 0.7;
+}
+
+/* ── Unter der Erde: Fels, Gänge, Höhlen, Schächte ─────────────────────── */
+.wf-hex polygon[data-rock] {
+  fill: var(--map-rock);
+  stroke: color-mix(in srgb, var(--map-rock-edge) 60%, var(--map-rock));
+  stroke-width: 1;
+}
+.wf-hex polygon[data-cave] {
+  fill: color-mix(in srgb, var(--map-rock) 75%, var(--map-cave));
+  stroke: var(--map-rock-edge);
+}
+.wf-hex__gang {
+  stroke: var(--map-rock-ink);
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+.wf-hex__gang--narrow {
+  stroke: var(--map-rock-ink);
+}
+.wf-hex__gang--climb {
+  stroke-dasharray: 2 3;
+}
+.wf-hex__gang--water {
+  stroke: var(--map-river);
+  opacity: 1;
+}
+.wf-hex__gang--hidden {
+  stroke: var(--map-glow);
+  stroke-dasharray: 1 4;
+  opacity: 0.75;
+}
+.wf-hex__gang--drop {
+  stroke: var(--map-rubble);
+  stroke-dasharray: 6 2;
+}
+.wf-hex__chamber,
+.wf-hex__knot {
+  fill: var(--map-rock-ink);
+  opacity: 0.85;
+}
+.wf-hex__chamber {
+  stroke: var(--map-rock-edge);
+  stroke-width: 1.5;
+}
+.wf-hex__pool {
+  fill: var(--map-river);
+}
+.wf-hex__shaft {
+  fill: var(--map-chasm);
+  stroke: var(--map-glow);
+  stroke-width: 1.2;
+}
+.wf-hex[data-hidden] .wf-hex__cave {
+  opacity: 0.5;
+}
+
+/* Ebenen umschalten */
+.wf-erk-levels {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-erk-senses {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+.wf-erk-senses p {
+  margin: 0;
 }

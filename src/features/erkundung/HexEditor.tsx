@@ -5,15 +5,37 @@
  * oder wegnehmen. Jeder Strich lässt sich zurücknehmen; Neu würfeln behält, was von Hand gemacht ist.
  */
 import { useRef, useState } from 'react';
-import { Brush, Eraser, Grid2x2Plus, MapPin, MapPinned, Route, Waves } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  Brush,
+  Eraser,
+  Grid2x2Plus,
+  MapPin,
+  MapPinned,
+  Mountain,
+  Route,
+  Spline,
+  Waves,
+} from 'lucide-react';
+import { PASSAGE_LABEL } from '../../domain/passages';
 import { useData, useDb } from '../../data/hooks';
-import { hexDistance, hexKey, type HexCoord } from '../../domain/hex';
-import { TERRAINS, type Area, type Hex, type Terrain } from '../../domain/schema';
+import { hexDistance, hexKey, hexLine, type HexCoord } from '../../domain/hex';
+import {
+  PASSAGE_KINDS,
+  TERRAINS,
+  type Area,
+  type Hex,
+  type PassageKind,
+  type Terrain,
+} from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { EntityPicker, Input, Select, cx, toast } from '../../ui';
 import {
   addHex,
+  digBetween,
   edgeSlots,
+  fillRock,
+  toggleShaft,
   paintHexes,
   placeSuggestions,
   placeWorldPlaces,
@@ -23,9 +45,22 @@ import {
 } from './actions';
 
 export type HexTool =
-  'terrain' | 'region' | 'road' | 'trail' | 'river' | 'place' | 'erase' | 'cells';
+  | 'tunnel'
+  | 'rock'
+  | 'shaft'
+  | 'terrain'
+  | 'region'
+  | 'road'
+  | 'trail'
+  | 'river'
+  | 'place'
+  | 'erase'
+  | 'cells';
 
 const TOOL_LABEL: Record<HexTool, string> = {
+  tunnel: 'Gang',
+  rock: 'Fels',
+  shaft: 'Schacht',
   terrain: 'Gelände',
   region: 'Gegend',
   road: 'Straße',
@@ -37,6 +72,10 @@ const TOOL_LABEL: Record<HexTool, string> = {
 };
 
 const TOOL_HINT: Record<HexTool, string> = {
+  tunnel:
+    'Mit gedrückter Maus von Feld zu Feld einen Gang ziehen – die Seiten dazwischen gehen auf.',
+  rock: 'Felder zu Fels machen: kein Ausgang mehr, auch nicht von den Nachbarn.',
+  shaft: 'Klick auf ein Feld: Schacht hinab zur Ebene darunter öffnen oder schließen.',
   terrain: 'Mit gedrückter Maus Gelände malen.',
   region:
     'Eine Gegend der Welt auf die Felder malen – ihr Gelände, Tempo und ihre Tabellen gelten dort.',
@@ -50,11 +89,17 @@ const TOOL_HINT: Record<HexTool, string> = {
 
 /** Die Felder unter dem Pinsel: das Feld selbst und bei größerem Pinsel die Nachbarn. */
 const under = (area: Area, at: HexCoord, radius: number): HexCoord[] =>
-  area.hexes.filter((hex) => hexDistance(hex, at) <= radius - 1).map(({ q, r }) => ({ q, r }));
+  area.hexes
+    .filter((hex) => hex.level === (at.level ?? 0) && hexDistance(hex, at) <= radius - 1)
+    .map(({ q, r, level }) => ({ q, r, level }));
 
 export function useHexEditor(area: Area) {
   const db = useDb();
-  const [tool, setTool] = useState<HexTool>('terrain');
+  const caves = area.hexes.some((hex) => hex.exits !== null);
+  const [tool, setTool] = useState<HexTool>(caves ? 'tunnel' : 'terrain');
+  const [passage, setPassageKind] = useState<PassageKind>('open');
+  /** Das Feld, an dem der Gang gerade angekommen ist. */
+  const lastCell = useRef<HexCoord | null>(null);
   const [terrain, setTerrain] = useState<Terrain>('forest');
   const [regionId, setRegionId] = useState<string | null>(null);
   const [river, setRiver] = useState('Fluss');
@@ -80,11 +125,28 @@ export function useHexEditor(area: Area) {
         return { road: 'none', river: '', regionId: null };
       case 'cells':
       case 'place':
+      case 'tunnel':
+      case 'rock':
+      case 'shaft':
         return null;
     }
   };
   const lineTool = tool === 'road' || tool === 'trail' || tool === 'river' || tool === 'erase';
   const apply = (at: HexCoord) => {
+    if (tool === 'tunnel') {
+      const last = lastCell.current;
+      lastCell.current = at;
+      if (!last || (last.level ?? 0) !== (at.level ?? 0)) return;
+      // Fährt die Maus schnell, liegen Felder dazwischen: Der Gang geht durch alle.
+      const path = hexLine(last, at).map((c) => ({ ...c, level: at.level ?? 0 }));
+      for (let i = 1; i < path.length; i++)
+        if (digBetween(db, area.id, path[i - 1]!, path[i]!, passage)) touched.current++;
+      return;
+    }
+    if (tool === 'rock') {
+      if (fillRock(db, area.id, at)) touched.current++;
+      return;
+    }
     const paint = change();
     if (!paint) return;
     const coords = under(area, at, lineTool && tool !== 'erase' ? 1 : radius);
@@ -92,6 +154,23 @@ export function useHexEditor(area: Area) {
     touched.current += coords.length;
   };
   const onStart = (at: HexCoord) => {
+    if (tool === 'shaft') {
+      const old = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
+      const open = toggleShaft(db, area.id, at);
+      toast({
+        slot: 'hexkarte',
+        title:
+          open === null
+            ? 'Darunter liegt keine Ebene'
+            : open
+              ? 'Schacht hinab geöffnet'
+              : 'Schacht geschlossen',
+        ...(open === null
+          ? {}
+          : { action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) } }),
+      });
+      return;
+    }
     if (tool === 'place') {
       const current = db.getSnapshot().areas[area.id] ?? area;
       const hex = current.hexes.find((entry) => hexKey(entry) === hexKey(at));
@@ -138,6 +217,7 @@ export function useHexEditor(area: Area) {
     }
     before.current = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
     touched.current = 0;
+    lastCell.current = null;
     apply(at);
   };
   const onMove = (at: HexCoord) => {
@@ -146,6 +226,7 @@ export function useHexEditor(area: Area) {
   const onEnd = () => {
     const old = before.current;
     before.current = null;
+    lastCell.current = null;
     if (!old || !touched.current) return;
     toast({
       slot: 'hexkarte',
@@ -164,8 +245,11 @@ export function useHexEditor(area: Area) {
   };
   return {
     area,
+    caves,
     tool,
     setTool,
+    passage,
+    setPassageKind,
     terrain,
     setTerrain,
     regionId,
@@ -192,16 +276,24 @@ export type HexEditor = ReturnType<typeof useHexEditor>;
 /** Die Werkzeugleiste über der Karte. */
 export function HexToolbar({ editor }: { editor: HexEditor }) {
   const data = useData();
-  const tools: { tool: HexTool; icon: React.ReactNode }[] = [
-    { tool: 'terrain', icon: <Brush aria-hidden /> },
-    { tool: 'region', icon: <MapPinned aria-hidden /> },
-    { tool: 'road', icon: <Route aria-hidden /> },
-    { tool: 'trail', icon: <Route aria-hidden /> },
-    { tool: 'river', icon: <Waves aria-hidden /> },
-    { tool: 'place', icon: <MapPin aria-hidden /> },
-    { tool: 'erase', icon: <Eraser aria-hidden /> },
-    { tool: 'cells', icon: <Grid2x2Plus aria-hidden /> },
-  ];
+  const tools: { tool: HexTool; icon: React.ReactNode }[] = editor.caves
+    ? [
+        { tool: 'tunnel', icon: <Spline aria-hidden /> },
+        { tool: 'rock', icon: <Mountain aria-hidden /> },
+        { tool: 'shaft', icon: <ArrowDownToLine aria-hidden /> },
+        { tool: 'region', icon: <MapPinned aria-hidden /> },
+        { tool: 'place', icon: <MapPin aria-hidden /> },
+      ]
+    : [
+        { tool: 'terrain', icon: <Brush aria-hidden /> },
+        { tool: 'region', icon: <MapPinned aria-hidden /> },
+        { tool: 'road', icon: <Route aria-hidden /> },
+        { tool: 'trail', icon: <Route aria-hidden /> },
+        { tool: 'river', icon: <Waves aria-hidden /> },
+        { tool: 'place', icon: <MapPin aria-hidden /> },
+        { tool: 'erase', icon: <Eraser aria-hidden /> },
+        { tool: 'cells', icon: <Grid2x2Plus aria-hidden /> },
+      ];
   const brush = editor.tool === 'terrain' || editor.tool === 'region' || editor.tool === 'erase';
   const region = editor.regionId ? data.entities[editor.regionId] : undefined;
   return (
@@ -251,6 +343,19 @@ export function HexToolbar({ editor }: { editor: HexEditor }) {
         </span>
       )}
       {editor.tool === 'place' && <PlaceTool editor={editor} />}
+      {editor.tool === 'tunnel' && (
+        <Select
+          value={editor.passage}
+          aria-label="Art des Gangs"
+          onChange={(event) => editor.setPassageKind(event.target.value as PassageKind)}
+        >
+          {PASSAGE_KINDS.filter((kind) => kind !== 'drop').map((kind) => (
+            <option key={kind} value={kind}>
+              {PASSAGE_LABEL[kind]}
+            </option>
+          ))}
+        </Select>
+      )}
       {editor.tool === 'river' && (
         <Input
           value={editor.river}

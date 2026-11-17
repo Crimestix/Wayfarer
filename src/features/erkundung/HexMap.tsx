@@ -1,6 +1,15 @@
 /** Die gezeichnete Hexkarte: Gelände, Besonderheiten, Orte und der direkte Weg. */
 import { memo, useMemo, type ReactNode } from 'react';
-import { hexCenter, hexCorners, hexKey, hexNeighbors, type HexCoord } from '../../domain/hex';
+import {
+  HEX_DIRECTIONS,
+  hexCenter,
+  hexCorners,
+  hexKey,
+  hexNeighbors,
+  sameHex,
+  type HexCoord,
+} from '../../domain/hex';
+import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/passages';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { areaLine } from './generate';
@@ -41,6 +50,8 @@ interface Props {
   onSelect: (hex: HexCoord | null) => void;
   /** Der geplante Weg der Gruppe zum Ziel, ab dem nächsten Schritt. */
   plan?: readonly HexCoord[];
+  /** Die Ebene, die gezeigt wird (Unterreich); ohne Angabe die oberste. */
+  level?: number;
   /**
    * Bearbeiten: Ein Strich beginnt mit dem Drücken auf ein Feld und geht über jedes Feld, über das
    * die Maus mit gedrückter Taste fährt. Ohne `paint` ist die Karte nur zum Ansehen.
@@ -62,6 +73,71 @@ interface Cell {
   x: number;
   y: number;
   points: string;
+}
+
+/** Wohin von einem Feld unter der Erde Gänge führen, als Wörter für den Titel. */
+function exitWords(hex: Hex): string {
+  const exits = hex.exits ?? [];
+  const sides = exits.filter((exit) => exit.dir < 6).length;
+  const kinds = [...new Set(exits.map((exit) => exit.kind).filter((k) => k !== 'open'))].map(
+    (kind) => PASSAGE_LABEL[kind],
+  );
+  return [
+    `${sides} ${sides === 1 ? 'Ausgang' : 'Ausgänge'}`,
+    exits.some((exit) => exit.dir === 6) && 'Schacht hinauf',
+    exits.some((exit) => exit.dir === 7) && 'Schacht hinab',
+    ...kinds,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/**
+ * Die Gänge eines Feldes unter der Erde: von der Mitte zu jeder offenen Seite, nach Art
+ * gezeichnet; Höhlen (vier Ausgänge und mehr) als weite Kammer, Schächte als Dreieck.
+ */
+function Passages({ hex, x, y, size }: { hex: Hex; x: number; y: number; size: number }) {
+  const exits = hex.exits ?? [];
+  const sides = exits.filter((exit) => exit.dir < 6);
+  const cave = sides.length >= 4;
+  return (
+    <g className="wf-hex__cave" pointerEvents="none">
+      {sides.map((exit) => {
+        const d = HEX_DIRECTIONS[exit.dir]!;
+        const edge = hexCenter({ q: d.q, r: d.r });
+        return (
+          <line
+            key={exit.dir}
+            className={`wf-hex__gang wf-hex__gang--${exit.kind}`}
+            x1={x}
+            y1={y}
+            x2={x + edge.x * size * 0.5}
+            y2={y + edge.y * size * 0.5}
+            style={{ strokeWidth: size * (exit.kind === 'narrow' ? 0.09 : 0.2) }}
+          />
+        );
+      })}
+      <circle
+        className={cave ? 'wf-hex__chamber' : 'wf-hex__knot'}
+        cx={x}
+        cy={y}
+        r={size * (cave ? 0.27 : 0.1)}
+      />
+      {hex.river && <circle className="wf-hex__pool" cx={x} cy={y} r={size * 0.08} />}
+      {exits.some((exit) => exit.dir === 7) && (
+        <path
+          className="wf-hex__shaft"
+          d={`M ${x - size * 0.12} ${y - size * 0.06} h ${size * 0.24} l ${-size * 0.12} ${size * 0.18} z`}
+        />
+      )}
+      {exits.some((exit) => exit.dir === 6) && (
+        <path
+          className="wf-hex__shaft wf-hex__shaft--up"
+          d={`M ${x - size * 0.12} ${y + size * 0.06} h ${size * 0.24} l ${-size * 0.12} ${-size * 0.18} z`}
+        />
+      )}
+    </g>
+  );
 }
 
 /** Eine Karte kann über tausend Felder haben; neu gezeichnet wird nur, wenn sich wirklich etwas ändert. */
@@ -86,21 +162,26 @@ const Cells = memo(function Cells({
         <g
           key={hexKey(hex)}
           className="wf-hex"
-          data-hex={`${hex.q},${hex.r}`}
+          data-hex={`${hex.q},${hex.r},${hex.level}`}
           data-terrain={hex.terrain ?? 'none'}
           data-hidden={(!painting && !hex.discovered) || undefined}
-          onClick={painting ? undefined : () => onSelect({ q: hex.q, r: hex.r })}
+          onClick={painting ? undefined : () => onSelect({ q: hex.q, r: hex.r, level: hex.level })}
           onPointerDown={
             painting
               ? (event) => {
                   if (event.button !== 0) return;
                   event.preventDefault();
-                  painting.onStart({ q: hex.q, r: hex.r });
+                  painting.onStart({ q: hex.q, r: hex.r, level: hex.level });
                 }
               : undefined
           }
         >
-          <polygon points={points} />
+          <polygon
+            points={points}
+            data-rock={isRock(hex) || undefined}
+            data-cave={(hex.exits !== null && !isRock(hex)) || undefined}
+          />
+          {hex.exits !== null && !isRock(hex) && <Passages hex={hex} x={x} y={y} size={size} />}
           {hex.regionId && (
             <polygon
               className="wf-hex__region"
@@ -114,12 +195,12 @@ const Cells = memo(function Cells({
                 .join(' ')}
             />
           )}
-          {hex.terrain && size >= 22 && (
+          {hex.terrain && hex.exits === null && size >= 22 && (
             <g className="wf-hex__glyph" transform={`translate(${x} ${y}) scale(${size})`}>
               {GLYPH[hex.terrain]}
             </g>
           )}
-          {hex.river && hex.discovered && (
+          {hex.river && hex.discovered && hex.exits === null && (
             <path
               className="wf-hex__river"
               d={`M ${x - size * 0.34} ${y + size * 0.08} q ${size * 0.085} ${-size * 0.12} ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0`}
@@ -146,7 +227,8 @@ const Cells = memo(function Cells({
           <title>
             {hex.regionId && regionNames[hex.regionId] ? `${regionNames[hex.regionId]} · ` : ''}
             {[
-              hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'Ohne Gelände',
+              isRock(hex) ? 'Fels' : hex.terrain ? TERRAIN_LABEL[hex.terrain] : 'Ohne Gelände',
+              hex.exits !== null && !isRock(hex) && exitWords(hex),
               hex.river && (hex.river === 'Fluss' ? 'ein Fluss' : `Fluss ${hex.river}`),
               hex.feature,
               hex.discovered ? '' : 'noch nicht entdeckt',
@@ -160,22 +242,27 @@ const Cells = memo(function Cells({
   );
 });
 
-export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Props) {
+export function HexMap({ area, data, size, selected, onSelect, plan, paint, level = 0 }: Props) {
   const orientation = area.orientation;
+  const caves = area.hexes.some((hex) => hex.exits !== null);
   const layout = useMemo(() => {
-    const cells: Cell[] = area.hexes.map((hex) => {
-      const c = hexCenter(hex, orientation);
-      return {
-        hex,
-        x: c.x * size,
-        y: c.y * size,
-        points: hexCorners(hex, orientation)
-          .map((p) => `${(p.x * size).toFixed(1)},${(p.y * size).toFixed(1)}`)
-          .join(' '),
-      };
-    });
-    const xs = cells.map((c) => c.x);
-    const ys = cells.map((c) => c.y);
+    // Der Rahmen umfasst alle Ebenen, damit die Karte beim Umschalten nicht springt.
+    const all = area.hexes.map((hex) => hexCenter(hex, orientation));
+    const cells: Cell[] = area.hexes
+      .filter((hex) => hex.level === level)
+      .map((hex) => {
+        const c = hexCenter(hex, orientation);
+        return {
+          hex,
+          x: c.x * size,
+          y: c.y * size,
+          points: hexCorners(hex, orientation)
+            .map((p) => `${(p.x * size).toFixed(1)},${(p.y * size).toFixed(1)}`)
+            .join(' '),
+        };
+      });
+    const xs = all.map((c) => c.x * size);
+    const ys = all.map((c) => c.y * size);
     const pad = size * 1.2;
     const minX = Math.min(...xs, 0) - pad;
     const minY = Math.min(...ys, 0) - pad;
@@ -186,11 +273,11 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Pr
       width: Math.max(...xs, 0) - minX + pad,
       height: Math.max(...ys, 0) - minY + pad,
     };
-  }, [area.hexes, orientation, size]);
+  }, [area.hexes, orientation, size, level]);
 
   const line = useMemo(
     () =>
-      areaLine(area)
+      (caves ? [] : areaLine(area))
         .map((hex) => {
           const c = hexCenter(hex, orientation);
           return `${(c.x * size).toFixed(1)},${(c.y * size).toFixed(1)}`;
@@ -207,20 +294,35 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Pr
     const c = hexCenter(hex, orientation);
     return `${(c.x * size).toFixed(1)},${(c.y * size).toFixed(1)}`;
   };
-  const here = party ? hexCenter(party, orientation) : null;
-  const trail = party && party.trail.length ? [...party.trail, party].map(at).join(' ') : '';
-  const planned = party && plan?.length ? [party, ...plan].map(at).join(' ') : '';
-  const reach = party
-    ? hexNeighbors(party)
-        .map((coord) => layout.cells.find((c) => c.hex.q === coord.q && c.hex.r === coord.r))
-        .filter(
-          (cell): cell is Cell =>
-            !!cell && hexMinutes(area.hexKm, cell.hex.terrain, party.pace, by) !== null,
-        )
-    : [];
-  const chosen = selected
-    ? layout.cells.find((c) => c.hex.q === selected.q && c.hex.r === selected.r)
-    : undefined;
+  const here = party && party.level === level ? hexCenter(party, orientation) : null;
+  // Spur und Plan nur auf dieser Ebene – in Stücken, wo sie die Ebene wechseln.
+  const runs = (coords: readonly HexCoord[]) => {
+    const out: string[] = [];
+    let run: HexCoord[] = [];
+    for (const coord of coords) {
+      if ((coord.level ?? 0) === level) run.push(coord);
+      else {
+        if (run.length > 1) out.push(run.map(at).join(' '));
+        run = [];
+      }
+    }
+    if (run.length > 1) out.push(run.map(at).join(' '));
+    return out;
+  };
+  const trails = party && party.trail.length ? runs([...party.trail, party]) : [];
+  const plans = party && plan?.length ? runs([party, ...plan]) : [];
+  const partyCell = party ? area.hexes.find((hex) => sameHex(hex, party)) : undefined;
+  const reach =
+    party && partyCell
+      ? passagesFrom(indexHexes(area.hexes), partyCell)
+          .filter((p) => p.to.level === level)
+          .map((p) => layout.cells.find((c) => c.hex === p.to))
+          .filter(
+            (cell): cell is Cell =>
+              !!cell && hexMinutes(area.hexKm, cell.hex.terrain, party.pace, by) !== null,
+          )
+      : [];
+  const chosen = selected ? layout.cells.find((c) => sameHex(c.hex, selected)) : undefined;
   // Straßen, Pfade und Flüsse verbinden Nachbarn, die dieselbe Linie tragen.
   const links = useMemo(() => {
     const byKey = new Map(layout.cells.map((cell) => [hexKey(cell.hex), cell]));
@@ -237,7 +339,7 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Pr
             kind: cell.hex.road === 'road' && other.hex.road === 'road' ? 'road' : 'trail',
             d,
           });
-        if (cell.hex.river && other.hex.river)
+        if (cell.hex.river && other.hex.river && cell.hex.exits === null)
           out.push({ key: `w${hexKey(cell.hex)}-${hexKey(other.hex)}`, kind: 'river', d });
       }
     return out;
@@ -280,8 +382,8 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Pr
               const under = document.elementFromPoint(event.clientX, event.clientY);
               const cell = under?.closest('[data-hex]')?.getAttribute('data-hex');
               if (!cell) return;
-              const [q, r] = cell.split(',').map(Number);
-              paint.onMove({ q: q!, r: r! });
+              const [q, r, lv] = cell.split(',').map(Number);
+              paint.onMove({ q: q!, r: r!, level: lv ?? 0 });
             }
           : undefined
       }
@@ -335,8 +437,12 @@ export function HexMap({ area, data, size, selected, onSelect, plan, paint }: Pr
       {reach.map((cell) => (
         <polygon key={hexKey(cell.hex)} className="wf-hexmap__reach" points={cell.points} />
       ))}
-      {trail && <polyline className="wf-hexmap__trail" points={trail} />}
-      {planned && <polyline className="wf-hexmap__plan" points={planned} />}
+      {trails.map((points) => (
+        <polyline key={`t${points}`} className="wf-hexmap__trail" points={points} />
+      ))}
+      {plans.map((points) => (
+        <polyline key={`p${points}`} className="wf-hexmap__plan" points={points} />
+      ))}
       {here && (
         <g className="wf-hexmap__party">
           <circle cx={here.x * size} cy={here.y * size} r={Math.max(6, size * 0.3)} />

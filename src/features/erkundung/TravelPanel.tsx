@@ -8,6 +8,8 @@ import { Footprints, Flag, MapPin, TriangleAlert, Undo2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { entityName } from '../../domain/derive';
 import { marchRule, marchedMinutes } from '../../domain/march';
+import { senseLine } from '../../domain/senses';
+import { sameHex } from '../../domain/hex';
 import { partyMeans } from '../../domain/mounts';
 import { PACES, type Area, type Pace } from '../../domain/schema';
 import { PACE_LABEL, TERRAIN_LABEL } from '../../domain/terrain';
@@ -52,6 +54,9 @@ function LastStep({ last, onUndo }: { last: TravelResult; onUndo: () => void }) 
   for (const timer of time.expired)
     lines.push({ key: `timer-${timer.id}`, text: `Abgelaufen: ${timer.label}` });
   if (step.march) lines.push({ key: 'march', alert: true, text: marchRule(step.march) });
+  // Witterung: was die Gruppe von den Feldern ringsum bemerkt.
+  for (const sense of step.senses)
+    lines.push({ key: `sense-${sense.dir}`, text: senseLine(sense) });
 
   return (
     <div className="wf-erk-last" role="status">
@@ -141,12 +146,12 @@ export function TravelPanel({
       </Panel>
     );
 
-  const here = area.hexes.find((hex) => hex.q === party.q && hex.r === party.r);
+  const here = area.hexes.find((hex) => sameHex(hex, party));
   const today = marchedMinutes(data, now);
   const march = forcedMarch(today);
   const left = TRAVEL_HOURS * 60 - today;
   const next = route?.steps[0];
-  const nextHex = next ? area.hexes.find((hex) => hex.q === next.q && hex.r === next.r) : undefined;
+  const nextHex = next ? area.hexes.find((hex) => sameHex(hex, next)) : undefined;
   // Die Dauer des nächsten Schritts ergibt sich aus dem Gelände des Feldes.
   const nextMinutes = nextHex
     ? hexMinutes(area.hexKm, nextHex.terrain, party.pace, partyMeans(data))

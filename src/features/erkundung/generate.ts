@@ -43,6 +43,7 @@ import {
   type Terrain,
 } from '../../domain/schema';
 import { TERRAIN_LABEL } from '../../domain/terrain';
+import { generateCaves, type CaveQuality } from '../../domain/caves';
 
 // ── Erkennen: Entfernung, Richtung, Orte am Weg ────────────────────────────
 
@@ -95,8 +96,15 @@ const HEX_SIZES = [2, 10, 50] as const;
 /** So viele Felder soll der direkte Weg höchstens lang sein. */
 const MAX_LENGTH = 80;
 
-/** Feldgröße, bei der der direkte Weg überschaubar bleibt. */
-export function suggestHexKm(distanceKm: number | null): number {
+/** Sechs Meilen je Feld, wie in den Regelwerken üblich: zwei Stunden im normalen Tempo. */
+export const SIX_MILES_KM = 6 * 1.609344;
+
+/**
+ * Feldgröße, bei der der direkte Weg überschaubar bleibt. Unter der Erde immer sechs Meilen
+ * (Entscheidung des Spielleiters, 17. 11.).
+ */
+export function suggestHexKm(distanceKm: number | null, biome: Terrain | null = null): number {
+  if (biome === 'underdark') return SIX_MILES_KM;
   if (distanceKm === null) return 10;
   return HEX_SIZES.find((size) => distanceKm / size <= MAX_LENGTH) ?? 50;
 }
@@ -305,7 +313,7 @@ export function recognize(data: CampaignData, fromId: string, toId: string): Rec
     between,
     biome,
     biomeSource,
-    hexKm: suggestHexKm(distanceKm),
+    hexKm: suggestHexKm(distanceKm, biome),
     // Nur wenn die Richtung vom Planeten stammt und der Start selbst dort liegt – eine Wiki-Karte
     // muss nicht nach Norden zeigen, und die Lage des Landes ist nicht die der Stadt.
     origin: fromAtlas && geoFrom?.exact ? geoFrom.geo : null,
@@ -619,6 +627,8 @@ const FEATURE_SHARE = 0.16;
 
 export interface GeneratedMap {
   hexes: Hex[];
+  /** Unter der Erde: wie gut das Höhlennetz geraten ist (`domain/caves.ts`). */
+  caves?: CaveQuality;
   /** Felder des direkten Weges, vom Start zum Ziel. */
   line: HexCoord[];
   /** Halbe Breite des Streifens in Feldern. */
@@ -632,6 +642,7 @@ export interface GeneratedMap {
  * Felder bis zu einem Siebtel länger als die Luftlinie – wie bei jeder Hexkarte.
  */
 export function generateHexes(input: GenerateInput): GeneratedMap {
+  if (input.biome === 'underdark') return generateUnderdark(input);
   const length = Math.max(1, Math.round(input.distanceKm / input.hexKm));
   const dir = input.direction ?? { x: 1, y: 0 };
   const start: HexCoord = { q: 0, r: 0 };
@@ -674,8 +685,7 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
   // Züge der Landschaft sind einige Felder groß; bei kurzen Karten entsprechend kleiner.
   const grain = Math.max(2.5, Math.min(6, line.length / 4));
   const hexes: Hex[] = [];
-  // Unter der Erde hat die Oberfläche nichts zu sagen.
-  const ground = input.biome === 'underdark' ? undefined : input.ground;
+  const ground = input.ground;
   const sea = new Set<string>();
   for (const cell of cells) {
     const { x, y } = hexCenter(cell);
@@ -717,6 +727,9 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
       regionId: null,
       road: 'none',
       manual: false,
+      exits: null,
+      level: 0,
+      sign: '',
     });
   }
 
@@ -741,6 +754,98 @@ export function generateHexes(input: GenerateInput): GeneratedMap {
     hex.feature = rng.pick(options)!;
   }
   return { hexes, line, radius };
+}
+
+// ── Unter der Erde ─────────────────────────────────────────────────────────
+
+/** Was eine Höhle auszeichnet – erzeugte Gestalt, kein Inhalt der Geschichte. */
+export const CAVE_FEATURES = [
+  'Große Höhle',
+  'Tropfsteinhalle',
+  'Pilzwald',
+  'Kristallgrotte',
+  'Unterirdischer See',
+  'Einsturzhalle',
+  'Leuchtmooshöhle',
+  'Schlotkammer',
+  'Säulenhalle',
+  'Warme Quellhöhle',
+];
+
+/** Woran eine Sackgasse endet. */
+export const DEAD_END_FEATURES = [
+  'Sackgasse',
+  'Verschütteter Gang',
+  'Nische mit Tropfwasser',
+  'Spalt, zu eng zum Weitergehen',
+  'Senkloch voller Wasser',
+  'Alter Lagerplatz',
+];
+
+/** Felder unter der Erde höchstens, über alle Ebenen. */
+const MAX_CAVE_HEXES = 2400;
+
+/**
+ * Das Unterreich zwischen zwei Orten: ein Höhlennetz auf ein bis drei Ebenen
+ * (`generateCaves`) – Gänge, Kreuzungen, Höhlen, Schächte, ein Fluss, Sackgassen und
+ * verborgene Gänge; alles andere ist Fels. Start, Ziel und Orte am Weg liegen auf der obersten.
+ */
+function generateUnderdark(input: GenerateInput): GeneratedMap {
+  const length = Math.max(1, Math.round(input.distanceKm / input.hexKm));
+  const dir = input.direction ?? { x: 1, y: 0 };
+  const start: HexCoord = { q: 0, r: 0 };
+  let end = hexAt(dir.x * length, dir.y * length);
+  if (hexDistance(start, end) === 0) end = { q: 1, r: 0 };
+  const line = hexLine(start, end);
+  const levels = line.length >= 14 ? 3 : line.length >= 4 ? 2 : 1;
+  let radius = Math.min(6, Math.max(2, Math.round(line.length / 4)));
+  let cells = hexBand(line, radius);
+  while (radius > 2 && cells.length * levels > MAX_CAVE_HEXES) cells = hexBand(line, --radius);
+
+  const places = new Map<string, string>([
+    [hexKey(start), input.fromId],
+    [hexKey(end), input.toId],
+  ]);
+  const inside = new Set(cells.map(hexKey));
+  for (const between of input.between ?? []) {
+    const along = between.along * length;
+    const offset = between.offsetKm / input.hexKm;
+    const hex = hexAt(dir.x * along - dir.y * offset, dir.y * along + dir.x * offset);
+    const key = hexKey(hex);
+    if (inside.has(key) && !places.has(key)) places.set(key, between.placeId);
+  }
+  const fixed = [...places.keys()].map((key) => cells.find((c) => hexKey(c) === key)!);
+
+  const caves = generateCaves({ cells, start, goal: end, levels, seed: input.seed, fixed });
+  const hexes: Hex[] = caves.cells.map((cell) => {
+    const rng = rngOf(seedOf(input.seed, 'hoehle', cell.q, cell.r, cell.level));
+    const top = cell.level === 0;
+    const feature =
+      cell.role === 'cave'
+        ? rng.pick(CAVE_FEATURES)!
+        : cell.role === 'deadend'
+          ? rng.pick(DEAD_END_FEATURES)!
+          : '';
+    return {
+      q: cell.q,
+      r: cell.r,
+      level: cell.level,
+      terrain: 'underdark',
+      placeId: top ? (places.get(hexKey(cell)) ?? null) : null,
+      note: '',
+      discovered: top && cell.q === start.q && cell.r === start.r,
+      prepared: '',
+      feature,
+      river: cell.river ? 'Unterirdischer Fluss' : '',
+      tableIds: [],
+      regionId: null,
+      road: 'none',
+      manual: false,
+      exits: cell.exits,
+      sign: '',
+    };
+  });
+  return { hexes, line, radius, caves: caves.quality };
 }
 
 /** Die fertige Karte als Erkundungsgebiet. */

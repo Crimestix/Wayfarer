@@ -11,6 +11,7 @@ import {
   type Roll,
 } from '../../domain/journey';
 import { marchedMinutes } from '../../domain/march';
+import { dayIndexOf } from '../../domain/time/calendar';
 import {
   HexSchema,
   createEntity,
@@ -47,7 +48,7 @@ async function setup() {
   const goal = place('Nachtzinne', { parentId: wide.id });
   // Fest eingetragene Dauer (gilt immer) und eine Dauer aus der Länge (zählt doppelt).
   db.put('paths', createPath({ fromId: start.id, toId: grotto.id, minutes: 600, name: 'Schlund' }));
-  db.put('paths', createPath({ fromId: grotto.id, toId: goal.id, distanceKm: 10 }));
+  db.put('paths', createPath({ fromId: grotto.id, toId: goal.id, distanceKm: 60 }));
   db.setState({ placeId: start.id });
   return { db, data: () => db.getSnapshot(), wide, start, grotto, goal };
 }
@@ -215,22 +216,30 @@ describe('Simulierte Hexkarte: Flüsse, Orientierung, Sicht, Orte', () => {
     return { ...ctx, area, line };
   }
 
-  it('fragt abseits von Wegen einmal am Tag nach der Orientierung', async () => {
+  /** Reist, bis die Reise nach der Orientierung fragt (an einer Kreuzung). */
+  const untilNavigate = (db: CampaignDb) => {
+    let result = travelOn(db, dice())!;
+    while (result.halt.kind !== 'navigate' && journeyUnderway(db.getSnapshot()))
+      result = travelOn(db, dice())!;
+    return result;
+  };
+
+  it('fragt im Gangnetz an Kreuzungen nach der Orientierung, einmal am Tag', async () => {
     const { db, data } = await hexJourney();
-    const first = travelOn(db, dice())!;
+    const first = untilNavigate(db);
     expect(first.halt.kind).toBe('navigate');
     expect(first.halt.text).toMatch(/Überlebenskunst\) SG \d+/);
-    expect(first.halt.minutes).toBe(0);
-    // Zurechtgefunden: Danach geht es ohne neue Frage weiter.
-    const second = travelOn(db, dice())!;
-    expect(second.halt.kind).not.toBe('navigate');
-    expect(second.halt.minutes).toBeGreaterThan(0);
-    expect(data().state.now).toBeGreaterThan(0);
+    // Zurechtgefunden: Am selben Tag fragt keine weitere Kreuzung.
+    const day = dayIndexOf(data().state.now);
+    while (journeyUnderway(data())) {
+      const next = travelOn(db, dice())!;
+      if (next.halt.kind === 'navigate') expect(dayIndexOf(data().state.now)).not.toBe(day);
+    }
   });
 
   it('verirrt: der Umweg kostet Zeit, die Reise kommt nicht voran', async () => {
     const { db, data } = await hexJourney();
-    travelOn(db, dice());
+    expect(untilNavigate(db).halt.kind).toBe('navigate');
     const lost = getLost(db, dice(3))!;
     expect(lost.hours).toBe(3);
     const t0 = data().state.now;
@@ -254,7 +263,9 @@ describe('Simulierte Hexkarte: Flüsse, Orientierung, Sicht, Orte', () => {
     hexMapForWay(db, path.id);
     const plan = withHexes(ctx.data(), planJourney(ctx.data(), ctx.grotto.id, ctx.goal.id)!);
     startJourney(db, { toId: ctx.goal.id, plan });
-    expect(travelOn(db, dice())!.halt.kind).not.toBe('navigate');
+    const kinds: string[] = [];
+    while (journeyUnderway(ctx.data())) kinds.push(travelOn(db, dice())!.halt.kind);
+    expect(kinds).not.toContain('navigate');
   });
 
   it('hält an einem Fluss ohne Straße – einmal, nicht auf jedem Feld des Flusses', async () => {
