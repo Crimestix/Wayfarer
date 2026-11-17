@@ -3672,3 +3672,34 @@ button.wf-welt-gaps__count:hover {
   gap: var(--s-2);
   font-style: italic;
 }
+
+/* Filter der Kachelansicht: je Kategorie, was sie ausmacht – leise Auswahlen in einer Zeile. */
+.wf-welt-gallery__facets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  margin: var(--s-3) 0 var(--s-4);
+}
+.wf-welt-gallery__facet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-welt-gallery__facet .wf-input,
+.wf-welt-gallery__facet select {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  letter-spacing: 0;
+  text-transform: none;
+  min-width: 8rem;
+}
+.wf-welt-gallery__facet select[aria-pressed='true'] {
+  border-color: var(--gold-deep);
+  color: var(--gold);
+}

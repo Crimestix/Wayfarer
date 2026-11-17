@@ -46,3 +46,33 @@ describe('Galerie für jede Art', () => {
     expect(galleryWhere(data, harbor)).toBe('in Nebelküste');
   });
 });
+
+describe('Filter, die zur Kategorie passen', () => {
+  it('Personen nach Rolle, Volk und Haltung – nur Filter mit mindestens zwei Möglichkeiten', async () => {
+    const { CampaignDb } = await import('../../data/db');
+    const { MemoryStore } = await import('../../data/store');
+    const { elarisCampaign } = await import('../../data/seed');
+    const { createEntity } = await import('../../domain/schema');
+    const { galleryFacets, withFacets } = await import('./galleryModel');
+    const db = await CampaignDb.create(new MemoryStore(), elarisCampaign());
+    const elf = db.put('entities', createEntity({ kind: 'species', name: 'Waldvolk' }));
+    const a = db.put(
+      'entities',
+      createEntity({
+        kind: 'person',
+        name: 'Ilma',
+        person: { role: 'Fährfrau', speciesId: elf.id },
+      }),
+    );
+    db.put('entities', createEntity({ kind: 'person', name: 'Bero', person: { role: 'Schmied' } }));
+    const data = db.getSnapshot();
+    const people = Object.values(data.entities).filter(
+      (e): e is Extract<typeof e, { kind: 'person' }> => e.kind === 'person',
+    );
+    const facets = galleryFacets(data, 'person', people);
+    expect(facets.map((f) => f.key)).toContain('word');
+    // Nur einer hat ein Volk: kein Filter „Volk“ mit einer einzigen Möglichkeit.
+    expect(facets.map((f) => f.key)).not.toContain('species');
+    expect(withFacets(data, people, { word: 'fährfrau' }).map((e) => e.id)).toEqual([a.id]);
+  });
+});

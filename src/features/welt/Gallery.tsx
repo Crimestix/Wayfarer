@@ -19,11 +19,19 @@ import {
   Input,
   KindIcon,
   Portrait,
+  Select,
   cx,
 } from '../../ui';
 import { patchDetails } from './actions';
 import { openEntityDialog, openNew } from './editor';
-import { galleryEntries, galleryWhere, knowsKnown } from './galleryModel';
+import {
+  galleryEntries,
+  galleryFacets,
+  galleryWhere,
+  knowsKnown,
+  withFacets,
+  type FacetKey,
+} from './galleryModel';
 import {
   PERSON_STATUS_LABEL,
   entitySubline,
@@ -42,6 +50,8 @@ const memory: Partial<Record<WorldKind, GalleryFilter>> = {};
 /** Ob „Vergangenheit“ aufgeklappt ist, je Art – zu Beginn zu. */
 const pastMemory: Partial<Record<WorldKind, boolean>> = {};
 const EMPTY_FILTER: GalleryFilter = { query: '', placeId: null, known: 'all' };
+/** Die gewählten Filter je Art, solange die App läuft. */
+const facetMemory: Partial<Record<WorldKind, Partial<Record<FacetKey, string>>>> = {};
 
 const KNOWN_LABEL: Record<KnownFilter, string> = {
   all: 'Alle',
@@ -84,9 +94,24 @@ export function Gallery({ kind }: { kind: WorldKind }) {
   // Ein gelöschter Ort filtert nicht weiter ins Leere.
   const placeId = filter.placeId && data.entities[filter.placeId] ? filter.placeId : null;
   const known = withKnown ? filter.known : 'all';
-  const entries = useMemo(
-    () => splitPast(data, galleryEntries(data, kind, { ...filter, placeId, known })),
+  // Filter, die zur Kategorie passen (`galleryFacets`): Ihre Möglichkeiten zählen über alles,
+  // was Suche, Ort und Bekanntheit stehen lassen – gewählt wird je Filter eine.
+  const [chosen, setChosenState] = useState<Partial<Record<FacetKey, string>>>(
+    () => facetMemory[kind] ?? {},
+  );
+  const choose = (key: FacetKey, value: string) => {
+    const next = { ...chosen, [key]: value || undefined };
+    facetMemory[kind] = next;
+    setChosenState(next);
+  };
+  const base = useMemo(
+    () => galleryEntries(data, kind, { ...filter, placeId, known }),
     [data, kind, filter, placeId, known],
+  );
+  const facets = useMemo(() => galleryFacets(data, kind, base), [data, kind, base]);
+  const entries = useMemo(
+    () => splitPast(data, withFacets(data, base, chosen)),
+    [data, base, chosen],
   );
   // Vergangenes steht für sich – nie weggefiltert, nur nicht zwischen dem, was heute ist.
   const [pastOpen, setPastOpenState] = useState(pastMemory[kind] ?? false);
@@ -106,7 +131,11 @@ export function Gallery({ kind }: { kind: WorldKind }) {
   );
   const total = all.length;
   const knownCount = withKnown ? all.filter((e) => isKnown(data, e, visited)).length : 0;
-  const filtered = filter.query.trim() !== '' || placeId !== null || known !== 'all';
+  const filtered =
+    filter.query.trim() !== '' ||
+    placeId !== null ||
+    known !== 'all' ||
+    Object.values(chosen).some(Boolean);
   const plural = KIND_LABEL_PLURAL[kind];
   const create = () =>
     kind === 'person'
@@ -207,6 +236,39 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           {KIND_LABEL[kind]}
         </Button>
       </div>
+      {facets.length > 0 && (
+        <div className="wf-welt-gallery__facets" aria-label="Filter">
+          {facets.map((facet) => (
+            <label key={facet.key} className="wf-welt-gallery__facet">
+              <span>{facet.label}</span>
+              <Select
+                value={chosen[facet.key] ?? ''}
+                aria-pressed={!!chosen[facet.key]}
+                onChange={(e) => choose(facet.key, e.target.value)}
+              >
+                <option value="">alle</option>
+                {facet.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label} ({option.count})
+                  </option>
+                ))}
+              </Select>
+            </label>
+          ))}
+          {Object.values(chosen).some(Boolean) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                facetMemory[kind] = {};
+                setChosenState({});
+              }}
+            >
+              Filter lösen
+            </Button>
+          )}
+        </div>
+      )}
       {placeId && (
         <p className="wf-welt-gallery__note">
           {kind === 'person'
@@ -240,7 +302,14 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           action={
             <div className="wf-row" style={{ gap: 8 }}>
               {filtered && (
-                <Button size="sm" onClick={() => setFilter({ ...EMPTY_FILTER })}>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setFilter({ ...EMPTY_FILTER });
+                    facetMemory[kind] = {};
+                    setChosenState({});
+                  }}
+                >
                   Filter zurücksetzen
                 </Button>
               )}
@@ -253,7 +322,7 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           }
         >
           {filtered
-            ? 'Lockere die Suche oder wähle einen anderen Ort.'
+            ? 'Lockere die Suche, die Filter oder wähle einen anderen Ort.'
             : kind === 'person'
               ? 'Alle Figuren der Welt, die nicht von Spielern geführt werden, erscheinen hier mit ihrem Porträt.'
               : `Alle ${plural} der Welt erscheinen hier als Karten – mit Bild, wenn sie eines haben.`}
