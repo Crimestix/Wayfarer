@@ -5,7 +5,8 @@
  * (`travelOn`). Die Rechnung steht in `domain/journey.ts`.
  */
 import { useMemo, useState } from 'react';
-import { Check, Flag, MapPin, Search, Sprout, Tent } from 'lucide-react';
+import { Check, Flag, MapPin, Search, Sprout, Swords, Tent } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useData, useDb } from '../../data/hooks';
 import { activeParty } from '../../domain/derive';
 import { partyCompanions } from '../../domain/history';
@@ -58,6 +59,18 @@ export function TravelPanel({ journey }: { journey: Journey }) {
   const hexHere = spot && area ? area.hexes.find((hex) => sameHex(hex, spot.hex)) : undefined;
   const searchTime = hexHere && area ? searchMinutes(data, area, hexHere) : null;
   const [foraging, setForaging] = useState(false);
+  const [, navigate] = useLocation();
+  /**
+   * Wer wen bemerkt (Regelwerk): die beste passive Wahrnehmung der Gruppe gegen die Heimlichkeit
+   * der Wesen – wer nichts bemerkt, ist überrascht und hat Nachteil auf die Initiative.
+   */
+  const watchful = party
+    .map((member) => ({ name: member.name, value: member.character.passivePerception }))
+    .filter((entry): entry is { name: string; value: number } => entry.value !== null)
+    .sort((a, b) => b.value - a.value)[0];
+  const notice = watchful
+    ? `Bemerken: passive Wahrnehmung ${watchful.value} (${watchful.name}) gegen Geschicklichkeit (Heimlichkeit) der Wesen. Wer nichts bemerkt, ist überrascht – Nachteil auf die Initiative.`
+    : 'Bemerken: passive Wahrnehmung der Gruppe gegen Geschicklichkeit (Heimlichkeit) der Wesen. Wer nichts bemerkt, ist überrascht – Nachteil auf die Initiative.';
   const leg = journey.legs[journey.progress.leg];
   /** Was die Gegend hier hergibt: an der Landschaft des Feldes, sonst an der Gegend des Weges. */
   const bounty = bountyOf(data, leg?.regionId ?? leg?.toId ?? null, hexHere?.landscapeId ?? null);
@@ -208,6 +221,7 @@ export function TravelPanel({ journey }: { journey: Journey }) {
           <span className="wf-caps">Halt: {HALT_LABEL[halt.kind]}</span>
           {halt.text && <p>{halt.text}</p>}
           {halt.roll && <span className="wf-reise__roll">{halt.roll}</span>}
+          {halt.kind === 'encounter' && notice && <p className="wf-reise__notice">{notice}</p>}
           {bodyCheckOf(halt.kind, halt.text) && (
             <BodyCheck
               key={`${halt.kind}-${halt.at}`}
@@ -252,6 +266,16 @@ export function TravelPanel({ journey }: { journey: Journey }) {
                   Verirrt
                 </Button>
               </>
+            )}
+            {halt.kind === 'encounter' && halt.encounterId && data.encounters[halt.encounterId] && (
+              <Button
+                size="sm"
+                icon={<Swords />}
+                onClick={() => navigate(`/begegnungen/${halt.encounterId}`)}
+                title="Die Begegnung mit Anzahl und eigenen Trefferpunkten – Schwierigkeit gegen die Gruppe"
+              >
+                Begegnung öffnen
+              </Button>
             )}
             {(halt.kind === 'encounter' ||
               halt.kind === 'discovery' ||

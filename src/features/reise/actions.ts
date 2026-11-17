@@ -33,6 +33,7 @@ import {
   type Yield,
 } from '../../domain/schema';
 import { walk } from '../wege/actions';
+import { addFoes, newEncounter } from '../bestiarium/encounterActions';
 import { markSighted } from '../../domain/afar';
 import { hexMinutes, searchMinutes, seenFrom } from '../erkundung/travel';
 import { hexAtProgress } from './hexway';
@@ -166,6 +167,18 @@ export function travelOn(
     };
     const text = lineFor[halt.kind];
     const line = text ? logEntry(db, { text, refs: leg.toId ? [leg.toId] : [] }) : null;
+    // Eine Begegnung mit einem Wesen des Bestiariums wird gleich eine Begegnung zum Führen:
+    // mit Anzahl und eigenen Trefferpunkten (Bestiarium → Begegnungen).
+    let encounterId: string | null = null;
+    if (halt.kind === 'encounter' && halt.foe && data.creatures[halt.foe.creatureId]) {
+      const creature = data.creatures[halt.foe.creatureId]!;
+      const made = newEncounter(db, `Unterwegs: ${creature.name}`);
+      addFoes(db, made.id, creature.id, halt.foe.count);
+      encounterId = made.id;
+      undos.push(() => {
+        if (db.getSnapshot().encounters[made.id]) db.remove('encounters', made.id);
+      });
+    }
     const next = db.patch('journeys', journey.id, {
       progress,
       steps,
@@ -178,7 +191,7 @@ export function travelOn(
       halt:
         status === 'arrived'
           ? null
-          : { kind: halt.kind, text: halt.text, at: now, roll: halt.roll, encounterId: null },
+          : { kind: halt.kind, text: halt.text, at: now, roll: halt.roll, encounterId },
     })!;
     return {
       halt,

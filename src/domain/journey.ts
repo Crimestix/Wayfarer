@@ -341,6 +341,8 @@ export interface TableResult {
   meeting: Meeting;
   /** Was gewürfelt wurde, in Worten. */
   rolled: string;
+  /** Das Wesen des Bestiariums, wenn die Zeile eines nennt – daraus wird eine Begegnung. */
+  creatureId: string | null;
 }
 
 /**
@@ -376,6 +378,7 @@ export function rollTables(
       text: meetingLine(meeting),
       meeting,
       rolled,
+      creatureId: picked.row.creatureId ?? null,
     };
   }
   return null;
@@ -392,6 +395,8 @@ export interface Halt {
   quietChecks: number;
   /** Der Halt liegt am Ende des laufenden Abschnitts (die Gruppe erreicht einen Ort). */
   arrives: boolean;
+  /** Bei einer Begegnung aus der Tabelle: welches Wesen und wie viele (`meetingOf`). */
+  foe?: { creatureId: string; count: number } | null;
 }
 
 /**
@@ -561,6 +566,10 @@ export function nextHalt(
       roll: `${found.table.name}: ${found.rolled}`,
       quietChecks,
       arrives: at >= left && left > 0,
+      foe:
+        found.table.kind !== 'discovery' && found.creatureId
+          ? { creatureId: found.creatureId, count: found.meeting.count ?? 1 }
+          : null,
     };
   }
   const first = candidates.sort((a, b) => a.at - b.at)[0];

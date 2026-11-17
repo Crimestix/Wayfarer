@@ -17,6 +17,7 @@ import { dayIndexOf } from '../../domain/time/calendar';
 import {
   HexSchema,
   createEntity,
+  createCreature,
   createPath,
   createRollTable,
   type Hex,
@@ -140,6 +141,32 @@ describe('Unterwegs', () => {
     // Die Nachtprüfung im Lager würfelt einmal.
     expect(campCheck(db, dice(3))).toBeNull();
     expect(campCheck(db, dice(20, 8))).toMatchObject({ text: 'Ein hungriger Wurm' });
+  });
+
+  it('macht aus einem Wesen der Tabelle gleich eine Begegnung mit Anzahl', async () => {
+    const { db, data, wide, goal } = await setup();
+    const worm = db.put(
+      'creatures',
+      createCreature({ name: 'Felswurm', roaming: { appearing: '3', signs: '', active: null } }),
+    );
+    db.put(
+      'tables',
+      createRollTable({
+        name: 'Begegnungen in der Dunkelweite',
+        kind: 'encounter',
+        placeId: wide.id,
+        die: 2,
+        dc: 15,
+        entries: [{ id: 'w', min: 1, max: 2, text: 'Felswurm', refs: [], creatureId: worm.id }],
+      }),
+    );
+    startJourney(db, { toId: goal.id, plan: planJourney(data(), data().state.placeId!, goal.id)! });
+    const met = travelOn(db, dice(16, 1))!;
+    expect(met.halt).toMatchObject({ kind: 'encounter', foe: { creatureId: worm.id, count: 3 } });
+    const encounterId = journeyUnderway(data())!.halt!.encounterId!;
+    expect(data().encounters[encounterId]!.foes).toHaveLength(3);
+    met.undo();
+    expect(data().encounters[encounterId]).toBeUndefined();
   });
 
   it('kommt am Ziel an und endet', async () => {
