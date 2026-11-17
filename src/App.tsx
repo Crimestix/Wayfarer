@@ -8,6 +8,7 @@ import { SyncInterruptedError, openCampaign } from './data/openCampaign';
 import { getConfig, isDesktopApp, onAppClosing, onAppClosingAfterSave } from './data/platform';
 import { elarisCampaign } from './data/seed';
 import { BrowserStore } from './data/store';
+import { detectTestMode, useTestMode } from './data/testMode';
 import { AppShell } from './shell/AppShell';
 import { Welcome, type WelcomeEnv } from './shell/Welcome';
 import { startSync, stopSync } from './features/abgleich';
@@ -83,8 +84,22 @@ export function App() {
     };
   }, []);
 
+  // Testmodus: Liegt sein Zeichen im Ordner, läuft er weiter – und der Abgleich ruht. Erst wenn
+  // für diese Kampagne nachgesehen ist, beginnt unten irgendetwas (sonst liefe der Abgleich an).
+  const testing = useTestMode() !== null;
+  const [checked, setChecked] = useState<CampaignDb | null>(null);
   useEffect(() => {
     if (phase.kind !== 'ready') return;
+    let cancelled = false;
+    const { db } = phase;
+    void detectTestMode(db.store).then(() => !cancelled && setChecked(db));
+    return () => {
+      cancelled = true;
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase.kind !== 'ready' || checked !== phase.db) return;
     const { db } = phase;
     // Welche Bilder schon auf diesem Rechner liegen (nur in der installierten App).
     void loadLocalMedia(db.store.location);
@@ -97,18 +112,21 @@ export function App() {
       return !db.hasUnsavedChanges();
     });
     // Abgleich (nur installierte App, nur mit Verbindung für diesen Ordner; sonst tut er nichts).
-    const sync = startSync(db, {
-      beforeScan: flushEdits,
-      drafts: draftRegister,
-      // Nach „Der Stand aus der Ablage gilt“: neu laden; `openCampaign` bringt es zu Ende.
-      reload: probe
-        ? () => {
-            const current = probe!;
-            setPhase({ kind: 'loading' });
-            void current.reopen().then((next) => setPhase({ kind: 'ready', db: next }));
-          }
-        : () => window.location.reload(),
-    });
+    // Im Testmodus ruht er: Nichts davon darf den anderen Rechner erreichen.
+    const sync = testing
+      ? null
+      : startSync(db, {
+          beforeScan: flushEdits,
+          drafts: draftRegister,
+          // Nach „Der Stand aus der Ablage gilt“: neu laden; `openCampaign` bringt es zu Ende.
+          reload: probe
+            ? () => {
+                const current = probe!;
+                setPhase({ kind: 'loading' });
+                void current.reopen().then((next) => setPhase({ kind: 'ready', db: next }));
+              }
+            : () => window.location.reload(),
+        });
     const offSyncClose = sync ? onAppClosingAfterSave(() => sync.beforeClose()) : () => undefined;
     const away = () => sync?.pushSoon();
     const back = () => sync?.wake();
@@ -137,7 +155,7 @@ export function App() {
       // Effekt im Entwicklungsmodus doppelt aus; ein close() hier würde die Dateiüberwachung beenden.
       flush();
     };
-  }, [phase]);
+  }, [phase, checked, testing]);
 
   if (phase.kind === 'loading') return null;
   if (phase.kind === 'welcome')

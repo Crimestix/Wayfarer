@@ -4,6 +4,8 @@ import { Link, Route, Switch, useLocation } from 'wouter';
 import { ChevronDown, Feather, Hourglass, MapPin, Search, Settings, Undo2 } from 'lucide-react';
 import { endSession, startSession, undoTimeAdvance } from '../data/actions';
 import { useData, useDb, useSaveStatus } from '../data/hooks';
+import { useTestMode } from '../data/testMode';
+import { TestModeSign } from './TestModeSign';
 import { partyBetween } from '../domain/journey';
 import { currentSession, placeAncestors } from '../domain/derive';
 import {
@@ -184,6 +186,7 @@ function NavRail() {
               : 'Speichern fehlgeschlagen'}
         </div>
         <SyncSign />
+        <TestModeSign />
       </div>
     </nav>
   );
@@ -398,11 +401,12 @@ function useShortcuts() {
 
 export function AppShell() {
   useShortcuts();
+  const testing = useTestMode();
   const [location, navigate] = useLocation();
   // Blätter führen dorthin zurück, woher man kam.
   noteLocation(location);
   return (
-    <div className="wf-app">
+    <div className="wf-app" data-testmode={testing ? '' : undefined}>
       <NavRail />
       <WorldBar />
       <main className="wf-main">

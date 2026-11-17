@@ -195,6 +195,18 @@ nicht übernommen.
     (`FetchPanel`, „Fortsetzen“). Nichts davon öffnet sich von selbst. Den laufenden Ablauf gibt
     `activeSync()`, die Umgebung `syncEnv()`. Eine neue Art „braucht dich“ bekommt Titel, Satz
     und Handgriff in `needsInfo`.
+- **Testmodus** (Wunsch des Spielleiters, 18. 11. 2026: „ein kleiner Schalter … wo man machen kann,
+  was man will, und alles wird gelöscht, wenn man ihn ausmacht“ – in der echten Welt, mit allen
+  Artikeln; darf später wieder entfallen): Einstellungen → Sichern und Abgleich → „Testmodus“
+  (`einstellungen/TestModeSection`). Einschalten legt den ganzen Stand beiseite
+  (`startTestMode`, `data/testMode.ts`; Rechnung in `domain/testMode.ts`: `snapshotFiles`,
+  `joinSnapshot`) – als `testmodus.json` und `testmodus-0001.json` … oben im Kampagnenordner,
+  Namen, die bewusst nicht auf `isSyncedPath` passen. Ausschalten setzt ihn über `db.replaceAll`
+  wieder ein (`endTestMode`; mit `keep` bleibt, was entstand) – erst wenn er auf der Platte steht,
+  verschwindet das Zeichen; danach ist jede Datei wie vorher. Ob er läuft, sagt das Zeichen im
+  Ordner (`detectTestMode` beim Öffnen, `useTestMode`), nie ein Feld im Spielstand. **Solange er
+  läuft, startet `App.tsx` den Abgleich nicht** – nichts davon erreicht den anderen Rechner; das
+  Zeichen steht immer in der Leiste (`shell/TestModeSign`). Kein Schema, keine neue Sammlung.
 - Weltzeit = ganze Minuten seit Beginn des absoluten Jahres 1 (bei Elaris: kosmisches Jahr, JF).
   Der Kalender ist Daten (`CalendarDef`), nie fest im Code.
 - Änderungen laufen über `db.put / patch / remove / setState` oder die Befehle in `actions.ts`.

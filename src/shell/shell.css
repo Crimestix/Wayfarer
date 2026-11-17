@@ -196,6 +196,33 @@
 .wf-save[data-status='error'] i {
   background: var(--blood-bright);
 }
+/* Testmodus: immer sichtbar, solange er läuft – Messing, kein Rot (es ist keine Gefahr). */
+.wf-testmode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 10px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--gold-deep);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  color: var(--gold-bright);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.wf-testmode:hover {
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+}
+.wf-testmode svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.wf-app[data-testmode] {
+  box-shadow: inset 0 2px 0 var(--gold);
+}
 @keyframes wf-pulse {
   50% {
     opacity: 0.3;

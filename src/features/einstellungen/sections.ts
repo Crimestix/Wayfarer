@@ -18,6 +18,7 @@ export type SettingsSectionId =
   | 'trash'
   | 'backup'
   | 'sync'
+  | 'testmode'
   | 'legacy'
   | 'wikiImport'
   | 'atlas'
@@ -50,7 +51,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
   {
     id: 'sichern',
     title: 'Sichern und Abgleich',
-    lead: 'Sicherung in einer Datei und der Abgleich zwischen Rechnern.',
+    lead: 'Sicherung in einer Datei, der Abgleich zwischen Rechnern und der Testmodus zum Ausprobieren.',
   },
   {
     id: 'uebernehmen',
@@ -114,6 +115,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     group: 'sichern',
     title: 'Abgleich',
     words: ['Mac', 'Windows', 'GitHub', 'zweiter Rechner'],
+  },
+  {
+    id: 'testmode',
+    group: 'sichern',
+    title: 'Testmodus',
+    words: ['testen', 'ausprobieren', 'Spielwiese', 'verwerfen', 'Probe'],
   },
   {
     id: 'legacy',

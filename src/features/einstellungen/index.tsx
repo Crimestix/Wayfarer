@@ -1,5 +1,5 @@
 /** Einstellungen: Kampagne, Abgleich, Sicherung, Übernahme aus der alten Version und aus LegendKeeper, Kalender. */
-import { BookOpen } from 'lucide-react';
+import { BookOpen, FlaskConical } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useFocus } from '../../shell/focus';
 import {
@@ -11,13 +11,14 @@ import {
 } from './sections';
 import { useDb } from '../../data/hooks';
 import { isDesktopApp } from '../../data/platform';
+import { useTestMode } from '../../data/testMode';
 import { EmptyState } from '../../ui';
 import { LegendKeeperSettings } from '../legendkeeper';
 import { BackupSection } from './BackupSection';
 import { CalendarSection } from './CalendarSection';
 import { CampaignSection } from './CampaignSection';
 import { LegacySection } from './LegacySection';
-import { Boundary, Section } from './parts';
+import { Boundary, Notice, Section } from './parts';
 import { explainProblems } from './model';
 import { ProblemsSection } from './ProblemsSection';
 import { AiSection } from './AiSection';
@@ -30,6 +31,7 @@ import { TrashSection } from './TrashSection';
 import { DismissedSection } from './DismissedSection';
 import { TableRulesSheet } from '../tisch/TableRules';
 import { SyncSection } from '../abgleich/SyncSection';
+import { TestModeSection } from './TestModeSection';
 import { SECTION_LEAD } from '../abgleich/model';
 import './einstellungen.css';
 
@@ -119,6 +121,7 @@ function SectionOf({
   numeral: (id: SettingsSectionId) => string;
   desktop: boolean;
 }) {
+  const testing = useTestMode();
   switch (id) {
     case 'campaign':
       return (
@@ -146,8 +149,27 @@ function SectionOf({
               </EmptyState>
             }
           >
-            <SyncSection />
+            {testing ? (
+              <Notice tone="info" icon={<FlaskConical />} title="Im Testmodus ruht der Abgleich">
+                Solange der Testmodus läuft, wird nichts hochgeladen und nichts geholt – so erreicht
+                nichts davon den anderen Rechner. Schalte ihn unter „Testmodus“ aus, dann gleicht
+                Wayfarer wieder ab.
+              </Notice>
+            ) : (
+              <SyncSection />
+            )}
           </Boundary>
+        </Section>
+      );
+    case 'testmode':
+      return (
+        <Section
+          numeral={numeral('testmode')}
+          anchor="testmode"
+          title="Testmodus"
+          lead="Ausprobieren, ohne dass etwas bleibt: einschalten, machen, was du willst, ausschalten – und alles ist wie vorher."
+        >
+          <TestModeSection />
         </Section>
       );
     case 'rules':
