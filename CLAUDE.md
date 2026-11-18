@@ -647,6 +647,26 @@ nicht übernommen.
   sind Bündel kurzer Striche (`spotNoise`), Wände haben einen weichen Schatten am Fuß. Höhen
   zeigen sich als Schatten auf dem Tieferen (Licht von oben links) und als Kante mit Strichen
   hangabwärts; die Zahl steht nur, solange das Höhen-Werkzeug gewählt ist (`heightNumbers`).
+  **Gelände ist eine Fläche, kein Feld** (18. 11.: „Hauptpunkt ist die Darstellung“): Erst liegt
+  überall blanker Boden, darauf das Gelände als zusammenhängende Flächen mit eigenem Ufer
+  (`parsePatches`, `drawPatch` in `draw.ts`, Reihenfolge `PATCH_ORDER`; tiefes Wasser liegt im
+  Wasser, eine Brücke über dem, was sie überspannt) – gerade nur am Fels und an der Wand zu einem
+  anderen Raum. Dunst und magische Dunkelheit sind weiche Schwaden. Neues Gelände bekommt dort
+  seine Fläche, nie ein eckig gefülltes Feld. Alles, was über ein Feld hinausreichen kann, wird auf
+  den Boden beschnitten (`floorRegion`: Felder, Höhlenumriss, Ellipsen). Der Boden hat Struktur
+  (Platten, Sprünge, Kiesel – fest je Feld über `spotNoise`), Wände werfen einen Schatten nach
+  unten rechts. **Höhen** zeigen ihre Vorderseite: Liegt das Höhere oben oder links, steht dort
+  eine Wandfläche (`faceOf`) mit Schatten davor, von hinten nur Kante und helle Lippe – so liest
+  sich eine Treppe als Treppe. Verläufe laufen über `fade()` aus, nie nach `transparent` (wird
+  grau). Wer in einer Höhle Gelände malt, lässt sie Höhle (`caveAfterPaint`); nur blanker Boden
+  ohne „als Höhle zeichnen“ macht gebauten Boden daraus.
+  **Nie „Vektorpfade“** (Rückmeldung 18. 11.: „sehr low quality … die Form der Höhlen sind sehr
+  Vektorpfade“): Fels ist kantig – der Höhlenumriss wird zerklüftet (`caveLoops(…, craggy)`,
+  `crag`), Ufer von Wasser und Schlamm bleiben weich. Die Höhlenwand ist Tusche wechselnder
+  Stärke (gefüllt zwischen Rand und nach außen versetztem Rand, `outward`), nie ein Strich
+  gleicher Breite; an ihrem Fuß liegen Brocken (`caveStones`), zur Wand hin wird der Boden dunkler.
+  Über Fels und Boden liegt eine Körnung (`grainOf`: eine einmal nach fester Regel gerechnete
+  Kachel, an der Karte verankert) – keine Bilddatei.
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),

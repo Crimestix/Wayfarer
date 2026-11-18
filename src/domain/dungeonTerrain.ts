@@ -176,6 +176,28 @@ export const cornerNear = (fx: number, fy: number): Corner =>
 // ── Höhlen ─────────────────────────────────────────────────────────────────
 
 /** Markiert Bodenfelder als Höhle (unregelmäßiger Rand) oder nimmt die Markierung weg. */
+/**
+ * Welche der gemalten Felder danach Höhle sind. Mit „als Höhle zeichnen“ alle. Ohne bleibt Höhle,
+ * was Höhle war – Wasser in einer Höhle ist weiter Höhle –, außer es wird blanker Boden gemalt:
+ * Der macht aus der Stelle gebauten Boden.
+ */
+export function caveAfterPaint(
+  before: DungeonLevel,
+  after: DungeonLevel,
+  cells: readonly DungeonCell[],
+  tile: DungeonTile,
+  asCave: boolean,
+): DungeonLevel {
+  if (asCave) return setCave(after, cells, true);
+  if (tile !== 'floor') return after;
+  const was = new Set(before.cave);
+  return setCave(
+    after,
+    cells.filter((cell) => was.has(keyOf(cell))),
+    false,
+  );
+}
+
 export function setCave(
   level: DungeonLevel,
   cells: readonly DungeonCell[],

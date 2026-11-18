@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { addRoom, canPass, edgeBetween, edgeKeyBetween, rectCells, setEdge } from '../dungeon';
 import {
+  addRoom,
+  canPass,
+  edgeBetween,
+  edgeKeyBetween,
+  paintTiles,
+  rectCells,
+  setEdge,
+} from '../dungeon';
+import {
+  caveAfterPaint,
   climbBetween,
   copyRegion,
   fallWords,
@@ -9,6 +18,7 @@ import {
   mirrorStamp,
   pasteStamp,
   rotateStamp,
+  setCave,
   setCorner,
   setHeights,
   setRough,
@@ -124,5 +134,31 @@ describe('Ausschnitte', () => {
     expect(full.corners).toEqual(stamp.corners);
     expect(mirrorStamp(mirrorStamp(stamp)).edges).toEqual(stamp.edges);
     expect(mirrorStamp(stamp).corners['3,0']).toBe('ne');
+  });
+});
+
+describe('Höhle bleibt Höhle', () => {
+  const cells = [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+  ];
+  const base = (): DungeonLevel => setCave(paintTiles(blank(), cells, 'floor'), cells, true);
+
+  it('Wasser in einer Höhle lässt sie Höhle', () => {
+    const before = base();
+    const after = caveAfterPaint(before, paintTiles(before, cells, 'water'), cells, 'water', false);
+    expect(after.cave).toHaveLength(2);
+  });
+
+  it('blanker Boden ohne Höhlenform macht gebauten Boden daraus', () => {
+    const before = base();
+    const after = caveAfterPaint(before, paintTiles(before, cells, 'floor'), cells, 'floor', false);
+    expect(after.cave).toHaveLength(0);
+  });
+
+  it('mit Höhlenform wird alles Gemalte Höhle', () => {
+    const before = paintTiles(blank(), cells, 'floor');
+    const after = caveAfterPaint(before, paintTiles(before, cells, 'mud'), cells, 'mud', true);
+    expect(after.cave).toHaveLength(2);
   });
 });

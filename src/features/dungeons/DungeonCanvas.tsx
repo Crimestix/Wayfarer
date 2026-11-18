@@ -55,6 +55,7 @@ import {
   cornerNear,
   generateCave,
   pasteStamp,
+  caveAfterPaint,
   setCave,
   setCorner,
   setHeights,
@@ -447,9 +448,11 @@ export function DungeonCanvas({
       if (ed.rough) ed.applyLevel((lv) => setRough(lv, cells, ed.rough === 'on'));
       else
         ed.applyLevel((lv) =>
-          setCave(
+          caveAfterPaint(
+            lv,
             digPath(lv, path, ed.tile, ed.size),
             path.flatMap((c) => brushCells(c, ed.size)),
+            ed.tile,
             ed.caveLook,
           ),
         );
@@ -823,7 +826,7 @@ export function DungeonCanvas({
         ed.applyLevel((level) =>
           ed.rough
             ? setRough(level, cells, ed.rough === 'on')
-            : setCave(paintTiles(level, cells, ed.tile), cells, ed.caveLook),
+            : caveAfterPaint(level, paintTiles(level, cells, ed.tile), cells, ed.tile, ed.caveLook),
         );
       else if (g.mode === 'rock') ed.applyLevel((level) => paintTiles(level, cells, null));
       else ed.applyLevel((level) => assignRoom(level, cells, ed.areaRoomId));
