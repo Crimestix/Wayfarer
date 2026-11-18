@@ -145,6 +145,12 @@ Abgleich. An: Der ganze Stand wird beiseitegelegt, man probiert in der echten We
 seitdem ist weg, jede Datei wie vorher; der Abgleich ruht solange, das Zeichen steht in der Leiste.
 Kein Schema geändert (**DATA_VERSION 32**). In der installierten App noch nicht von Hand geprüft.
 
+**Danach: Tag `v0.1.18` auf `08d2323` (18. 11.)** – Rückmeldung aus dem ersten Prüfen in Elaris: Kategorie eines
+Eintrags nachträglich ändern (Ort → Person, Person → Fraktion …), neue Kategorie „Himmelskörper“,
+„vergangen“ von Hand, Orte-Filter „Was für ein Ort“ mit „Kontinent und Welt“, Räume nicht mehr
+zwischen den Orten (Vorschlag „Zu Räumen machen“), Mausrad-Zoom auf Hexkarten, Weltkarte ruckelt
+nicht mehr bei Mausbewegung. **DATA_VERSION 33**.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
