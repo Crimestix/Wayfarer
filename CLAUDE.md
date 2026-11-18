@@ -679,6 +679,13 @@ nicht übernommen.
   in den Fels und nur wenig in den Boden) und tragen **richtige Steine** (`drawStone`: kantiger
   Umriss, Schatten, helle Fläche, Kontur – auch das Geröll), nie Punkte. Flächen füllen zum Fels
   hin nur bis zum Rand der Höhle, nie eckig um einen Felsen herum.
+  **Einrichtung als gemalte Einzelbilder** (Übergabe 18. 11.: „gemalte Einzelbilder für
+  Einrichtung … größter Abstand zu Inkarnate“): von oben gesehen, freigestellt, in
+  `src/ui/assets/dungeon/dinge` (erzeugt mit Higgsfield, Herkunft in `LIESMICH.md`) – bisher
+  Truhe, Tisch, Bett, Sarg, Altar, Säule, Statue, Thron. Geladen mit den Texturen
+  (`thingImageOf(kind)`); ein Ding mit Bild wird in seine Fläche eingepasst, nie verzerrt, mit
+  weichem Schatten, eines ohne Bild zeichnet weiter `drawThing`. Ein neues Bild: Datei in den
+  Ordner, Eintrag in `THING_SOURCES` – der Dateiname ist `marker.kind`.
   **Ziel ist das Niveau von Inkarnate** (Spielleiter, 18. 11. 2026): Mauern haben Stärke und
   Stein (`masonry`: dunkler Rand, Textur `wall`, Lichtstreif), der Fels hellt um den Boden herum
   auf, Ufer laufen weich aus (`soft` in `drawPatch`: gefüllt über eine kleine Maske, deren Rand

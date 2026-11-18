@@ -18,4 +18,10 @@ Karte abgestimmt; Wasser, Säure und Lava sind aus Steintexturen umgerechnet.
 | acid   | rock_boulder_dry      |
 | lava   | mud_cracked_dry_03    |
 
-Sie zeigen nie etwas aus der Welt des Spielleiters.
+## Einrichtung (`dinge/`)
+
+Gemalte Einzelbilder von oben, freigestellt: Truhe, Tisch, Bett, Sarg, Altar, Säule, Statue, Thron.
+Erzeugt mit Higgsfield (GPT Image 2.6) aus einem Blatt, in Einzelbilder geschnitten und auf
+höchstens 256 Pixel verkleinert. Ein Ding ohne Bild zeichnet die Karte weiter als Zeichen.
+
+Nichts hier zeigt je etwas aus der Welt des Spielleiters.

@@ -4,7 +4,7 @@
  * liest (`edgeSegments`) – so sieht eine Wand, die von selbst dasteht, aus wie jede andere.
  */
 import { rngOf, seedOf } from '../../domain/random';
-import { textureOf, type TextureName } from './textures';
+import { textureOf, thingImageOf, type TextureName } from './textures';
 import { caveLoops, outward, spotNoise, type CaveLoop } from './caveShape';
 import {
   cellOfKey,
@@ -1455,9 +1455,26 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.translate(sx(marker.x) + (marker.w * z) / 2, sy(marker.y) + (marker.h * z) / 2);
     ctx.rotate((marker.rot * Math.PI) / 2);
     const turned = marker.rot % 2 === 1;
-    ctx.scale(turned ? marker.h : marker.w, turned ? marker.w : marker.h);
     if (out) ctx.globalAlpha = 0.35;
-    drawThing(ctx, marker.kind, -z / 2, -z / 2, z, palette);
+    const image = thingImageOf(marker.kind);
+    if (image) {
+      // Das gemalte Bild füllt die Fläche des Dings, ohne verzerrt zu werden; ein weicher
+      // Schatten setzt es auf den Boden.
+      const boxW = (turned ? marker.h : marker.w) * z * 0.94;
+      const boxH = (turned ? marker.w : marker.h) * z * 0.94;
+      const fit = Math.min(boxW / image.width, boxH / image.height);
+      const w = image.width * fit;
+      const h = image.height * fit;
+      ctx.shadowColor = palette.rock;
+      ctx.shadowBlur = z * 0.16;
+      ctx.shadowOffsetX = z * 0.03;
+      ctx.shadowOffsetY = z * 0.05;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(image, -w / 2, -h / 2, w, h);
+    } else {
+      ctx.scale(turned ? marker.h : marker.w, turned ? marker.w : marker.h);
+      drawThing(ctx, marker.kind, -z / 2, -z / 2, z, palette);
+    }
     ctx.restore();
     if (scene.play?.switched.has(marker.id)) {
       // Ein Schalter, der an ist: ein kleines Messingzeichen.
