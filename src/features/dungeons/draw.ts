@@ -224,6 +224,32 @@ export interface Scene {
   hoverEdge: string | null;
   /** Felder, die gerade gewählt werden (Auslöser, „zu bemerken von“). */
   pickCells: readonly DungeonCell[] | null;
+  /** Am Tisch: Figuren, Sicht und der Weg unter dem Zeiger. */
+  play?: PlayOverlay | null;
+}
+
+export interface TokenDraw {
+  id: string;
+  x: number;
+  y: number;
+  name: string;
+  kind: 'hero' | 'foe';
+  selected: boolean;
+  /** In Runden am Zug. */
+  turn: boolean;
+  light: boolean;
+}
+
+export interface PlayOverlay {
+  /** Felder, die die Gruppe gerade sieht. */
+  visible: ReadonlySet<string>;
+  /** Felder, die sie schon gesehen hat. */
+  seen: ReadonlySet<string>;
+  /** Die Sicht der Spieler: Ungesehenes ist ganz dunkel. */
+  playerView: boolean;
+  tokens: readonly TokenDraw[];
+  /** Der Weg unter dem Zeiger mit seiner Länge in Fuß. */
+  route: { cells: readonly DungeonCell[]; feet: number } | null;
 }
 
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
@@ -481,6 +507,76 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.textBaseline = 'middle';
     ctx.font = `600 ${Math.max(12, Math.min(19, z * 0.52))}px ${palette.font}`;
     for (const label of parsed.labels) haloText(ctx, label.name, sx(label.x), sy(label.y), palette);
+  }
+
+  // Am Tisch: der Schleier über allem, was die Gruppe gerade nicht sieht.
+  const play = scene.play;
+  if (play) {
+    ctx.fillStyle = palette.rock;
+    const pad = play.playerView ? wallWidth * 0.6 : 0;
+    for (const cell of parsed.cells) {
+      if (!visible(cell.x, cell.y)) continue;
+      const key = keyOf(cell);
+      if (play.visible.has(key)) continue;
+      const known = play.seen.has(key);
+      ctx.globalAlpha = known ? 0.42 : play.playerView ? 1 : 0.7;
+      const grow = known ? 0 : pad;
+      ctx.fillRect(sx(cell.x) - grow, sy(cell.y) - grow, z + grow * 2, z + grow * 2);
+    }
+    ctx.globalAlpha = 1;
+    // Der Weg unter dem Zeiger.
+    if (play.route && play.route.cells.length > 1) {
+      ctx.strokeStyle = palette.gold;
+      ctx.lineWidth = Math.max(2, z * 0.08);
+      ctx.setLineDash([z * 0.2, z * 0.16]);
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      play.route.cells.forEach((cell, index) => {
+        if (index === 0) ctx.moveTo(sx(cell.x + 0.5), sy(cell.y + 0.5));
+        else ctx.lineTo(sx(cell.x + 0.5), sy(cell.y + 0.5));
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const end = play.route.cells[play.route.cells.length - 1]!;
+      ctx.font = `600 ${Math.max(12, Math.min(16, z * 0.45))}px ${palette.font}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      haloText(ctx, `${play.route.feet} Fuß`, sx(end.x + 0.5), sy(end.y) - 2, palette);
+    }
+    // Die Figuren.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const token of play.tokens) {
+      if (!visible(token.x, token.y)) continue;
+      const cx = sx(token.x + 0.5);
+      const cy = sy(token.y + 0.5);
+      const r = z * 0.38;
+      if (token.light) {
+        ctx.fillStyle = palette.ember;
+        ctx.globalAlpha = 0.22;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = token.kind === 'hero' ? palette.wall : palette.blood;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = token.selected || token.turn ? palette.gold : palette.floor;
+      ctx.lineWidth = token.turn ? Math.max(3, z * 0.12) : Math.max(1.5, z * 0.07);
+      ctx.stroke();
+      if (z >= 14) {
+        ctx.fillStyle = palette.floor;
+        ctx.font = `700 ${Math.max(10, z * 0.4)}px ${palette.font}`;
+        // Zwei Buchstaben, wenn Platz ist – so lassen sich Namen mit gleichem Anfang unterscheiden.
+        const name = token.name.trim() || '?';
+        const short =
+          z >= 24 ? name.slice(0, 1).toUpperCase() + name.slice(1, 2) : name[0]!.toUpperCase();
+        ctx.font = `700 ${Math.max(10, z * (short.length > 1 ? 0.32 : 0.4))}px ${palette.font}`;
+        ctx.fillText(short, cx, cy + 1);
+      }
+    }
   }
 
   // Auswahl.

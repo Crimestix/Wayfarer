@@ -576,6 +576,32 @@ nicht übernommen.
   Räume zieht man mit „Auswählen“ an eine andere Stelle (`moveRoom`: Türen, Fallen, Einrichtung
   ziehen mit; in fremden Boden hinein geht es nicht). Alle Ebenen eines Dungeons teilen sich eine
   Ansicht – beim Wechsel bleibt alles an seiner Stelle.
+  **Spielen** (Schritt 2, Wunsch 18. 11.: „vom Vorbereiten eines Dungeons bis zum Spielen“;
+  `domain/dungeonPlay.ts`, `dungeons/usePlay.ts`, `PlayPanel.tsx`; Umschalter „Vorbereiten /
+  Spielen“ im Kopf): Der Stand am Tisch liegt in `dungeon.play` neben dem Gebauten und ändert es
+  nie – Türen der Gruppe stehen in `play.doors`, gelesen wird die Ebene über `playLevel`, für die
+  Spieler über `playerLevel` (nur Gesehenes, unbekannte Geheimtüren als Wand). Der erste Klick
+  stellt die Gruppe auf (`startPlay`; Figuren aus den Gefährten in Marschordnung mit
+  Bewegungsrate, Dunkelsicht, passiver Wahrnehmung – `heroesOf`; ohne Gefährten vier freie
+  Figuren). Ein Klick auf ein Feld bewegt die Gewählten (ohne Auswahl alle; `moveTokens`): Weg
+  über `routeBetween` (auch schräg, nie um Mauerecken; bekannte Fallen werden gemieden), die
+  anderen folgen auf der Spur, Zeit vergeht mit der Strecke (`play.seconds`, 30 Fuß je sechs
+  Sekunden, Geröll und Wasser doppelt), die Sicht wächst mit (`visibleCells`: freie Sicht und
+  Dunkelsicht, Licht auf dem Feld – Fackel, Laterne, Zauber der Figuren, Feuer der Karte – oder
+  eine helle Ebene `level.lit`; gemerkt in `play.seen`). **Halt** von selbst (`Halt`): geschlossene
+  oder verschlossene Tür, Falle bemerkt (passive Wahrnehmung ≥ SG auf einem Feld, von dem sie zu
+  bemerken ist) oder ausgelöst, Geheimtür oder verborgener Etagenwechsel bemerkt (zehn Fuß),
+  Raum mit Notiz zum ersten Mal betreten, Gegner in Sicht, Licht erlischt, Bewegung aufgebraucht.
+  Ohne SG bemerkt niemand etwas von selbst; „Durchsuchen“ (zehn Minuten, `hiddenNear`) nennt, was
+  verborgen ist, mit dem SG – gewürfelt wird am Tisch, der Spielleiter klickt „Gefunden“. Eine
+  Falle, die ausgelöst hat, löst nicht von selbst wieder aus (`trapArmed`), bis „Wieder scharf“.
+  Etagenwechsel über `useStair` (Ankunft am Gegenstück), Türen über `setDoor` (auf ganzer
+  Breite). **Runden** (`startRounds`, `nextTurn`, `turnOrder` nach `token.init`): Nur wer am Zug
+  ist, bewegt sich, höchstens seine Bewegungsrate; nach dem Letzten vergehen sechs Sekunden.
+  **Nie ein Verbot:** Jede Figur lässt sich von Hand ziehen (`placeToken`, ohne Regeln und Zeit),
+  alles lässt sich von Hand als gefunden, offen, entschärft setzen; „Zurück“ (Strg+Z) nimmt den
+  letzten Schritt am Tisch zurück, „Neu beginnen“ nur den Stand. Die Zeit des Dungeons ist
+  vorerst eine eigene Uhr – sie stellt die Weltzeit nicht vor (Verbindung folgt).
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),

@@ -958,6 +958,12 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
         <Field label="Name">
           <Written label="Name der Ebene" value={level.name} selectAll onSave={rename} />
         </Field>
+        <Checkbox
+          checked={level.lit}
+          onChange={(lit) => editor.apply((d) => withLevel(d, level.id, (lv) => ({ ...lv, lit })))}
+        >
+          hier ist es hell (Tageslicht, Fackeln an den Wänden)
+        </Checkbox>
         {empty && (
           <p className="wf-dungeon-hint">
             Noch leer. Zieh mit „Raum“ einen ersten Raum auf oder male mit „Boden“ einen Gang.

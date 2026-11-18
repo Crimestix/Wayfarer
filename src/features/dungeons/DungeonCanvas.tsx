@@ -38,6 +38,7 @@ import {
   thingAt,
   toggleCell,
   trapAt,
+  type DungeonPick,
   type Side,
 } from '../../domain/dungeon';
 import type { DungeonCell, DungeonEdgeKind, DungeonLevel } from '../../domain/schema';
@@ -49,6 +50,7 @@ import {
   drawScene,
   readPalette,
   type Palette,
+  type PlayOverlay,
   type View,
 } from './draw';
 import { isTyping, type DungeonEditor } from './editor';
@@ -81,9 +83,37 @@ type Gesture =
   | { type: 'paint'; last: DungeonCell }
   | { type: 'wall'; kind: DungeonEdgeKind; set: boolean; done: Set<string>; first: string }
   | { type: 'trap'; trapId: string }
-  | { type: 'move'; roomId: string; from: DungeonCell; to: DungeonCell };
+  | { type: 'move'; roomId: string; from: DungeonCell; to: DungeonCell }
+  | { type: 'token'; id: string; from: DungeonCell; to: DungeonCell };
 
-export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
+/**
+ * Am Tisch gehört die Karte dem Spiel: Die Seite sagt, was zu sehen ist und was ein Klick tut.
+ */
+export interface PlayControl {
+  /** Die Ebene, wie sie gerade gilt (Türen der Gruppe; in der Sicht der Spieler nur Gesehenes). */
+  level: DungeonLevel;
+  overlay: Omit<PlayOverlay, 'route'>;
+  pick: DungeonPick | null;
+  tokenAt: (cell: DungeonCell) => string | null;
+  /** Der Weg, den die Gewählten dorthin gingen. */
+  preview: (cell: DungeonCell) => { cells: DungeonCell[]; feet: number } | null;
+  onToken: (id: string, add: boolean) => void;
+  /** Ein Klick auf die Karte: ein Feld, und die Kante, wenn er nah an einer lag. */
+  onCell: (cell: DungeonCell, edge: string | null) => void;
+  /** Eine Figur von Hand irgendwohin gezogen. */
+  onPlace: (id: string, cell: DungeonCell) => void;
+}
+
+export function DungeonCanvas({
+  editor,
+  play,
+}: {
+  editor: DungeonEditor;
+  play?: PlayControl | null;
+}) {
+  const playRef = useRef(play ?? null);
+  playRef.current = play ?? null;
+  const route = useRef<{ key: string; value: ReturnType<PlayControl['preview']> } | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const palette = useRef<Palette | null>(null);
@@ -142,7 +172,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     palette.current ??= readPalette(el);
     const ratio = window.devicePixelRatio || 1;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const lv = ed.level;
+    const ctl = playRef.current;
+    const lv = ctl?.level ?? ed.level;
     const g = gesture.current;
     const h = hover.current;
     let hoverCells: DungeonCell[] = [];
@@ -151,7 +182,17 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
       g?.type === 'rect' && g.mode === 'room' && ed.roomShape === 'round'
         ? roundBetween(g.from, g.to)
         : null;
-    if (g?.type === 'rect') hoverCells = rectCells(g.from, g.to);
+    let shown: PlayOverlay | null = null;
+    if (ctl) {
+      // Am Tisch: die Figur, die gezogen wird, oder der Weg zum Feld unter dem Zeiger.
+      if (g?.type === 'token') {
+        if (!sameCell(g.from, g.to)) hoverCells = [g.to];
+      } else if (h && !g && !ctl.tokenAt(h.cell)) {
+        const key = `${h.cell.x},${h.cell.y}`;
+        if (route.current?.key !== key) route.current = { key, value: ctl.preview(h.cell) };
+      } else route.current = null;
+      shown = { ...ctl.overlay, route: g ? null : (route.current?.value ?? null) };
+    } else if (g?.type === 'rect') hoverCells = rectCells(g.from, g.to);
     else if (g?.type === 'move') {
       const dx = g.to.x - g.from.x;
       const dy = g.to.y - g.from.y;
@@ -187,7 +228,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
       width: size.current.width,
       height: size.current.height,
       palette: palette.current,
-      selection: ed.selection,
+      selection: ctl ? ctl.pick : ed.selection,
+      play: shown,
       hoverCells,
       hoverEdge,
       pickCells: trap ? (mode?.type === 'trap-spots' ? trap.spots : trap.cells) : null,
@@ -346,6 +388,18 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     const hit = hitAt(event.clientX, event.clientY);
     const { cell } = hit;
 
+    // Am Tisch: Figur wählen und ziehen, sonst gilt der Klick dem Feld.
+    const ctl = playRef.current;
+    if (ctl) {
+      route.current = null;
+      const tokenId = ctl.tokenAt(cell);
+      if (tokenId) {
+        ctl.onToken(tokenId, event.shiftKey);
+        gesture.current = { type: 'token', id: tokenId, from: cell, to: cell };
+      } else ctl.onCell(cell, hit.edgeDist < EDGE_NEAR ? hit.edge : null);
+      return;
+    }
+
     // Erst, was gerade gewählt wird.
     const mode = ed.pickMode;
     if (mode?.type === 'stair-target') {
@@ -503,7 +557,7 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     const hit = hitAt(event.clientX, event.clientY);
     hover.current = hit;
     const ed = live.current;
-    if (g?.type === 'rect' || g?.type === 'move') g.to = hit.cell;
+    if (g?.type === 'rect' || g?.type === 'move' || g?.type === 'token') g.to = hit.cell;
     else if (g?.type === 'paint') {
       if (!sameCell(g.last, hit.cell)) {
         stroke(g.last, hit.cell, false);
@@ -540,7 +594,9 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
     const ed = live.current;
-    if (g?.type === 'rect') {
+    if (g?.type === 'token') {
+      if (!sameCell(g.from, g.to)) playRef.current?.onPlace(g.id, g.to);
+    } else if (g?.type === 'rect') {
       const shape =
         g.mode === 'room' && ed.roomShape === 'round' ? roundBetween(g.from, g.to) : null;
       const cells = shape ? roundCells(shape) : rectCells(g.from, g.to);
@@ -583,7 +639,7 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
       <canvas
         ref={canvas}
         aria-label="Karte der Ebene"
-        data-tool={editor.pickMode ? 'pick' : editor.tool}
+        data-tool={play ? 'play' : editor.pickMode ? 'pick' : editor.tool}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

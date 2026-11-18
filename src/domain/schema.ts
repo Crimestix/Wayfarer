@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 38;
-export const DATA_SHAPE = '69a3c069fe697890';
+export const DATA_VERSION = 39;
+export const DATA_SHAPE = 'dfc0812fd701f655';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -3543,6 +3543,8 @@ export const DungeonLevelSchema = z.object({
   name: z.string().default(''),
   /** Lage: größer = weiter oben. */
   order: z.number().int().default(0),
+  /** Hier ist es hell (Tageslicht, Fackeln an den Wänden) – Sicht braucht kein eigenes Licht. */
+  lit: z.boolean().default(false),
   /** Feld („x,y“) → was es ist; ohne Eintrag Fels. */
   tiles: z.record(z.string(), z.enum(DUNGEON_TILES)).default({}),
   /** Feld („x,y“) → Raum. */
@@ -3556,6 +3558,72 @@ export const DungeonLevelSchema = z.object({
 });
 export type DungeonLevel = z.infer<typeof DungeonLevelSchema>;
 
+export const DUNGEON_LIGHTS = ['none', 'torch', 'lantern', 'spell'] as const;
+export type DungeonLight = (typeof DUNGEON_LIGHTS)[number];
+
+/** Eine Figur auf dem Brett: ein Gefährte, eine freie Figur oder ein Gegner. */
+export const DungeonTokenSchema = z.object({
+  id,
+  name: z.string().default(''),
+  kind: z.enum(['hero', 'foe']).default('hero'),
+  /** Der Gefährte dahinter; null = eine freie Figur. */
+  characterId: id.nullable().default(null),
+  levelId: id,
+  x: z.number().int(),
+  y: z.number().int(),
+  /** Bewegungsrate in Fuß je Runde. */
+  speed: z.number().int().min(0).max(300).default(30),
+  /** Dunkelsicht in Fuß. */
+  darkvision: z.number().int().min(0).max(600).default(0),
+  /** Passive Wahrnehmung. */
+  passive: z.number().int().min(0).max(40).default(10),
+  light: z.enum(DUNGEON_LIGHTS).default('none'),
+  /** Wann das Licht erlischt (Sekunden auf der Uhr des Dungeons); null = brennt weiter. */
+  lightEnds: z.number().int().nullable().default(null),
+  /** Initiative in Runden; null = noch nicht gewürfelt. */
+  init: z.number().int().nullable().default(null),
+});
+export type DungeonToken = z.infer<typeof DungeonTokenSchema>;
+
+/**
+ * Der Stand eines bespielten Dungeons (`domain/dungeonPlay.ts`): wo die Figuren stehen, was die
+ * Gruppe gesehen und gefunden hat, welche Türen sie geöffnet hat. Getrennt vom Gebauten – „Neu
+ * beginnen“ nimmt nur das hier weg.
+ */
+export const DungeonPlaySchema = z.object({
+  tokens: z.array(DungeonTokenSchema).default([]),
+  /** Ebene → Felder, die die Gruppe schon gesehen hat. */
+  seen: z.record(z.string(), z.array(z.string())).default({}),
+  /** Gefundenes: „edge:<Ebene>:<Kante>“, „trap:<id>“, „stair:<id>“. */
+  found: z.array(z.string()).default([]),
+  /** Türen, wie die Gruppe sie hinterlassen hat: „<Ebene>:<Kante>“ → Stand. */
+  doors: z
+    .record(z.string(), z.object({ opened: z.boolean(), locked: z.boolean() }))
+    .default({}),
+  /** Fallen, die ausgelöst haben. */
+  sprung: z.array(id).default([]),
+  /** Fallen, die entschärft sind. */
+  disarmed: z.array(id).default([]),
+  /** Räume, die die Gruppe betreten hat. */
+  rooms: z.array(id).default([]),
+  /** Gegner, die die Gruppe schon gesehen hat. */
+  spotted: z.array(id).default([]),
+  /** Vergangene Zeit im Dungeon in Sekunden. */
+  seconds: z.number().int().nonnegative().default(0),
+  /** Runden: wer am Zug ist und wie weit er schon gegangen ist; null = freies Erkunden. */
+  rounds: z
+    .object({
+      turn: id.nullable().default(null),
+      moved: z.number().int().nonnegative().default(0),
+      round: z.number().int().positive().default(1),
+    })
+    .nullable()
+    .default(null),
+  /** Was geschah – die jüngsten Zeilen. */
+  log: z.array(z.object({ at: z.number().int(), text: z.string() })).default([]),
+});
+export type DungeonPlay = z.infer<typeof DungeonPlaySchema>;
+
 /**
  * Ein Dungeon: ein Ort mit Räumen und Ebenen als Raster (`domain/dungeon.ts`). Gebaut vom
  * Spielleiter; steht vorerst für sich (Wunsch 18. 11. 2026) – die Verbindung zur Welt folgt.
@@ -3567,6 +3635,8 @@ export const DungeonSchema = z.object({
   /** Kantenlänge eines Feldes in Fuß. */
   cellFeet: z.number().int().min(1).max(100).default(5),
   levels: z.array(DungeonLevelSchema).default([]),
+  /** Der Stand am Tisch; null = noch nicht bespielt. */
+  play: DungeonPlaySchema.nullable().default(null),
 });
 export type Dungeon = z.infer<typeof DungeonSchema>;
 

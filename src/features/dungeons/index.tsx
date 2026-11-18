@@ -63,6 +63,8 @@ import {
   type Tool,
 } from './editor';
 import { LevelPanel, NotesPanel, PickBanner, SelectionPanel, ToolPanel } from './Inspector';
+import { PlayPanel } from './PlayPanel';
+import { usePlay, type DungeonPlayer } from './usePlay';
 import './dungeons.css';
 
 const TOOL_ICON: Record<Tool, ReactNode> = {
@@ -191,8 +193,9 @@ function CreateDialog({
 }
 
 /** Die Tasten des Editors: Werkzeuge, Rückgängig, Pinselgröße, Ebenen, Löschen. */
-function useEditorKeys(editor: DungeonEditor) {
+function useEditorKeys(editor: DungeonEditor, on: boolean) {
   useEffect(() => {
+    if (!on) return;
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target)) return;
       // Ein offener Dialog hat die Tasten für sich.
@@ -250,7 +253,42 @@ function useEditorKeys(editor: DungeonEditor) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editor]);
+  }, [editor, on]);
+}
+
+/** Die Tasten am Tisch: Zurück, Auswahl aufheben, Zug beenden, Ebenen. */
+function usePlayKeys(player: DungeonPlayer, editor: DungeonEditor, on: boolean) {
+  useEffect(() => {
+    if (!on) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (isTyping(event.target) || document.querySelector('[role="dialog"]')) return;
+      const mod = event.ctrlKey || event.metaKey;
+      if (mod && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        player.back();
+        return;
+      }
+      if (mod || event.altKey) return;
+      if (event.key === 'Escape') {
+        if (player.placing) player.setPlacing(null);
+        else if (player.pick) player.setPick(null);
+        else player.setSelected([]);
+      } else if (event.key === 'Enter' && player.play?.rounds) {
+        event.preventDefault();
+        player.endTurn();
+      } else if (event.key === 'PageUp' || event.key === 'PageDown') {
+        const sorted = levelsSorted(editor.dungeon);
+        const index = sorted.findIndex((level) => level.id === editor.level?.id);
+        const next = sorted[event.key === 'PageUp' ? index - 1 : index + 1];
+        if (next) {
+          event.preventDefault();
+          editor.openLevel(next.id);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [player, editor, on]);
 }
 
 function ToolRail({ editor }: { editor: DungeonEditor }) {
@@ -298,7 +336,11 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
   const db = useDb();
   const [, navigate] = useLocation();
   const editor = useDungeonEditor(db, stored);
-  useEditorKeys(editor);
+  const [mode, setMode] = useState<'prep' | 'play'>('prep');
+  const playing = mode === 'play';
+  const player = usePlay(db, editor.dungeon, editor);
+  useEditorKeys(editor, !playing);
+  usePlayKeys(player, editor, playing);
   const { dungeon, level } = editor;
   const sorted = levelsSorted(dungeon);
 
@@ -352,6 +394,14 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
             </p>
           </div>
           <div className="wf-dungeon-head__tools">
+            <div className="wf-btn-group" role="group" aria-label="Ansicht">
+              <Button size="sm" aria-pressed={!playing} onClick={() => setMode('prep')}>
+                Vorbereiten
+              </Button>
+              <Button size="sm" aria-pressed={playing} onClick={() => setMode('play')}>
+                Spielen
+              </Button>
+            </div>
             <Button
               size="sm"
               aria-pressed={editor.ghost}
@@ -397,25 +447,35 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
           </Button>
         </div>
 
-        <div className="wf-dungeon-work">
-          <aside className="wf-dungeon-work__rail" aria-label="Werkzeuge">
-            <ToolRail editor={editor} />
-          </aside>
+        <div className="wf-dungeon-work" data-mode={mode}>
+          {!playing && (
+            <aside className="wf-dungeon-work__rail" aria-label="Werkzeuge">
+              <ToolRail editor={editor} />
+            </aside>
+          )}
           <div className="wf-dungeon-map">
-            <PickBanner editor={editor} />
-            {level && <DungeonCanvas editor={editor} />}
+            {!playing && <PickBanner editor={editor} />}
+            {level && <DungeonCanvas editor={editor} play={playing ? player.control : null} />}
             <div className="wf-dungeon-keys" aria-hidden>
-              Rad: vergrößern · Leertaste oder rechte Maustaste: verschieben · Bild auf/ab: Ebene
+              {playing
+                ? 'Feld anklicken: dorthin gehen · Figur ziehen: von Hand versetzen · Strg+Z: zurück · rechte Maustaste: Karte verschieben'
+                : 'Rad: vergrößern · Leertaste oder rechte Maustaste: verschieben · Bild auf/ab: Ebene'}
             </div>
           </div>
         </div>
       </section>
 
       <aside className="wf-dungeon-detail">
-        <ToolPanel editor={editor} />
-        <SelectionPanel editor={editor} />
-        {!editor.selection && <LevelPanel editor={editor} />}
-        <NotesPanel editor={editor} />
+        {playing ? (
+          <PlayPanel player={player} editor={editor} />
+        ) : (
+          <>
+            <ToolPanel editor={editor} />
+            <SelectionPanel editor={editor} />
+            {!editor.selection && <LevelPanel editor={editor} />}
+            <NotesPanel editor={editor} />
+          </>
+        )}
       </aside>
     </>
   );
