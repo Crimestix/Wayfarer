@@ -166,6 +166,9 @@ Schritten (Kategorie, daneben Unterkategorie – dort auch neu anlegen), im Seit
 und die Liste einer Kategorie ist nach Unterkategorien und gemeinsamen Wörtern gegliedert (bei
 Orten umschaltbar auf die Lage). Kein Schema geändert (**DATA_VERSION 34**).
 
+**Danach: Tag `v0.1.22` auf `abe9bff` (18. 11.)** – Unterkategorien lassen sich sichtbar entfernen: Papierkorb an
+der Kachel auf der Übersicht und an der Gruppe in der Liste (die Einträge bleiben, mit Rückgängig).
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
