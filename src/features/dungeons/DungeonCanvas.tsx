@@ -61,6 +61,7 @@ import {
   setHeights,
   setRough,
 } from '../../domain/dungeonTerrain';
+import { loadTextures } from './textures';
 import type { DungeonCell, DungeonEdgeKind, DungeonLevel } from '../../domain/schema';
 import { toast } from '../../ui';
 import {
@@ -322,6 +323,8 @@ export function DungeonCanvas({
 
   // Bei jeder Änderung des Editors neu zeichnen.
   useEffect(schedule);
+  // Die Texturen kommen nach: Sobald eine da ist, wird neu gezeichnet.
+  useEffect(() => loadTextures(schedule), [schedule]);
 
   const fit = useCallback(() => void fitView(viewOf()), [fitView, viewOf]);
 

@@ -71,7 +71,7 @@ export function caveLoops(
       ring.push(edge);
       edge = (from.get(vkey(edge.to)) ?? []).find((next) => !next.used);
     }
-    loops.push(craggy ? crag(smooth(rough(ring), 1)) : smooth(rough(ring), 2));
+    loops.push(craggy ? crag(freeForm(rough(ring))) : smooth(rough(ring), 2));
   }
   return loops;
 }
@@ -183,4 +183,65 @@ export function outward(loop: CaveLoop): [number, number][] {
     const length = Math.hypot(dx, dy) || 1;
     return [dy / length, -dx / length];
   });
+}
+
+/** Ein weicher, fester Wert zwischen 0 und 1 an jeder Stelle der Karte – benachbarte Stellen ähneln sich. */
+export function fieldNoise(x: number, y: number, salt = 0): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const ease = (t: number) => t * t * (3 - 2 * t);
+  const tx = ease(x - x0);
+  const ty = ease(y - y0);
+  const top = spotNoise(x0, y0, salt) * (1 - tx) + spotNoise(x0 + 1, y0, salt) * tx;
+  const bottom = spotNoise(x0, y0 + 1, salt) * (1 - tx) + spotNoise(x0 + 1, y0 + 1, salt) * tx;
+  return top * (1 - ty) + bottom * ty;
+}
+
+/**
+ * Die freie Form einer Höhle: Erst verschwinden die Treppenstufen des Rasters (die Punkte rücken
+ * mehrmals zur Mitte ihrer Nachbarn), dann buchtet der Rand nach einem weichen Muster aus – weit
+ * in den Fels hinein, nur wenig in den Boden. Wo der Rand an gebautem Boden liegt, bleibt er.
+ */
+function freeForm(start: Pt[]): CaveLoop {
+  // Feiner teilen: vier Punkte je Feldkante.
+  let points: Pt[] = [];
+  start.forEach((p, i) => {
+    const next = start[(i + 1) % start.length]!;
+    points.push(p);
+    points.push({
+      x: (p.x + next.x) / 2,
+      y: (p.y + next.y) / 2,
+      pinned: p.open,
+      open: p.open,
+    });
+  });
+  const n = points.length;
+  const near = (i: number) => points[((i % n) + n) % n]!;
+  // Wer neben einem festen Punkt liegt, bewegt sich nur halb – so setzt der Rand sauber an.
+  const hold = points.map((p, i) =>
+    p.pinned ? 0 : near(i - 1).pinned || near(i + 1).pinned ? 0.4 : 1,
+  );
+  for (let round = 0; round < 7; round++) {
+    points = points.map((p, i) => {
+      const a = near(i - 1);
+      const b = near(i + 1);
+      const k = hold[i]! * 0.5;
+      return { ...p, x: p.x + ((a.x + b.x) / 2 - p.x) * k, y: p.y + ((a.y + b.y) / 2 - p.y) * k };
+    });
+  }
+  // Buchten und Vorsprünge.
+  const moved = points.map((p, i) => {
+    if (hold[i] === 0) return p;
+    const a = near(i - 1);
+    const b = near(i + 1);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const big = fieldNoise(p.x * 0.42, p.y * 0.42, 61) - 0.38;
+    const small = fieldNoise(p.x * 1.3, p.y * 1.3, 62) - 0.5;
+    // Nach außen (in den Fels) weit, nach innen nur wenig: Der Boden bleibt begehbar.
+    const out = Math.max(-0.22, big * 1.05 + small * 0.3) * hold[i]!;
+    return { ...p, x: p.x + (dy / length) * out, y: p.y - (dx / length) * out };
+  });
+  return { points: moved.map((p) => [p.x, p.y]), open: moved.map((p) => p.open) };
 }

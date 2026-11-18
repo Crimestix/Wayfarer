@@ -667,6 +667,18 @@ nicht übernommen.
   gleicher Breite; an ihrem Fuß liegen Brocken (`caveStones`), zur Wand hin wird der Boden dunkler.
   Über Fels und Boden liegt eine Körnung (`grainOf`: eine einmal nach fester Regel gerechnete
   Kachel, an der Karte verankert) – keine Bilddatei.
+  **Gemalte Texturen auf der Karte** (Entscheidung des Spielleiters, 18. 11. 2026: „Texturen
+  kannste natürlich nutzen. Also kostenlose ausm Internet oder über Higgsfield“ – „aber es soll
+  trotzdem ein gemalter Stil sein“): Steinplatten, Höhlenboden, Fels, Holz, Schlamm, Eis, Wasser,
+  Säure, Lava, Abgrund liegen als kleine Kacheln in `src/ui/assets/dungeon` (Poly Haven, CC0,
+  Herkunft in `LIESMICH.md`), auf die Farben der Karte abgestimmt und in einen gemalten Stil
+  umgerechnet – nie fotografisch. Geladen über `dungeons/textures.ts` (`loadTextures`,
+  `textureOf`), gezeichnet als Muster, das an der Karte hängt (`tex(name, felder)` in
+  `drawScene`); solange eine fehlt, gilt die Farbe. **Höhlen sind frei geformt** (`freeForm`: die
+  Stufen des Rasters verschwinden, der Rand buchtet nach einem weichen Muster `fieldNoise` weit
+  in den Fels und nur wenig in den Boden) und tragen **richtige Steine** (`drawStone`: kantiger
+  Umriss, Schatten, helle Fläche, Kontur – auch das Geröll), nie Punkte. Flächen füllen zum Fels
+  hin nur bis zum Rand der Höhle, nie eckig um einen Felsen herum.
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),
@@ -1545,7 +1557,8 @@ nicht wie ein Admin-Dashboard.
   und trägt Messing als Schrift (`ui.css`); nie einen Umschalter ohne `aria-pressed` bauen.
 - Abschnittstitel in Versalien, Zierlinie (`Divider`).
 - **Keine Bilder als Schmuck in Arbeitsflächen** (Entscheidung des Spielleiters, 11. 11. 2026:
-  „Die Bilder stören mehr, als dass sie gut aussehen“). Gemalt sind nur das Startbild und das
+  „Die Bilder stören mehr, als dass sie gut aussehen“). Ausnahme: die Texturen der Dungeonkarte
+  (18. 11. 2026) – sie sind der Werkstoff der Karte, kein Schmuck. Gemalt sind nur das Startbild und das
   App-Symbol; alles Weitere kommt aus Werkstoff, Schrift und Abstand. Bildmaterial liegt in
   `src/ui/assets`, ist mit Higgsfield erzeugt und zeigt nie etwas aus der Welt des Spielleiters.
 - Lesbarkeit: kein Schriftgrad unter `--text-2xs`; gedämpfte Schrift nur über `--ink-mute` und
