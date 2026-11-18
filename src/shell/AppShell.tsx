@@ -31,6 +31,7 @@ import StoryPage from '../features/faeden/StoryPage';
 import { noteLocation } from './trail';
 import GeschehenPage from '../features/geschehen';
 import KartenPage from '../features/karten';
+import DungeonsPage from '../features/dungeons';
 import ErkundungPage from '../features/erkundung';
 import WegenetzPage from '../features/wegenetz';
 import { WeatherChip } from '../features/wetter';
@@ -428,6 +429,7 @@ export function AppShell() {
             <Route path="/bastion" component={GruppeBastion} />
             <Route path="/spielerbuch" component={GruppeSpielerbuch} />
             <Route path="/erkundung/:id?" component={KartenHex} />
+            <Route path="/dungeons/:id?" component={DungeonsPage} />
             <Route path="/atlas/:id?" component={KartenAtlas} />
             <Route path="/karten/:id?" component={KartenKarten} />
             <Route path="/wegenetze/:id?" component={GeschichtenNetze} />

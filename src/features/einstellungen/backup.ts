@@ -71,6 +71,7 @@ export const COLLECTION_LABEL: Record<CollectionName, [one: string, many: string
   shops: ['Laden', 'Läden'],
   assortments: ['Ladenvorlage', 'Ladenvorlagen'],
   versions: ['Frühere Fassung eines Artikels', 'Frühere Fassungen der Artikel'],
+  dungeons: ['Dungeon', 'Dungeons'],
 };
 
 export function createBackup(data: CampaignData, exportedAt: string = nowIso()): BackupFile {

@@ -102,7 +102,8 @@ nicht übernommen.
   Zeichen-Editor „Karten“ (`karten`) ist vorerst verworfen (17. 11. 2026: „nur noch Hexkarten“;
   Adresse und Daten bleiben, kein Eintrag in der Navigation); „Gefährten“ = Gefährten, Beute-Buch, Fortschritt, Bastion, Spielerbuch; „Zeit“ =
   Kalender, Zeitleiste, Weltgeschehen, Nachtragen (dazu ohne Reiter „Welt an einem Tag“,
-  `/damals`); „Bestiarium“ = Wesen, Begegnungen, Bestände. „Welt“ ist Weltdatenbank und Wiki in einem:
+  `/damals`); „Bestiarium“ = Wesen, Begegnungen, Bestände; „Dungeons“ steht vorerst als eigener Eintrag
+  ohne Reiter (18. 11. 2026), bis die Verbindungen gezogen sind. „Welt“ ist Weltdatenbank und Wiki in einem:
   `features/welt` zeigt die Seite (eine Übersicht mit „Nach Art“, „Ordner“, „Netz“ und „Noch zu
   schreiben“, eine Suche auch im Text), `features/wiki` liefert die Bausteine (`ArticleTree`, `ArticlePage`,
   `WikiStart`). Ein Ding hat eine Seite: `/wiki/<id>` führt zur Seite des Eintrags, wenn der
@@ -143,6 +144,8 @@ nicht übernommen.
   `abgleich` (der eingebaute Abgleich mit einer privaten Ablage bei GitHub: Ablauf `engine.ts`,
   Bote `port.ts`, Zustand `state.ts`, Worte `model.ts`, Oberfläche in Einstellungen, Leiste und
   Startbildschirm; die Rechnung steht in `domain/sync.ts` und `domain/syncMerge.ts`),
+  `dungeons` (Dungeons auf dem Raster bauen: Zeichenfläche `DungeonCanvas`, Zeichner `draw.ts`,
+  Zustand `editor.ts`, rechts `Inspector.tsx`; die Rechnung steht in `domain/dungeon.ts`),
   `einstellungen`, `import`, `legendkeeper`. `index.tsx` exportiert die Seite als default.
 - `src-tauri/` – Rust-Seite: Dateizugriff auf den Kampagnenordner, Dateiüberwachung,
   LegendKeeper-Abruf, Anfragen an Claude (`ai.rs`), Abgleich (`sync/`), Schlüsselbund (`keys.rs`), Bilder (`media/` im Kampagnenordner, Schema `wfmedia`). Die Befehle stehen als Vertrag in `src/data/platform.ts`.
@@ -152,7 +155,7 @@ nicht übernommen.
 - Eine Kampagne ist ein Ordner mit JSON-Dateien: `campaign.json`, `state.json` und je Dokument eine
   Datei unter `entities/`, `relations/`, `chronicle/`, `events/`, `sessions/`, `timers/` sowie
   (seit der zweiten Welle) `maps/`, `paths/`, `journeys/`, `mounts/`, `climates/`, `weather/`,
-  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`, `assortments/`, `versions/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
+  `areas/`, `tables/`, `rests/`, `articles/`, `atlas/`, `clocks/`, `threads/`, `stories/`, `creatures/`, `encounters/`, `stocks/`, `runs/`, `nets/`, `preps/`, `loot/`, `tracks/`, `handouts/`, `bastions/`, `guesses/`, `shops/`, `assortments/`, `versions/`, `dungeons/`. Die Liste der Sammlungen steht einzig in `COLLECTION_SCHEMAS`
   (`src/domain/schema.ts`); leere Sammlungen liefert `emptyCollections()`. Eine neue Sammlung
   gehört außerdem in `LATER_COLLECTIONS` (ältere Sicherungen kennen sie nicht) und bekommt eine
   Bezeichnung in `einstellungen/backup.ts` und `einstellungen/model.ts`.
@@ -532,6 +535,36 @@ nicht übernommen.
   Diese Werkzeuge setzen `hex.dug`: Neu würfeln erzeugt das Netz neu, behält die Ausgänge solcher
   Felder (auf beiden Seiten) und alles, was an Feldern eingetragen ist; Orte auf der Karte gehen
   als feste Knoten in den Erzeuger (`GenerateInput.pinned`), damit Gänge zu ihnen führen.
+- **Dungeons** (`dungeons/`, `domain/dungeon.ts`, `features/dungeons`, eigener Eintrag „Dungeons“
+  in der Navigation; Wunsch des Spielleiters, 18. 11. 2026): Ein Dungeon ist jeder Ort mit Räumen
+  und Ebenen (Haus › Erster Stock › Schlafzimmer, Bucht › Ebene 1 › Lagerhalle), gebaut auf einem
+  Raster von fünf Fuß (`dungeon.cellFeet`). Vorbilder: Karten- und Event-Editor von RPG Maker,
+  Aussehen wie Dungeonscrawl, später ein Brett wie in den Shadowrun-Spielen (Gruppe ziehen,
+  fließend in Runden wechseln). **Schritt 1 ist nur der Editor – er steht für sich:** nichts
+  verweist auf Artikel, Orte oder das Bestiarium („die Verbindungen ziehen wir nachher“;
+  „eventuell brauchen wir keine Artikel für Dungeonräume mehr“). Die Reihenfolge danach:
+  Erkunden (Figuren, Sicht, Licht, Zeit), Dinge (Auslöser, Schalter), Bewohner, Runden,
+  Spieleransicht. **Das Raster ist nicht nur ein Bild:** Ein Feld ist Boden (`level.tiles`:
+  Boden, Geheimgang, Geröll, Wasser, Abgrund) oder Fels (kein Eintrag); ein Raum ist eine Fläche
+  (`level.roomOf`, `level.rooms`); auf Kanten sitzen Wand, Durchgang, Tür, Geheimtür, Gitter
+  (`level.edges`, Schlüssel über `edgeKey` – „x,y,n“ oben, „x,y,w“ links). Was zwischen zwei
+  Feldern liegt, sagt einzig `edgeBetween` – nie selbst über `edges` rechnen: Zwischen Räumen,
+  zwischen Raum und Gang und um jeden Geheimgang steht von selbst eine Wand; ob man durchkommt,
+  sagt `canPass` (Geheimtüren nur mit `secrets`). Ein Gang, der in einen Raum gezogen wird,
+  bekommt dort einen Durchgang, ein Geheimgang eine Geheimtür (`digPath`). Fallen
+  (`level.traps`: Auslöser-Felder, „zu bemerken von“ – leer = ringsum, `trapSpots` –, SG zum
+  Bemerken und Entschärfen, Rettungswurf, Schaden und Wirkung in den Worten des Spielleiters),
+  Etagenwechsel (`level.stairs`: Treppe, Leiter, Schacht, Falltür, Portal; verbunden nur über
+  `linkStairs` – das Gegenstück entsteht dort, die Richtung folgt der Lage der Ebenen;
+  `healStairs` löst, was kein Gegenstück mehr hat) und Markierungen (`level.markers`). Fels
+  nimmt mit, was darauf lag (`paintTiles(…, null)`). Was noch nicht zusammenpasst, sagt
+  `dungeonNotes` (Etagenwechsel ohne Ziel, Tür in den Fels, Raum ohne Zugang) – nur Hinweise.
+  Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
+  B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
+  viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),
+  Umschalt = Rechteck, „Nachbarebene zeigen“ zum Ausrichten. Gezeichnet wird auf einer Leinwand
+  (`drawScene`) aus dem, was `edgeSegments` liest; Zeiger und Verschieben stehen nie im Zustand
+  der Seite. Geschrieben wird nur über `saveLevels` (`dungeons/actions.ts`).
 - Fortbewegung: Ein Fortbewegungsmittel ist ein Eintrag in `mounts` (`domain/mounts.ts`) mit
   den Reisedaten – Art (Reittier, Fahrzeug, Schiff), Besitzer (null = die Gruppe), Tempo in
   Meilen je Stunde oder am Tag, Plätze, Ladung, Besatzung, Unterhalt, Zustand; sein Name und

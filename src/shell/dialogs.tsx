@@ -26,6 +26,7 @@ import {
   Swords,
   Tent,
   Waypoints,
+  DoorOpen,
 } from 'lucide-react';
 import { advanceTime, moveParty, setAttitude, setTime, undoTimeAdvance } from '../data/actions';
 import type { TimeAdvanceResult } from '../data/actions';
@@ -1386,6 +1387,7 @@ const SORT_ICON: Record<Exclude<SearchSort, 'entity'>, ReactNode> = {
   stock: <Tent />,
   map: <MapIcon />,
   net: <RouteIcon />,
+  dungeon: <DoorOpen />,
   track: <Gauge />,
   handout: <FileText />,
   bastion: <Castle />,

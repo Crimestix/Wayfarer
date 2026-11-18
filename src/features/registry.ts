@@ -6,6 +6,7 @@ import {
   ChartNoAxesGantt,
   Castle,
   Coins,
+  DoorOpen,
   Flame,
   Gauge,
   Globe,
@@ -172,6 +173,14 @@ export const AREAS: Area[] = [
     tabs: WORLD_TABS,
     also: ['/wiki'],
     core: true,
+  },
+  // Dungeons stehen vorerst für sich (Wunsch des Spielleiters, 18. 11. 2026: „ein eigener Bereich
+  // in der Seitenleiste … die Verbindungen ziehen wir nachher“).
+  {
+    path: '/dungeons',
+    label: 'Dungeons',
+    hint: 'Räume und Ebenen auf dem Raster bauen',
+    icon: DoorOpen,
   },
   {
     path: '/gruppe',

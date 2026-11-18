@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wayfarer-vorschau",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 1420
+    },
+    {
+      "name": "wayfarer-welt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "1431", "--strictPort"],
+      "port": 1431
+    }
+  ]
+}

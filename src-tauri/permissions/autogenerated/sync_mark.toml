@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sync-mark"
+description = "Enables the sync_mark command without any pre-configured scope."
+commands.allow = ["sync_mark"]
+
+[[permission]]
+identifier = "deny-sync-mark"
+description = "Denies the sync_mark command without any pre-configured scope."
+commands.deny = ["sync_mark"]

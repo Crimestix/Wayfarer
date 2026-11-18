@@ -90,6 +90,7 @@ const FOLDER_LABEL: Record<string, string> = {
   shops: 'Läden',
   assortments: 'Vorlagen für Ladenarten',
   versions: 'Frühere Fassung eines Artikels',
+  dungeons: 'Dungeons',
 };
 
 /** Typische Namenszusätze, die Cloud-Laufwerke und Kopierprogramme an Konfliktkopien hängen. */

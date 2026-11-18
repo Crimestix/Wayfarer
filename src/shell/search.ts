@@ -35,6 +35,7 @@ export type SearchSort =
   | 'stock'
   | 'map'
   | 'net'
+  | 'dungeon'
   | 'track'
   | 'handout'
   | 'bastion'
@@ -207,6 +208,20 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       sub: sub('Karte', name(map.placeId)),
       href: `/karten/${map.id}`,
     });
+
+  for (const dungeon of Object.values(data.dungeons)) {
+    const rooms = dungeon.levels.flatMap((level) => level.rooms.map((room) => room.name));
+    add(score(q, dungeon.name, dungeon.note, ...dungeon.levels.map((l) => l.name), ...rooms), {
+      key: `dungeon:${dungeon.id}`,
+      sort: 'dungeon',
+      label: dungeon.name,
+      sub: sub(
+        'Dungeon',
+        dungeon.levels.length === 1 ? '1 Ebene' : `${dungeon.levels.length} Ebenen`,
+      ),
+      href: `/dungeons/${dungeon.id}`,
+    });
+  }
 
   for (const net of Object.values(data.nets))
     add(score(q, net.name, net.note), {

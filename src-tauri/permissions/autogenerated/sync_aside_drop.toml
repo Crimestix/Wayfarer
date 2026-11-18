@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sync-aside-drop"
+description = "Enables the sync_aside_drop command without any pre-configured scope."
+commands.allow = ["sync_aside_drop"]
+
+[[permission]]
+identifier = "deny-sync-aside-drop"
+description = "Denies the sync_aside_drop command without any pre-configured scope."
+commands.deny = ["sync_aside_drop"]

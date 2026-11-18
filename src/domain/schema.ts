@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 36;
-export const DATA_SHAPE = '0102b4b59ddbd95c';
+export const DATA_VERSION = 37;
+export const DATA_SHAPE = '9163eb102c9552d1';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -3381,6 +3381,140 @@ export const ArticleVersionSchema = z.object({
 });
 export type ArticleVersion = z.infer<typeof ArticleVersionSchema>;
 
+// ── Dungeons ───────────────────────────────────────────────────────────────
+
+/** Ein Feld des Rasters (fünf Fuß Kantenlänge, wenn nichts anderes am Dungeon steht). */
+const dungeonCell = z.object({ x: z.number().int(), y: z.number().int() });
+export type DungeonCell = z.infer<typeof dungeonCell>;
+
+/**
+ * Was ein Feld ist. Ein Feld ohne Eintrag ist massiver Fels. `secret` ist ein Geheimgang:
+ * Boden, den die Gruppe erst kennt, wenn sie ihn gefunden hat.
+ */
+export const DUNGEON_TILES = ['floor', 'secret', 'rubble', 'water', 'chasm'] as const;
+export type DungeonTile = (typeof DUNGEON_TILES)[number];
+
+/**
+ * Was auf der Kante zwischen zwei Feldern sitzt: Wand, Durchgang, Tür, Geheimtür, Gitter. Ohne
+ * Eintrag entscheidet `edgeBetween` (`domain/dungeon.ts`): Räume haben von selbst Wände.
+ */
+export const DUNGEON_EDGES = ['wall', 'open', 'door', 'secret', 'gate'] as const;
+export type DungeonEdgeKind = (typeof DUNGEON_EDGES)[number];
+
+export const DungeonEdgeSchema = z.object({
+  kind: z.enum(DUNGEON_EDGES),
+  /** Steht offen (Tür, Gitter). */
+  opened: z.boolean().default(false),
+  locked: z.boolean().default(false),
+  /** SG, das Schloss zu öffnen; null = nicht festgelegt. */
+  lockDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** SG, sie aufzubrechen. */
+  breakDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** SG, eine Geheimtür zu finden. */
+  findDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** Nur für die Spielleitung: Schlüssel, Mechanismus, was dahinter wartet. */
+  note: z.string().default(''),
+});
+export type DungeonEdge = z.infer<typeof DungeonEdgeSchema>;
+
+export const DungeonRoomSchema = z.object({
+  id,
+  name: z.string().default(''),
+  note: z.string().default(''),
+});
+export type DungeonRoom = z.infer<typeof DungeonRoomSchema>;
+
+export const DUNGEON_SAVES = ['none', 'str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+export type DungeonSave = (typeof DUNGEON_SAVES)[number];
+
+/** Eine Falle: wo sie auslöst, von wo sie zu bemerken ist, was sie tut – in den Worten des Spielleiters. */
+export const DungeonTrapSchema = z.object({
+  id,
+  name: z.string().default(''),
+  /** Die Felder, auf denen sie auslöst. */
+  cells: z.array(dungeonCell).default([]),
+  /** Die Felder, von denen aus sie zu bemerken ist; leer = die Felder ringsum (`trapSpots`). */
+  spots: z.array(dungeonCell).default([]),
+  /** SG, sie zu bemerken (passive Wahrnehmung oder Suchen). */
+  findDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** SG, sie zu entschärfen. */
+  disarmDc: z.number().int().min(0).max(40).nullable().default(null),
+  save: z.enum(DUNGEON_SAVES).default('none'),
+  saveDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** Schaden in Worten („2W10 Stich“). */
+  damage: z.string().default(''),
+  /** Was geschieht. */
+  effect: z.string().default(''),
+  /** Löst nur einmal aus. */
+  once: z.boolean().default(false),
+  note: z.string().default(''),
+});
+export type DungeonTrap = z.infer<typeof DungeonTrapSchema>;
+
+export const DUNGEON_STAIRS = ['stairs', 'ladder', 'shaft', 'trapdoor', 'portal'] as const;
+export type DungeonStairKind = (typeof DUNGEON_STAIRS)[number];
+
+/** Ein Etagenwechsel: ein Ende auf einem Feld, verbunden mit seinem Gegenstück (`linkStairs`). */
+export const DungeonStairSchema = z.object({
+  id,
+  x: z.number().int(),
+  y: z.number().int(),
+  kind: z.enum(DUNGEON_STAIRS).default('stairs'),
+  dir: z.enum(['up', 'down']).default('down'),
+  /** Das Gegenstück; null = noch kein Ziel. */
+  to: z.object({ levelId: id, stairId: id }).nullable().default(null),
+  /** Von hier aus zu benutzen; false = nur Ankunft (Rutsche, Falltür von oben). */
+  usable: z.boolean().default(true),
+  /** Verborgen, bis gefunden. */
+  secret: z.boolean().default(false),
+  findDc: z.number().int().min(0).max(40).nullable().default(null),
+  locked: z.boolean().default(false),
+  note: z.string().default(''),
+});
+export type DungeonStair = z.infer<typeof DungeonStairSchema>;
+
+/** Eine freie Markierung auf einem Feld: Truhe, Hebel, Inschrift – ein Wort und was dazu gehört. */
+export const DungeonMarkerSchema = z.object({
+  id,
+  x: z.number().int(),
+  y: z.number().int(),
+  label: z.string().default(''),
+  note: z.string().default(''),
+});
+export type DungeonMarker = z.infer<typeof DungeonMarkerSchema>;
+
+export const DungeonLevelSchema = z.object({
+  id,
+  name: z.string().default(''),
+  /** Lage: größer = weiter oben. */
+  order: z.number().int().default(0),
+  /** Feld („x,y“) → was es ist; ohne Eintrag Fels. */
+  tiles: z.record(z.string(), z.enum(DUNGEON_TILES)).default({}),
+  /** Feld („x,y“) → Raum. */
+  roomOf: z.record(z.string(), id).default({}),
+  rooms: z.array(DungeonRoomSchema).default([]),
+  /** Kante („x,y,n“ oben am Feld, „x,y,w“ links) → was dort sitzt. */
+  edges: z.record(z.string(), DungeonEdgeSchema).default({}),
+  traps: z.array(DungeonTrapSchema).default([]),
+  stairs: z.array(DungeonStairSchema).default([]),
+  markers: z.array(DungeonMarkerSchema).default([]),
+});
+export type DungeonLevel = z.infer<typeof DungeonLevelSchema>;
+
+/**
+ * Ein Dungeon: ein Ort mit Räumen und Ebenen als Raster (`domain/dungeon.ts`). Gebaut vom
+ * Spielleiter; steht vorerst für sich (Wunsch 18. 11. 2026) – die Verbindung zur Welt folgt.
+ */
+export const DungeonSchema = z.object({
+  ...base,
+  name: z.string(),
+  note: z.string().default(''),
+  /** Kantenlänge eines Feldes in Fuß. */
+  cellFeet: z.number().int().min(1).max(100).default(5),
+  levels: z.array(DungeonLevelSchema).default([]),
+});
+export type Dungeon = z.infer<typeof DungeonSchema>;
+
 export const COLLECTION_SCHEMAS = {
   entities: EntitySchema,
   relations: RelationSchema,
@@ -3416,6 +3550,7 @@ export const COLLECTION_SCHEMAS = {
   shops: ShopSchema,
   assortments: ShopTemplateSchema,
   versions: ArticleVersionSchema,
+  dungeons: DungeonSchema,
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_SCHEMAS;
@@ -3451,6 +3586,7 @@ export const LATER_COLLECTIONS: readonly CollectionName[] = [
   'shops',
   'assortments',
   'versions',
+  'dungeons',
 ];
 
 export type CollectionTypes = {
@@ -3617,6 +3753,11 @@ export function createLoot(init: Partial<Loot> = {}): Loot {
 export function createPrep(init: Partial<Prep> = {}): Prep {
   const stamp = nowIso();
   return PrepSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
+}
+
+export function createDungeon(init: Partial<Dungeon> & { name: string }): Dungeon {
+  const stamp = nowIso();
+  return DungeonSchema.parse({ id: newId(), created: stamp, updated: stamp, ...init });
 }
 
 export function createNet(init: Partial<Net> & { name: string }): Net {
