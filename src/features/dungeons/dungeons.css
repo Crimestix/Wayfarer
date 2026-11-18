@@ -374,6 +374,7 @@
 }
 .wf-dungeon-pickrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-2);
@@ -464,8 +465,9 @@
 }
 
 /* ── Spielen ────────────────────────────────────────────────────────────── */
-.wf-dungeon-work[data-mode='play'] {
-  grid-template-columns: minmax(0, 1fr);
+.wf-dungeon-work[data-mode='play'] .wf-dungeon-work__rail {
+  /* So breit wie die Werkzeugleiste – die Karte springt beim Umschalten nicht. */
+  min-width: calc(2.4rem + 2 * var(--s-1) + 2px);
 }
 .wf-dungeon-canvas canvas[data-tool='play'] {
   cursor: pointer;

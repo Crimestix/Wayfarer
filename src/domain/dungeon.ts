@@ -10,6 +10,7 @@
  * ist reine Rechnung; geändert wird über `features/dungeons/actions.ts`.
  */
 import {
+  DungeonDwellerSchema,
   DungeonEdgeSchema,
   DungeonLevelSchema,
   DungeonMarkerSchema,
@@ -17,7 +18,9 @@ import {
   DungeonTrapSchema,
   newId,
   type Dungeon,
+  type DungeonBehave,
   type DungeonCell,
+  type DungeonDweller,
   type DungeonEdge,
   type DungeonEdgeKind,
   type DungeonLevel,
@@ -331,6 +334,12 @@ export function paintTiles(
       .filter((trap) => trap.cells.length > 0),
     stairs,
     markers: level.markers.filter((marker) => !gone.has(keyOf(marker))),
+    dwellers: level.dwellers
+      .filter((dweller) => !gone.has(keyOf(dweller)))
+      .map((dweller) => ({
+        ...dweller,
+        route: dweller.route.filter((cell) => !gone.has(keyOf(cell))),
+      })),
   });
 }
 
@@ -644,6 +653,10 @@ export function moveRoom(
     })),
     stairs: level.stairs.map(shift),
     markers: level.markers.map(shift),
+    dwellers: level.dwellers.map((dweller) => ({
+      ...shift(dweller),
+      route: dweller.route.map(shift),
+    })),
   });
 }
 
@@ -841,6 +854,100 @@ export function patchMarker(
 export const removeMarker = (level: DungeonLevel, markerId: string): DungeonLevel => ({
   ...level,
   markers: level.markers.filter((marker) => marker.id !== markerId),
+});
+
+// ── Schalter: was ein Ding bewirkt ─────────────────────────────────────────
+
+export type MarkerLink = DungeonMarker['links'][number];
+
+const sameLink = (a: MarkerLink, b: MarkerLink) =>
+  a.kind === b.kind && a.levelId === b.levelId && a.ref === b.ref;
+
+/** Verbindet ein Ding mit dem, worauf es wirkt – oder löst die Verbindung, wenn es sie schon gibt. */
+export function toggleMarkerLink(
+  level: DungeonLevel,
+  markerId: string,
+  link: MarkerLink,
+): DungeonLevel {
+  return {
+    ...level,
+    markers: level.markers.map((marker) =>
+      marker.id !== markerId
+        ? marker
+        : {
+            ...marker,
+            links: marker.links.some((l) => sameLink(l, link))
+              ? marker.links.filter((l) => !sameLink(l, link))
+              : [...marker.links, link],
+          },
+    ),
+  };
+}
+
+/** Worauf ein Schalter wirkt, in Worten: „öffnet Tür“, „entschärft Speerfalle“. Null, wenn es das Ziel nicht mehr gibt. */
+export function linkWords(dungeon: Pick<Dungeon, 'levels'>, link: MarkerLink): string | null {
+  const level = levelOf(dungeon, link.levelId);
+  if (!level) return null;
+  if (link.kind === 'edge') {
+    const edge = level.edges[link.ref];
+    if (!edge) return null;
+    const what = edgeName(edge.kind, edgeRun(level, link.ref).length);
+    return edge.kind === 'secret' ? `zeigt und öffnet ${what}` : `öffnet oder schließt ${what}`;
+  }
+  if (link.kind === 'trap') {
+    const trap = level.traps.find((t) => t.id === link.ref);
+    return trap ? `entschärft ${trap.name.trim() || 'Falle'}` : null;
+  }
+  const stair = level.stairs.find((s) => s.id === link.ref);
+  return stair ? `entriegelt ${STAIR_LABEL[stair.kind]}` : null;
+}
+
+// ── Bewohner ───────────────────────────────────────────────────────────────
+
+export const BEHAVE_LABEL: Record<DungeonBehave, string> = {
+  stay: 'bleibt an seinem Platz',
+  patrol: 'geht eine Runde',
+  hunt: 'geht auf die Gruppe los, sobald er sie bemerkt',
+};
+
+export const dwellerAt = (level: DungeonLevel, cell: DungeonCell): DungeonDweller | null =>
+  level.dwellers.find((dweller) => sameCell(dweller, cell)) ?? null;
+
+/** Der nächste freie Name „Bewohner N“. */
+function nextDwellerName(level: DungeonLevel): string {
+  const taken = new Set(level.dwellers.map((d) => d.name.trim().toLowerCase()));
+  for (let n = level.dwellers.length + 1; ; n++)
+    if (!taken.has(`bewohner ${n}`)) return `Bewohner ${n}`;
+}
+
+export function addDweller(
+  level: DungeonLevel,
+  cell: DungeonCell,
+): { level: DungeonLevel; dweller: DungeonDweller } {
+  const dweller = DungeonDwellerSchema.parse({
+    id: newId(),
+    ...cell,
+    name: nextDwellerName(level),
+  });
+  return { level: { ...level, dwellers: [...level.dwellers, dweller] }, dweller };
+}
+
+export function patchDweller(
+  level: DungeonLevel,
+  dwellerId: string,
+  change: Partial<Omit<DungeonDweller, 'id'>>,
+): DungeonLevel {
+  return {
+    ...level,
+    dwellers: level.dwellers.map((dweller) =>
+      dweller.id === dwellerId ? DungeonDwellerSchema.parse({ ...dweller, ...change }) : dweller,
+    ),
+  };
+}
+
+export const removeDweller = (level: DungeonLevel, dwellerId: string): DungeonLevel => ({
+  ...level,
+  dwellers: level.dwellers.filter((dweller) => dweller.id !== dwellerId),
 });
 
 // ── Ebenen ─────────────────────────────────────────────────────────────────
@@ -1106,7 +1213,8 @@ export type DungeonPick =
   | { type: 'edge'; key: string }
   | { type: 'trap'; id: string }
   | { type: 'stair'; id: string }
-  | { type: 'marker'; id: string };
+  | { type: 'marker'; id: string }
+  | { type: 'dweller'; id: string };
 
 export const samePick = (a: DungeonPick | null, b: DungeonPick | null): boolean =>
   !!a &&
@@ -1116,6 +1224,8 @@ export const samePick = (a: DungeonPick | null, b: DungeonPick | null): boolean 
 
 /** Was auf einem Feld liegt – Etagenwechsel vor Markierung vor Falle. */
 export function thingAt(level: DungeonLevel, cell: DungeonCell): DungeonPick | null {
+  const dweller = dwellerAt(level, cell);
+  if (dweller) return { type: 'dweller', id: dweller.id };
   const stair = stairAt(level, cell);
   if (stair) return { type: 'stair', id: stair.id };
   const marker = markerAt(level, cell);
@@ -1131,6 +1241,7 @@ export function pickExists(level: DungeonLevel, pick: DungeonPick): boolean {
   if (pick.type === 'edge') return level.edges[pick.key] !== undefined;
   if (pick.type === 'trap') return level.traps.some((trap) => trap.id === pick.id);
   if (pick.type === 'stair') return level.stairs.some((stair) => stair.id === pick.id);
+  if (pick.type === 'dweller') return level.dwellers.some((dweller) => dweller.id === pick.id);
   return level.markers.some((marker) => marker.id === pick.id);
 }
 

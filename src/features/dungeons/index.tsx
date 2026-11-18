@@ -18,6 +18,7 @@ import {
   Plus,
   Redo2,
   Shapes,
+  Skull,
   Square,
   Trash2,
   TriangleAlert,
@@ -30,6 +31,7 @@ import {
   addLevel,
   levelLine,
   levelsSorted,
+  removeDweller,
   removeEdgeRun,
   removeMarker,
   removeStair,
@@ -78,6 +80,7 @@ const TOOL_ICON: Record<Tool, ReactNode> = {
   trap: <TriangleAlert />,
   stair: <Layers />,
   marker: <MapPin />,
+  dweller: <Skull />,
   erase: <Eraser />,
 };
 
@@ -227,6 +230,7 @@ function useEditorKeys(editor: DungeonEditor, on: boolean) {
           editor.apply((d) => removeStair(d, { levelId, stairId: pick.id }));
         else if (pick.type === 'trap') editor.applyLevel((lv) => removeTrap(lv, pick.id));
         else if (pick.type === 'marker') editor.applyLevel((lv) => removeMarker(lv, pick.id));
+        else if (pick.type === 'dweller') editor.applyLevel((lv) => removeDweller(lv, pick.id));
         else if (pick.type === 'edge') editor.applyLevel((lv) => removeEdgeRun(lv, pick.key));
         else editor.applyLevel((lv) => dissolveRoom(lv, pick.id));
         editor.setSelection(null);
@@ -448,11 +452,23 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
         </div>
 
         <div className="wf-dungeon-work" data-mode={mode}>
-          {!playing && (
-            <aside className="wf-dungeon-work__rail" aria-label="Werkzeuge">
+          {/* Die Leiste bleibt auch am Tisch stehen: So liegt die Karte beim Umschalten an derselben Stelle. */}
+          <aside className="wf-dungeon-work__rail" aria-label={playing ? 'Am Tisch' : 'Werkzeuge'}>
+            {playing ? (
+              <div className="wf-dungeon-rail">
+                <IconButton
+                  label="Zurück (Strg+Z)"
+                  size="sm"
+                  disabled={!player.canBack}
+                  onClick={player.back}
+                >
+                  <Undo2 />
+                </IconButton>
+              </div>
+            ) : (
               <ToolRail editor={editor} />
-            </aside>
-          )}
+            )}
+          </aside>
           <div className="wf-dungeon-map">
             {!playing && <PickBanner editor={editor} />}
             {level && <DungeonCanvas editor={editor} play={playing ? player.control : null} />}

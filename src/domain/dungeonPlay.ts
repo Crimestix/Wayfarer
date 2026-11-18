@@ -33,6 +33,7 @@ import {
   newId,
   type Dungeon,
   type DungeonCell,
+  type DungeonEdge,
   type DungeonLevel,
   type DungeonLight,
   type DungeonPlay,
@@ -87,6 +88,9 @@ const doorKey = (levelId: string, key: string) => `${levelId}:${key}`;
  */
 export function playLevel(level: DungeonLevel, play: DungeonPlay | null): DungeonLevel {
   if (!play) return level;
+  // Dieselbe Ebene mit denselben Türen ist dasselbe Objekt – die Karte rechnet sonst jedes Mal neu.
+  const known = playLevels.get(level);
+  if (known && known.doors === play.doors) return known.out;
   let edges: DungeonLevel['edges'] | null = null;
   for (const key of Object.keys(level.edges)) {
     const state = play.doors[doorKey(level.id, key)];
@@ -94,8 +98,13 @@ export function playLevel(level: DungeonLevel, play: DungeonPlay | null): Dungeo
     edges ??= { ...level.edges };
     edges[key] = { ...level.edges[key]!, ...state };
   }
-  return edges ? { ...level, edges } : level;
+  // Am Tisch stehen die Bewohner als Figuren auf dem Brett, nicht als Zeichen der Vorbereitung.
+  const out = { ...level, edges: edges ?? level.edges, dwellers: [] };
+  playLevels.set(level, { doors: play.doors, out });
+  return out;
 }
+
+const playLevels = new WeakMap<DungeonLevel, { doors: DungeonPlay['doors']; out: DungeonLevel }>();
 
 // ── Gehen und Sehen von Feld zu Feld ───────────────────────────────────────
 
@@ -400,7 +409,8 @@ export type HaltType =
   | 'light'
   | 'spent'
   | 'no-way'
-  | 'stairs';
+  | 'stairs'
+  | 'alert';
 
 export interface Halt {
   type: HaltType;
@@ -684,7 +694,17 @@ export function moveTokens(
       }
     }
     play = rememberSight(dungeon, play);
-    if (!heroLed) continue;
+    // Der Rest des Dungeons bewegt sich mit: Runden werden gegangen, wer die Gruppe sieht, merkt auf.
+    let noticedBy: Halt | null = null;
+    if (!rounds) {
+      const stirred = stirFoes(dungeon, play, stepSeconds);
+      play = stirred.play;
+      noticedBy = stirred.halt;
+    }
+    if (!heroLed || halt) {
+      halt ??= noticedBy;
+      continue;
+    }
 
     // Eine Falle löst aus, wo jemand auf ihr Feld tritt.
     const stepped = [leader, ...followers]
@@ -727,7 +747,12 @@ export function moveTokens(
     const foes = spotFoes(dungeon, play, levelId);
     if (foes) {
       play = foes.play;
-      halt = foes.halt;
+      // Sehen sich beide zugleich, steht es in einem Halt.
+      halt = noticedBy ? { ...foes.halt, text: `${noticedBy.title}.` } : foes.halt;
+      break;
+    }
+    if (noticedBy) {
+      halt = noticedBy;
       break;
     }
     // Ein Raum, den die Gruppe zum ersten Mal betritt.
@@ -823,7 +848,8 @@ export function useStair(
   });
   const what = STAIR_LABEL[stair.kind];
   if (!target) return stop(`${what} – führt noch nirgendhin`, 'Im Editor fehlt das Ziel.');
-  if (stair.locked) return stop(`${what} – verschlossen`, stair.note.trim());
+  if (stair.locked && !play.unlocked.includes(stair.id))
+    return stop(`${what} – verschlossen`, stair.note.trim());
   if (!stair.usable) return stop(`${what} – von hier kein Weg`, 'Nur Ankunft.');
   const movers = play.tokens.filter((t) => tokenIds.includes(t.id));
   if (movers.length === 0) return null;
@@ -983,8 +1009,220 @@ export function passTime(
     next = logged(next, title);
     halt = { type: 'light', title, text: '', levelId: passed.out.levelId, pick: null, cell: null };
   }
-  return { play: rememberSight(dungeon, next), halt };
+  next = rememberSight(dungeon, next);
+  // Während die Gruppe wartet oder sucht, gehen die anderen ihre Runden.
+  if (!next.rounds) {
+    const slices = Math.min(120, Math.max(1, Math.ceil(seconds / ROUND_SECONDS)));
+    for (let i = 0; i < slices && !halt; i++) {
+      const stirred = stirFoes(dungeon, next, seconds / slices);
+      next = stirred.play;
+      halt = stirred.halt;
+    }
+    if (!halt) {
+      const levels = new Set(next.tokens.filter((t) => t.kind === 'hero').map((t) => t.levelId));
+      for (const levelId of levels) {
+        const foes = spotFoes(dungeon, next, levelId);
+        if (!foes) continue;
+        next = foes.play;
+        halt = foes.halt;
+        break;
+      }
+    }
+  }
+  return { play: next, halt };
 }
+
+// ── Bewohner: der Rest des Dungeons ────────────────────────────────────────
+
+/** So weit sieht ein Bewohner im Dunkeln, in Fuß – wer hier lebt, ist das Dunkel gewohnt. */
+export const DWELLER_SIGHT = 60;
+
+function dwellerOf(dungeon: Dungeon, token: DungeonToken) {
+  if (!token.dwellerId) return null;
+  for (const level of dungeon.levels) {
+    const dweller = level.dwellers.find((d) => d.id === token.dwellerId);
+    if (dweller) return dweller;
+  }
+  return null;
+}
+
+/** Der nächste Gefährte auf derselben Ebene. */
+function nearestHero(play: DungeonPlay, foe: DungeonToken): DungeonToken | null {
+  let best: DungeonToken | null = null;
+  let bestDist = Infinity;
+  for (const hero of play.tokens) {
+    if (hero.kind !== 'hero' || hero.levelId !== foe.levelId) continue;
+    const dist = Math.hypot(hero.x - foe.x, hero.y - foe.y);
+    if (dist < bestDist) {
+      best = hero;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/**
+ * Die Bewohner bewegen sich, während Zeit vergeht: Wer eine Runde geht, geht sie gemächlich
+ * (halbe Bewegungsrate) von Wegpunkt zu Wegpunkt; wer die Gruppe bemerkt hat und auf sie losgeht,
+ * kommt mit voller Rate. Geschlossene Türen halten sie auf. Wer einen Gefährten sieht (freie
+ * Sicht; im Dunkeln 60 Fuß, sonst so weit das Licht reicht), merkt auf – dann hält die Gruppe.
+ */
+export function stirFoes(
+  dungeon: Dungeon,
+  start: DungeonPlay,
+  seconds: number,
+): { play: DungeonPlay; halt: Halt | null } {
+  let play = start;
+  let halt: Halt | null = null;
+  const feet = dungeon.cellFeet;
+  for (const token of start.tokens) {
+    if (token.kind !== 'foe' || token.hp === 0) continue;
+    const dweller = dwellerOf(dungeon, token);
+    const level = levelOf(dungeon, token.levelId);
+    if (!level) continue;
+    let foe = token;
+    const hunting = foe.alert && dweller?.behave === 'hunt';
+    const patrolling = !foe.alert && dweller?.behave === 'patrol' && dweller.route.length > 0;
+    if (hunting || patrolling) {
+      let budget = foe.carry + (seconds / ROUND_SECONDS) * foe.speed * (hunting ? 1 : 0.5);
+      const stops = dweller ? [...dweller.route, { x: dweller.x, y: dweller.y }] : [];
+      for (let guard = 0; budget >= feet && guard < 40; guard++) {
+        const here = { x: foe.x, y: foe.y };
+        let goal: DungeonCell;
+        if (hunting) {
+          const hero = nearestHero(play, foe);
+          if (!hero || Math.max(Math.abs(hero.x - foe.x), Math.abs(hero.y - foe.y)) <= 1) break;
+          goal = { x: hero.x, y: hero.y };
+        } else {
+          goal = stops[foe.routeAt % stops.length]!;
+          if (sameCell(goal, here)) {
+            foe = { ...foe, routeAt: (foe.routeAt + 1) % stops.length };
+            continue;
+          }
+        }
+        const route = routeBetween({ ...dungeon, play }, foe.levelId, here, goal);
+        const next = route?.cells[1];
+        if (!next) break;
+        // Türen öffnen sie nicht – davor bleiben sie stehen.
+        const ctx = ctxOf(level, play);
+        const straight = next.x === here.x || next.y === here.y;
+        if (straight && walkStep(ctx, here, next) !== 'open') break;
+        const cost = stepFeet(ctx.level, next, feet);
+        if (budget < cost) break;
+        budget -= cost;
+        foe = { ...foe, x: next.x, y: next.y };
+      }
+      foe = { ...foe, carry: Math.min(budget, foe.speed) };
+    }
+    // Sieht er jemanden?
+    if (!foe.alert) {
+      const ctx = ctxOf(level, play);
+      const here = { x: foe.x, y: foe.y };
+      const lit = level.lit ? null : litCells(ctx, play, feet);
+      const seen = play.tokens.find((hero) => {
+        if (hero.kind !== 'hero' || hero.levelId !== foe.levelId) return false;
+        const dist = Math.hypot(hero.x - foe.x, hero.y - foe.y) * feet;
+        const bright = lit === null || lit.has(cellKey(hero.x, hero.y));
+        if (dist > (bright ? SIGHT_CAP : DWELLER_SIGHT)) return false;
+        return lineOfSight(ctx, here, { x: hero.x, y: hero.y });
+      });
+      if (seen) {
+        foe = { ...foe, alert: true };
+        if (!halt) {
+          const title = `${foe.name.trim() || 'Jemand'} hat die Gruppe bemerkt`;
+          play = logged(play, title);
+          halt = {
+            type: 'alert',
+            title,
+            text: dweller?.note.trim() ?? '',
+            levelId: foe.levelId,
+            pick: null,
+            cell: here,
+          };
+        }
+      }
+    }
+    if (foe !== token)
+      play = { ...play, tokens: play.tokens.map((t) => (t.id === foe.id ? foe : t)) };
+  }
+  return { play, halt };
+}
+
+/** In Runden: Der Gegner am Zug geht auf den nächsten Gefährten zu, so weit seine Bewegung reicht. */
+export function foeTurn(dungeon: Dungeon, tokenId: string): MoveResult | null {
+  const play = dungeon.play;
+  const foe = play?.tokens.find((t) => t.id === tokenId);
+  if (!play || !foe) return null;
+  const hero = nearestHero(play, foe);
+  if (!hero) return null;
+  const route = routeBetween(dungeon, foe.levelId, { x: foe.x, y: foe.y }, hero);
+  const goal = route?.cells[route.cells.length - 2];
+  if (!goal || sameCell(goal, foe)) return { play, halt: null, feet: 0 };
+  return moveTokens(dungeon, [tokenId], goal);
+}
+
+// ── Schalter ───────────────────────────────────────────────────────────────
+
+/**
+ * Jemand benutzt ein Ding mit Wirkung (einen Hebel): Türen und Gitter gehen auf oder zu,
+ * Geheimtüren zeigen und öffnen sich, Fallen sind entschärft, Etagenwechsel entriegelt.
+ */
+export function useMarker(dungeon: Dungeon, levelId: string, markerId: string): DungeonPlay | null {
+  let play: DungeonPlay | null = dungeon.play;
+  const marker = levelOf(dungeon, levelId)?.markers.find((m) => m.id === markerId);
+  if (!play || !marker) return play;
+  for (const link of marker.links) {
+    const level = levelOf(dungeon, link.levelId);
+    if (!level) continue;
+    if (link.kind === 'edge') {
+      const edge: DungeonEdge | undefined = playLevel(level, play).edges[link.ref];
+      if (!edge) continue;
+      if (edge.kind === 'secret')
+        play = setFound(
+          play,
+          edgeRun(level, link.ref).map((k) => edgeFoundKey(link.levelId, k)),
+          true,
+        );
+      play =
+        setDoor({ ...dungeon, play }, link.levelId, link.ref, {
+          opened: !edge.opened,
+          locked: false,
+        }) ?? play;
+    } else if (link.kind === 'trap') play = setTrapDisarmed(play, link.ref, true);
+    else if (!play.unlocked.includes(link.ref))
+      play = { ...play, unlocked: [...play.unlocked, link.ref] };
+  }
+  return rememberSight(
+    dungeon,
+    logged(play, `${marker.label.trim() || 'Ein Schalter'} wird benutzt`),
+  );
+}
+
+// ── Initiative, Weltzeit ───────────────────────────────────────────────────
+
+/** Würfelt Initiative für alle, die noch keine haben: W20 plus Bonus. */
+export function rollInits(
+  play: DungeonPlay,
+  die: (sides: number) => number,
+  bonusOf: (token: DungeonToken) => number,
+): DungeonPlay {
+  return {
+    ...play,
+    tokens: play.tokens.map((token) =>
+      token.init === null ? { ...token, init: die(20) + bonusOf(token) } : token,
+    ),
+  };
+}
+
+/** Ganze Minuten im Dungeon, die noch nicht in die Weltzeit übernommen sind. */
+export const unsyncedMinutes = (play: DungeonPlay): number =>
+  Math.floor((play.seconds - play.synced) / 60);
+
+/** Merkt, dass diese Minuten in der Weltzeit stehen. */
+export const markSynced = (play: DungeonPlay, minutes: number): DungeonPlay => ({
+  ...play,
+  synced: play.synced + minutes * 60,
+});
 
 // ── Figuren ────────────────────────────────────────────────────────────────
 
@@ -1007,13 +1245,30 @@ export function startPlay(
   if (!level || !isWalkable(tileAt(level, at))) return null;
   const spots = landing(level, at, heroes.length);
   const play = DungeonPlaySchema.parse({
-    tokens: heroes.map((hero, index) => ({
-      id: newId(),
-      kind: 'hero',
-      levelId,
-      ...spots[index]!,
-      ...hero,
-    })),
+    tokens: [
+      ...heroes.map((hero, index) => ({
+        id: newId(),
+        kind: 'hero',
+        levelId,
+        ...spots[index]!,
+        ...hero,
+      })),
+      // Wer vorbereitet wartet, steht auf seinem Platz.
+      ...dungeon.levels.flatMap((lv) =>
+        lv.dwellers.map((dweller) => ({
+          id: newId(),
+          kind: 'foe',
+          levelId: lv.id,
+          x: dweller.x,
+          y: dweller.y,
+          name: dweller.name,
+          speed: dweller.speed,
+          dwellerId: dweller.id,
+          hp: dweller.hp,
+          hpMax: dweller.hp,
+        })),
+      ),
+    ],
   });
   const roomId = roomAt(level, at);
   return rememberSight(dungeon, { ...play, rooms: roomId ? [roomId] : [] });

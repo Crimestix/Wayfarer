@@ -11,7 +11,9 @@ import {
   addToken,
   edgeFoundKey,
   endRounds,
+  foeTurn,
   hiddenNear,
+  markSynced,
   moveTokens,
   nextTurn,
   passTime,
@@ -20,6 +22,7 @@ import {
   playLevel,
   playerLevel,
   removeToken,
+  rollInits,
   routeBetween,
   setDoor,
   setFound,
@@ -27,6 +30,8 @@ import {
   setTrapDisarmed,
   startPlay,
   startRounds,
+  unsyncedMinutes,
+  useMarker as pullMarker,
   useStair as takeStair,
   visibleCells,
   LIGHT_LABEL,
@@ -43,6 +48,8 @@ import type {
   DungeonPlay,
   DungeonToken,
 } from '../../domain/schema';
+import { advanceAndReport } from '../../shell/dialogs';
+import { fairDie } from '../bestiarium/model';
 import { marchRows } from '../gruppe/march';
 import type { PlayControl } from './DungeonCanvas';
 import type { DungeonEditor } from './editor';
@@ -192,6 +199,8 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
             selected: movers.some((m) => m.id === t.id),
             turn: play.rounds?.turn === t.id,
             light: t.light !== 'none',
+            down: t.hp === 0,
+            alert: t.kind === 'foe' && t.alert && !playerView,
           })),
       },
       tokenAt: (cell) => tokensHere.find((t) => t.x === cell.x && t.y === cell.y)?.id ?? null,
@@ -386,6 +395,52 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     if (turn && turn.levelId !== levelId) editor.openLevel(turn.levelId);
   }, [write, levelId, editor]);
 
+  /** Jemand benutzt einen Hebel oder ein anderes Ding mit Wirkung. */
+  const useThing = useCallback(
+    (markerId: string) => {
+      const next = pullMarker(latest.current, levelId, markerId);
+      if (next) write(next);
+      setHalt(null);
+    },
+    [levelId, write],
+  );
+
+  /** Würfelt Initiative, wo noch keine steht: W20 plus Bonus des Gefährten oder Bewohners. */
+  const rollInit = useCallback(() => {
+    const now = latest.current.play;
+    if (!now) return;
+    const data = db.getSnapshot();
+    const dwellers = new Map(
+      latest.current.levels.flatMap((l) => l.dwellers.map((d) => [d.id, d.initBonus] as const)),
+    );
+    write(
+      rollInits(now, fairDie, (token) => {
+        if (token.dwellerId) return dwellers.get(token.dwellerId) ?? 0;
+        const hero = token.characterId ? data.entities[token.characterId] : undefined;
+        return hero?.kind === 'character' ? (hero.character.initiative ?? 0) : 0;
+      }),
+    );
+  }, [db, write]);
+
+  /** In Runden: Der Gegner am Zug geht auf den nächsten Gefährten zu. */
+  const foeMove = useCallback(
+    (tokenId: string) => {
+      const result = foeTurn(latest.current, tokenId);
+      if (result) settle(result.play, result.halt);
+    },
+    [settle],
+  );
+
+  /** Übernimmt die im Dungeon vergangenen Minuten in die Weltzeit – nur auf Klick. */
+  const syncTime = useCallback(() => {
+    const now = latest.current.play;
+    if (!now) return;
+    const minutes = unsyncedMinutes(now);
+    if (minutes < 1) return;
+    advanceAndReport(db, db.getSnapshot().state.now + minutes);
+    write(markSynced(now, minutes), false);
+  }, [db, write]);
+
   const restart = useCallback(() => {
     write(null);
     setSelected([]);
@@ -425,6 +480,10 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     remove,
     rounds,
     endTurn,
+    useThing,
+    rollInit,
+    foeMove,
+    syncTime,
     restart,
   };
 }

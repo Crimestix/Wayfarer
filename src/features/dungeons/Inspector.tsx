@@ -6,10 +6,13 @@
 import { ArrowDown, ArrowUp, CornerDownRight, Crosshair, Trash2, Unlink } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  BEHAVE_LABEL,
   EDGE_LABEL,
   edgeName,
   edgeRun,
+  patchDweller,
   patchEdgeRun,
+  removeDweller,
   removeEdgeRun,
   SAVE_LABEL,
   STAIR_LABEL,
@@ -24,6 +27,7 @@ import {
   findStair,
   isFloor,
   levelBeside,
+  linkWords,
   levelsSorted,
   moveLevel,
   patchMarker,
@@ -41,16 +45,19 @@ import {
   roundOf,
   stairLine,
   thingName,
+  toggleMarkerLink,
   trapLine,
   unlinkStair,
   withLevel,
 } from '../../domain/dungeon';
 import {
+  DUNGEON_BEHAVES,
   DUNGEON_EDGES,
   DUNGEON_SAVES,
   DUNGEON_STAIRS,
   DUNGEON_THINGS,
   DUNGEON_TILES,
+  type DungeonDweller,
   type DungeonEdge,
   type DungeonEdgeKind,
   type DungeonLevel,
@@ -787,6 +794,7 @@ function StairBox({
 function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonMarker }) {
   const patch = (change: Partial<Omit<DungeonMarker, 'id'>>) =>
     editor.applyLevel((lv) => patchMarker(lv, marker.id, change));
+  const linking = editor.pickMode?.type === 'marker-link' && editor.pickMode.markerId === marker.id;
   return (
     <Panel
       title={THING_LABEL[marker.kind]}
@@ -822,12 +830,145 @@ function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonM
             onSave={(label) => patch({ label })}
           />
         </Field>
+        <div className="wf-dungeon-span">
+          <h4 className="wf-section-title">Wirkt auf</h4>
+          {marker.links.length === 0 ? (
+            <p className="wf-dungeon-hint">
+              Ein Hebel, eine Druckplatte, ein Rad: Wähle, was geschieht, wenn jemand es benutzt.
+            </p>
+          ) : (
+            marker.links.map((link) => (
+              <div key={`${link.kind}:${link.levelId}:${link.ref}`} className="wf-dungeon-pickrow">
+                <span>{linkWords(editor.dungeon, link) ?? 'gibt es nicht mehr'}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => editor.applyLevel((lv) => toggleMarkerLink(lv, marker.id, link))}
+                >
+                  lösen
+                </Button>
+              </div>
+            ))
+          )}
+          <Button
+            size="sm"
+            icon={<Crosshair />}
+            aria-pressed={linking}
+            onClick={() =>
+              editor.setPickMode(linking ? null : { type: 'marker-link', markerId: marker.id })
+            }
+          >
+            {linking ? 'Fertig' : 'Ziel wählen'}
+          </Button>
+        </div>
         <Field label="Nur für dich">
           <Written
             label="Notiz zur Markierung"
             grow
             value={marker.note}
             placeholder="Was ist damit?"
+            onSave={(note) => patch({ note })}
+          />
+        </Field>
+      </div>
+    </Panel>
+  );
+}
+
+function DwellerBox({ editor, dweller }: { editor: DungeonEditor; dweller: DungeonDweller }) {
+  const patch = (change: Partial<Omit<DungeonDweller, 'id'>>) =>
+    editor.applyLevel((lv) => patchDweller(lv, dweller.id, change));
+  const routing =
+    editor.pickMode?.type === 'dweller-route' && editor.pickMode.dwellerId === dweller.id;
+  return (
+    <Panel
+      title="Bewohner"
+      actions={
+        <RemoveButton
+          label="Bewohner entfernen"
+          onClick={() => {
+            editor.setPickMode(null);
+            editor.applyLevel((lv) => removeDweller(lv, dweller.id));
+            editor.setSelection(null);
+          }}
+        />
+      }
+    >
+      <div className="wf-dungeon-form">
+        <Field label="Name">
+          <Written
+            label="Name des Bewohners"
+            value={dweller.name}
+            selectAll
+            onSave={(name) => patch({ name })}
+          />
+        </Field>
+        <Field label="Was er tut">
+          <Select
+            value={dweller.behave}
+            onChange={(event) => patch({ behave: event.target.value as DungeonDweller['behave'] })}
+          >
+            {DUNGEON_BEHAVES.map((behave) => (
+              <option key={behave} value={behave}>
+                {BEHAVE_LABEL[behave]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {dweller.behave === 'patrol' && (
+          <div className="wf-dungeon-pickrow">
+            <span>
+              {dweller.route.length === 0
+                ? 'Noch ohne Wegpunkte'
+                : dweller.route.length === 1
+                  ? 'Runde über 1 Wegpunkt'
+                  : `Runde über ${dweller.route.length} Wegpunkte`}
+            </span>
+            <span className="wf-dungeon-pickrow__actions">
+              {dweller.route.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => patch({ route: [] })}>
+                  leeren
+                </Button>
+              )}
+              <Button
+                size="sm"
+                aria-pressed={routing}
+                onClick={() =>
+                  editor.setPickMode(
+                    routing ? null : { type: 'dweller-route', dwellerId: dweller.id },
+                  )
+                }
+              >
+                {routing ? 'Fertig' : 'Wegpunkte wählen'}
+              </Button>
+            </span>
+          </div>
+        )}
+        <div className="wf-dungeon-dcs">
+          <DcField
+            label="Bewegung"
+            value={dweller.speed}
+            onSave={(speed) => patch({ speed: Math.min(300, speed ?? 30) })}
+          />
+          <DcField
+            label="Trefferpunkte"
+            value={dweller.hp}
+            onSave={(hp) => patch({ hp: hp || null })}
+          />
+        </div>
+        <div className="wf-dungeon-dcs">
+          <DcField
+            label="Initiative +"
+            value={dweller.initBonus}
+            onSave={(initBonus) => patch({ initBonus: Math.min(20, initBonus ?? 0) })}
+          />
+        </div>
+        <Field label="Nur für dich">
+          <Written
+            label="Notiz zum Bewohner"
+            grow
+            value={dweller.note}
+            placeholder="Was will er? Wie reagiert er auf die Gruppe?"
             onSave={(note) => patch({ note })}
           />
         </Field>
@@ -863,6 +1004,10 @@ export function SelectionPanel({ editor }: { editor: DungeonEditor }) {
   if (selection.type === 'stair') {
     const stair = level.stairs.find((s) => s.id === selection.id);
     return stair ? <StairBox key={stair.id} editor={editor} level={level} stair={stair} /> : null;
+  }
+  if (selection.type === 'dweller') {
+    const dweller = level.dwellers.find((d) => d.id === selection.id);
+    return dweller ? <DwellerBox key={dweller.id} editor={editor} dweller={dweller} /> : null;
   }
   const marker = level.markers.find((m) => m.id === selection.id);
   return marker ? <MarkerBox key={marker.id} editor={editor} marker={marker} /> : null;
@@ -918,7 +1063,12 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
     if (ok) editor.apply((d) => removeLevel(d, level.id));
   };
   const empty =
-    level.rooms.length + level.traps.length + level.stairs.length + level.markers.length === 0;
+    level.rooms.length +
+      level.traps.length +
+      level.stairs.length +
+      level.markers.length +
+      level.dwellers.length ===
+    0;
   return (
     <Panel
       title="Diese Ebene"
@@ -1021,6 +1171,26 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
                 }
               >
                 {stairLine(dungeon, stair)}
+              </Row>
+            ))}
+          </div>
+        )}
+        {level.dwellers.length > 0 && (
+          <div className="wf-dungeon-list">
+            <h4 className="wf-section-title">Bewohner</h4>
+            {level.dwellers.map((dweller) => (
+              <Row
+                key={dweller.id}
+                sub={BEHAVE_LABEL[dweller.behave]}
+                onClick={() =>
+                  editor.reveal(
+                    level.id,
+                    { type: 'dweller', id: dweller.id },
+                    { x: dweller.x, y: dweller.y },
+                  )
+                }
+              >
+                {dweller.name.trim() || 'Bewohner'}
               </Row>
             ))}
           </div>

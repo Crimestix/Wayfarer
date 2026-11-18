@@ -238,6 +238,10 @@ export interface TokenDraw {
   /** In Runden am Zug. */
   turn: boolean;
   light: boolean;
+  /** Besiegt (keine Trefferpunkte mehr). */
+  down: boolean;
+  /** Hat die Gruppe bemerkt. */
+  alert: boolean;
 }
 
 export interface PlayOverlay {
@@ -467,6 +471,82 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   for (const seg of parsed.openings) drawOpening(ctx, seg, sx, sy, z, wallWidth, palette);
   ctx.lineCap = 'butt';
 
+  // Bewohner, wie sie vorbereitet sind: ihr Platz und ihre Runde.
+  for (const dweller of level.dwellers) {
+    const chosen = scene.selection?.type === 'dweller' && scene.selection.id === dweller.id;
+    if (dweller.route.length > 0) {
+      ctx.strokeStyle = palette.blood;
+      ctx.globalAlpha = chosen ? 0.95 : 0.45;
+      ctx.lineWidth = Math.max(1.5, z * 0.06);
+      ctx.setLineDash([z * 0.16, z * 0.14]);
+      ctx.beginPath();
+      ctx.moveTo(sx(dweller.x + 0.5), sy(dweller.y + 0.5));
+      for (const stop of dweller.route) ctx.lineTo(sx(stop.x + 0.5), sy(stop.y + 0.5));
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = palette.blood;
+      dweller.route.forEach((stop) => {
+        ctx.beginPath();
+        ctx.arc(sx(stop.x + 0.5), sy(stop.y + 0.5), Math.max(2.5, z * 0.09), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+    const cx = sx(dweller.x + 0.5);
+    const cy = sy(dweller.y + 0.5);
+    ctx.fillStyle = palette.blood;
+    ctx.beginPath();
+    ctx.arc(cx, cy, z * 0.36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = chosen ? palette.gold : palette.wall;
+    ctx.lineWidth = chosen ? 2.5 : 1.5;
+    ctx.stroke();
+    if (z >= 14) {
+      ctx.fillStyle = palette.floor;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const name = dweller.name.trim() || '?';
+      ctx.font = `700 ${Math.max(10, z * 0.32)}px ${palette.font}`;
+      ctx.fillText(name.slice(0, 1).toUpperCase() + (z >= 24 ? name.slice(1, 2) : ''), cx, cy + 1);
+    }
+  }
+  // Worauf ein gewählter Schalter wirkt.
+  if (scene.selection?.type === 'marker') {
+    const id = scene.selection.id;
+    const marker = level.markers.find((m) => m.id === id);
+    ctx.strokeStyle = palette.gold;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 3]);
+    for (const link of marker?.links ?? []) {
+      if (link.levelId !== level.id || !marker) continue;
+      let tx: number | null = null;
+      let ty = 0;
+      if (link.kind === 'edge') {
+        const run = edgeRun(level, link.ref);
+        const a = cellsOfEdge(run[0]!);
+        const b = cellsOfEdge(run[run.length - 1]!);
+        tx = (a.b.x + b.b.x + (a.side === 'n' ? 1 : 0)) / 2;
+        ty = (a.b.y + b.b.y + (a.side === 'w' ? 1 : 0)) / 2;
+      } else if (link.kind === 'trap') {
+        const cell = level.traps.find((t) => t.id === link.ref)?.cells[0];
+        if (cell) [tx, ty] = [cell.x + 0.5, cell.y + 0.5];
+      } else {
+        const stair = level.stairs.find((s) => s.id === link.ref);
+        if (stair) [tx, ty] = [stair.x + 0.5, stair.y + 0.5];
+      }
+      if (tx === null) continue;
+      ctx.beginPath();
+      ctx.moveTo(sx(marker.x + 0.5), sy(marker.y + 0.5));
+      ctx.lineTo(sx(tx), sy(ty));
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx(tx), sy(ty), Math.max(3, z * 0.12), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
   // Was auf Feldern liegt.
   for (const trap of level.traps) {
     const first = trap.cells[0];
@@ -559,6 +639,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
         ctx.fill();
         ctx.globalAlpha = 1;
       }
+      // Wer besiegt ist, liegt blass da.
+      const down = token.down;
+      ctx.globalAlpha = down ? 0.35 : 1;
       ctx.fillStyle = token.kind === 'hero' ? palette.wall : palette.blood;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -575,6 +658,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
           z >= 24 ? name.slice(0, 1).toUpperCase() + name.slice(1, 2) : name[0]!.toUpperCase();
         ctx.font = `700 ${Math.max(10, z * (short.length > 1 ? 0.32 : 0.4))}px ${palette.font}`;
         ctx.fillText(short, cx, cy + 1);
+      }
+      ctx.globalAlpha = 1;
+      if (token.alert && !down) {
+        // Hat die Gruppe bemerkt: ein Ausrufezeichen an der Figur.
+        ctx.fillStyle = palette.gold;
+        ctx.font = `700 ${Math.max(11, z * 0.5)}px ${palette.font}`;
+        ctx.fillText('!', cx + r, cy - r);
       }
     }
   }

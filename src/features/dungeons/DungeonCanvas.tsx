@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import {
+  addDweller,
   addMarker,
   addRoom,
   addStair,
@@ -13,7 +14,9 @@ import {
   brushCells,
   cellsOfEdge,
   digPath,
+  dwellerAt,
   edgeKey,
+  edgeRun,
   isFloor,
   levelBeside,
   levelBounds,
@@ -22,8 +25,10 @@ import {
   markerAt,
   moveRoom,
   paintTiles,
+  patchDweller,
   patchTrap,
   rectCells,
+  removeDweller,
   removeEdgeRun,
   removeMarker,
   removeStair,
@@ -37,6 +42,7 @@ import {
   stairAt,
   thingAt,
   toggleCell,
+  toggleMarkerLink,
   trapAt,
   type DungeonPick,
   type Side,
@@ -206,7 +212,8 @@ export function DungeonCanvas({
         ed.tool === 'room' ||
         ed.tool === 'trap' ||
         ed.tool === 'stair' ||
-        ed.tool === 'marker'
+        ed.tool === 'marker' ||
+        ed.tool === 'dweller'
       )
         hoverCells = [h.cell];
       else if (ed.tool === 'wall' || ed.tool === 'door') hoverEdge = h.edge;
@@ -216,7 +223,11 @@ export function DungeonCanvas({
     }
     const mode = ed.pickMode;
     const trap =
-      mode && mode.type !== 'stair-target' ? lv.traps.find((t) => t.id === mode.trapId) : null;
+      mode?.type === 'trap-cells' || mode?.type === 'trap-spots'
+        ? lv.traps.find((t) => t.id === mode.trapId)
+        : null;
+    const walker =
+      mode?.type === 'dweller-route' ? lv.dwellers.find((d) => d.id === mode.dwellerId) : null;
     const sorted = [...ed.dungeon.levels].sort((a, b) => b.order - a.order);
     const index = sorted.findIndex((l) => l.id === lv.id);
     drawScene(ctx, {
@@ -232,7 +243,13 @@ export function DungeonCanvas({
       play: shown,
       hoverCells,
       hoverEdge,
-      pickCells: trap ? (mode?.type === 'trap-spots' ? trap.spots : trap.cells) : null,
+      pickCells: walker
+        ? walker.route
+        : trap
+          ? mode?.type === 'trap-spots'
+            ? trap.spots
+            : trap.cells
+          : null,
     });
   }, [viewOf]);
 
@@ -415,6 +432,36 @@ export function DungeonCanvas({
       toast({ title: 'Verbunden – der Weg führt in beide Richtungen.', slot: 'dungeon' });
       return;
     }
+    if (mode?.type === 'dweller-route') {
+      ed.applyLevel((level) => {
+        const dweller = level.dwellers.find((d) => d.id === mode.dwellerId);
+        if (!dweller || !isFloor(level, cell)) return level;
+        return patchDweller(level, dweller.id, { route: toggleCell(dweller.route, cell) });
+      });
+      return;
+    }
+    if (mode?.type === 'marker-link') {
+      // Eine Kante, wenn der Klick nah an einer Tür lag; sonst, was auf dem Feld liegt.
+      const edge = hit.edgeDist < EDGE_NEAR ? lv.edges[hit.edge] : undefined;
+      const thing = thingAt(lv, cell);
+      const link =
+        edge && edge.kind !== 'wall' && edge.kind !== 'open'
+          ? { kind: 'edge' as const, levelId: lv.id, ref: edgeRun(lv, hit.edge)[0]! }
+          : thing?.type === 'trap' || thing?.type === 'stair'
+            ? { kind: thing.type, levelId: lv.id, ref: thing.id }
+            : null;
+      if (!link) return;
+      // Der Schalter kann auf einer anderen Ebene liegen als sein Ziel.
+      ed.apply((d) => ({
+        ...d,
+        levels: d.levels.map((level) =>
+          level.markers.some((m) => m.id === mode.markerId)
+            ? toggleMarkerLink(level, mode.markerId, link)
+            : level,
+        ),
+      }));
+      return;
+    }
     if (mode) {
       const field = mode.type === 'trap-cells' ? 'cells' : 'spots';
       ed.applyLevel((level) => {
@@ -531,9 +578,25 @@ export function DungeonCanvas({
         ed.setSelection({ type: 'marker', id: markerId });
         return;
       }
+      case 'dweller': {
+        const there = dwellerAt(lv, cell);
+        if (there) {
+          ed.setSelection({ type: 'dweller', id: there.id });
+          return;
+        }
+        let dwellerId = '';
+        ed.applyLevel((level) => {
+          const made = addDweller(floored(level, cell), cell);
+          dwellerId = made.dweller.id;
+          return made.level;
+        });
+        ed.setSelection({ type: 'dweller', id: dwellerId });
+        return;
+      }
       case 'erase': {
         const thing = thingAt(lv, cell);
-        if (thing?.type === 'stair')
+        if (thing?.type === 'dweller') ed.applyLevel((level) => removeDweller(level, thing.id));
+        else if (thing?.type === 'stair')
           ed.apply((d) => removeStair(d, { levelId: lv.id, stairId: thing.id }));
         else if (thing?.type === 'marker') ed.applyLevel((level) => removeMarker(level, thing.id));
         else if (thing?.type === 'trap') ed.applyLevel((level) => removeTrap(level, thing.id));

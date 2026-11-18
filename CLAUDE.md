@@ -601,7 +601,22 @@ nicht übernommen.
   **Nie ein Verbot:** Jede Figur lässt sich von Hand ziehen (`placeToken`, ohne Regeln und Zeit),
   alles lässt sich von Hand als gefunden, offen, entschärft setzen; „Zurück“ (Strg+Z) nimmt den
   letzten Schritt am Tisch zurück, „Neu beginnen“ nur den Stand. Die Zeit des Dungeons ist
-  vorerst eine eigene Uhr – sie stellt die Weltzeit nicht vor (Verbindung folgt).
+  eine eigene Uhr – sie stellt die Weltzeit nie von selbst vor.
+  **Bewohner und Schalter** (Schritte 3 und 4 in schlanker Form, 18. 11.): Ein Bewohner
+  (`level.dwellers`, Werkzeug „Bewohner“, Taste G) steht an seinem Platz, geht eine Runde über
+  Wegpunkte (`route`) oder geht auf die Gruppe los, sobald er sie bemerkt (`BEHAVE_LABEL`); dazu
+  Bewegung, Trefferpunkte, Initiative-Bonus, Notiz – Werte aus dem Bestiarium folgen. Beim
+  Aufstellen wird er eine Figur (`token.dwellerId`). `stirFoes` bewegt die Bewohner, während
+  Zeit vergeht (Runde in halber Rate, Jagd in voller; Türen öffnen sie nicht) und lässt sie
+  aufmerken, wenn sie einen Gefährten sehen (`token.alert`, Halt `alert`; im Dunkeln 60 Fuß) –
+  aufgerufen aus `moveTokens` und `passTime`, nie in Runden; dort geht der Gegner am Zug über
+  `foeTurn` auf den Nächsten zu. Ein Ding der Einrichtung kann wirken (`marker.links`, im Editor
+  „Wirkt auf … Ziel wählen“, `toggleMarkerLink`, in Worten `linkWords`): „Benutzen“ am Tisch
+  (`useMarker`) öffnet oder schließt Türen und Gitter, zeigt und öffnet Geheimtüren, entschärft
+  Fallen, entriegelt Etagenwechsel (`play.unlocked`). Figuren führen Trefferpunkte (`token.hp`,
+  0 = besiegt, bewegt sich nicht mehr von selbst); „Initiative würfeln“ (`rollInits` mit
+  `fairDie`) würfelt nur, wo keine steht. Die Minuten des Dungeons übernimmt „Übernehmen“ in die
+  Weltzeit (`unsyncedMinutes`, `markSynced`, über `advanceAndReport`) – nur auf Klick.
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),

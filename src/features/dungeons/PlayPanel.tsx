@@ -11,6 +11,7 @@ import {
   edgeName,
   edgeRun,
   findStair,
+  linkWords,
   trapLine,
 } from '../../domain/dungeon';
 import {
@@ -23,6 +24,7 @@ import {
   trapFoundKey,
   trapState,
   turnOrder,
+  unsyncedMinutes,
 } from '../../domain/dungeonPlay';
 import {
   DUNGEON_LIGHTS,
@@ -304,7 +306,19 @@ function PickBox({
           {marker.note.trim() ? (
             <p className="wf-dungeon-gmnote">{marker.note}</p>
           ) : (
-            <Fact>Dazu steht nichts.</Fact>
+            marker.links.length === 0 && <Fact>Dazu steht nichts.</Fact>
+          )}
+          {marker.links.map((link) => (
+            <Fact key={`${link.kind}:${link.levelId}:${link.ref}`}>
+              Wirkt: {linkWords(editor.dungeon, link) ?? 'auf etwas, das es nicht mehr gibt'}.
+            </Fact>
+          ))}
+          {marker.links.length > 0 && (
+            <div className="wf-dungeon-actions">
+              <Button size="sm" variant="primary" onClick={() => player.useThing(marker.id)}>
+                Benutzen
+              </Button>
+            </div>
           )}
         </div>
       </Panel>
@@ -367,7 +381,23 @@ function TokenBox({ player, token }: { player: DungeonPlayer; token: DungeonToke
             onSave={(init) => player.token(token.id, { init })}
           />
         </div>
-        <Fact>Bewegung{token.kind === 'hero' ? ' und Dunkelsicht' : ''} in Fuß.</Fact>
+        <div className="wf-dungeon-dcs">
+          <NumberLine
+            label="Trefferpunkte"
+            value={token.hp}
+            onSave={(hp) => player.token(token.id, { hp: hp === null ? null : Math.max(0, hp) })}
+          />
+          <NumberLine
+            label="von"
+            value={token.hpMax}
+            onSave={(hpMax) => player.token(token.id, { hpMax: hpMax && hpMax > 0 ? hpMax : null })}
+          />
+        </div>
+        <Fact>
+          Bewegung{token.kind === 'hero' ? ' und Dunkelsicht' : ''} in Fuß.
+          {token.hp === 0 ? ' Besiegt – bewegt sich nicht mehr von selbst.' : ''}
+          {token.kind === 'foe' && token.alert && token.hp !== 0 ? ' Hat die Gruppe bemerkt.' : ''}
+        </Fact>
         {token.kind === 'hero' && (
           <>
             <div className="wf-dungeon-dcs">
@@ -477,6 +507,20 @@ function GroupPanel({ player, editor }: { player: DungeonPlayer; editor: Dungeon
             <Button size="sm" variant="primary" onClick={player.endTurn}>
               Zug beenden
             </Button>
+            {play.tokens.find((t) => t.id === rounds.turn)?.kind === 'foe' && (
+              <Button
+                size="sm"
+                title="Er geht auf den nächsten Gefährten zu, so weit seine Bewegung reicht."
+                onClick={() => player.foeMove(rounds.turn!)}
+              >
+                Auf die Gruppe zu
+              </Button>
+            )}
+            {play.tokens.some((t) => t.init === null) && (
+              <Button size="sm" onClick={player.rollInit}>
+                Initiative würfeln
+              </Button>
+            )}
             <Button size="sm" onClick={() => player.rounds(false)}>
               Runden beenden
             </Button>
@@ -516,6 +560,19 @@ function GroupPanel({ player, editor }: { player: DungeonPlayer; editor: Dungeon
               onClick={() => player.wait(600, 'Zehn Minuten vergehen')}
             >
               +10 Min.
+            </Button>
+          </div>
+        )}
+        {unsyncedMinutes(play) >= 1 && (
+          <div className="wf-dungeon-pickrow">
+            <span>Die Weltzeit steht noch {clockWords(unsyncedMinutes(play) * 60)} zurück.</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              title="Stellt die Weltzeit um die im Dungeon vergangenen Minuten vor – Termine und Uhren treten dabei ein."
+              onClick={player.syncTime}
+            >
+              Übernehmen
             </Button>
           </div>
         )}

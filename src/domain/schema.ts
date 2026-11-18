@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 39;
-export const DATA_SHAPE = 'dfc0812fd701f655';
+export const DATA_VERSION = 40;
+export const DATA_SHAPE = '6f611313cd8d1f20';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -3533,10 +3533,39 @@ export const DungeonMarkerSchema = z.object({
   x: z.number().int(),
   y: z.number().int(),
   kind: z.enum(DUNGEON_THINGS).default('note'),
+  /**
+   * Worauf es wirkt, wenn jemand es benutzt (ein Hebel, eine Druckplatte): Türen gehen auf oder
+   * zu, Geheimtüren zeigen sich, Fallen sind entschärft, Etagenwechsel entriegelt.
+   */
+  links: z
+    .array(z.object({ kind: z.enum(['edge', 'trap', 'stair']), levelId: id, ref: z.string() }))
+    .default([]),
   label: z.string().default(''),
   note: z.string().default(''),
 });
 export type DungeonMarker = z.infer<typeof DungeonMarkerSchema>;
+
+export const DUNGEON_BEHAVES = ['stay', 'patrol', 'hunt'] as const;
+export type DungeonBehave = (typeof DUNGEON_BEHAVES)[number];
+
+/**
+ * Ein Bewohner: steht an seinem Platz, geht eine Runde über Wegpunkte oder geht auf die Gruppe
+ * los, sobald er sie bemerkt. Nur Gestalt und Verhalten – Werte kommen später aus dem Bestiarium.
+ */
+export const DungeonDwellerSchema = z.object({
+  id,
+  name: z.string().default(''),
+  x: z.number().int(),
+  y: z.number().int(),
+  behave: z.enum(DUNGEON_BEHAVES).default('stay'),
+  /** Wegpunkte der Runde, in ihrer Reihenfolge; nach dem letzten geht es zum Platz zurück. */
+  route: z.array(dungeonCell).default([]),
+  speed: z.number().int().min(0).max(300).default(30),
+  hp: z.number().int().positive().nullable().default(null),
+  initBonus: z.number().int().min(-10).max(20).default(0),
+  note: z.string().default(''),
+});
+export type DungeonDweller = z.infer<typeof DungeonDwellerSchema>;
 
 export const DungeonLevelSchema = z.object({
   id,
@@ -3555,6 +3584,8 @@ export const DungeonLevelSchema = z.object({
   traps: z.array(DungeonTrapSchema).default([]),
   stairs: z.array(DungeonStairSchema).default([]),
   markers: z.array(DungeonMarkerSchema).default([]),
+  /** Wer hier wartet – vorbereitet vom Spielleiter, am Tisch als Figuren auf dem Brett. */
+  dwellers: z.array(DungeonDwellerSchema).default([]),
 });
 export type DungeonLevel = z.infer<typeof DungeonLevelSchema>;
 
@@ -3582,6 +3613,16 @@ export const DungeonTokenSchema = z.object({
   lightEnds: z.number().int().nullable().default(null),
   /** Initiative in Runden; null = noch nicht gewürfelt. */
   init: z.number().int().nullable().default(null),
+  /** Der vorbereitete Bewohner dahinter (`level.dwellers`); null = von Hand hingestellt. */
+  dwellerId: id.nullable().default(null),
+  /** Trefferpunkte; null = werden hier nicht geführt. */
+  hp: z.number().int().nonnegative().nullable().default(null),
+  hpMax: z.number().int().positive().nullable().default(null),
+  /** Hat die Gruppe bemerkt. */
+  alert: z.boolean().default(false),
+  /** Der nächste Wegpunkt seiner Runde und angesparte Strecke in Fuß. */
+  routeAt: z.number().int().nonnegative().default(0),
+  carry: z.number().nonnegative().default(0),
 });
 export type DungeonToken = z.infer<typeof DungeonTokenSchema>;
 
@@ -3610,6 +3651,10 @@ export const DungeonPlaySchema = z.object({
   spotted: z.array(id).default([]),
   /** Vergangene Zeit im Dungeon in Sekunden. */
   seconds: z.number().int().nonnegative().default(0),
+  /** Bis hierhin ist die Zeit schon in die Weltzeit übernommen. */
+  synced: z.number().int().nonnegative().default(0),
+  /** Etagenwechsel, die am Tisch entriegelt wurden. */
+  unlocked: z.array(id).default([]),
   /** Runden: wer am Zug ist und wie weit er schon gegangen ist; null = freies Erkunden. */
   rounds: z
     .object({

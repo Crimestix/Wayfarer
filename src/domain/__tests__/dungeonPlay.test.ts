@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDweller,
   addLevel,
+  addMarker,
   addRoom,
+  patchDweller,
+  toggleMarkerLink,
   addStair,
   addTrap,
   digPath,
@@ -15,6 +19,11 @@ import {
 } from '../dungeon';
 import {
   addToken,
+  foeTurn,
+  rollInits,
+  stirFoes,
+  unsyncedMinutes,
+  useMarker,
   edgeFoundKey,
   hiddenNear,
   moveTokens,
@@ -233,5 +242,90 @@ describe('Etagenwechsel und Gegner', () => {
     const moved = moveTokens({ ...d, play: foe.play }, [d.play!.tokens[0]!.id], { x: 6, y: 1 })!;
     expect(moved.halt?.type).toBe('foe');
     expect(moved.halt?.title).toBe('In Sicht: Gegner 1');
+  });
+});
+
+describe('Bewohner und Schalter', () => {
+  /** Ein Wächter in der Kammer hinter der Tür, der eine Runde durch die Kammer geht. */
+  const guarded = (behave: 'patrol' | 'hunt') =>
+    world((level) => {
+      const made = addDweller(level, { x: 14, y: 1 });
+      return patchDweller(made.level, made.dweller.id, {
+        name: 'Wächter',
+        behave,
+        route: [{ x: 14, y: 2 }],
+        hp: 11,
+      });
+    });
+
+  it('vorbereitete Bewohner stehen beim Aufstellen auf dem Brett', () => {
+    const d = started(guarded('patrol'));
+    const foe = d.play!.tokens.find((t) => t.kind === 'foe')!;
+    expect(foe).toMatchObject({ name: 'Wächter', x: 14, y: 1, hp: 11, hpMax: 11 });
+  });
+
+  it('wer eine Runde geht, geht sie, während Zeit vergeht – gemächlich', () => {
+    const d = started(guarded('patrol'));
+    // Zwei Sekunden bei halber Rate: fünf Fuß – ein Feld zum ersten Wegpunkt.
+    const stirred = stirFoes(d, d.play!, 2);
+    expect(stirred.play.tokens.find((t) => t.kind === 'foe')).toMatchObject({ x: 14, y: 2 });
+    expect(stirred.halt).toBeNull();
+    // Danach geht es zurück an seinen Platz.
+    const back = stirFoes({ ...d, play: stirred.play }, stirred.play, 2);
+    expect(back.play.tokens.find((t) => t.kind === 'foe')).toMatchObject({ x: 14, y: 1 });
+  });
+
+  it('hinter der geschlossenen Tür bemerkt er niemanden; ist sie offen, merkt er auf und kommt', () => {
+    const d = started(guarded('hunt'), [hero()], { x: 9, y: 1 });
+    expect(stirFoes(d, d.play!, 6).halt).toBeNull();
+    const key = edgeKeyBetween({ x: 12, y: 1 }, { x: 13, y: 1 })!;
+    const open = { ...d, play: setDoor(d, d.levels[0]!.id, key, { opened: true })! };
+    const noticed = stirFoes(open, open.play!, 6);
+    expect(noticed.halt?.title).toBe('Wächter hat die Gruppe bemerkt');
+    const before = noticed.play.tokens.find((t) => t.kind === 'foe')!;
+    const after = stirFoes({ ...open, play: noticed.play }, noticed.play, 6).play.tokens.find(
+      (t) => t.kind === 'foe',
+    )!;
+    expect(Math.hypot(after.x - 9, after.y - 1)).toBeLessThan(
+      Math.hypot(before.x - 9, before.y - 1),
+    );
+    // In Runden geht er auf seinem Zug auf den Nächsten zu und bleibt daneben stehen.
+    const turn = foeTurn({ ...open, play: noticed.play }, before.id)!;
+    const stood = turn.play.tokens.find((t) => t.kind === 'foe')!;
+    expect(Math.max(Math.abs(stood.x - 9), Math.abs(stood.y - 1))).toBeGreaterThanOrEqual(1);
+  });
+
+  it('ein Hebel öffnet die Tür, auf die er wirkt', () => {
+    const key = edgeKeyBetween({ x: 12, y: 1 }, { x: 13, y: 1 })!;
+    let leverId = '';
+    const d = started(
+      world((level) => {
+        const made = addMarker(level, { x: 1, y: 0 }, 'lever');
+        leverId = made.marker.id;
+        return toggleMarkerLink(made.level, leverId, { kind: 'edge', levelId: level.id, ref: key });
+      }),
+    );
+    const pulled = useMarker(d, d.levels[0]!.id, leverId)!;
+    expect(pulled.doors[`${d.levels[0]!.id}:${key}`]).toEqual({ opened: true, locked: false });
+    const again = useMarker({ ...d, play: pulled }, d.levels[0]!.id, leverId)!;
+    expect(again.doors[`${d.levels[0]!.id}:${key}`]!.opened).toBe(false);
+  });
+
+  it('Initiative wird nur gewürfelt, wo noch keine steht; Minuten zählen bis zur Übernahme', () => {
+    const d = started(world());
+    const rolled = rollInits(
+      { ...d.play!, seconds: 150 },
+      () => 12,
+      () => 3,
+    );
+    expect(rolled.tokens[0]!.init).toBe(15);
+    expect(
+      rollInits(
+        rolled,
+        () => 1,
+        () => 0,
+      ).tokens[0]!.init,
+    ).toBe(15);
+    expect(unsyncedMinutes(rolled)).toBe(2);
   });
 });

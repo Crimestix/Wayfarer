@@ -36,6 +36,7 @@ export const TOOLS = [
   'trap',
   'stair',
   'marker',
+  'dweller',
   'erase',
 ] as const;
 export type Tool = (typeof TOOLS)[number];
@@ -45,7 +46,7 @@ export const TOOL_GROUPS: readonly (readonly Tool[])[] = [
   ['select'],
   ['room', 'floor', 'rock', 'area'],
   ['wall', 'door'],
-  ['trap', 'stair', 'marker'],
+  ['trap', 'stair', 'marker', 'dweller'],
   ['erase'],
 ];
 
@@ -60,6 +61,7 @@ export const TOOL_LABEL: Record<Tool, string> = {
   trap: 'Falle',
   stair: 'Etagenwechsel',
   marker: 'Einrichtung',
+  dweller: 'Bewohner',
   erase: 'Entfernen',
 };
 
@@ -77,6 +79,8 @@ export const TOOL_HINT: Record<Tool, string> = {
   stair:
     'Treppe, Wendeltreppe, Leiter, Schacht, Falltür oder Portal setzen – das Ziel wählst du danach.',
   marker: 'Etwas auf ein Feld stellen: Säule, Truhe, Hebel, Altar – oder eine freie Notiz.',
+  dweller:
+    'Jemanden hinstellen, der hier wartet. Danach wählst du, ob er stehen bleibt, eine Runde geht oder auf die Gruppe losgeht.',
   erase: 'Anklicken, was weg soll: Tür, Wand, Falle, Etagenwechsel, Einrichtung.',
 };
 
@@ -91,6 +95,7 @@ export const TOOL_KEY: Record<Tool, string> = {
   trap: 'F',
   stair: 'T',
   marker: 'M',
+  dweller: 'G',
   erase: 'E',
 };
 
@@ -110,12 +115,17 @@ export const hasSize = (tool: Tool): boolean =>
 export type PickMode =
   | { type: 'trap-cells'; trapId: string }
   | { type: 'trap-spots'; trapId: string }
-  | { type: 'stair-target'; from: StairRef };
+  | { type: 'stair-target'; from: StairRef }
+  | { type: 'dweller-route'; dwellerId: string }
+  | { type: 'marker-link'; markerId: string };
 
 export const PICK_MODE_TEXT: Record<PickMode['type'], string> = {
   'trap-cells': 'Klicke die Felder an, auf denen die Falle auslöst.',
   'trap-spots': 'Klicke die Felder an, von denen aus die Falle zu bemerken ist.',
   'stair-target': 'Wähle die Ebene und klicke das Feld an, auf dem man ankommt.',
+  'dweller-route': 'Klicke der Reihe nach die Felder an, über die seine Runde führt.',
+  'marker-link':
+    'Klicke an, worauf es wirkt: eine Tür, ein Gitter, eine Geheimtür, eine Falle, einen Etagenwechsel.',
 };
 
 export interface ViewCommand {
