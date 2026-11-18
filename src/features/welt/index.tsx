@@ -16,6 +16,7 @@ import { entitiesOfArticle } from '../wiki/model';
 import { Dossier } from './Dossier';
 import { EntityDialogHost } from './EntityDialog';
 import { NewDialogHost } from './NewDialog';
+import { MergeDialogHost } from './MergeDialog';
 import { HistoryView } from './HistoryView';
 import { Gallery } from './Gallery';
 import { GapsView } from './Gaps';
@@ -130,6 +131,7 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
       </div>
       <EntityDialogHost />
       <NewDialogHost />
+      <MergeDialogHost />
     </div>
   );
 }

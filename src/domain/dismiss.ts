@@ -27,6 +27,8 @@ export const SUGGESTION = {
   /** Eine Leitfrage am Rand einer Seite (`KIND_QUESTIONS`) – je Kategorie und Frage. */
   question: (kind: string, question: string) => `question:${kind}:${question}`,
   /** Ein eigenes Wort kommt oft vor – als eigene Kategorie führen? */
+  /** Zwei oder mehr Einträge heißen genau gleich – dasselbe? („×“ = sind verschieden) */
+  sameName: (name: string) => `samename:${name}`,
   ownKind: (base: string, word: string) => `ownkind:${base}:${word.trim().toLocaleLowerCase('de')}`,
 } as const;
 
@@ -57,6 +59,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   house: 'Fraktionen und Familien, die dasselbe Haus sein könnten',
   question: 'Leitfragen am Rand einer Seite',
   ownkind: 'Wörter und Vorlagen, die eine Unterkategorie werden könnten',
+  samename: 'Einträge, die gleich heißen',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */

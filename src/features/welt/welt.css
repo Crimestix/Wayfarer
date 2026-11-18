@@ -4084,3 +4084,15 @@ button.wf-welt-gaps__count:hover {
   color: var(--ink-mute);
   font-size: var(--text-xs);
 }
+
+/* Zusammenlegen: welcher von beiden bleibt. */
+.wf-welt-merge__keep {
+  display: flex;
+  flex-wrap: wrap;
+}
+.wf-welt-merge__keep .wf-btn {
+  flex: 1 1 12rem;
+  white-space: normal;
+  height: auto;
+  min-height: 34px;
+}

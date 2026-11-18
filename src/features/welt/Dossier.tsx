@@ -12,7 +12,16 @@ import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
 import { PageTemplateTools } from './PageTemplate';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
-import { BookOpen, EyeOff, Feather, Footprints, Link2, Pencil, Trash2 } from 'lucide-react';
+import {
+  BookOpen,
+  Combine,
+  EyeOff,
+  Feather,
+  Footprints,
+  Link2,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { chronicleFor } from '../../domain/derive';
 import { natureAt } from '../../domain/nature';
@@ -42,7 +51,7 @@ import { scaffoldOf } from '../wiki/scaffold';
 import { pageText } from '../wiki/text';
 import { deleteEntityUndoable } from './actions';
 import { BookSection, BookSwitch } from './BookSection';
-import { openEntityDialog } from './editor';
+import { openEntityDialog, openMerge } from './editor';
 import { FactBox } from './FactBox';
 import { FamilyTree } from './FamilyTree';
 import { LandscapeSection } from './LandscapeSection';
@@ -403,6 +412,13 @@ export function Dossier({
             onClick={() => openEntityDialog({ mode: 'edit', id: entity.id })}
           >
             <Pencil />
+          </IconButton>
+          <IconButton
+            label="Mit einem anderen Eintrag zusammenlegen – etwa wenn es ihn doppelt gibt"
+            variant="ghost"
+            onClick={() => openMerge({ id: entity.id })}
+          >
+            <Combine />
           </IconButton>
           <IconButton label="Eintrag löschen" variant="ghost" onClick={remove}>
             <Trash2 />

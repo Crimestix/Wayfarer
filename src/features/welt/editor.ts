@@ -65,3 +65,30 @@ export function useNewRequest(): NewRequest | null {
     () => newRequest,
   );
 }
+
+/** „Zusammenlegen“ (`MergeDialog`): mit welchem Eintrag begonnen wird und, wenn bekannt, mit wem. */
+export interface MergeRequest {
+  id: string;
+  withId?: string | null;
+}
+
+let mergeRequest: MergeRequest | null = null;
+const mergeListeners = new Set<() => void>();
+
+function setMerge(next: MergeRequest | null) {
+  mergeRequest = next;
+  mergeListeners.forEach((l) => l());
+}
+
+export const openMerge = (request: MergeRequest) => setMerge(request);
+export const closeMerge = () => setMerge(null);
+
+export function useMergeRequest(): MergeRequest | null {
+  return useSyncExternalStore(
+    (l) => {
+      mergeListeners.add(l);
+      return () => mergeListeners.delete(l);
+    },
+    () => mergeRequest,
+  );
+}

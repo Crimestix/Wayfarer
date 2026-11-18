@@ -13,6 +13,7 @@ import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
 import { openNew } from './editor';
 import { OwnKindsPanel } from './OwnKindsPanel';
+import { NameTwinsNote } from './MergeDialog';
 import { useGapCount } from './Gaps';
 import { setKindFilter, setWorldLayout } from './overview';
 import {
@@ -82,6 +83,7 @@ export function Landing() {
         ))}
       </div>
       <OwnKindsPanel />
+      <NameTwinsNote />
 
       <Divider />
 

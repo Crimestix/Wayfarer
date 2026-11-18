@@ -1008,8 +1008,8 @@ nicht übernommen.
   neuen Kategorie neu gelesen wird. Danach löst `settleKindChange` (`welt/actions.ts`) über
   `repairReferences` nur Verweise, die nicht mehr passen und den Eintrag nennen – mit Rückgängig.
   Nie eine Angabe so bauen, dass Wayfarer sie festlegt und der Spielleiter sie nicht ändern kann.
-  **Himmelskörper** (`celestial`: Planet, Mond, Stern, Ebene – „Planeten sollten keine Orte
-  sein“) ist eine eigene Kategorie; die Rechnung des Planeten bleibt in `atlas`.
+  **Himmelskörper** (`celestial`: Planet, Mond, Stern – „Planeten sollten keine Orte sein“) ist
+  eine eigene Kategorie; die Rechnung des Planeten bleibt in `atlas`.
   **Vergangen von Hand:** `entity.past` (Häkchen „Gehört der Vergangenheit an“) – gefragt über
   `isPast()`; so steht etwas ohne Datum unter „Geschichte“. Größe eines Ortes: dazu `world`
   („Kontinent und Welt“) über „Land und Gegend“; der Filter heißt „Was für ein Ort“. Räume stehen
@@ -1017,6 +1017,35 @@ nicht übernommen.
   zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`). Wo Räume geblieben sind, sagt eine Zeile
   über den Kacheln der Orte („37 Räume stehen bei ihren Orten – Räume zeigen“). Über den Kacheln
   jeder Kategorie führt „← Übersicht“ zurück zur Übersicht der Welt (`setKindFilter('all')`).
+- **Dimensionen und Himmelskörper – „liegt in“ läuft durch** (Rückmeldung des Spielleiters,
+  18. 11. 2026: „Wir haben ja Himmelskörper und wir haben Dimensionen. Feenreich. Äther. Materielle
+  Welt“ – und: sind Planeten keine Orte mehr, „stottert das ganze ‚Liegt in‘“; `domain/worlds.ts`).
+  Zwei Kategorien: **Dimension** (`dimension`, eine Ebene des Daseins) und **Himmelskörper**
+  (`celestial`). Die Kette von innen nach außen: Ort › Orte darüber (`place.parentId`) ›
+  Himmelskörper oder Dimension (`place.worldId` – nur am **obersten** Ort, alles darunter erbt es;
+  eine Dimension ohne Himmelskörper wie der Äther trägt ihre Orte direkt) › Dimension
+  (`celestial.dimensionId`). Gefragt wird immer über `liesIn()` (der Pfad über dem Namen),
+  `worldOfPlace()`, `worldContents()` – nie über `worldId` direkt: Unter einem Ort gilt es nicht.
+  Das Feld „Liegt in“ eines Ortes nimmt Orte, Himmelskörper und Dimensionen (`EntityDialog`); der
+  Steckbrief versteht „Liegt in:“ ebenso (`facts.ts`). Auf der Seite einer Dimension oder eines
+  Himmelskörpers steht „Darin“ (`welt/WorldInside`), mit „Hierher legen“ für oberste Orte, die
+  noch nirgends liegen (`unplacedRoots`). Wird ein Ort zum Himmelskörper oder zur Dimension, liegt
+  weiter darin, was darin lag (`settleKindChange`). Das ist nur Ordnung: Lage auf der Weltkarte
+  (ein Planet in `atlas`), Klima und Gelände hängen weiter an den Orten; Kalender und Weltzeit
+  gibt es einmal für alles.
+- **Zusammenlegen** (Rückmeldung 18. 11.: „Bspw. gibt es zweimal Elaris“ – Altlast aus dem
+  Ordnerbaum von LegendKeeper; `welt/merge.ts`): `mergeEntities(db, keepId, dropId)` – einer
+  bleibt, der andere geht in ihm auf. Alles, was auf den anderen zeigte, zeigt danach auf den
+  Bleibenden (`rewireId` über alle Sammlungen und den Spielstand); Satz, Notizen, Geheimnis,
+  Schlagworte und Beinamen kommen zusammen, Fehlendes nimmt der Bleibende vom anderen
+  (`mergedEntity`); haben beide einen Artikel, steht der Text des anderen darunter, seine
+  Unterartikel hängen um, der alte Artikel liegt im Papierkorb; doppelte Beziehungen werden eine,
+  nichts zeigt auf sich selbst. Geht über Kategorien hinweg (es bleibt die des Bleibenden), mit
+  Rückgängig. Geöffnet über das Zeichen neben dem Papierkorb im Kopf der Seite (`openMerge`,
+  `MergeDialog`: mit wem, welcher bleibt, was geschieht). Namen, die es doppelt gibt, stehen auf
+  der Übersicht der Welt (`nameTwins`, `NameTwinsNote`; „×“ = sind verschieden,
+  `SUGGESTION.sameName`) – nur ein Hinweis, zusammengelegt wird auf Klick. Nie zwei Einträge
+  still vereinen.
 - **Unterkategorien** – sichtbar heißt eine eigene Kategorie immer **Unterkategorie** und steht nie
   neben oder über der Kategorie von Wayfarer (Rückmeldung 18. 11.: „Dungeonraum … ist ja aber eine
   Subkategorie von Ort“; „Ort – und dann bei Subkategorie ‚Stadt‘ sehen oder eine neue
