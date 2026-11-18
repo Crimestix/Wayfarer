@@ -151,6 +151,11 @@ Eintrags nachträglich ändern (Ort → Person, Person → Fraktion …), neue K
 zwischen den Orten (Vorschlag „Zu Räumen machen“), Mausrad-Zoom auf Hexkarten, Weltkarte ruckelt
 nicht mehr bei Mausbewegung. **DATA_VERSION 33**.
 
+**Danach: Tag `v0.1.19` auf `fb04078` (18. 11.)** – Eigene Kategorien: benannte Gruppen innerhalb einer Kategorie
+von Wayfarer („Stadt“ verhält sich wie Ort, „Major NPC“ wie Person) – in der Liste, als Kacheln,
+bei „Neu“ und „Bearbeiten“, im Seitenkopf, in der Suche; Vorschlag aus häufigen eigenen Wörtern;
+verwaltet unter Einstellungen → „Eigene Kategorien“. **DATA_VERSION 34**.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
