@@ -11,12 +11,24 @@ import {
   edgeBetween,
   edgeKey,
   edgeKeyBetween,
+  edgeName,
+  edgeRun,
+  patchEdgeRun,
+  removeEdgeRun,
   edgeSegments,
+  extendRoom,
   findStair,
   healStairs,
   levelsSorted,
   lineCells,
   linkStairs,
+  moveRoom,
+  patchRoomEverywhere,
+  roomCells,
+  roomSpan,
+  roundBetween,
+  roundCells,
+  roundOf,
   moveLevel,
   paintTiles,
   rectCells,
@@ -251,5 +263,106 @@ describe('Hinweise', () => {
     expect(texts).toEqual(['Tür führt in den Fels', 'Halle hat keinen Zugang']);
     const open = digPath(level, lineCells({ x: 4, y: 0 }, { x: 2, y: 0 }), 'floor');
     expect(roomHasAccess(open, room.id)).toBe(true);
+  });
+});
+
+describe('Runde Räume', () => {
+  it('ein Kreis von sechs Feldern Durchmesser lässt die Ecken aus', () => {
+    const shape = roundBetween({ x: 5, y: 5 }, { x: 0, y: 0 });
+    expect(shape).toEqual({ x: 0, y: 0, w: 6, h: 6 });
+    const keys = new Set(roundCells(shape).map((c) => `${c.x},${c.y}`));
+    expect(keys.has('0,0')).toBe(false);
+    expect(keys.has('5,5')).toBe(false);
+    expect(keys.has('2,0')).toBe(true);
+    expect(keys.has('0,3')).toBe(true);
+    expect(keys.size).toBe(32);
+  });
+
+  it('rund bleibt ein Raum nur, solange seine Felder die der Ellipse sind', () => {
+    const shape = { x: 0, y: 0, w: 4, h: 4 };
+    const { level, room } = addRoom(blank(), roundCells(shape), 'Rotunde', { round: shape });
+    expect(roundOf(level, level.rooms[0]!)).toEqual(shape);
+    const cut = paintTiles(level, [{ x: 1, y: 0 }], null);
+    expect(
+      roundOf(
+        cut,
+        cut.rooms.find((r) => r.id === room.id)!,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('Räume verschieben', () => {
+  it('nimmt Tür, Falle und Einrichtung mit und weicht anderem Boden nicht aus', () => {
+    const { level, room } = withRoom();
+    const door = setEdge(level, edgeKey({ x: 2, y: 0 }, 'e'), { kind: 'door' });
+    const trapped = addTrap(door, { x: 1, y: 1 }).level;
+    const moved = moveRoom(trapped, room.id, 4, 2)!;
+    expect(roomCells(moved, room.id)).toHaveLength(6);
+    expect(moved.tiles['0,0']).toBeUndefined();
+    expect(moved.tiles['4,2']).toBe('floor');
+    expect(moved.edges[edgeKey({ x: 6, y: 2 }, 'e')]?.kind).toBe('door');
+    expect(moved.traps[0]!.cells).toEqual([{ x: 5, y: 3 }]);
+    // Ein Feld weiter überlappt er sich selbst – das geht; in fremden Boden hinein nicht.
+    expect(moveRoom(trapped, room.id, 1, 0)).not.toBeNull();
+    const blocked = paintTiles(trapped, [{ x: 4, y: 0 }], 'floor');
+    expect(moveRoom(blocked, room.id, 2, 0)).toBeNull();
+  });
+});
+
+describe('Räume über mehrere Ebenen', () => {
+  it('nach oben entsteht Luftraum, derselbe Raum – und ein Name gilt für alle Ebenen', () => {
+    const { level, room } = withRoom();
+    const made = extendRoom({ levels: [level] }, level.id, room.id, 'up')!;
+    const upper = made.dungeon.levels.find((l) => l.id === made.levelId)!;
+    expect(upper.order).toBeGreaterThan(level.order);
+    expect(upper.tiles['0,0']).toBe('air');
+    const lower = made.dungeon.levels.find((l) => l.id === level.id)!;
+    const span = roomSpan(made.dungeon, lower.rooms[0]!);
+    expect(span.map((s) => s.room.id)).toEqual([made.roomId]);
+
+    const renamed = patchRoomEverywhere(made.dungeon, level.id, room.id, { name: 'Große Halle' });
+    expect(renamed.levels.flatMap((l) => l.rooms.map((r) => r.name))).toEqual([
+      'Große Halle',
+      'Große Halle',
+    ]);
+    // In den Luftraum hinein führt kein Weg – dort fällt man.
+    const gallery = paintTiles(upper, [{ x: 0, y: 0 }], 'floor');
+    expect(canPass(gallery, { x: 0, y: 0 }, { x: 1, y: 0 })).toBe(false);
+  });
+
+  it('nach unten entsteht Boden; die Ebene wird angelegt, wenn sie fehlt', () => {
+    const { level, room } = withRoom();
+    const made = extendRoom({ levels: [level] }, level.id, room.id, 'down')!;
+    expect(made.dungeon.levels).toHaveLength(2);
+    const lower = made.dungeon.levels.find((l) => l.id === made.levelId)!;
+    expect(lower.order).toBeLessThan(level.order);
+    expect(lower.tiles['2,1']).toBe('floor');
+  });
+});
+
+describe('Breite Gänge und Doppeltüren', () => {
+  it('ein Gang von zwei Feldern Breite öffnet den Raum auf ganzer Breite', () => {
+    const { level } = withRoom();
+    const dug = digPath(level, lineCells({ x: 5, y: 0 }, { x: 2, y: 0 }), 'floor', 2);
+    expect(edgeBetween(dug, { x: 3, y: 0 }, { x: 2, y: 0 }).kind).toBe('open');
+    expect(edgeBetween(dug, { x: 3, y: 1 }, { x: 2, y: 1 }).kind).toBe('open');
+    expect(dug.tiles['5,1']).toBe('floor');
+  });
+
+  it('zwei Türen nebeneinander sind eine Doppeltür – geändert und entfernt als eine', () => {
+    const { level } = withRoom();
+    const gang = paintTiles(level, rectCells({ x: 3, y: 0 }, { x: 3, y: 1 }), 'floor');
+    const upper = edgeKeyBetween({ x: 2, y: 0 }, { x: 3, y: 0 })!;
+    const lower = edgeKeyBetween({ x: 2, y: 1 }, { x: 3, y: 1 })!;
+    const doors = setEdge(setEdge(gang, upper, { kind: 'door' }), lower, { kind: 'door' });
+    expect(edgeRun(doors, lower)).toEqual([upper, lower]);
+    expect(edgeName('door', 2)).toBe('Doppeltür');
+    const locked = patchEdgeRun(doors, upper, { locked: true, lockDc: 15 });
+    expect(locked.edges[lower]).toMatchObject({ locked: true, lockDc: 15 });
+    // Eine andere Art daneben gehört nicht dazu; Wände nie.
+    const mixed = setEdge(doors, lower, { kind: 'gate' });
+    expect(edgeRun(mixed, upper)).toEqual([upper]);
+    expect(Object.keys(removeEdgeRun(doors, upper).edges)).toHaveLength(0);
   });
 });

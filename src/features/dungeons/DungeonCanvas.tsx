@@ -15,17 +15,23 @@ import {
   digPath,
   edgeKey,
   isFloor,
+  levelBeside,
   levelBounds,
   lineCells,
   linkStairs,
   markerAt,
+  moveRoom,
   paintTiles,
   patchTrap,
   rectCells,
+  removeEdgeRun,
   removeMarker,
   removeStair,
   removeTrap,
   roomAt,
+  roomCells,
+  roundBetween,
+  roundCells,
   sameCell,
   setEdge,
   stairAt,
@@ -34,7 +40,7 @@ import {
   trapAt,
   type Side,
 } from '../../domain/dungeon';
-import type { DungeonCell, DungeonLevel } from '../../domain/schema';
+import type { DungeonCell, DungeonEdgeKind, DungeonLevel } from '../../domain/schema';
 import { toast } from '../../ui';
 import {
   DEFAULT_ZOOM,
@@ -45,15 +51,22 @@ import {
   type Palette,
   type View,
 } from './draw';
-import type { DungeonEditor } from './editor';
+import { isTyping, type DungeonEditor } from './editor';
 
-/** Die Ansicht je Ebene – sie übersteht den Wechsel der Ebene und der Seite. */
+/** Die Ansicht je Dungeon – sie übersteht den Wechsel der Ebene und der Seite. */
 const views = new Map<string, View>();
 
 /** So nah an einer Kante (in Anteilen des Feldes) gilt ein Klick mit „Auswählen“ der Kante. */
 const EDGE_NEAR = 0.24;
 /** Beim Entlangziehen einer Wand: so nah muss der Zeiger der Kante sein. */
 const EDGE_DRAG = 0.3;
+
+/** Liegen zwei Kanten in einer Linie? */
+function inLine(a: string, b: string): boolean {
+  const [ax, ay, aside] = a.split(',');
+  const [bx, by, bside] = b.split(',');
+  return aside === bside && (aside === 'n' ? ay === by : ax === bx);
+}
 
 interface Hit {
   cell: DungeonCell;
@@ -66,8 +79,9 @@ type Gesture =
   | { type: 'pan'; x: number; y: number }
   | { type: 'rect'; from: DungeonCell; to: DungeonCell; mode: 'room' | 'floor' | 'rock' | 'area' }
   | { type: 'paint'; last: DungeonCell }
-  | { type: 'wall'; set: boolean; done: Set<string> }
-  | { type: 'trap'; trapId: string };
+  | { type: 'wall'; kind: DungeonEdgeKind; set: boolean; done: Set<string>; first: string }
+  | { type: 'trap'; trapId: string }
+  | { type: 'move'; roomId: string; from: DungeonCell; to: DungeonCell };
 
 export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -83,6 +97,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
 
   const level = editor.level;
   const levelId = level?.id ?? '';
+  // Alle Ebenen eines Dungeons teilen sich eine Ansicht: Beim Wechsel bleibt alles an seiner Stelle.
+  const viewKey = editor.dungeon.id;
 
   /** Passt eine Ansicht so ein, dass die ganze Ebene zu sehen ist; eine leere Ebene liegt mittig. */
   const fitView = useCallback((view: View) => {
@@ -105,17 +121,17 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     return true;
   }, []);
 
-  /** Die Ansicht dieser Ebene; eine Ebene, die zum ersten Mal offen ist, passt sich ein. */
+  /** Die Ansicht dieses Dungeons; ist er zum ersten Mal offen, passt er sich ein. */
   const unfitted = useRef(new Set<string>());
   const viewOf = useCallback((): View => {
-    let view = views.get(levelId);
+    let view = views.get(viewKey);
     if (!view) {
       view = { zoom: DEFAULT_ZOOM, ox: 0, oy: 0 };
-      views.set(levelId, view);
-      if (!fitView(view)) unfitted.current.add(levelId);
-    } else if (unfitted.current.has(levelId) && fitView(view)) unfitted.current.delete(levelId);
+      views.set(viewKey, view);
+      if (!fitView(view)) unfitted.current.add(viewKey);
+    } else if (unfitted.current.has(viewKey) && fitView(view)) unfitted.current.delete(viewKey);
     return view;
-  }, [levelId, fitView]);
+  }, [viewKey, fitView]);
 
   const paint = useCallback(() => {
     const el = canvas.current;
@@ -131,8 +147,17 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     const h = hover.current;
     let hoverCells: DungeonCell[] = [];
     let hoverEdge: string | null = null;
+    const round =
+      g?.type === 'rect' && g.mode === 'room' && ed.roomShape === 'round'
+        ? roundBetween(g.from, g.to)
+        : null;
     if (g?.type === 'rect') hoverCells = rectCells(g.from, g.to);
-    else if (h && !g) {
+    else if (g?.type === 'move') {
+      const dx = g.to.x - g.from.x;
+      const dy = g.to.y - g.from.y;
+      if (dx !== 0 || dy !== 0)
+        hoverCells = roomCells(lv, g.roomId).map((c) => ({ x: c.x + dx, y: c.y + dy }));
+    } else if (h && !g) {
       if (ed.pickMode) hoverCells = [h.cell];
       else if (ed.tool === 'floor' || ed.tool === 'rock' || ed.tool === 'area')
         hoverCells = brushCells(h.cell, ed.size);
@@ -156,6 +181,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     drawScene(ctx, {
       level: lv,
       ghost: ed.ghost ? (sorted[index + 1] ?? sorted[index - 1] ?? null) : null,
+      below: levelBeside(ed.dungeon, lv.id, 'down'),
+      hoverRound: round,
       view: viewOf(),
       width: size.current.width,
       height: size.current.height,
@@ -206,9 +233,16 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     seen.current = command.nonce;
     if (command.type === 'fit') fit();
     else if (command.cell) {
+      // Nur holen, was nicht schon im Bild ist – sonst springt die Karte ohne Not.
       const view = viewOf();
-      view.ox = Math.round(size.current.width / 2 - (command.cell.x + 0.5) * view.zoom);
-      view.oy = Math.round(size.current.height / 2 - (command.cell.y + 0.5) * view.zoom);
+      const px = (command.cell.x + 0.5) * view.zoom + view.ox;
+      const py = (command.cell.y + 0.5) * view.zoom + view.oy;
+      const margin = view.zoom * 2;
+      const { width, height } = size.current;
+      if (px < margin || py < margin || px > width - margin || py > height - margin) {
+        view.ox = Math.round(width / 2 - (command.cell.x + 0.5) * view.zoom);
+        view.oy = Math.round(height / 2 - (command.cell.y + 0.5) * view.zoom);
+      }
     }
     schedule();
   }, [command, fit, viewOf, schedule]);
@@ -265,11 +299,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
 
   // Leertaste: die Karte mit der Maus verschieben.
   useEffect(() => {
-    const typing = (target: EventTarget | null) =>
-      target instanceof HTMLElement &&
-      (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
     const down = (event: KeyboardEvent) => {
-      if (event.code !== 'Space' || typing(event.target)) return;
+      if (event.code !== 'Space' || isTyping(event.target)) return;
       space.current = true;
       event.preventDefault();
     };
@@ -290,13 +321,12 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     const path = lineCells(from, to);
     const steps = first ? path : path.slice(1);
     if (steps.length === 0) return;
-    if (ed.tool === 'floor' && ed.size === 1) {
-      ed.applyLevel((lv) => digPath(lv, path, ed.tile));
+    if (ed.tool === 'floor') {
+      ed.applyLevel((lv) => digPath(lv, path, ed.tile, ed.size));
       return;
     }
     const cells = steps.flatMap((cell) => brushCells(cell, ed.size));
-    if (ed.tool === 'floor') ed.applyLevel((lv) => paintTiles(lv, cells, ed.tile));
-    else if (ed.tool === 'rock') ed.applyLevel((lv) => paintTiles(lv, cells, null));
+    if (ed.tool === 'rock') ed.applyLevel((lv) => paintTiles(lv, cells, null));
     else if (ed.tool === 'area') ed.applyLevel((lv) => assignRoom(lv, cells, ed.areaRoomId));
   };
 
@@ -353,6 +383,8 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
         else {
           const roomId = roomAt(lv, cell);
           ed.setSelection(roomId ? { type: 'room', id: roomId } : null);
+          // Ein Raum lässt sich an eine andere Stelle ziehen.
+          if (roomId) gesture.current = { type: 'move', roomId, from: cell, to: cell };
         }
         return;
       }
@@ -374,13 +406,28 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
         const set = lv.edges[hit.edge]?.kind !== 'wall';
         ed.beginStroke();
         ed.applyLevel((level) => setEdge(level, hit.edge, set ? { kind: 'wall' } : null));
-        gesture.current = { type: 'wall', set, done: new Set([hit.edge]) };
+        gesture.current = {
+          type: 'wall',
+          kind: 'wall',
+          set,
+          done: new Set([hit.edge]),
+          first: hit.edge,
+        };
         return;
       }
       case 'door': {
+        // Klicken setzt eine; entlangziehen setzt mehrere nebeneinander – eine Doppeltür.
         const same = lv.edges[hit.edge]?.kind === ed.edgeKind;
+        ed.beginStroke();
         ed.applyLevel((level) => setEdge(level, hit.edge, same ? null : { kind: ed.edgeKind }));
         ed.setSelection(same ? null : { type: 'edge', key: hit.edge });
+        gesture.current = {
+          type: 'wall',
+          kind: ed.edgeKind,
+          set: !same,
+          done: new Set([hit.edge]),
+          first: hit.edge,
+        };
         return;
       }
       case 'trap': {
@@ -423,7 +470,7 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
         }
         let markerId = '';
         ed.applyLevel((level) => {
-          const made = addMarker(floored(level, cell), cell);
+          const made = addMarker(floored(level, cell), cell, ed.markerKind);
           markerId = made.marker.id;
           return made.level;
         });
@@ -436,7 +483,7 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
           ed.apply((d) => removeStair(d, { levelId: lv.id, stairId: thing.id }));
         else if (thing?.type === 'marker') ed.applyLevel((level) => removeMarker(level, thing.id));
         else if (thing?.type === 'trap') ed.applyLevel((level) => removeTrap(level, thing.id));
-        else if (lv.edges[hit.edge]) ed.applyLevel((level) => setEdge(level, hit.edge, null));
+        else if (lv.edges[hit.edge]) ed.applyLevel((level) => removeEdgeRun(level, hit.edge));
         return;
       }
     }
@@ -456,7 +503,7 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
     const hit = hitAt(event.clientX, event.clientY);
     hover.current = hit;
     const ed = live.current;
-    if (g?.type === 'rect') g.to = hit.cell;
+    if (g?.type === 'rect' || g?.type === 'move') g.to = hit.cell;
     else if (g?.type === 'paint') {
       if (!sameCell(g.last, hit.cell)) {
         stroke(g.last, hit.cell, false);
@@ -467,9 +514,13 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
         g.done.add(hit.edge);
         ed.applyLevel((level) => {
           const { a, b } = cellsOfEdge(hit.edge);
-          // Eine Wand steht nur zwischen zwei Bodenfeldern.
-          if (g.set && !(isFloor(level, a) && isFloor(level, b))) return level;
-          return setEdge(level, hit.edge, g.set ? { kind: 'wall' } : null);
+          // Eine Wand steht nur zwischen zwei Bodenfeldern; alles andere braucht wenigstens eines.
+          const floors = Number(isFloor(level, a)) + Number(isFloor(level, b));
+          if (g.set && floors < (g.kind === 'wall' ? 2 : 1)) return level;
+          if (!g.set && level.edges[hit.edge]?.kind !== g.kind) return level;
+          // Türen entstehen beim Ziehen nur in einer Linie – nie um die Ecke.
+          if (g.kind !== 'wall' && !inLine(g.first, hit.edge)) return level;
+          return setEdge(level, hit.edge, g.set ? { kind: g.kind } : null);
         });
       }
     } else if (g?.type === 'trap') {
@@ -490,11 +541,13 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     const ed = live.current;
     if (g?.type === 'rect') {
-      const cells = rectCells(g.from, g.to);
+      const shape =
+        g.mode === 'room' && ed.roomShape === 'round' ? roundBetween(g.from, g.to) : null;
+      const cells = shape ? roundCells(shape) : rectCells(g.from, g.to);
       if (g.mode === 'room') {
         let roomId = '';
         ed.applyLevel((level) => {
-          const made = addRoom(level, cells);
+          const made = addRoom(level, cells, undefined, { round: shape });
           roomId = made.room.id;
           return made.level;
         });
@@ -502,6 +555,22 @@ export function DungeonCanvas({ editor }: { editor: DungeonEditor }) {
       } else if (g.mode === 'floor') ed.applyLevel((level) => paintTiles(level, cells, ed.tile));
       else if (g.mode === 'rock') ed.applyLevel((level) => paintTiles(level, cells, null));
       else ed.applyLevel((level) => assignRoom(level, cells, ed.areaRoomId));
+    } else if (g?.type === 'move') {
+      const dx = g.to.x - g.from.x;
+      const dy = g.to.y - g.from.y;
+      if (dx !== 0 || dy !== 0) {
+        let blocked = false;
+        ed.applyLevel((level) => {
+          const moved = moveRoom(level, g.roomId, dx, dy);
+          blocked = moved === null;
+          return moved ?? level;
+        });
+        if (blocked)
+          toast({
+            title: 'Dort liegt schon anderer Boden – der Raum bleibt, wo er ist.',
+            slot: 'dungeon',
+          });
+      }
     } else if (g?.type === 'paint' || g?.type === 'wall' || g?.type === 'trap') ed.endStroke();
     schedule();
   };

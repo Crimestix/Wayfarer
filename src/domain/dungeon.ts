@@ -26,6 +26,7 @@ import {
   type DungeonSave,
   type DungeonStair,
   type DungeonStairKind,
+  type DungeonThing,
   type DungeonTile,
   type DungeonTrap,
 } from './schema';
@@ -134,11 +135,15 @@ export function canPass(
   options: { secrets?: boolean } = {},
 ): boolean {
   const { kind } = edgeBetween(level, a, b);
-  if (kind === 'open' || kind === 'door' || kind === 'gate')
-    return isFloor(level, a) && isFloor(level, b);
-  if (kind === 'secret') return !!options.secrets && isFloor(level, a) && isFloor(level, b);
+  const walk = isWalkable(tileAt(level, a)) && isWalkable(tileAt(level, b));
+  if (kind === 'open' || kind === 'door' || kind === 'gate' || kind === 'curtain') return walk;
+  if (kind === 'secret') return !!options.secrets && walk;
   return false;
 }
+
+/** Kann man auf dem Feld stehen? Abgrund und Luftraum nicht – dort fällt man. */
+export const isWalkable = (tile: DungeonTile | null): boolean =>
+  tile !== null && tile !== 'chasm' && tile !== 'air';
 
 // ── Zeichnen: was der Editor und später das Brett zeigen ───────────────────
 
@@ -338,19 +343,26 @@ export function digPath(
   level: DungeonLevel,
   path: readonly DungeonCell[],
   tile: DungeonTile,
+  size = 1,
 ): DungeonLevel {
   let next = level;
   for (let i = 0; i < path.length; i++) {
-    const cell = path[i]!;
-    next = paintTiles(next, [cell], tile);
+    const cells = brushCells(path[i]!, size);
+    next = paintTiles(next, cells, tile);
     const before = path[i - 1];
-    if (!before || sameCell(before, cell)) continue;
-    const view = edgeBetween(next, before, cell);
-    if (view.kind !== 'wall' || !view.implied) continue;
-    const key = edgeKeyBetween(before, cell);
-    if (!key) continue;
-    const secret = tileAt(next, before) === 'secret' || tileAt(next, cell) === 'secret';
-    next = setEdge(next, key, { kind: secret ? 'secret' : 'open' });
+    if (!before || sameCell(before, path[i]!)) continue;
+    // Ein breiter Gang öffnet sich auf ganzer Breite: jede Spur für sich.
+    const lanes = brushCells(before, size);
+    for (let lane = 0; lane < cells.length; lane++) {
+      const from = lanes[lane]!;
+      const to = cells[lane]!;
+      const view = edgeBetween(next, from, to);
+      if (view.kind !== 'wall' || !view.implied) continue;
+      const key = edgeKeyBetween(from, to);
+      if (!key) continue;
+      const secret = tileAt(next, from) === 'secret' || tileAt(next, to) === 'secret';
+      next = setEdge(next, key, { kind: secret ? 'secret' : 'open' });
+    }
   }
   return next;
 }
@@ -369,10 +381,17 @@ export function addRoom(
   level: DungeonLevel,
   cells: readonly DungeonCell[],
   name?: string,
+  init: Partial<Pick<DungeonRoom, 'round' | 'spanId' | 'note'>> & { tile?: DungeonTile } = {},
 ): { level: DungeonLevel; room: DungeonRoom } {
-  const room: DungeonRoom = { id: newId(), name: name?.trim() || nextRoomName(level), note: '' };
+  const room: DungeonRoom = {
+    id: newId(),
+    name: name?.trim() || nextRoomName(level),
+    note: init.note ?? '',
+    round: init.round ?? null,
+    spanId: init.spanId ?? null,
+  };
   const fresh = cells.filter((cell) => !isFloor(level, cell));
-  const painted = paintTiles(level, fresh, 'floor');
+  const painted = paintTiles(level, fresh, init.tile ?? 'floor');
   const roomOf = { ...painted.roomOf };
   for (const cell of cells) roomOf[keyOf(cell)] = room.id;
   return { level: tidy({ ...painted, roomOf, rooms: [...painted.rooms, room] }), room };
@@ -474,6 +493,244 @@ export function patchEdge(
   };
 }
 
+// ── Breite Türen ───────────────────────────────────────────────────────────
+
+/**
+ * Die Kanten, die mit dieser zusammen eine Öffnung bilden: gleiche Art, in einer Linie, ohne
+ * Lücke. Zwei Türen nebeneinander sind eine Doppeltür, drei Durchgänge ein breiter Durchgang.
+ * Wände gehören nie zusammen. Geordnet von oben bzw. links.
+ */
+export function edgeRun(level: DungeonLevel, key: string): string[] {
+  const edge = level.edges[key];
+  if (!edge || edge.kind === 'wall') return [key];
+  const [x, y, side] = key.split(',');
+  const at = (step: number) =>
+    side === 'n' ? `${Number(x) + step},${y},n` : `${x},${Number(y) + step},w`;
+  const run = [key];
+  for (let step = -1; level.edges[at(step)]?.kind === edge.kind; step--) run.unshift(at(step));
+  for (let step = 1; level.edges[at(step)]?.kind === edge.kind; step++) run.push(at(step));
+  return run;
+}
+
+/** Ändert eine Öffnung auf ganzer Breite – eine Doppeltür ist eine Tür. */
+export function patchEdgeRun(
+  level: DungeonLevel,
+  key: string,
+  change: Partial<DungeonEdge>,
+): DungeonLevel {
+  return edgeRun(level, key).reduce((lv, k) => patchEdge(lv, k, change), level);
+}
+
+/** Nimmt eine Öffnung auf ganzer Breite weg. */
+export function removeEdgeRun(level: DungeonLevel, key: string): DungeonLevel {
+  return edgeRun(level, key).reduce((lv, k) => setEdge(lv, k, null), level);
+}
+
+/** Der Name einer Öffnung: zwei Türen nebeneinander sind eine „Doppeltür“. */
+export function edgeName(kind: DungeonEdgeKind, width: number): string {
+  if (width < 2) return EDGE_LABEL[kind];
+  if (kind === 'door') return width === 2 ? 'Doppeltür' : 'Breites Tor';
+  if (kind === 'open') return 'Breiter Durchgang';
+  return EDGE_LABEL[kind];
+}
+
+// ── Runde Räume ────────────────────────────────────────────────────────────
+
+export interface RoundShape {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Das Rechteck zwischen zwei Ecken als Form eines runden Raums. */
+export const roundBetween = (a: DungeonCell, b: DungeonCell): RoundShape => ({
+  x: Math.min(a.x, b.x),
+  y: Math.min(a.y, b.y),
+  w: Math.abs(a.x - b.x) + 1,
+  h: Math.abs(a.y - b.y) + 1,
+});
+
+/** Die Felder eines runden Raums: jedes, dessen Mitte in der Ellipse liegt. */
+export function roundCells(shape: RoundShape): DungeonCell[] {
+  const rx = shape.w / 2;
+  const ry = shape.h / 2;
+  const out: DungeonCell[] = [];
+  for (let j = 0; j < shape.h; j++)
+    for (let i = 0; i < shape.w; i++) {
+      const dx = (i + 0.5 - rx) / rx;
+      const dy = (j + 0.5 - ry) / ry;
+      if (dx * dx + dy * dy <= 1) out.push({ x: shape.x + i, y: shape.y + j });
+    }
+  return out;
+}
+
+/**
+ * Die runde Form eines Raums – nur, solange seine Felder genau die der Ellipse sind. Wurde an
+ * ihm gemalt oder genommen, ist er ein eckiger Raum wie jeder andere.
+ */
+export function roundOf(level: DungeonLevel, room: DungeonRoom): RoundShape | null {
+  if (!room.round) return null;
+  const cells = roundCells(room.round);
+  const own = roomCells(level, room.id);
+  if (cells.length !== own.length) return null;
+  return cells.every((cell) => level.roomOf[keyOf(cell)] === room.id) ? room.round : null;
+}
+
+// ── Räume verschieben ──────────────────────────────────────────────────────
+
+const shiftKey = (key: string, dx: number, dy: number): string => {
+  const [x, y, side] = key.split(',');
+  return side === undefined
+    ? `${Number(x) + dx},${Number(y) + dy}`
+    : `${Number(x) + dx},${Number(y) + dy},${side}`;
+};
+
+/**
+ * Verschiebt einen Raum mit allem, was dazugehört: Boden, Türen und Wände an seinen Feldern,
+ * Fallen, Etagenwechsel, Einrichtung. Liegt am Ziel schon anderer Boden, geschieht nichts (null).
+ */
+export function moveRoom(
+  level: DungeonLevel,
+  roomId: string,
+  dx: number,
+  dy: number,
+): DungeonLevel | null {
+  if (dx === 0 && dy === 0) return level;
+  const own = roomCells(level, roomId);
+  if (own.length === 0) return null;
+  const ownKeys = new Set(own.map(keyOf));
+  const moved = (cell: DungeonCell): DungeonCell => ({ x: cell.x + dx, y: cell.y + dy });
+  for (const cell of own) {
+    const key = keyOf(moved(cell));
+    if (!ownKeys.has(key) && level.tiles[key] !== undefined) return null;
+  }
+  const tiles = { ...level.tiles };
+  const roomOf = { ...level.roomOf };
+  for (const key of ownKeys) {
+    delete tiles[key];
+    delete roomOf[key];
+  }
+  for (const cell of own) {
+    const key = keyOf(moved(cell));
+    tiles[key] = level.tiles[keyOf(cell)]!;
+    roomOf[key] = roomId;
+  }
+  const edges: Record<string, DungeonEdge> = {};
+  const carried: [string, DungeonEdge][] = [];
+  for (const [key, edge] of Object.entries(level.edges)) {
+    const { a, b } = cellsOfEdge(key);
+    if (ownKeys.has(keyOf(a)) || ownKeys.has(keyOf(b))) carried.push([shiftKey(key, dx, dy), edge]);
+    else edges[key] = edge;
+  }
+  for (const [key, edge] of carried) edges[key] = edge;
+  const inRoom = (cell: DungeonCell) => ownKeys.has(keyOf(cell));
+  const shift = <T extends DungeonCell>(thing: T): T =>
+    inRoom(thing) ? { ...thing, ...moved(thing) } : thing;
+  return tidy({
+    ...level,
+    tiles,
+    roomOf,
+    edges,
+    rooms: level.rooms.map((room) =>
+      room.id === roomId && room.round
+        ? { ...room, round: { ...room.round, x: room.round.x + dx, y: room.round.y + dy } }
+        : room,
+    ),
+    traps: level.traps.map((trap) => ({
+      ...trap,
+      cells: trap.cells.map(shift),
+      spots: trap.spots.map(shift),
+    })),
+    stairs: level.stairs.map(shift),
+    markers: level.markers.map(shift),
+  });
+}
+
+// ── Räume über mehrere Ebenen ──────────────────────────────────────────────
+
+/** Die Ebene gleich darüber oder darunter; null, wenn es keine gibt. */
+export function levelBeside(
+  dungeon: Pick<Dungeon, 'levels'>,
+  levelId: string,
+  dir: 'up' | 'down',
+): DungeonLevel | null {
+  const sorted = levelsSorted(dungeon);
+  const index = sorted.findIndex((level) => level.id === levelId);
+  return index < 0 ? null : (sorted[dir === 'up' ? index - 1 : index + 1] ?? null);
+}
+
+/** Derselbe Raum auf den anderen Ebenen, von oben nach unten. */
+export function roomSpan(
+  dungeon: Pick<Dungeon, 'levels'>,
+  room: DungeonRoom,
+): { level: DungeonLevel; room: DungeonRoom }[] {
+  if (!room.spanId) return [];
+  return levelsSorted(dungeon).flatMap((level) =>
+    level.rooms
+      .filter((other) => other.spanId === room.spanId && other.id !== room.id)
+      .map((other) => ({ level, room: other })),
+  );
+}
+
+/**
+ * Setzt einen Raum auf der Ebene darüber oder darunter fort – dieselbe Fläche, derselbe Raum.
+ * Darüber entsteht Luftraum (man sieht hinab; eine Galerie malt der Spielleiter als Boden hinein),
+ * darunter Boden. Gibt es die Ebene noch nicht, entsteht sie. Was dort schon Boden ist, bleibt.
+ */
+export function extendRoom<D extends Pick<Dungeon, 'levels'>>(
+  dungeon: D,
+  levelId: string,
+  roomId: string,
+  dir: 'up' | 'down',
+): { dungeon: D; levelId: string; roomId: string } | null {
+  const level = levelOf(dungeon, levelId);
+  const room = level?.rooms.find((r) => r.id === roomId);
+  if (!level || !room) return null;
+  const cells = roomCells(level, roomId);
+  if (cells.length === 0) return null;
+  let next = dungeon;
+  let target = levelBeside(next, levelId, dir);
+  if (!target) {
+    const made = addLevel(next, dir === 'up' ? 'above' : 'below');
+    next = made.dungeon;
+    target = made.level;
+  }
+  const spanId = room.spanId ?? newId();
+  const targetId = target.id;
+  let newRoomId = '';
+  next = withLevel(next, levelId, (lv) => ({
+    ...lv,
+    rooms: lv.rooms.map((r) => (r.id === roomId ? { ...r, spanId } : r)),
+  }));
+  next = withLevel(next, targetId, (lv) => {
+    const made = addRoom(lv, cells, room.name, {
+      round: roundOf(level, room),
+      spanId,
+      note: room.note,
+      tile: dir === 'up' ? 'air' : 'floor',
+    });
+    newRoomId = made.room.id;
+    return made.level;
+  });
+  return { dungeon: next, levelId: targetId, roomId: newRoomId };
+}
+
+/** Name und Notiz eines Raums ändern – auf allen Ebenen, über die er reicht. */
+export function patchRoomEverywhere<D extends Pick<Dungeon, 'levels'>>(
+  dungeon: D,
+  levelId: string,
+  roomId: string,
+  change: Partial<Pick<DungeonRoom, 'name' | 'note'>>,
+): D {
+  const room = levelOf(dungeon, levelId)?.rooms.find((r) => r.id === roomId);
+  if (!room) return dungeon;
+  let next = withLevel(dungeon, levelId, (lv) => patchRoom(lv, roomId, change));
+  for (const other of roomSpan(dungeon, room))
+    next = withLevel(next, other.level.id, (lv) => patchRoom(lv, other.room.id, change));
+  return next;
+}
+
 // ── Fallen ─────────────────────────────────────────────────────────────────
 
 export const trapAt = (level: DungeonLevel, cell: DungeonCell): DungeonTrap | null =>
@@ -562,8 +819,9 @@ export const markerAt = (level: DungeonLevel, cell: DungeonCell): DungeonMarker 
 export function addMarker(
   level: DungeonLevel,
   cell: DungeonCell,
+  kind: DungeonThing = 'note',
 ): { level: DungeonLevel; marker: DungeonMarker } {
-  const marker = DungeonMarkerSchema.parse({ id: newId(), ...cell });
+  const marker = DungeonMarkerSchema.parse({ id: newId(), ...cell, kind });
   return { level: { ...level, markers: [...level.markers, marker] }, marker };
 }
 
@@ -680,6 +938,7 @@ export const STAIR_LABEL: Record<DungeonStairKind, string> = {
   shaft: 'Schacht',
   trapdoor: 'Falltür',
   portal: 'Portal',
+  spiral: 'Wendeltreppe',
 };
 
 export const stairAt = (level: DungeonLevel, cell: DungeonCell): DungeonStair | null =>
@@ -883,6 +1142,9 @@ export const EDGE_LABEL: Record<DungeonEdgeKind, string> = {
   door: 'Tür',
   secret: 'Geheimtür',
   gate: 'Gitter',
+  window: 'Fenster',
+  curtain: 'Vorhang',
+  false: 'Scheintür',
 };
 
 export const TILE_LABEL: Record<DungeonTile, string> = {
@@ -891,7 +1153,29 @@ export const TILE_LABEL: Record<DungeonTile, string> = {
   rubble: 'Geröll',
   water: 'Wasser',
   chasm: 'Abgrund',
+  bridge: 'Brücke',
+  air: 'Luftraum',
 };
+
+export const THING_LABEL: Record<DungeonThing, string> = {
+  note: 'Notiz',
+  pillar: 'Säule',
+  statue: 'Statue',
+  altar: 'Altar',
+  chest: 'Truhe',
+  lever: 'Hebel',
+  well: 'Brunnen',
+  fire: 'Feuer',
+  table: 'Tisch',
+  bed: 'Bett',
+  coffin: 'Sarg',
+  crate: 'Kiste',
+  throne: 'Thron',
+};
+
+/** Der Name eines Dings auf der Karte: sein Wort, sonst seine Art. */
+export const thingName = (marker: DungeonMarker): string =>
+  marker.label.trim() || (marker.kind === 'note' ? 'Notiz ohne Wort' : THING_LABEL[marker.kind]);
 
 /** Die Größe einer Fläche in Worten: „6 Felder · 150 Quadratfuß“. */
 export function areaWords(cells: number, cellFeet: number): string {
@@ -951,7 +1235,8 @@ export function dungeonNotes(dungeon: Pick<Dungeon, 'levels'>): DungeonNote[] {
           cell: { x: stair.x, y: stair.y },
         });
     for (const [key, edge] of Object.entries(level.edges)) {
-      if (edge.kind === 'wall' || edge.kind === 'open') continue;
+      // Ein Fenster nach draußen und eine Scheintür dürfen am Fels sitzen.
+      if (['wall', 'open', 'window', 'false'].includes(edge.kind)) continue;
       const { a, b } = cellsOfEdge(key);
       if (isFloor(level, a) && isFloor(level, b)) continue;
       notes.push({
@@ -963,7 +1248,11 @@ export function dungeonNotes(dungeon: Pick<Dungeon, 'levels'>): DungeonNote[] {
       });
     }
     for (const room of level.rooms)
-      if (!roomHasAccess(level, room.id))
+      if (
+        !roomHasAccess(level, room.id) &&
+        // Reicht der Raum über mehrere Ebenen, genügt ein Zugang auf einer von ihnen.
+        !roomSpan(dungeon, room).some((other) => roomHasAccess(other.level, other.room.id))
+      )
         notes.push({
           key: `room:${room.id}`,
           levelId: level.id,

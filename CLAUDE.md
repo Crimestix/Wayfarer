@@ -559,6 +559,23 @@ nicht übernommen.
   `healStairs` löst, was kein Gegenstück mehr hat) und Markierungen (`level.markers`). Fels
   nimmt mit, was darauf lag (`paintTiles(…, null)`). Was noch nicht zusammenpasst, sagt
   `dungeonNotes` (Etagenwechsel ohne Ziel, Tür in den Fels, Raum ohne Zugang) – nur Hinweise.
+  **Mehr Formen** (Wunsch 18. 11.: „runde Räume, Räume die zwei Etagen spannen“, „Gänge die
+  zwei Felder breit sind, Türen die doppelt sind“): Ein runder Raum ist eine Ellipse im Rechteck
+  (`room.round`, Felder über `roundCells`) – rund gilt er nur, solange seine Felder genau die der
+  Ellipse sind (`roundOf`, nie `room.round` direkt); gezeichnet wird dann die Ellipse statt der
+  Feldkanten, die Regeln rechnen weiter mit Feldern. Ein Raum über mehrere Ebenen ist derselbe
+  Raum auf jeder (`room.spanId`, `roomSpan`, angelegt über `extendRoom`: darüber Luftraum,
+  darunter Boden; Name und Notiz über `patchRoomEverywhere`). **Luftraum** (`air`) ist offen
+  nach unten: Man sieht die Ebene darunter, betreten kann man ihn nicht (`isWalkable`); eine
+  Galerie malt man als Boden hinein. Dazu Brücke (`bridge`), Fenster, Vorhang, Scheintür,
+  Wendeltreppe und Einrichtung mit eigenem Zeichen (`marker.kind`, `DUNGEON_THINGS`: Säule,
+  Statue, Altar, Truhe, Hebel, Brunnen, Feuer, Tisch, Bett, Sarg, Kiste, Thron, Notiz). Gänge
+  malt der Boden-Pinsel in jeder Breite; `digPath(…, size)` öffnet einen Raum auf ganzer Breite.
+  Gleiche Öffnungen nebeneinander in einer Linie sind **eine** (`edgeRun`: zwei Türen = Doppeltür,
+  `edgeName`) – geändert und entfernt nur über `patchEdgeRun`/`removeEdgeRun`, gezeichnet einmal.
+  Räume zieht man mit „Auswählen“ an eine andere Stelle (`moveRoom`: Türen, Fallen, Einrichtung
+  ziehen mit; in fremden Boden hinein geht es nicht). Alle Ebenen eines Dungeons teilen sich eine
+  Ansicht – beim Wechsel bleibt alles an seiner Stelle.
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),

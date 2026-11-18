@@ -6,14 +6,17 @@
 import {
   cellOfKey,
   cellsOfEdge,
+  edgeRun,
   edgeSegments,
   keyOf,
   roomAnchor,
+  roundOf,
   trapSpots,
   type DungeonPick,
   type EdgeSegment,
+  type RoundShape,
 } from '../../domain/dungeon';
-import type { DungeonCell, DungeonLevel, DungeonTile } from '../../domain/schema';
+import type { DungeonCell, DungeonLevel, DungeonMarker, DungeonTile } from '../../domain/schema';
 
 /** Wo die Karte auf der Leinwand liegt: Pixel je Feld und Verschiebung. */
 export interface View {
@@ -41,6 +44,7 @@ export interface Palette {
   gold: string;
   blood: string;
   arcane: string;
+  ember: string;
   font: string;
 }
 
@@ -61,17 +65,28 @@ export function readPalette(element: HTMLElement): Palette {
     gold: get('--gold-bright'),
     blood: get('--blood-bright'),
     arcane: get('--arcane'),
+    ember: get('--ember'),
     font: get('--font-display') || 'Georgia, serif',
   };
 }
 
 interface Parsed {
-  cells: { x: number; y: number; tile: DungeonTile; roomId: string | null }[];
+  cells: TileCell[];
   segments: EdgeSegment[];
   /** Felsfelder, die an Boden grenzen – dort steht die Schraffur. */
   rim: DungeonCell[];
   labels: { roomId: string; name: string; x: number; y: number }[];
+  /** Türen, Gitter, Fenster … – nebeneinanderliegende gleicher Art als eine Öffnung. */
+  openings: EdgeSegment[];
+  /** Runde Räume: ihre Form, ihre Felder und was an ihrem Rand eine Öffnung ist. */
+  rounds: { shape: RoundShape; cells: TileCell[]; openings: EdgeSegment[] }[];
+  /** Felder runder Räume – sie werden mit ihrem Raum gezeichnet, nicht einzeln. */
+  roundKeys: Set<string>;
+  /** Kanten zwischen Boden und Luftraum: dort endet der Boden. */
+  ledges: [number, number, number, number][];
 }
+
+type TileCell = { x: number; y: number; tile: DungeonTile; roomId: string | null };
 
 const parsedOf = new WeakMap<DungeonLevel, Parsed>();
 
@@ -123,7 +138,69 @@ function parse(level: DungeonLevel): Parsed {
     }
     labels.push({ roomId: room.id, name, x, y });
   }
-  const parsed = { cells, segments: edgeSegments(level), rim: [...rim.values()], labels };
+  // Runde Räume: Ihre Wand ist die Ellipse, nicht der Rand ihrer Felder.
+  const roundRoomOf = new Map<string, string>();
+  const rounds: Parsed['rounds'] = [];
+  const roundIndex = new Map<string, number>();
+  for (const room of level.rooms) {
+    const shape = roundOf(level, room);
+    const own = byRoom.get(room.id) as TileCell[] | undefined;
+    if (!shape || !own) continue;
+    roundIndex.set(room.id, rounds.length);
+    rounds.push({ shape, cells: own, openings: [] });
+    for (const cell of own) roundRoomOf.set(keyOf(cell), room.id);
+  }
+  const segments: EdgeSegment[] = [];
+  const ledges: Parsed['ledges'] = [];
+  for (const seg of edgeSegments(level)) {
+    const { a, b } = cellsOfEdge(seg.key);
+    const ra = roundRoomOf.get(keyOf(a));
+    const rb = roundRoomOf.get(keyOf(b));
+    if (ra !== rb) {
+      // Am Rand eines runden Raums: Wand und Fels zeichnet die Ellipse, Öffnungen bleiben.
+      if (seg.kind === 'rock' || seg.kind === 'wall') continue;
+      for (const id of [ra, rb]) if (id) rounds[roundIndex.get(id)!]!.openings.push(seg);
+    }
+    segments.push(seg);
+  }
+  for (const cell of cells) {
+    if (cell.tile !== 'air') continue;
+    const sides: [number, number, number, number, number, number][] = [
+      [0, -1, 0, 0, 1, 0],
+      [1, 0, 1, 0, 1, 1],
+      [0, 1, 0, 1, 1, 1],
+      [-1, 0, 0, 0, 0, 1],
+    ];
+    for (const [dx, dy, x1, y1, x2, y2] of sides) {
+      const other = level.tiles[keyOf({ x: cell.x + dx, y: cell.y + dy })];
+      if (other !== undefined && other !== 'air')
+        ledges.push([cell.x + x1, cell.y + y1, cell.x + x2, cell.y + y2]);
+    }
+  }
+  // Öffnungen: Zwei Türen nebeneinander sind eine Doppeltür – einmal gezeichnet, auf ganzer Breite.
+  const openings: EdgeSegment[] = [];
+  const merged = new Set<string>();
+  const byKey = new Map(segments.map((seg) => [seg.key, seg]));
+  for (const seg of segments) {
+    if (seg.kind === 'rock' || seg.kind === 'wall' || merged.has(seg.key)) continue;
+    const run = (seg.edge ? edgeRun(level, seg.key) : [seg.key]).filter(
+      (key) => byKey.get(key)?.kind === seg.kind,
+    );
+    for (const key of run) merged.add(key);
+    const first = byKey.get(run[0]!) ?? seg;
+    const last = byKey.get(run[run.length - 1]!) ?? seg;
+    openings.push({ ...seg, x1: first.x1, y1: first.y1, x2: last.x2, y2: last.y2 });
+  }
+  const parsed = {
+    cells,
+    segments,
+    openings,
+    rim: [...rim.values()],
+    labels,
+    rounds,
+    roundKeys: new Set(roundRoomOf.keys()),
+    ledges,
+  };
   parsedOf.set(level, parsed);
   return parsed;
 }
@@ -132,6 +209,10 @@ export interface Scene {
   level: DungeonLevel;
   /** Eine andere Ebene, die blass durchscheint. */
   ghost: DungeonLevel | null;
+  /** Die Ebene darunter – sie ist durch Luftraum zu sehen. */
+  below: DungeonLevel | null;
+  /** Die Form eines runden Raums, der gerade aufgezogen wird. */
+  hoverRound: RoundShape | null;
   view: View;
   width: number;
   height: number;
@@ -207,50 +288,62 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   // Boden.
   for (const cell of parsed.cells) {
-    if (!visible(cell.x, cell.y)) continue;
-    const x = sx(cell.x);
-    const y = sy(cell.y);
-    ctx.fillStyle =
-      cell.tile === 'water' ? palette.water : cell.tile === 'chasm' ? palette.chasm : palette.floor;
-    ctx.fillRect(x, y, z + 0.5, z + 0.5);
-    if (cell.tile === 'secret') {
-      // Geheimgang: derselbe Boden, schräg gestreift.
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, y, z, z);
-      ctx.clip();
-      ctx.strokeStyle = palette.inkSoft;
-      ctx.globalAlpha = 0.45;
-      ctx.lineWidth = Math.max(1, z * 0.07);
-      ctx.beginPath();
-      for (let i = -1; i <= 2; i++) {
-        ctx.moveTo(x + i * z * 0.5, y + z);
-        ctx.lineTo(x + i * z * 0.5 + z, y);
-      }
-      ctx.stroke();
-      ctx.restore();
-    } else if (cell.tile === 'rubble' && z >= 10) {
-      ctx.fillStyle = palette.inkSoft;
-      for (const [fx, fy, r] of RUBBLE) {
-        ctx.beginPath();
-        ctx.arc(x + fx * z, y + fy * z, r * z, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    } else if (cell.tile === 'water' && z >= 12) {
-      ctx.strokeStyle = palette.waterLine;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (const fy of [0.35, 0.68]) {
-        ctx.moveTo(x + z * 0.18, y + z * fy);
-        ctx.quadraticCurveTo(x + z * 0.34, y + z * (fy - 0.1), x + z * 0.5, y + z * fy);
-        ctx.quadraticCurveTo(x + z * 0.66, y + z * (fy + 0.1), x + z * 0.82, y + z * fy);
-      }
-      ctx.stroke();
-    } else if (cell.tile === 'chasm') {
-      ctx.strokeStyle = palette.rubble;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x + z * 0.14, y + z * 0.14, z * 0.72, z * 0.72);
+    if (!visible(cell.x, cell.y) || parsed.roundKeys.has(keyOf(cell))) continue;
+    drawTile(ctx, level, scene.below, cell, sx(cell.x), sy(cell.y), z, palette);
+  }
+  // Runde Räume: der Boden ist die Ellipse.
+  const ellipse = (shape: RoundShape) => {
+    ctx.beginPath();
+    ctx.ellipse(
+      sx(shape.x + shape.w / 2),
+      sy(shape.y + shape.h / 2),
+      (shape.w / 2) * z,
+      (shape.h / 2) * z,
+      0,
+      0,
+      Math.PI * 2,
+    );
+  };
+  for (const round of parsed.rounds) {
+    ctx.save();
+    ellipse(round.shape);
+    ctx.clip();
+    // Der Grund ist, was der Raum überwiegend ist – Luftraum bei einer Halle von oben gesehen.
+    const airy = round.cells.filter((cell) => cell.tile === 'air').length * 2 > round.cells.length;
+    const box = [
+      sx(round.shape.x),
+      sy(round.shape.y),
+      round.shape.w * z,
+      round.shape.h * z,
+    ] as const;
+    ctx.fillStyle = airy ? palette.chasm : palette.floor;
+    ctx.fillRect(...box);
+    if (airy && scene.below) {
+      ctx.fillStyle = palette.floor;
+      ctx.globalAlpha = 0.42;
+      ctx.fillRect(...box);
+      ctx.globalAlpha = 1;
     }
+    for (const cell of round.cells)
+      if (cell.tile !== (airy ? 'air' : 'floor'))
+        drawTile(ctx, level, scene.below, cell, sx(cell.x), sy(cell.y), z, palette);
+    if (z >= 9) {
+      ctx.strokeStyle = palette.grid;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i < round.shape.w; i++) {
+        const x = Math.round(sx(round.shape.x + i)) + 0.5;
+        ctx.moveTo(x, sy(round.shape.y));
+        ctx.lineTo(x, sy(round.shape.y + round.shape.h));
+      }
+      for (let j = 1; j < round.shape.h; j++) {
+        const y = Math.round(sy(round.shape.y + j)) + 0.5;
+        ctx.moveTo(sx(round.shape.x), y);
+        ctx.lineTo(sx(round.shape.x + round.shape.w), y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Raster auf dem Boden.
@@ -259,7 +352,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (const cell of parsed.cells) {
-      if (!visible(cell.x, cell.y) || cell.tile === 'chasm') continue;
+      if (!visible(cell.x, cell.y) || cell.tile === 'chasm' || cell.tile === 'air') continue;
+      if (parsed.roundKeys.has(keyOf(cell))) continue;
       const x = Math.round(sx(cell.x)) + 0.5;
       const y = Math.round(sy(cell.y)) + 0.5;
       ctx.moveTo(x, y + z);
@@ -274,9 +368,14 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     const roomId = scene.selection.id;
     ctx.fillStyle = palette.gold;
     ctx.globalAlpha = 0.28;
-    for (const cell of parsed.cells)
-      if (cell.roomId === roomId && visible(cell.x, cell.y))
-        ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
+    const shape = parsed.rounds.find((round) => round.cells[0]?.roomId === roomId)?.shape;
+    if (shape) {
+      ellipse(shape);
+      ctx.fill();
+    } else
+      for (const cell of parsed.cells)
+        if (cell.roomId === roomId && visible(cell.x, cell.y))
+          ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
     ctx.globalAlpha = 1;
   }
 
@@ -302,15 +401,44 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.lineWidth = wallWidth;
   ctx.beginPath();
   for (const seg of parsed.segments) {
-    if (seg.kind !== 'rock' && seg.kind !== 'wall' && seg.kind !== 'secret') continue;
+    if (!SOLID_EDGES.has(seg.kind)) continue;
     ctx.moveTo(sx(seg.x1), sy(seg.y1));
     ctx.lineTo(sx(seg.x2), sy(seg.y2));
   }
   ctx.stroke();
-  for (const seg of parsed.segments) {
-    if (seg.kind === 'rock' || seg.kind === 'wall') continue;
-    drawOpening(ctx, seg, sx, sy, z, wallWidth, palette);
+  // Die Wand eines runden Raums ist seine Ellipse; wo eine Öffnung sitzt, ist sie unterbrochen.
+  for (const round of parsed.rounds) {
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = wallWidth;
+    ellipse(round.shape);
+    ctx.stroke();
+    ctx.fillStyle = palette.floor;
+    for (const seg of round.openings) {
+      if (SOLID_EDGES.has(seg.kind)) continue;
+      const { a, b } = cellsOfEdge(seg.key);
+      const horizontal = seg.y1 === seg.y2;
+      // So weit reicht die Lücke auf jeder Seite, auf der Boden liegt.
+      const before = level.tiles[keyOf(a)] !== undefined ? 0.5 : 0;
+      const after = level.tiles[keyOf(b)] !== undefined ? 0.5 : 0;
+      if (horizontal)
+        ctx.fillRect(sx(seg.x1 + 0.16), sy(seg.y1 - before), z * 0.68, z * (before + after));
+      else ctx.fillRect(sx(seg.x1 - before), sy(seg.y1 + 0.16), z * (before + after), z * 0.68);
+    }
   }
+  // Wo der Boden an Luftraum endet.
+  if (parsed.ledges.length > 0) {
+    ctx.strokeStyle = palette.inkSoft;
+    ctx.lineWidth = Math.max(1.5, z * 0.06);
+    ctx.setLineDash([z * 0.18, z * 0.1]);
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of parsed.ledges) {
+      ctx.moveTo(sx(x1), sy(y1));
+      ctx.lineTo(sx(x2), sy(y2));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  for (const seg of parsed.openings) drawOpening(ctx, seg, sx, sy, z, wallWidth, palette);
   ctx.lineCap = 'butt';
 
   // Was auf Feldern liegt.
@@ -338,15 +466,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     if (!visible(marker.x, marker.y)) continue;
     const cx = sx(marker.x) + z / 2;
     const cy = sy(marker.y) + z / 2;
-    const r = z * 0.24;
-    ctx.fillStyle = palette.wall;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - r);
-    ctx.lineTo(cx + r, cy);
-    ctx.lineTo(cx, cy + r);
-    ctx.lineTo(cx - r, cy);
-    ctx.closePath();
-    ctx.fill();
+    const r = z * 0.3;
+    drawThing(ctx, marker.kind, sx(marker.x), sy(marker.y), z, palette);
     const label = marker.label.trim();
     if (label && z >= 18) {
       ctx.font = `600 ${Math.max(11, Math.min(15, z * 0.42))}px ${palette.font}`;
@@ -367,12 +488,14 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.lineWidth = 2;
   const pick = scene.selection;
   if (pick?.type === 'edge') {
-    const { b, side } = cellsOfEdge(pick.key);
     ctx.lineWidth = wallWidth + 3;
     ctx.globalAlpha = 0.7;
     ctx.beginPath();
-    ctx.moveTo(sx(b.x), sy(b.y));
-    ctx.lineTo(sx(side === 'n' ? b.x + 1 : b.x), sy(side === 'n' ? b.y : b.y + 1));
+    for (const key of edgeRun(level, pick.key)) {
+      const { b, side } = cellsOfEdge(key);
+      ctx.moveTo(sx(b.x), sy(b.y));
+      ctx.lineTo(sx(side === 'n' ? b.x + 1 : b.x), sy(side === 'n' ? b.y : b.y + 1));
+    }
     ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.lineWidth = 2;
@@ -411,7 +534,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       maxX = Math.max(maxX, cell.x);
       maxY = Math.max(maxY, cell.y);
     }
+    if (scene.hoverRound) {
+      ellipse(scene.hoverRound);
+      ctx.stroke();
+      ctx.setLineDash([3, 3]);
+    }
     ctx.strokeRect(sx(minX) + 0.5, sy(minY) + 0.5, (maxX - minX + 1) * z, (maxY - minY + 1) * z);
+    ctx.setLineDash([]);
     ctx.globalAlpha = 1;
   }
   if (scene.hoverEdge) {
@@ -424,6 +553,254 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.lineTo(sx(side === 'n' ? b.x + 1 : b.x), sy(side === 'n' ? b.y : b.y + 1));
     ctx.stroke();
     ctx.globalAlpha = 1;
+  }
+}
+
+/** Kanten, die als durchgehende Wand gezeichnet werden. */
+const SOLID_EDGES: ReadonlySet<string> = new Set(['rock', 'wall', 'secret', 'window', 'false']);
+
+/** Ein Feld mit dem, was es ist. */
+function drawTile(
+  ctx: CanvasRenderingContext2D,
+  level: DungeonLevel,
+  below: DungeonLevel | null,
+  cell: { x: number; y: number; tile: DungeonTile },
+  x: number,
+  y: number,
+  z: number,
+  palette: Palette,
+): void {
+  const dark = cell.tile === 'chasm' || cell.tile === 'air' || cell.tile === 'bridge';
+  ctx.fillStyle = cell.tile === 'water' ? palette.water : dark ? palette.chasm : palette.floor;
+  ctx.fillRect(x, y, z + 0.5, z + 0.5);
+  if (cell.tile === 'secret') {
+    // Geheimgang: derselbe Boden, schräg gestreift.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, z, z);
+    ctx.clip();
+    ctx.strokeStyle = palette.inkSoft;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = Math.max(1, z * 0.07);
+    ctx.beginPath();
+    for (let i = -1; i <= 2; i++) {
+      ctx.moveTo(x + i * z * 0.5, y + z);
+      ctx.lineTo(x + i * z * 0.5 + z, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  } else if (cell.tile === 'rubble' && z >= 10) {
+    ctx.fillStyle = palette.inkSoft;
+    for (const [fx, fy, r] of RUBBLE) {
+      ctx.beginPath();
+      ctx.arc(x + fx * z, y + fy * z, r * z, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (cell.tile === 'water' && z >= 12) {
+    ctx.strokeStyle = palette.waterLine;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const fy of [0.35, 0.68]) {
+      ctx.moveTo(x + z * 0.18, y + z * fy);
+      ctx.quadraticCurveTo(x + z * 0.34, y + z * (fy - 0.1), x + z * 0.5, y + z * fy);
+      ctx.quadraticCurveTo(x + z * 0.66, y + z * (fy + 0.1), x + z * 0.82, y + z * fy);
+    }
+    ctx.stroke();
+  } else if (cell.tile === 'chasm') {
+    ctx.strokeStyle = palette.rubble;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + z * 0.14, y + z * 0.14, z * 0.72, z * 0.72);
+  } else if (cell.tile === 'air') {
+    // Luftraum: man sieht hinab auf die Ebene darunter.
+    const under = below?.tiles[keyOf(cell)];
+    if (under !== undefined && under !== 'chasm' && under !== 'air') {
+      ctx.fillStyle = under === 'water' ? palette.water : palette.floor;
+      ctx.globalAlpha = 0.42;
+      ctx.fillRect(x, y, z + 0.5, z + 0.5);
+      ctx.globalAlpha = 1;
+    }
+  } else if (cell.tile === 'bridge') {
+    // Brücke: Planken quer zur Richtung, in der sie Boden verbindet.
+    const solid = (dx: number, dy: number) => {
+      const t = level.tiles[keyOf({ x: cell.x + dx, y: cell.y + dy })];
+      return t !== undefined && t !== 'chasm' && t !== 'air' && t !== 'water';
+    };
+    const across = solid(-1, 0) || solid(1, 0) || !(solid(0, -1) || solid(0, 1));
+    ctx.fillStyle = palette.grid;
+    if (across) ctx.fillRect(x, y + z * 0.14, z + 0.5, z * 0.72);
+    else ctx.fillRect(x + z * 0.14, y, z * 0.72, z + 0.5);
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < 4; i++) {
+      if (across) {
+        ctx.moveTo(x + (i / 4) * z, y + z * 0.14);
+        ctx.lineTo(x + (i / 4) * z, y + z * 0.86);
+      } else {
+        ctx.moveTo(x + z * 0.14, y + (i / 4) * z);
+        ctx.lineTo(x + z * 0.86, y + (i / 4) * z);
+      }
+    }
+    if (across) {
+      ctx.moveTo(x, y + z * 0.14);
+      ctx.lineTo(x + z, y + z * 0.14);
+      ctx.moveTo(x, y + z * 0.86);
+      ctx.lineTo(x + z, y + z * 0.86);
+    } else {
+      ctx.moveTo(x + z * 0.14, y);
+      ctx.lineTo(x + z * 0.14, y + z);
+      ctx.moveTo(x + z * 0.86, y);
+      ctx.lineTo(x + z * 0.86, y + z);
+    }
+    ctx.stroke();
+  }
+}
+
+/** Ein Stück Einrichtung als Zeichen auf seinem Feld. */
+function drawThing(
+  ctx: CanvasRenderingContext2D,
+  kind: DungeonMarker['kind'],
+  x: number,
+  y: number,
+  z: number,
+  palette: Palette,
+): void {
+  const cx = x + z / 2;
+  const cy = y + z / 2;
+  const u = z / 100;
+  const box = (w: number, h: number) => [cx - (w * u) / 2, cy - (h * u) / 2, w * u, h * u] as const;
+  ctx.strokeStyle = palette.wall;
+  ctx.fillStyle = palette.wall;
+  ctx.lineWidth = Math.max(1.2, z * 0.055);
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  switch (kind) {
+    case 'note': {
+      const r = z * 0.24;
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy);
+      ctx.lineTo(cx, cy + r);
+      ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'pillar':
+      ctx.arc(cx, cy, 30 * u, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'statue':
+      ctx.arc(cx, cy, 30 * u, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+        const r = (i % 2 === 0 ? 22 : 9) * u;
+        const px = cx + Math.cos(angle) * r;
+        const py = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'altar':
+      ctx.fillStyle = palette.floor;
+      ctx.fillRect(...box(72, 44));
+      ctx.strokeRect(...box(72, 44));
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 14 * u);
+      ctx.lineTo(cx, cy + 14 * u);
+      ctx.moveTo(cx - 9 * u, cy - 5 * u);
+      ctx.lineTo(cx + 9 * u, cy - 5 * u);
+      ctx.stroke();
+      break;
+    case 'chest':
+      ctx.fillStyle = palette.grid;
+      ctx.fillRect(...box(64, 44));
+      ctx.strokeRect(...box(64, 44));
+      ctx.beginPath();
+      ctx.moveTo(cx - 32 * u, cy - 6 * u);
+      ctx.lineTo(cx + 32 * u, cy - 6 * u);
+      ctx.stroke();
+      ctx.fillStyle = palette.wall;
+      ctx.fillRect(cx - 5 * u, cy - 9 * u, 10 * u, 12 * u);
+      break;
+    case 'lever':
+      ctx.arc(cx, cy + 14 * u, 13 * u, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.lineWidth = Math.max(2, z * 0.09);
+      ctx.moveTo(cx, cy + 14 * u);
+      ctx.lineTo(cx + 18 * u, cy - 26 * u);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx + 18 * u, cy - 26 * u, 7 * u, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'well':
+      ctx.fillStyle = palette.water;
+      ctx.arc(cx, cy, 30 * u, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = Math.max(2.5, z * 0.11);
+      ctx.stroke();
+      break;
+    case 'fire':
+      ctx.fillStyle = palette.ember;
+      ctx.arc(cx, cy, 16 * u, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = palette.ember;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        ctx.moveTo(cx + Math.cos(angle) * 23 * u, cy + Math.sin(angle) * 23 * u);
+        ctx.lineTo(cx + Math.cos(angle) * 34 * u, cy + Math.sin(angle) * 34 * u);
+      }
+      ctx.stroke();
+      break;
+    case 'table':
+      ctx.fillStyle = palette.grid;
+      ctx.fillRect(...box(70, 48));
+      ctx.strokeRect(...box(70, 48));
+      break;
+    case 'bed':
+      ctx.fillStyle = palette.floor;
+      ctx.fillRect(...box(50, 76));
+      ctx.strokeRect(...box(50, 76));
+      ctx.fillStyle = palette.grid;
+      ctx.fillRect(cx - 18 * u, cy - 32 * u, 36 * u, 16 * u);
+      ctx.strokeRect(cx - 18 * u, cy - 32 * u, 36 * u, 16 * u);
+      break;
+    case 'coffin':
+      ctx.fillStyle = palette.grid;
+      ctx.moveTo(cx - 12 * u, cy - 38 * u);
+      ctx.lineTo(cx + 12 * u, cy - 38 * u);
+      ctx.lineTo(cx + 22 * u, cy - 16 * u);
+      ctx.lineTo(cx + 13 * u, cy + 38 * u);
+      ctx.lineTo(cx - 13 * u, cy + 38 * u);
+      ctx.lineTo(cx - 22 * u, cy - 16 * u);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+    case 'crate':
+      ctx.fillStyle = palette.grid;
+      ctx.fillRect(...box(54, 54));
+      ctx.strokeRect(...box(54, 54));
+      ctx.beginPath();
+      ctx.moveTo(cx - 27 * u, cy - 27 * u);
+      ctx.lineTo(cx + 27 * u, cy + 27 * u);
+      ctx.moveTo(cx + 27 * u, cy - 27 * u);
+      ctx.lineTo(cx - 27 * u, cy + 27 * u);
+      ctx.stroke();
+      break;
+    case 'throne':
+      ctx.fillStyle = palette.grid;
+      ctx.fillRect(...box(52, 52));
+      ctx.strokeRect(...box(52, 52));
+      ctx.fillStyle = palette.wall;
+      ctx.fillRect(cx - 30 * u, cy - 34 * u, 60 * u, 14 * u);
+      break;
   }
 }
 
@@ -469,7 +846,40 @@ function drawOpening(
   const cx = (x1 + x2) / 2;
   const cy = (y1 + y2) / 2;
   const at = (t: number): [number, number] => [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
+  // Eine Öffnung kann mehrere Felder breit sein (Doppeltür): Maße zählen vom Ende, nicht in Anteilen.
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  const f = (cells: number) => (cells * z) / length;
 
+  if (seg.kind === 'window') {
+    // Die Wand steht; darin ein schmales, helles Fenster.
+    const thick = Math.max(3, z * 0.12);
+    const long = length - z * 0.5;
+    const w = horizontal ? long : thick;
+    const h = horizontal ? thick : long;
+    ctx.fillStyle = palette.water;
+    ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+    return;
+  }
+  if (seg.kind === 'false') {
+    // Scheintür: sieht aus wie eine Tür, die Wand dahinter ist ganz.
+    const long = length - z * 0.4;
+    const thick = Math.max(4, z * 0.24);
+    const w = horizontal ? long : thick;
+    const h = horizontal ? thick : long;
+    ctx.fillStyle = palette.floor;
+    ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+    ctx.strokeStyle = palette.blood;
+    ctx.lineWidth = Math.max(1.5, z * 0.06);
+    ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+    ctx.beginPath();
+    ctx.moveTo(cx - w / 2, cy - h / 2);
+    ctx.lineTo(cx + w / 2, cy + h / 2);
+    ctx.stroke();
+    return;
+  }
   if (seg.kind === 'secret') {
     // Die Wand steht schon; darauf das Zeichen der Geheimtür.
     ctx.font = `700 ${Math.max(11, z * 0.5)}px ${palette.font}`;
@@ -489,13 +899,13 @@ function drawOpening(
   ctx.lineWidth = wallWidth;
   ctx.beginPath();
   ctx.moveTo(x1, y1);
-  ctx.lineTo(...at(0.18));
-  ctx.moveTo(...at(0.82));
+  ctx.lineTo(...at(f(0.18)));
+  ctx.moveTo(...at(1 - f(0.18)));
   ctx.lineTo(x2, y2);
   ctx.stroke();
 
   if (seg.kind === 'door') {
-    const long = z * 0.6;
+    const long = length - z * 0.4;
     const thick = Math.max(4, z * 0.24);
     const w = horizontal ? long : thick;
     const h = horizontal ? thick : long;
@@ -505,24 +915,58 @@ function drawOpening(
     if (opened) {
       // Offen: der Türflügel steht quer zur Kante.
       ctx.beginPath();
-      ctx.moveTo(...at(0.2));
-      if (horizontal) ctx.lineTo(x1 + (x2 - x1) * 0.2, y1 + z * 0.55);
-      else ctx.lineTo(x1 + z * 0.55, y1 + (y2 - y1) * 0.2);
+      // Eine Doppeltür hat zwei Flügel, an jedem Ende einen.
+      for (const t of length > z * 1.5 ? [f(0.2), 1 - f(0.2)] : [f(0.2)]) {
+        const [px, py] = at(t);
+        ctx.moveTo(px, py);
+        if (horizontal) ctx.lineTo(px, py + z * 0.55);
+        else ctx.lineTo(px + z * 0.55, py);
+      }
       ctx.stroke();
     } else {
       ctx.fillStyle = palette.floor;
       ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
       ctx.strokeRect(cx - w / 2, cy - h / 2, w, h);
+      if (length > z * 1.5) {
+        // Doppeltür: zwei Flügel, die sich in der Mitte treffen.
+        ctx.beginPath();
+        if (horizontal) {
+          ctx.moveTo(cx, cy - h / 2);
+          ctx.lineTo(cx, cy + h / 2);
+        } else {
+          ctx.moveTo(cx - w / 2, cy);
+          ctx.lineTo(cx + w / 2, cy);
+        }
+        ctx.stroke();
+      }
       if (seg.edge?.locked) {
         ctx.fillStyle = palette.wall;
         const s = Math.max(3, thick * 0.5);
         ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
       }
     }
+  } else if (seg.kind === 'curtain') {
+    // Vorhang: eine Wellenlinie in der Öffnung.
+    ctx.strokeStyle = palette.blood;
+    ctx.lineWidth = Math.max(1.5, z * 0.07);
+    ctx.beginPath();
+    const waves = Math.max(2, Math.round((4 * length) / z));
+    for (let i = 0; i <= waves * 4; i++) {
+      const t = f(0.2) + ((1 - 2 * f(0.2)) * i) / (waves * 4);
+      const off = Math.sin((i / 4) * Math.PI * 2) * z * 0.07;
+      const [px, py] = at(t);
+      const qx = horizontal ? px : px + off;
+      const qy = horizontal ? py + off : py;
+      if (i === 0) ctx.moveTo(qx, qy);
+      else ctx.lineTo(qx, qy);
+    }
+    ctx.stroke();
   } else if (seg.kind === 'gate') {
     ctx.fillStyle = palette.wall;
     const r = Math.max(1.5, z * 0.055);
-    for (const t of [0.3, 0.43, 0.57, 0.7]) {
+    const bars = Math.max(2, Math.round((length - z * 0.6) / (z * 0.133)) + 1);
+    for (let i = 0; i < bars; i++) {
+      const t = f(0.3) + ((1 - 2 * f(0.3)) * i) / (bars - 1);
       const [px, py] = at(t);
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI * 2);
@@ -532,8 +976,8 @@ function drawOpening(
       ctx.strokeStyle = palette.floor;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(...at(0.3));
-      ctx.lineTo(...at(0.7));
+      ctx.moveTo(...at(f(0.3)));
+      ctx.lineTo(...at(1 - f(0.3)));
       ctx.stroke();
     }
   }
@@ -590,6 +1034,17 @@ function drawStair(
       ctx.lineTo(cx + half, py);
     }
     ctx.stroke();
+  } else if (kind === 'spiral') {
+    ctx.arc(cx, cy, z * 0.38, 0, Math.PI * 2);
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      ctx.moveTo(cx + Math.cos(angle) * z * 0.1, cy + Math.sin(angle) * z * 0.1);
+      ctx.lineTo(cx + Math.cos(angle) * z * 0.38, cy + Math.sin(angle) * z * 0.38);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, z * 0.1, 0, Math.PI * 2);
+    ctx.fill();
   } else if (kind === 'ladder') {
     ctx.moveTo(x + z * 0.32, y + z * 0.14);
     ctx.lineTo(x + z * 0.32, y + z * 0.86);

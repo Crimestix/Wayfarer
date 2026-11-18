@@ -7,21 +7,27 @@ import { ArrowDown, ArrowUp, CornerDownRight, Crosshair, Trash2, Unlink } from '
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   EDGE_LABEL,
+  edgeName,
+  edgeRun,
+  patchEdgeRun,
+  removeEdgeRun,
   SAVE_LABEL,
   STAIR_LABEL,
+  THING_LABEL,
   TILE_LABEL,
   TRAP_SPOT_RANGE,
   areaWords,
   cellsOfEdge,
   dissolveRoom,
   dungeonNotes,
+  extendRoom,
   findStair,
   isFloor,
+  levelBeside,
   levelsSorted,
   moveLevel,
-  patchEdge,
   patchMarker,
-  patchRoom,
+  patchRoomEverywhere,
   patchStair,
   patchTrap,
   removeLevel,
@@ -31,8 +37,10 @@ import {
   roomAnchor,
   roomCells,
   roomSize,
-  setEdge,
+  roomSpan,
+  roundOf,
   stairLine,
+  thingName,
   trapLine,
   unlinkStair,
   withLevel,
@@ -41,6 +49,7 @@ import {
   DUNGEON_EDGES,
   DUNGEON_SAVES,
   DUNGEON_STAIRS,
+  DUNGEON_THINGS,
   DUNGEON_TILES,
   type DungeonEdge,
   type DungeonEdgeKind,
@@ -153,7 +162,15 @@ function SizePick({ editor }: { editor: DungeonEditor }) {
   );
 }
 
-const EDGE_CHOICES: readonly DungeonEdgeKind[] = ['door', 'open', 'gate', 'secret'];
+const EDGE_CHOICES: readonly DungeonEdgeKind[] = [
+  'door',
+  'open',
+  'gate',
+  'secret',
+  'window',
+  'curtain',
+  'false',
+];
 
 // ── Das Werkzeug ───────────────────────────────────────────────────────────
 
@@ -166,6 +183,36 @@ export function ToolPanel({ editor }: { editor: DungeonEditor }) {
     >
       <div className="wf-dungeon-toolpanel">
         <p className="wf-dungeon-hint">{TOOL_HINT[tool]}</p>
+        {tool === 'room' && (
+          <Segments
+            label="Form des Raums"
+            value={editor.roomShape}
+            onChange={editor.setRoomShape}
+            options={[
+              { id: 'rect', label: 'Eckig' },
+              {
+                id: 'round',
+                label: 'Rund',
+                title: 'Kreis oder Oval – je nachdem, wie du aufziehst',
+              },
+            ]}
+          />
+        )}
+        {tool === 'marker' && (
+          <div className="wf-dungeon-tiles" role="group" aria-label="Was hingestellt wird">
+            {DUNGEON_THINGS.map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                className="wf-dungeon-tile"
+                aria-pressed={editor.markerKind === kind}
+                onClick={() => editor.setMarkerKind(kind)}
+              >
+                {THING_LABEL[kind]}
+              </button>
+            ))}
+          </div>
+        )}
         {tool === 'floor' && (
           <div className="wf-dungeon-tiles" role="group" aria-label="Was gemalt wird">
             {DUNGEON_TILES.map((tile) => (
@@ -248,9 +295,29 @@ function RoomBox({
 }) {
   const cells = roomCells(level, room.id);
   const feet = editor.dungeon.cellFeet;
+  const round = roundOf(level, room);
+  const span = roomSpan(editor.dungeon, room);
+  const patch = (change: Partial<Pick<DungeonRoom, 'name' | 'note'>>) =>
+    editor.apply((d) => patchRoomEverywhere(d, level.id, room.id, change));
+  const extend = (dir: 'up' | 'down') => {
+    let made: { levelId: string; roomId: string } | null = null;
+    editor.apply((d) => {
+      const result = extendRoom(d, level.id, room.id, dir);
+      if (!result) return d;
+      made = { levelId: result.levelId, roomId: result.roomId };
+      return result.dungeon;
+    });
+    const target = made as { levelId: string; roomId: string } | null;
+    if (target)
+      editor.reveal(target.levelId, { type: 'room', id: target.roomId }, roomAnchor(cells));
+  };
+  const reaches = (dir: 'up' | 'down') => {
+    const beside = levelBeside(editor.dungeon, level.id, dir);
+    return !!beside && span.some((other) => other.level.id === beside.id);
+  };
   return (
     <Panel
-      title="Raum"
+      title={round ? 'Runder Raum' : 'Raum'}
       actions={
         <RemoveButton
           label="Raum auflösen – der Boden bleibt"
@@ -268,11 +335,18 @@ function RoomBox({
             value={room.name}
             placeholder="Wie heißt der Raum?"
             selectAll
-            onSave={(name) => editor.applyLevel((lv) => patchRoom(lv, room.id, { name }))}
+            onSave={(name) => patch({ name })}
           />
         </Field>
         <p className="wf-dungeon-fact">
-          {[roomSize(cells, feet), areaWords(cells.length, feet)].filter(Boolean).join(' · ')}
+          {[
+            round
+              ? `${round.w * feet} × ${round.h * feet} Fuß im Durchmesser`
+              : roomSize(cells, feet),
+            areaWords(cells.length, feet),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
         <Field label="Nur für dich">
           <Written
@@ -280,7 +354,7 @@ function RoomBox({
             grow
             value={room.note}
             placeholder="Was ist hier? Was fällt auf?"
-            onSave={(note) => editor.applyLevel((lv) => patchRoom(lv, room.id, { note }))}
+            onSave={(note) => patch({ note })}
           />
         </Field>
         <Button
@@ -292,6 +366,52 @@ function RoomBox({
         >
           Fläche ändern
         </Button>
+
+        <div className="wf-dungeon-span">
+          <h4 className="wf-section-title">Über mehrere Ebenen</h4>
+          {span.length === 0 ? (
+            <p className="wf-dungeon-hint">
+              Eine Halle mit Galerie, ein Turm, ein Schacht: Setz den Raum auf der Ebene darüber
+              oder darunter fort – er bleibt ein Raum.
+            </p>
+          ) : (
+            span.map((other) => (
+              <Row
+                key={other.room.id}
+                sub="derselbe Raum"
+                onClick={() =>
+                  editor.reveal(
+                    other.level.id,
+                    { type: 'room', id: other.room.id },
+                    roomAnchor(roomCells(other.level, other.room.id)),
+                  )
+                }
+              >
+                {other.level.name.trim() || 'Ebene'}
+              </Row>
+            ))
+          )}
+          <div className="wf-dungeon-span__actions">
+            <Button
+              size="sm"
+              icon={<ArrowUp />}
+              disabled={reaches('up')}
+              title="Auf der Ebene darüber entsteht Luftraum über diesem Raum – man sieht hinab."
+              onClick={() => extend('up')}
+            >
+              Nach oben
+            </Button>
+            <Button
+              size="sm"
+              icon={<ArrowDown />}
+              disabled={reaches('down')}
+              title="Auf der Ebene darunter entsteht derselbe Raum als Boden."
+              onClick={() => extend('down')}
+            >
+              Nach unten
+            </Button>
+          </div>
+        </div>
       </div>
     </Panel>
   );
@@ -308,19 +428,21 @@ function EdgeBox({
   edgeKey: string;
   edge: DungeonEdge;
 }) {
+  // Eine Doppeltür ist eine Tür: Was hier steht, gilt auf ganzer Breite.
+  const width = edgeRun(level, edgeKey).length;
   const patch = (change: Partial<DungeonEdge>) =>
-    editor.applyLevel((lv) => patchEdge(lv, edgeKey, change));
+    editor.applyLevel((lv) => patchEdgeRun(lv, edgeKey, change));
   const { a, b } = cellsOfEdge(edgeKey);
   const intoRock = !(isFloor(level, a) && isFloor(level, b));
   const closes = edge.kind === 'door' || edge.kind === 'gate' || edge.kind === 'secret';
   return (
     <Panel
-      title={EDGE_LABEL[edge.kind]}
+      title={edgeName(edge.kind, width)}
       actions={
         <RemoveButton
           label="Entfernen"
           onClick={() => {
-            editor.applyLevel((lv) => setEdge(lv, edgeKey, null));
+            editor.applyLevel((lv) => removeEdgeRun(lv, edgeKey));
             editor.setSelection(null);
           }}
         />
@@ -339,7 +461,10 @@ function EdgeBox({
             ))}
           </Select>
         </Field>
-        {intoRock && edge.kind !== 'wall' && (
+        {width > 1 && (
+          <p className="wf-dungeon-fact">{width * editor.dungeon.cellFeet} Fuß breit</p>
+        )}
+        {intoRock && !['wall', 'window', 'false'].includes(edge.kind) && (
           <p className="wf-dungeon-warn">Führt in den Fels – dahinter ist noch kein Boden.</p>
         )}
         {closes && (
@@ -664,10 +789,10 @@ function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonM
     editor.applyLevel((lv) => patchMarker(lv, marker.id, change));
   return (
     <Panel
-      title="Markierung"
+      title={THING_LABEL[marker.kind]}
       actions={
         <RemoveButton
-          label="Markierung entfernen"
+          label="Entfernen"
           onClick={() => {
             editor.applyLevel((lv) => removeMarker(lv, marker.id));
             editor.setSelection(null);
@@ -676,12 +801,24 @@ function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonM
       }
     >
       <div className="wf-dungeon-form">
-        <Field label="Was steht hier">
+        <Field label="Was ist es">
+          <Select
+            value={marker.kind}
+            onChange={(event) => patch({ kind: event.target.value as DungeonMarker['kind'] })}
+          >
+            {DUNGEON_THINGS.map((kind) => (
+              <option key={kind} value={kind}>
+                {THING_LABEL[kind]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Beschriftung">
           <Written
             label="Beschriftung"
             value={marker.label}
-            placeholder="Truhe, Hebel, Inschrift …"
-            autoFocus={!marker.label}
+            placeholder="Steht neben dem Zeichen auf der Karte"
+            autoFocus={!marker.label && marker.kind === 'note'}
             onSave={(label) => patch({ label })}
           />
         </Field>
@@ -884,7 +1021,7 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
         )}
         {level.markers.length > 0 && (
           <div className="wf-dungeon-list">
-            <h4 className="wf-section-title">Markierungen</h4>
+            <h4 className="wf-section-title">Einrichtung und Notizen</h4>
             {level.markers.map((marker) => (
               <Row
                 key={marker.id}
@@ -896,7 +1033,7 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
                   )
                 }
               >
-                {marker.label.trim() || 'Markierung ohne Wort'}
+                {thingName(marker)}
               </Row>
             ))}
           </div>

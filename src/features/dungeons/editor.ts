@@ -20,6 +20,7 @@ import type {
   DungeonEdgeKind,
   DungeonLevel,
   DungeonStairKind,
+  DungeonThing,
   DungeonTile,
 } from '../../domain/schema';
 import { saveLevels } from './actions';
@@ -58,23 +59,25 @@ export const TOOL_LABEL: Record<Tool, string> = {
   door: 'Tür',
   trap: 'Falle',
   stair: 'Etagenwechsel',
-  marker: 'Markierung',
+  marker: 'Einrichtung',
   erase: 'Entfernen',
 };
 
 export const TOOL_HINT: Record<Tool, string> = {
-  select: 'Anklicken, was du ändern willst: Raum, Tür, Falle, Etagenwechsel.',
-  room: 'Einen Raum aufziehen. Wände zu allem ringsum stehen von selbst.',
+  select:
+    'Anklicken, was du ändern willst: Raum, Tür, Falle, Etagenwechsel. Einen Raum ziehst du mit der Maus an eine andere Stelle.',
+  room: 'Einen Raum aufziehen – eckig oder rund. Wände zu allem ringsum stehen von selbst.',
   floor:
-    'Gänge und Höhlen malen. Führt der Strich in einen Raum, entsteht dort ein Durchgang. Umschalt: Rechteck.',
+    'Gänge und Höhlen malen – mit der Pinselgröße auch zwei oder drei Felder breit. Führt der Strich in einen Raum, entsteht dort ein Durchgang auf ganzer Breite. Umschalt: Rechteck.',
   rock: 'Boden wieder zu Fels machen. Umschalt: Rechteck.',
   area: 'Boden einem Raum zuschlagen oder herausnehmen.',
   wall: 'Eine Wand auf die Kante zwischen zwei Feldern setzen – klicken oder entlangziehen.',
-  door: 'Auf eine Kante klicken: Tür, Durchgang, Gitter oder Geheimtür.',
+  door: 'Auf eine Kante klicken: Tür, Durchgang, Gitter, Geheimtür, Fenster, Vorhang oder Scheintür. Entlangziehen macht sie breiter – zwei Felder sind eine Doppeltür.',
   trap: 'Ein Feld anklicken, auf dem die Falle auslöst; ziehen für mehrere Felder.',
-  stair: 'Treppe, Leiter, Schacht, Falltür oder Portal setzen – das Ziel wählst du danach.',
-  marker: 'Ein Feld beschriften: Truhe, Hebel, Inschrift.',
-  erase: 'Anklicken, was weg soll: Tür, Wand, Falle, Etagenwechsel, Markierung.',
+  stair:
+    'Treppe, Wendeltreppe, Leiter, Schacht, Falltür oder Portal setzen – das Ziel wählst du danach.',
+  marker: 'Etwas auf ein Feld stellen: Säule, Truhe, Hebel, Altar – oder eine freie Notiz.',
+  erase: 'Anklicken, was weg soll: Tür, Wand, Falle, Etagenwechsel, Einrichtung.',
 };
 
 export const TOOL_KEY: Record<Tool, string> = {
@@ -146,6 +149,8 @@ export function useDungeonEditor(db: CampaignDb, stored: Dungeon) {
   const [size, setSize] = useState(1);
   const [edgeKind, setEdgeKind] = useState<DungeonEdgeKind>('door');
   const [stairKind, setStairKind] = useState<DungeonStairKind>('stairs');
+  const [roomShape, setRoomShape] = useState<'rect' | 'round'>('rect');
+  const [markerKind, setMarkerKind] = useState<DungeonThing>('chest');
   const [areaRoomId, setAreaRoomId] = useState<string | null>(null);
   const [levelId, setLevelId] = useState<string>(() => levelsSorted(stored)[0]?.id ?? '');
   const [selection, setSelection] = useState<DungeonPick | null>(null);
@@ -279,6 +284,10 @@ export function useDungeonEditor(db: CampaignDb, stored: Dungeon) {
     setEdgeKind,
     stairKind,
     setStairKind,
+    roomShape,
+    setRoomShape,
+    markerKind,
+    setMarkerKind,
     areaRoomId,
     setAreaRoomId,
     selection,
@@ -304,3 +313,16 @@ export function useDungeonEditor(db: CampaignDb, stored: Dungeon) {
 }
 
 export type DungeonEditor = ReturnType<typeof useDungeonEditor>;
+
+/**
+ * Wird gerade getippt? Dann gehören die Tasten dem Feld. Kästchen und Knöpfe zählen nicht – nach
+ * einem Klick auf „verschlossen“ sollen die Tasten der Werkzeuge weiter gelten.
+ */
+export function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+    return true;
+  if (target.tagName !== 'INPUT') return false;
+  const type = (target as HTMLInputElement).type;
+  return !['checkbox', 'radio', 'button', 'submit', 'range'].includes(type);
+}

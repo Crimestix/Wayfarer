@@ -30,11 +30,11 @@ import {
   addLevel,
   levelLine,
   levelsSorted,
+  removeEdgeRun,
   removeMarker,
   removeStair,
   removeTrap,
   dissolveRoom,
-  setEdge,
 } from '../../domain/dungeon';
 import type { Dungeon } from '../../domain/schema';
 import {
@@ -56,6 +56,7 @@ import {
   TOOL_KEY,
   TOOL_LABEL,
   hasSize,
+  isTyping,
   toolOfKey,
   useDungeonEditor,
   type DungeonEditor,
@@ -193,12 +194,7 @@ function CreateDialog({
 function useEditorKeys(editor: DungeonEditor) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      )
-        return;
+      if (isTyping(event.target)) return;
       // Ein offener Dialog hat die Tasten für sich.
       if (document.querySelector('[role="dialog"]')) return;
       const mod = event.ctrlKey || event.metaKey;
@@ -228,7 +224,7 @@ function useEditorKeys(editor: DungeonEditor) {
           editor.apply((d) => removeStair(d, { levelId, stairId: pick.id }));
         else if (pick.type === 'trap') editor.applyLevel((lv) => removeTrap(lv, pick.id));
         else if (pick.type === 'marker') editor.applyLevel((lv) => removeMarker(lv, pick.id));
-        else if (pick.type === 'edge') editor.applyLevel((lv) => setEdge(lv, pick.key, null));
+        else if (pick.type === 'edge') editor.applyLevel((lv) => removeEdgeRun(lv, pick.key));
         else editor.applyLevel((lv) => dissolveRoom(lv, pick.id));
         editor.setSelection(null);
         return;

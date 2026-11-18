@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 37;
-export const DATA_SHAPE = '9163eb102c9552d1';
+export const DATA_VERSION = 38;
+export const DATA_SHAPE = '69a3c069fe697890';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -3389,16 +3389,35 @@ export type DungeonCell = z.infer<typeof dungeonCell>;
 
 /**
  * Was ein Feld ist. Ein Feld ohne Eintrag ist massiver Fels. `secret` ist ein Geheimgang:
- * Boden, den die Gruppe erst kennt, wenn sie ihn gefunden hat.
+ * Boden, den die Gruppe erst kennt, wenn sie ihn gefunden hat. `air` ist Luftraum: offen nach
+ * unten, man sieht auf die Ebene darunter (eine Halle über zwei Ebenen, ein Schacht). `bridge`
+ * ist eine Brücke – begehbar über Abgrund oder Wasser.
  */
-export const DUNGEON_TILES = ['floor', 'secret', 'rubble', 'water', 'chasm'] as const;
+export const DUNGEON_TILES = [
+  'floor',
+  'secret',
+  'rubble',
+  'water',
+  'chasm',
+  'bridge',
+  'air',
+] as const;
 export type DungeonTile = (typeof DUNGEON_TILES)[number];
 
 /**
  * Was auf der Kante zwischen zwei Feldern sitzt: Wand, Durchgang, Tür, Geheimtür, Gitter. Ohne
  * Eintrag entscheidet `edgeBetween` (`domain/dungeon.ts`): Räume haben von selbst Wände.
  */
-export const DUNGEON_EDGES = ['wall', 'open', 'door', 'secret', 'gate'] as const;
+export const DUNGEON_EDGES = [
+  'wall',
+  'open',
+  'door',
+  'secret',
+  'gate',
+  'window',
+  'curtain',
+  'false',
+] as const;
 export type DungeonEdgeKind = (typeof DUNGEON_EDGES)[number];
 
 export const DungeonEdgeSchema = z.object({
@@ -3421,6 +3440,16 @@ export const DungeonRoomSchema = z.object({
   id,
   name: z.string().default(''),
   note: z.string().default(''),
+  /**
+   * Ein runder Raum: die Ellipse im Rechteck (in Feldern). Gilt nur, solange die Felder des Raums
+   * genau die der Ellipse sind (`roundOf`); null = eckig.
+   */
+  round: z
+    .object({ x: z.number().int(), y: z.number().int(), w: z.number().int(), h: z.number().int() })
+    .nullable()
+    .default(null),
+  /** Derselbe Raum auf mehreren Ebenen trägt dieselbe Kennung (`roomSpan`); null = nur hier. */
+  spanId: id.nullable().default(null),
 });
 export type DungeonRoom = z.infer<typeof DungeonRoomSchema>;
 
@@ -3451,7 +3480,14 @@ export const DungeonTrapSchema = z.object({
 });
 export type DungeonTrap = z.infer<typeof DungeonTrapSchema>;
 
-export const DUNGEON_STAIRS = ['stairs', 'ladder', 'shaft', 'trapdoor', 'portal'] as const;
+export const DUNGEON_STAIRS = [
+  'stairs',
+  'spiral',
+  'ladder',
+  'shaft',
+  'trapdoor',
+  'portal',
+] as const;
 export type DungeonStairKind = (typeof DUNGEON_STAIRS)[number];
 
 /** Ein Etagenwechsel: ein Ende auf einem Feld, verbunden mit seinem Gegenstück (`linkStairs`). */
@@ -3473,11 +3509,30 @@ export const DungeonStairSchema = z.object({
 });
 export type DungeonStair = z.infer<typeof DungeonStairSchema>;
 
-/** Eine freie Markierung auf einem Feld: Truhe, Hebel, Inschrift – ein Wort und was dazu gehört. */
+/** Was auf einem Feld steht: eine freie Notiz oder ein Stück Einrichtung mit eigenem Zeichen. */
+export const DUNGEON_THINGS = [
+  'note',
+  'pillar',
+  'statue',
+  'altar',
+  'chest',
+  'lever',
+  'well',
+  'fire',
+  'table',
+  'bed',
+  'coffin',
+  'crate',
+  'throne',
+] as const;
+export type DungeonThing = (typeof DUNGEON_THINGS)[number];
+
+/** Etwas auf einem Feld: Truhe, Hebel, Säule, Inschrift – ein Zeichen, ein Wort und was dazu gehört. */
 export const DungeonMarkerSchema = z.object({
   id,
   x: z.number().int(),
   y: z.number().int(),
+  kind: z.enum(DUNGEON_THINGS).default('note'),
   label: z.string().default(''),
   note: z.string().default(''),
 });

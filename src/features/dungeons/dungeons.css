@@ -441,3 +441,20 @@
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
+
+.wf-dungeon-tile[data-tile='bridge'] .wf-dungeon-tile__swatch {
+  background: repeating-linear-gradient(90deg, var(--map-paper-edge) 0 3px, var(--map-ink) 3px 4px);
+}
+.wf-dungeon-tile[data-tile='air'] .wf-dungeon-tile__swatch {
+  background: color-mix(in srgb, var(--map-paper) 42%, var(--map-chasm));
+  border-style: dashed;
+}
+.wf-dungeon-span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.wf-dungeon-span__actions {
+  display: flex;
+  gap: var(--s-2);
+}
