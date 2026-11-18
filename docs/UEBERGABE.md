@@ -183,6 +183,15 @@ Einrichtungen; der Artikel ist danach die Seite der Einrichtung („Einrichtung 
 Seite des Raums). Eine Einrichtung gleichen Namens ohne Raum bekommt nur ihren Raum. Kein neues
 Schema (weiter DATA_VERSION 35). Geprüft mit Tests und der kleinen Vorschau-Welt, nicht mit Elaris.
 
+**Danach: Tag `v0.1.26` auf `8beac23` (18. 11.)** – Raumsystem: Etagen als Stufe zwischen Haus und Raum
+(„Was für ein Ort“ kennt Etage und Raum), „Räume“ auf der Seite nach Etage von oben nach unten,
+ein ganzes Haus als Text anlegen („Keller:“ und darunter die Räume), „Aus Artikeln …“ macht aus
+Geschriebenem unter einem Ort seine Etagen und Räume; Räume stehen in „Nach Lage“ unter ihrem Ort
+und bei ihrer Unterkategorie. Dazu die Ansicht „Ohne Kategorie“: alle Artikel ohne Eintrag zum
+Einordnen oder Löschen (Papierkorb), auch mehrere auf einmal. **DATA_VERSION 36**. Geprüft mit
+Tests und der kleinen Vorschau-Welt, nicht mit Elaris. Offen (Schritt 2): Türen, Treppen und
+Geheimgänge zwischen Räumen, wer in welchem Raum steht.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
