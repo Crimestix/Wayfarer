@@ -3,7 +3,7 @@
  * üblichen offen, die seltenen unter „Mehr“ (nie weggefiltert); Orte als Baum. Ein „Neu“ für
  * alles (`NewDialog`). Wechselt man Liste oder Ansicht, bleibt die offene Seite stehen.
  */
-import { ownKindFromWord } from './ownKinds';
+import { ownKindFromWord, removeOwnKind, removedOwnKindText } from './ownKinds';
 import { isRoom } from '../../domain/rooms';
 import {
   REST_GROUP,
@@ -38,6 +38,7 @@ import {
   Search,
   Users,
   X,
+  Trash2,
 } from 'lucide-react';
 import type { Entity } from '../../domain/schema';
 import { showsAttitude } from '../../domain/relations';
@@ -511,6 +512,39 @@ export function Sidebar({
       action: { label: 'Rückgängig', run: made.undo },
     });
   };
+  /** Eine Unterkategorie entfernen – ihre Einträge bleiben. */
+  const dropOwnKind = (kind: WorldKind, kindOwn: OwnKind) => {
+    const count = ownCounts.get(kindOwn.id) ?? 0;
+    const undo = removeOwnKind(dbRef, kindOwn.id);
+    if (!undo) return;
+    if (ownFilter === kindOwn.id) setKindFilter(kind);
+    toast({
+      ...removedOwnKindText(kindOwn.name, count, KIND_LABEL_PLURAL[kind]),
+      duration: 12000,
+      action: { label: 'Rückgängig', run: undo },
+    });
+  };
+  const ownAside = (kind: WorldKind, kindOwn: OwnKind): ReactNode => (
+    <>
+      <button
+        type="button"
+        className="wf-welt-fold__only"
+        title={`Nur ${ownPlural(kindOwn)} zeigen – mit eigenen Kacheln`}
+        onClick={() => setKindFilter(kind, kindOwn.id)}
+      >
+        nur diese
+      </button>
+      <button
+        type="button"
+        className="wf-welt-fold__only wf-welt-fold__drop"
+        aria-label={`Unterkategorie ${kindOwn.name} entfernen`}
+        title="Unterkategorie entfernen – die Einträge bleiben"
+        onClick={() => dropOwnKind(kind, kindOwn)}
+      >
+        <Trash2 aria-hidden />
+      </button>
+    </>
+  );
   /** Die Liste einer Kategorie, gegliedert – zu Beginn zugeklappt: Man sieht zuerst die Kategorien. */
   const groupedEntries = (kind: WorldKind): ReactNode => {
     if (!catSplit) return null;
@@ -528,14 +562,7 @@ export function Sidebar({
                 count={group.entities.length}
                 aside={
                   group.own ? (
-                    <button
-                      type="button"
-                      className="wf-welt-fold__only"
-                      title={`Nur ${group.label} zeigen – mit eigenen Kacheln`}
-                      onClick={() => setKindFilter(kind, group.own!.id)}
-                    >
-                      nur diese
-                    </button>
+                    ownAside(kind, group.own)
                   ) : (
                     <button
                       type="button"
@@ -688,16 +715,7 @@ export function Sidebar({
               onToggle={() => setFolded((f) => ({ ...f, [key]: open }))}
               label={ownPlural(kindOwn)}
               count={ownCounts.get(kindOwn.id) ?? 0}
-              aside={
-                <button
-                  type="button"
-                  className="wf-welt-fold__only"
-                  title={`Nur ${ownPlural(kindOwn)} zeigen`}
-                  onClick={() => setKindFilter(kind, kindOwn.id)}
-                >
-                  nur diese
-                </button>
-              }
+              aside={ownAside(kind, kindOwn)}
             />
             {open && ownEntries(kindOwn)}
           </div>

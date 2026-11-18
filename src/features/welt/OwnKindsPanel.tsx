@@ -6,7 +6,7 @@
  * eigenen Wörtern, die oft vorkommen. Alles auf Klick, jeder Vorschlag mit „×“.
  */
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL } from '../../domain/derive';
 import {
@@ -19,7 +19,7 @@ import {
 import { DismissButton, KindIcon, toast } from '../../ui';
 import { OwnKindForm } from './KindSelect';
 import { WORLD_KINDS, isWorldKind, type WorldKind } from './model';
-import { ownKindFromWord } from './ownKinds';
+import { ownKindFromWord, removeOwnKind, removedOwnKindText } from './ownKinds';
 import { setKindFilter } from './overview';
 
 /** So viele Vorschläge stehen höchstens da – der Rest folgt, wenn diese angenommen oder weg sind. */
@@ -59,6 +59,27 @@ export function OwnKindsPanel() {
                 {(counts.get(own.id) ?? 0) === 1 ? own.name : ownPlural(own)}
               </span>
               <span className="wf-welt-count__base">{KIND_LABEL[own.base as WorldKind]}</span>
+            </button>
+            <button
+              type="button"
+              className="wf-welt-count__remove"
+              aria-label={`Unterkategorie ${own.name} entfernen`}
+              title="Unterkategorie entfernen – die Einträge bleiben"
+              onClick={() => {
+                const undo = removeOwnKind(db, own.id);
+                if (undo)
+                  toast({
+                    ...removedOwnKindText(
+                      own.name,
+                      counts.get(own.id) ?? 0,
+                      KIND_LABEL_PLURAL[own.base as WorldKind],
+                    ),
+                    duration: 12000,
+                    action: { label: 'Rückgängig', run: undo },
+                  });
+              }}
+            >
+              <Trash2 aria-hidden />
             </button>
           </div>
         ))}

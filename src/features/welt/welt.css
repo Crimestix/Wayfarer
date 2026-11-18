@@ -4009,3 +4009,44 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-form__subkind select {
   max-width: 22rem;
 }
+
+/* Entfernen an der Kachel einer Unterkategorie und an ihrer Gruppe in der Liste. */
+.wf-welt-counts--own .wf-welt-count {
+  position: relative;
+}
+.wf-welt-count__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.wf-welt-count__remove:hover,
+.wf-welt-count__remove:focus-visible {
+  color: var(--blood-bright);
+  background: color-mix(in srgb, var(--blood-bright) 12%, transparent);
+}
+.wf-welt-count__remove svg {
+  width: 14px;
+  height: 14px;
+}
+.wf-welt-fold__drop {
+  display: inline-grid;
+  place-items: center;
+  margin-left: 6px;
+}
+.wf-welt-fold__drop svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-welt-fold__drop:hover {
+  color: var(--blood-bright);
+}

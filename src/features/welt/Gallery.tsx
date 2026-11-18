@@ -28,7 +28,7 @@ import { SUGGESTION } from '../../domain/dismiss';
 import { ownKindById, ownKindSuggestions, ownPlural } from '../../domain/ownKind';
 import { isRoom } from '../../domain/rooms';
 import { scopeMembers } from '../../domain/scope';
-import { ownKindFromWord, patchOwnKind, removeOwnKind } from './ownKinds';
+import { ownKindFromWord, patchOwnKind, removeOwnKind, removedOwnKindText } from './ownKinds';
 import { setKindFilter } from './overview';
 import { ALL_ROOMS, roomLikes } from '../../domain/rooms';
 import { setRooms } from './rooms';
@@ -624,12 +624,14 @@ function OwnKindEdit({ ownId, kind }: { ownId: string; kind: WorldKind }) {
         icon={<Trash2 />}
         title="Die Einträge bleiben – sie stehen danach wieder nur unter ihrer Grundkategorie"
         onClick={() => {
+          const members = Object.values(data.entities).filter(
+            (entity) => entity.ownKindId === own.id,
+          ).length;
           const undo = removeOwnKind(db, own.id);
           if (!undo) return;
           setKindFilter(kind);
           toast({
-            title: `Unterkategorie „${own.name}“ entfernt`,
-            body: `Die Einträge sind geblieben – als ${KIND_LABEL_PLURAL[kind]}.`,
+            ...removedOwnKindText(own.name, members, KIND_LABEL_PLURAL[kind]),
             duration: 12000,
             action: { label: 'Rückgängig', run: undo },
           });

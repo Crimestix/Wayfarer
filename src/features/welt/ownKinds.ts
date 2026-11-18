@@ -131,3 +131,17 @@ export function ownKindFromWord(
     };
   });
 }
+
+/**
+ * Was die Meldung nach dem Entfernen sagt – an einer Stelle, damit Kachel, Liste und Kacheln der
+ * Unterkategorie dasselbe sagen.
+ */
+export function removedOwnKindText(name: string, count: number, basePlural: string) {
+  return {
+    title: `Unterkategorie „${name}“ entfernt`,
+    body:
+      count === 0
+        ? 'Sie hatte keine Einträge.'
+        : `${count === 1 ? 'Ihr Eintrag ist' : `Ihre ${count} Einträge sind`} geblieben – unter ${basePlural}.`,
+  };
+}
