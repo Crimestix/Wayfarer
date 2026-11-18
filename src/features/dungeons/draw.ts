@@ -191,19 +191,41 @@ function parsePatches(level: DungeonLevel, cells: TileCell[], caveKeys: Set<stri
         (level.roomOf[`${nx},${ny}`] ?? null) !== (level.roomOf[`${x},${y}`] ?? null),
     );
     const strips: Patch['strips'] = [];
-    const pad = 0.8;
-    for (const cell of own) {
-      if (!caveKeys.has(keyOf(cell))) continue;
-      // Nur zum Fels am Rand der Fläche hin: Grenzt der Fels auch an anderen Boden (ein Felsen
-      // mitten in der Höhle, eine Ecke), bleibt dort ein Streifen Boden stehen.
-      const outer = (x: number, y: number) =>
-        rock(x, y) &&
-        [
+    // Ein Felsen mitten im Boden (wenige Felder, ringsum Boden) ist eine Insel: Um ihn herum
+    // füllt die Fläche nicht, sonst stünde sie eckig um ihn. Zur Wand hin füllt sie bis an den Rand.
+    const islands = new Map<string, boolean>();
+    const isIsland = (x: number, y: number): boolean => {
+      const start = `${x},${y}`;
+      const known = islands.get(start);
+      if (known !== undefined) return known;
+      const seen = new Set([start]);
+      const queue: [number, number][] = [[x, y]];
+      let small = true;
+      while (queue.length > 0) {
+        const [cx, cy] = queue.pop()!;
+        for (const [dx, dy] of [
           [1, 0],
           [-1, 0],
           [0, 1],
           [0, -1],
-        ].every(([dx, dy]) => rock(x + dx!, y + dy!) || keys.has(`${x + dx!},${y + dy!}`));
+        ] as const) {
+          const key = `${cx + dx},${cy + dy}`;
+          if (seen.has(key) || !rock(cx + dx, cy + dy)) continue;
+          seen.add(key);
+          queue.push([cx + dx, cy + dy]);
+        }
+        if (seen.size > 10) {
+          small = false;
+          break;
+        }
+      }
+      for (const key of seen) islands.set(key, small);
+      return small;
+    };
+    const pad = 0.8;
+    for (const cell of own) {
+      if (!caveKeys.has(keyOf(cell))) continue;
+      const outer = (x: number, y: number) => rock(x, y) && !isIsland(x, y);
       const n = outer(cell.x, cell.y - 1);
       const s = outer(cell.x, cell.y + 1);
       const w = outer(cell.x - 1, cell.y);
@@ -853,7 +875,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       ctx.save();
       floorRegion();
       ctx.clip();
-      ctx.globalAlpha = 0.26;
+      ctx.globalAlpha = 0.13;
       ctx.beginPath();
       for (const cell of parsed.cells) {
         if (!visible(cell.x, cell.y) || cell.tile === 'chasm') continue;
@@ -1468,7 +1490,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   // Am Tisch: der Schleier über allem, was die Gruppe gerade nicht sieht.
   const play = scene.play;
   if (play) {
-    ctx.fillStyle = palette.rock;
+    // Der Schleier ist derselbe Fels wie ringsum – so steht er nie als Kasten im Gestein.
+    ctx.fillStyle = tex('rock', 9) ?? palette.rock;
     const pad = play.playerView ? wallWidth * 0.6 : 0;
     const rockAt = (x: number, y: number) => level.tiles[`${x},${y}`] === undefined;
     // Zwei Durchgänge: was die Gruppe kennt, aber gerade nicht sieht – und was sie nie gesehen hat.
@@ -1967,7 +1990,7 @@ function drawPatch(
 
   switch (patch.kind) {
     case 'water': {
-      soft(tex('water', 7) ?? palette.water, { feather: 0.6 });
+      soft(tex('water', 7) ?? palette.water, { feather: 0.45 });
       soft(palette.lake, { feather: 1, alpha: 0.32 });
       // Zur Mitte hin wird es tiefer und dunkler.
       soft(palette.deepLake, { feather: 1.6, erode: 0.85, alpha: 0.42 });
@@ -2144,10 +2167,12 @@ function drawPatch(
       line(palette.wall, z * 0.8, 0.14);
       line(palette.ember, z * 1.1, 0.12);
       line(palette.ember, z * 0.5, 0.2);
-      soft(tex('lava', 4) ?? palette.lava, { feather: 0.45 });
+      soft(tex('lava', 4) ?? palette.lava, { feather: 0.22 });
+      // Eine dunkle Kruste am Ufer gibt ihr Form.
+      inside(() => line(palette.wall, z * 0.16, 0.45));
       // Am Rand erkaltet sie zur Kruste, zur Mitte hin glüht sie hell.
-      soft(palette.ember, { feather: 1.2, erode: 0.4, alpha: 0.5 });
-      soft(palette.gold, { feather: 1.4, erode: 0.95, alpha: 0.42 });
+      soft(palette.ember, { feather: 1, erode: 0.45, alpha: 0.42 });
+      soft(palette.gold, { feather: 1.3, erode: 1, alpha: 0.3 });
       break;
     }
     case 'chasm': {
