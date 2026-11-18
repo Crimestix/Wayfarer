@@ -1029,6 +1029,8 @@ nicht übernommen.
   zwei Einträge tragen („Planet“, „Region“), der Rest unter „Weitere“ (`categoryGroups`), zu
   Beginn zugeklappt; an einer Wort-Gruppe macht „als Unterkategorie“ sie auf einen Klick dazu.
   Bei Orten wählt ein Umschalter „Nach Kategorie“ (Vorgabe) oder „Nach Lage“ (der Baum).
+  Der Filter „Unterkategorie“ der Kacheln kennt „ohne Unterkategorie“ (`NO_OWN`) – was noch nicht
+  einsortiert ist.
   Entfernen steht sichtbar da, wo die Unterkategorie steht (Papierkorb an ihrer Kachel auf der
   Übersicht und an ihrer Gruppe in der Liste; Worte aus `removedOwnKindText`) – nie nur versteckt.
 - **Eigene Kategorien** (Wunsch des Spielleiters, 18. 11. 2026: „feste Kategorien, die man

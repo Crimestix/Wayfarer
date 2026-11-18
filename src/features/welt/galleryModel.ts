@@ -90,6 +90,10 @@ export function galleryWhere(data: CampaignData, entity: Entity): string {
  * Magie und Besitz, Landschaften nach Gelände; überall „Platzhalter“. Ein Filter ist nur Ansicht,
  * nie Spielstand – und steht nur da, wenn er mindestens zwei Möglichkeiten hat.
  */
+/** Der Wert des Filters „Unterkategorie“ für alles, was noch keine hat. */
+export const NO_OWN = 'ohne';
+const NO_OWN_LABEL = 'ohne Unterkategorie';
+
 export type FacetKey =
   | 'own'
   | 'word'
@@ -161,7 +165,7 @@ export function facetValues(data: CampaignData, entity: WorldEntity, key: FacetK
   switch (key) {
     case 'own': {
       const own = ownKindOf(data, entity);
-      return own ? [{ value: own.id, label: own.name }] : [];
+      return own ? [{ value: own.id, label: own.name }] : [{ value: NO_OWN, label: NO_OWN_LABEL }];
     }
     case 'word': {
       const word = (entity.kind === 'person' ? entity.person.role : entityCategory(entity)).trim();
@@ -254,12 +258,23 @@ export function galleryFacets(
             counts.set(pair.value, option);
           }
         const options = [...counts.values()]
-          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'de'))
+          .sort(
+            (a, b) =>
+              // „ohne Unterkategorie“ steht immer zuletzt.
+              Number(a.value === NO_OWN) - Number(b.value === NO_OWN) ||
+              b.count - a.count ||
+              a.label.localeCompare(b.label, 'de'),
+          )
           .slice(0, MOST_OPTIONS);
         return { key, label: FACET_LABEL[key], options };
       })
-      // Eine eigene Kategorie ist schon allein ein Filter: „alle“ oder nur sie.
-      .filter((facet) => facet.options.length >= (facet.key === 'own' ? 1 : 2))
+      // Eine Unterkategorie ist schon allein ein Filter („alle“, sie, „ohne“) – ohne eine einzige
+      // gibt es nichts zu filtern.
+      .filter((facet) =>
+        facet.key === 'own'
+          ? facet.options.some((option) => option.value !== NO_OWN)
+          : facet.options.length >= 2,
+      )
   );
 }
 

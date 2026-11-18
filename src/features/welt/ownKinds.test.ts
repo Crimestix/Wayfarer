@@ -18,7 +18,7 @@ import {
 } from '../../domain/ownKind';
 import { createEntity } from '../../domain/schema';
 import { createArticle } from '../wiki/actions';
-import { galleryEntries, galleryFacets } from './galleryModel';
+import { galleryEntries, galleryFacets, withFacets } from './galleryModel';
 import { draftOf, draftWithKind, entityFromDraft, type WorldEntity } from './model';
 import { addOwnKind, ownKindFromWord, patchOwnKind, removeOwnKind, setOwnKind } from './ownKinds';
 import { newEntry } from './writing';
@@ -132,7 +132,22 @@ describe('Eigene Kategorien', () => {
     const filter = { query: '', placeId: null, known: 'all' as const };
     const entries = galleryEntries(data(), 'place', filter);
     const facet = galleryFacets(data(), 'place', entries).find((f) => f.key === 'own');
-    expect(facet?.options).toEqual([{ value: made.own.id, label: 'Stadt', count: 5 }]);
+    // „ohne Unterkategorie“ zeigt, was noch nicht einsortiert ist – immer zuletzt.
+    expect(facet?.options).toEqual([
+      { value: made.own.id, label: 'Stadt', count: 5 },
+      { value: 'ohne', label: 'ohne Unterkategorie', count: 2 },
+    ]);
+    expect(
+      withFacets(data(), entries, { own: 'ohne' })
+        .map((entity) => entity.name)
+        .sort(),
+    ).toEqual(['Ohne Wort', 'Zur Eiche']);
+    // Gibt es keine einzige Unterkategorie, steht der Filter nicht da.
+    expect(
+      galleryFacets(data(), 'person', galleryEntries(data(), 'person', filter)).some(
+        (f) => f.key === 'own',
+      ),
+    ).toBe(false);
 
     made.undo();
     expect(data().campaign.ownKinds).toEqual([]);
