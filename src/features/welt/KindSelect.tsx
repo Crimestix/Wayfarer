@@ -102,15 +102,18 @@ export function KindSelect({
 /** Das kleine Formular für eine neue eigene Kategorie: Name, Mehrzahl, verhält sich wie. */
 export function OwnKindForm({
   base: initialBase,
+  name: initialName = '',
   onDone,
   onCancel,
 }: {
   base: WorldKind;
+  /** Ein Name, der schon feststeht (aus einem Vorschlag) – änderbar. */
+  name?: string;
   onDone: (own: OwnKind) => void;
   onCancel?: () => void;
 }) {
   const db = useDb();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [plural, setPlural] = useState('');
   const [base, setBase] = useState<WorldKind>(initialBase);
   const add = () => {

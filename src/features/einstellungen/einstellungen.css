@@ -892,26 +892,3 @@ td.wf-einstellungen-rolltable__nr {
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
   gap: var(--s-6);
 }
-
-/* Eigene Kategorien: eine ruhige Tabelle mit Feldern zum Umbenennen. */
-.wf-einstellungen-ownkinds {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-.wf-einstellungen-ownkinds th {
-  padding: 2px 6px;
-  text-align: left;
-  font-family: var(--font-caps);
-  font-size: var(--text-2xs);
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  border-bottom: 1px solid var(--line-faint);
-}
-.wf-einstellungen-ownkinds td {
-  padding: 4px 6px;
-  vertical-align: middle;
-  border-bottom: 1px solid var(--line-faint);
-}

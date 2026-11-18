@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Eye, EyeOff, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL, KIND_LABEL_PLURAL, entityName } from '../../domain/derive';
 import { hasStance, knowsPerson } from '../../domain/known';
@@ -27,7 +27,8 @@ import {
 import { SUGGESTION } from '../../domain/dismiss';
 import { ownKindById, ownKindSuggestions, ownPlural } from '../../domain/ownKind';
 import { isRoom } from '../../domain/rooms';
-import { ownKindFromWord } from './ownKinds';
+import { scopeMembers } from '../../domain/scope';
+import { ownKindFromWord, patchOwnKind, removeOwnKind } from './ownKinds';
 import { setKindFilter } from './overview';
 import { ALL_ROOMS, roomLikes } from '../../domain/rooms';
 import { setRooms } from './rooms';
@@ -121,13 +122,32 @@ export function Gallery({
     facetMemory[kind] = next;
     setChosenState(next);
   };
-  const base = useMemo(
+  // Räume stehen bei ihrem Ort – hier nur auf Wunsch, dann für sich (damit man sie wiederfindet).
+  const [roomsOnly, setRoomsOnly] = useState(false);
+  const rooms = useMemo(
     () =>
-      galleryEntries(data, kind, { ...filter, placeId, known }).filter(
-        (entity) => !own || entity.ownKindId === own.id,
-      ),
-    [data, kind, filter, placeId, known, own],
+      kind === 'place' && !own
+        ? (Object.values(data.entities).filter(
+            (entity) => entity.kind === 'place' && isRoom(data, entity),
+          ) as WorldEntity[])
+        : [],
+    [data, kind, own],
   );
+  const showRooms = roomsOnly && rooms.length > 0;
+  const base = useMemo(() => {
+    if (showRooms) {
+      const query = filter.query.trim().toLocaleLowerCase('de');
+      const scope = placeId ? scopeMembers(data, placeId) : null;
+      return rooms
+        .filter((room) => !query || room.name.toLocaleLowerCase('de').includes(query))
+        .filter((room) => !scope || scope.has(room.id))
+        .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
+    }
+    return galleryEntries(data, kind, { ...filter, placeId, known }).filter(
+      (entity) => !own || entity.ownKindId === own.id,
+    );
+  }, [data, kind, filter, placeId, known, own, showRooms, rooms]);
+  const roomsLead = `${rooms.length} ${rooms.length === 1 ? 'Raum' : 'Räume'} – sie stehen sonst auf der Seite ihres Ortes unter „Räume“.`;
   const facets = useMemo(
     // In den Kacheln einer eigenen Kategorie ist sie selbst kein Filter mehr.
     () => galleryFacets(data, kind, base).filter((facet) => !own || facet.key !== 'own'),
@@ -203,12 +223,33 @@ export function Gallery({
 
   return (
     <div className="wf-welt-landing wf-welt-gallery">
+      <nav className="wf-welt-back wf-welt-back--stage" aria-label="Zurück">
+        <button
+          type="button"
+          className="wf-welt-linkish"
+          title="Zurück zur Übersicht mit allen Kategorien"
+          onClick={() => setKindFilter('all')}
+        >
+          <ArrowLeft aria-hidden /> Übersicht
+        </button>
+        {own && (
+          <button
+            type="button"
+            className="wf-welt-linkish"
+            title={`Alle ${KIND_LABEL_PLURAL[kind]} zeigen`}
+            onClick={() => setKindFilter(kind)}
+          >
+            {KIND_LABEL_PLURAL[kind]}
+          </button>
+        )}
+      </nav>
       <header className="wf-welt-landing__head">
         <div className="wf-welt-landing__eyebrow">
           {own ? `Welt · deine Kategorie, verhält sich wie ${KIND_LABEL[kind]}` : 'Welt'}
         </div>
         <h1 className="wf-welt-landing__title">{plural}</h1>
-        <p className="wf-welt-landing__lead">{lead}</p>
+        <p className="wf-welt-landing__lead">{roomsOnly ? roomsLead : lead}</p>
+        {own && <OwnKindEdit ownId={own.id} kind={kind} />}
       </header>
 
       <div className="wf-welt-gallery__bar" data-known={withKnown}>
@@ -303,6 +344,26 @@ export function Gallery({
             </Button>
           )}
         </div>
+      )}
+      {rooms.length > 0 && (
+        <p className="wf-welt-gallery__note">
+          {showRooms ? (
+            <>
+              Du siehst die Räume.{' '}
+              <button type="button" className="wf-welt-linkish" onClick={() => setRoomsOnly(false)}>
+                Wieder die Orte zeigen
+              </button>
+            </>
+          ) : (
+            <>
+              {rooms.length} {rooms.length === 1 ? 'Raum steht' : 'Räume stehen'} bei{' '}
+              {rooms.length === 1 ? 'seinem Ort' : 'ihren Orten'}, nicht hier.{' '}
+              <button type="button" className="wf-welt-linkish" onClick={() => setRoomsOnly(true)}>
+                Räume zeigen
+              </button>
+            </>
+          )}
+        </p>
       )}
       {kind === 'place' && !own && <RoomLikesNote />}
       {!own && <OwnKindNote kind={kind} />}
@@ -518,6 +579,67 @@ function OwnKindNote({ kind }: { kind: WorldKind }) {
         „{suggestion.word}“ als Kategorie
       </Button>
       <DismissButton suggestionKey={suggestion.key} what="Eigene Kategorie" />
+    </div>
+  );
+}
+
+/**
+ * Unter dem Titel einer eigenen Kategorie: umbenennen, Mehrzahl, entfernen – dort, wo man sie
+ * ansieht. Entfernen lässt die Einträge stehen; sie gehören dann wieder nur zur Grundkategorie.
+ */
+function OwnKindEdit({ ownId, kind }: { ownId: string; kind: WorldKind }) {
+  const db = useDb();
+  const data = useData();
+  const own = ownKindById(data, ownId);
+  const [open, setOpen] = useState(false);
+  if (!own) return null;
+  if (!open)
+    return (
+      <button
+        type="button"
+        className="wf-welt-linkish wf-welt-ownedit__open"
+        onClick={() => setOpen(true)}
+      >
+        <Pencil aria-hidden /> Kategorie umbenennen oder entfernen
+      </button>
+    );
+  return (
+    <div className="wf-welt-ownform wf-welt-ownedit">
+      <Input
+        key={`n-${own.name}`}
+        defaultValue={own.name}
+        aria-label="Name der Kategorie"
+        onBlur={(e) => patchOwnKind(db, own.id, { name: e.target.value })}
+      />
+      <Input
+        key={`p-${own.plural}`}
+        defaultValue={own.plural}
+        placeholder={`Mehrzahl – leer: ${own.name}`}
+        aria-label="Mehrzahl der Kategorie"
+        onBlur={(e) => patchOwnKind(db, own.id, { plural: e.target.value })}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={<Trash2 />}
+        title="Die Einträge bleiben – sie stehen danach wieder nur unter ihrer Grundkategorie"
+        onClick={() => {
+          const undo = removeOwnKind(db, own.id);
+          if (!undo) return;
+          setKindFilter(kind);
+          toast({
+            title: `Kategorie „${own.name}“ entfernt`,
+            body: `Die Einträge sind geblieben – als ${KIND_LABEL_PLURAL[kind]}.`,
+            duration: 12000,
+            action: { label: 'Rückgängig', run: undo },
+          });
+        }}
+      >
+        Kategorie entfernen
+      </Button>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+        Fertig
+      </Button>
     </div>
   );
 }

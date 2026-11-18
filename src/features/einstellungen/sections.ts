@@ -12,7 +12,6 @@ export type SettingsSectionId =
   | 'campaign'
   | 'calendar'
   | 'rules'
-  | 'ownKinds'
   | 'scaffold'
   | 'tables'
   | 'dismissed'
@@ -47,7 +46,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
   {
     id: 'schreiben',
     title: 'Schreiben und Würfeln',
-    lead: 'Eigene Kategorien, Gerüste für Steckbriefe, die Würfeltabellen der Erzeuger, Weggeklicktes und Gelöschtes.',
+    lead: 'Gerüste für Steckbriefe, die Würfeltabellen der Erzeuger, Weggeklicktes und Gelöschtes.',
   },
   {
     id: 'sichern',
@@ -85,12 +84,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     group: 'kampagne',
     title: 'Regeln des Tisches',
     words: ['Hausregeln', 'Absprachen'],
-  },
-  {
-    id: 'ownKinds',
-    group: 'schreiben',
-    title: 'Eigene Kategorien',
-    words: ['Kategorie', 'Art', 'Stadt', 'Vorlage', 'eigene Art'],
   },
   {
     id: 'scaffold',

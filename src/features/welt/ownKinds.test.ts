@@ -3,15 +3,19 @@ import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
+  allOwnKindSuggestions,
   entriesOfOwnKind,
+  guessBase,
   kindLabelOf,
   ownKindCounts,
   ownKindOf,
   ownKindSuggestions,
   ownKindsOfBase,
   ownPlural,
+  templateSuggestions,
 } from '../../domain/ownKind';
 import { createEntity } from '../../domain/schema';
+import { createArticle } from '../wiki/actions';
 import { galleryEntries, galleryFacets } from './galleryModel';
 import { draftOf, draftWithKind, entityFromDraft, type WorldEntity } from './model';
 import { addOwnKind, ownKindFromWord, patchOwnKind, removeOwnKind, setOwnKind } from './ownKinds';
@@ -128,5 +132,40 @@ describe('Eigene Kategorien', () => {
     made.undo();
     expect(data().campaign.ownKinds).toEqual([]);
     expect(ownKindSuggestions(data(), 'place')).toHaveLength(1);
+  });
+
+  it('schlägt die Vorlagen des Wikis als Kategorien vor – mit einer Vorwahl, wie sie sich verhalten', async () => {
+    const { db, data } = await setup();
+    const template = (title: string) => {
+      const article = createArticle(db, { title })!;
+      db.put('articles', { ...article, template: true });
+    };
+    template('Stadt');
+    template('Major NPC');
+    template('Kultur');
+    // Was Wayfarer schon als Kategorie hat, wird nicht noch einmal vorgeschlagen.
+    template('Fraktion');
+    createArticle(db, { title: 'Kein Vorschlag' });
+
+    expect(templateSuggestions(data()).map((s) => [s.name, s.base])).toEqual([
+      ['Kultur', 'topic'],
+      ['Major NPC', 'person'],
+      ['Stadt', 'place'],
+    ]);
+    expect(guessBase('Historische Person')).toBe('person');
+    expect(guessBase('Point of Interest')).toBe('place');
+    expect(guessBase('Himmelskörper')).toBe('celestial');
+
+    addOwnKind(db, { name: 'Stadt', base: 'place' });
+    expect(templateSuggestions(data()).map((s) => s.name)).toEqual(['Kultur', 'Major NPC']);
+  });
+
+  it('nimmt bei Personen die Rolle als eigenes Wort', async () => {
+    const { data, put } = await setup();
+    for (const name of ['Ada', 'Bero', 'Cilla', 'Dorn', 'Ebba'])
+      put(createEntity({ kind: 'person', name, person: { role: 'Stadtwache' } }));
+    expect(allOwnKindSuggestions(data(), ['place', 'person'])).toMatchObject([
+      { base: 'person', word: 'Stadtwache' },
+    ]);
   });
 });

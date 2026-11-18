@@ -74,6 +74,10 @@ const fold = (text: string) => text.trim().toLocaleLowerCase('de');
 export const ownKindNamed = (data: WithKinds, base: EntityKind, name: string): OwnKind | null =>
   data.campaign.ownKinds.find((own) => own.base === base && fold(own.name) === fold(name)) ?? null;
 
+/** Das eigene Wort eines Eintrags – bei Personen die Rolle. */
+export const ownWordOf = (entity: Entity): string =>
+  (entity.kind === 'person' ? entity.person.role : entityCategory(entity)).trim();
+
 /** Ab so vielen Einträgen mit demselben eigenen Wort lohnt der Vorschlag. */
 export const OWN_KIND_FROM = 5;
 
@@ -94,7 +98,7 @@ export function ownKindSuggestions(data: CampaignData, base: EntityKind): OwnKin
   const groups = new Map<string, { words: Map<string, number>; ids: string[] }>();
   for (const entity of Object.values(data.entities)) {
     if (entity.kind !== base || ownKindOf(data, entity)) continue;
-    const word = entityCategory(entity).trim();
+    const word = ownWordOf(entity);
     if (!word) continue;
     const group = groups.get(fold(word)) ?? { words: new Map<string, number>(), ids: [] };
     group.words.set(word, (group.words.get(word) ?? 0) + 1);
@@ -113,4 +117,74 @@ export function ownKindSuggestions(data: CampaignData, base: EntityKind): OwnKin
     .filter((suggestion) => !ownKindNamed(data, base, suggestion.word))
     .filter((suggestion) => !isDismissed(data, suggestion.key))
     .sort((a, b) => b.entityIds.length - a.entityIds.length || a.word.localeCompare(b.word, 'de'));
+}
+
+/** Die Vorschläge aus den eigenen Wörtern über alle Kategorien – die häufigsten zuerst. */
+export function allOwnKindSuggestions(
+  data: CampaignData,
+  bases: readonly EntityKind[],
+): OwnKindSuggestion[] {
+  return bases
+    .flatMap((base) => ownKindSuggestions(data, base))
+    .sort((a, b) => b.entityIds.length - a.entityIds.length || a.word.localeCompare(b.word, 'de'));
+}
+
+/**
+ * Woran man erkennt, wie sich eine Kategorie verhalten dürfte – nur eine Vorwahl im Formular, die
+ * der Spielleiter bestätigt oder ändert. Ohne Hinweis: ein Text für sich (Überlieferung).
+ */
+const BASE_HINTS: [EntityKind, RegExp][] = [
+  ['person', /(npc|person|charakter|figur|held|schurke)/i],
+  ['celestial', /(himmelskörper|planet|mond|stern|universum|ebene|sphäre)/i],
+  ['faction', /(fraktion|gilde|orden|\bkulte?\b|\bbund\b|organisation|bande)/i],
+  ['family', /(familie|haus|sippe|clan|dynastie)/i],
+  ['species', /(volk|völker|spezies|rasse)/i],
+  ['deity', /(gottheit|gott|göttin|dämonenfürst)/i],
+  ['happening', /(ereignis|krieg|schlacht)/i],
+  ['realm', /(reich|königreich|fürstentum|staat)/i],
+  ['item', /(gegenstand|artefakt|waffe|rüstung|trank)/i],
+  [
+    'place',
+    /(ort|stadt|dorf|distrikt|viertel|region|kontinent|dungeon|verlies|gebäude|taverne|tempel|ruine|point of interest|sehenswürdigkeit|land|insel)/i,
+  ],
+];
+
+/** Wie sich eine Kategorie dieses Namens verhalten dürfte – eine Vorwahl, nie eine Festlegung. */
+export function guessBase(name: string): EntityKind {
+  for (const [base, pattern] of BASE_HINTS) if (pattern.test(name)) return base;
+  return 'topic';
+}
+
+export interface TemplateSuggestion {
+  /** Der Titel der Vorlage – so würde die Kategorie heißen. */
+  name: string;
+  base: EntityKind;
+  key: string;
+}
+
+/**
+ * Vorschläge aus den Vorlagen des Wikis (aus LegendKeeper übernommen: „Stadt“, „Distrikt“, „Major
+ * NPC“ …): Jede Vorlage war dort schon eine Art Kategorie. Nur Namen, die weder eine Kategorie von
+ * Wayfarer noch schon eine eigene sind und nicht weggeklickt wurden. Angelegt wird erst auf Klick,
+ * im Formular mit der vorgewählten Grundkategorie.
+ */
+export function templateSuggestions(
+  data: Pick<CampaignData, 'articles' | 'campaign' | 'state'>,
+): TemplateSuggestion[] {
+  const builtIn = new Set(
+    [...Object.values(KIND_LABEL), ...Object.values(KIND_LABEL_PLURAL)].map(fold),
+  );
+  const taken = new Set(data.campaign.ownKinds.map((own) => fold(own.name)));
+  const seen = new Set<string>();
+  const out: TemplateSuggestion[] = [];
+  for (const article of Object.values(data.articles)) {
+    if (!article.template) continue;
+    const name = article.title.replace(/\s+/g, ' ').trim();
+    const key = fold(name);
+    if (!name || name.length > 40 || seen.has(key) || builtIn.has(key) || taken.has(key)) continue;
+    seen.add(key);
+    const suggestion = { name, base: guessBase(name), key: SUGGESTION.ownKind('vorlage', name) };
+    if (!isDismissed(data, suggestion.key)) out.push(suggestion);
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }

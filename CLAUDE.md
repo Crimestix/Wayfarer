@@ -1014,7 +1014,9 @@ nicht übernommen.
   `isPast()`; so steht etwas ohne Datum unter „Geschichte“. Größe eines Ortes: dazu `world`
   („Kontinent und Welt“) über „Land und Gegend“; der Filter heißt „Was für ein Ort“. Räume stehen
   nie in den Kacheln der Orte; raum-artige Orte (`roomLikes`) schlägt die Galerie auf einen Klick
-  zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`).
+  zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`). Wo Räume geblieben sind, sagt eine Zeile
+  über den Kacheln der Orte („37 Räume stehen bei ihren Orten – Räume zeigen“). Über den Kacheln
+  jeder Kategorie führt „← Übersicht“ zurück zur Übersicht der Welt (`setKindFilter('all')`).
 - **Eigene Kategorien** (Wunsch des Spielleiters, 18. 11. 2026: „feste Kategorien, die man
   anlegen kann“ – in LegendKeeper hatte er dafür Vorlagen: Stadt, Distrikt, Dungeon, Major NPC …;
   `domain/ownKind.ts`): eine benannte Gruppe **innerhalb** einer Kategorie von Wayfarer, die sich
@@ -1027,8 +1029,13 @@ nicht übernommen.
   `ownKindOf()` / `kindLabelOf()` – nie über `ownKindId` direkt: Passt die Grundkategorie nicht
   (mehr), gilt sie nicht. Geändert über `welt/ownKinds.ts` (`addOwnKind` – nie zwei gleichen
   Namens je Grundkategorie –, `patchOwnKind`, `removeOwnKind` – die Einträge bleiben –,
-  `setOwnKind`, `ownKindFromWord`), alles mit Rückgängig; verwaltet unter Einstellungen → „Eigene
-  Kategorien“. Ein eigenes Wort, das oft vorkommt (`ownKindSuggestions`, ab `OWN_KIND_FROM`),
+  `setOwnKind`, `ownKindFromWord`), alles mit Rückgängig. **Nie in den Einstellungen**
+  (Rückmeldung 18. 11.: „Warum in den Einstellungen?“): Angelegt wird auf der Übersicht der Welt
+  unter den Kacheln der Kategorien (`welt/OwnKindsPanel`: Kacheln, „+ Eigene Kategorie“, darunter
+  Vorschläge aus den Vorlagen des Wikis – `templateSuggestions`, in LegendKeeper waren das seine
+  Kategorien; `guessBase` wählt nur vor – und aus häufigen eigenen Wörtern, bei Personen der
+  Rolle: `allOwnKindSuggestions`); umbenannt und entfernt wird unter dem Titel ihrer Kacheln
+  (`OwnKindEdit`). Ein eigenes Wort, das oft vorkommt (`ownKindSuggestions`, ab `OWN_KIND_FROM`),
   schlägt die Galerie als Kategorie vor (`SUGGESTION.ownKind`, „×“). Wayfarer liefert keine mit;
   fest eingebaut wird nur, was eigene Mechanik braucht.
 - Kategorien und eigenes Wort (Konzeptbesprechung 16. 11., nach dem Vorbild der Läden): Die Art

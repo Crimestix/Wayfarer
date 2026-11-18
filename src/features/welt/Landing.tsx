@@ -12,6 +12,7 @@ import {
 import { openMoveParty } from '../../shell/commands';
 import { Button, Divider, KindIcon } from '../../ui';
 import { openNew } from './editor';
+import { OwnKindsPanel } from './OwnKindsPanel';
 import { useGapCount } from './Gaps';
 import { setKindFilter, setWorldLayout } from './overview';
 import {
@@ -80,6 +81,7 @@ export function Landing() {
           </div>
         ))}
       </div>
+      <OwnKindsPanel />
 
       <Divider />
 
