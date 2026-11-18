@@ -291,6 +291,7 @@ export function DungeonCanvas({
       level: lv,
       ghost: ed.ghost ? (sorted[index + 1] ?? sorted[index - 1] ?? null) : null,
       below: levelBeside(ed.dungeon, lv.id, 'down'),
+      heightNumbers: !ctl && ed.tool === 'height',
       hoverRound: round,
       view: viewOf(),
       width: size.current.width,

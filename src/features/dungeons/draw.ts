@@ -3,6 +3,7 @@
  * Fels ringsum. Gezeichnet wird nie das Gemalte selbst, sondern was `domain/dungeon.ts` daraus
  * liest (`edgeSegments`) – so sieht eine Wand, die von selbst dasteht, aus wie jede andere.
  */
+import { caveLoops, spotNoise, type CaveLoop } from './caveShape';
 import {
   cellOfKey,
   cellsOfEdge,
@@ -88,6 +89,10 @@ interface Parsed {
   labels: { roomId: string; name: string; x: number; y: number }[];
   /** Felder, die als Höhle gezeichnet werden. */
   caveKeys: Set<string>;
+  /** Der Umriss der Höhlen. */
+  caveLoops: CaveLoop[];
+  /** Felsfelder im zweiten Ring um den Boden – dort läuft die Schraffur aus. */
+  rimFar: DungeonCell[];
   /** Türen, Gitter, Fenster … – nebeneinanderliegende gleicher Art als eine Öffnung. */
   openings: EdgeSegment[];
   /** Runde Räume: ihre Form, ihre Felder und was an ihrem Rand eine Öffnung ist. */
@@ -117,6 +122,14 @@ function parse(level: DungeonLevel): Parsed {
         const near = { x: cell.x + dx, y: cell.y + dy };
         const key = keyOf(near);
         if (level.tiles[key] === undefined) rim.set(key, near);
+      }
+  const rimFar = new Map<string, DungeonCell>();
+  for (const cell of rim.values())
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const near = { x: cell.x + dx, y: cell.y + dy };
+        const key = keyOf(near);
+        if (level.tiles[key] === undefined && !rim.has(key)) rimFar.set(key, near);
       }
   const byRoom = new Map<string, DungeonCell[]>();
   for (const cell of cells) {
@@ -219,6 +232,8 @@ function parse(level: DungeonLevel): Parsed {
     rounds,
     roundKeys: new Set(roundRoomOf.keys()),
     caveKeys,
+    caveLoops: caveLoops(caveKeys, (x, y) => level.tiles[`${x},${y}`] !== undefined),
+    rimFar: [...rimFar.values()],
     ledges,
   };
   parsedOf.set(level, parsed);
@@ -229,6 +244,8 @@ export interface Scene {
   level: DungeonLevel;
   /** Eine andere Ebene, die blass durchscheint. */
   ghost: DungeonLevel | null;
+  /** Höhen als Zahl zeigen – solange das Höhen-Werkzeug gewählt ist. */
+  heightNumbers?: boolean;
   /** Die Ebene darunter – sie ist durch Luftraum zu sehen. */
   below: DungeonLevel | null;
   /** Die Form eines runden Raums, der gerade aufgezogen wird. */
@@ -297,29 +314,35 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (z >= 10) {
     ctx.strokeStyle = palette.hatch;
     ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath();
-    for (const cell of parsed.rim) {
-      if (!visible(cell.x, cell.y)) continue;
-      const x = sx(cell.x);
-      const y = sy(cell.y);
-      const flip = (cell.x + cell.y) % 2 === 0;
-      for (let i = 1; i <= 3; i++) {
-        const t = (i / 4) * z;
-        if (flip) {
-          ctx.moveTo(x + t, y + z * 0.12);
-          ctx.lineTo(x + z * 0.12, y + t);
-          ctx.moveTo(x + z * 0.88, y + t);
-          ctx.lineTo(x + t, y + z * 0.88);
-        } else {
-          ctx.moveTo(x + t, y + z * 0.12);
-          ctx.lineTo(x + z * 0.88, y + z - t);
-          ctx.moveTo(x + z * 0.12, y + t);
-          ctx.lineTo(x + z - t, y + z * 0.88);
+    ctx.lineCap = 'round';
+    // Wie mit der Feder gesetzt: kleine Bündel paralleler Striche in wechselnder Richtung.
+    const hatch = (cells: DungeonCell[], bundles: number, alpha: number) => {
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      for (const cell of cells) {
+        if (!visible(cell.x, cell.y)) continue;
+        for (let b = 0; b < bundles; b++) {
+          const salt = b * 7;
+          const cx = cell.x + 0.18 + spotNoise(cell.x, cell.y, salt + 1) * 0.64;
+          const cy = cell.y + 0.18 + spotNoise(cell.x, cell.y, salt + 2) * 0.64;
+          const angle = spotNoise(cell.x, cell.y, salt + 3) * Math.PI;
+          const len = 0.2 + spotNoise(cell.x, cell.y, salt + 4) * 0.12;
+          const dx = Math.cos(angle);
+          const dy = Math.sin(angle);
+          for (let i = -1; i <= 1; i++) {
+            const ox = cx - dy * i * 0.11;
+            const oy = cy + dx * i * 0.11;
+            const l = len * (i === 0 ? 1 : 0.8);
+            ctx.moveTo(sx(ox - dx * l), sy(oy - dy * l));
+            ctx.lineTo(sx(ox + dx * l), sy(oy + dy * l));
+          }
         }
       }
-    }
-    ctx.stroke();
+      ctx.stroke();
+    };
+    hatch(parsed.rim, z >= 18 ? 4 : 3, 0.6);
+    hatch(parsed.rimFar, 2, 0.28);
+    ctx.lineCap = 'butt';
     ctx.globalAlpha = 1;
   }
 
@@ -343,17 +366,33 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 
   // Höhlen: ein unregelmäßiger Rand statt gerader Wände – erst der dunkle Umriss, dann der Boden.
   const caves = parsed.cells.filter((cell) => parsed.caveKeys.has(keyOf(cell)));
-  const blob = (cell: DungeonCell, grow: number) => {
-    const [jx, jy, jr] = caveJitter(cell);
-    ctx.moveTo(sx(cell.x + 0.5 + jx) + z * (0.6 + jr) + grow, sy(cell.y + 0.5 + jy));
-    ctx.arc(sx(cell.x + 0.5 + jx), sy(cell.y + 0.5 + jy), z * (0.6 + jr) + grow, 0, Math.PI * 2);
-  };
-  if (caves.length > 0) {
-    ctx.fillStyle = palette.wall;
+  /** Der Umriss aller Höhlen als ein Pfad – zum Füllen und Beschneiden. */
+  const cavePath = () => {
     ctx.beginPath();
-    for (const cell of caves) if (visible(cell.x, cell.y)) blob(cell, Math.max(2, z * 0.1));
-    ctx.fill();
-  }
+    for (const loop of parsed.caveLoops) {
+      loop.points.forEach(([x, y], i) =>
+        i === 0 ? ctx.moveTo(sx(x), sy(y)) : ctx.lineTo(sx(x), sy(y)),
+      );
+      ctx.closePath();
+    }
+  };
+  /** Nur die Strecken des Umrisses, die an Fels grenzen – die Höhlenwand. */
+  const caveWall = () => {
+    ctx.beginPath();
+    for (const loop of parsed.caveLoops) {
+      const n = loop.points.length;
+      let drawing = false;
+      for (let i = 0; i <= n; i++) {
+        const [x, y] = loop.points[i % n]!;
+        if (drawing) ctx.lineTo(sx(x), sy(y));
+        if (loop.open[i % n]) drawing = false;
+        else if (!drawing) {
+          ctx.moveTo(sx(x), sy(y));
+          drawing = true;
+        }
+      }
+    }
+  };
 
   // Boden.
   for (const cell of parsed.cells) {
@@ -361,32 +400,57 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     if (parsed.caveKeys.has(keyOf(cell))) continue;
     drawTile(ctx, level, scene.below, cell, sx(cell.x), sy(cell.y), z, palette);
   }
-  // Höhlenboden: rund um jedes Feld, in der Farbe dessen, was es ist.
-  for (const cell of caves) {
-    if (!visible(cell.x, cell.y)) continue;
-    ctx.fillStyle = tileColor(cell.tile, palette);
-    ctx.beginPath();
-    blob(cell, 0);
-    ctx.fill();
-  }
-  if (caves.length > 0 && z >= 9) {
-    // Das Raster der Höhle, beschnitten auf ihren Boden.
+  // Höhlenboden: innerhalb des Umrisses, jedes Feld mit dem, was es ist.
+  if (caves.length > 0) {
     ctx.save();
-    ctx.beginPath();
-    for (const cell of caves) if (visible(cell.x, cell.y)) blob(cell, 0);
+    cavePath();
     ctx.clip();
-    ctx.strokeStyle = palette.grid;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
+    const pad = z * 0.3;
     for (const cell of caves) {
       if (!visible(cell.x, cell.y)) continue;
-      const x = Math.round(sx(cell.x)) + 0.5;
-      const y = Math.round(sy(cell.y)) + 0.5;
-      ctx.moveTo(x, y + z);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x + z, y);
+      // Der Boden reicht bis an den Umriss, auch wo der über das Feld hinausgeht.
+      ctx.fillStyle = tileColor(cell.tile, palette);
+      ctx.fillRect(sx(cell.x) - pad, sy(cell.y) - pad, z + pad * 2, z + pad * 2);
     }
-    ctx.stroke();
+    for (const cell of caves) {
+      if (!visible(cell.x, cell.y) || cell.tile === 'floor') continue;
+      drawTile(ctx, level, scene.below, cell, sx(cell.x), sy(cell.y), z, palette);
+    }
+    if (z >= 9) {
+      // Das Raster der Höhle: nur zwischen ihren Feldern, nicht am Rand.
+      ctx.strokeStyle = palette.grid;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      for (const cell of caves) {
+        if (!visible(cell.x, cell.y)) continue;
+        const x = Math.round(sx(cell.x)) + 0.5;
+        const y = Math.round(sy(cell.y)) + 0.5;
+        if (parsed.caveKeys.has(keyOf({ x: cell.x - 1, y: cell.y }))) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + z);
+        }
+        if (parsed.caveKeys.has(keyOf({ x: cell.x, y: cell.y - 1 }))) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + z, y);
+        }
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // Ein weicher Schatten entlang der Höhlenwand.
+    ctx.strokeStyle = palette.wall;
+    ctx.lineJoin = 'round';
+    for (const [width, alpha] of [
+      [0.7, 0.07],
+      [0.4, 0.09],
+    ] as const) {
+      ctx.lineWidth = z * width;
+      ctx.globalAlpha = alpha;
+      caveWall();
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
   // Schräge Wände: Die Ecke des Feldes ist Fels.
@@ -419,20 +483,94 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   }
   // Höhen und schwieriges Gelände.
   if (z >= 9) {
-    for (const [key, feet] of Object.entries(level.heights)) {
-      const cell = cellOfKey(key);
-      if (!visible(cell.x, cell.y)) continue;
-      // Höher ist heller, tiefer dunkler.
-      ctx.fillStyle = feet > 0 ? palette.snow : palette.chasm;
-      ctx.globalAlpha = Math.min(0.5, 0.1 + Math.abs(feet) / 100);
-      ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
+    // Höhen: Was höher liegt, ist eine Spur heller und wirft einen Schatten auf das Tiefere daneben;
+    // an der Kante steht eine Linie, ab zehn Fuß mit Strichen hangabwärts – wie auf alten Karten.
+    const heightOf = (x: number, y: number): number | null =>
+      level.tiles[`${x},${y}`] === undefined ? null : (level.heights[`${x},${y}`] ?? 0);
+    if (Object.keys(level.heights).length > 0) {
+      for (const [key, feet] of Object.entries(level.heights)) {
+        const cell = cellOfKey(key);
+        if (!visible(cell.x, cell.y)) continue;
+        ctx.fillStyle = feet > 0 ? palette.snow : palette.chasm;
+        ctx.globalAlpha =
+          feet > 0 ? Math.min(0.26, 0.06 + feet / 160) : Math.min(0.4, 0.1 + -feet / 80);
+        ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
+      }
       ctx.globalAlpha = 1;
-      if (z >= 22) {
+      const sides = [
+        // dx, dy des höheren Nachbarn; die Kante in Feldmaßen; wohin der Schatten fällt
+        [0, -1, 0, 0, 1, 0, 0, 1, 1],
+        [-1, 0, 0, 0, 0, 1, 1, 0, 1],
+        [0, 1, 0, 1, 1, 1, 0, -1, 0.4],
+        [1, 0, 1, 0, 1, 1, -1, 0, 0.4],
+      ] as const;
+      const ticks: [number, number, number, number][] = [];
+      const lines: [number, number, number, number][] = [];
+      for (const cell of parsed.cells) {
+        if (!visible(cell.x, cell.y)) continue;
+        const own = level.heights[keyOf(cell)] ?? 0;
+        for (const [dx, dy, x1, y1, x2, y2, nx, ny, lit] of sides) {
+          const other = heightOf(cell.x + dx, cell.y + dy);
+          if (other === null || other <= own) continue;
+          const drop = other - own;
+          // Das Licht kommt von oben links: Dorthin, nach unten rechts, fällt der Schatten lang.
+          const depth = z * Math.min(0.85, 0.2 + drop / 28) * (lit === 1 ? 1 : 0.6);
+          const ax = sx(cell.x + x1);
+          const ay = sy(cell.y + y1);
+          const gradient = ctx.createLinearGradient(ax, ay, ax + nx * depth, ay + ny * depth);
+          gradient.addColorStop(0, palette.wall);
+          gradient.addColorStop(1, 'transparent');
+          ctx.fillStyle = gradient;
+          ctx.globalAlpha = Math.min(0.62, 0.2 + drop / 50) * lit;
+          ctx.fillRect(
+            Math.min(ax, ax + nx * depth),
+            Math.min(ay, ay + ny * depth),
+            nx === 0 ? z : depth,
+            ny === 0 ? z : depth,
+          );
+          lines.push([cell.x + x1, cell.y + y1, cell.x + x2, cell.y + y2]);
+          if (drop >= 10) {
+            const len = Math.min(0.3, 0.1 + drop / 120);
+            for (let i = 0; i < 4; i++) {
+              const t = (i + 0.5) / 4;
+              const px = cell.x + x1 + (x2 - x1) * t;
+              const py = cell.y + y1 + (y2 - y1) * t;
+              const l = len * (i % 2 === 0 ? 1 : 0.6);
+              ticks.push([px, py, px + nx * l, py + ny * l]);
+            }
+          }
+        }
+      }
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = palette.wall;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.2, z * 0.05);
+      ctx.beginPath();
+      for (const [x1, y1, x2, y2] of lines) {
+        ctx.moveTo(sx(x1), sy(y1));
+        ctx.lineTo(sx(x2), sy(y2));
+      }
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1, z * 0.035);
+      ctx.beginPath();
+      for (const [x1, y1, x2, y2] of ticks) {
+        ctx.moveTo(sx(x1), sy(y1));
+        ctx.lineTo(sx(x2), sy(y2));
+      }
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+      ctx.globalAlpha = 1;
+      // Die Zahl steht nur da, solange mit dem Höhen-Werkzeug gearbeitet wird.
+      if (scene.heightNumbers && z >= 22) {
         ctx.font = `600 ${Math.max(9, z * 0.28)}px ${palette.font}`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillStyle = palette.inkSoft;
-        ctx.fillText(`${feet > 0 ? '+' : ''}${feet}`, sx(cell.x) + 3, sy(cell.y) + 2);
+        for (const [key, feet] of Object.entries(level.heights)) {
+          const cell = cellOfKey(key);
+          if (visible(cell.x, cell.y))
+            ctx.fillText(`${feet > 0 ? '+' : ''}${feet}`, sx(cell.x) + 3, sy(cell.y) + 2);
+        }
       }
     }
     ctx.fillStyle = palette.inkSoft;
@@ -556,15 +694,36 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   // Wände, Türen, Gitter, Geheimtüren.
   const wallWidth = Math.max(2, z * 0.13);
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.strokeStyle = palette.wall;
-  ctx.lineWidth = wallWidth;
-  ctx.beginPath();
-  for (const seg of parsed.segments) {
-    if (!SOLID_EDGES.has(seg.kind)) continue;
-    ctx.moveTo(sx(seg.x1), sy(seg.y1));
-    ctx.lineTo(sx(seg.x2), sy(seg.y2));
+  const solidWalls = () => {
+    ctx.beginPath();
+    for (const seg of parsed.segments) {
+      if (!SOLID_EDGES.has(seg.kind)) continue;
+      ctx.moveTo(sx(seg.x1), sy(seg.y1));
+      ctx.lineTo(sx(seg.x2), sy(seg.y2));
+    }
+  };
+  // Ein weicher Schatten am Fuß der Wände gibt den Räumen Tiefe.
+  if (z >= 12) {
+    for (const [width, alpha] of [
+      [0.62, 0.06],
+      [0.36, 0.08],
+    ] as const) {
+      ctx.lineWidth = z * width;
+      ctx.globalAlpha = alpha;
+      solidWalls();
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
+  ctx.lineWidth = wallWidth;
+  solidWalls();
   ctx.stroke();
+  if (parsed.caveLoops.length > 0) {
+    caveWall();
+    ctx.stroke();
+  }
   // Die Wand eines runden Raums ist seine Ellipse; wo eine Öffnung sitzt, ist sie unterbrochen.
   for (const round of parsed.rounds) {
     ctx.strokeStyle = palette.wall;
@@ -791,7 +950,14 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       const known = play.seen.has(key);
       ctx.globalAlpha = known ? 0.42 : play.playerView ? 1 : 0.7;
       const grow = known ? 0 : pad;
-      ctx.fillRect(sx(cell.x) - grow, sy(cell.y) - grow, z + grow * 2, z + grow * 2);
+      // Höhlenboden reicht über sein Feld hinaus – zum Fels hin deckt der Schleier ihn mit.
+      const out = (dx: number, dy: number) =>
+        parsed.caveKeys.has(key) &&
+        level.tiles[keyOf({ x: cell.x + dx, y: cell.y + dy })] === undefined
+          ? z * 0.3
+          : grow;
+      const [l, t, r, b] = [out(-1, 0), out(0, -1), out(1, 0), out(0, 1)];
+      ctx.fillRect(sx(cell.x) - l, sy(cell.y) - t, z + l + r, z + t + b);
     }
     ctx.globalAlpha = 1;
     // Der Weg unter dem Zeiger.
@@ -967,17 +1133,6 @@ function tileColor(tile: DungeonTile, palette: Palette): string {
     default:
       return palette.floor;
   }
-}
-
-/** Die Abweichung eines Höhlenfelds von der Mitte und vom Maß – fest je Feld, damit die Höhle stillsteht. */
-function caveJitter(cell: DungeonCell): [number, number, number] {
-  const n = Math.sin(cell.x * 127.1 + cell.y * 311.7) * 43758.5453;
-  const m = Math.sin(cell.x * 269.5 + cell.y * 183.3) * 24634.6345;
-  return [
-    (n - Math.floor(n) - 0.5) * 0.16,
-    (m - Math.floor(m) - 0.5) * 0.16,
-    (n - Math.floor(n)) * 0.1,
-  ];
 }
 
 /** Ein Feld mit dem, was es ist. */

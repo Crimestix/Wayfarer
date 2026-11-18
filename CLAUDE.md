@@ -617,6 +617,36 @@ nicht übernommen.
   0 = besiegt, bewegt sich nicht mehr von selbst); „Initiative würfeln“ (`rollInits` mit
   `fairDie`) würfelt nur, wo keine steht. Die Minuten des Dungeons übernimmt „Übernehmen“ in die
   Weltzeit (`unsyncedMinutes`, `markSynced`, über `advanceAndReport`) – nur auf Klick.
+  **Gelände, Höhen, Höhlen, Auslöser** (Wunsch 18. 11.: „echte Höhen“, „Höhlen beides“, „alle
+  Pakete“; `domain/dungeonTerrain.ts`): Was eine Geländeart für die Regeln heißt, steht einzig in
+  `TILE_RULE` (langsam, verdeckt die Sicht, lichtlos, löscht Fackeln, Gefahr mit SG und Schaden –
+  tiefes Wasser, Schlamm, Eis, Lava, Säure, Dornen, Spinnweben, Dunst, magische Dunkelheit);
+  schwieriges Gelände ist außerdem eine Eigenschaft jedes Feldes (`level.rough`, `isSlow`).
+  **Höhen** in Fuß je Feld (`level.heights`, `heightAt`, `climbBetween`: bis `STEP_FEET` eine Stufe,
+  darüber Klettern, hinab ab `FALL_FEET` ein Sturz – Halt `climb`/`drop`). Schräge Ecken
+  (`level.corners`, `setCorner`), Engstellen (Kante `squeeze`), Türen, die klemmen oder nur in
+  eine Richtung aufgehen (`edge.stuck`, `edge.oneWay`). **Höhlen** sind Boden mit `level.cave`:
+  von Hand („als Höhle zeichnen“) oder erzeugt (`generateCave(rect, seed)` – fest je Fläche und
+  Fassung, nie `Math.random`). **Auslöser** (`level.zones`, Werkzeug Z): ein Bereich, ein „Wann“
+  (betreten, zu viele darauf, Tür geht auf, Bewohner besiegt, nach Minuten, nur durch Schalter)
+  und was geschieht (Einsturz zu Geröll, Fels, Loch oder Abgrund; Wasser steigt oder sinkt; Brücke
+  fährt ein oder aus), dazu Wirkungen auf anderes (`DungeonEffect` mit `mode`: umschalten, an,
+  aus) – ausgeführt nur in `fireZone`/`tickWorld`. **Schalter** (`marker.switch`): Hebel, Knopf,
+  Druckplatte, Zeitschalter, Schlüsselloch, Rätsel; verborgen bis gefunden (`marker.hidden`). Am
+  Tisch: Lärm (`makeNoise` – weckt, lockt an), Schleichen (`token.sneak`, `token.stealth` gegen
+  `dweller.passive`), schlafende Bewohner (`dweller.asleep`), Deckung (`coverBetween`),
+  Durchbrechen (`breachEdge`, `breachCell`), Lichter der Karte (`setMarkerLit`). Was sich am Tisch
+  verändert, liegt in `play.tiles`, `play.breaches`, `play.fired`, `play.switches`, `play.lights`
+  – nie im Gebauten. Editor: Ausschnitt (Q) kopieren, drehen, spiegeln, einfügen (`copyRegion`,
+  `rotateStamp`, `mirrorStamp`, `pasteStamp`); „Probelauf“ legt den Stand am Tisch beiseite und
+  wieder hin (nur im Arbeitsspeicher, endet beim Verlassen der Seite).
+  **Darstellung** (Rückmeldung 18. 11.: „Die Darstellung der Räume ist noch nicht schön … gerade
+  Höhlen sehen komisch aus“, „Schatten … anstatt einfach Zahlen“): Eine Höhle ist ein
+  durchgehender, unregelmäßiger Umriss (`dungeons/caveShape.ts`: `caveLoops` – fest je Stelle,
+  gerade und offen, wo sie an gebauten Boden grenzt), nie Kreise je Feld. Die Schraffur im Fels
+  sind Bündel kurzer Striche (`spotNoise`), Wände haben einen weichen Schatten am Fuß. Höhen
+  zeigen sich als Schatten auf dem Tieferen (Licht von oben links) und als Kante mit Strichen
+  hangabwärts; die Zahl steht nur, solange das Höhen-Werkzeug gewählt ist (`heightNumbers`).
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),
