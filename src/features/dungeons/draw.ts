@@ -487,7 +487,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   grainOver(textured ? 0.25 : 0.5);
 
   // Schraffur im Fels am Rand des Bodens.
-  if (z >= 10) {
+  // Die Schraffur gehört zum Tuschestil; über gemaltem Fels steht sie nicht.
+  if (z >= 10 && !textured) {
     ctx.strokeStyle = palette.hatch;
     ctx.lineWidth = 1;
     ctx.lineCap = 'round';
@@ -613,6 +614,23 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     }
   };
 
+  // Um den Boden herum hellt der Fels auf – so liegen Räume und Höhlen im Gestein, nicht davor.
+  if (textured) {
+    ctx.save();
+    floorRegion();
+    ctx.strokeStyle = palette.inkSoft;
+    ctx.lineJoin = 'round';
+    for (const [w, a] of [
+      [2.4, 0.05],
+      [1.5, 0.07],
+      [0.8, 0.1],
+    ] as const) {
+      ctx.lineWidth = z * w;
+      ctx.globalAlpha = a;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   // Boden: erst überall der blanke Grund, dann das Gelände als Flächen darauf.
   // Gelegter Boden sind Steinplatten, gewachsener Boden ist Geröll und Erde.
   const flagFill = tex('flag', 4) ?? palette.floor;
@@ -774,7 +792,19 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.save();
     floorRegion();
     ctx.clip();
-    for (const patch of parsed.patches) drawPatch(ctx, patch, sx, sy, z, palette, visible, tex);
+    for (const patch of parsed.patches)
+      drawPatch(
+        ctx,
+        patch,
+        sx,
+        sy,
+        z,
+        palette,
+        visible,
+        tex,
+        // Am Ufer läuft der Boden in die Fläche hinein – der, auf dem sie liegt.
+        patch.cells[0] && parsed.caveKeys.has(keyOf(patch.cells[0])) ? groundFill : tex('flag', 4),
+      );
     ctx.restore();
   }
   // Was auf einzelnen Feldern liegt: Geröll, die Streifen des Geheimgangs, die Planken der Brücke.
@@ -856,6 +886,25 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       ctx.restore();
     }
   }
+  // Feuer und Fackeln werfen warmes Licht auf den Boden.
+  ctx.save();
+  floorRegion();
+  ctx.clip();
+  for (const marker of level.markers) {
+    if (marker.kind !== 'fire' && marker.kind !== 'torch') continue;
+    if (scene.play?.unlit.has(marker.id) || !visible(marker.x, marker.y)) continue;
+    const cx = sx(marker.x + marker.w / 2);
+    const cy = sy(marker.y + marker.h / 2);
+    const r = z * (marker.kind === 'fire' ? 3.4 : 2.4);
+    const light = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    light.addColorStop(0, palette.ember);
+    light.addColorStop(1, fade(palette.ember));
+    ctx.fillStyle = light;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
   // Dunst und magische Dunkelheit: weiche Schwaden ohne Rand.
   ctx.save();
   floorRegion();
@@ -1107,7 +1156,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   }
 
   // Wände, Türen, Gitter, Geheimtüren.
-  const wallWidth = Math.max(2, z * 0.15);
+  const wallWidth = Math.max(2, z * (textured ? 0.24 : 0.15));
+  const wallStone = tex('wall', 3);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = palette.wall;
@@ -1151,9 +1201,28 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     }
     ctx.restore();
   }
-  ctx.lineWidth = wallWidth;
-  solidWalls();
-  ctx.stroke();
+  /** Eine Mauer: dunkler Rand, darin Stein, oben links ein Lichtstreif – sie hat Stärke. */
+  const masonry = (path: () => void) => {
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = wallWidth;
+    path();
+    ctx.stroke();
+    if (!wallStone) return;
+    ctx.strokeStyle = wallStone;
+    ctx.lineWidth = Math.max(1, wallWidth - Math.max(2, z * 0.07));
+    path();
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(-wallWidth * 0.16, -wallWidth * 0.16);
+    ctx.strokeStyle = palette.snow;
+    ctx.globalAlpha = 0.16;
+    ctx.lineWidth = wallWidth * 0.3;
+    path();
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = palette.wall;
+  };
+  masonry(solidWalls);
   // Die Höhlenwand ist keine Linie gleicher Stärke, sondern Tusche: mal breit, mal schmal, außen rau.
   ctx.fillStyle = palette.wall;
   parsed.caveLoops.forEach((loop, li) => {
@@ -1199,11 +1268,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   });
   // Die Wand eines runden Raums ist seine Ellipse; wo eine Öffnung sitzt, ist sie unterbrochen.
   for (const round of parsed.rounds) {
-    ctx.strokeStyle = palette.wall;
-    ctx.lineWidth = wallWidth;
-    ellipse(round.shape);
-    ctx.stroke();
-    ctx.fillStyle = palette.floor;
+    masonry(() => ellipse(round.shape));
+    ctx.fillStyle = flagFill;
     for (const seg of round.openings) {
       if (SOLID_EDGES.has(seg.kind)) continue;
       const { a, b } = cellsOfEdge(seg.key);
@@ -1766,6 +1832,7 @@ function drawPatch(
   palette: Palette,
   visible: (x: number, y: number) => boolean,
   tex: (name: TextureName, cells: number) => CanvasPattern | null,
+  blend: CanvasPattern | null,
 ): void {
   const area = () => {
     ctx.beginPath();
@@ -1801,7 +1868,7 @@ function drawPatch(
     ctx.fill();
     ctx.globalAlpha = 1;
   };
-  const line = (color: string, width: number, alpha = 1) => {
+  const line = (color: string | CanvasPattern, width: number, alpha = 1) => {
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.globalAlpha = alpha;
@@ -1816,6 +1883,15 @@ function drawPatch(
     ctx.clip();
     draw();
     ctx.restore();
+  };
+  /** Ein weiches Ufer: Der Boden läuft in mehreren Lagen in die Fläche hinein. */
+  const feather = () => {
+    if (!blend) return;
+    inside(() => {
+      line(blend, z * 0.55, 0.3);
+      line(blend, z * 0.3, 0.45);
+      line(blend, z * 0.13, 0.6);
+    });
   };
   const cells = patch.cells.filter((cell) => visible(cell.x, cell.y));
   const at = (cell: DungeonCell, salt: number) => spotNoise(cell.x, cell.y, salt);
@@ -1848,7 +1924,8 @@ function drawPatch(
         ctx.stroke();
         ctx.globalAlpha = 1;
       });
-      line(palette.waterLine, Math.max(1.2, z * 0.05));
+      feather();
+      line(palette.waterLine, Math.max(1, z * 0.035), blend ? 0.45 : 1);
       break;
     }
     case 'deep': {
@@ -1877,7 +1954,8 @@ function drawPatch(
         ctx.stroke();
         ctx.globalAlpha = 1;
       });
-      line(palette.mud, Math.max(1, z * 0.04), 0.8);
+      feather();
+      if (!blend) line(palette.mud, Math.max(1, z * 0.04), 0.8);
       break;
     }
     case 'ice': {
@@ -1909,7 +1987,8 @@ function drawPatch(
         ctx.stroke();
         ctx.globalAlpha = 1;
       });
-      line(palette.waterLine, Math.max(1, z * 0.04), 0.7);
+      feather();
+      line(palette.waterLine, Math.max(1, z * 0.03), blend ? 0.35 : 0.7);
       break;
     }
     case 'web': {
@@ -2002,7 +2081,8 @@ function drawPatch(
         ctx.stroke();
         ctx.globalAlpha = 1;
       });
-      line(palette.wall, Math.max(1.2, z * 0.045), 0.75);
+      feather();
+      line(palette.wall, Math.max(1, z * 0.035), blend ? 0.4 : 0.75);
       break;
     }
     case 'lava': {

@@ -12,10 +12,11 @@ import ice from '../../ui/assets/dungeon/ice.webp';
 import lava from '../../ui/assets/dungeon/lava.webp';
 import mud from '../../ui/assets/dungeon/mud.webp';
 import rock from '../../ui/assets/dungeon/rock.webp';
+import wall from '../../ui/assets/dungeon/wall.webp';
 import water from '../../ui/assets/dungeon/water.webp';
 import wood from '../../ui/assets/dungeon/wood.webp';
 
-const SOURCES = { acid, chasm, flag, ground, ice, lava, mud, rock, water, wood };
+const SOURCES = { acid, chasm, flag, ground, ice, lava, mud, rock, wall, water, wood };
 export type TextureName = keyof typeof SOURCES;
 
 const loaded: Partial<Record<TextureName, HTMLImageElement>> = {};

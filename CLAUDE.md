@@ -679,6 +679,11 @@ nicht übernommen.
   in den Fels und nur wenig in den Boden) und tragen **richtige Steine** (`drawStone`: kantiger
   Umriss, Schatten, helle Fläche, Kontur – auch das Geröll), nie Punkte. Flächen füllen zum Fels
   hin nur bis zum Rand der Höhle, nie eckig um einen Felsen herum.
+  **Ziel ist das Niveau von Inkarnate** (Spielleiter, 18. 11. 2026): Mauern haben Stärke und
+  Stein (`masonry`: dunkler Rand, Textur `wall`, Lichtstreif), der Fels hellt um den Boden herum
+  auf, Ufer laufen weich aus (`feather`: der Boden läuft in die Fläche hinein, keine harte
+  Kontur), Feuer und Fackeln werfen warmes Licht. Mit Texturen entfällt die Schraffur. Was noch
+  fehlt, sind gemalte Einzelbilder für Einrichtung, Türen und Figuren.
   Der Editor ist ein Malprogramm wie die Hexkarte: Leiste links mit Tasten (`TOOL_KEY`: V, R,
   B, X, A, W, D, F, T, M, E; „S“ = Geheimtür), rechts Werkzeug und Gewähltes, Rückgängig über
   viele Schritte (`editor.apply`; ein Strich ist ein Schritt: `beginStroke`/`endStroke`),

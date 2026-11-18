@@ -11,6 +11,7 @@ Karte abgestimmt; Wasser, Säure und Lava sind aus Steintexturen umgerechnet.
 | rock   | dark_rock             |
 | chasm  | dark_rock             |
 | wood   | old_planks_02         |
+| wall   | monastery_stone_floor |
 | mud    | brown_mud             |
 | ice    | snow_02               |
 | water  | rock_boulder_dry      |
