@@ -4,6 +4,7 @@
  * zum Verstehen – die Gestalt folgt der Art, nie als Filter: Alles Weitere bleibt über
  * „Hinzufügen“ erreichbar. Reine Funktionen; geschrieben wird über `pageActions.ts`.
  */
+import { facilityInRoom } from '../../domain/bastion';
 import { isWideScale } from '../../domain/placeScale';
 import {
   attitudeToParty,
@@ -213,6 +214,7 @@ export type MainBlock =
   | 'box'
   | 'members'
   | 'people'
+  | 'facility'
   | 'places'
   | 'inside'
   | 'shopsHere'
@@ -301,6 +303,8 @@ export function pagePlan(
       if (!promises) add.push('promise');
       break;
     case 'place': {
+      // Liegt hier eine Einrichtung der Bastion, steht sie zuerst da: Der Artikel ist ihre Seite.
+      if (facilityInRoom(data, entity.id)) main.push('facility');
       maybe(
         'place',
         placeChildren(data, entity.id).some((child) => !child.place.room),

@@ -2,10 +2,18 @@
  * Befehle der Bastion: anlegen, Einrichtungen pflegen, Reparaturen, einen Zug ausführen. Ein Zug
  * steht in der Chronik; Fertiges kann als Beute für den Besitzer bereitliegen.
  */
+import type { FacilityCandidate } from '../../domain/bastion';
+import { adoptArticle } from '../wiki/actions';
 import { logEntry } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import { turnLine, type TurnChoice } from '../../domain/bastion';
-import { createBastion, newId, type Bastion, type BastionFacility } from '../../domain/schema';
+import {
+  createBastion,
+  newId,
+  type Bastion,
+  type BastionFacility,
+  type Entity,
+} from '../../domain/schema';
 import { saveLoot } from '../beute/actions';
 import { saveTrack } from '../fortschritt/actions';
 
@@ -151,4 +159,104 @@ export function runTurn(
       if (db.getSnapshot().chronicle[entry.id]) db.remove('chronicle', entry.id);
       for (const id of lootIds) if (db.getSnapshot().loot[id]) db.remove('loot', id);
     });
+}
+
+/**
+ * Macht aus Räumen, Orten und Artikeln Einrichtungen der Bastion (`facilityCandidates`): Je
+ * Vorschlag entsteht eine Einrichtung mit seinem Namen, die in ihm liegt (`roomId`) – so ist der
+ * geschriebene Artikel die Seite der Einrichtung. Ein Artikel ohne Eintrag wird dabei ein Raum der
+ * Bastion; ein Ort unmittelbar unter der Bastion wird ein Raum. Gibt es die Einrichtung schon
+ * (gleicher Name, noch ohne Raum – `candidate.joins`), bekommt sie den Raum, und es entsteht keine
+ * zweite: Besitzer, Befehle und Gefolgsleute bleiben, wie sie sind. Geschrieben wird nichts Neues –
+ * was fehlt, trägt der Spielleiter danach ein. Gibt `undo` zurück.
+ */
+export function facilitiesFromRooms(
+  db: CampaignDb,
+  bastionId: string,
+  candidates: readonly FacilityCandidate[],
+): { added: number; joined: number; undo: () => void } | null {
+  const before = db.getSnapshot();
+  const bastion = before.bastions[bastionId];
+  const home = bastion?.placeId ? before.entities[bastion.placeId] : undefined;
+  if (!bastion || home?.kind !== 'place' || !candidates.length) return null;
+  /** Einrichtung, die es schon gab → der Raum, den sie bekommt. */
+  const joined = new Map<string, string>();
+  const changed: Entity[] = [];
+  const created: string[] = [];
+  const facilities: BastionFacility[] = [];
+  db.batch(() => {
+    for (const candidate of candidates) {
+      let place = candidate.placeId ? db.getSnapshot().entities[candidate.placeId] : undefined;
+      if (!place && candidate.articleId) {
+        const article = db.getSnapshot().articles[candidate.articleId];
+        if (!article) continue;
+        const adopted = adoptArticle(db, article, 'place');
+        created.push(adopted.id);
+        place = adopted;
+      }
+      if (place?.kind !== 'place') continue;
+      // Was unmittelbar zur Bastion gehört (oder eben erst entstand), ist ein Raum von ihr.
+      const direct = place.place.parentId === home.id || created.includes(place.id);
+      if (direct && (!place.place.room || place.place.parentId !== home.id)) {
+        if (!created.includes(place.id)) changed.push(place);
+        place = db.put('entities', {
+          ...place,
+          place: { ...place.place, parentId: home.id, room: true },
+        });
+      }
+      const known = candidate.joins
+        ? bastion.facilities.find((entry) => entry.id === candidate.joins && !entry.roomId)
+        : undefined;
+      if (known && !joined.has(known.id)) {
+        joined.set(known.id, place.id);
+        continue;
+      }
+      facilities.push({
+        id: newId(),
+        name: place.name,
+        roomId: place.id,
+        kind: 'special',
+        ownerId: null,
+        orders: [],
+        hirelings: '',
+        state: 'ready',
+        trackId: null,
+        order: null,
+        notes: '',
+      });
+    }
+    if (facilities.length || joined.size)
+      db.patch('bastions', bastionId, {
+        facilities: [
+          ...bastion.facilities.map((entry) =>
+            joined.has(entry.id) ? { ...entry, roomId: joined.get(entry.id)! } : entry,
+          ),
+          ...facilities,
+        ],
+      });
+  });
+  if (!facilities.length && !joined.size) return null;
+  const ids = new Set(facilities.map((facility) => facility.id));
+  return {
+    added: facilities.length,
+    joined: joined.size,
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot();
+        const current = now.bastions[bastionId];
+        if (current)
+          db.patch('bastions', bastionId, {
+            facilities: current.facilities
+              .filter((facility) => !ids.has(facility.id))
+              .map((facility) =>
+                // Nur lösen, was noch an dem Raum hängt, den sie hier bekam.
+                joined.get(facility.id) === facility.roomId
+                  ? { ...facility, roomId: null }
+                  : facility,
+              ),
+          });
+        for (const place of changed) if (now.entities[place.id]) db.put('entities', place);
+        for (const id of created) if (now.entities[id]) db.remove('entities', id);
+      }),
+  };
 }

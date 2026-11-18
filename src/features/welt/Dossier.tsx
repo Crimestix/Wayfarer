@@ -5,6 +5,7 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { RoomFacility } from '../bastion/RoomFacility';
 import { isWorld, liesIn } from '../../domain/worlds';
 import { WorldInside } from './WorldInside';
 import { kindPathOf } from '../../domain/ownKind';
@@ -221,6 +222,7 @@ export function Dossier({
         entity.kind === 'script' ||
         entity.kind === 'ability' ||
         entity.kind === 'profession') && <KnowledgePeople entity={entity} />,
+    facility: () => entity.kind === 'place' && <RoomFacility place={entity} />,
     places: () => entity.kind === 'place' && <PlacesBelow place={entity} />,
     inside: () => isWorld(entity) && <WorldInside world={entity} />,
     shopsHere: () => <ShopsHere shops={shops.listed} />,

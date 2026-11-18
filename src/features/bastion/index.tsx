@@ -4,7 +4,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Castle, Hammer, Pencil, Plus } from 'lucide-react';
+import { BookOpen, Castle, Hammer, Pencil, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { useFocus } from '../../shell/focus';
 import {
@@ -21,6 +21,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  EntityLink,
   EntityPicker,
   Field,
   Input,
@@ -33,6 +34,7 @@ import { moveTrack } from '../fortschritt/actions';
 import { addBastion, patchBastion, setFacilityState, startRepair } from './actions';
 import { FacilityDialog } from './FacilityDialog';
 import { TurnDialog } from './TurnDialog';
+import { RoomsDialog } from './RoomsDialog';
 import './bastion.css';
 
 export default function BastionPage() {
@@ -108,6 +110,7 @@ function BastionView({
   const now = data.state.now;
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [turning, setTurning] = useState(false);
+  const [taking, setTaking] = useState(false);
   const due = turnsDue(bastion, now);
   const days = daysToNextTurn(bastion, now);
   const groups = useMemo(() => facilityGroups(data, bastion), [data, bastion]);
@@ -144,6 +147,13 @@ function BastionView({
                 {b.name}
               </Button>
             ))}
+        <Button
+          icon={<BookOpen />}
+          title="Was du über die Räume der Bastion schon geschrieben hast, wird zu Einrichtungen"
+          onClick={() => setTaking(true)}
+        >
+          Aus Räumen und Artikeln …
+        </Button>
         <Button icon={<Plus />} onClick={() => setEditing('new')}>
           Einrichtung
         </Button>
@@ -177,8 +187,9 @@ function BastionView({
           <Panel title="Einrichtungen" count={bastion.facilities.length} flush>
             {bastion.facilities.length === 0 && (
               <p className="wf-bastion-none">
-                Noch keine Einrichtung. Trag ein, was die Feste hat – beschädigte Räume, die erst
-                repariert werden müssen, gleich mit Stand „beschädigt“.
+                Noch keine Einrichtung. Hast du die Räume schon als Artikel geschrieben? Dann nimm
+                oben „Aus Räumen und Artikeln …“. Sonst trag ein, was die Feste hat – beschädigte
+                Räume, die erst repariert werden müssen, gleich mit Stand „beschädigt“.
               </p>
             )}
             {groups.map((group) => (
@@ -197,10 +208,16 @@ function BastionView({
                               ? 'einfach'
                               : facility.orders.map((o) => ORDER_LABEL[o]).join(', '),
                             facility.hirelings,
-                            facility.roomId && data.entities[facility.roomId]?.name,
                           ]
                             .filter(Boolean)
                             .join(' · ')}
+                          {/* Der Raum mit seinem Artikel: ein Klick öffnet die Seite daneben. */}
+                          {facility.roomId && data.entities[facility.roomId] && (
+                            <span className="wf-bastion-facility__room">
+                              {' '}
+                              · <EntityLink id={facility.roomId} />
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="wf-bastion-facility__side">
@@ -339,6 +356,7 @@ function BastionView({
         />
       )}
       {turning && <TurnDialog bastion={bastion} onClose={() => setTurning(false)} />}
+      {taking && <RoomsDialog bastion={bastion} onClose={() => setTaking(false)} />}
     </div>
   );
 }

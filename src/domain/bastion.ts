@@ -174,3 +174,116 @@ export function facilityGroups(
     !a.owner ? 1 : !b.owner ? -1 : a.owner.name.localeCompare(b.owner.name, 'de'),
   );
 }
+
+// ── Einrichtungen aus Räumen und Artikeln ──────────────────────────────────
+
+export interface FacilityCandidate {
+  /** Stabil je Vorschlag: der Ort oder, ohne Ort, der Artikel. */
+  key: string;
+  name: string;
+  /** Der Ort (Raum) – null, wenn es bisher nur den Artikel gibt. */
+  placeId: string | null;
+  /** Der Artikel dazu, wenn es einen gibt. */
+  articleId: string | null;
+  /** In wenigen Worten, was es ist: „Raum“, „Ort darin“, „Artikel ohne Eintrag“. */
+  note: string;
+  /**
+   * Die Einrichtung gleichen Namens, die noch keinen Raum hat: Sie bekommt diesen Raum, statt dass
+   * eine zweite entsteht. Null, wenn es keine gibt.
+   */
+  joins: string | null;
+}
+
+/** Namen gelten genau – ohne Groß/Klein und doppelte Leerzeichen, nie ähnlich. */
+const facilityKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase('de');
+
+/**
+ * Was eine Einrichtung der Bastion werden könnte (Rückmeldung des Spielleiters, 18. 11. 2026:
+ * „dass meine geschriebenen Artikel zu den Bastionsräumen zu den richtigen Bastionsräumen werden
+ * können“): die Räume und Orte unter dem Ort der Bastion und die Artikel unter dessen Artikel, die
+ * noch keinen Eintrag haben – ohne das, woran schon eine Einrichtung hängt. Nur eine Liste zum
+ * Ankreuzen; übernommen wird auf Klick (`facilitiesFromRooms`).
+ */
+export function facilityCandidates(
+  data: Pick<CampaignData, 'entities' | 'articles'>,
+  bastion: Bastion,
+): FacilityCandidate[] {
+  const home = bastion.placeId ? data.entities[bastion.placeId] : undefined;
+  if (home?.kind !== 'place') return [];
+  const used = new Set(bastion.facilities.map((facility) => facility.roomId).filter(Boolean));
+  // Alle Orte unter dem Ort der Bastion, in jeder Tiefe.
+  const inside = new Set([home.id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const entity of Object.values(data.entities))
+      if (
+        entity.kind === 'place' &&
+        entity.place.parentId &&
+        inside.has(entity.place.parentId) &&
+        !inside.has(entity.id)
+      ) {
+        inside.add(entity.id);
+        grew = true;
+      }
+  }
+  // Einrichtungen, die schon eingetragen sind, aber noch keinen Raum haben – nach Namen.
+  const roomless = new Map<string, string>();
+  for (const facility of bastion.facilities)
+    if (!facility.roomId && !roomless.has(facilityKey(facility.name)))
+      roomless.set(facilityKey(facility.name), facility.id);
+  const out: FacilityCandidate[] = [];
+  const articlesWithEntry = new Set<string>();
+  for (const entity of Object.values(data.entities)) {
+    if (entity.lk) articlesWithEntry.add(entity.lk.resourceId);
+    if (entity.kind !== 'place' || entity.id === home.id || !inside.has(entity.id)) continue;
+    if (used.has(entity.id)) continue;
+    out.push({
+      key: entity.id,
+      name: entity.name,
+      placeId: entity.id,
+      articleId: entity.lk && data.articles[entity.lk.resourceId] ? entity.lk.resourceId : null,
+      note: entity.place.room ? 'Raum' : entity.place.category.trim() || 'Ort darin',
+      joins: roomless.get(facilityKey(entity.name)) ?? null,
+    });
+  }
+  // Artikel unter dem Artikel der Bastion, die noch keinen Eintrag haben.
+  const homeArticle = home.lk ? data.articles[home.lk.resourceId] : undefined;
+  if (homeArticle) {
+    const below = new Set([homeArticle.id]);
+    grew = true;
+    while (grew) {
+      grew = false;
+      for (const article of Object.values(data.articles))
+        if (article.parentId && below.has(article.parentId) && !below.has(article.id)) {
+          below.add(article.id);
+          grew = true;
+        }
+    }
+    for (const article of Object.values(data.articles)) {
+      if (article.id === homeArticle.id || !below.has(article.id)) continue;
+      if (article.template || articlesWithEntry.has(article.id)) continue;
+      out.push({
+        key: `artikel:${article.id}`,
+        name: article.title,
+        placeId: null,
+        articleId: article.id,
+        note: 'Artikel ohne Eintrag',
+        joins: roomless.get(facilityKey(article.title)) ?? null,
+      });
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
+}
+
+/** Die Einrichtung, die in einem Raum liegt – über alle Bastionen; null, wenn dort keine ist. */
+export function facilityInRoom(
+  data: Pick<CampaignData, 'bastions'>,
+  placeId: string,
+): { bastion: Bastion; facility: BastionFacility } | null {
+  for (const bastion of Object.values(data.bastions)) {
+    const facility = bastion.facilities.find((entry) => entry.roomId === placeId);
+    if (facility) return { bastion, facility };
+  }
+  return null;
+}

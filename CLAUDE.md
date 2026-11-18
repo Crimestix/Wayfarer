@@ -971,6 +971,16 @@ nicht übernommen.
   ein Zug fällig (`turnsDue`); er steht am Spieltisch unter „Sonst noch“, ausgeführt wird er nur
   über `runTurn` (`features/bastion/actions.ts`) – nie von selbst. Ereignisse würfelt `fairDie`
   auf der Tabelle des Spielleiters (`bastion.events`, Zeilen „1–50: …“). Keine Buchinhalte.
+  **Der geschriebene Artikel ist die Seite der Einrichtung** (Wunsch des Spielleiters, 18. 11. 2026:
+  „dass meine geschriebenen Artikel zu den Bastionsräumen zu den richtigen Bastionsräumen werden
+  können“): „Aus Räumen und Artikeln …“ (`bastion/RoomsDialog`) bietet zum Ankreuzen an, was unter
+  dem Ort der Bastion steht (`facilityCandidates`: Räume und Orte darin in jeder Tiefe, dazu
+  Artikel unter seinem Artikel, die noch keinen Eintrag haben); übernommen wird nur über
+  `facilitiesFromRooms` – je Vorschlag eine Einrichtung mit `roomId`, ein Artikel ohne Eintrag wird
+  dabei ein Raum der Bastion (`adoptArticle`), eine Einrichtung gleichen Namens ohne Raum bekommt
+  nur ihren Raum (`candidate.joins`, nie eine zweite); mit Rückgängig. Auf der Seite des Raums
+  steht die Einrichtung gleich nach dem Steckbrief (`facilityInRoom`, Block `facility` in
+  `pagePlan`, `bastion/RoomFacility` – „Ändern“ öffnet denselben Dialog wie in der Bastion).
 - Pflanzen, Tiere, Gesteine, Berufe (Arten `plant`, `animal`, `mineral`, `profession`): Arten der
   Welt, kein eigenes Lexikon. Faustregel, damit nie Zweifel bleibt: gewachsen = Pflanze (auch
   Pilze, Moose), lebt = Tier, aus dem Boden = Gestein, von Hand gemacht = Gegenstand (auch Trank,
