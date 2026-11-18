@@ -177,6 +177,12 @@ der Kachel auf der Übersicht und an der Gruppe in der Liste (die Einträge blei
 „Hierher legen“. Zwei Einträge lassen sich zusammenlegen (Zeichen neben dem Papierkorb), doppelte
 Namen stehen auf der Übersicht der Welt. **DATA_VERSION 35**.
 
+**Danach: Tag `v0.1.25` auf `548ac6c` (18. 11.)** – Bastion: „Aus Räumen und Artikeln …“ macht aus dem, was unter
+dem Ort der Bastion schon geschrieben steht (Räume, Orte darin, Artikel ohne Eintrag),
+Einrichtungen; der Artikel ist danach die Seite der Einrichtung („Einrichtung der Bastion“ auf der
+Seite des Raums). Eine Einrichtung gleichen Namens ohne Raum bekommt nur ihren Raum. Kein neues
+Schema (weiter DATA_VERSION 35). Geprüft mit Tests und der kleinen Vorschau-Welt, nicht mit Elaris.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
