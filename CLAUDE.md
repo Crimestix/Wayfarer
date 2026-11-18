@@ -1017,6 +1017,18 @@ nicht übernommen.
   zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`). Wo Räume geblieben sind, sagt eine Zeile
   über den Kacheln der Orte („37 Räume stehen bei ihren Orten – Räume zeigen“). Über den Kacheln
   jeder Kategorie führt „← Übersicht“ zurück zur Übersicht der Welt (`setKindFilter('all')`).
+- **Unterkategorien** – sichtbar heißt eine eigene Kategorie immer **Unterkategorie** und steht nie
+  neben oder über der Kategorie von Wayfarer (Rückmeldung 18. 11.: „Dungeonraum … ist ja aber eine
+  Subkategorie von Ort“; „Ort – und dann bei Subkategorie ‚Stadt‘ sehen oder eine neue
+  Subkategorie von Ort anlegen“): Gewählt wird in zwei Schritten (`KindSelect`: Kategorie, daneben
+  `SubKindSelect` mit „keine“, den eigenen und „+ Neue Unterkategorie von Ort …“); im Kopf der
+  Seite, in der Suche und im Kurzblick steht „Ort · Stadt“ (`kindPathOf`). **Die Liste einer
+  Kategorie ist nach Unterkategorien gegliedert** („Hier sollten diese Kategorien sein. Aktuell
+  wirkt das alles noch extrem willkürlich“): Zeigt die Liste links nur eine Kategorie, stehen dort
+  die Gruppen untereinander – erst die Unterkategorien, dann jedes eigene Wort, das mindestens
+  zwei Einträge tragen („Planet“, „Region“), der Rest unter „Weitere“ (`categoryGroups`), zu
+  Beginn zugeklappt; an einer Wort-Gruppe macht „als Unterkategorie“ sie auf einen Klick dazu.
+  Bei Orten wählt ein Umschalter „Nach Kategorie“ (Vorgabe) oder „Nach Lage“ (der Baum).
 - **Eigene Kategorien** (Wunsch des Spielleiters, 18. 11. 2026: „feste Kategorien, die man
   anlegen kann“ – in LegendKeeper hatte er dafür Vorlagen: Stadt, Distrikt, Dungeon, Major NPC …;
   `domain/ownKind.ts`): eine benannte Gruppe **innerhalb** einer Kategorie von Wayfarer, die sich

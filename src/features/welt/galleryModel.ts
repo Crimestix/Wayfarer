@@ -105,7 +105,7 @@ export type FacetKey =
   | 'age';
 
 export const FACET_LABEL: Record<FacetKey, string> = {
-  own: 'Deine Kategorie',
+  own: 'Unterkategorie',
   word: 'Genauer',
   stub: 'Stand',
   species: 'Volk',

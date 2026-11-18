@@ -3974,3 +3974,38 @@ button.wf-welt-gaps__count:hover {
   margin-right: var(--s-3);
   color: var(--ink-faint);
 }
+
+/* Orte allein: nach Kategorie oder nach Lage. */
+.wf-welt-placeby {
+  margin-top: var(--s-2);
+}
+.wf-welt-placeby .wf-btn {
+  flex: 1 1 0;
+}
+
+.wf-welt-count__base {
+  color: var(--ink-faint);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+}
+
+/* Kategorie und Unterkategorie nebeneinander; das Formular für eine neue rückt darunter. */
+.wf-welt-kindselect {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s-2);
+}
+.wf-welt-kindselect .wf-welt-ownform {
+  grid-column: 1 / -1;
+}
+.wf-welt-form__subkind {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+  font-size: var(--text-sm);
+}
+.wf-welt-form__subkind .wf-select,
+.wf-welt-form__subkind select {
+  max-width: 22rem;
+}

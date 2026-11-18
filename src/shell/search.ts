@@ -6,7 +6,7 @@
  * die Regeln des Tisches. Reine Funktion –
  * wohin ein Treffer führt, steht dabei; Symbole wählt die Oberfläche.
  */
-import { kindLabelOf } from '../domain/ownKind';
+import { kindPathOf } from '../domain/ownKind';
 import { normalize, occurrencesOf, searchEntities } from '../domain/derive';
 import { HANDOUT_KIND_LABEL } from '../domain/handout';
 import { formatGold } from '../domain/loot';
@@ -88,7 +88,7 @@ export function searchWorld(data: CampaignData, query: string): SearchHit[] {
       sort: 'entity',
       label: entity.name,
       // Bei Gegenständen „magisch · selten“ – zum Finden am Tisch.
-      sub: sub(kindLabelOf(data, entity), magicTag(entity), entity.tagline),
+      sub: sub(kindPathOf(data, entity), magicTag(entity), entity.tagline),
       entity,
       href: '',
     }),

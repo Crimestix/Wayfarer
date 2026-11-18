@@ -4,9 +4,11 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   allOwnKindSuggestions,
+  categoryGroups,
   entriesOfOwnKind,
   guessBase,
   kindLabelOf,
+  kindPathOf,
   ownKindCounts,
   ownKindOf,
   ownKindSuggestions,
@@ -53,6 +55,9 @@ describe('Eigene Kategorien', () => {
     setOwnKind(db, [town.id, person.id], own.id);
     // Nur was zur Grundkategorie passt, bekommt sie.
     expect(kindLabelOf(data(), data().entities[town.id]!)).toBe('Stadt');
+    // Die eigene Kategorie steht unter der von Wayfarer, nie darüber.
+    expect(kindPathOf(data(), data().entities[town.id]!)).toBe('Ort · Stadt');
+    expect(kindPathOf(data(), data().entities[person.id]!)).toBe('Person');
     expect(kindLabelOf(data(), data().entities[person.id]!)).toBe('Person');
     expect(data().entities[town.id]).toMatchObject({
       kind: 'place',
@@ -167,5 +172,25 @@ describe('Eigene Kategorien', () => {
     expect(allOwnKindSuggestions(data(), ['place', 'person'])).toMatchObject([
       { base: 'person', word: 'Stadtwache' },
     ]);
+  });
+
+  it('gliedert die Liste einer Kategorie: eigene Kategorien, gemeinsame Wörter, der Rest', async () => {
+    const { db, data, put } = await setup();
+    const { own } = addOwnKind(db, { name: 'Stadt', plural: 'Städte', base: 'place' })!;
+    put(createEntity({ kind: 'place', name: 'Grauhafen', ownKindId: own.id }));
+    put(createEntity({ kind: 'place', name: 'Elaris', place: { category: 'Planet' } }));
+    put(createEntity({ kind: 'place', name: 'Elysium', place: { category: 'planet' } }));
+    put(createEntity({ kind: 'place', name: 'Kosmologie', place: { category: 'Region' } }));
+    put(createEntity({ kind: 'place', name: 'Brakka' }));
+    const places = Object.values(data().entities).filter((e) => e.kind === 'place');
+    const split = categoryGroups(data(), places)!;
+    expect(split.groups.map((g) => [g.label, g.entities.map((e) => e.name)])).toEqual([
+      ['Städte', ['Grauhafen']],
+      ['Planet', ['Elaris', 'Elysium']],
+    ]);
+    // Ein Wort, das nur ein Eintrag trägt, und Einträge ohne Wort stehen unter „Weitere“.
+    expect(split.rest.map((e) => e.name)).toEqual(['Brakka', 'Kosmologie']);
+    // Ohne Wörter und eigene Kategorien gibt es nichts zu gliedern.
+    expect(categoryGroups(data(), [places.find((e) => e.name === 'Brakka')!])).toBeNull();
   });
 });

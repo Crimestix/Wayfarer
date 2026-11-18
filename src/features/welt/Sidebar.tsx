@@ -3,7 +3,11 @@
  * üblichen offen, die seltenen unter „Mehr“ (nie weggefiltert); Orte als Baum. Ein „Neu“ für
  * alles (`NewDialog`). Wechselt man Liste oder Ansicht, bleibt die offene Seite stehen.
  */
+import { ownKindFromWord } from './ownKinds';
+import { isRoom } from '../../domain/rooms';
 import {
+  REST_GROUP,
+  categoryGroups,
   entriesOfOwnKind,
   kindLabelOf,
   ownKindById,
@@ -108,6 +112,8 @@ const memory: {
   /** Aufgeklappte „Vergangenheit“ je Art – zu Beginn zu. */
   past: Record<string, boolean>;
   texts: boolean;
+  /** Orte allein: nach Kategorie gegliedert oder als Baum nach ihrer Lage. */
+  placeBy: 'category' | 'tree';
 } = {
   query: '',
   open: {},
@@ -115,6 +121,7 @@ const memory: {
   more: false,
   past: {},
   texts: false,
+  placeBy: 'category',
 };
 
 /** Was unter „Vergangenheit“ steht, in einem Wort – solange sie zugeklappt ist. */
@@ -171,6 +178,11 @@ export function Sidebar({
   const [moreOpen, setMoreOpen] = useState(memory.more);
   const [pastOpen, setPastOpen] = useState(memory.past);
   const [textsOpen, setTextsOpen] = useState(memory.texts);
+  const [placeBy, setPlaceByState] = useState(memory.placeBy);
+  const setPlaceBy = (next: 'category' | 'tree') => {
+    memory.placeBy = next;
+    setPlaceByState(next);
+  };
   // Vier Blicke auf dieselbe Welt: nach Art, in den Ordnern, in denen geschrieben wird, als Netz der
   // Fraktionen – oder was im Wiki noch zu schreiben ist (beides steht groß rechts auf der Bühne).
   const layout = useWorldLayout();
@@ -273,6 +285,29 @@ export function Sidebar({
     [data, open, pastShown],
   );
   const texts = useMemo(() => textsWithoutEntry(data), [data]);
+  /**
+   * Zeigt die Liste nur eine Kategorie, steht sie nach dem gegliedert, was die Einträge genauer
+   * sind: eigene Kategorien, dann gemeinsame Wörter („Planet“, „Region“), der Rest unter
+   * „Weitere“ (`categoryGroups`). null = nichts zu gliedern, die Liste bleibt flach.
+   */
+  const catSplit = useMemo(() => {
+    if (filter === 'all' || ownFilter) return null;
+    const all = (entitiesOfKind(data, filter) as WorldEntity[]).filter(
+      (entity) => !isRoom(data, entity) && (!visible || visible.has(entity.id)),
+    );
+    const { present, past } = splitPast(data, all);
+    const split = categoryGroups(data, present);
+    return split ? { ...split, past } : null;
+  }, [data, filter, ownFilter, visible]);
+  // Die Gruppe des gewählten Eintrags klappt auf.
+  useEffect(() => {
+    if (!catSplit || !selectedId) return;
+    const key =
+      catSplit.groups.find((group) => group.entities.some((entity) => entity.id === selectedId))
+        ?.key ?? (catSplit.rest.some((entity) => entity.id === selectedId) ? REST_GROUP : null);
+    if (key) setFolded((f) => (f[key] === false ? f : { ...f, [key]: false }));
+    // Nur eine neue Auswahl klappt auf – nicht jede Änderung der Welt.
+  }, [selectedId, catSplit === null]);
   // Die Suche findet auch Wörter mitten im Text – Artikel, deren Eintrag schon oben steht, nicht doppelt.
   const articleHits = useArticleHits(query);
   const listed = new Set(hits.map((entity) => entity.lk?.resourceId));
@@ -465,8 +500,86 @@ export function Sidebar({
       </>
     );
   };
+  /** Ein eigenes Wort als eigene Kategorie führen – aus der Überschrift seiner Gruppe heraus. */
+  const makeOwnKind = (kind: WorldKind, word: string, entityIds: string[]) => {
+    const made = ownKindFromWord(dbRef, { base: kind, word, entityIds });
+    if (!made) return;
+    toast({
+      title: `Unterkategorie „${made.own.name}“ von ${KIND_LABEL[kind]}`,
+      body: `${entityIds.length} ${KIND_LABEL_PLURAL[kind]} gehören dazu. Sie hat jetzt eigene Kacheln und steht bei „Neu“.`,
+      duration: 12000,
+      action: { label: 'Rückgängig', run: made.undo },
+    });
+  };
+  /** Die Liste einer Kategorie, gegliedert – zu Beginn zugeklappt: Man sieht zuerst die Kategorien. */
+  const groupedEntries = (kind: WorldKind): ReactNode => {
+    if (!catSplit) return null;
+    const restOpen = folded[REST_GROUP] === false;
+    return (
+      <>
+        {catSplit.groups.map((group) => {
+          const open = folded[group.key] === false;
+          return (
+            <div key={group.key}>
+              <FoldHead
+                open={open}
+                onToggle={() => setFolded((f) => ({ ...f, [group.key]: open }))}
+                label={group.label}
+                count={group.entities.length}
+                aside={
+                  group.own ? (
+                    <button
+                      type="button"
+                      className="wf-welt-fold__only"
+                      title={`Nur ${group.label} zeigen – mit eigenen Kacheln`}
+                      onClick={() => setKindFilter(kind, group.own!.id)}
+                    >
+                      nur diese
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="wf-welt-fold__only"
+                      title={`„${group.word}“ als Unterkategorie von ${KIND_LABEL[kind]} führen: eigene Kacheln, bei „Neu“ wählbar, im Kopf der Seite`}
+                      onClick={() =>
+                        makeOwnKind(
+                          kind,
+                          group.word,
+                          group.entities.map((entity) => entity.id),
+                        )
+                      }
+                    >
+                      als Unterkategorie
+                    </button>
+                  )
+                }
+              />
+              {open && group.entities.map((entity) => row(entity, false))}
+            </div>
+          );
+        })}
+        {catSplit.rest.length > 0 && (
+          <div key={REST_GROUP}>
+            <FoldHead
+              open={restOpen}
+              onToggle={() => setFolded((f) => ({ ...f, [REST_GROUP]: restOpen }))}
+              label="Weitere"
+              count={catSplit.rest.length}
+              hint={restOpen ? undefined : 'ohne Kategorie oder mit einem Wort für sich'}
+            />
+            {restOpen && catSplit.rest.map((entity) => row(entity, false))}
+          </div>
+        )}
+        {pastFold(kind, catSplit.past.length, () =>
+          catSplit.past.map((entity) => row(entity, false, true)),
+        )}
+      </>
+    );
+  };
   const entriesOf = (kind: WorldKind): ReactNode => {
     if (own && filter === kind) return ownEntries(own);
+    if (filter === kind && catSplit && (kind !== 'place' || placeBy === 'category'))
+      return groupedEntries(kind);
     if (kind === 'place')
       return (
         <>
@@ -504,7 +617,15 @@ export function Sidebar({
   };
   /** Alles auf einmal zeigen – oder wieder nur die Gruppen. */
   const unfoldAll = (show: boolean) => {
-    setFolded(show ? {} : Object.fromEntries(WORLD_KINDS.map((kind) => [kind, true])));
+    setFolded({
+      ...(show ? {} : Object.fromEntries(WORLD_KINDS.map((kind) => [kind, true]))),
+      ...Object.fromEntries(
+        [...(catSplit?.groups.map((group) => group.key) ?? []), REST_GROUP].map((key) => [
+          key,
+          !show,
+        ]),
+      ),
+    });
     setMoreOpen(show);
     setPastOpen(show ? Object.fromEntries(WORLD_KINDS.map((kind) => [kind, true])) : {});
     setTextsOpen(show);
@@ -700,6 +821,28 @@ export function Sidebar({
               {own ? ownPlural(own) : KIND_LABEL_PLURAL[filter]}{' '}
               <span>{own ? (ownCounts.get(own.id) ?? 0) : counts[filter]}</span>
             </span>
+          </div>
+        )}
+        {layout === 'kinds' && filter === 'place' && !own && !searching && catSplit && (
+          <div className="wf-btn-group wf-welt-placeby" role="group" aria-label="Orte ordnen">
+            <button
+              type="button"
+              className="wf-btn wf-btn--sm"
+              aria-pressed={placeBy === 'category'}
+              title="Die Orte nach dem, was sie sind: Planet, Region, Stadt …"
+              onClick={() => setPlaceBy('category')}
+            >
+              Nach Kategorie
+            </button>
+            <button
+              type="button"
+              className="wf-btn wf-btn--sm"
+              aria-pressed={placeBy === 'tree'}
+              title="Die Orte als Baum: was worin liegt"
+              onClick={() => setPlaceBy('tree')}
+            >
+              Nach Lage
+            </button>
           </div>
         )}
         {layout === 'kinds' && !searching && total > 0 && (

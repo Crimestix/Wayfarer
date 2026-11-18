@@ -56,7 +56,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   tie: 'Fäden, die sich verbinden ließen',
   house: 'Fraktionen und Familien, die dasselbe Haus sein könnten',
   question: 'Leitfragen am Rand einer Seite',
-  ownkind: 'Eigene Wörter, die eine eigene Kategorie werden könnten',
+  ownkind: 'Wörter und Vorlagen, die eine Unterkategorie werden könnten',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */

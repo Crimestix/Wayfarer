@@ -1,6 +1,5 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
-import { KindSelect } from './KindSelect';
-import { ownKinds } from '../../domain/ownKind';
+import { KindSelect, SubKindSelect } from './KindSelect';
 import { PLACE_SCALES, type PlaceScale } from '../../domain/schema';
 import { SCALE_LABEL, scaleOfWord } from '../../domain/placeScale';
 import { lifeWords } from '../../domain/lifespan';
@@ -62,7 +61,6 @@ import {
   forbiddenParents,
   habitatChoices,
   isWorldEntity,
-  isWorldKind,
   nameTwin,
   type EntityDraft,
   type WorldKind,
@@ -334,28 +332,22 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   key={kind}
                   type="button"
                   role="radio"
-                  aria-checked={draft.kind === kind && !draft.ownKindId}
+                  aria-checked={draft.kind === kind}
                   onClick={() => set({ kind, ownKindId: null })}
                 >
                   {KIND_LABEL[kind]}
                 </button>
               ))}
-              {ownKinds(data)
-                .filter((own) => isWorldKind(own.base))
-                .map((own) => (
-                  <button
-                    key={own.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={draft.ownKindId === own.id}
-                    title={`Deine Kategorie – verhält sich wie ${KIND_LABEL[own.base as WorldKind]}`}
-                    onClick={() => set({ kind: own.base as WorldKind, ownKindId: own.id })}
-                  >
-                    {own.name}
-                  </button>
-                ))}
             </div>
             <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
+            <div className="wf-welt-form__subkind">
+              <span className="wf-mute">Unterkategorie</span>
+              <SubKindSelect
+                kind={draft.kind}
+                value={draft.ownKindId}
+                onChange={(ownKindId) => set({ ownKindId })}
+              />
+            </div>
           </div>
         )}
         {existing && (

@@ -245,7 +245,7 @@ export function Gallery({
       </nav>
       <header className="wf-welt-landing__head">
         <div className="wf-welt-landing__eyebrow">
-          {own ? `Welt · deine Kategorie, verhält sich wie ${KIND_LABEL[kind]}` : 'Welt'}
+          {own ? `Welt · ${KIND_LABEL_PLURAL[kind]}` : 'Welt'}
         </div>
         <h1 className="wf-welt-landing__title">{plural}</h1>
         <p className="wf-welt-landing__lead">{roomsOnly ? roomsLead : lead}</p>
@@ -553,8 +553,8 @@ function OwnKindNote({ kind }: { kind: WorldKind }) {
         <b>
           {count} {KIND_LABEL_PLURAL[kind]} heißen „{suggestion.word}“.
         </b>{' '}
-        Als eigene Kategorie stehen sie für sich in der Liste, mit eigenen Kacheln und bei „Neu“ –
-        und bleiben {KIND_LABEL_PLURAL[kind]}.
+        Als Unterkategorie von {KIND_LABEL[kind]} stehen sie für sich in der Liste, mit eigenen
+        Kacheln und bei „Neu“.
       </span>
       <Button
         size="sm"
@@ -563,8 +563,8 @@ function OwnKindNote({ kind }: { kind: WorldKind }) {
           if (!made) return;
           setKindFilter(kind, made.own.id);
           toast({
-            title: `Eigene Kategorie „${made.own.name}“`,
-            body: `${count} Einträge gehören jetzt dazu. Die Mehrzahl stellst du in den Einstellungen unter „Eigene Kategorien“ ein.`,
+            title: `Unterkategorie „${made.own.name}“ von ${KIND_LABEL[kind]}`,
+            body: `${count} Einträge gehören jetzt dazu. Die Mehrzahl stellst du unter dem Titel ihrer Kacheln ein.`,
             duration: 12000,
             action: {
               label: 'Rückgängig',
@@ -576,9 +576,9 @@ function OwnKindNote({ kind }: { kind: WorldKind }) {
           });
         }}
       >
-        „{suggestion.word}“ als Kategorie
+        „{suggestion.word}“ als Unterkategorie
       </Button>
-      <DismissButton suggestionKey={suggestion.key} what="Eigene Kategorie" />
+      <DismissButton suggestionKey={suggestion.key} what="Unterkategorie" />
     </div>
   );
 }
@@ -600,7 +600,7 @@ function OwnKindEdit({ ownId, kind }: { ownId: string; kind: WorldKind }) {
         className="wf-welt-linkish wf-welt-ownedit__open"
         onClick={() => setOpen(true)}
       >
-        <Pencil aria-hidden /> Kategorie umbenennen oder entfernen
+        <Pencil aria-hidden /> Unterkategorie umbenennen oder entfernen
       </button>
     );
   return (
@@ -608,14 +608,14 @@ function OwnKindEdit({ ownId, kind }: { ownId: string; kind: WorldKind }) {
       <Input
         key={`n-${own.name}`}
         defaultValue={own.name}
-        aria-label="Name der Kategorie"
+        aria-label="Name der Unterkategorie"
         onBlur={(e) => patchOwnKind(db, own.id, { name: e.target.value })}
       />
       <Input
         key={`p-${own.plural}`}
         defaultValue={own.plural}
         placeholder={`Mehrzahl – leer: ${own.name}`}
-        aria-label="Mehrzahl der Kategorie"
+        aria-label="Mehrzahl der Unterkategorie"
         onBlur={(e) => patchOwnKind(db, own.id, { plural: e.target.value })}
       />
       <Button
@@ -628,14 +628,14 @@ function OwnKindEdit({ ownId, kind }: { ownId: string; kind: WorldKind }) {
           if (!undo) return;
           setKindFilter(kind);
           toast({
-            title: `Kategorie „${own.name}“ entfernt`,
+            title: `Unterkategorie „${own.name}“ entfernt`,
             body: `Die Einträge sind geblieben – als ${KIND_LABEL_PLURAL[kind]}.`,
             duration: 12000,
             action: { label: 'Rückgängig', run: undo },
           });
         }}
       >
-        Kategorie entfernen
+        Unterkategorie entfernen
       </Button>
       <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
         Fertig

@@ -46,6 +46,16 @@ export function ownKindOf(
 export const kindLabelOf = (data: WithKinds, entity: Pick<Entity, 'kind' | 'ownKindId'>): string =>
   ownKindOf(data, entity)?.name ?? KIND_LABEL[entity.kind];
 
+/**
+ * Die Kategorie eines Eintrags mit seiner eigenen als Unterkategorie: „Ort · Dungeonraum“
+ * (Rückmeldung des Spielleiters, 18. 11. 2026: Die eigene steht nie über der von Wayfarer – sie
+ * ist eine Unterkategorie). Ohne eigene nur die von Wayfarer.
+ */
+export function kindPathOf(data: WithKinds, entity: Pick<Entity, 'kind' | 'ownKindId'>): string {
+  const own = ownKindOf(data, entity);
+  return own ? `${KIND_LABEL[entity.kind]} · ${own.name}` : KIND_LABEL[entity.kind];
+}
+
 /** Die Mehrzahl einer eigenen Kategorie – ohne Angabe der Name. */
 export const ownPlural = (own: OwnKind): string => own.plural.trim() || own.name;
 
@@ -187,4 +197,76 @@ export function templateSuggestions(
     if (!isDismissed(data, suggestion.key)) out.push(suggestion);
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}
+
+export interface CategoryGroup<E extends Entity = Entity> {
+  /** Stabil je Gruppe – für auf- und zugeklappt. */
+  key: string;
+  /** Überschrift: die Mehrzahl einer eigenen Kategorie, sonst das eigene Wort. */
+  label: string;
+  /** Die eigene Kategorie – null bei einer Gruppe, die nur ein gemeinsames Wort ist. */
+  own: OwnKind | null;
+  /** Das gemeinsame Wort einer Gruppe ohne eigene Kategorie (für „als Kategorie führen“). */
+  word: string;
+  entities: E[];
+}
+
+/** Der Schlüssel der Gruppe „Weitere“: Einträge ohne Wort oder mit einem, das nur sie tragen. */
+export const REST_GROUP = 'cat:rest';
+
+/**
+ * Die Einträge einer Kategorie, gegliedert nach dem, was sie genauer sind (Rückmeldung des
+ * Spielleiters, 18. 11. 2026, zur Liste der Orte: „Hier sollten diese Kategorien sein. Aktuell
+ * wirkt das alles noch extrem willkürlich“): erst die eigenen Kategorien, dann jedes eigene Wort,
+ * das mindestens zwei Einträge tragen („Planet“, „Region“), nach dem Alphabet; der Rest steht
+ * unter „Weitere“. Nur eine Ordnung – jeder Eintrag steht in genau einer Gruppe. Gibt null
+ * zurück, wenn es nichts zu gliedern gibt (dann bleibt die Liste, wie sie ist).
+ */
+export function categoryGroups<E extends Entity>(
+  data: WithKinds,
+  entities: readonly E[],
+): { groups: CategoryGroup<E>[]; rest: E[] } | null {
+  const byOwn = new Map<string, CategoryGroup<E>>();
+  const byWord = new Map<string, { words: Map<string, number>; entities: E[] }>();
+  const rest: E[] = [];
+  for (const entity of entities) {
+    const own = ownKindOf(data, entity);
+    if (own) {
+      const group = byOwn.get(own.id) ?? {
+        key: `cat:own:${own.id}`,
+        label: ownPlural(own),
+        own,
+        word: '',
+        entities: [],
+      };
+      group.entities.push(entity);
+      byOwn.set(own.id, group);
+      continue;
+    }
+    const word = ownWordOf(entity);
+    if (!word) {
+      rest.push(entity);
+      continue;
+    }
+    const group = byWord.get(fold(word)) ?? { words: new Map<string, number>(), entities: [] };
+    group.words.set(word, (group.words.get(word) ?? 0) + 1);
+    group.entities.push(entity);
+    byWord.set(fold(word), group);
+  }
+  const worded: CategoryGroup<E>[] = [];
+  for (const [key, group] of byWord) {
+    if (group.entities.length < 2) {
+      rest.push(...group.entities);
+      continue;
+    }
+    const word = [...group.words].sort((a, b) => b[1] - a[1])[0]![0];
+    worded.push({ key: `cat:w:${key}`, label: word, own: null, word, entities: group.entities });
+  }
+  if (!byOwn.size && !worded.length) return null;
+  const byLabel = (a: CategoryGroup<E>, b: CategoryGroup<E>) =>
+    a.label.localeCompare(b.label, 'de');
+  const byName = (a: E, b: E) => a.name.localeCompare(b.name, 'de', { numeric: true });
+  const groups = [...[...byOwn.values()].sort(byLabel), ...worded.sort(byLabel)];
+  for (const group of groups) group.entities.sort(byName);
+  return { groups, rest: rest.sort(byName) };
 }

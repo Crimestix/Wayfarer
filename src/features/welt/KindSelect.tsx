@@ -1,13 +1,14 @@
 /**
- * Die Wahl der Kategorie – überall dieselbe: zuerst die eigenen Kategorien des Spielleiters
- * („Stadt – wie Ort“), dann die von Wayfarer, und ganz unten „+ Eigene Kategorie anlegen …“, das
- * an Ort und Stelle ein kleines Formular öffnet (Name, Mehrzahl, verhält sich wie). So entsteht
- * eine eigene Kategorie dort, wo man sie braucht – ohne die Seite zu verlassen.
+ * Die Wahl der Kategorie – überall dieselbe, in zwei Schritten (Rückmeldung des Spielleiters,
+ * 18. 11. 2026: „Ort – und dann bei Subkategorie ‚Stadt‘ sehen oder eine neue Subkategorie von
+ * Ort anlegen“): erst die Kategorie von Wayfarer, dann daneben ihre Unterkategorie – eine der
+ * eigenen des Spielleiters, „keine“ oder „+ Neue Unterkategorie von Ort …“, das an Ort und Stelle
+ * ein kleines Formular öffnet. Eine Unterkategorie steht nie neben oder über der Kategorie.
  */
 import { useState, type KeyboardEvent } from 'react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
-import { ownKindById, ownKinds, type OwnKind } from '../../domain/ownKind';
+import { ownKindOf, ownKindsOfBase, type OwnKind } from '../../domain/ownKind';
 import { Button, Input, Select, toast } from '../../ui';
 import { COMMON_KINDS, WORLD_KINDS, isWorldKind, type WorldKind } from './model';
 import { addOwnKind } from './ownKinds';
@@ -20,7 +21,6 @@ export interface KindChoice {
 
 const NO_KIND = 'text';
 const ADD = 'neu';
-const OWN = 'own:';
 
 export function KindSelect({
   value,
@@ -32,83 +32,108 @@ export function KindSelect({
   /** „Nur ein Text, ohne Art“ anbieten (im Fenster „Neu“). */
   textOption?: boolean;
 }) {
+  return (
+    <div className="wf-welt-kindselect">
+      <Select
+        value={value.kind ?? NO_KIND}
+        aria-label="Kategorie"
+        onChange={(e) => {
+          const next = e.target.value;
+          if (next === NO_KIND) onChange({ kind: null, ownKindId: null });
+          // Eine andere Kategorie hat andere Unterkategorien – die gewählte gilt dort nicht.
+          else if (isWorldKind(next)) onChange({ kind: next, ownKindId: null });
+        }}
+      >
+        <optgroup label="Übliche">
+          {COMMON_KINDS.map((option) => (
+            <option key={option} value={option}>
+              {KIND_LABEL[option]}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Weitere">
+          {WORLD_KINDS.filter((option) => !COMMON_KINDS.includes(option)).map((option) => (
+            <option key={option} value={option}>
+              {KIND_LABEL[option]}
+            </option>
+          ))}
+          {textOption && <option value={NO_KIND}>Nur ein Text, ohne Art</option>}
+        </optgroup>
+      </Select>
+      {value.kind && (
+        <SubKindSelect
+          kind={value.kind}
+          value={value.ownKindId}
+          onChange={(ownKindId) => onChange({ kind: value.kind, ownKindId })}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Die Unterkategorie einer Kategorie: „keine“, eine der eigenen – oder eine neue anlegen, ohne
+ * das Fenster zu verlassen.
+ */
+export function SubKindSelect({
+  kind,
+  value,
+  onChange,
+}: {
+  kind: WorldKind;
+  value: string | null;
+  onChange: (ownKindId: string | null) => void;
+}) {
   const data = useData();
   const [adding, setAdding] = useState(false);
-  const owns = ownKinds(data).filter((own) => isWorldKind(own.base));
-  const chosen = ownKindById(data, value.ownKindId);
-  const current =
-    value.kind === null
-      ? NO_KIND
-      : chosen && chosen.base === value.kind
-        ? OWN + chosen.id
-        : value.kind;
-
+  const owns = ownKindsOfBase(data, kind);
+  const chosen = ownKindOf(data, { kind, ownKindId: value });
   if (adding)
     return (
       <OwnKindForm
-        base={value.kind ?? 'place'}
+        base={kind}
+        fixedBase
         onCancel={() => setAdding(false)}
         onDone={(own) => {
           setAdding(false);
-          if (isWorldKind(own.base)) onChange({ kind: own.base, ownKindId: own.id });
+          onChange(own.id);
         }}
       />
     );
   return (
     <Select
-      value={current}
-      aria-label="Kategorie"
+      value={chosen?.id ?? ''}
+      aria-label="Unterkategorie"
+      title={`Unterkategorie von ${KIND_LABEL[kind]} – deine eigene Gliederung`}
       onChange={(e) => {
-        const next = e.target.value;
-        if (next === ADD) return setAdding(true);
-        if (next === NO_KIND) return onChange({ kind: null, ownKindId: null });
-        if (next.startsWith(OWN)) {
-          const own = ownKindById(data, next.slice(OWN.length));
-          if (own && isWorldKind(own.base)) onChange({ kind: own.base, ownKindId: own.id });
-          return;
-        }
-        if (isWorldKind(next)) onChange({ kind: next, ownKindId: null });
+        if (e.target.value === ADD) setAdding(true);
+        else onChange(e.target.value || null);
       }}
     >
-      {owns.length > 0 && (
-        <optgroup label="Deine Kategorien">
-          {owns.map((own) => (
-            <option key={own.id} value={OWN + own.id}>
-              {own.name} – wie {KIND_LABEL[own.base as WorldKind]}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      <optgroup label="Übliche">
-        {COMMON_KINDS.map((option) => (
-          <option key={option} value={option}>
-            {KIND_LABEL[option]}
-          </option>
-        ))}
-      </optgroup>
-      <optgroup label="Weitere">
-        {WORLD_KINDS.filter((option) => !COMMON_KINDS.includes(option)).map((option) => (
-          <option key={option} value={option}>
-            {KIND_LABEL[option]}
-          </option>
-        ))}
-        {textOption && <option value={NO_KIND}>Nur ein Text, ohne Art</option>}
-      </optgroup>
-      <option value={ADD}>+ Eigene Kategorie anlegen …</option>
+      <option value="">{owns.length ? 'keine Unterkategorie' : 'Unterkategorie …'}</option>
+      {owns.map((own) => (
+        <option key={own.id} value={own.id}>
+          {own.name}
+        </option>
+      ))}
+      <option value={ADD}>+ Neue Unterkategorie von {KIND_LABEL[kind]} …</option>
     </Select>
   );
 }
 
-/** Das kleine Formular für eine neue eigene Kategorie: Name, Mehrzahl, verhält sich wie. */
+/** Das kleine Formular für eine neue Unterkategorie: Name, Mehrzahl – und wozu sie gehört. */
 export function OwnKindForm({
   base: initialBase,
   name: initialName = '',
+  fixedBase = false,
   onDone,
   onCancel,
 }: {
   base: WorldKind;
   /** Ein Name, der schon feststeht (aus einem Vorschlag) – änderbar. */
   name?: string;
+  /** Die Kategorie steht fest (im Fenster eines Eintrags) – dann fragt das Formular nicht danach. */
+  fixedBase?: boolean;
   onDone: (own: OwnKind) => void;
   onCancel?: () => void;
 }) {
@@ -121,8 +146,8 @@ export function OwnKindForm({
     if (!made) return;
     if (made.created)
       toast({
-        title: `Eigene Kategorie „${made.own.name}“ angelegt`,
-        body: `Verhält sich wie ${KIND_LABEL[base]} – sie steht in der Liste, bei „Neu“ und hat eigene Kacheln.`,
+        title: `Unterkategorie „${made.own.name}“ von ${KIND_LABEL[base]} angelegt`,
+        body: 'Sie steht in der Liste unter ihrer Kategorie, bei „Neu“ und hat eigene Kacheln.',
         action: { label: 'Rückgängig', run: made.undo },
       });
     setName('');
@@ -146,31 +171,35 @@ export function OwnKindForm({
       <Input
         value={name}
         autoFocus
-        placeholder="Name – z. B. Stadt"
-        aria-label="Name der eigenen Kategorie"
+        placeholder={
+          fixedBase ? `Neue Unterkategorie von ${KIND_LABEL[base]}` : 'Name – z. B. Stadt'
+        }
+        aria-label="Name der Unterkategorie"
         onChange={(e) => setName(e.target.value)}
       />
       <Input
         value={plural}
         placeholder="Mehrzahl – z. B. Städte"
-        aria-label="Mehrzahl der eigenen Kategorie"
+        aria-label="Mehrzahl der Unterkategorie"
         onChange={(e) => setPlural(e.target.value)}
       />
-      <label className="wf-welt-ownform__base">
-        <span>verhält sich wie</span>
-        <Select
-          value={base}
-          aria-label="Verhält sich wie"
-          title="Davon hängt ab, was Wayfarer mit den Einträgen anfangen kann: Ein Ort hat eine Lage und Leute darin, eine Person eine Haltung zur Gruppe, ein Gegenstand einen Besitzer."
-          onChange={(e) => isWorldKind(e.target.value) && setBase(e.target.value)}
-        >
-          {WORLD_KINDS.map((option) => (
-            <option key={option} value={option}>
-              {KIND_LABEL[option]}
-            </option>
-          ))}
-        </Select>
-      </label>
+      {!fixedBase && (
+        <label className="wf-welt-ownform__base">
+          <span>Unterkategorie von</span>
+          <Select
+            value={base}
+            aria-label="Unterkategorie von"
+            title="Zu welcher Kategorie sie gehört. Davon hängt ab, was Wayfarer mit den Einträgen anfangen kann: Ein Ort hat eine Lage und Leute darin, eine Person eine Haltung zur Gruppe."
+            onChange={(e) => isWorldKind(e.target.value) && setBase(e.target.value)}
+          >
+            {WORLD_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {KIND_LABEL[option]}
+              </option>
+            ))}
+          </Select>
+        </label>
+      )}
       <Button size="sm" variant="primary" disabled={!name.trim()} onClick={add}>
         Anlegen
       </Button>

@@ -37,12 +37,11 @@ export function OwnKindsPanel() {
   const suggestions = fromTemplates.length + fromWords.length;
 
   return (
-    <section className="wf-welt-ownpanel" aria-label="Deine Kategorien">
+    <section className="wf-welt-ownpanel" aria-label="Deine Unterkategorien">
       <div className="wf-welt-ownpanel__head">
-        <span className="wf-caps">Deine Kategorien</span>
+        <span className="wf-caps">Deine Unterkategorien</span>
         <span className="wf-mute">
-          Eigene Gruppen innerhalb der Kategorien oben – „Stadt“ verhält sich wie ein Ort, „Major
-          NPC“ wie eine Person.
+          Unterkategorien der Kategorien oben – „Stadt“ gehört zu Ort, „Major NPC“ zu Person.
         </span>
       </div>
       <div className="wf-welt-counts wf-welt-counts--own">
@@ -52,13 +51,14 @@ export function OwnKindsPanel() {
               type="button"
               className="wf-welt-count__show"
               onClick={() => setKindFilter(own.base as WorldKind, own.id)}
-              title={`${ownPlural(own)} zeigen – verhält sich wie ${KIND_LABEL[own.base as WorldKind]}`}
+              title={`${ownPlural(own)} zeigen – Unterkategorie von ${KIND_LABEL[own.base as WorldKind]}`}
             >
               <KindIcon kind={own.base as WorldKind} />
               <span className="wf-welt-count__n">{counts.get(own.id) ?? 0}</span>
               <span className="wf-welt-count__label">
                 {(counts.get(own.id) ?? 0) === 1 ? own.name : ownPlural(own)}
               </span>
+              <span className="wf-welt-count__base">{KIND_LABEL[own.base as WorldKind]}</span>
             </button>
           </div>
         ))}
@@ -68,10 +68,10 @@ export function OwnKindsPanel() {
             className="wf-welt-count__show wf-welt-count__show--add"
             aria-expanded={form !== null}
             onClick={() => setForm(form ? null : { name: '', base: 'place' })}
-            title="Eine eigene Kategorie anlegen: Name, Mehrzahl und wie sie sich verhält"
+            title="Eine Unterkategorie anlegen: Name, Mehrzahl und zu welcher Kategorie sie gehört"
           >
             <Plus aria-hidden />
-            <span className="wf-welt-count__label">Eigene Kategorie</span>
+            <span className="wf-welt-count__label">Unterkategorie</span>
           </button>
         </div>
       </div>
@@ -93,7 +93,7 @@ export function OwnKindsPanel() {
             <span key={suggestion.key} className="wf-welt-ownchip">
               <button
                 type="button"
-                title={`Aus deinen Vorlagen. Öffnet das Formular – vorgewählt: verhält sich wie ${KIND_LABEL[suggestion.base]}.`}
+                title={`Aus deinen Vorlagen. Öffnet das Formular – vorgewählt als Unterkategorie von ${KIND_LABEL[suggestion.base]}.`}
                 onClick={() =>
                   setForm({
                     name: suggestion.name,
@@ -103,19 +103,19 @@ export function OwnKindsPanel() {
               >
                 {suggestion.name} <em>Vorlage</em>
               </button>
-              <DismissButton suggestionKey={suggestion.key} what="Eigene Kategorie" />
+              <DismissButton suggestionKey={suggestion.key} what="Unterkategorie" />
             </span>
           ))}
           {fromWords.slice(0, Math.max(0, MOST - fromTemplates.length)).map((suggestion) => (
             <span key={suggestion.key} className="wf-welt-ownchip">
               <button
                 type="button"
-                title={`${suggestion.entityIds.length} ${KIND_LABEL_PLURAL[suggestion.base]} tragen dieses Wort. Ein Klick legt die Kategorie an und ordnet sie zu.`}
+                title={`${suggestion.entityIds.length} ${KIND_LABEL_PLURAL[suggestion.base]} tragen dieses Wort. Ein Klick legt die Unterkategorie an und ordnet sie zu.`}
                 onClick={() => {
                   const made = ownKindFromWord(db, suggestion);
                   if (!made) return;
                   toast({
-                    title: `Eigene Kategorie „${made.own.name}“`,
+                    title: `Unterkategorie „${made.own.name}“ von ${KIND_LABEL[suggestion.base]}`,
                     body: `${suggestion.entityIds.length} ${KIND_LABEL_PLURAL[suggestion.base]} gehören jetzt dazu.`,
                     duration: 12000,
                     action: { label: 'Rückgängig', run: made.undo },
@@ -127,7 +127,7 @@ export function OwnKindsPanel() {
                   {suggestion.entityIds.length} {KIND_LABEL_PLURAL[suggestion.base]}
                 </em>
               </button>
-              <DismissButton suggestionKey={suggestion.key} what="Eigene Kategorie" />
+              <DismissButton suggestionKey={suggestion.key} what="Unterkategorie" />
             </span>
           ))}
         </div>
