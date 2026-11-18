@@ -792,19 +792,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.save();
     floorRegion();
     ctx.clip();
-    for (const patch of parsed.patches)
-      drawPatch(
-        ctx,
-        patch,
-        sx,
-        sy,
-        z,
-        palette,
-        visible,
-        tex,
-        // Am Ufer läuft der Boden in die Fläche hinein – der, auf dem sie liegt.
-        patch.cells[0] && parsed.caveKeys.has(keyOf(patch.cells[0])) ? groundFill : tex('flag', 4),
-      );
+    for (const patch of parsed.patches) drawPatch(ctx, patch, sx, sy, z, palette, visible, tex);
     ctx.restore();
   }
   // Was auf einzelnen Feldern liegt: Geröll, die Streifen des Geheimgangs, die Planken der Brücke.
@@ -1823,6 +1811,17 @@ function drawAir(
 }
 
 /** Eine Fläche Gelände: gefüllt bis an ihr Ufer, mit dem, was sie ausmacht, und einer Uferlinie. */
+const scratchCanvases: HTMLCanvasElement[] = [];
+/** Eine Arbeitsfläche neben der Karte, in der gewünschten Größe – wiederverwendet. */
+function scratch(index: number, width: number, height: number): HTMLCanvasElement {
+  const canvas = (scratchCanvases[index] ??= document.createElement('canvas'));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  return canvas;
+}
+
 function drawPatch(
   ctx: CanvasRenderingContext2D,
   patch: Patch,
@@ -1832,7 +1831,6 @@ function drawPatch(
   palette: Palette,
   visible: (x: number, y: number) => boolean,
   tex: (name: TextureName, cells: number) => CanvasPattern | null,
-  blend: CanvasPattern | null,
 ): void {
   const area = () => {
     ctx.beginPath();
@@ -1884,14 +1882,82 @@ function drawPatch(
     draw();
     ctx.restore();
   };
-  /** Ein weiches Ufer: Der Boden läuft in mehreren Lagen in die Fläche hinein. */
-  const feather = () => {
-    if (!blend) return;
-    inside(() => {
-      line(blend, z * 0.55, 0.3);
-      line(blend, z * 0.3, 0.45);
-      line(blend, z * 0.13, 0.6);
-    });
+  const areaOn = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    for (const loop of patch.loops) {
+      loop.points.forEach(([x, y], i) =>
+        i === 0 ? c.moveTo(sx(x), sy(y)) : c.lineTo(sx(x), sy(y)),
+      );
+      c.closePath();
+    }
+    for (const [x, y, w, h] of patch.strips) c.rect(sx(x), sy(y), w * z, h * z);
+  };
+  const shoreOn = (c: CanvasRenderingContext2D) => {
+    c.beginPath();
+    for (const loop of patch.loops) {
+      const n = loop.points.length;
+      let drawing = false;
+      for (let i = 0; i <= n; i++) {
+        const [x, y] = loop.points[i % n]!;
+        if (drawing) c.lineTo(sx(x), sy(y));
+        if (loop.open[i % n]) drawing = false;
+        else if (!drawing) {
+          c.moveTo(sx(x), sy(y));
+          drawing = true;
+        }
+      }
+    }
+  };
+  /**
+   * Weich gefüllt: Die Fläche läuft an ihrem Ufer in den Boden aus, statt hart zu enden – wie mit
+   * nassem Pinsel. `feather` ist die Breite des Übergangs in Feldern; mit `erode` beginnt die
+   * Füllung erst so weit vom Ufer entfernt (für die Tiefe in der Mitte).
+   */
+  const soft = (
+    style: string | CanvasPattern,
+    o: { feather: number; alpha?: number; erode?: number },
+  ) => {
+    const scale = ctx.getTransform().a || 1;
+    const w = ctx.canvas.width / scale;
+    const h = ctx.canvas.height / scale;
+    const layer = scratch(0, ctx.canvas.width, ctx.canvas.height);
+    // Die Maske ist klein; beim Vergrößern wird ihr Rand weich.
+    const k = Math.min(1, 2.5 / (z * o.feather));
+    const mask = scratch(1, Math.max(1, Math.ceil(w * k)), Math.max(1, Math.ceil(h * k)));
+    const lc = layer.getContext('2d');
+    const mc = mask.getContext('2d');
+    if (!lc || !mc) {
+      fill(style, o.alpha ?? 1);
+      return;
+    }
+    mc.setTransform(1, 0, 0, 1, 0, 0);
+    mc.globalCompositeOperation = 'source-over';
+    mc.clearRect(0, 0, mask.width, mask.height);
+    mc.setTransform(k, 0, 0, k, 0, 0);
+    mc.fillStyle = '#fff';
+    areaOn(mc);
+    mc.fill();
+    if (o.erode) {
+      mc.globalCompositeOperation = 'destination-out';
+      mc.strokeStyle = '#fff';
+      mc.lineJoin = 'round';
+      mc.lineWidth = z * o.erode * 2;
+      shoreOn(mc);
+      mc.stroke();
+    }
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = 'source-over';
+    lc.clearRect(0, 0, layer.width, layer.height);
+    lc.setTransform(scale, 0, 0, scale, 0, 0);
+    lc.fillStyle = style;
+    lc.fillRect(0, 0, w, h);
+    lc.globalCompositeOperation = 'destination-in';
+    lc.imageSmoothingEnabled = true;
+    lc.imageSmoothingQuality = 'high';
+    lc.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, mask.width / k, mask.height / k);
+    ctx.globalAlpha = o.alpha ?? 1;
+    ctx.drawImage(layer, 0, 0, layer.width, layer.height, 0, 0, w, h);
+    ctx.globalAlpha = 1;
   };
   const cells = patch.cells.filter((cell) => visible(cell.x, cell.y));
   const at = (cell: DungeonCell, salt: number) => spotNoise(cell.x, cell.y, salt);
@@ -1901,94 +1967,85 @@ function drawPatch(
 
   switch (patch.kind) {
     case 'water': {
-      fill(tex('water', 7) ?? palette.water);
-      fill(palette.lake, tex('water', 7) ? 0.22 : 0.34);
-      inside(() => {
-        // Flaches Wasser am Ufer ist heller.
-        line(palette.snow, z * 0.34, 0.3);
-        if (!detail) return;
-        ctx.strokeStyle = palette.waterLine;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        for (const cell of cells)
-          for (let i = 0; i < 2; i++) {
-            if (at(cell, 80 + i) < 0.35) continue;
-            const x = sx(cell.x + 0.12 + at(cell, 82 + i) * 0.5);
-            const y = sy(cell.y + 0.2 + i * 0.4 + at(cell, 84 + i) * 0.2);
-            const w = z * (0.2 + at(cell, 86 + i) * 0.14);
-            ctx.moveTo(x, y);
-            ctx.quadraticCurveTo(x + w * 0.25, y - z * 0.06, x + w * 0.5, y);
-            ctx.quadraticCurveTo(x + w * 0.75, y + z * 0.06, x + w, y);
-          }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
-      feather();
-      line(palette.waterLine, Math.max(1, z * 0.035), blend ? 0.45 : 1);
+      soft(tex('water', 7) ?? palette.water, { feather: 0.6 });
+      soft(palette.lake, { feather: 1, alpha: 0.32 });
+      // Zur Mitte hin wird es tiefer und dunkler.
+      soft(palette.deepLake, { feather: 1.6, erode: 0.85, alpha: 0.42 });
+      if (detail)
+        inside(() => {
+          // Helle Kräusel statt gezeichneter Wellen.
+          ctx.strokeStyle = palette.snow;
+          ctx.lineWidth = Math.max(1, z * 0.03);
+          ctx.globalAlpha = 0.42;
+          ctx.beginPath();
+          for (const cell of cells)
+            for (let i = 0; i < 2; i++) {
+              if (at(cell, 80 + i) < 0.5) continue;
+              const x = sx(cell.x + 0.15 + at(cell, 82 + i) * 0.55);
+              const y = sy(cell.y + 0.2 + i * 0.4 + at(cell, 84 + i) * 0.2);
+              const w = z * (0.14 + at(cell, 86 + i) * 0.14);
+              ctx.moveTo(x, y);
+              ctx.quadraticCurveTo(x + w * 0.5, y - z * 0.05, x + w, y);
+            }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
       break;
     }
     case 'deep': {
-      fill(palette.deepLake, 0.5);
-      ctx.setLineDash([z * 0.16, z * 0.12]);
-      line(palette.deepLake, Math.max(1, z * 0.035), 0.7);
-      ctx.setLineDash([]);
+      soft(palette.deepLake, { feather: 1.1, alpha: 0.62 });
       break;
     }
     case 'mud': {
-      fill(tex('mud', 5) ?? palette.mud, tex('mud', 5) ? 0.92 : 0.5);
-      inside(() => {
-        line(palette.mud, z * 0.3, 0.25);
-        if (!detail) return;
-        ctx.strokeStyle = palette.wall;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.45;
-        ctx.beginPath();
-        for (const cell of cells)
-          for (let i = 0; i < 3; i++) {
-            const x = sx(cell.x + 0.1 + at(cell, 90 + i) * 0.7);
-            const y = sy(cell.y + 0.15 + at(cell, 93 + i) * 0.7);
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + z * (0.08 + at(cell, 96 + i) * 0.1), y);
-          }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
-      feather();
-      if (!blend) line(palette.mud, Math.max(1, z * 0.04), 0.8);
+      soft(tex('mud', 5) ?? palette.mud, { feather: 0.7, alpha: tex('mud', 5) ? 0.96 : 0.6 });
+      soft(palette.wall, { feather: 1.3, erode: 0.6, alpha: 0.16 });
+      if (detail)
+        inside(() => {
+          ctx.strokeStyle = palette.wall;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          for (const cell of cells)
+            for (let i = 0; i < 3; i++) {
+              const x = sx(cell.x + 0.1 + at(cell, 90 + i) * 0.7);
+              const y = sy(cell.y + 0.15 + at(cell, 93 + i) * 0.7);
+              ctx.moveTo(x, y);
+              ctx.lineTo(x + z * (0.08 + at(cell, 96 + i) * 0.1), y);
+            }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
       break;
     }
     case 'ice': {
-      fill(tex('ice', 6) ?? palette.snow, 0.9);
-      fill(palette.lake, 0.12);
-      inside(() => {
-        if (!detail) return;
-        ctx.strokeStyle = palette.waterLine;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        for (const cell of cells) {
-          // Glanz: zwei kurze Striche; hier und da ein Riss.
-          const x = sx(cell.x + 0.2 + at(cell, 100) * 0.3);
-          const y = sy(cell.y + 0.5 + at(cell, 101) * 0.3);
-          ctx.moveTo(x, y);
-          ctx.lineTo(x + z * 0.22, y - z * 0.22);
-          ctx.moveTo(x + z * 0.14, y + z * 0.06);
-          ctx.lineTo(x + z * 0.26, y - z * 0.06);
-          if (at(cell, 102) < 0.3) {
-            const a = at(cell, 103) * Math.PI * 2;
-            const px = sx(cell.x + 0.5);
-            const py = sy(cell.y + 0.5);
-            ctx.moveTo(px, py);
-            ctx.lineTo(px + Math.cos(a) * z * 0.3, py + Math.sin(a) * z * 0.3);
-            ctx.lineTo(px + Math.cos(a + 0.9) * z * 0.5, py + Math.sin(a + 0.9) * z * 0.5);
+      soft(tex('ice', 6) ?? palette.snow, { feather: 0.55, alpha: 0.94 });
+      soft(palette.lake, { feather: 1.2, erode: 0.5, alpha: 0.14 });
+      if (detail)
+        inside(() => {
+          ctx.strokeStyle = palette.waterLine;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.5;
+          ctx.beginPath();
+          for (const cell of cells) {
+            // Glanz: zwei kurze Striche; hier und da ein Riss.
+            const x = sx(cell.x + 0.2 + at(cell, 100) * 0.3);
+            const y = sy(cell.y + 0.5 + at(cell, 101) * 0.3);
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + z * 0.22, y - z * 0.22);
+            ctx.moveTo(x + z * 0.14, y + z * 0.06);
+            ctx.lineTo(x + z * 0.26, y - z * 0.06);
+            if (at(cell, 102) < 0.3) {
+              const a = at(cell, 103) * Math.PI * 2;
+              const px = sx(cell.x + 0.5);
+              const py = sy(cell.y + 0.5);
+              ctx.moveTo(px, py);
+              ctx.lineTo(px + Math.cos(a) * z * 0.3, py + Math.sin(a) * z * 0.3);
+              ctx.lineTo(px + Math.cos(a + 0.9) * z * 0.5, py + Math.sin(a + 0.9) * z * 0.5);
+            }
           }
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
-      feather();
-      line(palette.waterLine, Math.max(1, z * 0.03), blend ? 0.35 : 0.7);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
       break;
     }
     case 'web': {
@@ -2060,61 +2117,37 @@ function drawPatch(
       break;
     }
     case 'acid': {
-      fill(tex('acid', 6) ?? palette.moss, 0.95);
-      fill(palette.lake, tex('acid', 6) ? 0.08 : 0.18);
-      inside(() => {
-        line(palette.snow, z * 0.3, 0.28);
-        if (!detail) return;
-        ctx.strokeStyle = palette.floor;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.75;
-        ctx.beginPath();
-        for (const cell of cells)
-          for (let i = 0; i < 3; i++) {
-            if (at(cell, 130 + i) < 0.3) continue;
-            const x = sx(cell.x + at(cell, 133 + i));
-            const y = sy(cell.y + at(cell, 136 + i));
-            const r = z * (0.035 + at(cell, 139 + i) * 0.05);
-            ctx.moveTo(x + r, y);
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-          }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
-      feather();
-      line(palette.wall, Math.max(1, z * 0.035), blend ? 0.4 : 0.75);
+      soft(tex('acid', 6) ?? palette.moss, { feather: 0.55 });
+      soft(palette.snow, { feather: 1.2, erode: 0.6, alpha: 0.16 });
+      if (detail)
+        inside(() => {
+          ctx.strokeStyle = palette.floor;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.7;
+          ctx.beginPath();
+          for (const cell of cells)
+            for (let i = 0; i < 3; i++) {
+              if (at(cell, 130 + i) < 0.3) continue;
+              const x = sx(cell.x + at(cell, 133 + i));
+              const y = sy(cell.y + at(cell, 136 + i));
+              const r = z * (0.035 + at(cell, 139 + i) * 0.05);
+              ctx.moveTo(x + r, y);
+              ctx.arc(x, y, r, 0, Math.PI * 2);
+            }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        });
       break;
     }
     case 'lava': {
-      // Die Glut scheint auf den Boden ringsum.
-      line(palette.ember, z * 0.9, 0.12);
-      line(palette.ember, z * 0.45, 0.2);
-      fill(tex('lava', 4) ?? palette.lava);
-      inside(() => {
-        line(palette.ember, z * 0.36, 0.55);
-        if (!detail || tex('lava', 4)) return;
-        // Helle Adern in der Kruste.
-        ctx.strokeStyle = palette.ember;
-        ctx.lineWidth = Math.max(1, z * 0.045);
-        ctx.globalAlpha = 0.85;
-        ctx.beginPath();
-        for (const cell of cells)
-          for (let i = 0; i < 2; i++) {
-            const x = sx(cell.x + 0.1 + at(cell, 140 + i) * 0.8);
-            const y = sy(cell.y + 0.1 + at(cell, 142 + i) * 0.8);
-            const a = at(cell, 144 + i) * Math.PI * 2;
-            ctx.moveTo(x, y);
-            ctx.quadraticCurveTo(
-              x + Math.cos(a) * z * 0.2,
-              y + Math.sin(a) * z * 0.2,
-              x + Math.cos(a + 0.8) * z * 0.38,
-              y + Math.sin(a + 0.8) * z * 0.38,
-            );
-          }
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      });
-      line(palette.wall, Math.max(1.2, z * 0.05), 0.8);
+      // Der Boden ringsum ist verbrannt, und die Glut scheint darauf.
+      line(palette.wall, z * 0.8, 0.14);
+      line(palette.ember, z * 1.1, 0.12);
+      line(palette.ember, z * 0.5, 0.2);
+      soft(tex('lava', 4) ?? palette.lava, { feather: 0.45 });
+      // Am Rand erkaltet sie zur Kruste, zur Mitte hin glüht sie hell.
+      soft(palette.ember, { feather: 1.2, erode: 0.4, alpha: 0.5 });
+      soft(palette.gold, { feather: 1.4, erode: 0.95, alpha: 0.42 });
       break;
     }
     case 'chasm': {
