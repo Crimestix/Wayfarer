@@ -9,6 +9,7 @@ import {
   addMarker,
   addRoom,
   addStair,
+  addZone,
   addTrap,
   assignRoom,
   brushCells,
@@ -27,6 +28,7 @@ import {
   paintTiles,
   patchDweller,
   patchTrap,
+  patchZone,
   rectCells,
   removeDweller,
   removeEdgeRun,
@@ -43,10 +45,21 @@ import {
   thingAt,
   toggleCell,
   toggleMarkerLink,
+  toggleZoneLink,
+  zoneAt,
   trapAt,
   type DungeonPick,
   type Side,
 } from '../../domain/dungeon';
+import {
+  cornerNear,
+  generateCave,
+  pasteStamp,
+  setCave,
+  setCorner,
+  setHeights,
+  setRough,
+} from '../../domain/dungeonTerrain';
 import type { DungeonCell, DungeonEdgeKind, DungeonLevel } from '../../domain/schema';
 import { toast } from '../../ui';
 import {
@@ -69,6 +82,25 @@ const EDGE_NEAR = 0.24;
 /** Beim Entlangziehen einer Wand: so nah muss der Zeiger der Kante sein. */
 const EDGE_DRAG = 0.3;
 
+/** Worauf eine Wirkung zeigen kann, wenn ein Feld angeklickt wird – nie auf den, der sie auslöst. */
+function linkOfThing(
+  level: DungeonLevel,
+  cell: DungeonCell,
+  self: string,
+): { kind: 'trap' | 'stair' | 'dweller' | 'marker' | 'zone'; levelId: string; ref: string } | null {
+  const thing = thingAt(level, cell);
+  if (thing && thing.type !== 'room' && thing.type !== 'edge' && thing.type !== 'zone') {
+    if (thing.id === self) return null;
+    if (thing.type !== 'marker') return { kind: thing.type, levelId: level.id, ref: thing.id };
+    // Von der Einrichtung lassen sich nur Lichter schalten.
+    const marker = level.markers.find((m) => m.id === thing.id);
+    if (marker?.kind === 'fire' || marker?.kind === 'torch')
+      return { kind: 'marker', levelId: level.id, ref: thing.id };
+  }
+  const zone = zoneAt(level, cell);
+  return zone && zone.id !== self ? { kind: 'zone', levelId: level.id, ref: zone.id } : null;
+}
+
 /** Liegen zwei Kanten in einer Linie? */
 function inLine(a: string, b: string): boolean {
   const [ax, ay, aside] = a.split(',');
@@ -81,11 +113,19 @@ interface Hit {
   edge: string;
   /** Abstand zur nächsten Kante in Anteilen des Feldes. */
   edgeDist: number;
+  /** Wo im Feld der Zeiger steht (0–1). */
+  fx: number;
+  fy: number;
 }
 
 type Gesture =
   | { type: 'pan'; x: number; y: number }
-  | { type: 'rect'; from: DungeonCell; to: DungeonCell; mode: 'room' | 'floor' | 'rock' | 'area' }
+  | {
+      type: 'rect';
+      from: DungeonCell;
+      to: DungeonCell;
+      mode: 'room' | 'floor' | 'rock' | 'area' | 'height' | 'zone' | 'region';
+    }
   | { type: 'paint'; last: DungeonCell }
   | { type: 'wall'; kind: DungeonEdgeKind; set: boolean; done: Set<string>; first: string }
   | { type: 'trap'; trapId: string }
@@ -206,8 +246,16 @@ export function DungeonCanvas({
         hoverCells = roomCells(lv, g.roomId).map((c) => ({ x: c.x + dx, y: c.y + dy }));
     } else if (h && !g) {
       if (ed.pickMode) hoverCells = [h.cell];
-      else if (ed.tool === 'floor' || ed.tool === 'rock' || ed.tool === 'area')
+      else if (
+        ed.tool === 'floor' ||
+        ed.tool === 'rock' ||
+        ed.tool === 'area' ||
+        ed.tool === 'height'
+      )
         hoverCells = brushCells(h.cell, ed.size);
+      else if (ed.tool === 'region' && ed.pasting && ed.clip)
+        hoverCells = [h.cell, { x: h.cell.x + ed.clip.w - 1, y: h.cell.y + ed.clip.h - 1 }];
+      else if (ed.tool === 'corner' || ed.tool === 'zone') hoverCells = [h.cell];
       else if (
         ed.tool === 'room' ||
         ed.tool === 'trap' ||
@@ -226,6 +274,15 @@ export function DungeonCanvas({
       mode?.type === 'trap-cells' || mode?.type === 'trap-spots'
         ? lv.traps.find((t) => t.id === mode.trapId)
         : null;
+    const zoned = mode?.type === 'zone-cells' ? lv.zones.find((z) => z.id === mode.zoneId) : null;
+    // Der aufgezogene Ausschnitt bleibt gestrichelt stehen, bis ein anderer gewählt ist.
+    const marked =
+      ed.tool === 'region' && ed.region && !ctl
+        ? [
+            { x: ed.region.x, y: ed.region.y },
+            { x: ed.region.x + ed.region.w - 1, y: ed.region.y + ed.region.h - 1 },
+          ]
+        : null;
     const walker =
       mode?.type === 'dweller-route' ? lv.dwellers.find((d) => d.id === mode.dwellerId) : null;
     const sorted = [...ed.dungeon.levels].sort((a, b) => b.order - a.order);
@@ -243,13 +300,16 @@ export function DungeonCanvas({
       play: shown,
       hoverCells,
       hoverEdge,
-      pickCells: walker
-        ? walker.route
-        : trap
-          ? mode?.type === 'trap-spots'
-            ? trap.spots
-            : trap.cells
-          : null,
+      region: marked,
+      pickCells: zoned
+        ? zoned.cells
+        : walker
+          ? walker.route
+          : trap
+            ? mode?.type === 'trap-spots'
+              ? trap.spots
+              : trap.cells
+            : null,
     });
   }, [viewOf]);
 
@@ -324,7 +384,7 @@ export function DungeonCanvas({
       ];
       sides.sort((a, b) => a[1] - b[1]);
       const [side, dist] = sides[0]!;
-      return { cell, edge: edgeKey(cell, side), edgeDist: dist };
+      return { cell, edge: edgeKey(cell, side), edgeDist: dist, fx, fy };
     },
     [viewOf],
   );
@@ -380,11 +440,24 @@ export function DungeonCanvas({
     const path = lineCells(from, to);
     const steps = first ? path : path.slice(1);
     if (steps.length === 0) return;
+    const cells = steps.flatMap((cell) => brushCells(cell, ed.size));
     if (ed.tool === 'floor') {
-      ed.applyLevel((lv) => digPath(lv, path, ed.tile, ed.size));
+      // „Schwierig“ setzt nur die Eigenschaft; sonst wird gemalt – auf Wunsch als Höhle.
+      if (ed.rough) ed.applyLevel((lv) => setRough(lv, cells, ed.rough === 'on'));
+      else
+        ed.applyLevel((lv) =>
+          setCave(
+            digPath(lv, path, ed.tile, ed.size),
+            path.flatMap((c) => brushCells(c, ed.size)),
+            ed.caveLook,
+          ),
+        );
       return;
     }
-    const cells = steps.flatMap((cell) => brushCells(cell, ed.size));
+    if (ed.tool === 'height') {
+      ed.applyLevel((lv) => setHeights(lv, cells, ed.heightFeet));
+      return;
+    }
     if (ed.tool === 'rock') ed.applyLevel((lv) => paintTiles(lv, cells, null));
     else if (ed.tool === 'area') ed.applyLevel((lv) => assignRoom(lv, cells, ed.areaRoomId));
   };
@@ -440,16 +513,53 @@ export function DungeonCanvas({
       });
       return;
     }
-    if (mode?.type === 'marker-link') {
-      // Eine Kante, wenn der Klick nah an einer Tür lag; sonst, was auf dem Feld liegt.
+    if (mode?.type === 'zone-cells') {
+      ed.applyLevel((level) => {
+        const zone = level.zones.find((z) => z.id === mode.zoneId);
+        if (!zone || !isFloor(level, cell)) return level;
+        return patchZone(level, zone.id, { cells: toggleCell(zone.cells, cell) });
+      });
+      return;
+    }
+    if (mode?.type === 'zone-edge') {
+      const edge = lv.edges[hit.edge];
+      if (!edge || edge.kind === 'wall') return;
+      const ref = edgeRun(lv, hit.edge)[0]!;
+      ed.apply((d) => ({
+        ...d,
+        levels: d.levels.map((level) =>
+          level.zones.some((z) => z.id === mode.zoneId)
+            ? patchZone(level, mode.zoneId, { edgeRef: ref, when: 'open' })
+            : level,
+        ),
+      }));
+      ed.setPickMode(null);
+      return;
+    }
+    if (mode?.type === 'zone-link') {
       const edge = hit.edgeDist < EDGE_NEAR ? lv.edges[hit.edge] : undefined;
-      const thing = thingAt(lv, cell);
       const link =
         edge && edge.kind !== 'wall' && edge.kind !== 'open'
           ? { kind: 'edge' as const, levelId: lv.id, ref: edgeRun(lv, hit.edge)[0]! }
-          : thing?.type === 'trap' || thing?.type === 'stair'
-            ? { kind: thing.type, levelId: lv.id, ref: thing.id }
-            : null;
+          : linkOfThing(lv, cell, mode.zoneId);
+      if (!link) return;
+      ed.apply((d) => ({
+        ...d,
+        levels: d.levels.map((level) =>
+          level.zones.some((z) => z.id === mode.zoneId)
+            ? toggleZoneLink(level, mode.zoneId, link)
+            : level,
+        ),
+      }));
+      return;
+    }
+    if (mode?.type === 'marker-link') {
+      // Eine Kante, wenn der Klick nah an einer Tür lag; sonst, was auf dem Feld liegt.
+      const edge = hit.edgeDist < EDGE_NEAR ? lv.edges[hit.edge] : undefined;
+      const link =
+        edge && edge.kind !== 'wall' && edge.kind !== 'open'
+          ? { kind: 'edge' as const, levelId: lv.id, ref: edgeRun(lv, hit.edge)[0]! }
+          : linkOfThing(lv, cell, mode.markerId);
       if (!link) return;
       // Der Schalter kann auf einer anderen Ebene liegen als sein Ziel.
       ed.apply((d) => ({
@@ -492,9 +602,27 @@ export function DungeonCanvas({
       case 'room':
         gesture.current = { type: 'rect', from: cell, to: cell, mode: 'room' };
         return;
+      case 'zone': {
+        const there = zoneAt(lv, cell);
+        if (there) ed.setSelection({ type: 'zone', id: there.id });
+        else gesture.current = { type: 'rect', from: cell, to: cell, mode: 'zone' };
+        return;
+      }
+      case 'corner':
+        ed.applyLevel((level) => setCorner(level, cell, cornerNear(hit.fx, hit.fy)));
+        return;
+      case 'region':
+        if (ed.pasting && ed.clip) {
+          const stamp = ed.clip;
+          ed.applyLevel((level) => pasteStamp(level, stamp, cell));
+          ed.setRegion({ x: cell.x, y: cell.y, w: stamp.w, h: stamp.h });
+          ed.setPasting(false);
+        } else gesture.current = { type: 'rect', from: cell, to: cell, mode: 'region' };
+        return;
       case 'floor':
       case 'rock':
       case 'area':
+      case 'height':
         if (event.shiftKey) {
           gesture.current = { type: 'rect', from: cell, to: cell, mode: ed.tool };
           return;
@@ -663,7 +791,26 @@ export function DungeonCanvas({
       const shape =
         g.mode === 'room' && ed.roomShape === 'round' ? roundBetween(g.from, g.to) : null;
       const cells = shape ? roundCells(shape) : rectCells(g.from, g.to);
-      if (g.mode === 'room') {
+      const box = roundBetween(g.from, g.to);
+      if (g.mode === 'region') ed.setRegion(box);
+      else if (g.mode === 'zone') {
+        let zoneId = '';
+        ed.applyLevel((level) => {
+          const made = addZone(
+            level,
+            cells.filter((c) => isFloor(level, c)),
+          );
+          zoneId = made.zone.id;
+          return made.level;
+        });
+        if (zoneId) ed.setSelection({ type: 'zone', id: zoneId });
+      } else if (g.mode === 'height')
+        ed.applyLevel((level) => setHeights(level, cells, ed.heightFeet));
+      else if (g.mode === 'room' && ed.roomShape === 'cave') {
+        // Eine Höhle: erzeugt nach fester Regel – dieselbe Fläche und Fassung, dieselbe Höhle.
+        const cave = generateCave(box, `${ed.dungeon.id}:${ed.caveVariant}`);
+        ed.applyLevel((level) => setCave(paintTiles(level, cave, 'floor'), cave, true));
+      } else if (g.mode === 'room') {
         let roomId = '';
         ed.applyLevel((level) => {
           const made = addRoom(level, cells, undefined, { round: shape });
@@ -671,7 +818,12 @@ export function DungeonCanvas({
           return made.level;
         });
         if (roomId) ed.setSelection({ type: 'room', id: roomId });
-      } else if (g.mode === 'floor') ed.applyLevel((level) => paintTiles(level, cells, ed.tile));
+      } else if (g.mode === 'floor')
+        ed.applyLevel((level) =>
+          ed.rough
+            ? setRough(level, cells, ed.rough === 'on')
+            : setCave(paintTiles(level, cells, ed.tile), cells, ed.caveLook),
+        );
       else if (g.mode === 'rock') ed.applyLevel((level) => paintTiles(level, cells, null));
       else ed.applyLevel((level) => assignRoom(level, cells, ed.areaRoomId));
     } else if (g?.type === 'move') {

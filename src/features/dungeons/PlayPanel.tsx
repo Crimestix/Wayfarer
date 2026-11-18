@@ -2,10 +2,13 @@
  * Rechts neben der Karte, wenn gespielt wird: der Halt (worüber gerade zu entscheiden ist), die
  * Gruppe, was am gewählten Ding zu tun ist, und was bisher geschah.
  */
-import { Eye, Flame, Search, Swords, Trash2, Undo2, UserPlus } from 'lucide-react';
+import { Eye, Flame, Hammer, Search, Swords, Trash2, Undo2, UserPlus, Volume2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
+  ACT_LABEL,
   STAIR_LABEL,
+  SWITCH_LABEL,
+  WHEN_LABEL,
   SAVE_LABEL,
   THING_LABEL,
   edgeName,
@@ -15,8 +18,13 @@ import {
   trapLine,
 } from '../../domain/dungeon';
 import {
+  COVER_LABEL,
   LIGHT_LABEL,
   SEARCH_SECONDS,
+  coverBetween,
+  markerFoundKey,
+  markerLit,
+  switchOn,
   clockWords,
   edgeFoundKey,
   playLevel,
@@ -144,11 +152,16 @@ function PickBox({
           {moves && (
             <Fact>
               {edge.opened ? 'Steht offen.' : edge.locked ? 'Verschlossen.' : 'Geschlossen.'}
+              {!edge.opened && edge.stuck && ' Klemmt – geht nur mit Kraft auf.'}
               {edge.locked && edge.lockDc !== null && ` Schloss SG ${edge.lockDc}.`}
               {!edge.opened && edge.breakDc !== null && ` Aufbrechen SG ${edge.breakDc}.`}
             </Fact>
           )}
           {edge.kind === 'false' && <Fact>Eine Scheintür – dahinter ist Wand.</Fact>}
+          {edge.kind === 'squeeze' && (
+            <Fact>Eine Engstelle – hindurch nur einzeln und langsam.</Fact>
+          )}
+          {edge.oneWay !== 'none' && <Fact>Lässt sich nur von einer Seite öffnen.</Fact>}
           {edge.note.trim() && <p className="wf-dungeon-gmnote">{edge.note}</p>}
           <div className="wf-dungeon-actions">
             {secret && (
@@ -163,13 +176,24 @@ function PickBox({
                 </Button>
                 <Button
                   size="sm"
-                  onClick={() => player.door(pick.key, { locked: false, opened: true })}
+                  title="Sie steht offen – und wer in der Nähe ist, hört es."
+                  onClick={() => player.forceDoor(pick.key)}
                 >
                   Aufgebrochen
                 </Button>
               </>
             )}
-            {moves && known && !edge.locked && (
+            {moves && known && !edge.locked && !edge.opened && edge.stuck && (
+              <Button
+                size="sm"
+                variant="primary"
+                title="Sie steht offen – und wer in der Nähe ist, hört es."
+                onClick={() => player.forceDoor(pick.key)}
+              >
+                Aufgestemmt
+              </Button>
+            )}
+            {moves && known && !edge.locked && !(edge.stuck && !edge.opened) && (
               <Button
                 size="sm"
                 variant="primary"
@@ -296,9 +320,50 @@ function PickBox({
     );
   }
 
+  if (pick.type === 'zone') {
+    const zone = now.zones.find((z) => z.id === pick.id);
+    if (!zone) return null;
+    const done = play.fired.includes(zone.id);
+    return (
+      <Panel title={zone.name.trim() || 'Auslöser'}>
+        <div className="wf-dungeon-form">
+          <Fact>
+            {WHEN_LABEL[zone.when]}
+            {zone.act !== 'none' ? ` – ${ACT_LABEL[zone.act]}` : ''}.
+            {done ? ' Ist schon geschehen.' : ''}
+          </Fact>
+          {zone.links.map((link) => (
+            <Fact key={`${link.kind}:${link.levelId}:${link.ref}`}>
+              Wirkt: {linkWords(editor.dungeon, link) ?? 'auf etwas, das es nicht mehr gibt'}.
+            </Fact>
+          ))}
+          {zone.note.trim() && <p className="wf-dungeon-gmnote">{zone.note}</p>}
+          <div className="wf-dungeon-actions">
+            <Button size="sm" variant="primary" onClick={() => player.trigger(zone.id)}>
+              {done ? 'Noch einmal auslösen' : 'Jetzt auslösen'}
+            </Button>
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
   if (pick.type === 'marker') {
     const marker = now.markers.find((m) => m.id === pick.id);
     if (!marker) return null;
+    const on = switchOn(play, marker.id);
+    const stays = marker.switch === 'lever' || marker.switch === 'plate';
+    const isLight = marker.kind === 'fire' || marker.kind === 'torch';
+    const lit = markerLit(play, marker);
+    const known = !marker.hidden || play.found.includes(markerFoundKey(marker.id));
+    const useWord = {
+      lever: on ? 'Zurücklegen' : 'Umlegen',
+      button: 'Drücken',
+      plate: on ? 'Entlasten' : 'Belasten',
+      timer: 'Auslösen',
+      key: 'Schlüssel passt',
+      riddle: 'Gelöst',
+    }[marker.switch];
     return (
       <Panel title={marker.label.trim() || THING_LABEL[marker.kind]}>
         <div className="wf-dungeon-form">
@@ -314,12 +379,52 @@ function PickBox({
             </Fact>
           ))}
           {marker.links.length > 0 && (
-            <div className="wf-dungeon-actions">
-              <Button size="sm" variant="primary" onClick={() => player.useThing(marker.id)}>
-                Benutzen
-              </Button>
-            </div>
+            <Fact>
+              {SWITCH_LABEL[marker.switch]}
+              {marker.switch === 'key' && marker.keyName.trim()
+                ? ` – ${marker.keyName.trim()}`
+                : ''}
+              {marker.switch === 'timer'
+                ? ` – springt nach ${clockWords(marker.seconds ?? 60)} zurück`
+                : ''}
+              {on
+                ? stays || marker.switch === 'timer'
+                  ? '. Ist gerade betätigt.'
+                  : '. Hat schon gewirkt.'
+                : '.'}
+            </Fact>
           )}
+          {marker.hidden && (
+            <Fact>
+              {known
+                ? 'Verborgen – die Gruppe kennt es.'
+                : 'Verborgen – die Gruppe kennt es nicht.'}
+              {marker.findDc !== null && ` Finden SG ${marker.findDc}.`}
+            </Fact>
+          )}
+          {isLight && <Fact>{lit ? 'Brennt.' : 'Ist aus.'}</Fact>}
+          <div className="wf-dungeon-actions">
+            {marker.hidden && (
+              <Button size="sm" onClick={() => player.found([markerFoundKey(marker.id)], !known)}>
+                {known ? 'Doch nicht gefunden' : 'Gefunden'}
+              </Button>
+            )}
+            {marker.links.length > 0 && (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={on && !stays}
+                onClick={() => player.useThing(marker.id)}
+              >
+                {useWord}
+              </Button>
+            )}
+            {isLight && (
+              <Button size="sm" onClick={() => player.mapLight(marker.id, !lit)}>
+                {lit ? 'Löschen' : 'Entzünden'}
+              </Button>
+            )}
+          </div>
         </div>
       </Panel>
     );
@@ -397,7 +502,30 @@ function TokenBox({ player, token }: { player: DungeonPlayer; token: DungeonToke
           Bewegung{token.kind === 'hero' ? ' und Dunkelsicht' : ''} in Fuß.
           {token.hp === 0 ? ' Besiegt – bewegt sich nicht mehr von selbst.' : ''}
           {token.kind === 'foe' && token.alert && token.hp !== 0 ? ' Hat die Gruppe bemerkt.' : ''}
+          {token.kind === 'foe' && !token.alert && token.heard
+            ? ' Hat etwas gehört und sieht nach.'
+            : ''}
         </Fact>
+        {token.kind === 'hero' && (
+          <div className="wf-dungeon-dcs">
+            <Checkbox checked={token.sneak} onChange={(sneak) => player.token(token.id, { sneak })}>
+              schleicht
+            </Checkbox>
+            {token.sneak && (
+              <NumberLine
+                label="Heimlichkeit"
+                value={token.stealth}
+                onSave={(stealth) => player.token(token.id, { stealth })}
+              />
+            )}
+          </div>
+        )}
+        {token.kind === 'hero' && token.sneak && (
+          <Fact>
+            Geht halb so schnell. Wer ihn sehen könnte, bemerkt ihn nur, wenn seine passive
+            Wahrnehmung den Wurf auf Heimlichkeit erreicht – ohne Wurf bemerkt ihn jeder.
+          </Fact>
+        )}
         {token.kind === 'hero' && (
           <>
             <div className="wf-dungeon-dcs">
@@ -526,6 +654,34 @@ function GroupPanel({ player, editor }: { player: DungeonPlayer; editor: Dungeon
             </Button>
           </div>
         )}
+        {rounds &&
+          (() => {
+            const turn = play.tokens.find((t) => t.id === rounds.turn);
+            if (!turn || turn.hp === 0) return null;
+            const others = play.tokens.filter(
+              (t) => t.kind !== turn.kind && t.levelId === turn.levelId && t.hp !== 0,
+            );
+            const lines = others
+              .map((t) => ({
+                t,
+                cover: coverBetween(
+                  editor.dungeon,
+                  turn.levelId,
+                  { x: turn.x, y: turn.y },
+                  { x: t.x, y: t.y },
+                ),
+              }))
+              .filter((row) => row.cover !== 'none');
+            if (lines.length === 0) return null;
+            return (
+              <Fact>
+                Deckung gegen {turn.name.trim() || 'die Figur'}:{' '}
+                {lines
+                  .map((row) => `${row.t.name.trim() || 'Figur'} ${COVER_LABEL[row.cover]}`)
+                  .join(' · ')}
+              </Fact>
+            );
+          })()}
         {rounds && (
           <Fact>
             {(() => {
@@ -599,6 +755,31 @@ function GroupPanel({ player, editor }: { player: DungeonPlayer; editor: Dungeon
             </Button>
           </div>
         )}
+        {!rounds && (
+          <div className="wf-dungeon-actions">
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<Volume2 />}
+              disabled={player.movers.length === 0}
+              title="Lärm dort, wo die Gruppe steht: Wer ihn hört, wacht auf und kommt nachsehen."
+              onClick={() => player.noise(60)}
+            >
+              Lärm
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<Hammer />}
+              aria-pressed={player.breaching}
+              title="Der nächste Klick auf eine Wand oder in den Fels bricht dort durch."
+              onClick={() => player.setBreaching(!player.breaching)}
+            >
+              Durchbrechen
+            </Button>
+          </div>
+        )}
+        {player.breaching && <Fact>Klicke die Wand oder den Fels an, der durchbrochen wird.</Fact>}
         {player.placing && (
           <Fact>
             Klicke das Feld an, auf dem {player.placing === 'foe' ? 'der Gegner' : 'die Figur'}{' '}

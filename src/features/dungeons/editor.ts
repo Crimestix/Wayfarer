@@ -23,6 +23,7 @@ import type {
   DungeonThing,
   DungeonTile,
 } from '../../domain/schema';
+import type { Stamp } from '../../domain/dungeonTerrain';
 import { saveLevels } from './actions';
 
 export const TOOLS = [
@@ -37,6 +38,10 @@ export const TOOLS = [
   'stair',
   'marker',
   'dweller',
+  'zone',
+  'height',
+  'corner',
+  'region',
   'erase',
 ] as const;
 export type Tool = (typeof TOOLS)[number];
@@ -44,9 +49,10 @@ export type Tool = (typeof TOOLS)[number];
 /** Die Werkzeuge in Gruppen, wie sie in der Leiste stehen. */
 export const TOOL_GROUPS: readonly (readonly Tool[])[] = [
   ['select'],
-  ['room', 'floor', 'rock', 'area'],
-  ['wall', 'door'],
-  ['trap', 'stair', 'marker', 'dweller'],
+  ['room', 'floor', 'rock', 'area', 'height'],
+  ['wall', 'door', 'corner'],
+  ['trap', 'stair', 'marker', 'dweller', 'zone'],
+  ['region'],
   ['erase'],
 ];
 
@@ -62,6 +68,10 @@ export const TOOL_LABEL: Record<Tool, string> = {
   stair: 'Etagenwechsel',
   marker: 'Einrichtung',
   dweller: 'Bewohner',
+  zone: 'Auslöser',
+  height: 'Höhe',
+  corner: 'Schräge Wand',
+  region: 'Ausschnitt',
   erase: 'Entfernen',
 };
 
@@ -81,6 +91,13 @@ export const TOOL_HINT: Record<Tool, string> = {
   marker: 'Etwas auf ein Feld stellen: Säule, Truhe, Hebel, Altar – oder eine freie Notiz.',
   dweller:
     'Jemanden hinstellen, der hier wartet. Danach wählst du, ob er stehen bleibt, eine Runde geht oder auf die Gruppe losgeht.',
+  zone: 'Einen Bereich aufziehen, in dem etwas geschieht: Der Boden stürzt ein, Wasser steigt, eine Brücke fährt ein, eine Tür fällt zu.',
+  height:
+    'Felder höher oder tiefer legen, in Fuß. Fünf Fuß Unterschied geht man, mehr klettert man; zehn Fuß hinab sind ein Sturz.',
+  corner:
+    'In die Ecke eines Feldes klicken: Dort entsteht eine schräge Wand. Noch einmal nimmt sie weg.',
+  region:
+    'Ein Stück aufziehen, dann kopieren, ausschneiden, drehen, spiegeln und woanders einfügen – auch auf einer anderen Ebene.',
   erase: 'Anklicken, was weg soll: Tür, Wand, Falle, Etagenwechsel, Einrichtung.',
 };
 
@@ -96,6 +113,10 @@ export const TOOL_KEY: Record<Tool, string> = {
   stair: 'T',
   marker: 'M',
   dweller: 'G',
+  zone: 'Z',
+  height: 'H',
+  corner: 'K',
+  region: 'Q',
   erase: 'E',
 };
 
@@ -109,7 +130,7 @@ export function toolOfKey(key: string): { tool: Tool; edgeKind?: DungeonEdgeKind
 
 /** Werkzeuge mit Pinselgröße. */
 export const hasSize = (tool: Tool): boolean =>
-  tool === 'floor' || tool === 'rock' || tool === 'area';
+  tool === 'floor' || tool === 'rock' || tool === 'area' || tool === 'height';
 
 /** Worauf der nächste Klick auf die Karte antwortet, statt dem Werkzeug zu folgen. */
 export type PickMode =
@@ -117,7 +138,10 @@ export type PickMode =
   | { type: 'trap-spots'; trapId: string }
   | { type: 'stair-target'; from: StairRef }
   | { type: 'dweller-route'; dwellerId: string }
-  | { type: 'marker-link'; markerId: string };
+  | { type: 'marker-link'; markerId: string }
+  | { type: 'zone-cells'; zoneId: string }
+  | { type: 'zone-link'; zoneId: string }
+  | { type: 'zone-edge'; zoneId: string };
 
 export const PICK_MODE_TEXT: Record<PickMode['type'], string> = {
   'trap-cells': 'Klicke die Felder an, auf denen die Falle auslöst.',
@@ -125,7 +149,11 @@ export const PICK_MODE_TEXT: Record<PickMode['type'], string> = {
   'stair-target': 'Wähle die Ebene und klicke das Feld an, auf dem man ankommt.',
   'dweller-route': 'Klicke der Reihe nach die Felder an, über die seine Runde führt.',
   'marker-link':
-    'Klicke an, worauf es wirkt: eine Tür, ein Gitter, eine Geheimtür, eine Falle, einen Etagenwechsel.',
+    'Klicke an, worauf es wirkt: eine Tür, eine Falle, einen Etagenwechsel, einen Auslöser, einen Bewohner, ein Licht.',
+  'zone-cells': 'Klicke die Felder an, die zum Bereich gehören.',
+  'zone-link':
+    'Klicke an, worauf er außerdem wirkt: eine Tür, eine Falle, einen Etagenwechsel, einen Bewohner, ein Licht.',
+  'zone-edge': 'Klicke die Tür an, deren Öffnen ihn auslöst.',
 };
 
 export interface ViewCommand {
@@ -141,6 +169,9 @@ interface History {
   past: DungeonLevel[][];
   future: DungeonLevel[][];
 }
+
+/** Die Zwischenablage: ein Ausschnitt, der sich auf jeder Ebene jedes Dungeons einfügen lässt. */
+let clipboard: Stamp | null = null;
 
 /** Der Verlauf je Dungeon – er übersteht den Wechsel der Seite, nicht den Neustart. */
 const histories = new Map<string, History>();
@@ -159,7 +190,23 @@ export function useDungeonEditor(db: CampaignDb, stored: Dungeon) {
   const [size, setSize] = useState(1);
   const [edgeKind, setEdgeKind] = useState<DungeonEdgeKind>('door');
   const [stairKind, setStairKind] = useState<DungeonStairKind>('stairs');
-  const [roomShape, setRoomShape] = useState<'rect' | 'round'>('rect');
+  const [roomShape, setRoomShape] = useState<'rect' | 'round' | 'cave'>('rect');
+  /** Die Höhe, die das Werkzeug „Höhe“ setzt, in Fuß. */
+  const [heightFeet, setHeightFeet] = useState(10);
+  /** Der Boden-Pinsel setzt oder nimmt „schwieriges Gelände“ statt einer Art. */
+  const [rough, setRough] = useState<'on' | 'off' | null>(null);
+  /** Gemalter Boden wird als Höhle gezeichnet. */
+  const [caveLook, setCaveLook] = useState(false);
+  /** Welche Fassung der erzeugten Höhle – eine andere Zahl, eine andere Höhle. */
+  const [caveVariant, setCaveVariant] = useState(1);
+  /** Der aufgezogene Ausschnitt und ob der nächste Klick einfügt. */
+  const [region, setRegion] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [pasting, setPasting] = useState(false);
+  const [clip, setClipState] = useState<Stamp | null>(clipboard);
+  const setClip = useCallback((stamp: Stamp | null) => {
+    clipboard = stamp;
+    setClipState(stamp);
+  }, []);
   const [markerKind, setMarkerKind] = useState<DungeonThing>('chest');
   const [areaRoomId, setAreaRoomId] = useState<string | null>(null);
   const [levelId, setLevelId] = useState<string>(() => levelsSorted(stored)[0]?.id ?? '');
@@ -296,6 +343,20 @@ export function useDungeonEditor(db: CampaignDb, stored: Dungeon) {
     setStairKind,
     roomShape,
     setRoomShape,
+    heightFeet,
+    setHeightFeet,
+    rough,
+    setRough,
+    caveLook,
+    setCaveLook,
+    caveVariant,
+    setCaveVariant,
+    region,
+    setRegion,
+    pasting,
+    setPasting,
+    clip,
+    setClip,
     markerKind,
     setMarkerKind,
     areaRoomId,

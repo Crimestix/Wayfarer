@@ -45,6 +45,11 @@ export interface Palette {
   blood: string;
   arcane: string;
   ember: string;
+  snow: string;
+  lava: string;
+  mud: string;
+  moss: string;
+  glow: string;
   font: string;
 }
 
@@ -66,6 +71,11 @@ export function readPalette(element: HTMLElement): Palette {
     blood: get('--blood-bright'),
     arcane: get('--arcane'),
     ember: get('--ember'),
+    snow: get('--map-snow'),
+    lava: get('--terrain-lava'),
+    mud: get('--map-road'),
+    moss: get('--moss'),
+    glow: get('--map-glow'),
     font: get('--font-display') || 'Georgia, serif',
   };
 }
@@ -76,6 +86,8 @@ interface Parsed {
   /** Felsfelder, die an Boden grenzen – dort steht die Schraffur. */
   rim: DungeonCell[];
   labels: { roomId: string; name: string; x: number; y: number }[];
+  /** Felder, die als Höhle gezeichnet werden. */
+  caveKeys: Set<string>;
   /** Türen, Gitter, Fenster … – nebeneinanderliegende gleicher Art als eine Öffnung. */
   openings: EdgeSegment[];
   /** Runde Räume: ihre Form, ihre Felder und was an ihrem Rand eine Öffnung ist. */
@@ -150,6 +162,7 @@ function parse(level: DungeonLevel): Parsed {
     rounds.push({ shape, cells: own, openings: [] });
     for (const cell of own) roundRoomOf.set(keyOf(cell), room.id);
   }
+  const caveKeys = new Set(level.cave);
   const segments: EdgeSegment[] = [];
   const ledges: Parsed['ledges'] = [];
   for (const seg of edgeSegments(level)) {
@@ -160,6 +173,12 @@ function parse(level: DungeonLevel): Parsed {
       // Am Rand eines runden Raums: Wand und Fels zeichnet die Ellipse, Öffnungen bleiben.
       if (seg.kind === 'rock' || seg.kind === 'wall') continue;
       for (const id of [ra, rb]) if (id) rounds[roundIndex.get(id)!]!.openings.push(seg);
+    }
+    if (seg.kind === 'rock') {
+      // Eine schräge Wand zeichnet sich selbst; an Höhlenboden ist der Rand unregelmäßig.
+      if (seg.implied) continue;
+      const floor = level.tiles[keyOf(a)] !== undefined ? a : b;
+      if (caveKeys.has(keyOf(floor))) continue;
     }
     segments.push(seg);
   }
@@ -199,6 +218,7 @@ function parse(level: DungeonLevel): Parsed {
     labels,
     rounds,
     roundKeys: new Set(roundRoomOf.keys()),
+    caveKeys,
     ledges,
   };
   parsedOf.set(level, parsed);
@@ -224,6 +244,8 @@ export interface Scene {
   hoverEdge: string | null;
   /** Felder, die gerade gewählt werden (Auslöser, „zu bemerken von“). */
   pickCells: readonly DungeonCell[] | null;
+  /** Die beiden Ecken eines aufgezogenen Ausschnitts. */
+  region?: readonly DungeonCell[] | null;
   /** Am Tisch: Figuren, Sicht und der Weg unter dem Zeiger. */
   play?: PlayOverlay | null;
 }
@@ -252,6 +274,9 @@ export interface PlayOverlay {
   /** Die Sicht der Spieler: Ungesehenes ist ganz dunkel. */
   playerView: boolean;
   tokens: readonly TokenDraw[];
+  /** Lichter der Karte, die gerade aus sind, und Schalter, die an sind. */
+  unlit: ReadonlySet<string>;
+  switched: ReadonlySet<string>;
   /** Der Weg unter dem Zeiger mit seiner Länge in Fuß. */
   route: { cells: readonly DungeonCell[]; feet: number } | null;
 }
@@ -316,10 +341,114 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.globalAlpha = 1;
   }
 
+  // Höhlen: ein unregelmäßiger Rand statt gerader Wände – erst der dunkle Umriss, dann der Boden.
+  const caves = parsed.cells.filter((cell) => parsed.caveKeys.has(keyOf(cell)));
+  const blob = (cell: DungeonCell, grow: number) => {
+    const [jx, jy, jr] = caveJitter(cell);
+    ctx.moveTo(sx(cell.x + 0.5 + jx) + z * (0.6 + jr) + grow, sy(cell.y + 0.5 + jy));
+    ctx.arc(sx(cell.x + 0.5 + jx), sy(cell.y + 0.5 + jy), z * (0.6 + jr) + grow, 0, Math.PI * 2);
+  };
+  if (caves.length > 0) {
+    ctx.fillStyle = palette.wall;
+    ctx.beginPath();
+    for (const cell of caves) if (visible(cell.x, cell.y)) blob(cell, Math.max(2, z * 0.1));
+    ctx.fill();
+  }
+
   // Boden.
   for (const cell of parsed.cells) {
     if (!visible(cell.x, cell.y) || parsed.roundKeys.has(keyOf(cell))) continue;
+    if (parsed.caveKeys.has(keyOf(cell))) continue;
     drawTile(ctx, level, scene.below, cell, sx(cell.x), sy(cell.y), z, palette);
+  }
+  // Höhlenboden: rund um jedes Feld, in der Farbe dessen, was es ist.
+  for (const cell of caves) {
+    if (!visible(cell.x, cell.y)) continue;
+    ctx.fillStyle = tileColor(cell.tile, palette);
+    ctx.beginPath();
+    blob(cell, 0);
+    ctx.fill();
+  }
+  if (caves.length > 0 && z >= 9) {
+    // Das Raster der Höhle, beschnitten auf ihren Boden.
+    ctx.save();
+    ctx.beginPath();
+    for (const cell of caves) if (visible(cell.x, cell.y)) blob(cell, 0);
+    ctx.clip();
+    ctx.strokeStyle = palette.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const cell of caves) {
+      if (!visible(cell.x, cell.y)) continue;
+      const x = Math.round(sx(cell.x)) + 0.5;
+      const y = Math.round(sy(cell.y)) + 0.5;
+      ctx.moveTo(x, y + z);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + z, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // Schräge Wände: Die Ecke des Feldes ist Fels.
+  for (const [key, corner] of Object.entries(level.corners)) {
+    const cell = cellOfKey(key);
+    if (!visible(cell.x, cell.y)) continue;
+    const x0 = sx(cell.x);
+    const y0 = sy(cell.y);
+    const cx = corner[1] === 'w' ? x0 : x0 + z;
+    const cy = corner[0] === 'n' ? y0 : y0 + z;
+    const ax = cx;
+    const ay = corner[0] === 'n' ? y0 + z : y0;
+    const bx = corner[1] === 'w' ? x0 + z : x0;
+    const by = cy;
+    ctx.fillStyle = palette.rock;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = Math.max(2, z * 0.13);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+  // Höhen und schwieriges Gelände.
+  if (z >= 9) {
+    for (const [key, feet] of Object.entries(level.heights)) {
+      const cell = cellOfKey(key);
+      if (!visible(cell.x, cell.y)) continue;
+      // Höher ist heller, tiefer dunkler.
+      ctx.fillStyle = feet > 0 ? palette.snow : palette.chasm;
+      ctx.globalAlpha = Math.min(0.5, 0.1 + Math.abs(feet) / 100);
+      ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
+      ctx.globalAlpha = 1;
+      if (z >= 22) {
+        ctx.font = `600 ${Math.max(9, z * 0.28)}px ${palette.font}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = palette.inkSoft;
+        ctx.fillText(`${feet > 0 ? '+' : ''}${feet}`, sx(cell.x) + 3, sy(cell.y) + 2);
+      }
+    }
+    ctx.fillStyle = palette.inkSoft;
+    for (const key of level.rough) {
+      const cell = cellOfKey(key);
+      if (!visible(cell.x, cell.y)) continue;
+      for (const [fx, fy] of [
+        [0.72, 0.8],
+        [0.84, 0.72],
+        [0.86, 0.86],
+      ] as const) {
+        ctx.beginPath();
+        ctx.arc(sx(cell.x + fx), sy(cell.y + fy), Math.max(1, z * 0.035), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
   // Runde Räume: der Boden ist die Ellipse.
   const ellipse = (shape: RoundShape) => {
@@ -383,7 +512,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.beginPath();
     for (const cell of parsed.cells) {
       if (!visible(cell.x, cell.y) || cell.tile === 'chasm' || cell.tile === 'air') continue;
-      if (parsed.roundKeys.has(keyOf(cell))) continue;
+      if (parsed.roundKeys.has(keyOf(cell)) || parsed.caveKeys.has(keyOf(cell))) continue;
       const x = Math.round(sx(cell.x)) + 0.5;
       const y = Math.round(sy(cell.y)) + 0.5;
       ctx.moveTo(x, y + z);
@@ -468,9 +597,47 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  for (const seg of parsed.openings) drawOpening(ctx, seg, sx, sy, z, wallWidth, palette);
+  for (const seg of parsed.openings) {
+    drawOpening(ctx, seg, sx, sy, z, wallWidth, palette);
+    drawEdgeMarks(ctx, seg, sx, sy, z, palette);
+  }
   ctx.lineCap = 'butt';
 
+  // Auslöser: ihr Bereich, gestrichelt umrandet.
+  for (const zone of level.zones) {
+    const chosen = scene.selection?.type === 'zone' && scene.selection.id === zone.id;
+    const keys = new Set(zone.cells.map(keyOf));
+    ctx.fillStyle = palette.arcane;
+    ctx.globalAlpha = chosen ? 0.3 : 0.14;
+    for (const cell of zone.cells) ctx.fillRect(sx(cell.x), sy(cell.y), z, z);
+    ctx.globalAlpha = chosen ? 1 : 0.75;
+    ctx.strokeStyle = palette.arcane;
+    ctx.lineWidth = chosen ? 2.5 : 1.5;
+    ctx.setLineDash([z * 0.2, z * 0.14]);
+    ctx.beginPath();
+    for (const cell of zone.cells) {
+      // Nur der Außenrand des Bereichs.
+      if (!keys.has(keyOf({ x: cell.x, y: cell.y - 1 }))) {
+        ctx.moveTo(sx(cell.x), sy(cell.y));
+        ctx.lineTo(sx(cell.x + 1), sy(cell.y));
+      }
+      if (!keys.has(keyOf({ x: cell.x, y: cell.y + 1 }))) {
+        ctx.moveTo(sx(cell.x), sy(cell.y + 1));
+        ctx.lineTo(sx(cell.x + 1), sy(cell.y + 1));
+      }
+      if (!keys.has(keyOf({ x: cell.x - 1, y: cell.y }))) {
+        ctx.moveTo(sx(cell.x), sy(cell.y));
+        ctx.lineTo(sx(cell.x), sy(cell.y + 1));
+      }
+      if (!keys.has(keyOf({ x: cell.x + 1, y: cell.y }))) {
+        ctx.moveTo(sx(cell.x + 1), sy(cell.y));
+        ctx.lineTo(sx(cell.x + 1), sy(cell.y + 1));
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
   // Bewohner, wie sie vorbereitet sind: ihr Platz und ihre Runde.
   for (const dweller of level.dwellers) {
     const chosen = scene.selection?.type === 'dweller' && scene.selection.id === dweller.id;
@@ -573,7 +740,30 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     const cx = sx(marker.x) + z / 2;
     const cy = sy(marker.y) + z / 2;
     const r = z * 0.3;
-    drawThing(ctx, marker.kind, sx(marker.x), sy(marker.y), z, palette);
+    // Ein Ding kann mehrere Felder groß und gedreht sein: ein langer Tisch, ein Bett quer.
+    const out =
+      marker.kind === 'fire' || marker.kind === 'torch' ? scene.play?.unlit.has(marker.id) : false;
+    ctx.save();
+    ctx.translate(sx(marker.x) + (marker.w * z) / 2, sy(marker.y) + (marker.h * z) / 2);
+    ctx.rotate((marker.rot * Math.PI) / 2);
+    const turned = marker.rot % 2 === 1;
+    ctx.scale(turned ? marker.h : marker.w, turned ? marker.w : marker.h);
+    if (out) ctx.globalAlpha = 0.35;
+    drawThing(ctx, marker.kind, -z / 2, -z / 2, z, palette);
+    ctx.restore();
+    if (scene.play?.switched.has(marker.id)) {
+      // Ein Schalter, der an ist: ein kleines Messingzeichen.
+      ctx.fillStyle = palette.gold;
+      ctx.beginPath();
+      ctx.arc(
+        sx(marker.x) + z * 0.84,
+        sy(marker.y) + z * 0.16,
+        Math.max(2.5, z * 0.09),
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
     const label = marker.label.trim();
     if (label && z >= 18) {
       ctx.font = `600 ${Math.max(11, Math.min(15, z * 0.42))}px ${palette.font}`;
@@ -705,6 +895,16 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.setLineDash([]);
   }
 
+  // Der aufgezogene Ausschnitt.
+  if (scene.region && scene.region.length === 2) {
+    const [a, b] = scene.region as [DungeonCell, DungeonCell];
+    ctx.strokeStyle = palette.gold;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(sx(a.x) + 1, sy(a.y) + 1, (b.x - a.x + 1) * z - 2, (b.y - a.y + 1) * z - 2);
+    ctx.setLineDash([]);
+  }
+
   // Unter dem Zeiger.
   if (scene.hoverCells.length > 0) {
     ctx.strokeStyle = palette.gold;
@@ -745,6 +945,41 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
 /** Kanten, die als durchgehende Wand gezeichnet werden. */
 const SOLID_EDGES: ReadonlySet<string> = new Set(['rock', 'wall', 'secret', 'window', 'false']);
 
+/** Die Grundfarbe einer Geländeart. */
+function tileColor(tile: DungeonTile, palette: Palette): string {
+  switch (tile) {
+    case 'water':
+      return palette.water;
+    case 'deep':
+      return palette.waterLine;
+    case 'ice':
+      return palette.snow;
+    case 'lava':
+      return palette.lava;
+    case 'acid':
+      return palette.moss;
+    case 'dark':
+      return palette.glow;
+    case 'chasm':
+    case 'air':
+    case 'bridge':
+      return palette.chasm;
+    default:
+      return palette.floor;
+  }
+}
+
+/** Die Abweichung eines Höhlenfelds von der Mitte und vom Maß – fest je Feld, damit die Höhle stillsteht. */
+function caveJitter(cell: DungeonCell): [number, number, number] {
+  const n = Math.sin(cell.x * 127.1 + cell.y * 311.7) * 43758.5453;
+  const m = Math.sin(cell.x * 269.5 + cell.y * 183.3) * 24634.6345;
+  return [
+    (n - Math.floor(n) - 0.5) * 0.16,
+    (m - Math.floor(m) - 0.5) * 0.16,
+    (n - Math.floor(n)) * 0.1,
+  ];
+}
+
 /** Ein Feld mit dem, was es ist. */
 function drawTile(
   ctx: CanvasRenderingContext2D,
@@ -756,9 +991,58 @@ function drawTile(
   z: number,
   palette: Palette,
 ): void {
-  const dark = cell.tile === 'chasm' || cell.tile === 'air' || cell.tile === 'bridge';
-  ctx.fillStyle = cell.tile === 'water' ? palette.water : dark ? palette.chasm : palette.floor;
+  ctx.fillStyle = tileColor(cell.tile, palette);
   ctx.fillRect(x, y, z + 0.5, z + 0.5);
+  if (cell.tile === 'mud' || cell.tile === 'fog') {
+    // Über dem Boden: Schlamm dunkelt, Dunst hellt auf.
+    ctx.fillStyle = cell.tile === 'mud' ? palette.mud : palette.snow;
+    ctx.globalAlpha = cell.tile === 'mud' ? 0.45 : 0.62;
+    ctx.fillRect(x, y, z + 0.5, z + 0.5);
+    ctx.globalAlpha = 1;
+  } else if (z >= 12 && (cell.tile === 'thorns' || cell.tile === 'web' || cell.tile === 'ice')) {
+    ctx.strokeStyle = cell.tile === 'thorns' ? palette.wall : palette.inkSoft;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (cell.tile === 'web') {
+      // Spinnweben: Speichen und zwei Ringe.
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI;
+        ctx.moveTo(x + z / 2 - Math.cos(a) * z * 0.45, y + z / 2 - Math.sin(a) * z * 0.45);
+        ctx.lineTo(x + z / 2 + Math.cos(a) * z * 0.45, y + z / 2 + Math.sin(a) * z * 0.45);
+      }
+      for (const r of [0.2, 0.36]) {
+        ctx.moveTo(x + z / 2 + z * r, y + z / 2);
+        ctx.arc(x + z / 2, y + z / 2, z * r, 0, Math.PI * 2);
+      }
+    } else if (cell.tile === 'thorns') {
+      for (const [fx, fy] of RUBBLE) {
+        ctx.moveTo(x + (fx - 0.09) * z, y + (fy - 0.09) * z);
+        ctx.lineTo(x + (fx + 0.09) * z, y + (fy + 0.09) * z);
+        ctx.moveTo(x + (fx + 0.09) * z, y + (fy - 0.09) * z);
+        ctx.lineTo(x + (fx - 0.09) * z, y + (fy + 0.09) * z);
+      }
+    } else {
+      // Eis: zwei feine Glanzstriche.
+      ctx.moveTo(x + z * 0.2, y + z * 0.6);
+      ctx.lineTo(x + z * 0.5, y + z * 0.3);
+      ctx.moveTo(x + z * 0.5, y + z * 0.75);
+      ctx.lineTo(x + z * 0.8, y + z * 0.45);
+    }
+    ctx.stroke();
+  } else if (z >= 12 && (cell.tile === 'lava' || cell.tile === 'acid' || cell.tile === 'deep')) {
+    // Lava, Säure, tiefes Wasser: Blasen bzw. eine dritte Welle.
+    ctx.strokeStyle =
+      cell.tile === 'lava' ? palette.ember : cell.tile === 'acid' ? palette.floor : palette.floor;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const [fx, fy, r] of RUBBLE.slice(0, 3)) {
+      ctx.moveTo(x + fx * z + r * z * 1.6, y + fy * z);
+      ctx.arc(x + fx * z, y + fy * z, r * z * 1.6, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   if (cell.tile === 'secret') {
     // Geheimgang: derselbe Boden, schräg gestreift.
     ctx.save();
@@ -987,6 +1271,32 @@ function drawThing(
       ctx.fillStyle = palette.wall;
       ctx.fillRect(cx - 30 * u, cy - 34 * u, 60 * u, 14 * u);
       break;
+    case 'torch':
+      // Fackelhalter: ein Stiel an der Wand und eine Flamme.
+      ctx.moveTo(cx, cy + 30 * u);
+      ctx.lineTo(cx, cy - 4 * u);
+      ctx.stroke();
+      ctx.fillStyle = palette.ember;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 34 * u);
+      ctx.quadraticCurveTo(cx + 18 * u, cy - 8 * u, cx, cy);
+      ctx.quadraticCurveTo(cx - 18 * u, cy - 8 * u, cx, cy - 34 * u);
+      ctx.fill();
+      break;
+    case 'stalagmite':
+      ctx.moveTo(cx, cy - 34 * u);
+      ctx.lineTo(cx + 24 * u, cy + 26 * u);
+      ctx.lineTo(cx - 24 * u, cy + 26 * u);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = palette.floor;
+      ctx.beginPath();
+      ctx.moveTo(cx - 4 * u, cy - 16 * u);
+      ctx.lineTo(cx + 6 * u, cy + 16 * u);
+      ctx.lineTo(cx - 10 * u, cy + 16 * u);
+      ctx.closePath();
+      ctx.fill();
+      break;
   }
 }
 
@@ -1131,6 +1441,16 @@ function drawOpening(
         ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
       }
     }
+  } else if (seg.kind === 'squeeze') {
+    // Engstelle: Die Wand rückt von beiden Seiten heran, ein schmaler Spalt bleibt.
+    ctx.strokeStyle = palette.wall;
+    ctx.lineWidth = wallWidth;
+    ctx.beginPath();
+    ctx.moveTo(...at(f(0.18)));
+    ctx.lineTo(...at(0.5 - f(0.12)));
+    ctx.moveTo(...at(0.5 + f(0.12)));
+    ctx.lineTo(...at(1 - f(0.18)));
+    ctx.stroke();
   } else if (seg.kind === 'curtain') {
     // Vorhang: eine Wellenlinie in der Öffnung.
     ctx.strokeStyle = palette.blood;
@@ -1166,6 +1486,51 @@ function drawOpening(
       ctx.lineTo(...at(1 - f(0.3)));
       ctx.stroke();
     }
+  }
+}
+
+/** Zeichen an einer Tür: ein Pfeil für die Einbahntür, ein Kreuz für eine, die klemmt. */
+function drawEdgeMarks(
+  ctx: CanvasRenderingContext2D,
+  seg: EdgeSegment,
+  sx: (x: number) => number,
+  sy: (y: number) => number,
+  z: number,
+  palette: Palette,
+): void {
+  const edge = seg.edge;
+  if (!edge || (edge.oneWay === 'none' && !edge.stuck)) return;
+  const horizontal = seg.y1 === seg.y2;
+  const cx = (sx(seg.x1) + sx(seg.x2)) / 2;
+  const cy = (sy(seg.y1) + sy(seg.y2)) / 2;
+  ctx.strokeStyle = palette.blood;
+  ctx.fillStyle = palette.blood;
+  ctx.lineWidth = Math.max(1.5, z * 0.06);
+  if (edge.oneWay !== 'none') {
+    // Der Pfeil zeigt, wohin man hindurchkommt.
+    const dir = edge.oneWay === 'ab' ? 1 : -1;
+    const tipX = horizontal ? cx : cx + dir * z * 0.34;
+    const tipY = horizontal ? cy + dir * z * 0.34 : cy;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    if (horizontal) {
+      ctx.lineTo(cx - z * 0.12, cy + dir * z * 0.16);
+      ctx.lineTo(cx + z * 0.12, cy + dir * z * 0.16);
+    } else {
+      ctx.lineTo(cx + dir * z * 0.16, cy - z * 0.12);
+      ctx.lineTo(cx + dir * z * 0.16, cy + z * 0.12);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (edge.stuck) {
+    const r = z * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r);
+    ctx.lineTo(cx + r, cy + r);
+    ctx.moveTo(cx + r, cy - r);
+    ctx.lineTo(cx - r, cy + r);
+    ctx.stroke();
   }
 }
 

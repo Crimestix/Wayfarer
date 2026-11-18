@@ -11,6 +11,7 @@
  */
 import {
   DungeonDwellerSchema,
+  DungeonZoneSchema,
   DungeonEdgeSchema,
   DungeonLevelSchema,
   DungeonMarkerSchema,
@@ -20,7 +21,12 @@ import {
   type Dungeon,
   type DungeonBehave,
   type DungeonCell,
+  type DungeonAct,
   type DungeonDweller,
+  type DungeonEffect,
+  type DungeonSwitch,
+  type DungeonWhen,
+  type DungeonZone,
   type DungeonEdge,
   type DungeonEdgeKind,
   type DungeonLevel,
@@ -119,6 +125,9 @@ export function edgeBetween(level: DungeonLevel, a: DungeonCell, b: DungeonCell)
   const ta = tileAt(level, a);
   const tb = tileAt(level, b);
   if (!ta && !tb) return { kind: 'none', edge: null, implied: false };
+  // Eine schräge Wand: Die Ecke des Feldes ist Fels und sperrt ihre beiden Seiten.
+  if (ta && tb && (cornerBlocks(level, a, b) || cornerBlocks(level, b, a)))
+    return { kind: 'rock', edge: null, implied: true };
   if (!ta || !tb) {
     // Eine Tür in den Fels bleibt stehen – der Spielleiter gräbt vielleicht noch dahinter.
     if (edge && edge.kind !== 'wall' && edge.kind !== 'open')
@@ -130,6 +139,20 @@ export function edgeBetween(level: DungeonLevel, a: DungeonCell, b: DungeonCell)
   return { kind: walled ? 'wall' : 'open', edge: null, implied: walled };
 }
 
+/** Sperrt die Fels-Ecke von `cell` den Weg zum Nachbarn `to`? */
+function cornerBlocks(level: DungeonLevel, cell: DungeonCell, to: DungeonCell): boolean {
+  const corner = level.corners[keyOf(cell)];
+  if (!corner) return false;
+  const dx = to.x - cell.x;
+  const dy = to.y - cell.y;
+  return (
+    (dy === -1 && corner[0] === 'n') ||
+    (dy === 1 && corner[0] === 's') ||
+    (dx === -1 && corner[1] === 'w') ||
+    (dx === 1 && corner[1] === 'e')
+  );
+}
+
 /** Kommt man von einem Feld ins Nachbarfeld? Geheimtüren nur, wenn `secrets` gilt. */
 export function canPass(
   level: DungeonLevel,
@@ -137,11 +160,27 @@ export function canPass(
   b: DungeonCell,
   options: { secrets?: boolean } = {},
 ): boolean {
-  const { kind } = edgeBetween(level, a, b);
+  const { kind, edge } = edgeBetween(level, a, b);
   const walk = isWalkable(tileAt(level, a)) && isWalkable(tileAt(level, b));
-  if (kind === 'open' || kind === 'door' || kind === 'gate' || kind === 'curtain') return walk;
+  // Eine Einbahntür ist von der falschen Seite eine Wand.
+  if (edge && !oneWayOpen(edge, a, b)) return false;
+  if (
+    kind === 'open' ||
+    kind === 'door' ||
+    kind === 'gate' ||
+    kind === 'curtain' ||
+    kind === 'squeeze'
+  )
+    return walk;
   if (kind === 'secret') return !!options.secrets && walk;
   return false;
+}
+
+/** Lässt eine Einbahntür den Schritt von `a` nach `b` zu? `ab` heißt: von oben bzw. links her. */
+export function oneWayOpen(edge: DungeonEdge, a: DungeonCell, b: DungeonCell): boolean {
+  if (edge.oneWay === 'none') return true;
+  const forward = b.x > a.x || b.y > a.y;
+  return (edge.oneWay === 'ab') === forward;
 }
 
 /** Kann man auf dem Feld stehen? Abgrund und Luftraum nicht – dort fällt man. */
@@ -291,7 +330,24 @@ function tidy(level: DungeonLevel): DungeonLevel {
     if ((!fa || !fb) && (edge.kind === 'wall' || edge.kind === 'open')) continue;
     edges[key] = edge;
   }
-  return { ...level, roomOf, edges, rooms: level.rooms.filter((room) => used.has(room.id)) };
+  // Was an Feldern hängt, die es nicht mehr gibt, geht mit ihnen.
+  const has = (key: string) => level.tiles[key] !== undefined;
+  const keep = <V>(record: Record<string, V>): Record<string, V> => {
+    const keys = Object.keys(record);
+    return keys.every(has)
+      ? record
+      : Object.fromEntries(Object.entries(record).filter(([key]) => has(key)));
+  };
+  return {
+    ...level,
+    roomOf,
+    edges,
+    rooms: level.rooms.filter((room) => used.has(room.id)),
+    heights: keep(level.heights),
+    corners: keep(level.corners),
+    rough: level.rough.every(has) ? level.rough : level.rough.filter(has),
+    cave: level.cave.every(has) ? level.cave : level.cave.filter(has),
+  };
 }
 
 /**
@@ -595,6 +651,21 @@ const shiftKey = (key: string, dx: number, dy: number): string => {
     : `${Number(x) + dx},${Number(y) + dy},${side}`;
 };
 
+/** Verschiebt die Einträge eines Feld-Verzeichnisses, die zu den gegebenen Feldern gehören. */
+function shiftRecord<V>(
+  record: Record<string, V>,
+  keys: ReadonlySet<string>,
+  dx: number,
+  dy: number,
+): Record<string, V> {
+  if (!Object.keys(record).some((key) => keys.has(key))) return record;
+  const stay = Object.entries(record).filter(([key]) => !keys.has(key));
+  const moved = Object.entries(record)
+    .filter(([key]) => keys.has(key))
+    .map(([key, value]) => [shiftKey(key, dx, dy), value] as const);
+  return Object.fromEntries([...stay, ...moved]);
+}
+
 /**
  * Verschiebt einen Raum mit allem, was dazugehört: Boden, Türen und Wände an seinen Feldern,
  * Fallen, Etagenwechsel, Einrichtung. Liegt am Ziel schon anderer Boden, geschieht nichts (null).
@@ -652,6 +723,10 @@ export function moveRoom(
       spots: trap.spots.map(shift),
     })),
     stairs: level.stairs.map(shift),
+    heights: shiftRecord(level.heights, ownKeys, dx, dy),
+    corners: shiftRecord(level.corners, ownKeys, dx, dy),
+    rough: level.rough.map((key) => (ownKeys.has(key) ? shiftKey(key, dx, dy) : key)),
+    cave: level.cave.map((key) => (ownKeys.has(key) ? shiftKey(key, dx, dy) : key)),
     markers: level.markers.map(shift),
     dwellers: level.dwellers.map((dweller) => ({
       ...shift(dweller),
@@ -858,7 +933,7 @@ export const removeMarker = (level: DungeonLevel, markerId: string): DungeonLeve
 
 // ── Schalter: was ein Ding bewirkt ─────────────────────────────────────────
 
-export type MarkerLink = DungeonMarker['links'][number];
+export type MarkerLink = DungeonEffect;
 
 const sameLink = (a: MarkerLink, b: MarkerLink) =>
   a.kind === b.kind && a.levelId === b.levelId && a.ref === b.ref;
@@ -867,8 +942,9 @@ const sameLink = (a: MarkerLink, b: MarkerLink) =>
 export function toggleMarkerLink(
   level: DungeonLevel,
   markerId: string,
-  link: MarkerLink,
+  input: Omit<MarkerLink, 'mode'> & { mode?: MarkerLink['mode'] },
 ): DungeonLevel {
+  const link: MarkerLink = { mode: 'toggle', ...input };
   return {
     ...level,
     markers: level.markers.map((marker) =>
@@ -888,18 +964,148 @@ export function toggleMarkerLink(
 export function linkWords(dungeon: Pick<Dungeon, 'levels'>, link: MarkerLink): string | null {
   const level = levelOf(dungeon, link.levelId);
   if (!level) return null;
+  const mode = link.mode;
   if (link.kind === 'edge') {
     const edge = level.edges[link.ref];
     if (!edge) return null;
     const what = edgeName(edge.kind, edgeRun(level, link.ref).length);
-    return edge.kind === 'secret' ? `zeigt und öffnet ${what}` : `öffnet oder schließt ${what}`;
+    if (mode === 'off') return `schließt und verriegelt ${what}`;
+    if (edge.kind === 'secret') return `zeigt und öffnet ${what}`;
+    return mode === 'on' ? `öffnet ${what}` : `öffnet oder schließt ${what}`;
   }
   if (link.kind === 'trap') {
     const trap = level.traps.find((t) => t.id === link.ref);
-    return trap ? `entschärft ${trap.name.trim() || 'Falle'}` : null;
+    if (!trap) return null;
+    return `${mode === 'off' ? 'stellt scharf:' : 'entschärft'} ${trap.name.trim() || 'Falle'}`;
   }
-  const stair = level.stairs.find((s) => s.id === link.ref);
-  return stair ? `entriegelt ${STAIR_LABEL[stair.kind]}` : null;
+  if (link.kind === 'stair') {
+    const stair = level.stairs.find((s) => s.id === link.ref);
+    return stair ? `entriegelt ${STAIR_LABEL[stair.kind]}` : null;
+  }
+  if (link.kind === 'zone') {
+    const zone = level.zones.find((z) => z.id === link.ref);
+    return zone ? `löst aus: ${zone.name.trim() || ACT_LABEL[zone.act]}` : null;
+  }
+  if (link.kind === 'dweller') {
+    const dweller = level.dwellers.find((d) => d.id === link.ref);
+    return dweller ? `weckt ${dweller.name.trim() || 'Bewohner'}` : null;
+  }
+  const marker = level.markers.find((m) => m.id === link.ref);
+  if (!marker) return null;
+  const light = mode === 'on' ? 'entzündet' : mode === 'off' ? 'löscht' : 'entzündet oder löscht';
+  return `${light} ${thingName(marker)}`;
+}
+
+/** Was ein Auslöser an seinem Bereich tut. */
+export const ACT_LABEL: Record<DungeonAct, string> = {
+  none: 'nichts am Bereich selbst',
+  collapse: 'der Bereich stürzt ein',
+  flood: 'Wasser steigt',
+  drain: 'Wasser sinkt',
+  bridge: 'die Brücke fährt ein oder aus',
+};
+
+export const WHEN_LABEL: Record<DungeonWhen, string> = {
+  enter: 'wenn jemand den Bereich betritt',
+  weight: 'wenn zu viele im Bereich stehen',
+  open: 'wenn eine Tür aufgeht',
+  defeat: 'wenn ein Bewohner besiegt ist',
+  time: 'nach einer Zeit',
+  switch: 'nur durch einen Schalter',
+};
+
+export const COLLAPSE_LABEL: Record<DungeonZone['to'], string> = {
+  rubble: 'Geröll bleibt liegen',
+  rock: 'der Bereich ist verschüttet',
+  hole: 'ein Loch zur Ebene darunter',
+  chasm: 'ein Abgrund',
+};
+
+export const SWITCH_LABEL: Record<DungeonSwitch, string> = {
+  lever: 'Hebel – bleibt umgelegt',
+  button: 'Knopf – wirkt einmal',
+  plate: 'Druckplatte – wirkt, solange jemand darauf steht',
+  timer: 'Zeitschalter – springt zurück',
+  key: 'Schlüsselloch – braucht einen Schlüssel',
+  riddle: 'Rätsel – wirkt, wenn es gelöst ist',
+};
+
+// ── Auslöser ───────────────────────────────────────────────────────────────
+
+export const zoneAt = (level: DungeonLevel, cell: DungeonCell): DungeonZone | null =>
+  level.zones.find((zone) => zone.cells.some((c) => sameCell(c, cell))) ?? null;
+
+function nextZoneName(level: DungeonLevel): string {
+  const taken = new Set(level.zones.map((z) => z.name.trim().toLowerCase()));
+  for (let n = level.zones.length + 1; ; n++)
+    if (!taken.has(`auslöser ${n}`)) return `Auslöser ${n}`;
+}
+
+export function addZone(
+  level: DungeonLevel,
+  cells: readonly DungeonCell[],
+): { level: DungeonLevel; zone: DungeonZone } {
+  const zone = DungeonZoneSchema.parse({ id: newId(), name: nextZoneName(level), cells });
+  return { level: { ...level, zones: [...level.zones, zone] }, zone };
+}
+
+export function patchZone(
+  level: DungeonLevel,
+  zoneId: string,
+  change: Partial<Omit<DungeonZone, 'id'>>,
+): DungeonLevel {
+  return {
+    ...level,
+    zones: level.zones.map((zone) =>
+      zone.id === zoneId ? DungeonZoneSchema.parse({ ...zone, ...change }) : zone,
+    ),
+  };
+}
+
+export const removeZone = (level: DungeonLevel, zoneId: string): DungeonLevel => ({
+  ...level,
+  zones: level.zones.filter((zone) => zone.id !== zoneId),
+});
+
+/** Verbindet einen Auslöser mit dem, worauf er wirkt – oder löst die Verbindung. */
+export function toggleZoneLink(
+  level: DungeonLevel,
+  zoneId: string,
+  input: Omit<MarkerLink, 'mode'> & { mode?: MarkerLink['mode'] },
+): DungeonLevel {
+  const link: MarkerLink = { mode: 'toggle', ...input };
+  return {
+    ...level,
+    zones: level.zones.map((zone) =>
+      zone.id !== zoneId
+        ? zone
+        : {
+            ...zone,
+            links: zone.links.some((l) => sameLink(l, link))
+              ? zone.links.filter((l) => !sameLink(l, link))
+              : [...zone.links, link],
+          },
+    ),
+  };
+}
+
+/** Setzt, wie eine Wirkung schaltet (umschalten, an, aus) – am Schalter oder Auslöser. */
+export function setLinkMode(
+  level: DungeonLevel,
+  owner: { type: 'marker' | 'zone'; id: string },
+  link: MarkerLink,
+  mode: MarkerLink['mode'],
+): DungeonLevel {
+  const swap = (links: MarkerLink[]) => links.map((l) => (sameLink(l, link) ? { ...l, mode } : l));
+  return owner.type === 'marker'
+    ? {
+        ...level,
+        markers: level.markers.map((m) => (m.id === owner.id ? { ...m, links: swap(m.links) } : m)),
+      }
+    : {
+        ...level,
+        zones: level.zones.map((z) => (z.id === owner.id ? { ...z, links: swap(z.links) } : z)),
+      };
 }
 
 // ── Bewohner ───────────────────────────────────────────────────────────────
@@ -1214,7 +1420,8 @@ export type DungeonPick =
   | { type: 'trap'; id: string }
   | { type: 'stair'; id: string }
   | { type: 'marker'; id: string }
-  | { type: 'dweller'; id: string };
+  | { type: 'dweller'; id: string }
+  | { type: 'zone'; id: string };
 
 export const samePick = (a: DungeonPick | null, b: DungeonPick | null): boolean =>
   !!a &&
@@ -1242,6 +1449,7 @@ export function pickExists(level: DungeonLevel, pick: DungeonPick): boolean {
   if (pick.type === 'trap') return level.traps.some((trap) => trap.id === pick.id);
   if (pick.type === 'stair') return level.stairs.some((stair) => stair.id === pick.id);
   if (pick.type === 'dweller') return level.dwellers.some((dweller) => dweller.id === pick.id);
+  if (pick.type === 'zone') return level.zones.some((zone) => zone.id === pick.id);
   return level.markers.some((marker) => marker.id === pick.id);
 }
 
@@ -1256,6 +1464,7 @@ export const EDGE_LABEL: Record<DungeonEdgeKind, string> = {
   window: 'Fenster',
   curtain: 'Vorhang',
   false: 'Scheintür',
+  squeeze: 'Engstelle',
 };
 
 export const TILE_LABEL: Record<DungeonTile, string> = {
@@ -1266,6 +1475,15 @@ export const TILE_LABEL: Record<DungeonTile, string> = {
   chasm: 'Abgrund',
   bridge: 'Brücke',
   air: 'Luftraum',
+  deep: 'Tiefes Wasser',
+  mud: 'Schlamm',
+  ice: 'Eis',
+  lava: 'Lava',
+  acid: 'Säure',
+  thorns: 'Dornen',
+  web: 'Spinnweben',
+  fog: 'Dunst',
+  dark: 'Magische Dunkelheit',
 };
 
 export const THING_LABEL: Record<DungeonThing, string> = {
@@ -1282,6 +1500,8 @@ export const THING_LABEL: Record<DungeonThing, string> = {
   coffin: 'Sarg',
   crate: 'Kiste',
   throne: 'Thron',
+  torch: 'Fackelhalter',
+  stalagmite: 'Stalagmit',
 };
 
 /** Der Name eines Dings auf der Karte: sein Wort, sonst seine Art. */

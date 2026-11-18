@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 40;
-export const DATA_SHAPE = '6f611313cd8d1f20';
+export const DATA_VERSION = 41;
+export const DATA_SHAPE = '94539c739ea7d4e7';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -3401,6 +3401,15 @@ export const DUNGEON_TILES = [
   'chasm',
   'bridge',
   'air',
+  'deep',
+  'mud',
+  'ice',
+  'lava',
+  'acid',
+  'thorns',
+  'web',
+  'fog',
+  'dark',
 ] as const;
 export type DungeonTile = (typeof DUNGEON_TILES)[number];
 
@@ -3417,6 +3426,7 @@ export const DUNGEON_EDGES = [
   'window',
   'curtain',
   'false',
+  'squeeze',
 ] as const;
 export type DungeonEdgeKind = (typeof DUNGEON_EDGES)[number];
 
@@ -3431,6 +3441,13 @@ export const DungeonEdgeSchema = z.object({
   breakDc: z.number().int().min(0).max(40).nullable().default(null),
   /** SG, eine Geheimtür zu finden. */
   findDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** Klemmt: Sie geht erst mit Kraft auf (SG zum Aufbrechen). */
+  stuck: z.boolean().default(false),
+  /**
+   * Nur in eine Richtung: `ab` von oben bzw. links nach unten bzw. rechts, `ba` umgekehrt. Von
+   * der anderen Seite ist sie eine Wand.
+   */
+  oneWay: z.enum(['none', 'ab', 'ba']).default('none'),
   /** Nur für die Spielleitung: Schlüssel, Mechanismus, was dahinter wartet. */
   note: z.string().default(''),
 });
@@ -3476,6 +3493,8 @@ export const DungeonTrapSchema = z.object({
   effect: z.string().default(''),
   /** Löst nur einmal aus. */
   once: z.boolean().default(false),
+  /** Verborgen (eine Falle) oder offen zu sehen (eine Gefahr: Feuer, Dornen, brüchiger Boden). */
+  hidden: z.boolean().default(true),
   note: z.string().default(''),
 });
 export type DungeonTrap = z.infer<typeof DungeonTrapSchema>;
@@ -3509,6 +3528,59 @@ export const DungeonStairSchema = z.object({
 });
 export type DungeonStair = z.infer<typeof DungeonStairSchema>;
 
+/**
+ * Eine Wirkung: worauf ein Schalter oder Auslöser wirkt. `mode`: `toggle` schaltet um, `on`
+ * öffnet/entschärft/entriegelt/weckt/zündet, `off` schließt und verriegelt (ein Fallgitter fällt),
+ * stellt scharf, löscht.
+ */
+export const DUNGEON_EFFECT_KINDS = ['edge', 'trap', 'stair', 'zone', 'dweller', 'marker'] as const;
+export const DungeonEffectSchema = z.object({
+  kind: z.enum(DUNGEON_EFFECT_KINDS),
+  levelId: id,
+  ref: z.string(),
+  mode: z.enum(['toggle', 'on', 'off']).default('toggle'),
+});
+export type DungeonEffect = z.infer<typeof DungeonEffectSchema>;
+
+/** Wie ein Schalter schaltet. */
+export const DUNGEON_SWITCHES = ['lever', 'button', 'plate', 'timer', 'key', 'riddle'] as const;
+export type DungeonSwitch = (typeof DUNGEON_SWITCHES)[number];
+
+export const DUNGEON_WHENS = ['enter', 'weight', 'open', 'defeat', 'time', 'switch'] as const;
+export type DungeonWhen = (typeof DUNGEON_WHENS)[number];
+export const DUNGEON_ACTS = ['none', 'collapse', 'flood', 'drain', 'bridge'] as const;
+export type DungeonAct = (typeof DUNGEON_ACTS)[number];
+
+/**
+ * Ein Auslöser: ein Bereich (oder nur eine Bedingung), an dem etwas geschieht – der Boden stürzt
+ * ein, Wasser steigt, eine Brücke fährt ein, und was sonst daran hängt (`links`). Wann: beim
+ * Betreten, ab einem Gewicht, wenn eine Tür aufgeht, wenn ein Bewohner besiegt ist, nach einer
+ * Zeit, oder nur durch einen Schalter.
+ */
+export const DungeonZoneSchema = z.object({
+  id,
+  name: z.string().default(''),
+  cells: z.array(dungeonCell).default([]),
+  when: z.enum(DUNGEON_WHENS).default('enter'),
+  /** Ab so vielen Figuren im Bereich (`weight`). */
+  weight: z.number().int().min(1).max(20).default(2),
+  /** Die Tür, deren Öffnen auslöst („x,y,n“), und der Bewohner, dessen Niederlage auslöst. */
+  edgeRef: z.string().default(''),
+  dwellerRef: id.nullable().default(null),
+  /** Nach so vielen Minuten im Dungeon (`time`). */
+  minutes: z.number().int().min(1).max(100000).default(10),
+  /** So viele der Schalter, die auf ihn wirken, müssen an sein (`switch`). */
+  need: z.number().int().min(1).max(10).default(1),
+  act: z.enum(DUNGEON_ACTS).default('none'),
+  /** Was nach einem Einsturz dort ist. */
+  to: z.enum(['rubble', 'rock', 'hole', 'chasm']).default('rubble'),
+  links: z.array(DungeonEffectSchema).default([]),
+  once: z.boolean().default(true),
+  /** Was der Spielleiter liest, wenn es geschieht. */
+  note: z.string().default(''),
+});
+export type DungeonZone = z.infer<typeof DungeonZoneSchema>;
+
 /** Was auf einem Feld steht: eine freie Notiz oder ein Stück Einrichtung mit eigenem Zeichen. */
 export const DUNGEON_THINGS = [
   'note',
@@ -3524,6 +3596,8 @@ export const DUNGEON_THINGS = [
   'coffin',
   'crate',
   'throne',
+  'torch',
+  'stalagmite',
 ] as const;
 export type DungeonThing = (typeof DUNGEON_THINGS)[number];
 
@@ -3537,9 +3611,20 @@ export const DungeonMarkerSchema = z.object({
    * Worauf es wirkt, wenn jemand es benutzt (ein Hebel, eine Druckplatte): Türen gehen auf oder
    * zu, Geheimtüren zeigen sich, Fallen sind entschärft, Etagenwechsel entriegelt.
    */
-  links: z
-    .array(z.object({ kind: z.enum(['edge', 'trap', 'stair']), levelId: id, ref: z.string() }))
-    .default([]),
+  links: z.array(DungeonEffectSchema).default([]),
+  /** Wie es schaltet; null = ein Ding ohne Wirkung, oder eines, das einfach benutzt wird. */
+  switch: z.enum(DUNGEON_SWITCHES).default('lever'),
+  /** Zeitschalter: Nach so vielen Sekunden springt er zurück. */
+  seconds: z.number().int().positive().nullable().default(null),
+  /** Schlüsselloch: welcher Schlüssel passt – in den Worten des Spielleiters. */
+  keyName: z.string().default(''),
+  /** Verborgen, bis gefunden. */
+  hidden: z.boolean().default(false),
+  findDc: z.number().int().min(0).max(40).nullable().default(null),
+  /** Breite und Höhe in Feldern und die Drehung in Vierteln – ein langer Tisch, ein Bett quer. */
+  w: z.number().int().min(1).max(8).default(1),
+  h: z.number().int().min(1).max(8).default(1),
+  rot: z.number().int().min(0).max(3).default(0),
   label: z.string().default(''),
   note: z.string().default(''),
 });
@@ -3563,6 +3648,10 @@ export const DungeonDwellerSchema = z.object({
   speed: z.number().int().min(0).max(300).default(30),
   hp: z.number().int().positive().nullable().default(null),
   initBonus: z.number().int().min(-10).max(20).default(0),
+  /** Passive Wahrnehmung – gegen sie schleicht die Gruppe. */
+  passive: z.number().int().min(0).max(40).default(10),
+  /** Schläft oder ist abgelenkt: bemerkt nichts, bis Lärm oder ein Schalter ihn weckt. */
+  asleep: z.boolean().default(false),
   note: z.string().default(''),
 });
 export type DungeonDweller = z.infer<typeof DungeonDwellerSchema>;
@@ -3586,6 +3675,16 @@ export const DungeonLevelSchema = z.object({
   markers: z.array(DungeonMarkerSchema).default([]),
   /** Wer hier wartet – vorbereitet vom Spielleiter, am Tisch als Figuren auf dem Brett. */
   dwellers: z.array(DungeonDwellerSchema).default([]),
+  /** Auslöser und Bereiche: Einsturz, Wasser, Brücken, was beim Betreten geschieht. */
+  zones: z.array(DungeonZoneSchema).default([]),
+  /** Feld („x,y“) → Höhe in Fuß über dem Boden der Ebene (negativ: Grube). */
+  heights: z.record(z.string(), z.number().int().min(-500).max(500)).default({}),
+  /** Felder, die schwieriges Gelände sind, was immer sie sonst sind. */
+  rough: z.array(z.string()).default([]),
+  /** Felder, die als Höhle gezeichnet werden: unregelmäßiger Rand statt gerader Wände. */
+  cave: z.array(z.string()).default([]),
+  /** Feld („x,y“) → Ecke, die Fels ist: eine schräge Wand. */
+  corners: z.record(z.string(), z.enum(['nw', 'ne', 'sw', 'se'])).default({}),
 });
 export type DungeonLevel = z.infer<typeof DungeonLevelSchema>;
 
@@ -3620,6 +3719,11 @@ export const DungeonTokenSchema = z.object({
   hpMax: z.number().int().positive().nullable().default(null),
   /** Hat die Gruppe bemerkt. */
   alert: z.boolean().default(false),
+  /** Schleicht – wer ihn bemerken will, braucht passive Wahrnehmung ≥ `stealth`. */
+  sneak: z.boolean().default(false),
+  stealth: z.number().int().min(0).max(40).nullable().default(null),
+  /** Hat etwas gehört und geht nachsehen: die Stelle. */
+  heard: dungeonCell.nullable().default(null),
   /** Der nächste Wegpunkt seiner Runde und angesparte Strecke in Fuß. */
   routeAt: z.number().int().nonnegative().default(0),
   carry: z.number().nonnegative().default(0),
@@ -3655,6 +3759,21 @@ export const DungeonPlaySchema = z.object({
   synced: z.number().int().nonnegative().default(0),
   /** Etagenwechsel, die am Tisch entriegelt wurden. */
   unlocked: z.array(id).default([]),
+  /**
+   * Felder, die am Tisch anders geworden sind: „<Ebene>:<Feld>“ → was dort jetzt ist (`rock` =
+   * verschüttet). Einsturz, steigendes Wasser, eingezogene Brücken, Durchbrüche.
+   */
+  tiles: z.record(z.string(), z.enum([...DUNGEON_TILES, 'rock'])).default({}),
+  /** Wände, die durchbrochen sind: „<Ebene>:<Kante>“. */
+  breaches: z.array(z.string()).default([]),
+  /** Auslöser, die schon ausgelöst haben. */
+  fired: z.array(id).default([]),
+  /** Schalter: an oder aus, und wann ein Zeitschalter zurückspringt. */
+  switches: z
+    .record(z.string(), z.object({ on: z.boolean(), until: z.number().int().nullable() }))
+    .default({}),
+  /** Lichter der Karte, die am Tisch gelöscht oder entzündet wurden: Ding → brennt. */
+  lights: z.record(z.string(), z.boolean()).default({}),
   /** Runden: wer am Zug ist und wie weit er schon gegangen ist; null = freies Erkunden. */
   rounds: z
     .object({

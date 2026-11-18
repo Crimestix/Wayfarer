@@ -482,6 +482,43 @@
   border-radius: var(--radius);
   background: var(--gold-glow);
 }
+.wf-dungeon-tile[data-tile='deep'] .wf-dungeon-tile__swatch {
+  background: var(--terrain-deep-lake);
+}
+.wf-dungeon-tile[data-tile='mud'] .wf-dungeon-tile__swatch {
+  background: color-mix(in srgb, var(--map-paper) 55%, var(--map-ink-soft));
+}
+.wf-dungeon-tile[data-tile='ice'] .wf-dungeon-tile__swatch {
+  background: var(--terrain-ice);
+}
+.wf-dungeon-tile[data-tile='lava'] .wf-dungeon-tile__swatch {
+  background: var(--terrain-lava);
+}
+.wf-dungeon-tile[data-tile='acid'] .wf-dungeon-tile__swatch {
+  background: var(--terrain-jungle);
+}
+.wf-dungeon-tile[data-tile='thorns'] .wf-dungeon-tile__swatch {
+  background: repeating-linear-gradient(45deg, var(--map-paper) 0 2px, var(--map-ink) 2px 3px);
+}
+.wf-dungeon-tile[data-tile='web'] .wf-dungeon-tile__swatch {
+  background: repeating-conic-gradient(var(--map-paper) 0 20deg, var(--map-ink-soft) 20deg 24deg);
+}
+.wf-dungeon-tile[data-tile='fog'] .wf-dungeon-tile__swatch {
+  background: var(--map-snow);
+}
+.wf-dungeon-tile[data-tile='dark'] .wf-dungeon-tile__swatch {
+  background: var(--map-ink);
+}
+.wf-dungeon-link {
+  display: grid;
+  gap: var(--s-1);
+}
+.wf-dungeon-link__mode {
+  min-width: 0;
+}
+.wf-dungeon-halt[data-type='zone'],
+.wf-dungeon-halt[data-type='drop'],
+.wf-dungeon-halt[data-type='terrain'],
 .wf-dungeon-halt[data-type='trap-sprung'],
 .wf-dungeon-halt[data-type='foe'] {
   border-color: var(--blood);

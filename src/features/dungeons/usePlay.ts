@@ -9,6 +9,11 @@ import { activeParty } from '../../domain/derive';
 import { edgeRun, thingAt, type DungeonPick } from '../../domain/dungeon';
 import {
   addToken,
+  breachCell,
+  breachEdge,
+  fireZone,
+  makeNoise,
+  setMarkerLit,
   edgeFoundKey,
   endRounds,
   foeTurn,
@@ -85,6 +90,8 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
   /** Der nächste Klick auf die Karte stellt einen Gegner oder eine Figur hin. */
   const [placing, setPlacing] = useState<'foe' | 'hero' | null>(null);
   const [search, setSearch] = useState<{ tokenId: string; found: Hidden[] } | null>(null);
+  /** Der nächste Klick auf eine Wand oder in den Fels bricht dort durch. */
+  const [breaching, setBreaching] = useState(false);
   const [, bump] = useState(0);
 
   const latest = useRef(dungeon);
@@ -167,7 +174,14 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     if (!play)
       return {
         level,
-        overlay: { visible: new Set(), seen: new Set(), playerView: false, tokens: [] },
+        overlay: {
+          visible: new Set(),
+          seen: new Set(),
+          playerView: false,
+          tokens: [],
+          unlit: new Set(),
+          switched: new Set(),
+        },
         pick: null,
         tokenAt: () => null,
         preview: () => null,
@@ -187,6 +201,16 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
         visible,
         seen,
         playerView,
+        unlit: new Set(
+          Object.entries(play.lights)
+            .filter(([, lit]) => !lit)
+            .map(([id]) => id),
+        ),
+        switched: new Set(
+          Object.entries(play.switches)
+            .filter(([, state]) => state.on)
+            .map(([id]) => id),
+        ),
         tokens: tokensHere
           // In der Sicht der Spieler steht ein Gegner nur da, wenn ihn gerade jemand sieht.
           .filter((t) => !playerView || t.kind === 'hero' || visible.has(`${t.x},${t.y}`))
@@ -228,6 +252,21 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
           setPlacing(null);
           return;
         }
+        if (breaching) {
+          const built = latest.current.levels.find((l) => l.id === level.id);
+          const rock =
+            built &&
+            playLevel(built, latest.current.play).tiles[`${cell.x},${cell.y}`] === undefined;
+          const next =
+            edge && !rock
+              ? breachEdge(latest.current, level.id, edge)
+              : rock
+                ? breachCell(latest.current, level.id, cell)
+                : null;
+          if (next) write(next);
+          setBreaching(false);
+          return;
+        }
         // Eine Tür, ein Gitter, eine Geheimtür: anklicken zeigt sie rechts.
         const here = playLevel(level, latest.current.play);
         const hit = edge ? here.edges[edge] : undefined;
@@ -251,6 +290,7 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     tokensHere,
     movers,
     placing,
+    breaching,
     db,
     write,
     moveTo,
@@ -405,6 +445,67 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     [levelId, write],
   );
 
+  /** Ein Feuer oder einen Fackelhalter der Karte löschen oder entzünden. */
+  const mapLight = useCallback(
+    (markerId: string, lit: boolean) => {
+      const next = setMarkerLit(latest.current, markerId, lit);
+      if (next) write(next);
+    },
+    [write],
+  );
+
+  /** Einen Auslöser von Hand auslösen. */
+  const trigger = useCallback(
+    (zoneId: string) => {
+      const now = latest.current.play;
+      if (!now) return;
+      const result = fireZone(latest.current, now, levelId, zoneId);
+      settle(result.play, result.halt);
+    },
+    [levelId, settle],
+  );
+
+  /** Lärm dort, wo die Vorderste steht: Wer ihn hört, kommt nachsehen. */
+  const noise = useCallback(
+    (feet: number) => {
+      const now = latest.current.play;
+      const who = movers[0];
+      if (!now || !who) return;
+      const next = makeNoise(latest.current, now, who.levelId, { x: who.x, y: who.y }, feet);
+      write({
+        ...next,
+        log: [
+          ...next.log,
+          { at: next.seconds, text: `Lärm bei ${who.name.trim() || 'der Gruppe'}` },
+        ].slice(-60),
+      });
+    },
+    [movers, write],
+  );
+
+  /** Eine Tür mit Gewalt öffnen: Sie steht offen, und man hört es. */
+  const forceDoor = useCallback(
+    (key: string) => {
+      const opened = setDoor(latest.current, levelId, key, { locked: false, opened: true });
+      if (!opened) return;
+      const lv = latest.current.levels.find((l) => l.id === levelId);
+      const at = movers[0] ?? null;
+      const loud =
+        lv && at
+          ? makeNoise(
+              { ...latest.current, play: opened },
+              opened,
+              levelId,
+              { x: at.x, y: at.y },
+              60,
+            )
+          : opened;
+      write(loud);
+      setHalt(null);
+    },
+    [levelId, movers, write],
+  );
+
   /** Würfelt Initiative, wo noch keine steht: W20 plus Bonus des Gefährten oder Bewohners. */
   const rollInit = useCallback(() => {
     const now = latest.current.play;
@@ -481,6 +582,12 @@ export function usePlay(db: CampaignDb, dungeon: Dungeon, editor: DungeonEditor)
     rounds,
     endTurn,
     useThing,
+    mapLight,
+    trigger,
+    noise,
+    forceDoor,
+    breaching,
+    setBreaching,
     rollInit,
     foeMove,
     syncTime,

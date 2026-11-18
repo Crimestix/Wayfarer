@@ -6,7 +6,17 @@
 import { ArrowDown, ArrowUp, CornerDownRight, Crosshair, Trash2, Unlink } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
+  ACT_LABEL,
   BEHAVE_LABEL,
+  COLLAPSE_LABEL,
+  SWITCH_LABEL,
+  WHEN_LABEL,
+  paintTiles,
+  patchZone,
+  rectCells,
+  removeZone,
+  setLinkMode,
+  toggleZoneLink,
   EDGE_LABEL,
   edgeName,
   edgeRun,
@@ -50,8 +60,14 @@ import {
   unlinkStair,
   withLevel,
 } from '../../domain/dungeon';
+import { TILE_RULE, copyRegion, mirrorStamp, rotateStamp } from '../../domain/dungeonTerrain';
 import {
+  DUNGEON_ACTS,
   DUNGEON_BEHAVES,
+  DUNGEON_SWITCHES,
+  DUNGEON_WHENS,
+  type DungeonEffect,
+  type DungeonZone,
   DUNGEON_EDGES,
   DUNGEON_SAVES,
   DUNGEON_STAIRS,
@@ -177,7 +193,25 @@ const EDGE_CHOICES: readonly DungeonEdgeKind[] = [
   'window',
   'curtain',
   'false',
+  'squeeze',
 ];
+
+/** Was eine Geländeart für die Regeln bedeutet – der Hinweis an ihrem Knopf. */
+function tileHint(tile: DungeonLevel['tiles'][string]): string {
+  const rule = TILE_RULE[tile];
+  return [
+    rule.slow && 'schwieriges Gelände',
+    rule.veil && 'man sieht nicht hindurch',
+    rule.lightless && 'kein Licht dringt hinein',
+    rule.douses && 'löscht Fackeln',
+    rule.danger &&
+      [rule.danger.dc !== null ? `SG ${rule.danger.dc}` : '', rule.danger.damage]
+        .filter(Boolean)
+        .join(', '),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
 
 // ── Das Werkzeug ───────────────────────────────────────────────────────────
 
@@ -202,6 +236,11 @@ export function ToolPanel({ editor }: { editor: DungeonEditor }) {
                 label: 'Rund',
                 title: 'Kreis oder Oval – je nachdem, wie du aufziehst',
               },
+              {
+                id: 'cave',
+                label: 'Höhle',
+                title: 'Eine Fläche aufziehen – Wayfarer füllt sie mit einer Höhle',
+              },
             ]}
           />
         )}
@@ -220,7 +259,69 @@ export function ToolPanel({ editor }: { editor: DungeonEditor }) {
             ))}
           </div>
         )}
+        {tool === 'room' && editor.roomShape === 'cave' && (
+          <div className="wf-dungeon-pickrow">
+            <span>
+              Fassung {editor.caveVariant} – eine andere Zahl, eine andere Höhle auf derselben
+              Fläche.
+            </span>
+            <span className="wf-dungeon-pickrow__actions">
+              <Button
+                size="sm"
+                disabled={editor.caveVariant <= 1}
+                onClick={() => editor.setCaveVariant(editor.caveVariant - 1)}
+              >
+                −
+              </Button>
+              <Button size="sm" onClick={() => editor.setCaveVariant(editor.caveVariant + 1)}>
+                +
+              </Button>
+            </span>
+          </div>
+        )}
+        {tool === 'height' && (
+          <Field
+            label="Höhe in Fuß"
+            hint="0 legt die Felder wieder auf den Boden der Ebene. Negativ ist eine Grube."
+          >
+            <Input
+              key={editor.heightFeet}
+              inputMode="numeric"
+              defaultValue={editor.heightFeet}
+              aria-label="Höhe in Fuß"
+              onBlur={(event) => {
+                const feet = Math.round(Number(event.target.value));
+                if (!Number.isNaN(feet)) editor.setHeightFeet(Math.max(-500, Math.min(500, feet)));
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+            />
+          </Field>
+        )}
+        {tool === 'region' && <RegionPanel editor={editor} />}
         {tool === 'floor' && (
+          <div className="wf-dungeon-checks">
+            <Checkbox checked={editor.caveLook} onChange={editor.setCaveLook}>
+              als Höhle zeichnen – unregelmäßiger Rand
+            </Checkbox>
+            <Segments
+              label="Schwieriges Gelände"
+              value={editor.rough ?? 'none'}
+              onChange={(id) => editor.setRough(id === 'none' ? null : id)}
+              options={[
+                { id: 'none', label: 'Art malen' },
+                {
+                  id: 'on',
+                  label: 'Schwierig',
+                  title: 'Macht Felder zu schwierigem Gelände, was immer sie sind',
+                },
+                { id: 'off', label: 'Nicht schwierig' },
+              ]}
+            />
+          </div>
+        )}
+        {tool === 'floor' && !editor.rough && (
           <div className="wf-dungeon-tiles" role="group" aria-label="Was gemalt wird">
             {DUNGEON_TILES.map((tile) => (
               <button
@@ -229,6 +330,7 @@ export function ToolPanel({ editor }: { editor: DungeonEditor }) {
                 className="wf-dungeon-tile"
                 data-tile={tile}
                 aria-pressed={editor.tile === tile}
+                title={tileHint(tile)}
                 onClick={() => editor.setTile(tile)}
               >
                 <span className="wf-dungeon-tile__swatch" aria-hidden />
@@ -485,7 +587,20 @@ function EdgeBox({
               <Checkbox checked={edge.locked} onChange={(locked) => patch({ locked })}>
                 verschlossen
               </Checkbox>
+              <Checkbox checked={edge.stuck} onChange={(stuck) => patch({ stuck })}>
+                klemmt – geht nur mit Kraft auf
+              </Checkbox>
             </div>
+            <Field label="Richtung">
+              <Select
+                value={edge.oneWay}
+                onChange={(event) => patch({ oneWay: event.target.value as DungeonEdge['oneWay'] })}
+              >
+                <option value="none">in beide Richtungen</option>
+                <option value="ab">{b.x > a.x ? 'nur nach rechts' : 'nur nach unten'}</option>
+                <option value="ba">{b.x > a.x ? 'nur nach links' : 'nur nach oben'}</option>
+              </Select>
+            </Field>
             <div className="wf-dungeon-dcs">
               {edge.kind === 'secret' && (
                 <DcField
@@ -642,6 +757,9 @@ function TrapBox({ editor, trap }: { editor: DungeonEditor; trap: DungeonTrap })
         </Field>
         <Checkbox checked={trap.once} onChange={(once) => patch({ once })}>
           löst nur einmal aus
+        </Checkbox>
+        <Checkbox checked={trap.hidden} onChange={(hidden) => patch({ hidden })}>
+          verborgen – sonst ist es eine Gefahr, die jeder sieht
         </Checkbox>
         <Field label="Nur für dich">
           <Written
@@ -837,18 +955,58 @@ function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonM
               Ein Hebel, eine Druckplatte, ein Rad: Wähle, was geschieht, wenn jemand es benutzt.
             </p>
           ) : (
-            marker.links.map((link) => (
-              <div key={`${link.kind}:${link.levelId}:${link.ref}`} className="wf-dungeon-pickrow">
-                <span>{linkWords(editor.dungeon, link) ?? 'gibt es nicht mehr'}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => editor.applyLevel((lv) => toggleMarkerLink(lv, marker.id, link))}
+            <>
+              <Field label="Wie es schaltet">
+                <Select
+                  value={marker.switch}
+                  onChange={(event) =>
+                    patch({ switch: event.target.value as DungeonMarker['switch'] })
+                  }
                 >
-                  lösen
-                </Button>
-              </div>
-            ))
+                  {DUNGEON_SWITCHES.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {SWITCH_LABEL[kind]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {marker.switch === 'timer' && (
+                <div className="wf-dungeon-dcs">
+                  <Field label="Sekunden" className="wf-dungeon-dc">
+                    <Input
+                      key={marker.seconds ?? 60}
+                      inputMode="numeric"
+                      defaultValue={marker.seconds ?? 60}
+                      aria-label="Sekunden"
+                      onBlur={(event) => {
+                        const n = Math.round(Number(event.target.value));
+                        if (n >= 1) patch({ seconds: n });
+                      }}
+                    />
+                  </Field>
+                </div>
+              )}
+              {marker.switch === 'key' && (
+                <Field label="Welcher Schlüssel">
+                  <Written
+                    label="Welcher Schlüssel"
+                    value={marker.keyName}
+                    placeholder="In deinen Worten"
+                    onSave={(keyName) => patch({ keyName })}
+                  />
+                </Field>
+              )}
+              <LinkList
+                editor={editor}
+                links={marker.links}
+                onMode={(link, to) =>
+                  editor.applyLevel((lv) =>
+                    setLinkMode(lv, { type: 'marker', id: marker.id }, link, to),
+                  )
+                }
+                onDrop={(link) => editor.applyLevel((lv) => toggleMarkerLink(lv, marker.id, link))}
+              />
+            </>
           )}
           <Button
             size="sm"
@@ -861,6 +1019,35 @@ function MarkerBox({ editor, marker }: { editor: DungeonEditor; marker: DungeonM
             {linking ? 'Fertig' : 'Ziel wählen'}
           </Button>
         </div>
+        <div className="wf-dungeon-dcs">
+          <DcField
+            label="Breite"
+            value={marker.w}
+            onSave={(w) => patch({ w: Math.max(1, Math.min(8, w ?? 1)) })}
+          />
+          <DcField
+            label="Tiefe"
+            value={marker.h}
+            onSave={(h) => patch({ h: Math.max(1, Math.min(8, h ?? 1)) })}
+          />
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => patch({ rot: (marker.rot + 1) % 4 })}>
+          Drehen
+        </Button>
+        <div className="wf-dungeon-checks">
+          <Checkbox checked={marker.hidden} onChange={(hidden) => patch({ hidden })}>
+            verborgen, bis gefunden
+          </Checkbox>
+        </div>
+        {marker.hidden && (
+          <div className="wf-dungeon-dcs">
+            <DcField
+              label="Finden SG"
+              value={marker.findDc}
+              onSave={(findDc) => patch({ findDc })}
+            />
+          </div>
+        )}
         <Field label="Nur für dich">
           <Written
             label="Notiz zur Markierung"
@@ -958,11 +1145,19 @@ function DwellerBox({ editor, dweller }: { editor: DungeonEditor; dweller: Dunge
         </div>
         <div className="wf-dungeon-dcs">
           <DcField
+            label="Passive Wahrn."
+            value={dweller.passive}
+            onSave={(passive) => patch({ passive: passive ?? 10 })}
+          />
+          <DcField
             label="Initiative +"
             value={dweller.initBonus}
             onSave={(initBonus) => patch({ initBonus: Math.min(20, initBonus ?? 0) })}
           />
         </div>
+        <Checkbox checked={dweller.asleep} onChange={(asleep) => patch({ asleep })}>
+          schläft oder ist abgelenkt – bemerkt nichts, bis Lärm ihn weckt
+        </Checkbox>
         <Field label="Nur für dich">
           <Written
             label="Notiz zum Bewohner"
@@ -974,6 +1169,303 @@ function DwellerBox({ editor, dweller }: { editor: DungeonEditor; dweller: Dunge
         </Field>
       </div>
     </Panel>
+  );
+}
+
+/** Die Wirkungen eines Schalters oder Auslösers: was sie tun, wie sie schalten, lösen. */
+function LinkList({
+  editor,
+  links,
+  onMode,
+  onDrop,
+}: {
+  editor: DungeonEditor;
+  links: readonly DungeonEffect[];
+  onMode: (link: DungeonEffect, mode: DungeonEffect['mode']) => void;
+  onDrop: (link: DungeonEffect) => void;
+}) {
+  return (
+    <>
+      {links.map((link) => (
+        <div key={`${link.kind}:${link.levelId}:${link.ref}`} className="wf-dungeon-link">
+          <span className="wf-dungeon-link__words">
+            {linkWords(editor.dungeon, link) ?? 'gibt es nicht mehr'}
+          </span>
+          <span className="wf-dungeon-pickrow__actions">
+            {link.kind !== 'stair' && link.kind !== 'zone' && link.kind !== 'dweller' && (
+              <Select
+                className="wf-dungeon-link__mode"
+                aria-label="Wie es wirkt"
+                value={link.mode}
+                onChange={(event) => onMode(link, event.target.value as DungeonEffect['mode'])}
+              >
+                <option value="toggle">schaltet um</option>
+                <option value="on">
+                  {link.kind === 'trap'
+                    ? 'entschärft'
+                    : link.kind === 'marker'
+                      ? 'zündet'
+                      : 'öffnet'}
+                </option>
+                <option value="off">
+                  {link.kind === 'trap'
+                    ? 'stellt scharf'
+                    : link.kind === 'marker'
+                      ? 'löscht'
+                      : 'schließt und verriegelt'}
+                </option>
+              </Select>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => onDrop(link)}>
+              lösen
+            </Button>
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function ZoneBox({
+  editor,
+  level,
+  zone,
+}: {
+  editor: DungeonEditor;
+  level: DungeonLevel;
+  zone: DungeonZone;
+}) {
+  const patch = (change: Partial<Omit<DungeonZone, 'id'>>) =>
+    editor.applyLevel((lv) => patchZone(lv, zone.id, change));
+  const mode = editor.pickMode;
+  const picking = (type: 'zone-cells' | 'zone-link' | 'zone-edge') =>
+    mode?.type === type && mode.zoneId === zone.id;
+  const pick = (type: 'zone-cells' | 'zone-link' | 'zone-edge') =>
+    editor.setPickMode(picking(type) ? null : { type, zoneId: zone.id });
+  return (
+    <Panel
+      title="Auslöser"
+      actions={
+        <RemoveButton
+          label="Auslöser entfernen"
+          onClick={() => {
+            editor.setPickMode(null);
+            editor.applyLevel((lv) => removeZone(lv, zone.id));
+            editor.setSelection(null);
+          }}
+        />
+      }
+    >
+      <div className="wf-dungeon-form">
+        <Field label="Name">
+          <Written
+            label="Name des Auslösers"
+            value={zone.name}
+            selectAll
+            onSave={(name) => patch({ name })}
+          />
+        </Field>
+        <div className="wf-dungeon-pickrow">
+          <span>{zone.cells.length === 1 ? '1 Feld' : `${zone.cells.length} Felder`}</span>
+          <Button size="sm" aria-pressed={picking('zone-cells')} onClick={() => pick('zone-cells')}>
+            {picking('zone-cells') ? 'Fertig' : 'Felder wählen'}
+          </Button>
+        </div>
+        <Field label="Wann">
+          <Select
+            value={zone.when}
+            onChange={(event) => patch({ when: event.target.value as DungeonZone['when'] })}
+          >
+            {DUNGEON_WHENS.map((when) => (
+              <option key={when} value={when}>
+                {WHEN_LABEL[when]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {zone.when === 'weight' && (
+          <div className="wf-dungeon-dcs">
+            <DcField
+              label="Ab so vielen"
+              value={zone.weight}
+              onSave={(n) => patch({ weight: Math.max(1, Math.min(20, n ?? 2)) })}
+            />
+          </div>
+        )}
+        {zone.when === 'time' && (
+          <div className="wf-dungeon-dcs">
+            <Field label="Nach Minuten" className="wf-dungeon-dc">
+              <Input
+                key={zone.minutes}
+                inputMode="numeric"
+                defaultValue={zone.minutes}
+                aria-label="Nach Minuten"
+                onBlur={(event) => {
+                  const n = Math.round(Number(event.target.value));
+                  if (n >= 1 && n !== zone.minutes) patch({ minutes: n });
+                }}
+              />
+            </Field>
+          </div>
+        )}
+        {zone.when === 'switch' && (
+          <div className="wf-dungeon-dcs">
+            <DcField
+              label="Schalter nötig"
+              value={zone.need}
+              onSave={(n) => patch({ need: Math.max(1, Math.min(10, n ?? 1)) })}
+            />
+          </div>
+        )}
+        {zone.when === 'open' && (
+          <div className="wf-dungeon-pickrow">
+            <span>
+              {level.edges[zone.edgeRef]
+                ? `Tür gewählt (${EDGE_LABEL[level.edges[zone.edgeRef]!.kind]})`
+                : 'Noch keine Tür gewählt'}
+            </span>
+            <Button size="sm" aria-pressed={picking('zone-edge')} onClick={() => pick('zone-edge')}>
+              {picking('zone-edge') ? 'Abbrechen' : 'Tür wählen'}
+            </Button>
+          </div>
+        )}
+        {zone.when === 'defeat' && (
+          <Field label="Wer">
+            <Select
+              value={zone.dwellerRef ?? ''}
+              onChange={(event) => patch({ dwellerRef: event.target.value || null })}
+            >
+              <option value="">– wählen –</option>
+              {editor.dungeon.levels.flatMap((lv) =>
+                lv.dwellers.map((dweller) => (
+                  <option key={dweller.id} value={dweller.id}>
+                    {dweller.name.trim() || 'Bewohner'}
+                  </option>
+                )),
+              )}
+            </Select>
+          </Field>
+        )}
+        <Field label="Was im Bereich geschieht">
+          <Select
+            value={zone.act}
+            onChange={(event) => patch({ act: event.target.value as DungeonZone['act'] })}
+          >
+            {DUNGEON_ACTS.map((act) => (
+              <option key={act} value={act}>
+                {ACT_LABEL[act]}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {zone.act === 'collapse' && (
+          <Field label="Danach">
+            <Select
+              value={zone.to}
+              onChange={(event) => patch({ to: event.target.value as DungeonZone['to'] })}
+            >
+              {(['rubble', 'rock', 'hole', 'chasm'] as const).map((to) => (
+                <option key={to} value={to}>
+                  {COLLAPSE_LABEL[to]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {zone.act === 'bridge' && (
+          <p className="wf-dungeon-hint">Wirkt auf die Felder des Bereichs, die Brücke sind.</p>
+        )}
+        <Checkbox checked={zone.once} onChange={(once) => patch({ once })}>
+          nur einmal
+        </Checkbox>
+        <div className="wf-dungeon-span">
+          <h4 className="wf-section-title">Wirkt außerdem auf</h4>
+          <LinkList
+            editor={editor}
+            links={zone.links}
+            onMode={(link, to) =>
+              editor.applyLevel((lv) => setLinkMode(lv, { type: 'zone', id: zone.id }, link, to))
+            }
+            onDrop={(link) => editor.applyLevel((lv) => toggleZoneLink(lv, zone.id, link))}
+          />
+          <Button
+            size="sm"
+            icon={<Crosshair />}
+            aria-pressed={picking('zone-link')}
+            onClick={() => pick('zone-link')}
+          >
+            {picking('zone-link') ? 'Fertig' : 'Ziel wählen'}
+          </Button>
+        </div>
+        <Field label="Was du liest, wenn es geschieht">
+          <Written
+            label="Notiz zum Auslöser"
+            grow
+            value={zone.note}
+            placeholder="Was sehen und hören die Spieler?"
+            onSave={(note) => patch({ note })}
+          />
+        </Field>
+      </div>
+    </Panel>
+  );
+}
+
+/** Der aufgezogene Ausschnitt: kopieren, ausschneiden, drehen, spiegeln, einfügen. */
+function RegionPanel({ editor }: { editor: DungeonEditor }) {
+  const { region, clip, level } = editor;
+  const take = (cut: boolean) => {
+    if (!region || !level) return;
+    editor.setClip(copyRegion(level, region));
+    if (cut)
+      editor.applyLevel((lv) =>
+        paintTiles(
+          lv,
+          rectCells(region, { x: region.x + region.w - 1, y: region.y + region.h - 1 }),
+          null,
+        ),
+      );
+  };
+  return (
+    <div className="wf-dungeon-form">
+      {region ? (
+        <p className="wf-dungeon-fact">
+          {region.w} × {region.h} Felder gewählt
+        </p>
+      ) : (
+        <p className="wf-dungeon-hint">Noch nichts gewählt.</p>
+      )}
+      <div className="wf-dungeon-actions">
+        <Button size="sm" disabled={!region} onClick={() => take(false)}>
+          Kopieren
+        </Button>
+        <Button size="sm" disabled={!region} onClick={() => take(true)}>
+          Ausschneiden
+        </Button>
+      </div>
+      {clip && (
+        <>
+          <p className="wf-dungeon-fact">
+            In der Ablage: {clip.w} × {clip.h} Felder
+          </p>
+          <div className="wf-dungeon-actions">
+            <Button
+              size="sm"
+              aria-pressed={editor.pasting}
+              onClick={() => editor.setPasting(!editor.pasting)}
+            >
+              {editor.pasting ? 'Klick auf die Karte …' : 'Einfügen'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => editor.setClip(rotateStamp(clip))}>
+              Drehen
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => editor.setClip(mirrorStamp(clip))}>
+              Spiegeln
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1004,6 +1496,10 @@ export function SelectionPanel({ editor }: { editor: DungeonEditor }) {
   if (selection.type === 'stair') {
     const stair = level.stairs.find((s) => s.id === selection.id);
     return stair ? <StairBox key={stair.id} editor={editor} level={level} stair={stair} /> : null;
+  }
+  if (selection.type === 'zone') {
+    const zone = level.zones.find((z) => z.id === selection.id);
+    return zone ? <ZoneBox key={zone.id} editor={editor} level={level} zone={zone} /> : null;
   }
   if (selection.type === 'dweller') {
     const dweller = level.dwellers.find((d) => d.id === selection.id);
@@ -1191,6 +1687,22 @@ export function LevelPanel({ editor }: { editor: DungeonEditor }) {
                 }
               >
                 {dweller.name.trim() || 'Bewohner'}
+              </Row>
+            ))}
+          </div>
+        )}
+        {level.zones.length > 0 && (
+          <div className="wf-dungeon-list">
+            <h4 className="wf-section-title">Auslöser</h4>
+            {level.zones.map((zone) => (
+              <Row
+                key={zone.id}
+                sub={ACT_LABEL[zone.act]}
+                onClick={() =>
+                  editor.reveal(level.id, { type: 'zone', id: zone.id }, zone.cells[0] ?? null)
+                }
+              >
+                {zone.name.trim() || 'Auslöser'}
               </Row>
             ))}
           </div>

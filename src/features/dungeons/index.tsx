@@ -19,6 +19,10 @@ import {
   Redo2,
   Shapes,
   Skull,
+  Slash,
+  SquareDashed,
+  Zap,
+  ChartNoAxesColumn,
   Square,
   Trash2,
   TriangleAlert,
@@ -32,13 +36,14 @@ import {
   levelLine,
   levelsSorted,
   removeDweller,
+  removeZone,
   removeEdgeRun,
   removeMarker,
   removeStair,
   removeTrap,
   dissolveRoom,
 } from '../../domain/dungeon';
-import type { Dungeon } from '../../domain/schema';
+import type { Dungeon, DungeonPlay } from '../../domain/schema';
 import {
   Button,
   Dialog,
@@ -81,6 +86,10 @@ const TOOL_ICON: Record<Tool, ReactNode> = {
   stair: <Layers />,
   marker: <MapPin />,
   dweller: <Skull />,
+  zone: <Zap />,
+  height: <ChartNoAxesColumn />,
+  corner: <Slash />,
+  region: <SquareDashed />,
   erase: <Eraser />,
 };
 
@@ -231,6 +240,7 @@ function useEditorKeys(editor: DungeonEditor, on: boolean) {
         else if (pick.type === 'trap') editor.applyLevel((lv) => removeTrap(lv, pick.id));
         else if (pick.type === 'marker') editor.applyLevel((lv) => removeMarker(lv, pick.id));
         else if (pick.type === 'dweller') editor.applyLevel((lv) => removeDweller(lv, pick.id));
+        else if (pick.type === 'zone') editor.applyLevel((lv) => removeZone(lv, pick.id));
         else if (pick.type === 'edge') editor.applyLevel((lv) => removeEdgeRun(lv, pick.key));
         else editor.applyLevel((lv) => dissolveRoom(lv, pick.id));
         editor.setSelection(null);
@@ -336,6 +346,12 @@ function ToolRail({ editor }: { editor: DungeonEditor }) {
   );
 }
 
+/**
+ * Der Stand am Tisch, der während eines Probelaufs beiseite liegt – je Dungeon. Nur im
+ * Arbeitsspeicher: Der Probelauf endet beim Verlassen der Seite und legt ihn wieder hin.
+ */
+const trialStash = new Map<string, DungeonPlay | null>();
+
 function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
   const db = useDb();
   const [, navigate] = useLocation();
@@ -343,6 +359,29 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
   const [mode, setMode] = useState<'prep' | 'play'>('prep');
   const playing = mode === 'play';
   const player = usePlay(db, editor.dungeon, editor);
+  const [trial, setTrial] = useState(() => trialStash.has(stored.id));
+  const startTrial = () => {
+    trialStash.set(stored.id, editor.dungeon.play);
+    db.patch('dungeons', stored.id, { play: null });
+    setTrial(true);
+    setMode('play');
+  };
+  const endTrial = () => {
+    if (!trialStash.has(stored.id)) return;
+    db.patch('dungeons', stored.id, { play: trialStash.get(stored.id) ?? null });
+    trialStash.delete(stored.id);
+    setTrial(false);
+    setMode('prep');
+  };
+  // Wer die Seite mitten im Probelauf verlässt, findet den Stand am Tisch wieder vor.
+  useEffect(
+    () => () => {
+      if (!trialStash.has(stored.id)) return;
+      db.patch('dungeons', stored.id, { play: trialStash.get(stored.id) ?? null });
+      trialStash.delete(stored.id);
+    },
+    [db, stored.id],
+  );
   useEditorKeys(editor, !playing);
   usePlayKeys(player, editor, playing);
   const { dungeon, level } = editor;
@@ -406,6 +445,24 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
                 Spielen
               </Button>
             </div>
+            {trial ? (
+              <Button
+                size="sm"
+                title="Beendet den Probelauf. Der Stand am Tisch liegt danach wieder da wie vorher."
+                onClick={endTrial}
+              >
+                Probelauf beenden
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Den Dungeon einmal durchgehen, ohne den Stand am Tisch anzurühren."
+                onClick={startTrial}
+              >
+                Probelauf
+              </Button>
+            )}
             <Button
               size="sm"
               aria-pressed={editor.ghost}

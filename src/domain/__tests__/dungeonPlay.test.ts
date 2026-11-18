@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDweller,
+  addZone,
+  patchMarker,
+  patchZone,
+  paintTiles,
   addLevel,
   addMarker,
   addRoom,
@@ -19,6 +23,13 @@ import {
 } from '../dungeon';
 import {
   addToken,
+  breachEdge,
+  coverBetween,
+  fireZone,
+  makeNoise,
+  playLevel,
+  switchOn,
+  tickWorld,
   foeTurn,
   rollInits,
   stirFoes,
@@ -38,6 +49,7 @@ import {
   useStair,
   visibleCells,
 } from '../dungeonPlay';
+import { setHeights } from '../dungeonTerrain';
 import { DungeonPlaySchema, DungeonSchema, type Dungeon, type DungeonLevel } from '../schema';
 
 /**
@@ -327,5 +339,234 @@ describe('Bewohner und Schalter', () => {
       ).tokens[0]!.init,
     ).toBe(15);
     expect(unsyncedMinutes(rolled)).toBe(2);
+  });
+});
+
+describe('Gelände, Höhen, Einsturz', () => {
+  it('schwieriges Gelände kostet doppelt, Gefahr hält beim Hineingeraten an', () => {
+    const d = started(
+      world((level) =>
+        paintTiles(
+          level,
+          [
+            { x: 6, y: 1 },
+            { x: 7, y: 1 },
+          ],
+          'mud',
+        ),
+      ),
+    );
+    const route = routeBetween(d, d.levels[0]!.id, { x: 5, y: 1 }, { x: 8, y: 1 })!;
+    expect(route.feet).toBe(25);
+    const icy = started(
+      world((level) =>
+        paintTiles(
+          level,
+          [
+            { x: 6, y: 1 },
+            { x: 7, y: 1 },
+          ],
+          'ice',
+        ),
+      ),
+    );
+    const moved = moveTokens(icy, [icy.play!.tokens[0]!.id], { x: 9, y: 1 })!;
+    expect(moved.halt?.type).toBe('terrain');
+    expect(moved.halt?.text).toContain('Geschicklichkeit SG 10');
+    // Weiter über dasselbe Eis hält nicht noch einmal.
+    const on = moveTokens({ ...icy, play: moved.play }, [icy.play!.tokens[0]!.id], { x: 9, y: 1 })!;
+    expect(on.halt).toBeNull();
+  });
+
+  it('ein Absatz von 15 Fuß: hinauf Kletterei, hinab ein Sturz mit Schaden in Worten', () => {
+    const d = started(
+      world((level) =>
+        setHeights(
+          level,
+          [
+            { x: 8, y: 1 },
+            { x: 9, y: 1 },
+          ],
+          15,
+        ),
+      ),
+    );
+    const id = d.play!.tokens[0]!.id;
+    const up = moveTokens(d, [id], { x: 9, y: 1 })!;
+    expect(up.halt?.type).toBe('climb');
+    // 7 Felder zu 5 Fuß und 15 Fuß Kletterei obendrauf.
+    expect(up.feet).toBe(50);
+    const down = moveTokens({ ...d, play: up.play }, [id], { x: 6, y: 1 })!;
+    expect(down.halt?.type).toBe('drop');
+    expect(down.halt?.text).toContain('1W6 Wucht');
+  });
+
+  it('der Boden stürzt ein, wenn jemand ihn betritt – durch ein Loch auf die Ebene darunter', () => {
+    let d = world((level) => {
+      const made = addZone(level, [
+        { x: 7, y: 1 },
+        { x: 8, y: 1 },
+      ]);
+      return patchZone(made.level, made.zone.id, {
+        name: 'Morscher Boden',
+        act: 'collapse',
+        to: 'hole',
+      });
+    });
+    d = addLevel(d, 'below', 'Keller').dungeon;
+    const s = started(d);
+    const moved = moveTokens(s, [s.play!.tokens[0]!.id], { x: 10, y: 1 })!;
+    expect(moved.halt?.type).toBe('zone');
+    expect(moved.halt?.title).toBe('Morscher Boden');
+    expect(moved.play.tokens[0]!.levelId).not.toBe(s.levels.find((l) => l.name === 'Oben')!.id);
+    const top = s.levels.find((l) => l.name === 'Oben')!;
+    expect(playLevel(top, moved.play).tiles['7,1']).toBe('air');
+    // Einmal ist einmal.
+    expect(tickWorld(s, moved.play).halt).toBeNull();
+  });
+
+  it('eine morsche Brücke trägt einen, bei zweien bricht sie', () => {
+    const d = started(
+      world((level) => {
+        const bridge = paintTiles(
+          level,
+          [
+            { x: 7, y: 1 },
+            { x: 8, y: 1 },
+          ],
+          'bridge',
+        );
+        const made = addZone(bridge, [
+          { x: 7, y: 1 },
+          { x: 8, y: 1 },
+        ]);
+        return patchZone(made.level, made.zone.id, {
+          when: 'weight',
+          weight: 2,
+          act: 'collapse',
+          to: 'chasm',
+        });
+      }),
+      [hero(), hero({ name: 'Tolk' })],
+    );
+    const [first, second] = d.play!.tokens.map((t) => t.id) as [string, string];
+    const one = moveTokens(d, [first], { x: 7, y: 1 })!;
+    expect(one.halt).toBeNull();
+    const two = moveTokens({ ...d, play: one.play }, [second], { x: 8, y: 1 })!;
+    expect(two.halt?.type).toBe('zone');
+    expect(playLevel(d.levels[0]!, two.play).tiles['8,1']).toBe('chasm');
+  });
+
+  it('Wasser steigt in Stufen: Boden, flach, tief', () => {
+    let zoneId = '';
+    const d = started(
+      world((level) => {
+        const made = addZone(level, [{ x: 6, y: 1 }]);
+        zoneId = made.zone.id;
+        return patchZone(made.level, zoneId, { when: 'switch', act: 'flood', once: false });
+      }),
+    );
+    const levelId = d.levels[0]!.id;
+    const once = fireZone(d, d.play!, levelId, zoneId).play;
+    expect(playLevel(d.levels[0]!, once).tiles['6,1']).toBe('water');
+    const twice = fireZone({ ...d, play: once }, once, levelId, zoneId).play;
+    expect(playLevel(d.levels[0]!, twice).tiles['6,1']).toBe('deep');
+  });
+});
+
+describe('Schalterarten, Lärm, Deckung', () => {
+  const key = edgeKeyBetween({ x: 12, y: 1 }, { x: 13, y: 1 })!;
+  const withSwitch = (kind: 'plate' | 'timer' | 'button', at = { x: 6, y: 1 }) => {
+    let id = '';
+    const d = started(
+      world((level) => {
+        const made = addMarker(level, at, 'lever');
+        id = made.marker.id;
+        const linked = toggleMarkerLink(made.level, id, {
+          kind: 'edge',
+          levelId: level.id,
+          ref: key,
+        });
+        return patchMarker(linked, id, { switch: kind, seconds: 30 });
+      }),
+    );
+    return { d, id };
+  };
+  const doorOpen = (d: Dungeon, play: Dungeon['play']) =>
+    play!.doors[`${d.levels[0]!.id}:${key}`]?.opened ?? false;
+
+  it('eine Druckplatte wirkt, solange jemand darauf steht', () => {
+    const { d, id } = withSwitch('plate');
+    const hero1 = d.play!.tokens[0]!.id;
+    const on = moveTokens(d, [hero1], { x: 6, y: 1 })!;
+    expect(switchOn(on.play, id)).toBe(true);
+    expect(doorOpen(d, on.play)).toBe(true);
+    const off = moveTokens({ ...d, play: on.play }, [hero1], { x: 8, y: 1 })!;
+    expect(doorOpen(d, off.play)).toBe(false);
+  });
+
+  it('ein Zeitschalter springt zurück, ein Knopf wirkt nur einmal', () => {
+    const timer = withSwitch('timer');
+    const pulled = useMarker(timer.d, timer.d.levels[0]!.id, timer.id)!;
+    expect(doorOpen(timer.d, pulled)).toBe(true);
+    const later = tickWorld(timer.d, { ...pulled, seconds: pulled.seconds + 31 }).play;
+    expect(doorOpen(timer.d, later)).toBe(false);
+    const button = withSwitch('button');
+    const pressed = useMarker(button.d, button.d.levels[0]!.id, button.id)!;
+    expect(useMarker({ ...button.d, play: pressed }, button.d.levels[0]!.id, button.id)).toBe(
+      pressed,
+    );
+  });
+
+  it('Lärm weckt, wer schläft – er geht nachsehen', () => {
+    const d = started(
+      world((level) => {
+        const made = addDweller(level, { x: 14, y: 1 });
+        return patchDweller(made.level, made.dweller.id, { name: 'Schläfer', asleep: true });
+      }),
+      [hero()],
+      { x: 9, y: 1 },
+    );
+    const open = { ...d, play: setDoor(d, d.levels[0]!.id, key, { opened: true })! };
+    // Er schläft: Die offene Tür allein weckt ihn nicht.
+    expect(stirFoes(open, open.play!, 6).halt).toBeNull();
+    const loud = makeNoise(open, open.play!, d.levels[0]!.id, { x: 9, y: 1 }, 60);
+    expect(loud.tokens.find((t) => t.kind === 'foe')!.heard).toEqual({ x: 9, y: 1 });
+    const after = stirFoes({ ...open, play: loud }, loud, 6);
+    expect(after.halt?.type).toBe('alert');
+  });
+
+  it('wer schleicht und gut genug würfelt, bleibt unbemerkt', () => {
+    const d = started(
+      world((level) =>
+        patchDweller(addDweller(level, { x: 14, y: 1 }).level, level.dwellers[0]?.id ?? '', {}),
+      ),
+      [hero({ sneak: true, stealth: 15 } as object)],
+      { x: 9, y: 1 },
+    );
+    const open = { ...d, play: setDoor(d, d.levels[0]!.id, key, { opened: true })! };
+    expect(stirFoes(open, open.play!, 6).halt).toBeNull();
+    const clumsy = {
+      ...open,
+      play: { ...open.play!, tokens: open.play!.tokens.map((t) => ({ ...t, stealth: 8 })) },
+    };
+    expect(stirFoes(clumsy, clumsy.play, 6).halt?.type).toBe('alert');
+  });
+
+  it('eine durchbrochene Wand ist ein Durchgang; hinter der Ecke hat man Deckung', () => {
+    const d = started(world());
+    const wall = edgeKeyBetween({ x: 4, y: 0 }, { x: 5, y: 0 });
+    // Zwischen Halle und Fels ist nichts zu durchbrechen – wir graben erst ein Feld dahinter.
+    const dug = { ...d, levels: [paintTiles(d.levels[0]!, [{ x: 5, y: 0 }], 'floor')] };
+    expect(
+      routeBetween(dug, d.levels[0]!.id, { x: 4, y: 0 }, { x: 5, y: 0 })!.cells.length,
+    ).toBeGreaterThan(2);
+    const broken = { ...dug, play: breachEdge(dug, d.levels[0]!.id, wall!)! };
+    expect(
+      routeBetween(broken, d.levels[0]!.id, { x: 4, y: 0 }, { x: 5, y: 0 })!.cells,
+    ).toHaveLength(2);
+    expect(coverBetween(d, d.levels[0]!.id, { x: 1, y: 1 }, { x: 3, y: 1 })).toBe('none');
+    // Aus der Ecke der Halle in den Gang: Die Wand deckt einen Teil.
+    expect(coverBetween(d, d.levels[0]!.id, { x: 1, y: 0 }, { x: 6, y: 1 })).not.toBe('none');
   });
 });
