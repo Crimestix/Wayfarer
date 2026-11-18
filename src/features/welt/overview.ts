@@ -70,7 +70,7 @@ export function useKindFilter(): KindFilter {
  * zu schreiben ist. Liegt hier, weil auch die Bühne rechts sie braucht (Netz und „Noch zu
  * schreiben“ zeigen sich dort). Gilt, solange die App läuft.
  */
-export type WorldLayout = 'kinds' | 'tree' | 'net' | 'gaps' | 'history';
+export type WorldLayout = 'kinds' | 'tree' | 'net' | 'gaps' | 'history' | 'unsorted';
 
 let layout: WorldLayout = 'kinds';
 

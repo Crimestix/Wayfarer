@@ -195,13 +195,23 @@ export function facilitiesFromRooms(
         place = adopted;
       }
       if (place?.kind !== 'place') continue;
-      // Was unmittelbar zur Bastion gehört (oder eben erst entstand), ist ein Raum von ihr.
-      const direct = place.place.parentId === home.id || created.includes(place.id);
-      if (direct && (!place.place.room || place.place.parentId !== home.id)) {
-        if (!created.includes(place.id)) changed.push(place);
+      // Was unmittelbar zur Bastion gehört, auf einer ihrer Etagen liegt oder eben erst entstand,
+      // ist ein Raum von ihr.
+      const fresh = created.includes(place.id);
+      const above = place.place.parentId
+        ? db.getSnapshot().entities[place.place.parentId]
+        : undefined;
+      const onFloor =
+        above?.kind === 'place' && above.place.floor && above.place.parentId === home.id;
+      if (fresh || ((place.place.parentId === home.id || onFloor) && !place.place.room)) {
+        if (!fresh) changed.push(place);
         place = db.put('entities', {
           ...place,
-          place: { ...place.place, parentId: home.id, room: true },
+          place: {
+            ...place.place,
+            parentId: fresh ? home.id : place.place.parentId,
+            room: true,
+          },
         });
       }
       const known = candidate.joins

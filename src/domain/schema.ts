@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 35;
-export const DATA_SHAPE = '9e25cfa6c36f74df';
+export const DATA_VERSION = 36;
+export const DATA_SHAPE = '0102b4b59ddbd95c';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -485,6 +485,17 @@ const PlaceDetails = z.object({
    * Wiki, sondern auf der Seite des Ortes darüber unter „Räume“ (`domain/rooms.ts`).
    */
   room: z.boolean().default(false),
+  /**
+   * Eine Etage: ein Raum (`room`), der Räume enthält – Keller, Erdgeschoss, Turm, „Ebene 2“. Sie
+   * steht wie ein Raum bei ihrem Ort; ihre Räume stehen unter ihr (`domain/rooms.ts`:
+   * `isFloor`, `houseOf`). Gilt nur zusammen mit `room`.
+   */
+  floor: z.boolean().default(false),
+  /**
+   * Wo eine Etage im Haus liegt: je größer, desto weiter oben. null = nicht festgelegt, dann
+   * steht sie nach den geordneten, nach Namen.
+   */
+  level: z.number().int().nullable().default(null),
   /** Stand eines Raums in Worten: frei, verschlossen, eingestürzt, Falle … */
   roomState: z.string().default(''),
   /**

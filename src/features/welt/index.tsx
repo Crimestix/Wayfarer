@@ -20,6 +20,7 @@ import { MergeDialogHost } from './MergeDialog';
 import { HistoryView } from './HistoryView';
 import { Gallery } from './Gallery';
 import { GapsView } from './Gaps';
+import { UnsortedView } from './UnsortedView';
 import { Landing } from './Landing';
 import { isLexiconKind } from './lexicon';
 import { Lexicon } from './LexiconView';
@@ -116,6 +117,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           <FactionNetView />
         ) : layout === 'gaps' ? (
           <GapsView />
+        ) : layout === 'unsorted' ? (
+          <UnsortedView />
         ) : layout === 'history' ? (
           <HistoryView />
         ) : filter !== 'all' && isLexiconKind(filter) && !ownFilter ? (

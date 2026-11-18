@@ -143,7 +143,7 @@ export function Gallery({
         .filter((room) => !scope || scope.has(room.id))
         .sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true }));
     }
-    return galleryEntries(data, kind, { ...filter, placeId, known }).filter(
+    return galleryEntries(data, kind, { ...filter, placeId, known, withRooms: !!own }).filter(
       (entity) => !own || entity.ownKindId === own.id,
     );
   }, [data, kind, filter, placeId, known, own, showRooms, rooms]);
@@ -172,7 +172,8 @@ export function Gallery({
   const all = useMemo(
     () =>
       Object.values(data.entities).filter(
-        (e) => e.kind === kind && !isRoom(data, e) && (!own || e.ownKindId === own.id),
+        // Die Kacheln einer Unterkategorie zeigen auch ihre Räume („Dungeonraum“).
+        (e) => e.kind === kind && (own ? e.ownKindId === own.id : !isRoom(data, e)),
       ),
     [data, kind, own],
   );

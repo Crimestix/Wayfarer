@@ -518,6 +518,11 @@
 .wf-welt-layout .wf-welt-layout__row2 {
   border-top: 1px solid var(--line);
 }
+.wf-welt-layout .wf-welt-layout__full {
+  grid-column: span 3;
+  border-top: 1px solid var(--line);
+}
+.wf-welt-layout__full span,
 .wf-welt-layout__wide span {
   margin-left: 6px;
   color: var(--ink-faint);
@@ -2075,6 +2080,99 @@
   color: var(--ember);
   font-size: var(--text-sm);
 }
+.wf-welt-room__kind {
+  flex: none;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.wf-welt-rooms__add-hint {
+  margin: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+
+/* Etagen: von oben nach unten, darunter ihre Räume */
+.wf-welt-floor + .wf-welt-floor {
+  margin-top: var(--s-3);
+}
+.wf-welt-floor__head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 2px var(--s-2);
+  border-bottom: 1px solid var(--line);
+}
+.wf-welt-floor__head--plain {
+  padding: 6px var(--s-2);
+}
+.wf-welt-floor__toggle {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--s-2);
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-welt-floor__toggle > svg {
+  flex: none;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-mute);
+}
+.wf-welt-floor__name {
+  color: var(--gold);
+  font-family: var(--font-caps);
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wf-welt-floor__count {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.wf-welt-floor__empty {
+  margin: 0;
+  padding: var(--s-2) var(--s-2) var(--s-2) calc(var(--s-2) + 22px);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}
+.wf-welt-floor .wf-welt-room__head {
+  padding-left: var(--s-4);
+}
+
+/* „Aus Artikeln …“: je Zeile Etage, Raum oder nicht */
+.wf-welt-roomsrc {
+  display: flex;
+  flex-direction: column;
+}
+.wf-welt-roomsrc__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding-block: 3px;
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-roomsrc__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-welt-roomsrc__row[data-off] .wf-welt-roomsrc__name {
+  color: var(--ink-mute);
+}
+.wf-welt-roomsrc__note {
+  flex: none;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
 .wf-welt-room__body {
   display: flex;
   flex-direction: column;
@@ -2991,6 +3089,9 @@
 .wf-welt-gapslink:hover {
   border-bottom-color: var(--gold-bright);
   color: var(--gold-bright);
+}
+.wf-welt-gapslink--next {
+  margin-left: var(--s-5);
 }
 .wf-welt-gapslink svg {
   width: 13px;
@@ -4095,4 +4196,68 @@ button.wf-welt-gaps__count:hover {
   white-space: normal;
   height: auto;
   min-height: 34px;
+}
+
+/* „Ohne Kategorie“: Artikel ohne Eintrag einordnen oder löschen */
+.wf-welt-unsorted__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) auto;
+  gap: var(--s-3);
+  align-items: center;
+  justify-content: start;
+  margin-bottom: var(--s-3);
+}
+.wf-welt-unsorted__bulk {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 34px;
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.wf-welt-unsorted__list {
+  display: flex;
+  flex-direction: column;
+}
+.wf-welt-unsorted__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 5px var(--s-2);
+  border-bottom: 1px solid var(--line-faint);
+}
+.wf-welt-unsorted__row:hover {
+  background: var(--bg-2);
+}
+.wf-welt-unsorted__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.wf-welt-unsorted__title {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-welt-unsorted__title:hover {
+  color: var(--gold-bright);
+}
+.wf-welt-unsorted__sub {
+  overflow: hidden;
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-welt-unsorted__pick {
+  flex: none;
+  width: 150px;
 }

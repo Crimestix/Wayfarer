@@ -14,6 +14,8 @@ export const SUGGESTION = {
   here: (cardKey: string, placeId: string) => `here:${cardKey}:${placeId}`,
   /** Ein Ort sieht aus wie ein Raum. */
   room: (placeId: string) => `room:${placeId}`,
+  /** Orte unter einem Ort sehen aus wie seine Etagen. */
+  floor: (placeId: string) => `floor:${placeId}`,
   /** Ein Beruf, den Wayfarer im Text gefunden hat. */
   profession: (name: string) => `profession:${name.trim().toLocaleLowerCase('de')}`,
   /** Familien aus Nachnamen anlegen. */
@@ -52,6 +54,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   fit: 'Fäden, die zu einer Geschichte passen könnten',
   here: 'Geschichten und Fäden am Ort der Gruppe',
   room: 'Orte, die wie ein Raum aussehen',
+  floor: 'Orte, die wie eine Etage aussehen',
   profession: 'Berufe aus dem Text',
   family: 'Familien aus Nachnamen',
   prep: 'Angebote beim Vorbereiten eines Abends',

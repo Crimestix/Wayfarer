@@ -183,7 +183,7 @@ const hasArticle = (articles: Articles, entity: Entity) =>
   !!entity.lk?.resourceId && !!articles[entity.lk.resourceId];
 
 /** Wörter im Fließtext aller Textseiten eines Artikels, ohne Steckbrief. */
-function articleWords(articles: Articles, article: Article): number {
+export function articleWords(articles: Articles, article: Article): number {
   let total = 0;
   for (const doc of article.docs)
     if (doc.kind === 'page')

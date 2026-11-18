@@ -7,13 +7,14 @@
 import { placeChildren } from './derive';
 import type { CampaignData, Place, PlaceScale } from './schema';
 
-export type ScaleOrRoom = PlaceScale | 'room';
+export type ScaleOrRoom = PlaceScale | 'floor' | 'room';
 
 export const SCALE_LABEL: Record<ScaleOrRoom, string> = {
   world: 'Kontinent und Welt',
   region: 'Land und Gegend',
   settlement: 'Siedlung',
   building: 'Gebäude',
+  floor: 'Etage',
   room: 'Raum',
 };
 
@@ -44,11 +45,11 @@ export function scaleOfWord(word: string): PlaceScale | null {
 }
 
 /**
- * Die Größe eines Ortes: ein Raum ist ein Raum; festgelegt gilt; sonst das eigene Wort; sonst:
+ * Die Größe eines Ortes: ein Raum ist ein Raum, eine Etage eine Etage; festgelegt gilt; sonst das eigene Wort; sonst:
  * Wer Orte (keine Räume) in sich hat, ist mindestens eine Siedlung. null = offen.
  */
 export function placeScale(data: Pick<CampaignData, 'entities'>, place: Place): ScaleOrRoom | null {
-  if (place.place.room) return 'room';
+  if (place.place.room) return place.place.floor ? 'floor' : 'room';
   if (place.place.scale) return place.place.scale;
   const fromWord = scaleOfWord(place.place.category);
   if (fromWord) return fromWord;

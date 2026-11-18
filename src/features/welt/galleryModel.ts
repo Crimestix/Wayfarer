@@ -51,8 +51,9 @@ export function galleryEntries(
     pool
       .filter(isWorldEntity)
       .filter((entity) => entity.kind === kind)
-      // Räume stehen auf der Seite ihres Ortes, nicht zwischen den Orten.
-      .filter((entity) => !isRoom(data, entity))
+      // Räume stehen auf der Seite ihres Ortes, nicht zwischen den Orten – außer in den Kacheln
+      // ihrer Unterkategorie.
+      .filter((entity) => filter.withRooms || !isRoom(data, entity))
       .filter((entity) => !scope || (scope.has(entity.id) && entity.id !== filter.placeId))
       .filter((entity) => !visited || isKnown(data, entity, visited) === (filter.known === 'known'))
       .sort((a, b) => a.name.localeCompare(b.name, 'de'))

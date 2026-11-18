@@ -638,11 +638,22 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           {draft.kind === 'place' && (
             <Field
               label="Was für ein Ort"
-              hint="Ändert, wer „hier“ ist und ob ein Laden der Ort selbst ist. Offen gelassen, liest Wayfarer sie aus dem Wort darunter."
+              hint={
+                draft.room
+                  ? draft.parentId
+                    ? `${draft.floor ? 'Eine Etage' : 'Ein Raum'} steht bei dem Ort, in dem ${draft.floor ? 'sie' : 'er'} liegt – auf dessen Seite unter „Räume“.`
+                    : `${draft.floor ? 'Eine Etage' : 'Ein Raum'} gehört zu einem Ort: Wähle oben bei „Liegt in“, zu welchem.`
+                  : 'Ändert, wer „hier“ ist und ob ein Laden der Ort selbst ist. Offen gelassen, liest Wayfarer sie aus dem Wort darunter.'
+              }
             >
               <Select
-                value={draft.scale}
-                onChange={(e) => set({ scale: e.target.value as PlaceScale | '' })}
+                value={draft.room ? (draft.floor ? 'floor' : 'room') : draft.scale}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'floor' || value === 'room')
+                    set({ room: true, floor: value === 'floor' });
+                  else set({ scale: value as PlaceScale | '', room: false, floor: false });
+                }}
               >
                 <option value="">
                   offen
@@ -655,6 +666,8 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                     {SCALE_LABEL[scale]}
                   </option>
                 ))}
+                <option value="floor">{SCALE_LABEL.floor}</option>
+                <option value="room">{SCALE_LABEL.room}</option>
               </Select>
             </Field>
           )}

@@ -282,10 +282,12 @@ export function placeTreeRows(
   data: CampaignData,
   openState: Readonly<Record<string, boolean>> = {},
   visible: ReadonlySet<string> | null = null,
+  withRooms = false,
 ): PlaceRow[] {
-  // Räume stehen auf der Seite ihres Ortes, nicht im Baum.
+  // Räume und Etagen stehen auf der Seite ihres Ortes; im Baum nur auf Wunsch (`withRooms`) –
+  // dann unter ihrem Ort: erst die Orte darin, dann die Etagen von oben nach unten, dann Räume.
   const places = entitiesOfKind(data, 'place').filter(
-    (p) => !isRoom(data, p) && (!visible || visible.has(p.id)),
+    (p) => (withRooms || !isRoom(data, p)) && (!visible || visible.has(p.id)),
   );
   const byId = new Map(places.map((p) => [p.id, p]));
   const children = new Map<string | null, Place[]>();
@@ -295,6 +297,18 @@ export function placeTreeRows(
     const list = children.get(key);
     if (list) list.push(place);
     else children.set(key, [place]);
+  }
+  if (withRooms) {
+    const rank = (place: Place) => (!isRoom(data, place) ? 0 : place.place.floor ? 1 : 2);
+    for (const list of children.values())
+      list.sort((a, b) => {
+        const [ra, rb] = [rank(a), rank(b)];
+        if (ra !== rb) return ra - rb;
+        if (ra === 0) return 0;
+        const [la, lb] = [a.place.level, b.place.level];
+        if (ra === 1 && la !== lb) return (lb ?? -Infinity) - (la ?? -Infinity);
+        return a.name.localeCompare(b.name, 'de', { numeric: true });
+      });
   }
   const partyPlace = data.state.placeId;
   const partyAbove = new Set(partyPlace ? placeAncestors(data, partyPlace).map((p) => p.id) : []);
@@ -843,6 +857,8 @@ const BELONGS = new Set(['member', 'leads', 'serves']);
 export type KnownFilter = 'all' | 'known' | 'unknown';
 
 export interface GalleryFilter {
+  /** Auch Räume und Etagen – für die Kacheln einer Unterkategorie („Dungeonraum“). */
+  withRooms?: boolean;
   query: string;
   /** Nur Personen, die hier (oder darunter) sind, wohnen oder arbeiten. */
   placeId: string | null;
@@ -1188,6 +1204,9 @@ export interface EntityDraft {
   dimensionId: string | null;
   /** Größe eines Ortes; '' = offen (Wayfarer liest sie aus dem eigenen Wort). */
   scale: PlaceScale | '';
+  /** Ort: ein Raum des Ortes darüber – mit `floor` eine Etage. */
+  room: boolean;
+  floor: boolean;
   // Fraktion und Familie
   seatId: string | null;
   // Gegenstand
@@ -1255,6 +1274,8 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     worldId: null,
     dimensionId: null,
     scale: '',
+    room: false,
+    floor: false,
     seatId: null,
     holderId: null,
     magic: false,
@@ -1465,6 +1486,8 @@ function buildFromDraft(
         worldId: draft.parentId ? null : draft.worldId,
         category,
         scale: draft.scale,
+        room: draft.room,
+        floor: draft.room && draft.floor,
       };
       return base?.kind === 'place'
         ? { ...base, ...common, place: { ...base.place, ...place } }

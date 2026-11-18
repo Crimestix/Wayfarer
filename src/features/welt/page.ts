@@ -15,7 +15,7 @@ import {
 } from '../../domain/derive';
 import { creatureOfAnimal } from '../../domain/nature';
 import { showsAttitude } from '../../domain/relations';
-import { roomCandidates, roomsOf } from '../../domain/rooms';
+import { floorCandidates, houseOf, roomCandidates } from '../../domain/rooms';
 import { schemesOf } from '../../domain/schemes';
 import type { CampaignData, Entity, EntityKind, Place, Shop } from '../../domain/schema';
 import { shopsOf } from '../../domain/shop';
@@ -313,7 +313,10 @@ export function pagePlan(
       if (shops.listed.length) main.push('shopsHere');
       maybe(
         'rooms',
-        roomsOf(data, entity.id).length > 0 || roomCandidates(data, entity.id).length > 0,
+        houseOf(data, entity.id).total > 0 ||
+          houseOf(data, entity.id).hasFloors ||
+          roomCandidates(data, entity.id).length > 0 ||
+          floorCandidates(data, entity.id).length > 0,
         () => main.push('rooms'),
       );
       maybe(

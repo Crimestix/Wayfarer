@@ -281,9 +281,10 @@ export function Sidebar({
     () => new Set([...pastPlaces].filter((id) => !visible || visible.has(id))),
     [pastPlaces, visible],
   );
-  const tree = useMemo(() => placeTreeRows(data, open, treeShown), [data, open, treeShown]);
+  // „Nach Lage“ zeigt auch Etagen und Räume – unter ihrem Ort, wo man sie sucht.
+  const tree = useMemo(() => placeTreeRows(data, open, treeShown, true), [data, open, treeShown]);
   const pastTree = useMemo(
-    () => (pastShown.size ? placeTreeRows(data, open, pastShown) : []),
+    () => (pastShown.size ? placeTreeRows(data, open, pastShown, true) : []),
     [data, open, pastShown],
   );
   const texts = useMemo(() => textsWithoutEntry(data), [data]);
@@ -295,7 +296,10 @@ export function Sidebar({
   const catSplit = useMemo(() => {
     if (filter === 'all' || ownFilter) return null;
     const all = (entitiesOfKind(data, filter) as WorldEntity[]).filter(
-      (entity) => !isRoom(data, entity) && (!visible || visible.has(entity.id)),
+      // Räume stehen bei ihrem Ort – hier nur, wenn sie eine Unterkategorie haben („Dungeonraum“).
+      (entity) =>
+        (!isRoom(data, entity) || !!ownKindOf(data, entity)) &&
+        (!visible || visible.has(entity.id)),
     );
     const { present, past } = splitPast(data, all);
     const split = categoryGroups(data, present);
@@ -448,7 +452,11 @@ export function Sidebar({
             <span className="wf-welt-row__name wf-clamp-1">{place.name}</span>
             <span className="wf-welt-row__sub wf-clamp-1">
               <StubMark entity={place} />{' '}
-              {[place.place.category, isPast(data, place) && pastLine(data, place)]
+              {[
+                place.place.category ||
+                  (isRoom(data, place) && (place.place.floor ? 'Etage' : 'Raum')),
+                isPast(data, place) && pastLine(data, place),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
               {!isOpen && childCount > 0 && ` · ${childCount}`}
@@ -825,6 +833,22 @@ export function Sidebar({
             Noch zu schreiben
             {gapsCount > 0 && <span>{gapsCount}</span>}
           </button>
+          {(texts.length > 0 || layout === 'unsorted') && (
+            <button
+              type="button"
+              role="tab"
+              className="wf-welt-layout__full"
+              aria-selected={layout === 'unsorted'}
+              title="Artikel, die noch zu keinem Eintrag der Welt gehören – einordnen oder löschen"
+              onClick={() => {
+                setLayout('unsorted');
+                navigate('/welt');
+              }}
+            >
+              Ohne Kategorie
+              <span>{texts.length}</span>
+            </button>
+          )}
         </div>
         {layout === 'kinds' && filter !== 'all' && (
           <div className="wf-welt-onlykind">

@@ -1112,6 +1112,26 @@ nicht übernommen.
   einzeln in der Welt-Liste und im Wiki-Baum, sondern auf dessen Seite unter „Räume“ (`roomsOf`,
   `domain/rooms.ts`; Befehle in `welt/rooms.ts`). Orte der Art „Dungeonraum“ o. ä. schlägt
   `roomCandidates` einmal zum Umwandeln vor. Ein Raum bleibt ein Ort (Gruppe, Chronik, Karten).
+  **Etagen** (Rückmeldung des Spielleiters, 18. 11. 2026: „Dungeonräume, Haus-Räume, Etagen …
+  müssen ihren Platz finden“): Haus › Etage › Raum. Eine Etage ist ein Raum, der Räume enthält
+  (`place.floor`, gilt nur mit `place.room`; Lage `place.level`, größer = weiter oben) – gefragt
+  über `isFloor`, `floorsOf` (von oben nach unten), `houseOf` (Etagen mit ihren Räumen, zuletzt
+  die ohne Etage), `allRoomsOf`; `roomsOf` sind nur die Räume unmittelbar am Ort oder auf der
+  Etage, `isRoom` gilt auch für Etagen. Gewählt wird bei „Was für ein Ort“ (… Gebäude, Etage,
+  Raum; `draft.room`/`draft.floor`, `placeScale` → `'floor'`/`'room'`). **Was für ein Raum** es ist
+  (Dungeonraum, Wohnraum), sagt seine Unterkategorie – nie ein eigenes Feld; Räume mit
+  Unterkategorie stehen in deren Gruppe und Kacheln, alle Räume in der Liste „Nach Lage“ unter
+  ihrem Ort (`placeTreeRows(…, withRooms)`). Ein ganzes Haus auf einmal: `parseRoomPlan`
+  („Keller:“ und darunter die Räume, Leerzeile beendet; oder Eingerücktes), angelegt über
+  `addRooms` (eine Etage gleichen Namens wird genommen). Ordnen `moveFloor`, umhängen `moveRoom`,
+  zu Etagen machen `setFloors` (Vorschlag `floorCandidates`, `SUGGESTION.floor`; die erste Lage
+  rät `guessLevel` aus dem Namen). **Geschriebenes wird Raum und Etage** („Auch hier brauchen wir
+  die Artikel der einzelnen Räume, der Etagen“): „Aus Artikeln …“ (`welt/RoomSourcesDialog`)
+  zeigt, was unter dem Ort schon steht (`roomSources`: Orte darin, die noch keine Räume sind, und
+  Artikel unter seinem Artikel ohne Eintrag, in ihrer Ordnung; Vorwahl Etage/Raum, Siedlungen und
+  Gegenden nie vorgewählt); übernommen wird nur über `takeRoomSources` (ein Artikel ohne Eintrag
+  wird ein Ort unter dem, was aus dem Artikel über ihm wurde; mit Rückgängig) – am Text ändert
+  sich nichts.
 - Handouts (`handouts/`, `domain/handout.ts`, Reiter „Handouts“ neben Fadenbrett und Abend):
   Brief, Notiz, Erlass, Hinweiskarte – geschrieben vom Spielleiter, auf Pergament gezeigt und
   gedruckt (`usePrint` in `handouts/print.tsx`: eine eigene Ebene nur für den Druck). Wortlaut
@@ -1334,6 +1354,15 @@ nicht übernommen.
   Ein leeres Feld zeigt gedämpft, was die Welt schon weiß (`worldValue`), geschrieben wird es
   erst auf Klick. Auf der Seite zeigt der Text die Felder des ersten Steckbriefs nicht noch
   einmal (`splitPage(…, { boxShownAbove })`).
+- Ohne Kategorie (Wunsch des Spielleiters, 18. 11. 2026: „ein Platz, um alle Artikel, die noch
+  keiner Art zugewiesen wurden, anzuzeigen“ – „Nicht alles ist ja ein Wiki-Artikel“): Ansicht der
+  Welt (`WorldLayout` `'unsorted'`, `welt/UnsortedView.tsx`; Reiter in der Liste links und Zeile
+  auf der Übersicht, nur wenn es welche gibt). Zeigt `unsortedRows()` (`welt/unsorted.ts`:
+  dieselben Artikel wie `textsWithoutEntry`, mit Ordnern darüber, Wörtern, Artikeln darunter und
+  der Kategorie, die Ordner oder Steckbrief nahelegen), Suche und „Nur leere“ (`filterUnsorted`).
+  Eine Kategorie gibt `sortArticles` (über `adoptArticle`, nie ein zweiter Eintrag), gelöscht wird
+  über `dropArticles` in den Papierkorb – einzeln oder für mehrere, beides mit Rückgängig. Ein
+  Artikel darf ohne Kategorie bleiben; nichts geschieht von selbst.
 - Noch zu schreiben (`wikiGaps`, `wiki/gaps.ts`, Sicht in „Welt“): Verweise ins Leere je Titel
   mit Stellen und Art aus dem Feld, Einträge ohne Artikel, kurze Artikel (`STUB_WORDS`) und
   Artikel ohne Verweis – ohne Ordnerseiten, Vorlagen und Räume. Nur gezählt und gezeigt;

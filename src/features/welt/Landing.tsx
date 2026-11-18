@@ -1,6 +1,7 @@
 /** Einstieg in die Welt, solange keine Seite offen ist. Angelegt wird über das eine „Neu“. */
+import { useMemo } from 'react';
 import { Link } from 'wouter';
-import { ArrowRight, Feather, MapPin, Plus } from 'lucide-react';
+import { ArrowRight, Feather, FileQuestion, MapPin, Plus } from 'lucide-react';
 import { useData } from '../../data/hooks';
 import {
   KIND_LABEL,
@@ -22,6 +23,7 @@ import {
   describeVisit,
   partyAttitudes,
   recentlyChanged,
+  textsWithoutEntry,
   worldCounts,
 } from './model';
 import { EntryRow, Hint, Section } from './parts';
@@ -39,6 +41,7 @@ export function Landing() {
   const stay = current ? describeVisit(data.campaign.calendar, data.state.now, current) : null;
   const present = cast ? [...cast.present, ...cast.away].slice(0, 6) : [];
   const gaps = useGapCount();
+  const unsorted = useMemo(() => textsWithoutEntry(data).length, [data]);
   const presentTotal = cast ? cast.present.length + cast.away.length : 0;
 
   return (
@@ -60,6 +63,17 @@ export function Landing() {
           >
             <Feather />
             Noch zu schreiben: {gaps}
+          </button>
+        )}
+        {unsorted > 0 && (
+          <button
+            type="button"
+            className="wf-welt-gapslink wf-welt-gapslink--next"
+            title="Artikel, die noch zu keinem Eintrag der Welt gehören – einordnen oder löschen"
+            onClick={() => setWorldLayout('unsorted')}
+          >
+            <FileQuestion />
+            Ohne Kategorie: {unsorted}
           </button>
         )}
       </header>

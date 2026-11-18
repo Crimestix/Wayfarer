@@ -237,7 +237,8 @@ export function facilityCandidates(
   for (const entity of Object.values(data.entities)) {
     if (entity.lk) articlesWithEntry.add(entity.lk.resourceId);
     if (entity.kind !== 'place' || entity.id === home.id || !inside.has(entity.id)) continue;
-    if (used.has(entity.id)) continue;
+    // Eine Etage ist keine Einrichtung – ihre Räume stehen zur Wahl.
+    if (used.has(entity.id) || (entity.place.room && entity.place.floor)) continue;
     out.push({
       key: entity.id,
       name: entity.name,

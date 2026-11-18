@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { ORDER_LABEL, STATE_LABEL } from '../../domain/bastion';
 import { activeParty } from '../../domain/derive';
-import { roomsOf } from '../../domain/rooms';
+import { allRoomsOf } from '../../domain/rooms';
 import {
   BASTION_ORDERS,
   FACILITY_STATES,
@@ -42,7 +42,8 @@ export function FacilityDialog({
     },
   );
   const set = (change: Partial<BastionFacility>) => setDraft((d) => ({ ...d, ...change }));
-  const rooms = bastion.placeId ? roomsOf(data, bastion.placeId) : [];
+  // Auch die Räume auf den Etagen der Bastion.
+  const rooms = bastion.placeId ? allRoomsOf(data, bastion.placeId) : [];
   const party = activeParty(data);
   const toggle = (order: BastionOrder, on: boolean) =>
     set({ orders: on ? [...draft.orders, order] : draft.orders.filter((o) => o !== order) });
