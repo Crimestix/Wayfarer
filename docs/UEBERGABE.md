@@ -171,6 +171,12 @@ der Kachel auf der Übersicht und an der Gruppe in der Liste (die Einträge blei
 
 **Danach: Tag `v0.1.23` auf `49ddf41` (18. 11.)** – Filter „Unterkategorie“ der Kacheln mit „ohne Unterkategorie“.
 
+**Danach: Tag `v0.1.24` auf `76e090f` (18. 11.)** – Dimensionen und Zusammenlegen: neue Kategorie „Dimension“;
+„liegt in“ läuft durch (Ort › Orte darüber › Himmelskörper oder Dimension › Dimension), der Pfad
+über dem Namen zeigt es, auf der Seite einer Dimension oder eines Himmelskörpers steht „Darin“ mit
+„Hierher legen“. Zwei Einträge lassen sich zusammenlegen (Zeichen neben dem Papierkorb), doppelte
+Namen stehen auf der Übersicht der Welt. **DATA_VERSION 35**.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
