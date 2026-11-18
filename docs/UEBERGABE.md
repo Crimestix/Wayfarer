@@ -156,6 +156,11 @@ von Wayfarer („Stadt“ verhält sich wie Ort, „Major NPC“ wie Person) –
 bei „Neu“ und „Bearbeiten“, im Seitenkopf, in der Suche; Vorschlag aus häufigen eigenen Wörtern;
 verwaltet unter Einstellungen → „Eigene Kategorien“. **DATA_VERSION 34**.
 
+**Danach: Tag `v0.1.20` auf `edbb233` (18. 11.)** – Eigene Kategorien stehen jetzt auf der Übersicht der Welt
+statt in den Einstellungen (Kacheln, „+ Eigene Kategorie“, Vorschläge aus den Vorlagen des Wikis
+und aus häufigen Wörtern); über den Kacheln jeder Kategorie „← Übersicht“; Räume lassen sich über
+„Räume zeigen“ wiederfinden. Kein Schema geändert (**DATA_VERSION 34**).
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
