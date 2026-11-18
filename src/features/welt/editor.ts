@@ -38,6 +38,8 @@ export function useEntityDialogRequest(): EntityDialogRequest | null {
 export interface NewRequest {
   /** Vorgeschlagene Art; null = nur ein Text, ohne Art. Ohne Angabe: Person. */
   kind?: WorldKind | null;
+  /** Eine eigene Kategorie des Spielleiters (`kind` ist dann die, wie die sie sich verhält). */
+  ownKindId?: string | null;
   name?: string;
   /** Gleich den Text anfangen (Vorgabe: nein). */
   withText?: boolean;

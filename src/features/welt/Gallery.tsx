@@ -25,6 +25,10 @@ import {
   toast,
 } from '../../ui';
 import { SUGGESTION } from '../../domain/dismiss';
+import { ownKindById, ownKindSuggestions, ownPlural } from '../../domain/ownKind';
+import { isRoom } from '../../domain/rooms';
+import { ownKindFromWord } from './ownKinds';
+import { setKindFilter } from './overview';
 import { ALL_ROOMS, roomLikes } from '../../domain/rooms';
 import { setRooms } from './rooms';
 import { patchDetails } from './actions';
@@ -86,8 +90,16 @@ const PAST_HINT: Partial<Record<WorldKind, string>> = {
   item: 'Zerstörtes',
 };
 
-export function Gallery({ kind }: { kind: WorldKind }) {
+export function Gallery({
+  kind,
+  ownKindId = null,
+}: {
+  kind: WorldKind;
+  /** Nur die Einträge dieser eigenen Kategorie („Städte“) – eine Gruppe innerhalb von `kind`. */
+  ownKindId?: string | null;
+}) {
   const data = useData();
+  const own = ownKindById(data, ownKindId);
   const [filter, setFilter] = useState<GalleryFilter>(() => ({
     ...(memory[kind] ?? EMPTY_FILTER),
   }));
@@ -110,10 +122,17 @@ export function Gallery({ kind }: { kind: WorldKind }) {
     setChosenState(next);
   };
   const base = useMemo(
-    () => galleryEntries(data, kind, { ...filter, placeId, known }),
-    [data, kind, filter, placeId, known],
+    () =>
+      galleryEntries(data, kind, { ...filter, placeId, known }).filter(
+        (entity) => !own || entity.ownKindId === own.id,
+      ),
+    [data, kind, filter, placeId, known, own],
   );
-  const facets = useMemo(() => galleryFacets(data, kind, base), [data, kind, base]);
+  const facets = useMemo(
+    // In den Kacheln einer eigenen Kategorie ist sie selbst kein Filter mehr.
+    () => galleryFacets(data, kind, base).filter((facet) => !own || facet.key !== 'own'),
+    [data, kind, base, own],
+  );
   const entries = useMemo(
     () => splitPast(data, withFacets(data, base, chosen)),
     [data, base, chosen],
@@ -131,8 +150,11 @@ export function Gallery({ kind }: { kind: WorldKind }) {
     [data, kind],
   );
   const all = useMemo(
-    () => Object.values(data.entities).filter((e) => e.kind === kind),
-    [data, kind],
+    () =>
+      Object.values(data.entities).filter(
+        (e) => e.kind === kind && !isRoom(data, e) && (!own || e.ownKindId === own.id),
+      ),
+    [data, kind, own],
   );
   const total = all.length;
   const knownCount = withKnown ? all.filter((e) => isKnown(data, e, visited)).length : 0;
@@ -141,7 +163,8 @@ export function Gallery({ kind }: { kind: WorldKind }) {
     placeId !== null ||
     known !== 'all' ||
     Object.values(chosen).some(Boolean);
-  const plural = KIND_LABEL_PLURAL[kind];
+  const plural = own ? ownPlural(own) : KIND_LABEL_PLURAL[kind];
+  const single = own ? own.name : KIND_LABEL[kind];
   const create = () =>
     kind === 'person'
       ? openEntityDialog({
@@ -151,18 +174,23 @@ export function Gallery({ kind }: { kind: WorldKind }) {
             name: filter.query.trim(),
             placeId,
             met: filter.known === 'known',
+            ownKindId: own?.id ?? null,
           },
         })
-      : openNew({ kind, ...(filter.query.trim() ? { name: filter.query.trim() } : {}) });
+      : openNew({
+          kind,
+          ownKindId: own?.id ?? null,
+          ...(filter.query.trim() ? { name: filter.query.trim() } : {}),
+        });
 
   const lead =
     total === 0
       ? `Noch keine ${plural} verzeichnet.`
       : kind === 'person'
-        ? `${total} ${total === 1 ? 'Person' : 'Personen'}, ${knownCount} davon der Gruppe bekannt.`
+        ? `${total} ${total === 1 ? single : plural}, ${knownCount} davon der Gruppe bekannt.`
         : kind === 'place'
-          ? `${total} ${total === 1 ? 'Ort' : 'Orte'}, an ${knownCount} davon war die Gruppe.`
-          : `${total} ${total === 1 ? KIND_LABEL[kind] : plural}.`;
+          ? `${total} ${total === 1 ? single : plural}, an ${knownCount} davon war die Gruppe.`
+          : `${total} ${total === 1 ? single : plural}.`;
 
   const card = (entity: WorldEntity) => (
     <GalleryCard
@@ -176,7 +204,9 @@ export function Gallery({ kind }: { kind: WorldKind }) {
   return (
     <div className="wf-welt-landing wf-welt-gallery">
       <header className="wf-welt-landing__head">
-        <div className="wf-welt-landing__eyebrow">Welt</div>
+        <div className="wf-welt-landing__eyebrow">
+          {own ? `Welt · deine Kategorie, verhält sich wie ${KIND_LABEL[kind]}` : 'Welt'}
+        </div>
         <h1 className="wf-welt-landing__title">{plural}</h1>
         <p className="wf-welt-landing__lead">{lead}</p>
       </header>
@@ -238,7 +268,7 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           </div>
         )}
         <Button variant="primary" icon={<Plus />} onClick={create}>
-          {KIND_LABEL[kind]}
+          {single}
         </Button>
       </div>
       {facets.length > 0 && (
@@ -274,7 +304,8 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           )}
         </div>
       )}
-      {kind === 'place' && <RoomLikesNote />}
+      {kind === 'place' && !own && <RoomLikesNote />}
+      {!own && <OwnKindNote kind={kind} />}
       {placeId && (
         <p className="wf-welt-gallery__note">
           {kind === 'person'
@@ -441,6 +472,52 @@ function RoomLikesNote() {
         Zu Räumen machen
       </Button>
       <DismissButton suggestionKey={SUGGESTION.room(ALL_ROOMS)} what="Räume" />
+    </div>
+  );
+}
+
+/**
+ * Über den Kacheln: Ein eigenes Wort, das oft vorkommt, als eigene Kategorie führen („47 Orte
+ * heißen Stadt“) – auf einen Klick, mit Rückgängig; das Wort der Einträge bleibt stehen.
+ */
+function OwnKindNote({ kind }: { kind: WorldKind }) {
+  const db = useDb();
+  const data = useData();
+  const suggestion = useMemo(() => ownKindSuggestions(data, kind)[0], [data, kind]);
+  if (!suggestion) return null;
+  const count = suggestion.entityIds.length;
+  return (
+    <div className="wf-welt-gallery__rooms" role="note">
+      <span className="wf-grow">
+        <b>
+          {count} {KIND_LABEL_PLURAL[kind]} heißen „{suggestion.word}“.
+        </b>{' '}
+        Als eigene Kategorie stehen sie für sich in der Liste, mit eigenen Kacheln und bei „Neu“ –
+        und bleiben {KIND_LABEL_PLURAL[kind]}.
+      </span>
+      <Button
+        size="sm"
+        onClick={() => {
+          const made = ownKindFromWord(db, suggestion);
+          if (!made) return;
+          setKindFilter(kind, made.own.id);
+          toast({
+            title: `Eigene Kategorie „${made.own.name}“`,
+            body: `${count} Einträge gehören jetzt dazu. Die Mehrzahl stellst du in den Einstellungen unter „Eigene Kategorien“ ein.`,
+            duration: 12000,
+            action: {
+              label: 'Rückgängig',
+              run: () => {
+                setKindFilter(kind);
+                made.undo();
+              },
+            },
+          });
+        }}
+      >
+        „{suggestion.word}“ als Kategorie
+      </Button>
+      <DismissButton suggestionKey={suggestion.key} what="Eigene Kategorie" />
     </div>
   );
 }

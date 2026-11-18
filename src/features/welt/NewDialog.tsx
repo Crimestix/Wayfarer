@@ -3,20 +3,21 @@
  * danach gleich auf der Seite. Gibt es den Namen schon, öffnet sich der vorhandene Eintrag statt
  * eines zweiten (`newEntry`, `entryForTitle`). Auf Wunsch gleich der Text mit dem Gerüst.
  */
+import { KindSelect } from './KindSelect';
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowRight, Plus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import type { EntityKind } from '../../domain/schema';
-import { Button, Checkbox, Dialog, Field, Input, Select } from '../../ui';
+import { Button, Checkbox, Dialog, Field, Input } from '../../ui';
 import { openForWriting } from '../wiki';
 import { entryForTitle } from '../wiki/facts';
 import { newArticleParent } from '../wiki/gaps';
 import { scaffoldOf } from '../wiki/scaffold';
 import { linkIndex } from '../wiki/text';
 import { closeNew, useNewRequest, type NewRequest } from './editor';
-import { COMMON_KINDS, WORLD_KINDS, isWorldKind, wordChoices } from './model';
+import { isWorldKind, wordChoices } from './model';
 import { templateFor } from '../../domain/pageTemplate';
 import { newEntry } from './writing';
 
@@ -27,8 +28,6 @@ export function NewDialogHost() {
   return <NewDialog request={request} />;
 }
 
-const NO_KIND = 'text';
-
 function NewDialog({ request }: { request: NewRequest }) {
   const db = useDb();
   const data = useData();
@@ -37,6 +36,7 @@ function NewDialog({ request }: { request: NewRequest }) {
   const [kind, setKind] = useState<EntityKind | null>(
     request.kind === undefined ? 'person' : request.kind,
   );
+  const [ownKindId, setOwnKindId] = useState<string | null>(request.ownKindId ?? null);
   const [withText, setWithText] = useState(request.withText ?? kind === null);
   const [inFolder, setInFolder] = useState(true);
   /** Das eigene Wort unter der Kategorie – mit ihm kommt die eigene Vorlage. */
@@ -64,6 +64,7 @@ function NewDialog({ request }: { request: NewRequest }) {
       withText: writes,
       parentId: folder && inFolder ? folder.id : null,
       word,
+      ownKindId,
       ...(template && useTemplate ? { template: template.text } : {}),
     });
     closeNew();
@@ -131,31 +132,15 @@ function NewDialog({ request }: { request: NewRequest }) {
                 : 'Nur ein Text, ohne Art – eine Art lässt sich später festlegen.'
             }
           >
-            <Select
-              value={kind ?? NO_KIND}
-              aria-label="Kategorie"
-              onChange={(e) => {
-                const next = isWorldKind(e.target.value) ? e.target.value : null;
-                setKind(next);
-                if (next === null) setWithText(true);
+            <KindSelect
+              textOption
+              value={{ kind: kind && isWorldKind(kind) ? kind : null, ownKindId }}
+              onChange={(next) => {
+                setKind(next.kind);
+                setOwnKindId(next.ownKindId);
+                if (next.kind === null) setWithText(true);
               }}
-            >
-              <optgroup label="Übliche">
-                {COMMON_KINDS.map((option) => (
-                  <option key={option} value={option}>
-                    {KIND_LABEL[option]}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Weitere">
-                {WORLD_KINDS.filter((option) => !COMMON_KINDS.includes(option)).map((option) => (
-                  <option key={option} value={option}>
-                    {KIND_LABEL[option]}
-                  </option>
-                ))}
-                <option value={NO_KIND}>Nur ein Text, ohne Art</option>
-              </optgroup>
-            </Select>
+            />
           </Field>
         )}
         {!existing && kind !== null && (

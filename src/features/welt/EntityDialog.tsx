@@ -1,4 +1,6 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
+import { KindSelect } from './KindSelect';
+import { ownKinds } from '../../domain/ownKind';
 import { PLACE_SCALES, type PlaceScale } from '../../domain/schema';
 import { SCALE_LABEL, scaleOfWord } from '../../domain/placeScale';
 import { lifeWords } from '../../domain/lifespan';
@@ -60,6 +62,7 @@ import {
   forbiddenParents,
   habitatChoices,
   isWorldEntity,
+  isWorldKind,
   nameTwin,
   type EntityDraft,
   type WorldKind,
@@ -331,12 +334,26 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   key={kind}
                   type="button"
                   role="radio"
-                  aria-checked={draft.kind === kind}
-                  onClick={() => set({ kind })}
+                  aria-checked={draft.kind === kind && !draft.ownKindId}
+                  onClick={() => set({ kind, ownKindId: null })}
                 >
                   {KIND_LABEL[kind]}
                 </button>
               ))}
+              {ownKinds(data)
+                .filter((own) => isWorldKind(own.base))
+                .map((own) => (
+                  <button
+                    key={own.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.ownKindId === own.id}
+                    title={`Deine Kategorie – verhält sich wie ${KIND_LABEL[own.base as WorldKind]}`}
+                    onClick={() => set({ kind: own.base as WorldKind, ownKindId: own.id })}
+                  >
+                    {own.name}
+                  </button>
+                ))}
             </div>
             <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
           </div>
@@ -351,17 +368,12 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                   : `Aus ${KIND_LABEL[existing.kind]} wird ${KIND_LABEL[draft.kind]}: Name, Text, Notizen, Geheimnis, Lebensdaten und Beziehungen bleiben. Angaben, die nur ${KIND_LABEL_PLURAL[existing.kind]} haben, fallen weg.`
               }
             >
-              <Select
-                value={draft.kind}
-                aria-label="Kategorie"
-                onChange={(e) => setDraft((d) => draftWithKind(d, e.target.value as WorldKind))}
-              >
-                {WORLD_KINDS.map((kind) => (
-                  <option key={kind} value={kind}>
-                    {KIND_LABEL[kind]}
-                  </option>
-                ))}
-              </Select>
+              <KindSelect
+                value={{ kind: draft.kind, ownKindId: draft.ownKindId }}
+                onChange={(next) =>
+                  next.kind && setDraft((d) => draftWithKind(d, next.kind!, next.ownKindId))
+                }
+              />
             </Field>
             <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
           </div>
@@ -603,7 +615,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           )}
           {draft.kind === 'place' && (
             <Field
-              label="Größe"
+              label="Was für ein Ort"
               hint="Ändert, wer „hier“ ist und ob ein Laden der Ort selbst ist. Offen gelassen, liest Wayfarer sie aus dem Wort darunter."
             >
               <Select

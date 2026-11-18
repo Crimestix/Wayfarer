@@ -4,10 +4,10 @@
  * Knöpfe: Art und Satz, Haltung (nach der einen Regel), das Wichtigste, ein paar Zeilen des
  * Steckbriefs und Beziehungen. Ein Klick auf den Verweis öffnet die ganze Seite.
  */
+import { kindLabelOf } from '../../domain/ownKind';
 import { useMemo } from 'react';
 import { useData } from '../../data/hooks';
 import { plainMarkdown } from '../../domain/articleText';
-import { KIND_LABEL } from '../../domain/derive';
 import { AttitudeBadge, Portrait } from '../../ui';
 import { peekView } from './peek';
 
@@ -28,7 +28,7 @@ export function PeekCard({ id }: { id: string }) {
       <div className="wf-hovercard__head">
         {entity.image && <Portrait entity={entity} size={40} />}
         <div className="wf-hovercard__who">
-          <div className="wf-hovercard__kind">{KIND_LABEL[entity.kind]}</div>
+          <div className="wf-hovercard__kind">{kindLabelOf(data, entity)}</div>
           <div className="wf-hovercard__name">{entity.name}</div>
         </div>
         {view.hasAttitude && view.attitude !== null && <AttitudeBadge value={view.attitude} />}

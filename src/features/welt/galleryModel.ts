@@ -17,6 +17,7 @@ import { PARTY_ID, type CampaignData, type Entity } from '../../domain/schema';
 import { attitudeLevel } from '../../domain/relations';
 import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
 import { isMagicItem } from '../../domain/magicItem';
+import { ownKindOf } from '../../domain/ownKind';
 import { isRoom } from '../../domain/rooms';
 import { isStub } from '../../domain/stub';
 import { TERRAIN_LABEL } from '../../domain/terrain';
@@ -90,6 +91,7 @@ export function galleryWhere(data: CampaignData, entity: Entity): string {
  * nie Spielstand – und steht nur da, wenn er mindestens zwei Möglichkeiten hat.
  */
 export type FacetKey =
+  | 'own'
   | 'word'
   | 'stub'
   | 'species'
@@ -103,6 +105,7 @@ export type FacetKey =
   | 'age';
 
 export const FACET_LABEL: Record<FacetKey, string> = {
+  own: 'Deine Kategorie',
   word: 'Genauer',
   stub: 'Stand',
   species: 'Volk',
@@ -140,7 +143,10 @@ const FACETS_OF: Partial<Record<WorldKind, FacetKey[]>> = {
   realm: ['word', 'age', 'stub'],
   happening: ['word', 'age', 'stub'],
 };
-const facetsOfKind = (kind: WorldKind): FacetKey[] => FACETS_OF[kind] ?? ['word', 'age', 'stub'];
+const facetsOfKind = (kind: WorldKind): FacetKey[] => [
+  'own',
+  ...(FACETS_OF[kind] ?? (['word', 'age', 'stub'] satisfies FacetKey[])),
+];
 
 const RULES_GROUP: Record<'hostile' | 'indifferent' | 'friendly', string> = {
   friendly: 'Freundlich',
@@ -153,6 +159,10 @@ type Pair = { value: string; label: string };
 /** Was ein Eintrag zu einem Filter sagt – mehrere Werte, wenn er mehreren Fraktionen angehört. */
 export function facetValues(data: CampaignData, entity: WorldEntity, key: FacetKey): Pair[] {
   switch (key) {
+    case 'own': {
+      const own = ownKindOf(data, entity);
+      return own ? [{ value: own.id, label: own.name }] : [];
+    }
     case 'word': {
       const word = (entity.kind === 'person' ? entity.person.role : entityCategory(entity)).trim();
       return word ? [{ value: word.toLocaleLowerCase('de'), label: word }] : [];
@@ -233,21 +243,24 @@ export function galleryFacets(
   kind: WorldKind,
   entries: readonly WorldEntity[],
 ): Facet[] {
-  return facetsOfKind(kind)
-    .map((key) => {
-      const counts = new Map<string, FacetOption>();
-      for (const entity of entries)
-        for (const pair of facetValues(data, entity, key)) {
-          const option = counts.get(pair.value) ?? { ...pair, count: 0 };
-          option.count++;
-          counts.set(pair.value, option);
-        }
-      const options = [...counts.values()]
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'de'))
-        .slice(0, MOST_OPTIONS);
-      return { key, label: FACET_LABEL[key], options };
-    })
-    .filter((facet) => facet.options.length >= 2);
+  return (
+    facetsOfKind(kind)
+      .map((key) => {
+        const counts = new Map<string, FacetOption>();
+        for (const entity of entries)
+          for (const pair of facetValues(data, entity, key)) {
+            const option = counts.get(pair.value) ?? { ...pair, count: 0 };
+            option.count++;
+            counts.set(pair.value, option);
+          }
+        const options = [...counts.values()]
+          .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'de'))
+          .slice(0, MOST_OPTIONS);
+        return { key, label: FACET_LABEL[key], options };
+      })
+      // Eine eigene Kategorie ist schon allein ein Filter: „alle“ oder nur sie.
+      .filter((facet) => facet.options.length >= (facet.key === 'own' ? 1 : 2))
+  );
 }
 
 /** Lässt stehen, was zu allen gewählten Filtern passt. */

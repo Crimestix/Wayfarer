@@ -5,13 +5,14 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { kindLabelOf } from '../../domain/ownKind';
 import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
 import { PageTemplateTools } from './PageTemplate';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { BookOpen, EyeOff, Feather, Footprints, Link2, Pencil, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { KIND_LABEL, chronicleFor, placeAncestors } from '../../domain/derive';
+import { chronicleFor, placeAncestors } from '../../domain/derive';
 import { natureAt } from '../../domain/nature';
 import { isStub } from '../../domain/stub';
 import { openQuickLog } from '../../shell/commands';
@@ -306,7 +307,7 @@ export function Dossier({
                 title="Kategorie ändern – im Fenster „Bearbeiten“ ganz oben"
                 onClick={() => openEntityDialog({ mode: 'edit', id: entity.id })}
               >
-                {KIND_LABEL[entity.kind]}
+                {kindLabelOf(data, entity)}
               </button>
               {category && <span className="wf-welt-hero__category"> · {category}</span>}
               {scale &&

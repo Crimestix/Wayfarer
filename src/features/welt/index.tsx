@@ -23,7 +23,7 @@ import { Landing } from './Landing';
 import { isLexiconKind } from './lexicon';
 import { Lexicon } from './LexiconView';
 import { isWorldEntity } from './model';
-import { useKindFilter, useWorldLayout } from './overview';
+import { useKindFilter, useOwnKindFilter, useWorldLayout } from './overview';
 import { FactionNetView } from './FactionNet';
 import { Sidebar } from './Sidebar';
 import './welt.css';
@@ -79,6 +79,7 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
   const entity = entityId ? data.entities[entityId] : undefined;
   const article = articleId ? data.articles[articleId] : undefined;
   const filter = useKindFilter();
+  const ownFilter = useOwnKindFilter();
   const layout = useWorldLayout();
   const stage = useRef<HTMLDivElement>(null);
   // Ein anderes Ding beginnt wieder oben.
@@ -116,10 +117,10 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
           <GapsView />
         ) : layout === 'history' ? (
           <HistoryView />
-        ) : filter !== 'all' && isLexiconKind(filter) ? (
+        ) : filter !== 'all' && isLexiconKind(filter) && !ownFilter ? (
           <Lexicon key={filter} kind={filter} />
         ) : filter !== 'all' ? (
-          <Gallery key={filter} kind={filter} />
+          <Gallery key={`${filter}:${ownFilter ?? ''}`} kind={filter} ownKindId={ownFilter} />
         ) : (
           <>
             <Landing />

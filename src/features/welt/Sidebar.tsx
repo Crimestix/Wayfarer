@@ -3,6 +3,16 @@
  * üblichen offen, die seltenen unter „Mehr“ (nie weggefiltert); Orte als Baum. Ein „Neu“ für
  * alles (`NewDialog`). Wechselt man Liste oder Ansicht, bleibt die offene Seite stehen.
  */
+import {
+  entriesOfOwnKind,
+  kindLabelOf,
+  ownKindById,
+  ownKindCounts,
+  ownKindOf,
+  ownKindsOfBase,
+  ownPlural,
+  type OwnKind,
+} from '../../domain/ownKind';
 import { isDismissed } from '../../domain/dismiss';
 import {
   Fragment,
@@ -54,10 +64,12 @@ import { familyPlanKey, planFamilies } from './dynasty';
 import { openNew } from './editor';
 import {
   getKindFilter,
+  getOwnKindFilter,
   setKindFilter,
   setWorldLayout,
   setWorldView,
   useKindFilter,
+  useOwnKindFilter,
   useWorldLayout,
   useWorldView,
 } from './overview';
@@ -69,6 +81,7 @@ import {
   COMMON_KINDS,
   WORLD_KINDS,
   entitySubline,
+  isWorldEntity,
   kindSections,
   listKeyMove,
   nextRowIndex,
@@ -147,6 +160,9 @@ export function Sidebar({
   const dbRef = useDb();
   const [, navigate] = useLocation();
   const filter = useKindFilter();
+  /** Nur eine eigene Kategorie („Städte“) – eine Gruppe innerhalb von `filter`. */
+  const ownFilter = useOwnKindFilter();
+  const own = ownKindById(data, ownFilter);
   const src = useMediaSrc();
   const [query, setQuery] = useState(memory.query);
   const [open, setOpen] = useState(memory.open);
@@ -185,7 +201,12 @@ export function Sidebar({
   const selectedKind = selected?.kind;
   useEffect(() => {
     if (!selectedId || !selectedKind) return;
-    if (getKindFilter() !== selectedKind) setKindFilter('all');
+    const ownNow = getOwnKindFilter();
+    if (
+      getKindFilter() !== selectedKind ||
+      (ownNow && dataRef.current.entities[selectedId]?.ownKindId !== ownNow)
+    )
+      setKindFilter('all');
     if (selectedKind === 'place') setOpen((o) => openAncestors(dataRef.current, selectedId, o));
     // Steht er unter „Vergangenheit“, klappt sie auf.
     const chosen = dataRef.current.entities[selectedId];
@@ -344,7 +365,7 @@ export function Sidebar({
         <span className="wf-welt-row__sub wf-clamp-1">
           <StubMark entity={entity} />{' '}
           {[
-            withKind && KIND_LABEL[entity.kind],
+            withKind ? kindLabelOf(data, entity) : ownKindOf(data, entity)?.name,
             entitySubline(data, entity),
             past && pastLine(data, entity),
           ]
@@ -426,7 +447,26 @@ export function Sidebar({
         {pastOpen[kind] && content()}
       </div>
     );
+  const ownCounts = ownKindCounts(data);
+  /** Die Einträge einer eigenen Kategorie, flach nach Namen – auch Orte (der Baum steht bei „Orte“). */
+  const ownEntries = (kind: OwnKind): ReactNode => {
+    const members = shown(entriesOfOwnKind(data, kind.id).filter(isWorldEntity)).sort((a, b) =>
+      a.name.localeCompare(b.name, 'de'),
+    );
+    const { present, past } = splitPast(data, members);
+    if (!members.length)
+      return <p className="wf-welt-own__none">Noch nichts – „Neu“ legt den ersten Eintrag an.</p>;
+    return (
+      <>
+        {present.map((entity) => row(entity, false))}
+        {pastFold(kind.base as WorldKind, past.length, () =>
+          past.map((entity) => row(entity, false, true)),
+        )}
+      </>
+    );
+  };
   const entriesOf = (kind: WorldKind): ReactNode => {
+    if (own && filter === kind) return ownEntries(own);
     if (kind === 'place')
       return (
         <>
@@ -516,6 +556,32 @@ export function Sidebar({
         }
       />
       {!folded[kind] && entriesOf(kind)}
+      {ownKindsOfBase(data, kind).map((kindOwn) => {
+        const key = `own:${kindOwn.id}`;
+        // Eigene Kategorien sind Gruppen innerhalb ihrer Kategorie – zu Beginn zugeklappt.
+        const open = folded[key] === false;
+        return (
+          <div key={key} className="wf-welt-own">
+            <FoldHead
+              open={open}
+              onToggle={() => setFolded((f) => ({ ...f, [key]: open }))}
+              label={ownPlural(kindOwn)}
+              count={ownCounts.get(kindOwn.id) ?? 0}
+              aside={
+                <button
+                  type="button"
+                  className="wf-welt-fold__only"
+                  title={`Nur ${ownPlural(kindOwn)} zeigen`}
+                  onClick={() => setKindFilter(kind, kindOwn.id)}
+                >
+                  nur diese
+                </button>
+              }
+            />
+            {open && ownEntries(kindOwn)}
+          </div>
+        );
+      })}
     </div>
   );
   /** Liste oder Ansicht wechseln, ohne die offene Seite zu verlassen; groß gibt es sie auf Klick. */
@@ -631,7 +697,8 @@ export function Sidebar({
               <ArrowLeft aria-hidden /> Alle Arten
             </button>
             <span className="wf-welt-onlykind__what">
-              {KIND_LABEL_PLURAL[filter]} <span>{counts[filter]}</span>
+              {own ? ownPlural(own) : KIND_LABEL_PLURAL[filter]}{' '}
+              <span>{own ? (ownCounts.get(own.id) ?? 0) : counts[filter]}</span>
             </span>
           </div>
         )}

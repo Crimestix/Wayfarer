@@ -1015,6 +1015,22 @@ nicht übernommen.
   („Kontinent und Welt“) über „Land und Gegend“; der Filter heißt „Was für ein Ort“. Räume stehen
   nie in den Kacheln der Orte; raum-artige Orte (`roomLikes`) schlägt die Galerie auf einen Klick
   zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`).
+- **Eigene Kategorien** (Wunsch des Spielleiters, 18. 11. 2026: „feste Kategorien, die man
+  anlegen kann“ – in LegendKeeper hatte er dafür Vorlagen: Stadt, Distrikt, Dungeon, Major NPC …;
+  `domain/ownKind.ts`): eine benannte Gruppe **innerhalb** einer Kategorie von Wayfarer, die sich
+  „wie“ diese verhält (`campaign.ownKinds`: Name, Mehrzahl, `base`; am Eintrag `ownKindId`). Eine
+  „Stadt“ ist ein Ort und kann alles, was ein Ort kann – sie steht nur unter ihrem Namen: als
+  Gruppe direkt unter ihrer Kategorie in der Liste (`Sidebar`, „nur diese“ über
+  `setKindFilter(kind, ownKindId)`), mit eigenen Kacheln (`Gallery ownKindId`), als Filter „Deine
+  Kategorie“, bei „Neu“ und „Bearbeiten“ (`KindSelect` – dort auch „+ Eigene Kategorie anlegen …“
+  an Ort und Stelle, `OwnKindForm`), im Kopf der Seite und in der Suche. Gefragt wird immer über
+  `ownKindOf()` / `kindLabelOf()` – nie über `ownKindId` direkt: Passt die Grundkategorie nicht
+  (mehr), gilt sie nicht. Geändert über `welt/ownKinds.ts` (`addOwnKind` – nie zwei gleichen
+  Namens je Grundkategorie –, `patchOwnKind`, `removeOwnKind` – die Einträge bleiben –,
+  `setOwnKind`, `ownKindFromWord`), alles mit Rückgängig; verwaltet unter Einstellungen → „Eigene
+  Kategorien“. Ein eigenes Wort, das oft vorkommt (`ownKindSuggestions`, ab `OWN_KIND_FROM`),
+  schlägt die Galerie als Kategorie vor (`SUGGESTION.ownKind`, „×“). Wayfarer liefert keine mit;
+  fest eingebaut wird nur, was eigene Mechanik braucht.
 - Kategorien und eigenes Wort (Konzeptbesprechung 16. 11., nach dem Vorbild der Läden): Die Art
   eines Eintrags heißt sichtbar **Kategorie** (dazu Gottheit `deity`, Reich `realm`, Ereignis
   `happening`; „Thema“ heißt Überlieferung), darunter steht frei das **eigene Wort** („Genauer“,

@@ -1207,6 +1207,8 @@ export interface EntityDraft {
   ended: string;
   /** Gehört der Vergangenheit an, auch ohne bekanntes Datum (`entity.past`). */
   past: boolean;
+  /** Die eigene Kategorie des Spielleiters (`campaign.ownKinds`) – null = keine. */
+  ownKindId: string | null;
 }
 
 /** Beziehungen, die der Dialog bei einer Person als Auswahl führt: Feld, Art und Ziel. */
@@ -1260,6 +1262,7 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     born: '',
     ended: '',
     past: false,
+    ownKindId: null,
     ...preset,
   };
 }
@@ -1277,6 +1280,7 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
     born: data ? datePointText(data.campaign.calendar, entity.born) : '',
     ended: data ? datePointText(data.campaign.calendar, entity.ended) : '',
     past: entity.past,
+    ownKindId: entity.ownKindId,
   });
   if (entity.kind === 'person') {
     const links = Object.fromEntries(
@@ -1380,8 +1384,12 @@ const WHERE_FIELD: Partial<Record<WorldKind, 'placeId' | 'parentId' | 'seatId'>>
  * Mit hinüber gehen das eigene Wort (bei Personen die Rolle) und das „Wo“; alles Gemeinsame
  * (Name, Satz, Notizen, Geheimnis, Lebensdaten) steht ohnehin im Entwurf.
  */
-export function draftWithKind(draft: EntityDraft, kind: WorldKind): EntityDraft {
-  if (draft.kind === kind) return draft;
+export function draftWithKind(
+  draft: EntityDraft,
+  kind: WorldKind,
+  ownKindId: string | null = null,
+): EntityDraft {
+  if (draft.kind === kind) return { ...draft, ownKindId };
   const word = (draft.kind === 'person' ? draft.role : draft.category).trim();
   const fromField = WHERE_FIELD[draft.kind];
   const where = fromField ? draft[fromField] : null;
@@ -1389,6 +1397,7 @@ export function draftWithKind(draft: EntityDraft, kind: WorldKind): EntityDraft 
   return {
     ...draft,
     kind,
+    ownKindId,
     ...(kind === 'person' ? { role: draft.role.trim() || word } : { category: word }),
     ...(toField && !draft[toField] ? { [toField]: where } : {}),
   };
@@ -1416,6 +1425,7 @@ function buildFromDraft(
     tags: splitList(draft.tags),
     image: draft.image,
     past: draft.past,
+    ownKindId: draft.ownKindId,
   };
   const category = draft.category.trim();
   const base = existing && existing.kind === draft.kind ? existing : undefined;

@@ -3845,3 +3845,35 @@ button.wf-welt-gaps__count:hover {
   font-size: var(--text-sm);
   color: var(--ink-soft);
 }
+
+/* Eigene Kategorien: Gruppen innerhalb ihrer Kategorie, in der Liste leicht eingerückt. */
+.wf-welt-own {
+  margin-left: var(--s-3);
+  border-left: 1px solid var(--line-faint);
+}
+.wf-welt-own__none {
+  margin: 0;
+  padding: 4px var(--s-4) var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+/* Das kleine Formular „Eigene Kategorie anlegen“ – in einer Zeile, bricht um, wenn es eng wird. */
+.wf-welt-ownform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+.wf-welt-ownform .wf-input {
+  flex: 1 1 9rem;
+  min-width: 8rem;
+}
+.wf-welt-ownform__base {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}

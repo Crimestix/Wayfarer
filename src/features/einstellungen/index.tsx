@@ -32,6 +32,7 @@ import { DismissedSection } from './DismissedSection';
 import { TableRulesSheet } from '../tisch/TableRules';
 import { SyncSection } from '../abgleich/SyncSection';
 import { TestModeSection } from './TestModeSection';
+import { OwnKindsSection } from './OwnKindsSection';
 import { SECTION_LEAD } from '../abgleich/model';
 import './einstellungen.css';
 
@@ -159,6 +160,17 @@ function SectionOf({
               <SyncSection />
             )}
           </Boundary>
+        </Section>
+      );
+    case 'ownKinds':
+      return (
+        <Section
+          numeral={numeral('ownKinds')}
+          anchor="ownKinds"
+          title="Eigene Kategorien"
+          lead="Deine eigenen Kategorien für die Welt: benannte Gruppen innerhalb der Kategorien von Wayfarer – „Stadt“ wie ein Ort, „Major NPC“ wie eine Person."
+        >
+          <OwnKindsSection />
         </Section>
       );
     case 'testmode':

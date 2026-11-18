@@ -4,6 +4,7 @@
  * höchstens ein Satz –, ohne die Seite zu verlassen. Fertig geschrieben wird später („Noch zu
  * schreiben“). Nie ein zweiter Eintrag für einen Namen: Gibt es ihn schon, wird er genommen.
  */
+import { ownKindById } from '../../domain/ownKind';
 import type { CampaignDb } from '../../data/db';
 import type { Article, Entity, EntityKind, Prep, Story, Thread } from '../../domain/schema';
 import { createArticleOfKind, createNamedEntity } from '../wiki/actions';
@@ -144,6 +145,8 @@ export interface NewEntryInput {
   word?: string | undefined;
   /** Die eigene Vorlage für Kategorie und Wort – der Text beginnt mit ihr statt mit dem Gerüst. */
   template?: string | undefined;
+  /** Eine eigene Kategorie des Spielleiters (`campaign.ownKinds`). */
+  ownKindId?: string | null | undefined;
 }
 
 export interface NewEntryResult {
@@ -202,7 +205,12 @@ export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult |
   return db.batch(() => {
     const made0 = createNamedEntity(db, name, input.kind!, []);
     const word = (input.word ?? '').replace(/\s+/g, ' ').trim();
-    const entity = word ? withOwnWord(db, made0.entity, word) : made0.entity;
+    const worded = word ? withOwnWord(db, made0.entity, word) : made0.entity;
+    const own = ownKindById(db.getSnapshot(), input.ownKindId);
+    const entity =
+      own && own.base === worded.kind
+        ? db.put('entities', { ...worded, ownKindId: own.id })
+        : worded;
     const now = db.getSnapshot();
     const adopted = entity.lk ? (now.articles[entity.lk.resourceId] ?? null) : null;
     if (adopted || !input.withText) return { entity, article: adopted, created: true };

@@ -26,6 +26,8 @@ export const SUGGESTION = {
   house: (factionId: string, familyId: string) => `house:${factionId}:${familyId}`,
   /** Eine Leitfrage am Rand einer Seite (`KIND_QUESTIONS`) – je Kategorie und Frage. */
   question: (kind: string, question: string) => `question:${kind}:${question}`,
+  /** Ein eigenes Wort kommt oft vor – als eigene Kategorie führen? */
+  ownKind: (base: string, word: string) => `ownkind:${base}:${word.trim().toLocaleLowerCase('de')}`,
 } as const;
 
 export function isDismissed(data: Pick<CampaignData, 'state'>, key: string): boolean {
@@ -54,6 +56,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   tie: 'Fäden, die sich verbinden ließen',
   house: 'Fraktionen und Familien, die dasselbe Haus sein könnten',
   question: 'Leitfragen am Rand einer Seite',
+  ownkind: 'Eigene Wörter, die eine eigene Kategorie werden könnten',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */
