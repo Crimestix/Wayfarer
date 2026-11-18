@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sync-aside-put"
+description = "Enables the sync_aside_put command without any pre-configured scope."
+commands.allow = ["sync_aside_put"]
+
+[[permission]]
+identifier = "deny-sync-aside-put"
+description = "Denies the sync_aside_put command without any pre-configured scope."
+commands.deny = ["sync_aside_put"]
