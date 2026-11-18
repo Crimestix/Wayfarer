@@ -411,8 +411,24 @@ export function landOwners(data: GeoData): LandOwners {
 export const placeLands = (data: GeoData, placeId: string | null | undefined): string[] =>
   (placeId && landOwners(data).byPlace.get(placeId)) || [];
 
-/** Die Mitte mehrerer Landmassen: der Schwerpunkt ihrer Küstenpunkte auf der Kugel. */
+/** Je Planet die schon gerechneten Mitten – die Küsten eines Kontinents sind viele tausend Punkte. */
+const centerCache = new WeakMap<Planet, Map<string, LonLat | null>>();
+
+/**
+ * Die Mitte mehrerer Landmassen: der Schwerpunkt ihrer Küstenpunkte auf der Kugel. Gemerkt je
+ * Planet – die Frage kommt für jeden Ort ohne eigene Lage, oft hundertfach hintereinander.
+ */
 export function landsCenter(planet: Planet, landIds: readonly string[]): LonLat | null {
+  const key = [...landIds].sort().join('|');
+  let known = centerCache.get(planet);
+  if (!known) centerCache.set(planet, (known = new Map()));
+  if (known.has(key)) return known.get(key)!;
+  const center = computeCenter(planet, landIds);
+  known.set(key, center);
+  return center;
+}
+
+function computeCenter(planet: Planet, landIds: readonly string[]): LonLat | null {
   const wanted = new Set(landIds);
   let x = 0;
   let y = 0;

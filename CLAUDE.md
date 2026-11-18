@@ -228,6 +228,10 @@ nicht übernommen.
   einem Kartenbild einliest (`addLand`, Kennung `bild-…`), liegen im selben Dokument, haben
   keine Höhen und bleiben, wenn die Weltdatei neu eingelesen wird. Land zum Zeichnen immer über
   `landPaths()` holen – es kennt Ringe um die Pole und Land, das über anderem liegt.
+  Die Seite der Weltkarte zeichnet sich nie bei einer Mausbewegung neu: Der Zeiger über der Karte
+  steht in einem eigenen kleinen Speicher (`HoverLine` in `atlas/index.tsx`), nie im Zustand der
+  Seite; `landsCenter` merkt sich seine Ergebnisse je Planet (die Küsten sind viele tausend
+  Punkte), und die Liste fragt `placeGeo` einmal je Stand (`shownGeo`).
 - Verwandtschaft: Eine Beziehung mit `kin` sagt, was `from` für `to` ist (`sibling`, `aunt` …,
   `domain/kin.ts`). Eingetragen wird über `setKin` (`welt/kin.ts`); alles Weitere leitet
   Wayfarer ab: was sicher folgt (`kinClosure`, `derivedKin`, `relativesOf`), Generationen und
@@ -475,6 +479,9 @@ nicht übernommen.
   unter der Erde ohne Licht nur das eigene Feld). Orte auf die Karte: Werkzeug „Ort“
   (`placeSuggestions` – die Gegenden von Start und Ziel zuerst, nie Räume) und „Orte aus der
   Welt“ (`placeWorldPlaces`: Orte mit Lage auf ihr Feld, besetzte Felder bleiben).
+  Das Mausrad über der Karte vergrößert und verkleinert um die Stelle unter dem Zeiger (Umschalt:
+  seitlich rollen); die Karte passt sich beim Wechsel der Ansicht in ihre Fläche ein, bis man
+  selbst vergrößert hat (`fitZoom`, `zoomedByHand`).
   **Freie Karten, Landschaften, Beleben, Hineinzoomen** (Wunsch 17. 11.: „Karten in
   verschiedenen Maßstäben … Unsere Gelände funktionieren ähnlich wie Biome … beleben … die
   Hexkarte des Waldes erstellen“, `erkundung/freeMap.ts`, `domain/landscape.ts`): Eine **freie
@@ -992,6 +999,22 @@ nicht übernommen.
   „Zwischenzeit“ (`kind: 'downtime'`, am Beginn, je Gefährte seine Tätigkeit) nur aus den
   gewählten Tätigkeiten, Fertiges gehört auf Wunsch dem Gefährten – einem anderen nimmt es ihn
   nur ausdrücklich (`keepByDefault`), Rückgängig.
+- **Kategorie ändern – alles anpassbar** (Rückmeldung des Spielleiters, 18. 11. 2026: „Jana Becker
+  wird als Ort angezeigt und ist offensichtlich eine Person“ – „Man muss *alles* anpassen
+  können“): Die Kategorie eines Eintrags lässt sich im Fenster „Bearbeiten“ ganz oben ändern (auch
+  per Klick auf die Kategorie im Kopf der Seite). Es bleibt derselbe Eintrag (`entityFromDraft`:
+  Kennung, Artikel, Platzhalter; `draftWithKind` nimmt das eigene Wort und das „Wo“ mit –
+  Aufenthalt ↔ liegt in ↔ Sitz); `fromArticle` wird leer, damit der Steckbrief mit den Feldern der
+  neuen Kategorie neu gelesen wird. Danach löst `settleKindChange` (`welt/actions.ts`) über
+  `repairReferences` nur Verweise, die nicht mehr passen und den Eintrag nennen – mit Rückgängig.
+  Nie eine Angabe so bauen, dass Wayfarer sie festlegt und der Spielleiter sie nicht ändern kann.
+  **Himmelskörper** (`celestial`: Planet, Mond, Stern, Ebene – „Planeten sollten keine Orte
+  sein“) ist eine eigene Kategorie; die Rechnung des Planeten bleibt in `atlas`.
+  **Vergangen von Hand:** `entity.past` (Häkchen „Gehört der Vergangenheit an“) – gefragt über
+  `isPast()`; so steht etwas ohne Datum unter „Geschichte“. Größe eines Ortes: dazu `world`
+  („Kontinent und Welt“) über „Land und Gegend“; der Filter heißt „Was für ein Ort“. Räume stehen
+  nie in den Kacheln der Orte; raum-artige Orte (`roomLikes`) schlägt die Galerie auf einen Klick
+  zum Umwandeln vor (`SUGGESTION.room(ALL_ROOMS)`).
 - Kategorien und eigenes Wort (Konzeptbesprechung 16. 11., nach dem Vorbild der Läden): Die Art
   eines Eintrags heißt sichtbar **Kategorie** (dazu Gottheit `deity`, Reich `realm`, Ereignis
   `happening`; „Thema“ heißt Überlieferung), darunter steht frei das **eigene Wort** („Genauer“,

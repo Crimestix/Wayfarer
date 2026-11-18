@@ -1,4 +1,5 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
+import { repairReferences } from '../import/integrity';
 import { deleteEntity, moveParty, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import type { AttitudeMode } from '../../domain/attitudeSetting';
@@ -433,3 +434,42 @@ type DetailsOf<E extends Entity> = E extends { kind: infer K }
     ? E[K]
     : never
   : never;
+
+/**
+ * Nach dem Ändern der Kategorie (`entityFromDraft`): Verweise, die jetzt nicht mehr passen – ein
+ * Ort, der „in“ einer Person läge; jemand, der sich in einer Fraktion aufhielte –, fallen weg,
+ * genau wie beim Einspielen eines Standes (`repairReferences`). Angefasst wird nur, was den
+ * Eintrag nennt. Gibt zurück, wie viele Einträge sich dabei geändert haben, und `undo`, das den
+ * Eintrag und diese Verweise wieder so herstellt, wie sie waren.
+ */
+export function settleKindChange(
+  db: CampaignDb,
+  before: Entity,
+): { loosened: number; undo: () => void } {
+  const data = db.getSnapshot();
+  const repaired = repairReferences(data).data;
+  const touched: Entity[] = [];
+  const placeBefore = data.state.placeId;
+  db.batch(() => {
+    for (const entity of Object.values(repaired.entities)) {
+      const was = data.entities[entity.id];
+      if (!was || was === entity || entity.id === before.id) continue;
+      if (!JSON.stringify(was).includes(before.id)) continue;
+      touched.push(was);
+      db.put('entities', entity);
+    }
+    if (placeBefore === before.id && repaired.state.placeId !== placeBefore)
+      db.setState({ placeId: repaired.state.placeId });
+  });
+  return {
+    loosened: touched.length,
+    undo: () =>
+      db.batch(() => {
+        const now = db.getSnapshot();
+        if (now.entities[before.id]) db.put('entities', before);
+        for (const was of touched) if (now.entities[was.id]) db.put('entities', was);
+        if (placeBefore === before.id && now.state.placeId !== placeBefore)
+          db.setState({ placeId: placeBefore });
+      }),
+  };
+}

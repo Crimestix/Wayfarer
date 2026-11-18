@@ -59,6 +59,28 @@ export function roomArticleIds(data: Pick<CampaignData, 'entities'>): Set<string
 /** Wörter der Art, an denen man einen Raum erkennt („Dungeonraum“, „Kammer“ …). */
 const ROOM_WORDS = /(raum|räume|kammer|halle|zelle|gewölbe|gruft|kerker|stube|saal|keller)/i;
 
+/** Der Schlüssel, unter dem der Vorschlag „alle auf einmal“ weggeklickt wird. */
+export const ALL_ROOMS = 'alle';
+
+/**
+ * Alle Orte der Welt, die wie Räume aussehen, aber noch keine sind (Rückmeldung des Spielleiters,
+ * 18. 11. 2026: „Dungeon-Räume sind keine Orte“): ein Wort wie „Dungeonraum“ oder „Kammer“ und
+ * ein Ort darüber, zu dem sie gehören. Nur ein Vorschlag – umgewandelt wird auf Klick.
+ */
+export function roomLikes(
+  data: Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'state'>>,
+): Place[] {
+  if (data.state?.dismissed.includes(SUGGESTION.room(ALL_ROOMS))) return [];
+  return Object.values(data.entities).filter(
+    (entity): entity is Place =>
+      entity.kind === 'place' &&
+      !entity.place.room &&
+      !!entity.place.parentId &&
+      data.entities[entity.place.parentId]?.kind === 'place' &&
+      ROOM_WORDS.test(entity.place.category),
+  );
+}
+
 /** Orte unter diesem Ort, die wie Räume aussehen, aber noch keine sind – zum einmaligen Umwandeln. */
 export function roomCandidates(
   data: Pick<CampaignData, 'entities'> & Partial<Pick<CampaignData, 'state'>>,

@@ -86,6 +86,7 @@ describe('Übersicht', () => {
       realm: 0,
       happening: 0,
       landscape: 0,
+      celestial: 0,
     });
   });
 

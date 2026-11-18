@@ -89,6 +89,7 @@ export const WORLD_KINDS = [
   'realm',
   'happening',
   'landscape',
+  'celestial',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 
@@ -156,6 +157,7 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   realm: ['Königreich', 'Fürstentum', 'Stadtstaat', 'Grenzmark', 'Reich', 'Stammesgebiet'],
   happening: ['Krieg', 'Schlacht', 'Gründung', 'Katastrophe', 'Seuche', 'Krönung', 'Vertrag'],
   landscape: ['Wald', 'Moor', 'Heide', 'Gebirge', 'Wüste', 'Küste', 'Höhlen', 'Steppe'],
+  celestial: ['Planet', 'Mond', 'Stern', 'Komet', 'Ebene'],
   family: ['Adelshaus', 'Sippe', 'Clan', 'Dynastie', 'Kaufmannsfamilie'],
   species: ['Humanoid', 'Fee', 'Elementar', 'Untoter', 'Drache', 'Tier'],
   language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
@@ -1203,6 +1205,8 @@ export interface EntityDraft {
   /** Lebensdaten als Worte: „3. Tauwind 667“, „667“, „vor 300 Jahren“, bei Lebewesen auch „Alter 34“. */
   born: string;
   ended: string;
+  /** Gehört der Vergangenheit an, auch ohne bekanntes Datum (`entity.past`). */
+  past: boolean;
 }
 
 /** Beziehungen, die der Dialog bei einer Person als Auswahl führt: Feld, Art und Ziel. */
@@ -1255,6 +1259,7 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     professionIds: [],
     born: '',
     ended: '',
+    past: false,
     ...preset,
   };
 }
@@ -1271,6 +1276,7 @@ export function draftOf(entity: WorldEntity, data?: CampaignData): EntityDraft {
     image: entity.image,
     born: data ? datePointText(data.campaign.calendar, entity.born) : '',
     ended: data ? datePointText(data.campaign.calendar, entity.ended) : '',
+    past: entity.past,
   });
   if (entity.kind === 'person') {
     const links = Object.fromEntries(
@@ -1342,6 +1348,57 @@ export function entityFromDraft(
   existing?: WorldEntity,
   data?: Pick<CampaignData, 'campaign' | 'state'>,
 ): WorldEntity {
+  const built = buildFromDraft(draft, existing, data);
+  if (!existing || existing.kind === draft.kind) return built;
+  // Die Kategorie wurde geändert: Es bleibt derselbe Eintrag – Kennung, Artikel, Platzhalter –,
+  // nur die Angaben, die allein die alte Kategorie hatte, fallen weg. Was aus dem Steckbrief
+  // stammt, liest Wayfarer mit den Feldern der neuen Kategorie neu (`fromArticle` leer).
+  return {
+    ...built,
+    id: existing.id,
+    rev: existing.rev,
+    created: existing.created,
+    updated: existing.updated,
+    lk: existing.lk,
+    stub: existing.stub,
+    fromStoryId: existing.fromStoryId,
+    fromArticle: {},
+  } as WorldEntity;
+}
+
+/** Wo ein Eintrag ist, liegt oder sitzt – das eine „Wo“ jeder Kategorie, die eines hat. */
+const WHERE_FIELD: Partial<Record<WorldKind, 'placeId' | 'parentId' | 'seatId'>> = {
+  person: 'placeId',
+  place: 'parentId',
+  faction: 'seatId',
+  family: 'seatId',
+};
+
+/**
+ * Der Entwurf in einer anderen Kategorie (Rückmeldung des Spielleiters, 18. 11. 2026: „Jana Becker
+ * wird als Ort angezeigt und ist offensichtlich eine Person“ – „man muss alles anpassen können“).
+ * Mit hinüber gehen das eigene Wort (bei Personen die Rolle) und das „Wo“; alles Gemeinsame
+ * (Name, Satz, Notizen, Geheimnis, Lebensdaten) steht ohnehin im Entwurf.
+ */
+export function draftWithKind(draft: EntityDraft, kind: WorldKind): EntityDraft {
+  if (draft.kind === kind) return draft;
+  const word = (draft.kind === 'person' ? draft.role : draft.category).trim();
+  const fromField = WHERE_FIELD[draft.kind];
+  const where = fromField ? draft[fromField] : null;
+  const toField = WHERE_FIELD[kind];
+  return {
+    ...draft,
+    kind,
+    ...(kind === 'person' ? { role: draft.role.trim() || word } : { category: word }),
+    ...(toField && !draft[toField] ? { [toField]: where } : {}),
+  };
+}
+
+function buildFromDraft(
+  draft: EntityDraft,
+  existing?: WorldEntity,
+  data?: Pick<CampaignData, 'campaign' | 'state'>,
+): WorldEntity {
   // Lebensdaten: nur mit Kalender lesbar; unverändert bleibt der genaue gespeicherte Wert.
   const life = (text: string, kept: DatePoint | null, age: boolean): DatePoint | null => {
     if (!data) return kept;
@@ -1358,6 +1415,7 @@ export function entityFromDraft(
     secret: draft.secret.trim(),
     tags: splitList(draft.tags),
     image: draft.image,
+    past: draft.past,
   };
   const category = draft.category.trim();
   const base = existing && existing.kind === draft.kind ? existing : undefined;
@@ -1452,7 +1510,8 @@ export function entityFromDraft(
     case 'deity':
     case 'realm':
     case 'happening':
-    case 'landscape': {
+    case 'landscape':
+    case 'celestial': {
       const kind = draft.kind;
       if (base) {
         const details = (base as unknown as Record<string, object>)[kind];

@@ -4,11 +4,14 @@ import { Link, useLocation } from 'wouter';
 import { openSheet, sheetOpensAt } from './sideSheet';
 import {
   Castle,
+  Crown,
   Dna,
+  Earth,
   Feather,
   Flame,
   Gem,
   Hammer,
+  Hourglass,
   Languages,
   Leaf,
   MapPin,
@@ -17,14 +20,12 @@ import {
   Plus,
   ScrollText,
   Shield,
+  Sun,
   Swords,
+  Trees,
   User,
   Users,
   X,
-  Sun,
-  Crown,
-  Hourglass,
-  Trees,
 } from 'lucide-react';
 import { useData } from '../data/hooks';
 import { useMediaSrc } from '../data/media';
@@ -64,6 +65,7 @@ const KIND_ICONS: Record<EntityKind, typeof User> = {
   realm: Crown,
   happening: Hourglass,
   landscape: Trees,
+  celestial: Earth,
 };
 
 export function KindIcon({ kind, size }: { kind: EntityKind; size?: number }) {

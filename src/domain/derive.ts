@@ -52,6 +52,7 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   realm: 'Reich',
   happening: 'Ereignis',
   landscape: 'Landschaft',
+  celestial: 'Himmelskörper',
 };
 
 export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
@@ -74,6 +75,7 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   realm: 'Reiche',
   happening: 'Ereignisse',
   landscape: 'Landschaften',
+  celestial: 'Himmelskörper',
 };
 
 /**

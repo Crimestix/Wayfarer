@@ -10,7 +10,8 @@ import type { CampaignData, Place, PlaceScale } from './schema';
 export type ScaleOrRoom = PlaceScale | 'room';
 
 export const SCALE_LABEL: Record<ScaleOrRoom, string> = {
-  region: 'Gegend',
+  world: 'Kontinent und Welt',
+  region: 'Land und Gegend',
   settlement: 'Siedlung',
   building: 'Gebäude',
   room: 'Raum',
@@ -18,9 +19,11 @@ export const SCALE_LABEL: Record<ScaleOrRoom, string> = {
 
 /** Wörter, an deren Ende sich die Größe ablesen lässt („Hafenstadt“, „Waldschmiede“). */
 const SCALE_WORDS: [PlaceScale, RegExp][] = [
+  // Das Größte zuerst: „Kontinentalwelt“ endet auch auf „welt“, „Unterwelt“ ist eine Welt für sich.
+  ['world', /(kontinent|kontinentalwelt|welt|erdteil|halbkugel|hemisphäre|ozean|weltmeer)$/i],
   [
     'region',
-    /(region|gegend|provinz|reich|königreich|kontinent|insel|gebirge|berge|wald|forst|ebene|wüste|sumpf|meer|see|küste|tal|wildnis|land|mark|welt|ödland|steppe|tundra)$/i,
+    /(region|gegend|provinz|reich|königreich|insel|gebirge|berge|wald|forst|ebene|wüste|sumpf|meer|see|küste|tal|wildnis|land|mark|ödland|steppe|tundra)$/i,
   ],
   [
     'settlement',
@@ -56,5 +59,5 @@ export function placeScale(data: Pick<CampaignData, 'entities'>, place: Place): 
 
 /** Eine Gegend oder Siedlung – ein Ort, in dem andere Orte liegen (für Läden, „Wer hier ist“). */
 export function isWideScale(scale: ScaleOrRoom | null): boolean {
-  return scale === 'region' || scale === 'settlement';
+  return scale === 'world' || scale === 'region' || scale === 'settlement';
 }

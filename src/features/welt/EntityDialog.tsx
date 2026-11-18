@@ -6,7 +6,7 @@ import { useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocation } from 'wouter';
 import { Dices, EyeOff, ImagePlus, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { KIND_LABEL } from '../../domain/derive';
+import { KIND_LABEL, KIND_LABEL_PLURAL } from '../../domain/derive';
 import { RARITY_LABEL, isNatureKind } from '../../domain/nature';
 import { seasonsAt } from '../../domain/seasons';
 import { freshSeed } from '../../domain/random';
@@ -33,6 +33,7 @@ import {
   adoptFamilies,
   discardUnusedDrafts,
   noteHolderChange,
+  settleKindChange,
   syncLinkedRelations,
 } from './actions';
 import { surnameOf } from './dynasty';
@@ -53,6 +54,7 @@ import {
   draftChanged,
   draftOf,
   draftProblem,
+  draftWithKind,
   emptyDraft,
   entityFromDraft,
   forbiddenParents,
@@ -83,6 +85,8 @@ const KIND_HINT: Record<WorldKind, string> = {
     'Ereignis – Kriege, Gründungen, Katastrophen: was in der Geschichte der Welt geschah, mit Beginn und Ende.',
   landscape:
     'Landschaft – Wald, Moor, Höhlen: wie eine Gegend aussieht, wie man durchkommt und wer dort lebt. Man malt sie auf Hexkarten.',
+  celestial:
+    'Himmelskörper – Planeten, Monde, Sterne und Ebenen: das, worauf Orte liegen oder was am Himmel steht.',
   species: 'Spezies – Völker und Wesen, aus denen Personen stammen.',
   language: 'Sprache – was gesprochen wird; wer sie spricht, steht bei der Person.',
   script: 'Schrift – Alphabete und Zeichen, in denen Sprachen geschrieben werden.',
@@ -105,6 +109,7 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   realm: 'z. B. Küstenreich, das von Zöllen lebt.',
   happening: 'z. B. Der Krieg, der die alte Brücke zerstörte.',
   landscape: 'z. B. Nebelwald, in dem die Dunkelwölfe jagen.',
+  celestial: 'z. B. Der kleinere der beiden Monde, rot wie Rost.',
   family: 'z. B. Altes Seefahrerhaus, das seine Schulden verbirgt.',
   species: 'Ein Satz, woran man sie am Tisch erkennt.',
   language: 'Ein Satz, wie sie klingt und wo man sie hört.',
@@ -216,6 +221,19 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
       discardUnusedDrafts(db, created.current, []);
       return entity;
     });
+    // Kategorie geändert: Verweise, die nicht mehr passen, lösen – und sagen, was geschah.
+    if (existing && existing.kind !== saved.kind) {
+      const settled = settleKindChange(db, existing);
+      toast({
+        title: `„${saved.name}“ ist jetzt ${KIND_LABEL[saved.kind]}`,
+        body:
+          settled.loosened > 0
+            ? `Vorher ${KIND_LABEL[existing.kind]}. ${settled.loosened === 1 ? 'Ein Verweis' : `${settled.loosened} Verweise`}, die nur zu ${KIND_LABEL_PLURAL[existing.kind]} passten, wurden gelöst.`
+            : `Vorher ${KIND_LABEL[existing.kind]}. Text, Notizen und Beziehungen sind geblieben.`,
+        duration: 12000,
+        action: { label: 'Rückgängig', run: settled.undo },
+      });
+    }
     closeEntityDialog();
     if (!existing) navigate(`/welt/${saved.id}`);
     // Familie aus dem Nachnamen: bei neuen Personen und wenn sich der Nachname geändert hat –
@@ -306,7 +324,7 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
             <div
               className="wf-welt-filter wf-welt-filter--kinds"
               role="radiogroup"
-              aria-label="Art"
+              aria-label="Kategorie"
             >
               {WORLD_KINDS.map((kind) => (
                 <button
@@ -320,6 +338,31 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
                 </button>
               ))}
             </div>
+            <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
+          </div>
+        )}
+        {existing && (
+          <div className="wf-welt-form__kindrow">
+            <Field
+              label="Kategorie"
+              hint={
+                draft.kind === existing.kind
+                  ? 'Stimmt die Kategorie nicht? Hier lässt sie sich ändern.'
+                  : `Aus ${KIND_LABEL[existing.kind]} wird ${KIND_LABEL[draft.kind]}: Name, Text, Notizen, Geheimnis, Lebensdaten und Beziehungen bleiben. Angaben, die nur ${KIND_LABEL_PLURAL[existing.kind]} haben, fallen weg.`
+              }
+            >
+              <Select
+                value={draft.kind}
+                aria-label="Kategorie"
+                onChange={(e) => setDraft((d) => draftWithKind(d, e.target.value as WorldKind))}
+              >
+                {WORLD_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {KIND_LABEL[kind]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <p className="wf-welt-form__kindhint">{KIND_HINT[draft.kind]}</p>
           </div>
         )}
@@ -753,6 +796,12 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           >
             <Input value={draft.ended} onChange={(e) => set({ ended: e.target.value })} />
           </Field>
+          <div className="wf-span-2">
+            <Checkbox checked={draft.past} onChange={(past) => set({ past })}>
+              Gehört der Vergangenheit an – auch ohne bekanntes Datum (steht dann unter
+              „Geschichte“, nicht zwischen dem, was heute ist)
+            </Checkbox>
+          </div>
           <Field label="Beinamen" hint="Andere Namen, mit Komma getrennt – die Suche findet sie.">
             <Input value={draft.aliases} onChange={(e) => set({ aliases: e.target.value })} />
           </Field>

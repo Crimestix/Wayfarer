@@ -300,7 +300,14 @@ export function Dossier({
           </nav>
           <div className="wf-welt-hero__kind">
             <span>
-              {KIND_LABEL[entity.kind]}
+              <button
+                type="button"
+                className="wf-welt-hero__kindbtn"
+                title="Kategorie ändern – im Fenster „Bearbeiten“ ganz oben"
+                onClick={() => openEntityDialog({ mode: 'edit', id: entity.id })}
+              >
+                {KIND_LABEL[entity.kind]}
+              </button>
               {category && <span className="wf-welt-hero__category"> · {category}</span>}
               {scale &&
                 !category

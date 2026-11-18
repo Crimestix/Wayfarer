@@ -2,7 +2,7 @@
  * Atlas – der Planet und wo alles liegt. Links die Orte, rechts die Weltkarte. Ein Ort bekommt
  * seine Lage, indem man ihn wählt und auf die Karte klickt; Orte darunter erben sie.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { useLocation, useParams } from 'wouter';
 import {
   Check,
@@ -76,6 +76,40 @@ const fold = (value: string) =>
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase();
 
+/**
+ * Wo der Zeiger über der Karte steht. Bewusst kein Zustand der Seite: Sonst zeichnete sich bei
+ * jeder Mausbewegung die ganze Seite neu (Liste, Karte, alles) – so ruckelte die Weltkarte.
+ */
+let hoverPoint: LonLat | null = null;
+const hoverListeners = new Set<() => void>();
+function setHover(point: LonLat | null): void {
+  hoverPoint = point;
+  for (const listener of hoverListeners) listener();
+}
+const subscribeHover = (listener: () => void) => {
+  hoverListeners.add(listener);
+  return () => {
+    hoverListeners.delete(listener);
+  };
+};
+
+/** Die Zeile unter der Karte: Lage und Gelände unter dem Zeiger. */
+function HoverLine({
+  planet,
+  grid,
+}: {
+  planet: Parameters<typeof terrainAt>[0];
+  grid: Parameters<typeof terrainAt>[1];
+}) {
+  const hover = useSyncExternalStore(subscribeHover, () => hoverPoint);
+  if (!hover) return null;
+  return (
+    <span className="wf-num">
+      {formatGeo(hover)} · {describeTerrain(terrainAt(planet, grid, hover))}
+    </span>
+  );
+}
+
 export default function AtlasPage() {
   const db = useDb();
   const data = useData();
@@ -86,7 +120,6 @@ export default function AtlasPage() {
   const [query, setQuery] = useState('');
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [placing, setPlacing] = useState(false);
-  const [hover, setHover] = useState<LonLat | null>(null);
   const [focus, setFocus] = useState<LonLat | null>(null);
   // Eine angeklickte Landmasse, die (noch) kein Ort der Welt ist.
   const [landId, setLandId] = useState<string | null>(null);
@@ -119,12 +152,12 @@ export default function AtlasPage() {
   const selected = id ? data.entities[id] : undefined;
   const place: Place | null = selected?.kind === 'place' ? selected : null;
   const viaMaps = useMemo(() => placed.filter((p) => p.via).length, [placed]);
-  const located = place ? placeGeo(data, place.id) : null;
+  const located = useMemo(() => (place ? placeGeo(data, place.id) : null), [data, place]);
   const onMaps = useMemo(
     () => (place && !place.place.geo ? mapsOfPlace(data, place.id) : []),
     [data, place],
   );
-  const party = placeGeo(data, data.state.placeId);
+  const party = useMemo(() => placeGeo(data, data.state.placeId), [data]);
   // Ein Kontinent ist kein Punkt: Der gewählte Ort umfasst Landmassen – sie leuchten auf.
   const area = useMemo(
     () => (place ? placeLands(data, place.id) : landId ? [landId] : []),
@@ -169,6 +202,11 @@ export default function AtlasPage() {
       .slice(0, 300);
   }, [places, query, onlyMissing, data]);
 
+  // Die Lage je Zeile der Liste – einmal je Stand gerechnet, nicht bei jedem Neuzeichnen.
+  const shownGeo = useMemo(
+    () => new Map(shown.map((entry) => [entry.id, placeGeo(data, entry.id)])),
+    [shown, data],
+  );
   const mapPlaces = useMemo<MapPlace[]>(
     () => placed.map((p) => ({ id: p.place.id, name: p.place.name, geo: p.geo, major: p.major })),
     [placed],
@@ -299,7 +337,6 @@ export default function AtlasPage() {
     });
   };
 
-  const hoverTerrain = hover ? terrainAt(planet, grid, hover) : null;
   const placeId = place?.id ?? null;
   const leg = useMemo(
     () => (placeId && data.state.placeId ? legBetween(data, data.state.placeId, placeId) : null),
@@ -481,7 +518,7 @@ export default function AtlasPage() {
         <div className="wf-atlas-side__list">
           {shown.length ? (
             shown.map((entry) => {
-              const geo = placeGeo(data, entry.id);
+              const geo = shownGeo.get(entry.id) ?? null;
               return (
                 <button
                   key={entry.id}
@@ -739,11 +776,7 @@ export default function AtlasPage() {
           ) : (
             <span>{planet.doc.name || 'Der Planet'}</span>
           )}
-          {hover && hoverTerrain && (
-            <span className="wf-num">
-              {formatGeo(hover)} · {describeTerrain(hoverTerrain)}
-            </span>
-          )}
+          <HoverLine planet={planet} grid={grid} />
         </div>
       </div>
       {tracing && (

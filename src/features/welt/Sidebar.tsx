@@ -123,6 +123,7 @@ const EMPTY_HINT: Record<WorldKind, string> = {
   realm: 'Königreiche, Fürstentümer und Stadtstaaten.',
   happening: 'Was in der Geschichte der Welt geschah.',
   landscape: 'Wald, Moor, Höhlen – wie die Welt draußen aussieht und wer dort lebt.',
+  celestial: 'Planeten, Monde, Sterne und Ebenen.',
   family: 'Häuser, Sippen und Dynastien – wer zu wem gehört.',
   species: 'Die Völker und Wesen der Welt.',
   language: 'Was in der Welt gesprochen wird.',

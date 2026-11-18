@@ -145,6 +145,7 @@ export function endOf(data: CampaignData, entity: Entity): DatePoint | null {
  * nur für sich, nicht zwischen dem, was heute ist.
  */
 export function isPast(data: CampaignData, entity: Entity): boolean {
+  if (entity.past) return true;
   if (entity.kind === 'person' && entity.person.status === 'dead') return true;
   if (entity.kind === 'character' && entity.character.status === 'dead') return true;
   const end = endOf(data, entity);

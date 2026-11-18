@@ -14,6 +14,7 @@ import { showsAttitude } from '../../domain/relations';
 import {
   AttitudeBadge,
   Button,
+  DismissButton,
   EmptyState,
   IconButton,
   Input,
@@ -21,7 +22,11 @@ import {
   Portrait,
   Select,
   cx,
+  toast,
 } from '../../ui';
+import { SUGGESTION } from '../../domain/dismiss';
+import { ALL_ROOMS, roomLikes } from '../../domain/rooms';
+import { setRooms } from './rooms';
 import { patchDetails } from './actions';
 import { openEntityDialog, openNew } from './editor';
 import {
@@ -269,6 +274,7 @@ export function Gallery({ kind }: { kind: WorldKind }) {
           )}
         </div>
       )}
+      {kind === 'place' && <RoomLikesNote />}
       {placeId && (
         <p className="wf-welt-gallery__note">
           {kind === 'person'
@@ -388,6 +394,53 @@ function GalleryCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Über den Kacheln der Orte: Orte, die wie Räume aussehen („Dungeonraum“, „Kammer“), auf einen
+ * Klick zu Räumen machen – sie stehen dann auf der Seite ihres Ortes statt zwischen den Orten.
+ */
+function RoomLikesNote() {
+  const db = useDb();
+  const data = useData();
+  const likes = useMemo(() => roomLikes(data), [data]);
+  if (!likes.length) return null;
+  const examples = likes
+    .slice(0, 3)
+    .map((place) => `„${place.name}“`)
+    .join(', ');
+  return (
+    <div className="wf-welt-gallery__rooms" role="note">
+      <span className="wf-grow">
+        <b>
+          {likes.length === 1 ? 'Ein Ort sieht' : `${likes.length} Orte sehen`} aus wie ein Raum
+        </b>{' '}
+        ({examples}
+        {likes.length > 3 ? ' …' : ''}). Räume stehen auf der Seite ihres Ortes, nicht zwischen den
+        Orten.
+      </span>
+      <Button
+        size="sm"
+        onClick={() => {
+          const undo = setRooms(
+            db,
+            likes.map((place) => place.id),
+            true,
+          );
+          toast({
+            title:
+              likes.length === 1 ? 'Zum Raum gemacht' : `${likes.length} Orte zu Räumen gemacht`,
+            body: 'Sie stehen jetzt bei ihrem Ort unter „Räume“.',
+            duration: 12000,
+            action: { label: 'Rückgängig', run: undo },
+          });
+        }}
+      >
+        Zu Räumen machen
+      </Button>
+      <DismissButton suggestionKey={SUGGESTION.room(ALL_ROOMS)} what="Räume" />
     </div>
   );
 }

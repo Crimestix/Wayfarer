@@ -203,6 +203,46 @@ function AreaView({ area }: { area: Area }) {
     if (!zoomedByHand.current && width) setZoom(fitZoom(area, width - 32));
     // Nur beim Wechsel der Ansicht neu einpassen – nicht bei jeder Änderung der Karte.
   }, [mode]);
+  // Mausrad: größer und kleiner, um die Stelle unter dem Zeiger (Rückmeldung des Spielleiters,
+  // 18. 11. 2026). Mit Umschalt rollt das Rad wie gewohnt zur Seite.
+  const zoomNow = useRef(zoom);
+  zoomNow.current = zoom;
+  const zoomAnchor = useRef<{ x: number; y: number; cx: number; cy: number; from: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el) return;
+    let rolled = 0;
+    const onWheel = (event: WheelEvent) => {
+      if (event.shiftKey) return;
+      event.preventDefault();
+      rolled += event.deltaY;
+      // Ein Rastschritt des Rades ist eine Stufe; ein Tastfeld liefert viele kleine Schritte.
+      if (Math.abs(rolled) < 40) return;
+      const from = zoomNow.current;
+      const to = Math.max(0, Math.min(SIZES.length - 1, from + (rolled > 0 ? -1 : 1)));
+      rolled = 0;
+      if (to === from) return;
+      const box = el.getBoundingClientRect();
+      const cx = event.clientX - box.left;
+      const cy = event.clientY - box.top;
+      zoomAnchor.current = { x: el.scrollLeft + cx, y: el.scrollTop + cy, cx, cy, from };
+      zoomedByHand.current = true;
+      setZoom(to);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [mode]);
+  useLayoutEffect(() => {
+    const anchor = zoomAnchor.current;
+    const el = mapRef.current;
+    if (!anchor || !el) return;
+    zoomAnchor.current = null;
+    const ratio = SIZES[zoom]! / SIZES[anchor.from]!;
+    el.scrollLeft = anchor.x * ratio - anchor.cx;
+    el.scrollTop = anchor.y * ratio - anchor.cy;
+  }, [zoom]);
   /** Die gewählten Felder beim Vorbereiten – eins oder mehrere. */
   const [picked, setPicked] = useState<HexCoord[]>([]);
   const editor = useHexEditor(area);

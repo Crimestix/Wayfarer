@@ -3803,3 +3803,45 @@ button.wf-welt-gaps__count:hover {
   color: var(--blood-bright);
   font-weight: 600;
 }
+
+/* Die Kategorie im Kopf einer Seite ist ein Knopf: Ein Klick öffnet „Bearbeiten“, wo sie sich ändern lässt. */
+.wf-welt-hero__kindbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  border-bottom: 1px dotted transparent;
+}
+.wf-welt-hero__kindbtn:hover,
+.wf-welt-hero__kindbtn:focus-visible {
+  border-bottom-color: var(--gold);
+  color: var(--gold-bright);
+}
+.wf-welt-form__kindrow {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+.wf-welt-form__kindrow .wf-welt-form__kindhint {
+  margin-top: 22px;
+}
+
+/* Über den Kacheln der Orte: der Vorschlag, raum-artige Orte zu Räumen zu machen. */
+.wf-welt-gallery__rooms {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}

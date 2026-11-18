@@ -442,6 +442,8 @@ export function WorldMap({
   const drag = useRef<{ x: number; y: number; view: MapView; moved: boolean } | null>(null);
 
   const colors = useMemo(readColors, []);
+  /** Die Schrift der Karte – einmal gelesen, nicht bei jedem Bild (das kostet eine Stilrechnung). */
+  const fontFamily = useRef('');
   const relief = useMemo(() => (grid ? reliefImage(grid, colors) : null), [grid, colors]);
   const shapes = useMemo(() => {
     const lands = landPaths(planet);
@@ -669,7 +671,7 @@ export function WorldMap({
     }
 
     // Namen der Kontinente: aus der Ferne groß und gesperrt, aus der Nähe treten sie zurück.
-    const font = getComputedStyle(element).fontFamily;
+    const font = (fontFamily.current ||= getComputedStyle(element).fontFamily);
     if (areas?.length) {
       const far = scale < minScale * 6;
       ctx.textAlign = 'center';

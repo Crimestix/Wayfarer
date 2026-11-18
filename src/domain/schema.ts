@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 32;
-export const DATA_SHAPE = '3612cd7487237b33';
+export const DATA_VERSION = 33;
+export const DATA_SHAPE = 'a5dd88b4e0df1be3';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -319,6 +319,7 @@ export const ENTITY_KINDS = [
   'realm',
   'happening',
   'landscape',
+  'celestial',
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
@@ -350,6 +351,11 @@ const entityBase = {
   born: DatePointSchema.nullable().default(null),
   /** Gestorben, aufgelöst, zerstört – bei Personen sonst aus der Chronik (Schicksal). */
   ended: DatePointSchema.nullable().default(null),
+  /**
+   * Gehört der Vergangenheit an, ohne dass ein Zeitpunkt bekannt ist (von Hand gesetzt): ein Ort,
+   * den es nicht mehr gibt, jemand, der seit Langem tot ist. Gefragt wird über `isPast()`.
+   */
+  past: z.boolean().default(false),
   /** Bild als Data-URL. */
   image: z.string().nullable().default(null),
   /** Verknüpfter Artikel im Wiki (der Name des Feldes stammt aus der Zeit vor dem eigenen Wiki). */
@@ -425,7 +431,7 @@ export const HazardSchema = z.object({
 export type Hazard = z.infer<typeof HazardSchema>;
 
 /** Die Größen eines Ortes, die etwas ändern (Wer hier ist, Räume, Läden). */
-export const PLACE_SCALES = ['region', 'settlement', 'building'] as const;
+export const PLACE_SCALES = ['world', 'region', 'settlement', 'building'] as const;
 export type PlaceScale = (typeof PLACE_SCALES)[number];
 
 const PlaceDetails = z.object({
@@ -822,6 +828,15 @@ const HappeningDetails = z.object({
 });
 
 /**
+ * Himmelskörper (Rückmeldung des Spielleiters, 18. 11. 2026: „Planeten sollten keine Orte sein“):
+ * Planet, Mond, Stern, Ebene – das, worauf Orte liegen oder was am Himmel steht. Ein Artikel wie
+ * jeder andere; die Rechnung des Planeten (Küsten, Lage) steht weiter in der Sammlung `atlas`.
+ */
+const CelestialDetails = z.object({
+  category: z.string().default(''),
+});
+
+/**
  * Landschaft (Wunsch des Spielleiters, 17. 11. 2026: „Unsere Gelände funktionieren ähnlich wie
  * Biome“): eine Art Gegend – „Wald“, „Schwarzmoor“, „Kristallhöhlen“ –, geschrieben wie jeder
  * Artikel und auf Hexkarten gemalt (`hex.landscapeId`). Für die Regeln zählt das Grundgelände
@@ -888,6 +903,11 @@ export const EntitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('landscape'),
     landscape: LandscapeDetails.prefault({}),
   }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('celestial'),
+    celestial: CelestialDetails.prefault({}),
+  }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -902,6 +922,7 @@ export type Species = EntityOf<'species'>;
 export type Deity = EntityOf<'deity'>;
 export type Realm = EntityOf<'realm'>;
 export type Happening = EntityOf<'happening'>;
+export type Celestial = EntityOf<'celestial'>;
 export type Landscape = EntityOf<'landscape'>;
 export type Language = EntityOf<'language'>;
 export type Script = EntityOf<'script'>;

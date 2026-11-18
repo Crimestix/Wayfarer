@@ -17,6 +17,7 @@ import { PARTY_ID, type CampaignData, type Entity } from '../../domain/schema';
 import { attitudeLevel } from '../../domain/relations';
 import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
 import { isMagicItem } from '../../domain/magicItem';
+import { isRoom } from '../../domain/rooms';
 import { isStub } from '../../domain/stub';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { agesAt } from '../../domain/ages';
@@ -45,12 +46,16 @@ export function galleryEntries(
       : entitiesOfKind(data, kind);
   const scope = filter.placeId ? scopeMembers(data, filter.placeId) : null;
   const visited = filter.known !== 'all' && knowsKnown(kind) ? visitedPlaces(data) : null;
-  return pool
-    .filter(isWorldEntity)
-    .filter((entity) => entity.kind === kind)
-    .filter((entity) => !scope || (scope.has(entity.id) && entity.id !== filter.placeId))
-    .filter((entity) => !visited || isKnown(data, entity, visited) === (filter.known === 'known'))
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return (
+    pool
+      .filter(isWorldEntity)
+      .filter((entity) => entity.kind === kind)
+      // Räume stehen auf der Seite ihres Ortes, nicht zwischen den Orten.
+      .filter((entity) => !isRoom(data, entity))
+      .filter((entity) => !scope || (scope.has(entity.id) && entity.id !== filter.placeId))
+      .filter((entity) => !visited || isKnown(data, entity, visited) === (filter.known === 'known'))
+      .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  );
 }
 
 /** Die zweite Zeile einer Karte: wo es ist oder wem es gehört – leer, wenn nichts bekannt ist. */
@@ -103,7 +108,7 @@ export const FACET_LABEL: Record<FacetKey, string> = {
   species: 'Volk',
   group: 'Gehört zu',
   attitude: 'Haltung zur Gruppe',
-  scale: 'Größe',
+  scale: 'Was für ein Ort',
   magic: 'Magie',
   holder: 'Besitz',
   ground: 'Gelände',
