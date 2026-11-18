@@ -5,6 +5,8 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { isWorld, liesIn } from '../../domain/worlds';
+import { WorldInside } from './WorldInside';
 import { kindPathOf } from '../../domain/ownKind';
 import { SCALE_LABEL, placeScale } from '../../domain/placeScale';
 import { PageTemplateTools } from './PageTemplate';
@@ -12,7 +14,7 @@ import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { BookOpen, EyeOff, Feather, Footprints, Link2, Pencil, Trash2 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { chronicleFor, placeAncestors } from '../../domain/derive';
+import { chronicleFor } from '../../domain/derive';
 import { natureAt } from '../../domain/nature';
 import { isStub } from '../../domain/stub';
 import { openQuickLog } from '../../shell/commands';
@@ -141,7 +143,8 @@ export function Dossier({
       action: { label: 'Rückgängig', run: undo },
     });
   };
-  const above = entity.kind === 'place' ? placeAncestors(data, entity.id).reverse() : [];
+  // Der Pfad über dem Namen: Dimension › Himmelskörper › Orte darüber (`liesIn`).
+  const above = liesIn(data, entity);
   const category = entity.kind === 'person' ? '' : entityCategory(entity).trim();
   const scale = entity.kind === 'place' ? placeScale(data, entity) : null;
 
@@ -210,6 +213,7 @@ export function Dossier({
         entity.kind === 'ability' ||
         entity.kind === 'profession') && <KnowledgePeople entity={entity} />,
     places: () => entity.kind === 'place' && <PlacesBelow place={entity} />,
+    inside: () => isWorld(entity) && <WorldInside world={entity} />,
     shopsHere: () => <ShopsHere shops={shops.listed} />,
     rooms: () => entity.kind === 'place' && <RoomsSection place={entity} />,
     travel: () => entity.kind === 'place' && <TravelSection place={entity} />,

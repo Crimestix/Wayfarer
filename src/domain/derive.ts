@@ -53,6 +53,7 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   happening: 'Ereignis',
   landscape: 'Landschaft',
   celestial: 'Himmelskörper',
+  dimension: 'Dimension',
 };
 
 export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
@@ -76,6 +77,7 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
   happening: 'Ereignisse',
   landscape: 'Landschaften',
   celestial: 'Himmelskörper',
+  dimension: 'Dimensionen',
 };
 
 /**
@@ -86,7 +88,7 @@ export const KIND_LABEL_PLURAL: Record<EntityKind, string> = {
  */
 export const DETAIL_LINKS = {
   person: ['placeId', 'homeId', 'speciesId', 'workplaceId'],
-  place: ['parentId'],
+  place: ['parentId', 'worldId'],
   faction: ['seatId'],
   character: ['placeId'],
   item: ['holderId'],
@@ -98,6 +100,7 @@ export const DETAIL_LINKS = {
   deity: ['seatId'],
   realm: ['seatId', 'regionIds'],
   happening: ['placeId'],
+  celestial: ['dimensionId'],
 } as const satisfies Partial<Record<EntityKind, readonly string[]>>;
 
 type LinkKind = keyof typeof DETAIL_LINKS;

@@ -80,6 +80,7 @@ export const KIND_QUESTIONS: Partial<Record<EntityKind, readonly string[]>> = {
   realm: ['Wer herrscht wirklich?', 'Woran zerbricht es, wenn niemand eingreift?'],
   happening: ['Wer hat davon profitiert?', 'Was merkt man heute noch davon?'],
   celestial: ['Was sieht man davon am Himmel?', 'Was glauben die Leute darüber?'],
+  dimension: ['Wie kommt man hinein – und wieder heraus?', 'Was gilt dort anders als sonst?'],
   topic: ['Wer glaubt daran, und wer nicht?'],
   species: ['Wie leben sie, und was fürchten sie?'],
 };

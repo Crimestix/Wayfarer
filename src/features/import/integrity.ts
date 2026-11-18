@@ -63,8 +63,14 @@ export function repairReferences(input: CampaignData): RepairResult {
         };
     } else if (entity.kind === 'place') {
       const climateId = keep(entity.place.climateId, (cid) => !!cid && cid in input.climates);
-      if (climateId !== entity.place.climateId)
-        entities[entity.id] = { ...entity, place: { ...entity.place, climateId } };
+      // Worin ein Ort liegt, ist ein Himmelskörper oder eine Dimension.
+      const worldId = keep(entity.place.worldId, isKind('celestial', 'dimension'));
+      if (climateId !== entity.place.climateId || worldId !== entity.place.worldId)
+        entities[entity.id] = { ...entity, place: { ...entity.place, climateId, worldId } };
+    } else if (entity.kind === 'celestial') {
+      const dimensionId = keep(entity.celestial.dimensionId, isKind('dimension'));
+      if (dimensionId !== entity.celestial.dimensionId)
+        entities[entity.id] = { ...entity, celestial: { ...entity.celestial, dimensionId } };
     } else if (entity.kind === 'family') {
       const seatId = keep(entity.family.seatId, isPlace);
       if (seatId !== entity.family.seatId)

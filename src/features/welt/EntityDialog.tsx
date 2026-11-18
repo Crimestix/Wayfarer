@@ -1,4 +1,5 @@
 /** Dialog „Eintrag anlegen / bearbeiten“ für Orte, Personen, Fraktionen, Gegenstände und Themen. */
+import { isWorld } from '../../domain/worlds';
 import { KindSelect, SubKindSelect } from './KindSelect';
 import { PLACE_SCALES, type PlaceScale } from '../../domain/schema';
 import { SCALE_LABEL, scaleOfWord } from '../../domain/placeScale';
@@ -87,7 +88,8 @@ const KIND_HINT: Record<WorldKind, string> = {
   landscape:
     'Landschaft – Wald, Moor, Höhlen: wie eine Gegend aussieht, wie man durchkommt und wer dort lebt. Man malt sie auf Hexkarten.',
   celestial:
-    'Himmelskörper – Planeten, Monde, Sterne und Ebenen: das, worauf Orte liegen oder was am Himmel steht.',
+    'Himmelskörper – Planeten, Monde, Sterne: was am Himmel steht und worauf Orte liegen. Er liegt in einer Dimension.',
+  dimension: 'Dimension – eine Ebene des Daseins. Himmelskörper liegen in ihr, Orte auch direkt.',
   species: 'Spezies – Völker und Wesen, aus denen Personen stammen.',
   language: 'Sprache – was gesprochen wird; wer sie spricht, steht bei der Person.',
   script: 'Schrift – Alphabete und Zeichen, in denen Sprachen geschrieben werden.',
@@ -111,6 +113,7 @@ const TAGLINE_HINT: Record<WorldKind, string> = {
   happening: 'z. B. Der Krieg, der die alte Brücke zerstörte.',
   landscape: 'z. B. Nebelwald, in dem die Dunkelwölfe jagen.',
   celestial: 'z. B. Der kleinere der beiden Monde, rot wie Rost.',
+  dimension: 'z. B. Wo Träume Gestalt annehmen und nichts lange bleibt.',
   family: 'z. B. Altes Seefahrerhaus, das seine Schulden verbirgt.',
   species: 'Ein Satz, woran man sie am Tisch erkennt.',
   language: 'Ein Satz, wie sie klingt und wo man sie hört.',
@@ -197,7 +200,15 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
   );
   /** Legt aus dem Dialog heraus einen Eintrag an; wird er am Ende nicht verwendet, verschwindet er wieder. */
   const createDraftEntity = (
-    kind: 'place' | 'species' | 'family' | 'language' | 'script' | 'ability' | 'profession',
+    kind:
+      | 'place'
+      | 'species'
+      | 'family'
+      | 'language'
+      | 'script'
+      | 'ability'
+      | 'profession'
+      | 'dimension',
     name: string,
   ) => {
     const id = db.put('entities', createEntity({ kind, name: name.trim() })).id;
@@ -593,15 +604,34 @@ function EntityDialog({ request }: { request: EntityDialogRequest }) {
           {draft.kind === 'place' && (
             <Field
               label="Liegt in"
-              hint="Der Ort, zu dem dieser gehört – leer für eine oberste Ebene."
+              hint="Ein Ort darüber – oder, ganz oben, der Himmelskörper oder die Dimension, worin er liegt."
             >
               <Picker
-                value={draft.parentId}
-                onChange={(parentId) => set({ parentId })}
-                kinds={['place']}
+                value={draft.parentId ?? draft.worldId}
+                onChange={(next) => {
+                  // Ein Ort darüber oder, für einen obersten Ort, ein Himmelskörper oder eine Dimension.
+                  const chosen = next ? data.entities[next] : undefined;
+                  set(
+                    isWorld(chosen)
+                      ? { parentId: null, worldId: next }
+                      : { parentId: next, worldId: null },
+                  );
+                }}
+                kinds={['place', 'celestial', 'dimension']}
                 exclude={noParents}
-                placeholder="Übergeordneten Ort wählen …"
+                placeholder="Ort, Himmelskörper oder Dimension wählen …"
                 onCreate={createPlace}
+              />
+            </Field>
+          )}
+          {draft.kind === 'celestial' && (
+            <Field label="Liegt in" hint="Die Dimension, in der er liegt.">
+              <Picker
+                value={draft.dimensionId}
+                onChange={(dimensionId) => set({ dimensionId })}
+                kinds={['dimension']}
+                placeholder="Dimension wählen …"
+                onCreate={(name) => createDraftEntity('dimension', name)}
               />
             </Field>
           )}

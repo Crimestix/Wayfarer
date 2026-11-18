@@ -32,6 +32,7 @@ export const SCAFFOLD_KINDS = [
   'happening',
   'landscape',
   'celestial',
+  'dimension',
 ] as const satisfies readonly EntityKind[];
 export type ScaffoldKind = (typeof SCAFFOLD_KINDS)[number];
 
@@ -57,7 +58,8 @@ export const DEFAULT_SCAFFOLDS: Record<ScaffoldKind, readonly string[]> = {
   realm: ['Art', 'Herrscher', 'Hauptstadt', 'Gebiet', 'Gegründet'],
   happening: ['Art', 'Beginn', 'Ende', 'Ort'],
   landscape: ['Art'],
-  celestial: ['Art'],
+  celestial: ['Art', 'Liegt in'],
+  dimension: ['Art'],
 };
 
 export const isScaffoldKind = (kind: string): kind is ScaffoldKind =>

@@ -214,6 +214,7 @@ export type MainBlock =
   | 'members'
   | 'people'
   | 'places'
+  | 'inside'
   | 'shopsHere'
   | 'rooms'
   | 'travel'
@@ -366,6 +367,11 @@ export function pagePlan(
       break;
     case 'landscape':
       main.push('landscape');
+      break;
+    case 'celestial':
+    case 'dimension':
+      // Was darin liegt – der Abschnitt steht immer da: Hier ordnet man die Welt ein.
+      main.push('inside');
       break;
   }
 

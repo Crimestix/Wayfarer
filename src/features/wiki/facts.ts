@@ -868,7 +868,7 @@ const TARGET_KINDS: Partial<Record<FactField, readonly EntityKind[]>> = {
   origin: ['place'],
   workplace: ['place', 'faction', 'family'],
   membership: ['faction', 'family'],
-  location: ['place'],
+  location: ['place', 'celestial', 'dimension'],
   seat: ['place'],
   leader: ['person', 'character', 'faction', 'family'],
   owner: ['person', 'character', 'faction', 'family', 'place'],
@@ -1230,8 +1230,18 @@ export function planFacts(data: CampaignData, article: Article, entity: Entity):
           if (target) set(reading, 'placeId', target.id, target.name);
           break;
         }
-        // Ein Ort liegt nie in sich selbst oder in einem Ort, der unter ihm liegt.
-        if (target && !isUnder(index, target.id, entity.id))
+        // Ein Himmelskörper liegt in einer Dimension.
+        if (entity.kind === 'celestial') {
+          if (target?.kind === 'dimension') set(reading, 'dimensionId', target.id, target.name);
+          break;
+        }
+        // Ein oberster Ort liegt auf einem Himmelskörper oder in einer Dimension …
+        if (target?.kind === 'celestial' || target?.kind === 'dimension') {
+          if (entity.kind === 'place') set(reading, 'worldId', target.id, target.name);
+          break;
+        }
+        // … sonst in einem Ort – nie in sich selbst oder in einem Ort, der unter ihm liegt.
+        if (target?.kind === 'place' && !isUnder(index, target.id, entity.id))
           set(reading, 'parentId', target.id, target.name);
         break;
       case 'seat':

@@ -1,5 +1,6 @@
 /** Handgriffe der Weltdatenbank, die mehr als ein Dokument ändern. */
 import { repairReferences } from '../import/integrity';
+import { isWorld } from '../../domain/worlds';
 import { deleteEntity, moveParty, setAttitude } from '../../data/actions';
 import type { CampaignDb } from '../../data/db';
 import type { AttitudeMode } from '../../domain/attitudeSetting';
@@ -450,13 +451,24 @@ export function settleKindChange(
   const repaired = repairReferences(data).data;
   const touched: Entity[] = [];
   const placeBefore = data.state.placeId;
+  const now = data.entities[before.id];
   db.batch(() => {
     for (const entity of Object.values(repaired.entities)) {
       const was = data.entities[entity.id];
       if (!was || was === entity || entity.id === before.id) continue;
       if (!JSON.stringify(was).includes(before.id)) continue;
       touched.push(was);
-      db.put('entities', entity);
+      // Wird ein Ort zum Himmelskörper oder zur Dimension, liegt weiter darin, was darin lag –
+      // nur eben nicht mehr „in einem Ort“ (`domain/worlds.ts`).
+      const moved =
+        isWorld(now) &&
+        was.kind === 'place' &&
+        entity.kind === 'place' &&
+        was.place.parentId === before.id &&
+        entity.place.parentId === null
+          ? { ...entity, place: { ...entity.place, worldId: before.id } }
+          : entity;
+      db.put('entities', moved);
     }
     if (placeBefore === before.id && repaired.state.placeId !== placeBefore)
       db.setState({ placeId: repaired.state.placeId });

@@ -13,6 +13,7 @@ import {
   Hammer,
   Hourglass,
   Languages,
+  Layers,
   Leaf,
   MapPin,
   PawPrint,
@@ -66,6 +67,7 @@ const KIND_ICONS: Record<EntityKind, typeof User> = {
   happening: Hourglass,
   landscape: Trees,
   celestial: Earth,
+  dimension: Layers,
 };
 
 export function KindIcon({ kind, size }: { kind: EntityKind; size?: number }) {

@@ -357,6 +357,7 @@ const NOTES_HINT: Record<WorldEntity['kind'], string> = {
   happening: 'was geschah, wer beteiligt war und was daraus folgte',
   landscape: 'wie sie aussieht, wie man durchkommt und wer dort lebt',
   celestial: 'was man von ihm weiß, was man am Himmel sieht und was die Leute darüber glauben',
+  dimension: 'wie es dort ist, wie man hinkommt und was dort anders gilt',
   family: 'Herkunft, Ruf, Geschichte und Einzelheiten',
   species: 'Aussehen, Lebensweise und Eigenheiten',
   language: 'Klang, Verbreitung und Eigenheiten',

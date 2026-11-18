@@ -87,6 +87,7 @@ describe('Übersicht', () => {
       happening: 0,
       landscape: 0,
       celestial: 0,
+      dimension: 0,
     });
   });
 

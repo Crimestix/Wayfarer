@@ -90,6 +90,7 @@ export const WORLD_KINDS = [
   'happening',
   'landscape',
   'celestial',
+  'dimension',
 ] as const;
 export type WorldKind = (typeof WORLD_KINDS)[number];
 
@@ -157,7 +158,8 @@ export const CATEGORY_SUGGESTIONS: Record<Exclude<WorldKind, 'person'>, string[]
   realm: ['Königreich', 'Fürstentum', 'Stadtstaat', 'Grenzmark', 'Reich', 'Stammesgebiet'],
   happening: ['Krieg', 'Schlacht', 'Gründung', 'Katastrophe', 'Seuche', 'Krönung', 'Vertrag'],
   landscape: ['Wald', 'Moor', 'Heide', 'Gebirge', 'Wüste', 'Küste', 'Höhlen', 'Steppe'],
-  celestial: ['Planet', 'Mond', 'Stern', 'Komet', 'Ebene'],
+  celestial: ['Planet', 'Mond', 'Stern', 'Komet'],
+  dimension: ['Materielle Ebene', 'Übergangsebene', 'Innere Ebene', 'Äußere Ebene', 'Halbebene'],
   family: ['Adelshaus', 'Sippe', 'Clan', 'Dynastie', 'Kaufmannsfamilie'],
   species: ['Humanoid', 'Fee', 'Elementar', 'Untoter', 'Drache', 'Tier'],
   language: ['Standardsprache', 'Seltene Sprache', 'Geheimsprache', 'Tote Sprache'],
@@ -1180,6 +1182,10 @@ export interface EntityDraft {
   abilityIds: string[];
   // Ort
   parentId: string | null;
+  /** Oberster Ort: der Himmelskörper oder die Dimension, worin er liegt. */
+  worldId: string | null;
+  /** Himmelskörper: die Dimension, in der er liegt. */
+  dimensionId: string | null;
   /** Größe eines Ortes; '' = offen (Wayfarer liest sie aus dem eigenen Wort). */
   scale: PlaceScale | '';
   // Fraktion und Familie
@@ -1246,6 +1252,8 @@ export function emptyDraft(kind: WorldKind, preset: Partial<EntityDraft> = {}): 
     languageIds: [],
     abilityIds: [],
     parentId: null,
+    worldId: null,
+    dimensionId: null,
     scale: '',
     seatId: null,
     holderId: null,
@@ -1400,6 +1408,10 @@ export function draftWithKind(
     ownKindId,
     ...(kind === 'person' ? { role: draft.role.trim() || word } : { category: word }),
     ...(toField && !draft[toField] ? { [toField]: where } : {}),
+    // Ein Ort, der ein Himmelskörper wird, bleibt in seiner Dimension.
+    ...(kind === 'celestial' && draft.kind === 'place' && !draft.dimensionId
+      ? { dimensionId: draft.worldId }
+      : {}),
   };
 }
 
@@ -1447,7 +1459,13 @@ function buildFromDraft(
         : createEntity({ kind: 'person', ...common, person });
     }
     case 'place': {
-      const place = { parentId: draft.parentId, category, scale: draft.scale };
+      // Unter einem Ort gilt dessen Welt; nur ein oberster Ort trägt selbst eine.
+      const place = {
+        parentId: draft.parentId,
+        worldId: draft.parentId ? null : draft.worldId,
+        category,
+        scale: draft.scale,
+      };
       return base?.kind === 'place'
         ? { ...base, ...common, place: { ...base.place, ...place } }
         : createEntity({ kind: 'place', ...common, place });
@@ -1513,6 +1531,12 @@ function buildFromDraft(
         ? { ...base, ...common, profession: { ...base.profession, ...profession } }
         : createEntity({ kind: 'profession', ...common, profession });
     }
+    case 'celestial': {
+      const celestial = { category, dimensionId: draft.dimensionId };
+      return base?.kind === 'celestial'
+        ? { ...base, ...common, celestial: { ...base.celestial, ...celestial } }
+        : createEntity({ kind: 'celestial', ...common, celestial });
+    }
     case 'topic':
     case 'species':
     case 'script':
@@ -1521,7 +1545,7 @@ function buildFromDraft(
     case 'realm':
     case 'happening':
     case 'landscape':
-    case 'celestial': {
+    case 'dimension': {
       const kind = draft.kind;
       if (base) {
         const details = (base as unknown as Record<string, object>)[kind];

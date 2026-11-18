@@ -145,7 +145,8 @@ export function allOwnKindSuggestions(
  */
 const BASE_HINTS: [EntityKind, RegExp][] = [
   ['person', /(npc|person|charakter|figur|held|schurke)/i],
-  ['celestial', /(himmelskörper|planet|mond|stern|universum|ebene|sphäre)/i],
+  ['dimension', /(dimension|ebene|sphäre|universum|reich der|feenreich|äther)/i],
+  ['celestial', /(himmelskörper|planet|mond|stern)/i],
   ['faction', /(fraktion|gilde|orden|\bkulte?\b|\bbund\b|organisation|bande)/i],
   ['family', /(familie|haus|sippe|clan|dynastie)/i],
   ['species', /(volk|völker|spezies|rasse)/i],

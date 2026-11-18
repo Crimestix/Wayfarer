@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 34;
-export const DATA_SHAPE = 'ee85b73b71fe375a';
+export const DATA_VERSION = 35;
+export const DATA_SHAPE = '9e25cfa6c36f74df';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -337,6 +337,7 @@ export const ENTITY_KINDS = [
   'happening',
   'landscape',
   'celestial',
+  'dimension',
 ] as const;
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
@@ -460,6 +461,11 @@ export type PlaceScale = (typeof PLACE_SCALES)[number];
 const PlaceDetails = z.object({
   /** Übergeordneter Ort. */
   parentId: id.nullable().default(null),
+  /**
+   * Worin ein oberster Ort liegt: ein Himmelskörper oder eine Dimension (`domain/worlds.ts`).
+   * Gilt nur ohne Ort darüber – alles darunter erbt es. Gefragt wird über `liesIn()`.
+   */
+  worldId: id.nullable().default(null),
   /** Freie Art: Region, Stadt, Dorf, Gebäude, Wildnis … */
   category: z.string().default(''),
   /** Klimazone für das Wetter; null = die des übergeordneten Ortes. */
@@ -857,6 +863,17 @@ const HappeningDetails = z.object({
  */
 const CelestialDetails = z.object({
   category: z.string().default(''),
+  /** Die Dimension, in der er liegt (die Materielle Welt …). */
+  dimensionId: id.nullable().default(null),
+});
+
+/**
+ * Dimension (Rückmeldung des Spielleiters, 18. 11. 2026: „Wir haben ja Himmelskörper und wir haben
+ * Dimensionen. Feenreich. Äther. Materielle Welt“): eine Ebene des Daseins. Himmelskörper liegen
+ * in ihr (`celestial.dimensionId`), oberste Orte auch direkt (`place.worldId`).
+ */
+const DimensionDetails = z.object({
+  category: z.string().default(''),
 });
 
 /**
@@ -931,6 +948,11 @@ export const EntitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('celestial'),
     celestial: CelestialDetails.prefault({}),
   }),
+  z.object({
+    ...entityBase,
+    kind: z.literal('dimension'),
+    dimension: DimensionDetails.prefault({}),
+  }),
 ]);
 export type Entity = z.infer<typeof EntitySchema>;
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
@@ -946,6 +968,7 @@ export type Deity = EntityOf<'deity'>;
 export type Realm = EntityOf<'realm'>;
 export type Happening = EntityOf<'happening'>;
 export type Celestial = EntityOf<'celestial'>;
+export type Dimension = EntityOf<'dimension'>;
 export type Landscape = EntityOf<'landscape'>;
 export type Language = EntityOf<'language'>;
 export type Script = EntityOf<'script'>;
