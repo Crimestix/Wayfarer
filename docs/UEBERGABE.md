@@ -161,6 +161,11 @@ statt in den Einstellungen (Kacheln, „+ Eigene Kategorie“, Vorschläge aus d
 und aus häufigen Wörtern); über den Kacheln jeder Kategorie „← Übersicht“; Räume lassen sich über
 „Räume zeigen“ wiederfinden. Kein Schema geändert (**DATA_VERSION 34**).
 
+**Danach: Tag `v0.1.21` auf `15f1696` (18. 11.)** – Unterkategorien statt „eigene Kategorien“: Auswahl in zwei
+Schritten (Kategorie, daneben Unterkategorie – dort auch neu anlegen), im Seitenkopf „Ort · Stadt“,
+und die Liste einer Kategorie ist nach Unterkategorien und gemeinsamen Wörtern gegliedert (bei
+Orten umschaltbar auf die Lage). Kein Schema geändert (**DATA_VERSION 34**).
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
