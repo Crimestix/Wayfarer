@@ -192,6 +192,17 @@ Einordnen oder Löschen (Papierkorb), auch mehrere auf einmal. **DATA_VERSION 36
 Tests und der kleinen Vorschau-Welt, nicht mit Elaris. Offen (Schritt 2): Türen, Treppen und
 Geheimgänge zwischen Räumen, wer in welchem Raum steht.
 
+**Danach: Tag `v0.1.27` auf `3359374` (18. 11., aus der Cloud-Sitzung)** – das Dungeon-Modul
+(Navigation „Dungeons“: Editor auf dem 5-Fuß-Raster, Spielen mit Figuren, Sicht, Licht, Runden,
+Gelände, Höhen, Höhlen, Auslöser, gemalte Texturen). **DATA_VERSION 41**. Seit das Repository
+wieder öffentlich ist, baut GitHub die Pakete wieder (0.1.11–0.1.26 wurden dort nie gebaut).
+
+**Danach: Tag `v0.1.28` auf `477ac2c` (19. 11.)** – Dungeons: gemalte Einzelbilder für Truhe,
+Tisch, Bett, Sarg, Altar, Säule, Statue und Thron (Probe, vom Spielleiter angenommen: „Das sieht
+gut aus“). Kein neues Schema. Offen: Bilder für Hebel, Brunnen, Feuer, Kiste, Fackelhalter,
+Stalagmit, Türen, Gitter, Treppen, Fallen, Figuren; dazu Türlaibungen, Schleier in der
+Spielansicht, Probelauf nur im Arbeitsspeicher.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
