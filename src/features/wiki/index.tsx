@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
+import { CREATE_KINDS } from '../../domain/pick';
 import type { Article, EntityKind } from '../../domain/schema';
 import {
   Button,
@@ -54,21 +55,12 @@ import {
 import { ScaffoldHint } from './ScaffoldHint';
 import './wiki.css';
 
-/** Als was sich ein Artikel von Hand in die Welt aufnehmen lässt. */
-const ADOPT_KINDS: EntityKind[] = [
-  'person',
-  'place',
-  'faction',
-  'item',
-  'family',
-  'species',
-  'language',
-  'topic',
-  'plant',
-  'animal',
-  'mineral',
-  'profession',
-];
+/**
+ * Als was sich ein Artikel von Hand in die Welt aufnehmen lässt: jede Kategorie der Welt, die
+ * häufigen zuerst (Rückmeldung des Spielleiters, 19. 11. 2026: „Bei ‚Art festlegen‘ kann man
+ * nicht alle Arten auswählen“). Nie eine eigene, kürzere Liste führen.
+ */
+const ADOPT_KINDS: readonly EntityKind[] = CREATE_KINDS;
 
 /** Was aufgeklappt ist und wonach gesucht wurde, bleibt beim Wechsel des Bereichs erhalten. */
 const memory = {
@@ -222,7 +214,14 @@ function AdoptButton({ article }: { article: Article }) {
       >
         <span className="wf-lk-act__label">Art festlegen</span>
       </Button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} align="right" width={230}>
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        anchor={anchor}
+        align="right"
+        width={230}
+        className="wf-wiki-adopt"
+      >
         {kinds.map((kind) => (
           <MenuItem
             key={kind}

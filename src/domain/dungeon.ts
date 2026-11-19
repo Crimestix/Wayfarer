@@ -1514,6 +1514,13 @@ export function areaWords(cells: number, cellFeet: number): string {
   return `${fields} · ${(cells * cellFeet * cellFeet).toLocaleString('de-DE')} Quadratfuß`;
 }
 
+/** Eine aufgezogene Fläche in Worten: „30 × 40 Fuß“ – die Seiten in Fuß, quer dann hoch. */
+export function rectWords(from: DungeonCell, to: DungeonCell, cellFeet: number): string {
+  const w = Math.abs(to.x - from.x) + 1;
+  const h = Math.abs(to.y - from.y) + 1;
+  return `${w * cellFeet} × ${h * cellFeet} Fuß`;
+}
+
 /** Breite mal Höhe eines Raums in Fuß, wenn er ein volles Rechteck ist; sonst null. */
 export function roomSize(cells: readonly DungeonCell[], cellFeet: number): string | null {
   if (cells.length === 0) return null;

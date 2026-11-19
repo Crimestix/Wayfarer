@@ -19,6 +19,7 @@ import {
   type EdgeSegment,
   type RoundShape,
 } from '../../domain/dungeon';
+import { heightPlateaus } from '../../domain/dungeonTerrain';
 import type { DungeonCell, DungeonLevel, DungeonMarker, DungeonTile } from '../../domain/schema';
 
 /** Wo die Karte auf der Leinwand liegt: Pixel je Feld und Verschiebung. */
@@ -426,6 +427,8 @@ export interface Scene {
   below: DungeonLevel | null;
   /** Die Form eines runden Raums, der gerade aufgezogen wird. */
   hoverRound: RoundShape | null;
+  /** Beim Aufziehen: die Größe der Fläche, über dem Feld unter dem Zeiger. */
+  sizeTag?: { cell: DungeonCell; text: string } | null;
   view: View;
   width: number;
   height: number;
@@ -1102,18 +1105,19 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
       ctx.globalAlpha = 1;
       ctx.restore();
       // Die Zahl steht nur da, solange mit dem Höhen-Werkzeug gearbeitet wird.
-      if (scene.heightNumbers && z >= 22) {
-        ctx.font = `600 ${Math.max(9, z * 0.28)}px ${palette.font}`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'bottom';
-        for (const [key, feet] of Object.entries(level.heights)) {
-          const cell = cellOfKey(key);
-          if (visible(cell.x, cell.y))
+      // Einmal je zusammenhängender Fläche, in ihrer Mitte – nie auf jedem Feld.
+      if (scene.heightNumbers && z >= 14) {
+        ctx.font = `600 ${Math.max(11, Math.min(17, z * 0.44))}px ${palette.font}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const plateau of heightPlateaus(level.heights)) {
+          const { at, feet } = plateau;
+          if (visible(at.x, at.y))
             haloText(
               ctx,
-              `${feet > 0 ? '+' : ''}${feet}`,
-              sx(cell.x) + 3,
-              sy(cell.y + 1) - 1,
+              `${feet > 0 ? '+' : '−'}${Math.abs(feet)} Fuß`,
+              sx(at.x) + z / 2,
+              sy(at.y) + z / 2,
               palette,
             );
         }
@@ -1685,6 +1689,35 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.lineTo(sx(side === 'n' ? b.x + 1 : b.x), sy(side === 'n' ? b.y : b.y + 1));
     ctx.stroke();
     ctx.globalAlpha = 1;
+  }
+
+  // Beim Aufziehen: wie groß die Fläche ist – ein kleines Schild über dem Feld unter dem Zeiger.
+  if (scene.sizeTag) {
+    const { cell, text } = scene.sizeTag;
+    ctx.font = `600 13px ${palette.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const padX = 8;
+    const boxH = 22;
+    const boxW = ctx.measureText(text).width + padX * 2;
+    // Über dem Feld; am oberen Rand der Karte darunter, an den Seiten nie hinaus.
+    const centerX = Math.min(
+      scene.width - boxW / 2 - 4,
+      Math.max(boxW / 2 + 4, sx(cell.x) + z / 2),
+    );
+    const above = sy(cell.y) - boxH - 8;
+    const top = above < 4 ? sy(cell.y + 1) + 8 : above;
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = palette.rock;
+    ctx.strokeStyle = palette.gold;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(Math.round(centerX - boxW / 2) + 0.5, Math.round(top) + 0.5, Math.round(boxW), boxH);
+    ctx.fill();
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = palette.gold;
+    ctx.fillText(text, centerX, Math.round(top) + boxH / 2 + 1);
   }
 }
 

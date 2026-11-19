@@ -37,6 +37,7 @@ import {
   removeTrap,
   roomAt,
   roomCells,
+  rectWords,
   roundBetween,
   roundCells,
   sameCell,
@@ -271,6 +272,14 @@ export function DungeonCanvas({
         if (thingAt(lv, h.cell)) hoverCells = [h.cell];
         else if (lv.edges[h.edge]) hoverEdge = h.edge;
     }
+    // Wer eine Fläche aufzieht, sieht an der Maus, wie groß sie ist (Wunsch 19. 11. 2026).
+    const sizeTag =
+      !ctl && g?.type === 'rect'
+        ? {
+            cell: g.to,
+            text: rectWords(g.from, g.to, ed.dungeon.cellFeet),
+          }
+        : null;
     const mode = ed.pickMode;
     const trap =
       mode?.type === 'trap-cells' || mode?.type === 'trap-spots'
@@ -295,6 +304,7 @@ export function DungeonCanvas({
       below: levelBeside(ed.dungeon, lv.id, 'down'),
       heightNumbers: !ctl && ed.tool === 'height',
       hoverRound: round,
+      sizeTag,
       view: viewOf(),
       width: size.current.width,
       height: size.current.height,

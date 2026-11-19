@@ -1009,3 +1009,9 @@ button.wf-wiki-row__toggle:hover {
 .wf-wiki-unfold {
   padding: var(--s-2) var(--s-3) var(--s-1);
 }
+
+/* „Art festlegen“: alle Kategorien der Welt – die Liste rollt, statt aus dem Fenster zu laufen. */
+.wf-wiki-adopt {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}

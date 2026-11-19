@@ -124,6 +124,61 @@ export function setHeights(
   return { ...level, heights };
 }
 
+export interface HeightPlateau {
+  feet: number;
+  cells: DungeonCell[];
+  /** Das Feld der Fläche, das ihrer Mitte am nächsten liegt – dort steht ihre Zahl. */
+  at: DungeonCell;
+}
+
+/**
+ * Zusammenhängende Flächen gleicher Höhe (Rückmeldung des Spielleiters, 19. 11. 2026: Höhere
+ * Felder „sehen komisch aus, durch die +10 auf den einzelnen Feldern“): Die Zahl steht einmal je
+ * Fläche, nicht auf jedem Feld. Zusammen hängt, was Seite an Seite liegt.
+ */
+export function heightPlateaus(heights: Readonly<Record<string, number>>): HeightPlateau[] {
+  const seen = new Set<string>();
+  const out: HeightPlateau[] = [];
+  for (const [start, feet] of Object.entries(heights)) {
+    if (seen.has(start) || !feet) continue;
+    seen.add(start);
+    const cells: DungeonCell[] = [];
+    const stack = [cellOfKey(start)];
+    while (stack.length) {
+      const cell = stack.pop()!;
+      cells.push(cell);
+      for (const [dx, dy] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const key = cellKey(cell.x + dx, cell.y + dy);
+        if (seen.has(key) || heights[key] !== feet) continue;
+        seen.add(key);
+        stack.push({ x: cell.x + dx, y: cell.y + dy });
+      }
+    }
+    const cx = cells.reduce((sum, cell) => sum + cell.x, 0) / cells.length;
+    const cy = cells.reduce((sum, cell) => sum + cell.y, 0) / cells.length;
+    let at = cells[0]!;
+    let best = Infinity;
+    for (const cell of cells) {
+      const far = (cell.x - cx) ** 2 + (cell.y - cy) ** 2;
+      // Bei gleichem Abstand das Feld weiter oben links – so steht die Zahl fest.
+      if (
+        far < best - 1e-9 ||
+        (Math.abs(far - best) <= 1e-9 && (cell.y < at.y || (cell.y === at.y && cell.x < at.x)))
+      ) {
+        best = far;
+        at = cell;
+      }
+    }
+    out.push({ feet, cells, at });
+  }
+  return out;
+}
+
 /** Bis zu diesem Unterschied geht man einfach weiter: eine Stufe, eine Rampe. */
 export const STEP_FEET = 5;
 /** Ab dieser Tiefe ist ein Schritt hinab ein Sturz. */

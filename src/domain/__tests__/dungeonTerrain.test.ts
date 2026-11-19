@@ -14,6 +14,7 @@ import {
   copyRegion,
   fallWords,
   generateCave,
+  heightPlateaus,
   isSlow,
   mirrorStamp,
   pasteStamp,
@@ -160,5 +161,30 @@ describe('Höhle bleibt Höhle', () => {
     const before = paintTiles(blank(), cells, 'floor');
     const after = caveAfterPaint(before, paintTiles(before, cells, 'mud'), cells, 'mud', true);
     expect(after.cave).toHaveLength(2);
+  });
+});
+
+describe('Höhen als Flächen', () => {
+  it('fasst zusammen, was Seite an Seite gleich hoch liegt – die Zahl steht einmal in der Mitte', () => {
+    const heights: Record<string, number> = {};
+    // Ein Podest von drei mal drei Feldern, zehn Fuß hoch.
+    for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) heights[`${x},${y}`] = 10;
+    // Daneben eine Stufe von fünf Fuß und, nur über Eck berührt, eine Grube.
+    heights['3,0'] = 5;
+    heights['3,1'] = 5;
+    heights['4,2'] = -10;
+    const plateaus = heightPlateaus(heights)
+      .map((p) => [p.feet, p.cells.length, `${p.at.x},${p.at.y}`])
+      .sort((a, b) => Number(b[0]) - Number(a[0]));
+    expect(plateaus).toEqual([
+      [10, 9, '1,1'],
+      [5, 2, '3,0'],
+      [-10, 1, '4,2'],
+    ]);
+  });
+
+  it('trennt gleich hohe Flächen, die sich nicht berühren', () => {
+    expect(heightPlateaus({ '0,0': 10, '2,0': 10, '1,1': 10 })).toHaveLength(3);
+    expect(heightPlateaus({})).toEqual([]);
   });
 });

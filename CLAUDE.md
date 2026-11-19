@@ -646,7 +646,11 @@ nicht übernommen.
   gerade und offen, wo sie an gebauten Boden grenzt), nie Kreise je Feld. Die Schraffur im Fels
   sind Bündel kurzer Striche (`spotNoise`), Wände haben einen weichen Schatten am Fuß. Höhen
   zeigen sich als Schatten auf dem Tieferen (Licht von oben links) und als Kante mit Strichen
-  hangabwärts; die Zahl steht nur, solange das Höhen-Werkzeug gewählt ist (`heightNumbers`).
+  hangabwärts; die Zahl steht nur, solange das Höhen-Werkzeug gewählt ist (`heightNumbers`),
+  und dann **einmal je zusammenhängender Fläche** in ihrer Mitte (`heightPlateaus`, 19. 11.: „sehen
+  komisch aus, durch die +10 auf den einzelnen Feldern“) – nie auf jedem Feld. Wer eine Fläche
+  aufzieht (Raum, Rechteck, Ausschnitt), sieht ihre Größe als Schild am Feld unter dem Zeiger
+  (`scene.sizeTag`, Worte aus `rectWords`).
   **Gelände ist eine Fläche, kein Feld** (18. 11.: „Hauptpunkt ist die Darstellung“): Erst liegt
   überall blanker Boden, darauf das Gelände als zusammenhängende Flächen mit eigenem Ufer
   (`parsePatches`, `drawPatch` in `draw.ts`, Reihenfolge `PATCH_ORDER`; tiefes Wasser liegt im
@@ -1529,6 +1533,8 @@ nicht übernommen.
   Eine Kategorie gibt `sortArticles` (über `adoptArticle`, nie ein zweiter Eintrag), gelöscht wird
   über `dropArticles` in den Papierkorb – einzeln oder für mehrere, beides mit Rückgängig. Ein
   Artikel darf ohne Kategorie bleiben; nichts geschieht von selbst.
+  „Art festlegen“ am Artikel (`wiki/index.tsx`, `AdoptButton`) bietet **jede** Kategorie der Welt
+  an (`CREATE_KINDS`, die häufigen zuerst, der Vorschlag oben) – nie eine eigene, kürzere Liste.
 - Noch zu schreiben (`wikiGaps`, `wiki/gaps.ts`, Sicht in „Welt“): Verweise ins Leere je Titel
   mit Stellen und Art aus dem Feld, Einträge ohne Artikel, kurze Artikel (`STUB_WORDS`) und
   Artikel ohne Verweis – ohne Ordnerseiten, Vorlagen und Räume. Nur gezählt und gezeigt;

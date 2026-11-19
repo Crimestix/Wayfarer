@@ -39,6 +39,7 @@ import {
   setEdge,
   trapSpots,
   withLevel,
+  rectWords,
 } from '../dungeon';
 import { DungeonLevelSchema, type DungeonLevel } from '../schema';
 
@@ -364,5 +365,13 @@ describe('Breite Gänge und Doppeltüren', () => {
     const mixed = setEdge(doors, lower, { kind: 'gate' });
     expect(edgeRun(mixed, upper)).toEqual([upper]);
     expect(Object.keys(removeEdgeRun(doors, upper).edges)).toHaveLength(0);
+  });
+});
+
+describe('Größe beim Aufziehen', () => {
+  it('nennt die Seiten in Fuß – gleich, in welche Richtung gezogen wird', () => {
+    expect(rectWords({ x: 2, y: 3 }, { x: 7, y: 10 }, 5)).toBe('30 × 40 Fuß');
+    expect(rectWords({ x: 7, y: 10 }, { x: 2, y: 3 }, 5)).toBe('30 × 40 Fuß');
+    expect(rectWords({ x: 0, y: 0 }, { x: 0, y: 0 }, 5)).toBe('5 × 5 Fuß');
   });
 });
