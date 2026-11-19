@@ -203,6 +203,10 @@ gut aus“). Kein neues Schema. Offen: Bilder für Hebel, Brunnen, Feuer, Kiste,
 Stalagmit, Türen, Gitter, Treppen, Fallen, Figuren; dazu Türlaibungen, Schleier in der
 Spielansicht, Probelauf nur im Arbeitsspeicher.
 
+**Danach: Tag `v0.1.29` auf `be378e1` (19. 11.)** – drei Rückmeldungen: Beim Aufziehen eines Raums steht seine
+Größe an der Maus; die Höhe steht einmal je Fläche statt auf jedem Feld; „Art festlegen“ im Wiki
+bietet alle Kategorien an. Kein neues Schema.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
