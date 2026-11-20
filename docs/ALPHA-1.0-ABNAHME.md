@@ -43,17 +43,17 @@ Beleg: T = Regressionstest im Repository, B = im Browser nachgeprüft (Vorschau)
 | F07 | Nachschlagen öffnet volles Dossier               | P2   | behoben     | Seitenblatt schmal mit Kurzblick; Browser + Test              |
 | F08 | Unbekannter Aufenthalt als „fort“                | P1   | **behoben** | T: `data/__tests__/campaign.test.ts` „F08 …“                  |
 | F09 | Hexmaßstab Dialog ≠ Ergebnis                     | P1   | **behoben** | T: `erkundung/generate.test.ts` „F09 …“                       |
-| F10 | Ortsauswahl gewichtet Maßstäbe schlecht          | P2   | offen       |                                                               |
+| F10 | Ortsauswahl gewichtet Maßstäbe schlecht          | P2   | behoben     | Auswahl: Zuletzt, dann Größe, Räume zuletzt; Test             |
 | F11 | Dossier lässt wenig Raum für den Artikel         | P2   | behoben     | Text nach Steckbrief, „Breit schreiben“; Browser              |
 | F12 | Weltstartseite betont Pflegeaufwand              | P2   | behoben     | Start: Schreiben und Weiterarbeiten vorn, Pflege unten        |
 | F13 | Lokale Vorbereiten/Spielen-Wechsel uneinheitlich | P2   | behoben     | Karten beginnen passend; Würfeln/Löschen nur beim Vorbereiten |
-| F14 | „verwaltet“ als Herrschaft vorgeschlagen         | P2   | offen       |                                                               |
+| F14 | „verwaltet“ als Herrschaft vorgeschlagen         | P2   | behoben     | „verwaltet“ eigene Beziehung; Test                            |
 | F15 | Bastionsverlauf nach Umbenennen weg              | P1   | **behoben** | T: `bastion/rooms.test.ts` „F15 …“; Datenversion 43           |
 | F16 | Gelöschter Statblock beschädigt Begegnungen      | P1   | **behoben** | T: `bestiarium/bestiarium.test.ts` „F16 …“                    |
 | F17 | Strg/Cmd+E doppelt belegt                        | P1   | **behoben** | B: reproduziert und nachgeprüft; T: `shell/shortcuts.test.ts` |
-| F18 | Sammelartikel als Personen                       | P2   | offen       |                                                               |
+| F18 | Sammelartikel als Personen                       | P2   | behoben     | Sammelseiten bleiben Text; Hinweis bei Bestand; Test          |
 | F19 | Sicherung ohne Medien                            | P1   | offen       |                                                               |
-| F20 | Gewichtung von Nebeninformationen                | P2   | offen       |                                                               |
+| F20 | Gewichtung von Nebeninformationen                | P2   | behoben     | Kontrast ≥ 4,5:1, Fokus sichtbar; Browser gemessen            |
 | F21 | Abendblatt als Methode                           | P2   | behoben     | Abendblatt frei, Führung als Schalter; Browser + Test         |
 
 ### Einzelheiten
@@ -166,21 +166,49 @@ und Wiederherstellung in der installierten Windows-App (K48, K57).
 Status je Fall: offen / bestanden (Umgebung) / fehlgeschlagen / blockiert. „Bestanden (Vorschau)“
 heißt: in der Browservorschau geprüft, nicht in der installierten App.
 
-| Fall                              | Status               | Bemerkung                                         |
-| --------------------------------- | -------------------- | ------------------------------------------------- |
-| K01–K15                           | offen                |                                                   |
-| K16 Unbekannter Aufenthalt        | teilweise            | Logik behoben (F08), Oberfläche offen             |
-| K17–K24                           | offen                |                                                   |
-| K25 Hexmaßstab                    | teilweise            | Auswahl behoben (F09), Reisezeit im Browser offen |
-| K26–K27                           | offen                |                                                   |
-| K28 Ansichtswechsel ohne Wirkung  | bestanden (Vorschau) | Spielstand byte-gleich (F06)                      |
-| K29–K32                           | offen                |                                                   |
-| K33 Verwendeten Statblock löschen | teilweise            | Ankündigung + Rückgängig (F16), Oberfläche offen  |
-| K34–K39                           | offen                |                                                   |
-| K40 Bastionsverlauf               | teilweise            | Logik behoben (F15), Neuladen im Browser offen    |
-| K41–K54                           | offen                |                                                   |
-| K55 Tastatur und Fokus            | teilweise            | Strg+E geprüft (F17); übrige Kombinationen offen  |
-| K56–K60                           | offen                |                                                   |
+| Fall                                       | Status                                | Beleg / Bemerkung                                                                                                                                                                                                   |
+| ------------------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K01 Einstieg und Wiederaufnahme            | bestanden (Vorschau)                  | „Weiterarbeiten“ auf der Weltstartseite, Mappe mit Rückweg (F04, F05); nach Neuladen derselbe Text                                                                                                                  |
+| K02 Freier Text                            | bestanden (Vorschau)                  | „Frei schreiben“ ohne Pflichtangaben, „Entwurf“; kein Pflegezähler (F01, F03)                                                                                                                                       |
+| K03 Freies Brett                           | offen                                 | Brett unverändert; kein eigener Durchlauf                                                                                                                                                                           |
+| K04 Inline anlegen                         | bestanden (Vorschau)                  | „@Mara Fenn“ → Platzhalter, Fokus zurück im Feld, Rückgängig nimmt nur den neuen Eintrag                                                                                                                            |
+| K05 Material eingrenzen                    | teilweise                             | Mappe (F05) geprüft; ganze Reiseprobe mit echter Welt offen                                                                                                                                                         |
+| K06 Nachschlagen                           | teilweise                             | kompaktes Seitenblatt (F07) geprüft; Fokus-Rückkehr in den Editor nicht gemessen                                                                                                                                    |
+| K07 Fenster und Lesbarkeit                 | bestanden (Vorschau)                  | Weltleiste 4 Größen; 22 Seiten ohne Querüberlauf bei 1280×800 und 1152×720 (125 %); nur mit kleiner Welt                                                                                                            |
+| K08 Speichern und Unterbrechen             | **behoben**, bestanden (Vorschau)     | Fehler gefunden: Text im Editor bzw. in Blattfeldern ging beim sofortigen Neuladen/Schließen verloren. Jetzt geben Editoren und Felder vorher ab (Gegenprobe ohne Änderung: verloren). Native Schließen-Probe offen |
+| K09 Editor und Formate                     | bestanden (Vorschau)                  | Liste, Tabelle, Geheim-Kasten; Lesen→Schreiben→Quelltext ohne Änderung; nicht erreichbares Bild wird gemeldet                                                                                                       |
+| K10 Einfügen                               | offen                                 |                                                                                                                                                                                                                     |
+| K11 Umbenennen und Verweise                | offen (Tests)                         | bestehende Tests grün; kein Browserlauf                                                                                                                                                                             |
+| K12 Verschieben, Löschen, Wiederherstellen | offen (Tests)                         | bestehende Tests grün; kein Browserlauf                                                                                                                                                                             |
+| K13 Entwurf und Zustand                    | offen                                 |                                                                                                                                                                                                                     |
+| K14 Arten und Unterkategorien              | teilweise                             | Sammelseiten (F18) per Test; Kategoriewechsel im Browser offen                                                                                                                                                      |
+| K15 Großer Weltbestand                     | blockiert                             | keine anonymisierte große Kampagnenkopie in dieser Umgebung; Auswahlordnung (F10) per Test                                                                                                                          |
+| K16 Unbekannter Aufenthalt                 | teilweise                             | Logik behoben (F08); Oberfläche mit gefüllter Welt offen                                                                                                                                                            |
+| K17 Dossier am Tisch                       | offen                                 |                                                                                                                                                                                                                     |
+| K18 Weltzeit                               | bestanden (Vorschau)                  | zwei Tagessprünge, eingetretener Termin gemeldet und in der Chronik                                                                                                                                                 |
+| K19, K20                                   | offen (Tests)                         | Kalender-Tests grün                                                                                                                                                                                                 |
+| K21 Zeitsprung zurücknehmen                | bestanden (Vorschau)                  | „Zurück“ nimmt den letzten Sprung samt Termin-Eintrag; eine Stufe (so angekündigt); erneut ausgeführt genau ein Eintrag                                                                                             |
+| K22–K24                                    | offen                                 |                                                                                                                                                                                                                     |
+| K25 Hexmaßstab                             | teilweise                             | Auswahl behoben (F09); Reisezeit im Browser offen                                                                                                                                                                   |
+| K26, K27                                   | offen                                 |                                                                                                                                                                                                                     |
+| K28 Ansichtswechsel ohne Wirkung           | bestanden (Vorschau)                  | Spielstand byte-gleich (F06)                                                                                                                                                                                        |
+| K29–K32                                    | offen                                 |                                                                                                                                                                                                                     |
+| K33 Verwendeten Statblock löschen          | teilweise                             | Ankündigung + Rückgängig (F16) per Test; Oberfläche offen                                                                                                                                                           |
+| K34–K39                                    | offen                                 |                                                                                                                                                                                                                     |
+| K40 Bastionsverlauf                        | teilweise                             | Logik behoben (F15) per Test; Neuladen im Browser offen                                                                                                                                                             |
+| K41–K44                                    | offen                                 |                                                                                                                                                                                                                     |
+| K45 Beziehungsbedeutung                    | bestanden (Test)                      | „verwaltet“ ≠ Herrschaft (F14); Verneinung, Vergangenheit, Vermutung: bestehende Tests                                                                                                                              |
+| K46, K47                                   | offen                                 |                                                                                                                                                                                                                     |
+| K48 Vollständige Sicherung                 | teilweise                             | Kopierbefehl mit Medien per Rust-Test (F19); Knopf in der installierten App offen                                                                                                                                   |
+| K49–K51                                    | blockiert                             | brauchen installierte App bzw. zwei Geräte                                                                                                                                                                          |
+| K52 Optionaler KI-Leser                    | teilweise                             | Kern läuft ohne Schlüssel (alle Proben ohne); kein echter Abruf (kostenpflichtig, nicht beauftragt)                                                                                                                 |
+| K53, K54                                   | offen                                 |                                                                                                                                                                                                                     |
+| K55 Tastatur und Fokus                     | teilweise                             | Strg+E (F17); Fokus auf 12 Seiten je 20 Tab-Schritte sichtbar, alle Bedienelemente benannt (F20)                                                                                                                    |
+| K56 Interaktionen                          | offen                                 |                                                                                                                                                                                                                     |
+| K57 Installation und Rückfall              | blockiert                             | native Prüfung auf Windows/macOS nötig                                                                                                                                                                              |
+| K58 Große Datenmenge                       | blockiert                             | keine große Probe; keine Messwerte erfunden                                                                                                                                                                         |
+| K59 Routen und Nachladen                   | bestanden (Produktionsbuild, Browser) | Editor lädt nach; direkte Adressen öffnen; Text nach Neustart da; unbekannte Adresse ohne Absturz                                                                                                                   |
+| K60 Freigabe und Testreste                 | offen                                 | Schlussprüfung in Phase E                                                                                                                                                                                           |
 
 ## Rückfall
 
@@ -200,7 +228,10 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 - 20. 11. 2026: Phase C abgeschlossen: F05, F07, F11, F21; Weltleiste K07. 2854 Tests grün.
           Datenversion bleibt 43 (noch nicht ausgeliefert), Gestalt neu: `material` an Artikel und
           Geschichte, `prep.text`, `campaign.prepGuide`.
+- 20. 11. 2026: Phase D: F10, F14, F18, F20 behoben; Browserproben K01–K09, K18, K21, K55,
+          K59; neuer Befund K08 (Textverlust beim sofortigen Schließen) gefunden und behoben.
+          2857 Tests grün.
 
 ## Nächster Schritt
 
-Phase D: F10, F14, F18, F20 und die Prüfmatrix im Browser; danach Phase E (Build, Installer, Übergabe).
+Phase E: Alpha-Build über GitHub Actions ohne Veröffentlichung, Testreste prüfen (K60), Übergabe.
