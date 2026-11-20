@@ -69,6 +69,7 @@ import { addFromWriting } from '../welt/writing';
 import { digCave } from './dig';
 import { CAVE_GROUND } from './HexLayers';
 import { LAND_GROUND } from './HexGround';
+import { LAND_SYMBOLS } from './HexSymbols';
 import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
@@ -964,6 +965,7 @@ export function KindSwatch({ kind }: { kind: string }) {
   const base = hexKind(kind)?.base;
   const land = LAND_GROUND[kind];
   const ground = CAVE_GROUND[kind] ?? land?.src;
+  const symbol = land ? LAND_SYMBOLS[kind]?.[0] : undefined;
   const clip = useId();
   return (
     <svg className="wf-kind-swatch" data-kind={kind} viewBox="-0.55 -0.6 1.1 1.2" aria-hidden>
@@ -987,6 +989,17 @@ export function KindSwatch({ kind }: { kind: string }) {
               points={SWATCH_POINTS}
               opacity={land.tint}
               style={{ fill: `var(--terrain-${kind})` }}
+            />
+          )}
+          {symbol && (
+            // Das gemalte Zeichen der Art – so sieht die Palette aus wie die Karte.
+            <image
+              href={symbol}
+              x={-0.5}
+              y={-0.52}
+              width={1}
+              height={1}
+              preserveAspectRatio="xMidYMid meet"
             />
           )}
         </>

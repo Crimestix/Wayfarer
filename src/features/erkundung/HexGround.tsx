@@ -9,46 +9,31 @@
  * das hier ist nur ihr Bild.
  */
 import { memo, useMemo, useRef } from 'react';
-import { hexCenter, type HexOrientation } from '../../domain/hex';
+import { HEX_DIRECTIONS, hexCenter, type HexOrientation } from '../../domain/hex';
 import { kindKeyOf } from '../../domain/hexKinds';
 import type { Hex } from '../../domain/schema';
 import { caveOutline, outlinePath } from './caveOutline';
-import ruins from '../../ui/assets/hexkarte/deep-ruins.webp';
 import arctic from '../../ui/assets/hexkarte/oben/arctic.webp';
 import badlands from '../../ui/assets/hexkarte/oben/badlands.webp';
 import bog from '../../ui/assets/hexkarte/oben/bog.webp';
 import canyon from '../../ui/assets/hexkarte/oben/canyon.webp';
 import coast from '../../ui/assets/hexkarte/oben/coast.webp';
 import crag from '../../ui/assets/hexkarte/oben/crag.webp';
-import deadForest from '../../ui/assets/hexkarte/oben/dead-forest.webp';
-import denseForest from '../../ui/assets/hexkarte/oben/dense-forest.webp';
 import desert from '../../ui/assets/hexkarte/oben/desert.webp';
 import dunes from '../../ui/assets/hexkarte/oben/dunes.webp';
 import farmland from '../../ui/assets/hexkarte/oben/farmland.webp';
-import forest from '../../ui/assets/hexkarte/oben/forest.webp';
 import glacier from '../../ui/assets/hexkarte/oben/glacier.webp';
-import glade from '../../ui/assets/hexkarte/oben/glade.webp';
 import grassland from '../../ui/assets/hexkarte/oben/grassland.webp';
 import heath from '../../ui/assets/hexkarte/oben/heath.webp';
-import highpeak from '../../ui/assets/hexkarte/oben/highpeak.webp';
-import hills from '../../ui/assets/hexkarte/oben/hills.webp';
-import jungle from '../../ui/assets/hexkarte/oben/jungle.webp';
 import lake from '../../ui/assets/hexkarte/oben/lake.webp';
 import lava from '../../ui/assets/hexkarte/oben/lava.webp';
-import mangrove from '../../ui/assets/hexkarte/oben/mangrove.webp';
 import marsh from '../../ui/assets/hexkarte/oben/marsh.webp';
 import meadow from '../../ui/assets/hexkarte/oben/meadow.webp';
-import mountains from '../../ui/assets/hexkarte/oben/mountains.webp';
-import oasis from '../../ui/assets/hexkarte/oben/oasis.webp';
-import pine from '../../ui/assets/hexkarte/oben/pine.webp';
 import reef from '../../ui/assets/hexkarte/oben/reef.webp';
 import salt from '../../ui/assets/hexkarte/oben/salt.webp';
-import savanna from '../../ui/assets/hexkarte/oben/savanna.webp';
 import steppe from '../../ui/assets/hexkarte/oben/steppe.webp';
 import swamp from '../../ui/assets/hexkarte/oben/swamp.webp';
 import tundra from '../../ui/assets/hexkarte/oben/tundra.webp';
-import urban from '../../ui/assets/hexkarte/oben/urban.webp';
-import village from '../../ui/assets/hexkarte/oben/village.webp';
 import water from '../../ui/assets/hexkarte/oben/water.webp';
 
 export interface LandGround {
@@ -59,14 +44,16 @@ export interface LandGround {
    * sich eine Kachel mit einer anderen teilen.
    */
   tint: number;
-  /** Ein Wahrzeichen: Diese Art trägt zusätzlich ihr gezeichnetes Zeichen (Vulkan, Krater). */
-  mark?: boolean;
 }
 
 /**
  * Der Boden je Geländeart der Oberwelt, von unten nach oben: Was später steht, greift an der
  * Grenze über das, was früher steht – Wasser liegt am tiefsten, Gebirge und Siedlungen obenauf.
- * Eine neue Art mit eigenem Boden: Kachel nach `ui/assets/hexkarte/oben`, Eintrag hier.
+ *
+ * Der Boden ist **ruhig**: Er zeigt nur, was flach liegt (Gras, Sand, Wasser, Felder). Was
+ * aufragt – Bäume, Berge, Häuser –, steht als gemaltes Zeichen darauf (`HexSymbols.tsx`); solche
+ * Arten tragen einen schlichten Boden in ihrer Farbe. Eine neue Art: Kachel nach
+ * `ui/assets/hexkarte/oben` (oder eine vorhandene mit `tint`), Eintrag hier.
  */
 export const LAND_GROUND: Readonly<Record<string, LandGround>> = {
   water: { src: water, tint: 0 },
@@ -76,7 +63,7 @@ export const LAND_GROUND: Readonly<Record<string, LandGround>> = {
   swamp: { src: swamp, tint: 0 },
   marsh: { src: marsh, tint: 0 },
   bog: { src: bog, tint: 0 },
-  mangrove: { src: mangrove, tint: 0 },
+  mangrove: { src: swamp, tint: 0.3 },
   salt: { src: salt, tint: 0 },
   desert: { src: desert, tint: 0 },
   dunes: { src: dunes, tint: 0 },
@@ -85,32 +72,38 @@ export const LAND_GROUND: Readonly<Record<string, LandGround>> = {
   glacier: { src: glacier, tint: 0 },
   tundra: { src: tundra, tint: 0 },
   steppe: { src: steppe, tint: 0 },
-  savanna: { src: savanna, tint: 0 },
+  savanna: { src: steppe, tint: 0.3 },
   grassland: { src: grassland, tint: 0 },
   valley: { src: grassland, tint: 0.3 },
   meadow: { src: meadow, tint: 0 },
   heath: { src: heath, tint: 0 },
   farmland: { src: farmland, tint: 0 },
-  oasis: { src: oasis, tint: 0 },
-  glade: { src: glade, tint: 0 },
-  'dead-forest': { src: deadForest, tint: 0 },
-  forest: { src: forest, tint: 0 },
-  pine: { src: pine, tint: 0 },
-  jungle: { src: jungle, tint: 0 },
-  'dense-forest': { src: denseForest, tint: 0 },
-  hills: { src: hills, tint: 0 },
+  oasis: { src: desert, tint: 0.16 },
+  glade: { src: grassland, tint: 0.22 },
+  'dead-forest': { src: steppe, tint: 0.5 },
+  forest: { src: grassland, tint: 0.42 },
+  pine: { src: grassland, tint: 0.5 },
+  jungle: { src: grassland, tint: 0.4 },
+  'dense-forest': { src: grassland, tint: 0.58 },
+  hills: { src: grassland, tint: 0.34 },
   crag: { src: crag, tint: 0 },
-  crater: { src: crag, tint: 0.3, mark: true },
+  crater: { src: crag, tint: 0.3 },
   canyon: { src: canyon, tint: 0 },
   lava: { src: lava, tint: 0 },
-  mountains: { src: mountains, tint: 0 },
-  volcano: { src: lava, tint: 0.22, mark: true },
-  highpeak: { src: highpeak, tint: 0 },
-  ruins: { src: ruins, tint: 0 },
-  village: { src: village, tint: 0 },
-  urban: { src: urban, tint: 0 },
+  mountains: { src: crag, tint: 0.34 },
+  volcano: { src: lava, tint: 0.22 },
+  highpeak: { src: arctic, tint: 0.24 },
+  ruins: { src: grassland, tint: 0.36 },
+  // Um Dorf und Stadt liegen Felder.
+  village: { src: farmland, tint: 0.12 },
+  urban: { src: farmland, tint: 0.36 },
 };
 const LAND_ORDER = Object.keys(LAND_GROUND);
+
+/** Wasser: Es liegt am tiefsten; wo Land daran grenzt, steht ein Ufersaum. */
+const WET: ReadonlySet<string> = new Set(['water', 'reef', 'lake']);
+/** Wie weit das seichte Wasser vom Land aus reicht – von der Mitte des Landfeldes, in Feldgrößen. */
+const SHALLOWS = 0.8;
 
 /**
  * Was sich über seine Umgebung erhebt und deshalb einen weichen Schatten wirft: Wälder, Höhen,
@@ -276,7 +269,56 @@ export const GroundLayer = memo(function GroundLayer({
       };
     });
   }, [cells, orientation]);
+  // Der Ufersaum: seichtes Wasser und eine helle Linie vor jeder Küste – gerechnet aus den
+  // Landfeldern, die an Wasser grenzen, gezeigt nur auf dem Wasser.
+  const shoreCache = useRef<{ sig: string; loops: number[][] } | null>(null);
+  const shore = useMemo(() => {
+    const wet = new Set<string>();
+    const wetCells: GroundCell[] = [];
+    for (const cell of cells)
+      if (landGroundOf(cell.hex) && WET.has(kindKeyOf(cell.hex)!)) {
+        wet.add(`${cell.hex.q},${cell.hex.r}`);
+        wetCells.push(cell);
+      }
+    if (!wetCells.length) return null;
+    const coast = cells.filter(
+      (cell) =>
+        landGroundOf(cell.hex) &&
+        !wet.has(`${cell.hex.q},${cell.hex.r}`) &&
+        HEX_DIRECTIONS.some((d) => wet.has(`${cell.hex.q + d.q},${cell.hex.r + d.r}`)),
+    );
+    if (!coast.length) return null;
+    const sig = orientation + coast.map((cell) => `${cell.hex.q},${cell.hex.r}`).join(';');
+    if (shoreCache.current?.sig !== sig)
+      shoreCache.current = {
+        sig,
+        loops: caveOutline(
+          coast.map((cell) => {
+            const c = hexCenter(cell.hex, orientation);
+            return { x1: c.x, y1: c.y, r: SHALLOWS };
+          }),
+          { rough: 0.09, step: 0.125, salt: 4711 },
+        ),
+      };
+    return {
+      loops: shoreCache.current.loops,
+      water: wetCells.map((cell) => `M ${cell.points.replace(/ /g, ' L ')} Z`).join(' '),
+    };
+  }, [cells, orientation]);
   if (!groups.length) return null;
+  /** Ein Gelände über dem, was tiefer liegt: frei geformt, weich auslaufend. */
+  const over = ({ kind, loops }: (typeof groups)[number]) => {
+    const d = outlinePath(loops, size);
+    const paint = `url(#wf-hex-land-${kind})`;
+    return (
+      <g key={kind}>
+        {RAISED.has(kind) && <path className="wf-hexland__shade" d={d} />}
+        <Feather d={d} paint={paint} scale={0.6} />
+        <path d={d} fill={paint} fillRule="evenodd" />
+      </g>
+    );
+  };
+  const shoreLine = shore ? outlinePath(shore.loops, size) : '';
   return (
     <g className="wf-hexland" pointerEvents="none" style={{ ['--hex' as string]: `${size}px` }}>
       {/* Erst jedes Feld mit seinem Boden – so bleibt nirgends eine Lücke. */}
@@ -284,17 +326,19 @@ export const GroundLayer = memo(function GroundLayer({
         <path key={kind} d={base} fill={`url(#wf-hex-land-${kind})`} />
       ))}
       {/* Dann von unten nach oben: Das höhere Gelände greift frei geformt über das tiefere. */}
-      {groups.map(({ kind, loops }) => {
-        const d = outlinePath(loops, size);
-        const paint = `url(#wf-hex-land-${kind})`;
-        return (
-          <g key={kind}>
-            {RAISED.has(kind) && <path className="wf-hexland__shade" d={d} />}
-            <Feather d={d} paint={paint} />
-            <path d={d} fill={paint} fillRule="evenodd" />
+      {groups.filter((group) => WET.has(group.kind)).map(over)}
+      {shore && (
+        <g className="wf-hexland__shore">
+          <clipPath id="wf-hexland-water">
+            <path d={shore.water} />
+          </clipPath>
+          <g clipPath="url(#wf-hexland-water)">
+            <path className="wf-hexland__shallows" d={shoreLine} fillRule="evenodd" />
+            <path className="wf-hexland__foam" d={shoreLine} />
           </g>
-        );
-      })}
+        </g>
+      )}
+      {groups.filter((group) => !WET.has(group.kind)).map(over)}
     </g>
   );
 });

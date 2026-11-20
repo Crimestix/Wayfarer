@@ -16,6 +16,7 @@ import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { areaLine } from './generate';
 import { CAVE_GROUND, CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
 import { GroundDefs, GroundLayer, landGroundOf } from './HexGround';
+import { SymbolLayer } from './HexSymbols';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
@@ -398,13 +399,12 @@ const Cells = memo(function Cells({
                 !PLAIN_CAVE.has(kindKeyOf(hex) ?? '') &&
                 !CAVE_GROUND[kindKeyOf(hex) ?? ''] &&
                 !!KIND_GLYPH[kindKeyOf(hex) ?? '']
-              : // Oben ist der gemalte Boden das Bild; ein Zeichen tragen nur Wahrzeichen (Vulkan,
-                // Krater) und Gelände ohne eigenen Boden.
-                (landGroundOf(hex) ? !!landGroundOf(hex)!.mark : true)) && (
+              : // Oben machen gemalter Boden und gemalte Zeichen das Bild (`HexGround.tsx`,
+                // `HexSymbols.tsx`); ein Strichzeichen trägt nur Gelände ohne eigenen Boden.
+                !landGroundOf(hex)) && (
               <g
                 className="wf-hex__glyph"
                 data-under={isUnderground(hex) || undefined}
-                data-mark={landGroundOf(hex)?.mark || undefined}
                 transform={`translate(${x} ${y}) scale(${size})`}
               >
                 {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
@@ -660,6 +660,7 @@ export function HexMap({
       <GroundDefs size={size} />
       <CaveDefs size={size} />
       <GroundLayer cells={layout.cells} size={size} orientation={orientation} />
+      <SymbolLayer cells={layout.cells} size={size} fog={fog && !paint} />
       <CaveLayer cells={layout.cells} size={size} orientation={orientation} fog={fog && !paint} />
       <Cells
         cells={layout.cells}

@@ -14,11 +14,22 @@ umgerechnet.
 
 ## `oben/` – Böden der Oberwelt
 
-36 Kacheln, je eine für fast jede Geländeart der Oberwelt (Grasland, Wiese, Ackerland, Wälder,
-Sumpf, Hügel, Gebirge, Wüste, Eis, Meer, Siedlung …). Geladen in
-`features/erkundung/HexGround.tsx` (`LAND_GROUND`); Tal, Krater und Vulkan teilen sich eine
-Kachel mit einer anderen Art und tragen ihre Farbe darüber, das Ruinenfeld nutzt
-`deep-ruins.webp`. Erzeugt mit Higgsfield (GPT Image 2.6) als sechs Blätter mit je sechs
-Flächen, geschnitten, nahtlos gemacht und auf 320 Pixel verkleinert.
+22 Kacheln für alles, was flach liegt: Gras, Wiese, Ackerland, Heide, Steppe, Sumpf, Marsch, Moor,
+Wüste, Dünen, Ödland, Schlucht, Salz, Lava, Fels, Eis, Tundra, Gletscher, Meer, See, Küste, Riff.
+Geladen in `features/erkundung/HexGround.tsx` (`LAND_GROUND`); Arten, die aufragen (Wälder,
+Höhen, Siedlungen), nutzen eine dieser Kacheln mit der Farbe ihrer Art darüber. Erzeugt mit
+Higgsfield (GPT Image 2.6) als Blätter mit je sechs Flächen, geschnitten, nahtlos gemacht und auf
+320 Pixel verkleinert.
+
+## `bild/` – gemalte Zeichen der Oberwelt
+
+60 freigestellte Gruppen, die auf dem Boden stehen: Baumgruppen (Laub, Nadel, dicht, licht,
+Dschungel, tot, Mangroven, Savanne), Berge, Hochgebirge, Felsen, Hügel, Vulkan, Krater, Dünen,
+Tafelberge, Oase, Eiszacken, Sumpf, Schilf, Städtchen, Weiler, Ruinen. Der Dateiname ist
+`<Geländeart>-<Nummer>.webp`; `features/erkundung/HexSymbols.tsx` lädt alle Dateien des Ordners
+von selbst (`LAND_SYMBOLS`) und wählt je Feld eine. Alle aus derselben Hand: schräg von oben
+gesehen, Licht von oben links, dünner dunkler Umriss – deshalb nie spiegeln. Erzeugt mit
+Higgsfield (GPT Image 2.6) als fünf Blätter mit je zwölf Stücken auf durchsichtigem Grund,
+nach dem Raster geschnitten und auf 300 Pixel verkleinert.
 
 Nichts hier zeigt je etwas aus der Welt des Spielleiters.

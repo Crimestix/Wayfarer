@@ -490,23 +490,30 @@ nicht übernommen.
   eine gemalte Bodenkachel (`CAVE_GROUND`, `ui/assets/hexkarte`), gezeichnet als Fläche aus den
   Formen ihrer Felder (`plan.grounds`), auf den Höhlenboden beschnitten, mit weichem Saum; die
   Palette zeigt dieselbe Kachel (`KindSwatch`). Eine neue Art mit eigenem Boden: Kachel in den
-  Ordner, Eintrag in `CAVE_GROUND`. **Die Oberwelt ist ebenso gemalt** (Wunsch 20. 11.:
-  „Verbessere … das gesamte Hexkarten-Ding“, `erkundung/HexGround.tsx`): Jede Geländeart oben hat
-  eine gemalte Bodenkachel (`LAND_GROUND`, `ui/assets/hexkarte/oben` – Baumkronen von oben, Grate,
-  Dünen, Wellen; der Test verlangt für jede Art eine); die Felder sind nur noch Raster und Griff
-  für die Maus (`polygon[data-land]`, durchsichtig), Unentdecktes liegt unter einem Schleier.
-  `GroundLayer` malt erst jedes Feld mit seinem Boden und lässt dann – in der Reihenfolge von
-  `LAND_GROUND`, Wasser zuunterst, Gebirge und Siedlungen obenauf – das höhere Gelände frei
-  geformt über das tiefere greifen (derselbe gerechnete Umriss wie unter der Erde, je Art gemerkt:
-  Beim Malen rechnen nur die Arten unter dem Pinsel neu). **Gelände laufen weich ineinander aus**
-  (Rückmeldung 20. 11.: „Die Biome sollten irgendwie auch ein wenig nicer blenden“): kein Rand
-  und keine Kante, sondern `Feather` – Lagen desselben Bodens, jede schmaler und deckender, ein
-  Verlauf ohne Filter (`FEATHER`); einen weichen Schatten wirft nur, was sich erhebt (`RAISED`:
-  Wald, Höhen, Siedlung). Derselbe Auslauf gilt unter der Erde für die eigenen Böden. Nie wieder
-  eine harte Linie zwischen zwei Geländen der Oberwelt. Arten, die sich eine Kachel teilen,
-  tragen die Farbe ihrer Art darüber (`tint`: Tal, Krater, Vulkan); ein Strichzeichen tragen oben
-  nur noch Wahrzeichen (`mark`: Vulkan, Krater) – nie wieder flache Farbfelder mit Zeichen. Eine
-  neue Art oben: Kachel in den Ordner, Eintrag in `LAND_GROUND` an der Stelle ihrer Höhe.
+  Ordner, Eintrag in `CAVE_GROUND`. **Die Oberwelt: ruhiger Boden, gemalte Zeichen** (Frage des
+  Spielleiters, 20. 11.: „Wie kriegen wir hochqualitative Maps hin? … einen detaillierten,
+  schönen, hochqualitativen Stil, mit dem man wirklich schöne Maps bauen kann – aber damit nicht
+  viel Arbeit hat“; die Probe hat er angenommen: „Das sieht deutlich besser aus“). Zwei Schichten:
+  (1) **Boden** (`erkundung/HexGround.tsx`): `LAND_GROUND` gibt jeder Art der Oberwelt eine
+  gemalte Kachel (`ui/assets/hexkarte/oben`) – nur für das, was flach liegt (Gras, Sand, Wasser,
+  Felder, Sumpf); was aufragt, trägt einen schlichten Boden in der Farbe seiner Art (`tint`). Die
+  Felder sind nur noch Raster und Griff für die Maus (`polygon[data-land]`, durchsichtig),
+  Unentdecktes liegt unter einem Schleier. `GroundLayer` malt erst jedes Feld und lässt dann – in
+  der Reihenfolge von `LAND_GROUND`, Wasser zuunterst – das höhere Gelände frei geformt über das
+  tiefere greifen (derselbe gerechnete Umriss wie unter der Erde, je Art gemerkt) und weich
+  auslaufen (`Feather`: Lagen desselben Bodens ohne Filter – „Die Biome sollten … nicer
+  blenden“); vor jeder Küste liegt ein Ufersaum (seichtes Wasser und eine helle Linie, `shore`,
+  nur auf dem Wasser). (2) **Zeichen** (`erkundung/HexSymbols.tsx`): gemalte, freigestellte
+  Gruppen – Bäume, Berge, Hügel, Häuser, Ruinen, Vulkan, Schilf, Dünen, Palmen, Eis – in
+  `ui/assets/hexkarte/bild` (`<art>-<nummer>.webp`, geladen über `LAND_SYMBOLS`). Wer „Wald“
+  malt, bekommt Bäume: Je Feld steht eine Gruppe, gewählt und versetzt nach fester Regel
+  (`fixed`, nie `Math.random`), sie ragt über die Feldkante (`FIT`: Breite, Fuß, `share` für
+  Vereinzeltes), gezeichnet von oben nach unten, nie gespiegelt (Licht von oben links). Die
+  Palette zeigt Boden und Zeichen (`KindSwatch`). **Nie wieder** Gelände nur als Fläche von oben
+  (Baumkronen-Teppich: „verschwommen … die Wälder passen irgendwie nicht“), flache Farbfelder
+  oder Strichzeichen auf der Oberwelt. Ein neues Zeichen: Datei in den Ordner; eine neue Art:
+  Eintrag in `LAND_GROUND` an der Stelle ihrer Höhe, bei Aufragendem dazu Zeichen (der Test
+  verlangt beides).
   **Malen ohne Störung:** Ein Strich ist ein Schritt für „Rückgängig“ (Leiste, Strg+Z), aber
   keine Meldung mehr nach jedem Strich; bei Pinselgröße ab 2 zeigt `BrushGhost` unter dem Zeiger,
   welche Felder ein Strich träfe (`editor.brush`, eigener kleiner Zustand – die Karte zeichnet

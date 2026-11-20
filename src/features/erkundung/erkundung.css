@@ -1538,11 +1538,19 @@
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* Wahrzeichen auf gemaltem Boden: kräftiger, damit sie sich abheben. */
-.wf-hex__glyph[data-mark] path {
-  stroke: var(--hex-cave-rim);
-  stroke-opacity: 0.8;
-  stroke-width: 0.032;
+/* Der Ufersaum: seichtes Wasser vor der Küste und eine helle Linie an seinem Rand. */
+.wf-hexland__shallows {
+  fill: var(--hex-shallows);
+  fill-opacity: 0.3;
+  stroke: var(--hex-shallows);
+  stroke-opacity: 0.14;
+  stroke-width: calc(var(--hex) * 0.16);
+}
+.wf-hexland__foam {
+  fill: none;
+  stroke: var(--hex-foam);
+  stroke-opacity: 0.4;
+  stroke-width: max(1px, calc(var(--hex) * 0.022));
 }
 
 /* Der Pinsel unter dem Zeiger: welche Felder ein Strich treffen würde. */
@@ -1552,4 +1560,9 @@
   stroke: var(--gold-bright);
   stroke-opacity: 0.7;
   stroke-width: 1.5;
+}
+
+/* Gemalte Zeichen der Oberwelt (HexSymbols.tsx): auf unentdeckten Feldern nur gedämpft. */
+.wf-hexsym image[data-dim] {
+  opacity: 0.4;
 }
