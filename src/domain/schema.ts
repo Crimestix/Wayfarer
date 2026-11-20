@@ -14,7 +14,7 @@ export const PARTY_ID = 'party';
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
 export const DATA_VERSION = 43;
-export const DATA_SHAPE = '54c8017360caf1fd';
+export const DATA_SHAPE = 'cf1eab198b193c32';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
@@ -97,6 +97,11 @@ export const CampaignMetaSchema = z.object({
   calendar: CalendarSchema,
   /** Der wärmste Monat des Jahres (0-basiert) für das Wetter; null = aus dem Kalender abgeleitet. */
   warmestMonth: z.number().int().nonnegative().nullable().default(null),
+  /**
+   * Das Abendblatt geführt zeigen: alle Fächer, „Fang hier an“ und Rat (F21). Aus = freie
+   * Vorbereitung; Fächer stehen nur, wenn etwas darin steht oder sie geöffnet werden.
+   */
+  prepGuide: z.boolean().default(false),
   /** Das Sprachmodell, das für diese Kampagne Artikel liest (`features/ki`). */
   aiModel: z.string().default('claude-haiku-5-5'),
   /** Eigene Zustände neben den 14 des Regelwerks, z. B. „Verflucht“. */
@@ -1856,6 +1861,8 @@ export const PrepSchema = z.object({
   namesRound: z.number().int().nonnegative().default(0),
   /** Namen aus dem Text des Blatts, die der Spielleiter weggeklickt hat („nicht gemeint“). */
   notMeant: z.array(z.string()).default([]),
+  /** Freie Vorbereitung in eigener Reihenfolge – ohne Fächer (F21). */
+  text: z.string().default(''),
 });
 export type Prep = z.infer<typeof PrepSchema>;
 

@@ -16,15 +16,16 @@ import {
   prepNext,
   prepStand,
   prepView,
+  sectionFilled,
   suggestedWhich,
   type PrepSection,
   type PrepView,
   type PrepWhich,
 } from '../../domain/prep';
 import { useFocus } from '../../shell/focus';
-import { Button, SheetAdvice, Tabs, focusSheetSection } from '../../ui';
+import { Button, Checkbox, SheetAdvice, Tabs, Written, focusSheetSection } from '../../ui';
 import { usePrint } from '../handouts/print';
-import { setSkipped } from './actions';
+import { patchPrep, setSkipped } from './actions';
 import { Fach } from './Fach';
 import { Leftovers } from './Leftovers';
 import { spareNames } from './model';
@@ -91,15 +92,26 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
   const { content, which, number } = view;
   const stand = useMemo(() => prepStand(data, content), [data, content]);
   const advice = useMemo(() => prepAdvice(data, content, stand), [data, content, stand]);
-  const next = prepNext(stand);
-  /** Ein Fach steht offen – zuerst das, bei dem es weitergeht. */
-  const [open, setOpen] = useState<PrepSection | null>(() => next?.key ?? 'where');
+  /** Geführt: alle Fächer, „Fang hier an“ und Rat. Sonst frei (F21). */
+  const guide = data.campaign.prepGuide;
+  const next = guide ? prepNext(stand) : null;
+  /** Ein Fach steht offen – geführt zuerst das, bei dem es weitergeht; frei keines. */
+  const [open, setOpen] = useState<PrepSection | null>(() =>
+    guide ? (next?.key ?? 'where') : null,
+  );
+  /** Frei: Fächer, die der Spielleiter dazugeholt hat, obwohl noch nichts darin steht. */
+  const [added, setAdded] = useState<PrepSection[]>([]);
+  const shown = stand.filter(
+    (entry) => guide || sectionFilled(data, content, entry.key) || added.includes(entry.key),
+  );
+  const waiting = guide ? [] : stand.filter((entry) => !shown.includes(entry));
   /** Wohin gesprungen wird, sobald das Fach aufgeklappt ist. */
   const [target, setTarget] = useState<{ key: PrepSection } | null>(null);
   useEffect(() => {
     if (target) focusSheetSection(target.key);
   }, [target]);
   const jump = (key: PrepSection) => {
+    if (!added.includes(key)) setAdded((list) => [...list, key]);
     setOpen(key);
     setTarget({ key });
   };
@@ -136,15 +148,28 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
                 ? 'Dieses Blatt gehört zum laufenden Abend. Am Spieltisch hakst du ab, was gespielt und aufgedeckt wurde.'
                 : view.running
                   ? 'Der laufende Abend endet erst von Hand – hier bereitest du schon den nächsten vor. Sobald er beginnt, liegt dieses Blatt am Spieltisch; was vom laufenden übrig bleibt, kommt dann dazu.'
-                  : 'Was hier steht, liegt am Spieltisch bereit, sobald der Abend beginnt. Von oben nach unten – und nur so weit, wie es dir hilft.'}
+                  : guide
+                    ? 'Was hier steht, liegt am Spieltisch bereit, sobald der Abend beginnt. Von oben nach unten – und nur so weit, wie es dir hilft.'
+                    : 'Bereite vor, wie es dir passt – frei in deinen Worten. Fächer holst du dazu, wenn du sie brauchst; was darin steht, liegt am Spieltisch bereit.'}
             </p>
           </header>
+
+          <section className="wf-abend-free" aria-label="Deine Vorbereitung">
+            <Written
+              className="wf-abend-free__text"
+              label="Deine Vorbereitung"
+              grow
+              value={content.text}
+              placeholder="Frei schreiben: was du für den Abend im Kopf hast, in deiner Reihenfolge."
+              onSave={(text) => patchPrep(db, { text }, which)}
+            />
+          </section>
 
           <Leftovers />
 
           <div className="wf-abend-faecher">
-            {stand.map((entry, index) => {
-              const after = stand[index + 1];
+            {shown.map((entry, index) => {
+              const after = guide ? shown[index + 1] : undefined;
               return (
                 <Fach
                   key={entry.key}
@@ -161,31 +186,57 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
               );
             })}
           </div>
+          {waiting.length > 0 && (
+            <p className="wf-abend-more">
+              <span>Fächer dazuholen:</span>
+              {waiting.map((entry) => (
+                <button key={entry.key} type="button" onClick={() => jump(entry.key)}>
+                  {entry.title}
+                </button>
+              ))}
+            </p>
+          )}
         </div>
 
         <aside className="wf-sheet__side">
           <section>
-            <h3 className="wf-abend-sub">{next ? 'Fang hier an' : 'Das reicht für einen Abend'}</h3>
-            {next ? (
-              <button type="button" className="wf-abend-next" onClick={() => jump(next.key)}>
-                <b>{next.title}</b>
-                <span>{next.note}</span>
-              </button>
-            ) : (
-              <p className="wf-mute">
-                Alles Weitere entsteht am Tisch. Vorbereitung dient dem Improvisieren – nicht dem
-                Ablauf.
-              </p>
-            )}
+            <Checkbox checked={guide} onChange={(prepGuide) => db.setCampaign({ prepGuide })}>
+              Geführt vorbereiten
+            </Checkbox>
+            <p className="wf-mute">
+              {guide
+                ? 'Alle Fächer von oben nach unten, mit einem Rat, wo es weitergeht.'
+                : 'Aus: frei vorbereiten. Die Fächer bleiben da, wenn du sie brauchst.'}
+            </p>
           </section>
-          <section>
-            <h3 className="wf-abend-sub">Das Blatt</h3>
-            <SheetAdvice
-              items={advice}
-              onPick={(entry) => jump(entry.key)}
-              onOff={(entry, off) => setSkipped(db, entry.key, off, which)}
-            />
-          </section>
+          {guide && (
+            <>
+              <section>
+                <h3 className="wf-abend-sub">
+                  {next ? 'Fang hier an' : 'Das reicht für einen Abend'}
+                </h3>
+                {next ? (
+                  <button type="button" className="wf-abend-next" onClick={() => jump(next.key)}>
+                    <b>{next.title}</b>
+                    <span>{next.note}</span>
+                  </button>
+                ) : (
+                  <p className="wf-mute">
+                    Alles Weitere entsteht am Tisch. Vorbereitung dient dem Improvisieren – nicht
+                    dem Ablauf.
+                  </p>
+                )}
+              </section>
+              <section>
+                <h3 className="wf-abend-sub">Das Blatt</h3>
+                <SheetAdvice
+                  items={advice}
+                  onPick={(entry) => jump(entry.key)}
+                  onOff={(entry, off) => setSkipped(db, entry.key, off, which)}
+                />
+              </section>
+            </>
+          )}
           <section>
             <h3 className="wf-abend-sub">Am Tisch</h3>
             <p className="wf-mute">

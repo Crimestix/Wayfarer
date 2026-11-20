@@ -871,3 +871,34 @@ button.wf-abend-story__toggle:hover .wf-abend-name {
 .wf-abend-offer .wf-dismiss {
   align-self: center;
 }
+
+/* Freie Vorbereitung (F21): ein Text ohne Fächer, darunter die Fächer, die etwas tragen. */
+.wf-abend-free {
+  margin-bottom: var(--s-5);
+}
+.wf-abend-free__text {
+  min-height: 6rem;
+  font-size: var(--text-md);
+  line-height: 1.55;
+}
+.wf-abend-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-1) var(--s-3);
+  margin: var(--s-4) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-abend-more button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--gold);
+}
+.wf-abend-more button:hover {
+  text-decoration: underline;
+}

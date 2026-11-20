@@ -62,6 +62,7 @@ export type PrepContent = Pick<
   | 'carriedFrom'
   | 'namesRound'
   | 'notMeant'
+  | 'text'
 >;
 
 /** Ein leeres Blatt. */
@@ -80,6 +81,7 @@ export const EMPTY_PREP: PrepContent = {
   carriedFrom: [],
   namesRound: 0,
   notMeant: [],
+  text: '',
 };
 
 export interface PrepView {
@@ -830,6 +832,7 @@ export const readyEncounters = (
 /** Steht auf dem Blatt irgendetwas, das am Tisch zu sehen sein sollte? */
 export function prepHasContent(data: CampaignData, content: PrepContent): boolean {
   return (
+    content.text.trim() !== '' ||
     content.start.trim() !== '' ||
     content.treasure.trim() !== '' ||
     openScenes(content).length > 0 ||
@@ -854,6 +857,36 @@ export const PREP_SECTIONS = [
   'loot',
 ] as const;
 export type PrepSection = (typeof PREP_SECTIONS)[number];
+
+/**
+ * Steht in einem Fach schon etwas, das der Spielleiter (oder eine Geschichte im Spiel) dorthin
+ * gelegt hat? Ohne Führung stehen nur solche Fächer offen da (F21) – die Gefährten zeigt das
+ * Blatt immer, sie sind Lage, keine Aufgabe.
+ */
+export function sectionFilled(data: CampaignData, content: PrepContent, key: PrepSection): boolean {
+  switch (key) {
+    case 'where':
+      return !!content.plan.trim();
+    case 'party':
+      return activeParty(data).length > 0;
+    case 'stories':
+      return storiesInPlay(data).length + threadsInPlay(data).length > 0;
+    case 'start':
+      return !!content.start.trim();
+    case 'scenes':
+      return content.scenes.length > 0;
+    case 'secrets':
+      return content.secrets.length > 0;
+    case 'places':
+      return content.placeIds.some((id) => data.entities[id]);
+    case 'people':
+      return content.personIds.some((id) => data.entities[id]);
+    case 'encounters':
+      return content.encounterIds.some((id) => data.encounters[id]);
+    case 'loot':
+      return !!content.treasure.trim() || readyLoot(data).length > 0;
+  }
+}
 
 export const PREP_SECTION_TITLE: Record<PrepSection, string> = {
   where: 'Wo wir stehen',

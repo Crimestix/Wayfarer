@@ -50,6 +50,7 @@ export function PrepPaper({
   const laterTold = (id: string) => !!later.secrets.find((secret) => secret.id === id)?.revealed;
   const name = (id: string | null) => (id ? data.entities[id]?.name : undefined);
   const empty =
+    !content.text.trim() &&
     !content.start.trim() &&
     !content.plan.trim() &&
     !content.treasure.trim() &&
@@ -58,6 +59,12 @@ export function PrepPaper({
     <article className="wf-abend-paper">
       <h1>{title}</h1>
       {empty && <p className="wf-abend-paper__none">Auf diesem Blatt steht nichts.</p>}
+      {content.text.trim() && (
+        <section>
+          <h2>Vorbereitung</h2>
+          <p className="wf-abend-paper__text">{content.text.trim()}</p>
+        </section>
+      )}
       {content.plan.trim() && (
         <section>
           <h2>Was die Gruppe vorhat</h2>

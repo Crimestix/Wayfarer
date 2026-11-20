@@ -56,6 +56,7 @@ export type PrepChange = Partial<
     | 'pending'
     | 'namesRound'
     | 'notMeant'
+    | 'text'
   >
 >;
 

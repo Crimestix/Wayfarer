@@ -70,7 +70,9 @@ export function EveningBlock() {
       </div>
     );
 
+  const free = content.text.trim();
   const brief = [
+    free !== '' && 'Vorbereitung',
     start !== '' && (content.startDone ? 'Einstieg gespielt' : 'Einstieg'),
     all.length > 0 && count(all.length, 'Szene', 'Szenen'),
     allSecrets.length > 0 && count(allSecrets.length, 'Geheimnis', 'Geheimnisse'),
@@ -123,6 +125,14 @@ export function EveningBlock() {
       {!open && brief && <div className="wf-tisch-gesch__brief">{brief}</div>}
       {open && (
         <div className="wf-tisch-dazu">
+          {free && (
+            <>
+              <span className="wf-tisch-dazu__label">Vorbereitung</span>
+              <div className="wf-tisch-dazu__row">
+                <span className="wf-tisch-abend__text">{free}</span>
+              </div>
+            </>
+          )}
           {start && !content.startDone && (
             <>
               <span className="wf-tisch-dazu__label" data-here>
