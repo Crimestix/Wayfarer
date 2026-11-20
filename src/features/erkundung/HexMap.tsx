@@ -1,11 +1,12 @@
 /** Die gezeichnete Hexkarte: Gelände, Besonderheiten, Orte und der direkte Weg. */
 import { lairsOnArea } from '../../domain/landscape';
 import { kindKeyOf, kindLabelOf } from '../../domain/hexKinds';
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   HEX_DIRECTIONS,
   hexCenter,
   hexCorners,
+  hexDistance,
   hexKey,
   sameHex,
   type HexCoord,
@@ -14,6 +15,7 @@ import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/pa
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { areaLine } from './generate';
 import { CAVE_GROUND, CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
+import { GroundDefs, GroundLayer, landGroundOf } from './HexGround';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
@@ -203,6 +205,11 @@ interface Props {
    */
   slots?: readonly HexCoord[] | undefined;
   onSlot?: ((hex: HexCoord, phase: 'down' | 'move') => void) | undefined;
+  /**
+   * Wie viele Felder weit der Pinsel reicht (Vorbereiten, ab 2): Unter dem Zeiger steht dann,
+   * welche Felder ein Strich treffen würde.
+   */
+  brush?: number | null | undefined;
 }
 
 interface Cell {
@@ -272,6 +279,46 @@ function Passages({ hex, x, y, size }: { hex: Hex; x: number; y: number; size: n
   );
 }
 
+/**
+ * Der Pinsel unter dem Zeiger: die Felder, die ein Strich hier treffen würde. Das Feld unter der
+ * Maus steht in einem eigenen kleinen Zustand – die Karte selbst zeichnet sich bei einer
+ * Mausbewegung nie neu.
+ */
+function BrushGhost({ cells, radius }: { cells: readonly Cell[]; radius: number }) {
+  const anchor = useRef<SVGGElement>(null);
+  const [at, setAt] = useState<string | null>(null);
+  useEffect(() => {
+    const svg = anchor.current?.ownerSVGElement;
+    if (!svg) return;
+    const move = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      setAt(target?.closest('[data-hex]')?.getAttribute('data-hex') ?? null);
+    };
+    const leave = () => setAt(null);
+    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerleave', leave);
+    return () => {
+      svg.removeEventListener('pointermove', move);
+      svg.removeEventListener('pointerleave', leave);
+    };
+  }, []);
+  const under = useMemo(() => {
+    if (!at) return [];
+    const [q, r, level] = at.split(',').map(Number);
+    const centre = { q: q!, r: r!, level: level ?? 0 };
+    return cells.filter(
+      (cell) => cell.hex.level === centre.level && hexDistance(cell.hex, centre) <= radius - 1,
+    );
+  }, [at, cells, radius]);
+  return (
+    <g ref={anchor} className="wf-hexmap__brush" pointerEvents="none">
+      {under.map((cell) => (
+        <polygon key={hexKey(cell.hex)} points={cell.points} />
+      ))}
+    </g>
+  );
+}
+
 /** Eine Karte kann über tausend Felder haben; neu gezeichnet wird nur, wenn sich wirklich etwas ändert. */
 const Cells = memo(function Cells({
   cells,
@@ -327,6 +374,7 @@ const Cells = memo(function Cells({
             points={points}
             data-under={isUnderground(hex) || undefined}
             data-rock={(isUnderground(hex) && isSolid(hex)) || undefined}
+            data-land={!!landGroundOf(hex) || undefined}
           />
           {hex.exits !== null && !isRock(hex) && <Passages hex={hex} x={x} y={y} size={size} />}
           {hex.regionId && (
@@ -350,10 +398,13 @@ const Cells = memo(function Cells({
                 !PLAIN_CAVE.has(kindKeyOf(hex) ?? '') &&
                 !CAVE_GROUND[kindKeyOf(hex) ?? ''] &&
                 !!KIND_GLYPH[kindKeyOf(hex) ?? '']
-              : true) && (
+              : // Oben ist der gemalte Boden das Bild; ein Zeichen tragen nur Wahrzeichen (Vulkan,
+                // Krater) und Gelände ohne eigenen Boden.
+                (landGroundOf(hex) ? !!landGroundOf(hex)!.mark : true)) && (
               <g
                 className="wf-hex__glyph"
                 data-under={isUnderground(hex) || undefined}
+                data-mark={landGroundOf(hex)?.mark || undefined}
                 transform={`translate(${x} ${y}) scale(${size})`}
               >
                 {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
@@ -429,6 +480,7 @@ export function HexMap({
   paint,
   slots: slotCoords,
   onSlot,
+  brush,
   level = 0,
   marked = [],
   fog = true,
@@ -605,7 +657,9 @@ export function HexMap({
       onPointerLeave={paint ? () => paint.onEnd() : undefined}
       data-painting={paint ? true : undefined}
     >
+      <GroundDefs size={size} />
       <CaveDefs size={size} />
+      <GroundLayer cells={layout.cells} size={size} orientation={orientation} />
       <CaveLayer cells={layout.cells} size={size} orientation={orientation} fog={fog && !paint} />
       <Cells
         cells={layout.cells}
@@ -641,6 +695,7 @@ export function HexMap({
           <title>Noch kein Feld der Karte – Klick fügt es an, der Gelände-Pinsel malt darauf</title>
         </g>
       ))}
+      {paint && brush && brush > 1 && <BrushGhost cells={layout.cells} radius={brush} />}
       {line && <polyline className="wf-hexmap__route" points={line} />}
       {places.map(({ hex, x, y }) => {
         const place = data.entities[hex.placeId!]!;

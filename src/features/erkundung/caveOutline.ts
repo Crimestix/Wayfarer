@@ -95,7 +95,9 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
   const rows = Math.ceil((maxY - minY) / step) + 1;
 
   // Nur die Formen in der Nähe eines Punktes zählen: nach Kästchen von einer Feldgröße sortiert.
-  const buckets = new Map<string, CaveBlob[]>();
+  // Schlüssel als Zahl: Auf großen Karten wird für jeden Stützpunkt nachgeschlagen.
+  const cellOf = (bx: number, by: number) => (bx + 32768) * 65536 + (by + 32768);
+  const buckets = new Map<number, CaveBlob[]>();
   for (const blob of blobs) {
     const reach = blob.r + rough * 2 + 0.3;
     const x0 = Math.floor(Math.min(blob.x1, blob.x2 ?? blob.x1) - reach);
@@ -104,7 +106,7 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
     const y1 = Math.floor(Math.max(blob.y1, blob.y2 ?? blob.y1) + reach);
     for (let bx = x0; bx <= x1; bx++)
       for (let by = y0; by <= y1; by++) {
-        const key = `${bx},${by}`;
+        const key = cellOf(bx, by);
         const list = buckets.get(key);
         if (list) list.push(blob);
         else buckets.set(key, [blob]);
@@ -118,7 +120,7 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
     const y = minY + j * step;
     for (let i = 0; i < cols; i++) {
       const x = minX + i * step;
-      const near = buckets.get(`${Math.floor(x)},${Math.floor(y)}`);
+      const near = buckets.get(cellOf(Math.floor(x), Math.floor(y)));
       if (!near) {
         field[j * cols + i] = -1;
         continue;

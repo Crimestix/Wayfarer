@@ -490,7 +490,22 @@ nicht übernommen.
   eine gemalte Bodenkachel (`CAVE_GROUND`, `ui/assets/hexkarte`), gezeichnet als Fläche aus den
   Formen ihrer Felder (`plan.grounds`), auf den Höhlenboden beschnitten, mit weichem Saum; die
   Palette zeigt dieselbe Kachel (`KindSwatch`). Eine neue Art mit eigenem Boden: Kachel in den
-  Ordner, Eintrag in `CAVE_GROUND`. Auf einer Karte ohne Gänge ist offen, was nebeneinander
+  Ordner, Eintrag in `CAVE_GROUND`. **Die Oberwelt ist ebenso gemalt** (Wunsch 20. 11.:
+  „Verbessere … das gesamte Hexkarten-Ding“, `erkundung/HexGround.tsx`): Jede Geländeart oben hat
+  eine gemalte Bodenkachel (`LAND_GROUND`, `ui/assets/hexkarte/oben` – Baumkronen von oben, Grate,
+  Dünen, Wellen; der Test verlangt für jede Art eine); die Felder sind nur noch Raster und Griff
+  für die Maus (`polygon[data-land]`, durchsichtig), Unentdecktes liegt unter einem Schleier.
+  `GroundLayer` malt erst jedes Feld mit seinem Boden und lässt dann – in der Reihenfolge von
+  `LAND_GROUND`, Wasser zuunterst, Gebirge und Siedlungen obenauf – das höhere Gelände frei
+  geformt über das tiefere greifen (derselbe gerechnete Umriss wie unter der Erde, je Art gemerkt:
+  Beim Malen rechnen nur die Arten unter dem Pinsel neu). Arten, die sich eine Kachel teilen,
+  tragen die Farbe ihrer Art darüber (`tint`: Tal, Krater, Vulkan); ein Strichzeichen tragen oben
+  nur noch Wahrzeichen (`mark`: Vulkan, Krater) – nie wieder flache Farbfelder mit Zeichen. Eine
+  neue Art oben: Kachel in den Ordner, Eintrag in `LAND_GROUND` an der Stelle ihrer Höhe.
+  **Malen ohne Störung:** Ein Strich ist ein Schritt für „Rückgängig“ (Leiste, Strg+Z), aber
+  keine Meldung mehr nach jedem Strich; bei Pinselgröße ab 2 zeigt `BrushGhost` unter dem Zeiger,
+  welche Felder ein Strich träfe (`editor.brush`, eigener kleiner Zustand – die Karte zeichnet
+  sich bei einer Mausbewegung nie neu). Auf einer Karte ohne Gänge ist offen, was nebeneinander
   liegt und kein Fels ist (`openings`). Beim Spielen ist Unentdecktes nur eine Ahnung
   (`data-dim`). Die Texturen kommen aus `ui/assets/dungeon`; die Regeln rechnen weiter mit Feldern
   und Ausgängen. Zeichen für Kletterei, Abbruch und Verborgenes bleiben an der Seite, Schächte als

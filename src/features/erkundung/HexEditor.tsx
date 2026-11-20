@@ -68,6 +68,7 @@ import { Button, EntityPicker, IconButton, Input, Panel, Select, toast } from '.
 import { addFromWriting } from '../welt/writing';
 import { digCave } from './dig';
 import { CAVE_GROUND } from './HexLayers';
+import { LAND_GROUND } from './HexGround';
 import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
@@ -130,15 +131,6 @@ const TOOL_HINT: Record<HexTool, string> = {
   erase: 'Weg, Fluss und Gebiet von Feldern nehmen.',
   cells:
     'Die leeren Felder mit dem Plus gehören noch nicht zur Karte. Ein Klick fügt eines an, der Gelände-Pinsel malt direkt darauf. Hier: ein Klick auf ein Feld der Karte nimmt es weg.',
-};
-
-/** Was nach einem Strich in der Meldung steht. */
-const DONE_LABEL: Partial<Record<HexTool, string>> = {
-  tunnel: 'Gang gezogen',
-  rock: 'Fels gesetzt',
-  road: 'Weg gezogen',
-  river: 'Fluss gezogen',
-  erase: 'Radiert',
 };
 
 /** Die Felder unter dem Pinsel: das Feld selbst und bei größerem Pinsel die Nachbarn. */
@@ -408,12 +400,9 @@ export function useHexEditor(area: Area) {
       setLineSel(run.length ? { kind: tool, coords: run.map(coordOf) } : null);
     }
     if (!touched.current) return;
+    // Ein Strich ist ein Schritt für „Rückgängig“ (Leiste links, Strg+Z). Keine Meldung: Wer
+    // malt, setzt Strich an Strich – eine Meldung nach jedem stört nur.
     record(old);
-    toast({
-      slot: 'hexkarte',
-      title: DONE_LABEL[tool] ?? `${TOOL_LABEL[tool]} gemalt`,
-      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
-    });
   };
   /** Ein leeres Feld am Rand: Klick fügt es an; der Gelände-Pinsel malt im Strich darüber hinweg. */
   const onSlot = (at: HexCoord, phase: 'down' | 'move') => {
@@ -576,6 +565,20 @@ export function useHexEditor(area: Area) {
      */
     slots: area.hexes.some((hex) => hex.level > 0) ? undefined : rimSlots(area, rim),
     onSlot,
+    /**
+     * Wie viele Felder weit der Pinsel gerade reicht – für die Vorschau unter dem Zeiger. Ein Gang
+     * ist immer ein Feld breit; Werkzeuge ohne Pinsel haben keine.
+     */
+    brush:
+      tool === 'terrain'
+        ? caves &&
+          hexKind(kind)?.group === 'underdark' &&
+          !(WIDE_CAVE_KINDS.has(kind) || kind === SOLID_ROCK)
+          ? 1
+          : radius
+        : tool === 'erase' || tool === 'region'
+          ? radius
+          : null,
     paint:
       tool === 'select'
         ? undefined
@@ -959,7 +962,8 @@ const SWATCH_POINTS = '0,-0.55 0.48,-0.27 0.48,0.27 0,0.55 -0.48,0.27 -0.48,-0.2
  */
 export function KindSwatch({ kind }: { kind: string }) {
   const base = hexKind(kind)?.base;
-  const ground = CAVE_GROUND[kind];
+  const land = LAND_GROUND[kind];
+  const ground = CAVE_GROUND[kind] ?? land?.src;
   const clip = useId();
   return (
     <svg className="wf-kind-swatch" data-kind={kind} viewBox="-0.55 -0.6 1.1 1.2" aria-hidden>
@@ -978,6 +982,13 @@ export function KindSwatch({ kind }: { kind: string }) {
             preserveAspectRatio="xMidYMid slice"
             clipPath={`url(#${clip})`}
           />
+          {land && land.tint > 0 && (
+            <polygon
+              points={SWATCH_POINTS}
+              opacity={land.tint}
+              style={{ fill: `var(--terrain-${kind})` }}
+            />
+          )}
         </>
       ) : (
         <g className="wf-hex__glyph">{KIND_GLYPH[kind] ?? (base ? GLYPH[base] : null)}</g>

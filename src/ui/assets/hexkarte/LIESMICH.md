@@ -12,4 +12,13 @@ nahtlos gemacht (Ränder mit der Gegenseite überblendet) und auf 384 Pixel verk
 Felsfläche der Karte (`../dungeon/hexrock.webp`) ist aus der Poly-Haven-Textur `rock_ground` (CC0)
 umgerechnet.
 
+## `oben/` – Böden der Oberwelt
+
+36 Kacheln, je eine für fast jede Geländeart der Oberwelt (Grasland, Wiese, Ackerland, Wälder,
+Sumpf, Hügel, Gebirge, Wüste, Eis, Meer, Siedlung …). Geladen in
+`features/erkundung/HexGround.tsx` (`LAND_GROUND`); Tal, Krater und Vulkan teilen sich eine
+Kachel mit einer anderen Art und tragen ihre Farbe darüber, das Ruinenfeld nutzt
+`deep-ruins.webp`. Erzeugt mit Higgsfield (GPT Image 2.6) als sechs Blätter mit je sechs
+Flächen, geschnitten, nahtlos gemacht und auf 320 Pixel verkleinert.
+
 Nichts hier zeigt je etwas aus der Welt des Spielleiters.

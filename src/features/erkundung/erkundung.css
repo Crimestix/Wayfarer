@@ -1501,3 +1501,69 @@
   border-color: var(--ember);
   color: var(--ember);
 }
+
+/* Gemalter Boden der Oberwelt (HexGround.tsx): Die Felder sind nur noch Raster und Griff für die
+   Maus; das Bild liegt darunter. */
+.wf-hex polygon[data-land] {
+  fill: transparent;
+  stroke: var(--bg-inset);
+  stroke-opacity: 0.3;
+  stroke-width: 1;
+}
+.wf-hex:not([data-hidden]) polygon[data-land] {
+  stroke: var(--bg-inset);
+}
+.wf-hex:hover polygon[data-land] {
+  fill: var(--gold-bright);
+  fill-opacity: 0.16;
+  filter: none;
+}
+/* Unentdecktes liegt unter einem Schleier. */
+.wf-hex[data-hidden] polygon[data-land] {
+  fill: var(--bg-0);
+  fill-opacity: 0.55;
+  filter: none;
+}
+.wf-hex[data-hidden]:hover polygon[data-land] {
+  fill-opacity: 0.38;
+}
+.wf-hexland path {
+  stroke-linejoin: round;
+}
+/* Das höhere Gelände wirft einen weichen Schatten auf das tiefere, sein Rand läuft weich aus. */
+.wf-hexland__shade {
+  fill: none;
+  stroke: var(--hex-cave-shade);
+  stroke-opacity: 0.2;
+  stroke-width: calc(var(--hex) * 0.13);
+}
+.wf-hexland__fade {
+  fill: none;
+  stroke-opacity: 0.5;
+  stroke-width: calc(var(--hex) * 0.07);
+}
+.wf-hexland__edge {
+  fill: none;
+  stroke: var(--hex-cave-shade);
+  stroke-opacity: 0.22;
+  stroke-width: max(0.75px, calc(var(--hex) * 0.014));
+}
+.wf-hexland [data-wet] .wf-hexland__shade,
+.wf-hexland [data-wet] .wf-hexland__edge {
+  display: none;
+}
+/* Wahrzeichen auf gemaltem Boden: kräftiger, damit sie sich abheben. */
+.wf-hex__glyph[data-mark] path {
+  stroke: var(--hex-cave-rim);
+  stroke-opacity: 0.8;
+  stroke-width: 0.032;
+}
+
+/* Der Pinsel unter dem Zeiger: welche Felder ein Strich treffen würde. */
+.wf-hexmap__brush polygon {
+  fill: var(--gold-bright);
+  fill-opacity: 0.14;
+  stroke: var(--gold-bright);
+  stroke-opacity: 0.7;
+  stroke-width: 1.5;
+}

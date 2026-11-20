@@ -517,6 +517,7 @@ function AreaView({ area }: { area: Area }) {
                 paint={editor.paint}
                 slots={editor.slots}
                 onSlot={editor.onSlot}
+                brush={editor.brush}
               />
             </div>
             <div className="wf-erk-prep__keys" aria-hidden>
