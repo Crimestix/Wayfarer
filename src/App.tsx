@@ -14,7 +14,7 @@ import { Welcome, type WelcomeEnv } from './shell/Welcome';
 import { startSync, stopSync } from './features/abgleich';
 import type { Probe } from './features/abgleich/probe';
 import { flushEdits } from './features/wiki/editing';
-import { draftRegister } from './ui/drafts';
+import { draftRegister, saveOpenDrafts } from './ui/drafts';
 
 type Phase =
   | { kind: 'loading' }
@@ -103,11 +103,19 @@ export function App() {
     const { db } = phase;
     // Welche Bilder schon auf diesem Rechner liegen (nur in der installierten App).
     void loadLocalMedia(db.store.location);
-    const flush = () => void db.flush();
+    // Erst geben offene Editoren ab, was noch nicht geschrieben ist – dann wird gespeichert.
+    // Sonst ginge beim Schließen oder Neuladen kurz nach dem Tippen der letzte Satz verloren (K08).
+    const flush = () => {
+      flushEdits();
+      saveOpenDrafts();
+      void db.flush();
+    };
     window.addEventListener('beforeunload', flush);
     window.addEventListener('blur', flush);
     // Installierte App: Das Fenster schließt erst, wenn alles geschrieben ist.
     const offClosing = onAppClosing(async () => {
+      flushEdits();
+      saveOpenDrafts();
       await db.flush();
       return !db.hasUnsavedChanges();
     });

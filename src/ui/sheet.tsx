@@ -72,12 +72,13 @@ export function Written({
   // Ändert sich der Wert woanders (ein anderes Fenster, ein anderes Blatt), gilt der neue.
   useEffect(() => setText(value), [value]);
   // Ungeschriebener Text: Der Abgleich wartet mit dem Übernehmen, bis er geschrieben ist.
-  useHoldDraft(text !== value, 'written');
   const input = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const commit = () => {
     if (text !== value) onSave(text);
   };
+  // Vor dem Schließen schreibt die App, was hier noch steht – auch ohne Verlassen des Feldes.
+  useHoldDraft(text !== value, 'written', commit);
   const fit = !!grow || !!wrap;
   const multi = !!rows || fit;
   useLayoutEffect(() => {
