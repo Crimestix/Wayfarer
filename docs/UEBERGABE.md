@@ -257,6 +257,20 @@ Auslauf für die eigenen Böden. Kein neues Schema. Geprüft: Tests, Vorschau (O
 Unterreich). Nicht geprüft: wie flüssig das auf sehr großen Karten und auf dem MacBook ist –
 der Verlauf sind acht Lagen je Geländeart.
 
+**Danach: Tag `v0.1.35` auf `c3b964d` (20. 11.)** – neuer Kartenstil der Oberwelt. Rückmeldung zu
+0.1.34: „ein wenig verschwommen, gerade die Wälder passen irgendwie nicht so ganz zum Rest“, und
+die Frage nach einem „detaillierten, schönen, hochqualitativen Stil … aber damit nicht viel
+Arbeit“. Antwort (als Probe gezeigt, angenommen: „Das sieht deutlich besser aus“): ruhiger Boden
++ scharfe gemalte Zeichen. `erkundung/HexSymbols.tsx` setzt je Feld eine gemalte Gruppe (60
+Stück, fünf Blätter bei Higgsfield; insgesamt 77,5 von 150 Credits verbraucht), der Boden zeigt
+nur noch Flaches, vor Küsten liegt ein Ufersaum. Kein neues Schema. Geprüft: alle Tests (2822),
+in der Vorschau alle 40 Arten der Oberwelt, Palette, eine gemischte Karte mit Weg, Fluss, Stadt,
+Dorf, Ruine. Nicht geprüft: sehr große Karten und das MacBook (je Feld mit Zeichen ein Bild),
+erzeugte Karten zwischen zwei Orten, Landschaften der Welt als Pinsel, Ansicht „Spielen“ im
+neuen Stil. Bekannt: Wege und Flüsse liegen über den Zeichen (eine Straße läuft über die Dächer
+einer Stadt); Ackerland, Heide, Moor und Steppe haben kein Zeichen; die Vorschau des Pinsels
+bleibt stehen, wenn die Maus die Karte verlässt.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
