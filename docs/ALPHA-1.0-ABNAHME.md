@@ -15,15 +15,15 @@ Wer hier weiterarbeitet, liest zuerst diesen Stand: Was offen ist, steht als off
 
 ## Umgebung und ihre Grenzen
 
-| Prüfart                                                                            | Möglich hier?                               | Bemerkung                                                                                   |
-| ---------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Logiktests (Vitest), Typprüfung, Produktionsbuild                                  | ja                                          | Linux-Container                                                                             |
-| Oberfläche im Browser (Vorschau `npm run dev`, Playwright/Chromium)                | ja                                          | Speicherung im Browser, nicht der Kampagnenordner                                           |
-| Native Windows-App starten, Kampagnenordner, Dateirechte, Schließen beim Speichern | **nein**                                    | kein Windows-Rechner; bleibt offen, bis am Windows-PC geprüft                               |
-| Installer bauen                                                                    | ja, über GitHub Actions („Veröffentlichen“) | ein gebauter Installer ist **keine** ausgeführte Desktopprüfung                             |
-| macOS                                                                              | nein                                        | nur CI-Bau                                                                                  |
-| Echte Kampagnenkopie (Elaris, Atlas, Brett, Dungeons)                              | **nein**                                    | liegt nicht in dieser Umgebung; geprüft wird mit erfundenen Daten und dem Elaris-Grundstand |
-| Abgleich gegen GitHub, KI-Leser mit echtem Schlüssel                               | nein                                        | nur Attrappe; keine kostenpflichtigen Abrufe                                                |
+| Prüfart                                                                            | Möglich hier?                           | Bemerkung                                                                                   |
+| ---------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Logiktests (Vitest), Typprüfung, Produktionsbuild                                  | ja                                      | Linux-Container                                                                             |
+| Oberfläche im Browser (Vorschau `npm run dev`, Playwright/Chromium)                | ja                                      | Speicherung im Browser, nicht der Kampagnenordner                                           |
+| Native Windows-App starten, Kampagnenordner, Dateirechte, Schließen beim Speichern | **nein**                                | kein Windows-Rechner; bleibt offen, bis am Windows-PC geprüft                               |
+| Installer bauen                                                                    | ja, über GitHub Actions („Alpha bauen“) | ein gebauter Installer ist **keine** ausgeführte Desktopprüfung                             |
+| macOS                                                                              | nein                                    | nur CI-Bau                                                                                  |
+| Echte Kampagnenkopie (Elaris, Atlas, Brett, Dungeons)                              | **nein**                                | liegt nicht in dieser Umgebung; geprüft wird mit erfundenen Daten und dem Elaris-Grundstand |
+| Abgleich gegen GitHub, KI-Leser mit echtem Schlüssel                               | nein                                    | nur Attrappe; keine kostenpflichtigen Abrufe                                                |
 
 Rückfall vor jedem Test der Alpha am eigenen Rechner: siehe „Rückfall“ unten.
 
@@ -215,10 +215,56 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 1. Vor dem Installieren der Alpha den **ganzen Kampagnenordner** kopieren – einschließlich
    `media/` (Bilder liegen nur dort, nicht in der JSON-Sicherung, siehe F19). In der Alpha geht
    das danach auch über Einstellungen → Sicherung → „Vollständige Kopie mit Bildern“.
-2. Den bisherigen Installer (0.1.39) aufheben.
+2. Den bisherigen Installer (0.1.39) aufheben. Die Alpha hat dieselbe App-Kennung: Sie
+   **ersetzt** die installierte App. Zurück geht es, indem man den alten Installer wieder
+   ausführt.
 3. Die Alpha erhöht die Datenversion (43). Eine mit der Alpha geöffnete Kampagne nicht mehr mit
    der alten App öffnen; zurück geht es nur mit der Kopie aus Schritt 1.
-4. Die Alpha zuerst mit einer **Kopie** der Kampagne öffnen, nie mit dem Original.
+4. Die Alpha zuerst mit einer **Kopie** der Kampagne öffnen, nie mit dem Original – und in der
+   Kopie den Abgleich nicht einrichten (die Kopie aus „Vollständige Kopie mit Bildern“ enthält
+   ihn ohnehin nicht).
+5. Welche Fassung läuft, steht unter Einstellungen → Quellen → „Diese Fassung“.
+
+## Alpha-Paket
+
+- Workflow „Alpha bauen“ (`.github/workflows/alpha-bauen.yml`): baut bei jedem Push auf einen
+  Zweig `alpha-…` Pakete für Windows (`-setup.exe`) und macOS (`.dmg`, Apple Silicon und Intel)
+  als **Anhang des Laufs** (Actions → Lauf → „Artifacts“, 14 Tage). Kein Tag, keine
+  Veröffentlichung, kein Updater. Der Workflow „Veröffentlichen“ wurde nicht benutzt.
+- Version: `0.2.0-alpha.<Laufnummer>`.
+- Ein gebautes Paket ist **keine** ausgeführte Desktopprüfung (K57 bleibt offen, bis die Alpha
+  am Windows-PC mit einer Kampagnenkopie geöffnet wurde).
+
+## Funktionsumfang der Alpha (Änderungen gegenüber 0.1.39)
+
+- **Frei schreiben**: „Neu“ beginnt als freier Text ohne Pflichtangaben; Weltstart mit
+  „Frei schreiben“ und „Weiterarbeiten“, Pflege nur unten und ohne Zähler kurzer Texte.
+- **Mappe**: Material (Einträge, Texte, Geschichten, Wegenetze, Hexkarten, Dungeons) an Texte und
+  Geschichten anheften, mit Rückweg.
+- **Arbeitsansicht** Vorbereiten/Spielen in der Weltleiste – reine Ansicht; Hexkarte und Dungeon
+  beginnen passend; Neu würfeln/Löschen nur beim Vorbereiten.
+- **Nachschlagen** im schmalen Seitenblatt; **Breit schreiben**; Text im Dossier gleich nach dem
+  Steckbrief.
+- **Geschichten** ohne Bewertung (Stand/Rat nur auf Wunsch); **Abendblatt** frei mit freiem Text,
+  Führung als Schalter.
+- **Vollständige Kopie mit Bildern** (nur installierte App); Sicherungsumfang benannt.
+- Fehlerbehebungen: unbekannter Aufenthalt, Hexmaßstab unter der Erde, Bastionsverlauf nach
+  Umbenennen, Statblock löschen mit Ankündigung und Rückgängig, Strg+E doppelt belegt,
+  „verwaltet“ ≠ Herrschaft, Sammelseiten nicht als Personen, Ortsauswahl geordnet, Lesbarkeit
+  und Fokus, Weltleiste bis 125 % Zoom, **kein Textverlust beim sofortigen Schließen** (K08).
+- Datenversion 43 (neu: `chronicle.bastionId`, `story.guide`, `material` an Artikel und
+  Geschichte, `prep.text`, `campaign.prepGuide`).
+
+## Grenzen dieser Alpha
+
+- Nicht nativ geprüft: Windows- und macOS-App, Kampagnenordner, Dateirechte, Schließen beim
+  Speichern, „Vollständige Kopie mit Bildern“, Wiederherstellung (K48, K49, K57).
+- Nicht mit einer großen echten Kampagne geprüft (K15, K58); alle Browserproben mit kleinem
+  Elaris-Grundstand und erfundenen Einträgen.
+- Abgleich nur gegen die Attrappe; zwei echte Geräte offen (K50, K51).
+- Viele Abnahmefälle sind offen (siehe Matrix) – keiner davon ist als bestanden markiert, ohne
+  geprüft zu sein.
+- Das Abendblatt hat noch keine eigene Mappe; die Zeitrücknahme hat eine Stufe.
 
 ## Protokoll
 
