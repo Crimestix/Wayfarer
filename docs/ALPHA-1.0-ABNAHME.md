@@ -232,6 +232,9 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
   als **Anhang des Laufs** (Actions → Lauf → „Artifacts“, 14 Tage). Kein Tag, keine
   Veröffentlichung, kein Updater. Der Workflow „Veröffentlichen“ wurde nicht benutzt.
 - Version: `0.2.0-alpha.<Laufnummer>`.
+- **Gebaut:** Lauf 44791127572 (Stand `093a607`), 20. 11. 2026 – `Wayfarer-0.2.0-alpha.2-Windows`
+  (8,7 MB, `-setup.exe`) und `Wayfarer-0.2.0-alpha.2-macOS` (22,2 MB, `.dmg`), abrufbar bis 4. 12. 2026 unter Actions → „Alpha bauen“ → Lauf 2 → Artifacts. Nicht installiert, nicht
+  gestartet.
 - Ein gebautes Paket ist **keine** ausgeführte Desktopprüfung (K57 bleibt offen, bis die Alpha
   am Windows-PC mit einer Kampagnenkopie geöffnet wurde).
 
@@ -277,7 +280,12 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 - 20. 11. 2026: Phase D: F10, F14, F18, F20 behoben; Browserproben K01–K09, K18, K21, K55,
           K59; neuer Befund K08 (Textverlust beim sofortigen Schließen) gefunden und behoben.
           2857 Tests grün.
+- 20. 11. 2026: Phase E: Fassung in den Einstellungen sichtbar; Workflow „Alpha bauen“; Pakete
+          0.2.0-alpha.2 für Windows und macOS gebaut (ohne Veröffentlichung). Rust-Tests Windows und
+          Linux grün (inkl. Kopierbefehl), macOS-Testlauf mangels freiem Rechner abgebrochen.
 
 ## Nächster Schritt
 
-Phase E: Alpha-Build über GitHub Actions ohne Veröffentlichung, Testreste prüfen (K60), Übergabe.
+Am Windows-PC: Kampagnenordner samt `media/` kopieren, Paket 0.2.0-alpha.2 installieren, die
+**Kopie** öffnen und K57, K48, K49, K08 (Schließen kurz nach dem Tippen) nativ prüfen; danach die
+offenen Fälle der Matrix mit der echten Welt.
