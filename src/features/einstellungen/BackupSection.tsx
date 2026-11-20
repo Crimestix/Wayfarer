@@ -1,11 +1,14 @@
 /** Abschnitt „Sicherung“: gesamte Kampagne als eine Datei sichern und wieder einspielen. */
 import { useMemo, useState } from 'react';
-import { Download, Upload } from 'lucide-react';
+import { Copy, Download, Upload } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { isDesktopApp } from '../../data/platform';
+import { FolderStore, campaignCopy, isDesktopApp, pickFolder } from '../../data/platform';
+import { useLocalMediaCount } from '../../data/media';
 import { Button, toast } from '../../ui';
 import {
   backupFileName,
+  backupGapText,
+  copyFolderName,
   formatRealTime,
   readBackup,
   serializeBackup,
@@ -28,6 +31,34 @@ export function BackupSection() {
   const [pending, setPending] = useState<{ result: RestoreResult; fileName: string } | null>(null);
   // Bleibt beim Schließen stehen, damit der Dialog nicht leer ausblendet.
   const [shown, setShown] = useState<{ result: RestoreResult; fileName: string } | null>(null);
+
+  const localImages = useLocalMediaCount();
+  const folder = db.store instanceof FolderStore ? db.store.root : null;
+
+  /** Vollständige Kopie: der ganze Kampagnenordner mit Bildern, in einen neuen Ordner (F19). */
+  const copyAll = async () => {
+    if (!folder) return;
+    const target = await pickFolder('Wohin soll die vollständige Kopie?');
+    if (!target) return;
+    setBusy(true);
+    try {
+      await db.flush();
+      const report = await campaignCopy(
+        folder,
+        target,
+        copyFolderName(data.campaign.name, new Date()),
+      );
+      toast({
+        title: 'Vollständige Kopie angelegt',
+        body: `${report.files} Dateien, davon ${report.media} Bilder – in ${report.folder}`,
+        duration: 12000,
+      });
+    } catch (e) {
+      toast({ title: 'Die Kopie wurde nicht angelegt', body: errorText(e), tone: 'danger' });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async () => {
     setBusy(true);
@@ -105,9 +136,26 @@ export function BackupSection() {
         >
           Schreibt die gesamte Kampagne in eine einzige Datei – Welt, Wiki, Chronik, Kalender,
           Gefährten. Aus dem Netz geholte Bilder (Ordner „media“) gehören nicht dazu; sie lassen
-          sich auf jedem Rechner neu holen.
+          sich neu holen, solange ihre Quelle erreichbar ist. Von Hand gewählte Bilder stecken in
+          der Datei.
           {desktop && ' Du wählst den Ordner; am besten einen außerhalb des Kampagnenordners.'}
+          {backupGapText(localImages) && ` ${backupGapText(localImages)}`}
         </ActionRow>
+        {folder && (
+          <ActionRow
+            icon={<Copy />}
+            title="Vollständige Kopie mit Bildern"
+            action={
+              <Button icon={<Copy />} onClick={copyAll} disabled={busy}>
+                Kopie anlegen …
+              </Button>
+            }
+          >
+            Kopiert den ganzen Kampagnenordner samt Bildern in einen neuen Ordner – der vollständige
+            Rückfall. Zurück geht es, indem du die Kopie beim Start als Kampagne öffnest. Der
+            Abgleich zieht nicht mit: Eine geöffnete Kopie gleicht erst ab, wenn du es einrichtest.
+          </ActionRow>
+        )}
         <ActionRow
           icon={<Upload />}
           title="Sicherung einspielen"

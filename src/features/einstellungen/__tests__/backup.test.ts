@@ -8,6 +8,8 @@ import { COLLECTION_NAMES } from '../../../domain/schema';
 import fullBackup from '../../import/__fixtures__/v157-voll.json';
 import { importV157Backup } from '../../import/v157';
 import {
+  backupGapText,
+  copyFolderName,
   BACKUP_FORMAT,
   BACKUP_VERSION,
   backupFileName,
@@ -215,5 +217,23 @@ describe('Dateiname und Zusammenfassung', () => {
     expect(formatRealTime('')).toBe('');
     expect(formatRealTime('kein Datum')).toBe('');
     expect(formatRealTime(STAMP)).toMatch(/^10\. November 2026, \d\d:05 Uhr$/);
+  });
+});
+
+describe('F19: Umfang der Sicherung', () => {
+  it('sagt, wenn Bilder nur im Ordner „media“ liegen', () => {
+    expect(backupGapText(0)).toBe('');
+    expect(backupGapText(1)).toContain('Ein Bild liegt nur im Ordner „media“');
+    expect(backupGapText(12)).toContain('12 Bilder liegen');
+    expect(backupGapText(12)).toContain('vollständige Kopie');
+  });
+
+  it('benennt den Ordner einer vollständigen Kopie nach Kampagne und Tag', () => {
+    expect(copyFolderName('Elaris', new Date('2026-11-20T10:00:00Z'))).toBe(
+      'Elaris – Kopie 2026-11-20',
+    );
+    expect(copyFolderName('  ', new Date('2026-11-20T10:00:00Z'))).toBe(
+      'Kampagne – Kopie 2026-11-20',
+    );
   });
 });

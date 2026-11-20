@@ -181,6 +181,21 @@ export const aiAsk = (request: AiAskRequest) => invoke<AiAskResponse>('ai_ask', 
 
 // ── Bilder (nur in der installierten App) ────────────────────────────────────
 
+/** Was eine vollständige Kopie der Kampagne enthält (F19). */
+export interface CopyReport {
+  folder: string;
+  files: number;
+  media: number;
+  bytes: number;
+}
+
+/**
+ * Kopiert den ganzen Kampagnenordner – Daten und Bilder, ohne den Zustand des Abgleichs – in
+ * einen neuen Ordner `name` unter `target`. Überschreibt nie etwas.
+ */
+export const campaignCopy = (root: string, target: string, name: string) =>
+  invoke<CopyReport>('campaign_copy', { root, target, name });
+
 /** Namen der Bilder, die im Kampagnenordner unter „media“ liegen. */
 export const mediaList = (root: string) => invoke<string[]>('media_list', { root });
 /** Holt ein Bild aus dem Netz in den Kampagnenordner. Ergebnis: Größe der Datei in Bytes. */

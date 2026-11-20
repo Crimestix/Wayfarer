@@ -96,6 +96,18 @@ zuletzt angemeldete Fläche, sonst „Festhalten“. Nachprüfung im Browser: mi
 Umschalten, kein Dialog; am Spieltisch öffnet Strg+E „Festhalten“. Rest: Der Hinweis am Knopf
 „Festhalten (Strg+E)“ gilt nicht, solange ein Artikel offen ist.
 
+**F19 – Sicherung und Medien.** Alter Stand: Die Sicherungsdatei enthält Daten und von Hand
+gewählte (eingebettete) Bilder, nicht aber die aus dem Netz geholten Bilder unter `media/`; einen
+Weg, Daten und Bilder zusammen zu sichern, gab es in der App nicht. Änderung: Einstellungen →
+Sicherung nennt den Umfang genau („N Bilder liegen nur im Ordner media …“, `backupGapText`) und
+bietet in der installierten App „Vollständige Kopie mit Bildern“: neuer Befehl `campaign_copy`
+(`src-tauri/src/copy.rs`) kopiert den ganzen Kampagnenordner in einen neuen Ordner (nie
+überschreibend, nie in sich selbst), ohne `.abgleich/` und ohne beiseitegelegte Stände des
+Testmodus – eine geöffnete Kopie gleicht also nicht ungefragt ab. Wiederherstellung: die Kopie
+beim Start als Kampagne öffnen. Nachprüfung: Rust-Tests auf Linux (Kopie mit Bild, ohne
+Abgleich/Testmodus; Name doppelt → „(2)“; Ziel im Kampagnenordner abgelehnt). **Offen:** Knopf
+und Wiederherstellung in der installierten Windows-App (K48, K57).
+
 ## Abnahmematrix K01–K60
 
 Status je Fall: offen / bestanden (Umgebung) / fehlgeschlagen / blockiert. „Bestanden (Vorschau)“
@@ -118,7 +130,8 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 ## Rückfall
 
 1. Vor dem Installieren der Alpha den **ganzen Kampagnenordner** kopieren – einschließlich
-   `media/` (Bilder liegen nur dort, nicht in der JSON-Sicherung, siehe F19).
+   `media/` (Bilder liegen nur dort, nicht in der JSON-Sicherung, siehe F19). In der Alpha geht
+   das danach auch über Einstellungen → Sicherung → „Vollständige Kopie mit Bildern“.
 2. Den bisherigen Installer (0.1.39) aufheben.
 3. Die Alpha erhöht die Datenversion (43). Eine mit der Alpha geöffnete Kampagne nicht mehr mit
    der alten App öffnen; zurück geht es nur mit der Kopie aus Schritt 1.
@@ -131,4 +144,4 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 
 ## Nächster Schritt
 
-F19 (Sicherung und Medien), dann Phase C (F01–F07, F11–F13, F21).
+Phase C (F01–F07, F11–F13, F21): freier Schreibbeginn, Arbeitszusammenhang, Gestalten/Leiten.

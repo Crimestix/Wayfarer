@@ -25,6 +25,18 @@ import { formatDateTime } from '../../domain/time/calendar';
 import { repairReferences } from '../import/integrity';
 
 export const BACKUP_FORMAT = 'wayfarer-sicherung';
+
+/** Name des Ordners einer vollständigen Kopie: „Elaris – Kopie 2026-11-20“. */
+export function copyFolderName(campaignName: string, day: Date): string {
+  const date = day.toISOString().slice(0, 10);
+  return `${campaignName.trim() || 'Kampagne'} – Kopie ${date}`;
+}
+
+/** Was die Sicherungsdatei nicht enthält, in einem Satz – oder leer, wenn ihr nichts fehlt. */
+export function backupGapText(localImages: number): string {
+  if (localImages === 0) return '';
+  return `${localImages === 1 ? 'Ein Bild liegt' : `${localImages} Bilder liegen`} nur im Ordner „media“ und ${localImages === 1 ? 'ist' : 'sind'} nicht in der Sicherungsdatei. Fehlt später die Quelle (etwa LegendKeeper), ${localImages === 1 ? 'fehlt es' : 'fehlen sie'} – dafür gibt es die vollständige Kopie.`;
+}
 export const BACKUP_VERSION = 1;
 
 export type BackupFile = {

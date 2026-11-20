@@ -3,6 +3,7 @@
 //! er steht in `src/data/platform.ts`.
 
 mod config;
+mod copy;
 mod ai;
 mod keys;
 mod sync;
@@ -182,6 +183,12 @@ async fn media_list<R: Runtime>(app: AppHandle<R>, root: String) -> Result<Vec<S
     Ok(names)
 }
 
+/// Legt eine vollständige Kopie der Kampagne an – mit Bildern, ohne Abgleich (F19).
+#[tauri::command]
+async fn campaign_copy(root: String, target: String, name: String) -> Result<copy::CopyReport, String> {
+    blocking(move || copy::copy_campaign(&root, &target, &name)).await
+}
+
 /// Holt ein Bild aus dem Netz in den Kampagnenordner. Gibt die Größe der Datei zurück.
 #[tauri::command]
 async fn media_fetch<R: Runtime>(
@@ -332,6 +339,7 @@ fn wayfarer<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
             ai_ask,
             media_list,
             media_fetch,
+            campaign_copy,
             app_close,
             sync::sync_state,
             sync::sync_set_key,
