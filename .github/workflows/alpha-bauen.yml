@@ -2,15 +2,19 @@
 # Veröffentlichung auf GitHub. Die Pakete liegen danach nur als Anhang des Laufs (Actions → Lauf →
 # „Artifacts“) und werden nach 14 Tagen gelöscht.
 #
-# Auslöser: nur von Hand – Actions → „Alpha bauen“ → „Run workflow“ → Zweig und Versionsnummer.
+# Auslöser: jeder Push auf einen Zweig „alpha-…“ (Version 0.2.0-alpha.<Laufnummer>) oder – sobald
+# die Datei auf dem Hauptzweig liegt – von Hand: Actions → „Alpha bauen“ → „Run workflow“.
 name: Alpha bauen
 
 on:
+  push:
+    branches:
+      - 'alpha-*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Versionsnummer der Probe, z. B. 0.2.0-alpha.1'
-        required: true
+        required: false
         type: string
 
 permissions:
@@ -45,8 +49,10 @@ jobs:
         shell: bash
         env:
           EINGABE: ${{ inputs.version }}
+          LAUF: ${{ github.run_number }}
         run: |
           version="${EINGABE#v}"
+          [ -n "$version" ] || version="0.2.0-alpha.$LAUF"
           if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+)?$'; then
             echo "::error::Erwartet z. B. 0.2.0-alpha.1. Erhalten: '$version'"
             exit 1
