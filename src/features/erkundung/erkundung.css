@@ -1315,6 +1315,21 @@
   fill: url(#wf-hex-ground);
   stroke: none;
 }
+/* Eigener Boden einer Geländeart (Pilzwald, Geröll …): die Fläche und ein weicher Saum. */
+.wf-hexcave__ground {
+  stroke: none;
+}
+.wf-hexcave__ground-fade {
+  fill: none;
+  stroke-opacity: 0.45;
+  stroke-width: calc(var(--hex) * 0.12);
+}
+.wf-hexcave__wallshade {
+  fill: none;
+  stroke: var(--hex-cave-shade);
+  stroke-opacity: 0.28;
+  stroke-width: calc(var(--hex) * 0.13);
+}
 .wf-hexcave__edge {
   fill: none;
   stroke: var(--hex-cave-ink);
@@ -1359,13 +1374,6 @@
 }
 .wf-hexcave__open[data-dim] {
   opacity: 0.2;
-}
-/* Gemalte Zeichen unter der Erde */
-.wf-hex__icon {
-  pointer-events: none;
-}
-.wf-hex[data-hidden] .wf-hex__icon {
-  opacity: 0.35;
 }
 /* Zeichen auf dem hellen Höhlenboden: dunkle Tusche statt heller. */
 .wf-hex__glyph[data-under] path {

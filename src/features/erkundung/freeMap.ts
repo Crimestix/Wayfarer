@@ -79,6 +79,9 @@ export function blankArea(input: BlankInput): Area {
           q: col - (row - (row & 1)) / 2,
           r: row,
           ...ground,
+          // Unter der Erde ist jedes Feld zuerst Fels ohne Ausgang: So gelten die Werkzeuge für
+          // Gänge, und gegraben wird von Feld zu Feld.
+          ...(input.terrain === 'underdark' && !input.landscape ? { exits: [] } : {}),
           discovered: false,
         }),
       );

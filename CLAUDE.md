@@ -442,8 +442,17 @@ nicht übernommen.
   heißt das Grundgelände „Ganggeflecht“ (nie „Höhlengang“); dazu Massivfels (`SOLID_ROCK`),
   Offener Höhlenboden, Große Kaverne, Tropfsteinwald, Geröllfeld, Abgrund, Eishöhle, Versunkene
   Ruinen, Bergwerk (`HEX_KINDS`, Farben `--terrain-<art>`); was ein Feld weit ausfüllt, steht in
-  `WIDE_CAVE_KINDS`. Eine freie Karte unter der Erde beginnt als Fels (`blankArea`), neue Felder
-  dort ebenso; Massivfels auf einer Karte mit Gängen macht das Feld zu Fels (`fillRock`).
+  `WIDE_CAVE_KINDS`. Eine freie Karte unter der Erde beginnt als Fels ohne Ausgänge
+  (`blankArea`: `exits: []`, so gelten dort die Werkzeuge für Gänge), neue Felder dort ebenso;
+  Massivfels auf einer Karte mit Gängen macht das Feld zu Fels (`fillRock`). **Der Pinsel gräbt**
+  (Rückmeldung 20. 11.: „Die Gänge sollten ein smartes System sein, das sich quasi durch den Fels
+  gräbt und dabei mittig bleibt“, `erkundung/dig.ts`: `digCave`): Auf einer Karte mit Gängen folgt
+  ein Gang dem Strich von Feld zu Feld (verbunden ist nur, worüber die Maus fuhr – auch Felder,
+  die eine schnelle Maus überspringt; beginnt er im Fels neben Offenem, schließt er dort an, am
+  liebsten an ein Gangende), eine Höhle (`isWideCave`) wächst mit jeder Höhle nebenan zusammen
+  und bleibt Höhle, wenn ein Gang durch sie führt, Massivfels schüttet zu (nie das Feld eines
+  Ortes). Was sich dabei ändert, trägt `manual` und `dug`. Nie Ausgänge beim Malen von Hand
+  setzen – immer über `digCave`.
   **Gebiet** (früher „Gegend wählen“) – erst Felder wählen (Klick oder Strich, `editor.regionSel`;
   auf einem gewählten Feld begonnen nimmt der Strich sie heraus), dann den Ort suchen oder an Ort
   und Stelle anlegen (`EntityPicker` mit `create`, `editor.assignRegion`); „Gebiete auf dieser
@@ -466,15 +475,22 @@ nicht übernommen.
   Fläche (`#wf-hex-rock`, Textur `hexrock.webp`), darin Gänge und Höhlen als **ein** frei
   geformter Umriss mit klarer Kante (`erkundung/caveOutline.ts`; die erste Fassung aus verwackelten
   Kreisen und Bändern hat der Spielleiter verworfen: „janky“). `cavePlan` legt je Feld Formen in
-  Feldgrößen aus – eine weite Höhle ein großer Kreis, der mit weiten Nachbarn zusammenwächst, ein
-  Gang ein schmales Band mit Knick von der versetzten Mitte zur Feldseite (`PASSAGE_RADIUS` nach
-  Art des Durchgangs) –, `caveOutline` lässt sie weich verschmelzen, schiebt den Rand mit festem
-  Rauschen (`smoothNoise`, drei Lagen; bei schmalen Gängen schwächer, damit sie nie abreißen) und
-  gibt geschlossene Linienzüge zurück. Gezeichnet: Schatten, heller Rand, Boden (`ground.webp`),
-  Tuschelinie; darauf See, Abgrund (ein Riss), Glut, Eis als eigene Umrisse (`POOL_KIND`). Nie
-  wieder ein Filter über die Karte und nie Kreise oder gerade Bänder zeigen. Was dort wächst oder
-  liegt, trägt ein gemaltes Zeichen (`CAVE_ICON`, `ui/assets/hexkarte`: Pilze, Kristalle,
-  Tropfsteine, Geröll, Ruine, Bergwerk). Auf einer Karte ohne Gänge ist offen, was nebeneinander
+  Feldgrößen aus – eine weite Höhle ein großer Kreis, der mit weiten Nachbarn zusammenwächst;
+  **Gänge laufen mittig**: Sie queren jede Feldseite genau in ihrer Mitte und führen durch die
+  Mitte des Feldes, mit zwei Ausgängen als ein glatter Bogen von Seite zu Seite, sonst als Stern
+  um eine kleine Kammer (`PASSAGE_RADIUS` nach Art des Durchgangs; nie wieder versetzte Mitten
+  oder Knicke) –, `caveOutline` lässt sie weich verschmelzen, schiebt den Rand mit festem
+  Rauschen (`smoothNoise`, drei Lagen; bei Gängen schwach, damit sie in ihrer Bahn bleiben und
+  nie abreißen) und gibt geschlossene Linienzüge zurück. Gezeichnet: Schatten, heller Rand, Boden
+  (`ground.webp`), Schatten der Wand auf dem Boden, Tuschelinie; darauf See, Abgrund (ein Riss),
+  Glut, Eis als eigene Umrisse (`POOL_KIND`). Nie wieder ein Filter über die Karte und nie Kreise
+  oder gerade Bänder zeigen. **Was dort wächst oder liegt, ist ein eigener Boden, kein Zeichen**
+  (Rückmeldung 20. 11.: „Die Zeichen passen auch nicht, es sollte das Gelände verändert werden,
+  also eine andere Textur“): Pilzwald, Kristalle, Tropfsteine, Geröll, Ruinen und Bergwerk haben
+  eine gemalte Bodenkachel (`CAVE_GROUND`, `ui/assets/hexkarte`), gezeichnet als Fläche aus den
+  Formen ihrer Felder (`plan.grounds`), auf den Höhlenboden beschnitten, mit weichem Saum; die
+  Palette zeigt dieselbe Kachel (`KindSwatch`). Eine neue Art mit eigenem Boden: Kachel in den
+  Ordner, Eintrag in `CAVE_GROUND`. Auf einer Karte ohne Gänge ist offen, was nebeneinander
   liegt und kein Fels ist (`openings`). Beim Spielen ist Unentdecktes nur eine Ahnung
   (`data-dim`). Die Texturen kommen aus `ui/assets/dungeon`; die Regeln rechnen weiter mit Feldern
   und Ausgängen. Zeichen für Kletterei, Abbruch und Verborgenes bleiben an der Seite, Schächte als

@@ -7,7 +7,7 @@
  * und Schächte. Jeder Schritt lässt sich mit Strg+Z zurücknehmen und mit Strg+Y wiederholen
  * (`prep.ts`); Neu würfeln behält, was von Hand gemacht ist.
  */
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useId, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownToLine,
   Brush,
@@ -45,6 +45,7 @@ import {
 import {
   KIND_GROUP_LABEL,
   SOLID_ROCK,
+  WIDE_CAVE_KINDS,
   hexKind,
   kindKeyOf,
   kindsByGroup,
@@ -65,6 +66,8 @@ import { TERRAIN_LABEL } from '../../domain/terrain';
 import { GLYPH, KIND_GLYPH } from './HexMap';
 import { Button, EntityPicker, IconButton, Input, Panel, Select, toast } from '../../ui';
 import { addFromWriting } from '../welt/writing';
+import { digCave } from './dig';
+import { CAVE_GROUND } from './HexLayers';
 import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
@@ -113,11 +116,11 @@ const TOOL_HINT: Record<HexTool, string> = {
   select:
     'Klick wählt ein Feld, Umschalt- oder Strg-Klick nimmt weitere dazu. Rechts steht, was dort ist.',
   tunnel:
-    'Mit gedrückter Maus von Feld zu Feld einen Gang ziehen – die Seiten dazwischen gehen auf.',
+    'Mit gedrückter Maus von Feld zu Feld einen Gang ziehen – die Seiten dazwischen gehen auf. Hier wählst du die Art: eng, Kletterei, unter Wasser, verborgen.',
   rock: 'Felder zu Fels machen: kein Ausgang mehr, auch nicht von den Nachbarn.',
   shaft: 'Klick auf ein Feld: Schacht hinab zur Ebene darunter öffnen oder schließen.',
   terrain:
-    'Mit gedrückter Maus Gelände malen – auch auf die leeren Felder am Rand: So wächst die Karte.',
+    'Mit gedrückter Maus Gelände malen – auch auf die leeren Felder am Rand: So wächst die Karte. Unter der Erde gräbt der Pinsel: Ein Gang folgt deinem Strich von Feld zu Feld, Höhlen wachsen mit ihren Nachbarn zusammen, Massivfels schüttet wieder zu.',
   region:
     'Felder anklicken oder überstreichen, die zusammengehören – dann sagst du, zu welchem Ort der Welt. Sein Gelände, sein Tempo und seine Tabellen gelten dort.',
   road: 'Von Feld zu Feld ziehen. Auf Straße und Pfad reist die Gruppe im Tempo offenen Landes – auch durch Wald und Sumpf –, und ein Fluss hält sie dort nicht auf. Ein Klick auf einen Weg wählt ihn.',
@@ -265,10 +268,19 @@ export function useHexEditor(area: Area) {
     }
     const paint = change();
     if (!paint) return;
+    // Unter der Erde gräbt der Pinsel (`dig.ts`): Gänge folgen dem Strich, Höhlen wachsen zusammen.
+    if (caves && hexKind(kind)?.group === 'underdark') {
+      const from = lastCell.current;
+      lastCell.current = at;
+      const wide = WIDE_CAVE_KINDS.has(kind) || kind === SOLID_ROCK;
+      write(
+        digCave(current(), { at, coords: under(area, at, wide ? radius : 1), kind, paint, from }),
+      );
+      touched.current++;
+      return;
+    }
     const coords = under(area, at, radius);
     paintHexes(db, area.id, coords, paint);
-    // Massivfels auf einer Karte mit Gängen ist Fels: Dort führt nichts mehr hindurch.
-    if (caves && kind === SOLID_ROCK) for (const coord of coords) fillRock(db, area.id, coord);
     touched.current += coords.length;
   };
   const onStart = (at: HexCoord, pick = false) => {
@@ -412,7 +424,14 @@ export function useHexEditor(area: Area) {
       before.current = old;
       touched.current = 0;
     }
-    if (!addHex(db, area.id, at, painting ? brushPaint(db.getSnapshot(), kind) : null)) return;
+    const paint = painting ? brushPaint(db.getSnapshot(), kind) : null;
+    if (!addHex(db, area.id, at, paint)) return;
+    // Unter der Erde gräbt der Pinsel auch ins neue Feld hinein.
+    if (caves && paint && hexKind(kind)?.group === 'underdark') {
+      const from = lastCell.current;
+      lastCell.current = at;
+      write(digCave(current(), { at, coords: [at], kind, paint, from }));
+    }
     if (before.current) {
       touched.current++;
       return;
@@ -551,8 +570,11 @@ export function useHexEditor(area: Area) {
     redo,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
-    /** Die leeren Felder am Rand – auf jeder Karte der Oberwelt zu sehen, solange vorbereitet wird. */
-    slots: caves ? undefined : rimSlots(area, rim),
+    /**
+     * Die leeren Felder am Rand – zu sehen, solange vorbereitet wird. Nicht auf Karten mit mehreren
+     * Ebenen: Dort müsste jede Ebene mitwachsen.
+     */
+    slots: area.hexes.some((hex) => hex.level > 0) ? undefined : rimSlots(area, rim),
     onSlot,
     paint:
       tool === 'select'
@@ -599,7 +621,7 @@ const TOOL_ICON: Record<HexTool, ReactNode> = {
 /** Die Werkzeuge einer Karte in Gruppen: oben, unter der Erde. */
 export function toolsOf(caves: boolean): HexTool[][] {
   return caves
-    ? [['select'], ['tunnel', 'rock', 'shaft'], ['terrain', 'region', 'place']]
+    ? [['select'], ['terrain', 'tunnel', 'rock', 'shaft'], ['region', 'place', 'cells']]
     : [['select'], ['terrain', 'region'], ['road', 'river', 'erase'], ['place', 'cells']];
 }
 
@@ -888,6 +910,7 @@ function SizeTool({ editor }: { editor: HexEditor }) {
       <span className="wf-erk-tools__caption">
         Die Karte: {extent.cells} Felder · {extent.width} breit, {extent.height} hoch
       </span>
+      {!editor.slots && <em>Diese Karte hat mehrere Ebenen – sie wächst noch nicht am Rand.</em>}
       <span className="wf-erk-tools__caption">Leerer Rand, so viele Felder weit</span>
       <span className="wf-erk-size" role="group" aria-label="Breite des leeren Randes">
         {[1, 2, 3, 4, 6, 8].map((rings) => (
@@ -928,13 +951,37 @@ export function brushPaint(data: CampaignData, key: string): HexPaint | null {
   return paint ? { ...paint, landscapeId: null } : null;
 }
 
-/** Ein Feld im Kleinen: Farbe und Zeichen einer Geländeart. */
+const SWATCH_POINTS = '0,-0.55 0.48,-0.27 0.48,0.27 0,0.55 -0.48,0.27 -0.48,-0.27';
+
+/**
+ * Ein Feld im Kleinen: Farbe und Zeichen einer Geländeart – oder ihr gemalter Boden, wenn sie
+ * unter der Erde einen eigenen hat (so sieht die Palette aus wie die Karte).
+ */
 export function KindSwatch({ kind }: { kind: string }) {
   const base = hexKind(kind)?.base;
+  const ground = CAVE_GROUND[kind];
+  const clip = useId();
   return (
     <svg className="wf-kind-swatch" data-kind={kind} viewBox="-0.55 -0.6 1.1 1.2" aria-hidden>
-      <polygon points="0,-0.55 0.48,-0.27 0.48,0.27 0,0.55 -0.48,0.27 -0.48,-0.27" />
-      <g className="wf-hex__glyph">{KIND_GLYPH[kind] ?? (base ? GLYPH[base] : null)}</g>
+      <polygon points={SWATCH_POINTS} />
+      {ground ? (
+        <>
+          <clipPath id={clip}>
+            <polygon points={SWATCH_POINTS} />
+          </clipPath>
+          <image
+            href={ground}
+            x={-0.6}
+            y={-0.6}
+            width={1.2}
+            height={1.2}
+            preserveAspectRatio="xMidYMid slice"
+            clipPath={`url(#${clip})`}
+          />
+        </>
+      ) : (
+        <g className="wf-hex__glyph">{KIND_GLYPH[kind] ?? (base ? GLYPH[base] : null)}</g>
+      )}
     </svg>
   );
 }

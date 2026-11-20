@@ -22,25 +22,29 @@ import type { Hex, PassageKind } from '../../domain/schema';
 import ground from '../../ui/assets/dungeon/ground.webp';
 import rock from '../../ui/assets/dungeon/hexrock.webp';
 import water from '../../ui/assets/dungeon/water.webp';
-import iconCrystal from '../../ui/assets/hexkarte/crystal.webp';
-import iconRuins from '../../ui/assets/hexkarte/deep-ruins.webp';
-import iconFungus from '../../ui/assets/hexkarte/fungus.webp';
-import iconMine from '../../ui/assets/hexkarte/mine.webp';
-import iconRubble from '../../ui/assets/hexkarte/rubble.webp';
-import iconStalagmites from '../../ui/assets/hexkarte/stalagmites.webp';
+import groundCrystal from '../../ui/assets/hexkarte/crystal.webp';
+import groundRuins from '../../ui/assets/hexkarte/deep-ruins.webp';
+import groundFungus from '../../ui/assets/hexkarte/fungus.webp';
+import groundMine from '../../ui/assets/hexkarte/mine.webp';
+import groundRubble from '../../ui/assets/hexkarte/rubble.webp';
+import groundStalagmites from '../../ui/assets/hexkarte/stalagmites.webp';
 
 /**
- * Gemalte Zeichen für Geländearten unter der Erde (`ui/assets/hexkarte`): was dort wächst oder
- * liegt. Eine Art ohne Bild trägt weiter ihr gezeichnetes Zeichen.
+ * Der eigene Boden einer Geländeart unter der Erde (Rückmeldung des Spielleiters, 20. 11. 2026:
+ * „Die Zeichen passen auch nicht, es sollte das Gelände verändert werden, also eine andere
+ * Textur“): Wo ein Pilzwald, Kristalle, Tropfsteine, Geröll, Ruinen oder ein Bergwerk sind, ist
+ * der Höhlenboden selbst anders gemalt – kein Zeichen auf dem Feld. Kacheln in
+ * `ui/assets/hexkarte`.
  */
-export const CAVE_ICON: Readonly<Record<string, string>> = {
-  fungus: iconFungus,
-  crystal: iconCrystal,
-  stalagmites: iconStalagmites,
-  rubble: iconRubble,
-  'deep-ruins': iconRuins,
-  mine: iconMine,
+export const CAVE_GROUND: Readonly<Record<string, string>> = {
+  fungus: groundFungus,
+  crystal: groundCrystal,
+  stalagmites: groundStalagmites,
+  rubble: groundRubble,
+  'deep-ruins': groundRuins,
+  mine: groundMine,
 };
+const GROUND_KINDS = Object.keys(CAVE_GROUND);
 
 export interface LayerCell {
   hex: Hex;
@@ -217,8 +221,15 @@ export const LineLayer = memo(function LineLayer({
 export const isUnderground = (hex: Hex): boolean =>
   hex.exits !== null || hex.terrain === 'underdark';
 
-/** Fels, durch den nichts führt: kein Ausgang – oder als Massivfels gemalt. */
-export const isSolid = (hex: Hex): boolean => isRock(hex) || kindKeyOf(hex) === SOLID_ROCK;
+/**
+ * Fels, durch den nichts führt: als Massivfels gemalt – oder ohne Ausgang. Eine Höhle ohne Ausgang
+ * ist kein Fels: Sie steht als geschlossene Kammer da, bis ein Gang hinführt.
+ */
+export const isSolid = (hex: Hex): boolean => {
+  const kind = kindKeyOf(hex);
+  if (kind === SOLID_ROCK) return true;
+  return isRock(hex) && !(kind && WIDE_CAVE_KINDS.has(kind));
+};
 
 const isWide = (hex: Hex): boolean => {
   const kind = kindKeyOf(hex);
@@ -249,12 +260,12 @@ function openings(
 
 /** Wie breit ein Durchgang ist: sein halber Durchmesser in Feldgrößen (0 = nicht zu sehen). */
 const PASSAGE_RADIUS: Record<PassageKind, number> = {
-  open: 0.165,
+  open: 0.18,
   narrow: 0.11,
-  climb: 0.14,
-  water: 0.155,
+  climb: 0.16,
+  water: 0.18,
   hidden: 0,
-  drop: 0.14,
+  drop: 0.16,
 };
 
 /** Flächen eigener Farbe im Höhlenboden: See, Abgrund, Glut, Eis. */
@@ -268,19 +279,22 @@ const POOL_TONES = ['water', 'ice', 'magma', 'chasm'] as const;
 
 interface CavePlan {
   floor: CaveBlob[];
+  /** Der Boden je Geländeart mit eigener Textur: die Formen ihrer Felder. */
+  grounds: Record<string, CaveBlob[]>;
   pools: Record<string, CaveBlob[]>;
   /** Wasser, das durch einen Gang fließt: Linien in Feldgrößen. */
   streams: [number, number, number, number, number, number][];
 }
 
 /**
- * Aus den Feldern die Formen, die zusammen den Höhlenboden ergeben – in Feldgrößen. Eine weite
- * Höhle ist ein großer Kreis, der mit weiten Nachbarn zusammenwächst; ein Gang ein schmales Band,
- * das von der (versetzten) Mitte über einen Knick zur Seite des Feldes läuft: So windet er sich.
+ * Aus den Feldern die Formen, die zusammen den Höhlenboden ergeben – in Feldgrößen. Gänge laufen
+ * **mittig**: Sie queren jede Feldseite genau in ihrer Mitte und führen durch die Mitte des
+ * Feldes – mit zwei Ausgängen als ein glatter Bogen von Seite zu Seite, sonst als Stern um eine
+ * kleine Kammer. Eine weite Höhle füllt ihr Feld und wächst mit weiten Nachbarn zusammen.
  */
 function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan {
   const byKey = new Map(hexes.map((hex) => [hexKey(hex), hex]));
-  const plan: CavePlan = { floor: [], pools: {}, streams: [] };
+  const plan: CavePlan = { floor: [], grounds: {}, pools: {}, streams: [] };
   const pool = (tone: string, blob: CaveBlob) => (plan.pools[tone] ??= []).push(blob);
   for (const hex of hexes) {
     if (isSolid(hex)) continue;
@@ -288,57 +302,86 @@ function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan 
     const c = hexCenter(hex, orientation);
     const cell: LayerCell = { hex, x: c.x, y: c.y, points: '' };
     const wide = isWide(hex);
-    const cx = c.x + wobble(`${key}cx`) * (wide ? 0.04 : 0.17);
-    const cy = c.y + wobble(`${key}cy`) * (wide ? 0.04 : 0.17);
-    const tone = POOL_KIND[kindKeyOf(hex) ?? ''];
-    plan.floor.push({ x1: cx, y1: cy, r: wide ? 0.52 : 0.18 });
+    const kindKey = kindKeyOf(hex) ?? '';
+    const tone = POOL_KIND[kindKey];
+    /** Die Formen dieses Feldes – zusammen der Boden, für sich der Boden seiner Geländeart. */
+    const own: CaveBlob[] = [];
+    const ways = openings(hex, byKey)
+      .map(({ side, kind }) => {
+        const d = HEX_DIRECTIONS[side]!;
+        const other = byKey.get(hexKey({ q: hex.q + d.q, r: hex.r + d.r, level: hex.level }));
+        const both = wide && !!other && isWide(other) && kind === 'open';
+        return {
+          side,
+          kind,
+          other,
+          both,
+          r: both ? 0.4 : PASSAGE_RADIUS[kind],
+          p: crossing(cell, side, 1, orientation, 0),
+        };
+      })
+      .filter((way) => way.r > 0);
+
+    if (wide) {
+      own.push({ x1: c.x, y1: c.y, r: 0.55 });
+      for (const way of ways) own.push({ x1: c.x, y1: c.y, x2: way.p.x, y2: way.p.y, r: way.r });
+    } else if (ways.length === 2) {
+      // Ein Gang durch das Feld: ein glatter Bogen von Seite zu Seite über die Mitte.
+      const [a, b] = ways as [(typeof ways)[0], (typeof ways)[0]];
+      const steps = 6;
+      let px = a.p.x;
+      let py = a.p.y;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const u = 1 - t;
+        const x = u * u * a.p.x + 2 * u * t * c.x + t * t * b.p.x;
+        const y = u * u * a.p.y + 2 * u * t * c.y + t * t * b.p.y;
+        own.push({ x1: px, y1: py, x2: x, y2: y, r: t <= 0.5 ? a.r : b.r });
+        px = x;
+        py = y;
+      }
+    } else {
+      // Ein Ende oder eine Kreuzung: jede Seite läuft gerade in die Mitte, dort eine kleine Kammer.
+      const widest = Math.max(0.18, ...ways.map((way) => way.r));
+      own.push({ x1: c.x, y1: c.y, r: widest * (ways.length >= 3 ? 1.3 : 1.15) });
+      for (const way of ways) own.push({ x1: c.x, y1: c.y, x2: way.p.x, y2: way.p.y, r: way.r });
+    }
+    plan.floor.push(...own);
+    if (CAVE_GROUND[kindKey]) (plan.grounds[kindKey] ??= []).push(...own);
+    for (const way of ways) {
+      if (way.kind === 'water')
+        plan.streams.push([c.x, c.y, (c.x + way.p.x) / 2, (c.y + way.p.y) / 2, way.p.x, way.p.y]);
+      if (tone && way.both && way.other && POOL_KIND[kindKeyOf(way.other) ?? ''] === tone)
+        pool(tone, {
+          x1: c.x,
+          y1: c.y,
+          x2: way.p.x,
+          y2: way.p.y,
+          r: tone === 'chasm' ? 0.11 : 0.24,
+        });
+    }
+
     if (tone === 'chasm') {
       // Ein Abgrund ist ein Riss: schmal und lang, in fester Richtung je Feld.
       const turn = wobble(`${key}riss`) * Math.PI;
       const reach = 0.2 + Math.abs(wobble(`${key}weit`)) * 0.1;
       pool(tone, {
-        x1: cx - Math.cos(turn) * reach,
-        y1: cy - Math.sin(turn) * reach,
-        x2: cx + Math.cos(turn) * reach,
-        y2: cy + Math.sin(turn) * reach,
+        x1: c.x - Math.cos(turn) * reach,
+        y1: c.y - Math.sin(turn) * reach,
+        x2: c.x + Math.cos(turn) * reach,
+        y2: c.y + Math.sin(turn) * reach,
         r: 0.13,
       });
     } else if (tone) {
-      // Ein See liegt nicht in der Mitte und ist nie kreisrund.
+      // Ein See liegt nicht genau in der Mitte und ist nie kreisrund.
       pool(tone, {
-        x1: cx + wobble(`${key}sx`) * 0.08,
-        y1: cy + wobble(`${key}sy`) * 0.08,
-        r: 0.27 + wobble(`${key}sr`) * 0.05,
+        x1: c.x + wobble(`${key}sx`) * 0.06,
+        y1: c.y + wobble(`${key}sy`) * 0.06,
+        r: 0.29 + wobble(`${key}sr`) * 0.04,
       });
     }
-    for (const { side, kind } of openings(hex, byKey)) {
-      const d = HEX_DIRECTIONS[side]!;
-      const other = byKey.get(hexKey({ q: hex.q + d.q, r: hex.r + d.r, level: hex.level }));
-      const both = wide && !!other && isWide(other) && kind === 'open';
-      const r = both ? 0.46 : PASSAGE_RADIUS[kind];
-      if (!r) continue;
-      // Weite Höhlen gehen gerade ineinander über; ein Gang quert die Seite ein Stück neben der Mitte.
-      const p = crossing(cell, side, 1, orientation, both ? 0 : 0.17);
-      if (both) plan.floor.push({ x1: cx, y1: cy, x2: p.x, y2: p.y, r });
-      else {
-        // Ein Knick auf halbem Weg, quer zur Richtung versetzt.
-        const bend = wobble(`${key}k${side}`) * 0.11;
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        const len = Math.hypot(dx, dy) || 1;
-        const mx = (cx + p.x) / 2 - (dy / len) * bend;
-        const my = (cy + p.y) / 2 + (dx / len) * bend;
-        plan.floor.push(
-          { x1: cx, y1: cy, x2: mx, y2: my, r },
-          { x1: mx, y1: my, x2: p.x, y2: p.y, r },
-        );
-        if (kind === 'water') plan.streams.push([cx, cy, mx, my, p.x, p.y]);
-      }
-      if (tone && both && other && POOL_KIND[kindKeyOf(other) ?? ''] === tone)
-        pool(tone, { x1: cx, y1: cy, x2: p.x, y2: p.y, r: tone === 'chasm' ? 0.11 : 0.24 });
-    }
     // Ein Fluss, der durch die Höhle fließt, steht als Wasser in ihrer Mitte.
-    if (hex.river && !tone) pool('water', { x1: cx, y1: cy, r: 0.13 });
+    if (hex.river && !tone) pool('water', { x1: c.x, y1: c.y, r: 0.12 });
   }
   return plan;
 }
@@ -346,6 +389,8 @@ function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan 
 /** Die gemalten Flächen, aus denen die Karte unter der Erde besteht – einmal je Karte. */
 export function CaveDefs({ size }: { size: number }) {
   const tile = Math.max(120, size * 5);
+  // Was auf dem Boden wächst oder liegt, ist feiner gemalt: Man soll Pilze und Brocken erkennen.
+  const fine = Math.max(72, size * 2.4);
   return (
     <defs>
       <pattern id="wf-hex-rock" patternUnits="userSpaceOnUse" width={tile} height={tile}>
@@ -358,6 +403,17 @@ export function CaveDefs({ size }: { size: number }) {
         <rect className="wf-hexcave__waterbase" width={tile} height={tile} />
         <image href={water} width={tile} height={tile} preserveAspectRatio="none" opacity="0.28" />
       </pattern>
+      {GROUND_KINDS.map((kind) => (
+        <pattern
+          key={kind}
+          id={`wf-hex-ground-${kind}`}
+          patternUnits="userSpaceOnUse"
+          width={fine}
+          height={fine}
+        >
+          <image href={CAVE_GROUND[kind]} width={fine} height={fine} preserveAspectRatio="none" />
+        </pattern>
+      ))}
     </defs>
   );
 }
@@ -404,11 +460,16 @@ export const CaveLayer = memo(function CaveLayer({
         return {
           key: part.key,
           dim: part.dim,
-          floor: caveOutline(used.floor, { rough: 0.2 }),
+          floor: caveOutline(used.floor, { rough: 0.15 }),
+          grounds: GROUND_KINDS.filter((kind) => used.grounds[kind]?.length).map((kind) => ({
+            kind,
+            // Dasselbe Rauschen wie der Boden: Der Rand der Fläche folgt der Höhlenwand.
+            loops: caveOutline(used.grounds[kind]!, { rough: 0.15 }),
+          })),
           pools: POOL_TONES.filter((tone) => used.pools[tone]?.length).map((tone) => ({
             tone,
             loops: caveOutline(used.pools[tone]!, {
-              rough: tone === 'chasm' ? 0.16 : 0.17,
+              rough: tone === 'chasm' ? 0.16 : 0.15,
               salt: tone.length + 3,
               step: 0.1,
             }),
@@ -423,11 +484,32 @@ export const CaveLayer = memo(function CaveLayer({
       <path className="wf-hexcave__rock" d={rockPath} />
       {shapes.map((part) => {
         const floor = outlinePath(part.floor, size);
+        const clip = `wf-hexcave-floor-${part.key}`;
         return (
           <g key={part.key} className="wf-hexcave__open" data-dim={part.dim || undefined}>
+            <clipPath id={clip}>
+              <path d={floor} clipRule="evenodd" />
+            </clipPath>
             <path className="wf-hexcave__shade" d={floor} />
             <path className="wf-hexcave__rim" d={floor} />
             <path className="wf-hexcave__floor" d={floor} fillRule="evenodd" />
+            {part.grounds.length > 0 && (
+              // Der eigene Boden einer Geländeart: nie über die Höhlenwand hinaus.
+              <g clipPath={`url(#${clip})`}>
+                {part.grounds.map(({ kind, loops }) => {
+                  const d = outlinePath(loops, size);
+                  const paint = `url(#wf-hex-ground-${kind})`;
+                  return (
+                    <g key={kind}>
+                      <path className="wf-hexcave__ground-fade" d={d} stroke={paint} />
+                      <path className="wf-hexcave__ground" d={d} fill={paint} fillRule="evenodd" />
+                    </g>
+                  );
+                })}
+              </g>
+            )}
+            {/* Die Wand wirft Schatten auf den Boden – so liegt er tiefer als der Fels. */}
+            <path className="wf-hexcave__wallshade" d={floor} clipPath={`url(#${clip})`} />
             <path className="wf-hexcave__edge" d={floor} />
             {part.pools.map(({ tone, loops }) => {
               const d = outlinePath(loops, size);

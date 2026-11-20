@@ -135,8 +135,9 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
         }
       }
       const merged = Math.log(sum) / BLEND;
-      // Eine weite Höhle buchtet kräftig, ein schmaler Gang nur wenig – sonst risse er ab.
-      const weight = Math.max(0.22, Math.min(1, size / 0.42));
+      // Eine weite Höhle buchtet kräftig; ein Gang bleibt in seiner Bahn und wird nur mal enger,
+      // mal weiter – nie so sehr, dass er abreißt.
+      const weight = Math.max(0.15, Math.min(1, (size - 0.05) / 0.45));
       // Drei Lagen: weite Bögen, Buchten, und feine Zacken – Fels ist kantig.
       const bend =
         (smoothNoise(x * 1.3, y * 1.3, salt) +

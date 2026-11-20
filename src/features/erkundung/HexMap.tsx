@@ -13,7 +13,7 @@ import {
 import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/passages';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { areaLine } from './generate';
-import { CAVE_ICON, CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
+import { CAVE_GROUND, CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
@@ -341,24 +341,14 @@ const Cells = memo(function Cells({
                 .join(' ')}
             />
           )}
-          {isUnderground(hex) && !isSolid(hex) && CAVE_ICON[kindKeyOf(hex) ?? ''] ? (
-            // Unter der Erde: ein gemaltes Zeichen für das, was dort wächst oder liegt.
-            <image
-              className="wf-hex__icon"
-              href={CAVE_ICON[kindKeyOf(hex) ?? '']}
-              x={x - size * 0.34}
-              y={y - size * 0.4}
-              width={size * 0.68}
-              height={size * 0.68}
-              preserveAspectRatio="xMidYMid meet"
-            />
-          ) : (
-            hex.terrain &&
+          {hex.terrain &&
             size >= 22 &&
             (isUnderground(hex)
-              ? // Fels und Gänge zeichnet das Gangnetz, Seen und Abgründe sind eigene Flächen.
+              ? // Fels und Gänge zeichnet das Gangnetz; Seen und Abgründe sind eigene Flächen, und
+                // was dort wächst oder liegt, ist ein eigener Boden – kein Zeichen auf dem Feld.
                 !isSolid(hex) &&
                 !PLAIN_CAVE.has(kindKeyOf(hex) ?? '') &&
+                !CAVE_GROUND[kindKeyOf(hex) ?? ''] &&
                 !!KIND_GLYPH[kindKeyOf(hex) ?? '']
               : true) && (
               <g
@@ -368,8 +358,7 @@ const Cells = memo(function Cells({
               >
                 {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
               </g>
-            )
-          )}
+            )}
           {hex.feature && (
             <rect
               className="wf-hex__feature"

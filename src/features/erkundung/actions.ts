@@ -403,9 +403,12 @@ export function addHex(
 
 function newHex(area: Pick<Area, 'hexes'>, coord: HexCoord, paint: HexPaint | null): Hex {
   const terrain = paint?.terrain ?? terrainNear(area, coord);
+  // Auf einer Karte mit Gängen ist ein neues Feld Fels, bis jemand hineingräbt.
+  const caves = area.hexes.some((hex) => hex.exits !== null);
   return HexSchema.parse({
     q: coord.q,
     r: coord.r,
+    ...(caves ? { exits: [] } : {}),
     terrain,
     // Unter der Erde ist, was dazukommt, erst einmal Fels – Gänge und Höhlen malt der Spielleiter.
     kind: paint?.terrain ? (paint.kind ?? null) : terrain === 'underdark' ? SOLID_ROCK : null,
@@ -612,7 +615,10 @@ export function fillRock(db: CampaignDb, areaId: string, at: HexCoord): boolean 
     const back = entry.exits?.filter((exit) => !sameHex(across(entry, exit.dir), hex));
     return back && back.length !== entry.exits!.length ? { ...entry, exits: back } : entry;
   });
-  hexes = hexes.map((entry) => (sameHex(entry, hex) ? { ...entry, exits: [] } : entry));
+  // Fels ist Fels: Was vorher eine Höhle war, sieht danach nicht mehr wie eine aus.
+  hexes = hexes.map((entry) =>
+    sameHex(entry, hex) ? { ...entry, exits: [], kind: SOLID_ROCK, landscapeId: null } : entry,
+  );
   db.patch('areas', areaId, { hexes: markManual(area.hexes, hexes) });
   return true;
 }
