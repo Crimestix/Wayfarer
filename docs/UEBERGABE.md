@@ -217,6 +217,12 @@ Vorschau (Zeichnung, Straße ziehen und wählen); nicht gemessen: wie flüssig d
 Unterreich-Karten ist (der Filter für die Ränder rechnet bei jeder Änderung neu). Offen: gemalte
 Zeichen für Pilze, Kristalle, Geröll; Name einer Straße in den Angaben eines Feldes.
 
+**Danach: Tag `v0.1.31` auf `9826a4a` (20. 11.)** – Unterreich neu gezeichnet (Rückmeldung: „janky“): Gänge und
+Höhlen sind ein gerechneter, frei geformter Umriss mit klarer Kante statt verwackelter Kreise und
+Bänder; Fels mit sichtbarer Struktur; See, Abgrund und Glut als eigene Formen; gemalte Zeichen für
+Pilze, Kristalle, Tropfsteine, Geröll, Ruine, Bergwerk (Higgsfield, 2,75 Credits). Kein neues
+Schema. 0.1.30 wurde gebaut, aber nicht ausgeliefert.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
