@@ -271,6 +271,15 @@ neuen Stil. Bekannt: Wege und Flüsse liegen über den Zeichen (eine Straße lä
 einer Stadt); Ackerland, Heide, Moor und Steppe haben kein Zeichen; die Vorschau des Pinsels
 bleibt stehen, wenn die Maus die Karte verlässt.
 
+**Danach: Tag `v0.1.36` auf `9eb18e8` (20. 11.)** – „Genau das Qualitätslevel auch fürs
+Unterreich“: gemalter Fels und Höhlenboden, Wand mit Stärke, Schlagschatten von oben links,
+24 gemalte Gruppen in den Höhlen (`CAVE_SYMBOLS`); drei Blätter bei Higgsfield, insgesamt 85,75
+von 150 Credits verbraucht. Kein neues Schema. Geprüft: alle Tests (2823), in der Vorschau die
+gegrabene Probekarte mit allen Arten unter der Erde. Nicht geprüft: Ansicht „Spielen“ unter der
+Erde im neuen Stil, erzeugte Höhlennetze mit mehreren Ebenen, sehr große Karten, MacBook.
+Bekannt: Glutspalten und Eishöhle haben keine eigenen Zeichen; Schächte, Kletterei und
+Verborgenes sind weiter Strichzeichen an der Feldseite.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
