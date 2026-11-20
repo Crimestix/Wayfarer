@@ -1,4 +1,5 @@
 /** Gerüst der App: Navigation, Weltleiste und die Arbeitsfläche mit den Bereichen. */
+import { WORK_VIEW_LABEL, setWorkView, useWorkView } from './workView';
 import { shortcutOwner } from './shortcuts';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
@@ -216,6 +217,9 @@ function WorldBar() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const pass = (minutes: number) => advanceAndReport(db, now + minutes);
+  /** Vorbereiten oder Spielen – reine Ansicht (F06). */
+  const work = useWorkView(session !== null);
+  const playing = work === 'play';
   const more = (run: () => void) => () => {
     setMoreOpen(false);
     run();
@@ -223,7 +227,7 @@ function WorldBar() {
 
   return (
     <header className="wf-bar">
-      <div className="wf-bar__cell">
+      <div className="wf-bar__cell" data-compact={playing ? undefined : ''}>
         <div>
           <div className="wf-bar__date">{formatDate(cal, now)}</div>
           <div className="wf-bar__sub">
@@ -232,7 +236,7 @@ function WorldBar() {
           </div>
         </div>
         <div className="wf-bar__clock">{formatClock(now)}</div>
-        {cal.moons.length > 0 && (
+        {playing && cal.moons.length > 0 && (
           <div className="wf-bar__moons">
             {cal.moons.map((moon) => (
               <MoonGlyph key={moon.id} moon={moon} time={now} />
@@ -241,131 +245,164 @@ function WorldBar() {
         )}
       </div>
 
-      <div className="wf-bar__cell">
-        <div className="wf-btn-group">
-          <Button onClick={() => pass(10)} title="10 Minuten vergehen lassen">
-            +10 Min.
-          </Button>
-          <Button onClick={() => pass(60)} title="1 Stunde vergehen lassen">
-            +1 Std.
-          </Button>
-          <Button
-            ref={moreAnchor}
-            onClick={() => setMoreOpen((o) => !o)}
-            icon={<Hourglass />}
-            aria-haspopup="menu"
-            aria-label="Zeit vergehen lassen"
-            title="Rast, bis zum Morgen, andere Dauer …"
+      {playing && (
+        <div className="wf-bar__cell">
+          <div className="wf-btn-group">
+            <Button onClick={() => pass(10)} title="10 Minuten vergehen lassen">
+              +10 Min.
+            </Button>
+            <Button onClick={() => pass(60)} title="1 Stunde vergehen lassen">
+              +1 Std.
+            </Button>
+            <Button
+              ref={moreAnchor}
+              onClick={() => setMoreOpen((o) => !o)}
+              icon={<Hourglass />}
+              aria-haspopup="menu"
+              aria-label="Zeit vergehen lassen"
+              title="Rast, bis zum Morgen, andere Dauer …"
+            >
+              <span className="wf-bar__mid">Zeit</span> <ChevronDown />
+            </Button>
+            <IconButton
+              label="Letzten Zeitsprung zurücknehmen"
+              disabled={data.state.previousNow === null}
+              onClick={() => undoTimeAdvance(db)}
+            >
+              <Undo2 />
+            </IconButton>
+          </div>
+          <Popover
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            anchor={moreAnchor}
+            width={250}
           >
-            <span className="wf-bar__mid">Zeit</span> <ChevronDown />
-          </Button>
-          <IconButton
-            label="Letzten Zeitsprung zurücknehmen"
-            disabled={data.state.previousNow === null}
-            onClick={() => undoTimeAdvance(db)}
-          >
-            <Undo2 />
-          </IconButton>
+            <MenuItem onClick={more(() => openRest('short'))}>Kurze Rast · 1 Stunde …</MenuItem>
+            <MenuItem onClick={more(() => openRest('long'))}>Lange Rast · 8 Stunden …</MenuItem>
+            <div className="wf-menu-sep" />
+            <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 6)))}>
+              Bis zum Morgen · 06:00
+            </MenuItem>
+            <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 12)))}>
+              Bis zum Mittag · 12:00
+            </MenuItem>
+            <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 18)))}>
+              Bis zum Abend · 18:00
+            </MenuItem>
+            <MenuItem onClick={more(() => pass(1440))}>Einen ganzen Tag</MenuItem>
+            <div className="wf-menu-sep" />
+            <MenuItem onClick={more(openTimeDialog)}>Andere Dauer oder Datum stellen …</MenuItem>
+          </Popover>
         </div>
-        <Popover open={moreOpen} onClose={() => setMoreOpen(false)} anchor={moreAnchor} width={250}>
-          <MenuItem onClick={more(() => openRest('short'))}>Kurze Rast · 1 Stunde …</MenuItem>
-          <MenuItem onClick={more(() => openRest('long'))}>Lange Rast · 8 Stunden …</MenuItem>
-          <div className="wf-menu-sep" />
-          <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 6)))}>
-            Bis zum Morgen · 06:00
-          </MenuItem>
-          <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 12)))}>
-            Bis zum Mittag · 12:00
-          </MenuItem>
-          <MenuItem onClick={more(() => advanceAndReport(db, nextTimeOfDay(now, 18)))}>
-            Bis zum Abend · 18:00
-          </MenuItem>
-          <MenuItem onClick={more(() => pass(1440))}>Einen ganzen Tag</MenuItem>
-          <div className="wf-menu-sep" />
-          <MenuItem onClick={more(openTimeDialog)}>Andere Dauer oder Datum stellen …</MenuItem>
-        </Popover>
-      </div>
+      )}
 
-      <div className="wf-bar__cell wf-bar__cell--grow">
-        <button
-          type="button"
-          className="wf-bar__place"
-          onClick={() => openMoveParty()}
-          title="Ort der Gruppe wechseln"
-        >
-          <MapPin />
-          <span style={{ minWidth: 0 }}>
-            <span className="wf-bar__place-name wf-clamp-1" style={{ display: 'block' }}>
-              {between ? 'Unterwegs' : (place?.name ?? 'Aufenthaltsort offen')}
+      {playing ? (
+        <div className="wf-bar__cell wf-bar__cell--grow">
+          <button
+            type="button"
+            className="wf-bar__place"
+            onClick={() => openMoveParty()}
+            title="Ort der Gruppe wechseln"
+          >
+            <MapPin />
+            <span style={{ minWidth: 0 }}>
+              <span className="wf-bar__place-name wf-clamp-1" style={{ display: 'block' }}>
+                {between ? 'Unterwegs' : (place?.name ?? 'Aufenthaltsort offen')}
+              </span>
+              <span className="wf-bar__sub wf-clamp-1" style={{ display: 'block' }}>
+                {between
+                  ? between.toId
+                    ? `von ${place?.name ?? '…'} nach ${data.entities[between.toId]?.name ?? '…'}`
+                    : `von ${place?.name ?? '…'}`
+                  : parent
+                    ? parent.name
+                    : place
+                      ? 'Aufenthaltsort der Gruppe'
+                      : 'Ort der Gruppe festlegen'}
+              </span>
             </span>
-            <span className="wf-bar__sub wf-clamp-1" style={{ display: 'block' }}>
-              {between
-                ? between.toId
-                  ? `von ${place?.name ?? '…'} nach ${data.entities[between.toId]?.name ?? '…'}`
-                  : `von ${place?.name ?? '…'}`
-                : parent
-                  ? parent.name
-                  : place
-                    ? 'Aufenthaltsort der Gruppe'
-                    : 'Ort der Gruppe festlegen'}
-            </span>
-          </span>
-        </button>
-      </div>
+          </button>
+        </div>
+      ) : (
+        <div className="wf-bar__cell wf-bar__cell--grow" />
+      )}
 
-      <div className="wf-bar__cell wf-bar__cell--weather">
-        <WeatherChip />
-      </div>
+      {playing && (
+        <div className="wf-bar__cell wf-bar__cell--weather">
+          <WeatherChip />
+        </div>
+      )}
 
       <div className="wf-bar__cell wf-bar__cell--end">
-        <Button
-          ref={sessionAnchor}
-          variant="ghost"
-          onClick={() => setSessionOpen((o) => !o)}
-          icon={session ? <i className="wf-session-dot" /> : undefined}
-          title={session ? `Session ${session.number} läuft` : 'Keine Session läuft'}
-        >
-          {session ? (
-            <>
-              <span className="wf-bar__mid">Session</span>
-              {session.number}
-            </>
-          ) : (
-            'Keine Session'
-          )}
-          <ChevronDown />
-        </Button>
-        <Popover
-          open={sessionOpen}
-          onClose={() => setSessionOpen(false)}
-          anchor={sessionAnchor}
-          align="right"
-          width={260}
-        >
-          {session ? (
-            <MenuItem
-              onClick={() => {
-                endSession(db);
-                setSessionOpen(false);
-              }}
+        <div className="wf-btn-group" role="group" aria-label="Arbeitsansicht">
+          {(['prep', 'play'] as const).map((view) => (
+            <Button
+              key={view}
+              aria-pressed={work === view}
+              onClick={() => setWorkView(view)}
+              title={
+                view === 'prep'
+                  ? 'Vorbereiten: Schreiben, Brett und Karten vorn – Zeit, Ort und Session treten zurück. Ändert nichts an der Kampagne.'
+                  : 'Spielen: Zeit, Ort, Wetter und Session direkt in der Leiste. Ändert nichts an der Kampagne.'
+              }
             >
-              Session {session.number} beenden
-            </MenuItem>
-          ) : null}
-          <MenuItem
-            onClick={() => {
-              startSession(db);
-              setSessionOpen(false);
-            }}
-          >
-            Neue Session beginnen
-          </MenuItem>
-        </Popover>
+              {WORK_VIEW_LABEL[view]}
+            </Button>
+          ))}
+        </div>
+        {playing && (
+          <>
+            <Button
+              ref={sessionAnchor}
+              variant="ghost"
+              onClick={() => setSessionOpen((o) => !o)}
+              icon={session ? <i className="wf-session-dot" /> : undefined}
+              title={session ? `Session ${session.number} läuft` : 'Keine Session läuft'}
+            >
+              {session ? (
+                <>
+                  <span className="wf-bar__mid">Session</span>
+                  {session.number}
+                </>
+              ) : (
+                'Keine Session'
+              )}
+              <ChevronDown />
+            </Button>
+            <Popover
+              open={sessionOpen}
+              onClose={() => setSessionOpen(false)}
+              anchor={sessionAnchor}
+              align="right"
+              width={260}
+            >
+              {session ? (
+                <MenuItem
+                  onClick={() => {
+                    endSession(db);
+                    setSessionOpen(false);
+                  }}
+                >
+                  Session {session.number} beenden
+                </MenuItem>
+              ) : null}
+              <MenuItem
+                onClick={() => {
+                  startSession(db);
+                  setSessionOpen(false);
+                }}
+              >
+                Neue Session beginnen
+              </MenuItem>
+            </Popover>
+          </>
+        )}
         <Button icon={<Search />} onClick={openSearch} title="Suchen (Strg+K)" aria-label="Suchen">
           <span className="wf-bar__wide">Suchen</span>
         </Button>
         <Button
-          variant={atTable ? 'primary' : 'default'}
+          variant={atTable && playing ? 'primary' : 'default'}
           icon={<Feather />}
           onClick={() => openQuickLog()}
           title="Festhalten (Strg+E)"

@@ -279,6 +279,11 @@
 .wf-bar__cell--weather:empty {
   display: none;
 }
+/* Beim Vorbereiten tritt das Datum zurück: nur zur Orientierung, nicht zum Leiten (F06). */
+.wf-bar__cell[data-compact] .wf-bar__date {
+  font-size: var(--text-lg);
+  color: var(--ink-mute);
+}
 .wf-bar__cell--end {
   border-right: 0;
   box-shadow: none;

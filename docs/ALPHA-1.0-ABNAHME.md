@@ -34,19 +34,19 @@ Beleg: T = Regressionstest im Repository, B = im Browser nachgeprüft (Vorschau)
 
 | ID  | Kurz                                             | Prio | Status      | Beleg / Ort                                                   |
 | --- | ------------------------------------------------ | ---- | ----------- | ------------------------------------------------------------- |
-| F01 | Schreiben erfordert vorab eine Einordnung        | P1   | offen       | Browser: „Neu“ beginnt als Person (bestätigt)                 |
-| F02 | Geschichten nach Methode bewertet                | P1   | offen       |                                                               |
-| F03 | Kurze freie Texte als Pflegebedarf gezählt       | P1   | offen       |                                                               |
-| F04 | „Zuletzt“ ohne eigenständige Artikel             | P1   | offen       |                                                               |
+| F01 | Schreiben erfordert vorab eine Einordnung        | P1   | behoben     | „Frei schreiben“ ohne Pflichtangaben; Test                    |
+| F02 | Geschichten nach Methode bewertet                | P1   | behoben     | Stand/Rat nur mit „Hinweise zur Form zeigen“; Test            |
+| F03 | Kurze freie Texte als Pflegebedarf gezählt       | P1   | behoben     | Platzhalter nicht mehr gezählt; Test                          |
+| F04 | „Zuletzt“ ohne eigenständige Artikel             | P1   | behoben     | „Weiterarbeiten“ mit freien Artikeln; Test                    |
 | F05 | Material einer Reise verteilt                    | P1   | offen       |                                                               |
-| F06 | Live-Steuerung beim Gestalten dominant           | P1   | offen       |                                                               |
+| F06 | Live-Steuerung beim Gestalten dominant           | P1   | behoben     | Arbeitsansicht in der Leiste; Browser: keine Datenänderung    |
 | F07 | Nachschlagen öffnet volles Dossier               | P2   | offen       |                                                               |
 | F08 | Unbekannter Aufenthalt als „fort“                | P1   | **behoben** | T: `data/__tests__/campaign.test.ts` „F08 …“                  |
 | F09 | Hexmaßstab Dialog ≠ Ergebnis                     | P1   | **behoben** | T: `erkundung/generate.test.ts` „F09 …“                       |
 | F10 | Ortsauswahl gewichtet Maßstäbe schlecht          | P2   | offen       |                                                               |
 | F11 | Dossier lässt wenig Raum für den Artikel         | P2   | offen       |                                                               |
-| F12 | Weltstartseite betont Pflegeaufwand              | P2   | offen       |                                                               |
-| F13 | Lokale Vorbereiten/Spielen-Wechsel uneinheitlich | P2   | offen       |                                                               |
+| F12 | Weltstartseite betont Pflegeaufwand              | P2   | behoben     | Start: Schreiben und Weiterarbeiten vorn, Pflege unten        |
+| F13 | Lokale Vorbereiten/Spielen-Wechsel uneinheitlich | P2   | behoben     | Karten beginnen passend; Würfeln/Löschen nur beim Vorbereiten |
 | F14 | „verwaltet“ als Herrschaft vorgeschlagen         | P2   | offen       |                                                               |
 | F15 | Bastionsverlauf nach Umbenennen weg              | P1   | **behoben** | T: `bastion/rooms.test.ts` „F15 …“; Datenversion 43           |
 | F16 | Gelöschter Statblock beschädigt Begegnungen      | P1   | **behoben** | T: `bestiarium/bestiarium.test.ts` „F16 …“                    |
@@ -57,6 +57,29 @@ Beleg: T = Regressionstest im Repository, B = im Browser nachgeprüft (Vorschau)
 | F21 | Abendblatt als Methode                           | P2   | offen       |                                                               |
 
 ### Einzelheiten
+
+**F01 – Freier Schreibbeginn.** Alter Ablauf: „Neu“ begann als Person, Name Pflicht
+(im Browser bestätigt). Änderung: „Neu“ beginnt als freier Text ohne Art, der Name ist dort
+freiwillig („Entwurf“, „Entwurf 2“ … über `draftTitle`); auf der Weltstartseite steht „Frei
+schreiben“ als Haupthandlung (`startFreeText`). Einordnen bleibt jederzeit möglich, nie Pflicht.
+
+**F02 – Geschichten nicht nach Methode bewerten.** Alter Ablauf: Jede Geschichte zeigte Stand
+(Keim/Spielbar/Rund) und Rat. Änderung: Feld `story.guide` (Vorgabe aus, Datenversion 43); Stand
+und Rat erscheinen auf Blatt und Abendblatt nur mit „Hinweise zur Form zeigen“.
+
+**F03/F04/F12 – Weltstart.** `gapCount` zählt nur noch fehlende Texte und genannte, aber
+ungeschriebene Namen – keine kurzen Texte oder Platzhalter. Die Weltstartseite beginnt mit
+„Frei schreiben“ und „Weiterarbeiten“ (`recentWork`: Einträge mit Text, freie Artikel,
+Geschichten, Wegenetze, Hexkarten, Dungeons), dann die Kategorien mit Inhalt (leere auf Klick),
+und erst unten „Pflege, wenn du magst“.
+
+**F06/F13 – Zwei Arbeitsansichten.** Begriffspaar überall „Vorbereiten / Spielen“. Umschalter in
+der Weltleiste (`shell/workView.ts`, reine Ansicht, nicht gespeichert; ohne Wahl folgt sie dem
+laufenden Abend). Beim Vorbereiten treten Uhr-Knöpfe, Ort, Wetter, Session und Monde zurück,
+„Festhalten“ ist kein Messingknopf. Hexkarte und Dungeon beginnen in der passenden lokalen
+Ansicht (`localWorkView`), „Neu würfeln“ und „Karte löschen“ stehen nur beim Vorbereiten.
+Nachprüfung (K28) im Browser: Umschalten und Seitenwechsel lassen den gespeicherten Spielstand
+byte-gleich. Grenze: Die Wahl gilt bis zum Neustart, nicht über ihn hinaus.
 
 **F08 – Unbekannter Aufenthalt.** Alter Ablauf: `placeCast` legte jede lebende Person mit
 Zuhause im Ort und ohne Aufenthalt in `away`; das Dossier zeigte sie unter „Hier zu Hause, aber
@@ -113,19 +136,21 @@ und Wiederherstellung in der installierten Windows-App (K48, K57).
 Status je Fall: offen / bestanden (Umgebung) / fehlgeschlagen / blockiert. „Bestanden (Vorschau)“
 heißt: in der Browservorschau geprüft, nicht in der installierten App.
 
-| Fall                              | Status    | Bemerkung                                         |
-| --------------------------------- | --------- | ------------------------------------------------- |
-| K01–K15                           | offen     |                                                   |
-| K16 Unbekannter Aufenthalt        | teilweise | Logik behoben (F08), Oberfläche offen             |
-| K17–K24                           | offen     |                                                   |
-| K25 Hexmaßstab                    | teilweise | Auswahl behoben (F09), Reisezeit im Browser offen |
-| K26–K32                           | offen     |                                                   |
-| K33 Verwendeten Statblock löschen | teilweise | Ankündigung + Rückgängig (F16), Oberfläche offen  |
-| K34–K39                           | offen     |                                                   |
-| K40 Bastionsverlauf               | teilweise | Logik behoben (F15), Neuladen im Browser offen    |
-| K41–K54                           | offen     |                                                   |
-| K55 Tastatur und Fokus            | teilweise | Strg+E geprüft (F17); übrige Kombinationen offen  |
-| K56–K60                           | offen     |                                                   |
+| Fall                              | Status               | Bemerkung                                         |
+| --------------------------------- | -------------------- | ------------------------------------------------- |
+| K01–K15                           | offen                |                                                   |
+| K16 Unbekannter Aufenthalt        | teilweise            | Logik behoben (F08), Oberfläche offen             |
+| K17–K24                           | offen                |                                                   |
+| K25 Hexmaßstab                    | teilweise            | Auswahl behoben (F09), Reisezeit im Browser offen |
+| K26–K27                           | offen                |                                                   |
+| K28 Ansichtswechsel ohne Wirkung  | bestanden (Vorschau) | Spielstand byte-gleich (F06)                      |
+| K29–K32                           | offen                |                                                   |
+| K33 Verwendeten Statblock löschen | teilweise            | Ankündigung + Rückgängig (F16), Oberfläche offen  |
+| K34–K39                           | offen                |                                                   |
+| K40 Bastionsverlauf               | teilweise            | Logik behoben (F15), Neuladen im Browser offen    |
+| K41–K54                           | offen                |                                                   |
+| K55 Tastatur und Fokus            | teilweise            | Strg+E geprüft (F17); übrige Kombinationen offen  |
+| K56–K60                           | offen                |                                                   |
 
 ## Rückfall
 
@@ -141,6 +166,7 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 
 - 20. 11. 2026: Phase A (Ausgangsstand), Phase B begonnen: F08, F09, F15, F16, F17 behoben,
           2837 Tests grün.
+- 20. 11. 2026: Phase C: F01–F04, F06, F12, F13 behoben, 2848 Tests grün.
 
 ## Nächster Schritt
 

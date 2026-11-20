@@ -3,6 +3,8 @@
  * in der Mitte die Karte mit Werkzeugleiste, rechts Werkzeug und Gewähltes. Der Bereich steht
  * vorerst für sich (Wunsch des Spielleiters, 18. 11. 2026) – die Verbindung zur Welt folgt.
  */
+import { currentSession } from '../../domain/derive';
+import { currentWorkView, localWorkView } from '../../shell/workView';
 import {
   BrickWall,
   DoorClosed,
@@ -356,7 +358,10 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
   const db = useDb();
   const [, navigate] = useLocation();
   const editor = useDungeonEditor(db, stored);
-  const [mode, setMode] = useState<'prep' | 'play'>('prep');
+  // Beginnt passend zur Arbeitsansicht (F13); umschalten lässt sich jederzeit.
+  const [mode, setMode] = useState<'prep' | 'play'>(() =>
+    localWorkView(currentWorkView(currentSession(db.getSnapshot()) !== null), true),
+  );
   const playing = mode === 'play';
   const player = usePlay(db, editor.dungeon, editor);
   const [trial, setTrial] = useState(() => trialStash.has(stored.id));

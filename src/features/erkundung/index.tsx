@@ -4,6 +4,7 @@
  * Werkzeuge links der Karte, alles sichtbar, rechts der Feld-Inspektor für ein oder mehrere Felder,
  * Strg+Z/Strg+Y; „Spielen“ zeigt die Reise mit Nebel, Felder nur zum Ansehen.
  */
+import { currentWorkView, localWorkView } from '../../shell/workView';
 import { kindLabelOf } from '../../domain/hexKinds';
 import { natureOnHex } from '../../domain/nature';
 import { NatureFold } from '../welt/NatureList';
@@ -23,7 +24,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { byName, entityName } from '../../domain/derive';
+import { byName, currentSession, entityName } from '../../domain/derive';
 import { hexCenter, hexDistance, sameHex, type HexCoord } from '../../domain/hex';
 import {
   DIR_DOWN,
@@ -192,7 +193,10 @@ function AreaView({ area }: { area: Area }) {
   }, [partyLevel]);
   const caves = area.hexes.some((h) => h.exits !== null);
   /** Vorbereiten (Editor) oder Spielen (Reise mit Nebel). Eine neue Karte beginnt beim Vorbereiten. */
-  const [mode, setMode] = useState<'prep' | 'play'>(() => (area.party ? 'play' : 'prep'));
+  // Beginnt passend zur Arbeitsansicht: Spielen nur beim Spielen und mit Gruppe auf der Karte (F13).
+  const [mode, setMode] = useState<'prep' | 'play'>(() =>
+    localWorkView(currentWorkView(currentSession(data) !== null), !!area.party),
+  );
   const editing = mode === 'prep';
   // Die Karte füllt die Fläche, die sie hat: Beim Vorbereiten klappt die Liste weg, dann passt
   // sie größer. Wer selbst vergrößert oder verkleinert hat, behält seine Größe.
@@ -482,7 +486,8 @@ function AreaView({ area }: { area: Area }) {
                 <Play aria-hidden /> Spielen
               </button>
             </span>
-            {area.seed !== null && (
+            {/* Neu würfeln und Löschen gehören zum Bearbeiten, nicht an den Tisch (F13). */}
+            {editing && area.seed !== null && (
               <Button
                 size="sm"
                 icon={<Dices />}
@@ -492,9 +497,11 @@ function AreaView({ area }: { area: Area }) {
                 Neu würfeln
               </Button>
             )}
-            <IconButton label="Karte löschen" size="sm" variant="danger" onClick={remove}>
-              <Trash2 />
-            </IconButton>
+            {editing && (
+              <IconButton label="Karte löschen" size="sm" variant="danger" onClick={remove}>
+                <Trash2 />
+              </IconButton>
+            )}
           </div>
         </header>
         {editing ? (
