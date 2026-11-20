@@ -203,7 +203,8 @@ describe('Gestalt je Art', () => {
       hasText: true,
       opened: new Set(['recipe']),
     });
-    expect(opened.main).toEqual(['box', 'recipe', 'text']);
+    // Ein geschriebener Text folgt gleich dem Steckbrief (F11).
+    expect(opened.main).toEqual(['box', 'text', 'recipe']);
     expect(opened.add).toEqual(['magic', 'book', 'life', 'notes', 'secret']);
   });
 
@@ -218,15 +219,17 @@ describe('Gestalt je Art', () => {
     );
     expect(pagePlan(db.getSnapshot(), topic, { hasText: true }).main).toEqual([
       'box',
-      'secret',
       'text',
+      'secret',
     ]);
   });
 
   it('Ort: Orte darin und Gegenstände; rechts die Gruppe, wer hier ist', async () => {
     const { db, stadt, schmiede } = await setup();
     const plan = pagePlan(db.getSnapshot(), stadt, { hasText: true });
-    expect(plan.main).toEqual(['box', 'places', 'items', 'text']);
+    expect(plan.main).toEqual(['box', 'text', 'places', 'items']);
+    // Ohne Text wartet die Schreibfläche am Ende.
+    expect(pagePlan(db.getSnapshot(), stadt, { hasText: false }).main.at(-1)).toBe('text');
     expect(plan.side.slice(0, 3)).toEqual(['party', 'changes', 'cast']);
     expect(plan.add).toEqual(['shop', 'rooms', 'travel', 'notes', 'secret']);
     // Ein Ort ohne Orte darin zeigt keinen leeren Abschnitt „Darin“.

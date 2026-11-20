@@ -5,6 +5,9 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { WideToggle } from './WideToggle';
+import { useWideText } from './wide';
+import { articleParts } from '../../domain/articleText';
 import { RoomFacility } from '../bastion/RoomFacility';
 import { isWorld, liesIn } from '../../domain/worlds';
 import { WorldInside } from './WorldInside';
@@ -138,7 +141,12 @@ export function Dossier({
     () => boxCovers(boxRows(text, entity.kind, scaffoldOf(data.campaign, entity.kind))),
     [text, entity.kind, data.campaign],
   );
-  const plan = pagePlan(data, entity, { hasText: article !== null, opened });
+  const wide = useWideText() && !inSheet;
+  const plan = pagePlan(data, entity, {
+    hasText: article !== null,
+    written: !!text && articleParts(text).body.trim() !== '',
+    opened,
+  });
   const shops = pageShops(data, entity);
   /** Ein Laden ist der Hauptteil – dann trägt sein Knopf zum Handeln das Messing, nicht „Festhalten“. */
   const shopLead = plan.main[0] === 'shop' && shops.lead.length > 0;
@@ -425,6 +433,7 @@ export function Dossier({
           <IconButton label="Eintrag löschen" variant="ghost" onClick={remove}>
             <Trash2 />
           </IconButton>
+          {!inSheet && <WideToggle />}
         </div>
       </header>
 
@@ -456,19 +465,21 @@ export function Dossier({
                 <ShopSection entity={entity} lead shops={shops.lead} />
               </div>
             )}
-            <div className="wf-welt-cols">
+            <div className="wf-welt-cols" data-wide={wide ? '' : undefined}>
               <div className="wf-welt-cols__main">
                 {(shopLead ? plan.main.slice(1) : plan.main).map((block) => (
                   <Fragment key={block}>{main[block]?.()}</Fragment>
                 ))}
               </div>
-              <aside className="wf-welt-cols__side" aria-label="Jetzt">
-                {plan.side.map((block) => (
-                  <Fragment key={block}>{side[block]?.()}</Fragment>
-                ))}
-                <AddRow keys={plan.add} onOpen={openAdd} />
-                <PageTemplateTools entity={entity} />
-              </aside>
+              {!wide && (
+                <aside className="wf-welt-cols__side" aria-label="Jetzt">
+                  {plan.side.map((block) => (
+                    <Fragment key={block}>{side[block]?.()}</Fragment>
+                  ))}
+                  <AddRow keys={plan.add} onOpen={openAdd} />
+                  <PageTemplateTools entity={entity} />
+                </aside>
+              )}
             </div>
           </>
         )}

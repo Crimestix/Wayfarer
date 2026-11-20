@@ -657,8 +657,28 @@
 /* Bis zur Breite eines MacBook Air 13" sprechen „Zeit“ und „Session“ durch ihr Zeichen – der Platz
    gehört dem Ort der Gruppe und dem Wetter. */
 @media (max-width: 1500px) {
-  .wf-bar__mid {
+  .wf-bar__mid,
+  .wf-bar__viewlabel {
     display: none;
+  }
+}
+/* Unter 1300 Pixeln (etwa 125 % Anzeige auf dem MacBook) treten Monde und „+10 Min.“ zurück –
+   beides bleibt erreichbar: die Monde im Kalender, zehn Minuten im Zeitmenü. */
+@media (max-width: 1299px) {
+  .wf-bar .wf-bar__minor {
+    display: none;
+  }
+  .wf-bar__date {
+    font-size: 1.15rem;
+  }
+  .wf-bar__clock {
+    font-size: 1.7rem;
+  }
+}
+/* Unter 1400 Pixeln (auch bei vergrößerter Anzeige) gibt der Ort der Gruppe zuerst nach. */
+@media (max-width: 1399px) {
+  .wf-bar__cell--grow {
+    min-width: 8.5rem;
   }
 }
 @media (max-width: 1365px) {

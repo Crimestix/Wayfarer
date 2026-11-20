@@ -4293,3 +4293,11 @@ button.wf-welt-gaps__count:hover {
   flex: none;
   width: 150px;
 }
+
+/* Breit schreiben (F11): ohne Liste links, ohne Spalte „Jetzt“. */
+.wf-welt[data-wide] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.wf-welt-cols[data-wide] {
+  grid-template-columns: minmax(0, 1fr);
+}

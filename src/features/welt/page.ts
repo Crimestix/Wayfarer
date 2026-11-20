@@ -273,7 +273,12 @@ const SHOP_KINDS = new Set<EntityKind>(['place', 'person', 'faction']);
 export function pagePlan(
   data: CampaignData,
   entity: WorldEntity,
-  options: { hasText: boolean; opened?: ReadonlySet<AddKey> },
+  options: {
+    hasText: boolean;
+    /** Im Text steht schon mehr als der Steckbrief – dann folgt er gleich ihm (F11). */
+    written?: boolean;
+    opened?: ReadonlySet<AddKey>;
+  },
 ): PagePlan {
   const opened = options.opened ?? new Set<AddKey>();
   const main: MainBlock[] = [];
@@ -390,7 +395,10 @@ export function pagePlan(
   // (Rundgang 17. 11.: drei leere Felder untereinander machten die Seite voll).
   maybe('notes', !!entity.notes.trim(), () => main.push('notes'));
   maybe('secret', !!entity.secret.trim(), () => main.push('secret'));
-  main.push('text');
+  // Steht ein Text da, folgt er gleich dem Steckbrief – vor Listen wie Orten darin und Räumen
+  // (F11: der Artikel ist das Eigentliche). Ohne Text wartet die Schreibfläche am Ende.
+  if (options.written ?? options.hasText) main.splice(main.indexOf('box') + 1, 0, 'text');
+  else main.push('text');
   side.push('relations', 'stories', 'knows', 'tracks', 'upcoming', 'recent');
   return { main, side, add };
 }

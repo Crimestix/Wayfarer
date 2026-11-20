@@ -4,6 +4,7 @@
  * Eintrag der Welt zeigt seinen Artikel als Reiter „Text“; ein Artikel ohne Eintrag steht für
  * sich. Die Wege `/welt/…` (Eintrag) und `/wiki/…` (Artikel) führen beide hierher.
  */
+import { useWideText } from './wide';
 import { useEffect, useRef } from 'react';
 import { Link, Redirect, useLocation, useParams } from 'wouter';
 import { ArrowLeft, Compass } from 'lucide-react';
@@ -83,6 +84,7 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
   const filter = useKindFilter();
   const ownFilter = useOwnKindFilter();
   const layout = useWorldLayout();
+  const wide = useWideText();
   const stage = useRef<HTMLDivElement>(null);
   // Ein anderes Ding beginnt wieder oben.
   useEffect(() => {
@@ -91,8 +93,8 @@ function World({ entityId, articleId }: { entityId?: string; articleId?: string 
   if (entity?.kind === 'character') return <Redirect to={`/gruppe/${entity.id}`} />;
   const selected = isWorldEntity(entity) ? entity : undefined;
   return (
-    <div className="wf-welt">
-      <Sidebar selected={selected} articleId={article?.id} />
+    <div className="wf-welt" data-wide={wide && (selected || article) ? '' : undefined}>
+      {!(wide && (selected || article)) && <Sidebar selected={selected} articleId={article?.id} />}
       <div className="wf-welt-stage" ref={stage}>
         {(selected || article) && <BackRow />}
         {selected ? (

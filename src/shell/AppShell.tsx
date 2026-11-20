@@ -3,7 +3,17 @@ import { WORK_VIEW_LABEL, setWorkView, useWorkView } from './workView';
 import { shortcutOwner } from './shortcuts';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
-import { ChevronDown, Feather, Hourglass, MapPin, Search, Settings, Undo2 } from 'lucide-react';
+import {
+  ChevronDown,
+  Dices,
+  Feather,
+  Hourglass,
+  MapPin,
+  NotebookPen,
+  Search,
+  Settings,
+  Undo2,
+} from 'lucide-react';
 import { endSession, startSession, undoTimeAdvance } from '../data/actions';
 import { useData, useDb, useSaveStatus } from '../data/hooks';
 import { useTestMode } from '../data/testMode';
@@ -237,7 +247,7 @@ function WorldBar() {
         </div>
         <div className="wf-bar__clock">{formatClock(now)}</div>
         {playing && cal.moons.length > 0 && (
-          <div className="wf-bar__moons">
+          <div className="wf-bar__moons wf-bar__minor">
             {cal.moons.map((moon) => (
               <MoonGlyph key={moon.id} moon={moon} time={now} />
             ))}
@@ -248,7 +258,11 @@ function WorldBar() {
       {playing && (
         <div className="wf-bar__cell">
           <div className="wf-btn-group">
-            <Button onClick={() => pass(10)} title="10 Minuten vergehen lassen">
+            <Button
+              className="wf-bar__minor"
+              onClick={() => pass(10)}
+              title="10 Minuten vergehen lassen"
+            >
               +10 Min.
             </Button>
             <Button onClick={() => pass(60)} title="1 Stunde vergehen lassen">
@@ -278,6 +292,7 @@ function WorldBar() {
             anchor={moreAnchor}
             width={250}
           >
+            <MenuItem onClick={more(() => pass(10))}>10 Minuten</MenuItem>
             <MenuItem onClick={more(() => openRest('short'))}>Kurze Rast · 1 Stunde …</MenuItem>
             <MenuItem onClick={more(() => openRest('long'))}>Lange Rast · 8 Stunden …</MenuItem>
             <div className="wf-menu-sep" />
@@ -340,6 +355,8 @@ function WorldBar() {
             <Button
               key={view}
               aria-pressed={work === view}
+              aria-label={WORK_VIEW_LABEL[view]}
+              icon={view === 'prep' ? <NotebookPen /> : <Dices />}
               onClick={() => setWorkView(view)}
               title={
                 view === 'prep'
@@ -347,7 +364,8 @@ function WorldBar() {
                   : 'Spielen: Zeit, Ort, Wetter und Session direkt in der Leiste. Ändert nichts an der Kampagne.'
               }
             >
-              {WORK_VIEW_LABEL[view]}
+              {/* Bis zur Breite eines MacBook Air spricht der Umschalter durch sein Zeichen. */}
+              <span className="wf-bar__viewlabel">{WORK_VIEW_LABEL[view]}</span>
             </Button>
           ))}
         </div>

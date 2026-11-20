@@ -2,6 +2,7 @@
  * Wiki – die Artikel der Welt. Keine eigene Seite mehr: Baum, Suche, Übersicht und der Artikel
  * selbst sind Bausteine der Seite „Welt“ (`features/welt`).
  */
+import { WideToggle } from '../welt/WideToggle';
 import { MaterialBox } from '../welt/MaterialBox';
 import { roomArticleIds } from '../../domain/rooms';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -518,6 +519,7 @@ export function ArticlePage({
               }}
             />
             {!article.template && owners.length === 0 && <AdoptButton article={article} />}
+            {!embedded && <WideToggle />}
             <ArticleMenu
               article={article}
               onNewChild={() => setCreating({ parent: article, title: '' })}
