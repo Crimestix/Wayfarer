@@ -1,21 +1,22 @@
 /**
  * Hexkarten bearbeiten (Wunsch des Spielleiters, 17. 11.: „Wir müssen in der Vorbereitung
  * Hexkarten perfekt vorbereiten können“ – „Wir brauchen ne richtige Editor-Ansicht“): die
- * Werkzeugleiste links der Karte in der Ansicht „Vorbereiten“ – Auswählen, Gelände und eigene
- * Gegenden malen (mit Pinselgröße), Straßen, Pfade und Flüsse ziehen, radieren, Felder am Rand
- * anfügen oder wegnehmen, unter der Erde Gänge, Fels und Schächte. Jeder Schritt lässt sich mit
- * Strg+Z zurücknehmen und mit Strg+Y wiederholen (`prep.ts`); Neu würfeln behält, was von Hand
- * gemacht ist.
+ * Werkzeugleiste links der Karte in der Ansicht „Vorbereiten“ – Auswählen, Gelände malen (mit
+ * Pinselgröße), Felder einem Gebiet der Welt zuordnen, Wege und Flüsse von Feld zu Feld ziehen und
+ * ihnen einen Eintrag geben, radieren, die Karte am Rand wachsen lassen, unter der Erde Gänge, Fels
+ * und Schächte. Jeder Schritt lässt sich mit Strg+Z zurücknehmen und mit Strg+Y wiederholen
+ * (`prep.ts`); Neu würfeln behält, was von Hand gemacht ist.
  */
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownToLine,
   Brush,
+  ChevronDown,
+  ChevronRight,
   MousePointer2,
   Redo2,
   Undo2,
   Eraser,
-  Footprints,
   Grid2x2Plus,
   MapPin,
   MapPinned,
@@ -43,21 +44,35 @@ import {
 } from '../../domain/landscape';
 import {
   KIND_GROUP_LABEL,
+  SOLID_ROCK,
   hexKind,
   kindKeyOf,
   kindsByGroup,
   paintOfKind,
 } from '../../domain/hexKinds';
+import {
+  connectLine,
+  eraseLine,
+  hasLine,
+  lineEntityId,
+  lineRun,
+  markLine,
+  setLineEntity,
+  type LineKind,
+  type LineValue,
+} from '../../domain/hexLines';
 import { TERRAIN_LABEL } from '../../domain/terrain';
 import { GLYPH, KIND_GLYPH } from './HexMap';
-import { EntityPicker, IconButton, Input, Panel, Select, toast } from '../../ui';
+import { Button, EntityPicker, IconButton, Input, Panel, Select, toast } from '../../ui';
 import { addFromWriting } from '../welt/writing';
 import { EMPTY_HISTORY, recordStep, redoHistory, undoHistory, type HexHistory } from './prep';
 import {
   addHex,
   digBetween,
-  edgeSlots,
+  fillRim,
   fillRock,
+  mapExtent,
+  rimSlots,
   toggleShaft,
   paintHexes,
   placeSuggestions,
@@ -75,7 +90,6 @@ export type HexTool =
   | 'terrain'
   | 'region'
   | 'road'
-  | 'trail'
   | 'river'
   | 'place'
   | 'erase'
@@ -87,13 +101,12 @@ const TOOL_LABEL: Record<HexTool, string> = {
   rock: 'Fels',
   shaft: 'Schacht',
   terrain: 'Gelände',
-  region: 'Gegend',
-  road: 'Straße',
-  trail: 'Pfad',
+  region: 'Gebiet',
+  road: 'Weg',
   river: 'Fluss',
   place: 'Ort',
   erase: 'Radierer',
-  cells: 'Felder',
+  cells: 'Größe',
 };
 
 const TOOL_HINT: Record<HexTool, string> = {
@@ -103,23 +116,24 @@ const TOOL_HINT: Record<HexTool, string> = {
     'Mit gedrückter Maus von Feld zu Feld einen Gang ziehen – die Seiten dazwischen gehen auf.',
   rock: 'Felder zu Fels machen: kein Ausgang mehr, auch nicht von den Nachbarn.',
   shaft: 'Klick auf ein Feld: Schacht hinab zur Ebene darunter öffnen oder schließen.',
-  terrain: 'Mit gedrückter Maus Gelände malen.',
+  terrain:
+    'Mit gedrückter Maus Gelände malen – auch auf die leeren Felder am Rand: So wächst die Karte.',
   region:
-    'Eine Gegend der Welt auf die Felder malen – ihr Gelände, Tempo und ihre Tabellen gelten dort.',
-  road: 'Mit gedrückter Maus eine Straße ziehen: Reisen dort gehen im normalen Tempo.',
-  trail: 'Einen Pfad ziehen.',
-  river: 'Einen Fluss ziehen – ohne Straße oder Brücke muss die Gruppe ihn überqueren.',
+    'Felder anklicken oder überstreichen, die zusammengehören – dann sagst du, zu welchem Ort der Welt. Sein Gelände, sein Tempo und seine Tabellen gelten dort.',
+  road: 'Von Feld zu Feld ziehen. Auf Straße und Pfad reist die Gruppe im Tempo offenen Landes – auch durch Wald und Sumpf –, und ein Fluss hält sie dort nicht auf. Ein Klick auf einen Weg wählt ihn.',
+  river:
+    'Von Feld zu Feld ziehen. Wo keine Straße und kein Pfad hinüberführt, hält die Reise am Fluss: Die Gruppe muss ihn überqueren. Ein Klick auf einen Fluss wählt ihn.',
   place: 'Einen Ort der Welt auf ein Feld setzen: wählen, dann aufs Feld klicken.',
-  erase: 'Straße, Pfad, Fluss und Gegend von Feldern nehmen.',
-  cells: 'Klick auf einen hellen Platz am Rand fügt ein Feld an; Klick auf ein Feld nimmt es weg.',
+  erase: 'Weg, Fluss und Gebiet von Feldern nehmen.',
+  cells:
+    'Die leeren Felder mit dem Plus gehören noch nicht zur Karte. Ein Klick fügt eines an, der Gelände-Pinsel malt direkt darauf. Hier: ein Klick auf ein Feld der Karte nimmt es weg.',
 };
 
 /** Was nach einem Strich in der Meldung steht. */
 const DONE_LABEL: Partial<Record<HexTool, string>> = {
   tunnel: 'Gang gezogen',
   rock: 'Fels gesetzt',
-  road: 'Straße gezogen',
-  trail: 'Pfad gezogen',
+  road: 'Weg gezogen',
   river: 'Fluss gezogen',
   erase: 'Radiert',
 };
@@ -130,10 +144,18 @@ const under = (area: Area, at: HexCoord, radius: number): HexCoord[] =>
     .filter((hex) => hex.level === (at.level ?? 0) && hexDistance(hex, at) <= radius - 1)
     .map(({ q, r, level }) => ({ q, r, level }));
 
+/** Was gerade gewählt ist, wenn mit „Weg“ oder „Fluss“ gearbeitet wird: eine zusammenhängende Linie. */
+export interface LineSelection {
+  kind: LineKind;
+  coords: HexCoord[];
+}
+
+const coordOf = (hex: Hex): HexCoord => ({ q: hex.q, r: hex.r, level: hex.level });
+
 export function useHexEditor(area: Area) {
   const db = useDb();
   const caves = area.hexes.some((hex) => hex.exits !== null);
-  const [tool, setTool] = useState<HexTool>('select');
+  const [tool, setToolState] = useState<HexTool>('select');
   /** Rückgängig und Wiederholen über viele Schritte (`prep.ts`). */
   const [history, setHistory] = useState<HexHistory>(EMPTY_HISTORY);
   const current = () => db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
@@ -154,47 +176,42 @@ export function useHexEditor(area: Area) {
     return true;
   };
   const [passage, setPassageKind] = useState<PassageKind>('open');
-  /** Das Feld, an dem der Gang gerade angekommen ist. */
+  /** Das Feld, an dem der Gang oder die Linie gerade angekommen ist. */
   const lastCell = useRef<HexCoord | null>(null);
   /** Die Geländeart des Pinsels (`domain/hexKinds.ts`) und die zuletzt benutzten. */
-  const [kind, setKindState] = useState<string>('forest');
+  const [kind, setKindState] = useState<string>(caves ? 'cave-floor' : 'forest');
   const [recent, setRecent] = useState<string[]>([]);
   const setKind = (key: string) => {
     setKindState(key);
     setRecent((list) => [key, ...list.filter((entry) => entry !== key)].slice(0, 8));
   };
-  const [regionId, setRegionId] = useState<string | null>(null);
-  const [river, setRiver] = useState('Fluss');
+  /** Werkzeug „Gebiet“: die Felder, die gerade gewählt sind. */
+  const [regionSel, setRegionSel] = useState<HexCoord[]>([]);
+  const regionAdd = useRef(true);
+  /** Werkzeug „Weg“: Straße oder Pfad; „Fluss“: der Name für einen neuen Fluss. */
+  const [roadKind, setRoadKind] = useState<'road' | 'trail'>('road');
+  const [river, setRiver] = useState('');
+  const [lineSel, setLineSel] = useState<LineSelection | null>(null);
+  const strokeStart = useRef<HexCoord | null>(null);
   const [placeId, setPlaceId] = useState<string | null>(null);
   const [radius, setRadius] = useState(1);
+  /** Wie viele Felder weit der leere Rand um die Karte reicht (nur Ansicht). */
+  const [rim, setRim] = useState(1);
   /** Der Stand der Felder vor dem laufenden Strich – zum Zurücknehmen. */
   const before = useRef<Hex[] | null>(null);
   const touched = useRef(0);
 
-  const change = (): HexPaint | null => {
-    switch (tool) {
-      case 'terrain':
-        return brushPaint(db.getSnapshot(), kind);
-      case 'region':
-        return { regionId };
-      case 'road':
-        return { road: 'road' };
-      case 'trail':
-        return { road: 'trail' };
-      case 'river':
-        return { river: river.trim() || 'Fluss' };
-      case 'erase':
-        return { road: 'none', river: '', regionId: null };
-      case 'select':
-      case 'cells':
-      case 'place':
-      case 'tunnel':
-      case 'rock':
-      case 'shaft':
-        return null;
-    }
+  const setTool = (next: HexTool) => {
+    setToolState(next);
+    setLineSel(null);
+    if (next !== 'region') setRegionSel([]);
   };
-  const lineTool = tool === 'road' || tool === 'trail' || tool === 'river' || tool === 'erase';
+  const write = (hexes: Hex[]) => db.patch('areas', area.id, { hexes });
+  const lineValue = (): LineValue =>
+    tool === 'river' ? { kind: 'river', name: river } : { kind: 'road', road: roadKind };
+
+  const change = (): HexPaint | null =>
+    tool === 'terrain' ? brushPaint(db.getSnapshot(), kind) : null;
   const apply = (at: HexCoord) => {
     if (tool === 'tunnel') {
       const last = lastCell.current;
@@ -210,10 +227,48 @@ export function useHexEditor(area: Area) {
       if (fillRock(db, area.id, at)) touched.current++;
       return;
     }
+    if (tool === 'road' || tool === 'river') {
+      const value = lineValue();
+      const last = lastCell.current;
+      lastCell.current = at;
+      let hexes = current();
+      if (!last) hexes = markLine(hexes, at, value);
+      else if (hexKey(last) !== hexKey(at)) {
+        // Von Feld zu Feld – auch wenn die Maus schnell über mehrere hinwegfährt.
+        const path = hexLine(last, at).map((c) => ({ ...c, level: at.level ?? 0 }));
+        for (let i = 1; i < path.length; i++)
+          hexes = connectLine(hexes, path[i - 1]!, path[i]!, value);
+        touched.current += path.length - 1;
+      } else return;
+      write(hexes);
+      return;
+    }
+    if (tool === 'erase') {
+      const coords = under(area, at, radius);
+      const keys = new Set(coords.map(hexKey));
+      const cleared = eraseLine(eraseLine(current(), coords, 'road'), coords, 'river').map((hex) =>
+        keys.has(hexKey(hex)) && hex.regionId ? { ...hex, regionId: null, manual: true } : hex,
+      );
+      write(cleared);
+      touched.current += coords.length;
+      return;
+    }
+    if (tool === 'region') {
+      const coords = under(area, at, radius);
+      setRegionSel((sel) => {
+        const keys = new Set(coords.map(hexKey));
+        if (!regionAdd.current) return sel.filter((entry) => !keys.has(hexKey(entry)));
+        const have = new Set(sel.map(hexKey));
+        return [...sel, ...coords.filter((entry) => !have.has(hexKey(entry)))];
+      });
+      return;
+    }
     const paint = change();
     if (!paint) return;
-    const coords = under(area, at, lineTool && tool !== 'erase' ? 1 : radius);
+    const coords = under(area, at, radius);
     paintHexes(db, area.id, coords, paint);
+    // Massivfels auf einer Karte mit Gängen ist Fels: Dort führt nichts mehr hindurch.
+    if (caves && kind === SOLID_ROCK) for (const coord of coords) fillRock(db, area.id, coord);
     touched.current += coords.length;
   };
   const onStart = (at: HexCoord, pick = false) => {
@@ -299,9 +354,27 @@ export function useHexEditor(area: Area) {
         });
       return;
     }
-    before.current = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
+    if (tool === 'region') {
+      // Auf einem gewählten Feld begonnen: der Strich nimmt Felder wieder heraus.
+      regionAdd.current = !regionSel.some((entry) => hexKey(entry) === hexKey(at));
+      before.current = current();
+      touched.current = 0;
+      apply(at);
+      return;
+    }
+    before.current = current();
     touched.current = 0;
     lastCell.current = null;
+    strokeStart.current = at;
+    if (tool === 'road' || tool === 'river') {
+      // Ein Klick auf eine Linie, die es schon gibt, wählt sie nur – gezogen wird erst mit der Maus.
+      const hex = before.current.find((entry) => hexKey(entry) === hexKey(at));
+      if (hex && hasLine(hex, tool)) {
+        lastCell.current = at;
+        return;
+      }
+      touched.current = 1;
+    }
     apply(at);
   };
   const onMove = (at: HexCoord) => {
@@ -310,8 +383,19 @@ export function useHexEditor(area: Area) {
   const onEnd = () => {
     const old = before.current;
     before.current = null;
+    const start = strokeStart.current;
+    strokeStart.current = null;
+    const end = lastCell.current;
     lastCell.current = null;
-    if (!old || !touched.current) return;
+    if (!old) return;
+    if (tool === 'region') return;
+    if (tool === 'road' || tool === 'river') {
+      // Danach ist die Linie gewählt, zu der der Strich gehört: So bekommt sie gleich ihren Eintrag.
+      const at = end ?? start;
+      const run = at ? lineRun(current(), at, tool) : [];
+      setLineSel(run.length ? { kind: tool, coords: run.map(coordOf) } : null);
+    }
+    if (!touched.current) return;
     record(old);
     toast({
       slot: 'hexkarte',
@@ -319,17 +403,119 @@ export function useHexEditor(area: Area) {
       action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
     });
   };
-  const onSlot = (at: HexCoord) => {
-    const old = db.getSnapshot().areas[area.id]?.hexes ?? area.hexes;
-    if (addHex(db, area.id, at)) {
-      record(old);
-      toast({
-        slot: 'hexkarte',
-        title: 'Feld angefügt',
-        action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
-      });
+  /** Ein leeres Feld am Rand: Klick fügt es an; der Gelände-Pinsel malt im Strich darüber hinweg. */
+  const onSlot = (at: HexCoord, phase: 'down' | 'move') => {
+    const painting = tool === 'terrain';
+    if (phase === 'move' && !(painting && before.current)) return;
+    const old = current();
+    if (phase === 'down' && painting) {
+      before.current = old;
+      touched.current = 0;
     }
+    if (!addHex(db, area.id, at, painting ? brushPaint(db.getSnapshot(), kind) : null)) return;
+    if (before.current) {
+      touched.current++;
+      return;
+    }
+    record(old);
+    toast({
+      slot: 'hexkarte',
+      title: 'Feld angefügt',
+      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+    });
   };
+
+  /** Ordnet die gewählten Felder einem Ort der Welt zu (oder löst sie). */
+  const assignRegion = (regionId: string | null) => {
+    if (!regionSel.length) return;
+    const old = current();
+    paintHexes(db, area.id, regionSel, { regionId });
+    record(old);
+    const name = regionId ? db.getSnapshot().entities[regionId]?.name : null;
+    toast({
+      slot: 'hexkarte',
+      title: name
+        ? `${regionSel.length === 1 ? 'Ein Feld gehört' : `${regionSel.length} Felder gehören`} jetzt zu „${name}“`
+        : 'Zuordnung gelöst',
+      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+    });
+  };
+  /** Alle Felder der Karte, die schon zu diesem Ort gehören, zur Auswahl dazu. */
+  const selectRegion = (regionId: string) =>
+    setRegionSel(
+      current()
+        .filter((hex) => hex.regionId === regionId)
+        .map(coordOf),
+    );
+
+  /** Gibt der gewählten Linie ihren Eintrag der Welt (oder nimmt ihn weg). */
+  const setLineEntry = (entityId: string | null) => {
+    if (!lineSel) return;
+    const old = current();
+    const name = entityId ? (db.getSnapshot().entities[entityId]?.name ?? '') : '';
+    write(setLineEntity(old, lineSel.coords, lineSel.kind, entityId, name));
+    record(old);
+    toast({
+      slot: 'hexkarte',
+      title: entityId
+        ? `${lineSel.kind === 'river' ? 'Der Fluss' : 'Der Weg'} ist jetzt „${name}“`
+        : 'Eintrag gelöst',
+      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+    });
+  };
+  /** Ändert die gewählte Linie: Straße oder Pfad, bzw. den Namen des Flusses. */
+  const patchLine = (patch: { road?: 'road' | 'trail'; river?: string }) => {
+    if (!lineSel) return;
+    const keys = new Set(lineSel.coords.map(hexKey));
+    const old = current();
+    write(
+      old.map((hex) =>
+        keys.has(hexKey(hex))
+          ? {
+              ...hex,
+              ...(patch.road && hex.road !== 'none' ? { road: patch.road } : {}),
+              ...(patch.river !== undefined && hex.river
+                ? { river: patch.river.trim() || 'Fluss' }
+                : {}),
+              manual: true,
+            }
+          : hex,
+      ),
+    );
+    record(old);
+  };
+  const removeLine = () => {
+    if (!lineSel) return;
+    const old = current();
+    write(eraseLine(old, lineSel.coords, lineSel.kind));
+    record(old);
+    setLineSel(null);
+    toast({
+      slot: 'hexkarte',
+      title: lineSel.kind === 'river' ? 'Fluss entfernt' : 'Weg entfernt',
+      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+    });
+  };
+  /** Füllt den ganzen leeren Rand mit dem Gelände des Pinsels – die Karte wächst ringsum. */
+  const growRim = () => {
+    const old = current();
+    const added = fillRim(db, area.id, rim, brushPaint(db.getSnapshot(), kind));
+    if (!added) return;
+    record(old);
+    toast({
+      slot: 'hexkarte',
+      title: `${added} Felder angefügt`,
+      action: { label: 'Rückgängig', run: () => restoreHexes(db, area.id, old) },
+    });
+  };
+
+  /** Was auf der Karte hervorgehoben ist, solange dieses Werkzeug gewählt ist. */
+  const marks: HexCoord[] | null =
+    tool === 'region'
+      ? regionSel
+      : (tool === 'road' || tool === 'river') && lineSel?.kind === tool
+        ? lineSel.coords
+        : null;
   return {
     area,
     caves,
@@ -340,19 +526,34 @@ export function useHexEditor(area: Area) {
     kind,
     setKind,
     recent,
-    regionId,
-    setRegionId,
+    regionSel,
+    setRegionSel,
+    assignRegion,
+    selectRegion,
+    roadKind,
+    setRoadKind,
     river,
     setRiver,
+    lineSel: lineSel?.kind === tool ? lineSel : null,
+    setLineEntry,
+    patchLine,
+    removeLine,
     placeId,
     setPlaceId,
     radius,
     setRadius,
+    rim,
+    setRim,
+    growRim,
+    marks,
     record,
     undo,
     redo,
     canUndo: history.past.length > 0,
     canRedo: history.future.length > 0,
+    /** Die leeren Felder am Rand – auf jeder Karte der Oberwelt zu sehen, solange vorbereitet wird. */
+    slots: caves ? undefined : rimSlots(area, rim),
+    onSlot,
     paint:
       tool === 'select'
         ? undefined
@@ -360,9 +561,6 @@ export function useHexEditor(area: Area) {
             onStart,
             onMove,
             onEnd,
-            onSlot,
-            slots: tool === 'cells' ? edgeSlots(area) : undefined,
-            regionId: tool === 'region' ? regionId : null,
           },
   };
 }
@@ -375,7 +573,6 @@ export const TOOL_KEY: Record<HexTool, string> = {
   terrain: 'B',
   region: 'G',
   road: 'S',
-  trail: 'P',
   river: 'F',
   erase: 'E',
   place: 'O',
@@ -390,7 +587,6 @@ const TOOL_ICON: Record<HexTool, ReactNode> = {
   terrain: <Brush aria-hidden />,
   region: <MapPinned aria-hidden />,
   road: <Route aria-hidden />,
-  trail: <Footprints aria-hidden />,
   river: <Waves aria-hidden />,
   erase: <Eraser aria-hidden />,
   place: <MapPin aria-hidden />,
@@ -404,7 +600,7 @@ const TOOL_ICON: Record<HexTool, ReactNode> = {
 export function toolsOf(caves: boolean): HexTool[][] {
   return caves
     ? [['select'], ['tunnel', 'rock', 'shaft'], ['terrain', 'region', 'place']]
-    : [['select'], ['terrain', 'region'], ['road', 'trail', 'river', 'erase'], ['place', 'cells']];
+    : [['select'], ['terrain', 'region'], ['road', 'river', 'erase'], ['place', 'cells']];
 }
 
 /** Das Werkzeug zu einer Taste – nur, wenn es auf dieser Karte eins gibt. */
@@ -413,7 +609,7 @@ export function toolOfKey(key: string, caves: boolean): HexTool | null {
   return tools.find((tool) => TOOL_KEY[tool] === key.toUpperCase()) ?? null;
 }
 
-/** Mit Pinselgröße: Gelände, Gegend, Radierer. */
+/** Mit Pinselgröße: Gelände, Gebiet, Radierer. */
 export const brushTool = (tool: HexTool) =>
   tool === 'terrain' || tool === 'region' || tool === 'erase';
 
@@ -461,8 +657,6 @@ export function HexToolRail({ editor }: { editor: HexEditor }) {
 
 /** Rechts neben der Karte, wenn ein Werkzeug gewählt ist: was es braucht. */
 export function HexToolPanel({ editor }: { editor: HexEditor }) {
-  const data = useData();
-  const region = editor.regionId ? data.entities[editor.regionId] : undefined;
   const tool = editor.tool;
   return (
     <Panel
@@ -489,22 +683,9 @@ export function HexToolPanel({ editor }: { editor: HexEditor }) {
     >
       <div className="wf-erk-toolpanel">
         {tool === 'terrain' && <KindPalette editor={editor} />}
-        {tool === 'region' && (
-          <div className="wf-erk-tools__region">
-            <EntityPicker
-              value={editor.regionId}
-              onChange={editor.setRegionId}
-              kinds={['place']}
-              placeholder="Gegend wählen – leer nimmt sie weg"
-            />
-            {region?.kind === 'place' && (
-              <em>
-                {region.place.ground || 'ohne Gelände-Wort'}
-                {region.place.groundSlow ? ' · langsam' : ''}
-              </em>
-            )}
-          </div>
-        )}
+        {tool === 'region' && <RegionTool editor={editor} />}
+        {(tool === 'road' || tool === 'river') && <LineTool editor={editor} kind={tool} />}
+        {tool === 'cells' && <SizeTool editor={editor} />}
         {tool === 'place' && <PlaceTool editor={editor} />}
         {tool === 'tunnel' && (
           <Select
@@ -519,17 +700,215 @@ export function HexToolPanel({ editor }: { editor: HexEditor }) {
             ))}
           </Select>
         )}
-        {tool === 'river' && (
-          <Input
-            value={editor.river}
-            aria-label="Name des Flusses"
-            placeholder="Name des Flusses"
-            onChange={(event) => editor.setRiver(event.target.value)}
-          />
-        )}
         <p className="wf-erk-tools__hint">{TOOL_HINT[tool]}</p>
       </div>
     </Panel>
+  );
+}
+
+/**
+ * Werkzeug „Gebiet“ (Rückmeldung 20. 11. 2026: „Gegend wählen ist ein komisches Ding … ein Hex
+ * anwählen und dann über eine Suche oder dieses typische Artikel-erzeugen-Ding“): erst die Felder
+ * wählen, dann den Ort der Welt suchen – oder an Ort und Stelle anlegen.
+ */
+function RegionTool({ editor }: { editor: HexEditor }) {
+  const data = useData();
+  const area = data.areas[editor.area.id] ?? editor.area;
+  const keys = new Set(editor.regionSel.map(hexKey));
+  const chosen = area.hexes.filter((hex) => keys.has(hexKey(hex)));
+  const ids = [...new Set(chosen.map((hex) => hex.regionId).filter((id): id is string => !!id))];
+  const common =
+    ids.length === 1 && chosen.every((hex) => hex.regionId === ids[0]) ? ids[0]! : null;
+  const region = common ? data.entities[common] : undefined;
+  /** Welche Orte auf dieser Karte schon ein Gebiet haben – zum schnellen Wiederwählen. */
+  const onMap = [
+    ...new Set(area.hexes.map((hex) => hex.regionId).filter((id): id is string => !!id)),
+  ]
+    .map((id) => data.entities[id])
+    .filter((entity) => !!entity);
+  return (
+    <div className="wf-erk-tools__region">
+      <span className="wf-erk-tools__caption">
+        {chosen.length === 0
+          ? 'Noch kein Feld gewählt'
+          : chosen.length === 1
+            ? 'Ein Feld gewählt'
+            : `${chosen.length} Felder gewählt`}
+      </span>
+      {chosen.length > 0 && (
+        <>
+          <EntityPicker
+            value={common}
+            onChange={(id) => editor.assignRegion(id)}
+            kinds={['place']}
+            create={{ onlyKinds: true }}
+            placeholder="Gehört zu … (Ort suchen oder neu anlegen)"
+          />
+          {ids.length > 1 && (
+            <em>
+              Die Felder gehören zu verschiedenen Orten:{' '}
+              {ids.map((id) => data.entities[id]?.name ?? '?').join(', ')}. Eine Wahl oben gilt für
+              alle.
+            </em>
+          )}
+          {region?.kind === 'place' && (
+            <em>
+              {region.place.ground || 'ohne Gelände-Wort'}
+              {region.place.groundSlow ? ' · langsam' : ''}
+            </em>
+          )}
+          <span className="wf-row" style={{ gap: 'var(--s-2)' }}>
+            {ids.length > 0 && (
+              <Button size="sm" onClick={() => editor.assignRegion(null)}>
+                Zuordnung lösen
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => editor.setRegionSel([])}>
+              Auswahl aufheben
+            </Button>
+          </span>
+        </>
+      )}
+      {onMap.length > 0 && (
+        <div className="wf-erk-palette__group">
+          <span className="wf-erk-tools__caption">Gebiete auf dieser Karte</span>
+          {onMap.map((entity) => (
+            <button
+              key={entity!.id}
+              type="button"
+              className="wf-erk-kind"
+              title="Alle Felder dieses Gebiets wählen"
+              onClick={() => editor.selectRegion(entity!.id)}
+            >
+              <span>{entity!.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Werkzeug „Weg“ und „Fluss“: Straße oder Pfad ist eine Wahl im selben Werkzeug; die gewählte
+ * Linie bekommt einen Eintrag der Welt – gesucht oder an Ort und Stelle angelegt.
+ */
+function LineTool({ editor, kind }: { editor: HexEditor; kind: LineKind }) {
+  const data = useData();
+  const area = data.areas[editor.area.id] ?? editor.area;
+  const sel = editor.lineSel;
+  const keys = new Set((sel?.coords ?? []).map(hexKey));
+  const run = area.hexes.filter((hex) => keys.has(hexKey(hex)) && hasLine(hex, kind));
+  const entryId = lineEntityId(run, kind);
+  const trail = run.length > 0 && run.every((hex) => hex.road === 'trail');
+  const riverName = run.find((hex) => hex.river)?.river ?? '';
+  return (
+    <div className="wf-erk-tools__region">
+      {kind === 'road' ? (
+        <div className="wf-btn-group" role="group" aria-label="Art des Weges">
+          {(['road', 'trail'] as const).map((value) => (
+            <Button
+              key={value}
+              size="sm"
+              aria-pressed={(run.length ? (trail ? 'trail' : 'road') : editor.roadKind) === value}
+              onClick={() => {
+                editor.setRoadKind(value);
+                if (run.length) editor.patchLine({ road: value });
+              }}
+            >
+              {value === 'road' ? 'Straße' : 'Pfad'}
+            </Button>
+          ))}
+        </div>
+      ) : (
+        !run.length && (
+          <Input
+            value={editor.river}
+            aria-label="Name eines neuen Flusses"
+            placeholder="Name für einen neuen Fluss (kann leer bleiben)"
+            onChange={(event) => editor.setRiver(event.target.value)}
+          />
+        )
+      )}
+      {run.length > 0 ? (
+        <>
+          <span className="wf-erk-tools__caption">
+            {kind === 'road' ? (trail ? 'Gewählter Pfad' : 'Gewählte Straße') : 'Gewählter Fluss'} ·{' '}
+            {run.length === 1 ? 'ein Feld' : `${run.length} Felder`}
+          </span>
+          <EntityPicker
+            value={entryId}
+            onChange={(id) => editor.setLineEntry(id)}
+            kinds={['place']}
+            create={{ onlyKinds: true }}
+            placeholder={
+              kind === 'road'
+                ? 'Eintrag der Welt – suchen oder neu anlegen'
+                : 'Eintrag der Welt – suchen oder neu anlegen'
+            }
+          />
+          {kind === 'river' && !entryId && (
+            <Input
+              key={sel!.coords.length}
+              defaultValue={riverName === 'Fluss' ? '' : riverName}
+              aria-label="Name des Flusses"
+              placeholder="Name des Flusses, ohne Eintrag"
+              onBlur={(event) => {
+                if ((event.target.value.trim() || 'Fluss') !== riverName)
+                  editor.patchLine({ river: event.target.value });
+              }}
+            />
+          )}
+          <Button size="sm" onClick={() => editor.removeLine()}>
+            {kind === 'road' ? 'Diesen Weg entfernen' : 'Diesen Fluss entfernen'}
+          </Button>
+        </>
+      ) : (
+        <span className="wf-erk-tools__caption">
+          {kind === 'road' ? 'Kein Weg gewählt' : 'Kein Fluss gewählt'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Werkzeug „Größe“ (Rückmeldung 20. 11. 2026: „Man sollte im Editor bestimmen können, wie groß man
+ * die Karte macht“): wie weit der leere Rand reicht, und ein Handgriff, der ihn ganz füllt.
+ */
+function SizeTool({ editor }: { editor: HexEditor }) {
+  const data = useData();
+  const area = data.areas[editor.area.id] ?? editor.area;
+  const extent = mapExtent(area);
+  const label = editor.kind.startsWith('landscape:')
+    ? (data.entities[editor.kind.slice('landscape:'.length)]?.name ?? 'Gelände')
+    : (hexKind(editor.kind)?.label ?? 'Gelände');
+  return (
+    <div className="wf-erk-tools__region">
+      <span className="wf-erk-tools__caption">
+        Die Karte: {extent.cells} Felder · {extent.width} breit, {extent.height} hoch
+      </span>
+      <span className="wf-erk-tools__caption">Leerer Rand, so viele Felder weit</span>
+      <span className="wf-erk-size" role="group" aria-label="Breite des leeren Randes">
+        {[1, 2, 3, 4, 6, 8].map((rings) => (
+          <button
+            key={rings}
+            type="button"
+            aria-pressed={editor.rim === rings}
+            onClick={() => editor.setRim(rings)}
+          >
+            {rings}
+          </button>
+        ))}
+      </span>
+      <Button
+        size="sm"
+        title="Alle leeren Felder am Rand werden Felder der Karte – mit dem Gelände des Pinsels"
+        onClick={() => editor.growRim()}
+      >
+        Rand füllen mit „{label}“
+      </Button>
+    </div>
   );
 }
 
@@ -566,12 +945,53 @@ export function KindSwatch({ kind }: { kind: string }) {
  * (Wunsch 17. 11.: „neues Gelände direkt aus der Palette – es wird zugleich Artikel“): Name genügt,
  * Gelände und Aussehen nimmt sie von der gewählten Geländeart; geschrieben wird sie später.
  */
+/**
+ * Welche Gruppen der Palette zugeklappt sind – gilt, solange die App läuft, je Kartenart (oben,
+ * unter der Erde). Nur Ansicht, nie Spielstand.
+ */
+const foldedGroups: { surface: Set<string> | null; caves: Set<string> | null } = {
+  surface: null,
+  caves: null,
+};
+
 function KindPalette({ editor }: { editor: HexEditor }) {
   const db = useDb();
   const data = useData();
   const [query, setQuery] = useState('');
   const [naming, setNaming] = useState<string | null>(null);
-  const groups = kindsByGroup(query);
+  const groups = kindsByGroup(query, editor.caves ? 'underdark' : null);
+  const memory = editor.caves ? 'caves' : 'surface';
+  // Zu Beginn ist zugeklappt, was nicht zur Karte passt: unter der Erde die Oberwelt und umgekehrt.
+  const [folded, setFoldedState] = useState<Set<string>>(() => {
+    foldedGroups[memory] ??= new Set(
+      (Object.keys(KIND_GROUP_LABEL) as string[]).filter(
+        (group) => (group === 'underdark') !== editor.caves,
+      ),
+    );
+    return foldedGroups[memory]!;
+  });
+  const toggleFold = (group: string) =>
+    setFoldedState((current) => {
+      const next = new Set(current);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      foldedGroups[memory] = next;
+      return next;
+    });
+  /** Beim Suchen ist alles offen – sonst fände man nichts. */
+  const isOpen = (group: string) => !!query.trim() || !folded.has(group);
+  const caption = (group: string, label: string, count: number) => (
+    <button
+      type="button"
+      className="wf-erk-palette__fold"
+      aria-expanded={isOpen(group)}
+      onClick={() => toggleFold(group)}
+    >
+      {isOpen(group) ? <ChevronDown aria-hidden /> : <ChevronRight aria-hidden />}
+      <span>{label}</span>
+      <span className="wf-erk-palette__count">{count}</span>
+    </button>
+  );
   const lands = landscapesOf(data).filter(
     (land) =>
       !query.trim() ||
@@ -672,11 +1092,13 @@ function KindPalette({ editor }: { editor: HexEditor }) {
         </div>
       )}
       <div className="wf-erk-palette__group">
-        <span className="wf-erk-tools__caption">Landschaften deiner Welt</span>
-        <div className="wf-erk-palette__kinds">
-          {lands.map((land) => button(`landscape:${land.id}`))}
-        </div>
-        {naming === null ? (
+        {caption('lands', 'Landschaften deiner Welt', lands.length)}
+        {isOpen('lands') && (
+          <div className="wf-erk-palette__kinds">
+            {lands.map((land) => button(`landscape:${land.id}`))}
+          </div>
+        )}
+        {!isOpen('lands') ? null : naming === null ? (
           <button
             type="button"
             className="wf-erk-palette__new"
@@ -704,8 +1126,10 @@ function KindPalette({ editor }: { editor: HexEditor }) {
       </div>
       {groups.map(({ group, kinds }) => (
         <div key={group} className="wf-erk-palette__group">
-          <span className="wf-erk-tools__caption">{KIND_GROUP_LABEL[group]}</span>
-          <div className="wf-erk-palette__kinds">{kinds.map((kind) => button(kind.key))}</div>
+          {caption(group, KIND_GROUP_LABEL[group], kinds.length)}
+          {isOpen(group) && (
+            <div className="wf-erk-palette__kinds">{kinds.map((kind) => button(kind.key))}</div>
+          )}
         </div>
       ))}
       {groups.length === 0 && !lands.length && (

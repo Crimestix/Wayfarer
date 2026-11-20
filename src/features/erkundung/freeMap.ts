@@ -12,6 +12,7 @@
  *
  * Reine Rechnung, fest und wiederholbar.
  */
+import { SOLID_ROCK } from '../../domain/hexKinds';
 import { hexAt, hexCenter, hexDistance, sameHex, type HexCoord } from '../../domain/hex';
 import { seedOf } from '../../domain/random';
 import {
@@ -64,7 +65,12 @@ export function blankArea(input: BlankInput): Area {
   const rows = Math.max(1, Math.min(MAX_SIDE, Math.round(input.rows)));
   const ground = input.landscape
     ? paintOfLandscape(input.landscape)
-    : { terrain: input.terrain, kind: null, landscapeId: null };
+    : {
+        terrain: input.terrain,
+        // Eine freie Karte unter der Erde beginnt als Fels: Gänge und Höhlen malt man hinein.
+        kind: input.terrain === 'underdark' ? SOLID_ROCK : null,
+        landscapeId: null,
+      };
   const hexes: Hex[] = [];
   for (let row = 0; row < rows; row++)
     for (let col = 0; col < cols; col++)

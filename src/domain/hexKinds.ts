@@ -91,12 +91,48 @@ export const HEX_KINDS: readonly HexKind[] = [
   { key: 'village', label: 'Dorf und Weiler', base: 'grassland', group: 'settled' },
   { key: 'ruins', label: 'Ruinenfeld', base: 'hills', group: 'settled' },
 
-  { key: 'underdark', label: 'Höhlengang', base: 'underdark', group: 'underdark' },
+  // Unter der Erde ist ein Feld sechs Meilen weit (Rückmeldung 20. 11. 2026: „Höhlengang ist ein
+  // wenig komisch als Gelände“): Das Grundgelände heißt deshalb nach dem, was ein solches Feld
+  // ausmacht – ein Geflecht aus Gängen –, daneben stehen Fels, offener Boden und was dort wächst.
+  { key: 'underdark', label: 'Ganggeflecht', base: 'underdark', group: 'underdark' },
+  { key: 'solid-rock', label: 'Massivfels', base: 'underdark', group: 'underdark' },
+  { key: 'cave-floor', label: 'Offener Höhlenboden', base: 'underdark', group: 'underdark' },
+  { key: 'cavern', label: 'Große Kaverne', base: 'underdark', group: 'underdark' },
   { key: 'fungus', label: 'Pilzwald', base: 'underdark', group: 'underdark' },
+  { key: 'stalagmites', label: 'Tropfsteinwald', base: 'underdark', group: 'underdark' },
   { key: 'crystal', label: 'Kristallhöhle', base: 'underdark', group: 'underdark' },
+  { key: 'rubble', label: 'Geröllfeld', base: 'underdark', group: 'underdark' },
   { key: 'deep-lake', label: 'Unterirdischer See', base: 'underdark', group: 'underdark' },
+  { key: 'chasm', label: 'Abgrund', base: 'underdark', group: 'underdark' },
   { key: 'magma', label: 'Glutspalten', base: 'underdark', group: 'underdark' },
+  { key: 'ice-cave', label: 'Eishöhle', base: 'underdark', group: 'underdark' },
+  { key: 'deep-ruins', label: 'Versunkene Ruinen', base: 'underdark', group: 'underdark' },
+  { key: 'mine', label: 'Bergwerk', base: 'underdark', group: 'underdark' },
 ];
+
+/**
+ * Fels, durch den nichts führt: als Geländeart gemalt (`solid-rock`). Auf Karten mit Gängen ist
+ * Fels außerdem jedes Feld ohne Ausgang (`isRock` in `domain/passages.ts`).
+ */
+export const SOLID_ROCK = 'solid-rock';
+
+/**
+ * Unterreich-Arten, die ein Feld weit ausfüllen (Höhle, See, Abgrund …) – im Unterschied zum
+ * Ganggeflecht, das nur schmale Gänge durch den Fels zieht. Für die Zeichnung der Karte.
+ */
+export const WIDE_CAVE_KINDS: ReadonlySet<string> = new Set([
+  'cave-floor',
+  'cavern',
+  'fungus',
+  'stalagmites',
+  'crystal',
+  'rubble',
+  'deep-lake',
+  'chasm',
+  'magma',
+  'ice-cave',
+  'deep-ruins',
+]);
 
 const BY_KEY = new Map(HEX_KINDS.map((kind) => [kind.key, kind]));
 
@@ -124,10 +160,17 @@ export function paintOfKind(key: string): Pick<Hex, 'terrain' | 'kind'> | null {
   return { terrain: kind.base, kind: kind.key === kind.base ? null : kind.key };
 }
 
-/** Die Arten nach Gruppen, gefiltert nach einem Suchwort (Name oder Gruppe). */
-export function kindsByGroup(query = ''): { group: KindGroup; kinds: HexKind[] }[] {
+/**
+ * Die Arten nach Gruppen, gefiltert nach einem Suchwort (Name oder Gruppe). Mit `first` steht eine
+ * Gruppe vorn – unter der Erde die Arten des Unterreichs.
+ */
+export function kindsByGroup(
+  query = '',
+  first: KindGroup | null = null,
+): { group: KindGroup; kinds: HexKind[] }[] {
   const q = query.trim().toLowerCase();
-  const groups = Object.keys(KIND_GROUP_LABEL) as KindGroup[];
+  const all = Object.keys(KIND_GROUP_LABEL) as KindGroup[];
+  const groups = first ? [first, ...all.filter((group) => group !== first)] : all;
   return groups
     .map((group) => ({
       group,

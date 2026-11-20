@@ -406,7 +406,7 @@ nicht übernommen.
   zum Ansehen (`HexFacts`), „Feld vorbereiten“ springt in den Editor. Eine Karte ohne Gruppe
   beginnt beim Vorbereiten. Der Editor ist ein Malprogramm (Wunsch 17. 11.: „verschiedene
   Terrain-Pinsel“): links eine schmale Leiste mit Symbolen und Tastenkürzeln (`HexToolRail`,
-  `TOOL_KEY`, `toolOfKey`: V, B, G, S, P, F, E, O, X, unten T, K, H), rechts je Werkzeug seine
+  `TOOL_KEY`, `toolOfKey`: V, B, G, S, F, E, O, X, unten T, K, H), rechts je Werkzeug seine
   Tafel (`HexToolPanel`; Pinselgröße 1–5, „,“ und „.“), beim Gelände-Pinsel die Palette der
   **Geländearten** (`domain/hexKinds.ts`: `HEX_KINDS` in Gruppen, `hex.kind`; für die Regeln zählt
   das Grundgelände `kind.base` = `hex.terrain` – Tempo, Sicht, Orientierung, Begegnungen; gemalt
@@ -429,6 +429,49 @@ nicht übernommen.
   (`hex.manual`, Gegend, Straße, Vorbereitetes, Notiz, angefügte Felder), behält `rerollArea`.
   Schrittzeiten rechnet `stepMinutes`: auf Straße oder Pfad im Tempo offenen Landes, in einer
   langsamen Gegend doppelt – auf der Hexkarte wie Unterwegs.
+  **Der Hexeditor nach der Rückmeldung vom 20. 11. 2026** („Der Hexeditor ist aktuell noch ein
+  wenig komisch“): **Größe** – der leere Rand um die Karte ist beim Vorbereiten immer zu sehen
+  (`rimSlots(area, rings)`, als durchscheinende Felder mit Plus; nur oberste Ebene, nie auf Karten
+  mit Gängen): Ein Klick fügt ein Feld an, der Gelände-Pinsel malt im Strich darüber hinweg
+  (`editor.onSlot`, `addHex(…, paint)`), das Werkzeug „Größe“ (X) stellt ein, wie weit der Rand
+  reicht (`editor.rim`, nur Ansicht), und füllt ihn auf einen Klick (`fillRim`); `mapExtent` sagt
+  die Ausdehnung. Leere Plätze sind nie Felder im Spielstand. **Palette** – jede Gruppe
+  (Landschaften, Tiefland, Wälder …) lässt sich einklappen (`foldedGroups`, nur Ansicht); unter
+  der Erde steht „Unter der Erde“ vorn und die Oberwelt ist zu, oben umgekehrt
+  (`kindsByGroup(query, first)`). **Unterreich-Gelände** – ein Feld ist sechs Meilen weit, deshalb
+  heißt das Grundgelände „Ganggeflecht“ (nie „Höhlengang“); dazu Massivfels (`SOLID_ROCK`),
+  Offener Höhlenboden, Große Kaverne, Tropfsteinwald, Geröllfeld, Abgrund, Eishöhle, Versunkene
+  Ruinen, Bergwerk (`HEX_KINDS`, Farben `--terrain-<art>`); was ein Feld weit ausfüllt, steht in
+  `WIDE_CAVE_KINDS`. Eine freie Karte unter der Erde beginnt als Fels (`blankArea`), neue Felder
+  dort ebenso; Massivfels auf einer Karte mit Gängen macht das Feld zu Fels (`fillRock`).
+  **Gebiet** (früher „Gegend wählen“) – erst Felder wählen (Klick oder Strich, `editor.regionSel`;
+  auf einem gewählten Feld begonnen nimmt der Strich sie heraus), dann den Ort suchen oder an Ort
+  und Stelle anlegen (`EntityPicker` mit `create`, `editor.assignRegion`); „Gebiete auf dieser
+  Karte“ wählt alle Felder eines Ortes wieder. Gespeichert bleibt `hex.regionId`. **Weg und
+  Fluss sind Linien** (`domain/hexLines.ts`): Straße und Pfad sind ein Werkzeug („Weg“, S) mit
+  Umschalter; gezogen wird von Feld zu Feld, verbunden ist nur, was gezogen wurde
+  (`hex.roadLinks`, `hex.riverLinks`: Seiten 0–5; null = ältere oder erzeugte Karte, dann wie
+  früher jeder Nachbar – gelesen immer über `linkSides`, gezogen über `markLine`/`connectLine`,
+  radiert über `eraseLine`). Für die Regeln zählen weiter `hex.road` und `hex.river`. Ein Klick
+  auf eine Linie wählt sie (`lineRun`, `editor.lineSel`); die gewählte bekommt einen Eintrag der
+  Welt – gesucht oder angelegt (`hex.roadId`, `hex.riverId`, `setLineEntity`; ein Fluss heißt
+  danach wie sein Eintrag) –, ihr Name steht auf der Karte (`namedLines`). **Gezeichnet** werden
+  sie in `erkundung/HexLayers.tsx` (`LineLayer`): Kurven von Feldseite zu Feldseite, die Querung
+  fest je Seite ein Stück neben der Mitte (`crossing`, `wobble` – nie `Math.random`); Fluss mit
+  Ufer, Wasser und Glanz, Straße mit Rand und Belag, Pfad gestrichelt (`--hex-river*`,
+  `--hex-road*`, `--hex-trail`). **Unterreich wie im Zielbild des Spielleiters** (20. 11.: „Gerade
+  das Gangnetz und wie der massive Fels gebaut ist“): Unter der Erde (`isUnderground`: Felder mit
+  Ausgängen oder Grundgelände Unterreich) sind die Felder nur Raster und Griff für die Maus
+  (`polygon[data-under]`, durchsichtig); das Bild malt `CaveLayer` – Fels als durchgehende, gemalte
+  Fläche (`#wf-hex-rock`), darin Gänge (Bänder je Ausgang, Breite nach Art des Durchgangs
+  `PASSAGE_WIDTH`) und Höhlen (Kreise; breite Arten und Kreuzungen ab vier Ausgängen gehen
+  ineinander über) erst mit hellem Rand, dann mit Boden gefüllt, darauf See, Abgrund, Glut, Eis
+  als eigene Flächen (`POOL_KIND`); ein Filter verwackelt die Ränder zu einem freien Umriss
+  (`#wf-hex-crag`, fest je Feldgröße). Auf einer Karte ohne Gänge ist offen, was nebeneinander
+  liegt und kein Fels ist (`openings`). Beim Spielen ist Unentdecktes nur eine Ahnung
+  (`data-dim`). Die Texturen kommen aus `ui/assets/dungeon`; die Regeln rechnen weiter mit Feldern
+  und Ausgängen. Zeichen für Kletterei, Abbruch und Verborgenes bleiben an der Seite, Schächte als
+  Dreieck (`Passages`).
   **Die Hexkarte wird simuliert, nicht gedruckt** (Entscheidung 17. 11.: keine Feldnummern, kein
   gedruckter Schlüssel – der Schlüssel steht am Feld). **Drei Schichten je Feld** (Wunsch 17. 11.:
   „Wie machen wir die Hexkarte interessant für die Spieler?“ – „nicht jedes Hex darf mit allem

@@ -13,8 +13,8 @@ export const PARTY_ID = 'party';
  * Felder wegspeichert, die er nicht kennt. `DATA_SHAPE` ist der Fingerabdruck der Gestalt – der
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
-export const DATA_VERSION = 41;
-export const DATA_SHAPE = '94539c739ea7d4e7';
+export const DATA_VERSION = 42;
+export const DATA_SHAPE = 'c43c0b97baf0392f';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -2755,6 +2755,16 @@ export const HexSchema = z.object({
   hazard: HazardSchema.nullable().optional(),
   /** Straße oder Pfad durch dieses Feld: Reisen hier gehen im normalen Tempo, auch im Sumpf. */
   road: z.enum(ROAD_KINDS).default('none'),
+  /**
+   * Über welche Seiten (0–5, `HEX_DIRECTIONS`) die Straße bzw. der Fluss das Feld verlässt –
+   * gezogen von Feld zu Feld (`domain/hexLines.ts`). null = ältere oder erzeugte Karte: verbunden
+   * ist dann jeder Nachbar mit derselben Linie.
+   */
+  roadLinks: z.array(z.number().int().min(0).max(5)).nullable().default(null),
+  riverLinks: z.array(z.number().int().min(0).max(5)).nullable().default(null),
+  /** Der Eintrag der Welt, der diese Straße bzw. dieser Fluss ist (ein Ort) – null = keiner. */
+  roadId: id.nullable().default(null),
+  riverId: id.nullable().default(null),
   /** Von Hand geändert: Neu würfeln behält dieses Feld, wie es ist. */
   manual: z.boolean().default(false),
   /**
@@ -3742,9 +3752,7 @@ export const DungeonPlaySchema = z.object({
   /** Gefundenes: „edge:<Ebene>:<Kante>“, „trap:<id>“, „stair:<id>“. */
   found: z.array(z.string()).default([]),
   /** Türen, wie die Gruppe sie hinterlassen hat: „<Ebene>:<Kante>“ → Stand. */
-  doors: z
-    .record(z.string(), z.object({ opened: z.boolean(), locked: z.boolean() }))
-    .default({}),
+  doors: z.record(z.string(), z.object({ opened: z.boolean(), locked: z.boolean() })).default({}),
   /** Fallen, die ausgelöst haben. */
   sprung: z.array(id).default([]),
   /** Fallen, die entschärft sind. */

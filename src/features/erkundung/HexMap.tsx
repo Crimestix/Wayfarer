@@ -7,13 +7,13 @@ import {
   hexCenter,
   hexCorners,
   hexKey,
-  hexNeighbors,
   sameHex,
   type HexCoord,
 } from '../../domain/hex';
 import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/passages';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { areaLine } from './generate';
+import { CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
@@ -135,7 +135,33 @@ export const KIND_GLYPH: Record<string, ReactNode> = {
   magma: (
     <path d="M-0.22 -0.04 l0.1 0.06 l0.08 -0.08 l0.1 0.1 l0.12 -0.08 M-0.16 0.12 l0.1 -0.04 l0.12 0.06" />
   ),
+  'solid-rock': <path d="M-0.22 0.1 l0.1 -0.2 l0.1 0.12 l0.08 -0.08 l0.14 0.16 z" data-fill />,
+  'cave-floor': <path d="M-0.18 0.08 h0.001 M0 -0.04 h0.001 M0.14 0.1 h0.001 M-0.04 0.14 h0.001" />,
+  cavern: <path d="M-0.26 0.12 q0.26 -0.4 0.52 0 M-0.1 0.12 v-0.08 M0.08 0.12 v-0.1" />,
+  stalagmites: (
+    <path
+      d="M-0.22 0.14 l0.06 -0.24 l0.06 0.24 z M-0.04 0.14 l0.07 -0.32 l0.07 0.32 z M0.14 0.14 l0.05 -0.18 l0.05 0.18 z"
+      data-fill
+    />
+  ),
+  rubble: (
+    <path
+      d="M-0.22 0.12 l0.04 -0.1 l0.1 -0.02 l0.04 0.12 z M0 0.14 l0.03 -0.14 l0.12 0.02 l0.03 0.12 z M-0.08 -0.04 l0.05 -0.08 l0.09 0.03 l-0.02 0.07 z"
+      data-fill
+    />
+  ),
+  chasm: (
+    <path d="M-0.2 -0.14 l0.1 0.12 l-0.06 0.06 l0.12 0.12 M0.06 -0.16 l0.06 0.14 l-0.04 0.08 l0.1 0.1" />
+  ),
+  'ice-cave': <path d="M0 -0.16 v0.32 M-0.14 -0.08 l0.28 0.16 M-0.14 0.08 l0.28 -0.16" />,
+  'deep-ruins': (
+    <path d="M-0.2 0.14 v-0.2 h0.06 v0.06 M0 0.14 v-0.12 h0.06 v0.04 M0.12 0.14 v-0.24 h0.06 v0.24" />
+  ),
+  mine: <path d="M-0.18 0.14 v-0.2 h0.36 v0.2 M-0.18 -0.06 l0.18 -0.1 l0.18 0.1 M0 -0.06 v0.2" />,
 };
+
+/** Unterreich-Arten ohne Zeichen auf der Karte: Ihr Bild ist der Höhlenboden selbst. */
+const PLAIN_CAVE: ReadonlySet<string> = new Set(['underdark', 'cave-floor', 'cavern']);
 
 interface Props {
   area: Area;
@@ -162,12 +188,13 @@ interface Props {
     onStart: (hex: HexCoord, pick?: boolean) => void;
     onMove: (hex: HexCoord) => void;
     onEnd: () => void;
-    /** Freie Plätze am Rand, an denen sich ein Feld anfügen lässt (Werkzeug „Felder“). */
-    slots?: readonly HexCoord[];
-    onSlot?: (hex: HexCoord) => void;
-    /** Die Gegend, mit der gerade gemalt wird – ihre Felder treten hervor. */
-    regionId?: string | null;
   };
+  /**
+   * Leere Felder am Rand (Vorbereiten): Sie gehören noch nicht zur Karte. Ein Klick fügt eines an
+   * (`down`), der Gelände-Pinsel malt mit gedrückter Maus darüber hinweg (`move`).
+   */
+  slots?: readonly HexCoord[] | undefined;
+  onSlot?: ((hex: HexCoord, phase: 'down' | 'move') => void) | undefined;
 }
 
 interface Cell {
@@ -195,37 +222,32 @@ function exitWords(hex: Hex): string {
 }
 
 /**
- * Die Gänge eines Feldes unter der Erde: von der Mitte zu jeder offenen Seite, nach Art
- * gezeichnet; Höhlen (vier Ausgänge und mehr) als weite Kammer, Schächte als Dreieck.
+ * Was das Gangnetz (`CaveLayer`) nicht schon als Fläche zeigt: besondere Durchgänge als Zeichen an
+ * der Seite – Kletterei, Abbruch, verborgen – und Schächte als Dreieck.
  */
 function Passages({ hex, x, y, size }: { hex: Hex; x: number; y: number; size: number }) {
   const exits = hex.exits ?? [];
-  const sides = exits.filter((exit) => exit.dir < 6);
-  const cave = sides.length >= 4;
+  const marks = exits.filter(
+    (exit) =>
+      exit.dir < 6 && (exit.kind === 'climb' || exit.kind === 'drop' || exit.kind === 'hidden'),
+  );
   return (
     <g className="wf-hex__cave" pointerEvents="none">
-      {sides.map((exit) => {
+      {marks.map((exit) => {
         const d = HEX_DIRECTIONS[exit.dir]!;
         const edge = hexCenter({ q: d.q, r: d.r });
         return (
           <line
             key={exit.dir}
             className={`wf-hex__gang wf-hex__gang--${exit.kind}`}
-            x1={x}
-            y1={y}
+            x1={x + edge.x * size * 0.22}
+            y1={y + edge.y * size * 0.22}
             x2={x + edge.x * size * 0.5}
             y2={y + edge.y * size * 0.5}
-            style={{ strokeWidth: size * (exit.kind === 'narrow' ? 0.09 : 0.2) }}
+            style={{ strokeWidth: size * 0.07 }}
           />
         );
       })}
-      <circle
-        className={cave ? 'wf-hex__chamber' : 'wf-hex__knot'}
-        cx={x}
-        cy={y}
-        r={size * (cave ? 0.27 : 0.1)}
-      />
-      {hex.river && <circle className="wf-hex__pool" cx={x} cy={y} r={size * 0.08} />}
       {exits.some((exit) => exit.dir === 7) && (
         <path
           className="wf-hex__shaft"
@@ -251,7 +273,6 @@ const Cells = memo(function Cells({
   fog,
   regionNames,
   landscapeNames,
-  activeRegion,
 }: {
   cells: Cell[];
   size: number;
@@ -261,7 +282,6 @@ const Cells = memo(function Cells({
   regionNames: Record<string, string>;
   /** Namen der gemalten Landschaften – sie heißen auf dem Feld statt der Geländeart. */
   landscapeNames: Record<string, string>;
-  activeRegion: string | null;
 }) {
   return (
     <>
@@ -297,14 +317,13 @@ const Cells = memo(function Cells({
         >
           <polygon
             points={points}
-            data-rock={isRock(hex) || undefined}
-            data-cave={(hex.exits !== null && !isRock(hex)) || undefined}
+            data-under={isUnderground(hex) || undefined}
+            data-rock={(isUnderground(hex) && isSolid(hex)) || undefined}
           />
           {hex.exits !== null && !isRock(hex) && <Passages hex={hex} x={x} y={y} size={size} />}
           {hex.regionId && (
             <polygon
               className="wf-hex__region"
-              data-active={hex.regionId === activeRegion || undefined}
               points={points
                 .split(' ')
                 .map((pair) => {
@@ -314,17 +333,22 @@ const Cells = memo(function Cells({
                 .join(' ')}
             />
           )}
-          {hex.terrain && hex.exits === null && size >= 22 && (
-            <g className="wf-hex__glyph" transform={`translate(${x} ${y}) scale(${size})`}>
-              {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
-            </g>
-          )}
-          {hex.river && hex.discovered && hex.exits === null && (
-            <path
-              className="wf-hex__river"
-              d={`M ${x - size * 0.34} ${y + size * 0.08} q ${size * 0.085} ${-size * 0.12} ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0 t ${size * 0.17} 0`}
-            />
-          )}
+          {hex.terrain &&
+            size >= 22 &&
+            (isUnderground(hex)
+              ? // Unter der Erde nur, was dort wächst oder liegt – Fels und Gänge zeichnet das Gangnetz.
+                !isSolid(hex) &&
+                !PLAIN_CAVE.has(kindKeyOf(hex) ?? '') &&
+                !!KIND_GLYPH[kindKeyOf(hex) ?? '']
+              : true) && (
+              <g
+                className="wf-hex__glyph"
+                data-under={isUnderground(hex) || undefined}
+                transform={`translate(${x} ${y}) scale(${size})`}
+              >
+                {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
+              </g>
+            )}
           {hex.feature && (
             <rect
               className="wf-hex__feature"
@@ -364,7 +388,7 @@ const Cells = memo(function Cells({
           <title>
             {hex.regionId && regionNames[hex.regionId] ? `${regionNames[hex.regionId]} · ` : ''}
             {[
-              isRock(hex)
+              isUnderground(hex) && isSolid(hex)
                 ? 'Fels'
                 : (hex.landscapeId && landscapeNames[hex.landscapeId]) || kindLabelOf(hex),
               hex.exits !== null && !isRock(hex) && exitWords(hex),
@@ -393,6 +417,8 @@ export function HexMap({
   onSelect,
   plan,
   paint,
+  slots: slotCoords,
+  onSlot,
   level = 0,
   marked = [],
   fog = true,
@@ -400,8 +426,9 @@ export function HexMap({
   const orientation = area.orientation;
   const caves = area.hexes.some((hex) => hex.exits !== null);
   const layout = useMemo(() => {
-    // Der Rahmen umfasst alle Ebenen, damit die Karte beim Umschalten nicht springt.
-    const all = area.hexes.map((hex) => hexCenter(hex, orientation));
+    // Der Rahmen umfasst alle Ebenen, damit die Karte beim Umschalten nicht springt – und den
+    // leeren Rand, auf den sich die Karte erweitern lässt.
+    const all = [...area.hexes, ...(slotCoords ?? [])].map((hex) => hexCenter(hex, orientation));
     const cells: Cell[] = area.hexes
       .filter((hex) => hex.level === level)
       .map((hex) => {
@@ -427,7 +454,7 @@ export function HexMap({
       width: Math.max(...xs, 0) - minX + pad,
       height: Math.max(...ys, 0) - minY + pad,
     };
-  }, [area.hexes, orientation, size, level]);
+  }, [area.hexes, slotCoords, orientation, size, level]);
 
   const line = useMemo(
     () =>
@@ -495,27 +522,14 @@ export function HexMap({
   const markedCells = marked
     .map((coord) => layout.cells.find((c) => sameHex(c.hex, coord)))
     .filter((cell): cell is Cell => !!cell && cell !== chosen);
-  // Straßen, Pfade und Flüsse verbinden Nachbarn, die dieselbe Linie tragen.
-  const links = useMemo(() => {
-    const byKey = new Map(layout.cells.map((cell) => [hexKey(cell.hex), cell]));
-    const out: { key: string; kind: 'road' | 'trail' | 'river'; d: string }[] = [];
-    for (const cell of layout.cells)
-      for (const n of hexNeighbors(cell.hex)) {
-        const other = byKey.get(hexKey(n));
-        if (!other || hexKey(other.hex) < hexKey(cell.hex)) continue;
-        const d = `M ${cell.x.toFixed(1)} ${cell.y.toFixed(1)} L ${other.x.toFixed(1)} ${other.y.toFixed(1)}`;
-        const road = (h: Hex) => h.road !== 'none';
-        if (road(cell.hex) && road(other.hex))
-          out.push({
-            key: `r${hexKey(cell.hex)}-${hexKey(other.hex)}`,
-            kind: cell.hex.road === 'road' && other.hex.road === 'road' ? 'road' : 'trail',
-            d,
-          });
-        if (cell.hex.river && other.hex.river && cell.hex.exits === null)
-          out.push({ key: `w${hexKey(cell.hex)}-${hexKey(other.hex)}`, kind: 'river', d });
-      }
+  // Namen der Einträge, die Wege und Flüsse tragen – für ihre Beschriftung.
+  const lineNames = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const hex of area.hexes)
+      for (const entityId of [hex.roadId, hex.riverId])
+        if (entityId && !out[entityId]) out[entityId] = data.entities[entityId]?.name ?? '';
     return out;
-  }, [layout.cells]);
+  }, [area.hexes, data.entities]);
   const regionNames = useMemo(() => {
     const out: Record<string, string> = {};
     for (const hex of area.hexes)
@@ -532,13 +546,18 @@ export function HexMap({
   }, [area.hexes, data.entities]);
   const slots = useMemo(
     () =>
-      (paint?.slots ?? []).map((coord) => ({
-        coord,
-        points: hexCorners(coord, orientation)
-          .map((p) => `${(p.x * size).toFixed(1)},${(p.y * size).toFixed(1)}`)
-          .join(' '),
-      })),
-    [paint?.slots, orientation, size],
+      (level === 0 ? (slotCoords ?? []) : []).map((coord) => {
+        const c = hexCenter(coord, orientation);
+        return {
+          coord,
+          x: c.x * size,
+          y: c.y * size,
+          points: hexCorners(coord, orientation)
+            .map((p) => `${(p.x * size).toFixed(1)},${(p.y * size).toFixed(1)}`)
+            .join(' '),
+        };
+      }),
+    [slotCoords, orientation, size, level],
   );
 
   if (!area.hexes.length) return null;
@@ -559,6 +578,12 @@ export function HexMap({
               if (!(event.buttons & 1)) return;
               // Das Feld unter der Maus – auch, wenn die Maus schnell über mehrere hinweg fährt.
               const under = document.elementFromPoint(event.clientX, event.clientY);
+              const slot = under?.closest('[data-slot]')?.getAttribute('data-slot');
+              if (slot) {
+                const [sq, sr] = slot.split(',').map(Number);
+                onSlot?.({ q: sq!, r: sr!, level: 0 }, 'move');
+                return;
+              }
               const cell = under?.closest('[data-hex]')?.getAttribute('data-hex');
               if (!cell) return;
               const [q, r, lv] = cell.split(',').map(Number);
@@ -570,6 +595,8 @@ export function HexMap({
       onPointerLeave={paint ? () => paint.onEnd() : undefined}
       data-painting={paint ? true : undefined}
     >
+      <CaveDefs size={size} />
+      <CaveLayer cells={layout.cells} size={size} orientation={orientation} fog={fog && !paint} />
       <Cells
         cells={layout.cells}
         size={size}
@@ -578,24 +605,31 @@ export function HexMap({
         fog={fog}
         regionNames={regionNames}
         landscapeNames={landscapeNames}
-        activeRegion={paint?.regionId ?? null}
       />
-      {links.map((link) => (
-        <path
-          key={link.key}
-          className={`wf-hexmap__link wf-hexmap__link--${link.kind}`}
-          d={link.d}
-        />
-      ))}
+      <LineLayer
+        cells={layout.cells}
+        size={size}
+        orientation={orientation}
+        fog={fog && !paint}
+        names={lineNames}
+      />
       {slots.map((slot) => (
-        <polygon
+        <g
           key={hexKey(slot.coord)}
           className="wf-hexmap__slot"
-          points={slot.points}
-          onClick={() => paint?.onSlot?.(slot.coord)}
+          data-slot={`${slot.coord.q},${slot.coord.r}`}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            onSlot?.(slot.coord, 'down');
+          }}
         >
-          <title>Hier ein Feld anfügen</title>
-        </polygon>
+          <polygon points={slot.points} />
+          <path
+            d={`M ${slot.x - size * 0.13} ${slot.y} h ${size * 0.26} M ${slot.x} ${slot.y - size * 0.13} v ${size * 0.26}`}
+          />
+          <title>Noch kein Feld der Karte – Klick fügt es an, der Gelände-Pinsel malt darauf</title>
+        </g>
       ))}
       {line && <polyline className="wf-hexmap__route" points={line} />}
       {places.map(({ hex, x, y }) => {

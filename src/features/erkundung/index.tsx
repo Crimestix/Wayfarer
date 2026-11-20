@@ -507,14 +507,16 @@ function AreaView({ area }: { area: Area }) {
                 area={area}
                 data={data}
                 size={size}
-                selected={picked[0] ?? null}
-                marked={picked}
+                selected={editor.marks ? null : (picked[0] ?? null)}
+                marked={editor.marks ?? picked}
                 fog={false}
                 onSelect={(coord, add) =>
                   setPicked((current) => (coord ? toggleSelection(current, coord, !!add) : []))
                 }
                 level={level}
                 paint={editor.paint}
+                slots={editor.slots}
+                onSlot={editor.onSlot}
               />
             </div>
             <div className="wf-erk-prep__keys" aria-hidden>
@@ -522,7 +524,11 @@ function AreaView({ area }: { area: Area }) {
                 ? 'Klick: ein Feld · Umschalt-Klick: mehrere · Escape: Auswahl aufheben · Strg+Z / Strg+Y'
                 : editor.tool === 'terrain'
                   ? 'Mit gedrückter Maus malen · Strg-Klick: Gelände aufnehmen · „,“ und „.“: Pinselgröße · V: Auswählen'
-                  : 'Mit gedrückter Maus ziehen · Strg+Z: zurück · V: Auswählen'}
+                  : editor.tool === 'region'
+                    ? 'Klick oder Strich wählt Felder · auf einem gewählten Feld beginnen nimmt sie heraus · V: Auswählen'
+                    : editor.tool === 'road' || editor.tool === 'river'
+                      ? 'Von Feld zu Feld ziehen · Klick auf eine Linie wählt sie · Strg+Z: zurück · V: Auswählen'
+                      : 'Mit gedrückter Maus ziehen · Strg+Z: zurück · V: Auswählen'}
             </div>
           </div>
         ) : (

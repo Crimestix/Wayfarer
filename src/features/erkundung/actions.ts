@@ -1,4 +1,5 @@
 /** Befehle des Bereichs „Erkundung“. */
+import { SOLID_ROCK } from '../../domain/hexKinds';
 import { advanceTime, logEntry, undoTimeAdvance, type TimeAdvanceResult } from '../../data/actions';
 import { markSighted } from '../../domain/afar';
 import type { CampaignDb } from '../../data/db';
@@ -372,28 +373,66 @@ export function restoreHexes(db: CampaignDb, areaId: string, hexes: Hex[]): void
   if (db.getSnapshot().areas[areaId]) db.patch('areas', areaId, { hexes });
 }
 
+/** Das Gelände, das unter den Nachbarn eines Platzes am häufigsten ist – sonst das der ganzen Karte. */
+function terrainNear(area: Pick<Area, 'hexes'>, coord: HexCoord): Hex['terrain'] {
+  const tally = (hexes: readonly Hex[]) => {
+    const count = new Map<string, number>();
+    for (const hex of hexes)
+      if (hex.terrain) count.set(hex.terrain, (count.get(hex.terrain) ?? 0) + 1);
+    return ([...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null) as Hex['terrain'];
+  };
+  const keys = new Set(hexNeighbors(coord).map(hexKey));
+  return tally(area.hexes.filter((hex) => keys.has(hexKey(hex)))) ?? tally(area.hexes);
+}
+
 /**
- * Fügt ein Feld am Rand an: mit dem Gelände, das unter seinen Nachbarn am häufigsten ist. Nur
- * neben einem vorhandenen Feld und nur, wo noch keins ist.
+ * Fügt ein Feld an, wo noch keins ist: mit dem Gelände des Pinsels (`paint`), sonst mit dem, das
+ * unter seinen Nachbarn am häufigsten ist. Gibt zurück, ob eines entstand.
  */
-export function addHex(db: CampaignDb, areaId: string, coord: HexCoord): boolean {
+export function addHex(
+  db: CampaignDb,
+  areaId: string,
+  coord: HexCoord,
+  paint: HexPaint | null = null,
+): boolean {
   const area = db.getSnapshot().areas[areaId];
   if (!area || area.hexes.some((hex) => hexKey(hex) === hexKey(coord))) return false;
-  const around = hexNeighbors(coord)
-    .map((n) => area.hexes.find((hex) => hexKey(hex) === hexKey(n)))
-    .filter((hex): hex is Hex => !!hex);
-  if (!around.length) return false;
-  const count = new Map<string, number>();
-  for (const hex of around)
-    if (hex.terrain) count.set(hex.terrain, (count.get(hex.terrain) ?? 0) + 1);
-  const terrain = ([...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null) as Hex['terrain'];
-  db.patch('areas', areaId, {
-    hexes: [
-      ...area.hexes,
-      HexSchema.parse({ q: coord.q, r: coord.r, terrain, manual: true, discovered: false }),
-    ],
-  });
+  db.patch('areas', areaId, { hexes: [...area.hexes, newHex(area, coord, paint)] });
   return true;
+}
+
+function newHex(area: Pick<Area, 'hexes'>, coord: HexCoord, paint: HexPaint | null): Hex {
+  const terrain = paint?.terrain ?? terrainNear(area, coord);
+  return HexSchema.parse({
+    q: coord.q,
+    r: coord.r,
+    terrain,
+    // Unter der Erde ist, was dazukommt, erst einmal Fels – Gänge und Höhlen malt der Spielleiter.
+    kind: paint?.terrain ? (paint.kind ?? null) : terrain === 'underdark' ? SOLID_ROCK : null,
+    landscapeId: paint?.terrain ? (paint.landscapeId ?? null) : null,
+    manual: true,
+    discovered: false,
+  });
+}
+
+/**
+ * Füllt den leeren Rand der Karte, `rings` Felder weit, mit dem Gelände des Pinsels – die Karte
+ * wächst ringsum. Gibt zurück, wie viele Felder dazukamen.
+ */
+export function fillRim(
+  db: CampaignDb,
+  areaId: string,
+  rings: number,
+  paint: HexPaint | null,
+): number {
+  const area = db.getSnapshot().areas[areaId];
+  if (!area) return 0;
+  const slots = rimSlots(area, rings);
+  if (!slots.length) return 0;
+  db.patch('areas', areaId, {
+    hexes: [...area.hexes, ...slots.map((coord) => newHex(area, coord, paint))],
+  });
+  return slots.length;
 }
 
 /**
@@ -411,13 +450,50 @@ export function removeHex(db: CampaignDb, areaId: string, coord: HexCoord): bool
   return true;
 }
 
-/** Die freien Plätze am Rand: wo sich ein Feld anfügen ließe. */
+/** Die freien Plätze unmittelbar am Rand: wo sich ein Feld anfügen ließe. */
 export function edgeSlots(area: Pick<Area, 'hexes'>): HexCoord[] {
-  const taken = new Set(area.hexes.map(hexKey));
+  return rimSlots(area, 1);
+}
+
+/**
+ * Der leere Rand um die Karte, `rings` Felder weit (Rückmeldung 20. 11. 2026: „Die äußeren
+ * Hexfelder, die noch kein Gelände besitzen, sollten leer sein mit einem Plus“): Plätze, die noch
+ * nicht zur Karte gehören. Nur die oberste Ebene – unter der Erde ist, was fehlt, Fels.
+ */
+export function rimSlots(area: Pick<Area, 'hexes'>, rings: number): HexCoord[] {
+  const taken = new Set(area.hexes.filter((hex) => hex.level === 0).map(hexKey));
   const out = new Map<string, HexCoord>();
-  for (const hex of area.hexes)
-    for (const n of hexNeighbors(hex)) if (!taken.has(hexKey(n))) out.set(hexKey(n), n);
+  let front: HexCoord[] = area.hexes.filter((hex) => hex.level === 0);
+  for (let ring = 0; ring < Math.max(1, rings); ring++) {
+    const next: HexCoord[] = [];
+    for (const hex of front)
+      for (const n of hexNeighbors(hex)) {
+        const key = hexKey(n);
+        if (taken.has(key) || out.has(key)) continue;
+        out.set(key, n);
+        next.push(n);
+      }
+    front = next;
+  }
   return [...out.values()];
+}
+
+/** Wie groß die Karte ist: Felder der obersten Ebene und ihre Ausdehnung in Feldern. */
+export function mapExtent(area: Pick<Area, 'hexes'>): {
+  cells: number;
+  width: number;
+  height: number;
+} {
+  const hexes = area.hexes.filter((hex) => hex.level === 0);
+  if (!hexes.length) return { cells: 0, width: 0, height: 0 };
+  // Spalten zählen quer (q und r zusammen), Reihen längs – so wie die Karte auf dem Schirm liegt.
+  const cols = hexes.map((hex) => hex.q + hex.r / 2);
+  const rows = hexes.map((hex) => hex.r);
+  return {
+    cells: hexes.length,
+    width: Math.round(Math.max(...cols) - Math.min(...cols)) + 1,
+    height: Math.max(...rows) - Math.min(...rows) + 1,
+  };
 }
 
 // ── Orte aus der Welt ──────────────────────────────────────────────────────

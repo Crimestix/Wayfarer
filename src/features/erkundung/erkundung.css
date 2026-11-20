@@ -377,6 +377,51 @@
   fill: var(--terrain-magma);
   background: var(--terrain-magma);
 }
+.wf-hex[data-kind='solid-rock'] polygon,
+.wf-kind-swatch[data-kind='solid-rock'] {
+  fill: var(--terrain-solid-rock);
+  background: var(--terrain-solid-rock);
+}
+.wf-hex[data-kind='cave-floor'] polygon,
+.wf-kind-swatch[data-kind='cave-floor'] {
+  fill: var(--terrain-cave-floor);
+  background: var(--terrain-cave-floor);
+}
+.wf-hex[data-kind='cavern'] polygon,
+.wf-kind-swatch[data-kind='cavern'] {
+  fill: var(--terrain-cavern);
+  background: var(--terrain-cavern);
+}
+.wf-hex[data-kind='stalagmites'] polygon,
+.wf-kind-swatch[data-kind='stalagmites'] {
+  fill: var(--terrain-stalagmites);
+  background: var(--terrain-stalagmites);
+}
+.wf-hex[data-kind='rubble'] polygon,
+.wf-kind-swatch[data-kind='rubble'] {
+  fill: var(--terrain-rubble);
+  background: var(--terrain-rubble);
+}
+.wf-hex[data-kind='chasm'] polygon,
+.wf-kind-swatch[data-kind='chasm'] {
+  fill: var(--terrain-chasm);
+  background: var(--terrain-chasm);
+}
+.wf-hex[data-kind='ice-cave'] polygon,
+.wf-kind-swatch[data-kind='ice-cave'] {
+  fill: var(--terrain-ice-cave);
+  background: var(--terrain-ice-cave);
+}
+.wf-hex[data-kind='deep-ruins'] polygon,
+.wf-kind-swatch[data-kind='deep-ruins'] {
+  fill: var(--terrain-deep-ruins);
+  background: var(--terrain-deep-ruins);
+}
+.wf-hex[data-kind='mine'] polygon,
+.wf-kind-swatch[data-kind='mine'] {
+  fill: var(--terrain-mine);
+  background: var(--terrain-mine);
+}
 /* Was die Gruppe noch nicht kennt, liegt im Dunkeln – für die Spielleitung aber lesbar. */
 .wf-hex[data-hidden] polygon {
   filter: saturate(0.7) brightness(0.74);
@@ -886,6 +931,33 @@
   flex-direction: column;
   gap: 4px;
 }
+.wf-erk-palette__fold {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-erk-palette__fold:hover {
+  color: var(--ink);
+}
+.wf-erk-palette__fold svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+.wf-erk-palette__count {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+}
 .wf-erk-palette__kinds {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1111,82 +1183,197 @@
   stroke-width: 2.5;
   stroke-dasharray: none;
 }
-/* Straßen, Pfade, Flüsse zwischen Nachbarn */
-.wf-hexmap__link {
+/* Wege und Flüsse: geschwungene Linien von Feldseite zu Feldseite (HexLayers.tsx) */
+.wf-hexline {
   fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wf-hexline--bank {
+  stroke: var(--hex-river-bank);
+  stroke-width: calc(var(--hex) * 0.2);
+}
+.wf-hexline--water {
+  stroke: var(--hex-river);
+  stroke-width: calc(var(--hex) * 0.13);
+}
+.wf-hexline--glint {
+  stroke: var(--hex-river-glint);
+  stroke-width: calc(var(--hex) * 0.025);
+  stroke-dasharray: calc(var(--hex) * 0.16) calc(var(--hex) * 0.22);
+  opacity: 0.7;
+}
+.wf-hexline--road-edge {
+  stroke: var(--hex-road-edge);
+  stroke-width: calc(var(--hex) * 0.14);
+}
+.wf-hexline--road {
+  stroke: var(--hex-road);
+  stroke-width: calc(var(--hex) * 0.085);
+}
+.wf-hexline--trail {
+  stroke: var(--hex-trail);
+  stroke-width: calc(var(--hex) * 0.05);
+  stroke-dasharray: calc(var(--hex) * 0.09) calc(var(--hex) * 0.1);
+  filter: drop-shadow(0 0 1px var(--hex-road-edge));
+}
+.wf-hexline__dot--river {
+  fill: var(--hex-river);
+  stroke: var(--hex-river-bank);
+  stroke-width: calc(var(--hex) * 0.035);
+}
+.wf-hexline__dot--road,
+.wf-hexline__dot--trail {
+  fill: var(--hex-road);
+  stroke: var(--hex-road-edge);
+  stroke-width: calc(var(--hex) * 0.03);
+}
+.wf-hexline__name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--bg-inset);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.wf-hexline__name--river {
+  fill: var(--hex-river-glint);
+}
+.wf-hexline__name--road {
+  fill: var(--hex-trail);
+}
+/* Leeres Feld am Rand: gehört noch nicht zur Karte – Klick fügt es an, der Pinsel malt darauf */
+.wf-hexmap__slot {
+  cursor: copy;
+}
+.wf-hexmap__slot polygon {
+  fill: var(--bg-2);
+  fill-opacity: 0.22;
+  stroke: var(--gold-deep);
+  stroke-opacity: 0.55;
+  stroke-dasharray: 3 3;
+}
+.wf-hexmap__slot path {
+  fill: none;
+  stroke: var(--gold);
+  stroke-opacity: 0.45;
+  stroke-width: 1.5;
   stroke-linecap: round;
   pointer-events: none;
 }
-.wf-hexmap__link--road {
-  stroke: var(--map-road);
-  stroke-width: 3.5;
+.wf-hexmap__slot:hover polygon {
+  fill-opacity: 0.55;
+  stroke-opacity: 1;
 }
-.wf-hexmap__link--trail {
-  stroke: var(--map-road);
-  stroke-width: 2;
-  stroke-dasharray: 5 4;
-}
-.wf-hexmap__link--river {
-  stroke: var(--map-river);
-  stroke-width: 3;
-}
-/* Freier Platz am Rand: hier lässt sich ein Feld anfügen */
-.wf-hexmap__slot {
-  fill: var(--bg-2);
-  fill-opacity: 0.35;
-  stroke: var(--gold-deep);
-  stroke-dasharray: 3 3;
-  cursor: copy;
-}
-.wf-hexmap__slot:hover {
-  fill-opacity: 0.7;
+.wf-hexmap__slot:hover path {
+  stroke-opacity: 1;
 }
 
-/* ── Unter der Erde: Fels, Gänge, Höhlen, Schächte ─────────────────────── */
-.wf-hex polygon[data-rock] {
-  fill: var(--map-rock);
-  stroke: color-mix(in srgb, var(--map-rock-edge) 60%, var(--map-rock));
-  stroke-width: 1;
+/* ── Unter der Erde: Fels als Fläche, Gänge und Höhlen frei geformt darin (HexLayers.tsx) ── */
+/* Die Felder selbst sind dort nur Raster und Griff für die Maus – das Bild malt das Gangnetz. */
+.wf-hex polygon[data-under] {
+  fill: transparent;
+  stroke: var(--bg-inset);
+  stroke-opacity: 0.6;
+  stroke-width: 1.2;
 }
-.wf-hex polygon[data-cave] {
-  fill: color-mix(in srgb, var(--map-rock) 75%, var(--map-cave));
-  stroke: var(--map-rock-edge);
+.wf-hex:not([data-hidden]) polygon[data-under] {
+  stroke: var(--bg-inset);
 }
-.wf-hex__gang {
-  stroke: var(--map-rock-ink);
+.wf-hex:hover polygon[data-under] {
+  fill: var(--gold);
+  fill-opacity: 0.1;
+  filter: none;
+}
+.wf-hex[data-hidden] polygon[data-under] {
+  filter: none;
+}
+.wf-hexcave__rock {
+  fill: url(#wf-hex-rock);
+}
+.wf-hexcave__rockbase {
+  fill: var(--hex-cave-rock);
+}
+.wf-hexcave__rim,
+.wf-hexcave__floor,
+.wf-hexcave__pool,
+.wf-hexcave__pool-edge,
+.wf-hexcave__stream {
   stroke-linecap: round;
-  opacity: 0.85;
+  stroke-linejoin: round;
 }
-.wf-hex__gang--narrow {
-  stroke: var(--map-rock-ink);
+.wf-hexcave__rim {
+  fill: var(--hex-cave-rim);
+  stroke: var(--hex-cave-rim);
+}
+.wf-hexcave__floor {
+  fill: url(#wf-hex-ground);
+  stroke: url(#wf-hex-ground);
+}
+path.wf-hexcave__rim,
+path.wf-hexcave__floor,
+path.wf-hexcave__pool,
+path.wf-hexcave__pool-edge,
+path.wf-hexcave__stream {
+  fill: none;
+}
+.wf-hexcave__pool--water,
+.wf-hexcave__stream {
+  fill: var(--hex-cave-water);
+  stroke: var(--hex-cave-water);
+}
+.wf-hexcave__pool-edge--water {
+  fill: var(--hex-cave-water-edge);
+  stroke: var(--hex-cave-water-edge);
+}
+.wf-hexcave__pool--chasm,
+.wf-hexcave__pool-edge--chasm {
+  fill: var(--hex-cave-chasm);
+  stroke: var(--hex-cave-chasm);
+}
+.wf-hexcave__pool--magma {
+  fill: var(--hex-cave-magma);
+  stroke: var(--hex-cave-magma);
+}
+.wf-hexcave__pool-edge--magma {
+  fill: var(--hex-cave-magma-edge);
+  stroke: var(--hex-cave-magma-edge);
+}
+.wf-hexcave__pool--ice {
+  fill: var(--hex-cave-ice);
+  stroke: var(--hex-cave-ice);
+}
+.wf-hexcave__pool-edge--ice {
+  fill: var(--hex-cave-rim);
+  stroke: var(--hex-cave-rim);
+}
+.wf-hexcave__open[data-dim] {
+  opacity: 0.22;
+}
+/* Zeichen auf dem hellen Höhlenboden: dunkle Tusche statt heller. */
+.wf-hex__glyph[data-under] path {
+  stroke: var(--hex-cave-ink);
+  stroke-width: 0.045;
+}
+.wf-hex__glyph[data-under] path[data-fill] {
+  fill: color-mix(in srgb, var(--hex-cave-ink) 55%, transparent);
+}
+/* Besondere Durchgänge als kurzes Zeichen an der Seite. */
+.wf-hex__gang {
+  stroke: var(--hex-cave-ink);
+  stroke-linecap: round;
 }
 .wf-hex__gang--climb {
   stroke-dasharray: 2 3;
 }
-.wf-hex__gang--water {
-  stroke: var(--map-river);
-  opacity: 1;
-}
 .wf-hex__gang--hidden {
   stroke: var(--map-glow);
   stroke-dasharray: 1 4;
-  opacity: 0.75;
 }
 .wf-hex__gang--drop {
-  stroke: var(--map-rubble);
+  stroke: var(--blood);
   stroke-dasharray: 6 2;
-}
-.wf-hex__chamber,
-.wf-hex__knot {
-  fill: var(--map-rock-ink);
-  opacity: 0.85;
-}
-.wf-hex__chamber {
-  stroke: var(--map-rock-edge);
-  stroke-width: 1.5;
-}
-.wf-hex__pool {
-  fill: var(--map-river);
 }
 .wf-hex__shaft {
   fill: var(--map-chasm);
@@ -1211,20 +1398,6 @@
 }
 .wf-erk-senses p {
   margin: 0;
-}
-
-/* Geländearten unter der Erde färben die Höhle ein – Pilze, Kristall, Wasser, Glut. */
-.wf-hex[data-kind='fungus'] polygon[data-cave] {
-  fill: color-mix(in srgb, var(--terrain-fungus) 75%, var(--map-cave));
-}
-.wf-hex[data-kind='crystal'] polygon[data-cave] {
-  fill: color-mix(in srgb, var(--terrain-crystal) 75%, var(--map-cave));
-}
-.wf-hex[data-kind='deep-lake'] polygon[data-cave] {
-  fill: color-mix(in srgb, var(--terrain-deep-lake) 80%, var(--map-cave));
-}
-.wf-hex[data-kind='magma'] polygon[data-cave] {
-  fill: color-mix(in srgb, var(--terrain-magma) 80%, var(--map-cave));
 }
 
 /* Landschaften deiner Welt in der Palette: wie Geländearten, mit Messing-Rand als Zeichen. */

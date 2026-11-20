@@ -94,6 +94,15 @@
   --terrain-crystal: #4c4f78;
   --terrain-deep-lake: #22384f;
   --terrain-magma: #6a3530;
+  --terrain-solid-rock: #2a2730;
+  --terrain-cave-floor: #a8997c;
+  --terrain-cavern: #b3a384;
+  --terrain-stalagmites: #8f8672;
+  --terrain-rubble: #8a7860;
+  --terrain-chasm: #0b0a0d;
+  --terrain-ice-cave: #8fa9b5;
+  --terrain-deep-ruins: #7c7466;
+  --terrain-mine: #6f5f4d;
 
   /* Gezeichnete Karten: Tinte auf Pergament. Nur für die Zeichenfläche einer Karte. */
   --map-paper: #e8dab8;
@@ -112,6 +121,24 @@
   --map-water-line: #6c7d71;
   --map-river: #4b666b;
   --map-road: #7b4e2b;
+  /* Hexkarte: Wege und Flüsse als gezogene Linien. */
+  --hex-river-bank: #1c3742;
+  --hex-river: #3d7f95;
+  --hex-river-glint: #a6d4de;
+  --hex-road-edge: #3b2a1b;
+  --hex-road: #cdaa72;
+  --hex-trail: #d6bb8a;
+  /* Hexkarte unter der Erde: heller Höhlenboden im dunklen Fels, mit Rand. */
+  --hex-cave-rock: #5a5560;
+  --hex-cave-floor: #cdbd9a;
+  --hex-cave-rim: #e9e2d2;
+  --hex-cave-ink: #4a3a28;
+  --hex-cave-water: #2f6f80;
+  --hex-cave-water-edge: #17404c;
+  --hex-cave-chasm: #060507;
+  --hex-cave-magma: #d9642a;
+  --hex-cave-magma-edge: #5a1d12;
+  --hex-cave-ice: #b9d6e2;
   /* Unterreich: dunkler Fels mit violettem Schimmer. */
   --map-rock: #1d1a22;
   --map-rock-edge: #3a3350;
