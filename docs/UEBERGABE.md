@@ -238,6 +238,18 @@ Hexkarte“) – als Nächstes nachfragen, was genau stört; die Oberwelt trägt
 Strichzeichen statt gemalter Böden. Zwei Tests wackeln unter Last und laufen einzeln durch:
 `karten.test.ts` („eine Straße von Ort zu Ort wird zum Weg“) und der Zeit-Test des Abgleichs.
 
+**Danach: Tag `v0.1.33` auf `3329a6a` (20. 11.)** – „Verbessere vorher nochmal das gesamte
+Hexkarten-Ding“: Die Oberwelt ist jetzt gemalt wie das Unterreich (`erkundung/HexGround.tsx`,
+36 Bodenkacheln, sechs Blätter bei Higgsfield = 16,5 Credits; insgesamt 63,75 von 150). Das
+höhere Gelände greift frei geformt über das tiefere, Strichzeichen gibt es oben nur noch für
+Vulkan und Krater, die Palette zeigt die Böden. Dazu: Vorschau des Pinsels unter dem Zeiger ab
+Größe 2, keine Meldung mehr nach jedem Strich. Kein neues Schema. Geprüft: alle Tests (2820),
+in der Vorschau zwei Oberwelt-Karten mit allen Arten, Weg und Fluss, Malen mit großem Pinsel,
+Ansicht „Spielen“ mit Unentdecktem, Unterreich unverändert. Nicht geprüft: sehr große Karten
+(über tausend Felder) auf dem MacBook, erzeugte Karten zwischen zwei Orten im neuen Bild,
+Landschaften der Welt als Pinsel. Offen: Vulkan und Krater tragen noch ein Strichzeichen; die
+Vorschau des Pinsels bleibt stehen, wenn die Maus die Karte verlässt, ohne sich darin zu bewegen.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
