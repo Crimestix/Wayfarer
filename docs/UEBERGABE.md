@@ -250,6 +250,13 @@ Ansicht „Spielen“ mit Unentdecktem, Unterreich unverändert. Nicht geprüft:
 Landschaften der Welt als Pinsel. Offen: Vulkan und Krater tragen noch ein Strichzeichen; die
 Vorschau des Pinsels bleibt stehen, wenn die Maus die Karte verlässt, ohne sich darin zu bewegen.
 
+**Danach: Tag `v0.1.34` auf `d26a3d1` (20. 11.)** – „Die Biome sollten irgendwie auch ein wenig
+nicer blenden“: Gelände laufen weich ineinander aus (`Feather` in `HexGround.tsx`, Lagen ohne
+Filter), keine Kante mehr; Schatten nur an Wald, Höhen, Siedlung. Unter der Erde gilt derselbe
+Auslauf für die eigenen Böden. Kein neues Schema. Geprüft: Tests, Vorschau (Oberwelt und
+Unterreich). Nicht geprüft: wie flüssig das auf sehr großen Karten und auf dem MacBook ist –
+der Verlauf sind acht Lagen je Geländeart.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
