@@ -287,6 +287,16 @@ Kein neues Schema. 0.1.36 wurde gebaut, aber nicht ausgeliefert. Geprüft: Tests
 Probekarte. Offen: Ob der Look dem Spielleiter jetzt gefällt, ist nicht bestätigt – schräg
 gesehene Zeichen auf einem Grundriss von oben bleiben ein Stilbruch, der oben nicht auftritt.
 
+**Danach: Tag `v0.1.38` auf `3316e4a` (20. 11.)** – „Das Unterreich sieht immer noch nicht so gut
+aus wie die Oberwelt. Lass dir nochmal was einfallen, du kannst völlig entscheiden.“ Entschieden:
+**Licht im Dunkeln** – Finsternis über dem Fels, an den Höhlen sichtbar; heller Boden; Wand aus
+gebrochenem Stein mit schroffer Kante; Schein von Pilzen, Kristallen, Glut, See (`CAVE_GLOW`).
+Kein neues Schema, keine neuen Bilder. Geprüft: Tests (2823), Vorschau einer größeren Probekarte
+(20 × 13 Felder, Kavernen, See, Glut, Bergwerk). Nicht geprüft: Ansicht „Spielen“ unter der Erde,
+mehrere Ebenen, MacBook. Gemessen: Der Umriss des Höhlenbodens rechnet auf einer Karte mit
+1400 Feldern etwa 0,2 s je Änderung (vorher 0,1 s) – beim Malen auf sehr großen Karten spürbar;
+bei Bedarf nur den geänderten Ausschnitt neu rechnen. Ob es dem Spielleiter gefällt, ist offen.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
