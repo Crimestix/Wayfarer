@@ -1305,10 +1305,6 @@
   fill: var(--hex-cave-rim);
   opacity: 0.4;
 }
-.wf-hexcave__magmatint {
-  fill: var(--hex-cave-magma);
-  opacity: 0.55;
-}
 .wf-hexcave__open path {
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -1375,6 +1371,18 @@
 .wf-hexcave__pool {
   stroke: none;
 }
+.wf-hexcave__pool-lip {
+  fill: none;
+}
+.wf-hexcave__pool-lip--water {
+  stroke: var(--hex-cave-shade);
+  stroke-opacity: 0.26;
+  stroke-width: calc(var(--hex) * 0.16);
+}
+.wf-hexcave__pool-lip--chasm {
+  stroke: url(#wf-hex-wall);
+  stroke-width: calc(var(--hex) * 0.11);
+}
 .wf-hexcave__pool-edge {
   fill: none;
   stroke-width: max(1px, calc(var(--hex) * 0.035));
@@ -1390,24 +1398,25 @@
   stroke: var(--hex-cave-water);
   stroke-width: calc(var(--hex) * 0.11);
 }
+/* Glutspalten: helle Glut in dunklem Rand. */
+.wf-hexcave__pool--magma {
+  fill: var(--hex-glow-magma);
+}
+.wf-hexcave__pool-edge--magma {
+  stroke: var(--hex-cave-magma-edge);
+  stroke-opacity: 0.7;
+  stroke-width: max(1px, calc(var(--hex) * 0.02));
+}
+.wf-hexcave__pool-lip--magma {
+  stroke: var(--hex-glow-magma);
+  stroke-opacity: 0.28;
+  stroke-width: calc(var(--hex) * 0.07);
+}
 .wf-hexcave__pool--chasm {
   fill: var(--hex-cave-chasm);
 }
 .wf-hexcave__pool-edge--chasm {
   stroke: var(--hex-cave-ink);
-}
-.wf-hexcave__pool--magma {
-  fill: url(#wf-hex-pool-magma);
-}
-.wf-hexcave__pool-edge--magma {
-  stroke: var(--hex-cave-magma-edge);
-  stroke-width: max(1.5px, calc(var(--hex) * 0.06));
-}
-.wf-hexcave__pool--ice {
-  fill: url(#wf-hex-pool-ice);
-}
-.wf-hexcave__pool-edge--ice {
-  stroke: var(--hex-cave-rim);
 }
 .wf-hexcave__open[data-dim] {
   opacity: 0.2;

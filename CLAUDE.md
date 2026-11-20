@@ -502,7 +502,18 @@ nicht übernommen.
   `step`); und was leuchtet, wirft seinen Schein auf Boden, Wand und Fels (`CAVE_GLOW`: Pilze,
   Kristalle, Eis, Glut, See, Bergwerk – Verläufe `#wf-hex-glow-<ton>`, Farben `--hex-glow-*`,
   kein Filter). Eine neue leuchtende Art: Eintrag in `CAVE_GLOW`. Nie wieder ein gleichmäßig
-  heller, flacher Fels. **Dasselbe Niveau unter der Erde** (Wunsch 20. 11.: „Genau das
+  heller, flacher Fels. **Flächen im Höhlenboden** (Rückmeldung 20. 11. mit Bild: „Abgrund
+  verbindet sich nicht richtig“, „auch Gluthöhlen sieht noch nicht gut aus“): See und Abgrund
+  wachsen über Nachbarfelder zu **einer** Fläche zusammen (`joined`, breite Verbindung – nie
+  wieder ein Gitter aus Rissen mit Inseln darin; nur ein einzelner Abgrund ist ein Riss), der
+  Abgrund hat eine Kante aus Stein, der See nassen Boden am Ufer (`pool-lip`). Glutspalten und
+  Eishöhle sind **Boden** (`CAVE_GROUND`: dunkler Basalt, blankes Eis), nie ein flacher Fleck;
+  über dem Basalt liegt ein Netz schmaler, glühender Risse (Ton `magma`, von Feld zu Feld
+  verbunden). **Anschließen beim Graben** („Stellen, wo der Gang nicht vernünftig an Höhlen
+  anschließt“): Ein Gang, der als Sackgasse vor etwas Offenem endet, führt am Ende des Strichs
+  hinein (`joinTunnelEnd` in `dig.ts`, aufgerufen in `onEnd` – geradeaus oder mit leichtem Knick,
+  nie als Kehre oder Dreieck); eine Höhle, die neben ein Gangende gemalt wird, nimmt es auf.
+  Unterwegs schließt ein Gang nirgends an. **Dasselbe Niveau unter der Erde** (Wunsch 20. 11.: „Genau das
   Qualitätslevel auch fürs Unterreich“): Fels, Höhlenboden, Wasser und Eis sind gemalte Kacheln
   aus derselben Hand (`ui/assets/hexkarte/cave-*.webp`); die Wand hat Stärke – ein Band aus
   hellem Stein mit dunkler Kante (`rim-ink`, `rim`, Muster `#wf-hex-wall`), um jede Höhle wird

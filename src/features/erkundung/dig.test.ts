@@ -3,7 +3,7 @@ import { hexKey, type HexCoord } from '../../domain/hex';
 import { SOLID_ROCK, paintOfKind } from '../../domain/hexKinds';
 import { dirTo } from '../../domain/passages';
 import { HexSchema, type Hex } from '../../domain/schema';
-import { digCave, isWideCave } from './dig';
+import { digCave, isWideCave, joinTunnelEnd } from './dig';
 
 /** Ein Block Fels: q von 0 bis 5, r von 0 bis 3. */
 const rock = (): Hex[] => {
@@ -127,6 +127,77 @@ describe('Graben unter der Erde', () => {
     const after = stroke(hexes, SOLID_ROCK, [at(1, 1)]);
     expect(find(after, 1, 1).exits).toHaveLength(1);
     expect(find(after, 1, 1).placeId).toBe('ort');
+  });
+
+  it('führt einen Gang, der vor einer Höhle endet, am Ende des Strichs hinein', () => {
+    let hexes = stroke(rock(), 'cavern', [at(4, 1)]);
+    // Der Gang endet auf (3,1), direkt vor der Höhle – der Strich selbst betritt sie nicht.
+    hexes = stroke(hexes, 'underdark', [at(0, 1), at(1, 1), at(2, 1), at(3, 1)]);
+    expect(joined(hexes, at(3, 1), at(4, 1))).toBe(false);
+    const done = [...joinTunnelEnd(hexes, at(3, 1))];
+    expect(joined(done, at(3, 1), at(4, 1))).toBe(true);
+    expect(find(done, 4, 1).kind).toBe('cavern');
+    expect(find(done, 4, 1).dug).toBe(true);
+    // Schon verbunden: Es ändert sich nichts mehr – dieselbe Liste kommt zurück.
+    expect(joinTunnelEnd(done, at(3, 1))).toBe(done);
+  });
+
+  it('führt am Ende auch in einen anderen Gang – geradeaus oder mit leichtem Knick', () => {
+    let hexes = stroke(rock(), 'underdark', [at(0, 0), at(1, 0), at(2, 0), at(3, 0), at(4, 0)]);
+    // Ein zweiter Gang kommt von unten und endet auf (1,1); geradeaus liegt (1,0) im ersten Gang.
+    hexes = stroke(hexes, 'underdark', [at(1, 3), at(1, 2), at(1, 1)]);
+    expect(joined(hexes, at(1, 1), at(1, 0))).toBe(false);
+    const done = [...joinTunnelEnd(hexes, at(1, 1))];
+    expect(joined(done, at(1, 1), at(1, 0))).toBe(true);
+    // Nur eine Verbindung: nicht auch noch zum Nachbarn daneben.
+    expect(find(done, 1, 1).exits).toHaveLength(2);
+  });
+
+  it('macht am Ende keine Kehre und kein Dreieck zu dem Feld, aus dem der Gang kam', () => {
+    // Der Gang biegt ab; sein Anfang (0,2) liegt neben seinem Ende (1,1) – verbunden wird nichts.
+    const hook = stroke(rock(), 'underdark', [at(0, 2), at(1, 2), at(1, 1)]);
+    expect(joinTunnelEnd(hook, at(1, 1))).toBe(hook);
+    // Ein Gang verlässt eine Höhle um ein Feld: Er führt nicht gleich wieder in sie hinein.
+    let hexes = stroke(rock(), 'cavern', [at(2, 1)]);
+    hexes = stroke(hexes, 'cavern', [at(3, 1)]);
+    hexes = stroke(hexes, 'underdark', [at(2, 1), at(2, 2)]);
+    expect(joinTunnelEnd(hexes, at(2, 2))).toBe(hexes);
+    // Mitten im Fels gibt es nichts anzuschließen.
+    const lone = stroke(rock(), 'underdark', [at(0, 1), at(1, 1)]);
+    expect(joinTunnelEnd(lone, at(1, 1))).toBe(lone);
+  });
+
+  it('lässt zwei Gangenden zusammenwachsen, zwischen die ein Feld gesetzt wird', () => {
+    let ends = stroke(rock(), 'underdark', [at(0, 1), at(1, 1)]);
+    ends = stroke(ends, 'underdark', [at(5, 1), at(4, 1), at(3, 1)]);
+    // (2,1) beginnt im Fels neben zwei Enden und nimmt eines; am Ende des Strichs das andere.
+    ends = stroke(ends, 'underdark', [at(2, 1)]);
+    const done = [...joinTunnelEnd(ends, at(2, 1))];
+    expect(joined(done, at(1, 1), at(2, 1))).toBe(true);
+    expect(joined(done, at(2, 1), at(3, 1))).toBe(true);
+  });
+
+  it('lässt eine Höhle ein Gangende aufnehmen, neben das sie gemalt wird', () => {
+    let hexes = stroke(rock(), 'underdark', [at(0, 1), at(1, 1), at(2, 1)]);
+    hexes = stroke(hexes, 'fungus', [at(3, 1)]);
+    expect(joined(hexes, at(2, 1), at(3, 1))).toBe(true);
+    // An der Mitte eines Gangs schließt sie nicht von selbst an.
+    hexes = stroke(hexes, 'cavern', [at(1, 2)]);
+    expect(joined(hexes, at(1, 1), at(1, 2))).toBe(false);
+  });
+
+  it('verbindet beim Malen mit großem Pinsel auch die Felder unter dem Pinsel miteinander', () => {
+    const cells = [at(2, 1), at(3, 1), at(2, 2)];
+    const hexes = digCave(rock(), {
+      at: cells[0]!,
+      coords: cells,
+      kind: 'chasm',
+      paint: paintOfKind('chasm')!,
+      from: null,
+    });
+    expect(joined(hexes, at(2, 1), at(3, 1))).toBe(true);
+    expect(joined(hexes, at(2, 1), at(2, 2))).toBe(true);
+    expect(joined(hexes, at(3, 1), at(2, 2))).toBe(true);
   });
 
   it('merkt nur an Feldern, die sich geändert haben, dass sie von Hand gegraben sind', () => {

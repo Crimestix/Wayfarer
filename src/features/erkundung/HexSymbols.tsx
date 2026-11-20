@@ -99,6 +99,7 @@ const FIT: Readonly<Record<string, Fit>> = {
   stalagmites: { width: 0.42, foot: 0.16, share: 0.9, scatter: true },
   rubble: { width: 0.4, foot: 0.12, share: 0.8, scatter: true },
   'deep-ruins': { width: 0.44, foot: 0.16, share: 0.55, scatter: true },
+  'ice-cave': { width: 0.36, foot: 0.12, share: 0.6, scatter: true },
   mine: { width: 0.4, foot: 0.15 },
   cavern: { width: 0.26, foot: 0.09, share: 0.34, scatter: true },
   'cave-floor': { width: 0.24, foot: 0.08, share: 0.26, scatter: true },

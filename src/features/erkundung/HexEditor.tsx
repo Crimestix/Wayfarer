@@ -66,7 +66,7 @@ import { TERRAIN_LABEL } from '../../domain/terrain';
 import { GLYPH, KIND_GLYPH } from './HexMap';
 import { Button, EntityPicker, IconButton, Input, Panel, Select, toast } from '../../ui';
 import { addFromWriting } from '../welt/writing';
-import { digCave } from './dig';
+import { digCave, joinTunnelEnd } from './dig';
 import { CAVE_GROUND } from './HexLayers';
 import { LAND_GROUND } from './HexGround';
 import { CAVE_SYMBOLS, LAND_SYMBOLS } from './HexSymbols';
@@ -401,6 +401,19 @@ export function useHexEditor(area: Area) {
       setLineSel(run.length ? { kind: tool, coords: run.map(coordOf) } : null);
     }
     if (!touched.current) return;
+    // Ein Gang, der vor einer Höhle endet, führt hinein.
+    if (
+      tool === 'terrain' &&
+      caves &&
+      end &&
+      hexKind(kind)?.group === 'underdark' &&
+      !WIDE_CAVE_KINDS.has(kind) &&
+      kind !== SOLID_ROCK
+    ) {
+      const now = current();
+      const joined = joinTunnelEnd(now, end);
+      if (joined !== now) write([...joined]);
+    }
     // Ein Strich ist ein Schritt für „Rückgängig“ (Leiste links, Strg+Z). Keine Meldung: Wer
     // malt, setzt Strich an Strich – eine Meldung nach jedem stört nur.
     record(old);

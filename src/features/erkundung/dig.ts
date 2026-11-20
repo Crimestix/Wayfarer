@@ -9,6 +9,9 @@
  * - Eine **Höhle** (Höhlenboden, Kaverne, Pilzwald, See …) wächst mit allen Höhlen zusammen, die
  *   an sie grenzen; allein steht sie als geschlossene Kammer, bis ein Gang hinführt.
  * - **Massivfels** schüttet zu: kein Ausgang mehr, auch nicht von den Nachbarn.
+ * - Ein Gang, der als Sackgasse **vor einer Höhle endet**, führt hinein (`joinTunnelEnd`, am Ende
+ *   des Strichs) – und eine Höhle, die neben ein Gangende gemalt wird, nimmt es auf (Rückmeldung
+ *   20. 11.: „Stellen, wo der Gang nicht vernünftig an Höhlen anschließt“).
  *
  * Gerechnet wird nur mit den Ausgängen der Felder (`domain/passages.ts`) – das Bild der Karte
  * folgt daraus. Reine Funktionen.
@@ -29,6 +32,12 @@ const isOpen = (hex: Hex): boolean =>
   kindKeyOf(hex) !== SOLID_ROCK && ((hex.exits ?? []).length > 0 || isWideCave(hex));
 
 const hasExit = (hex: Hex, dir: number) => (hex.exits ?? []).some((exit) => exit.dir === dir);
+
+/** Ein Gangende: ein Gang (keine Höhle) mit genau einem Ausgang zur Seite. */
+const isDeadEnd = (hex: Hex): boolean =>
+  kindKeyOf(hex) !== SOLID_ROCK &&
+  !isWideCave(hex) &&
+  (hex.exits ?? []).filter((exit) => exit.dir < 6).length === 1;
 
 /** Öffnet den Durchgang zwischen zwei Nachbarn, wenn dort noch keiner ist (ein vorhandener bleibt, wie er ist). */
 function open(hexes: Hex[], a: HexCoord, b: HexCoord): Hex[] {
@@ -116,7 +125,8 @@ export function digCave(before: readonly Hex[], step: DigStep): Hex[] {
       for (const d of HEX_DIRECTIONS) {
         const other = { q: coord.q + d.q, r: coord.r + d.r, level: coord.level ?? level };
         const there = hexes.find((hex) => hexKey(hex) === keyOf(other));
-        if (there && isWideCave(there) && kindKeyOf(there) !== SOLID_ROCK)
+        // … und nimmt ein Gangende auf, das vor ihr liegt.
+        if (there && (isWideCave(there) || (!keys.has(hexKey(there)) && isDeadEnd(there))))
           hexes = open(hexes, coord, other);
       }
   } else if (!step.from) {
@@ -137,6 +147,38 @@ export function digCave(before: readonly Hex[], step: DigStep): Hex[] {
     }
   }
   return marked(before, hexes);
+}
+
+/**
+ * Am Ende eines Strichs: Endet der Gang als Sackgasse vor etwas Offenem – einer Höhle, einem
+ * anderen Gang –, führt er hinein: geradeaus weiter oder mit einem leichten Knick, nie in einer
+ * Kehre zurück und nie als Dreieck zu dem Feld, aus dem er kam. So gilt am Ende dasselbe wie am
+ * Anfang eines Strichs. Unterwegs schließt ein Gang nirgends an: Zwei Gänge dürfen nebeneinander
+ * liegen. Ändert sich nichts, kommt dieselbe Liste zurück.
+ */
+export function joinTunnelEnd(before: readonly Hex[], at: HexCoord): readonly Hex[] {
+  const level = at.level ?? 0;
+  const end = before.find((hex) => hexKey(hex) === keyOf(at));
+  if (!end || !isDeadEnd(end)) return before;
+  const back = end.exits!.find((exit) => exit.dir < 6)!.dir;
+  const ahead = (back + 3) % 6;
+  const turn = (dir: number) => Math.min(Math.abs(dir - ahead), 6 - Math.abs(dir - ahead));
+  const behind = HEX_DIRECTIONS[back]!;
+  const from = { q: end.q + behind.q, r: end.r + behind.r, level };
+  const options = HEX_DIRECTIONS.map((d, dir) => ({
+    dir,
+    hex: before.find((hex) => hexKey(hex) === keyOf({ q: end.q + d.q, r: end.r + d.r, level })),
+  })).filter((option): option is { dir: number; hex: Hex } => {
+    if (!option.hex || !isOpen(option.hex) || turn(option.dir) > 1) return false;
+    // Kein Dreieck: Was schon mit dem Feld davor verbunden ist, ist auf kurzem Weg erreichbar.
+    const side = dirTo(option.hex, from);
+    return side === null || !hasExit(option.hex, side);
+  });
+  const pick = options.sort(
+    (a, b) => turn(a.dir) - turn(b.dir) || Number(isWideCave(b.hex)) - Number(isWideCave(a.hex)),
+  )[0];
+  if (!pick) return before;
+  return marked(before, open([...before], at, pick.hex));
 }
 
 /** Was sich geändert hat, ist von Hand gegraben. */

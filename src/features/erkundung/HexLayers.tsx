@@ -21,10 +21,10 @@ import { caveOutline, outlinePath, type CaveBlob } from './caveOutline';
 import { Feather } from './HexGround';
 import type { Hex, PassageKind } from '../../domain/schema';
 import ground from '../../ui/assets/hexkarte/cave-floor.webp';
-import ice from '../../ui/assets/hexkarte/cave-ice.webp';
+import groundIce from '../../ui/assets/hexkarte/cave-ice.webp';
 import rock from '../../ui/assets/hexkarte/cave-rock.webp';
 import water from '../../ui/assets/hexkarte/cave-water.webp';
-import magma from '../../ui/assets/hexkarte/oben/lava.webp';
+import groundMagma from '../../ui/assets/hexkarte/oben/lava.webp';
 import groundCrystal from '../../ui/assets/hexkarte/crystal.webp';
 import groundRuins from '../../ui/assets/hexkarte/deep-ruins.webp';
 import groundFungus from '../../ui/assets/hexkarte/fungus.webp';
@@ -46,6 +46,10 @@ export const CAVE_GROUND: Readonly<Record<string, string>> = {
   rubble: groundRubble,
   'deep-ruins': groundRuins,
   mine: groundMine,
+  // Glutspalten und Eishöhle sind Boden, kein Fleck darauf (Rückmeldung 20. 11.: „auch
+  // Gluthöhlen sieht noch nicht gut aus“): dunkler Basalt mit glühenden Rissen, blankes Eis.
+  magma: groundMagma,
+  'ice-cave': groundIce,
 };
 const GROUND_KINDS = Object.keys(CAVE_GROUND);
 
@@ -290,14 +294,14 @@ const PASSAGE_RADIUS: Record<PassageKind, number> = {
   drop: 0.16,
 };
 
-/** Flächen eigener Farbe im Höhlenboden: See, Abgrund, Glut, Eis. */
+/** Flächen eigener Art im Höhlenboden, tiefer als er: See und Abgrund. */
 const POOL_KIND: Record<string, string> = {
   'deep-lake': 'water',
   chasm: 'chasm',
+  // Glutspalten: ein Netz glühender Risse im Basalt – schmal, von Feld zu Feld verbunden.
   magma: 'magma',
-  'ice-cave': 'ice',
 };
-const POOL_TONES = ['water', 'ice', 'magma', 'chasm'] as const;
+const POOL_TONES = ['water', 'chasm', 'magma'] as const;
 
 interface CavePlan {
   floor: CaveBlob[];
@@ -370,21 +374,28 @@ function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan 
     }
     plan.floor.push(...own);
     if (CAVE_GROUND[kindKey]) (plan.grounds[kindKey] ??= []).push(...own);
+    // Grenzt die Fläche an ein Feld derselben Art, wachsen beide zu **einer** Fläche zusammen –
+    // breit genug, dass zwischen drei Nachbarn kein Loch bleibt (Rückmeldung des Spielleiters,
+    // 20. 11. 2026: „Abgrund verbindet sich nicht richtig“ – über mehrere Felder stand ein Gitter
+    // aus Rissen mit hellen Inseln darin).
+    const same = (way: (typeof ways)[number]) =>
+      !!tone && way.both && !!way.other && POOL_KIND[kindKeyOf(way.other) ?? ''] === tone;
+    const joined = ways.some(same);
     for (const way of ways) {
       if (way.kind === 'water')
         plan.streams.push([c.x, c.y, (c.x + way.p.x) / 2, (c.y + way.p.y) / 2, way.p.x, way.p.y]);
-      if (tone && way.both && way.other && POOL_KIND[kindKeyOf(way.other) ?? ''] === tone)
+      if (tone && same(way))
         pool(tone, {
           x1: c.x,
           y1: c.y,
           x2: way.p.x,
           y2: way.p.y,
-          r: tone === 'chasm' ? 0.11 : 0.24,
+          r: tone === 'magma' ? 0.036 : 0.3,
         });
     }
 
-    if (tone === 'chasm') {
-      // Ein Abgrund ist ein Riss: schmal und lang, in fester Richtung je Feld.
+    if (tone === 'magma' || (tone === 'chasm' && !joined)) {
+      // Ein einzelner Abgrund ist ein Riss: schmal und lang, in fester Richtung je Feld.
       const turn = wobble(`${key}riss`) * Math.PI;
       const reach = 0.2 + Math.abs(wobble(`${key}weit`)) * 0.1;
       pool(tone, {
@@ -392,14 +403,14 @@ function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan 
         y1: c.y - Math.sin(turn) * reach,
         x2: c.x + Math.cos(turn) * reach,
         y2: c.y + Math.sin(turn) * reach,
-        r: 0.13,
+        r: tone === 'magma' ? 0.05 : 0.13,
       });
     } else if (tone) {
       // Ein See liegt nicht genau in der Mitte und ist nie kreisrund.
       pool(tone, {
         x1: c.x + wobble(`${key}sx`) * 0.06,
         y1: c.y + wobble(`${key}sy`) * 0.06,
-        r: 0.29 + wobble(`${key}sr`) * 0.04,
+        r: (joined ? 0.33 : 0.29) + wobble(`${key}sr`) * 0.04,
       });
     }
     // Ein Fluss, der durch die Höhle fließt, steht als Wasser in ihrer Mitte.
@@ -432,20 +443,21 @@ export function CaveDefs({ size }: { size: number }) {
       {/* Der Schein dessen, was leuchtet: in der Mitte hell, zum Rand hin nichts. */}
       {GLOW_TONES.map((tone) => (
         <radialGradient key={tone} id={`wf-hex-glow-${tone}`}>
-          <stop offset="0" stopOpacity="0.5" style={{ stopColor: `var(--hex-glow-${tone})` }} />
-          <stop offset="0.45" stopOpacity="0.22" style={{ stopColor: `var(--hex-glow-${tone})` }} />
+          <stop
+            offset="0"
+            stopOpacity={tone === 'magma' ? 0.3 : 0.5}
+            style={{ stopColor: `var(--hex-glow-${tone})` }}
+          />
+          <stop
+            offset="0.45"
+            stopOpacity={tone === 'magma' ? 0.14 : 0.22}
+            style={{ stopColor: `var(--hex-glow-${tone})` }}
+          />
           <stop offset="1" stopOpacity="0" style={{ stopColor: `var(--hex-glow-${tone})` }} />
         </radialGradient>
       ))}
       <pattern id="wf-hex-water" patternUnits="userSpaceOnUse" width={fine} height={fine}>
         <image href={water} width={fine} height={fine} preserveAspectRatio="none" />
-      </pattern>
-      <pattern id="wf-hex-pool-ice" patternUnits="userSpaceOnUse" width={fine} height={fine}>
-        <image href={ice} width={fine} height={fine} preserveAspectRatio="none" />
-      </pattern>
-      <pattern id="wf-hex-pool-magma" patternUnits="userSpaceOnUse" width={fine} height={fine}>
-        <image href={magma} width={fine} height={fine} preserveAspectRatio="none" />
-        <rect className="wf-hexcave__magmatint" width={fine} height={fine} />
       </pattern>
       {GROUND_KINDS.map((kind) => (
         <pattern
@@ -523,7 +535,8 @@ export const CaveLayer = memo(function CaveLayer({
           pools: POOL_TONES.filter((tone) => used.pools[tone]?.length).map((tone) => ({
             tone,
             loops: caveOutline(used.pools[tone]!, {
-              rough: tone === 'chasm' ? 0.16 : 0.15,
+              rough: tone === 'water' ? 0.15 : 0.16,
+              ...(tone === 'magma' ? { crisp: 0.02, step: 0.07 } : {}),
               salt: tone.length + 3,
               step: 0.1,
             }),
@@ -600,6 +613,8 @@ export const CaveLayer = memo(function CaveLayer({
               const d = outlinePath(loops, size);
               return (
                 <g key={tone}>
+                  {/* Der Rand: am See nasser Boden, am Abgrund eine Kante aus Stein. */}
+                  <path className={`wf-hexcave__pool-lip wf-hexcave__pool-lip--${tone}`} d={d} />
                   <path
                     className={`wf-hexcave__pool wf-hexcave__pool--${tone}`}
                     d={d}

@@ -256,7 +256,8 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
       from = key;
       key = onward?.to;
     }
-    if (loop.length >= 6) loops.push(soften(loop));
+    // Winzige Ringe (ein Krümel Fels im Boden, ein Loch von wenigen Punkten) sind nur Rauschen.
+    if (loop.length >= 20) loops.push(soften(loop));
   }
   return loops;
 }

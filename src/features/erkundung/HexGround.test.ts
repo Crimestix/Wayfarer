@@ -67,7 +67,8 @@ describe('Gemalter Boden der Hexkarte', () => {
     expect(Object.keys(CAVE_SYMBOLS).filter((key) => key !== 'floor' && !under.has(key))).toEqual(
       [],
     );
-    for (const key of Object.keys(CAVE_GROUND))
+    // Glutspalten sind blanker Boden mit Rissen – dort steht nichts.
+    for (const key of Object.keys(CAVE_GROUND).filter((kind) => kind !== 'magma'))
       expect(CAVE_SYMBOLS[key]?.length, key).toBeGreaterThan(0);
     const cave = HexSchema.parse({ q: 0, r: 0, terrain: 'underdark', kind: 'fungus', exits: [] });
     expect(caveSymbolsOf(cave)).toBe(CAVE_SYMBOLS.fungus);
