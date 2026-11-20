@@ -148,9 +148,22 @@ const DRAFT_TAGS = words('draft', 'Entwurf', 'Entwürfe', 'unused', 'Archiv');
 export const isDraft = (info: Pick<LkResourceInfo, 'tags'>): boolean =>
   info.tags.some((tag) => DRAFT_TAGS.has(norm(tag)));
 
+/**
+ * Wörter im Titel, die eine Sammlung nennen statt eines Einzelnen: „Minor NPCs“, „NSCs in
+ * Menzoberranzan“, „Leute am Hafen“, „Orte im Norden“ (F18). Ganze Wörter, ohne Groß/Klein.
+ */
+const COLLECTION_WORDS =
+  /(?:^|[^\p{L}])(?:npcs|nscs|npc's|nsc's|charaktere|personen|leute|bewohner|einwohner|figuren|nebenfiguren|orte|schauplätze|gegenstände|items|fraktionen|gruppen|liste|übersicht|sammlung)(?![\p{L}])/iu;
+
+/** Ordnet der Artikel dem Titel nach eine Sammlung (eine Liste von Personen, Orten …)? */
+export const isCollectionTitle = (title: string): boolean => COLLECTION_WORDS.test(title);
+
 /** Was der Artikel beschreibt – oder null, wenn die Hinweise fehlen oder sich widersprechen. */
 export function recognizeKind(info: LkResourceInfo): Recognition | null {
   if (info.template) return null;
+  // Eine Sammelseite trägt oft das Schlagwort ihres Inhalts („NPC“), ist aber selbst keine
+  // Person: Sie bleibt ein Text und lässt sich von Hand einordnen (F18).
+  if (isCollectionTitle(info.name)) return null;
   const titles = info.propertyTitles.map(norm);
   const tags = info.tags.map(norm);
   // Ein Ordner („Siedlungen“, „Leute“) trägt oft das Symbol seines Inhalts, ist aber

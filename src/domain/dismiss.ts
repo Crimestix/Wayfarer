@@ -31,6 +31,8 @@ export const SUGGESTION = {
   /** Ein eigenes Wort kommt oft vor – als eigene Kategorie führen? */
   /** Zwei oder mehr Einträge heißen genau gleich – dasselbe? („×“ = sind verschieden) */
   sameName: (name: string) => `samename:${name}`,
+  /** Ein Eintrag heißt wie eine Sammelseite („Minor NPCs“) – eher ein Text? (F18) */
+  collection: (entityId: string) => `collection:${entityId}`,
   ownKind: (base: string, word: string) => `ownkind:${base}:${word.trim().toLocaleLowerCase('de')}`,
 } as const;
 
@@ -63,6 +65,7 @@ export const SUGGESTION_SORTS: Record<string, string> = {
   question: 'Leitfragen am Rand einer Seite',
   ownkind: 'Wörter und Vorlagen, die eine Unterkategorie werden könnten',
   samename: 'Einträge, die gleich heißen',
+  collection: 'Einträge, die wie eine Sammelseite heißen',
 };
 
 /** Wie viele weggeklickte Vorschläge es je Sorte gibt. */

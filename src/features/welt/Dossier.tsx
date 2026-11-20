@@ -5,6 +5,7 @@
  * Beziehungen, „Zuletzt“ und „Hinzufügen: …“. Reiter nur noch für Seltenes (Beziehungen
  * ändern, Stammbaum, Verlauf). Was wo steht, sagt `pagePlan` (`page.ts`).
  */
+import { CollectionNote } from './CollectionNote';
 import { WideToggle } from './WideToggle';
 import { useWideText } from './wide';
 import { articleParts } from '../../domain/articleText';
@@ -438,6 +439,7 @@ export function Dossier({
       </header>
 
       <ContinuityNote entityId={entity.id} />
+      <CollectionNote entity={entity} />
       {(entity.kind === 'faction' || entity.kind === 'family') && (
         <HouseTwinNote entityId={entity.id} />
       )}

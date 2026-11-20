@@ -195,6 +195,18 @@ describe('Erkennen, was ein Artikel beschreibt', () => {
     expect(kindOf('Person')).toBeNull();
   });
 
+  it('F18: eine Sammelseite mit Schlagwort einer Person bleibt ein Text', () => {
+    const base = conversion().resources.find((r) => r.name === 'Odo Tannhaus')!;
+    // Eine anonymisierte Probe der Fälle aus dem Audit: Schlagwort „NPC“, eigener Text.
+    for (const name of ['Minor NPCs', 'NSCs in Menzoberranzan', 'Leute am Hafen'])
+      expect(recognizeKind({ ...base, name, tags: ['MinorNPC'] })).toBeNull();
+    // Ein Einzelner bleibt erkannt – auch mit einem Wort, das nur ähnlich ist.
+    expect(recognizeKind({ ...base, name: 'Orten der Wanderer', tags: ['NPC'] })?.kind).toBe(
+      'person',
+    );
+    expect(recognizeKind({ ...base, tags: ['NPC'] })?.kind).toBe('person');
+  });
+
   it('entscheidet nicht bei widersprüchlichen Hinweisen', () => {
     const base = conversion().resources.find((r) => r.name === 'Odo Tannhaus')!;
     expect(recognizeKind({ ...base, tags: ['Stadt'] })).toBeNull();
