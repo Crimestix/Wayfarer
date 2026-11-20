@@ -207,7 +207,12 @@ describe('Beziehungen aus der Auswahl abgleichen', () => {
   });
 
   it('kennt für jede Auswahl im Dialog Art und Ziel', () => {
-    expect(PERSON_LINKS.map((l) => l.type)).toEqual(['member', 'speaks', 'has-ability', 'practises']);
+    expect(PERSON_LINKS.map((l) => l.type)).toEqual([
+      'member',
+      'speaks',
+      'has-ability',
+      'practises',
+    ]);
   });
 
   it('räumt im Dialog angelegte, aber nicht verwendete Spezies wieder weg', async () => {

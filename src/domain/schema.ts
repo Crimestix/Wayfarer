@@ -14,7 +14,7 @@ export const PARTY_ID = 'party';
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
 export const DATA_VERSION = 43;
-export const DATA_SHAPE = '1d5acbecb7cf0164';
+export const DATA_SHAPE = '1c3f106e6e932678';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const worldTime = z.number().int().nonnegative();
@@ -1923,6 +1923,11 @@ export const StorySchema = z.object({
   parentId: id.nullable().default(null),
   /** Ratschläge, die der Spielleiter abgewählt hat („brauche ich nicht“) – Schlüssel aus `storyAdvice`. */
   adviceOff: z.array(z.string()).default([]),
+  /**
+   * Stand („Keim“, „Spielbar“) und Rat zur Form zeigen – nur, wenn der Spielleiter es für diese
+   * Geschichte einschaltet. Ohne bleibt das Blatt eine freie Arbeitsfläche (F02).
+   */
+  guide: z.boolean().default(false),
   entries: z.array(StoryEntrySchema).default([]),
   /** Die Gruppe weiß von dieser Geschichte. */
   known: z.boolean().default(false),

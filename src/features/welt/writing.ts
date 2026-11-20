@@ -6,7 +6,15 @@
  */
 import { ownKindById } from '../../domain/ownKind';
 import type { CampaignDb } from '../../data/db';
-import type { Article, Entity, EntityKind, Prep, Story, Thread } from '../../domain/schema';
+import type {
+  Article,
+  CampaignData,
+  Entity,
+  EntityKind,
+  Prep,
+  Story,
+  Thread,
+} from '../../domain/schema';
 import { createArticleOfKind, createNamedEntity } from '../wiki/actions';
 import { flushEdits } from '../wiki/editing';
 import { entryForTitle } from '../wiki/facts';
@@ -176,6 +184,24 @@ function withOwnWord(db: CampaignDb, entity: Entity, word: string): Entity {
       [entity.kind]: { ...details, category: word },
     } as Partial<Entity>) ?? entity
   );
+}
+
+/**
+ * Ein Titel für einen freien Text, der noch keinen Namen hat: „Entwurf“, sonst „Entwurf 2“ … –
+ * nie einer, den es schon gibt. Benannt wird später, wenn der Text weiß, was er ist (F01).
+ */
+export function draftTitle(articles: CampaignData['articles']): string {
+  const taken = new Set(Object.values(articles).map((a) => a.title.trim().toLowerCase()));
+  if (!taken.has('entwurf')) return 'Entwurf';
+  let n = 2;
+  while (taken.has(`entwurf ${n}`)) n++;
+  return `Entwurf ${n}`;
+}
+
+/** Frei schreiben: ein neuer Text ohne Art und ohne Pflichtangaben, ganz oben (F01). */
+export function startFreeText(db: CampaignDb, name = ''): NewEntryResult | null {
+  const title = name.replace(/\s+/g, ' ').trim() || draftTitle(db.getSnapshot().articles);
+  return newEntry(db, { name: title, kind: null, withText: true, parentId: null });
 }
 
 export function newEntry(db: CampaignDb, input: NewEntryInput): NewEntryResult | null {

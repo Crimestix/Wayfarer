@@ -107,7 +107,8 @@ describe('Noch zu schreiben: Waisen und Stummel', () => {
       ['Hohenfurt', 2, 1],
       ['Odo Tannhaus', 4, 0],
     ]);
-    expect(gapCount(gaps)).toBe(2);
+    // F03: Ein kurzer Text darf fertig sein – er steht in der Sicht, zählt aber nicht als Aufgabe.
+    expect(gapCount(gaps)).toBe(0);
   });
 });
 

@@ -207,7 +207,7 @@ function StorySheet({ story }: { story: Story }) {
             selectAll={DEFAULT_TITLES.includes(story.title)}
             onSave={(title) => patch({ title })}
           />
-          <StageLine view={stage} onPick={(entry) => goToAdvice(data, entry)} />
+          {story.guide && <StageLine view={stage} onPick={(entry) => goToAdvice(data, entry)} />}
         </header>
 
         <SheetSection
@@ -354,7 +354,11 @@ function StorySheet({ story }: { story: Story }) {
               >
                 <span className="wf-faden-teil__name wf-clamp-1">{part.story.title}</span>
                 <span className="wf-faden-teil__stand">
-                  {part.story.closed ? 'zu Ende erzählt' : STAGE_LABEL[part.stage]}
+                  {part.story.closed
+                    ? 'zu Ende erzählt'
+                    : part.story.guide
+                      ? STAGE_LABEL[part.stage]
+                      : ''}
                   {part.pace !== 'none' && !part.story.closed && ` · Uhr ${PACE_LABEL[part.pace]}`}
                 </span>
                 <em className="wf-clamp-1">{part.next ?? ''}</em>
@@ -410,14 +414,27 @@ function StorySheet({ story }: { story: Story }) {
         </section>
 
         <section>
-          <h3 className="wf-faden-side__sub" title={STAGES_HELP}>
-            Stand: {STAGE_LABEL[stage.stage]}
-          </h3>
-          <SheetAdvice
-            items={advice}
-            onPick={(entry) => goToAdvice(data, entry)}
-            onOff={(entry, off) => setAdviceOff(db, story.id, entry.key, off)}
-          />
+          <Checkbox checked={story.guide} onChange={(guide) => patch({ guide })}>
+            Hinweise zur Form zeigen
+          </Checkbox>
+          {story.guide ? (
+            <>
+              <h3 className="wf-faden-side__sub" title={STAGES_HELP}>
+                Stand: {STAGE_LABEL[stage.stage]}
+              </h3>
+              <SheetAdvice
+                items={advice}
+                onPick={(entry) => goToAdvice(data, entry)}
+                onOff={(entry, off) => setAdviceOff(db, story.id, entry.key, off)}
+              />
+            </>
+          ) : (
+            <p className="wf-faden-side__hint">
+              Das Blatt ist eine freie Arbeitsfläche: Schreib, was du brauchst, in deiner
+              Reihenfolge. Eingeschaltet nennt Wayfarer einen Stand und schlägt vor, was einer
+              Geschichte oft hilft – nur als Anregung.
+            </p>
+          )}
         </section>
 
         {parents.length > 0 && (

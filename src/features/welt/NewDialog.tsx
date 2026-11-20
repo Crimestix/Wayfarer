@@ -19,7 +19,7 @@ import { linkIndex } from '../wiki/text';
 import { closeNew, useNewRequest, type NewRequest } from './editor';
 import { isWorldKind, wordChoices } from './model';
 import { templateFor } from '../../domain/pageTemplate';
-import { newEntry } from './writing';
+import { draftTitle, newEntry } from './writing';
 
 /** Hängt am Gerüst der Welt-Seite: öffnet sich über `openNew` von überall. */
 export function NewDialogHost() {
@@ -34,7 +34,8 @@ function NewDialog({ request }: { request: NewRequest }) {
   const [, navigate] = useLocation();
   const [name, setName] = useState(request.name ?? '');
   const [kind, setKind] = useState<EntityKind | null>(
-    request.kind === undefined ? 'person' : request.kind,
+    // Ohne Vorgabe beginnt „Neu“ als freier Text – eingeordnet wird später, wenn überhaupt (F01).
+    request.kind === undefined ? null : request.kind,
   );
   const [ownKindId, setOwnKindId] = useState<string | null>(request.ownKindId ?? null);
   const [withText, setWithText] = useState(request.withText ?? kind === null);
@@ -56,10 +57,12 @@ function NewDialog({ request }: { request: NewRequest }) {
   const writes = kind === null || withText || (!!template && useTemplate);
   const folder = writes ? newArticleParent(data.articles, kind, []) : null;
 
+  // Ein freier Text braucht keinen Namen: Er heißt „Entwurf“, bis er einen bekommt.
+  const freeDraft = kind === null && !clean;
   const submit = () => {
-    if (!clean) return;
+    if (!clean && !freeDraft) return;
     const result = newEntry(db, {
-      name: clean,
+      name: clean || draftTitle(db.getSnapshot().articles),
       kind,
       withText: writes,
       parentId: folder && inFolder ? folder.id : null,
@@ -88,10 +91,10 @@ function NewDialog({ request }: { request: NewRequest }) {
           <Button
             variant="primary"
             icon={opening ? <ArrowRight /> : <Plus />}
-            disabled={!clean}
+            disabled={!clean && !freeDraft}
             onClick={submit}
           >
-            {opening ? 'Öffnen' : 'Anlegen'}
+            {opening ? 'Öffnen' : kind === null ? 'Schreiben' : 'Anlegen'}
           </Button>
         </>
       }
@@ -107,7 +110,11 @@ function NewDialog({ request }: { request: NewRequest }) {
           <Input
             value={name}
             data-autofocus
-            placeholder="z. B. Salzgrotte, Mira Tannhaus, Die Lotsen …"
+            placeholder={
+              kind === null
+                ? 'Darf leer bleiben – der Text heißt dann „Entwurf“'
+                : 'z. B. Salzgrotte, Mira Tannhaus, Die Lotsen …'
+            }
             onChange={(e) => setName(e.target.value)}
           />
         </Field>

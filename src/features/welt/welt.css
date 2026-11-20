@@ -1877,6 +1877,38 @@
   font-size: var(--text-lg);
   font-style: italic;
 }
+.wf-welt-landing__start {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+}
+.wf-welt-landing__more {
+  margin: calc(var(--s-2) * -1) 0 var(--s-3);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-mute);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.wf-welt-landing__more:hover,
+.wf-welt-landing__more:focus-visible {
+  color: var(--ink);
+}
+.wf-welt-landing__care {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+}
+.wf-welt-landing__care .wf-welt-gapslink {
+  margin-top: 0;
+}
 .wf-welt-counts {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

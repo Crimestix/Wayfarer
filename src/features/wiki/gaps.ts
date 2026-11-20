@@ -272,11 +272,12 @@ export function wikiGaps(data: WikiData): WikiGaps {
 }
 
 /**
- * Die Zahl für „Noch zu schreiben: 12“: Verweise ins Leere, erwähnte Einträge ohne Artikel und
- * Stummel. Waisen und nie erwähnte Einträge stehen in der Sicht, zählen hier aber nicht.
+ * Die Zahl für „Noch zu schreiben: 12“: nur, was ein Verweis vermisst – Verweise ins Leere und
+ * erwähnte Einträge ohne Artikel. Kurze Texte, Waisen und nie erwähnte Einträge stehen in der
+ * Sicht, zählen aber nicht: Ein kurzer Text darf fertig sein (F03).
  */
 export const gapCount = (gaps: WikiGaps): number =>
-  gaps.missing.length + gaps.entries.filter((entry) => entry.count > 0).length + gaps.stubs.length;
+  gaps.missing.length + gaps.entries.filter((entry) => entry.count > 0).length;
 
 /**
  * Wo ein neuer Artikel hingehört: in den Ordner, dessen Name zur Art passt („Orte“ für einen Ort),

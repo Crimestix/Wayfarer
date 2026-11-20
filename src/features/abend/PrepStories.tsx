@@ -126,8 +126,12 @@ function StoryCard({
           <span className="wf-abend-name wf-clamp-1">{story.title}</span>
         </button>
         <span className="wf-abend-story__stand">
-          {STAGE_LABEL[card.stage]}
-          {card.clock.pace !== 'none' && ` · Uhr ${PACE_LABEL[card.clock.pace]}`}
+          {[
+            story.guide ? STAGE_LABEL[card.stage] : '',
+            card.clock.pace !== 'none' ? `Uhr ${PACE_LABEL[card.clock.pace]}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </span>
         <Link href={`/geschichte/${story.id}`} className="wf-abend-link">
           Blatt öffnen

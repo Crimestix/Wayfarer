@@ -176,7 +176,13 @@ export function GapsIndex({
   const stubIds = new Set(stubs.map((row) => row.entity.id));
   const entries = gaps.entries.filter((entry) => !stubIds.has(entry.entity.id));
   const byKind = groupByKind(entries, (entry) => entry.entity.kind);
-  if (!gapCount(gaps) && !gaps.orphans.length && !entries.length && !stubs.length)
+  if (
+    !gapCount(gaps) &&
+    !gaps.stubs.length &&
+    !gaps.orphans.length &&
+    !entries.length &&
+    !stubs.length
+  )
     return (
       <p className="wf-welt-gaps__none">
         Nichts offen: Jeder Verweis führt zu einem Artikel, und kein Artikel ist auffallend kurz.

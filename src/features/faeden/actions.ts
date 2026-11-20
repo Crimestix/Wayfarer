@@ -111,6 +111,7 @@ export type StoryChange = { scenes?: SceneInput[] } & Partial<
     | 'roles'
     | 'parentId'
     | 'adviceOff'
+    | 'guide'
     | 'heroes'
     | 'entries'
     | 'ending'

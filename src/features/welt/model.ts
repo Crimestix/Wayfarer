@@ -4,6 +4,7 @@
  * Reine Funktionen ohne React.
  */
 import {
+  KIND_LABEL,
   byName,
   chronicleFor,
   entitiesOfKind,
@@ -260,6 +261,87 @@ export function recentlyChanged(data: CampaignData, limit = 8): WorldEntity[] {
     .filter(isWorldEntity)
     .sort((a, b) => b.updated.localeCompare(a.updated) || byName(a, b))
     .slice(0, limit);
+}
+
+/** Etwas, an dem zuletzt gearbeitet wurde – für „Weiterarbeiten“ auf der Weltstartseite. */
+export interface RecentWork {
+  key: string;
+  title: string;
+  /** Was es ist, in einem Wort: „Text“, „Geschichte“, „Hexkarte“ … oder die Kategorie. */
+  label: string;
+  href: string;
+  updated: string;
+  /** Bei Einträgen der Welt: der Eintrag selbst (für Zeichen und Haltung). */
+  entity: WorldEntity | null;
+}
+
+/**
+ * Woran zuletzt gearbeitet wurde, jüngstes zuerst – Einträge der Welt (mit ihrem Text), freie
+ * Texte, Geschichten, Wegenetze, Hexkarten und Dungeons (F04). Ein Eintrag zählt mit der letzten
+ * Änderung an ihm oder seinem Artikel. Vorlagen und Texte von Räumen fehlen.
+ */
+export function recentWork(data: CampaignData, limit = 8): RecentWork[] {
+  const items: RecentWork[] = [];
+  const owned = new Map<string, WorldEntity>();
+  for (const entity of Object.values(data.entities)) {
+    if (!isWorldEntity(entity)) continue;
+    if (entity.lk?.resourceId) owned.set(entity.lk.resourceId, entity);
+    const article = entity.lk ? data.articles[entity.lk.resourceId] : undefined;
+    const updated = article && article.updated > entity.updated ? article.updated : entity.updated;
+    items.push({
+      key: entity.id,
+      title: entity.name,
+      label: KIND_LABEL[entity.kind],
+      href: `/welt/${entity.id}`,
+      updated,
+      entity,
+    });
+  }
+  const rooms = roomArticleIds(data);
+  for (const article of Object.values(data.articles)) {
+    if (article.template || owned.has(article.id) || rooms.has(article.id)) continue;
+    items.push({
+      key: article.id,
+      title: article.title,
+      label: 'Text',
+      href: `/wiki/${article.id}`,
+      updated: article.updated,
+      entity: null,
+    });
+  }
+  const others: [
+    label: string,
+    path: string,
+    docs: { id: string; updated: string }[],
+    name: (id: string) => string,
+  ][] = [
+    ['Geschichte', 'geschichte', Object.values(data.stories), (id) => data.stories[id]!.title],
+    ['Wegenetz', 'wegenetze', Object.values(data.nets), (id) => data.nets[id]!.name],
+    ['Hexkarte', 'erkundung', Object.values(data.areas), (id) => data.areas[id]!.name],
+    ['Dungeon', 'dungeons', Object.values(data.dungeons), (id) => data.dungeons[id]!.name],
+  ];
+  for (const [label, path, docs, name] of others)
+    for (const doc of docs)
+      items.push({
+        key: doc.id,
+        title: name(doc.id).trim() || label,
+        label,
+        href: `/${path}/${doc.id}`,
+        updated: doc.updated,
+        entity: null,
+      });
+  return items
+    .sort((a, b) => b.updated.localeCompare(a.updated) || a.title.localeCompare(b.title, 'de'))
+    .slice(0, limit);
+}
+
+/**
+ * Artikel ohne Eintrag, die zu sortieren wären: übernommene (aus LegendKeeper). Ein in Wayfarer
+ * geschriebener freier Text ist ein erlaubter Endzustand und keine offene Arbeit (F03) – er steht
+ * in „Ohne Kategorie“, zählt aber nicht als Aufgabe.
+ */
+export function importedWithoutEntry(data: CampaignData): Article[] {
+  return textsWithoutEntry(data).filter((article) => article.source === 'legendkeeper');
 }
 
 export interface PlaceRow {
