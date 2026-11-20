@@ -490,7 +490,19 @@ nicht übernommen.
   eine gemalte Bodenkachel (`CAVE_GROUND`, `ui/assets/hexkarte`), gezeichnet als Fläche aus den
   Formen ihrer Felder (`plan.grounds`), auf den Höhlenboden beschnitten, mit weichem Saum; die
   Palette zeigt dieselbe Kachel (`KindSwatch`). Eine neue Art mit eigenem Boden: Kachel in den
-  Ordner, Eintrag in `CAVE_GROUND`. **Dasselbe Niveau unter der Erde** (Wunsch 20. 11.: „Genau das
+  Ordner, Eintrag in `CAVE_GROUND`. **Unter der Erde: Licht im Dunkeln** (Auftrag 20. 11.: „Das Unterreich
+  sieht immer noch nicht so gut aus wie die Oberwelt. Lass dir nochmal was einfallen, du kannst
+  völlig entscheiden“ – angesehen: sein Zielbild, heller Höhlenboden im grauen Fels, und
+  Höhlenwelten aus Hex-Spielen). Oben ist die Karte schön, weil sie bunt und hell ist; unten ist
+  es finster, und schön wird es durch Licht: Über dem Fels liegt Finsternis (`wf-hexcave__dark`),
+  nur an den Höhlen ist er zu sehen (derselbe Stein noch einmal, als `Feather` weich
+  auslaufend); der Höhlenboden ist hell (`floortint`), damit man das Gangnetz auf einen Blick
+  liest; die Wand ist ein Band aus gebrochenem Stein (`#wf-hex-wall` aus der Geröll-Kachel) mit
+  schroffer Kante (`caveOutline` mit `crisp`: feine Zacken unabhängig von der Breite, feiner
+  `step`); und was leuchtet, wirft seinen Schein auf Boden, Wand und Fels (`CAVE_GLOW`: Pilze,
+  Kristalle, Eis, Glut, See, Bergwerk – Verläufe `#wf-hex-glow-<ton>`, Farben `--hex-glow-*`,
+  kein Filter). Eine neue leuchtende Art: Eintrag in `CAVE_GLOW`. Nie wieder ein gleichmäßig
+  heller, flacher Fels. **Dasselbe Niveau unter der Erde** (Wunsch 20. 11.: „Genau das
   Qualitätslevel auch fürs Unterreich“): Fels, Höhlenboden, Wasser und Eis sind gemalte Kacheln
   aus derselben Hand (`ui/assets/hexkarte/cave-*.webp`); die Wand hat Stärke – ein Band aus
   hellem Stein mit dunkler Kante (`rim-ink`, `rim`, Muster `#wf-hex-wall`), um jede Höhle wird

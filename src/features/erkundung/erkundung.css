@@ -1292,39 +1292,47 @@
 .wf-hexcave__rock {
   fill: url(#wf-hex-rock);
 }
+/* Finsternis über dem Fels – an den Höhlen nimmt sie der weiche Auslauf (Feather) wieder weg. */
+.wf-hexcave__dark {
+  fill: var(--hex-cave-shade);
+  fill-opacity: 0.62;
+}
+.wf-hexcave__floortint {
+  fill: var(--hex-cave-floor);
+  opacity: 0.3;
+}
 .wf-hexcave__walltint {
   fill: var(--hex-cave-rim);
-  opacity: 0.42;
+  opacity: 0.4;
 }
 .wf-hexcave__magmatint {
   fill: var(--hex-cave-magma);
-  opacity: 0.3;
+  opacity: 0.55;
 }
 .wf-hexcave__open path {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* Um jede Höhle wird der Fels dunkler – in zwei weichen Stufen. */
+/* Dicht an der Wand liegt der Fels im Schatten. */
 .wf-hexcave__shade {
   fill: none;
   stroke: var(--hex-cave-shade);
-  stroke-opacity: 0.4;
-  stroke-width: calc(var(--hex) * 0.26);
-}
-.wf-hexcave__shade--far {
-  stroke-opacity: 0.22;
-  stroke-width: calc(var(--hex) * 0.46);
+  stroke-opacity: 0.38;
+  stroke-width: calc(var(--hex) * 0.24);
 }
 /* Die Wand: ein Band aus hellem Stein mit dunkler Kante außen. */
 .wf-hexcave__rim-ink {
   fill: none;
   stroke: var(--hex-cave-ink);
-  stroke-width: calc(var(--hex) * 0.15);
+  stroke-width: calc(var(--hex) * 0.17);
 }
 .wf-hexcave__rim {
   fill: none;
   stroke: url(#wf-hex-wall);
-  stroke-width: calc(var(--hex) * 0.115);
+  stroke-width: calc(var(--hex) * 0.135);
+}
+.wf-hexcave__glow {
+  stroke: none;
 }
 .wf-hexcave__floor {
   fill: url(#wf-hex-ground);

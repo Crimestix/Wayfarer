@@ -59,7 +59,7 @@ describe('Gemalter Boden der Hexkarte', () => {
     expect(symbolsOf({ ...forest, terrain: null })).toBeNull();
   });
 
-  it('hat unter der Erde Zeichen für alles, was dort wächst oder liegt – nie für Fels und Gänge', () => {
+  it('hat unter der Erde Zeichen für alles, was dort wächst oder liegt – nie für Fels', () => {
     const under = new Set(
       HEX_KINDS.filter((kind) => kind.group === 'underdark').map((kind) => kind.key),
     );
@@ -73,10 +73,10 @@ describe('Gemalter Boden der Hexkarte', () => {
     expect(caveSymbolsOf(cave)).toBe(CAVE_SYMBOLS.fungus);
     expect(caveSymbolsOf({ ...cave, kind: 'cavern' })).toBe(CAVE_SYMBOLS.floor);
     expect(caveSymbolsOf({ ...cave, kind: 'solid-rock' })).toBeNull();
-    // Ein Gang (Ganggeflecht) trägt nichts, Fels ohne Ausgang auch nicht.
+    // Im Gang (Ganggeflecht) liegt höchstens ein Brocken; Fels ohne Ausgang trägt nichts.
     expect(
       caveSymbolsOf({ ...cave, kind: null, exits: [{ dir: 0, kind: 'open', found: false }] }),
-    ).toBeNull();
+    ).toBe(CAVE_SYMBOLS.floor);
     expect(caveSymbolsOf({ ...cave, kind: null })).toBeNull();
     expect(symbolsOf(cave)).toBeNull();
   });

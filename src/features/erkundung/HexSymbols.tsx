@@ -49,7 +49,12 @@ export const LAND_SYMBOLS: Readonly<Record<string, readonly string[]>> = byName(
  */
 export const CAVE_SYMBOLS: Readonly<Record<string, readonly string[]>> = byName(CAVE_FILES);
 /** Blanker Höhlenboden trägt hier und da einen Tropfstein oder ein paar Brocken. */
-const CAVE_ALIAS: Readonly<Record<string, string>> = { cavern: 'floor', 'cave-floor': 'floor' };
+const CAVE_ALIAS: Readonly<Record<string, string>> = {
+  cavern: 'floor',
+  'cave-floor': 'floor',
+  // Auch im Gang liegt hier und da ein Brocken.
+  underdark: 'floor',
+};
 
 /**
  * Wie eine Gruppe im Feld steht: `width` (1 = so breit wie das Feld), `foot` (wie tief ihr Fuß
@@ -95,8 +100,9 @@ const FIT: Readonly<Record<string, Fit>> = {
   rubble: { width: 0.4, foot: 0.12, share: 0.8, scatter: true },
   'deep-ruins': { width: 0.44, foot: 0.16, share: 0.55, scatter: true },
   mine: { width: 0.4, foot: 0.15 },
-  cavern: { width: 0.26, foot: 0.09, share: 0.24, scatter: true },
-  'cave-floor': { width: 0.24, foot: 0.08, share: 0.16, scatter: true },
+  cavern: { width: 0.26, foot: 0.09, share: 0.34, scatter: true },
+  'cave-floor': { width: 0.24, foot: 0.08, share: 0.26, scatter: true },
+  underdark: { width: 0.15, foot: 0.05, share: 0.4 },
   urban: { width: 1.5, foot: 0.44 },
   village: { width: 1.25, foot: 0.4 },
   ruins: { width: 1.2, foot: 0.4 },

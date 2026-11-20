@@ -49,6 +49,25 @@ export const CAVE_GROUND: Readonly<Record<string, string>> = {
 };
 const GROUND_KINDS = Object.keys(CAVE_GROUND);
 
+/**
+ * Licht im Dunkeln (Auftrag des Spielleiters, 20. 11. 2026: „Das Unterreich sieht immer noch nicht
+ * so gut aus wie die Oberwelt. Lass dir nochmal was einfallen, du kannst völlig entscheiden“ –
+ * angesehen: sein Zielbild und Höhlenwelten aus Hex-Spielen). Oben ist die Karte schön, weil sie
+ * bunt und hell ist; unten ist es finster – schön wird es dort durch **Licht**: Der Fels versinkt
+ * fern der Höhlen im Dunkel und ist nur an den Höhlen zu sehen, und was leuchtet, wirft seinen
+ * Schein auf Boden und Wand. Je Geländeart der Farbton (`--hex-glow-<ton>`) und wie weit der
+ * Schein reicht (in Feldgrößen).
+ */
+const CAVE_GLOW: Readonly<Record<string, { tone: string; reach: number }>> = {
+  fungus: { tone: 'fungus', reach: 1.05 },
+  crystal: { tone: 'crystal', reach: 0.95 },
+  'ice-cave': { tone: 'crystal', reach: 0.85 },
+  magma: { tone: 'magma', reach: 1.25 },
+  'deep-lake': { tone: 'water', reach: 0.9 },
+  mine: { tone: 'lamp', reach: 0.6 },
+};
+const GLOW_TONES = ['fungus', 'crystal', 'magma', 'water', 'lamp'] as const;
+
 export interface LayerCell {
   hex: Hex;
   x: number;
@@ -400,15 +419,24 @@ export function CaveDefs({ size }: { size: number }) {
       <pattern id="wf-hex-rock" patternUnits="userSpaceOnUse" width={tile} height={tile}>
         <image href={rock} width={tile} height={tile} preserveAspectRatio="none" />
       </pattern>
+      {/* Der Höhlenboden: heller als der Fels – man soll das Gangnetz auf einen Blick lesen. */}
       <pattern id="wf-hex-ground" patternUnits="userSpaceOnUse" width={tile} height={tile}>
         <image href={ground} width={tile} height={tile} preserveAspectRatio="none" />
+        <rect className="wf-hexcave__floortint" width={tile} height={tile} />
       </pattern>
-      {/* Die Höhlenwand von oben: derselbe Stein wie der Boden, heller – als lägen Licht und
-          Staub darauf. */}
+      {/* Die Höhlenwand von oben: gebrochener Stein, hell – als lägen Licht und Staub darauf. */}
       <pattern id="wf-hex-wall" patternUnits="userSpaceOnUse" width={fine} height={fine}>
-        <image href={ground} width={fine} height={fine} preserveAspectRatio="none" />
+        <image href={CAVE_GROUND.rubble} width={fine} height={fine} preserveAspectRatio="none" />
         <rect className="wf-hexcave__walltint" width={fine} height={fine} />
       </pattern>
+      {/* Der Schein dessen, was leuchtet: in der Mitte hell, zum Rand hin nichts. */}
+      {GLOW_TONES.map((tone) => (
+        <radialGradient key={tone} id={`wf-hex-glow-${tone}`}>
+          <stop offset="0" stopOpacity="0.5" style={{ stopColor: `var(--hex-glow-${tone})` }} />
+          <stop offset="0.45" stopOpacity="0.22" style={{ stopColor: `var(--hex-glow-${tone})` }} />
+          <stop offset="1" stopOpacity="0" style={{ stopColor: `var(--hex-glow-${tone})` }} />
+        </radialGradient>
+      ))}
       <pattern id="wf-hex-water" patternUnits="userSpaceOnUse" width={fine} height={fine}>
         <image href={water} width={fine} height={fine} preserveAspectRatio="none" />
       </pattern>
@@ -476,7 +504,17 @@ export const CaveLayer = memo(function CaveLayer({
         return {
           key: part.key,
           dim: part.dim,
-          floor: caveOutline(used.floor, { rough: 0.15 }),
+          // Die Höhlenwand ist schroff: feine Zacken, auch an schmalen Gängen.
+          floor: caveOutline(used.floor, { rough: 0.15, step: 0.08, crisp: 0.022 }),
+          glows: part.dim
+            ? []
+            : part.hexes
+                .filter((hex) => !isSolid(hex) && CAVE_GLOW[kindKeyOf(hex) ?? ''])
+                .map((hex) => {
+                  const c = hexCenter(hex, orientation);
+                  const glow = CAVE_GLOW[kindKeyOf(hex) ?? '']!;
+                  return { key: hexKey(hex), x: c.x, y: c.y, ...glow };
+                }),
           grounds: GROUND_KINDS.filter((kind) => used.grounds[kind]?.length).map((kind) => ({
             kind,
             // Dasselbe Rauschen wie der Boden: Der Rand der Fläche folgt der Höhlenwand.
@@ -497,7 +535,9 @@ export const CaveLayer = memo(function CaveLayer({
   if (!under.length) return null;
   return (
     <g className="wf-hexcave" pointerEvents="none" style={{ ['--hex' as string]: `${size}px` }}>
+      {/* Der Fels – und die Finsternis darüber: Fern der Höhlen sieht man ihn kaum. */}
       <path className="wf-hexcave__rock" d={rockPath} />
+      <path className="wf-hexcave__dark" d={rockPath} />
       {shapes.map((part) => {
         const floor = outlinePath(part.floor, size);
         const clip = `wf-hexcave-floor-${part.key}`;
@@ -506,9 +546,10 @@ export const CaveLayer = memo(function CaveLayer({
             <clipPath id={clip}>
               <path d={floor} clipRule="evenodd" />
             </clipPath>
-            {/* Um jede Höhle wird der Fels dunkler; ihre Wand hat Stärke: ein Band aus hellem
-                Stein mit dunkler Kante. */}
-            <path className="wf-hexcave__shade wf-hexcave__shade--far" d={floor} />
+            {/* An den Höhlen ist der Fels zu sehen: derselbe Stein noch einmal, ohne Finsternis,
+                weich auslaufend. Ihre Wand hat Stärke: ein Band aus hellem, gebrochenem Stein mit
+                dunkler Kante. */}
+            {!part.dim && <Feather d={floor} paint="url(#wf-hex-rock)" scale={2.6} />}
             <path className="wf-hexcave__shade" d={floor} />
             <path className="wf-hexcave__rim-ink" d={floor} />
             <path className="wf-hexcave__rim" d={floor} />
@@ -544,6 +585,17 @@ export const CaveLayer = memo(function CaveLayer({
               />
             </g>
             <path className="wf-hexcave__edge" d={floor} />
+            {/* Was leuchtet, wirft seinen Schein auf Boden, Wand und Fels. */}
+            {part.glows.map((glow) => (
+              <circle
+                key={glow.key}
+                className="wf-hexcave__glow"
+                cx={fmt(glow.x * size)}
+                cy={fmt(glow.y * size)}
+                r={fmt(glow.reach * size)}
+                fill={`url(#wf-hex-glow-${glow.tone})`}
+              />
+            ))}
             {part.pools.map(({ tone, loops }) => {
               const d = outlinePath(loops, size);
               return (

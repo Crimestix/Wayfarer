@@ -25,6 +25,11 @@ export interface OutlineOptions {
   rough?: number;
   /** Unterscheidet Flächen, die an derselben Stelle liegen (Boden, See), im Rauschen. */
   salt?: number;
+  /**
+   * Feine Zacken, in Feldgrößen – unabhängig davon, wie breit eine Form ist: So ist auch die Wand
+   * eines schmalen Gangs schroff wie Fels, ohne dass er abreißt. Braucht einen feinen `step`.
+   */
+  crisp?: number;
 }
 
 /** Fester Wert zwischen 0 und 1 für einen Gitterpunkt. */
@@ -78,6 +83,7 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
   const step = options.step ?? 0.1;
   const rough = options.rough ?? 0.1;
   const salt = options.salt ?? 0;
+  const crisp = options.crisp ?? 0;
 
   // Rahmen um alle Formen, mit Rand für das Rauschen.
   let minX = Infinity;
@@ -147,7 +153,12 @@ export function caveOutline(blobs: readonly CaveBlob[], options: OutlineOptions 
           smoothNoise(x * 6.3, y * 6.3, salt + 13) * 0.32) *
         rough *
         weight;
-      field[j * cols + i] = merged + bend;
+      const jag = crisp
+        ? (smoothNoise(x * 9.7, y * 9.7, salt + 29) +
+            smoothNoise(x * 17, y * 17, salt + 41) * 0.5) *
+          crisp
+        : 0;
+      field[j * cols + i] = merged + bend + jag;
     }
   }
 
