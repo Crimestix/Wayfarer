@@ -5,6 +5,7 @@
  * angelegt wird über `addFromWriting` (`features/welt/writing.ts`).
  */
 import { searchEntities } from './derive';
+import { scaleOfWord } from './placeScale';
 import { ENTITY_KINDS, type CampaignData, type Entity, type EntityKind } from './schema';
 
 /** Die ersten Arten zum Anlegen, wenn ein Feld keine eigenen nennt. */
@@ -91,6 +92,65 @@ export interface PickInput {
 /** Wonach man sucht, wenn man die Gruppe meint. */
 const PARTY_WORDS = ['die gruppe', 'gruppe'];
 
+/** Wie viele zuletzt bearbeitete Einträge eine leere Auswahl zuerst zeigt (F10). */
+export const PICK_RECENT = 6;
+
+/** Ein eigenes Wort, das einen Raum meint: „Dungeonraum“, „Kammer 3“ … */
+const ROOM_WORD =
+  /(raum|räume|zimmer|kammer|gemach|saal|flur|gang|zelle|etage|stockwerk|geschoss)$/i;
+
+/**
+ * Wie weit oben ein Eintrag in einer Auswahl steht (F10): große Orte vor kleinen – Welt und
+ * Gegend, dann Siedlung, dann Gebäude und Unbestimmtes, Räume und Etagen zuletzt. Andere Arten
+ * zählen wie Gegenden. Nur eine Ordnung – nichts fällt weg.
+ */
+function rankOf(entity: Entity, parents: ReadonlySet<string>): number {
+  if (entity.kind !== 'place') return 0;
+  const { place } = entity;
+  if (place.room) return 3;
+  const word = place.category.trim();
+  if (word && ROOM_WORD.test(word)) return 3;
+  const scale = place.scale || scaleOfWord(word);
+  if (scale === 'world' || scale === 'region') return 0;
+  if (scale === 'settlement' || parents.has(entity.id)) return 1;
+  return 2;
+}
+
+/**
+ * Ordnet die Treffer einer Auswahl: ohne Suchwort zuerst das zuletzt Bearbeitete, dann nach
+ * Größe und Name; mit Suchwort bleibt die Reihenfolge der Suche, nur genau Getroffenes vor
+ * allem und Räume hinter dem Übrigen.
+ */
+export function orderPicks(data: CampaignData, hits: readonly Entity[], query: string): Entity[] {
+  const parents = new Set<string>();
+  for (const entity of Object.values(data.entities))
+    if (entity.kind === 'place' && entity.place.parentId && !entity.place.room)
+      parents.add(entity.place.parentId);
+  const rank = new Map(hits.map((entity) => [entity.id, rankOf(entity, parents)]));
+  const key = nameKey(query.replace(/\s+/g, ' ').trim());
+  if (key) {
+    const exact = hits.filter((entity) => hasName(entity, key));
+    const rest = hits.filter((entity) => !hasName(entity, key));
+    return [
+      ...exact,
+      ...rest.filter((e) => rank.get(e.id)! < 3),
+      ...rest.filter((e) => rank.get(e.id)! >= 3),
+    ];
+  }
+  const recent = hits
+    .filter((entity) => rank.get(entity.id)! < 3)
+    .sort((a, b) => b.updated.localeCompare(a.updated))
+    .slice(0, PICK_RECENT);
+  const shownFirst = new Set(recent.map((entity) => entity.id));
+  const rest = hits
+    .filter((entity) => !shownFirst.has(entity.id))
+    .sort(
+      (a, b) =>
+        rank.get(a.id)! - rank.get(b.id)! || a.name.localeCompare(b.name, 'de', { numeric: true }),
+    );
+  return [...recent, ...rest];
+}
+
 /** Die Zeilen der Auswahl, von oben nach unten. */
 export function pickRows(data: CampaignData, input: PickInput): PickRow[] {
   const name = input.query.replace(/\s+/g, ' ').trim();
@@ -104,10 +164,15 @@ export function pickRows(data: CampaignData, input: PickInput): PickRow[] {
 
   const hits =
     input.hits ??
-    searchEntities(data, input.query, {
-      ...(kinds ? { kinds: [...kinds] } : {}),
-      limit: input.limit ?? 40,
-    });
+    orderPicks(
+      data,
+      searchEntities(data, input.query, {
+        ...(kinds ? { kinds: [...kinds] } : {}),
+        // Erst alles Passende holen, dann ordnen und kürzen – sonst schnitte das Alphabet ab.
+        limit: Number.MAX_SAFE_INTEGER,
+      }),
+      input.query,
+    ).slice(0, input.limit ?? 40);
   const shown = hits.filter((entity) => !excluded(entity.id));
   for (const entity of shown) rows.push({ type: 'entity', entity, foreign: false });
   if (!name) return rows;

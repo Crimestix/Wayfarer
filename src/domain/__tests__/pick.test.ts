@@ -64,10 +64,57 @@ describe('Arten zum Anlegen', () => {
 describe('Zeilen der Auswahl', () => {
   it('zeigt ohne Suchwort die Einträge der Arten und die Gruppe, wenn sie wählbar ist', () => {
     const w = world();
+    // Zuletzt Bearbeitetes zuerst (F10) – die Salzgrotte ist später angelegt.
     expect(names(pickRows(w.data, { query: '', kinds: ['place'], allowParty: true }))).toEqual([
       'party',
-      'Hohenfurt',
       'Salzgrotte',
+      'Hohenfurt',
+    ]);
+  });
+
+  it('F10: große Orte vor kleinen, Räume zuletzt – nichts fällt weg, Suche bleibt genau', () => {
+    const w = world();
+    const at = (iso: string) => ({ created: iso, updated: iso });
+    const place = (name: string, extra: object, time: string) => {
+      const base = createEntity({ kind: 'place', name }) as Extract<Entity, { kind: 'place' }>;
+      return { ...base, ...at(time), place: { ...base.place, ...extra } } as Entity;
+    };
+    const many: Entity[] = [
+      place('Ostmark', { category: 'Grenzland' }, '2026-01-01T00:00:00Z'),
+      place('Brunnenstadt', { category: 'Hafenstadt' }, '2026-01-02T00:00:00Z'),
+      place('Kerker 1', { category: 'Dungeonraum' }, '2026-01-03T00:00:00Z'),
+      place('Kerker 2', { category: 'Dungeonraum' }, '2026-01-04T00:00:00Z'),
+      place('Alte Mühle', { category: 'Mühle' }, '2026-01-05T00:00:00Z'),
+    ];
+    // Erst ab mehr als PICK_RECENT Einträgen trennt sich Zuletzt von der Ordnung nach Größe.
+    for (let i = 0; i < 6; i++)
+      many.push(place(`Weiler ${i}`, { category: 'Weiler' }, `2026-02-0${i + 1}T00:00:00Z`));
+    const data = {
+      ...w.data,
+      entities: Object.fromEntries(many.map((e) => [e.id, e])),
+    } as CampaignData;
+    const shown = names(pickRows(data, { query: '', kinds: ['place'] }));
+    expect(shown).toHaveLength(many.length);
+    expect(shown.slice(0, 6)).toEqual([
+      'Weiler 5',
+      'Weiler 4',
+      'Weiler 3',
+      'Weiler 2',
+      'Weiler 1',
+      'Weiler 0',
+    ]);
+    expect(shown.slice(6)).toEqual([
+      'Ostmark',
+      'Brunnenstadt',
+      'Alte Mühle',
+      'Kerker 1',
+      'Kerker 2',
+    ]);
+    // Mit Suchwort: genau Getroffenes zuerst, Räume hinter dem Übrigen.
+    expect(names(pickRows(data, { query: 'kerker 2', kinds: ['place'] }))[0]).toBe('Kerker 2');
+    expect(names(pickRows(data, { query: 'er', kinds: ['place'] })).slice(-2)).toEqual([
+      'Kerker 1',
+      'Kerker 2',
     ]);
   });
 
