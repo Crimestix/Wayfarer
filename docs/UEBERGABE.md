@@ -280,6 +280,13 @@ Erde im neuen Stil, erzeugte Höhlennetze mit mehreren Ebenen, sehr große Karte
 Bekannt: Glutspalten und Eishöhle haben keine eigenen Zeichen; Schächte, Kletterei und
 Verborgenes sind weiter Strichzeichen an der Feldseite.
 
+**Danach: Tag `v0.1.37` auf `b899900` (20. 11.)** – „Das hat noch einen komischen Look, gerade mit
+den einzelnen Pilzen“: Unter der Erde wird gestreut statt gesetzt (`fit.scatter` in
+`HexSymbols.tsx`) – viele kleine Stücke über die Höhle, kein einzelnes Zeichen in der Mitte.
+Kein neues Schema. 0.1.36 wurde gebaut, aber nicht ausgeliefert. Geprüft: Tests, Vorschau der
+Probekarte. Offen: Ob der Look dem Spielleiter jetzt gefällt, ist nicht bestätigt – schräg
+gesehene Zeichen auf einem Grundriss von oben bleiben ein Stilbruch, der oben nicht auftritt.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
