@@ -38,13 +38,13 @@ Beleg: T = Regressionstest im Repository, B = im Browser nachgeprüft (Vorschau)
 | F02 | Geschichten nach Methode bewertet                | P1   | behoben     | Stand/Rat nur mit „Hinweise zur Form zeigen“; Test            |
 | F03 | Kurze freie Texte als Pflegebedarf gezählt       | P1   | behoben     | Platzhalter nicht mehr gezählt; Test                          |
 | F04 | „Zuletzt“ ohne eigenständige Artikel             | P1   | behoben     | „Weiterarbeiten“ mit freien Artikeln; Test                    |
-| F05 | Material einer Reise verteilt                    | P1   | offen       |                                                               |
+| F05 | Material einer Reise verteilt                    | P1   | behoben     | Mappe an Text/Geschichte, Rückweg; Browser + Test             |
 | F06 | Live-Steuerung beim Gestalten dominant           | P1   | behoben     | Arbeitsansicht in der Leiste; Browser: keine Datenänderung    |
-| F07 | Nachschlagen öffnet volles Dossier               | P2   | offen       |                                                               |
+| F07 | Nachschlagen öffnet volles Dossier               | P2   | behoben     | Seitenblatt schmal mit Kurzblick; Browser + Test              |
 | F08 | Unbekannter Aufenthalt als „fort“                | P1   | **behoben** | T: `data/__tests__/campaign.test.ts` „F08 …“                  |
 | F09 | Hexmaßstab Dialog ≠ Ergebnis                     | P1   | **behoben** | T: `erkundung/generate.test.ts` „F09 …“                       |
 | F10 | Ortsauswahl gewichtet Maßstäbe schlecht          | P2   | offen       |                                                               |
-| F11 | Dossier lässt wenig Raum für den Artikel         | P2   | offen       |                                                               |
+| F11 | Dossier lässt wenig Raum für den Artikel         | P2   | behoben     | Text nach Steckbrief, „Breit schreiben“; Browser              |
 | F12 | Weltstartseite betont Pflegeaufwand              | P2   | behoben     | Start: Schreiben und Weiterarbeiten vorn, Pflege unten        |
 | F13 | Lokale Vorbereiten/Spielen-Wechsel uneinheitlich | P2   | behoben     | Karten beginnen passend; Würfeln/Löschen nur beim Vorbereiten |
 | F14 | „verwaltet“ als Herrschaft vorgeschlagen         | P2   | offen       |                                                               |
@@ -54,7 +54,7 @@ Beleg: T = Regressionstest im Repository, B = im Browser nachgeprüft (Vorschau)
 | F18 | Sammelartikel als Personen                       | P2   | offen       |                                                               |
 | F19 | Sicherung ohne Medien                            | P1   | offen       |                                                               |
 | F20 | Gewichtung von Nebeninformationen                | P2   | offen       |                                                               |
-| F21 | Abendblatt als Methode                           | P2   | offen       |                                                               |
+| F21 | Abendblatt als Methode                           | P2   | behoben     | Abendblatt frei, Führung als Schalter; Browser + Test         |
 
 ### Einzelheiten
 
@@ -80,6 +80,36 @@ laufenden Abend). Beim Vorbereiten treten Uhr-Knöpfe, Ort, Wetter, Session und 
 Ansicht (`localWorkView`), „Neu würfeln“ und „Karte löschen“ stehen nur beim Vorbereiten.
 Nachprüfung (K28) im Browser: Umschalten und Seitenwechsel lassen den gespeicherten Spielstand
 byte-gleich. Grenze: Die Wahl gilt bis zum Neustart, nicht über ihn hinaus.
+
+**F05 – Mappe.** Alter Ablauf: Text, Geschichte, Brett, Abendblatt, Wegenetz und Hexkarte
+waren getrennte Einstiege ohne gemeinsamen Arbeitsplatz. Änderung: Jeder Text und jede
+Geschichte trägt eine **Mappe** (`material`, nur Verweise auf Einträge, Texte, Geschichten,
+Wegenetze, Hexkarten, Dungeons; `welt/material.ts`). „+ Material anheften“ sucht in allem,
+zuletzt Bearbeitetes zuerst; ein Klick öffnet; auf dem Material steht der Rückweg „Liegt in der
+Mappe von …“ (auch auf Wegenetz, Hexkarte, Dungeon). Nie doppelt, nie sich selbst; Rückgängig.
+Mit „Weiterarbeiten“ (F04) und der Arbeitsansicht (F06) ist der Weg freie Idee → Nachschlagen
+(F07) → Material/Karte → Wiederaufnahme geschlossen. Nachprüfung im Browser: zwei freie Texte,
+anheften, öffnen, Rückweg. Grenze: Das Abendblatt hat noch keine eigene Mappe (es nimmt die
+Mappen über Geschichten im Spiel nicht auf).
+
+**F07 – Nachschlagen.** Das Seitenblatt öffnet schmal (420 px) mit Kurzblick (Art, Satz,
+Wichtigstes, Steckbrief, Beziehungen) und dem ersten Absatz des Textes ohne Geheimes
+(`leadOf`); „Alles hier zeigen“ öffnet das volle Dossier daneben, „Ganze Seite öffnen“ wechselt.
+
+**F11 – Platz für den Text.** Ein geschriebener Text steht im Dossier gleich nach dem
+Steckbrief, vor Listen wie „Orte darin“ und „Räume“; ohne Text wartet die Schreibfläche am
+Ende. „Breit schreiben“ (Kopf der Seite, auch an freien Texten) blendet Liste links und Spalte
+„Jetzt“ aus – reine Ansicht. Nebenbefund K07: Im Spielen ragte die Weltleiste schon bei 1440 px
+über den Rand (durch den neuen Umschalter, bei 1366 px um 83 px). Behoben: Umschalter unter
+1500 px als Zeichen (Name im Hinweis), unter 1400 px gibt der Ort nach, unter 1300 px treten
+Monde und „+10 Min.“ zurück (Kalender bzw. Zeitmenü). Gemessen: 1440×900, 1366×768, 1280×800
+und 1440×900 bei 125 % passen in beiden Ansichten.
+
+**F21 – Abendblatt.** Vorgabe ist jetzt die freie Vorbereitung: ein freier Text oben
+(`prep.text`), Fächer nur, wenn etwas darin steht oder sie dazugeholt werden („Fächer
+dazuholen: …“), kein „Fang hier an“ und kein Rat. „Geführt vorbereiten“ (Kampagne,
+`prepGuide`) zeigt das bisherige Blatt. Der freie Text steht am Spieltisch unter „Dieser
+Abend“ und auf der gedruckten Seite.
 
 **F08 – Unbekannter Aufenthalt.** Alter Ablauf: `placeCast` legte jede lebende Person mit
 Zuhause im Ort und ohne Aufenthalt in `away`; das Dossier zeigte sie unter „Hier zu Hause, aber
@@ -167,7 +197,10 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 - 20. 11. 2026: Phase A (Ausgangsstand), Phase B begonnen: F08, F09, F15, F16, F17 behoben,
           2837 Tests grün.
 - 20. 11. 2026: Phase C: F01–F04, F06, F12, F13 behoben, 2848 Tests grün.
+- 20. 11. 2026: Phase C abgeschlossen: F05, F07, F11, F21; Weltleiste K07. 2854 Tests grün.
+          Datenversion bleibt 43 (noch nicht ausgeliefert), Gestalt neu: `material` an Artikel und
+          Geschichte, `prep.text`, `campaign.prepGuide`.
 
 ## Nächster Schritt
 
-Phase C (F01–F07, F11–F13, F21): freier Schreibbeginn, Arbeitszusammenhang, Gestalten/Leiten.
+Phase D: F10, F14, F18, F20 und die Prüfmatrix im Browser; danach Phase E (Build, Installer, Übergabe).
