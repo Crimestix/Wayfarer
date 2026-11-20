@@ -1,4 +1,5 @@
 /** Gerüst der App: Navigation, Weltleiste und die Arbeitsfläche mit den Bereichen. */
+import { shortcutOwner } from './shortcuts';
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { ChevronDown, Feather, Hourglass, MapPin, Search, Settings, Undo2 } from 'lucide-react';
@@ -384,9 +385,10 @@ function useShortcuts() {
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         openSearch();
-      } else if (mod && e.key.toLowerCase() === 'e') {
+      } else if (mod && !e.altKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        openQuickLog();
+        // Genau eine Aktion: die Arbeitsfläche, die das Kürzel beansprucht, sonst Festhalten (F17).
+        (shortcutOwner('e') ?? openQuickLog)();
       } else if (e.altKey && !mod && /^Digit[1-9]$/.test(e.code)) {
         const area = AREAS[Number(e.code.slice(5)) - 1];
         if (area) {

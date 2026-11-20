@@ -837,6 +837,8 @@ export interface LogInput {
   secret?: boolean;
   /** Die Geschichte, zu der die Notiz gehört. */
   storyId?: string | null;
+  /** Der Zug dieser Bastion. */
+  bastionId?: string | null;
 }
 
 /** Hält fest, was am Tisch passiert ist. */
@@ -855,6 +857,7 @@ export function logEntry(db: CampaignDb, input: LogInput): ChronicleEntry {
       promise: kind === 'promise' ? { due: input.due ?? null, done: false, failed: false } : null,
       secret: input.secret ?? false,
       storyId: input.storyId ?? null,
+      bastionId: input.bastionId ?? null,
     }),
   );
 }

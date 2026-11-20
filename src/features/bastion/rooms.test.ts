@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CampaignDb } from '../../data/db';
 import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
-import { facilityCandidates, facilityInRoom } from '../../domain/bastion';
+import { bastionHistory, facilityCandidates, facilityInRoom } from '../../domain/bastion';
 import { roomsOf } from '../../domain/rooms';
-import { createEntity, type Place } from '../../domain/schema';
+import { createChronicleEntry, createEntity, type Place } from '../../domain/schema';
 import { pagePlan } from '../welt/page';
 import { createArticle, createArticleOfKind } from '../wiki/actions';
-import { addBastion, facilitiesFromRooms } from './actions';
+import { addBastion, facilitiesFromRooms, patchBastion, runTurn } from './actions';
 
 /**
  * Eine erfundene Feste: ein Ort mit Artikel, darunter ein Raum, ein Ort darin und ein Artikel, zu
@@ -141,5 +141,35 @@ describe('Einrichtungen aus Räumen und Artikeln', () => {
     expect(data().bastions[bastion.id]!.facilities).toEqual([
       expect.objectContaining({ id: 'f-schmiede', roomId: null, hirelings: 'zwei Gesellen' }),
     ]);
+  });
+});
+
+describe('F15: Verlauf einer Bastion nach dem Umbenennen', () => {
+  it('ein Zug bleibt seiner Bastion zugeordnet, auch wenn sie anders heißt', async () => {
+    const { db, data, bastion } = await setup();
+    db.setState({ now: data().state.now + 8 * 24 * 60 });
+    expect(runTurn(db, bastion.id, [], null)).not.toBeNull();
+    expect(bastionHistory(data(), data().bastions[bastion.id]!)).toHaveLength(1);
+    patchBastion(db, bastion.id, { name: 'Neue Feste' });
+    const history = bastionHistory(data(), data().bastions[bastion.id]!);
+    expect(history).toHaveLength(1);
+    expect(history[0]!.bastionId).toBe(bastion.id);
+  });
+
+  it('ältere Züge ohne Kennung finden ihre Bastion über den Ort, nicht über eine fremde', async () => {
+    const { db, data, bastion, home } = await setup();
+    const other = addBastion(db, 'Turm', null);
+    db.put(
+      'chronicle',
+      createChronicleEntry({
+        kind: 'change',
+        at: 1,
+        text: 'Bastionszug Alter Name',
+        placeId: home.id,
+      }),
+    );
+    db.put('chronicle', createChronicleEntry({ kind: 'change', at: 2, text: 'Bastionszug Turm' }));
+    expect(bastionHistory(data(), data().bastions[bastion.id]!)).toHaveLength(1);
+    expect(bastionHistory(data(), data().bastions[other.id]!)).toHaveLength(1);
   });
 });

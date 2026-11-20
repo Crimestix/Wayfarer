@@ -9,13 +9,12 @@ import { freshSeed } from '../../domain/random';
 import { TERRAINS, type Terrain } from '../../domain/schema';
 import { TERRAIN_LABEL, formatDays, travelDays } from '../../domain/terrain';
 import { Button, Dialog, EntityPicker, Field, Input, Select, toast } from '../../ui';
-import { generateArea, groundOf, recognize, suggestHexKm } from './generate';
+import { generateArea, groundOf, hexSizeOptions, recognize, suggestHexKm } from './generate';
 import { MAX_SIDE, MILE_KM, SCALE_PRESETS, blankArea, scaleWords } from './freeMap';
 import { landscapesOf } from '../../domain/landscape';
 
 /** Landschaften, die als Grundlage einer Karte taugen (eine Siedlung ist keine). */
 const BIOMES = TERRAINS.filter((t) => t !== 'urban');
-const SIZES = [2, 10, 50];
 
 const parseKm = (text: string): number | null => {
   const n = Number(text.trim().replace(',', '.'));
@@ -177,11 +176,20 @@ function BetweenDialog({
                   placeholder="z. B. 120"
                 />
               </Field>
-              <Field label="Feldgröße">
-                <Select value={size} onChange={(e) => setHexKm(Number(e.target.value))}>
-                  {SIZES.map((s) => (
-                    <option key={s} value={s}>
-                      {s} km je Feld
+              <Field
+                label="Feldgröße"
+                hint={
+                  hexKm !== null
+                    ? 'Von dir gewählt.'
+                    : land === 'underdark'
+                      ? 'Unter der Erde: sechs Meilen je Feld.'
+                      : undefined
+                }
+              >
+                <Select value={String(size)} onChange={(e) => setHexKm(Number(e.target.value))}>
+                  {hexSizeOptions(size).map((s) => (
+                    <option key={s} value={String(s)}>
+                      {scaleWords(s)}
                     </option>
                   ))}
                 </Select>

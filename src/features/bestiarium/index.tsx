@@ -7,9 +7,15 @@ import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { ClipboardPaste, CopyPlus, Pencil, Plus, Skull, Trash2, UserPlus } from 'lucide-react';
 import { useData, useDb } from '../../data/hooks';
-import { CRS, KIND_LABEL, creatureChildren } from '../../domain/creature';
+import {
+  CRS,
+  KIND_LABEL,
+  creatureChildren,
+  creatureUses,
+  creatureUsesText,
+} from '../../domain/creature';
 import type { Creature } from '../../domain/schema';
-import { Button, EmptyState, IconButton, Input, Select, confirmDialog, cx } from '../../ui';
+import { Button, EmptyState, IconButton, Input, Select, confirmDialog, cx, toast } from '../../ui';
 import { removeCreature } from './actions';
 import { NO_FILTER, creatureFacets, creatureRows, type CreatureFilter } from './model';
 import { PasteDialog } from './PasteDialog';
@@ -36,17 +42,30 @@ export default function BestiariumPage() {
 
   const remove = async (creature: Creature) => {
     const heirs = creatureChildren(data.creatures, creature.id);
+    // Alles, was ihn sonst nennt, verliert seine Werte, bis er zurückgeholt ist (F16).
+    const others = creatureUses(data, creature.id).filter((use) => use.sort !== 'heir');
+    const heirLine = heirs.length
+      ? `${heirs.length === 1 ? `„${heirs[0]!.name}“ erbt` : `${heirs.length} Wesen erben`} davon. ${heirs.length === 1 ? 'Es behält' : 'Sie behalten'} alle Werte und ${heirs.length === 1 ? 'steht' : 'stehen'} danach für sich.`
+      : '';
+    const useLine = others.length
+      ? `Verwendet in – ${creatureUsesText(others)}. Dort fehlen danach seine Werte (Begegnungen zählen ihn ohne EP), bis du ihn mit „Rückgängig“ zurückholst.`
+      : '';
     const ok = await confirmDialog({
       title: `„${creature.name}“ löschen?`,
-      body: heirs.length
-        ? `${heirs.length === 1 ? `„${heirs[0]!.name}“ erbt` : `${heirs.length} Wesen erben`} davon. ${heirs.length === 1 ? 'Es behält' : 'Sie behalten'} alle Werte und ${heirs.length === 1 ? 'steht' : 'stehen'} danach für sich.`
-        : 'Der Statblock verschwindet aus dem Bestiarium.',
+      body:
+        [heirLine, useLine].filter(Boolean).join(' ') ||
+        'Der Statblock verschwindet aus dem Bestiarium.',
       confirmLabel: 'Löschen',
       danger: true,
     });
     if (!ok) return;
-    removeCreature(db, creature.id);
+    const undo = removeCreature(db, creature.id);
     open(creature.parentId);
+    if (undo)
+      toast({
+        title: `„${creature.name}“ gelöscht`,
+        action: { label: 'Rückgängig', run: undo },
+      });
   };
 
   return (

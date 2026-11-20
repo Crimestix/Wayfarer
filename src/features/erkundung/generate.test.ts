@@ -23,8 +23,10 @@ import {
 } from '../../domain/schema';
 import { DAY_KM, formatDays, travelDays } from '../../domain/terrain';
 import {
+  hexSizeOptions,
   FEATURES,
   MAX_HEXES,
+  SIX_MILES_KM,
   areaLine,
   generateArea,
   generateHexes,
@@ -356,5 +358,17 @@ describe('Hexkarte erzeugen', () => {
     expect(dominant('swamp')).toBe('swamp');
     expect(dominant('forest')).toBe('forest');
     expect(dominant('water')).toBe('water');
+  });
+});
+
+describe('F09: Feldgröße im Fenster „Neue Hexkarte“', () => {
+  it('unter der Erde steht der Maßstab, mit dem gerechnet wird, auch in der Auswahl', () => {
+    const size = suggestHexKm(120, 'underdark');
+    expect(size).toBeCloseTo(SIX_MILES_KM);
+    expect(hexSizeOptions(size)).toContain(size);
+  });
+  it('die üblichen Größen bleiben wählbar, nichts doppelt', () => {
+    expect(hexSizeOptions(10)).toEqual([2, 10, 50]);
+    expect(hexSizeOptions(SIX_MILES_KM)).toEqual([2, SIX_MILES_KM, 10, 50]);
   });
 });

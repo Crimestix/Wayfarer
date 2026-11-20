@@ -4,6 +4,8 @@ import { elarisCampaign } from '../../data/seed';
 import { MemoryStore } from '../../data/store';
 import {
   difficultyOf,
+  creatureUses,
+  creatureUsesText,
   encounterView,
   partyLevels,
   resolveCreature,
@@ -164,6 +166,23 @@ describe('Löschen', () => {
     expect(now.features.map((feature) => feature.name)).toEqual(['Krummsäbel']);
     // Krummzahn erbt weiter vom Treiber.
     expect(resolveCreature(data().creatures, tooth.id)!.block.hitDice).toBe(4);
+  });
+  it('F16: nennt jede Verwendung, und Rückgängig stellt Begegnung, Erben und EP wieder her', async () => {
+    const { db, data, base, driver } = await setup();
+    const fight = newEncounter(db, 'Hinterhalt');
+    addFoes(db, fight.id, base.id, 2);
+    const xpBefore = encounterView(data(), data().encounters[fight.id]!).xp;
+    expect(xpBefore).toBeGreaterThan(0);
+    const uses = creatureUses(data(), base.id);
+    expect(uses.map((use) => use.sort)).toEqual(expect.arrayContaining(['heir', 'encounter']));
+    expect(creatureUsesText(uses)).toContain('Begegnung: Hinterhalt');
+
+    const undo = removeCreature(db, base.id)!;
+    expect(encounterView(data(), data().encounters[fight.id]!).xp).toBe(0);
+    undo();
+    expect(data().creatures[base.id]).toBeDefined();
+    expect(data().creatures[driver.id]!.parentId).toBe(base.id);
+    expect(encounterView(data(), data().encounters[fight.id]!).xp).toBe(xpBefore);
   });
 });
 

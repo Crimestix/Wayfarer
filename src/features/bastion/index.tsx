@@ -10,6 +10,7 @@ import { useFocus } from '../../shell/focus';
 import {
   ORDER_LABEL,
   STATE_LABEL,
+  bastionHistory,
   daysToNextTurn,
   facilityGroups,
   turnsDue,
@@ -115,14 +116,7 @@ function BastionView({
   const days = daysToNextTurn(bastion, now);
   const groups = useMemo(() => facilityGroups(data, bastion), [data, bastion]);
   const place = bastion.placeId ? data.entities[bastion.placeId] : undefined;
-  const history = useMemo(
-    () =>
-      Object.values(data.chronicle)
-        .filter((e) => e.text.startsWith(`Bastionszug ${bastion.name}`))
-        .sort((a, b) => b.at - a.at)
-        .slice(0, 8),
-    [data.chronicle, bastion.name],
-  );
+  const history = useMemo(() => bastionHistory(data, bastion), [data, bastion]);
 
   return (
     <div className="wf-page">

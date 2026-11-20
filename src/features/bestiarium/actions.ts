@@ -98,9 +98,19 @@ export function setCreatureHp(db: CampaignDb, id: string, hp: number): void {
  * Löscht ein Wesen. Was von ihm geerbt hat, behält seine Werte: Sie werden ihm fest
  * eingeschrieben, und es steht danach für sich.
  */
-export function removeCreature(db: CampaignDb, id: string): void {
-  const creatures = db.getSnapshot().creatures;
-  if (!creatures[id]) return;
+/**
+ * Löscht einen Statblock. Erben behalten ihre Werte und stehen danach für sich; Tiere verlieren
+ * den Verweis. Was ihn sonst nennt (Begegnungen, Bestände …), behält seinen Verweis – `undo` stellt
+ * den Statblock mit derselben Kennung wieder her, Erben und Tiere wie vorher, und alles passt
+ * wieder zusammen (F16). Die Verwendungen nennt vorher `creatureUses`.
+ */
+export function removeCreature(db: CampaignDb, id: string): (() => void) | null {
+  const before = db.getSnapshot();
+  const creatures = before.creatures;
+  const removed = creatures[id];
+  if (!removed) return null;
+  const heirs = Object.values(creatures).filter((child) => child.parentId === id);
+  const animals = animalsOfCreature(before, id);
   db.batch(() => {
     for (const child of Object.values(creatures)) {
       if (child.parentId !== id) continue;
@@ -120,6 +130,17 @@ export function removeCreature(db: CampaignDb, id: string): void {
       db.put('entities', { ...animal, animal: { ...animal.animal, creatureId: null } });
     db.remove('creatures', id);
   });
+  return () =>
+    db.batch(() => {
+      const now = db.getSnapshot();
+      if (!now.creatures[id]) db.put('creatures', removed);
+      for (const heir of heirs) if (now.creatures[heir.id]) db.put('creatures', heir);
+      for (const animal of animals) {
+        const current = db.getSnapshot().entities[animal.id];
+        if (current?.kind === 'animal' && current.animal.creatureId === null)
+          db.put('entities', { ...current, animal: { ...current.animal, creatureId: id } });
+      }
+    });
 }
 
 /**

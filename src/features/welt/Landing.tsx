@@ -39,10 +39,10 @@ export function Landing() {
   const attitudes = partyAttitudes(data);
   const current = place ? placeStatus(data, place.id).current : null;
   const stay = current ? describeVisit(data.campaign.calendar, data.state.now, current) : null;
-  const present = cast ? [...cast.present, ...cast.away].slice(0, 6) : [];
+  const present = cast ? [...cast.present, ...cast.homeUnknown, ...cast.away].slice(0, 6) : [];
   const gaps = useGapCount();
   const unsorted = useMemo(() => textsWithoutEntry(data).length, [data]);
-  const presentTotal = cast ? cast.present.length + cast.away.length : 0;
+  const presentTotal = cast ? cast.present.length + cast.homeUnknown.length + cast.away.length : 0;
 
   return (
     <div className="wf-welt-landing">

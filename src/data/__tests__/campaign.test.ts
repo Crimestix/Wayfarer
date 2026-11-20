@@ -99,6 +99,27 @@ describe('Ort, Personen, Besuche', () => {
     );
   });
 
+  it('F08: unbekannter Aufenthalt ist kein „fort“ – nur ein eingetragener anderer Ort ist es', async () => {
+    const { db } = await demoDb();
+    const hafen = place(db, 'Dornhafen');
+    const kloster = place(db, 'Kloster Sankt Vael');
+    const brann = person(db, 'Brann Eisenhaken');
+    // Zu Hause in Dornhafen, Aufenthalt nirgends eingetragen.
+    db.patch('entities', brann.id, {
+      person: { ...brann.person, homeId: hafen.id, placeId: null },
+    });
+    let cast = placeCast(db.getSnapshot(), hafen.id);
+    expect(cast.away.map((p) => p.name)).not.toContain('Brann Eisenhaken');
+    expect(cast.homeUnknown.map((p) => p.name)).toContain('Brann Eisenhaken');
+    // Steht ein anderer Ort bei ihm, ist er nachweislich fort.
+    db.patch('entities', brann.id, {
+      person: { ...person(db, 'Brann Eisenhaken').person, placeId: kloster.id },
+    });
+    cast = placeCast(db.getSnapshot(), hafen.id);
+    expect(cast.away.map((p) => p.name)).toContain('Brann Eisenhaken');
+    expect(cast.homeUnknown.map((p) => p.name)).not.toContain('Brann Eisenhaken');
+  });
+
   it('ein Begleiter zieht mit der Gruppe, ohne dass sein Ort gespeichert wird', async () => {
     const { db } = await demoDb();
     const hafen = place(db, 'Dornhafen');

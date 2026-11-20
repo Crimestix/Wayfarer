@@ -119,13 +119,16 @@ export function CastSection({ place }: { place: Place }) {
   const cast = placeCast(data, place.id);
   const attitudes = partyAttitudes(data);
   const attitude = (id: string) => attitudes.get(id) ?? null;
-  const shown = new Set([...cast.present, ...cast.away, ...cast.lost].map((p) => p.id));
+  const shown = new Set(
+    [...cast.present, ...cast.homeUnknown, ...cast.away, ...cast.lost].map((p) => p.id),
+  );
   // Wer hier arbeitet, aber weder hier ist noch hier wohnt.
   const workers = workersAt(data, place.id).filter((p) => !shown.has(p.id));
   const workerIds = new Set(workers.map((p) => p.id));
   const linked = cast.linked.filter((link) => !workerIds.has(link.entity.id));
   const castCount =
     cast.present.length +
+    cast.homeUnknown.length +
     cast.away.length +
     cast.lost.length +
     workers.length +
@@ -182,8 +185,24 @@ export function CastSection({ place }: { place: Place }) {
               ))}
             </CastGroup>
           )}
+          {cast.homeUnknown.length > 0 && (
+            // Kein „fort“: Wo sie gerade sind, steht nirgends. Ein Ort bei der Person macht es fest.
+            <CastGroup
+              label="Hier zu Hause, Aufenthalt nicht eingetragen"
+              count={cast.homeUnknown.length}
+            >
+              {cast.homeUnknown.map((p) => (
+                <EntryRow
+                  key={p.id}
+                  entity={p}
+                  sub={castSubline(data, p, place.id, true)}
+                  attitude={attitude(p.id)}
+                />
+              ))}
+            </CastGroup>
+          )}
           {cast.away.length > 0 && (
-            <CastGroup label="Hier zu Hause, aber fort" count={cast.away.length}>
+            <CastGroup label="Hier zu Hause, gerade anderswo" count={cast.away.length}>
               {cast.away.map((p) => (
                 <EntryRow
                   key={p.id}

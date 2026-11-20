@@ -8,6 +8,7 @@ import type {
   BastionFacility,
   BastionOrder,
   CampaignData,
+  ChronicleEntry,
   Character,
   FacilityState,
 } from './schema';
@@ -131,6 +132,32 @@ export function turnLine(bastion: Bastion, choices: TurnChoice[], event: string 
   return [`Bastionszug ${bastion.name}`, ...parts, event ? `Ereignis: ${event}` : '']
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * Die Züge einer Bastion, jüngste zuerst. Zugeordnet über ihre Kennung (`entry.bastionId`); ältere
+ * Einträge ohne Kennung über den Wortlaut „Bastionszug <Name>“ – mit dem heutigen Namen oder, wenn
+ * sie am Ort der Bastion stehen, mit jedem Namen (sie wurde umbenannt). So verschwindet nach einem
+ * Umbenennen nichts aus dem Verlauf (F15).
+ */
+export function bastionHistory(
+  data: Pick<CampaignData, 'chronicle' | 'bastions'>,
+  bastion: Bastion,
+  limit = 8,
+): ChronicleEntry[] {
+  const others = Object.values(data.bastions).filter((b) => b.id !== bastion.id);
+  const legacy = (entry: ChronicleEntry) => {
+    if (entry.bastionId !== null || !entry.text.startsWith('Bastionszug ')) return false;
+    const firstLine = entry.text.split('\n')[0]!;
+    if (firstLine === `Bastionszug ${bastion.name}`) return true;
+    // Gehört der Name einer anderen Bastion, ist es deren Zug.
+    if (others.some((b) => firstLine === `Bastionszug ${b.name}`)) return false;
+    return bastion.placeId !== null && entry.placeId === bastion.placeId;
+  };
+  return Object.values(data.chronicle)
+    .filter((entry) => entry.bastionId === bastion.id || legacy(entry))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, limit);
 }
 
 /** Die Einrichtungen eines Gefährten, über alle Bastionen. */

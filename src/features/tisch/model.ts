@@ -258,7 +258,9 @@ export function castView(data: CampaignData, placeId: string): CastView {
         byName(a.entity, b.entity),
     );
 
-  const away = cast.away.map((p) => {
+  // Spieltisch: wer hier wohnt und von dem nichts anderes bekannt ist, steht als „zu Hause“
+  // (`PlacePanel` trennt nach `whereId`); wer nachweislich woanders ist, als fort.
+  const away = [...cast.away, ...cast.homeUnknown].map((p) => {
     const at = personPlace(data, p);
     const elsewhere = placeName(at);
     // Bei Toten und Verschollenen sagt das Schicksal schon alles.

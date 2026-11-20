@@ -280,6 +280,61 @@ export function resolveCreature(creatures: Creatures, id: string): Resolved | nu
 }
 
 /** Alle, die von einem Wesen erben – unmittelbar. */
+/** Wo ein Statblock verwendet wird – vor dem Löschen zu nennen (F16). */
+export interface CreatureUse {
+  sort: 'heir' | 'encounter' | 'stock' | 'animal' | 'mount' | 'table' | 'shop' | 'landscape';
+  /** Name dessen, was ihn verwendet. */
+  name: string;
+}
+
+export const CREATURE_USE_LABEL: Record<CreatureUse['sort'], string> = {
+  heir: 'erbt davon',
+  encounter: 'Begegnung',
+  stock: 'Bestand',
+  animal: 'Tier der Welt',
+  mount: 'Reittier oder Fahrzeug',
+  table: 'Würfeltabelle',
+  shop: 'Laden',
+  landscape: 'Bewohner einer Landschaft',
+};
+
+/** Alle Stellen, die diesen Statblock nennen. */
+export function creatureUses(data: CampaignData, creatureId: string): CreatureUse[] {
+  const uses: CreatureUse[] = [];
+  for (const child of Object.values(data.creatures))
+    if (child.parentId === creatureId) uses.push({ sort: 'heir', name: child.name });
+  for (const encounter of Object.values(data.encounters))
+    if (encounter.foes.some((foe) => foe.creatureId === creatureId))
+      uses.push({ sort: 'encounter', name: encounter.name || 'Begegnung' });
+  for (const stock of Object.values(data.stocks))
+    if (stock.groups.some((group) => group.creatureId === creatureId))
+      uses.push({ sort: 'stock', name: stock.name || 'Bestand' });
+  for (const entity of Object.values(data.entities)) {
+    if (entity.kind === 'animal' && entity.animal.creatureId === creatureId)
+      uses.push({ sort: 'animal', name: entity.name });
+    if (entity.kind === 'landscape' && entity.landscape.dwellerIds.includes(creatureId))
+      uses.push({ sort: 'landscape', name: entity.name });
+  }
+  for (const mount of Object.values(data.mounts))
+    if (mount.creatureId === creatureId) uses.push({ sort: 'mount', name: mount.name });
+  for (const table of Object.values(data.tables))
+    if (table.entries.some((row) => row.creatureId === creatureId))
+      uses.push({ sort: 'table', name: table.name || 'Tabelle' });
+  for (const shop of Object.values(data.shops))
+    if (shop.stock.some((line) => line.creatureId === creatureId))
+      uses.push({ sort: 'shop', name: shop.title || 'Laden' });
+  return uses;
+}
+
+/** Die Verwendungen in einem Satz für das Fenster „löschen?“: „Begegnung: Hinterhalt; Bestand: Bau“. */
+export function creatureUsesText(uses: CreatureUse[]): string {
+  const bySort = new Map<CreatureUse['sort'], string[]>();
+  for (const use of uses) bySort.set(use.sort, [...(bySort.get(use.sort) ?? []), use.name]);
+  return [...bySort]
+    .map(([sort, names]) => `${CREATURE_USE_LABEL[sort]}: ${names.join(', ')}`)
+    .join(' · ');
+}
+
 export function creatureChildren(creatures: Creatures, id: string): Creature[] {
   return Object.values(creatures)
     .filter((entry) => entry.parentId === id)

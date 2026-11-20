@@ -687,7 +687,12 @@ export function castSubline(
   const parts = [person.person.role];
   if (person.person.status !== 'alive') parts.push(PERSON_STATUS_LABEL[person.person.status]);
   const at = personPlace(data, person);
-  if (away) parts.push(at ? `zurzeit: ${entityName(data, at)}` : 'Aufenthalt unbekannt');
+  // Ohne eingetragenen Aufenthalt ist ein Lebender vermutlich zu Hause – als Annahme gekennzeichnet.
+  const unknown =
+    person.person.status === 'alive'
+      ? 'vermutlich hier – nicht eingetragen'
+      : 'Aufenthalt unbekannt';
+  if (away) parts.push(at ? `zurzeit: ${entityName(data, at)}` : unknown);
   else if (at && at !== placeId) parts.push(entityName(data, at));
   return parts.filter(Boolean).join(' · ');
 }

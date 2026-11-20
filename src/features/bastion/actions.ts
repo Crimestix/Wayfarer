@@ -147,6 +147,7 @@ export function runTurn(
       refs: bastion.placeId ? [bastion.placeId] : [],
       placeId: bastion.placeId,
       at: Math.min(turnAt, data.state.now),
+      bastionId: bastion.id,
     });
   });
   return () =>

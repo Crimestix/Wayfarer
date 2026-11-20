@@ -108,6 +108,17 @@ export const SIX_MILES_KM = 6 * 1.609344;
  * Feldgröße, bei der der direkte Weg überschaubar bleibt. Unter der Erde immer sechs Meilen
  * (Entscheidung des Spielleiters, 17. 11.).
  */
+/**
+ * Die Feldgrößen zur Wahl im Fenster „Neue Hexkarte“: die üblichen, dazu die gerade geltende,
+ * wenn sie keine davon ist (unter der Erde sechs Meilen). So zeigt die Auswahl immer genau den
+ * Maßstab, mit dem Vorschau und Karte rechnen (F09).
+ */
+export function hexSizeOptions(current: number): number[] {
+  const sizes: number[] = [...HEX_SIZES];
+  if (!sizes.some((s) => Math.abs(s - current) < 1e-9)) sizes.push(current);
+  return sizes.sort((a, b) => a - b);
+}
+
 export function suggestHexKm(distanceKm: number | null, biome: Terrain | null = null): number {
   if (biome === 'underdark') return SIX_MILES_KM;
   if (distanceKm === null) return 10;

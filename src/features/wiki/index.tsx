@@ -38,6 +38,7 @@ import { articleFacts, kindFromFolder, statedKind } from './facts';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
 import { openNew } from '../welt/editor';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
+import { useShortcut } from '../../shell/shortcuts';
 import { AiOverview } from '../ki/AiOverview';
 import { AiPanel } from '../ki/AiPanel';
 import { FactsHint, FactsOverview } from './FactsHint';
@@ -472,18 +473,12 @@ export function ArticlePage({
     if (mode !== 'read') lastEdit.current = mode;
   }, [mode, embedded]);
 
-  // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'e')
-        return;
-      event.preventDefault();
-      flushEdits();
-      setMode((current) => (current === 'read' ? lastEdit.current : 'read'));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  // Strg+E (am Mac Befehl+E) wechselt zwischen Lesen und Schreiben – solange ein Artikel offen
+  // ist, gehört ihm das Kürzel allein (F17; `shell/shortcuts.ts`), Festhalten bleibt in der Leiste.
+  useShortcut('e', () => {
+    flushEdits();
+    setMode((current) => (current === 'read' ? lastEdit.current : 'read'));
+  });
 
   const onOpen = useCallback(
     (target: OpenTarget) => {

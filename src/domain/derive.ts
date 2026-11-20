@@ -281,8 +281,13 @@ export function wouldCreatePlaceCycle(
 export interface PlaceCast {
   /** Personen, die sich hier (oder in einem Ort darunter) aufhalten. */
   present: Person[];
-  /** Personen, die hier zu Hause sind, aber gerade woanders. */
+  /** Personen, die hier zu Hause sind und nachweislich woanders – ihr Aufenthalt steht fest. */
   away: Person[];
+  /**
+   * Personen, die hier zu Hause sind, deren Aufenthalt aber nirgends steht. Das ist kein „fort“:
+   * Ob sie da sind, weiß nur der Spielleiter. Die Seiten zeigen sie als Annahme „vermutlich hier“.
+   */
+  homeUnknown: Person[];
   /** Tote und Verschollene, die zuletzt hier waren oder hier zu Hause sind – anwesend ist keiner. */
   lost: Person[];
   /** Fraktionen mit Sitz hier. */
@@ -339,14 +344,16 @@ export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   const alive = persons.filter((p) => !gone(p));
   const present = alive.filter((p) => here(personPlace(data, p)));
   const presentIds = new Set(present.map((p) => p.id));
-  const away = alive.filter((p) => !presentIds.has(p.id) && here(p.person.homeId));
+  const atHome = alive.filter((p) => !presentIds.has(p.id) && here(p.person.homeId));
+  const away = atHome.filter((p) => personPlace(data, p) !== null);
+  const homeUnknown = atHome.filter((p) => personPlace(data, p) === null);
   const lost = persons.filter((p) => gone(p) && (here(p.person.placeId) || here(p.person.homeId)));
   const factions = entitiesOfKind(data, 'faction').filter(
     (f) => f.faction.seatId && ids.has(f.faction.seatId),
   );
   const known = new Set([
     ...presentIds,
-    ...[...away, ...lost, ...factions].map((entity) => entity.id),
+    ...[...away, ...homeUnknown, ...lost, ...factions].map((entity) => entity.id),
   ]);
   const linked: PlaceCast['linked'] = [];
   for (const relation of Object.values(data.relations)) {
@@ -362,7 +369,7 @@ export function placeCast(data: CampaignData, placeId: string): PlaceCast {
   const characters = entitiesOfKind(data, 'character').filter(
     (c) => c.character.placeId && ids.has(c.character.placeId),
   );
-  return { present, away, lost, factions, linked, characters };
+  return { present, away, homeUnknown, lost, factions, linked, characters };
 }
 
 // ── Chronik ────────────────────────────────────────────────────────────────
@@ -480,6 +487,7 @@ export function placeStatus(data: CampaignData, placeId: string): PlaceStatus {
       ...placeSubtreeIds(data, placeId),
       ...cast.present.map((p) => p.id),
       ...cast.away.map((p) => p.id),
+      ...cast.homeUnknown.map((p) => p.id),
       ...cast.lost.map((p) => p.id),
       ...cast.factions.map((f) => f.id),
     ]);
