@@ -463,11 +463,18 @@ nicht übernommen.
   das Gangnetz und wie der massive Fels gebaut ist“): Unter der Erde (`isUnderground`: Felder mit
   Ausgängen oder Grundgelände Unterreich) sind die Felder nur Raster und Griff für die Maus
   (`polygon[data-under]`, durchsichtig); das Bild malt `CaveLayer` – Fels als durchgehende, gemalte
-  Fläche (`#wf-hex-rock`), darin Gänge (Bänder je Ausgang, Breite nach Art des Durchgangs
-  `PASSAGE_WIDTH`) und Höhlen (Kreise; breite Arten und Kreuzungen ab vier Ausgängen gehen
-  ineinander über) erst mit hellem Rand, dann mit Boden gefüllt, darauf See, Abgrund, Glut, Eis
-  als eigene Flächen (`POOL_KIND`); ein Filter verwackelt die Ränder zu einem freien Umriss
-  (`#wf-hex-crag`, fest je Feldgröße). Auf einer Karte ohne Gänge ist offen, was nebeneinander
+  Fläche (`#wf-hex-rock`, Textur `hexrock.webp`), darin Gänge und Höhlen als **ein** frei
+  geformter Umriss mit klarer Kante (`erkundung/caveOutline.ts`; die erste Fassung aus verwackelten
+  Kreisen und Bändern hat der Spielleiter verworfen: „janky“). `cavePlan` legt je Feld Formen in
+  Feldgrößen aus – eine weite Höhle ein großer Kreis, der mit weiten Nachbarn zusammenwächst, ein
+  Gang ein schmales Band mit Knick von der versetzten Mitte zur Feldseite (`PASSAGE_RADIUS` nach
+  Art des Durchgangs) –, `caveOutline` lässt sie weich verschmelzen, schiebt den Rand mit festem
+  Rauschen (`smoothNoise`, drei Lagen; bei schmalen Gängen schwächer, damit sie nie abreißen) und
+  gibt geschlossene Linienzüge zurück. Gezeichnet: Schatten, heller Rand, Boden (`ground.webp`),
+  Tuschelinie; darauf See, Abgrund (ein Riss), Glut, Eis als eigene Umrisse (`POOL_KIND`). Nie
+  wieder ein Filter über die Karte und nie Kreise oder gerade Bänder zeigen. Was dort wächst oder
+  liegt, trägt ein gemaltes Zeichen (`CAVE_ICON`, `ui/assets/hexkarte`: Pilze, Kristalle,
+  Tropfsteine, Geröll, Ruine, Bergwerk). Auf einer Karte ohne Gänge ist offen, was nebeneinander
   liegt und kein Fels ist (`openings`). Beim Spielen ist Unentdecktes nur eine Ahnung
   (`data-dim`). Die Texturen kommen aus `ui/assets/dungeon`; die Regeln rechnen weiter mit Feldern
   und Ausgängen. Zeichen für Kletterei, Abbruch und Verborgenes bleiben an der Seite, Schächte als

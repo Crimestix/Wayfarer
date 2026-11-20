@@ -129,7 +129,7 @@
   --hex-road: #cdaa72;
   --hex-trail: #d6bb8a;
   /* Hexkarte unter der Erde: heller Höhlenboden im dunklen Fels, mit Rand. */
-  --hex-cave-rock: #5a5560;
+  --hex-cave-shade: #0d0b10;
   --hex-cave-floor: #cdbd9a;
   --hex-cave-rim: #e9e2d2;
   --hex-cave-ink: #4a3a28;

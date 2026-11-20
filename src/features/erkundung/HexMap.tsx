@@ -13,7 +13,7 @@ import {
 import { PASSAGE_LABEL, indexHexes, isRock, passagesFrom } from '../../domain/passages';
 import type { Area, CampaignData, Hex, Terrain } from '../../domain/schema';
 import { areaLine } from './generate';
-import { CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
+import { CAVE_ICON, CaveDefs, CaveLayer, LineLayer, isSolid, isUnderground } from './HexLayers';
 import { partyMeans } from '../../domain/mounts';
 import { hexMinutes } from './travel';
 
@@ -161,7 +161,15 @@ export const KIND_GLYPH: Record<string, ReactNode> = {
 };
 
 /** Unterreich-Arten ohne Zeichen auf der Karte: Ihr Bild ist der Höhlenboden selbst. */
-const PLAIN_CAVE: ReadonlySet<string> = new Set(['underdark', 'cave-floor', 'cavern']);
+const PLAIN_CAVE: ReadonlySet<string> = new Set([
+  'underdark',
+  'cave-floor',
+  'cavern',
+  'deep-lake',
+  'chasm',
+  'magma',
+  'ice-cave',
+]);
 
 interface Props {
   area: Area;
@@ -333,10 +341,22 @@ const Cells = memo(function Cells({
                 .join(' ')}
             />
           )}
-          {hex.terrain &&
+          {isUnderground(hex) && !isSolid(hex) && CAVE_ICON[kindKeyOf(hex) ?? ''] ? (
+            // Unter der Erde: ein gemaltes Zeichen für das, was dort wächst oder liegt.
+            <image
+              className="wf-hex__icon"
+              href={CAVE_ICON[kindKeyOf(hex) ?? '']}
+              x={x - size * 0.34}
+              y={y - size * 0.4}
+              width={size * 0.68}
+              height={size * 0.68}
+              preserveAspectRatio="xMidYMid meet"
+            />
+          ) : (
+            hex.terrain &&
             size >= 22 &&
             (isUnderground(hex)
-              ? // Unter der Erde nur, was dort wächst oder liegt – Fels und Gänge zeichnet das Gangnetz.
+              ? // Fels und Gänge zeichnet das Gangnetz, Seen und Abgründe sind eigene Flächen.
                 !isSolid(hex) &&
                 !PLAIN_CAVE.has(kindKeyOf(hex) ?? '') &&
                 !!KIND_GLYPH[kindKeyOf(hex) ?? '']
@@ -348,7 +368,8 @@ const Cells = memo(function Cells({
               >
                 {KIND_GLYPH[kindKeyOf(hex) ?? ''] ?? GLYPH[hex.terrain]}
               </g>
-            )}
+            )
+          )}
           {hex.feature && (
             <rect
               className="wf-hex__feature"
