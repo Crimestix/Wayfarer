@@ -297,6 +297,18 @@ mehrere Ebenen, MacBook. Gemessen: Der Umriss des Höhlenbodens rechnet auf eine
 1400 Feldern etwa 0,2 s je Änderung (vorher 0,1 s) – beim Malen auf sehr großen Karten spürbar;
 bei Bedarf nur den geänderten Ausschnitt neu rechnen. Ob es dem Spielleiter gefällt, ist offen.
 
+**Danach: Tag `v0.1.39` auf `2f246cb` (20. 11.)** – 0.1.38 gefiel („Sieht gut aus“), danach ein
+Bild mit Problemstellen: Abgrund über mehrere Felder war ein Gitter mit hellen Inseln, Gänge
+schlossen nicht an Höhlen an, Glutspalten sahen schlecht aus. Behoben: See und Abgrund als eine
+Fläche (`joined` in `cavePlan`), `joinTunnelEnd` am Ende eines Strichs, Glutspalten und Eishöhle
+als Boden (`CAVE_GROUND`) mit Netz glühender Risse bzw. Eiszacken. Kein neues Schema. Geprüft:
+Tests (2829), Vorschau einer Probekarte nach seinem Bild. Nicht geprüft: das Anschließen mit der
+echten Maus im Editor (nur über die Funktionen), Ansicht „Spielen“, mehrere Ebenen. **Auf Karten
+von vorher** bleiben Gangenden, die schon vor einer Höhle lagen, unverbunden – ein kurzer Strich
+vom Gangende in die Höhle verbindet sie. Offen aus seinem Hinweis „Schau dir generell diese Bugs
+und Differenzen an“: Ich habe nur gefunden, was auf dem Bild zu sehen war; weitere Stellen
+nachfragen.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
