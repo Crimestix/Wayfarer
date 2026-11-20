@@ -1,0 +1,85 @@
+# Baut Probe-Pakete (Alpha) für macOS und Windows, OHNE etwas zu veröffentlichen: kein Tag, keine
+# Veröffentlichung auf GitHub. Die Pakete liegen danach nur als Anhang des Laufs (Actions → Lauf →
+# „Artifacts“) und werden nach 14 Tagen gelöscht.
+#
+# Auslöser: nur von Hand – Actions → „Alpha bauen“ → „Run workflow“ → Zweig und Versionsnummer.
+name: Alpha bauen
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versionsnummer der Probe, z. B. 0.2.0-alpha.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpha-bauen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    name: Probe-Paket für ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            rust_targets: x86_64-pc-windows-msvc
+            args: --target x86_64-pc-windows-msvc --bundles nsis
+            files: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+          - name: macOS
+            os: macos-latest
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles dmg
+            files: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Versionsnummer prüfen
+        shell: bash
+        env:
+          EINGABE: ${{ inputs.version }}
+        run: |
+          version="${EINGABE#v}"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+)?$'; then
+            echo "::error::Erwartet z. B. 0.2.0-alpha.1. Erhalten: '$version'"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Versionsnummer eintragen
+        shell: bash
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Bauen
+        run: npm run tauri build -- ${{ matrix.args }}
+
+      - name: Paket anhängen (nur an diesen Lauf)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Wayfarer-${{ env.VERSION }}-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14

@@ -1,6 +1,7 @@
 import { Agent, type AgentOptions } from 'node:https';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import pkg from './package.json' with { type: 'json' };
 
 /*
  * LegendKeeper in der Browser-Vorschau: Anfragen an „/lk-api“ gehen an die LegendKeeper-API.
@@ -14,6 +15,8 @@ const legendKeeperAgent = new Agent({ keepAlive: true, proxyEnv: process.env } a
 // Tauri erwartet einen festen Port und ignoriert src-tauri beim Beobachten.
 export default defineConfig({
   plugins: [react()],
+  // Die Fassung der App – sichtbar in den Einstellungen (beim Bau aus package.json).
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   clearScreen: false,
   server: {
     port: 1420,
