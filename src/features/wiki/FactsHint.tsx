@@ -116,7 +116,7 @@ function HintRow({ article, hint }: { article: Article; hint: RelationHint }) {
     const undo = acceptHint(db, hint);
     toast({
       title: 'In die Welt eingetragen',
-      body: `${hint.from.name} ${hintLabel(hint.type)} ${hint.to.name}`,
+      body: `${hint.from.name} ${hint.label ?? hintLabel(hint.type)} ${hint.to.name}`,
       action: { label: 'Rückgängig', run: undo },
     });
   };
@@ -133,7 +133,8 @@ function HintRow({ article, hint }: { article: Article; hint: RelationHint }) {
     <div className="wf-wiki-facts__row" title={`Gelesen aus: „${hint.sentence}“`}>
       <span className="wf-wiki-facts__label">Im Text</span>
       <span>
-        <span className="wf-wiki-facts__what">{hint.from.name}</span> {hintLabel(hint.type)}{' '}
+        <span className="wf-wiki-facts__what">{hint.from.name}</span>{' '}
+        {hint.label ?? hintLabel(hint.type)}{' '}
         <span className="wf-wiki-facts__what">{hint.to.name}</span>
       </span>
       <button type="button" className="wf-wiki-facts__act" onClick={accept}>

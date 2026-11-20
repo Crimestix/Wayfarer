@@ -21,6 +21,8 @@ export interface RelationHint {
   to: Entity;
   /** Schlüssel aus RELATION_TYPES – oder `home`: „lebt in“ setzt das Zuhause einer Person. */
   type: string;
+  /** Bei `custom`: die eigene Bezeichnung, wörtlich nach dem Satz („verwaltet“). */
+  label?: string;
   /** Der Satz, aus dem der Vorschlag stammt. */
   sentence: string;
 }
@@ -39,6 +41,8 @@ interface Pattern {
   subject: readonly EntityKind[];
   /** Die Beziehung läuft vom genannten Namen zum Subjekt („Schüler von X“: X lehrt). */
   inverse?: true;
+  /** Bei `custom`: die Bezeichnung der eigenen Beziehung. */
+  label?: string;
 }
 
 const of = '(?:von|vom|des|der)';
@@ -114,8 +118,17 @@ const PATTERNS: Pattern[] = [
   },
   {
     type: 'rules',
+    lead: word(`herrscht über|regiert|(?:herrscher|herrscherin|herr|herrin) (?:${of}|über)`),
+    object: ['place'],
+    subject: ACTORS,
+  },
+  {
+    // Verwalten ist nicht Herrschen (F14): ein Amt im Auftrag, keine Herrschaft – als eigene
+    // Beziehung „verwaltet“, nie still als „herrscht über“.
+    type: 'custom',
+    label: 'verwaltet',
     lead: word(
-      `herrscht über|regiert|verwaltet|(?:herrscher|herrscherin|herr|herrin|bürgermeister|bürgermeisterin|vogt|vögtin|statthalter|statthalterin|verwalter|verwalterin) (?:${of}|über)`,
+      `verwaltet|(?:bürgermeister|bürgermeisterin|vogt|vögtin|statthalter|statthalterin|verwalter|verwalterin) (?:${of}|über)`,
     ),
     object: ['place'],
     subject: ACTORS,
@@ -294,12 +307,13 @@ const hintKey = (type: string, from: string, to: string) =>
   SYMMETRIC.has(type) && from > to ? `${type}:${to}>${from}` : `${type}:${from}>${to}`;
 
 /** Steht das schon in der Welt? */
-function known(data: CampaignData, type: string, from: Entity, to: Entity): boolean {
+function known(data: CampaignData, type: string, from: Entity, to: Entity, label = ''): boolean {
   if (type === 'home') return from.kind === 'person' && from.person.homeId !== null;
   return Object.values(data.relations).some(
     (r) =>
       !r.ended &&
       r.type === type &&
+      (type !== 'custom' || r.label.trim().toLowerCase() === label) &&
       ((r.from === from.id && r.to === to.id) ||
         (SYMMETRIC.has(type) && r.from === to.id && r.to === from.id)),
   );
@@ -349,9 +363,21 @@ export function relationHints(
           if (!pattern.lead.test(lead) && !pattern.lead.test(short)) continue;
           if (!named && BARE_VERB.test(short) && !speaksOf(sentence, subject)) break;
           const [a, b] = pattern.inverse ? [span.entity, subject] : [subject, span.entity];
-          const key = hintKey(pattern.type, a.id, b.id);
-          if (!out.has(key) && !dismissed.has(key) && !known(data, pattern.type, a, b))
-            out.set(key, { key, from: a, to: b, type: pattern.type, sentence });
+          const type = pattern.label ? `${pattern.type}:${pattern.label}` : pattern.type;
+          const key = hintKey(type, a.id, b.id);
+          if (
+            !out.has(key) &&
+            !dismissed.has(key) &&
+            !known(data, pattern.type, a, b, pattern.label)
+          )
+            out.set(key, {
+              key,
+              from: a,
+              to: b,
+              type: pattern.type,
+              ...(pattern.label ? { label: pattern.label } : {}),
+              sentence,
+            });
           break;
         }
       });

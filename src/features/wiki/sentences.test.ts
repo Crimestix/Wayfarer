@@ -56,6 +56,21 @@ describe('Beziehungen aus Sätzen', () => {
     ]);
   });
 
+  it('F14: verwalten ist nicht herrschen – eigene Beziehung „verwaltet“, mit Quelle', async () => {
+    const { db, data, write, hints } = await setup();
+    write('vera0001', 'Vera verwaltet Hohenfurt im Auftrag der Aalfischer.');
+    const [hint] = hints('vera0001').filter((h) => h.to.name === 'Hohenfurt');
+    expect(hint).toMatchObject({ type: 'custom', label: 'verwaltet' });
+    expect(hint!.sentence).toContain('verwaltet Hohenfurt');
+    acceptHint(db, hint!);
+    const made = Object.values(data().relations).find((r) => r.label === 'verwaltet');
+    expect(made).toMatchObject({ type: 'custom', from: hint!.from.id, to: hint!.to.id });
+    // Eingetragen – kein zweiter Vorschlag; „herrscht über“ bleibt Herrschaft.
+    expect(hints('vera0001').some((h) => h.label === 'verwaltet')).toBe(false);
+    write('vera0001', 'Vera herrscht über Hohenfurt.');
+    expect(hints('vera0001').map((h) => h.type)).toContain('rules');
+  });
+
   it('liest nichts aus Verneintem, Vergangenem und Vermutetem', async () => {
     const { write, shown } = await setup();
     write(

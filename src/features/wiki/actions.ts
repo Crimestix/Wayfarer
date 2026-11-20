@@ -797,6 +797,7 @@ export function acceptHint(db: CampaignDb, hint: RelationHint): () => void {
       from: hint.from.id,
       to: hint.to.id,
       type: hint.type,
+      label: hint.label ?? '',
       // „Schwester von Odo“: Das Wort sagt, welche Verwandtschaft es ist.
       kin: hint.type === 'family' ? (kinInSentence(hint.sentence)?.kin ?? null) : null,
     }),
