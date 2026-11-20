@@ -8,9 +8,18 @@ eine andere Textur“). Der Dateiname ist der Schlüssel der Geländeart (`domai
 geladen in `features/erkundung/HexLayers.tsx` (`CAVE_GROUND`).
 
 Erzeugt mit Higgsfield (GPT Image 2.6) als ein Blatt mit sechs Flächen, in Kacheln geschnitten,
-nahtlos gemacht (Ränder mit der Gegenseite überblendet) und auf 384 Pixel verkleinert. Die
-Felsfläche der Karte (`../dungeon/hexrock.webp`) ist aus der Poly-Haven-Textur `rock_ground` (CC0)
-umgerechnet.
+nahtlos gemacht (Ränder mit der Gegenseite überblendet) und auf 384 Pixel verkleinert.
+
+`cave-rock.webp` (der Fels), `cave-floor.webp` (Höhlenboden und – aufgehellt – die Wand),
+`cave-water.webp` (unterirdischer See) und `cave-ice.webp` (Eishöhle) stammen ebenso aus einem
+Blatt von Higgsfield.
+
+## `unten/` – gemalte Zeichen unter der Erde
+
+24 freigestellte Gruppen für die Höhlen: Riesenpilze (`fungus`), Kristalle (`crystal`),
+Tropfsteine (`stalagmites`), Geröll (`rubble`), Ruinen (`deep-ruins`), Bergwerk (`mine`) und
+`floor` – ein Tropfstein oder ein paar Brocken für den blanken Höhlenboden. Geladen wie die
+Zeichen der Oberwelt (`CAVE_SYMBOLS` in `features/erkundung/HexSymbols.tsx`), derselbe Stil.
 
 ## `oben/` – Böden der Oberwelt
 

@@ -3,7 +3,7 @@ import { HEX_KINDS } from '../../domain/hexKinds';
 import { HexSchema } from '../../domain/schema';
 import { LAND_GROUND, landGroundOf } from './HexGround';
 import { CAVE_GROUND } from './HexLayers';
-import { LAND_SYMBOLS, symbolsOf } from './HexSymbols';
+import { CAVE_SYMBOLS, LAND_SYMBOLS, caveSymbolsOf, symbolsOf } from './HexSymbols';
 
 describe('Gemalter Boden der Hexkarte', () => {
   it('hat für jede Geländeart der Oberwelt einen Boden', () => {
@@ -38,7 +38,16 @@ describe('Gemalter Boden der Hexkarte', () => {
     // Wälder, Höhen und Siedlungen haben einen schlichten Boden: Ohne Zeichen sähe man sie nicht.
     for (const key of ['forest', 'pine', 'dense-forest', 'jungle', 'glade', 'dead-forest'])
       expect(LAND_SYMBOLS[key]?.length, key).toBeGreaterThan(0);
-    for (const key of ['hills', 'mountains', 'highpeak', 'volcano', 'crater', 'urban', 'village', 'ruins'])
+    for (const key of [
+      'hills',
+      'mountains',
+      'highpeak',
+      'volcano',
+      'crater',
+      'urban',
+      'village',
+      'ruins',
+    ])
       expect(LAND_SYMBOLS[key]?.length, key).toBeGreaterThan(0);
   });
 
@@ -48,6 +57,28 @@ describe('Gemalter Boden der Hexkarte', () => {
     expect(symbolsOf({ ...forest, exits: [] })).toBeNull();
     expect(symbolsOf({ ...forest, terrain: 'grassland' })).toBeNull();
     expect(symbolsOf({ ...forest, terrain: null })).toBeNull();
+  });
+
+  it('hat unter der Erde Zeichen für alles, was dort wächst oder liegt – nie für Fels und Gänge', () => {
+    const under = new Set(
+      HEX_KINDS.filter((kind) => kind.group === 'underdark').map((kind) => kind.key),
+    );
+    // `floor` sind Kleinigkeiten für den blanken Höhlenboden.
+    expect(Object.keys(CAVE_SYMBOLS).filter((key) => key !== 'floor' && !under.has(key))).toEqual(
+      [],
+    );
+    for (const key of Object.keys(CAVE_GROUND))
+      expect(CAVE_SYMBOLS[key]?.length, key).toBeGreaterThan(0);
+    const cave = HexSchema.parse({ q: 0, r: 0, terrain: 'underdark', kind: 'fungus', exits: [] });
+    expect(caveSymbolsOf(cave)).toBe(CAVE_SYMBOLS.fungus);
+    expect(caveSymbolsOf({ ...cave, kind: 'cavern' })).toBe(CAVE_SYMBOLS.floor);
+    expect(caveSymbolsOf({ ...cave, kind: 'solid-rock' })).toBeNull();
+    // Ein Gang (Ganggeflecht) trägt nichts, Fels ohne Ausgang auch nicht.
+    expect(
+      caveSymbolsOf({ ...cave, kind: null, exits: [{ dir: 0, kind: 'open', found: false }] }),
+    ).toBeNull();
+    expect(caveSymbolsOf({ ...cave, kind: null })).toBeNull();
+    expect(symbolsOf(cave)).toBeNull();
   });
 
   it('gilt nur oben: Felder mit Gängen und Unterreich malt das Gangnetz', () => {

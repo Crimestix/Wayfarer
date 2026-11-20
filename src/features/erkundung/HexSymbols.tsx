@@ -16,21 +16,39 @@
 import { memo, useMemo } from 'react';
 import { kindKeyOf } from '../../domain/hexKinds';
 import type { Hex } from '../../domain/schema';
+import { isSolid, isUnderground } from './HexLayers';
 
 const FILES = import.meta.glob('../../ui/assets/hexkarte/bild/*.webp', {
   eager: true,
   import: 'default',
 }) as Record<string, string>;
 
-/** Die Zeichen je Geländeart: alle Dateien `<art>-<nummer>.webp`. */
-export const LAND_SYMBOLS: Readonly<Record<string, readonly string[]>> = (() => {
+const CAVE_FILES = import.meta.glob('../../ui/assets/hexkarte/unten/*.webp', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
+
+/** Dateien `<name>-<nummer>.webp` nach ihrem Namen gruppiert. */
+function byName(files: Record<string, string>): Record<string, string[]> {
   const out: Record<string, string[]> = {};
-  for (const path of Object.keys(FILES).sort()) {
+  for (const path of Object.keys(files).sort()) {
     const name = path.slice(path.lastIndexOf('/') + 1).replace(/-\d+\.webp$/, '');
-    (out[name] ??= []).push(FILES[path]!);
+    (out[name] ??= []).push(files[path]!);
   }
   return out;
-})();
+}
+
+/** Die Zeichen je Geländeart der Oberwelt: alle Dateien `<art>-<nummer>.webp`. */
+export const LAND_SYMBOLS: Readonly<Record<string, readonly string[]>> = byName(FILES);
+
+/**
+ * Die Zeichen unter der Erde (Wunsch des Spielleiters, 20. 11. 2026: „Genau das Qualitätslevel
+ * auch fürs Unterreich“): Riesenpilze, Kristalle, Tropfsteine, Geröll, Ruinen, Bergwerk – und
+ * `floor` für Kleinigkeiten auf dem blanken Höhlenboden. Dateien in `ui/assets/hexkarte/unten`.
+ */
+export const CAVE_SYMBOLS: Readonly<Record<string, readonly string[]>> = byName(CAVE_FILES);
+/** Blanker Höhlenboden trägt hier und da einen Tropfstein oder ein paar Brocken. */
+const CAVE_ALIAS: Readonly<Record<string, string>> = { cavern: 'floor', 'cave-floor': 'floor' };
 
 /**
  * Wie eine Gruppe im Feld steht: `width` (1 = so breit wie das Feld), `foot` (wie tief ihr Fuß
@@ -57,6 +75,15 @@ const FIT: Readonly<Record<string, { width: number; foot: number; share?: number
   badlands: { width: 1.15, foot: 0.36, share: 0.55 },
   oasis: { width: 1.2, foot: 0.4 },
   glacier: { width: 1.1, foot: 0.36, share: 0.5 },
+  // Unter der Erde stehen die Gruppen in ihrer Höhle: kleiner, damit die Wand frei bleibt.
+  fungus: { width: 0.92, foot: 0.36 },
+  crystal: { width: 0.8, foot: 0.32 },
+  stalagmites: { width: 0.86, foot: 0.34 },
+  rubble: { width: 0.8, foot: 0.28 },
+  'deep-ruins': { width: 0.86, foot: 0.32 },
+  mine: { width: 0.5, foot: 0.2 },
+  cavern: { width: 0.5, foot: 0.22, share: 0.5 },
+  'cave-floor': { width: 0.44, foot: 0.2, share: 0.35 },
   urban: { width: 1.5, foot: 0.44 },
   village: { width: 1.25, foot: 0.4 },
   ruins: { width: 1.2, foot: 0.4 },
@@ -72,10 +99,19 @@ function fixed(q: number, r: number, salt: number): number {
 }
 
 /** Hat diese Geländeart gemalte Zeichen? */
-export const symbolsOf = (hex: Pick<Hex, 'kind' | 'terrain' | 'exits'>): readonly string[] | null =>
+export const symbolsOf = (
+  hex: Pick<Hex, 'kind' | 'terrain' | 'exits'>,
+): readonly string[] | null =>
   hex.terrain && hex.exits === null && hex.terrain !== 'underdark'
     ? (LAND_SYMBOLS[kindKeyOf(hex) ?? ''] ?? null)
     : null;
+
+/** Hat dieses Feld unter der Erde gemalte Zeichen? Fels und Gänge nie. */
+export const caveSymbolsOf = (hex: Hex): readonly string[] | null => {
+  if (!isUnderground(hex) || isSolid(hex)) return null;
+  const kind = kindKeyOf(hex) ?? '';
+  return CAVE_SYMBOLS[CAVE_ALIAS[kind] ?? kind] ?? null;
+};
 
 export interface SymbolCell {
   hex: Hex;
@@ -87,18 +123,25 @@ export const SymbolLayer = memo(function SymbolLayer({
   cells,
   size,
   fog,
+  where,
 }: {
   cells: readonly SymbolCell[];
   size: number;
-  /** Spielen: Zeichen auf unentdeckten Feldern stehen nur gedämpft da. */
+  /**
+   * Spielen: Zeichen auf unentdeckten Feldern stehen oben nur gedämpft da; unter der Erde fehlen
+   * sie – dort ist Unentdecktes nur eine Ahnung.
+   */
   fog: boolean;
+  /** Oben stehen die Zeichen unter dem Gangnetz, unten darauf – deshalb zwei Schichten. */
+  where: 'land' | 'cave';
 }) {
   const items = useMemo(
     () =>
       cells
         .map((cell) => {
-          const list = symbolsOf(cell.hex);
+          const list = where === 'land' ? symbolsOf(cell.hex) : caveSymbolsOf(cell.hex);
           if (!list?.length) return null;
+          if (where === 'cave' && fog && !cell.hex.discovered) return null;
           const { q, r } = cell.hex;
           const fit = FIT[kindKeyOf(cell.hex) ?? ''] ?? DEFAULT_FIT;
           if (fit.share !== undefined && fixed(q, r, 6) > fit.share) return null;
@@ -116,7 +159,7 @@ export const SymbolLayer = memo(function SymbolLayer({
         .filter((item): item is NonNullable<typeof item> => !!item)
         // Von hinten nach vorn: Was weiter unten steht, verdeckt, was darüber steht.
         .sort((a, b) => a.y - b.y || a.x - b.x),
-    [cells, size, fog],
+    [cells, size, fog, where],
   );
   if (!items.length) return null;
   return (

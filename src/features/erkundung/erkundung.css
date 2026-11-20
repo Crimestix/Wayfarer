@@ -1292,24 +1292,39 @@
 .wf-hexcave__rock {
   fill: url(#wf-hex-rock);
 }
-.wf-hexcave__waterbase {
-  fill: var(--hex-cave-water);
+.wf-hexcave__walltint {
+  fill: var(--hex-cave-rim);
+  opacity: 0.42;
+}
+.wf-hexcave__magmatint {
+  fill: var(--hex-cave-magma);
+  opacity: 0.3;
 }
 .wf-hexcave__open path {
   stroke-linejoin: round;
   stroke-linecap: round;
 }
-/* Der Höhlenboden: ein Schatten im Fels, ein heller Rand, der Boden, darauf die Tuschelinie. */
+/* Um jede Höhle wird der Fels dunkler – in zwei weichen Stufen. */
 .wf-hexcave__shade {
   fill: none;
   stroke: var(--hex-cave-shade);
-  stroke-opacity: 0.55;
-  stroke-width: calc(var(--hex) * 0.2);
+  stroke-opacity: 0.4;
+  stroke-width: calc(var(--hex) * 0.26);
+}
+.wf-hexcave__shade--far {
+  stroke-opacity: 0.22;
+  stroke-width: calc(var(--hex) * 0.46);
+}
+/* Die Wand: ein Band aus hellem Stein mit dunkler Kante außen. */
+.wf-hexcave__rim-ink {
+  fill: none;
+  stroke: var(--hex-cave-ink);
+  stroke-width: calc(var(--hex) * 0.15);
 }
 .wf-hexcave__rim {
   fill: none;
-  stroke: var(--hex-cave-rim);
-  stroke-width: calc(var(--hex) * 0.085);
+  stroke: url(#wf-hex-wall);
+  stroke-width: calc(var(--hex) * 0.115);
 }
 .wf-hexcave__floor {
   fill: url(#wf-hex-ground);
@@ -1319,11 +1334,30 @@
 .wf-hexcave__ground {
   stroke: none;
 }
+/* Rundum ein Hauch Schatten am Fuß der Wand … */
 .wf-hexcave__wallshade {
   fill: none;
   stroke: var(--hex-cave-shade);
-  stroke-opacity: 0.28;
-  stroke-width: calc(var(--hex) * 0.13);
+  stroke-opacity: 0.2;
+  stroke-width: calc(var(--hex) * 0.1);
+}
+/* … der Schlagschatten der Wand oben links … */
+.wf-hexcave__cast {
+  fill: none;
+  stroke: var(--hex-cave-shade);
+  stroke-opacity: 0.34;
+  stroke-width: calc(var(--hex) * 0.16);
+}
+.wf-hexcave__cast--far {
+  stroke-opacity: 0.16;
+  stroke-width: calc(var(--hex) * 0.3);
+}
+/* … und das Licht auf der Wand unten rechts. */
+.wf-hexcave__lit {
+  fill: none;
+  stroke: var(--hex-cave-rim);
+  stroke-opacity: 0.3;
+  stroke-width: calc(var(--hex) * 0.07);
 }
 .wf-hexcave__edge {
   fill: none;
@@ -1355,14 +1389,14 @@
   stroke: var(--hex-cave-ink);
 }
 .wf-hexcave__pool--magma {
-  fill: var(--hex-cave-magma);
+  fill: url(#wf-hex-pool-magma);
 }
 .wf-hexcave__pool-edge--magma {
   stroke: var(--hex-cave-magma-edge);
   stroke-width: max(1.5px, calc(var(--hex) * 0.06));
 }
 .wf-hexcave__pool--ice {
-  fill: var(--hex-cave-ice);
+  fill: url(#wf-hex-pool-ice);
 }
 .wf-hexcave__pool-edge--ice {
   stroke: var(--hex-cave-rim);
@@ -1566,3 +1600,5 @@
 .wf-hexsym image[data-dim] {
   opacity: 0.4;
 }
+
+/* Gemalte Zeichen unter der Erde stehen auf dem Höhlenboden (zweite Schicht von HexSymbols.tsx). */

@@ -490,7 +490,18 @@ nicht übernommen.
   eine gemalte Bodenkachel (`CAVE_GROUND`, `ui/assets/hexkarte`), gezeichnet als Fläche aus den
   Formen ihrer Felder (`plan.grounds`), auf den Höhlenboden beschnitten, mit weichem Saum; die
   Palette zeigt dieselbe Kachel (`KindSwatch`). Eine neue Art mit eigenem Boden: Kachel in den
-  Ordner, Eintrag in `CAVE_GROUND`. **Die Oberwelt: ruhiger Boden, gemalte Zeichen** (Frage des
+  Ordner, Eintrag in `CAVE_GROUND`. **Dasselbe Niveau unter der Erde** (Wunsch 20. 11.: „Genau das
+  Qualitätslevel auch fürs Unterreich“): Fels, Höhlenboden, Wasser und Eis sind gemalte Kacheln
+  aus derselben Hand (`ui/assets/hexkarte/cave-*.webp`); die Wand hat Stärke – ein Band aus
+  hellem Stein mit dunkler Kante (`rim-ink`, `rim`, Muster `#wf-hex-wall`), um jede Höhle wird
+  der Fels dunkler (`shade`). Der Boden liegt tiefer, das Licht kommt von oben links wie bei
+  allen Zeichen: Die Wand oben links wirft Schatten auf den Boden (`cast`: derselbe Umriss,
+  versetzt, auf den Boden beschnitten), die Wand unten rechts steht im Licht (`lit`). In den
+  Höhlen stehen gemalte Gruppen (`CAVE_SYMBOLS`, `ui/assets/hexkarte/unten`: Riesenpilze,
+  Kristalle, Tropfsteine, Geröll, Ruinen, Bergwerk, `floor` für Kleinigkeiten auf blankem
+  Boden) – als zweite Schicht `SymbolLayer where="cave"` über dem Gangnetz, kleiner als oben,
+  nie auf Fels oder in Gängen, beim Spielen nur auf Entdecktem. Der eigene Boden der Art bleibt
+  darunter. **Die Oberwelt: ruhiger Boden, gemalte Zeichen** (Frage des
   Spielleiters, 20. 11.: „Wie kriegen wir hochqualitative Maps hin? … einen detaillierten,
   schönen, hochqualitativen Stil, mit dem man wirklich schöne Maps bauen kann – aber damit nicht
   viel Arbeit hat“; die Probe hat er angenommen: „Das sieht deutlich besser aus“). Zwei Schichten:

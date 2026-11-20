@@ -20,9 +20,11 @@ import { isRock } from '../../domain/passages';
 import { caveOutline, outlinePath, type CaveBlob } from './caveOutline';
 import { Feather } from './HexGround';
 import type { Hex, PassageKind } from '../../domain/schema';
-import ground from '../../ui/assets/dungeon/ground.webp';
-import rock from '../../ui/assets/dungeon/hexrock.webp';
-import water from '../../ui/assets/dungeon/water.webp';
+import ground from '../../ui/assets/hexkarte/cave-floor.webp';
+import ice from '../../ui/assets/hexkarte/cave-ice.webp';
+import rock from '../../ui/assets/hexkarte/cave-rock.webp';
+import water from '../../ui/assets/hexkarte/cave-water.webp';
+import magma from '../../ui/assets/hexkarte/oben/lava.webp';
 import groundCrystal from '../../ui/assets/hexkarte/crystal.webp';
 import groundRuins from '../../ui/assets/hexkarte/deep-ruins.webp';
 import groundFungus from '../../ui/assets/hexkarte/fungus.webp';
@@ -389,8 +391,9 @@ function cavePlan(hexes: readonly Hex[], orientation: HexOrientation): CavePlan 
 
 /** Die gemalten Flächen, aus denen die Karte unter der Erde besteht – einmal je Karte. */
 export function CaveDefs({ size }: { size: number }) {
-  const tile = Math.max(120, size * 5);
-  // Was auf dem Boden wächst oder liegt, ist feiner gemalt: Man soll Pilze und Brocken erkennen.
+  // Fels und Boden sind ruhige Flächen und liegen groß; was auf dem Boden wächst oder liegt, ist
+  // feiner gemalt: Man soll Pilze und Brocken erkennen.
+  const tile = Math.max(110, size * 3.6);
   const fine = Math.max(72, size * 2.4);
   return (
     <defs>
@@ -400,9 +403,21 @@ export function CaveDefs({ size }: { size: number }) {
       <pattern id="wf-hex-ground" patternUnits="userSpaceOnUse" width={tile} height={tile}>
         <image href={ground} width={tile} height={tile} preserveAspectRatio="none" />
       </pattern>
-      <pattern id="wf-hex-water" patternUnits="userSpaceOnUse" width={tile} height={tile}>
-        <rect className="wf-hexcave__waterbase" width={tile} height={tile} />
-        <image href={water} width={tile} height={tile} preserveAspectRatio="none" opacity="0.28" />
+      {/* Die Höhlenwand von oben: derselbe Stein wie der Boden, heller – als lägen Licht und
+          Staub darauf. */}
+      <pattern id="wf-hex-wall" patternUnits="userSpaceOnUse" width={fine} height={fine}>
+        <image href={ground} width={fine} height={fine} preserveAspectRatio="none" />
+        <rect className="wf-hexcave__walltint" width={fine} height={fine} />
+      </pattern>
+      <pattern id="wf-hex-water" patternUnits="userSpaceOnUse" width={fine} height={fine}>
+        <image href={water} width={fine} height={fine} preserveAspectRatio="none" />
+      </pattern>
+      <pattern id="wf-hex-pool-ice" patternUnits="userSpaceOnUse" width={fine} height={fine}>
+        <image href={ice} width={fine} height={fine} preserveAspectRatio="none" />
+      </pattern>
+      <pattern id="wf-hex-pool-magma" patternUnits="userSpaceOnUse" width={fine} height={fine}>
+        <image href={magma} width={fine} height={fine} preserveAspectRatio="none" />
+        <rect className="wf-hexcave__magmatint" width={fine} height={fine} />
       </pattern>
       {GROUND_KINDS.map((kind) => (
         <pattern
@@ -491,7 +506,11 @@ export const CaveLayer = memo(function CaveLayer({
             <clipPath id={clip}>
               <path d={floor} clipRule="evenodd" />
             </clipPath>
+            {/* Um jede Höhle wird der Fels dunkler; ihre Wand hat Stärke: ein Band aus hellem
+                Stein mit dunkler Kante. */}
+            <path className="wf-hexcave__shade wf-hexcave__shade--far" d={floor} />
             <path className="wf-hexcave__shade" d={floor} />
+            <path className="wf-hexcave__rim-ink" d={floor} />
             <path className="wf-hexcave__rim" d={floor} />
             <path className="wf-hexcave__floor" d={floor} fillRule="evenodd" />
             {part.grounds.length > 0 && (
@@ -509,8 +528,21 @@ export const CaveLayer = memo(function CaveLayer({
                 })}
               </g>
             )}
-            {/* Die Wand wirft Schatten auf den Boden – so liegt er tiefer als der Fels. */}
-            <path className="wf-hexcave__wallshade" d={floor} clipPath={`url(#${clip})`} />
+            {/* Der Boden liegt tiefer als der Fels, das Licht kommt von oben links (wie bei allen
+                gemalten Zeichen): Die Wand oben links wirft Schatten auf den Boden, die Wand unten
+                rechts steht im Licht. Derselbe Umriss, versetzt und auf den Boden beschnitten. */}
+            <g clipPath={`url(#${clip})`}>
+              <path className="wf-hexcave__wallshade" d={floor} />
+              <g transform={`translate(${fmt(size * 0.07)} ${fmt(size * 0.085)})`}>
+                <path className="wf-hexcave__cast wf-hexcave__cast--far" d={floor} />
+                <path className="wf-hexcave__cast" d={floor} />
+              </g>
+              <path
+                className="wf-hexcave__lit"
+                d={floor}
+                transform={`translate(${fmt(-size * 0.03)} ${fmt(-size * 0.04)})`}
+              />
+            </g>
             <path className="wf-hexcave__edge" d={floor} />
             {part.pools.map(({ tone, loops }) => {
               const d = outlinePath(loops, size);
