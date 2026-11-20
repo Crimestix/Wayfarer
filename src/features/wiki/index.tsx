@@ -14,8 +14,6 @@ import {
   ChevronsUpDown,
   Code,
   EyeOff,
-  FilePlus2,
-  Library,
   PenLine,
   Plus,
 } from 'lucide-react';
@@ -23,22 +21,11 @@ import { useData, useDb } from '../../data/hooks';
 import { KIND_LABEL } from '../../domain/derive';
 import { CREATE_KINDS } from '../../domain/pick';
 import type { Article, EntityKind } from '../../domain/schema';
-import {
-  Button,
-  EmptyState,
-  EntityLink,
-  KindIcon,
-  MenuItem,
-  Popover,
-  cx,
-  entityHref,
-  toast,
-} from '../../ui';
+import { Button, EntityLink, KindIcon, MenuItem, Popover, cx, entityHref, toast } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
-import { adoptArticle } from './actions';
+import { adoptArticle, continueWriting } from './actions';
 import { articleFacts, kindFromFolder, statedKind } from './facts';
 import { ArticleMenu, NewArticleDialog } from './ArticleTools';
-import { openNew } from '../welt/editor';
 import { MODE_LABEL, flushEdits, type WikiMode } from './editing';
 import { useShortcut } from '../../shell/shortcuts';
 import { AiOverview } from '../ki/AiOverview';
@@ -78,6 +65,11 @@ const memory = {
 export function openForWriting() {
   if (memory.mode === 'read') memory.mode = 'live';
   memory.writeNext = true;
+}
+
+/** Der Editor wird erst beim Schreiben geladen – wer eine leere Seite anklickt, lädt ihn schon. */
+export function preloadEditor() {
+  void import('./PageEditor');
 }
 
 /** Auf der Seite eines Dings beginnt der Text gesetzt – außer er wurde eben angelegt. */
@@ -257,26 +249,19 @@ export function WikiStart() {
   const hidden = useMemo(() => roomArticleIds(data), [data]);
   const tree = useMemo(() => articleTree(articles, hidden), [articles, hidden]);
   const total = Object.keys(articles).length - tree.templates.length;
+  // Ohne Artikel lädt die Startseite schon zum Schreiben ein – hier nur der Weg für Übernommenes.
   if (!Object.keys(articles).length)
     return (
-      <div className="wf-wiki-landing">
-        <EmptyState
-          icon={<Library />}
-          title="Noch keine Artikel"
-          action={
-            <div className="wf-row" style={{ gap: 'var(--s-3)' }}>
-              <Button icon={<FilePlus2 />} onClick={() => openNew({ kind: null, withText: true })}>
-                Ersten Text schreiben
-              </Button>
-              <Button onClick={() => navigate('/einstellungen')}>LegendKeeper übernehmen</Button>
-            </div>
-          }
+      <p className="wf-wiki-landing wf-wiki-landing--empty">
+        Schon Artikel in LegendKeeper?{' '}
+        <button
+          type="button"
+          className="wf-welt-linkish"
+          onClick={() => navigate('/einstellungen')}
         >
-          Hier stehen die Artikel über deine Welt. Schreib sie direkt hier – oder lies in den
-          Einstellungen unter „LegendKeeper ganz übernehmen“ die Exportdatei deines
-          LegendKeeper-Projekts ein, mit allen Artikeln, Karten und Steckbriefen.
-        </EmptyState>
-      </div>
+          In den Einstellungen übernehmen
+        </button>
+      </p>
     );
   return (
     <div className="wf-wiki-landing">
@@ -461,6 +446,7 @@ export function ArticlePage({
   article: Article;
   embedded?: boolean;
 }) {
+  const db = useDb();
   const data = useData();
   const [, navigate] = useLocation();
   const articles = data.articles;
@@ -509,6 +495,15 @@ export function ArticlePage({
         onOpen={onOpen}
         mode={mode}
         embedded={embedded}
+        onWrite={
+          article.template
+            ? undefined
+            : (typed) => {
+                flushEdits();
+                if (typed !== undefined) continueWriting(db, article.id, typed);
+                setMode((current) => (current === 'read' ? lastEdit.current : current));
+              }
+        }
         actions={
           <>
             <ModeSwitch

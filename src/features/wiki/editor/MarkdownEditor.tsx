@@ -28,6 +28,7 @@ import { hostFacet, refreshEffect, type EditorHost } from './host';
 import { liveView, sourceView } from './live';
 import { wikiMarkdown } from './syntax';
 import { editorTheme, liveColors, sourceColors } from './theme';
+import { takeTypedAhead } from '../editing';
 import './editor.css';
 
 export type EditorMode = 'live' | 'source';
@@ -164,7 +165,17 @@ export function MarkdownEditor(
       }),
     });
     viewRef.current = view;
-    if (latest.current.autoFocus) view.focus();
+    if (latest.current.autoFocus) {
+      // Die Einfügemarke ans Ende: Wer auf einer leeren Seite angefangen hat, schreibt weiter.
+      // Was getippt wurde, während der Editor lud, kommt dazu (`takeTypedAhead`).
+      const end = view.state.doc.length;
+      const ahead = takeTypedAhead();
+      view.dispatch({
+        changes: ahead ? { from: end, insert: ahead } : undefined,
+        selection: { anchor: end + ahead.length },
+      });
+      view.focus();
+    }
     return () => {
       viewRef.current = null;
       view.destroy();

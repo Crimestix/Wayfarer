@@ -1015,3 +1015,10 @@ button.wf-wiki-row__toggle:hover {
   max-height: min(60vh, 520px);
   overflow-y: auto;
 }
+/* Ohne Artikel nur der leise Weg zur Übernahme – das Schreiben steht oben auf der Startseite. */
+.wf-wiki-landing--empty {
+  margin: 0;
+  padding-top: 0;
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

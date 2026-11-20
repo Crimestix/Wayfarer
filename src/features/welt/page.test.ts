@@ -17,6 +17,7 @@ import {
 import { createArticle, syncFacts } from '../wiki/actions';
 import { setSteckbriefField, steckbriefFields } from '../wiki/factLines';
 import { scaffoldOf } from '../wiki/scaffold';
+import { withFirstWords } from '../wiki/text';
 import {
   boxCovers,
   boxRows,
@@ -173,10 +174,10 @@ describe('Feld schreiben auf der Seite', () => {
 });
 
 describe('Gestalt je Art', () => {
-  it('Person: Steckbrief, dann Besitz und Text; rechts wo sie ist und Haltung', async () => {
+  it('Person: Steckbrief, dann Text und Besitz; rechts wo sie ist und Haltung', async () => {
     const { db, tovan } = await setup();
     const plan = pagePlan(db.getSnapshot(), tovan, { hasText: false });
-    expect(plan.main).toEqual(['box', 'belongings', 'text']);
+    expect(plan.main).toEqual(['box', 'text', 'belongings']);
     expect(plan.side.slice(0, 2)).toEqual(['whereabouts', 'attitude']);
     expect(plan.add).toEqual(['shop', 'scheme', 'promise', 'notes', 'secret']);
   });
@@ -228,8 +229,8 @@ describe('Gestalt je Art', () => {
     const { db, stadt, schmiede } = await setup();
     const plan = pagePlan(db.getSnapshot(), stadt, { hasText: true });
     expect(plan.main).toEqual(['box', 'text', 'places', 'items']);
-    // Ohne Text wartet die Schreibfläche am Ende.
-    expect(pagePlan(db.getSnapshot(), stadt, { hasText: false }).main.at(-1)).toBe('text');
+    // Ohne Text steht die leere Seite ebenso gleich unter dem Steckbrief.
+    expect(pagePlan(db.getSnapshot(), stadt, { hasText: false }).main[1]).toBe('text');
     expect(plan.side.slice(0, 3)).toEqual(['party', 'changes', 'cast']);
     expect(plan.add).toEqual(['shop', 'rooms', 'travel', 'notes', 'secret']);
     // Ein Ort ohne Orte darin zeigt keinen leeren Abschnitt „Darin“.
@@ -301,5 +302,19 @@ describe('Ein Laden ist ein Laden', () => {
     const result = shopToOwnPlace(db, shop.id)!;
     expect(result).toMatchObject({ placeId: schmiede.id, created: false });
     expect(Object.keys(db.getSnapshot().entities)).toHaveLength(before);
+  });
+});
+
+describe('withFirstWords', () => {
+  it('setzt das erste Wort hinter das Gerüst, mit Leerzeile', () => {
+    expect(withFirstWords('> [!steckbrief]\n> Volk: \n\n', 'D')).toBe(
+      '> [!steckbrief]\n> Volk:\n\nD',
+    );
+  });
+  it('beginnt eine leere Seite mit dem Wort', () => {
+    expect(withFirstWords('', 'Es')).toBe('Es');
+  });
+  it('lässt den Text ohne Getipptes, wie er ist', () => {
+    expect(withFirstWords('abc\n', '')).toBe('abc\n');
   });
 });

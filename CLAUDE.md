@@ -1614,14 +1614,23 @@ nicht übernommen.
   ohne Reiter – Reiter nur noch für Seltenes (Beziehungen ändern, Stammbaum, Verlauf). Kopf mit
   Pfad (Orte darüber), Name, Art, dem einen Satz (direkt beschreibbar) und Platzhalter-Marke;
   links breit Steckbrief-Kasten (`FactBox`), was darin oder dazu gehört, Notizen/Geheimnis und
-  der Text (`ArticlePage embedded`: gesetzt, „Schreiben“ öffnet den Editor an Ort und Stelle);
+  der Text gleich unter dem Steckbrief (`ArticlePage embedded`: gesetzt, „Schreiben“ oder ein
+  Doppelklick öffnet den Editor an Ort und Stelle);
   rechts schmal, was jetzt gilt (wo sie ist, Haltung zur Gruppe und abweichend zu Gefährten,
   wer hier ist, die Gruppe hier), Beziehungen knapp, „Zuletzt“ mit „Verlauf ansehen“. Was wo
   steht, sagt einzig `pagePlan()` (`welt/page.ts`) je Art – als Reihenfolge, nie als Filter:
   Leere Abschnitte (Laden, Magie, Rezept, Buch, Räume, Vorhaben …) stehen nicht da, sondern als
   eine Zeile „Hinzufügen: …“ (`AddKey`); neue Abschnitte dort eintragen, nicht in der
   Oberfläche. Notizen und Geheimnis stehen neben einem Text nur, wenn schon etwas darin steht.
-  Bausteine in `welt/PageParts.tsx`. **Ein Laden ist ein Laden:** Ist der Ort selbst der Laden
+  Bausteine in `welt/PageParts.tsx`. **Schreiben zuerst** (Rückmeldung 20. 11. 2026: „Gerade die
+  Arbeitsflächen wirken nicht wirklich verbessert“): Wo noch kein Text steht – Seite eines Dings,
+  leerer Artikel, Startseite der Welt –, steht eine leere Seite (`BlankPage`, `ui/blank.tsx`), kein
+  Knopf: Mit dem ersten Zeichen entsteht der Text (`startEntityText`, `startFreeText` +
+  `continueWriting`), der Editor öffnet sich und schreibt hinter dem Getippten weiter
+  (`requestFocusEnd`; was während des Ladens getippt wird, fängt `takeTypedAhead` auf). Ein
+  Steckbrief ohne Inhalt ist eine Zeile, eine leere Mappe nur ein leiser Griff; leere Hinweise
+  ohne Handlung (leere Liste, leere Unterkategorien) stehen nicht da. Das Abendblatt ist ein
+  Blatt zum Schreiben, die Fächer holt man rechts dazu. **Ein Laden ist ein Laden:** Ist der Ort selbst der Laden
   (ein einzelner Ort, keine Gegend) oder die Person der Händler, ist der Laden der Hauptteil –
   über beiden Spalten, der Knopf zum Handeln trägt das Messing (`pageShops`, `ShopSection lead`).
   Nie der Hauptteil eines Ortes darüber: Steht ein Laden direkt an einer Stadt, einem Viertel,

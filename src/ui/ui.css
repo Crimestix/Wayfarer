@@ -1193,3 +1193,48 @@ button.wf-item:hover,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Eine leere Seite zum Losschreiben (`BlankPage`): ein Blatt, kein Formularfeld. */
+.wf-blank {
+  position: relative;
+}
+.wf-blank__input {
+  display: block;
+  width: 100%;
+  min-height: 15rem;
+  padding: var(--s-4) var(--s-5);
+  resize: none;
+  border: 1px dashed var(--line-faint);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 240, 210, 0.025), rgba(255, 240, 210, 0) 60%);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.06rem;
+  line-height: 1.6;
+  cursor: text;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.wf-blank__input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.wf-blank__input:hover {
+  border-color: var(--line);
+}
+.wf-blank__input:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--line-strong);
+  background-color: rgba(255, 240, 210, 0.03);
+}
+.wf-blank--lead .wf-blank__input {
+  min-height: 7.5rem;
+  font-size: var(--text-lg);
+}
+.wf-blank__foot {
+  margin-top: var(--s-2);
+  color: var(--ink-mute);
+  font-size: var(--text-sm);
+}

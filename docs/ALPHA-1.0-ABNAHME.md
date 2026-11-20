@@ -255,6 +255,13 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
   Umbenennen, Statblock löschen mit Ankündigung und Rückgängig, Strg+E doppelt belegt,
   „verwaltet“ ≠ Herrschaft, Sammelseiten nicht als Personen, Ortsauswahl geordnet, Lesbarkeit
   und Fokus, Weltleiste bis 125 % Zoom, **kein Textverlust beim sofortigen Schließen** (K08).
+- **Schreiben zuerst** (Rückmeldung nach den ersten Bildern: „Gerade die Arbeitsflächen wirken
+  nicht wirklich verbessert“): leere Seite statt „Schreiben“-Knopf auf der Seite eines Dings, in
+  leeren Artikeln und auf der Startseite der Welt – lostippen, der Editor übernimmt samt allem,
+  was während des Ladens getippt wurde; Text gleich unter dem Steckbrief (nur die Einrichtung
+  einer Bastion steht davor); Doppelklick in den Text schreibt; leerer Steckbrief als eine Zeile,
+  leere Mappe als leiser Griff; Abendblatt als Schreibblatt, Fächer rechts zum Dazuholen; leere
+  Hinweise ohne Handlung entfernt. Keine Datenänderung.
 - Datenversion 43 (neu: `chronicle.bastionId`, `story.guide`, `material` an Artikel und
   Geschichte, `prep.text`, `campaign.prepGuide`).
 
@@ -283,6 +290,12 @@ heißt: in der Browservorschau geprüft, nicht in der installierten App.
 - 20. 11. 2026: Phase E: Fassung in den Einstellungen sichtbar; Workflow „Alpha bauen“; Pakete
           0.2.0-alpha.2 für Windows und macOS gebaut (ohne Veröffentlichung). Rust-Tests Windows und
           Linux grün (inkl. Kopierbefehl), macOS-Testlauf mangels freiem Rechner abgebrochen.
+
+- 20. 11. 2026: Arbeitsflächen „Schreiben zuerst“ nach Rückmeldung zu den Bildern. Browserproben
+          (Vorschau, Prüfmodus): Tippen in die leere Seite eines Dings – mit und ohne Steckbrief-Text
+          – und auf der Startseite landet vollständig im Editor, Umlaute eingeschlossen, und steht
+          nach dem Neuladen da; Vorher/Nachher-Bilder leer und mit erfundener Probewelt.
+          2860 Tests grün. Nativ nicht geprüft.
 
 ## Nächster Schritt
 

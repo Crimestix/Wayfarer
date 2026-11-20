@@ -62,10 +62,16 @@ export function MaterialBox({ owner: given }: { owner: MaterialOwner }) {
   };
 
   return (
-    <div className="wf-welt-material" aria-label="Mappe">
-      <span className="wf-welt-material__title">
-        <Paperclip aria-hidden /> Mappe
-      </span>
+    <div
+      className="wf-welt-material"
+      aria-label="Mappe"
+      data-empty={items.length === 0 && back.length === 0 ? '' : undefined}
+    >
+      {items.length > 0 && (
+        <span className="wf-welt-material__title">
+          <Paperclip aria-hidden /> Mappe
+        </span>
+      )}
       {items.map((item) => (
         <span key={`${item.ref.type}:${item.ref.id}`} className="wf-welt-material__item">
           <Link href={item.href}>
@@ -88,7 +94,13 @@ export function MaterialBox({ owner: given }: { owner: MaterialOwner }) {
         onClick={() => setOpen((v) => !v)}
         title="Text, Geschichte, Karte oder Eintrag hierher heften – nur ein Verweis"
       >
-        {items.length ? '+ Anheften' : '+ Material anheften'}
+        {items.length ? (
+          '+ Anheften'
+        ) : (
+          <>
+            <Paperclip aria-hidden /> Material anheften
+          </>
+        )}
       </button>
       {back.length > 0 && (
         <span className="wf-welt-material__back">

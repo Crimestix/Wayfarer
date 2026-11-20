@@ -6,7 +6,7 @@
 import type { CampaignDb } from '../../data/db';
 import type { Entity } from '../../domain/schema';
 import { shopTitle } from '../../domain/shop';
-import { createArticleOfKind, savePageText } from '../wiki/actions';
+import { continueWriting, createArticleOfKind, savePageText } from '../wiki/actions';
 import { flushEdits } from '../wiki/editing';
 import { scaffoldOf } from '../wiki/scaffold';
 import { pageText } from '../wiki/text';
@@ -94,4 +94,18 @@ export function shopToOwnPlace(
         }),
     };
   });
+}
+
+/** Der Text eines Dings beginnt hier: Artikel mit dem Gerüst seiner Art, gleich zum Schreiben. */
+export function startEntityText(db: CampaignDb, entity: Entity, typed = ''): string | null {
+  flushEdits();
+  const made = createArticleOfKind(db, {
+    title: entity.name,
+    kind: entity.kind,
+    scaffold: true,
+    entityId: entity.id,
+  });
+  if (!made) return null;
+  continueWriting(db, made.article.id, typed);
+  return made.article.id;
 }

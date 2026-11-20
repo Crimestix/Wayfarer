@@ -94,3 +94,18 @@
   color: var(--ink-mute);
   font-style: italic;
 }
+/* Leer ist die Mappe nur ein leiser Griff – keine eigene Zeile mit Überschrift. */
+.wf-welt-material[data-empty] .wf-welt-material__add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--ink-mute);
+}
+.wf-welt-material[data-empty] .wf-welt-material__add:hover {
+  color: var(--gold);
+  text-decoration: none;
+}
+.wf-welt-material__add svg {
+  width: 0.95em;
+  height: 0.95em;
+}

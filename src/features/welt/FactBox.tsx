@@ -62,6 +62,23 @@ export function FactBox({ entity, article }: { entity: WorldEntity; article: Art
     if (articleId) applyFacts(db, [articleId]);
   };
 
+  // Noch nichts im Steckbrief: eine Zeile statt eines leeren Kastens – der Platz gehört dem Text.
+  if (shown.length === 0 && !adding)
+    return (
+      <div className="wf-welt-box wf-welt-box--slim">
+        <span className="wf-section-title">Steckbrief</span>
+        <button type="button" className="wf-welt-box__add" onClick={() => setAdding(true)}>
+          <Plus aria-hidden />
+          Feld
+        </button>
+        {blanks > 0 && (
+          <button type="button" className="wf-welt-box__toggle" onClick={() => setHideBlank(false)}>
+            {blanks === 1 ? 'Ein leeres Feld zeigen' : `${blanks} leere Felder zeigen`}
+          </button>
+        )}
+      </div>
+    );
+
   return (
     <Section
       title="Steckbrief"
@@ -108,12 +125,6 @@ export function FactBox({ entity, article }: { entity: WorldEntity; article: Art
           <Plus aria-hidden />
           Feld
         </button>
-      )}
-      {!article && (
-        <p className="wf-welt-box__note">
-          Mit dem ersten Wort entsteht der Text zu „{entity.name}“ – der Steckbrief steht darin
-          oben.
-        </p>
       )}
     </Section>
   );

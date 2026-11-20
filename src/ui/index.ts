@@ -12,3 +12,4 @@ export { DismissButton } from './dismiss';
 export { HoverCard, HOVER_DELAY } from './hover';
 export { FrequencySelect } from './frequency';
 export * from './sideSheet';
+export { BlankPage } from './blank';

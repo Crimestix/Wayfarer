@@ -289,3 +289,13 @@ export function relinked(before: Articles, after: Articles): Article[] {
   }
   return changed;
 }
+
+/**
+ * Das erste Wort auf einer leeren Seite (Text eines Dings, freier Text): kommt hinter das, was
+ * schon dasteht (etwa das Gerüst des Steckbriefs), mit einer Leerzeile dazwischen.
+ */
+export function withFirstWords(text: string, typed: string): string {
+  const before = text.replace(/\s+$/, '');
+  if (!typed) return text;
+  return before ? `${before}\n\n${typed}` : typed;
+}

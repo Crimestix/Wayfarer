@@ -26,7 +26,7 @@ import { MenuItem, Popover, useHoldDraft } from '../../ui';
 import type { OpenTarget } from '../legendkeeper/Article';
 import { savePageText } from './actions';
 import { applyFacts } from './FactsHint';
-import { SAVE_DELAY_MS, registerFlush } from './editing';
+import { SAVE_DELAY_MS, clearFocusEnd, registerFlush, wantsFocusEnd } from './editing';
 import {
   MarkdownEditor,
   type EditorMode,
@@ -115,6 +115,9 @@ export default function PageEditor({
   const touched = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [initial, setInitial] = useState(stored);
+  /** Eben von einer leeren Seite aus angefangen: weiterschreiben, wo das erste Wort steht. */
+  const [atEnd] = useState(wantsFocusEnd);
+  useEffect(clearFocusEnd, []);
   const [revision, setRevision] = useState(0);
   const [dirty, setDirty] = useState(false);
   // Ungeschriebener Text: Der Abgleich wartet mit dem Übernehmen, bis er geschrieben ist.
@@ -293,7 +296,7 @@ export default function PageEditor({
         onOpenLink={onOpenLink}
         imageSrc={src}
         placeholder="Schreib los. Mit [[ oder @ verweist du auf einen anderen Artikel."
-        autoFocus={initial.trim() === ''}
+        autoFocus={atEnd || initial.trim() === ''}
       />
     </div>
   );

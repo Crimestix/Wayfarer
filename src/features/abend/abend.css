@@ -876,17 +876,35 @@ button.wf-abend-story__toggle:hover .wf-abend-name {
 .wf-abend-free {
   margin-bottom: var(--s-5);
 }
-.wf-abend-free__text {
-  min-height: 6rem;
-  font-size: var(--text-md);
-  line-height: 1.55;
+/* Das freie Blatt: eine Seite zum Schreiben, kein Formularfeld – wächst mit dem Text. */
+.wf-textarea.wf-written.wf-abend-free__text {
+  min-height: 22rem;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--line-faint);
+  background: linear-gradient(180deg, rgba(255, 240, 210, 0.03), rgba(255, 240, 210, 0) 70%);
+  font-size: 1.06rem;
+  line-height: 1.65;
+}
+.wf-textarea.wf-written.wf-abend-free__text:hover {
+  border-color: var(--line);
+}
+.wf-textarea.wf-written.wf-abend-free__text:focus {
+  border-color: var(--line-strong);
+}
+.wf-textarea.wf-written.wf-abend-free__text::placeholder {
+  font-style: italic;
+  color: var(--ink-faint);
+}
+/* Mit Fächern darunter muss das Blatt nicht eine ganze Seite hoch sein. */
+.wf-abend-free[data-with-faecher] .wf-textarea.wf-written.wf-abend-free__text {
+  min-height: 10rem;
 }
 .wf-abend-more {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--s-1) var(--s-3);
-  margin: var(--s-4) 0 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  margin: 0;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--ink-mute);

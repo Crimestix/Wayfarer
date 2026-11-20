@@ -8,7 +8,6 @@
 import { CollectionNote } from './CollectionNote';
 import { WideToggle } from './WideToggle';
 import { useWideText } from './wide';
-import { articleParts } from '../../domain/articleText';
 import { RoomFacility } from '../bastion/RoomFacility';
 import { isWorld, liesIn } from '../../domain/worlds';
 import { WorldInside } from './WorldInside';
@@ -34,6 +33,7 @@ import { isStub } from '../../domain/stub';
 import { openQuickLog } from '../../shell/commands';
 import {
   Badge,
+  BlankPage,
   Button,
   ChronicleList,
   EmptyState,
@@ -48,9 +48,8 @@ import {
 import { ShopSection } from '../laden/ShopSection';
 import { LkArticlePanel } from '../legendkeeper';
 import { ContinuityNote } from '../offen/ContinuityItem';
-import { ArticlePage, openForWriting } from '../wiki';
-import { createArticleOfKind } from '../wiki/actions';
-import { flushEdits } from '../wiki/editing';
+import { ArticlePage, openForWriting, preloadEditor } from '../wiki';
+import { startEntityText } from './pageActions';
 import { FactsHint } from '../wiki/FactsHint';
 import { scaffoldOf } from '../wiki/scaffold';
 import { pageText } from '../wiki/text';
@@ -145,7 +144,6 @@ export function Dossier({
   const wide = useWideText() && !inSheet;
   const plan = pagePlan(data, entity, {
     hasText: article !== null,
-    written: !!text && articleParts(text).body.trim() !== '',
     opened,
   });
   const shops = pageShops(data, entity);
@@ -524,9 +522,10 @@ export function Dossier({
 }
 
 /**
- * Der Text des Dings auf derselben Seite: der Artikel, gesetzt zum Lesen, „Schreiben“ öffnet den
- * Editor an Ort und Stelle. Ohne Artikel: anfangen (mit dem Gerüst der Art) – oder mit einem
- * Artikel in LegendKeeper verknüpfen.
+ * Der Text des Dings auf derselben Seite: der Artikel, gesetzt zum Lesen; „Schreiben“ (oder ein
+ * Doppelklick in den Text) öffnet den Editor an Ort und Stelle. Ohne Artikel steht hier eine
+ * leere Seite: Man tippt einfach los, mit dem ersten Zeichen entsteht der Artikel (mit dem Gerüst
+ * der Art) und der Editor schreibt weiter.
  */
 function TextSection({ entity }: { entity: WorldEntity }) {
   const db = useDb();
@@ -539,39 +538,32 @@ function TextSection({ entity }: { entity: WorldEntity }) {
         <ArticlePage article={article} embedded />
       </section>
     );
-  const write = () => {
-    flushEdits();
+  const start = (typed: string) => {
     openForWriting();
-    createArticleOfKind(db, {
-      title: entity.name,
-      kind: entity.kind,
-      scaffold: true,
-      entityId: entity.id,
-    });
+    startEntityText(db, entity, typed);
   };
   return (
     <section className="wf-welt-text wf-welt-text--empty" aria-label="Text">
-      <div className="wf-welt-text__head">
-        <span className="wf-section-title">Text</span>
-        <Button icon={<Feather />} onClick={write}>
-          Schreiben
-        </Button>
-      </div>
-      <p className="wf-welt-quiet">
-        Noch kein Text. Was du schreibst, steht hier – mit [[Verweisen]] auf andere Dinge, Geheimes
-        als eigener Kasten.
-      </p>
-      {entity.lk || linking ? (
-        <LkArticlePanel
-          link={entity.lk}
-          onLink={(lk) => db.patch('entities', entity.id, { lk })}
-          suggest={entity.name}
-        />
-      ) : (
-        <button type="button" className="wf-welt-linkish" onClick={() => setLinking(true)}>
-          <Link2 aria-hidden /> Mit einem Artikel in LegendKeeper verknüpfen …
-        </button>
-      )}
+      <h4 className="wf-section-title">Text</h4>
+      <BlankPage
+        label={`Text zu ${entity.name}`}
+        placeholder={`Hier beginnt der Text über ${entity.name}. Einfach lostippen – mit [[ oder @ verweist du auf andere Dinge.`}
+        onFocus={preloadEditor}
+        onStart={start}
+        footer={
+          entity.lk || linking ? (
+            <LkArticlePanel
+              link={entity.lk}
+              onLink={(lk) => db.patch('entities', entity.id, { lk })}
+              suggest={entity.name}
+            />
+          ) : (
+            <button type="button" className="wf-welt-linkish" onClick={() => setLinking(true)}>
+              <Link2 aria-hidden /> Stattdessen mit einem Artikel in LegendKeeper verknüpfen …
+            </button>
+          )
+        }
+      />
     </section>
   );
 }

@@ -1877,11 +1877,17 @@
   font-size: var(--text-lg);
   font-style: italic;
 }
-.wf-welt-landing__start {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-3);
-  margin-top: var(--s-4);
+/* Die leere Seite zum Losschreiben gleich unter dem Namen der Welt. */
+.wf-welt-landing__write {
+  margin: var(--s-4) 0 var(--s-5);
+}
+.wf-welt-landing__or .wf-welt-linkish {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.wf-welt-side-empty {
+  padding: var(--s-4) var(--s-5);
 }
 .wf-welt-landing__more {
   margin: calc(var(--s-2) * -1) 0 var(--s-3);
@@ -3552,19 +3558,11 @@ button.wf-welt-gaps__count:hover {
 .wf-welt-text--empty {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--s-3);
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--line-faint);
 }
-.wf-welt-text__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
-  align-self: stretch;
+.wf-welt-text--empty .wf-blank {
+  width: 100%;
 }
-
 /* Rechts: jetzt */
 .wf-welt-attnow {
   display: flex;
@@ -4300,4 +4298,23 @@ button.wf-welt-gaps__count:hover {
 }
 .wf-welt-cols[data-wide] {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Ein Steckbrief, in dem noch nichts steht: eine leise Zeile statt eines leeren Kastens. */
+.wf-welt-box--slim {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-4);
+  padding: 0 0 var(--s-2);
+  border: 0;
+  border-bottom: 1px solid var(--line-faint);
+  background: none;
+  box-shadow: none;
+}
+.wf-welt-box--slim::before,
+.wf-welt-box--slim::after {
+  content: none;
+}
+.wf-welt-box--slim .wf-welt-box__toggle {
+  margin-left: auto;
 }

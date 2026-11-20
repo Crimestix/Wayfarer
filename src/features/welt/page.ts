@@ -275,8 +275,6 @@ export function pagePlan(
   entity: WorldEntity,
   options: {
     hasText: boolean;
-    /** Im Text steht schon mehr als der Steckbrief – dann folgt er gleich ihm (F11). */
-    written?: boolean;
     opened?: ReadonlySet<AddKey>;
   },
 ): PagePlan {
@@ -395,10 +393,11 @@ export function pagePlan(
   // (Rundgang 17. 11.: drei leere Felder untereinander machten die Seite voll).
   maybe('notes', !!entity.notes.trim(), () => main.push('notes'));
   maybe('secret', !!entity.secret.trim(), () => main.push('secret'));
-  // Steht ein Text da, folgt er gleich dem Steckbrief – vor Listen wie Orten darin und Räumen
-  // (F11: der Artikel ist das Eigentliche). Ohne Text wartet die Schreibfläche am Ende.
-  if (options.written ?? options.hasText) main.splice(main.indexOf('box') + 1, 0, 'text');
-  else main.push('text');
+  // Der Text folgt gleich dem Steckbrief – vor Listen wie Orten darin und Räumen (F11: der
+  // Artikel ist das Eigentliche). Ohne Text steht dort die leere Seite zum Losschreiben. Nur die
+  // Einrichtung einer Bastion bleibt gleich unter dem Steckbrief (sie ist, was der Raum ist).
+  const anchor = main.includes('facility') ? 'facility' : 'box';
+  main.splice(main.indexOf(anchor) + 1, 0, 'text');
   side.push('relations', 'stories', 'knows', 'tracks', 'upcoming', 'recent');
   return { main, side, add };
 }

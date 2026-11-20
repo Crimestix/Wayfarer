@@ -22,7 +22,7 @@ import { dayIndexOf } from '../../domain/time/calendar';
 import { describeDate, findDates } from '../../domain/time/textDates';
 import { focusCalendarOn } from '../kalender/focus';
 import { PeekCard } from '../tisch/PeekCard';
-import { Badge, Button, cx, toast } from '../../ui';
+import { Badge, BlankPage, Button, cx, toast } from '../../ui';
 import {
   ArticleNodes,
   Mention,
@@ -48,6 +48,7 @@ import {
 
 // Der Editor ist groß und wird erst geladen, wenn geschrieben wird.
 const PageEditor = lazy(() => import('./PageEditor'));
+const preloadPageEditor = () => void import('./PageEditor');
 
 const backlinkCache = new WeakMap<object, ReturnType<typeof backlinks>>();
 
@@ -163,6 +164,7 @@ export function LocalArticle({
   below,
   mode = 'read',
   embedded = false,
+  onWrite,
 }: {
   article: Article;
   /** Ein Verweis wurde angeklickt. Ohne `resourceId` gibt es den Artikel noch nicht. */
@@ -178,6 +180,11 @@ export function LocalArticle({
    * noch einmal.
    */
   embedded?: boolean;
+  /**
+   * Zum Schreiben wechseln – aus der leeren Seite mit dem ersten Getippten, aus dem gesetzten
+   * Text mit einem Doppelklick.
+   */
+  onWrite?: (typed?: string) => void;
 }) {
   const db = useDb();
   const data = useData();
@@ -402,18 +409,36 @@ export function LocalArticle({
               </div>
             </aside>
           )}
-          <div className="wf-lk-main wf-lk-flow">
+          <div
+            className="wf-lk-main wf-lk-flow"
+            title={onWrite && body.length > 0 ? 'Doppelklick: schreiben' : undefined}
+            onDoubleClick={(event) => {
+              // Ein Doppelklick in den Text schreibt – auf einem Verweis bleibt es beim Öffnen.
+              if (!onWrite || body.length === 0) return;
+              if ((event.target as HTMLElement).closest('a, button, .wf-lk-mention')) return;
+              onWrite();
+            }}
+          >
             {body.length > 0 ? (
               <ArticleNodes nodes={body} ctx={ctx} />
+            ) : onWrite && (embedded || (children.length === 0 && !hasAside)) ? (
+              <BlankPage
+                label={`Text zu ${article.title}`}
+                placeholder={
+                  embedded
+                    ? 'Hier beginnt der Text. Einfach lostippen – mit [[ oder @ verweist du auf andere Dinge.'
+                    : 'Einfach lostippen – mit [[ oder @ verweist du auf andere Dinge.'
+                }
+                onFocus={preloadPageEditor}
+                onStart={(typed) => onWrite(typed)}
+              />
             ) : (
               <p className="wf-lk-blank">
-                {embedded
-                  ? 'Noch kein Text – „Schreiben“ beginnt ihn hier.'
-                  : children.length > 0
-                    ? 'Dieser Artikel hat keinen eigenen Text – er ordnet die Artikel darunter.'
-                    : hasAside
-                      ? 'Dieser Artikel hat keinen Fließtext – nur die Angaben daneben.'
-                      : 'Dieser Artikel ist noch leer.'}
+                {children.length > 0
+                  ? 'Dieser Artikel hat keinen eigenen Text – er ordnet die Artikel darunter.'
+                  : hasAside
+                    ? 'Dieser Artikel hat keinen Fließtext – nur die Angaben daneben.'
+                    : 'Dieser Artikel ist noch leer.'}
               </p>
             )}
           </div>

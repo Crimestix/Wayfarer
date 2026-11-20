@@ -23,7 +23,8 @@ import { articleFacts, entryForTitle, planFacts, statedKind, twins } from './fac
 import { addBlankFactLines } from './factLines';
 import { scaffoldOf, scaffoldText, withScaffold, type ScaffoldKind } from './scaffold';
 import type { RelationHint } from './sentences';
-import { articleAsText, linkIndex, pageText, relinked, titleKey } from './text';
+import { articleAsText, linkIndex, pageText, relinked, titleKey, withFirstWords } from './text';
+import { requestFocusEnd } from './editing';
 
 export interface AppliedLkImport {
   at: string;
@@ -852,4 +853,19 @@ export function forgetPageTemplate(db: CampaignDb, key: string): (() => void) | 
   const { [key]: _gone, ...rest } = before;
   db.setCampaign({ pageTemplates: rest });
   return () => db.setCampaign({ pageTemplates: before });
+}
+
+/**
+ * Auf einer leeren Seite angefangen (Text eines Dings oder freier Text): das Getippte in den Text
+ * des Artikels, und der Editor, der sich gleich öffnet, schreibt am Ende weiter.
+ */
+export function continueWriting(db: CampaignDb, articleId: string, typed: string): void {
+  const article = db.getSnapshot().articles[articleId];
+  const doc = article?.docs.find((d) => d.kind === 'page');
+  if (!article || !doc) return;
+  if (typed) {
+    const current = pageText(db.getSnapshot().articles, article, doc);
+    savePageText(db, article.id, doc.id, withFirstWords(current, typed));
+  }
+  requestFocusEnd();
 }

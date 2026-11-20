@@ -1044,16 +1044,10 @@ export function Sidebar({
               : 'Die Gruppe kennt noch nichts davon. Getroffene Personen und besuchte Orte erscheinen hier.'}
           </EmptyState>
         ) : total === 0 ? (
-          <EmptyState
-            title="Die Welt ist noch leer"
-            action={
-              <Button size="sm" icon={<Plus />} onClick={() => openNew({ kind: 'place' })}>
-                Ersten Ort anlegen
-              </Button>
-            }
-          >
-            Beginne mit einem Ort – Personen und Fraktionen finden dort ihren Platz.
-          </EmptyState>
+          // Leer sagt die Liste nur, was hier erscheinen wird – angefangen wird rechts.
+          <p className="wf-welt-quiet wf-welt-side-empty">
+            Hier erscheint alles, was du schreibst und anlegst.
+          </p>
         ) : kinds.length === 1 && counts[kinds[0]!] === 0 ? (
           <EmptyState
             icon={<KindIcon kind={kinds[0]!} />}

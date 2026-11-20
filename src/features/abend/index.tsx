@@ -154,13 +154,17 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
             </p>
           </header>
 
-          <section className="wf-abend-free" aria-label="Deine Vorbereitung">
+          <section
+            className="wf-abend-free"
+            aria-label="Deine Vorbereitung"
+            data-with-faecher={shown.some((entry) => entry.key !== 'party') ? '' : undefined}
+          >
             <Written
               className="wf-abend-free__text"
               label="Deine Vorbereitung"
               grow
               value={content.text}
-              placeholder="Frei schreiben: was du für den Abend im Kopf hast, in deiner Reihenfolge."
+              placeholder="Was du für den Abend im Kopf hast – in deinen Worten, in deiner Reihenfolge. Szenen, Namen, Geheimnisse, ein starker Einstieg: Alles darf hier stehen."
               onSave={(text) => patchPrep(db, { text }, which)}
             />
           </section>
@@ -186,16 +190,6 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
               );
             })}
           </div>
-          {waiting.length > 0 && (
-            <p className="wf-abend-more">
-              <span>Fächer dazuholen:</span>
-              {waiting.map((entry) => (
-                <button key={entry.key} type="button" onClick={() => jump(entry.key)}>
-                  {entry.title}
-                </button>
-              ))}
-            </p>
-          )}
         </div>
 
         <aside className="wf-sheet__side">
@@ -209,6 +203,18 @@ function PrepSheet({ view, onWhich }: { view: PrepView; onWhich: (which: PrepWhi
                 : 'Aus: frei vorbereiten. Die Fächer bleiben da, wenn du sie brauchst.'}
             </p>
           </section>
+          {waiting.length > 0 && (
+            <section>
+              <h3 className="wf-abend-sub">Fächer dazuholen</h3>
+              <div className="wf-abend-more">
+                {waiting.map((entry) => (
+                  <button key={entry.key} type="button" onClick={() => jump(entry.key)}>
+                    + {entry.title}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {guide && (
             <>
               <section>
