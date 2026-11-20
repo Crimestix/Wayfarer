@@ -730,6 +730,49 @@
   box-shadow: var(--shadow-float);
   animation: wf-sidesheet-in 0.16s var(--ease);
 }
+/* Zum Nachschlagen schmal – die eigene Arbeit bleibt sichtbar (F07). */
+.wf-sidesheet[data-compact] {
+  width: min(420px, 40vw);
+}
+.wf-sidesheet__lookup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-2) 0 var(--s-4);
+}
+.wf-sidesheet__lookup .wf-hovercard__body {
+  font-size: var(--text-md);
+}
+.wf-sidesheet__lead {
+  margin: 0;
+  padding: 0 var(--s-4);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--ink);
+}
+.wf-sidesheet__lead[data-empty] {
+  font-style: italic;
+  color: var(--ink-mute);
+}
+.wf-sidesheet__more {
+  display: flex;
+  gap: var(--s-2);
+  padding: 0 var(--s-4);
+  color: var(--ink-faint);
+}
+.wf-sidesheet__more button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--gold);
+}
+.wf-sidesheet__more button:hover {
+  text-decoration: underline;
+}
 @keyframes wf-sidesheet-in {
   from {
     transform: translateX(24px);
