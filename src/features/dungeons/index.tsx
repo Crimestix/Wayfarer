@@ -3,6 +3,7 @@
  * in der Mitte die Karte mit Werkzeugleiste, rechts Werkzeug und Gewähltes. Der Bereich steht
  * vorerst für sich (Wunsch des Spielleiters, 18. 11. 2026) – die Verbindung zur Welt folgt.
  */
+import { MaterialBack } from '../welt/MaterialBox';
 import { currentSession } from '../../domain/derive';
 import { currentWorkView, localWorkView } from '../../shell/workView';
 import {
@@ -440,6 +441,7 @@ function DungeonView({ dungeon: stored }: { dungeon: Dungeon }) {
               {level ? `${level.name || 'Ebene'} · ${levelLine(level)}` : ''} · ein Feld ={' '}
               {dungeon.cellFeet} Fuß
             </p>
+            <MaterialBack refTo={{ type: 'dungeon', id: dungeon.id }} />
           </div>
           <div className="wf-dungeon-head__tools">
             <div className="wf-btn-group" role="group" aria-label="Ansicht">

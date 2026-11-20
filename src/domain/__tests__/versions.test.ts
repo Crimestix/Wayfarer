@@ -135,6 +135,7 @@ describe('Papierkorb und Liste', () => {
         sidebar: [],
         docs: [],
         source: 'wayfarer',
+        material: [],
       },
     });
 

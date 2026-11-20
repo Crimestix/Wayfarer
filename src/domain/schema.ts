@@ -14,9 +14,21 @@ export const PARTY_ID = 'party';
  * Test `dataVersion.test.ts` sagt, wann beides neu zu setzen ist.
  */
 export const DATA_VERSION = 43;
-export const DATA_SHAPE = '1c3f106e6e932678';
+export const DATA_SHAPE = '54c8017360caf1fd';
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+/**
+ * Angeheftetes Material (F05): ein Verweis auf etwas, das zur Arbeit an einem Text oder einer
+ * Geschichte gehört – ein Eintrag der Welt, ein anderer Text, eine Geschichte, ein Wegenetz, eine
+ * Hexkarte, ein Dungeon. Nur ein Verweis, nie eine Kopie.
+ */
+export const MaterialRefSchema = z.object({
+  type: z.enum(['entity', 'article', 'story', 'net', 'area', 'dungeon']),
+  id,
+});
+export type MaterialRef = z.infer<typeof MaterialRefSchema>;
+
 const worldTime = z.number().int().nonnegative();
 
 const base = {
@@ -1928,6 +1940,8 @@ export const StorySchema = z.object({
    * Geschichte einschaltet. Ohne bleibt das Blatt eine freie Arbeitsfläche (F02).
    */
   guide: z.boolean().default(false),
+  /** Material, das zur Arbeit an dieser Geschichte gehört (F05). */
+  material: z.array(MaterialRefSchema).default([]),
   entries: z.array(StoryEntrySchema).default([]),
   /** Die Gruppe weiß von dieser Geschichte. */
   known: z.boolean().default(false),
@@ -3007,6 +3021,8 @@ export const ArticleSchema = z.object({
   docs: z.array(ArticleDocSchema).default([]),
   /** Woher der Artikel stammt. */
   source: z.enum(['legendkeeper', 'wayfarer']).default('wayfarer'),
+  /** Material, das zur Arbeit an diesem Text gehört (F05). */
+  material: z.array(MaterialRefSchema).default([]),
 });
 export type Article = z.infer<typeof ArticleSchema>;
 

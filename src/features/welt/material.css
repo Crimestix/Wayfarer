@@ -1,0 +1,96 @@
+/* ── Mappe: angeheftetes Material (F05) ─────────────────────────────────── */
+.wf-welt-material {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+  margin: var(--s-2) 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--ink-mute);
+}
+.wf-welt-material__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.wf-welt-material svg {
+  width: 13px;
+  height: 13px;
+}
+.wf-welt-material__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 2px var(--s-1) 2px var(--s-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.18);
+}
+.wf-welt-material__item a {
+  color: var(--ink);
+  text-decoration: none;
+}
+.wf-welt-material__item a:hover {
+  color: var(--gold);
+}
+.wf-welt-material__item button {
+  display: inline-flex;
+  border: 0;
+  background: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--ink-faint);
+}
+.wf-welt-material__item button:hover {
+  color: var(--ink);
+}
+.wf-welt-material__kind {
+  font-family: var(--font-caps);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.wf-welt-material__add {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--gold);
+}
+.wf-welt-material__add:hover {
+  text-decoration: underline;
+}
+.wf-welt-material__back {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--s-1);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-mute);
+}
+.wf-welt-material__back a {
+  color: var(--gold);
+}
+.wf-welt-material__pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2);
+  max-height: 360px;
+  overflow: auto;
+}
+.wf-welt-material__none {
+  margin: var(--s-1) var(--s-2);
+  color: var(--ink-mute);
+  font-style: italic;
+}

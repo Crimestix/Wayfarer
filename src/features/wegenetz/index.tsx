@@ -4,6 +4,7 @@
  * selbst gehören zum Wegenetz der Welt (`domain/ways.ts`): Was hier vorbereitet ist, geht die
  * Gruppe am Spieltisch mit einem Klick.
  */
+import { MaterialBack } from '../welt/MaterialBox';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import {
@@ -179,6 +180,7 @@ function NetSheet({ net, nets, onCreate }: { net: Net; nets: Net[]; onCreate: ()
           <Button icon={<Plus />} onClick={onCreate} title="Ein weiteres Wegenetz anlegen">
             Neues Netz
           </Button>
+          <MaterialBack refTo={{ type: 'net', id: net.id }} />
           <span className="wf-grow" />
           <Button icon={<Plus />} onClick={() => setDialog({ type: 'add', at: null })}>
             Ort hinzufügen

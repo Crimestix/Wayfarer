@@ -8,6 +8,7 @@
  * wird sofort; es gibt kein Speichern. Oben steht der Stand (`storyStage`), am Rand der Rat
  * (`storyAdvice`) – nie als Pflicht. Wayfarer schreibt nichts davon selbst.
  */
+import { MaterialBox } from '../welt/MaterialBox';
 import { Fragment, useMemo } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { ArrowLeft, Plus, Trash2, Waypoints } from 'lucide-react';
@@ -208,6 +209,7 @@ function StorySheet({ story }: { story: Story }) {
             onSave={(title) => patch({ title })}
           />
           {story.guide && <StageLine view={stage} onPick={(entry) => goToAdvice(data, entry)} />}
+          <MaterialBox owner={{ type: 'story', id: story.id }} />
         </header>
 
         <SheetSection

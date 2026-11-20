@@ -4,6 +4,7 @@
  * Werkzeuge links der Karte, alles sichtbar, rechts der Feld-Inspektor für ein oder mehrere Felder,
  * Strg+Z/Strg+Y; „Spielen“ zeigt die Reise mit Nebel, Felder nur zum Ansehen.
  */
+import { MaterialBack } from '../welt/MaterialBox';
 import { currentWorkView, localWorkView } from '../../shell/workView';
 import { kindLabelOf } from '../../domain/hexKinds';
 import { natureOnHex } from '../../domain/nature';
@@ -402,6 +403,7 @@ function AreaView({ area }: { area: Area }) {
               )}
               {area.distanceKm && <span>{km(area.distanceKm)}</span>}
               <span>{scaleWords(area.hexKm)}</span>
+              <MaterialBack refTo={{ type: 'area', id: area.id }} />
               {area.distanceKm && (
                 <span
                   title={PACES.map(

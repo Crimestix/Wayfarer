@@ -2,6 +2,7 @@
  * Wiki – die Artikel der Welt. Keine eigene Seite mehr: Baum, Suche, Übersicht und der Artikel
  * selbst sind Bausteine der Seite „Welt“ (`features/welt`).
  */
+import { MaterialBox } from '../welt/MaterialBox';
 import { roomArticleIds } from '../../domain/rooms';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
@@ -536,6 +537,7 @@ export function ArticlePage({
             {/* Auf der Seite eines Dings stehen Gerüst und Steckbrief im Kasten oben. */}
             {!embedded && <ScaffoldHint article={article} />}
             {!embedded && <FactsHint article={article} />}
+            {!article.template && <MaterialBox owner={{ type: 'article', id: article.id }} />}
             <AiPanel article={article} />
           </>
         }
