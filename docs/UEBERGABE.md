@@ -223,6 +223,21 @@ Bänder; Fels mit sichtbarer Struktur; See, Abgrund und Glut als eigene Formen; 
 Pilze, Kristalle, Tropfsteine, Geröll, Ruine, Bergwerk (Higgsfield, 2,75 Credits). Kein neues
 Schema. 0.1.30 wurde gebaut, aber nicht ausgeliefert.
 
+**Danach: Tag `v0.1.32` auf `974233c` (20. 11.)** – Unterreich nach zwei Rückmeldungen („Die Gänge
+sollten ein smartes System sein, das sich quasi durch den Fels gräbt und dabei mittig bleibt“;
+„Die Zeichen passen auch nicht, es sollte das Gelände verändert werden, also eine andere Textur“):
+Der Gelände-Pinsel gräbt (`erkundung/dig.ts`, `digCave`) – ein Gang folgt dem Strich, Höhlen
+wachsen zusammen, Massivfels schüttet zu; Gänge laufen mittig durch Feldseite und Feldmitte, in
+glatten Bögen; Pilzwald, Kristalle, Tropfsteine, Geröll, Ruinen und Bergwerk sind ein eigener
+gemalter Boden statt eines Zeichens (sechs Kacheln, ein Blatt bei Higgsfield). Kein neues Schema.
+Geprüft: Tests, in der Vorschau eine freie Unterreich-Karte gegraben (auch mit der Maus). Nicht
+geprüft: erzeugte Höhlennetze mit mehreren Ebenen im neuen Bild, wie flüssig das Malen auf sehr
+großen Karten ist. Der Spielleiter ist mit der Hexkarte insgesamt noch nicht zufrieden
+(„extreme Schwächen bis zu einer hochqualitativen, gut zu bearbeitenden und klar erkennbaren
+Hexkarte“) – als Nächstes nachfragen, was genau stört; die Oberwelt trägt noch dünne
+Strichzeichen statt gemalter Böden. Zwei Tests wackeln unter Last und laufen einzeln durch:
+`karten.test.ts` („eine Straße von Ort zu Ort wird zum Weg“) und der Zeit-Test des Abgleichs.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
