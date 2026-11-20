@@ -1319,11 +1319,6 @@
 .wf-hexcave__ground {
   stroke: none;
 }
-.wf-hexcave__ground-fade {
-  fill: none;
-  stroke-opacity: 0.45;
-  stroke-width: calc(var(--hex) * 0.12);
-}
 .wf-hexcave__wallshade {
   fill: none;
   stroke: var(--hex-cave-shade);
@@ -1530,27 +1525,18 @@
 .wf-hexland path {
   stroke-linejoin: round;
 }
-/* Das höhere Gelände wirft einen weichen Schatten auf das tiefere, sein Rand läuft weich aus. */
+/* Was sich erhebt (Wald, Höhen, Siedlung), wirft einen weichen Schatten auf das Tiefere. */
 .wf-hexland__shade {
   fill: none;
   stroke: var(--hex-cave-shade);
-  stroke-opacity: 0.2;
-  stroke-width: calc(var(--hex) * 0.13);
+  stroke-opacity: 0.1;
+  stroke-width: calc(var(--hex) * 0.3);
 }
-.wf-hexland__fade {
+/* Der weiche Auslauf eines Geländes ins Nachbargelände (Feather in HexGround.tsx). */
+.wf-hex-feather path {
   fill: none;
-  stroke-opacity: 0.5;
-  stroke-width: calc(var(--hex) * 0.07);
-}
-.wf-hexland__edge {
-  fill: none;
-  stroke: var(--hex-cave-shade);
-  stroke-opacity: 0.22;
-  stroke-width: max(0.75px, calc(var(--hex) * 0.014));
-}
-.wf-hexland [data-wet] .wf-hexland__shade,
-.wf-hexland [data-wet] .wf-hexland__edge {
-  display: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 /* Wahrzeichen auf gemaltem Boden: kräftiger, damit sie sich abheben. */
 .wf-hex__glyph[data-mark] path {

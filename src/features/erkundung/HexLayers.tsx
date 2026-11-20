@@ -18,6 +18,7 @@ import { SOLID_ROCK, WIDE_CAVE_KINDS, kindKeyOf } from '../../domain/hexKinds';
 import { linkSides, namedLines, type LineKind } from '../../domain/hexLines';
 import { isRock } from '../../domain/passages';
 import { caveOutline, outlinePath, type CaveBlob } from './caveOutline';
+import { Feather } from './HexGround';
 import type { Hex, PassageKind } from '../../domain/schema';
 import ground from '../../ui/assets/dungeon/ground.webp';
 import rock from '../../ui/assets/dungeon/hexrock.webp';
@@ -501,7 +502,7 @@ export const CaveLayer = memo(function CaveLayer({
                   const paint = `url(#wf-hex-ground-${kind})`;
                   return (
                     <g key={kind}>
-                      <path className="wf-hexcave__ground-fade" d={d} stroke={paint} />
+                      <Feather d={d} paint={paint} scale={0.8} />
                       <path className="wf-hexcave__ground" d={d} fill={paint} fillRule="evenodd" />
                     </g>
                   );

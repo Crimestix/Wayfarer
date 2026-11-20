@@ -498,7 +498,12 @@ nicht übernommen.
   `GroundLayer` malt erst jedes Feld mit seinem Boden und lässt dann – in der Reihenfolge von
   `LAND_GROUND`, Wasser zuunterst, Gebirge und Siedlungen obenauf – das höhere Gelände frei
   geformt über das tiefere greifen (derselbe gerechnete Umriss wie unter der Erde, je Art gemerkt:
-  Beim Malen rechnen nur die Arten unter dem Pinsel neu). Arten, die sich eine Kachel teilen,
+  Beim Malen rechnen nur die Arten unter dem Pinsel neu). **Gelände laufen weich ineinander aus**
+  (Rückmeldung 20. 11.: „Die Biome sollten irgendwie auch ein wenig nicer blenden“): kein Rand
+  und keine Kante, sondern `Feather` – Lagen desselben Bodens, jede schmaler und deckender, ein
+  Verlauf ohne Filter (`FEATHER`); einen weichen Schatten wirft nur, was sich erhebt (`RAISED`:
+  Wald, Höhen, Siedlung). Derselbe Auslauf gilt unter der Erde für die eigenen Böden. Nie wieder
+  eine harte Linie zwischen zwei Geländen der Oberwelt. Arten, die sich eine Kachel teilen,
   tragen die Farbe ihrer Art darüber (`tint`: Tal, Krater, Vulkan); ein Strichzeichen tragen oben
   nur noch Wahrzeichen (`mark`: Vulkan, Krater) – nie wieder flache Farbfelder mit Zeichen. Eine
   neue Art oben: Kachel in den Ordner, Eintrag in `LAND_GROUND` an der Stelle ihrer Höhe.
