@@ -76,6 +76,10 @@
 .wf-btn--ghost:hover:not(:disabled) {
   border-color: var(--line);
 }
+/* Der Fokusring bleibt auch an Knöpfen ohne Rahmen sichtbar (F20/K55). */
+.wf-btn--ghost:focus-visible {
+  box-shadow: var(--focus);
+}
 .wf-btn--danger {
   border-color: #6d2a26;
   color: var(--blood-bright);
