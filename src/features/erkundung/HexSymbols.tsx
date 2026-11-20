@@ -14,7 +14,8 @@
  * Ein neues Zeichen: Datei `<art>-<nummer>.webp` nach `ui/assets/hexkarte/bild` – mehr nicht.
  */
 import { memo, useMemo } from 'react';
-import { kindKeyOf } from '../../domain/hexKinds';
+import { HEX_DIRECTIONS, hexCenter, type HexOrientation } from '../../domain/hex';
+import { WIDE_CAVE_KINDS, kindKeyOf } from '../../domain/hexKinds';
 import type { Hex } from '../../domain/schema';
 import { isSolid, isUnderground } from './HexLayers';
 
@@ -55,8 +56,20 @@ const CAVE_ALIAS: Readonly<Record<string, string>> = { cavern: 'floor', 'cave-fl
  * unter der Feldmitte sitzt) und `share` – auf wie vielen Feldern der Art überhaupt eine steht
  * (ohne Angabe auf jedem). Was dicht steht (Wald, Gebirge), ragt über die Feldkante; was vereinzelt
  * steht (Schilf, Felsnadeln, Eiszacken), lässt Felder frei.
+ *
+ * `scatter`: Statt einer Gruppe stehen viele kleine über das ganze Feld verteilt – eine in der
+ * Mitte, sechs im Ring zu den Nachbarn hin (`share` gilt dann je Platz). So wächst unter der Erde
+ * ein Pilzwald zusammen wie oben ein Wald (Rückmeldung des Spielleiters, 20. 11. 2026: „Das hat
+ * noch einen komischen Look, gerade mit den einzelnen Pilzen“ – eine einzelne Gruppe mitten im
+ * Feld wirkt wie ein Aufkleber).
  */
-const FIT: Readonly<Record<string, { width: number; foot: number; share?: number }>> = {
+interface Fit {
+  width: number;
+  foot: number;
+  share?: number;
+  scatter?: boolean;
+}
+const FIT: Readonly<Record<string, Fit>> = {
   mountains: { width: 1.5, foot: 0.44 },
   highpeak: { width: 1.6, foot: 0.46 },
   volcano: { width: 1.5, foot: 0.44 },
@@ -75,20 +88,24 @@ const FIT: Readonly<Record<string, { width: number; foot: number; share?: number
   badlands: { width: 1.15, foot: 0.36, share: 0.55 },
   oasis: { width: 1.2, foot: 0.4 },
   glacier: { width: 1.1, foot: 0.36, share: 0.5 },
-  // Unter der Erde stehen die Gruppen in ihrer Höhle: kleiner, damit die Wand frei bleibt.
-  fungus: { width: 0.92, foot: 0.36 },
-  crystal: { width: 0.8, foot: 0.32 },
-  stalagmites: { width: 0.86, foot: 0.34 },
-  rubble: { width: 0.8, foot: 0.28 },
-  'deep-ruins': { width: 0.86, foot: 0.32 },
-  mine: { width: 0.5, foot: 0.2 },
-  cavern: { width: 0.5, foot: 0.22, share: 0.5 },
-  'cave-floor': { width: 0.44, foot: 0.2, share: 0.35 },
+  // Unter der Erde: viele kleine Stücke, dicht über die Höhle verteilt.
+  fungus: { width: 0.46, foot: 0.17, share: 0.9, scatter: true },
+  crystal: { width: 0.4, foot: 0.14, share: 0.75, scatter: true },
+  stalagmites: { width: 0.42, foot: 0.16, share: 0.9, scatter: true },
+  rubble: { width: 0.4, foot: 0.12, share: 0.8, scatter: true },
+  'deep-ruins': { width: 0.44, foot: 0.16, share: 0.55, scatter: true },
+  mine: { width: 0.4, foot: 0.15 },
+  cavern: { width: 0.26, foot: 0.09, share: 0.24, scatter: true },
+  'cave-floor': { width: 0.24, foot: 0.08, share: 0.16, scatter: true },
   urban: { width: 1.5, foot: 0.44 },
   village: { width: 1.25, foot: 0.4 },
   ruins: { width: 1.2, foot: 0.4 },
 };
-const DEFAULT_FIT: { width: number; foot: number; share?: number } = { width: 1.36, foot: 0.48 };
+const DEFAULT_FIT: Fit = { width: 1.36, foot: 0.48 };
+/** Wie weit die Plätze im Ring von der Feldmitte liegen: ein Drittel des Wegs zum Nachbarn – so
+ * ergeben die Plätze benachbarter Felder zusammen ein gleichmäßiges Netz. Zur Wand hin näher. */
+const RING = 1 / 3;
+const RING_AT_WALL = 0.19;
 
 /** Eine feste Zahl zwischen 0 und 1 aus Feld und Wort – dieselbe an jedem Rechner. */
 function fixed(q: number, r: number, salt: number): number {
@@ -119,14 +136,20 @@ export interface SymbolCell {
   y: number;
 }
 
+/** Ein Feld, dessen Höhlenboden bis zum Nachbarn reicht: eine weite Höhle, kein Fels. */
+const isOpenCave = (hex: Hex): boolean =>
+  isUnderground(hex) && !isSolid(hex) && WIDE_CAVE_KINDS.has(kindKeyOf(hex) ?? '');
+
 export const SymbolLayer = memo(function SymbolLayer({
   cells,
   size,
+  orientation,
   fog,
   where,
 }: {
   cells: readonly SymbolCell[];
   size: number;
+  orientation: HexOrientation;
   /**
    * Spielen: Zeichen auf unentdeckten Feldern stehen oben nur gedämpft da; unter der Erde fehlen
    * sie – dort ist Unentdecktes nur eine Ahnung.
@@ -135,32 +158,57 @@ export const SymbolLayer = memo(function SymbolLayer({
   /** Oben stehen die Zeichen unter dem Gangnetz, unten darauf – deshalb zwei Schichten. */
   where: 'land' | 'cave';
 }) {
-  const items = useMemo(
-    () =>
-      cells
-        .map((cell) => {
-          const list = where === 'land' ? symbolsOf(cell.hex) : caveSymbolsOf(cell.hex);
-          if (!list?.length) return null;
-          if (where === 'cave' && fog && !cell.hex.discovered) return null;
-          const { q, r } = cell.hex;
-          const fit = FIT[kindKeyOf(cell.hex) ?? ''] ?? DEFAULT_FIT;
-          if (fit.share !== undefined && fixed(q, r, 6) > fit.share) return null;
-          const width = size * fit.width * (0.94 + fixed(q, r, 3) * 0.12);
-          return {
-            key: `${q},${r}`,
-            href: list[Math.floor(fixed(q, r, 1) * list.length) % list.length]!,
-            // Der Fuß der Gruppe: unten im Feld, ein wenig versetzt – nie in einer Reihe.
-            x: cell.x + (fixed(q, r, 4) - 0.5) * size * 0.14,
-            y: cell.y + size * fit.foot + (fixed(q, r, 5) - 0.5) * size * 0.1,
-            width,
-            dim: fog && !cell.hex.discovered,
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => !!item)
-        // Von hinten nach vorn: Was weiter unten steht, verdeckt, was darüber steht.
-        .sort((a, b) => a.y - b.y || a.x - b.x),
-    [cells, size, fog, where],
-  );
+  const items = useMemo(() => {
+    const byKey = new Map(cells.map((cell) => [`${cell.hex.q},${cell.hex.r}`, cell]));
+    const out: { key: string; href: string; x: number; y: number; width: number; dim: boolean }[] =
+      [];
+    for (const cell of cells) {
+      const list = where === 'land' ? symbolsOf(cell.hex) : caveSymbolsOf(cell.hex);
+      if (!list?.length) continue;
+      if (where === 'cave' && fog && !cell.hex.discovered) continue;
+      const { q, r } = cell.hex;
+      const fit = FIT[kindKeyOf(cell.hex) ?? ''] ?? DEFAULT_FIT;
+      const dim = fog && !cell.hex.discovered;
+      if (!fit.scatter) {
+        if (fit.share !== undefined && fixed(q, r, 6) > fit.share) continue;
+        out.push({
+          key: `${q},${r}`,
+          href: list[Math.floor(fixed(q, r, 1) * list.length) % list.length]!,
+          // Der Fuß der Gruppe: unten im Feld, ein wenig versetzt – nie in einer Reihe.
+          x: cell.x + (fixed(q, r, 4) - 0.5) * size * 0.14,
+          y: cell.y + size * fit.foot + (fixed(q, r, 5) - 0.5) * size * 0.1,
+          width: size * fit.width * (0.94 + fixed(q, r, 3) * 0.12),
+          dim,
+        });
+        continue;
+      }
+      // Verteilt: ein Platz in der Mitte, sechs im Ring. Zum Nachbarn hin, mit dem die Höhle
+      // zusammenhängt, liegt der Platz weiter außen – zur Wand hin bleibt er im Feld.
+      for (let slot = 0; slot < 7; slot++) {
+        if (fixed(q, r, 10 + slot) > (fit.share ?? 1)) continue;
+        let dx = 0;
+        let dy = 0;
+        if (slot > 0) {
+          const d = HEX_DIRECTIONS[slot - 1]!;
+          const other = byKey.get(`${q + d.q},${r + d.r}`);
+          const reach = other && isOpenCave(other.hex) ? RING : RING_AT_WALL;
+          const way = hexCenter(d, orientation);
+          dx = way.x * reach;
+          dy = way.y * reach;
+        }
+        out.push({
+          key: `${q},${r},${slot}`,
+          href: list[Math.floor(fixed(q, r, 20 + slot) * list.length) % list.length]!,
+          x: cell.x + (dx + (fixed(q, r, 30 + slot) - 0.5) * 0.12) * size,
+          y: cell.y + (dy + fit.foot + (fixed(q, r, 40 + slot) - 0.5) * 0.1) * size,
+          width: size * fit.width * (0.8 + fixed(q, r, 50 + slot) * 0.4),
+          dim,
+        });
+      }
+    }
+    // Von hinten nach vorn: Was weiter unten steht, verdeckt, was darüber steht.
+    return out.sort((a, b) => a.y - b.y || a.x - b.x);
+  }, [cells, size, orientation, fog, where]);
   if (!items.length) return null;
   return (
     <g className="wf-hexsym" pointerEvents="none">

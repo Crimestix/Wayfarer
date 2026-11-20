@@ -660,9 +660,21 @@ export function HexMap({
       <GroundDefs size={size} />
       <CaveDefs size={size} />
       <GroundLayer cells={layout.cells} size={size} orientation={orientation} />
-      <SymbolLayer cells={layout.cells} size={size} fog={fog && !paint} where="land" />
+      <SymbolLayer
+        cells={layout.cells}
+        size={size}
+        orientation={orientation}
+        fog={fog && !paint}
+        where="land"
+      />
       <CaveLayer cells={layout.cells} size={size} orientation={orientation} fog={fog && !paint} />
-      <SymbolLayer cells={layout.cells} size={size} fog={fog && !paint} where="cave" />
+      <SymbolLayer
+        cells={layout.cells}
+        size={size}
+        orientation={orientation}
+        fog={fog && !paint}
+        where="cave"
+      />
       <Cells
         cells={layout.cells}
         size={size}

@@ -499,8 +499,14 @@ nicht übernommen.
   versetzt, auf den Boden beschnitten), die Wand unten rechts steht im Licht (`lit`). In den
   Höhlen stehen gemalte Gruppen (`CAVE_SYMBOLS`, `ui/assets/hexkarte/unten`: Riesenpilze,
   Kristalle, Tropfsteine, Geröll, Ruinen, Bergwerk, `floor` für Kleinigkeiten auf blankem
-  Boden) – als zweite Schicht `SymbolLayer where="cave"` über dem Gangnetz, kleiner als oben,
-  nie auf Fels oder in Gängen, beim Spielen nur auf Entdecktem. Der eigene Boden der Art bleibt
+  Boden) – als zweite Schicht `SymbolLayer where="cave"` über dem Gangnetz, nie auf Fels oder
+  in Gängen, beim Spielen nur auf Entdecktem. **Unten wird gestreut, nicht gesetzt**
+  (Rückmeldung 20. 11.: „Das hat noch einen komischen Look, gerade mit den einzelnen Pilzen“ –
+  eine einzelne Gruppe mitten im Feld wirkt wie ein Aufkleber): `fit.scatter` verteilt viele
+  kleine Stücke über das Feld, eines in der Mitte und sechs im Ring (`RING` = ein Drittel des
+  Wegs zum Nachbarn, so ergibt sich über Nachbarfelder ein gleichmäßiges Netz; zur Wand hin
+  näher, `RING_AT_WALL`), `share` gilt je Platz – ein Pilzwald wächst zusammen wie oben ein
+  Wald. Nie wieder ein einzelnes Zeichen in der Mitte einer Höhle. Der eigene Boden der Art bleibt
   darunter. **Die Oberwelt: ruhiger Boden, gemalte Zeichen** (Frage des
   Spielleiters, 20. 11.: „Wie kriegen wir hochqualitative Maps hin? … einen detaillierten,
   schönen, hochqualitativen Stil, mit dem man wirklich schöne Maps bauen kann – aber damit nicht
