@@ -207,6 +207,16 @@ Spielansicht, Probelauf nur im Arbeitsspeicher.
 Größe an der Maus; die Höhe steht einmal je Fläche statt auf jedem Feld; „Art festlegen“ im Wiki
 bietet alle Kategorien an. Kein neues Schema.
 
+**Danach: Tag `v0.1.30` auf `c9daa1b` (20. 11.)** – Hexeditor: leerer Rand mit Plus, Größe einstellbar und auf
+einen Klick füllbar; Gruppen der Gelände-Palette einklappbar; mehr Gelände fürs Unterreich
+(Massivfels, Offener Höhlenboden, Kaverne …); Werkzeug „Gebiet“ (Felder wählen, Ort suchen oder
+anlegen); Straße und Pfad als ein Werkzeug „Weg“, Wege und Flüsse als gezogene Linien mit Eintrag
+der Welt, geschwungen gezeichnet; Unterreich nach dem Zielbild des Spielleiters (Fels als Fläche,
+frei geformtes Gangnetz, Seen und Abgründe). **DATA_VERSION 42**. Geprüft mit Tests und in der
+Vorschau (Zeichnung, Straße ziehen und wählen); nicht gemessen: wie flüssig das Malen auf großen
+Unterreich-Karten ist (der Filter für die Ränder rechnet bei jeder Änderung neu). Offen: gemalte
+Zeichen für Pilze, Kristalle, Geröll; Name einer Straße in den Angaben eines Feldes.
+
 ### Vorgeschichte: Hetzner statt GitHub?
 
 Er hat einen Server bei Hetzner (steht in Deutschland). Darauf läuft „ein bisschen Gedöns“ seiner
